@@ -117,6 +117,12 @@ internal sealed unsafe partial class WindowsAdBlockBackend : IBrowserAdBlockBack
         return rules.ShouldBlock(uri, page, type, isChildFrame, thirdParty);
     }
 
+    // A request belongs to the top-level document that has committed, which WebView2 names as it commits.
+    // NativeWebView names a page only once it has loaded, so while a page loads, the view would name the previous
+    // one. A tab's blank first document has no web address, and until its page commits the view names that page.
+    internal static Uri ChoosePage(string? committed, Func<Uri> getPage) =>
+        Uri.TryCreate(committed, UriKind.Absolute, out Uri? page) && BrowserMediaDownload.IsHttpUri(page) ? page : getPage();
+
     [GeneratedComClass]
     internal sealed partial class RequestHandler(WindowsAdBlockBackend owner, BrowserAdBlockRules rules, Func<Uri> getPage) : IAdBlockRequestHandler
     {
@@ -131,7 +137,7 @@ internal sealed unsafe partial class WindowsAdBlockBackend : IBrowserAdBlockBack
                 if (!Uri.TryCreate(Marshal.PtrToStringUni(uriText), UriKind.Absolute, out Uri? uri)) return;
                 int context;
                 Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, int*, int>)Method(args, 7))(args, &context));
-                if (ShouldBlockRequest(rules, uri, getPage(), context,
+                if (ShouldBlockRequest(rules, uri, ChoosePage(GetSource(sender), getPage), context,
                         GetHeader(request, "Sec-Fetch-Site"), GetHeader(request, "Sec-Fetch-Dest")))
                     Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, nint, int>)Method(args, 5))(args, owner._response));
             }
@@ -141,6 +147,15 @@ internal sealed unsafe partial class WindowsAdBlockBackend : IBrowserAdBlockBack
                 if (uriText != 0) Marshal.FreeCoTaskMem(uriText);
                 if (request != 0) Marshal.Release(request);
             }
+        }
+
+        // ICoreWebView2::get_Source.
+        private static string? GetSource(nint webView)
+        {
+            nint source;
+            if (((delegate* unmanaged[Stdcall]<nint, nint*, int>)Method(webView, 4))(webView, &source) < 0) return null;
+            try { return Marshal.PtrToStringUni(source); }
+            finally { Marshal.FreeCoTaskMem(source); }
         }
 
         private static string? GetHeader(nint request, string headerName)

@@ -235,6 +235,10 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             if (OperatingSystem.IsWindows()) OnWindowsNativeDownloadRequested(uri, name, source);
             else OnNativeDownloadRequested(uri, name, source);
         }
+        void OnWindowOpened(Uri request)
+        {
+            if (IsCurrent()) OnNativeWindowOpenRequested(request);
+        }
         void OnGeneratedDownload(Uri? creator, string name, IBrowserDownloadSource source, Uri? document)
         {
             if (!IsCurrent())
@@ -247,7 +251,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         if (OperatingSystem.IsMacOS())
         {
             _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
-                OnGeneratedDownload, OnNativeNavigationCommitted, OnNativeNavigationStarted, OnNativeNewWindowRequested);
+                OnGeneratedDownload, OnNativeNavigationCommitted, OnNativeNavigationStarted, OnNativeNewWindowRequested,
+                OnWindowOpened);
         }
         else if (OperatingSystem.IsWindows())
         {
@@ -259,7 +264,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             _nativeDownloadHandler = LinuxBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), (uri, name) =>
             {
                 if (IsCurrent()) OnNavigationResponseNotShown(uri, name);
-            }, OnGeneratedDownload);
+            }, OnGeneratedDownload, OnWindowOpened);
         }
         // The download handler is in place first, so a response of this navigation can become a download.
         // With ad blocking on, the session starts it once its rules are in place.
