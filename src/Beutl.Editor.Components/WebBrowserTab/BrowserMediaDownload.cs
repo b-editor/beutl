@@ -77,7 +77,12 @@ internal sealed class BrowserMediaDownload(HttpClient client)
     internal static Uri? GetGeneratedFileOrigin(string? address) =>
         address != null && address.StartsWith("blob:", StringComparison.OrdinalIgnoreCase)
         && Uri.TryCreate(address[5..], UriKind.Absolute, out Uri? creator) && IsHttpUri(creator)
-            ? new Uri(creator.GetLeftPart(UriPartial.Authority) + "/") : null;
+            ? ToOrigin(creator) : null;
+
+    // Uri names a scheme's default port when an address leaves it out, so both spellings compare equal.
+    internal static bool IsSameOrigin(Uri a, Uri b) => a.Scheme == b.Scheme && a.IdnHost == b.IdnHost && a.Port == b.Port;
+
+    private static Uri ToOrigin(Uri uri) => new(uri.GetLeftPart(UriPartial.Authority) + "/");
 
     private static bool IsMediaExtension(string extension) =>
         s_mediaTypes.Values.Contains(extension, StringComparer.OrdinalIgnoreCase)
@@ -88,11 +93,10 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         if (policy is not (BrowserReferrerPolicy.Origin or BrowserReferrerPolicy.SameOrigin)) return null;
         if (referrer == null || !IsHttpUri(referrer) || !IsHttpUri(destination)
             || (referrer.Scheme == Uri.UriSchemeHttps && destination.Scheme == Uri.UriSchemeHttp)) return null;
-        if (policy == BrowserReferrerPolicy.SameOrigin && (referrer.Scheme != destination.Scheme
-            || referrer.IdnHost != destination.IdnHost || referrer.Port != destination.Port)) return null;
+        if (policy == BrowserReferrerPolicy.SameOrigin && !IsSameOrigin(referrer, destination)) return null;
 
         // Send only the initiating site's origin, never its path or query, including across CDN redirects.
-        return new Uri(referrer.GetLeftPart(UriPartial.Authority) + "/");
+        return ToOrigin(referrer);
     }
 
     // The header text of an origin from NormalizeReferrer. Headers are ASCII, and Uri.AbsoluteUri keeps an
@@ -227,6 +231,20 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         Directory.CreateDirectory(directory);
         return PublishCompletedFile(completedPath, directory, name, cancellationToken);
     }
+
+    // A browser engine saves its own transfer into a fresh folder in the destination; its handler removes the folder
+    // afterwards.
+    internal static (string Directory, string File) CreateStagingPaths(string directory)
+    {
+        string staging = Path.Combine(Path.GetFullPath(directory), $".beutl-download-{Guid.NewGuid():N}");
+        return (staging, Path.Combine(staging, "response"));
+    }
+
+    internal static async Task<string> PublishNativeFileAsync(string staged, string directory, string name, bool generated,
+        string? charset, CancellationToken cancellationToken) =>
+        generated
+            ? PublishGeneratedFile(staged, directory, name, cancellationToken)
+            : await ValidateAndPublishAsync(staged, directory, name, charset, cancellationToken);
 
     // Fills the prefix unless the stream ends first, in which case it is trimmed to the bytes that arrived.
     private static async Task<byte[]> ReadPrefixAsync(Stream input, CancellationToken cancellationToken)

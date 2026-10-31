@@ -40,7 +40,7 @@ public class MFMediaInfoTests
     [Platform("Win")]
     public void ReadColorTags_KeepsTheUntaggedReadingForHdr(bool hdr)
     {
-        MFMediaInfo info = MFThread.Dispatcher.Invoke(() =>
+        VideoColorTags color = MFThread.Dispatcher.Invoke(() =>
         {
             using IMFMediaType type = MediaFactory.MFCreateMediaType();
             type.Set(MediaTypeAttributeKeys.TransferFunction,
@@ -49,18 +49,16 @@ public class MFMediaInfoTests
                 (uint)(hdr ? VideoPrimaries.Bt2020 : VideoPrimaries.Bt709)).CheckError();
             type.Set(MediaTypeAttributeKeys.YuvMatrix, (uint)VideoTransferMatrix.Bt709).CheckError();
             type.Set(MediaTypeAttributeKeys.VideoNominalRange, (uint)NominalRange.Range0_255).CheckError();
-            var result = new MFMediaInfo();
-            MFDecoder.ReadColorTags(type, ref result);
-            return result;
+            return MFColorTags.Read(type);
         });
 
         Assert.Multiple(() =>
         {
             // The 8-bit YUY2 path cannot show HDR, so it keeps all four BT.601 limited-range sRGB defaults.
-            Assert.That(info.Bt709Matrix, Is.EqualTo(!hdr));
-            Assert.That(info.FullRange, Is.EqualTo(!hdr));
-            Assert.That(info.Transfer, Is.EqualTo(hdr ? BitmapColorTransfer.Unknown : BitmapColorTransfer.Bt709));
-            Assert.That(info.Primaries, Is.EqualTo(hdr ? BitmapColorPrimaries.Unknown : BitmapColorPrimaries.Bt709));
+            Assert.That(color.Matrix, Is.EqualTo(hdr ? VideoColorMatrix.Unknown : VideoColorMatrix.Bt709));
+            Assert.That(color.Range, Is.EqualTo(hdr ? VideoColorRange.Unknown : VideoColorRange.Full));
+            Assert.That(color.Transfer, Is.EqualTo(hdr ? BitmapColorTransfer.Unknown : BitmapColorTransfer.Bt709));
+            Assert.That(color.Primaries, Is.EqualTo(hdr ? BitmapColorPrimaries.Unknown : BitmapColorPrimaries.Bt709));
         });
     }
 }

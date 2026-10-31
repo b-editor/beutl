@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using Beutl.Editor.Models;
 using Beutl.Extensions.FFmpeg;
+using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
@@ -36,27 +37,30 @@ internal sealed partial class MobilePreviewServer
     {
         PreviewEncoder? encoder = null;
         long nextSample = 0;
-        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(20));
+        // The encoder copies each packet into shared memory before it returns.
+        byte[] packet = new byte[PreviewEncodingFormat.BufferBytes(0, 0, hdr: false, audio: true)];
+        using var timer = new PeriodicTimer(
+            TimeSpan.FromSeconds((double)PreviewEncodingFormat.AudioPacketSamples / PreviewEncodingFormat.SampleRate));
         try
         {
             while (await timer.WaitForNextTickAsync(_stop.Token))
             {
                 double clock = _mediaClock.Elapsed.TotalSeconds;
-                float[]? samples;
+                bool sampled;
                 long playbackId;
                 lock (_gate)
                 {
                     if (_peers.Count == 0 || _latest is not { } frame) { nextSample = 0; continue; }
                     playbackId = frame.PlaybackId;
-                    samples = SampleCurrentAudio(_audio, frame, clock, ref nextSample);
+                    sampled = SampleCurrentAudio(_audio, frame, clock, ref nextSample, MemoryMarshal.Cast<byte, float>(packet.AsSpan()));
                 }
-                if (samples is null) continue;
+                if (!sampled) continue;
                 encoder ??= new PreviewEncoder(0, 0, false, audio: true);
-                byte[] data = await encoder.EncodeAsync(MemoryMarshal.AsBytes(samples.AsSpan()).ToArray(), false, _stop.Token).ConfigureAwait(false);
+                byte[] data = await encoder.EncodeAsync(packet, false, _stop.Token).ConfigureAwait(false);
                 lock (_gate)
                     if (_latest is not { Playing: true } current || current.PlaybackId != playbackId) continue;
                 uint timestamp = (uint)nextSample;
-                nextSample += 960;
+                nextSample += PreviewEncodingFormat.AudioPacketSamples;
                 if (data.Length != 0 && _transport is { } transport)
                     transport.SendMedia(data, timestamp, video: false);
             }
@@ -70,25 +74,29 @@ internal sealed partial class MobilePreviewServer
         finally { encoder?.Dispose(); }
     }
 
-    internal static float[]? SampleCurrentAudio(IReadOnlyList<AudioFrameSnapshot> blocks, PendingFrame frame,
-        double clock, ref long nextSample)
+    // Writes one packet into output; false when there is nothing to play.
+    internal static bool SampleCurrentAudio(IReadOnlyList<AudioFrameSnapshot> blocks, PendingFrame frame,
+        double clock, ref long nextSample, Span<float> output)
     {
-        if (!frame.Playing) { nextSample = 0; return null; }
+        const double rate = PreviewEncodingFormat.SampleRate;
+        if (!frame.Playing) { nextSample = 0; return false; }
         // Audio advances between video frames, including at 1 fps. Pause clears the audio blocks
         // and Playing flag; seek/restart selects a different PlaybackId instead of expiring a frame.
         // RTP timestamps advance by one packet (960 samples), independent of timer jitter.
-        if (nextSample == 0 || clock - nextSample / 48000d > 0.1) nextSample = (long)(clock * 48000);
-        return SampleAudio(blocks, frame.PlaybackId, frame.Time + nextSample / 48000d - frame.Clock);
+        if (nextSample == 0 || clock - nextSample / rate > 0.1) nextSample = (long)(clock * rate);
+        return SampleAudio(blocks, frame.PlaybackId, frame.Time + nextSample / rate - frame.Clock, output);
     }
 
-    internal static float[]? SampleAudio(IReadOnlyList<AudioFrameSnapshot> blocks, long playbackId, double time)
+    internal static bool SampleAudio(IReadOnlyList<AudioFrameSnapshot> blocks, long playbackId, double time, Span<float> output)
     {
-        var output = new float[960 * 2];
+        const int channels = PreviewEncodingFormat.AudioChannels;
+        const double rate = PreviewEncodingFormat.SampleRate;
+        output.Clear();
         Dictionary<int, AudioChannelMatrix>? matrices = null;
         bool found = false;
-        for (int i = 0; i < 960; i++)
+        for (int i = 0; i < PreviewEncodingFormat.AudioPacketSamples; i++)
         {
-            double position = time + i / 48000d;
+            double position = time + i / rate;
             foreach (var block in blocks)
             {
                 if (block.PlaybackId != playbackId || block.ChannelCount < 1 || block.SampleRate < 1) continue;
@@ -97,7 +105,7 @@ internal sealed partial class MobilePreviewServer
                 if (offset < 0 || offset >= count) continue;
                 int first = (int)offset, second = Math.Min(first + 1, count - 1);
                 float fraction = (float)(offset - first);
-                for (int channel = 0; channel < 2; channel++)
+                for (int channel = 0; channel < channels; channel++)
                 {
                     int c = Math.Min(channel, block.ChannelCount - 1);
                     float a = block.Interleaved[first * block.ChannelCount + c], b = block.Interleaved[second * block.ChannelCount + c];
@@ -119,12 +127,12 @@ internal sealed partial class MobilePreviewServer
                         }
                     }
                     float sample = a + (b - a) * fraction;
-                    output[i * 2 + channel] = float.IsFinite(sample) ? Math.Clamp(sample, -1, 1) : 0;
+                    output[i * channels + channel] = float.IsFinite(sample) ? Math.Clamp(sample, -1, 1) : 0;
                 }
                 found = true;
                 break;
             }
         }
-        return found ? output : null;
+        return found;
     }
 }

@@ -233,7 +233,7 @@ internal sealed partial class RenderRequestExecutor
         {
             ProgramCacheLease<CachedSkRuntimeEffect> lease =
                 SkRuntimeEffectProgramCache.AcquireForDestination(
-                    _programCache,
+                    _programCaches.Sksl,
                     target,
                     source);
             if (lease.IsCacheHit)

@@ -410,28 +410,6 @@ public partial class Element : Hierarchical, INotifyEdited
         return (null, null, null);
     }
 
-    internal (Element? Before, Element? After, Element? Cover) GetBeforeAndAfterAndCover(int zindex, MediaTime start, Element[] excludes)
-    {
-        if (HierarchicalParent is Scene scene)
-        {
-            Element? beforeTmp = null;
-            Element? afterTmp = null;
-            Element? coverTmp = null;
-            var range = new TimeRange(start, Length.Value);
-
-            foreach (Element? item in scene.Children.Except(excludes))
-            {
-                if (item != this && item.ZIndex.Value == zindex)
-                {
-                    AccumulateNeighbor(item, range, ref beforeTmp, ref afterTmp, ref coverTmp);
-                }
-            }
-            return (beforeTmp, afterTmp, coverTmp);
-        }
-
-        return (null, null, null);
-    }
-
     // Folds one element of the same layer into the nearest neighbors before and after range and the
     // element range covers.
     internal static void AccumulateNeighbor(

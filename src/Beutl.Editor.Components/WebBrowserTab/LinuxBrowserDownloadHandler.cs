@@ -28,12 +28,12 @@ internal sealed partial class LinuxBrowserDownloadHandler : IDisposable
     private readonly Api _api;
     private readonly nint _webView;
     private readonly Action<Uri, string?> _onDownload;
-    private readonly Action<Uri?, string, IBrowserDownloadSource> _onGeneratedDownload;
+    private readonly Action<Uri?, string, IBrowserDownloadSource, Uri?> _onGeneratedDownload;
     private readonly Action<Uri> _onWindowOpened;
     private volatile bool _disposed;
 
     private LinuxBrowserDownloadHandler(Api api, nint webView, Action<Uri, string?> onDownload,
-        Action<Uri?, string, IBrowserDownloadSource> onGeneratedDownload, Action<Uri> onWindowOpened)
+        Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload, Action<Uri> onWindowOpened)
     {
         _api = api;
         _webView = webView;
@@ -43,7 +43,7 @@ internal sealed partial class LinuxBrowserDownloadHandler : IDisposable
     }
 
     internal static LinuxBrowserDownloadHandler? TryAttach(IPlatformHandle? handle, Action<Uri, string?> onDownload,
-        Action<Uri?, string, IBrowserDownloadSource> onGeneratedDownload, Action<Uri> onWindowOpened)
+        Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload, Action<Uri> onWindowOpened)
     {
         // The WPE adapter decides responses itself.
         if (handle is not IGtkWebViewPlatformHandle { WebKitWebView: not 0 } gtk || Api.Gtk.Value is not { } api) return null;

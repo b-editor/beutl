@@ -187,8 +187,7 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
                 else Dispatcher.UIThread.Post(Dispose);
             });
 
-            string stagingDirectory = Path.Combine(Path.GetFullPath(directory), $".beutl-download-{Guid.NewGuid():N}");
-            string temporaryPath = Path.Combine(stagingDirectory, "response");
+            (string stagingDirectory, string temporaryPath) = BrowserMediaDownload.CreateStagingPaths(directory);
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -201,9 +200,8 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
                 CompleteDeferral();
                 await _finished.Task.WaitAsync(cancellationToken);
                 _progressTimer.Stop();
-                return generated
-                    ? BrowserMediaDownload.PublishGeneratedFile(temporaryPath, directory, fileName, cancellationToken)
-                    : await BrowserMediaDownload.ValidateAndPublishAsync(temporaryPath, directory, fileName, null, cancellationToken);
+                return await BrowserMediaDownload.PublishNativeFileAsync(temporaryPath, directory, fileName, generated, null,
+                    cancellationToken);
             }
             finally
             {

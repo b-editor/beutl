@@ -405,6 +405,11 @@ public partial class EngineObject : Hierarchical, INotifyEdited, IExpressionJson
             }
         }
 
+        // Lets a resource evaluate a child property its own way while an input sample evaluates a drawable.
+        // Returning false reconciles the child as usual.
+        internal virtual bool TryReconcileSampledChild(IProperty property, CompositionContext context, ref Resource? field)
+            => false;
+
         protected virtual void Dispose(bool disposing)
         {
         }

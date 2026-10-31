@@ -47,7 +47,7 @@ public sealed class LightRaysTests
             var timer = Stopwatch.StartNew();
             ShaderGraphExecutionStatistics statistics = ShaderGraphExecutor.Execute(graph, source,
                 new(bounds, bounds, new(width, height), 1), output, density, default,
-                (device, pass) => ShaderGraphPipeline.Acquire(cache, new(context, context, "test", "test"), device, pass));
+                (device, pass, identity) => ShaderGraphPipeline.Acquire(cache, new(context, context, "test", "test"), device, pass, identity));
             context.FlushCommands(waitForCompletion: true);
             timer.Stop();
             Assert.That(statistics.PeakResourceBytes, Is.LessThanOrEqualTo(ShaderGraphExecutor.MaximumTransientBytes));

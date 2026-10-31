@@ -18,7 +18,7 @@ public sealed partial class ShaderGraphBuilder
         ValidateResource(image);
         if (!Enum.IsDefined(from) || !Enum.IsDefined(to))
             throw new ArgumentOutOfRangeException(nameof(from));
-        if (!image.IsAttachment || image.Format.IsDepthFormat() || image.Format.NumericCategory() != 0)
+        if (!image.IsAttachment || image.Format.IsDepthFormat() || image.Format.GetNumericType() != NumericType.Float)
             throw new ArgumentException("Color conversion requires a single 2D image with floating-point sample values.", nameof(image));
         ShaderImage output = image.Description is { } description
             ? Image(name, description with { Format = TextureFormat.RGBA16Float })

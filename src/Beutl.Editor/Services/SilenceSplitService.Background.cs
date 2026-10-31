@@ -16,10 +16,8 @@ public sealed partial class SilenceSplitService
         SilenceSplitMode mode, bool includeLinked, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!scene.Children.Contains(element) || scene.IsElementLocked(element) || scene.Uri == null || ranges.Count == 0) return false;
-        var group = includeLinked ? scene.Groups.FirstOrDefault(g => g.Contains(element.Id.Value)) : null;
-        int groupIndex = group == null ? scene.Groups.Count : scene.Groups.IndexOf(group);
-        Element[] originals = group == null ? [element] : scene.Children.Where(e => group.Contains(e.Id.Value)).ToArray();
+        if (!TryResolveTargets(scene, element, ranges, includeLinked, out var group, out int groupIndex, out Element[] originals))
+            return false;
         // Scene references, portals and extension callbacks can depend on live objects outside the
         // clip. They retain the existing Razor path, without limiting which clips can be edited.
         if (!originals.All(e => e.GetType() == typeof(Element)

@@ -4,51 +4,9 @@ using Beutl.Graphics.Rendering;
 
 namespace Beutl.Graphics;
 
-// Evaluated inputs are borrowed from the scene compositor. Versioning includes animated resource
-// changes, so both the render-node cache and every consumer of a shared matte see them.
-internal sealed class TrackMatteContent
-{
-    private readonly List<Drawable.Resource> _drawables = [];
-    private readonly List<int> _versions = [];
-
-    public IReadOnlyList<Drawable.Resource> Drawables => _drawables;
-
-    public int Version { get; private set; }
-
-    public bool Update(ReadOnlySpan<EngineObject.Resource> inputs)
-    {
-        bool changed = false;
-        int count = 0;
-        foreach (EngineObject.Resource input in inputs)
-        {
-            if (input is not Drawable.Resource drawable) continue;
-            if (count == _drawables.Count)
-            {
-                _drawables.Add(drawable);
-                _versions.Add(drawable.Version);
-                changed = true;
-            }
-            else if (_drawables[count] != drawable || _versions[count] != drawable.Version)
-            {
-                _drawables[count] = drawable;
-                _versions[count] = drawable.Version;
-                changed = true;
-            }
-
-            count++;
-        }
-
-        if (count < _drawables.Count)
-        {
-            _drawables.RemoveRange(count, _drawables.Count - count);
-            _versions.RemoveRange(count, _versions.Count - count);
-            changed = true;
-        }
-
-        if (changed) Version++;
-        return changed;
-    }
-}
+// Versioning includes animated resource changes, so both the render-node cache and every consumer of a shared
+// matte see them.
+internal sealed class TrackMatteContent : BorrowedDrawables;
 
 // Like a clip transition presenter, this is compositor-owned and never saved into the document.
 internal sealed partial class TrackMattePresenter : Drawable
@@ -64,10 +22,11 @@ internal sealed partial class TrackMattePresenter : Drawable
         ScanProperties<TrackMattePresenter>();
     }
 
-    public new partial class Resource
+    public new partial class Resource : IContentPresenter
     {
         private int _matteVersion = -1;
         private IReadOnlyList<FlowNode> _flowInputs = [];
+        private IReadOnlyList<Drawable.Resource>[]? _presentedSides;
         private DrawableGroup.Resource? _replayedContent;
         private CompositionEvaluationSession? _matteSession;
 
@@ -103,6 +62,16 @@ internal sealed partial class TrackMattePresenter : Drawable
         {
         }
 
+        IReadOnlyList<IReadOnlyList<Drawable.Resource>> IContentPresenter.PresentedSides
+            => _presentedSides ??= [Content.Drawables];
+
+        // The matte source may cover more than the content; where only it is under the point, a hit continues to
+        // the layers beneath.
+        Drawable? IContentPresenter.UnhitTarget => null;
+
+        Drawable? IContentPresenter.RepresentativeTarget
+            => IContentPresenter.RepresentativeOf(Content.Drawables.LastOrDefault());
+
         internal void SetInputs(ReadOnlySpan<EngineObject.Resource> content, TrackMatteContent matte, MatteMode mode)
         {
             var original = (TrackMattePresenter)RequireOriginal();
@@ -128,8 +97,8 @@ internal sealed partial class TrackMattePresenter : Drawable
 
         private static FlowNode Capture(DrawableGroup anchor, IReadOnlyList<Drawable.Resource> drawables, FlowNode? previous)
         {
-            FlowNode[] inputs = drawables.Select(FlowNode.Capture).OfType<FlowNode>().ToArray();
-            return previous != null && previous.Inputs.SequenceEqual(inputs)
+            IReadOnlyList<FlowNode> inputs = FlowNode.CaptureAll(drawables, previous?.Inputs ?? []);
+            return previous != null && ReferenceEquals(inputs, previous.Inputs)
                 ? previous : new FlowNode(anchor, inputs);
         }
 

@@ -444,7 +444,7 @@
                             <ctrls:OptionsDisplayItem.ActionButton>
                                 <NumericUpDown MinWidth="250"
                                                FormatString="F0"
-                                               Maximum="64"
+                                               Maximum="{x:Static guides:PreviewGuideSettingsViewModel.GridMaxCells}"
                                                Minimum="1"
                                                Value="{Binding PreviewGuides.GridColumns.Value}" />
                             </ctrls:OptionsDisplayItem.ActionButton>
@@ -460,7 +460,7 @@
                             <ctrls:OptionsDisplayItem.ActionButton>
                                 <NumericUpDown MinWidth="250"
                                                FormatString="F0"
-                                               Maximum="64"
+                                               Maximum="{x:Static guides:PreviewGuideSettingsViewModel.GridMaxCells}"
                                                Minimum="1"
                                                Value="{Binding PreviewGuides.GridRows.Value}" />
                             </ctrls:OptionsDisplayItem.ActionButton>

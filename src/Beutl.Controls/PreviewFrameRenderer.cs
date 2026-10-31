@@ -87,6 +87,14 @@ internal static class PreviewFrameRenderer
         BitmapInterpolationMode interpolationMode, UIToneMappingOperator tmOperator, float tmExposure)
     {
         using var image = SKImage.FromBitmap(bitmap.SKBitmap);
+        Draw(canvas, image, sourceRect, destRect, interpolationMode, tmOperator, tmExposure);
+    }
+
+    // A raster canvas reads the image's pixels during the draw call, so its image may wrap them instead
+    // of copying. A GPU canvas can upload them later and draws through the bitmap overload.
+    internal static void Draw(SKCanvas canvas, SKImage? image, SKRect sourceRect, SKRect destRect,
+        BitmapInterpolationMode interpolationMode, UIToneMappingOperator tmOperator, float tmExposure)
+    {
         if (image == null)
             return;
 

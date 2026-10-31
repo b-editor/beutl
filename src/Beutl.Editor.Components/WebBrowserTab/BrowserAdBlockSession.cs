@@ -226,8 +226,7 @@ internal static class BrowserAdBlockBackend
     {
         IAppleWKWebViewPlatformHandle apple when OperatingSystem.IsMacOS() => MacOSAdBlockBackend.CreateAsync(apple, rules),
         IWindowsWebView2PlatformHandle windows when OperatingSystem.IsWindows() => Task.FromResult<IBrowserAdBlockBackend>(new WindowsAdBlockBackend(windows, rules, getPage)),
-        IGtkWebViewPlatformHandle gtk when OperatingSystem.IsLinux() => LinuxAdBlockBackend.CreateAsync(gtk.WebKitWebView, false, rules),
-        ILinuxWpePlatformHandle wpe when OperatingSystem.IsLinux() => LinuxAdBlockBackend.CreateAsync(wpe.WebKitWebView, true, rules),
+        _ when LinuxWebKit.TryGetWebView(handle, out nint webView, out bool wpe) => LinuxAdBlockBackend.CreateAsync(webView, wpe, rules),
         _ => throw new NotSupportedException(Strings.BrowserAdBlockUnsupported)
     };
 }

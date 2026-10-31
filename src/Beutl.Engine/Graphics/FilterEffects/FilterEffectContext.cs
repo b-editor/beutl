@@ -379,14 +379,21 @@ public sealed partial class FilterEffectContext : IDisposable
     internal void ApplyTransactional(FilterEffect.Resource resource)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        int itemCount = _items.Count;
-        int renderTimeItemCount = _renderTimeItems.Count;
-        ApplyTransactional(() =>
+        ThrowIfDisposed();
+
+        RecordingCheckpoint checkpoint = Checkpoint();
+        try
         {
             resource.Record(this);
             ValidateDeclaredOptions(resource,
-                RecordedOptions(_items.Span[itemCount..]) | RecordedOptions(_renderTimeItems.Span[renderTimeItemCount..]));
-        });
+                RecordedOptions(_items.Span[checkpoint.ItemCount..])
+                | RecordedOptions(_renderTimeItems.Span[checkpoint.RenderTimeItemCount..]));
+        }
+        catch
+        {
+            Rollback(checkpoint);
+            throw;
+        }
     }
 
     // Chains are split and target work is routed from the resource's declarations before anything is recorded,
@@ -460,16 +467,7 @@ public sealed partial class FilterEffectContext : IDisposable
             if (execution.Instance?.Time is { } time
                 && source.EvaluationContext is { } evaluation && time != evaluation.Time)
                 evaluated = source.RequireOriginal().ToResource(evaluation.WithTime(time));
-            FilterEffect.Resource current = evaluated ?? source;
-            using var context = new FilterEffectContext(
-                execution.Targets.CalculateBounds(), execution.OutputScale, execution.WorkingScale);
-            if (current.IsEnabled)
-                context.ApplyTransactional(current);
-            execution.Continuation?.AppendTo(context);
-            using var builder = new SKImageFilterBuilder();
-            using var executor = execution.CreateExecutor(execution.Targets, builder);
-            executor.Apply(context);
-            executor.Flush();
+            execution.Continuation!.ApplyTo(execution.Targets, execution.Instance, evaluated ?? source);
         }
         finally { evaluated?.Dispose(); }
     }
@@ -479,25 +477,33 @@ public sealed partial class FilterEffectContext : IDisposable
         ArgumentNullException.ThrowIfNull(apply);
         ThrowIfDisposed();
 
-        int itemCount = _items.Count;
-        int renderTimeItemCount = _renderTimeItems.Count;
-        int resourceCount = _resourceState.Count;
-        Rect bounds = _bounds;
+        RecordingCheckpoint checkpoint = Checkpoint();
         try
         {
             apply();
         }
         catch
         {
-            while (_items.Count > itemCount)
-                _items.RemoveAt(_items.Count - 1);
-            while (_renderTimeItems.Count > renderTimeItemCount)
-                _renderTimeItems.RemoveAt(_renderTimeItems.Count - 1);
-            _bounds = bounds;
-            _resourceState.RollbackTo(resourceCount);
+            Rollback(checkpoint);
             throw;
         }
     }
+
+    private RecordingCheckpoint Checkpoint()
+        => new(_items.Count, _renderTimeItems.Count, _resourceState.Count, _bounds);
+
+    private void Rollback(in RecordingCheckpoint checkpoint)
+    {
+        while (_items.Count > checkpoint.ItemCount)
+            _items.RemoveAt(_items.Count - 1);
+        while (_renderTimeItems.Count > checkpoint.RenderTimeItemCount)
+            _renderTimeItems.RemoveAt(_renderTimeItems.Count - 1);
+        _bounds = checkpoint.Bounds;
+        _resourceState.RollbackTo(checkpoint.ResourceCount);
+    }
+
+    private readonly record struct RecordingCheckpoint(
+        int ItemCount, int RenderTimeItemCount, int ResourceCount, Rect Bounds);
 
     internal void TransferResources() => _resourceState.Transfer();
 

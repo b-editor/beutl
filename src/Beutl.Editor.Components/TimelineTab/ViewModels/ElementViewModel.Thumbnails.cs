@@ -123,7 +123,7 @@ public sealed partial class ElementViewModel
         _thumbnailsCts = null;
     }
 
-    internal async void UpdateThumbnailsAsync()
+    private async void UpdateThumbnailsAsync()
     {
         if (_isDisposed || !_timelineViewAttached) return;
 

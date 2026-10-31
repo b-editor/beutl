@@ -7,6 +7,8 @@ namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 public abstract class GraphEditorViewViewModelFactory
 {
     private static readonly Dictionary<Type, GraphEditorViewViewModelFactory> s_registry = [];
+    // Separated components edited differently from a plain value of their type, by the owner's type and the component.
+    private static readonly Dictionary<(Type Owner, string Component), GraphEditorViewViewModelFactory> s_componentRegistry = [];
 
     static GraphEditorViewViewModelFactory()
     {
@@ -68,6 +70,11 @@ public abstract class GraphEditorViewViewModelFactory
             new("W", v => v.W, (v, n) => new Vector4(v.X, v.Y, v.Z, float.CreateTruncating(n))));
 
         s_registry[typeof(Media.Color)] = new ColorFactory();
+
+        // A color's red, green and blue are edited in linear light, as ColorFactory edits them; its alpha is a plain byte.
+        var colorComponent = new ColorComponentFactory();
+        foreach (string name in (ReadOnlySpan<string>)["R", "G", "B"])
+            s_componentRegistry[(typeof(Media.Color), name)] = colorComponent;
     }
 
     public abstract double MaxValue { get; }
@@ -78,9 +85,10 @@ public abstract class GraphEditorViewViewModelFactory
 
     public static GraphEditorViewViewModelFactory? GetFactory(GraphEditorViewModel parent)
     {
-        if (parent.Animation.HierarchicalParent is ComponentAnimation<Media.Color, byte> components
-            && components.Components.FirstOrDefault(p => p.GetKeyFrameAnimation() == parent.Animation) is { Name: not "A" })
-            return new ColorComponentFactory();
+        if (parent.Animation.HierarchicalParent is IComponentAnimation components
+            && components.Components.FirstOrDefault(p => p.GetKeyFrameAnimation() == parent.Animation) is { } component
+            && s_componentRegistry.TryGetValue((components.ValueType, component.Name), out GraphEditorViewViewModelFactory? factory))
+            return factory;
         return GetFactory(parent.Animation.ValueType);
     }
 

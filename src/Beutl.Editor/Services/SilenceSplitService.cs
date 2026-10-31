@@ -43,21 +43,17 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
         bool includeLinked, HistoryManager? recorder = null, CancellationToken cancellationToken = default,
         IProgress<int>? progress = null)
     {
-        if (!scene.Children.Contains(element) || scene.IsElementLocked(element) || scene.Uri == null || ranges.Count == 0) return;
+        if (!TryResolveTargets(scene, element, ranges, includeLinked, out var group, out int groupIndex, out Element[] originals)) return;
         if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
-        var group = includeLinked ? scene.Groups.FirstOrDefault(g => g.Contains(element.Id.Value)) : null;
-        int groupIndex = group == null ? scene.Groups.Count : scene.Groups.IndexOf(group);
-        Element[] originals = group == null ? [element] : scene.Children.Where(e => group.Contains(e.Id.Value)).ToArray();
         if (originals.Any(scene.IsElementLocked)) throw new InvalidOperationException(Strings.SilenceSplit_LockedLinked);
         int[] layers = originals.Select(e => e.ZIndex.Value).Distinct().ToArray();
         TimeRange[] orderedRanges = ranges.OrderBy(r => r.Start).ToArray();
         List<Element> parts = [.. originals];
         // Portals and extension split callbacks may inspect other live scene elements while splitting.
         // Keep their normal Razor path; built-in media can be prepared without publishing intermediate clips.
-        bool batch = originals.All(e => e.Objects.All(o => o is not PortalObject)
-            && ElementStructureService.OwnedSplittables(e).All(o => o is SourceSound or SceneSound or SceneDrawable || o.GetType() == typeof(SourceVideo)));
-        List<ImmutableHashSet<Guid>>? pendingGroups = batch ? [] : null;
-        Dictionary<(Type, Uri), MediaTime?>? sourceDurations = batch ? [] : null;
+        SplitBatch? batch = originals.All(e => e.Objects.All(o => o is not PortalObject)
+            && ElementStructureService.OwnedSplittables(e).All(o => o is SourceSound or SceneSound or SceneDrawable || o.GetType() == typeof(SourceVideo)))
+            ? new SplitBatch(scene) : null;
         MediaTime maximumEnd = originals.Max(e => e.Range.End);
 
         if (recorder is null) Edit();
@@ -74,7 +70,7 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
                 MediaTime cut = cuts[i];
                 // Descending cuts only touch the original left pieces, never the added right pieces.
                 Element[] targets = originals.Where(e => e.Start.Value < cut && cut < e.Range.End).ToArray();
-                var split = ElementStructureService.SplitCore(scene, targets, cut, pendingGroups, sourceDurations);
+                var split = ElementStructureService.SplitCore(scene, targets, cut, batch);
                 // Razor may skip a cut that leaves less than a frame. Roll back all cuts rather
                 // than silently deleting different intervals from the linked audio and video.
                 if (split.Count != targets.Length) throw new InvalidOperationException(Strings.SilenceSplit_ShortSegment);
@@ -95,10 +91,10 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
                         && part.Range.End <= orderedRanges[rangeIndex].End) removed.Add(part);
                 }
             var removedSet = removed.ToHashSet();
-            Element[] removedFromScene = batch ? originals.Where(removedSet.Contains).ToArray() : removed.ToArray();
+            Element[] removedFromScene = batch != null ? originals.Where(removedSet.Contains).ToArray() : removed.ToArray();
             foreach (Element part in removedFromScene) scene.RemoveChild(part);
             scene.RemoveElementsFromGroups(removedFromScene.Select(e => e.Id.Value).ToArray());
-            Element[] pending = batch ? parts.Skip(originals.Length).Where(e => !removedSet.Contains(e)).ToArray() : [];
+            Element[] pending = batch != null ? parts.Skip(originals.Length).Where(e => !removedSet.Contains(e)).ToArray() : [];
             if (mode == SilenceSplitMode.RippleDelete)
             {
                 // Compute gaps and final positions while new pieces are still detached. History and
@@ -107,10 +103,10 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
                     .OrderBy(e => e.Start.Value).ToArray();
                 Ripple(scene, affected, CommonGaps(affected, orderedRanges).ToArray());
             }
-            if (pendingGroups != null)
+            if (batch != null)
             {
                 HashSet<Guid> removedIds = removed.Select(e => e.Id.Value).ToHashSet();
-                var groups = pendingGroups.AsEnumerable().Reverse().Select(g => g.Where(id => !removedIds.Contains(id)).ToImmutableHashSet())
+                var groups = batch.PendingGroups.AsEnumerable().Reverse().Select(g => g.Where(id => !removedIds.Contains(id)).ToImmutableHashSet())
                     .Where(g => g.Count >= 2).ToArray();
                 bool originalGroupSurvives = group != null && group.Count(id => !removedIds.Contains(id)) >= 2;
                 int index = Math.Min(groupIndex + (originalGroupSurvives ? 1 : 0), scene.Groups.Count);
@@ -122,6 +118,22 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
                     scene.Duration.Value = maximumEnd - scene.Start.Value;
             }
         }
+    }
+
+    // The clip and, when linked clips are included, the rest of its group. False when there is nothing to split.
+    private static bool TryResolveTargets(Scene scene, Element element, IReadOnlyList<TimeRange> ranges, bool includeLinked,
+        out ImmutableHashSet<Guid>? group, out int groupIndex, out Element[] originals)
+    {
+        group = null;
+        groupIndex = -1;
+        originals = [];
+        if (!scene.Children.Contains(element) || scene.IsElementLocked(element) || scene.Uri == null || ranges.Count == 0) return false;
+
+        ImmutableHashSet<Guid>? linked = includeLinked ? scene.Groups.FirstOrDefault(g => g.Contains(element.Id.Value)) : null;
+        group = linked;
+        groupIndex = linked == null ? scene.Groups.Count : scene.Groups.IndexOf(linked);
+        originals = linked == null ? [element] : scene.Children.Where(e => linked.Contains(e.Id.Value)).ToArray();
+        return true;
     }
 
     private static void Ripple(Scene scene, Element[] elements, TimeRange[] gaps)

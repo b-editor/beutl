@@ -31,9 +31,8 @@ internal sealed class ShaderGraphRegions
                 : PixelRect.FromRect(bounds.Translate(gridOffset), density);
             if (pixels.Width <= 0 || pixels.Height <= 0)
                 throw new InvalidOperationException($"Image '{image.Name}' has empty dimensions.");
-            Frames.Add(image.Id, new(bounds, image.Description.HasValue ? bounds
-                : new Rect(pixels.X / density - gridOffset.X, pixels.Y / density - gridOffset.Y,
-                    pixels.Width / density, pixels.Height / density), pixels.Size, density));
+            Frames.Add(image.Id, image.Description.HasValue ? new(bounds, bounds, pixels.Size, density)
+                : ShaderImageFrame.FromPixels(bounds, pixels, density, gridOffset));
         }
         PassRegions = new Rect?[graph.Passes.Length];
         var required = new Dictionary<int, Rect>();

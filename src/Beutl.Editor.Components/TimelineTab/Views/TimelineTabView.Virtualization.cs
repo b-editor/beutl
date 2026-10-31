@@ -148,7 +148,7 @@ public sealed partial class TimelineTabView
                 if (entry.View is null)
                 {
                     entry.View = _recycledElementViews.TryPop(out ElementView? recycled)
-                        ? recycled : new ElementView(_alignmentFeedback);
+                        ? recycled : new ElementView();
                     entry.View.DataContext = entry.Model;
                     entry.View.ZIndex = entry.Model.IsSelected.Value ? 5 : 0;
                 }

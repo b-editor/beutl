@@ -55,6 +55,12 @@ public partial class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IP
         set => Validator = value as IValidator<T>;
     }
 
+    // A property without a validator leaves the key frames' current one in place.
+    void IPropertyAnimation.Configure(IProperty owner)
+    {
+        if (owner.GetValidator() is IValidator<T> validator) Validator = validator;
+    }
+
     public MediaTime Duration
         => KeyFrames.Count > 0
             ? KeyFrames[^1].KeyTime.Value

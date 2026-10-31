@@ -26,7 +26,7 @@ public sealed partial class SceneCompositor : ICompositor
 
     // Mute flags are read live from the layers inside the snapshot, so only the
     // lookup shape (membership, ZIndex) and HasSolo require invalidation.
-    private volatile LayerSnapshot? _layerSnapshot;
+    private volatile SceneLayerSnapshot? _layerSnapshot;
     // The elements that can take part in a transition, kept until the scene is edited. The version moves
     // on every edit, so a set built while an edit lands is not kept past it.
     private volatile ParticipantSnapshot? _participants;
@@ -37,6 +37,8 @@ public sealed partial class SceneCompositor : ICompositor
     public SceneCompositor(Scene scene)
     {
         Scene = scene;
+        _layerQueries = new(this, CreateLayerQuery);
+        _audioQueries = new(this, CreateAudioQuery);
         Scene.Layers.CollectionChanged += OnLayersCollectionChanged;
         Scene.Edited += OnSceneEdited;
         Scene.Children.CollectionChanged += OnChildrenCollectionChanged;
@@ -178,12 +180,15 @@ public sealed partial class SceneCompositor : ICompositor
 
     /// <summary>Evaluates a nested scene while inheriting its caller's evaluation conditions.</summary>
     internal CompositionFrame EvaluateGraphicsWithContext(MediaTime time, CompositionContext conditions)
-        => EvaluateGraphics(time, null, null, conditions, conditions.CancellationToken, conditions.FrameRate);
+        => EvaluateGraphics(time, null, null, conditions);
 
+    // Inherited conditions bring their own cancellation and frame rate; cancellationToken and frameRate apply
+    // only without them.
     private CompositionFrame EvaluateGraphics(MediaTime time, int? layer, EvaluationServices? services,
         CompositionContext? conditions = null, CancellationToken cancellationToken = default, Rational? frameRate = null)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        CancellationToken token = conditions?.CancellationToken ?? cancellationToken;
+        token.ThrowIfCancellationRequested();
         // A layer query evaluates the requester's frame, not one of this compositor's own.
         if (services is null) BeginQueryGeneration();
         DisposeDetachedResources();
@@ -195,15 +200,18 @@ public sealed partial class SceneCompositor : ICompositor
         using var allResources = new PooledList<EngineObject.Resource>();
         var ctx = new CompositorContext(time, this, flow, currentElements, CompositionTarget.Graphics);
         ctx.InheritConditions(conditions);
-        ctx.CancellationToken = cancellationToken;
-        if (frameRate.HasValue) ctx.FrameRate = frameRate.Value;
+        if (conditions is null)
+        {
+            ctx.CancellationToken = cancellationToken;
+            if (frameRate.HasValue) ctx.FrameRate = frameRate.Value;
+        }
         if (services is not null)
             ctx.EvaluationServices = services;
 
         // 途中でcurrentElementsが変わる可能性があるのでforループで回す
         for (int index = 0; index < currentElements.Count; index++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            token.ThrowIfCancellationRequested();
             if (layer.HasValue && currentElements[index].ZIndex.Value != layer.Value) continue;
             flow.Clear();
             CollectResourcesFromElement(currentElements[index], ctx, tmpObjects);
@@ -218,7 +226,7 @@ public sealed partial class SceneCompositor : ICompositor
             null)
         {
             ContainsScene3D = ctx.ContainsScene3D || ctx.GraphicsState?.ContainsScene3D == true,
-            CancellationToken = cancellationToken,
+            CancellationToken = token,
         };
         if (services is null)
             ((EvaluationServices)ctx.EvaluationServices!).Frame = frame;
@@ -293,14 +301,13 @@ public sealed partial class SceneCompositor : ICompositor
         int version = Volatile.Read(ref _audioEligibilityVersion);
         if (_audioEligibility is { } cached && cached.Version == version) return cached;
 
-        LayerSnapshot layers = GetLayerSnapshot();
+        SceneLayerSnapshot layers = GetLayerSnapshot();
         var byElement = new Dictionary<Element, EngineObject[]>(ReferenceEqualityComparer.Instance);
         using var objects = new PooledList<EngineObject>();
         using var allObjects = new PooledList<EngineObject>();
         foreach (Element element in Scene.Children)
         {
-            if (!element.IsEnabled.Value
-                || ShouldSkipLayer(element.ZIndex.Value, CompositionTarget.Audio, layers.HasSolo, layers.ByZIndex)) continue;
+            if (!element.IsEnabled.Value || layers.ShouldSkip(element.ZIndex.Value, CompositionTarget.Audio)) continue;
             objects.Clear();
             element.CollectObjects(CompositionTarget.Audio, objects);
             if (objects.Count == 0) continue;
@@ -542,7 +549,7 @@ public sealed partial class SceneCompositor : ICompositor
     // timeに掛かるElementを、solo/muteでフィルタしつつZIndex順に振り分ける
     private void SortLayers(MediaTime time, PooledList<Element> currentElements, CompositionTarget target, bool ignoreSolo = false)
     {
-        LayerSnapshot snapshot = GetLayerSnapshot();
+        SceneLayerSnapshot snapshot = GetLayerSnapshot();
         bool graphics = target == CompositionTarget.Graphics;
         SceneElementIndex index = Scene.ElementIndex;
         using var candidates = new PooledList<Element>();
@@ -551,7 +558,7 @@ public sealed partial class SceneCompositor : ICompositor
         foreach (Element item in candidates)
         {
             if (!item.IsEnabled.Value || !(graphics ? item.CoversGraphicsTime(time) : item.Range.Contains(time))) continue;
-            if (ShouldSkipLayer(item.ZIndex.Value, target, !ignoreSolo && snapshot.HasSolo, snapshot.ByZIndex)) continue;
+            if (snapshot.ShouldSkip(item.ZIndex.Value, target, ignoreSolo)) continue;
             currentElements.Add(item);
         }
         index.Sort(currentElements);
@@ -602,50 +609,22 @@ public sealed partial class SceneCompositor : ICompositor
     // timeRangeに掛かるElementを、solo/muteでフィルタしつつZIndex順に振り分ける
     private void SortLayers(TimeRange timeRange, PooledList<Element> currentElements, CompositionTarget target)
     {
-        LayerSnapshot snapshot = GetLayerSnapshot();
+        SceneLayerSnapshot snapshot = GetLayerSnapshot();
         SceneElementIndex index = Scene.ElementIndex;
         using var candidates = new PooledList<Element>();
         index.Query(timeRange.Start, timeRange.End, candidates);
         foreach (Element item in candidates)
         {
             if (!item.IsEnabled.Value || !item.Range.Intersects(timeRange)) continue;
-            if (ShouldSkipLayer(item.ZIndex.Value, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
+            if (snapshot.ShouldSkip(item.ZIndex.Value, target)) continue;
             currentElements.Add(item);
         }
         index.Sort(currentElements);
     }
 
-    private sealed record LayerSnapshot(Dictionary<int, TimelineLayer> ByZIndex, bool HasSolo);
-
-    private static readonly LayerSnapshot s_emptyLayerSnapshot = new([], false);
-
     // Concurrent rebuilds after an invalidation are benign: each produces an
     // equivalent snapshot and the last write wins.
-    private LayerSnapshot GetLayerSnapshot()
-    {
-        LayerSnapshot? snapshot = _layerSnapshot;
-        if (snapshot is not null) return snapshot;
-
-        if (Scene.Layers.Count == 0)
-        {
-            _layerSnapshot = s_emptyLayerSnapshot;
-            return s_emptyLayerSnapshot;
-        }
-
-        var byZIndex = new Dictionary<int, TimelineLayer>(Scene.Layers.Count);
-        bool hasSolo = false;
-        foreach (TimelineLayer layer in Scene.Layers)
-        {
-            if (byZIndex.TryAdd(layer.ZIndex.Value, layer) && layer.IsSolo.Value)
-            {
-                hasSolo = true;
-            }
-        }
-
-        snapshot = new LayerSnapshot(byZIndex, hasSolo);
-        _layerSnapshot = snapshot;
-        return snapshot;
-    }
+    private SceneLayerSnapshot GetLayerSnapshot() => _layerSnapshot ??= SceneLayerSnapshot.Build(Scene);
 
     private void OnLayersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
@@ -715,20 +694,6 @@ public sealed partial class SceneCompositor : ICompositor
 
     private void OnLayerAudioMutedChanged(object? sender, PropertyValueChangedEventArgs<bool> e)
         => Interlocked.Increment(ref _audioEligibilityVersion);
-
-    // A layer without a TimelineLayer model cannot be soloed, so it is excluded
-    // under solo mode. Mute is independent per target (audio vs video).
-    private static bool ShouldSkipLayer(
-        int zIndex,
-        CompositionTarget target,
-        bool hasSolo,
-        Dictionary<int, TimelineLayer> layersByZIndex)
-    {
-        layersByZIndex.TryGetValue(zIndex, out TimelineLayer? layer);
-        if (hasSolo && (layer is null || !layer.IsSolo.Value)) return true;
-        if (layer is null) return false;
-        return target == CompositionTarget.Graphics ? layer.IsVideoMuted.Value : layer.IsAudioMuted.Value;
-    }
 
     public void Dispose()
     {

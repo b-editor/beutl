@@ -193,16 +193,23 @@ public sealed partial class PixelSortEffect : FilterEffect
         """;
 
     // Only immutable definitions are retained here. Device pipelines belong to the renderer's cache.
-    private static readonly PixelSortPipelineCache<ShaderProgram> s_programs = new(
-        static key => ShaderProgram.Fullscreen(new ShaderSource(PrepareShaderSource))
-            .Specialize([SpecializationConstant.Create(0, (int)key, ShaderStage.Fragment)]),
-        static direction => ShaderProgram.Fullscreen(new ShaderSource(RankShaderSource))
-            .Specialize([SpecializationConstant.Create(0, (int)direction, ShaderStage.Fragment)]),
-        static (direction, ascending) => ShaderProgram.Fullscreen(new ShaderSource(GatherRestoreShaderSource))
+    // Indexed by sort key.
+    private static readonly ShaderProgram[] s_preparePrograms = [.. Enumerable.Range(0, 6).Select(static key =>
+        ShaderProgram.Fullscreen(new ShaderSource(PrepareShaderSource))
+            .Specialize([SpecializationConstant.Create(0, key, ShaderStage.Fragment)]))];
+
+    // Indexed by direction.
+    private static readonly ShaderProgram[] s_rankPrograms = [.. Enumerable.Range(0, 2).Select(static direction =>
+        ShaderProgram.Fullscreen(new ShaderSource(RankShaderSource))
+            .Specialize([SpecializationConstant.Create(0, direction, ShaderStage.Fragment)]))];
+
+    // Indexed by direction * 2 + (ascending ? 1 : 0).
+    private static readonly ShaderProgram[] s_gatherPrograms = [.. Enumerable.Range(0, 4).Select(static index =>
+        ShaderProgram.Fullscreen(new ShaderSource(GatherRestoreShaderSource))
             .Specialize([
-                SpecializationConstant.Create(0, (int)direction, ShaderStage.Fragment),
-                SpecializationConstant.Create(1, ascending ? 1 : 0, ShaderStage.Fragment)
-            ]));
+                SpecializationConstant.Create(0, index / 2, ShaderStage.Fragment),
+                SpecializationConstant.Create(1, index % 2, ShaderStage.Fragment)
+            ]))];
 
     public PixelSortEffect()
     {
@@ -230,8 +237,10 @@ public sealed partial class PixelSortEffect : FilterEffect
     {
         protected override void ApplyTo(FilterEffectContext context)
         {
-            if (s_programs.GetOrCreate(SortKey, Direction, Ascending) is not { } programs)
-                return;
+            int sortKey = GetSortKeyIndex(SortKey);
+            int direction = GetDirectionIndex(Direction);
+            var programs = (Prepare: s_preparePrograms[sortKey], Rank: s_rankPrograms[direction],
+                Gather: s_gatherPrograms[(direction * 2) + (Ascending ? 1 : 0)]);
             context.ShaderGraph((Programs: programs,
                 Thresholds: new Vector2(ThresholdMin / 100, ThresholdMax / 100)), static (graph, state) =>
             {
@@ -259,5 +268,15 @@ public sealed partial class PixelSortEffect : FilterEffect
                 return graph.Output(output);
             });
         }
+
+        private static int GetSortKeyIndex(PixelSortKey sortKey)
+            => Enum.IsDefined(sortKey)
+                ? (int)sortKey
+                : throw new ArgumentOutOfRangeException(nameof(sortKey), sortKey, null);
+
+        private static int GetDirectionIndex(PixelSortDirection direction)
+            => Enum.IsDefined(direction)
+                ? (int)direction
+                : throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
     }
 }

@@ -6,12 +6,14 @@ namespace Beutl.Graphics.Backend.Vulkan;
 internal sealed unsafe class VulkanComputePipeline : IDisposable
 {
     private readonly VulkanContext _context;
+    private readonly PipelineLayout _layout;
+    private readonly DescriptorSetLayout _descriptorLayout;
     private ShaderModule _shader;
     private bool _disposed;
 
     public Pipeline Handle { get; private set; }
-    public PipelineLayout Layout { get; private set; }
-    public DescriptorSetLayout DescriptorLayout { get; private set; }
+    public PipelineLayout Layout => _layout;
+    public DescriptorSetLayout DescriptorLayout => _descriptorLayout;
     public VulkanDescriptorBindingTable Bindings { get; }
 
     public VulkanComputePipeline(VulkanContext context, byte[] source, DescriptorBinding[] bindings,
@@ -23,29 +25,8 @@ internal sealed unsafe class VulkanComputePipeline : IDisposable
         try
         {
             _shader = VulkanPipeline3D.CreateShaderModule(context.Vk, context.Device, source);
-            fixed (DescriptorSetLayoutBinding* data = declarations)
-            {
-                var info = new DescriptorSetLayoutCreateInfo
-                {
-                    SType = StructureType.DescriptorSetLayoutCreateInfo,
-                    BindingCount = (uint)declarations.Length,
-                    PBindings = data,
-                };
-                Check(context.Vk.CreateDescriptorSetLayout(context.Device, &info, null, out var layout));
-                DescriptorLayout = layout;
-            }
-            DescriptorSetLayout descriptorLayout = DescriptorLayout;
-            var range = new PushConstantRange(ShaderStageFlags.ComputeBit, 0, VulkanPipeline3D.MaxPushConstantsSize);
-            var layoutInfo = new PipelineLayoutCreateInfo
-            {
-                SType = StructureType.PipelineLayoutCreateInfo,
-                SetLayoutCount = 1,
-                PSetLayouts = &descriptorLayout,
-                PushConstantRangeCount = 1,
-                PPushConstantRanges = &range,
-            };
-            Check(context.Vk.CreatePipelineLayout(context.Device, &layoutInfo, null, out var pipelineLayout));
-            Layout = pipelineLayout;
+            VulkanPipeline3D.CreateLayouts(context.Vk, context.Device, declarations, ShaderStageFlags.ComputeBit,
+                out _descriptorLayout, out _layout);
             var specialization = new VulkanSpecializationData(specializationConstants);
             fixed (byte* entryPoint = "main\0"u8)
             fixed (SpecializationMapEntry* entries = specialization.MapEntries)

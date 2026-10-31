@@ -129,10 +129,8 @@ internal static partial class SlippableMedia
     }
 
     public static List<Target> Collect(Element element, IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false,
-        IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles = null, Scene? contextScene = null,
-        Dictionary<(Type, Uri), MediaTime?>? batchSourceDurations = null)
-        => new TargetCollector(element, timingPeers, ignoreLoops, timingRoles,
-            contextScene: contextScene, batchSourceDurations: batchSourceDurations).Collect();
+        IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles = null, SplitBatch? batch = null)
+        => new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, batch: batch).Collect();
 
     public static MediaTime ClampSharedDelta(IReadOnlyList<Target> targets, MediaTime delta)
     {

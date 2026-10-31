@@ -169,7 +169,7 @@ public sealed class SilenceSplitViewModel : IDisposable
         RefreshPreview();
     }
 
-    private MediaTime PreviewPosition(int index) => new((long)((Int128)ClipRange.Duration.Flicks * index / _chunks.Length));
+    private MediaTime PreviewPosition(int index) => SilenceDetector.BinStart(ClipRange.Duration, index, _chunks.Length);
 
     private void RefreshPreview()
     {

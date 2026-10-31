@@ -164,7 +164,7 @@ public sealed partial class ShaderGraphBuilder
         ValidateResource(image);
         if (!Enum.IsDefined(color))
             throw new ArgumentOutOfRangeException(nameof(color));
-        if (!image.IsAttachment || image.Format.IsDepthFormat() || image.Format.NumericCategory() != 0)
+        if (!image.IsAttachment || image.Format.IsDepthFormat() || image.Format.GetNumericType() != NumericType.Float)
             throw new ArgumentException("The graph output must be a single 2D color subresource with floating-point sample values. Convert numeric or depth data in an explicit pass.", nameof(image));
         return new(image, color);
     }

@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Beutl.Controls;
 using Beutl.Engine;
 
@@ -7,15 +8,17 @@ namespace Beutl.Views;
 
 internal sealed partial class TransformHandlesOverlay
 {
-    private static readonly Color DefaultEditingHandleColor = Color.FromUInt32(0xff1e90ff);
+    private static readonly IPen s_editingHandleStroke = new ImmutablePen(Brushes.White, 1.5);
 
     private IEditingHandleProvider? _editingHandleProvider;
     private IReadOnlyList<EditingHandle> _editingHandles = [];
 
     public void UpdateEditingHandles(IEditingHandleProvider? provider, MediaTime time)
     {
+        EditingHandle[] handles = provider?.GetEditingHandles(time).ToArray() ?? [];
+        if (ReferenceEquals(_editingHandleProvider, provider) && _editingHandles.SequenceEqual(handles)) return;
         _editingHandleProvider = provider;
-        _editingHandles = provider?.GetEditingHandles(time).ToArray() ?? [];
+        _editingHandles = handles;
         InvalidateVisual();
     }
 
@@ -43,8 +46,8 @@ internal sealed partial class TransformHandlesOverlay
         foreach (EditingHandle handle in _editingHandles)
         {
             Point position = LocalToImage(handle.Position.X, handle.Position.Y);
-            var fill = new SolidColorBrush(handle.Color?.ToAvaColor() ?? DefaultEditingHandleColor);
-            context.DrawEllipse(fill, new Pen(Brushes.White, 1.5), position, 4.5, 4.5);
+            var fill = handle.Color is { } color ? new ImmutableSolidColorBrush(color.ToAvaColor()) : s_accentFill;
+            context.DrawEllipse(fill, s_editingHandleStroke, position, 4.5, 4.5);
         }
     }
 }

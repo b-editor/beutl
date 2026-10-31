@@ -42,6 +42,21 @@ internal sealed partial class RenderRequestExecutor
         _shaderBackendPreference = shaderBackendPreference;
     }
 
+    public RenderRequestExecutor(
+        RenderTargetLeaseSession targets,
+        RenderProgramCaches programCaches,
+        ShaderBackendPreference shaderBackendPreference = ShaderBackendPreference.Auto,
+        CancellationToken cancellationToken = default)
+        : this(
+            targets,
+            programCaches.Sksl,
+            programCaches.Spirv,
+            shaderBackendPreference,
+            programCaches.ShaderGraph,
+            cancellationToken)
+    {
+    }
+
     public void Execute(
         CompiledRenderRequest request,
         ImmediateCanvas destination,
@@ -61,15 +76,16 @@ internal sealed partial class RenderRequestExecutor
         ProgramCache<CachedSkRuntimeEffect>? localProgramCache = _programCache is null
             ? SkRuntimeEffectProgramCache.Create()
             : null;
-        ProgramCache<CachedSkRuntimeEffect> familyProgramCache = _programCache ?? localProgramCache!;
         ProgramCache<GLSLFilterPipeline>? localSpirvProgramCache = _spirvProgramCache is null
             ? SpirvShaderProgramCache.Create()
             : null;
-        ProgramCache<GLSLFilterPipeline> familySpirvProgramCache =
-            _spirvProgramCache ?? localSpirvProgramCache!;
         ProgramCache<ShaderGraphPipeline>? localGraphProgramCache = _graphProgramCache is null
             ? ShaderGraphPipeline.CreateCache() : null;
-        ProgramCache<ShaderGraphPipeline> familyGraphProgramCache = _graphProgramCache ?? localGraphProgramCache!;
+        // Borrows the executor's caches; only the local ones are disposed below.
+        var familyProgramCaches = new RenderProgramCaches(
+            _programCache ?? localProgramCache!,
+            _spirvProgramCache ?? localSpirvProgramCache!,
+            _graphProgramCache ?? localGraphProgramCache!);
         var frames = new List<RenderRequestExecutionState>();
         var cleanupFailures = new List<Exception>();
         ExceptionDispatchInfo? primaryFailure = null;
@@ -83,9 +99,7 @@ internal sealed partial class RenderRequestExecutor
                 destination,
                 replayBounds ?? request.SelectedOutputBounds,
                 finalizeOutput,
-                familyProgramCache,
-                familySpirvProgramCache,
-                familyGraphProgramCache,
+                familyProgramCaches,
                 frames,
                 cleanupFailures,
                 ref nestedRootAcquisitions,
@@ -316,9 +330,7 @@ internal sealed partial class RenderRequestExecutor
         private readonly IReadOnlySet<RenderFragmentReference> _previewDropEligibleMaterializations;
         private readonly RenderTargetLeaseSession _targets;
         private readonly RenderCacheDeviceContextIdentity _programCacheContext;
-        private readonly ProgramCache<CachedSkRuntimeEffect> _programCache;
-        private readonly ProgramCache<GLSLFilterPipeline> _spirvProgramCache;
-        private readonly ProgramCache<ShaderGraphPipeline> _graphProgramCache;
+        private readonly RenderProgramCaches _programCaches;
         private readonly ShaderBackendPreference _shaderBackendPreference;
         private readonly DrawableBrushMaterializer _drawableBrushMaterializer;
         private Dictionary<RenderFragmentId, Rect>? _resolvedExecutionDomains;
@@ -359,9 +371,7 @@ internal sealed partial class RenderRequestExecutor
             IReadOnlySet<RenderFragmentReference> previewDropEligibleMaterializations,
             RenderCacheResolution cacheResolution,
             RenderTargetLeaseSession targets,
-            ProgramCache<CachedSkRuntimeEffect> programCache,
-            ProgramCache<GLSLFilterPipeline> spirvProgramCache,
-            ProgramCache<ShaderGraphPipeline> graphProgramCache,
+            RenderProgramCaches programCaches,
             ShaderBackendPreference shaderBackendPreference,
             CancellationToken cancellationToken,
             Func<RenderNode, object?, object, Rect, float, RenderTargetImageLease> renderDependency)
@@ -381,9 +391,7 @@ internal sealed partial class RenderRequestExecutor
                 ?? throw new ArgumentNullException(nameof(previewDropEligibleMaterializations));
             _targets = targets;
             _programCacheContext = targets.CacheDeviceContextIdentity;
-            _programCache = programCache;
-            _spirvProgramCache = spirvProgramCache;
-            _graphProgramCache = graphProgramCache;
+            _programCaches = programCaches;
             _shaderBackendPreference = shaderBackendPreference;
             _drawableBrushMaterializer = MaterializeDrawableBrush;
             _cacheCaptures = cacheResolution.MissCaptureCount == 0

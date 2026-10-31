@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Collections.Immutable;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
@@ -11,6 +12,18 @@ namespace Beutl.Graphics.Shaders;
 // ReferenceBounds retains the complete input group when an effect receives several materialized pieces.
 internal readonly record struct ShaderImageFrame(Rect Bounds, Rect RasterBounds, PixelSize PixelSize, float Scale, Rect? ReferenceBounds = null)
 {
+    /// <summary>The byte size of <see cref="GetParameters"/>: three vec4 values.</summary>
+    public const int ParameterSize = 3 * 4 * sizeof(float);
+
+    /// <summary>Frames <paramref name="pixels"/>, rasterized at <paramref name="density"/> on a device grid shifted by
+    /// <paramref name="gridOffset"/>, as the raster bounds of an image with logical <paramref name="bounds"/>.</summary>
+    public static ShaderImageFrame FromPixels(Rect bounds, PixelRect pixels, float density, Vector gridOffset)
+    {
+        Rect raster = pixels.ToRect(density);
+        return new(bounds, new Rect(raster.X - gridOffset.X, raster.Y - gridOffset.Y, raster.Width, raster.Height),
+            pixels.Size, density);
+    }
+
     public Vector4[] GetParameters() =>
     [
         new(Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height),
@@ -31,9 +44,11 @@ internal static class ShaderGraphExecutor
     {
         long bytes = 0;
         for (int mip = 0; mip < description.MipLevels; mip++)
-            bytes = checked(bytes + (long)Math.Max(1, description.Width >> mip)
-                * Math.Max(1, description.Height >> mip) * Math.Max(1, description.Depth >> mip)
+        {
+            (int width, int height, int depth) = description.MipExtent(mip);
+            bytes = checked(bytes + (long)width * height * depth
                 * description.ArrayLayers * description.Format.BytesPerTexel());
+        }
         return bytes;
     }
 
@@ -49,6 +64,15 @@ internal static class ShaderGraphExecutor
         }
         """));
 
+    // Only the selected image and the mapping vary between boundary conversions, and neither is pipeline state.
+    private static readonly ShaderImage s_result = new(s_copy, -1, "result", TextureFormat.RGBA16Float, null, null, 0, 1);
+    private static readonly ShaderProgramIdentity s_copyIdentity = ShaderGraphDescription.GetPipelineIdentity(CopyPass(s_result, []));
+
+    private static ShaderPassDescription CopyPass(ShaderImage selected, ImmutableArray<byte> mapping)
+        => new("output", s_copy,
+            [new(0, selected, DescriptorType.CombinedImageSampler, ResourceAccess.Read, SamplerState.LinearClamp, false)],
+            [new(0, s_result, AttachmentLoadOp.Clear)], mapping, BlendState.Replace, (3, 1, 1), false);
+
     public static ShaderGraphExecutionStatistics Execute(ShaderGraphDescription graph, ITexture2D source, ShaderImageFrame sourceFrame,
         ITexture2D output, float scale, Vector gridOffset, ShaderGraphProgramAcquirer acquireProgram, Rect? requiredOutput = null)
     {
@@ -57,12 +81,10 @@ internal static class ShaderGraphExecutor
         var images = new Dictionary<int, ITexture2D>();
         var buffers = new Dictionary<int, IBuffer>();
         var storage = new Dictionary<int, ShaderGraphImage>();
-        var ownedStorage = new HashSet<ShaderGraphImage>();
-        var available = new List<ShaderGraphImage>();
-        var ownedBuffers = new HashSet<VulkanBuffer>();
-        var availableBuffers = new List<VulkanBuffer>();
+        var imagePool = new TransientPool<ShaderGraphImage>();
+        var bufferPool = new TransientPool<VulkanBuffer>();
         var leases = new List<ProgramCacheLease<ShaderGraphPipeline>>();
-        var programs = new Dictionary<ShaderPassDescription, ShaderGraphPipeline>();
+        var programs = new ShaderGraphPipeline?[graph.Passes.Length];
         var regions = new ShaderGraphRegions(graph, sourceFrame, scale, gridOffset,
             requiredOutput ?? graph.TransformBounds(sourceFrame.Bounds, sourceFrame.ReferenceBounds));
         Dictionary<int, ShaderImageFrame> frames = regions.Frames;
@@ -78,9 +100,7 @@ internal static class ShaderGraphExecutor
                 if (image.Id != 0 && graph.LastUses[image.Id] < 0) continue;
                 if (!image.IsView)
                 {
-                    ShaderImageFrame frame = frames[image.Id];
-                    ImageDescription description = image.Description ?? new(ImageKind.Image2D,
-                        frame.PixelSize.Width, frame.PixelSize.Height, image.Format);
+                    ImageDescription description = image.DescriptionFor(frames[image.Id].PixelSize);
                     descriptions.Add(image.Id, description);
                     if (usages[image.Id] != 0)
                         ShaderGraphImage.Validate(context, description, usages[image.Id]);
@@ -88,16 +108,17 @@ internal static class ShaderGraphExecutor
             }
 
             // Preflight the complete graph before executing its first command.
-            foreach (ShaderPassDescription pass in graph.Passes)
+            for (int index = 0; index < graph.Passes.Length; index++)
             {
+                ShaderPassDescription pass = graph.Passes[index];
                 if (pass.Transfer is { } transfer)
                 {
                     ShaderGraphTransfers.Validate(context, transfer, frames);
                     continue;
                 }
-                ProgramCacheLease<ShaderGraphPipeline> lease = acquireProgram(context, pass);
+                ProgramCacheLease<ShaderGraphPipeline> lease = acquireProgram(context, pass, graph.PassIdentities[index]!);
                 leases.Add(lease);
-                programs.Add(pass, lease.Program);
+                programs[index] = lease.Program;
                 lease.Program.Validate(pass);
                 ShaderImage[] attachments = pass.Attachments.Select(a => a.Image)
                     .Concat(pass.DepthAttachment is { } depth ? [depth.Image] : []).ToArray();
@@ -125,13 +146,10 @@ internal static class ShaderGraphExecutor
                     outputPixels.Y / scale - gridOffset.Y - selectedRaster.Y,
                     outputPixels.Width / scale, outputPixels.Height / scale),
             ];
-            var resultImage = new ShaderImage(graph, -1, "result", TextureFormat.RGBA16Float, null, null, 0, 1);
-            var copy = new ShaderPassDescription("output", s_copy,
-                [new(0, selected, DescriptorType.CombinedImageSampler, ResourceAccess.Read, SamplerState.LinearClamp, false)],
-                [new(0, resultImage, AttachmentLoadOp.Clear)], [.. MemoryMarshal.AsBytes(mapping.AsSpan())],
-                BlendState.Replace, (3, 1, 1), false);
-            ProgramCacheLease<ShaderGraphPipeline> copyLease = acquireProgram(context, copy);
+            ShaderPassDescription copy = CopyPass(selected, [.. MemoryMarshal.AsBytes(mapping.AsSpan())]);
+            ProgramCacheLease<ShaderGraphPipeline> copyLease = acquireProgram(context, copy, s_copyIdentity);
             leases.Add(copyLease);
+            copyLease.Program.Validate(copy);
 
             VulkanTexture2D sourceTexture = context.RequireOwned<VulkanTexture2D>(source, nameof(source));
             if ((usages[0] & ~sourceTexture.Usage) != 0)
@@ -141,8 +159,11 @@ internal static class ShaderGraphExecutor
                 context.CopyTexture(source, images[0]);
             }
             else
-                storage.Add(0, new ShaderGraphImage(context, descriptions[0], sourceTexture.Usage, sourceTexture));
-            ownedStorage.UnionWith(storage.Values);
+            {
+                var borrowed = new ShaderGraphImage(context, descriptions[0], sourceTexture.Usage, sourceTexture);
+                storage.Add(0, borrowed);
+                imagePool.Add(borrowed);
+            }
 
             for (int index = 0; index < graph.Passes.Length; index++)
             {
@@ -174,11 +195,11 @@ internal static class ShaderGraphExecutor
                         scheduledPixels += (long)area.Width * area.Height;
                         if (regions.PassRegions[index].HasValue) scissor = area;
                     }
-                    programs[pass].Execute(pass, images, buffers, frames, scissor);
+                    programs[index]!.Execute(pass, images, buffers, frames, scissor);
                     executedPasses++;
                 }
-                foreach (ShaderResource resource in graph.Resources)
-                    if (graph.LastUses[resource.Id] == index) Release(resource);
+                foreach (ShaderResource resource in graph.ReleasesAfter[index])
+                    Release(resource);
             }
 
             // Normalize the selected image into the renderer's linear-premultiplied RGBA target. All
@@ -199,9 +220,8 @@ internal static class ShaderGraphExecutor
             }
             finally
             {
-                foreach (ShaderGraphImage image in ownedStorage) image.Dispose();
-                foreach (VulkanBuffer buffer in ownedBuffers)
-                    buffer.Dispose();
+                imagePool.DisposeAll();
+                bufferPool.DisposeAll();
                 foreach (ProgramCacheLease<ShaderGraphPipeline> lease in leases)
                     lease.Dispose();
             }
@@ -215,21 +235,15 @@ internal static class ShaderGraphExecutor
                 if (!storage.TryGetValue(root.Id, out ShaderGraphImage? owner))
                 {
                     ImageDescription description = descriptions[root.Id];
-                    int reuseIndex = available.FindIndex(i => i.Description == description && (i.Usage & usages[root.Id]) == usages[root.Id]);
-                    if (reuseIndex >= 0)
-                    {
-                        owner = available[reuseIndex];
-                        available.RemoveAt(reuseIndex);
+                    owner = imagePool.Take(i => i.Description == description && (i.Usage & usages[root.Id]) == usages[root.Id]);
+                    if (owner is not null)
                         reuses++;
-                    }
                     else
                     {
                         CheckBudget(EstimateImageBytes(description), resource.Name);
                         owner = new ShaderGraphImage(context, description, usages[root.Id]);
-                        ownedStorage.Add(owner);
-                        CheckBudget(checked((long)owner.AllocationSize), resource.Name);
-                        liveBytes = checked(liveBytes + (long)owner.AllocationSize);
-                        peakBytes = Math.Max(peakBytes, liveBytes);
+                        imagePool.Add(owner);
+                        Admit(owner.AllocationSize, resource.Name);
                         imageAllocations++;
                     }
                     storage.Add(root.Id, owner);
@@ -240,15 +254,10 @@ internal static class ShaderGraphExecutor
             {
                 // Host writes cannot overwrite bytes still read by earlier queued commands. Reuse
                 // only when a later GPU pass initializes the new logical buffer's contents.
-                int reuseIndex = buffer.InitialData.IsEmpty
-                    ? availableBuffers.FindIndex(b => b.Size == (ulong)buffer.ByteLength) : -1;
-                VulkanBuffer allocated;
-                if (reuseIndex >= 0)
-                {
-                    allocated = availableBuffers[reuseIndex];
-                    availableBuffers.RemoveAt(reuseIndex);
+                VulkanBuffer? allocated = buffer.InitialData.IsEmpty
+                    ? bufferPool.Take(b => b.Size == (ulong)buffer.ByteLength) : null;
+                if (allocated is not null)
                     reuses++;
-                }
                 else
                 {
                     CheckBudget(buffer.ByteLength, buffer.Name);
@@ -256,10 +265,8 @@ internal static class ShaderGraphExecutor
                         BufferUsage.StorageBuffer | BufferUsage.UniformBuffer | BufferUsage.VertexBuffer | BufferUsage.IndexBuffer
                             | BufferUsage.IndirectBuffer | BufferUsage.TransferSource | BufferUsage.TransferDestination,
                         MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-                    ownedBuffers.Add(allocated);
-                    CheckBudget(checked((long)allocated.AllocationSize), buffer.Name);
-                    liveBytes = checked(liveBytes + (long)allocated.AllocationSize);
-                    peakBytes = Math.Max(peakBytes, liveBytes);
+                    bufferPool.Add(allocated);
+                    Admit(allocated.AllocationSize, buffer.Name);
                     bufferAllocations++;
                 }
                 buffers.Add(buffer.Id, allocated);
@@ -267,26 +274,22 @@ internal static class ShaderGraphExecutor
             }
         }
 
+        // Counts a new allocation's actual size, which can exceed its estimate, against the active budget.
+        void Admit(ulong allocationSize, string name)
+        {
+            CheckBudget(checked((long)allocationSize), name);
+            liveBytes = checked(liveBytes + (long)allocationSize);
+            peakBytes = Math.Max(peakBytes, liveBytes);
+        }
+
         void CheckBudget(long bytes, string name)
         {
-            if (bytes > MaximumTransientBytes - liveBytes && (available.Count != 0 || availableBuffers.Count != 0))
+            if (bytes > MaximumTransientBytes - liveBytes && (imagePool.HasAvailable || bufferPool.HasAvailable))
             {
                 // Reclaim retired, incompatible allocations only under pressure. Submission completion
                 // is required before their deferred native releases actually reduce memory usage.
-                foreach (ShaderGraphImage image in available)
-                {
-                    image.Dispose();
-                    ownedStorage.Remove(image);
-                    liveBytes -= checked((long)image.AllocationSize);
-                }
-                foreach (VulkanBuffer buffer in availableBuffers)
-                {
-                    buffer.Dispose();
-                    ownedBuffers.Remove(buffer);
-                    liveBytes -= checked((long)buffer.AllocationSize);
-                }
-                available.Clear();
-                availableBuffers.Clear();
+                liveBytes -= imagePool.ReclaimAvailable(static image => image.AllocationSize);
+                liveBytes -= bufferPool.ReclaimAvailable(static buffer => buffer.AllocationSize);
                 context.FlushCommands(waitForCompletion: true);
             }
             if (bytes > MaximumTransientBytes - liveBytes)
@@ -297,9 +300,53 @@ internal static class ShaderGraphExecutor
         {
             images.Remove(resource.Id);
             if (resource is ShaderImage { IsView: false } image && image.Id != 0
-                && storage.Remove(image.Id, out ShaderGraphImage? owner)) available.Add(owner);
+                && storage.Remove(image.Id, out ShaderGraphImage? owner)) imagePool.Return(owner);
             if (buffers.Remove(resource.Id, out IBuffer? buffer))
-                availableBuffers.Add((VulkanBuffer)buffer);
+                bufferPool.Return((VulkanBuffer)buffer);
+        }
+    }
+
+    /// <summary>The allocations one execution owns. A returned allocation waits for a compatible request
+    /// until budget pressure reclaims it.</summary>
+    private sealed class TransientPool<T> where T : class, IDisposable
+    {
+        private readonly HashSet<T> _owned = [];
+        private readonly List<T> _available = [];
+
+        public bool HasAvailable => _available.Count != 0;
+
+        public void Add(T item) => _owned.Add(item);
+
+        public void Return(T item) => _available.Add(item);
+
+        public T? Take(Predicate<T> match)
+        {
+            int index = _available.FindIndex(match);
+            if (index < 0)
+                return null;
+            T item = _available[index];
+            _available.RemoveAt(index);
+            return item;
+        }
+
+        /// <summary>Disposes every returned allocation and gives the bytes they held.</summary>
+        public long ReclaimAvailable(Func<T, ulong> allocationSize)
+        {
+            long bytes = 0;
+            foreach (T item in _available)
+            {
+                item.Dispose();
+                _owned.Remove(item);
+                bytes += checked((long)allocationSize(item));
+            }
+            _available.Clear();
+            return bytes;
+        }
+
+        public void DisposeAll()
+        {
+            foreach (T item in _owned)
+                item.Dispose();
         }
     }
 }

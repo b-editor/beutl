@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Graphics.Backend;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Shaders;
 
@@ -143,6 +144,22 @@ public sealed class ShaderImage : ShaderResource
         && BaseArrayLayer < other.BaseArrayLayer + other.ArrayLayers && other.BaseArrayLayer < BaseArrayLayer + ArrayLayers;
     internal ShaderImage? Like { get; }
     internal ShaderImage? RasterSource { get; set; }
+
+    /// <summary>The image whose raster frame this one shares, following <see cref="RasterSource"/> to its end.</summary>
+    internal ShaderImage RasterRoot
+    {
+        get
+        {
+            ShaderImage raster = this;
+            while (raster.RasterSource is { } inherited) raster = inherited;
+            return raster;
+        }
+    }
+
+    /// <summary>The fixed description, or a single 2D texel extent of <paramref name="size"/> in this format.</summary>
+    internal ImageDescription DescriptionFor(PixelSize size)
+        => Description ?? new(ImageKind.Image2D, size.Width, size.Height, Format);
+
     internal Rect? ExplicitBounds { get; }
     internal float Padding { get; }
     // Built-in radial sampling records affine extents around one origin for the complete input group.

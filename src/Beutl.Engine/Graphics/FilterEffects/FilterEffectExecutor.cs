@@ -261,11 +261,12 @@ public sealed partial class FilterEffectExecutor : IDisposable
     private SkRuntimeEffectProgramAcquirer GetProgramAcquirer()
         => _injectedProgramAcquirer ?? AcquireOwnedProgram;
 
-    private ProgramCacheLease<ShaderGraphPipeline> AcquireOwnedShaderGraphProgram(VulkanContext context, ShaderPassDescription pass)
+    private ProgramCacheLease<ShaderGraphPipeline> AcquireOwnedShaderGraphProgram(VulkanContext context, ShaderPassDescription pass,
+        ShaderProgramIdentity identity)
     {
         ProgramCache<ShaderGraphPipeline> cache = _ownedGraphProgramCache ??= ShaderGraphPipeline.CreateCache();
         cache.SynchronizeContext(cache, context);
-        return ShaderGraphPipeline.Acquire(cache, new ProgramCacheContextKey(cache, context, "shader-graph", "v1"), context, pass);
+        return ShaderGraphPipeline.Acquire(cache, new ProgramCacheContextKey(cache, context, "shader-graph", "v1"), context, pass, identity);
     }
 
     private ShaderGraphProgramAcquirer GetShaderGraphProgramAcquirer()

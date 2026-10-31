@@ -468,7 +468,6 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         Rect rasterBounds = default;
         FontMetrics metrics = font.Metrics.ToFontMetrics();
         int glyphOffset = 0;
-        int clusterCount = 0;
         int previousGrapheme = graphemes?.Length ?? 0;
         int graphemeSpacingIndex = 0;
         float advance = 0;
@@ -483,13 +482,11 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             Span<SKPoint> positions = run.Positions;
             for (int i = 0; i < result.Codepoints.Length; i++)
             {
-                if (i == 0 || result.Clusters[i] != result.Clusters[i - 1])
-                    clusterCount++;
                 glyphs[i] = (ushort)result.Codepoints[i];
 
                 int glyphIndex = glyphOffset + i;
                 SKPoint point = result.Points[i];
-                int spacingIndex = Orientation == TextRunOrientation.Horizontal ? glyphIndex : clusterCount - 1;
+                int spacingIndex = glyphIndex;
                 if (graphemes is not null)
                 {
                     int grapheme = Array.BinarySearch(graphemes, (int)result.Clusters[i]);
@@ -569,7 +566,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         SKPath fillPath = fillBuilder.Detach();
         SKPath? strokePath = null;
         // Measure from the advance and the letter spacing so leading and trailing spaces count toward the width.
-        int spacingCount = graphemes?.Length ?? (Orientation == TextRunOrientation.Horizontal ? glyphCount : clusterCount);
+        int spacingCount = graphemes?.Length ?? glyphCount;
         float width = MathF.Max(0, (Math.Max(0, spacingCount - 1) * spacing) + advance);
         Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
         Rect fillBounds = actualBounds.Union(nonOutlineBounds);

@@ -13,7 +13,7 @@ public sealed class PreviewEncoder : IDisposable
 
     public PreviewEncoder(int width, int height, bool hdr, bool audio = false)
     {
-        int capacity = audio ? 960 * 2 * sizeof(float) : checked(width * height * (hdr ? 8 : 4));
+        int capacity = PreviewEncodingFormat.BufferBytes(width, height, hdr, audio);
         _buffer = SharedMemoryBuffer.Create($"beutl-preview-{Guid.NewGuid():N}", capacity);
         _settings = new(_buffer.Name, capacity, width, height, hdr, audio);
     }

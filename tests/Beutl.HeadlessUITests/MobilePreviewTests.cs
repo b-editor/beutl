@@ -215,16 +215,17 @@ public sealed class MobilePreviewTests
         using var frame = new MobilePreviewServer.PendingFrame(SolidFrame(0, 0, 0), UIToneMappingOperator.None,
             0, true, 0, 7, 0);
         long nextSample = 0;
+        var samples = new float[960 * 2];
         for (int packet = 0; packet < 50 / frameRate; packet++)
         {
-            var samples = MobilePreviewServer.SampleCurrentAudio(blocks, frame, packet * 0.02, ref nextSample);
-            Assert.That(samples, Is.Not.Null, $"Audio packet {packet} between {frameRate} fps frames.");
-            Assert.That(samples!, Is.All.EqualTo(0.25f));
+            Assert.That(MobilePreviewServer.SampleCurrentAudio(blocks, frame, packet * 0.02, ref nextSample, samples), Is.True,
+                $"Audio packet {packet} between {frameRate} fps frames.");
+            Assert.That(samples, Is.All.EqualTo(0.25f));
             nextSample += 960;
         }
-        Assert.That(MobilePreviewServer.SampleCurrentAudio(blocks, frame with { Playing = false }, 1, ref nextSample), Is.Null);
+        Assert.That(MobilePreviewServer.SampleCurrentAudio(blocks, frame with { Playing = false }, 1, ref nextSample, samples), Is.False);
         Assert.That(nextSample, Is.Zero);
-        Assert.That(MobilePreviewServer.SampleCurrentAudio(blocks, frame with { PlaybackId = 8 }, 1, ref nextSample), Is.Null);
+        Assert.That(MobilePreviewServer.SampleCurrentAudio(blocks, frame with { PlaybackId = 8 }, 1, ref nextSample, samples), Is.False);
     }
 
     [Test]
@@ -247,7 +248,9 @@ public sealed class MobilePreviewTests
         var samples = Enumerable.Repeat(0.25f, 24000 * 2).Concat(Enumerable.Repeat(0.5f, 24000 * 2)).ToArray();
         var blocks = new[] { new AudioFrameSnapshot(samples, 48000, 2, MediaTime.Zero) { PlaybackId = 7 } };
         long nextSample = (long)((clock + 0.55) * 48000);
-        Assert.That(MobilePreviewServer.SampleCurrentAudio(blocks, Frame(), clock + 0.55, ref nextSample), Is.All.EqualTo(0.5f));
+        var packet = new float[960 * 2];
+        Assert.That(MobilePreviewServer.SampleCurrentAudio(blocks, Frame(), clock + 0.55, ref nextSample, packet), Is.True);
+        Assert.That(packet, Is.All.EqualTo(0.5f));
 
         server.Publish(image, UIToneMappingOperator.None, 0, true, 1, 7);
         Assert.That(Frame().Clock, Is.GreaterThan(clock), "A new video frame reanchors the audio timeline.");
@@ -270,21 +273,25 @@ public sealed class MobilePreviewTests
             new AudioFrameSnapshot(Enumerable.Repeat(0.5f, 48000 * 2).ToArray(), 48000, 2, MediaTime.FromSeconds(1)) { PlaybackId = 7 },
             new AudioFrameSnapshot(Enumerable.Repeat(-0.25f, 48000 * 2).ToArray(), 48000, 2, MediaTime.Zero) { PlaybackId = 8 }
         };
-        var sample = MobilePreviewServer.SampleAudio(blocks, 7, 0.99)!;
+        var sample = new float[960 * 2];
+        Assert.That(MobilePreviewServer.SampleAudio(blocks, 7, 0.99, sample), Is.True);
         Assert.That(sample[0], Is.EqualTo(0.25f));
         Assert.That(sample[^1], Is.EqualTo(0.5f));
-        Assert.That(MobilePreviewServer.SampleAudio(blocks, 8, 0)![0], Is.EqualTo(-0.25f));
-        Assert.That(MobilePreviewServer.SampleAudio(blocks, 9, 0), Is.Null);
+        Assert.That(MobilePreviewServer.SampleAudio(blocks, 8, 0, sample), Is.True);
+        Assert.That(sample[0], Is.EqualTo(-0.25f));
+        Assert.That(MobilePreviewServer.SampleAudio(blocks, 9, 0, sample), Is.False);
     }
 
     [Test]
     public void Hdr_conversion_preserves_highlights_above_reference_white()
     {
         using var bitmap = new Bitmap(32, 32, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        var (width, height) = MobilePreviewServer.FrameSize(bitmap);
+        using var converter = new MobilePreviewServer.FrameConverter(width, height, hdr: true);
         bitmap.GetPixelSpan<RgbaF16>().Fill(new RgbaF16((Half)1, (Half)1, (Half)1, (Half)1));
-        ushort white = BinaryPrimitives.ReadUInt16LittleEndian(MobilePreviewServer.ConvertFrame(bitmap, true, UIToneMappingOperator.ACES, 0));
+        ushort white = BinaryPrimitives.ReadUInt16LittleEndian(converter.Convert(bitmap, UIToneMappingOperator.ACES, 0));
         bitmap.GetPixelSpan<RgbaF16>().Fill(new RgbaF16((Half)4, (Half)4, (Half)4, (Half)1));
-        ushort highlight = BinaryPrimitives.ReadUInt16LittleEndian(MobilePreviewServer.ConvertFrame(bitmap, true, UIToneMappingOperator.ACES, 0));
+        ushort highlight = BinaryPrimitives.ReadUInt16LittleEndian(converter.Convert(bitmap, UIToneMappingOperator.ACES, 0));
         Assert.That(white / 65535d, Is.EqualTo(0.581).Within(0.01), "PQ reference white is 203 nits.");
         Assert.That(highlight / 65535d, Is.EqualTo(0.73).Within(0.02));
         Assert.That(highlight, Is.GreaterThan(white));
@@ -705,7 +712,8 @@ public sealed class MobilePreviewTests
     {
         var (width, height) = MobilePreviewServer.FrameSize(image);
         var result = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
-        byte[] pixels = MobilePreviewServer.ConvertFrame(image, false, mode, exposure);
+        using var converter = new MobilePreviewServer.FrameConverter(width, height, hdr: false);
+        byte[] pixels = converter.Convert(image, mode, exposure);
         System.Runtime.InteropServices.Marshal.Copy(pixels, 0, result.GetPixels(), pixels.Length);
         return result;
     }

@@ -9,9 +9,10 @@ internal sealed partial class RenderRequestExecutor
 {
     private sealed partial class RenderRequestExecutionState
     {
-        private ProgramCacheLease<ShaderGraphPipeline> AcquireShaderGraphProgram(VulkanContext context, ShaderPassDescription pass)
-            => ShaderGraphPipeline.Acquire(_graphProgramCache,
-                SpirvShaderProgramCache.CreateContextKey(_programCacheContext), context, pass);
+        private ProgramCacheLease<ShaderGraphPipeline> AcquireShaderGraphProgram(VulkanContext context, ShaderPassDescription pass,
+            ShaderProgramIdentity identity)
+            => ShaderGraphPipeline.Acquire(_programCaches.ShaderGraph,
+                SpirvShaderProgramCache.CreateContextKey(_programCacheContext), context, pass, identity);
 
         private IReadOnlyList<MaterializedRenderValue> ExecuteShaderGraph(RenderFragmentReference fragment,
             ImmediateCanvas currentTarget, EffectiveScale? requestedScale)

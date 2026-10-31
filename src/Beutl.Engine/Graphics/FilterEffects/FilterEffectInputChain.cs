@@ -33,32 +33,16 @@ internal sealed class FilterEffectInputChain : IDisposable
     };
 
     public static List<Entry> Capture(FilterEffect.Resource? effect)
-    {
-        var result = new List<Entry>();
-        var occurrences = new Dictionary<FilterEffect, List<FilterEffect[]>>();
-        Collect(effect, [], true);
-        return result;
+        => Locate(effect, static resource => (resource.RequireOriginal(), resource.IsEnabled), ChildrenOf)
+            .ConvertAll(static leaf => new Entry(leaf.Effect, leaf.Location, leaf.Enabled));
 
-        void Collect(FilterEffect.Resource? current, FilterEffect[] path, bool enabled)
-        {
-            if (current == null) return;
-            FilterEffect original = current.RequireOriginal();
-            path = [.. path, original];
-            switch (current)
-            {
-                case FilterEffectGroup.Resource group:
-                    foreach (var child in group.Children) Collect(child, path, enabled && current.IsEnabled);
-                    break;
-                case FilterEffectPresenter.Resource presenter:
-                    Collect(presenter.Target, path, enabled && current.IsEnabled);
-                    break;
-                default:
-                    int occurrence = NextOccurrence(occurrences, original, path);
-                    result.Add(new Entry(current, new(original, path, occurrence), enabled));
-                    break;
-            }
-        }
-    }
+    // The effects a group or presenter applies, or null for an effect that applies itself.
+    private static IEnumerable<FilterEffect.Resource?>? ChildrenOf(FilterEffect.Resource resource) => resource switch
+    {
+        FilterEffectGroup.Resource group => group.Children,
+        FilterEffectPresenter.Resource presenter => new[] { presenter.Target },
+        _ => null,
+    };
 
     // Resolve reference expressions to find the boundary first. Leaf properties/resources after it are
     // never evaluated: they can contain scene queries, media decoders or another time-sampling effect.
@@ -66,9 +50,12 @@ internal sealed class FilterEffectInputChain : IDisposable
     internal static FilterEffectGroup.Resource EvaluatePrefix(Drawable.Resource source,
         FilterEffect? effect, CompositionContext context, EngineObject.Resource? previous)
     {
-        var locations = new List<(Location Location, bool Enabled)>();
-        var occurrences = new Dictionary<FilterEffect, List<FilterEffect[]>>();
-        Collect(effect, [], true);
+        var locations = Locate(effect, static current => (current, current.IsEnabled.Value), current => current switch
+        {
+            FilterEffectGroup group => group.Children,
+            FilterEffectPresenter presenter => new[] { context.Get(presenter.Target) },
+            _ => null,
+        });
         var paths = locations.Select(static item => item.Location).ToArray();
         int end = paths.Length;
         foreach (var boundary in context.InputBoundaries)
@@ -90,7 +77,7 @@ internal sealed class FilterEffectInputChain : IDisposable
             for (int i = 0; i < end; i++)
             {
                 context.CancellationToken.ThrowIfCancellationRequested();
-                var (location, enabled) = locations[i];
+                var (_, location, enabled) = locations[i];
                 if (!enabled) continue;
                 int match = reusable?.FindIndex(entry => entry.Location.SameAs(location)) ?? -1;
                 FilterEffect.Resource resource;
@@ -125,23 +112,31 @@ internal sealed class FilterEffectInputChain : IDisposable
         prefix.Version++;
         source.EvaluatedInputChain = entries;
         return prefix;
+    }
 
-        void Collect(FilterEffect? current, FilterEffect[] path, bool enabled)
+    // Walks the evaluated and the authored effect trees alike, so a location found in one matches the other.
+    private static List<(T Effect, Location Location, bool Enabled)> Locate<T>(T? root,
+        Func<T, (FilterEffect Original, bool Enabled)> describe, Func<T, IEnumerable<T?>?> childrenOf)
+        where T : class
+    {
+        var leaves = new List<(T Effect, Location Location, bool Enabled)>();
+        var occurrences = new Dictionary<FilterEffect, List<FilterEffect[]>>();
+        Collect(root, [], true);
+        return leaves;
+
+        void Collect(T? current, FilterEffect[] path, bool enabled)
         {
             if (current == null) return;
-            path = [.. path, current];
-            switch (current)
+            var (original, currentEnabled) = describe(current);
+            path = [.. path, original];
+            if (childrenOf(current) is { } children)
             {
-                case FilterEffectGroup group:
-                    foreach (var child in group.Children) Collect(child, path, enabled && current.IsEnabled.Value);
-                    break;
-                case FilterEffectPresenter presenter:
-                    Collect(context.Get(presenter.Target), path, enabled && current.IsEnabled.Value);
-                    break;
-                default:
-                    int occurrence = NextOccurrence(occurrences, current, path);
-                    locations.Add((new(current, path, occurrence), enabled));
-                    break;
+                foreach (var child in children) Collect(child, path, enabled && currentEnabled);
+            }
+            else
+            {
+                int occurrence = NextOccurrence(occurrences, original, path);
+                leaves.Add((current, new(original, path, occurrence), enabled));
             }
         }
     }

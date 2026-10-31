@@ -116,12 +116,12 @@ internal sealed class FFmpegWorkerLogPump : IDisposable
                 string levelText = data.AsSpan(prefix.Length, end - prefix.Length).ToString();
                 LogLevel level = levelText switch
                 {
-                    "Verbose" or "Trace" => LogLevel.Trace,
+                    "Trace" => LogLevel.Trace,
                     "Debug" => LogLevel.Debug,
-                    "Info" or "Information" => LogLevel.Information,
+                    "Information" => LogLevel.Information,
                     "Warning" => LogLevel.Warning,
                     "Error" => LogLevel.Error,
-                    "Fatal" or "Panic" or "Critical" => LogLevel.Critical,
+                    "Critical" => LogLevel.Critical,
                     _ => channel == "stderr" ? LogLevel.Warning : LogLevel.Information,
                 };
                 string message = DecodeMessage(data.AsSpan(end + 1).TrimStart());

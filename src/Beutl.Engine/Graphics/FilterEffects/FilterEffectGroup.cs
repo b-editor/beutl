@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
@@ -49,6 +50,42 @@ public sealed partial class FilterEffectGroup : FilterEffect
                     context.Apply(item);
                 }
             });
+        }
+
+        internal override PushedState PushInto(GraphicsContext2D context)
+        {
+            if (!ControlsContinuation)
+            {
+                for (int i = Children.Count - 1; i >= 0; i--)
+                {
+                    context.PushFilterEffect(Children[i]);
+                }
+
+                return new PushedState(context, context.Depth);
+            }
+
+            if (IsEnabled && ContinuationSuffixResource is { } suffix)
+            {
+                // The continuation and the effects it controls record into one node outside the earlier children,
+                // which keep their own nodes and so need not be recordable by FilterEffectContext. A disabled group
+                // stays one node, which passes its input through.
+                int level = context.Depth + 1;
+                suffix.Push(context);
+                PushContinuationPrefix(context);
+                return new PushedState(context, level);
+            }
+
+            return Push(context);
+        }
+
+        // Pushes outermost first, so a nested group's earlier children apply after the outer group's earlier children.
+        private void PushContinuationPrefix(GraphicsContext2D context)
+        {
+            NestedContinuationGroup?.PushContinuationPrefix(context);
+            for (int i = ContinuationStart - 1; i >= 0; i--)
+            {
+                context.PushFilterEffect(Children[i]);
+            }
         }
 
         // A nested group that splits contributes only its suffix, since its earlier children have their own nodes.

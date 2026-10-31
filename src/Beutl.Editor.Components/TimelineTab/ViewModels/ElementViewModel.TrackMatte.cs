@@ -9,7 +9,7 @@ namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
 public sealed partial class ElementViewModel
 {
-    public ReadOnlyReactivePropertySlim<string?> MatteIndicator { get; private set; } = null!;
+    public ReactivePropertySlim<string?> MatteIndicator { get; } = new();
 
     public void SetMatteSource(MatteSourceKind kind, int? zIndex = null)
     {
@@ -32,7 +32,7 @@ public sealed partial class ElementViewModel
 
     private void InitializeTrackMatte()
     {
-        MatteIndicator = Model.MatteSourceZIndex.GetObservable()
+        Model.MatteSourceZIndex.GetObservable()
             .CombineLatest(Model.MatteSourceKind.GetObservable(), Model.MatteMode.GetObservable(), Model.ZIndex.GetObservable(),
                 (source, kind, mode, own) =>
                 {
@@ -45,6 +45,6 @@ public sealed partial class ElementViewModel
                         _ => null,
                     };
                 })
-            .ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
+            .Subscribe(v => MatteIndicator.Value = v).DisposeWith(_disposables);
     }
 }

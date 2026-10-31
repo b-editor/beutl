@@ -23,7 +23,7 @@ namespace Beutl.Views;
 
 public partial class PlayerView
 {
-    private sealed class MouseControlTransformHandles : IMouseControlHandler
+    private sealed class MouseControlTransformHandles : IEditingInteraction
     {
         // Drag lifecycle: Press → (first OnMoved → Ensure) → Move* → Release.
         // _ensured == null means Press fired but no mouse movement yet — Ensure (which mutates the

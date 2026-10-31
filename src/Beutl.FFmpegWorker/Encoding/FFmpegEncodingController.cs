@@ -309,45 +309,14 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
         // Resolve unspecified values at encode time so saved presets and all callers get the same defaults.
         if (context.ColorTrc == AVColorTransferCharacteristic.AVCOL_TRC_UNSPECIFIED)
-            context.ColorTrc = ToFFmpeg(defaults.Transfer);
+            context.ColorTrc = ColorSpaceHelper.ToFFmpeg(defaults.Transfer);
         if (context.ColorPrimaries == AVColorPrimaries.AVCOL_PRI_UNSPECIFIED)
-            context.ColorPrimaries = ToFFmpeg(defaults.Primaries);
+            context.ColorPrimaries = ColorSpaceHelper.ToFFmpeg(defaults.Primaries);
         if (context.Colorspace == AVColorSpace.AVCOL_SPC_UNSPECIFIED)
-            context.Colorspace = ToFFmpeg(defaults.Matrix);
+            context.Colorspace = ColorSpaceHelper.ToFFmpeg(defaults.Matrix);
         if (context.ColorRange == AVColorRange.AVCOL_RANGE_UNSPECIFIED)
-            context.ColorRange = ToFFmpeg(defaults.Range);
+            context.ColorRange = ColorSpaceHelper.ToFFmpeg(defaults.Range);
     }
-
-    // Only the values VideoColorDefaults returns need a mapping; the rest stay unspecified.
-    private static AVColorTransferCharacteristic ToFFmpeg(BitmapColorTransfer transfer) => transfer switch
-    {
-        BitmapColorTransfer.Srgb => AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_1,
-        BitmapColorTransfer.Bt709 => AVColorTransferCharacteristic.AVCOL_TRC_BT709,
-        _ => AVColorTransferCharacteristic.AVCOL_TRC_UNSPECIFIED,
-    };
-
-    private static AVColorPrimaries ToFFmpeg(BitmapColorPrimaries primaries) => primaries switch
-    {
-        BitmapColorPrimaries.Bt709 => AVColorPrimaries.AVCOL_PRI_BT709,
-        BitmapColorPrimaries.Rec2020 => AVColorPrimaries.AVCOL_PRI_BT2020,
-        _ => AVColorPrimaries.AVCOL_PRI_UNSPECIFIED,
-    };
-
-    private static AVColorSpace ToFFmpeg(VideoColorMatrix matrix) => matrix switch
-    {
-        VideoColorMatrix.Identity => AVColorSpace.AVCOL_SPC_RGB,
-        VideoColorMatrix.Bt709 => AVColorSpace.AVCOL_SPC_BT709,
-        VideoColorMatrix.Bt601 => AVColorSpace.AVCOL_SPC_SMPTE170M,
-        VideoColorMatrix.Bt2020 => AVColorSpace.AVCOL_SPC_BT2020_NCL,
-        _ => AVColorSpace.AVCOL_SPC_UNSPECIFIED,
-    };
-
-    private static AVColorRange ToFFmpeg(VideoColorRange range) => range switch
-    {
-        VideoColorRange.Limited => AVColorRange.AVCOL_RANGE_MPEG,
-        VideoColorRange.Full => AVColorRange.AVCOL_RANGE_JPEG,
-        _ => AVColorRange.AVCOL_RANGE_UNSPECIFIED,
-    };
 
     // Bitstreams with a colour description, or containers that store one for any codec.
     private static bool RecordsColor(AVCodecID codec, OutputFormat format)

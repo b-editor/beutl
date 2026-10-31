@@ -18,6 +18,7 @@ internal sealed class VerticalTextLayout : IDisposable
 
     public VerticalTextLayout(TextElements elements, Dictionary<(SKTypeface Typeface, string Cluster), bool> alternates)
     {
+        var shapers = new Dictionary<SKTypeface, TextShaper>();
         try
         {
             FormattedText? lastSource = null;
@@ -36,12 +37,14 @@ internal sealed class VerticalTextLayout : IDisposable
                         width = MathF.Max(width, MeasureEmptyColumn(source));
                     int start = 0;
                     bool? previousSideways = null;
+                    using SKFont font = source.ToSKFont();
                     var enumerator = StringInfo.GetTextElementEnumerator(text);
                     while (enumerator.MoveNext())
                     {
                         string cluster = enumerator.GetTextElement();
                         int orientation = VerticalOrientation.Get(cluster);
-                        bool sideways = orientation == 0 || (orientation == 2 && !HasVerticalAlternate(source, cluster, alternates));
+                        bool sideways = orientation == 0
+                            || (orientation == 2 && !HasVerticalAlternate(source, font, cluster, alternates, shapers));
                         if (previousSideways is { } previous && previous != sideways)
                         {
                             AddRun(source, text[start..enumerator.ElementIndex], previous);
@@ -89,6 +92,11 @@ internal sealed class VerticalTextLayout : IDisposable
             Dispose();
             throw;
         }
+        finally
+        {
+            foreach (TextShaper shaper in shapers.Values)
+                shaper.Dispose();
+        }
     }
 
     private static float MeasureColumnWidth(float size, FontMetrics metrics)
@@ -110,10 +118,9 @@ internal sealed class VerticalTextLayout : IDisposable
             * Matrix.CreateTranslation(center + (metrics.Ascent + metrics.Descent) / 2, top + run.Offset);
     }
 
-    private static bool HasVerticalAlternate(FormattedText source, string cluster,
-        Dictionary<(SKTypeface Typeface, string Cluster), bool> alternates)
+    private static bool HasVerticalAlternate(FormattedText source, SKFont font, string cluster,
+        Dictionary<(SKTypeface Typeface, string Cluster), bool> alternates, Dictionary<SKTypeface, TextShaper> shapers)
     {
-        using var font = source.ToSKFont();
         foreach (TextFontFallback.Run run in TextFontFallback.GetRuns(cluster.AsSpan(), font, source.Style, source.Weight))
         {
             var key = (run.Typeface, cluster);
@@ -123,7 +130,12 @@ internal sealed class VerticalTextLayout : IDisposable
                     return true;
                 continue;
             }
-            using var shaper = new TextShaper(run.Typeface);
+            if (!shapers.TryGetValue(run.Typeface, out TextShaper? shaper))
+            {
+                // Opening the same font data per cluster dominates text with many rotatable clusters.
+                shaper = new TextShaper(run.Typeface);
+                shapers.Add(run.Typeface, shaper);
+            }
             using var horizontal = new HarfBuzzSharp.Buffer();
             horizontal.AddUtf16(cluster.AsSpan(), run.Start, run.Length);
             horizontal.GuessSegmentProperties();

@@ -124,11 +124,7 @@ public readonly struct ClipTransitionContext
 
     public void DrawIris(Brush.Resource mask, bool close)
     {
-        if (progress <= 0 || progress >= 1)
-        {
-            DrawClip(progress <= 0 ? from : to);
-            return;
-        }
+        if (DrawSettledSide()) return;
 
         var bounds = new Rect(graphics.Size);
         float halfDiagonal = MathF.Sqrt((bounds.Width * bounds.Width) + (bounds.Height * bounds.Height)) / 2;
@@ -303,6 +299,18 @@ public readonly struct ClipTransitionContext
         {
             DrawClip(drawables);
         }
+    }
+
+    // At either end the transition has settled on one side, which is drawn on its own. Returns whether it did.
+    internal bool DrawSettledSide()
+    {
+        if (progress <= 0 || progress >= 1)
+        {
+            DrawClip(progress <= 0 ? from : to);
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>

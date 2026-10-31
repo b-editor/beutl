@@ -14,10 +14,9 @@ internal static unsafe class ShaderGraphTransfers
         if (transfer.Kind == ShaderTransferKind.GenerateMipmaps)
         {
             var image = (ShaderImage)transfer.Destination;
-            context.Vk.GetPhysicalDeviceFormatProperties(context.PhysicalDevice, image.Format.ToVulkanFormat(), out FormatProperties properties);
             var required = FormatFeatureFlags.BlitSrcBit | FormatFeatureFlags.BlitDstBit;
             if (transfer.Filter == SamplerFilter.Linear) required |= FormatFeatureFlags.SampledImageFilterLinearBit;
-            if ((properties.OptimalTilingFeatures & required) != required)
+            if (!ShaderGraphPipeline.SupportsOptimalTiling(context, image.Format, required))
                 throw new NotSupportedException($"Format {image.Format} does not support mip generation with {transfer.Filter} filtering.");
         }
     }

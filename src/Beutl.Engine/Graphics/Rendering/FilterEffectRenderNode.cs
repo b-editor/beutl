@@ -291,8 +291,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             {
                 // Group-relative origins need every value-producing child in the same segment.
                 // The segment preserves the input stream instead of freezing a per-child center.
-                case FEItem_ShaderGraph graph when !opaqueTail && (current.Count <= 1
-                    || !graph.Description.Passes.Any(static pass => pass.BoundsOriginConstants.HasValue)):
+                case FEItem_ShaderGraph graph when !opaqueTail && (current.Count <= 1 || !graph.Description.UsesGroupOrigin):
                     FlushEffectItems();
                     current = current.Select(input => context.ShaderGraph(
                         input, graph.Description, pendingWorkingScalePolicy)).ToArray();

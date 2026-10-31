@@ -21,9 +21,7 @@ public sealed class RenderNodeRenderer : IDisposable
 {
     private readonly RenderTargetPool _targetPool;
     private readonly StructuralPlanCache _structuralPlanCache;
-    private readonly ProgramCache<CachedSkRuntimeEffect> _programCache;
-    private readonly ProgramCache<GLSLFilterPipeline> _spirvProgramCache;
-    private readonly ProgramCache<ShaderGraphPipeline> _graphProgramCache;
+    private readonly RenderProgramCaches _programCaches;
     private RenderCacheDeviceContextIdentity? _programCacheContext;
 
     /// <summary>Creates a renderer for a caller-owned root node.</summary>
@@ -54,9 +52,7 @@ public sealed class RenderNodeRenderer : IDisposable
         DefaultRequest = CopyAndSanitizeRequest(defaultRequest);
         _targetPool = new RenderTargetPool(targetFactory);
         _structuralPlanCache = new StructuralPlanCache();
-        _programCache = SkRuntimeEffectProgramCache.Create();
-        _spirvProgramCache = SpirvShaderProgramCache.Create();
-        _graphProgramCache = ShaderGraphPipeline.CreateCache();
+        _programCaches = RenderProgramCaches.Create();
     }
 
     /// <summary>Gets the caller-owned root node.</summary>
@@ -73,9 +69,7 @@ public sealed class RenderNodeRenderer : IDisposable
     internal StructuralPlanCacheStatistics StructuralPlanCacheStatistics
         => _structuralPlanCache.Statistics;
 
-    internal ProgramCacheStatistics ProgramCacheStatistics
-        => CombineProgramCacheStatistics(
-            CombineProgramCacheStatistics(_programCache.Statistics, _spirvProgramCache.Statistics), _graphProgramCache.Statistics);
+    internal ProgramCacheStatistics ProgramCacheStatistics => _programCaches.Statistics;
 
     internal RenderTargetPoolStatistics TargetPoolStatistics => _targetPool.Statistics;
 
@@ -159,8 +153,7 @@ public sealed class RenderNodeRenderer : IDisposable
             owner = request.Request.Options.Owner;
             var executor = new RenderRequestExecutor(
                 targets,
-                _programCache,
-                spirvProgramCache: _spirvProgramCache, graphProgramCache: _graphProgramCache,
+                _programCaches,
                 cancellationToken: cancellationToken);
             if (!hasInvertibleDestination && !request.Measurement.HasTargetEffects)
             {
@@ -397,10 +390,7 @@ public sealed class RenderNodeRenderer : IDisposable
 
                 try
                 {
-                    var executor = new RenderRequestExecutor(
-                        targets,
-                        _programCache,
-                        spirvProgramCache: _spirvProgramCache, graphProgramCache: _graphProgramCache);
+                    var executor = new RenderRequestExecutor(targets, _programCaches);
                     executor.Execute(
                         request,
                         canvas,
@@ -428,10 +418,7 @@ public sealed class RenderNodeRenderer : IDisposable
             }
             else
             {
-                var executor = new RenderRequestExecutor(
-                    targets,
-                    _programCache,
-                    spirvProgramCache: _spirvProgramCache, graphProgramCache: _graphProgramCache);
+                var executor = new RenderRequestExecutor(targets, _programCaches);
                 executor.CompleteEmptySelection(request);
                 LastExecutionStatistics = executor.Statistics;
             }
@@ -593,9 +580,7 @@ public sealed class RenderNodeRenderer : IDisposable
 
         IsDisposed = true;
         _targetPool.Dispose();
-        _programCache.Dispose();
-        _spirvProgramCache.Dispose();
-        _graphProgramCache.Dispose();
+        _programCaches.Dispose();
         _structuralPlanCache.Dispose();
     }
 
@@ -650,28 +635,11 @@ public sealed class RenderNodeRenderer : IDisposable
         RenderCacheDeviceContextIdentity current = targets.CacheDeviceContextIdentity;
         if (_programCacheContext is { } previous && previous != current)
         {
-            _programCache.EvictContext(
-                previous.DeviceIdentity,
-                previous.ContextIdentity);
-            _graphProgramCache.EvictContext(previous.DeviceIdentity, previous.ContextIdentity);
-            _spirvProgramCache.EvictContext(
-                previous.DeviceIdentity,
-                previous.ContextIdentity);
+            _programCaches.EvictContext(previous.DeviceIdentity, previous.ContextIdentity);
         }
 
         _programCacheContext = current;
     }
-
-    private static ProgramCacheStatistics CombineProgramCacheStatistics(
-        ProgramCacheStatistics sksl,
-        ProgramCacheStatistics spirv)
-        => new(
-            sksl.Hits + spirv.Hits,
-            sksl.Misses + spirv.Misses,
-            sksl.Creations + spirv.Creations,
-            sksl.Evictions + spirv.Evictions,
-            sksl.RetainedPrograms + spirv.RetainedPrograms,
-            sksl.RetainedBytes + spirv.RetainedBytes);
 
     private RenderRequest CreateRequest(
         RenderRequestPurpose purpose,

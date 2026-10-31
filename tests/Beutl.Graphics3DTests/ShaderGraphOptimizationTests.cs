@@ -190,7 +190,7 @@ public sealed class ShaderGraphOptimizationTests
                 Is.EqualTo(density), "The native input copy must not shrink when the output density changes.");
             var context = GpuTestEnvironment.ResolveVulkan(GraphicsContextFactory.SharedContext!);
             PixelRect pixels = PixelRect.FromRect(bounds, density);
-            using ITexture2D source = context.CreateTexture2D(sourceSize.Width, sourceSize.Height, TextureFormat.RGBA16Float, usage);
+            using ITexture2D source = new VulkanTexture2D(context, sourceSize.Width, sourceSize.Height, TextureFormat.RGBA16Float, usage);
             using ITexture2D output = context.CreateTexture2D(pixels.Width, pixels.Height, TextureFormat.RGBA16Float);
             using (IRenderPass3D clear = context.CreateRenderPass3D([TextureFormat.RGBA16Float], null))
             using (IFramebuffer3D framebuffer = context.CreateFramebuffer3D(clear, [source], null))
@@ -201,7 +201,7 @@ public sealed class ShaderGraphOptimizationTests
             using ProgramCache<ShaderGraphPipeline> cache = ShaderGraphPipeline.CreateCache();
             ShaderGraphExecutionStatistics statistics = ShaderGraphExecutor.Execute(graph, source,
                 new(bounds, bounds, sourceSize, 1), output, density, default,
-                (device, pass) => ShaderGraphPipeline.Acquire(cache, new(context, context, "test", "test"), device, pass));
+                (device, pass, identity) => ShaderGraphPipeline.Acquire(cache, new(context, context, "test", "test"), device, pass, identity));
             Assert.That(statistics.PeakResourceBytes, Is.LessThanOrEqualTo(ShaderGraphExecutor.MaximumTransientBytes));
             Assert.That(statistics.ImageAllocations, Is.EqualTo(sourceSupportsStorage ? 2 : 3));
             ReadOnlySpan<Half> values = MemoryMarshal.Cast<byte, Half>(output.DownloadPixels());

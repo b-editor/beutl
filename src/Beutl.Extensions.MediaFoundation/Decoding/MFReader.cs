@@ -72,7 +72,7 @@ public class MFReader : MediaReader
                         info.TotalFrameCount,
                         new PixelSize(info.ImageFormat.Width, info.ImageFormat.Height),
                         new Rational(info.Fps.Numerator, info.Fps.Denominator));
-                    _colorSpace = BitmapColorSpaceMapping.BuildTargetColorSpace(info.Transfer, info.Primaries);
+                    _colorSpace = BitmapColorSpaceMapping.BuildTargetColorSpace(info.Color.Transfer, info.Color.Primaries);
                     HasVideo = true;
                 }
                 catch (NoVideoStreamException) when (options.StreamsToLoad.HasFlag(MediaMode.Audio))
@@ -225,7 +225,7 @@ public class MFReader : MediaReader
                 fixed (byte* srcPtr = yuy2Buffer)
                 {
                     YuvConversion.Yuy2ToBgra(srcPtr, (byte*)result.Data, result.RowBytes, w, h,
-                        info.Bt709Matrix, info.FullRange);
+                        info.Color.Matrix == VideoColorMatrix.Bt709, info.Color.Range == VideoColorRange.Full);
                 }
 
                 image = Ref<Bitmap>.Create(result);

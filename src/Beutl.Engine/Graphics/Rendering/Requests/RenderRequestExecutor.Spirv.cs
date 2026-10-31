@@ -63,7 +63,7 @@ internal sealed partial class RenderRequestExecutor
             try
             {
                 lease = SpirvShaderProgramCache.Acquire(
-                    _spirvProgramCache,
+                    _programCaches.Spirv,
                     stageDescription!,
                     graphicsContext!,
                     contextKey);

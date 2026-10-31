@@ -84,8 +84,7 @@ internal sealed partial class LinuxBrowserDownloadHandler
             if (_saving) throw new InvalidOperationException("The native response can only be saved once.");
             _saving = true;
             _progress = progress;
-            string stagingDirectory = Path.Combine(Path.GetFullPath(directory), $".beutl-download-{Guid.NewGuid():N}");
-            string temporaryPath = Path.Combine(stagingDirectory, "response");
+            (string stagingDirectory, string temporaryPath) = BrowserMediaDownload.CreateStagingPaths(directory);
             try
             {
                 Directory.CreateDirectory(stagingDirectory);
@@ -97,7 +96,8 @@ internal sealed partial class LinuxBrowserDownloadHandler
                     });
                     await _finished.Task.WaitAsync(cancellationToken);
                 }
-                return BrowserMediaDownload.PublishGeneratedFile(temporaryPath, directory, _fileName!, cancellationToken);
+                return await BrowserMediaDownload.PublishNativeFileAsync(temporaryPath, directory, _fileName!, IsGenerated, null,
+                    cancellationToken);
             }
             finally
             {
@@ -146,7 +146,7 @@ internal sealed partial class LinuxBrowserDownloadHandler
                     try
                     {
                         if (owner._disposed || offered.IsDisposed) offered.Dispose();
-                        else owner._onGeneratedDownload(offered._creator, name, offered);
+                        else owner._onGeneratedDownload(offered._creator, name, offered, null);
                     }
                     catch
                     {

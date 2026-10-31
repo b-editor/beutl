@@ -40,15 +40,18 @@ public sealed partial class ShaderGraphBuilder
         AddName(_resourceNames, name);
         ImageDescription? description = image.Description;
         if (description is { } desc)
+        {
+            (int width, int height, int depth) = desc.MipExtent(baseMip);
             description = desc with
             {
                 Kind = kind,
-                Width = Math.Max(1, desc.Width >> baseMip),
-                Height = Math.Max(1, desc.Height >> baseMip),
-                Depth = Math.Max(1, desc.Depth >> baseMip),
+                Width = width,
+                Height = height,
+                Depth = depth,
                 ArrayLayers = arrayLayers,
                 MipLevels = mipLevels
             };
+        }
         else if (kind != ImageKind.Image2D)
             throw new ArgumentException("A composition-sized image has one 2D layer.");
         var view = new ShaderImage(this, _resources.Count, name, image.Format, image,
@@ -63,7 +66,7 @@ public sealed partial class ShaderGraphBuilder
     public void Clear(string name, ShaderImage image, ImageClearValue value = default)
     {
         ValidateResource(image);
-        if (image.Format.IsDepthFormat() || image.Format.NumericCategory() != value.Category)
+        if (image.Format.IsDepthFormat() || image.Format.GetNumericType() != value.Category)
             throw new ArgumentException("Clear components must match the image's numeric type.", nameof(value));
         AddTransfer(name, new(ShaderTransferKind.ClearImage, null, image, value));
     }
@@ -112,7 +115,7 @@ public sealed partial class ShaderGraphBuilder
     {
         ValidateResource(image);
         if (image.Format.IsDepthFormat() || image.MipLevels < 2 || !Enum.IsDefined(filter)
-            || image.Format.NumericCategory() != 0 && filter != SamplerFilter.Nearest)
+            || image.Format.GetNumericType() != NumericType.Float && filter != SamplerFilter.Nearest)
             throw new ArgumentException("Mip generation requires a color mip chain; integer formats use nearest filtering.");
         AddTransfer(name, new(ShaderTransferKind.GenerateMipmaps, image, image, Filter: filter));
     }

@@ -2,6 +2,8 @@
 using System.Runtime.InteropServices;
 using Avalonia.Platform;
 
+using static Beutl.Editor.Components.Helpers.ObjCRuntime;
+
 namespace Beutl.Editor.Components.WebBrowserTab;
 
 internal sealed partial class MacOSAdBlockBackend(nint manager, nint rules) : IBrowserAdBlockBackend
@@ -10,7 +12,6 @@ internal sealed partial class MacOSAdBlockBackend(nint manager, nint rules) : IB
     private nint _manager = manager;
     private nint _rules = rules;
     private bool _enabled;
-    private const string ObjC = "/usr/lib/libobjc.A.dylib";
     private const string SystemLibrary = "/usr/lib/libSystem.B.dylib";
     // Not beforefieldinit, so the libSystem lookup below runs only on first use, which is on macOS.
     static MacOSAdBlockBackend() { }
@@ -71,8 +72,8 @@ internal sealed partial class MacOSAdBlockBackend(nint manager, nint rules) : IB
         var state = GCHandle.Alloc(completion);
         // A copied Objective-C block retains its captured GCHandle until the one-shot completion.
         nint copied = CreateBlock((nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, void>)&OnCompiled, GCHandle.ToIntPtr(state));
-        nint identifier = CreateString("beutl-adblock-" + Guid.NewGuid().ToString("N"));
-        nint source = CreateString(json);
+        nint identifier = NewString("beutl-adblock-" + Guid.NewGuid().ToString("N"));
+        nint source = NewString(json);
         try
         {
             nint store = Send(GetClass("WKContentRuleListStore"), Selector("defaultStore"));
@@ -110,7 +111,7 @@ internal sealed partial class MacOSAdBlockBackend(nint manager, nint rules) : IB
             {
                 nint description = error == 0 ? 0 : Send(error, Selector("localizedDescription"));
                 string message = description == 0 ? "WebKit could not compile the filter list."
-                    : Marshal.PtrToStringUTF8(Send(description, Selector("UTF8String"))) ?? "Invalid filter list.";
+                    : ToManagedString(description) ?? "Invalid filter list.";
                 completion.TrySetException(new InvalidDataException(message));
             }
         }
@@ -153,14 +154,6 @@ internal sealed partial class MacOSAdBlockBackend(nint manager, nint rules) : IB
         internal nint State;
     }
 
-    private static nint CreateString(string value) => InitString(Send(GetClass("NSString"), Selector("alloc")), Selector("initWithUTF8String:"), value);
-    [LibraryImport(ObjC, EntryPoint = "objc_getClass", StringMarshalling = StringMarshalling.Utf8)] private static partial nint GetClass(string name);
-    [LibraryImport(ObjC, EntryPoint = "sel_registerName", StringMarshalling = StringMarshalling.Utf8)] private static partial nint Selector(string name);
-    [LibraryImport(ObjC, EntryPoint = "objc_msgSend")] private static partial nint Send(nint receiver, nint selector);
-    [LibraryImport(ObjC, EntryPoint = "objc_msgSend")] private static partial nint Send(nint receiver, nint selector, nint argument);
-    [LibraryImport(ObjC, EntryPoint = "objc_msgSend")] private static partial nint Send(nint receiver, nint selector, nint first, nint second);
-    [LibraryImport(ObjC, EntryPoint = "objc_msgSend")] private static partial nint Send(nint receiver, nint selector, nint first, nint second, nint third);
-    [LibraryImport(ObjC, EntryPoint = "objc_msgSend", StringMarshalling = StringMarshalling.Utf8)] private static partial nint InitString(nint receiver, nint selector, string value);
     [LibraryImport(SystemLibrary, EntryPoint = "_Block_copy")] private static partial nint BlockCopy(ref Block block);
     [LibraryImport(SystemLibrary, EntryPoint = "_Block_release")] private static partial void BlockRelease(nint block);
 }

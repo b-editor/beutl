@@ -170,57 +170,36 @@ internal partial class WebBrowserTabView
         }
     }
 
-    internal async Task UpdatePageTitleAsync(Uri uri)
+    internal Task UpdatePageTitleAsync(Uri uri)
+    {
+        WebBrowserTabViewModel? viewModel = _viewModel;
+        if (viewModel == null) return Task.CompletedTask;
+        return QueryPageAsync(_getPageTitle, () => ReferenceEquals(_viewModel, viewModel),
+            title => viewModel.SetPageTitle(uri, title));
+    }
+
+    internal Task OfferInlineMediaPageAsync(Uri uri)
+    {
+        // On Linux a page-initiated navigation start changes the download document, not the page revision.
+        int documentId = _pageDownloadDocumentId;
+        // WebKit reports the response type of a document it shows as media.
+        return QueryPageAsync(_getPageContentType, () => documentId == _pageDownloadDocumentId, contentType =>
+        {
+            if (BrowserMediaDownload.IsMediaType(contentType)) QueuePageDownloadRequest(uri, null);
+        });
+    }
+
+    // Runs a page script and applies its answer on the UI thread, unless the page has changed since it was asked.
+    private async Task QueryPageAsync(Func<NativeWebView, Task<string?>> query, Func<bool> isCurrent, Action<string?> apply)
     {
         NativeWebView? webView = _webView;
-        WebBrowserTabViewModel? viewModel = _viewModel;
         int revision = _pageRevision;
-        if (webView == null || viewModel == null)
-        {
-            return;
-        }
+        if (webView == null) return;
 
         string? result;
         try
         {
-            result = await _getPageTitle(webView);
-        }
-        catch
-        {
-            return;
-        }
-
-        string? title = NormalizePageTitle(result);
-        try
-        {
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (!_disposed && revision == _pageRevision
-                    && ReferenceEquals(_webView, webView) && ReferenceEquals(_viewModel, viewModel))
-                {
-                    viewModel.SetPageTitle(uri, title);
-                }
-            });
-        }
-        catch
-        {
-            // The dispatcher can be shutting down while a tab is being closed.
-        }
-    }
-
-    internal async Task OfferInlineMediaPageAsync(Uri uri)
-    {
-        NativeWebView? webView = _webView;
-        int revision = _pageRevision;
-        // On Linux a page-initiated navigation start changes the download document, not the page revision.
-        int documentId = _pageDownloadDocumentId;
-        if (webView == null) return;
-
-        string? contentType;
-        try
-        {
-            // WebKit reports the response type of a document it shows as media.
-            contentType = NormalizePageTitle(await _getPageContentType(webView));
+            result = NormalizePageTitle(await query(webView));
         }
         catch
         {
@@ -231,10 +210,9 @@ internal partial class WebBrowserTabView
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (!_disposed && revision == _pageRevision && documentId == _pageDownloadDocumentId
-                    && ReferenceEquals(_webView, webView) && BrowserMediaDownload.IsMediaType(contentType))
+                if (!_disposed && revision == _pageRevision && ReferenceEquals(_webView, webView) && isCurrent())
                 {
-                    QueuePageDownloadRequest(uri, null);
+                    apply(result);
                 }
             });
         }
@@ -347,7 +325,8 @@ internal partial class WebBrowserTabView
     private bool NavigateWithReferrer(NativeWebView webView, Uri uri, Uri referrer)
     {
         string value = BrowserMediaDownload.FormatReferrerHeader(referrer);
-        return webView.TryGetPlatformHandle() switch
+        IPlatformHandle? handle = webView.TryGetPlatformHandle();
+        return handle switch
         {
             // WebView2 answers later; a refusal then navigates without the referrer, unless the tab has moved on.
             IWindowsWebView2PlatformHandle windows when OperatingSystem.IsWindows() => WindowsReferrerNavigation.TryNavigate(windows, uri, value,
@@ -357,8 +336,8 @@ internal partial class WebBrowserTabView
                         webView.Navigate(uri);
                 }),
             IAppleWKWebViewPlatformHandle apple when OperatingSystem.IsMacOS() => MacOSReferrerNavigation.TryNavigate(apple, uri, value),
-            IGtkWebViewPlatformHandle gtk when OperatingSystem.IsLinux() => LinuxReferrerNavigation.TryNavigate(gtk.WebKitWebView, false, uri, value),
-            ILinuxWpePlatformHandle wpe when OperatingSystem.IsLinux() => LinuxReferrerNavigation.TryNavigate(wpe.WebKitWebView, true, uri, value),
+            _ when OperatingSystem.IsLinux() && LinuxWebKit.TryGetWebView(handle, out nint linux, out bool wpe)
+                => LinuxReferrerNavigation.TryNavigate(linux, wpe, uri, value),
             _ => false
         };
     }

@@ -20,7 +20,7 @@ namespace Beutl.Views;
 
 public partial class PlayerView
 {
-    private sealed class MouseControl3DCamera : IMouseControlHandler
+    private sealed class MouseControl3DCamera : IEditingInteraction
     {
         private bool _rightPressed;
         private bool _leftPressed;

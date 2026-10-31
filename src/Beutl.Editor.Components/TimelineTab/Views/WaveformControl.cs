@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.VisualTree;
 using Beutl.Engine;
 
@@ -14,6 +15,7 @@ public sealed class WaveformControl : Control
     public static readonly StyledProperty<IBrush?> WaveformBrushProperty =
         AvaloniaProperty.Register<WaveformControl, IBrush?>(nameof(WaveformBrush), Brushes.White);
 
+    private static readonly IImmutableBrush s_highlightBrush = new ImmutableSolidColorBrush(Color.FromArgb(90, 245, 150, 45));
     private readonly Dictionary<int, WaveformChunk> _chunks = new();
     private ScrollViewer? _scrollViewer;
     private IReadOnlyList<(double Start, double End)> _highlights = [];
@@ -100,7 +102,7 @@ public sealed class WaveformControl : Control
             double left = Math.Clamp(range.Start, 0, 1) * width;
             double right = Math.Clamp(range.End, 0, 1) * width;
             if (right > left)
-                context.FillRectangle(new SolidColorBrush(Color.FromArgb(90, 245, 150, 45)), new Rect(left, 0, right - left, height));
+                context.FillRectangle(s_highlightBrush, new Rect(left, 0, right - left, height));
         }
 
         var (startIndex, endIndex) = TimelineSlotRange.Compute(this, _scrollViewer, count, buffer: 1);

@@ -23,7 +23,7 @@ public sealed class VulkanTextureTransferTests
             ImageUsageFlags usage = ImageUsageFlags.StorageBit | ImageUsageFlags.SampledBit
                 | ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
             if (colorAttachment) usage |= ImageUsageFlags.ColorAttachmentBit;
-            using VulkanTexture2D destination = context.CreateTexture2D(width, height, TextureFormat.RGBA8Unorm, usage);
+            using var destination = new VulkanTexture2D(context, width, height, TextureFormat.RGBA8Unorm, usage);
 
             context.CopyTexture(source, destination);
 

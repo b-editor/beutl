@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 
 namespace Beutl.Graphics.Shaders;
 
@@ -20,11 +21,11 @@ internal sealed class ShaderInterface
     private readonly Dictionary<(uint Location, uint Component, bool Patch), string> _outputs = [];
 
     internal sealed record Binding(int Slot, DescriptorType Type, int MinimumSize, int ArrayStride,
-        bool ReadOnly, TextureFormat? ImageFormat, ImageKind? Kind, int NumericCategory, bool Comparison);
+        bool ReadOnly, TextureFormat? ImageFormat, ImageKind? Kind, NumericType? NumericType, bool Comparison);
 
     public List<Binding> Bindings { get; } = [];
     public HashSet<int> ColorLocations { get; } = [];
-    private readonly Dictionary<int, int> _colorCategories = [];
+    private readonly Dictionary<int, NumericType> _colorCategories = [];
     public Dictionary<uint, uint> ExecutionModes { get; } = [];
     public HashSet<uint> Capabilities { get; } = [];
     public (uint X, uint Y, uint Z) LocalSize { get; private set; } = (1, 1, 1);
@@ -127,12 +128,12 @@ internal sealed class ShaderInterface
             if (storage == 3 && stage == ShaderStage.Fragment
                 && _decorations.TryGetValue((id, 30), out uint location))
             {
-                if (NumericCategory(type) < 0
+                if (NumericTypeOf(type) is not { } colorType
                     || _decorations.GetValueOrDefault((id, 31u)) != 0
                     || _decorations.GetValueOrDefault((id, 32u)) != 0)
                     throw new NotSupportedException($"Color location {location}: a 32-bit scalar or vector output without component packing or dual-source blending is required.");
                 ColorLocations.Add(checked((int)location));
-                _colorCategories.Add((int)location, NumericCategory(type));
+                _colorCategories.Add((int)location, colorType);
                 continue;
             }
             if (storage is not (0 or 2 or 12))
@@ -149,7 +150,7 @@ internal sealed class ShaderInterface
             bool readOnly = true;
             TextureFormat? imageFormat = null;
             ImageKind? kind = null;
-            int category = 0;
+            NumericType? numericType = null;
             bool comparison = false;
             if (storage == 0 && op is 25 or 27)
             {
@@ -165,9 +166,9 @@ internal sealed class ShaderInterface
                     (3, 1) => ImageKind.CubeArray,
                     _ => throw new NotSupportedException($"Binding {slot}: unsupported image dimensionality."),
                 };
-                category = NumericCategory(image[0]);
+                numericType = NumericTypeOf(image[0]);
                 comparison = image[2] == 1;
-                if (category < 0)
+                if (numericType is null)
                     throw new NotSupportedException($"Binding {slot}: image components must use 32-bit float or integer types.");
                 descriptor = op == 27 ? DescriptorType.CombinedImageSampler : DescriptorType.StorageImage;
                 if (descriptor == DescriptorType.StorageImage)
@@ -209,7 +210,7 @@ internal sealed class ShaderInterface
             }
             else
                 throw new NotSupportedException($"Binding {slot}: this shader resource type is not supported yet.");
-            Bindings.Add(new(checked((int)slot), descriptor, size, stride, readOnly, imageFormat, kind, category, comparison));
+            Bindings.Add(new(checked((int)slot), descriptor, size, stride, readOnly, imageFormat, kind, numericType, comparison));
         }
     }
 
@@ -319,25 +320,30 @@ internal sealed class ShaderInterface
                     Validate(args[0], checked(location + i * LocationCount(args[0])));
                 return;
             }
-            if (op == 23)
-                (op, args) = _types[args[0]];
-            int category = op == 22 ? 0 : op == 21 ? (args[1] == 1 ? 1 : 2) : -1;
+            NumericType? numericType = NumericTypeOf(type);
             if (!pass.Draw.Attributes.Any(a => a.Location == location))
                 throw new ArgumentException($"Pass '{pass.Name}': missing vertex attribute at location {location}.");
             VertexAttributeDescription attribute = pass.Draw.Attributes.First(a => a.Location == location);
             // Vulkan fills missing vector components with (0,0,0,1) and discards unused components.
-            // Numeric category and bit width must match, including component-packed shader inputs.
-            if (category < 0 || args[0] != 32 || (int)attribute.Format / 4 != category)
+            // Numeric type and bit width must match, including component-packed shader inputs.
+            if (numericType is null || attribute.Format.GetNumericType() != numericType)
                 throw new ArgumentException($"Pass '{pass.Name}': vertex attribute at location {location} does not match the shader's numeric type.");
         }
     }
 
-    private int NumericCategory(uint type)
+    // A 32-bit scalar, or a vector of up to four of them.
+    private NumericType? NumericTypeOf(uint type)
     {
         (ushort op, uint[] args) = _types[type];
         if (op == 23 && args[1] <= 4) (op, args) = _types[args[0]];
-        return args.Length > 0 && args[0] == 32
-            ? op == 22 ? 0 : op == 21 ? args[1] == 1 ? 1 : 2 : -1 : -1;
+        if (args.Length == 0 || args[0] != 32)
+            return null;
+        return op switch
+        {
+            22 => NumericType.Float,
+            21 => args[1] == 1 ? NumericType.SInt : NumericType.UInt,
+            _ => null,
+        };
     }
 
     private int SizeOf(uint type, int matrixStride = 0, bool rowMajor = false)
@@ -374,19 +380,19 @@ internal sealed class ShaderInterface
     {
         if (stage == ShaderStage.Vertex)
             ValidateVertexInputs(pass);
-        if (PushConstantSize > 128 || pass.Constants.Length < PushConstantSize)
+        if (PushConstantSize > VulkanPipeline3D.MaxPushConstantsSize || pass.Constants.Length < PushConstantSize)
             throw new ArgumentException($"Pass '{pass.Name}' requires {PushConstantSize} push-constant bytes; supplied {pass.Constants.Length}.");
         foreach (Binding declared in Bindings)
         {
             ShaderPassBinding? bound = pass.Bindings.FirstOrDefault(b => b.Binding == declared.Slot);
             if (bound is null || bound.Type != declared.Type)
                 throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: expected {declared.Type}.");
-            if (bound.Metadata && declared.MinimumSize > 48)
+            if (bound.Metadata && declared.MinimumSize > ShaderImageFrame.ParameterSize)
                 throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: image parameters contain three vec4 values.");
             if (declared.ImageFormat is { } format && bound.Resource is ShaderImage image && image.Format != format)
                 throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: shader image format {format} does not match {image.Format}.");
             if (declared.Kind is { } imageKind && bound.Resource is ShaderImage sampled
-                && (sampled.Kind != imageKind || sampled.Format.NumericCategory() != declared.NumericCategory
+                && (sampled.Kind != imageKind || sampled.Format.GetNumericType() != declared.NumericType
                     || declared.Type == DescriptorType.CombinedImageSampler
                         && (declared.Comparison != bound.Sampler.Compare.HasValue || declared.Comparison && !sampled.Format.IsDepthFormat())))
                 throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: image dimensions, numeric type or depth comparison do not match the shader.");
@@ -407,7 +413,7 @@ internal sealed class ShaderInterface
         }
         if (stage == ShaderStage.Fragment)
             foreach (ShaderColorAttachment attachment in pass.Attachments)
-                if (_colorCategories.TryGetValue(attachment.Location, out int category) && category != attachment.Image.Format.NumericCategory())
+                if (_colorCategories.TryGetValue(attachment.Location, out NumericType category) && category != attachment.Image.Format.GetNumericType())
                     throw new ArgumentException($"Pass '{pass.Name}': color location {attachment.Location} does not match the attachment's numeric type.");
         if (stage == ShaderStage.Fragment
             && !ColorLocations.SetEquals(Enumerable.Range(0, pass.Attachments.Length)))

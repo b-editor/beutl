@@ -86,15 +86,6 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
             ? CurrentTime.CombineLatest(owner.TimeRange.GetObservable(), (time, _) => time)
             : CurrentTime;
 
-    public override void UnseparateComponents()
-    {
-        if (!IsElementEditable || PropertyAdapter.IsReadOnly || SeparatedComponents.Value == null
-            || PropertyAdapter.GetEngineProperty() is not IExpressionProperty<TValue> property) return;
-
-        ComponentAnimations.Unseparate(property, CurrentTimeValue);
-        Commit();
-    }
-
     public sealed override void Reset()
     {
         if (!IsElementEditable) return;

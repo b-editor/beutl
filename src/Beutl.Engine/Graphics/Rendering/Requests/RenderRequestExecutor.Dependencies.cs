@@ -11,9 +11,7 @@ internal sealed partial class RenderRequestExecutor
 
     private RenderTargetImageLease ExecuteDependency(
         CompiledRenderRequest parent, RenderNode root, object? owner, object identity, Rect domain, float scale,
-        ImmediateCanvas fallbackDestination, ProgramCache<CachedSkRuntimeEffect> programCache,
-        ProgramCache<GLSLFilterPipeline> spirvProgramCache,
-        ProgramCache<ShaderGraphPipeline> graphProgramCache,
+        ImmediateCanvas fallbackDestination, RenderProgramCaches programCaches,
         ICollection<RenderRequestExecutionState> frames, ICollection<Exception> cleanupFailures)
     {
         _cancellationToken.ThrowIfCancellationRequested();
@@ -42,7 +40,7 @@ internal sealed partial class RenderRequestExecutor
                     SkslBackendBudgetResolver.Resolve(_targets.ExternalTarget?.RawValue.Context?.Backend));
                 parent.AddDynamicDependency(compiled);
                 bool dropped = false;
-                ExecuteNested(compiled, fallbackDestination, programCache, spirvProgramCache, graphProgramCache,
+                ExecuteNested(compiled, fallbackDestination, programCaches,
                     frames, cleanupFailures, ref _dynamicRootAcquisitions, ref dropped, requireTarget: true);
                 if (dropped)
                 {

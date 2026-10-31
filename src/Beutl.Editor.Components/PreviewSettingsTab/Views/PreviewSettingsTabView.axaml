@@ -137,7 +137,7 @@
                     <NumericUpDown Grid.Column="1"
                                    MinWidth="120"
                                    FormatString="F0"
-                                   Maximum="64"
+                                   Maximum="{x:Static viewModel:PreviewGuideSettingsViewModel.GridMaxCells}"
                                    Minimum="1"
                                    Value="{Binding Guides.GridColumns.Value}" />
                     <TextBlock Grid.Row="1"
@@ -147,7 +147,7 @@
                                    Grid.Column="1"
                                    MinWidth="120"
                                    FormatString="F0"
-                                   Maximum="64"
+                                   Maximum="{x:Static viewModel:PreviewGuideSettingsViewModel.GridMaxCells}"
                                    Minimum="1"
                                    Value="{Binding Guides.GridRows.Value}" />
                 </Grid>

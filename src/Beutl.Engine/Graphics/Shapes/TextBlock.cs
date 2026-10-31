@@ -402,16 +402,17 @@ public partial class TextBlock : Drawable
                 _isDirty = true;
             }
 
+            // Alternates are keyed by typeface and cluster, so only font selection invalidates them; text, size,
+            // spacing and paint do not.
+            if (_isDirty)
+                _verticalAlternates?.Clear();
+
             var text = context.Get(obj.Text);
             if (Text != text)
             {
                 Text = text;
                 _isDirty = true;
             }
-
-            // Font selection and text changes invalidate alternates; size, spacing and paint do not.
-            if (_isDirty)
-                _verticalAlternates?.Clear();
 
             var size = context.Get(obj.Size);
             if (Size != size)

@@ -6,7 +6,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Threading;
-using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Logging;
@@ -33,7 +32,6 @@ public sealed partial class TimelineTabView : UserControl
     private readonly CompositeDisposable _disposables = [];
     private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;
     private readonly Func<TopLevel, IDisposable?> _attachNativeInput;
-    private readonly Action<Visual, ulong> _alignmentFeedback;
     private TopLevel? _nativeInputRoot;
     private IDisposable? _nativeInputRegistration;
     private CancellationTokenSource? _scrollCts;
@@ -45,11 +43,10 @@ public sealed partial class TimelineTabView : UserControl
     }
 
     internal TimelineTabView(Func<PointerWheelEventArgs, bool> usesGestureAxes,
-        Func<TopLevel, IDisposable?>? attachNativeInput = null, Action<Visual, ulong>? alignmentFeedback = null)
+        Func<TopLevel, IDisposable?>? attachNativeInput = null)
     {
         _usesGestureAxes = usesGestureAxes;
         _attachNativeInput = attachNativeInput ?? NativeScrollInput.Attach;
-        _alignmentFeedback = alignmentFeedback ?? NativeHapticFeedback.PerformAlignment;
         _rulerDrag = new TimelineRulerDrag(() => _mouseFlag = MouseFlags.Free);
         InitializeComponent();
         TimelineEditingModeMenu.Populate(EditingModeMenu, "");

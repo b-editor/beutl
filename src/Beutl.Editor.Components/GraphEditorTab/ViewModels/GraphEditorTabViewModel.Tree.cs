@@ -175,8 +175,7 @@ public sealed partial class GraphEditorTabViewModel
     {
         var engineProperty = item.Property ?? item.Adapter?.GetEngineProperty();
         var componentAnimation = engineProperty?.GetPropertyAnimation() as IComponentAnimation;
-        item.CanSeparateComponents.Value = canAnimate && engineProperty is IExpressionProperty { IsAnimatable: true }
-            && ComponentAnimations.IsSupported(engineProperty.ValueType);
+        item.CanSeparateComponents.Value = canAnimate && ComponentSeparation.CanSeparate(engineProperty);
         item.HasSeparatedComponents.Value = componentAnimation != null;
         if (componentAnimation != null)
         {

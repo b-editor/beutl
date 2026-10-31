@@ -260,9 +260,8 @@ public partial class EditViewModel
                 }
 
                 _autoSaveFailed = false;
-                var savedMediaUris = MissingMediaService.GetFileUris(Scene).Select(uri => uri.AbsoluteUri)
-                    .ToHashSet(StringComparer.Ordinal);
-                var savedFingerprints = Scene.MediaFingerprints.ToDictionary(pair => pair.Key, pair => pair.Value);
+                var savedMediaUris = CollectMediaUris(Scene);
+                var savedFingerprints = new Dictionary<string, MediaFileFingerprint>(Scene.MediaFingerprints);
                 _autoSaveTask = _autoSaveService.AutoSaveAsync(list, _autoSaveCancellation.Token);
                 await _autoSaveTask;
                 if (_disposed) return;

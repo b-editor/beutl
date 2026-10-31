@@ -27,7 +27,7 @@ internal sealed record ShaderDrawDescription(
 
     public VertexInputDescription GetVertexInput() => new() { Bindings = [.. Bindings], Attributes = [.. Attributes] };
 
-    public static int AttributeSize(VertexFormat format) => ((int)format % 4 + 1) * sizeof(float);
+    public static int AttributeSize(VertexFormat format) => format.ComponentCount() * sizeof(float);
 
     public void Validate(string name, int count, int instanceCount)
     {

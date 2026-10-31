@@ -38,8 +38,9 @@ public sealed class ShaderGraphDescription
                 Touch(transfer.Destination, index, ImageUsageFlags.TransferDstBit);
                 continue;
             }
-            if (pass.ImageSizeConstants is { } sizeConstants)
-                Touch(sizeConstants.Image, index);
+            foreach (ShaderRuntimeConstant constant in pass.RuntimeConstants)
+                if (constant.Image is { } constantImage)
+                    Touch(constantImage, index);
             foreach (ShaderPassBinding binding in pass.Bindings)
             {
                 if (!binding.Metadata && (binding.Access & ResourceAccess.Read) != 0)
@@ -89,6 +90,14 @@ public sealed class ShaderGraphDescription
         }
         RequireInitialized(output.RenderingImage, "output");
         Touch(output.RenderingImage, passes.Length, ImageUsageFlags.SampledBit);
+        PassIdentities = [.. passes.Select(pass => pass.Transfer is null ? GetPipelineIdentity(pass) : null)];
+        // The output's images stay live through the boundary conversion; unused resources never allocate.
+        List<ShaderResource>[] releases = [.. passes.Select(_ => new List<ShaderResource>())];
+        foreach (ShaderResource resource in resources)
+            if (LastUses[resource.Id] >= 0 && LastUses[resource.Id] < passes.Length)
+                releases[LastUses[resource.Id]].Add(resource);
+        ReleasesAfter = [.. releases.Select(bucket => bucket.ToImmutableArray())];
+        UsesGroupOrigin = passes.Any(pass => pass.RuntimeConstants.Any(c => c.Kind == ShaderRuntimeConstantKind.BoundsOrigin));
         StructuralIdentity = CreateIdentity(includeValues: false);
         OutputIdentity = new ShaderGraphValueIdentity(CreateIdentity(includeValues: true),
             resources.OfType<ShaderBuffer>().Select(b => b.InitialData).ToImmutableArray());
@@ -132,6 +141,16 @@ public sealed class ShaderGraphDescription
     internal int[] LastUses { get; }
     internal ImageUsageFlags[] ImageUsages { get; }
     private readonly int[] _firstUses;
+
+    /// <summary>Each pass's program-cache identity, or null for a transfer.</summary>
+    internal ImmutableArray<ShaderProgramIdentity?> PassIdentities { get; }
+
+    /// <summary>The resources each pass uses last, in resource order, whose storage can be reused after it runs.</summary>
+    internal ImmutableArray<ImmutableArray<ShaderResource>> ReleasesAfter { get; }
+
+    /// <summary>Whether a pass reads an origin in the complete input group's bounds.</summary>
+    internal bool UsesGroupOrigin { get; }
+
     internal string StructuralIdentity { get; }
     internal ShaderGraphValueIdentity OutputIdentity { get; }
 
@@ -151,8 +170,7 @@ public sealed class ShaderGraphDescription
         // execution ends. Its native extent does not shrink with the graph's working density.
         PixelSize inputSize = sourceSize ?? PixelRect.FromRect(sourceBounds.Translate(gridOffset), scale).Size;
         long sourceBytes = (ImageUsages[0] & ~sourceUsage) != 0
-            ? ShaderGraphExecutor.EstimateImageBytes(new(ImageKind.Image2D, inputSize.Width, inputSize.Height,
-                ((ShaderImage)Resources[0]).Format)) : 0;
+            ? ShaderGraphExecutor.EstimateImageBytes(((ShaderImage)Resources[0]).DescriptionFor(inputSize)) : 0;
         foreach (ShaderImage image in Resources.OfType<ShaderImage>())
         {
             if (_firstUses[image.Id] == int.MaxValue || image.Description.HasValue)
@@ -160,6 +178,15 @@ public sealed class ShaderGraphDescription
             Rect bounds = image.ResolveBounds(sourceBounds, referenceBounds).Translate(gridOffset);
             scale = Math.Min(scale, BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
                 bounds, scale * image.ResolutionScale) / image.ResolutionScale);
+        }
+        // An allocation sizes its storage from its raster root's frame. Those bounds do not depend on
+        // density, so they are resolved once for every estimate below.
+        var rasters = new (ShaderImage Image, Rect Bounds)[Resources.Length];
+        foreach (ShaderImage image in Resources.OfType<ShaderImage>())
+        {
+            if (image.Id == 0 || _firstUses[image.Id] == int.MaxValue || image.IsView) continue;
+            ShaderImage raster = image.RasterRoot;
+            rasters[image.Id] = (raster, raster.ResolveBounds(sourceBounds, referenceBounds).Translate(gridOffset));
         }
         // Retired allocations can be reclaimed by the executor; only overlapping lifetimes
         // constrain density. Leave room for device-specific allocation alignment.
@@ -184,14 +211,11 @@ public sealed class ShaderGraphDescription
                 long bytes;
                 if (resource is ShaderImage image)
                 {
-                    ShaderImage raster = image;
-                    while (raster.RasterSource is { } inherited) raster = inherited;
-                    Rect bounds = raster.ResolveBounds(sourceBounds, referenceBounds).Translate(gridOffset);
+                    (ShaderImage raster, Rect bounds) = rasters[image.Id];
                     PixelSize size = raster.Id == 0 ? inputSize
                         : PixelRect.FromRect(bounds, density * raster.ResolutionScale).Size;
-                    ImageDescription description = image.Description ?? new(ImageKind.Image2D,
-                        Math.Max(1, size.Width), Math.Max(1, size.Height), image.Format);
-                    bytes = ShaderGraphExecutor.EstimateImageBytes(description);
+                    bytes = ShaderGraphExecutor.EstimateImageBytes(
+                        image.DescriptionFor(new(Math.Max(1, size.Width), Math.Max(1, size.Height))));
                 }
                 else bytes = ((ShaderBuffer)resource).ByteLength;
                 changes[_firstUses[resource.Id]] = checked(changes[_firstUses[resource.Id]] + bytes);
@@ -263,15 +287,31 @@ public sealed class ShaderGraphDescription
             }
         }
         writer.Write(Passes.Length);
-        foreach (ShaderPassDescription pass in Passes)
+        // Each distinct pipeline is written once; a pass names its entry by index.
+        var programs = new Dictionary<ShaderProgramIdentity, int>();
+        var programSources = new List<string>();
+        foreach (ShaderProgramIdentity? identity in PassIdentities)
         {
-            writer.Write(pass.ImageSizeConstants?.Image.Id ?? -1);
-            writer.Write(pass.ImageSizeConstants?.Offset ?? -1);
-            writer.Write(pass.BoundsOriginConstants?.Offset ?? -1);
-            if (includeValues && pass.BoundsOriginConstants is { } origin)
+            if (identity is not null && programs.TryAdd(identity, programs.Count))
+                programSources.Add(identity.Source);
+        }
+        writer.Write(programSources.Count);
+        foreach (string source in programSources)
+            writer.Write(source);
+        for (int index = 0; index < Passes.Length; index++)
+        {
+            ShaderPassDescription pass = Passes[index];
+            writer.Write(pass.RuntimeConstants.Length);
+            foreach (ShaderRuntimeConstant constant in pass.RuntimeConstants)
             {
-                writer.Write((int)origin.Origin.Unit);
-                writer.Write(origin.Origin.Point.X); writer.Write(origin.Origin.Point.Y);
+                writer.Write((int)constant.Kind);
+                writer.Write(constant.Offset);
+                writer.Write(constant.Image?.Id ?? -1);
+                if (includeValues && constant.Kind == ShaderRuntimeConstantKind.BoundsOrigin)
+                {
+                    writer.Write((int)constant.Origin.Unit);
+                    writer.Write(constant.Origin.Point.X); writer.Write(constant.Origin.Point.Y);
+                }
             }
             writer.Write(pass.PartialRendering);
             writer.Write(pass.InputRegions.Count);
@@ -301,7 +341,7 @@ public sealed class ShaderGraphDescription
                 }
                 continue;
             }
-            WritePipelineIdentity(writer, pass);
+            writer.Write(programs[PassIdentities[index]!]);
             writer.Write(pass.DepthAttachment?.Image.Id ?? -1);
             if (includeValues && pass.DepthAttachment is { } depth)
             {

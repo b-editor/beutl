@@ -157,8 +157,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     public ReadOnlyReactivePropertySlim<IComponentAnimation?> SeparatedComponents { get; }
 
-    public bool CanSeparateComponents => PropertyAdapter.GetEngineProperty() is IExpressionProperty { IsAnimatable: true }
-        && ComponentAnimations.IsSupported(PropertyAdapter.PropertyType);
+    public bool CanSeparateComponents => ComponentSeparation.CanSeparate(PropertyAdapter.GetEngineProperty());
 
     public void SeparateComponents()
     {
@@ -167,8 +166,11 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
         Commit();
     }
 
-    public virtual void UnseparateComponents()
+    public void UnseparateComponents()
     {
+        if (!IsElementEditable || PropertyAdapter.IsReadOnly || SeparatedComponents.Value == null) return;
+        ComponentAnimations.Unseparate(PropertyAdapter.GetEngineProperty()!, CurrentTimeValue);
+        Commit();
     }
 
     internal void Own(IDisposable disposable) => Disposables.Add(disposable);

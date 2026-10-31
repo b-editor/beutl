@@ -40,6 +40,28 @@ internal sealed record FlowNode(EngineObject Object, IReadOnlyList<FlowNode> Inp
         return captured;
     }
 
+    // The captured flow of each resource that has one, in order. Returns previous when it already holds exactly
+    // those nodes, so an unchanged flow keeps its list and allocates nothing.
+    public static IReadOnlyList<FlowNode> CaptureAll(
+        IReadOnlyList<EngineObject.Resource> resources, IReadOnlyList<FlowNode> previous)
+    {
+        int count = 0;
+        bool changed = false;
+        for (int i = 0; i < resources.Count; i++)
+        {
+            if (Capture(resources[i]) is not { } node) continue;
+            if (count >= previous.Count || !ReferenceEquals(previous[count], node)) changed = true;
+            count++;
+        }
+        if (!changed && count == previous.Count) return previous;
+        if (count == 0) return [];
+        var snapshot = new FlowNode[count];
+        int index = 0;
+        for (int i = 0; i < resources.Count; i++)
+            if (Capture(resources[i]) is { } node) snapshot[index++] = node;
+        return snapshot;
+    }
+
     internal static EngineObject? ConsumeOwner(CompositionContext context)
     {
         EngineObject? owner = context.Flow != null ? context.FlowOwner : null;
@@ -122,25 +144,7 @@ internal sealed class FlowInputState : IDisposable
                 }
             }
         }
-        int count = 0;
-        bool changedInputs = false;
-        foreach (TResource resource in consumed)
-        {
-            if (FlowNode.Capture(resource) is not { } node) continue;
-            if (count >= Inputs.Count || !ReferenceEquals(Inputs[count], node)) changedInputs = true;
-            count++;
-        }
-        if (!changedInputs && count == Inputs.Count) return;
-        if (count == 0)
-        {
-            Inputs = [];
-            return;
-        }
-        var snapshot = new FlowNode[count];
-        int index = 0;
-        foreach (TResource resource in consumed)
-            if (FlowNode.Capture(resource) is { } node) snapshot[index++] = node;
-        Inputs = snapshot;
+        Inputs = FlowNode.CaptureAll(consumed, Inputs);
     }
 
     private void DisposeOwned()

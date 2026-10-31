@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 
 namespace Beutl.Graphics.Shaders;
 
@@ -14,8 +15,7 @@ public sealed partial class ShaderPassBuilder
     private readonly Dictionary<int, ShaderPassBinding> _bindings = [];
     private readonly Dictionary<int, ShaderColorAttachment> _attachments = [];
     private ImmutableArray<byte> _constants = [];
-    private (ShaderImage Image, int Offset)? _imageSizeConstants;
-    private (RelativePoint Origin, int Offset)? _boundsOriginConstants;
+    private readonly Dictionary<ShaderRuntimeConstantKind, ShaderRuntimeConstant> _runtimeConstants = [];
     private BlendState _blend = BlendState.Replace;
     private (int X, int Y, int Z)? _work;
     private bool _threads;
@@ -105,13 +105,13 @@ public sealed partial class ShaderPassBuilder
     {
         EnsureRecording();
         _graph.ValidateResource(image);
-        _imageSizeConstants = (image, offset);
+        _runtimeConstants[ShaderRuntimeConstantKind.ImageSize] = new(ShaderRuntimeConstantKind.ImageSize, offset, image);
     }
 
     internal void BoundsOriginConstants(RelativePoint origin, int offset)
     {
         EnsureRecording();
-        _boundsOriginConstants = (origin, offset);
+        _runtimeConstants[ShaderRuntimeConstantKind.BoundsOrigin] = new(ShaderRuntimeConstantKind.BoundsOrigin, offset, Origin: origin);
     }
 
     private void AddBinding(int binding, ShaderResource resource, DescriptorType type,
@@ -151,7 +151,7 @@ public sealed partial class ShaderPassBuilder
     public void PushConstants(ReadOnlySpan<byte> bytes)
     {
         EnsureRecording();
-        if (bytes.Length > 128 || bytes.Length % 4 != 0)
+        if (bytes.Length > VulkanPipeline3D.MaxPushConstantsSize || bytes.Length % 4 != 0)
             throw new ArgumentException("Push constants must contain at most 128 bytes in multiples of four.", nameof(bytes));
         _constants = [.. bytes];
     }
@@ -315,8 +315,8 @@ public sealed partial class ShaderPassBuilder
             _topology, _firstElement, _vertexOffset, _firstInstance)
         { Indirect = _indirect };
         draw.Validate(_name, work.X, work.Y);
-        if (_imageSizeConstants is { } size && (size.Offset < 0 || size.Offset % 4 != 0 || size.Offset + 12 > _constants.Length)
-            || _boundsOriginConstants is { } origin && (origin.Offset < 0 || origin.Offset % 4 != 0 || origin.Offset + 8 > _constants.Length))
+        ShaderRuntimeConstant[] runtimeConstants = [.. _runtimeConstants.Values.OrderBy(c => c.Kind)];
+        if (runtimeConstants.Any(c => c.Offset < 0 || c.Offset % 4 != 0 || c.Offset + c.Size > _constants.Length))
             throw new InvalidOperationException($"Pass '{_name}' has runtime parameters outside its push constants.");
         return new(_name, _program, [.. _bindings.Values.OrderBy(b => b.Binding)], [.. attachments],
             _constants, _blend, work, _threads)
@@ -329,8 +329,7 @@ public sealed partial class ShaderPassBuilder
             PatchControlPoints = _patchControlPoints,
             PartialRendering = _partialRendering,
             InputRegions = _inputRegions.ToImmutableDictionary(),
-            ImageSizeConstants = _imageSizeConstants,
-            BoundsOriginConstants = _boundsOriginConstants
+            RuntimeConstants = [.. runtimeConstants]
         };
     }
 }
@@ -341,12 +340,38 @@ internal sealed record ShaderPassBinding(int Binding, ShaderResource Resource, D
 internal sealed record ShaderColorAttachment(int Location, ShaderImage Image, AttachmentLoadOp Load);
 internal sealed record ShaderDepthAttachment(ShaderImage Image, AttachmentLoadOp Load, float ClearDepth, uint ClearStencil);
 
+internal enum ShaderRuntimeConstantKind { ImageSize, BoundsOrigin }
+
+/// <summary>A value resolved for each request and written over the pass's push constants at an offset.</summary>
+/// <remarks>ImageSize writes an image's (pixel width, pixel height, raster scale); BoundsOrigin writes
+/// <see cref="Origin"/> resolved in the complete input group's bounds.</remarks>
+internal readonly record struct ShaderRuntimeConstant(ShaderRuntimeConstantKind Kind, int Offset,
+    ShaderImage? Image = null, RelativePoint Origin = default)
+{
+    public int Size => Kind == ShaderRuntimeConstantKind.ImageSize ? 3 * sizeof(float) : 2 * sizeof(float);
+
+    public void Write(Span<byte> constants, IReadOnlyDictionary<int, ShaderImageFrame> frames)
+    {
+        if (Kind == ShaderRuntimeConstantKind.ImageSize)
+        {
+            ShaderImageFrame frame = frames[Image!.Id];
+            var value = new System.Numerics.Vector3(frame.PixelSize.Width, frame.PixelSize.Height, frame.Scale);
+            MemoryMarshal.Write(constants[Offset..], in value);
+        }
+        else
+        {
+            Rect bounds = frames[0].ReferenceBounds ?? frames[0].Bounds;
+            Point value = bounds.Position + Origin.ToPixels(bounds.Size);
+            MemoryMarshal.Write(constants[Offset..], in value);
+        }
+    }
+}
+
 internal sealed record ShaderPassDescription(string Name, ShaderProgram? Program,
     ImmutableArray<ShaderPassBinding> Bindings, ImmutableArray<ShaderColorAttachment> Attachments,
     ImmutableArray<byte> Constants, BlendState Blend, (int X, int Y, int Z) Work, bool DispatchThreads)
 {
-    public (ShaderImage Image, int Offset)? ImageSizeConstants { get; init; }
-    public (RelativePoint Origin, int Offset)? BoundsOriginConstants { get; init; }
+    public ImmutableArray<ShaderRuntimeConstant> RuntimeConstants { get; init; } = [];
     public ShaderDrawDescription Draw { get; init; } = ShaderDrawDescription.Empty;
     public ShaderDepthAttachment? DepthAttachment { get; init; }
     public DepthStencilState DepthStencil { get; init; }
