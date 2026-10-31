@@ -175,6 +175,20 @@ public class IndividualContinuationTests
         Assert.That(suffixCalls, Is.EqualTo(expectedSuffixCalls));
     }
 
+    [TestCase(true, 1)]
+    [TestCase(false, 0)]
+    public void NestedGroupWithoutAContinuationFollowsItsEnabledState(bool enabled, int expectedCalls)
+    {
+        int calls = 0;
+        var inner = new FilterEffectGroup { IsEnabled = { Value = enabled } };
+        inner.Children.Add(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(0, (_, _) => calls++)));
+        var group = new FilterEffectGroup();
+        group.Children.Add(inner);
+        RasterizeShape(group);
+        Assert.That(calls, Is.EqualTo(expectedCalls));
+    }
+
     [Test]
     public void EffectAfterAContinuationThatCannotBeRecordedFailsWithGuidance()
     {
