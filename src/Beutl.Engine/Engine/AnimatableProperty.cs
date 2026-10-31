@@ -121,11 +121,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         if (keyFrames != oldKeyFrames)
         {
             _keyFrames = keyFrames;
-            if (keyFrames is IComponentAnimation components) components.Configure(this);
-            if (keyFrames is IKeyFrameAnimation animation && _validator != null)
-            {
-                animation.Validator = _validator;
-            }
+            keyFrames?.Configure(this);
         }
 
         ExpressionChanged?.Invoke(chain);
@@ -218,8 +214,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
     public void SetValidator(IValidator validator)
     {
         _validator = (IValidator<T>)validator;
-        if (_keyFrames is IKeyFrameAnimation animation) animation.Validator = _validator;
-        if (_keyFrames is IComponentAnimation components) components.Configure(this);
+        _keyFrames?.Configure(this);
     }
 
     public IValidator? GetValidator() => _validator;

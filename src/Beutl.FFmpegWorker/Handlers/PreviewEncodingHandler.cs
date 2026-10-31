@@ -19,9 +19,10 @@ internal sealed unsafe class PreviewEncodingHandler : IDisposable
     {
         Dispose();
         var settings = message.RequirePayload<PreviewEncoderStart>(MessageType.StartPreviewEncoder);
-        int expected = settings.Audio ? 960 * 2 * sizeof(float) : checked(settings.Width * settings.Height * (settings.Hdr ? 8 : 4));
+        int expected = PreviewEncodingFormat.BufferBytes(settings.Width, settings.Height, settings.Hdr, settings.Audio);
         if (settings.Capacity != expected || (!settings.Audio &&
-            (settings.Width < 2 || settings.Height < 2 || settings.Width > 1280 || settings.Height > 1280)))
+            (settings.Width < 2 || settings.Height < 2
+             || settings.Width > PreviewEncodingFormat.MaxDimension || settings.Height > PreviewEncodingFormat.MaxDimension)))
             throw new ArgumentException("Invalid preview encoder dimensions.");
         _settings = settings;
         try
@@ -37,11 +38,11 @@ internal sealed unsafe class PreviewEncodingHandler : IDisposable
             _codec->thread_count = 2;
             if (settings.Audio)
             {
-                _codec->sample_rate = 48000;
+                _codec->sample_rate = PreviewEncodingFormat.SampleRate;
                 _codec->sample_fmt = AVSampleFormat.AV_SAMPLE_FMT_FLT;
-                _codec->time_base = new AVRational { num = 1, den = 48000 };
+                _codec->time_base = new AVRational { num = 1, den = PreviewEncodingFormat.SampleRate };
                 _codec->bit_rate = 96000;
-                ffmpeg.av_channel_layout_default(&_codec->ch_layout, 2);
+                ffmpeg.av_channel_layout_default(&_codec->ch_layout, PreviewEncodingFormat.AudioChannels);
                 Check(ffmpeg.av_opt_set(_codec->priv_data, "application", "lowdelay", 0));
             }
             else
@@ -50,8 +51,8 @@ internal sealed unsafe class PreviewEncodingHandler : IDisposable
                 _codec->height = settings.Height;
                 _codec->pix_fmt = settings.Hdr ? AVPixelFormat.AV_PIX_FMT_YUV420P10LE : AVPixelFormat.AV_PIX_FMT_YUV420P;
                 _codec->profile = settings.Hdr ? 2 : 0;
-                _codec->time_base = new AVRational { num = 1, den = 15 };
-                _codec->framerate = new AVRational { num = 15, den = 1 };
+                _codec->time_base = new AVRational { num = 1, den = PreviewEncodingFormat.FrameRate };
+                _codec->framerate = new AVRational { num = PreviewEncodingFormat.FrameRate, den = 1 };
                 _codec->gop_size = 30;
                 _codec->max_b_frames = 0;
                 _codec->bit_rate = settings.Hdr ? 4_000_000 : 2_000_000;
@@ -68,8 +69,8 @@ internal sealed unsafe class PreviewEncodingHandler : IDisposable
             if (settings.Audio)
             {
                 _frame->format = (int)_codec->sample_fmt;
-                _frame->sample_rate = 48000;
-                _frame->nb_samples = 960;
+                _frame->sample_rate = PreviewEncodingFormat.SampleRate;
+                _frame->nb_samples = PreviewEncodingFormat.AudioPacketSamples;
                 Check(ffmpeg.av_channel_layout_copy(&_frame->ch_layout, &_codec->ch_layout));
             }
             else
@@ -109,14 +110,14 @@ internal sealed unsafe class PreviewEncodingHandler : IDisposable
                 byte_ptr4 planes = default;
                 int4 strides = default;
                 planes[0] = source;
-                strides[0] = settings.Width * (settings.Hdr ? 8 : 4);
+                strides[0] = settings.Width * PreviewEncodingFormat.BytesPerPixel(settings.Hdr);
                 Check(ffmpeg.sws_scale(_scale, planes, strides, 0, settings.Height, _frame->data, _frame->linesize));
                 _frame->pict_type = request.KeyFrame ? AVPictureType.AV_PICTURE_TYPE_I : AVPictureType.AV_PICTURE_TYPE_NONE;
             }
         }
         finally { _buffer.ReleasePointer(); }
         _frame->pts = _pts;
-        _pts += settings.Audio ? 960 : 1;
+        _pts += settings.Audio ? PreviewEncodingFormat.AudioPacketSamples : 1;
         Check(ffmpeg.avcodec_send_frame(_codec, _frame));
         int result = ffmpeg.avcodec_receive_packet(_codec, _packet);
         if (result == ffmpeg.AVERROR(ffmpeg.EAGAIN))

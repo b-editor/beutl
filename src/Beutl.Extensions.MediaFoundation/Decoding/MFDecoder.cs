@@ -3,7 +3,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Beutl.Logging;
-using Beutl.Media;
 using Microsoft.Extensions.Logging;
 using SharpGen.Runtime;
 using Vortice;
@@ -343,55 +342,11 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         // The source reports the container/bitstream tags on the native type.
         using (IMFMediaType nativeType = sourceReader.GetNativeMediaType(_mediaInfo.VideoStreamIndex, 0))
         {
-            ReadColorTags(nativeType, ref _mediaInfo);
+            _mediaInfo.Color = MFColorTags.Read(nativeType);
         }
 
         _logger.LogInformation("ChechMediaInfo: \n{MediaInfo}", _mediaInfo.GetMediaInfoText());
     }
-
-    // The YUY2 output is 8-bit SDR, so HDR streams keep the whole untagged BT.601 limited-range sRGB reading.
-    internal static void ReadColorTags(IMFMediaType nativeType, ref MFMediaInfo info)
-    {
-        var transfer = (VideoTransferFunction)MediaFactory.MFGetAttributeUInt32(
-            nativeType, MediaTypeAttributeKeys.TransferFunction, 0);
-        if (transfer is VideoTransferFunction.Func2084 or VideoTransferFunction.FuncHlg)
-            return;
-
-        info.Bt709Matrix = MediaFactory.MFGetAttributeUInt32(nativeType, MediaTypeAttributeKeys.YuvMatrix, 0)
-            == (uint)VideoTransferMatrix.Bt709;
-        info.FullRange = MediaFactory.MFGetAttributeUInt32(nativeType, MediaTypeAttributeKeys.VideoNominalRange, 0)
-            == (uint)NominalRange.Range0_255;
-        info.Transfer = ToTransfer(transfer);
-        info.Primaries = ToPrimaries((VideoPrimaries)MediaFactory.MFGetAttributeUInt32(
-            nativeType, MediaTypeAttributeKeys.VideoPrimaries, 0));
-    }
-
-    private static BitmapColorTransfer ToTransfer(VideoTransferFunction transfer) => transfer switch
-    {
-        VideoTransferFunction.Func10 => BitmapColorTransfer.Linear,
-        VideoTransferFunction.Func22 => BitmapColorTransfer.TwoDotTwo,
-        VideoTransferFunction.Func28 => BitmapColorTransfer.Gamma28,
-        VideoTransferFunction.Func709 => BitmapColorTransfer.Bt709,
-        VideoTransferFunction.Func2020 or VideoTransferFunction.Func2020Const => BitmapColorTransfer.Rec2020,
-        VideoTransferFunction.Func240m => BitmapColorTransfer.Smpte240M,
-        VideoTransferFunction.FuncSRGB => BitmapColorTransfer.Srgb,
-        _ => BitmapColorTransfer.Unknown,
-    };
-
-    private static BitmapColorPrimaries ToPrimaries(VideoPrimaries primaries) => primaries switch
-    {
-        VideoPrimaries.Bt709 => BitmapColorPrimaries.Bt709,
-        VideoPrimaries.Bt4702SysM => BitmapColorPrimaries.Bt470M,
-        VideoPrimaries.Bt4702SysBG => BitmapColorPrimaries.Bt470BG,
-        VideoPrimaries.Smpte170m or VideoPrimaries.SmpteC => BitmapColorPrimaries.Smpte170M,
-        VideoPrimaries.Smpte240m => BitmapColorPrimaries.Smpte240M,
-        VideoPrimaries.Ebu3213 => BitmapColorPrimaries.Ebu3213,
-        VideoPrimaries.Bt2020 => BitmapColorPrimaries.Rec2020,
-        VideoPrimaries.Xyz => BitmapColorPrimaries.Xyz,
-        VideoPrimaries.DciP3 => BitmapColorPrimaries.Smpte431,
-        VideoPrimaries.DisplayP3 => BitmapColorPrimaries.Dcip3,
-        _ => BitmapColorPrimaries.Unknown,
-    };
 
     private void TestFirstReadSample(string file)
     {

@@ -28,9 +28,7 @@ public sealed class MobilePreviewTabViewModel : IToolContext
     {
         _player = editor.Player;
         _expiryTimer.Tick += (_, _) => UpdateExpiry();
-        IsActive = editor.EditorService.SelectedTabItem
-            .Select(tab => tab?.Context.Select(context => ReferenceEquals(context, editor)) ?? Observable.Return(false))
-            .Switch().ToReadOnlyReactivePropertySlim().DisposeWith(_lifetime);
+        IsActive = editor.EditorService.IsSelectedEditor(editor).ToReadOnlyReactivePropertySlim().DisposeWith(_lifetime);
         CanToggle = IsActive.CombineLatest(IsBusy, (active, busy) => active && !busy)
             .ToReadOnlyReactivePropertySlim().DisposeWith(_lifetime);
         IsActive.Where(active => !active).Subscribe(active => { _ = StopSafelyAsync(); }).DisposeWith(_lifetime);

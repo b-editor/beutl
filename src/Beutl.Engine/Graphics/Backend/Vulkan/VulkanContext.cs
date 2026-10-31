@@ -150,9 +150,11 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
 
     internal PhysicalDeviceFeatures EnabledFeatures => _vulkanDevice.EnabledFeatures;
 
-    internal bool SupportsVertexStores => _vulkanDevice.SupportsVertexStores;
+    /// <inheritdoc cref="VulkanDevice.Limits"/>
+    internal PhysicalDeviceLimits Limits => _vulkanDevice.Limits;
 
-    internal bool SupportsFragmentStores => _vulkanDevice.SupportsFragmentStores;
+    /// <inheritdoc cref="VulkanDevice.GraphicsQueueSupportsCompute"/>
+    internal bool GraphicsQueueSupportsCompute => _vulkanDevice.GraphicsQueueSupportsCompute;
 
     internal bool SupportsTriangleFans => _vulkanDevice.SupportsTriangleFans;
     internal bool SupportsVertexAttributeBeyondStride => _vulkanDevice.SupportsVertexAttributeBeyondStride;

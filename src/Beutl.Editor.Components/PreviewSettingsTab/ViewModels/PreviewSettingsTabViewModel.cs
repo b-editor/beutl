@@ -99,13 +99,7 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.PreviewSettings);
 
     private ReactiveProperty<bool> BindToggle(IProperty<bool> property)
-    {
-        ReactiveProperty<bool> reactive = property.GetObservable()
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        reactive.Subscribe(v => property.Value = v).DisposeWith(_disposables);
-        return reactive;
-    }
+        => SettingBinding.Bind(property, v => v, v => v, _disposables);
 
     private void AddEditors(
         IPropertyEditorFactory factory, CoreList<IPropertyEditorContext?> destination,

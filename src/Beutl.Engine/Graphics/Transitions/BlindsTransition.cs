@@ -28,6 +28,8 @@ public sealed partial class BlindsTransition : ClipTransition
 
         public override void Draw(ClipTransitionContext context)
         {
+            if (context.DrawSettledSide()) return;
+
             using var path = new GeometryContext();
             Size size = context.Graphics.Size;
             float angle = (float.IsFinite(Angle) ? Angle % 360 : 0) * MathF.PI / 180;

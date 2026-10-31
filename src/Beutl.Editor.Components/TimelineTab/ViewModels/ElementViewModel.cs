@@ -202,7 +202,7 @@ public sealed partial class ElementViewModel : IDisposable
 
         _enterPart.AddTo(_disposables);
         _exitPart.AddTo(_disposables);
-        InitializeTrackMatte();
+        MatteIndicator.AddTo(_disposables);
 
         IsThumbnailsKindAudio = ThumbnailsKind.Select(k => k == Engine.ThumbnailsKind.Audio)
             .ToReadOnlyReactivePropertySlim()
@@ -228,6 +228,7 @@ public sealed partial class ElementViewModel : IDisposable
         if (_isDisposed || _viewStateInitialized) return;
         _viewStateInitialized = true;
         InitializeTransition();
+        InitializeTrackMatte();
         InitializeThumbnails();
         InitializeProxyIndicator();
     }

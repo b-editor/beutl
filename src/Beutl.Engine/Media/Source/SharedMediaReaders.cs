@@ -29,7 +29,13 @@ internal sealed class SharedMediaReaders(Func<long> clock)
 
     public static SharedMediaReaders Shared { get; } = new(() => Environment.TickCount64);
 
-    internal readonly record struct Key(string Path, MediaMode Mode, bool PreferProxy, ProxyPreset Preset, long ProxyVersion);
+    internal readonly record struct Key(string Path, MediaMode Mode, bool PreferProxy, ProxyPreset Preset, long ProxyVersion)
+    {
+        // Names the file the way Invalidate(Uri) finds it.
+        public static Key ForFile(string path, MediaMode mode, bool preferProxy = false, ProxyPreset preset = default,
+            long proxyVersion = 0)
+            => new(KeyPath(path), mode, preferProxy, preset, proxyVersion);
+    }
 
     /// <summary>
     /// Returns a new handle on the shared readers of <paramref name="key"/>, opening the first one if needed.
@@ -90,6 +96,14 @@ internal sealed class SharedMediaReaders(Func<long> clock)
             }
         }
     }
+
+    /// <summary>
+    /// Invalidates the file <paramref name="uri"/> names, as <see cref="Key.ForFile"/> keys it.
+    /// </summary>
+    public void Invalidate(Uri uri) => Invalidate(KeyPath(uri.LocalPath));
+
+    // A file is keyed by its full path, so every spelling of it shares and invalidates the same readers.
+    private static string KeyPath(string path) => Path.GetFullPath(path);
 
     internal int OpenGroupCount
     {

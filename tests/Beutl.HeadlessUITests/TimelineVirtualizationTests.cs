@@ -89,21 +89,19 @@ public sealed class TimelineVirtualizationTests
         const System.Reflection.BindingFlags instance = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
         typeof(ElementView).GetMethod(template ? "SaveAsTemplate_Click" : "ChangeColor_Click", instance)!
             .Invoke(view, [null, new Avalonia.Interactivity.RoutedEventArgs()]);
-        var flyout = (Avalonia.Controls.Primitives.FlyoutBase)typeof(ElementView)
-            .GetField(template ? "_saveTemplateFlyout" : "s_colorPickerFlyout",
-                template ? instance : System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!
-            .GetValue(template ? view : null)!;
         try
         {
             HeadlessTestHelpers.Render(3);
-            Assert.That(flyout.IsOpen, Is.True);
+            // The color picker and the template flyout both show a picker presenter.
+            Popup popup = host.Window.OpenedPopups.Single(open => open.Child is FluentAvalonia.UI.Controls.FAPickerFlyoutPresenter);
+            Assert.That(popup.IsOpen, Is.True);
             host.Scroll(MediaTime.FromSeconds(50).TimeToPixel(0.1f), 0);
-            Assert.That(flyout.IsOpen, Is.True);
+            Assert.That(popup.IsOpen, Is.True);
             Assert.That(view.DataContext, Is.SameAs(model));
         }
         finally
         {
-            flyout.Hide();
+            foreach (Popup open in host.Window.OpenedPopups.ToArray()) open.Close();
         }
     }
 

@@ -24,8 +24,7 @@ public sealed class ShaderCapabilities
     private ShaderCapabilities(VulkanContext context)
     {
         _context = context;
-        context.Vk.GetPhysicalDeviceProperties(context.PhysicalDevice, out PhysicalDeviceProperties properties);
-        _limits = properties.Limits;
+        _limits = context.Limits;
         _features = context.EnabledFeatures;
     }
 

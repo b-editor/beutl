@@ -249,52 +249,19 @@ internal sealed partial class RenderRequestExecutor
                     payload.Context,
                     effectContext =>
                     {
-                        using var targets = new EffectTargets();
-                        foreach (MaterializedRenderValue input in inputs)
-                        {
-                            bool hasCompleteBacking = input.RasterBounds.Contains(input.CompleteBounds);
-                            Rect inputBounds = hasCompleteBacking ? input.CompleteBounds : input.Bounds;
-                            targets.Add(new EffectTarget(
-                                input.Target,
-                                inputBounds,
-                                input.EffectiveScale,
-                                input.DeviceBounds,
-                                input.DeviceGridOffset,
-                                input.PreserveImperativeRasterPlacement && hasCompleteBacking)
-                            {
-                                OriginalBounds = new Rect(default, inputBounds.Size),
-                                Bounds = inputBounds,
-                            });
-                        }
-
+                        using EffectTargets targets = CreateEffectTargets(inputs);
                         using var builder = new SKImageFilterBuilder();
-                        using var executor = new FilterEffectExecutor(
+                        using FilterEffectExecutor executor = CreateFilterEffectExecutor(
                             targets,
                             builder,
-                            _options.Intent,
-                            _options.Purpose,
-                            _options.OutputScale,
-                            fragment.EffectiveScale.Value,
-                            _options.MaxWorkingScale,
-                            _activeDeviceGridOffset,
-                            (target, source) => AcquireStandaloneProgram(
-                                target,
-                                source),
-                            _drawableBrushMaterializer,
-                            useExecutorManagedCanvas: true,
-                            renderTargetLeaseSession: _targets,
-                            targetDomain: _options.TargetDomain,
-                            acquireShaderGraphProgram: AcquireShaderGraphProgram);
-                        var execution = new RenderExecutionContext(_renderDependency,
-                            executor.WorkingScale, executor.MaxWorkingScale, cancellationToken: _cancellationToken);
-                        executor.ExecutionContext = execution;
-                        try
-                        {
-                            executor.Apply(effectContext);
-                            executor.CompletePolicyBoundary(
-                                payload.WorkingScalePolicy.HasValue);
-                        }
-                        finally { execution.End(); }
+                            fragment.EffectiveScale.Value);
+                        ApplyFilterEffects(
+                            executor,
+                            effectContext,
+                            payload.WorkingScalePolicy.HasValue,
+                            executor.WorkingScale,
+                            executor.MaxWorkingScale,
+                            target: null);
 
                         var result = new List<MaterializedRenderValue>(executor.CurrentTargets.Count);
                         foreach (EffectTarget target in executor.CurrentTargets)
@@ -348,6 +315,83 @@ internal sealed partial class RenderRequestExecutor
                 foreach (RenderFragmentReference input in fragment.Inputs)
                     CompleteFragmentUse(input);
             }
+        }
+
+        // One effect target per value, spanning its complete bounds when its raster holds them and its bounds
+        // otherwise.
+        private static EffectTargets CreateEffectTargets(IReadOnlyList<MaterializedRenderValue> inputs)
+        {
+            var targets = new EffectTargets();
+            try
+            {
+                for (int index = 0; index < inputs.Count; index++)
+                {
+                    MaterializedRenderValue input = inputs[index];
+                    bool hasCompleteBacking = input.RasterBounds.Contains(input.CompleteBounds);
+                    Rect bounds = hasCompleteBacking ? input.CompleteBounds : input.Bounds;
+                    targets.Add(new EffectTarget(
+                        input.Target,
+                        bounds,
+                        input.EffectiveScale,
+                        input.DeviceBounds,
+                        input.DeviceGridOffset,
+                        input.PreserveImperativeRasterPlacement && hasCompleteBacking)
+                    {
+                        OriginalBounds = new Rect(default, bounds.Size),
+                        Bounds = bounds,
+                    });
+                }
+
+                return targets;
+            }
+            catch
+            {
+                targets.Dispose();
+                throw;
+            }
+        }
+
+        private FilterEffectExecutor CreateFilterEffectExecutor(
+            EffectTargets targets,
+            SKImageFilterBuilder builder,
+            float workingScale)
+            => new FilterEffectExecutor(
+                targets,
+                builder,
+                _options.Intent,
+                _options.Purpose,
+                _options.OutputScale,
+                workingScale,
+                _options.MaxWorkingScale,
+                _activeDeviceGridOffset,
+                (target, source) => AcquireStandaloneProgram(
+                    target,
+                    source),
+                _drawableBrushMaterializer,
+                useExecutorManagedCanvas: true,
+                renderTargetLeaseSession: _targets,
+                targetDomain: _options.TargetDomain,
+                acquireShaderGraphProgram: AcquireShaderGraphProgram);
+
+        // Applies program and completes the executor's working-scale policy boundary. The program's callbacks get a
+        // dependency context at the given scales, reaching target when there is one, that ends on return.
+        private void ApplyFilterEffects(
+            FilterEffectExecutor executor,
+            FilterEffectContext program,
+            bool materializationRequired,
+            float workingScale,
+            float maxWorkingScale,
+            ImmediateCanvas? target)
+        {
+            var execution = new RenderExecutionContext(_renderDependency,
+                workingScale, maxWorkingScale, target, _cancellationToken);
+            executor.ExecutionContext = execution;
+            try
+            {
+                executor.Apply(program);
+                executor.CompletePolicyBoundary(materializationRequired);
+            }
+            finally { execution.End(); }
         }
 
         private IReadOnlyList<MaterializedRenderValue> ExecuteDirectSkiaFilterMaterialization(

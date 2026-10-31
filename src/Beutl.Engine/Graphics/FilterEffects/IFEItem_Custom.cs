@@ -2,7 +2,7 @@
 
 internal interface IFEItem_Custom
 {
-    CustomFilterEffectOptions Options => CustomFilterEffectOptions.None;
+    CustomFilterEffectOptions Options { get; }
 
     void Accepts(CustomFilterEffectContext context);
 }

@@ -29,8 +29,8 @@ public static class SilenceDetector
             }
             else if (run >= 0)
             {
-                MediaTime start = Position(run);
-                MediaTime end = Position(i);
+                MediaTime start = BinStart(duration, run, chunks.Count);
+                MediaTime end = BinStart(duration, i, chunks.Count);
                 if (end - start >= minimumDuration)
                 {
                     // Protect speech at either side, but do not retain padding at the clip edges.
@@ -42,7 +42,10 @@ public static class SilenceDetector
             }
         }
         return ranges;
-
-        MediaTime Position(int index) => new((long)((Int128)duration.Flicks * index / chunks.Count));
     }
+
+    // The clip-local start of bin index of count uniform bins over duration; the preview places its window with it too,
+    // so the highlighted ranges line up with the bins.
+    internal static MediaTime BinStart(MediaTime duration, int index, int count)
+        => new((long)((Int128)duration.Flicks * index / count));
 }
