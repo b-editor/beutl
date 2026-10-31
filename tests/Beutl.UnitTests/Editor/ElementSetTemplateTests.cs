@@ -66,6 +66,32 @@ public class ElementSetTemplateTests
     }
 
     [Test]
+    public void A_matte_naming_a_layer_of_the_set_keeps_its_source_wherever_the_set_goes()
+    {
+        Element source = _harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 3);
+        Element target = _harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 4);
+        Element outsider = _harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 5);
+        target.MatteSourceKind.Value = MatteSourceKind.Layer;
+        target.MatteSourceZIndex.Value = 3;
+        outsider.MatteSourceKind.Value = MatteSourceKind.Layer;
+        outsider.MatteSourceZIndex.Value = 1;
+
+        ElementSet set = ElementSetFactory.Create(_harness.Scene, [source, target, outsider]);
+        int? saved = set.Elements[1].MatteSourceZIndex.Value;
+        ElementSetFactory.Move(set, MediaTime.FromSeconds(1), 7);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(saved, Is.EqualTo(set.Elements[0].ZIndex.Value - 7), "Saving moves it with its source.");
+            Assert.That(set.Elements[1].MatteSourceZIndex.Value, Is.EqualTo(set.Elements[0].ZIndex.Value));
+            Assert.That(
+                set.Elements[2].MatteSourceZIndex.Value,
+                Is.EqualTo(set.Elements[0].ZIndex.Value - 2),
+                "A layer the set does not hold keeps its distance from the set.");
+        });
+    }
+
+    [Test]
     public void A_saved_set_creates_new_elements_and_their_group_each_time_it_is_added()
     {
         Scene scene = _harness.Scene;

@@ -379,12 +379,8 @@ internal sealed partial class ElementAdderImpl
                         "The element-set template handler received preflight state from another handler.")));
             }
 
+            ElementSetFactory.Move(setPreflight.Set, setPreflight.StartOffset, setPreflight.LayerOffset);
             Element[] elements = [.. setPreflight.Set.Elements];
-            foreach (Element element in elements)
-            {
-                element.Start.Value += setPreflight.StartOffset;
-                element.ZIndex.Value += setPreflight.LayerOffset;
-            }
 
             // The earliest element leads, so the timeline scrolls to where the set begins.
             Element primary = elements

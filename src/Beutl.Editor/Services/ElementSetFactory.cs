@@ -23,11 +23,6 @@ public static class ElementSetFactory
         Element[] sources = [.. elements];
         ObjectRegenerator.Regenerate(sources, out Element[] copies);
         (TimeRange range, int minZIndex, _) = DuplicateHelper.ComputePlacementRange(copies);
-        foreach (Element copy in copies)
-        {
-            copy.Start.Value -= range.Start;
-            copy.ZIndex.Value -= minZIndex;
-        }
 
         // The copies have Ids of their own, so the groups follow them the way a duplicate's do.
         var idMapping = new Dictionary<Guid, Guid>(sources.Length);
@@ -41,6 +36,26 @@ public static class ElementSetFactory
         set.Groups.AddRange(scene.Groups
             .Select(group => group.Where(idMapping.ContainsKey).Select(id => idMapping[id]).ToImmutableHashSet())
             .Where(group => group.Count >= 2));
+        Move(set, -range.Start, -minZIndex);
         return set;
+    }
+
+    /// <summary>
+    /// Moves every element of <paramref name="set"/> by the deltas. A matte that names its source layer moves with
+    /// the elements, so it keeps the source it was saved with, or its distance from the set when the set does not
+    /// hold that layer.
+    /// </summary>
+    internal static void Move(ElementSet set, MediaTime startDelta, int layerDelta)
+    {
+        foreach (Element element in set.Elements)
+        {
+            element.Start.Value += startDelta;
+            element.ZIndex.Value += layerDelta;
+            if (element.MatteSourceKind.Value == MatteSourceKind.Layer
+                && element.MatteSourceZIndex.Value is { } source)
+            {
+                element.MatteSourceZIndex.Value = source + layerDelta;
+            }
+        }
     }
 }
