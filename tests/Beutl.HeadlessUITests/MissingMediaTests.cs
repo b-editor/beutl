@@ -548,6 +548,9 @@ public partial class MissingMediaTests
                 SoundSource.Resource s => s.MediaReader,
                 _ => null
             };
+            // Each resource reads through its own handle; every opened reader reports its own stream info.
+            object? Opened(EngineObject.Resource resource)
+                => video ? Reader(resource)?.VideoInfo : Reader(resource)?.AudioInfo;
             Assert.That(Reader(existing), Is.Null);
             File.WriteAllBytes(path, [1]);
             ResourceRelocationService.RelinkFileSource(source, source.Uri);
@@ -555,14 +558,14 @@ public partial class MissingMediaTests
             existing.Reconcile(source, CompositionContext.Default, ref versionBumped);
             second.Reconcile(source, CompositionContext.Default, ref versionBumped);
             Assert.That(Reader(existing), Is.Not.Null);
-            Assert.That(Reader(second), Is.SameAs(Reader(existing)));
+            Assert.That(Opened(second), Is.SameAs(Opened(existing)));
             Assert.That(decoder.OpenCount, Is.EqualTo(1));
             using var shared = source.ToResource(CompositionContext.Default);
-            MediaReader previous = Reader(shared)!;
+            object previous = Opened(shared)!;
             ResourceRelocationService.RelinkFileSource(source, source.Uri);
             existing.Reconcile(source, CompositionContext.Default, ref versionBumped);
             second.Reconcile(source, CompositionContext.Default, ref versionBumped);
-            Assert.That(Reader(existing), Is.Not.SameAs(previous));
+            Assert.That(Opened(existing), Is.Not.SameAs(previous));
             Assert.That(decoder.OpenCount, Is.EqualTo(2));
             existing.Reconcile(source, CompositionContext.Default, ref versionBumped);
             second.Reconcile(source, CompositionContext.Default, ref versionBumped);

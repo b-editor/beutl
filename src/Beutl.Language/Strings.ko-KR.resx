@@ -2874,7 +2874,7 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>현재 자막을 다른 언어로 번역합니다.</value>
   </data>
   <data name="WebDownloadMedia" xml:space="preserve">
-    <value>미디어 다운로드</value>
+    <value>파일 다운로드</value>
   </data>
   <data name="WebDownloadProject" xml:space="preserve">
     <value>프로젝트 디렉터리</value>
@@ -2889,10 +2889,10 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>프로젝트 디렉터리를 사용하려면 먼저 프로젝트를 저장하세요.</value>
   </data>
   <data name="WebDownloadUnsupported" xml:space="preserve">
-    <value>HTTP(S)로 이미지, 오디오 또는 동영상 파일을 직접 다운로드하는 경우만 지원됩니다.</value>
+    <value>HTTP(S)로 파일을 직접 다운로드하는 경우만 지원됩니다.</value>
   </data>
   <data name="WebDownloadHtmlResponse" xml:space="preserve">
-    <value>이 URL은 미디어 대신 웹 페이지를 반환했습니다. 파일의 다운로드 링크를 사용하세요.</value>
+    <value>이 URL은 파일 대신 웹 페이지를 반환했습니다. 파일의 다운로드 링크를 사용하세요.</value>
   </data>
   <data name="WebDownloadIncomplete" xml:space="preserve">
     <value>다운로드한 파일이 비어 있거나 불완전합니다.</value>

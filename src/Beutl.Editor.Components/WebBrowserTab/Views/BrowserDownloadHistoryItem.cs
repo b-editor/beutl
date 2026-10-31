@@ -8,5 +8,6 @@ internal sealed class BrowserDownloadHistoryItem(BrowserDownloadRecord record, b
     public string SourceHost => new Uri(Record.Url).Host;
     public string DownloadedAt => Record.CompletedAt.ToLocalTime().ToString("g");
     public bool FileExists { get; } = File.Exists(record.FilePath);
+    public bool CanOpen { get; } = BrowserMediaDownload.IsMediaFile(record.FilePath);
     public bool CanImport => canImport && FileExists;
 }

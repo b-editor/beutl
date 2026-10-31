@@ -679,6 +679,7 @@ public class WebBrowserDownloadTests
     [TestCase("image.png", true, null)]
     [TestCase("video.mp4", true, null)]
     [TestCase("download", false, null)]
+    [TestCase("pack.zip", false, null)]
     [TestCase("download", true, "Morning.mp3")]
     [TestCase("audio.mp3", true, "")]
     [TestCase("audio.mp3", true, " ")]
@@ -816,6 +817,26 @@ public class WebBrowserDownloadTests
         Assert.That(File.Exists(record.FilePath), Is.True);
         Assert.That(context.Imported, Is.Empty);
         Assert.That(vm.CanAddDownloadedFile(record.FilePath), Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task ADownloadedFileThatIsNotMediaIsSavedWithoutTimelineImport()
+    {
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
+        var context = new BrowserEditorContext(new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) });
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(context, WebBrowserTabViewModel.BlankPage, profile);
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { DataContext = vm };
+        using var client = new HttpClient(new ArchiveHandler());
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, true));
+        // The page names the file through its download attribute; the response only gives its type.
+        await view.DownloadMediaAsync(new Uri("https://files.example/download?id=7"), "Sound pack.zip");
+        var record = profile.Downloads.Single();
+        Assert.That(Path.GetFileName(record.FilePath), Is.EqualTo("Sound pack.zip"));
+        Assert.That(File.Exists(record.FilePath), Is.True);
+        Assert.That(context.Imported, Is.Empty);
     }
 
     [AvaloniaTest]
@@ -1330,6 +1351,49 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void WithoutNativeMediaResponses_AResponseWebKitCannotShowBecomesADownloadOffer(bool typedAddress)
+    {
+        var page = new Uri("https://assets.example/sounds/");
+        var archive = new Uri("https://assets.example/download/pack.zip");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false)
+        { DataContext = vm };
+        vm.CompleteNavigation(page, true, false, false);
+        if (typedAddress)
+        {
+            vm.Address.Value = archive.AbsoluteUri;
+            view.NavigateFromAddress();
+            Assert.That(vm.IsLoading.Value, Is.True);
+        }
+
+        var start = new WebViewNavigationStartingEventArgs { Request = archive };
+        view.OnNavigationStarted(null, start);
+        // The Linux handler ignores the response, so the page stays and no navigation completes.
+        view.OnNavigationResponseNotShown(archive, "Sound pack.zip");
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(start.Cancel, Is.False);
+            Assert.That(vm.CurrentUri, Is.EqualTo(page));
+            Assert.That(vm.Address.Value, Is.EqualTo(page.AbsoluteUri));
+            Assert.That(vm.IsLoading.Value, Is.False);
+            Assert.That(vm.ErrorMessage.Value, Is.Null);
+            Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+            Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo(archive.AbsoluteUri));
+        });
+
+        // The file keeps the name WebKit read from the response.
+        view.FindControl<Button>("ConfirmPageDownloadButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        var options = (BrowserDownloadOptionsView)view.FindControl<ContentControl>("ToolPanelContent")!.Content!;
+        Assert.That(options.FileName, Is.EqualTo("Sound pack.zip"));
+        view.CloseBrowserPanel();
+    }
+
+    [AvaloniaTest]
     public async Task ADownloadPresentsTheWebViewUserAgent()
     {
         using var temporary = new TemporaryDirectory();
@@ -1703,6 +1767,17 @@ public class WebBrowserDownloadTests
         public IEnumerable<string> VideoExtensions() => [".mp4"];
         public IEnumerable<string> AudioExtensions() => [".mp3"];
         public MediaReader? Open(string file, MediaOptions options) => null;
+    }
+
+    private sealed class ArchiveHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            // An empty ZIP archive: only its end-of-central-directory record.
+            var content = new ByteArrayContent([0x50, 0x4B, 0x05, 0x06, .. new byte[18]]);
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { RequestMessage = request, Content = content });
+        }
     }
 
     private sealed class SvgHandler : HttpMessageHandler

@@ -2874,7 +2874,7 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
     <value>Traduce los subtítulos actuales a otro idioma.</value>
   </data>
   <data name="WebDownloadMedia" xml:space="preserve">
-    <value>Descargar archivos multimedia</value>
+    <value>Descargar archivo</value>
   </data>
   <data name="WebDownloadProject" xml:space="preserve">
     <value>Directorio del proyecto</value>
@@ -2889,10 +2889,10 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
     <value>Guarda primero el proyecto para usar su directorio.</value>
   </data>
   <data name="WebDownloadUnsupported" xml:space="preserve">
-    <value>Solo se admiten descargas directas HTTP(S) de imágenes, audio o vídeo.</value>
+    <value>Solo se admiten descargas directas de archivos por HTTP(S).</value>
   </data>
   <data name="WebDownloadHtmlResponse" xml:space="preserve">
-    <value>Esta URL devolvió una página web en lugar de un archivo multimedia. Usa el enlace de descarga del archivo.</value>
+    <value>Esta URL devolvió una página web en lugar de un archivo. Usa el enlace de descarga del archivo.</value>
   </data>
   <data name="WebDownloadIncomplete" xml:space="preserve">
     <value>La descarga está vacía o incompleta.</value>

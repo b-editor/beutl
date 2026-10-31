@@ -74,13 +74,57 @@ public class BrowserMediaDownloadTests
     [TestCase("https://files.example/download?filepath=bgm%2Ftrack.mp3&filename=Morning.mp3", "Morning.mp3", "audio/mpeg", "Morning.mp3")]
     [TestCase("https://files.example/download", "Morning.mp3", "application/octet-stream", "Morning.mp3")]
     [TestCase("https://files.example/download", "Morning.mp3", "text/html", null)]
-    [TestCase("https://files.example/download", "installer.exe", "application/octet-stream", null)]
+    [TestCase("https://files.example/download", "installer.exe", "application/octet-stream", "installer.exe")]
+    [TestCase("https://files.example/download", "Sound pack.zip", "application/zip", "Sound pack.zip")]
+    [TestCase("https://files.example/manual.pdf", "manual.pdf", "application/pdf", "manual.pdf")]
     [TestCase("https://files.example/download", "page.html", "text/html", null)]
     [TestCase("https://user:password@files.example/download", "Morning.mp3", "audio/mpeg", null)]
     [TestCase("file:///tmp/Morning.mp3", "Morning.mp3", "audio/mpeg", null)]
-    public void NativeResponseFileNamesRequireSupportedHttpMedia(string address, string name, string mediaType, string? expected)
+    public void NativeResponseFileNamesRequireHttpFilesThatAreNotPages(string address, string name, string mediaType, string? expected)
     {
         Assert.That(BrowserMediaDownload.GetResponseFileName(new Uri(address), name, mediaType), Is.EqualTo(expected));
+    }
+
+    [TestCase("application/pdf", true, null, false)]
+    [TestCase("text/plain", true, "inline", false)]
+    [TestCase("text/plain", true, "attachments; filename=notes.txt", false)]
+    [TestCase("application/pdf", true, "attachment; filename=\"manual.pdf\"", true)]
+    [TestCase("text/plain", true, " Attachment ", true)]
+    [TestCase("application/zip", false, null, true)]
+    [TestCase(null, false, null, true)]
+    [TestCase("video/mp4", true, null, true)]
+    public void MainFrameResponsesBecomeDownloadsUnlessWebKitShowsThem(string? mediaType, bool canShow, string? disposition, bool expected)
+    {
+        Assert.That(BrowserMediaDownload.IsDownloadResponse(mediaType, canShow, disposition), Is.EqualTo(expected));
+    }
+
+    [TestCase("clip.MP4", true)]
+    [TestCase("photo.jpeg", true)]
+    [TestCase("Sound pack.zip", false)]
+    [TestCase("clip.mp4.exe", false)]
+    [TestCase("Setup", false)]
+    public void OnlyFilesWithAMediaExtensionAreMedia(string fileName, bool expected)
+    {
+        Assert.That(BrowserMediaDownload.IsMediaFile(fileName), Is.EqualTo(expected));
+    }
+
+    [TestCase("application/zip", "download")]
+    [TestCase("image/png", "download.png")]
+    public void FilesWithoutAnyNameAreCalledDownload(string mediaType, string expected)
+    {
+        Assert.That(BrowserMediaDownload.CreateFileName(null, new Uri("https://example.com/"), mediaType), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public async Task Downloads_SaveFilesThatAreNotMediaUnderTheirOwnNames()
+    {
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
+        using var client = new HttpClient(new MediaHandler("application/zip", "Sound pack.zip"));
+        string file = await new BrowserMediaDownload(client).DownloadAsync(new Uri("https://example.com/download?id=7"),
+            directory, null, null, default);
+        Assert.That(Path.GetFileName(file), Is.EqualTo("Sound pack.zip"));
+        Assert.That(File.ReadAllBytes(file), Has.Length.EqualTo(200000));
     }
 
     [Test]
