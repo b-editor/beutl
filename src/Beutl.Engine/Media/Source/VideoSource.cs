@@ -11,26 +11,12 @@ namespace Beutl.Media.Source;
 [SuppressResourceClassGeneration]
 public sealed class VideoSource : MediaSource
 {
-    private WeakReference<Counter<MediaReader>>? _mediaReaderRef;
-    // The proxy version/preset the shared reader above was opened with. A fresh Resource compares the
-    // current context against THESE (not its own default-valued loaded fields) to decide reuse.
-    private long _sharedReaderProxyVersion;
-    // int-backed for Volatile.Read/Write: paired with _sharedReaderProxyVersion in the reuse predicate,
-    // so it must not be observable stale relative to a fresh version (else a reader opened for a
-    // different preset is reused).
-    private int _sharedReaderProxyPreset;
-
     public override void ReadFrom(Uri uri)
     {
         if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
-
-        if (HasUri && Uri != uri)
-        {
-            // 古い URI の Counter を別 Resource が保持していると
-            // TryAddRef が成功して新 URI でも古い MediaReader を返してしまうため、
-            // URI が切り替わったタイミングで共有参照を破棄する。
-            Volatile.Write(ref _mediaReaderRef, null);
-        }
+        // A relink can switch back to a file that was replaced since other sources opened it, so read the
+        // file switched to afresh instead of joining their readers.
+        if (HasUri && Uri != uri) SharedMediaReaders.Shared.Invalidate(Path.GetFullPath(uri.LocalPath));
         Uri = uri;
     }
 
@@ -44,7 +30,8 @@ public sealed class VideoSource : MediaSource
 
     internal override void InvalidateResourceCache()
     {
-        Volatile.Write(ref _mediaReaderRef, null);
+        // The file may have changed on disk, so reloading resources must not join readers opened before.
+        if (HasUri) SharedMediaReaders.Shared.Invalidate(Path.GetFullPath(Uri.LocalPath));
         base.InvalidateResourceCache();
     }
 
@@ -138,19 +125,14 @@ public sealed class VideoSource : MediaSource
                 _proxyVersionSource = ResolveProxyVersionSource(videoSource, context);
                 proxyResolverVersion = GetSourceVersion(proxyResolver, _proxyVersionSource);
 
-                Counter<MediaReader>? shared = TryAcquireSharedReader(videoSource, context, proxyResolverVersion);
-                if (shared is not null)
-                {
-                    _counter = shared;
-                }
-                else if (!TryOpenReader(videoSource, context, proxyResolverVersion))
+                if (!TryOpenReader(videoSource, context, proxyResolverVersion))
                 {
                     return;
                 }
 
                 var reader = _counter.Value;
                 // Audio-only containers can open successfully without exposing VideoInfo. Reject
-                // both new and shared readers before reading metadata or publishing a new counter.
+                // both new and shared readers before reading metadata.
                 if (!reader.HasVideo)
                 {
                     SetOffline(videoSource, context, proxyResolverVersion);
@@ -158,19 +140,6 @@ public sealed class VideoSource : MediaSource
                 }
 
                 ProxyResolution = reader.ProxyResolution;
-
-                // DisableResourceShare 時、またはプロキシ優先だがプロキシ解決に至らなかった場合は
-                // WeakReference を書き換えない。他 Renderer（プレビュー側）の共有カウンタを
-                // エンコード専用／原本フォールバックのカウンタで汚染してしまうため。
-                if (shared is null && !context.DisableResourceShare
-                    && (!context.PreferProxy || ProxyResolution != null))
-                {
-                    // Record the preset, ref and version this shared reader was opened with. The version is
-                    // written last, so a reuser that reads the fresh version also sees the matching preset and ref.
-                    Volatile.Write(ref videoSource._sharedReaderProxyPreset, (int)context.PreferredProxyPreset);
-                    Volatile.Write(ref videoSource._mediaReaderRef, new(_counter));
-                    Volatile.Write(ref videoSource._sharedReaderProxyVersion, proxyResolverVersion);
-                }
 
                 Duration = MediaTime.FromSeconds(reader.VideoInfo.Duration.ToDouble());
                 FrameRate = reader.VideoInfo.FrameRate;
@@ -212,44 +181,6 @@ public sealed class VideoSource : MediaSource
                 : null;
         }
 
-        // Returns the reader another resource published for this source, with a reference added, when it was
-        // opened for the same proxy version and preset and matches the context's proxy preference.
-        private static Counter<MediaReader>? TryAcquireSharedReader(
-            VideoSource videoSource,
-            CompositionContext context,
-            long proxyResolverVersion)
-        {
-            Counter<MediaReader>? shared = null;
-            bool canReuseShared = !context.DisableResourceShare
-                && (!context.PreferProxy
-                    || (Volatile.Read(ref videoSource._sharedReaderProxyVersion) == proxyResolverVersion
-                        && (ProxyPreset)Volatile.Read(ref videoSource._sharedReaderProxyPreset) == context.PreferredProxyPreset));
-            if (canReuseShared)
-            {
-                var localRef = Volatile.Read(ref videoSource._mediaReaderRef);
-                if (localRef?.TryGetTarget(out var counter) == true && counter.TryAddRef())
-                {
-                    if (IsCompatibleWithContext(counter.Value, context))
-                    {
-                        shared = counter;
-                    }
-                    else
-                    {
-                        counter.Release();
-                    }
-                }
-            }
-
-            return shared;
-
-            static bool IsCompatibleWithContext(MediaReader reader, CompositionContext context)
-            {
-                return context.PreferProxy
-                    ? reader.ProxyResolution != null
-                    : reader.ProxyResolution == null;
-            }
-        }
-
         // A failed open still records the inputs it was attempted with, so an unchanged source is not
         // reopened on every update.
         [MemberNotNullWhen(true, nameof(_counter))]
@@ -262,7 +193,17 @@ public sealed class VideoSource : MediaSource
                     PreferProxy = context.PreferProxy,
                     PreferredProxyPreset = context.PreferredProxyPreset,
                 };
-                var reader = MediaReader.Open(videoSource.Uri.LocalPath, options);
+                string path = videoSource.Uri.LocalPath;
+                // Encoding keeps its own reader; other resources share the file's readers. The key includes this
+                // source's proxy version, so an original opened because no proxy resolved is shared only until a
+                // proxy is registered. A reader without video never serves others.
+                MediaReader reader = context.DisableResourceShare
+                    ? MediaReader.Open(path, options)
+                    : SharedMediaReaders.Shared.Open(
+                        new(Path.GetFullPath(path), MediaMode.Video, context.PreferProxy,
+                            context.PreferProxy ? context.PreferredProxyPreset : default, proxyResolverVersion),
+                        () => MediaReader.Open(path, options),
+                        opened => opened.HasVideo);
                 _counter = new Counter<MediaReader>(reader, null);
             }
             catch

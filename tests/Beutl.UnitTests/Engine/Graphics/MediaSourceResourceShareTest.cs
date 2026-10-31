@@ -1,6 +1,7 @@
 ﻿using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -28,14 +29,14 @@ public class MediaSourceResourceShareTest
     {
         yield return new TestCaseData(new SharedMedia(
                 static () => ReadFrom(new VideoSource(), CreateVideoFile(80)),
-                static resource => ((VideoSource.Resource)resource).MediaReader,
+                static resource => Underlying(((VideoSource.Resource)resource).MediaReader),
                 static () => CreateVideoFile(120),
                 static resource => ((VideoSource.Resource)resource).MediaReader!.VideoInfo.FrameSize,
                 new PixelSize(120, 120)))
             .SetArgDisplayNames(nameof(VideoSource));
         yield return new TestCaseData(new SharedMedia(
                 static () => ReadFrom(new SoundSource(), new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 2.0))),
-                static resource => ((SoundSource.Resource)resource).MediaReader,
+                static resource => Underlying(((SoundSource.Resource)resource).MediaReader),
                 static () => new Uri(TestMediaHelper.CreateTestAudioFile(sampleRate: 48000, durationSeconds: 3.0))))
             .SetArgDisplayNames(nameof(SoundSource));
         yield return new TestCaseData(new SharedMedia(
@@ -45,6 +46,9 @@ public class MediaSourceResourceShareTest
                 static resource => ((ImageSource.Resource)resource).FrameSize,
                 new PixelSize(32, 32)))
             .SetArgDisplayNames(nameof(ImageSource));
+
+        // Each resource reads through its own handle; sharing means the handles read the same reader.
+        static object? Underlying(MediaReader? reader) => reader is null ? null : SharedMediaReaders.UnderlyingOf(reader);
 
         static Uri CreateVideoFile(int size)
             => new(TestMediaHelper.CreateTestVideoFile(size, size, new Rational(30, 1), 60));
