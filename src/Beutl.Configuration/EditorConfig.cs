@@ -138,10 +138,13 @@ public sealed partial class EditorConfig : ConfigurationBase
     [Range(0.0, 1.0)]
     public IProperty<float> PreviewGuideOpacity { get; } = Property.CreateValue(0.8f);
 
-    [Range(1, 64)]
+    // The most columns or rows the custom grid divides the frame into.
+    public const int PreviewGuideGridMaxCells = 64;
+
+    [Range(1, PreviewGuideGridMaxCells)]
     public IProperty<int> PreviewGuideGridColumns { get; } = Property.CreateValue(4);
 
-    [Range(1, 64)]
+    [Range(1, PreviewGuideGridMaxCells)]
     public IProperty<int> PreviewGuideGridRows { get; } = Property.CreateValue(4);
 
     // A list PreviewGuideAspectRatio.TryParseList reads, such as "9:16, 1:1".

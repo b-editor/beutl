@@ -7,6 +7,7 @@ using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 
 using Beutl.Configuration;
+using Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
 
 namespace Beutl.Views;
 
@@ -98,10 +99,10 @@ internal sealed class PreviewGuideOverlay : Control
         if (_config is not { } config) return;
 
         _kinds = config.IsPreviewGuideEnabled.Value ? config.PreviewGuideKinds.Value : PreviewGuideKinds.None;
-        _color = Color.TryParse(config.PreviewGuideColor.Value, out Color color) ? color : Colors.White;
+        _color = PreviewGuideSettingsViewModel.ParseColor(config.PreviewGuideColor.Value);
         _opacity = Math.Clamp(config.PreviewGuideOpacity.Value, 0, 1);
-        _columns = Math.Clamp(config.PreviewGuideGridColumns.Value, 1, 64);
-        _rows = Math.Clamp(config.PreviewGuideGridRows.Value, 1, 64);
+        _columns = Math.Clamp(config.PreviewGuideGridColumns.Value, 1, EditorConfig.PreviewGuideGridMaxCells);
+        _rows = Math.Clamp(config.PreviewGuideGridRows.Value, 1, EditorConfig.PreviewGuideGridMaxCells);
         // A hand-edited list keeps the ratios it can read.
         PreviewGuideAspectRatio.TryParseList(config.PreviewGuideAspectRatios.Value, out _aspectRatios);
 
