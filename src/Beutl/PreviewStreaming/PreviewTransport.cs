@@ -29,7 +29,9 @@ internal sealed class PreviewTransport : IAsyncDisposable
         _eventTask = ProcessEventsAsync();
     }
 
-    internal void Offer(string id, string connectionId, string sdp, bool hdr, PreviewIceServer[] servers, bool relayOnly)
+    // Returns false when no peer could be created; the viewer has then been sent the error, and the transport keeps
+    // no peer for it, not even an earlier one.
+    internal bool Offer(string id, string connectionId, string sdp, bool hdr, PreviewIceServer[] servers, bool relayOnly)
     {
         string? error = null;
         lock (_gate)
@@ -54,6 +56,7 @@ internal sealed class PreviewTransport : IAsyncDisposable
         // Callers may acquire the server lock here, so never dispatch while holding the transport lock.
         if (error is not null)
             _message(new PreviewTransportEvent(PreviewTransportEventKind.Error, id, connectionId, hdr, error));
+        return error is null;
     }
 
     internal void AddCandidate(string id, string connectionId, string candidate, string mid)

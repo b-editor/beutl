@@ -69,7 +69,12 @@ internal sealed partial class MobilePreviewServer
                     _peers[id] = hdr;
                 }
                 bool relayOnly = signal.TryGetProperty("relayOnly", out var relay) && relay.ValueKind == JsonValueKind.True;
-                _transport.Offer(id, connectionId, payload.GetString()!, hdr, servers, relayOnly);
+                // The viewer is registered before its peer exists, so a failed HDR encoder can still reach it. A
+                // rejected offer leaves it without a peer, and nothing may keep encoding video or audio for it.
+                if (!_transport.Offer(id, connectionId, payload.GetString()!, hdr, servers, relayOnly))
+                {
+                    lock (_gate) _peers.Remove(id);
+                }
             }
             else if (payload.ValueKind == JsonValueKind.Object
                 && payload.TryGetProperty("candidate", out var candidate) && candidate.ValueKind == JsonValueKind.String
