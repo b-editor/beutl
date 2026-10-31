@@ -23,6 +23,30 @@ public class BrowserProfileTests
     }
 
     [Test]
+    public void GeneratedDownloadsKeepTheirPageAndStayMarkedAcrossRestarts()
+    {
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
+        string path = Path.Combine(root, "profile.json");
+        var profile = new BrowserProfile(path);
+        var page = new Uri("https://github.com/b-editor/beutl/blob/main/README.md");
+        profile.AddDownload(new Uri("https://example.com/clip.mp4"), Path.Combine(root, "clip.mp4"));
+        profile.AddDownload(page, Path.Combine(root, "README.md"), page, BrowserReferrerPolicy.NoReferrer, generated: true);
+
+        var restored = new BrowserProfile(path);
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.Downloads.Select(record => (record.Url, record.Generated)), Is.EqualTo(new[]
+            {
+                (page.AbsoluteUri, true),
+                ("https://example.com/clip.mp4", false)
+            }));
+            // Records saved before the flag existed, and every other download, omit it.
+            Assert.That(File.ReadAllText(path), Does.Contain("\"Generated\":true").And.Not.Contain("\"Generated\":false"));
+        });
+    }
+
+    [Test]
     public void Profile_RoundTripsSettingsBookmarksAndDownloads_AndClearsOnlyHistory()
     {
         using var temporary = new TemporaryDirectory();

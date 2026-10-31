@@ -1707,6 +1707,216 @@ public class WebBrowserDownloadTests
         Assert.That(saved["source"]!.GetValue<string>(), Is.Empty);
     }
 
+    // GitHub's "Download raw file" fetches the file into a blob: URL and clicks a download link to it.
+    [AvaloniaTest]
+    public async Task GeneratedFileOfferNamesTheFileAndRecordsItsPage()
+    {
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
+        var page = new Uri("https://github.com/b-editor/beutl/blob/main/README.md");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
+        var scene = new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) };
+        project.Items.Add(scene);
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(scene), page, profile);
+        using var view = CreateView(vm, includesSubframes: true);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = page, IsSuccess = true });
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        const string readme = "<p align=\"center\">\n  <img src=\"logo.png\">\n</p>\n\n# Beutl\n";
+        var source = new GeneratedDownloadSource("README.md", readme);
+        var window = new Window { Width = 320, Height = 600, Content = view };
+        try
+        {
+            window.Show();
+            view.OnGeneratedDownloadRequested(new Uri("https://github.com/"), "README.md", source);
+            Dispatcher.UIThread.RunJobs();
+            var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(confirm.IsVisible, Is.True);
+                Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo("README.md"));
+                Assert.That(vm.CurrentUri, Is.EqualTo(page));
+                Assert.That(vm.IsLoading.Value, Is.False);
+            });
+            confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            var options = (BrowserDownloadOptionsView)view.FindControl<ContentControl>("ToolPanelContent")!.Content!;
+            Assert.That(options.FileName, Is.EqualTo("README.md"));
+            Assert.That(options.SourceHost, Is.EqualTo("github.com"));
+            options.FindControl<Button>("ConfirmDownloadButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            BrowserDownloadRecord record = profile.Downloads.Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(Path.GetFileName(record.FilePath), Is.EqualTo("README.md"));
+                Assert.That(File.ReadAllText(record.FilePath), Is.EqualTo(readme));
+                // Its blob: address cannot be requested again, so the history keeps the page that made it.
+                Assert.That(record.Url, Is.EqualTo(page.AbsoluteUri));
+                Assert.That(record.Generated, Is.True);
+                Assert.That(source.IsDisposed, Is.True);
+                Assert.That(vm.CurrentUri, Is.EqualTo(page));
+            });
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    public void GeneratedFileLeavesALoadingPageAloneAndWaitsForIt()
+    {
+        var page = new Uri("https://github.com/b-editor/beutl/blob/main/README.md");
+        var next = new Uri("https://next.example/");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: true);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = page, IsSuccess = true });
+        Uri? offered = null;
+        view.DownloadOptionsSelector = (uri, _) =>
+        {
+            offered = uri;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+        };
+        vm.Address.Value = next.AbsoluteUri;
+        view.NavigateFromAddress();
+        var source = new GeneratedDownloadSource("notes.txt", "notes");
+
+        // The page still on display made the file while the next one loads. A data: URL names no creator.
+        view.OnGeneratedDownloadRequested(null, "notes.txt", source);
+        Dispatcher.UIThread.RunJobs();
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(vm.IsLoading.Value, Is.True);
+            Assert.That(vm.CurrentUri, Is.EqualTo(next));
+            Assert.That(confirm.IsVisible, Is.False);
+            Assert.That(source.IsDisposed, Is.False);
+        });
+
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(confirm.IsVisible, Is.True);
+        Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo("notes.txt"));
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(offered, Is.EqualTo(page));
+        Assert.That(source.IsDisposed, Is.True);
+    }
+
+    // WebView2 reports a page only once it has loaded, so its handler names the document the script ran in.
+    [AvaloniaTest]
+    public void AGeneratedFileFromAPageStillLoadingIsCreditedToThatPage()
+    {
+        var page = new Uri("https://page.example/");
+        var next = new Uri("https://next.example/report");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: false);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = page, IsSuccess = true });
+        Uri? offered = null;
+        view.DownloadOptionsSelector = (uri, _) =>
+        {
+            offered = uri;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+        };
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+
+        // The next page committed and generated the file while its images were still loading.
+        view.OnGeneratedDownloadRequested(null, "report.csv", new GeneratedDownloadSource("report.csv", "a,b"), next);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+        view.FindControl<Button>("ConfirmPageDownloadButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(offered, Is.EqualTo(next));
+    }
+
+    // WKWebView reports a page once it has loaded, after a script on it could already generate a file.
+    [AvaloniaTest]
+    public void AGeneratedFileOfferOutlivesTheLoadOfThePageThatMadeIt()
+    {
+        var page = new Uri("https://page.example/");
+        var next = new Uri("https://page.example/report");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: true);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = page, IsSuccess = true });
+        Uri? offered = null;
+        view.DownloadOptionsSelector = (uri, _) =>
+        {
+            offered = uri;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+        };
+
+        // A link starts the next page, which commits and generates a file while its images still load.
+        view.OnNativeNavigationStarted();
+        view.OnNativeNavigationCommitted(next);
+        var source = new GeneratedDownloadSource("report.csv", "a,b");
+        view.OnGeneratedDownloadRequested(page, "report.csv", source);
+        Dispatcher.UIThread.RunJobs();
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        Assert.That(confirm.IsVisible, Is.True);
+
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+        Assert.Multiple(() =>
+        {
+            Assert.That(source.IsDisposed, Is.False);
+            Assert.That(confirm.IsVisible, Is.True);
+        });
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(offered, Is.EqualTo(next));
+    }
+
+    // An embedded document from another site, such as an ad, cannot pass its file off as the page's.
+    [AvaloniaTest]
+    public async Task AGeneratedFileFromAnotherSiteIsCreditedToThatSite()
+    {
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
+        var page = new Uri("https://github.com/b-editor/beutl/blob/main/README.md");
+        var embedded = new Uri("https://ads.example/");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page, profile);
+        using var view = CreateView(vm, includesSubframes: true);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = page, IsSuccess = true });
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        Uri? offered = null;
+        view.DownloadOptionsSelector = (uri, _) =>
+        {
+            offered = uri;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        };
+
+        view.OnGeneratedDownloadRequested(embedded, "invoice.pdf", new GeneratedDownloadSource("invoice.pdf", "%PDF"));
+        Dispatcher.UIThread.RunJobs();
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        Assert.That(ToolTip.GetTip(view.FindControl<TextBlock>("DownloadStatusText")!), Is.EqualTo(embedded.AbsoluteUri));
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(offered, Is.EqualTo(embedded));
+            Assert.That(profile.Downloads.Single().Url, Is.EqualTo(embedded.AbsoluteUri));
+            Assert.That(vm.CurrentUri, Is.EqualTo(page));
+        });
+    }
+
+    private sealed class GeneratedDownloadSource(string name, string content) : IBrowserDownloadSource
+    {
+        internal bool IsDisposed { get; private set; }
+
+        public bool IsGenerated => true;
+
+        public Task<string> SaveAsync(string directory, IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken)
+        {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            string staged = Path.Combine(directory, ".staging", "response");
+            Directory.CreateDirectory(Path.GetDirectoryName(staged)!);
+            File.WriteAllText(staged, content);
+            return Task.FromResult(BrowserMediaDownload.PublishGeneratedFile(staged, directory, name, cancellationToken));
+        }
+
+        public void Dispose() => IsDisposed = true;
+    }
+
     private sealed class ResponseDownloadSource(string name) : IBrowserDownloadSource
     {
         internal bool IsDisposed { get; private set; }

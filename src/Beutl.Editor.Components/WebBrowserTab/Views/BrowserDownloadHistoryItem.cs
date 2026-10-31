@@ -10,4 +10,5 @@ internal sealed class BrowserDownloadHistoryItem(BrowserDownloadRecord record, b
     public bool FileExists { get; } = File.Exists(record.FilePath);
     public bool CanOpen { get; } = BrowserMediaDownload.IsMediaFile(record.FilePath);
     public bool CanImport => canImport && FileExists;
+    public bool CanRetry => !Record.Generated;
 }
