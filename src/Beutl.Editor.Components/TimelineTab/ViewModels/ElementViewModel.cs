@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Reactive;
+﻿using System.Reactive;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;
@@ -48,7 +47,6 @@ public sealed partial class ElementViewModel : IDisposable
     // run after Dispose; they bail on this flag instead of touching disposed reactive state.
     private bool _isDisposed;
     private bool _viewStateInitialized;
-    private ImmutableHashSet<Guid>? _elementGroup;
     private readonly Subject<(int Start, int End)> _visibleRangeSubject = new();
     private readonly IProxyStore? _proxyStore;
     private readonly IProxyJobQueue? _proxyJobQueue;
@@ -58,16 +56,10 @@ public sealed partial class ElementViewModel : IDisposable
     public Func<int, int, List<int>>? GetMissingThumbnailIndices;
 
     public ElementViewModel(Element element, TimelineTabViewModel timeline)
-        : this(element, timeline, timeline.Scene.Groups.FirstOrDefault(group => group.Contains(element.Id.Value)))
-    {
-    }
-
-    internal ElementViewModel(Element element, TimelineTabViewModel timeline, ImmutableHashSet<Guid>? group)
     {
         Model = element;
         Timeline = timeline;
         Scene = timeline.Scene;
-        _elementGroup = group;
 
         InitializeElementGroup();
 
@@ -353,7 +345,9 @@ public sealed partial class ElementViewModel : IDisposable
         HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(
             Timeline.SelectedElements.Select(item => item.Model.Id.Value), Scene.Groups);
 
-        if (_elementGroup is { } group)
+        // Group membership is only needed for an interaction. Per-element subscriptions make
+        // bulk split groups notify every timeline element for every newly created group.
+        if (Scene.Groups.FirstOrDefault(g => g.Contains(Model.Id.Value)) is { } group)
         {
             ids.UnionWith(group);
         }
@@ -575,22 +569,6 @@ public sealed partial class ElementViewModel : IDisposable
         IReadOnlyCollection<Guid> ids = GetEditableSelectedIdsOrSelf();
         if (ids.Count == 0) return;
         Timeline.EditorContext.GetRequiredService<IElementStructureService>().Ungroup(Scene, ids);
-    }
-
-    internal void OnSetAttached(ImmutableHashSet<Guid> group)
-    {
-        if (group.Contains(Model.Id.Value))
-        {
-            _elementGroup = group;
-        }
-    }
-
-    internal void OnSetDetached(ImmutableHashSet<Guid> group)
-    {
-        if (ReferenceEquals(_elementGroup, group))
-        {
-            _elementGroup = null;
-        }
     }
 
     private async Task OnCopy()

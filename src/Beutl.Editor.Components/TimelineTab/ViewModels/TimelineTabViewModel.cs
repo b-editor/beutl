@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Reactive.Subjects;
+﻿using System.Reactive.Subjects;
 using Avalonia;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
@@ -84,13 +83,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         {
             AddLayerHeaders(Scene.Children.Max(i => i.ZIndex.Value) + 1);
             Elements.EnsureCapacity(Scene.Children.Count);
-            // Resolve initial membership once, including projects with thousands of audio/video pairs.
-            var groups = new Dictionary<Guid, ImmutableHashSet<Guid>>();
-            foreach (ImmutableHashSet<Guid> group in Scene.Groups)
-                foreach (Guid id in group)
-                    groups.TryAdd(id, group);
-            Elements.AddRange(Scene.Children.Select(item => new ElementViewModel(item, this,
-                groups.GetValueOrDefault(item.Id.Value))));
+            Elements.AddRange(Scene.Children.Select(item => new ElementViewModel(item, this)));
         }
 
         // A persisted layer-only model (solo/mute/lock on a clipless row) still
@@ -227,14 +220,6 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     private void TrackElementCollections()
     {
-        void GroupAdded(ImmutableHashSet<Guid> group)
-        {
-            foreach (ElementViewModel element in Elements) element.OnSetAttached(group);
-        }
-        void GroupRemoved(ImmutableHashSet<Guid> group)
-        {
-            foreach (ElementViewModel element in Elements) element.OnSetDetached(group);
-        }
         void ThumbnailsDisabled(Guid id)
         {
             foreach (ElementViewModel element in Elements) element.OnThumbnailsDisabledElementsAttached(id);
@@ -244,14 +229,10 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             foreach (ElementViewModel element in Elements) element.OnThumbnailsDisabledElementsDetached(id);
         }
 
-        Scene.Groups.Attached += GroupAdded;
-        Scene.Groups.Detached += GroupRemoved;
         ThumbnailsDisabledElements.Attached += ThumbnailsDisabled;
         ThumbnailsDisabledElements.Detached += ThumbnailsEnabled;
         Disposable.Create(() =>
         {
-            Scene.Groups.Attached -= GroupAdded;
-            Scene.Groups.Detached -= GroupRemoved;
             ThumbnailsDisabledElements.Attached -= ThumbnailsDisabled;
             ThumbnailsDisabledElements.Detached -= ThumbnailsEnabled;
         }).AddTo(_disposables);
