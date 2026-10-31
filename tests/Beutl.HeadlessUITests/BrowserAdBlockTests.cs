@@ -186,6 +186,37 @@ public class BrowserAdBlockTests
         finally { Directory.Delete(root, true); }
     }
 
+    // A new tab's first navigation carries its opener's referrer, which the view sends itself.
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task PreparedRulesResumeTheHeldNavigationThroughTheGivenNavigation(bool heldByTheView)
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var client = new HttpClient(new BrowserAdBlockTestRules.FilterResponseHandler());
+        var store = new BrowserAdBlockFilterStore(Path.Combine(root, "filters.json"), client);
+        try
+        {
+            await store.UpdateAsync([BrowserAdBlockFilterStore.EasyListUrl], CancellationToken.None);
+            var profile = new BrowserProfile(Path.Combine(root, "profile.json"), adBlockFilters: store);
+            profile.UpdateSettings(BrowserSearchEngine.Google, true, true, true);
+            var webView = new NativeWebView();
+            var page = new Uri("https://publisher.test/");
+            var backend = new TaskCompletionSource<IBrowserAdBlockBackend>();
+            var resumed = new TaskCompletionSource<Uri>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var session = new BrowserAdBlockSession(webView, profile, heldByTheView ? webView.Source : page, _ => Assert.Fail(),
+                (_, _) => backend.Task, uri => resumed.TrySetResult(uri));
+            session.Attach(new PlatformHandle((nint)1, "test"));
+            // A replacement adapter starts blank, as NativeWebView never saw the address; the view holds it again.
+            if (heldByTheView) session.HoldNavigation(page);
+            Assert.That(resumed.Task.IsCompleted, Is.False);
+            backend.SetResult(new FakeBackend());
+            Assert.That(await resumed.Task.WaitAsync(TimeSpan.FromSeconds(5)), Is.EqualTo(page));
+            Assert.That(webView.Source.Scheme, Is.EqualTo("about"));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     private sealed class FakeBackend : IBrowserAdBlockBackend
     {
         internal bool Enabled, Disposed;

@@ -6,15 +6,18 @@
   require_head: true
   hide_project_coverage: false
 
-# The coverage job runs on Linux and cannot execute the Windows WebView2 COM handler, the WebKitGTK/WPE interop
-# that needs a native web view, the macOS WKWebView delegates that need one too, the macOS-only NSBundle read of
-# the installed Safari's version, the Windows-only loader for the FreeType font manager in Beutl's libSkiaSharp, nor
-# the macOS-only Metal/MoltenVK interop that pairs Skia's Metal queue with the engine's Vulkan one.
+# The coverage job runs on Linux and cannot execute the Windows WebView2 COM handler, the WebView2, WKWebView and
+# WebKitGTK/WPE interop that needs a native web view, the macOS-only NSBundle read of the installed Safari's version,
+# the Windows-only loader for the FreeType font manager in Beutl's libSkiaSharp, nor the macOS-only Metal/MoltenVK
+# interop that pairs Skia's Metal queue with the engine's Vulkan one.
 ignore:
   - "src/Beutl.Editor.Components/WebBrowserTab/WindowsBrowserDownloadHandler.cs"
+  - "src/Beutl.Editor.Components/WebBrowserTab/WindowsReferrerNavigation.cs"
+  - "src/Beutl.Editor.Components/WebBrowserTab/MacOSReferrerNavigation.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/LinuxAdBlockBackend.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/LinuxBrowserDownloadHandler.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/LinuxBrowserDownloadHandler.Download.cs"
+  - "src/Beutl.Editor.Components/WebBrowserTab/LinuxReferrerNavigation.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/LinuxWebKit.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/LinuxWebKitCookies.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/BrowserWebViewEnvironment.MacOS.cs"

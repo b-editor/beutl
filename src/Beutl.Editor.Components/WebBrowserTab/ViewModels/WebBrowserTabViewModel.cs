@@ -28,6 +28,8 @@ internal sealed class WebBrowserTabViewModel : IToolContext
     private readonly int _instanceNumber;
     private Uri _committedUri = BlankPage;
     private string? _committedPageTitle;
+    // The origin a page that opened this tab sends with the tab's first navigation.
+    private Uri? _openerReferrer;
     private bool _disposed;
     private bool _navigationStopped;
 
@@ -299,14 +301,22 @@ internal sealed class WebBrowserTabViewModel : IToolContext
         }
     }
 
-    internal bool TryOpenNewTab(Uri uri)
+    // The view that shows this tab takes the referrer once, for the navigation to the page the tab was opened for.
+    internal Uri? TakeOpenerReferrer()
+    {
+        Uri? referrer = _openerReferrer;
+        _openerReferrer = null;
+        return referrer;
+    }
+
+    internal bool TryOpenNewTab(Uri uri, Uri? referrer = null)
     {
         if (!IsPersistableUri(uri))
         {
             return false;
         }
 
-        var context = new WebBrowserTabViewModel(_editorContext, uri, Profile);
+        var context = new WebBrowserTabViewModel(_editorContext, uri, Profile) { _openerReferrer = referrer };
         if (_editorContext.OpenToolTab(context))
         {
             return true;

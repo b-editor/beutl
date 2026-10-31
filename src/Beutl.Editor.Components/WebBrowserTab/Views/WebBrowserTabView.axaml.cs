@@ -19,6 +19,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private readonly Func<NativeWebView, Task<string?>> _getPageTitle;
     private readonly Func<NativeWebView, Task<string?>> _getPageContentType;
     private readonly Func<NativeWebView, bool> _canReparentWebView;
+    private readonly Func<NativeWebView, Uri, Uri, bool> _navigateWithReferrer;
     private readonly bool _navigationStartedIncludesSubframes;
     private readonly bool _handlesMediaResponsesNatively;
     private NativeWebView? _webView;
@@ -42,7 +43,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         bool? navigationStartedIncludesSubframes = null,
         BrowserFaviconLoader? faviconLoader = null,
         bool? handlesMediaResponsesNatively = null,
-        Func<NativeWebView, Task<string?>>? getPageContentType = null)
+        Func<NativeWebView, Task<string?>>? getPageContentType = null,
+        Func<NativeWebView, Uri, Uri, bool>? navigateWithReferrer = null)
     {
         _createWebView = createWebView;
         _getWebViewAvailability = getWebViewAvailability;
@@ -50,6 +52,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _getPageTitle = getPageTitle ?? (static webView => webView.InvokeScript("document.title"));
         _getPageContentType = getPageContentType ?? (static webView => webView.InvokeScript("document.contentType"));
         _canReparentWebView = canReparentWebView ?? (static webView => webView.TryGetPlatformHandle() is not null);
+        _navigateWithReferrer = navigateWithReferrer ?? NavigateWithReferrer;
         // WKWebView, WebKitGTK and WPE all report subframe navigations through NavigationStarted.
         _navigationStartedIncludesSubframes = navigationStartedIncludesSubframes ?? (OperatingSystem.IsMacOS() || OperatingSystem.IsLinux());
         // The macOS and Windows handlers turn a main-frame media response into a download. WebKitGTK shows media
@@ -102,6 +105,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     {
         _adBlockSession?.Dispose();
         _adBlockSession = null;
+        _openerNavigation = null;
         _downloadCancellation?.Cancel();
         ClearDeferredNativeDownloads();
         ResetPageDownloadRequests();
@@ -132,8 +136,11 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         OnCancelBookmarkEditorClick(this, new RoutedEventArgs());
         OnProfileChanged();
 
-        if (_webView != null)
-            _adBlockSession = new BrowserAdBlockSession(_webView, viewModel.Profile, viewModel.CurrentUri, ShowToolStatus);
+        if (_webView is { } webView)
+        {
+            _adBlockSession = new BrowserAdBlockSession(webView, viewModel.Profile, viewModel.CurrentUri, ShowToolStatus,
+                navigate: uri => ResumeNavigation(webView, uri), getPage: () => AdBlockPage(webView));
+        }
 
         if (_webView != null && _webView.Source != viewModel.CurrentUri)
         {
@@ -166,13 +173,22 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         Uri initialUri = _viewModel.CurrentUri;
         bool downloadInitialMedia = BrowserMediaDownload.IsMediaLink(initialUri);
+        Uri? openerReferrer = _viewModel.TakeOpenerReferrer();
         if (downloadInitialMedia)
             _viewModel.CompleteNavigation(WebBrowserTabViewModel.BlankPage, true, false, false);
         if (initialUri != WebBrowserTabViewModel.BlankPage && !downloadInitialMedia)
             _viewModel.BeginNavigation(initialUri);
-        NativeWebView webView = _createWebView(downloadInitialMedia || _viewModel.Profile.BlockAds ? WebBrowserTabViewModel.BlankPage : initialUri);
+        // NativeWebView requests its Source without headers as soon as its adapter exists. A tab a page opened
+        // starts blank instead, and its adapter, or ad blocking once its rules are in place, sends the referrer.
+        _openerNavigation = openerReferrer != null && !downloadInitialMedia && BrowserMediaDownload.IsHttpUri(initialUri)
+            ? (initialUri, openerReferrer)
+            : null;
+        _openerNavigationIssued = false;
+        NativeWebView webView = _createWebView(downloadInitialMedia || _openerNavigation != null || _viewModel.Profile.BlockAds
+            ? WebBrowserTabViewModel.BlankPage : initialUri);
         _adBlockSession = new BrowserAdBlockSession(webView, _viewModel.Profile,
-            downloadInitialMedia ? WebBrowserTabViewModel.BlankPage : initialUri, ShowToolStatus);
+            downloadInitialMedia ? WebBrowserTabViewModel.BlankPage : initialUri, ShowToolStatus,
+            navigate: uri => ResumeNavigation(webView, uri), getPage: () => AdBlockPage(webView));
         webView.EnvironmentRequested += BrowserWebViewEnvironment.Configure;
         webView.AdapterCreated += LinuxWebKitCookies.PersistCookies;
         webView.AdapterCreated += OnAdapterCreated;
@@ -189,12 +205,12 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             WebBrowserTabViewModel initiatingViewModel = _viewModel;
             Dispatcher.UIThread.Post(() =>
             {
-                if (ReferenceEquals(_viewModel, initiatingViewModel)) _ = DownloadMediaAsync(initialUri, null);
+                if (ReferenceEquals(_viewModel, initiatingViewModel)) _ = DownloadMediaAsync(initialUri, null, openerReferrer);
             });
         }
     }
 
-    private void OnAdapterCreated(object? sender, WebViewAdapterEventArgs e)
+    internal void OnAdapterCreated(object? sender, WebViewAdapterEventArgs e)
     {
         if (_disposed || _webView == null)
         {
@@ -229,7 +245,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         {
             _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
                 (creator, name, source) => OnGeneratedDownload(creator, name, source), OnNativeNavigationCommitted,
-                OnNativeNavigationStarted);
+                OnNativeNavigationStarted, OnNativeNewWindowRequested);
         }
         else if (OperatingSystem.IsWindows())
         {
@@ -244,16 +260,24 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
                     OnNavigationResponseNotShown(uri, name);
             }, (creator, name, source) => OnGeneratedDownload(creator, name, source));
         }
+        // The download handler is in place first, so a response of this navigation can become a download.
+        // With ad blocking on, the session starts it once its rules are in place.
+        if (_openerNavigation is { } opener && !_openerNavigationIssued && _adBlockSession?.IsPreparing == true)
+            _adBlockSession.HoldNavigation(opener.Uri);
+        else
+            NavigateFromOpener(webView);
         ScheduleLinuxSizeRefresh(_webView);
     }
 
-    private void OnAdapterDestroyed(object? sender, WebViewAdapterEventArgs e)
+    internal void OnAdapterDestroyed(object? sender, WebViewAdapterEventArgs e)
     {
         if (sender is NativeWebView webView && !ReferenceEquals(webView, _webView)) return;
         InvalidateNativeDownloads();
         if (_pendingPageDownloadRequest?.Source != null) ClearPageDownloadRequest();
         _nativeDownloadHandler?.Dispose();
         _nativeDownloadHandler = null;
+        // NativeWebView never saw the first navigation's address, so a new adapter would stay blank without it.
+        _openerNavigationIssued = false;
     }
 
     // A native download callback checks the returned version, so callbacks of the previous adapter or

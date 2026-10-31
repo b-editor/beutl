@@ -11,9 +11,27 @@ namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
 internal partial class WebBrowserTabView
 {
+    // A tab that a page opened goes to its first address with the origin that page sends. Switching tabs replaces
+    // the adapter, and NativeWebView knows no address until the page has loaded, so each new adapter asks again.
+    // Until the page commits, the tab's blank initial document belongs to that page, so its downloads send the
+    // origin too. WebView2 reports no commit before the page has loaded, so on Windows that ends when the
+    // navigation starts; until the commit, only WebView2's own downloads answer it there.
+    private (Uri Uri, Uri Referrer)? _openerNavigation;
+    private bool _openerNavigationIssued;
+    private bool _openerPageCommitted;
+    // The referrer WebKit computed for the latest new window request, from the page's policy and the link's rel.
+    private (Uri Request, Uri? Referrer)? _nativeNewWindow;
+
+    // The page whose document makes the current requests. BlankPage stands for a document of unknown origin.
+    private Uri? DocumentReferrer => (_openerPageCommitted ? null : _openerNavigation?.Referrer)
+        ?? (_pageDownloadReferrerUncertain ? WebBrowserTabViewModel.BlankPage : _viewModel?.CurrentUri);
+
     internal void OnNativeNavigationCommitted(Uri uri)
     {
-        if (!_disposed) _viewModel?.CommitNavigation(uri);
+        if (_disposed) return;
+        _viewModel?.CommitNavigation(uri);
+        // The page loading now makes its own requests, before NavigationCompleted reports it loaded.
+        if (uri != WebBrowserTabViewModel.BlankPage) _openerPageCommitted = true;
     }
 
     internal void OnNativeNavigationStarted()
@@ -60,6 +78,7 @@ internal partial class WebBrowserTabView
         {
             PreservePendingNativeDownload();
             InvalidatePageDownloadRequests(navigationStarted: true);
+            _openerPageCommitted = true;
             _viewModel?.BeginNavigation(request);
         }
     }
@@ -131,6 +150,7 @@ internal partial class WebBrowserTabView
         if (e.IsSuccess && _pendingPageDownloadRequest?.Source?.IsGenerated == true) PreservePendingNativeDownload();
         if (e.IsSuccess) ResetPageDownloadRequests();
         else SettleAbortedPageNavigation();
+        if (e.IsSuccess && uri != WebBrowserTabViewModel.BlankPage) _openerNavigation = null;
         _pageRevision++;
         _findRequest?.Cancel();
         _viewModel.CompleteNavigation(uri, e.IsSuccess, _webView.CanGoBack, _webView.CanGoForward);
@@ -247,8 +267,16 @@ internal partial class WebBrowserTabView
         return title;
     }
 
+    // macOS reports the request of a new window just before Avalonia raises NewWindowRequested for it.
+    internal void OnNativeNewWindowRequested(Uri request, string? referrer)
+    {
+        if (!_disposed) _nativeNewWindow = (request, Uri.TryCreate(referrer, UriKind.Absolute, out Uri? uri) ? uri : null);
+    }
+
     internal void OnNewWindowRequested(object? sender, WebViewNewWindowRequestedEventArgs e)
     {
+        (Uri Request, Uri? Referrer)? native = _nativeNewWindow;
+        _nativeNewWindow = null;
         if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
             && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
         {
@@ -256,17 +284,75 @@ internal partial class WebBrowserTabView
             return;
         }
 
+        // WebKit leaves the referrer out for a noreferrer link or a no-referrer policy. Without its report, the
+        // opening page sends its origin, as it does for downloads.
+        Uri? page = DocumentReferrer;
+        bool noReferrer = false;
+        if (native is { } reported && reported.Request == e.Request)
+        {
+            page = reported.Referrer;
+            noReferrer = page == null;
+        }
+
         if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
         {
             e.Handled = true;
-            QueuePageDownloadRequest(mediaUri, null);
+            QueuePageDownloadRequest(mediaUri, null, noReferrer ? BrowserReferrerPolicy.NoReferrer : BrowserReferrerPolicy.Origin);
             return;
         }
 
-        if (e.Request is { } request && _viewModel?.TryOpenNewTab(request) == true)
+        if (e.Request is { } request
+            && _viewModel?.TryOpenNewTab(request, BrowserMediaDownload.NormalizeReferrer(page, request)) == true)
         {
             e.Handled = true;
         }
+    }
+
+    // Ad blocking holds a new tab's first navigation until its rules are in place.
+    private void ResumeNavigation(NativeWebView webView, Uri uri)
+    {
+        if (_openerNavigation?.Uri == uri)
+        {
+            _openerNavigationIssued = false;
+            NavigateFromOpener(webView);
+        }
+        else
+        {
+            webView.Source = uri;
+        }
+    }
+
+    // Ad blocking on Windows matches each request against its page, and NativeWebView names a page only once it has
+    // loaded. Until the page this tab was opened for has loaded, its requests belong to that page.
+    internal Uri AdBlockPage(NativeWebView webView) => _openerNavigation?.Uri ?? webView.Source;
+
+    private void NavigateFromOpener(NativeWebView webView)
+    {
+        if (_disposed || _openerNavigation is not { } navigation || _openerNavigationIssued) return;
+        _openerNavigationIssued = true;
+        // The tab starts over from its blank document, which belongs to the opener until the page commits again.
+        _openerPageCommitted = false;
+        if (!_navigateWithReferrer(webView, navigation.Uri, navigation.Referrer)) webView.Navigate(navigation.Uri);
+    }
+
+    // NativeWebView navigates without request headers, so the referrer goes through the web view's own API.
+    private bool NavigateWithReferrer(NativeWebView webView, Uri uri, Uri referrer)
+    {
+        string value = BrowserMediaDownload.FormatReferrerHeader(referrer);
+        return webView.TryGetPlatformHandle() switch
+        {
+            // WebView2 answers later; a refusal then navigates without the referrer, unless the tab has moved on.
+            IWindowsWebView2PlatformHandle windows when OperatingSystem.IsWindows() => WindowsReferrerNavigation.TryNavigate(windows, uri, value,
+                () =>
+                {
+                    if (!_disposed && ReferenceEquals(_webView, webView) && _openerNavigation?.Uri == uri && !_openerPageCommitted)
+                        webView.Navigate(uri);
+                }),
+            IAppleWKWebViewPlatformHandle apple when OperatingSystem.IsMacOS() => MacOSReferrerNavigation.TryNavigate(apple, uri, value),
+            IGtkWebViewPlatformHandle gtk when OperatingSystem.IsLinux() => LinuxReferrerNavigation.TryNavigate(gtk.WebKitWebView, false, uri, value),
+            ILinuxWpePlatformHandle wpe when OperatingSystem.IsLinux() => LinuxReferrerNavigation.TryNavigate(wpe.WebKitWebView, true, uri, value),
+            _ => false
+        };
     }
 
     private void OnBackClick(object? sender, RoutedEventArgs e)
@@ -300,6 +386,10 @@ internal partial class WebBrowserTabView
             _pageDownloadNavigationPending = wasPending;
             _mediaNavigationIntercepted = wasIntercepted;
         }
+        else
+        {
+            _openerNavigation = null;
+        }
         return started;
     }
 
@@ -327,6 +417,8 @@ internal partial class WebBrowserTabView
         {
             Beutl.Editor.Services.UsageTelemetry.Current?.Record("tool.command", "WebBrowser", "Navigate");
             CloseBrowserPanel();
+            // A typed address has no referrer, and the tab leaves the page that opened it.
+            _openerNavigation = null;
             if (BrowserMediaDownload.IsMediaLink(uri))
             {
                 // Downloading does not replace the page hosted by the WebView.

@@ -286,7 +286,7 @@ internal partial class WebBrowserTabView
         int documentId = _pageDownloadDocumentId;
         // BlankPage deliberately prevents the downloader's direct-navigation fallback from
         // using destination cookies when the surviving document's origin is unknown.
-        Uri? referrer = _pageDownloadReferrerUncertain ? ViewModels.WebBrowserTabViewModel.BlankPage : owner?.CurrentUri;
+        Uri? referrer = DocumentReferrer;
         var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId, referrerPolicy, downloadSource);
         // A generated file's address is the site credited with it, which says less than the file's name.
         string shown = downloadSource?.IsGenerated == true && !string.IsNullOrEmpty(suggestedName) ? suggestedName : uri.AbsoluteUri;

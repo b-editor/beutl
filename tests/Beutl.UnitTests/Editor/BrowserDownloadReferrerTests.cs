@@ -45,6 +45,16 @@ public class BrowserDownloadReferrerTests
         Assert.That(handler.UserAgents, Is.EqualTo(new string?[] { userAgent, userAgent }));
     }
 
+    // A web view sends the referrer of a new tab's first request as header text, which must be ASCII.
+    [TestCase("https://site.example/", "https://site.example/")]
+    [TestCase("https://site.example:8443/", "https://site.example:8443/")]
+    [TestCase("https://bücher.example/", "https://xn--bcher-kva.example/")]
+    [TestCase("http://[::1]:8080/", "http://[::1]:8080/")]
+    public void ReferrerHeadersNameTheOriginInAscii(string origin, string expected)
+    {
+        Assert.That(BrowserMediaDownload.FormatReferrerHeader(new Uri(origin)), Is.EqualTo(expected));
+    }
+
     [TestCase("https://site.example/page?secret=value#part", "https://site.example/audio.mp3", "https://site.example/")]
     [TestCase("https://site.example/page?secret=value", "https://cdn.example/audio.mp3", "https://site.example/")]
     [TestCase("https://site.example:8443/page", "https://cdn.example/audio.mp3", "https://site.example:8443/")]
