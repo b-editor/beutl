@@ -244,6 +244,26 @@ public class VideoSourceTests
         Assert.That(_readers, Has.Count.EqualTo(1));
     }
 
+    // A relink can switch back to a file replaced since another clip opened it, so it must not join that reader.
+    [Test]
+    public void SwitchingBackToAFile_OpensItAfresh()
+    {
+        _hasVideo = true;
+        string other = Path.Combine(_root, "other.test-no-video");
+        File.WriteAllBytes(other, []);
+        _decoder.Setup(x => x.IsSupported(other)).Returns(true);
+        _decoder.Setup(x => x.Open(other, It.IsAny<MediaOptions>())).Returns(() => CreateReader(true).Object);
+        using var held = CreateSource().ToResource(CompositionContext.Default);
+        VideoSource relinked = CreateSource();
+
+        relinked.ReadFrom(new Uri(other));
+        relinked.ReadFrom(new Uri(_path));
+        using var reloaded = relinked.ToResource(CompositionContext.Default);
+
+        Assert.That(SharedMediaReaders.UnderlyingOf(reloaded.MediaReader!),
+            Is.Not.SameAs(SharedMediaReaders.UnderlyingOf(held.MediaReader!)));
+    }
+
     private VideoSource CreateSource()
     {
         var source = new VideoSource();

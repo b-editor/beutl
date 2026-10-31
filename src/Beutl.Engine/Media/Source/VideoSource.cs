@@ -14,6 +14,9 @@ public sealed class VideoSource : MediaSource
     public override void ReadFrom(Uri uri)
     {
         if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
+        // A relink can switch back to a file that was replaced since other sources opened it, so read the
+        // file switched to afresh instead of joining their readers.
+        if (HasUri && Uri != uri) SharedMediaReaders.Shared.Invalidate(Path.GetFullPath(uri.LocalPath));
         Uri = uri;
     }
 
