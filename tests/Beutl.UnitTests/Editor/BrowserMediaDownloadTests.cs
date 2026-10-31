@@ -98,6 +98,16 @@ public class BrowserMediaDownloadTests
         Assert.That(BrowserMediaDownload.IsDownloadResponse(mediaType, canShow, disposition), Is.EqualTo(expected));
     }
 
+    [TestCase("clip.MP4", true)]
+    [TestCase("photo.jpeg", true)]
+    [TestCase("Sound pack.zip", false)]
+    [TestCase("clip.mp4.exe", false)]
+    [TestCase("Setup", false)]
+    public void OnlyFilesWithAMediaExtensionAreMedia(string fileName, bool expected)
+    {
+        Assert.That(BrowserMediaDownload.IsMediaFile(fileName), Is.EqualTo(expected));
+    }
+
     [TestCase("application/zip", "download")]
     [TestCase("image/png", "download.png")]
     public void FilesWithoutAnyNameAreCalledDownload(string mediaType, string expected)

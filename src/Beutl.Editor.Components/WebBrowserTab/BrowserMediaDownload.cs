@@ -50,6 +50,8 @@ internal sealed class BrowserMediaDownload(HttpClient client)
     internal static bool IsMediaLink(Uri uri) => IsHttpUri(uri)
         && IsMediaExtension(Path.GetExtension(uri.AbsolutePath));
 
+    internal static bool IsMediaFile(string path) => IsMediaExtension(Path.GetExtension(path));
+
     internal static bool IsMediaType(string? mediaType) => mediaType != null && s_mediaTypes.ContainsKey(mediaType);
 
     // WebKit shows pages, PDFs and text itself. Media, attachments and types it cannot show are downloads.
