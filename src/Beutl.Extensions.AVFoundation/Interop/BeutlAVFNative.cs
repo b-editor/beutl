@@ -6,7 +6,7 @@ namespace Beutl.Extensions.AVFoundation.Interop;
 internal static partial class BeutlAVFNative
 {
     internal const string DllName = "BeutlAVF";
-    internal const int ExpectedAbiVersion = 3;
+    internal const int ExpectedAbiVersion = 4;
 
     internal static void EnsureCompatibleVersion()
     {

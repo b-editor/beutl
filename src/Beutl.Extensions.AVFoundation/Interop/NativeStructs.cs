@@ -26,6 +26,8 @@ internal struct BeutlAudioInfo
     public int CodecFourCC;
     public long DurationNum;
     public long DurationDen;
+    public int OutputChannelCount;
+    public uint SpeakerMask;         // WAVEFORMATEXTENSIBLE bits; 0 means discrete channels.
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 4)]
