@@ -16,8 +16,8 @@ using NUnit.Framework;
 
 namespace Beutl.HeadlessUITests;
 
-// Regression: the Show more tile shares Package_Click with the cards; it must load the next page and stay
-// available after a failed request.
+// Regression: the Show more card shares the page's card click handler with the package cards; it must load
+// the next page and stay available after a failed request.
 [TestFixture]
 public class DiscoverPageLoadMoreTests
 {

@@ -1,15 +1,12 @@
 <UserControl x:Class="Beutl.Pages.ExtensionsPages.DiscoverPages.UserProfilePage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:api="using:Beutl.Api.Objects"
              xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:extensionsPage="using:Beutl.ViewModels.ExtensionsPages"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.ExtensionsPages.DiscoverPages"
              d:DesignHeight="450"
              d:DesignWidth="800"
@@ -20,193 +17,70 @@
              RenderOptions.BitmapInterpolationMode="HighQuality"
              mc:Ignorable="d">
 
-    <UserControl.Styles>
-        <Style Selector="Border.card">
-            <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
-        </Style>
-
-        <Style Selector="TextBlock.name">
-            <Setter Property="Theme" Value="{StaticResource BaseTextBlockStyle}" />
-            <Setter Property="FontSize" Value="16" />
-        </Style>
-    </UserControl.Styles>
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://Beutl/Pages/ExtensionsPages/PackageCards.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
 
     <UserControl.KeyBindings>
         <KeyBinding Command="{Binding Refresh}" Gesture="F5" />
         <KeyBinding Command="{Binding Refresh}" Gesture="Ctrl+R" />
     </UserControl.KeyBindings>
 
-    <Grid ColumnDefinitions="380,*" RowDefinitions="*,Auto">
-        <ScrollViewer Margin="10,12,0,8">
-            <Border Padding="12" Classes="card">
-                <Grid ColumnDefinitions="Auto,16,*" RowDefinitions="Auto,Auto,*">
-                    <asyncImageLoader:AdvancedImage Width="80"
-                                                    Height="80"
-                                                    Source="{Binding Profile.AvatarUrl.Value}">
-                        <asyncImageLoader:AdvancedImage.Clip>
-                            <EllipseGeometry Center="40,40"
-                                             RadiusX="40"
-                                             RadiusY="40" />
-                        </asyncImageLoader:AdvancedImage.Clip>
-                    </asyncImageLoader:AdvancedImage>
+    <Panel>
+        <ScrollViewer>
+            <StackPanel Margin="24,12,24,24" Spacing="16">
+                <Grid ColumnDefinitions="Auto,16,*">
+                    <Panel Width="64" Height="64">
+                        <Border Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                CornerRadius="32"
+                                IsVisible="{Binding Profile.AvatarUrl.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}">
+                            <icons:FluentIcon FontSize="28"
+                                              Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                              Icon="Person" />
+                        </Border>
+                        <asyncImageLoader:AdvancedImage ImageClipping.CornerRadius="32" Source="{Binding Profile.AvatarUrl.Value}" />
+                    </Panel>
 
                     <StackPanel Grid.Column="2"
                                 VerticalAlignment="Center"
-                                Spacing="8">
-                        <TextBlock Classes="name"
+                                Spacing="2">
+                        <TextBlock IsVisible="{Binding Profile.DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   Text="{Binding Profile.DisplayName.Value}"
+                                   TextTrimming="CharacterEllipsis"
+                                   Theme="{StaticResource SubtitleTextBlockStyle}" />
+                        <TextBlock IsVisible="{Binding Profile.DisplayName.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}"
+                                   Text="{Binding Profile.Name}"
+                                   TextTrimming="CharacterEllipsis"
+                                   Theme="{StaticResource SubtitleTextBlockStyle}" />
+                        <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                    IsVisible="{Binding Profile.DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                   Text="{Binding Profile.DisplayName.Value}" />
-                        <TextBlock Classes="name"
-                                   IsVisible="{Binding Profile.DisplayName.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}"
-                                   Text="{Binding Profile.Name}" />
-
-                        <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Profile.Name}" />
+                                   Text="{Binding Profile.Name}"
+                                   TextTrimming="CharacterEllipsis" />
                     </StackPanel>
-
-                    <TextBlock Grid.Row="2"
-                               Grid.ColumnSpan="3"
-                               MaxWidth="240"
-                               Margin="0,16,0,0"
-                               HorizontalAlignment="Center"
-                               Text="{Binding Profile.Biography.Value}"
-                               TextWrapping="Wrap" />
                 </Grid>
-            </Border>
-        </ScrollViewer>
-        <ScrollViewer Grid.Column="1" Margin="16,16,10,0">
-            <Grid RowDefinitions="Auto,*">
-                <TextBlock Text="{x:Static lang:ExtensionsStrings.Profile_PublishedPackages}" Theme="{StaticResource SubtitleTextBlockStyle}" />
 
-                <ItemsRepeater Grid.Row="1"
-                               Margin="0,16,0,0"
-                               ItemsSource="{Binding Packages}">
+                <TextBlock IsVisible="{Binding Profile.Biography.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           Text="{Binding Profile.Biography.Value}"
+                           TextWrapping="Wrap" />
+
+                <TextBlock Margin="0,8,0,0"
+                           Text="{x:Static lang:ExtensionsStrings.Profile_PublishedPackages}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ItemsRepeater ItemTemplate="{StaticResource PackageCardTemplate}" ItemsSource="{Binding Packages}">
                     <ItemsRepeater.Layout>
-                        <controls:HorizontalGridLayout ColumnSpacing="16"
-                                                       MinItemWidth="345"
-                                                       RowSpacing="16" />
+                        <controls:HorizontalGridLayout ColumnSpacing="12"
+                                                       MinItemWidth="300"
+                                                       RowSpacing="12" />
                     </ItemsRepeater.Layout>
-                    <ItemsRepeater.ItemTemplate>
-                        <DataTemplate>
-                            <ContentControl Content="{Binding}">
-                                <ContentControl.DataTemplates>
-                                    <DataTemplate x:DataType="extensionsPage:LoadMoreItem">
-                                        <Button Padding="0"
-                                                HorizontalAlignment="Stretch"
-                                                HorizontalContentAlignment="Stretch"
-                                                VerticalContentAlignment="Stretch"
-                                                Click="Package_Click">
-                                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
-                                                <Border Width="80" Height="80">
-                                                    <icons:FluentIcon FontSize="32" Icon="MoreHorizontal" />
-                                                </Border>
-
-                                                <TextBlock Grid.Column="2"
-                                                           VerticalAlignment="Center"
-                                                           Text="{x:Static lang:Strings.ShowMore}" />
-                                            </Grid>
-                                        </Button>
-                                    </DataTemplate>
-                                    <DataTemplate x:DataType="api:Package">
-                                        <Button Padding="0"
-                                                HorizontalAlignment="Stretch"
-                                                HorizontalContentAlignment="Stretch"
-                                                VerticalContentAlignment="Stretch"
-                                                Click="Package_Click">
-                                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
-                                                <asyncImageLoader:AdvancedImage Width="80"
-                                                                                Height="80"
-                                                                                ImageClipping.CornerRadius="8"
-                                                                                Source="{Binding LogoUrl.Value}" />
-
-                                                <Grid Grid.Column="2"
-                                                      Margin="0,2"
-                                                      VerticalAlignment="Stretch"
-                                                      ColumnDefinitions="*,Auto"
-                                                      RowDefinitions="Auto,Auto,Auto">
-                                                    <TextBlock Text="{Binding Name}" />
-
-                                                    <TextBlock Grid.Row="1"
-                                                               Grid.ColumnSpan="2"
-                                                               Classes="name"
-                                                               IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                               Text="{Binding DisplayName.Value}" />
-
-                                                    <TextBlock Grid.Row="2"
-                                                               Grid.ColumnSpan="2"
-                                                               Margin="0,8,0,0"
-                                                               Text="{Binding ShortDescription.Value}" />
-
-                                                    <TextBlock Grid.Column="1"
-                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                               Text="{Binding Owner.Name}" />
-                                                </Grid>
-                                            </Grid>
-                                        </Button>
-                                    </DataTemplate>
-                                    <DataTemplate x:DataType="extensionsPage:DummyItem">
-                                        <Button Padding="0"
-                                                HorizontalAlignment="Stretch"
-                                                HorizontalContentAlignment="Stretch"
-                                                VerticalContentAlignment="Stretch"
-                                                IsHitTestVisible="False">
-                                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
-                                                <Border Width="80"
-                                                        Height="80"
-                                                        Classes="placeholder"
-                                                        CornerRadius="8" />
-
-                                                <Grid Grid.Column="2"
-                                                      Margin="0,2"
-                                                      VerticalAlignment="Stretch"
-                                                      ColumnDefinitions="*,Auto"
-                                                      RowDefinitions="Auto,Auto,Auto">
-                                                    <Border Width="80"
-                                                            Height="14"
-                                                            HorizontalAlignment="Left"
-                                                            Classes="placeholder"
-                                                            CornerRadius="8" />
-
-                                                    <Border Grid.Row="1"
-                                                            Grid.ColumnSpan="2"
-                                                            Width="100"
-                                                            Height="16"
-                                                            HorizontalAlignment="Left"
-                                                            Classes="placeholder"
-                                                            CornerRadius="8" />
-
-                                                    <Border Grid.Row="2"
-                                                            Grid.ColumnSpan="2"
-                                                            Width="90"
-                                                            Height="14"
-                                                            Margin="0,8,0,0"
-                                                            HorizontalAlignment="Left"
-                                                            Classes="placeholder"
-                                                            CornerRadius="8" />
-
-                                                    <Border Grid.Column="1"
-                                                            Width="80"
-                                                            Height="14"
-                                                            HorizontalAlignment="Left"
-                                                            Classes="placeholder"
-                                                            CornerRadius="8" />
-                                                </Grid>
-                                            </Grid>
-                                        </Button>
-                                    </DataTemplate>
-                                </ContentControl.DataTemplates>
-                            </ContentControl>
-                        </DataTemplate>
-                    </ItemsRepeater.ItemTemplate>
                 </ItemsRepeater>
-            </Grid>
+            </StackPanel>
         </ScrollViewer>
 
-        <ProgressRing Grid.RowSpan="2"
-                      Grid.ColumnSpan="2"
-                      IsIndeterminate="{CompiledBinding IsBusy.Value}"
-                      IsVisible="{CompiledBinding IsBusy.Value}" />
-    </Grid>
+        <ProgressRing IsIndeterminate="{CompiledBinding IsBusy.Value}" IsVisible="{CompiledBinding IsBusy.Value}" />
+    </Panel>
 </UserControl>
