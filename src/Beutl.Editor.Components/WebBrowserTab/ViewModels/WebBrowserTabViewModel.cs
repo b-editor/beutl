@@ -67,6 +67,9 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     internal Uri CurrentUri => _currentUri.Value;
 
+    // The document on display, which stays while another one loads.
+    internal Uri CommittedUri => _committedUri;
+
     internal string? PageTitle => _pageTitle.Value;
 
     public IReactiveProperty<string> Address => _address;

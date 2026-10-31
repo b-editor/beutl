@@ -115,6 +115,50 @@ public class BrowserMediaDownloadTests
         Assert.That(BrowserMediaDownload.CreateFileName(null, new Uri("https://example.com/"), mediaType), Is.EqualTo(expected));
     }
 
+    [TestCase("blob:https://github.com/6c1f9e0e-4d7a-4f1b-9d0e-2f1a3b4c5d6e", true)]
+    [TestCase("BLOB:https://github.com/6c1f9e0e", true)]
+    [TestCase("data:text/plain;base64,SGVsbG8=", true)]
+    [TestCase("https://example.com/data:notes.txt", false)]
+    [TestCase("about:blank", false)]
+    [TestCase("blob", false)]
+    [TestCase(null, false)]
+    public void OnlyBlobAndDataAddressesHoldGeneratedFiles(string? address, bool expected)
+    {
+        Assert.That(BrowserMediaDownload.IsGeneratedFileAddress(address), Is.EqualTo(expected));
+    }
+
+    [TestCase("README.md", "text/plain", "README.md")]
+    [TestCase("index.html", "text/html", "index.html")]
+    [TestCase("../../notes.txt", "text/plain", "notes.txt")]
+    [TestCase("chart", "image/png", "chart.png")]
+    [TestCase(null, "image/png", "download.png")]
+    [TestCase("", "application/octet-stream", "download")]
+    public void GeneratedFilesKeepThePagesNameEvenForAWebPage(string? suggestedName, string mediaType, string expected)
+    {
+        Assert.That(BrowserMediaDownload.CreateGeneratedFileName(suggestedName, mediaType), Is.EqualTo(expected));
+    }
+
+    // GitHub READMEs often start with HTML, and a page may save an empty file. A server's download is refused for
+    // either, since a sign-in page could pass for it; a generated file is what its page made.
+    [TestCase("<p align=\"center\">\n  <img src=\"logo.png\">\n</p>\n\n# Project\n")]
+    [TestCase("")]
+    public void GeneratedFilesArePublishedAsThePageMadeThem(string payload)
+    {
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
+        string stagingDirectory = Path.Combine(directory, ".staging");
+        Directory.CreateDirectory(stagingDirectory);
+        string staged = Path.Combine(stagingDirectory, "response");
+        File.WriteAllText(staged, payload);
+        Assert.That(async () => await BrowserMediaDownload.ValidateAndPublishAsync(staged, directory, "README.md", null, default),
+            Throws.Exception);
+
+        string saved = BrowserMediaDownload.PublishGeneratedFile(staged, directory, "README.md", default);
+        Assert.That(saved, Is.EqualTo(Path.Combine(directory, "README.md")));
+        Assert.That(File.ReadAllText(saved), Is.EqualTo(payload));
+        Assert.That(File.Exists(staged), Is.False);
+    }
+
     [Test]
     public async Task Downloads_SaveFilesThatAreNotMediaUnderTheirOwnNames()
     {

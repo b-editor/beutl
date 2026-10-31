@@ -92,6 +92,19 @@ internal partial class WebBrowserTabView
         _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
     }
 
+    // A page script generated the file, and the engine holds it. No navigation took place, so the page and its loading
+    // state stay as they are; the file belongs to the document on display, even while another one loads.
+    internal void OnGeneratedDownloadRequested(string suggestedName, IBrowserDownloadSource source)
+    {
+        if (_disposed || _viewModel is not { } vm)
+        {
+            source.Dispose();
+            return;
+        }
+        if (IsPageDownloadOfferBlocked) DeferNativeDownload(vm.CommittedUri, suggestedName, source);
+        else QueuePageDownloadRequest(vm.CommittedUri, suggestedName, BrowserReferrerPolicy.NoReferrer, source);
+    }
+
     // The Linux handler kept the previous page in place of a main-frame file WebKitGTK cannot show, and dropped
     // the response. The file is offered to the downloader as if the page had linked to it.
     internal void OnNavigationResponseNotShown(Uri uri, string? suggestedName)
@@ -269,6 +282,8 @@ internal partial class WebBrowserTabView
         // using destination cookies when the surviving document's origin is unknown.
         Uri? referrer = _pageDownloadReferrerUncertain ? ViewModels.WebBrowserTabViewModel.BlankPage : owner?.CurrentUri;
         var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId, referrerPolicy, downloadSource);
+        // A generated file's address is the page, which says less than the file's name.
+        string shown = downloadSource?.IsGenerated == true && !string.IsNullOrEmpty(suggestedName) ? suggestedName : uri.AbsoluteUri;
         _pendingPageDownloadRequest = request;
         Dispatcher.UIThread.Post(() =>
         {
@@ -281,10 +296,10 @@ internal partial class WebBrowserTabView
             DownloadStatusText.MaxLines = 1;
             DownloadStatusText.TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis;
             DownloadStatusText.Text = Strings.BrowserPageDownloadRequest;
-            DownloadProgressText.Text = uri.AbsoluteUri;
+            DownloadProgressText.Text = shown;
             DownloadProgressText.IsVisible = true;
             ToolTip.SetTip(DownloadStatusText, uri.AbsoluteUri);
-            ToolTip.SetTip(DownloadProgressText, uri.AbsoluteUri);
+            ToolTip.SetTip(DownloadProgressText, shown);
             ToolTip.SetTip(DismissDownloadStatusButton, Strings.BrowserIgnorePageDownloads);
             Avalonia.Automation.AutomationProperties.SetName(DismissDownloadStatusButton, Strings.BrowserIgnorePageDownloads);
             ConfirmPageDownloadButton.IsVisible = true;
@@ -461,7 +476,7 @@ internal partial class WebBrowserTabView
             if (_disposed || !ReferenceEquals(_viewModel, vm)) return;
             DownloadStatusText.Text = string.Format(Strings.WebDownloadComplete, Path.GetFileName(file));
             ToolTip.SetTip(DownloadStatusText, file);
-            CheckProfileSave(vm.Profile.AddDownload(uri, file, referrer, referrerPolicy));
+            CheckProfileSave(vm.Profile.AddDownload(uri, file, referrer, referrerPolicy, source?.IsGenerated == true));
             if (options.AddToTimeline && vm.CanAddDownloadedFile(file))
             {
                 try { await vm.AddDownloadedMediaAsync(file, cancellation.Token); }

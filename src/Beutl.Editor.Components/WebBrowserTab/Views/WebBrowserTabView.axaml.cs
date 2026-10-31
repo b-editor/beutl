@@ -216,14 +216,24 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             if (OperatingSystem.IsWindows()) OnWindowsNativeDownloadRequested(uri, name, source);
             else OnNativeDownloadRequested(uri, name, source);
         }
+        void OnGeneratedDownload(string name, IBrowserDownloadSource source)
+        {
+            if (handlerVersion != _nativeDownloadHandlerVersion || !ReferenceEquals(webView, _webView))
+            {
+                source.Dispose();
+                return;
+            }
+            OnGeneratedDownloadRequested(name, source);
+        }
         if (OperatingSystem.IsMacOS())
         {
             _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
-                OnNativeNavigationCommitted, OnNativeNavigationStarted);
+                OnGeneratedDownload, OnNativeNavigationCommitted, OnNativeNavigationStarted);
         }
         else if (OperatingSystem.IsWindows())
         {
-            _nativeDownloadHandler = WindowsBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload);
+            _nativeDownloadHandler = WindowsBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
+                OnGeneratedDownload);
         }
         else if (OperatingSystem.IsLinux())
         {
@@ -231,7 +241,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             {
                 if (handlerVersion == _nativeDownloadHandlerVersion && ReferenceEquals(webView, _webView))
                     OnNavigationResponseNotShown(uri, name);
-            });
+            }, OnGeneratedDownload);
         }
         ScheduleLinuxSizeRefresh(_webView);
     }
