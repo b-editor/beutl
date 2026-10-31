@@ -491,6 +491,9 @@ public class MediaFingerprintPersistenceTests
             });
         }
 
+        // Saving skips an unchanged scene file. Change the scene so the injected scene write runs.
+        scene.Duration.Value += MediaTime.FromSeconds(1);
+
         // As EditViewModel.SaveAsync does it: one transaction, the fingerprint file before the scene file, which
         // it stores without SaveReferencedObjects.
         void SaveAsTheEditorDoes()
