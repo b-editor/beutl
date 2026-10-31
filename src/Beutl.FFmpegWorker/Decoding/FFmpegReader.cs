@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using Beutl.Audio;
 using Beutl.Logging;
@@ -22,17 +23,9 @@ public sealed class FFmpegReader : MediaReader
     // decoder state alive per thread, so the automatic count stays below FFmpeg's own limit of 16.
     private const int AutoThreadCountLimit = 8;
 
-    // Interleaved stereo float, the layout the IPC carries.
-    private const int BytesPerSample = 2 * sizeof(float);
-
-#pragma warning disable IDE1006 // 命名スタイル
-    private static readonly AVChannelLayout AV_CHANNEL_LAYOUT_STEREO = new()
-#pragma warning restore IDE1006 // 命名スタイル
-    {
-        order = AVChannelOrder.AV_CHANNEL_ORDER_NATIVE,
-        nb_channels = 2,
-        u = new AVChannelLayout_u { mask = ffmpeg.AV_CH_LAYOUT_STEREO }
-    };
+    // Fixed at open, even if a later decoded frame changes its layout.
+    private AVChannelLayout _audioOutputLayout;
+    private int AudioBytesPerFrame => _audioOutputLayout.nb_channels * sizeof(float);
 
     private readonly MediaStream? _audioStream;
     private readonly MediaStream? _videoStream;
@@ -149,7 +142,10 @@ public sealed class FFmpegReader : MediaReader
                     codec?.Name ?? "Unknown",
                     new Rational(_demuxer!.Duration, ffmpeg.AV_TIME_BASE),
                     _audioDecoder.SampleRate,
-                    _audioDecoder.ChLayout.nb_channels);
+                    _audioOutputLayout.nb_channels)
+                {
+                    ChannelLayout = GetChannelLayout(_audioOutputLayout)
+                };
             }
         }
         catch
@@ -175,26 +171,28 @@ public sealed class FFmpegReader : MediaReader
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? result)
     {
-        // Decoder側でResampleされるかのチェックのため
-        if (length == 0)
-        {
-            result = new AudioBuffer(AudioInfo.SampleRate, 2, 0);
-            return true;
-        }
-
         result = null;
         if (_audioDecoder == null || _currentAudioFrame == null) return false;
 
-        float[] interleaved = ArrayPool<float>.Shared.Rent(length * 2);
+        int channels = _audioOutputLayout.nb_channels;
+        // Decoder側でResampleされるかのチェックのため
+        if (length == 0)
+        {
+            result = new AudioBuffer(AudioInfo.SampleRate, channels, 0);
+            return true;
+        }
+
+        int valueCount = checked(length * channels);
+        float[] interleaved = ArrayPool<float>.Shared.Rent(valueCount);
         try
         {
             // Cleared, so the tail of a short read stays silent.
-            Span<float> samples = interleaved.AsSpan(0, length * 2);
+            Span<float> samples = interleaved.AsSpan(0, valueCount);
             samples.Clear();
             if (!ReadAudio(start, length, MemoryMarshal.AsBytes(samples), out _))
                 return false;
 
-            result = new AudioBuffer(AudioInfo.SampleRate, 2, length);
+            result = new AudioBuffer(AudioInfo.SampleRate, channels, length);
             AudioConversion.Deinterleave(samples, result);
             return true;
         }
@@ -208,14 +206,14 @@ public sealed class FFmpegReader : MediaReader
     {
         info = default;
 
+        if (_audioDecoder == null || _currentAudioFrame == null)
+            return false;
+
         if (length <= 0)
         {
             info = CreateAudioFrameInfo(0);
             return true;
         }
-
-        if (_audioDecoder == null || _currentAudioFrame == null)
-            return false;
 
         if (!IsInCurrentAudioFrame(start))
         {
@@ -229,10 +227,10 @@ public sealed class FFmpegReader : MediaReader
 
         int decoded = 0;
         bool needGrab = false;
-        int sampleSize = BytesPerSample;
+        int sampleSize = AudioBytesPerFrame;
 
         // SampleConverterを遅延初期化
-        _sampleConverter ??= new AudioFrameConverter(AudioInfo.SampleRate);
+        _sampleConverter ??= new AudioFrameConverter(AudioInfo.SampleRate, _audioOutputLayout);
 
         while ((!needGrab || GrabAudio()) && _currentAudioFrame.NbSamples > 0)
         {
@@ -293,21 +291,153 @@ public sealed class FFmpegReader : MediaReader
         return offset >= 0 && offset < frameSamples ? (int)offset : -1;
     }
 
-    internal sealed class AudioFrameConverter : SampleConverter
+    internal static unsafe AVChannelLayout GetOutputLayout(AVChannelLayout decoderLayout)
     {
-        public AudioFrameConverter(int sampleRate)
+        ArgumentOutOfRangeException.ThrowIfNegative(decoderLayout.nb_channels);
+        // Some decoders only learn their channels from the first frame; keep the legacy stereo output.
+        if (decoderLayout.nb_channels == 0)
         {
-            SetOpts(AV_CHANNEL_LAYOUT_STEREO, sampleRate, AVSampleFormat.AV_SAMPLE_FMT_FLT, 0);
+            return new AVChannelLayout
+            {
+                order = AVChannelOrder.AV_CHANNEL_ORDER_NATIVE,
+                nb_channels = 2,
+                u = new AVChannelLayout_u { mask = ffmpeg.AV_CH_LAYOUT_STEREO }
+            };
         }
 
-        public MediaFrame ConvertFrame(MediaFrame frame)
+        if (decoderLayout.order == AVChannelOrder.AV_CHANNEL_ORDER_NATIVE)
+            return decoderLayout;
+
+        if (decoderLayout.order == AVChannelOrder.AV_CHANNEL_ORDER_CUSTOM)
         {
-            // SetOpts replaces a sample-rate-sized native FIFO without disposing the old one.
-            // Keep that allocation for the reader's lifetime, while preserving the empty FIFO and
-            // per-frame output size that the previous per-frame SetOpts calls supplied.
+            // Retyping can free the map. Never retype the decoder's shallow ChLayout copy.
+            AVChannelLayout copy = default;
+            try
+            {
+                ffmpeg.av_channel_layout_copy(&copy, &decoderLayout).ThrowIfError();
+                if (ffmpeg.av_channel_layout_retype(&copy, AVChannelOrder.AV_CHANNEL_ORDER_NATIVE,
+                        ffmpeg.AV_CHANNEL_LAYOUT_RETYPE_FLAG_LOSSLESS) == 0)
+                    return copy;
+            }
+            finally
+            {
+                ffmpeg.av_channel_layout_uninit(&copy);
+            }
+        }
+
+        // UNSPEC (and layouts that cannot be represented losslessly) retain their channel indices.
+        return new AVChannelLayout { order = AVChannelOrder.AV_CHANNEL_ORDER_UNSPEC, nb_channels = decoderLayout.nb_channels };
+    }
+
+    internal static AudioChannelLayout GetChannelLayout(AVChannelLayout layout)
+    {
+        const ulong speakerBits = (1UL << 18) - 1;
+        ulong downmixBits = ffmpeg.AV_CH_STEREO_LEFT | ffmpeg.AV_CH_STEREO_RIGHT;
+        if (layout.order != AVChannelOrder.AV_CHANNEL_ORDER_NATIVE || (layout.u.mask & ~(speakerBits | downmixBits)) != 0)
+            return AudioChannelLayout.Discrete(layout.nb_channels);
+
+        ulong mask = layout.u.mask & speakerBits;
+        // Aliases must also preserve the ascending speaker order of the unchanged native samples.
+        // For example, FR+DL is ordered FR,DL in FFmpeg, not FL,FR as a stereo mask would claim.
+        if (((layout.u.mask & ffmpeg.AV_CH_STEREO_LEFT) != 0 && (mask & ~(ulong)AudioSpeakers.FrontLeft) != 0)
+            || ((layout.u.mask & ffmpeg.AV_CH_STEREO_RIGHT) != 0 && (mask & ~(ulong)AudioChannelLayout.Stereo.Speakers) != 0))
+            return AudioChannelLayout.Discrete(layout.nb_channels);
+
+        if ((layout.u.mask & ffmpeg.AV_CH_STEREO_LEFT) != 0)
+            mask |= (uint)AudioSpeakers.FrontLeft;
+        if ((layout.u.mask & ffmpeg.AV_CH_STEREO_RIGHT) != 0)
+            mask |= (uint)AudioSpeakers.FrontRight;
+        return BitOperations.PopCount(mask) == layout.nb_channels
+            ? new AudioChannelLayout(layout.nb_channels, (AudioSpeakers)mask)
+            : AudioChannelLayout.Discrete(layout.nb_channels);
+    }
+
+    internal sealed class AudioFrameConverter : SampleConverter
+    {
+        public AudioFrameConverter(int sampleRate) : this(sampleRate, new AVChannelLayout
+        {
+            order = AVChannelOrder.AV_CHANNEL_ORDER_NATIVE,
+            nb_channels = 2,
+            u = new AVChannelLayout_u { mask = ffmpeg.AV_CH_LAYOUT_STEREO }
+        })
+        {
+        }
+
+        // outputLayout is the pointer-free NATIVE or UNSPEC layout fixed by GetOutputLayout at open.
+        public AudioFrameConverter(int sampleRate, AVChannelLayout outputLayout)
+        {
+            SetOpts(outputLayout, sampleRate, AVSampleFormat.AV_SAMPLE_FMT_FLT, 0);
+        }
+
+        public unsafe MediaFrame ConvertFrame(MediaFrame frame)
+        {
+            // SampleConverter compares CUSTOM map pointers and leaks the layouts it queries. Compare
+            // their contents and release the copies, while keeping the existing per-frame FIFO behavior.
+            ConfigureInput(frame);
             AudioFifo.Reset();
-            dstSamples = frame.NbSamples;
-            return base.ConvertFrame(frame, out _, out _);
+            var output = new MediaFrame
+            {
+                ChLayout = dstChLayout,
+                SampleRate = dstSampleRate,
+                Format = (int)dstFormat,
+                NbSamples = frame.NbSamples
+            };
+            try
+            {
+                output.AllocateBuffer();
+                AVFrame* source = frame;
+                AVFrame* destination = output;
+                int count = ffmpeg.swr_convert(pSwrContext, destination->extended_data, output.NbSamples,
+                    source->extended_data, frame.NbSamples).ThrowIfError();
+                AudioFifo.Add((void**)destination->extended_data, count);
+                while (count == output.NbSamples)
+                {
+                    count = ffmpeg.swr_convert(pSwrContext, destination->extended_data, output.NbSamples, null, 0).ThrowIfError();
+                    AudioFifo.Add((void**)destination->extended_data, count);
+                }
+                output.NbSamples = AudioFifo.Read((void**)destination->extended_data, output.NbSamples);
+                return output;
+            }
+            catch
+            {
+                output.Dispose();
+                throw;
+            }
+        }
+
+        private unsafe void ConfigureInput(MediaFrame frame)
+        {
+            var inputLayout = frame.ChLayout;
+            if (dstChLayout.order == AVChannelOrder.AV_CHANNEL_ORDER_UNSPEC)
+            {
+                // A discrete output has no positions to rematrix into. Preserve input channel indices.
+                inputLayout = new AVChannelLayout { order = AVChannelOrder.AV_CHANNEL_ORDER_UNSPEC, nb_channels = inputLayout.nb_channels };
+            }
+
+            AVChannelLayout previousLayout = default;
+            try
+            {
+                ffmpeg.av_opt_get_chlayout(pSwrContext, "ichl", 0, &previousLayout).ThrowIfError();
+                long rate;
+                AVSampleFormat format;
+                ffmpeg.av_opt_get_int(pSwrContext, "isr", 0, &rate).ThrowIfError();
+                ffmpeg.av_opt_get_sample_fmt(pSwrContext, "isf", 0, &format).ThrowIfError();
+                if (ffmpeg.av_channel_layout_compare(&previousLayout, &inputLayout) != 0
+                    || rate != frame.SampleRate || (int)format != frame.Format)
+                {
+                    var outputLayout = dstChLayout;
+                    fixed (SwrContext** context = &pSwrContext)
+                    {
+                        ffmpeg.swr_alloc_set_opts2(context, &outputLayout, dstFormat, dstSampleRate,
+                            &inputLayout, (AVSampleFormat)frame.Format, frame.SampleRate, 0, null).ThrowIfError();
+                    }
+                    ffmpeg.swr_init(pSwrContext).ThrowIfError();
+                }
+            }
+            finally
+            {
+                ffmpeg.av_channel_layout_uninit(&previousLayout);
+            }
         }
     }
 
@@ -316,8 +446,9 @@ public sealed class FFmpegReader : MediaReader
         return new AudioFrameInfo
         {
             SampleRate = AudioInfo.SampleRate,
+            NumChannels = _audioOutputLayout.nb_channels,
             NumSamples = samples,
-            DataLength = samples * BytesPerSample,
+            DataLength = checked(samples * AudioBytesPerFrame),
         };
     }
 
@@ -958,6 +1089,8 @@ public sealed class FFmpegReader : MediaReader
             return;
         }
 
+        _audioOutputLayout = GetOutputLayout(_audioDecoder.ChLayout);
+
         // フレーム初期化
         _currentAudioFrame = new MediaFrame();
         // The first frame takes its position from the PTS, as after a seek.
@@ -1012,6 +1145,7 @@ public struct VideoFrameInfo
 public struct AudioFrameInfo
 {
     public int SampleRate;
+    public int NumChannels;
     public int NumSamples;
     public int DataLength;
 }

@@ -78,7 +78,10 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
                 ai.AudioCodecName ?? "Unknown",
                 new Rational(ai.AudioDurationNum, ai.AudioDurationDen),
                 ai.AudioSampleRate,
-                ai.AudioNumChannels);
+                ai.AudioNumChannels)
+            {
+                ChannelLayout = new AudioChannelLayout(ai.AudioNumChannels, (AudioSpeakers)ai.AudioSpeakerMask)
+            };
         }
 
         // Only video readers hold a decoder and ring buffer worth releasing while idle.
@@ -296,6 +299,23 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
             return false;
         }
 
+        int channels = AudioInfo.ChannelLayout.ChannelCount;
+        long expectedLength = (long)response.NumSamples * channels * sizeof(float);
+        if (response.NumChannels != channels || response.NumSamples < 0 || response.NumSamples > length
+            || response.DataLength != expectedLength)
+        {
+            throw new InvalidOperationException(
+                $"Audio response does not match the requested {channels}-channel float buffer: " +
+                $"{response.NumChannels} channels, {response.NumSamples} samples, {response.DataLength} bytes.");
+        }
+
+        // EOF needs no shared-memory mapping (a zero-length mapping is not valid on every platform).
+        if (response.NumSamples == 0)
+        {
+            sound = new AudioBuffer(response.SampleRate, channels, 0);
+            return true;
+        }
+
         EnsureAudioBuffer(response.DataLength);
 
         // Copied out, because the worker reuses the shared memory for the next read.
@@ -303,8 +323,8 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         byte* ptr = buffer.AcquirePointer();
         try
         {
-            var audio = new AudioBuffer(response.SampleRate, 2, response.NumSamples);
-            AudioConversion.Deinterleave(new ReadOnlySpan<float>(ptr, response.NumSamples * 2), audio);
+            var audio = new AudioBuffer(response.SampleRate, channels, response.NumSamples);
+            AudioConversion.Deinterleave(new ReadOnlySpan<float>(ptr, checked(response.NumSamples * channels)), audio);
             sound = audio;
             return true;
         }
@@ -316,7 +336,8 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
 
     private bool ReadAudioChunked(int start, int length, int chunkSize, [NotNullWhen(true)] out AudioBuffer? sound)
     {
-        var scratch = new AudioBuffer(AudioInfo.SampleRate, 2, length);
+        int channels = AudioInfo.ChannelLayout.ChannelCount;
+        var scratch = new AudioBuffer(AudioInfo.SampleRate, channels, length);
         try
         {
             int offset = 0;
@@ -339,8 +360,8 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
                     if (chunk.SampleCount == 0)
                         break;
 
-                    chunk.GetChannelData(0).CopyTo(scratch.GetChannelData(0)[offset..]);
-                    chunk.GetChannelData(1).CopyTo(scratch.GetChannelData(1)[offset..]);
+                    for (int channel = 0; channel < channels; channel++)
+                        chunk.GetChannelData(channel).CopyTo(scratch.GetChannelData(channel)[offset..]);
                     offset += chunk.SampleCount;
                 }
             }
@@ -353,7 +374,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
             {
                 // Trim the trailing over-allocation so callers see the real decoded length
                 // (SampleCount == offset), not a zero-filled tail.
-                var trimmed = new AudioBuffer(AudioInfo.SampleRate, 2, offset);
+                var trimmed = new AudioBuffer(AudioInfo.SampleRate, channels, offset);
                 scratch.CopyTo(trimmed, 0, offset);
                 scratch.Dispose();
                 sound = trimmed;
@@ -510,6 +531,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
             || (original.AudioCodecName == reopened.AudioCodecName
                 && original.AudioSampleRate == reopened.AudioSampleRate
                 && original.AudioNumChannels == reopened.AudioNumChannels
+                && original.AudioSpeakerMask == reopened.AudioSpeakerMask
                 && original.AudioDurationNum == reopened.AudioDurationNum
                 && original.AudioDurationDen == reopened.AudioDurationDen);
     }

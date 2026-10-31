@@ -89,6 +89,7 @@
   <ItemGroup>
     <None Include="..\Beutl.Extensions.MediaFoundation.Tests\Fixtures\late-audio.mp4" Link="Fixtures\late-audio.mp4" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\Beutl.Extensions.MediaFoundation.Tests\Fixtures\marker-bframes.mp4" Link="Fixtures\marker-bframes.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Beutl.Extensions.MediaFoundation.Tests\Fixtures\surround51-tones.m4a" Link="Fixtures\surround51-tones.m4a" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
