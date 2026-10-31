@@ -423,7 +423,7 @@
     <value>재생을 일시 중지하는 동안 장면 설정이 유효하지 않게 되어 적용이 취소되었습니다.</value>
   </data>
   <data name="ScriptValidationUnavailable" xml:space="preserve">
-    <value>여기서는 검증을 사용할 수 없습니다(그래픽 컨텍스트 없음). 스크립트가 확인되지 않았습니다.</value>
+    <value>여기서는 검증을 사용할 수 없습니다. 스크립트가 확인되지 않았습니다.</value>
   </data>
   <data name="WindowCapture_RecordingStarted" xml:space="preserve">
     <value>녹화 시작됨: {0}x{1} @ {2}fps</value>

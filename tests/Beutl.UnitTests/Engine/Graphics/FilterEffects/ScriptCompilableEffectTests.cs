@@ -4,7 +4,6 @@ using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Threading;
 using Beutl.UnitTests.TestInfrastructure;
-using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 
@@ -115,36 +114,49 @@ public sealed class ScriptCompilableEffectTests
 
     [Test]
     [NonParallelizable]
-    public void Glsl_reports_unavailable_when_no_graphics_context()
+    public void Glsl_validates_without_a_graphics_context()
     {
         using var scope = InstalledGraphicsScope.Install(
             new InstalledGraphics(null, null, null, FailedToInitialize: false));
         var effect = new GLSLScriptEffect();
 
-        ScriptCompilationResult result = effect.ValidateScript("void main() { this does not compile }");
+        ScriptCompilationResult broken = effect.ValidateScript("void main() { this does not compile }");
+        ScriptCompilationResult defaultScript = effect.ValidateScript(effect.FragmentShader.Value);
 
-        Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Unavailable));
+        Assert.Multiple(() =>
+        {
+            Assert.That(broken.Status, Is.EqualTo(ScriptCompilationStatus.Failed));
+            Assert.That(broken.Error, Is.Not.Null.And.Not.Empty);
+            Assert.That(defaultScript.Status, Is.EqualTo(ScriptCompilationStatus.Compiled));
+        });
     }
 
-    [Test]
-    [NonParallelizable]
-    public void Glsl_validation_disposes_its_temporary_shader_compiler()
+    // Valid GLSL that the effect's pass cannot bind: a second sampler, or more push constants than it provides.
+    [TestCase("layout(set = 0, binding = 1) uniform sampler2D mask;", "texture(mask, fragCoord)")]
+    [TestCase("layout(push_constant) uniform PushConstants { float progress; float duration; float time; "
+        + "float width; float height; float scale; float extra; } pc;", "pc.extra")]
+    public void Glsl_validation_fails_for_a_script_the_effect_cannot_run(string declaration, string factor)
     {
-        var context = new Mock<IGraphicsContext>();
-        var compiler = new Mock<IShaderCompiler>();
-        Mock<IDisposable> compilerLifetime = compiler.As<IDisposable>();
-        context.Setup(x => x.CreateShaderCompiler()).Returns(compiler.Object);
-        compiler
-            .Setup(x => x.CompileToSpirv(It.IsAny<string>(), ShaderStage.Fragment, "main"))
-            .Returns([0x03, 0x02, 0x23, 0x07]);
-        using var scope = InstalledGraphicsScope.Install(context.Object);
+        string script = $$"""
+            #version 450
+            layout(location = 0) in vec2 fragCoord;
+            layout(location = 0) out vec4 outColor;
+            layout(set = 0, binding = 0) uniform sampler2D srcTexture;
+            {{declaration}}
+            void main() { outColor = texture(srcTexture, fragCoord) * {{factor}}; }
+            """;
         var effect = new GLSLScriptEffect();
+        effect.FragmentShader.Value = script;
+        using var resource = (GLSLScriptEffect.Resource)effect.ToResource(CompositionContext.Default);
 
-        ScriptCompilationResult result = effect.ValidateScript(
-            "#version 450\nlayout(location=0) out vec4 color; void main() { color = vec4(1); }");
+        ScriptCompilationResult result = effect.ValidateScript(script);
 
-        Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Compiled));
-        compilerLifetime.Verify(x => x.Dispose(), Times.Once);
+        Assert.Multiple(() =>
+        {
+            Assert.That(resource._program, Is.Null, "The effect stays inactive for this script.");
+            Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Failed));
+            Assert.That(result.Error, Is.Not.Null.And.Not.Empty);
+        });
     }
 
     [TestCase("half4 apply(half4 color) { return color; } /* forgot to close")]

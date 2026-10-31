@@ -423,7 +423,7 @@ Do you want to restart the application?</value>
     <value>Apply was canceled because the scene settings became invalid while pausing playback.</value>
   </data>
   <data name="ScriptValidationUnavailable" xml:space="preserve">
-    <value>Validation is unavailable here (no graphics context); the script was not checked.</value>
+    <value>Validation is unavailable here; the script was not checked.</value>
   </data>
   <data name="WindowCapture_RecordingStarted" xml:space="preserve">
     <value>Recording started: {0}x{1} @ {2}fps</value>

@@ -51,26 +51,46 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
                """;
     }
 
+    // Checks the script exactly as the effect prepares it, so a script reported as compiled also runs.
     public ScriptCompilationResult ValidateScript(string script)
     {
         if (string.IsNullOrWhiteSpace(script))
             return ScriptCompilationResult.Compiled;
 
-        IGraphicsContext? context = GraphicsContextFactory.SharedContext;
-        if (context == null)
+        VulkanShaderCompiler compiler;
+        try
+        {
+            compiler = new VulkanShaderCompiler();
+        }
+        catch (Exception)
+        {
+            // Without shaderc the script cannot be checked at all, which is not the script's failure.
             return ScriptCompilationResult.Unavailable;
+        }
 
         try
         {
-            IShaderCompiler compiler = context.CreateShaderCompiler();
-            using IDisposable? compilerLifetime = compiler as IDisposable;
-            compiler.CompileToSpirv(script, ShaderStage.Fragment);
+            using (compiler)
+            {
+                PrepareProgram(script, compiler);
+            }
+
             return ScriptCompilationResult.Compiled;
         }
         catch (Exception ex)
         {
             return ScriptCompilationResult.Fail(ex.Message);
         }
+    }
+
+    // Compiles every stage of the fullscreen program and checks it against the pass that binds it.
+    private static ShaderProgram PrepareProgram(string script, VulkanShaderCompiler compiler)
+    {
+        var program = ShaderProgram.Fullscreen(new ShaderSource(script));
+        var interfaces = program.Stages.ToDictionary(pair => pair.Key,
+            pair => new ShaderInterface(compiler.CompileToSpirv(pair.Value.Text, pair.Key), pair.Key));
+        ShaderInterface.ValidateProgram(interfaces, CreateGraph(program, default).Passes[0]);
+        return program;
     }
 
     private static ShaderGraphDescription CreateGraph(ShaderProgram program, PushConstants constants)
@@ -134,11 +154,7 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
                 {
                     using var compiler = new VulkanShaderCompiler();
                     _recordedShader = FragmentShader;
-                    var program = ShaderProgram.Fullscreen(new ShaderSource(FragmentShader));
-                    var interfaces = program.Stages.ToDictionary(pair => pair.Key,
-                        pair => new ShaderInterface(compiler.CompileToSpirv(pair.Value.Text, pair.Key), pair.Key));
-                    ShaderInterface.ValidateProgram(interfaces, CreateGraph(program, default).Passes[0]);
-                    _program = program;
+                    _program = PrepareProgram(FragmentShader, compiler);
                     Version++; // A successful retry must invalidate an already recorded pass-through.
                 }
                 catch (Exception ex)
