@@ -1,6 +1,7 @@
 ﻿using Beutl.Api.Services;
 using Beutl.Editor.Components.AiWorkspaceTab;
 using Beutl.Editor.Components.AudioVisualizerTab;
+using Beutl.Editor.Components.ChannelMapProperties;
 using Beutl.Editor.Components.ColorGradingProperties;
 using Beutl.Editor.Components.ColorGradingTab;
 using Beutl.Editor.Components.ColorScopesTab;
@@ -65,6 +66,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         ColorGradingPropertiesExtension.Instance,
         Beutl.Editor.Components.NodeGraphTab.PropertyEditors.GenerativeChoicePropertyExtension.Instance,
         EqualizerPropertiesExtension.Instance,
+        ChannelMapPropertiesExtension.Instance,
         ScriptEditorExtension.Instance,
         FileBrowserTabExtension.Instance,
         AiWorkspaceTabExtension.Instance,

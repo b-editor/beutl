@@ -148,6 +148,43 @@ public class SourceNodeTests
         });
     }
 
+    [Test]
+    public void Process_ExplicitMapPreservesEveryBitAndKeepsSilenceAndTheShortReadTail()
+    {
+        int[] bits = [unchecked((int)0x80000000), 0x7FC12345, 0x7F800000, unchecked((int)0xFF800000)];
+        var layout = AudioChannelLayout.GetDefault(4);
+        using var samples = AudioTestBuffers.CreateBuffer(4, 4, (ch, i) => BitConverter.Int32BitsToSingle(bits[(ch + i) % 4]));
+        using var reader = new AudioTestReader(samples, layout);
+        WithReader(reader, resource =>
+        {
+            using var context = new AudioContext(samples.SampleRate, 2);
+            var node = context.CreateSourceNode(resource, AudioChannelLayout.Stereo,
+                new AudioChannelMap(AudioChannelFormat.Stereo, layout, [2, -1]));
+            using var output = node.Process(AudioTestContexts.AtSample(0, 8, samples.SampleRate));
+            Assert.That(output.GetChannelData(0)[..4].ToArray().Select(BitConverter.SingleToInt32Bits),
+                Is.EqualTo(samples.GetChannelData(2).ToArray().Select(BitConverter.SingleToInt32Bits)));
+            Assert.That(output.GetChannelData(0)[4..].ToArray(), Is.All.Zero);
+            Assert.That(output.GetChannelData(1).ToArray(), Is.All.Zero);
+        });
+    }
+
+    [Test]
+    public void Process_ReaderCountMismatchDoesNotApplyAssignmentsToDifferentChannels()
+    {
+        var declared = AudioChannelLayout.GetDefault(4);
+        using var samples = AudioTestBuffers.CreateBuffer(2, 4, (ch, _) => ch + 1);
+        using var reader = new AudioTestReader(samples, declared);
+        WithReader(reader, resource =>
+        {
+            using var context = new AudioContext(samples.SampleRate, 2);
+            var node = context.CreateSourceNode(resource, AudioChannelLayout.Stereo,
+                new AudioChannelMap(AudioChannelFormat.Stereo, declared, [3, 2]));
+            using var output = node.Process(AudioTestContexts.AtSample(0, 4, samples.SampleRate));
+            Assert.That(output.GetChannelData(0).ToArray(), Is.All.EqualTo(1));
+            Assert.That(output.GetChannelData(1).ToArray(), Is.All.EqualTo(2));
+        });
+    }
+
     private static void WithReader(MediaReader reader, Action<SoundSource.Resource> body)
     {
         string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.nativeaudio");
