@@ -14,6 +14,7 @@ internal sealed class BrowserAdBlockSession : IDisposable
     private readonly NativeWebView _webView;
     private readonly BrowserProfile _profile;
     private readonly Action<string> _reportError;
+    private readonly Action<Uri> _navigate;
     private readonly Func<IPlatformHandle, BrowserAdBlockRules, Task<IBrowserAdBlockBackend>> _createBackend;
     private IBrowserAdBlockBackend? _backend;
     private BrowserAdBlockRules? _activeRules;
@@ -25,12 +26,15 @@ internal sealed class BrowserAdBlockSession : IDisposable
     private int _revision;
     internal bool IsPreparing { get; private set; }
 
+    // navigate starts a deferred navigation; the view gives a tab's first navigation its opener's referrer.
     internal BrowserAdBlockSession(NativeWebView webView, BrowserProfile profile, Uri initialUri, Action<string> reportError,
-        Func<IPlatformHandle, BrowserAdBlockRules, Task<IBrowserAdBlockBackend>>? createBackend = null)
+        Func<IPlatformHandle, BrowserAdBlockRules, Task<IBrowserAdBlockBackend>>? createBackend = null,
+        Action<Uri>? navigate = null)
     {
         _webView = webView;
         _profile = profile;
         _reportError = reportError;
+        _navigate = navigate ?? (uri => webView.Source = uri);
         _createBackend = createBackend ?? ((handle, rules) => BrowserAdBlockBackend.CreateAsync(handle, rules, () => webView.Source));
         _enabled = profile.BlockAds;
         IsPreparing = _enabled;
@@ -160,6 +164,12 @@ internal sealed class BrowserAdBlockSession : IDisposable
     // Disposal, a lost adapter and every newer refresh bump the revision, so a stale refresh stops applying results.
     private bool IsCurrent(int revision) => !_disposed && revision == _revision;
 
+    // A navigation the view starts itself waits for the rules as a deferred one does.
+    internal void HoldNavigation(Uri uri)
+    {
+        if (!_disposed && IsPreparing) _pendingNavigation ??= uri;
+    }
+
     internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
     {
         if (!_disposed && IsPreparing && e.Request is { } uri && BrowserMediaDownload.IsHttpUri(uri))
@@ -173,7 +183,7 @@ internal sealed class BrowserAdBlockSession : IDisposable
     {
         Uri? pending = _pendingNavigation;
         _pendingNavigation = null;
-        if (pending != null) _webView.Source = pending;
+        if (pending != null) _navigate(pending);
     }
 
     private void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)

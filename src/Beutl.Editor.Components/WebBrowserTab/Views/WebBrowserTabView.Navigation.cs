@@ -11,6 +11,17 @@ namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
 internal partial class WebBrowserTabView
 {
+    // A tab that a page opened goes to its first address with the origin that page sends. Until a document
+    // commits, the tab's blank initial document belongs to that page, so its downloads send the origin too.
+    private (Uri Uri, Uri Referrer)? _openerNavigation;
+    private bool _openerNavigationIssued;
+    // The referrer WebKit computed for the latest new window request, from the page's policy and the link's rel.
+    private (Uri Request, Uri? Referrer)? _nativeNewWindow;
+
+    // The page whose document makes the current requests. BlankPage stands for a document of unknown origin.
+    private Uri? DocumentReferrer => _openerNavigation?.Referrer
+        ?? (_pageDownloadReferrerUncertain ? WebBrowserTabViewModel.BlankPage : _viewModel?.CurrentUri);
+
     internal void OnNativeNavigationCommitted(Uri uri)
     {
         if (!_disposed) _viewModel?.CommitNavigation(uri);
@@ -128,6 +139,7 @@ internal partial class WebBrowserTabView
 
         if (e.IsSuccess) ResetPageDownloadRequests();
         else SettleAbortedPageNavigation();
+        if (e.IsSuccess && uri != WebBrowserTabViewModel.BlankPage) _openerNavigation = null;
         _pageRevision++;
         _findRequest?.Cancel();
         _viewModel.CompleteNavigation(uri, e.IsSuccess, _webView.CanGoBack, _webView.CanGoForward);
@@ -244,8 +256,16 @@ internal partial class WebBrowserTabView
         return title;
     }
 
+    // macOS reports the request of a new window just before Avalonia raises NewWindowRequested for it.
+    internal void OnNativeNewWindowRequested(Uri request, string? referrer)
+    {
+        if (!_disposed) _nativeNewWindow = (request, Uri.TryCreate(referrer, UriKind.Absolute, out Uri? uri) ? uri : null);
+    }
+
     internal void OnNewWindowRequested(object? sender, WebViewNewWindowRequestedEventArgs e)
     {
+        (Uri Request, Uri? Referrer)? native = _nativeNewWindow;
+        _nativeNewWindow = null;
         if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
             && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
         {
@@ -253,17 +273,63 @@ internal partial class WebBrowserTabView
             return;
         }
 
+        // WebKit leaves the referrer out for a noreferrer link or a no-referrer policy. Without its report, the
+        // opening page sends its origin, as it does for downloads.
+        Uri? page = DocumentReferrer;
+        bool noReferrer = false;
+        if (native is { } reported && reported.Request == e.Request)
+        {
+            page = reported.Referrer;
+            noReferrer = page == null;
+        }
+
         if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
         {
             e.Handled = true;
-            QueuePageDownloadRequest(mediaUri, null);
+            QueuePageDownloadRequest(mediaUri, null, noReferrer ? BrowserReferrerPolicy.NoReferrer : BrowserReferrerPolicy.Origin);
             return;
         }
 
-        if (e.Request is { } request && _viewModel?.TryOpenNewTab(request) == true)
+        if (e.Request is { } request
+            && _viewModel?.TryOpenNewTab(request, BrowserMediaDownload.NormalizeReferrer(page, request)) == true)
         {
             e.Handled = true;
         }
+    }
+
+    // Ad blocking holds a new tab's first navigation until its rules are in place.
+    private void ResumeNavigation(NativeWebView webView, Uri uri)
+    {
+        if (_openerNavigation?.Uri == uri)
+        {
+            _openerNavigationIssued = false;
+            NavigateFromOpener(webView);
+        }
+        else
+        {
+            webView.Source = uri;
+        }
+    }
+
+    private void NavigateFromOpener(NativeWebView webView)
+    {
+        if (_disposed || _openerNavigation is not { } navigation || _openerNavigationIssued) return;
+        _openerNavigationIssued = true;
+        if (!_navigateWithReferrer(webView, navigation.Uri, navigation.Referrer)) webView.Navigate(navigation.Uri);
+    }
+
+    // NativeWebView navigates without request headers, so the referrer goes through the web view's own API.
+    private static bool NavigateWithReferrer(NativeWebView webView, Uri uri, Uri referrer)
+    {
+        string value = BrowserMediaDownload.FormatReferrerHeader(referrer);
+        return webView.TryGetPlatformHandle() switch
+        {
+            IWindowsWebView2PlatformHandle windows when OperatingSystem.IsWindows() => WindowsReferrerNavigation.TryNavigate(windows, uri, value),
+            IAppleWKWebViewPlatformHandle apple when OperatingSystem.IsMacOS() => MacOSReferrerNavigation.TryNavigate(apple, uri, value),
+            IGtkWebViewPlatformHandle gtk when OperatingSystem.IsLinux() => LinuxReferrerNavigation.TryNavigate(gtk.WebKitWebView, false, uri, value),
+            ILinuxWpePlatformHandle wpe when OperatingSystem.IsLinux() => LinuxReferrerNavigation.TryNavigate(wpe.WebKitWebView, true, uri, value),
+            _ => false
+        };
     }
 
     private void OnBackClick(object? sender, RoutedEventArgs e)
@@ -297,6 +363,10 @@ internal partial class WebBrowserTabView
             _pageDownloadNavigationPending = wasPending;
             _mediaNavigationIntercepted = wasIntercepted;
         }
+        else
+        {
+            _openerNavigation = null;
+        }
         return started;
     }
 
@@ -324,6 +394,8 @@ internal partial class WebBrowserTabView
         {
             Beutl.Editor.Services.UsageTelemetry.Current?.Record("tool.command", "WebBrowser", "Navigate");
             CloseBrowserPanel();
+            // A typed address has no referrer, and the tab leaves the page that opened it.
+            _openerNavigation = null;
             if (BrowserMediaDownload.IsMediaLink(uri))
             {
                 // Downloading does not replace the page hosted by the WebView.

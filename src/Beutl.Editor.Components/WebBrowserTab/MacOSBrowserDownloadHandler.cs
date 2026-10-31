@@ -19,6 +19,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private readonly Action<Uri, string, IBrowserDownloadSource> _onDownload;
     private readonly Action<Uri> _onNavigationCommitted;
     private readonly Action _onNavigationStarted;
+    private readonly Action<Uri, string?> _onNewWindowRequested;
     private readonly Dictionary<nint, NativeDownload> _pendingDownloads = [];
     private readonly BrowserDownloadNavigation _navigation = new();
     private readonly BrowserNavigationCancellations _cancellations = new(
@@ -29,12 +30,13 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private nint _delegate;
 
     private MacOSBrowserDownloadHandler(nint webView, Action<Uri, string, IBrowserDownloadSource> onDownload,
-        Action<Uri> onNavigationCommitted, Action onNavigationStarted)
+        Action<Uri> onNavigationCommitted, Action onNavigationStarted, Action<Uri, string?> onNewWindowRequested)
     {
         _webView = webView;
         _onDownload = onDownload;
         _onNavigationCommitted = onNavigationCommitted;
         _onNavigationStarted = onNavigationStarted;
+        _onNewWindowRequested = onNewWindowRequested;
         _originalDelegate = Send(Send(webView, sel_registerName("navigationDelegate")), sel_registerName("retain"));
         _delegate = Send(s_delegateClass, sel_registerName("new"));
         s_handlers.Add(_delegate, this);
@@ -42,11 +44,12 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     }
 
     internal static MacOSBrowserDownloadHandler? TryAttach(IPlatformHandle? handle, Action<Uri, string, IBrowserDownloadSource> onDownload,
-        Action<Uri> onNavigationCommitted, Action onNavigationStarted)
+        Action<Uri> onNavigationCommitted, Action onNavigationStarted, Action<Uri, string?> onNewWindowRequested)
     {
         if (handle is not IAppleWKWebViewPlatformHandle apple) return null;
         nint webView = apple.GetWKWebViewRetained();
-        return webView == 0 ? null : new MacOSBrowserDownloadHandler(webView, onDownload, onNavigationCommitted, onNavigationStarted);
+        return webView == 0 ? null : new MacOSBrowserDownloadHandler(webView, onDownload, onNavigationCommitted, onNavigationStarted,
+            onNewWindowRequested);
     }
 
     public void Dispose()
@@ -126,6 +129,13 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
                 string? address = GetString(Send(Send(request, sel_registerName("URL")), sel_registerName("absoluteString")));
                 Uri.TryCreate(address, UriKind.Absolute, out Uri? uri);
                 handler._navigation.RecordRequest(uri, GetString(Send(request, sel_registerName("HTTPMethod"))), isMainFrame);
+                // A new window has no target frame. Avalonia raises NewWindowRequested from the policy decision this
+                // forwards to, after the request names the referrer WebKit computed for it, or none.
+                if (targetFrame == 0 && uri != null)
+                {
+                    nint header = SendString(objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), "Referer");
+                    handler._onNewWindowRequested(uri, GetString(SendArgument(request, sel_registerName("valueForHTTPHeaderField:"), header)));
+                }
             }
             catch
             {

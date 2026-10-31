@@ -76,6 +76,14 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         return new Uri(referrer.GetLeftPart(UriPartial.Authority) + "/");
     }
 
+    // The header text of an origin from NormalizeReferrer. Headers are ASCII, and Uri.AbsoluteUri keeps an
+    // internationalized host in Unicode, so the host is named in Punycode, as browsers send it.
+    internal static string FormatReferrerHeader(Uri origin)
+    {
+        string host = origin.HostNameType == UriHostNameType.IPv6 ? $"[{origin.IdnHost}]" : origin.IdnHost;
+        return origin.IsDefaultPort ? $"{origin.Scheme}://{host}/" : $"{origin.Scheme}://{host}:{origin.Port}/";
+    }
+
     internal async Task<string> DownloadAsync(Uri uri, string directory, string? suggestedName,
         IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken, Uri? referrer = null,
         IReadOnlyList<Cookie>? cookies = null, BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin,
