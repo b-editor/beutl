@@ -333,6 +333,43 @@ public class FontFamilyPickerTests
     }
 
     [AvaloniaTest]
+    public void Each_font_name_is_shown_in_its_own_typeface()
+    {
+        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        using var picker = PickerHost.Open(viewModel);
+        HeadlessCapture.SaveIfRequested(picker.List, nameof(FontFamilyPickerTests), "font-names");
+
+        Control[] rows = [.. picker.List.GetRealizedContainers()];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rows, Has.Length.GreaterThan(1));
+            Assert.That(rows.Select(row => NameText(row).FontFamily.Name), Is.EqualTo(rows.Select(row => FontOf(row).Name)));
+        });
+    }
+
+    [AvaloniaTest]
+    public void The_tooltip_spells_the_font_name_in_the_UI_typeface()
+    {
+        // A symbol font draws its own name as symbols.
+        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        using var picker = PickerHost.Open(viewModel);
+        Control row = picker.List.GetRealizedContainers().First();
+        TextBlock name = NameText(row);
+
+        ToolTip.SetIsOpen(name, true);
+        HeadlessTestHelpers.Render();
+        TextBlock? tip = picker.Window.GetVisualDescendants().OfType<ToolTip>().SingleOrDefault()
+            ?.GetVisualDescendants().OfType<TextBlock>().SingleOrDefault();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tip?.Text, Is.EqualTo(FontOf(row).Name));
+            Assert.That(tip?.FontFamily, Is.EqualTo(name.FindResource("ContentControlThemeFontFamily")));
+        });
+    }
+
+    [AvaloniaTest]
     public void The_editor_confirms_the_font_found_by_name()
     {
         FontFamily target = FontManager.Instance.DefaultTypeface.FontFamily;
@@ -398,6 +435,18 @@ public class FontFamilyPickerTests
     private static PinnableLibraryItem Item(FontFamilyPickerFlyoutViewModel viewModel, string name)
     {
         return viewModel.Items.Single(item => item.DisplayName == name);
+    }
+
+    private static FontFamily FontOf(Control row)
+    {
+        return (FontFamily)((PinnableLibraryItem)row.DataContext!).UserData;
+    }
+
+    // The row also holds the pin button, so find the text by the name it shows.
+    private static TextBlock NameText(Control row)
+    {
+        string name = ((PinnableLibraryItem)row.DataContext!).DisplayName;
+        return row.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Text == name);
     }
 
     private sealed class PickerHost : IDisposable
