@@ -2709,7 +2709,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>{0} 日前</value>
   </data>
   <data name="WebDownloadMedia" xml:space="preserve">
-    <value>メディアをダウンロード</value>
+    <value>ファイルをダウンロード</value>
   </data>
   <data name="WebDownloadProject" xml:space="preserve">
     <value>プロジェクトディレクトリ</value>
@@ -2724,7 +2724,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>プロジェクト内に保存するには、先にプロジェクトを保存してください。</value>
   </data>
   <data name="WebDownloadUnsupported" xml:space="preserve">
-    <value>HTTP(S) の画像・音声・動画ファイルへの直接リンクに対応しています。</value>
+    <value>HTTP(S) のファイルへの直接リンクに対応しています。</value>
   </data>
   <data name="WebDownloadHtmlResponse" xml:space="preserve">
     <value>ファイルではなくWebページが返されました。ファイル本体のダウンロードリンクを指定してください。</value>

@@ -154,7 +154,8 @@ public class MFReaderIntegrationTests
         {
             var source = new SoundSource();
             source.ReadFrom(new Uri(wav));
-            using var metadata = source.ToResource(CompositionContext.Default);
+            // A private reader, so the check sees what the decoder opened rather than a shared handle.
+            using var metadata = source.ToResource(new CompositionContext(MediaTime.Zero) { DisableResourceShare = true });
             Assert.That(metadata.MediaReader, Is.TypeOf<MFReader>());
 
             var sound = new SourceSound

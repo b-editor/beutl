@@ -50,7 +50,14 @@ internal sealed class BrowserMediaDownload(HttpClient client)
     internal static bool IsMediaLink(Uri uri) => IsHttpUri(uri)
         && IsMediaExtension(Path.GetExtension(uri.AbsolutePath));
 
+    internal static bool IsMediaFile(string path) => IsMediaExtension(Path.GetExtension(path));
+
     internal static bool IsMediaType(string? mediaType) => mediaType != null && s_mediaTypes.ContainsKey(mediaType);
+
+    // WebKit shows pages, PDFs and text itself. Media, attachments and types it cannot show are downloads.
+    internal static bool IsDownloadResponse(string? mediaType, bool canShowMediaType, string? contentDisposition) =>
+        IsMediaType(mediaType) || !canShowMediaType
+        || contentDisposition?.Split(';', 2)[0].Trim().Equals("attachment", StringComparison.OrdinalIgnoreCase) == true;
 
     // HttpStatusCode.Redirect and HttpStatusCode.Found are both 302.
     internal static bool IsRedirectStatus(HttpStatusCode status) => status is HttpStatusCode.MovedPermanently
@@ -299,10 +306,16 @@ internal sealed class BrowserMediaDownload(HttpClient client)
 
     internal static string CreateFileName(string? suggestedName, Uri uri, string? mediaType)
     {
+        // A page served in place of the file is a sign-in or landing page, not the download.
+        if (string.Equals(mediaType, "text/html", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "application/xhtml+xml", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
+
         string name = NormalizeFileName(suggestedName)
             ?? NormalizeFileName(Uri.UnescapeDataString(Path.GetFileName(uri.AbsolutePath)))
-            ?? "media";
+            ?? "download";
 
+        // Media takes the extension of its type so that it imports as what it is; other files keep their names.
         if (mediaType != null && s_mediaTypes.TryGetValue(mediaType, out string? extension))
         {
             string currentExtension = Path.GetExtension(name);
@@ -312,18 +325,6 @@ internal sealed class BrowserMediaDownload(HttpClient client)
             {
                 name = Path.ChangeExtension(name, extension);
             }
-        }
-        else if ((mediaType == null || mediaType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
-                 && IsMediaExtension(Path.GetExtension(name)))
-        {
-            // Generic binary downloads are accepted only when their filename identifies media.
-        }
-        else
-        {
-            if (string.Equals(mediaType, "text/html", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(mediaType, "application/xhtml+xml", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
-            throw new InvalidOperationException(Strings.WebDownloadUnsupported);
         }
 
         return LimitFileName(name);
@@ -345,7 +346,7 @@ internal sealed class BrowserMediaDownload(HttpClient client)
             characters += rune.Utf16SequenceLength;
         }
         string shortened = stem[..characters].TrimEnd(' ', '.') + extension;
-        return NormalizeFileName(shortened) ?? "media" + extension;
+        return NormalizeFileName(shortened) ?? "download" + extension;
     }
 
     private static string? NormalizeFileName(string? value)

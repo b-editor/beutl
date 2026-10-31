@@ -213,14 +213,16 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         {
             nint response = Send(navigationResponse, sel_registerName("response"));
             string? address = GetString(Send(Send(response, sel_registerName("URL")), sel_registerName("absoluteString")));
+            string? mediaType = GetString(Send(response, sel_registerName("MIMEType")));
             if (handler != null && SendBool(navigationResponse, sel_registerName("isForMainFrame"))
                 && handler._cancellations.Current != 0
                 && Uri.TryCreate(address, UriKind.Absolute, out Uri? uri)
                 && SendBoolPointer(response, s_respondsToSelector, sel_registerName("statusCode"))
                 && handler._navigation.IsCompleteGetResponse(uri, Send(response, sel_registerName("statusCode")))
+                && BrowserMediaDownload.IsDownloadResponse(mediaType,
+                    SendBool(navigationResponse, sel_registerName("canShowMIMEType")), GetHeader(response, "Content-Disposition"))
                 && BrowserMediaDownload.GetResponseFileName(uri,
-                    GetString(Send(response, sel_registerName("suggestedFilename"))),
-                    GetString(Send(response, sel_registerName("MIMEType")))) is { } name)
+                    GetString(Send(response, sel_registerName("suggestedFilename"))), mediaType) is { } name)
             {
                 nint navigation = handler._cancellations.Current;
                 if (handler._cancellations.MarkCanceled(navigation)) canceledNavigation = navigation;
@@ -291,6 +293,10 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
 
     private static string? GetString(nint value) =>
         value == 0 ? null : Marshal.PtrToStringUTF8(Send(value, sel_registerName("UTF8String")));
+
+    // NSHTTPURLResponse matches header names case-insensitively.
+    private static string? GetHeader(nint response, string name) => GetString(SendArgument(response,
+        sel_registerName("valueForHTTPHeaderField:"), SendString(objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), name)));
 
     [StructLayout(LayoutKind.Sequential)]
     private struct BlockLiteral
