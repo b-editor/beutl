@@ -2,6 +2,8 @@
 
 internal static class AudioPlaybackOutput
 {
+    public static bool UseMultichannelBackend(AudioChannelLayout project) => project.ChannelCount > 2;
+
     public static (AudioChannelLayout Layout, AudioChannelMatrix? Matrix) Create(
         AudioChannelLayout project, AudioChannelLayout device)
     {
@@ -9,7 +11,7 @@ internal static class AudioPlaybackOutput
 
         // Mono also uses a stereo buffer to avoid the backend's positional mono gain.
         AudioChannelLayout output = AudioChannelLayout.Stereo;
-        if (project.ChannelCount > 2 && device.ChannelCount > 2 && device.HasPositions)
+        if (UseMultichannelBackend(project) && device.ChannelCount > 2 && device.HasPositions)
         {
             output = (device.Speakers & project.Speakers) == project.Speakers ? project : device;
         }

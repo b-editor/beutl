@@ -10,10 +10,14 @@ public sealed unsafe class AudioContext : IDisposable
     private readonly Device* _device;
     private readonly Context* _context;
 
-    public AudioContext()
+    public AudioContext() : this(soft: false)
     {
-        _al = AL.GetApi(soft: true);
-        _alc = ALContext.GetApi(soft: true);
+    }
+
+    public AudioContext(bool soft)
+    {
+        _al = AL.GetApi(soft);
+        _alc = ALContext.GetApi(soft);
         _device = _alc.OpenDevice(null);
         _context = _alc.CreateContext(_device, null);
         VerifyContextError();

@@ -129,10 +129,11 @@ public class XAudioLifetimeTests
         return TestWorkerProgram.RunAsync(TestWorkerProgram.XAudioLifetimeWorkerArgument, "finalize-incomplete-context");
     }
 
-    [Test, Platform("Win")]
-    public Task Context_FailedNativeInitialization_DoesNotTerminateTheProcess()
+    [TestCase(false), TestCase(true), Platform("Win")]
+    public Task Context_FailedNativeInitialization_DoesNotTerminateTheProcess(bool useDeviceDefaults)
     {
-        return TestWorkerProgram.RunAsync(TestWorkerProgram.XAudioLifetimeWorkerArgument, "create-context");
+        return TestWorkerProgram.RunAsync(TestWorkerProgram.XAudioLifetimeWorkerArgument,
+            useDeviceDefaults ? "create-context-device-defaults" : "create-context");
     }
 
     internal static void RunWorker(string action)
@@ -159,7 +160,8 @@ public class XAudioLifetimeTests
                 GC.WaitForPendingFinalizers();
                 break;
             case "create-context":
-                TryCreateContext();
+            case "create-context-device-defaults":
+                TryCreateContext(action == "create-context-device-defaults");
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 break;
@@ -251,11 +253,21 @@ public class XAudioLifetimeTests
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void TryCreateContext()
+    private static void TryCreateContext(bool useDeviceDefaults)
     {
         try
         {
-            using var context = new XAudioContext();
+            using var context = useDeviceDefaults ? new XAudioContext(useDeviceDefaults: true) : new XAudioContext();
+            if (useDeviceDefaults)
+            {
+                Assert.That(context.DeviceLayout.Speakers, Is.EqualTo((AudioSpeakers)context.MasteringVoice.ChannelMask));
+            }
+            else
+            {
+                Assert.That(context.DeviceLayout, Is.EqualTo(AudioChannelLayout.Stereo));
+                Assert.That(context.MasteringVoice.VoiceDetails.InputChannels, Is.EqualTo(2));
+                Assert.That(context.MasteringVoice.VoiceDetails.InputSampleRate, Is.EqualTo(44100));
+            }
             Console.WriteLine("XAudio2 device and mastering voice initialized successfully.");
         }
         catch (SharpGen.Runtime.SharpGenException ex)

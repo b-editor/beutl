@@ -5,6 +5,15 @@ namespace Beutl.UnitTests.Engine.Audio;
 [TestFixture]
 public class AudioPlaybackOutputTests
 {
+    [TestCase(1, false)]
+    [TestCase(2, false)]
+    [TestCase(6, true)]
+    [TestCase(8, true)]
+    public void UseMultichannelBackend_OnlySurroundProjectsUseTheNewPath(int channels, bool expected)
+    {
+        Assert.That(AudioPlaybackOutput.UseMultichannelBackend(AudioChannelLayout.GetDefault(channels)), Is.EqualTo(expected));
+    }
+
     private static IEnumerable<TestCaseData> OutputLayouts()
     {
         AudioChannelLayout mono = AudioChannelLayout.Mono;
