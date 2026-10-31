@@ -26,7 +26,8 @@ internal sealed class VideoRingBuffer : IDisposable
     private readonly SlotMetadata[] _slots;
     private int _nextWriteSlot;
     private int _lastServedSlot = -1;
-    public volatile int LastRequestedFrame = -1;
+    private int _lastRequestedFrame = -1;
+    private int _prefetchStep;
 
     // 色空間キャッシュ
     private BitmapColorSpace? _lastColorSpace;
@@ -69,9 +70,11 @@ internal sealed class VideoRingBuffer : IDisposable
         _readerLock.Wait();
         try
         {
+            _prefetchStep = FFmpegSeekDecision.GetPrefetchStep(_lastRequestedFrame, frame, _prefetchStep);
+            _lastRequestedFrame = frame;
             int hitSlot = FindSlot(frame);
             if (hitSlot >= 0)
-                return HandleCacheHit(frame, hitSlot);
+                return HandleCacheHit(hitSlot);
 
             return HandleCacheMiss(frame);
         }
@@ -125,17 +128,19 @@ internal sealed class VideoRingBuffer : IDisposable
         return -1;
     }
 
-    private RingBufferReadResult HandleCacheHit(int frame, int hitSlot)
+    private RingBufferReadResult HandleCacheHit(int hitSlot)
     {
         ref var slotMeta = ref _slots[hitSlot];
-        LastRequestedFrame = frame;
         _lastServedSlot = hitSlot;
 
         // 色空間情報
         bool colorSpaceChanged = UpdateColorSpaceCache(slotMeta.ColorSpace);
 
         // プリフェッチ再開シグナル
-        _prefetchSignal.Set();
+        if (_prefetchTask == null)
+            StartPrefetch();
+        else
+            _prefetchSignal.Set();
 
         return new RingBufferReadResult
         {
@@ -157,14 +162,13 @@ internal sealed class VideoRingBuffer : IDisposable
         // ロック一時解放中にプリフェッチがこのフレームをデコードした可能性があるため再確認
         int hitSlot = FindSlot(frame);
         if (hitSlot >= 0)
-            return HandleCacheHit(frame, hitSlot);
+            return HandleCacheHit(hitSlot);
 
         // 共有メモリに直接デコード
         string? newShmName = null;
         var frameInfo = DecodeToSlot(frame, ref newShmName, out int writeSlot, out long offset);
         if (frameInfo == null)
         {
-            LastRequestedFrame = frame;
             StartPrefetch();
             return new RingBufferReadResult { Success = false, NewSharedMemoryName = newShmName };
         }
@@ -176,7 +180,6 @@ internal sealed class VideoRingBuffer : IDisposable
 
         // スロットメタデータ更新
         CommitSlot(writeSlot, frame, fi);
-        LastRequestedFrame = frame;
         _lastServedSlot = writeSlot;
 
         // プリフェッチ開始
@@ -287,6 +290,9 @@ internal sealed class VideoRingBuffer : IDisposable
     // ReaderLock保持下で呼ぶこと。
     private void StartPrefetch()
     {
+        if (_prefetchStep == 0)
+            return;
+
         _prefetchCts = new CancellationTokenSource();
         var ct = _prefetchCts.Token;
         _prefetchSignal.Reset();
@@ -299,35 +305,20 @@ internal sealed class VideoRingBuffer : IDisposable
             {
                 while (!ct.IsCancellationRequested)
                 {
-                    int baseFrame = LastRequestedFrame;
-                    if (baseFrame < 0) break;
-
-                    // 既にバッファにあるフレーム数をカウント
-                    int maxAhead = _slotCount - 1;
-                    int cachedAhead = CountCachedAhead(baseFrame, maxAhead);
-
-                    if (cachedAhead >= maxAhead)
-                    {
-                        // 十分プリフェッチ済み → 次のリクエストを待つ
-                        _prefetchSignal.Wait(ct);
-                        _prefetchSignal.Reset();
-                        continue;
-                    }
-
-                    if (!FFmpegSeekDecision.HasPrefetchTarget(baseFrame, cachedAhead, totalFrames, out int nextFrame))
-                        break;
-
-                    // 既にキャッシュ済みならスキップ
-                    if (FindSlot(nextFrame) >= 0) continue;
-
                     bool decodedAhead = false;
                     _readerLock.Wait(ct);
                     try
                     {
                         if (ct.IsCancellationRequested) break;
-                        if (FindSlot(nextFrame) >= 0) continue;
-
-                        decodedAhead = TryPrefetchUnderLock(nextFrame);
+                        // Read the request, stride and slots together, after acquiring the lock:
+                        // a foreground seek/rate change may have arrived while we were waiting.
+                        int maxAhead = _slotCount - 1;
+                        int cachedAhead = CountCachedAhead(_lastRequestedFrame, maxAhead, _prefetchStep);
+                        if (cachedAhead < maxAhead && FFmpegSeekDecision.HasPrefetchTarget(
+                                _lastRequestedFrame, cachedAhead, totalFrames, out int nextFrame, _prefetchStep))
+                        {
+                            decodedAhead = TryPrefetchUnderLock(nextFrame);
+                        }
                     }
                     finally
                     {
@@ -336,9 +327,7 @@ internal sealed class VideoRingBuffer : IDisposable
 
                     if (!decodedAhead)
                     {
-                        // Could not decode/store the next frame (EOF, undecodable, or larger than the
-                        // slot). Wait for the next request instead of busy-retrying the same uncached
-                        // frame, which would otherwise spin a CPU core under the reader lock.
+                        // Full, paused, EOF or an undecodable frame: wait for another request.
                         _prefetchSignal.Wait(ct);
                         _prefetchSignal.Reset();
                     }
@@ -352,12 +341,13 @@ internal sealed class VideoRingBuffer : IDisposable
         }, ct);
     }
 
-    private int CountCachedAhead(int baseFrame, int maxAhead)
+    private int CountCachedAhead(int baseFrame, int maxAhead, int step)
     {
         int cachedAhead = 0;
         for (int i = 1; i <= maxAhead; i++)
         {
-            if (FindSlot(baseFrame + i) >= 0)
+            long frame = (long)baseFrame + (long)i * step;
+            if (step > 0 && frame <= int.MaxValue && FindSlot((int)frame) >= 0)
                 cachedAhead++;
             else
                 break;

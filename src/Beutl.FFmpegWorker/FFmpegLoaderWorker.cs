@@ -29,18 +29,23 @@ internal static class FFmpegLoaderWorker
         WorkerLog.Information(sb.ToString());
     }
 
-    private static void SetupLogging()
+    internal static void SetupLogging()
     {
-        FFmpegSharp.FFmpegLog.SetupLogging(
-#if !DEBUG
-            logLevel: FFmpegSharp.LogLevel.Warning,
+        ffmpeg.av_log_set_level(
+#if DEBUG
+            ffmpeg.AV_LOG_VERBOSE
+#else
+            ffmpeg.AV_LOG_WARNING
 #endif
-            logFlags: FFmpegSharp.LogFlags.SkipRepeated | FFmpegSharp.LogFlags.PrintLevel,
-            logWrite: (s, i) =>
-            {
-                var level = (FFmpegSharp.LogLevel)i;
-                WorkerLog.Write(level.ToString(), s, null);
-            });
+        );
+        ffmpeg.av_log_set_flags(ffmpeg.AV_LOG_SKIP_REPEATED | ffmpeg.AV_LOG_PRINT_LEVEL);
+        // av_log invokes its callback even for disabled levels. Parsing a long MP4 emits millions
+        // of trace messages, so reject them in FFmpeg instead of marshaling each one into .NET.
+        // Resolve the native function itself: passing the generated ffmpeg wrapper would still
+        // install a managed callback. The host already drains and records the worker's stderr.
+        var callback = DynamicallyLoadedBindings.FunctionResolver
+            .GetFunctionDelegate<av_log_set_callback_callback>("avutil", "av_log_default_callback", true);
+        ffmpeg.av_log_set_callback(callback);
     }
 
     internal static string GetRootPath(Func<string, bool>? librariesExist = null)

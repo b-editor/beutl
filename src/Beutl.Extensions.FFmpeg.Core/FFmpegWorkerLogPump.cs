@@ -103,13 +103,10 @@ internal sealed class FFmpegWorkerLogPump : IDisposable
         }
     }
 
-    private static (LogLevel Level, string Message) ParseLevel(string channel, string data)
+    internal static (LogLevel Level, string Message) ParseLevel(string channel, string data)
     {
-        // ワーカーは ILogger / FFmpeg ネイティブログ / 自身のエラーメッセージのすべてを
-        // stdout に "[ffmpeg:<Level>] ..." 形式 (1行=1ログイベント, 改行は \n エスケープ) で書き出す。
-        // プレフィックス付き行はそのレベルを採用しメッセージを復号する。
-        // プレフィックスのない出力や想定外に stderr に流れてきたネイティブ出力は
-        // チャネルベースのフォールバック (stderr=Warning / stdout=Information) で扱う。
+        // Managed worker messages escape newlines in a tagged stdout line. FFmpeg's native
+        // callback writes stderr directly, with optional context tags before its level tag.
         const string prefix = "[ffmpeg:";
         if (data.StartsWith(prefix, StringComparison.Ordinal))
         {
@@ -129,6 +126,28 @@ internal sealed class FFmpegWorkerLogPump : IDisposable
                 };
                 string message = DecodeMessage(data.AsSpan(end + 1).TrimStart());
                 return (level, message);
+            }
+        }
+
+        if (channel == "stderr")
+        {
+            ReadOnlySpan<char> remaining = data.AsSpan().TrimStart();
+            while (remaining.StartsWith("[", StringComparison.Ordinal))
+            {
+                int end = remaining.IndexOf(']');
+                if (end < 0) break;
+                LogLevel level = remaining[1..end] switch
+                {
+                    "trace" or "verbose" => LogLevel.Trace,
+                    "debug" => LogLevel.Debug,
+                    "info" => LogLevel.Information,
+                    "warning" => LogLevel.Warning,
+                    "error" => LogLevel.Error,
+                    "fatal" or "panic" => LogLevel.Critical,
+                    _ => LogLevel.None,
+                };
+                if (level != LogLevel.None) return (level, data);
+                remaining = remaining[(end + 1)..].TrimStart();
             }
         }
 

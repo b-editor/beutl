@@ -19,26 +19,42 @@ internal static class FFmpegSeekDecision
     public static bool ShouldReseek(bool currentUsable, long skip)
         => !currentUsable || skip > MaxSequentialSkip || skip < 0;
 
+    // Start prefetching after forward reads establish a direction. The common divisor keeps
+    // fractional rates (e.g. alternating 2/3-frame advances) covered without repeatedly seeking
+    // backwards to fill holes. A seek resets the prediction; a repeated frame retains it.
+    public static int GetPrefetchStep(int previousFrame, int frame, int currentStep)
+    {
+        long skip = (long)frame - previousFrame;
+        if (skip == 0)
+            return currentStep;
+        if (previousFrame < 0 || skip < 0 || ShouldReseek(true, skip))
+            return 0;
+
+        int step = (int)skip;
+        while (currentStep > 0)
+        {
+            (step, currentStep) = (currentStep, step % currentStep);
+        }
+
+        return step;
+    }
+
     // Compute the next prefetch target and report whether one exists before EOF:
     //   - baseFrame < 0: no frame has been requested yet, so there is nothing to prefetch ahead of.
-    //   - nextFrame = baseFrame + cachedAhead + 1: the first frame after the already-cached run.
+    //   - step <= 0: no forward playback has been observed yet.
+    //   - target = baseFrame + (cachedAhead + 1) * step: the first uncached playback frame.
     //   - nextFrame >= totalFrames: the target is at or past EOF, so there is nothing to prefetch.
     // When this returns false, nextFrame is set to -1 and the caller should stop advancing.
-    public static bool HasPrefetchTarget(int baseFrame, int cachedAhead, long totalFrames, out int nextFrame)
+    public static bool HasPrefetchTarget(int baseFrame, int cachedAhead, long totalFrames, out int nextFrame, int step = 1)
     {
-        if (baseFrame < 0)
+        long target = (long)baseFrame + ((long)cachedAhead + 1) * step;
+        if (baseFrame < 0 || step <= 0 || target >= totalFrames || target > int.MaxValue)
         {
             nextFrame = -1;
             return false;
         }
 
-        nextFrame = baseFrame + cachedAhead + 1;
-        if (nextFrame >= totalFrames)
-        {
-            nextFrame = -1;
-            return false;
-        }
-
+        nextFrame = (int)target;
         return true;
     }
 }

@@ -5,6 +5,33 @@ namespace Beutl.UnitTests.Extensions.FFmpeg;
 [TestFixture]
 public class FFmpegSeekDecisionTests
 {
+    [TestCase(-1, 50, 0, 0)] // first still: do not decode unrequested frames
+    [TestCase(50, 52, 0, 2)] // 60 fps source played at 30 fps
+    [TestCase(52, 54, 2, 2)]
+    [TestCase(54, 57, 2, 1)] // fractional frame rate: cover both advances without holes
+    [TestCase(57, 59, 1, 1)]
+    [TestCase(50, 54, 2, 2)] // increasing speed can retain already cached frames
+    [TestCase(54, 54, 2, 2)] // repeated display does not reset playback
+    [TestCase(54, 53, 2, 0)] // backwards scrubbing stops forward prefetch
+    [TestCase(54, 155, 2, 0)] // a distant seek starts a new prediction
+    [TestCase(155, 157, 0, 2)]
+    public void PrefetchFollowsObservedForwardPlayback(int previous, int frame, int step, int expected)
+    {
+        Assert.That(FFmpegSeekDecision.GetPrefetchStep(previous, frame, step), Is.EqualTo(expected));
+    }
+
+    [TestCase(10, 0, 100L, 2, 12)]
+    [TestCase(10, 2, 100L, 2, 16)]
+    [TestCase(10, 0, 12L, 2, -1)] // stepped target reaches EOF
+    [TestCase(10, 0, 100L, 0, -1)] // no playback observed
+    [TestCase(int.MaxValue - 1, 1, long.MaxValue, 2, -1)] // no overflowing frame request
+    public void PrefetchTargetsTheNextRequestedFrame(int frame, int cached, long total, int step, int expected)
+    {
+        bool found = FFmpegSeekDecision.HasPrefetchTarget(frame, cached, total, out int next, step);
+        Assert.That(found, Is.EqualTo(expected >= 0));
+        Assert.That(next, Is.EqualTo(expected));
+    }
+
     [TestCase(true, 0L)] // current frame usable, request is the current position
     [TestCase(true, 1L)] // small forward skip handled by sequential grabbing
     [TestCase(true, 100L)] // exactly at the sequential-skip boundary

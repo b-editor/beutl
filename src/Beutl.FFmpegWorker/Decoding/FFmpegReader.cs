@@ -51,6 +51,7 @@ public sealed class FFmpegReader : MediaReader
     private long _audioNowTimestamp;
     private long _audioNextTimestamp;
     private long _videoNowFrame;
+    private long _videoDiscardBefore = long.MinValue;
     // Frames before the first video frame show it, as AVFoundation does.
     private long _firstVideoFrame;
     private int _samplesReturn;
@@ -657,6 +658,14 @@ public sealed class FFmpegReader : MediaReader
     // resent instead of lost when the demuxer reuses its buffer, and copies hardware frame props after the transfer.
     private unsafe bool DecodeVideoPacket(MediaPacket? packet)
     {
+        // A seek only needs reference pictures before its target. Keep the entire packet whose
+        // presentation interval contains the target, including reordered B frames, and decode
+        // normally when timestamps/duration are unknown. FFmpeg captures skip_frame per packet.
+        _videoDecoder!.SkipFrame = _videoDiscardBefore != long.MinValue
+            && packet != null && packet.Pts != ffmpeg.AV_NOPTS_VALUE
+            && packet.Duration > 0 && GetVideoFrameNumber(packet.Pts + packet.Duration) <= _videoDiscardBefore
+            ? AVDiscard.AVDISCARD_NONREF
+            : AVDiscard.AVDISCARD_DEFAULT;
         int ret = _videoDecoder!.SendPacket(packet);
         if (ret == ffmpeg.AVERROR(ffmpeg.EAGAIN) && packet != null)
         {
@@ -756,19 +765,28 @@ public sealed class FFmpegReader : MediaReader
             GrabVideo();
         }
 
-        SeekOnly(frame);
-        // 移動先が目的地より進んでいることがあるためその場合は戻る
-        long f = frame - (_videoNowFrame - frame) - 3;
-        while (_videoNowFrame > frame)
+        _videoDiscardBefore = frame;
+        try
         {
-            if (f < 0) f = 0;
-            SeekOnly(f);
-            if (f == 0) break;
-            f -= 30;
-        }
+            SeekOnly(frame);
+            // 移動先が目的地より進んでいることがあるためその場合は戻る
+            long f = frame - (_videoNowFrame - frame) - 3;
+            while (_videoNowFrame > frame)
+            {
+                if (f < 0) f = 0;
+                SeekOnly(f);
+                if (f == 0) break;
+                f -= 30;
+            }
 
-        while (_videoNowFrame < frame && GrabVideo())
+            while (_videoNowFrame < frame && GrabVideo())
+            {
+            }
+        }
+        finally
         {
+            _videoDiscardBefore = long.MinValue;
+            _videoDecoder.SkipFrame = AVDiscard.AVDISCARD_DEFAULT;
         }
     }
 
@@ -777,7 +795,12 @@ public sealed class FFmpegReader : MediaReader
     {
         var frame = ActiveVideoFrame;
         if (frame == null || _demuxer == null) return 0;
-        double seconds = frame.Pts * _videoTimeBaseDouble - _demuxer.StartTime / (double)ffmpeg.AV_TIME_BASE;
+        return GetVideoFrameNumber(frame.Pts);
+    }
+
+    private long GetVideoFrameNumber(long pts)
+    {
+        double seconds = pts * _videoTimeBaseDouble - _demuxer!.StartTime / (double)ffmpeg.AV_TIME_BASE;
         return (long)(seconds * _videoAvgFrameRateDouble + 0.5);
     }
 
