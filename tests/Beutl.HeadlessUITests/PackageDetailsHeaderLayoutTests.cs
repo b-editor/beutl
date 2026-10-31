@@ -77,9 +77,15 @@ public class PackageDetailsHeaderLayoutTests
             Button install = page.GetVisualDescendants().OfType<Button>().Single(button => button.Command == viewModel.Install);
             Assert.That(install.IsEffectivelyVisible, Is.True, "the header's action column must show the install button");
             double buttonsLeft = install.TranslatePoint(default, page)!.Value.X;
+            double buttonsRight = install.TranslatePoint(new Point(install.Bounds.Width, 0), page)!.Value.X;
 
             Assert.Multiple(() =>
             {
+                Assert.That(
+                    buttonsRight,
+                    Is.LessThanOrEqualTo(page.Bounds.Width),
+                    "a long publisher name must not push the install buttons out of the page");
+
                 foreach (TextBlock block in new[] { publisher, kind })
                 {
                     double right = block.TranslatePoint(new Point(block.Bounds.Width, 0), page)!.Value.X;
