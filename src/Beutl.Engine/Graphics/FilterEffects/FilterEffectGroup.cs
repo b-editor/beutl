@@ -54,6 +54,12 @@ public sealed partial class FilterEffectGroup : FilterEffect
 
         internal override PushedState PushInto(GraphicsContext2D context)
         {
+            // A disabled group stays one node, which passes its input through; its children never get nodes of
+            // their own, which would apply them.
+            if (!IsEnabled) return Push(context);
+
+            // The returned scope closes every node the group pushes, and none outside it when it has no children.
+            int level = context.Depth + 1;
             if (!ControlsContinuation)
             {
                 for (int i = Children.Count - 1; i >= 0; i--)
@@ -61,15 +67,13 @@ public sealed partial class FilterEffectGroup : FilterEffect
                     context.PushFilterEffect(Children[i]);
                 }
 
-                return new PushedState(context, context.Depth);
+                return new PushedState(context, level);
             }
 
-            if (IsEnabled && ContinuationSuffixResource is { } suffix)
+            if (ContinuationSuffixResource is { } suffix)
             {
                 // The continuation and the effects it controls record into one node outside the earlier children,
-                // which keep their own nodes and so need not be recordable by FilterEffectContext. A disabled group
-                // stays one node, which passes its input through.
-                int level = context.Depth + 1;
+                // which keep their own nodes and so need not be recordable by FilterEffectContext.
                 suffix.Push(context);
                 PushContinuationPrefix(context);
                 return new PushedState(context, level);
