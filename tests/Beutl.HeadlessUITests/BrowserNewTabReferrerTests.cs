@@ -197,6 +197,32 @@ public class BrowserNewTabReferrerTests
         Assert.That(opened.TakeOpenerReferrer(), Is.EqualTo(expected == null ? null : new Uri(expected)));
     }
 
+    // WKWebView and WebKitGTK ask only their own delegates for a page's window.open(), and the handlers report it.
+    // It opens a tab as a link with target="_blank" does: Linux sends the page's origin, macOS what WebKit computed.
+    [AvaloniaTest]
+    [TestCase(false, null, "https://materials.example/")]
+    [TestCase(true, null, null)]
+    [TestCase(true, "https://materials.example/sounds/detail/123?from=list", "https://materials.example/")]
+    public void AWindowThePageOpensBecomesANewTab(bool reported, string? referrer, string? expected)
+    {
+        using var temporary = new TemporaryDirectory();
+        var profile = new BrowserProfile(Path.Combine(temporary.Path, "profile.json"));
+        var editor = new TabOpeningEditor();
+        using var opener = new WebBrowserTabViewModel(editor.Mock.Object, s_page, profile);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false))
+        { DataContext = opener };
+
+        if (reported) view.OnNativeNewWindowRequested(s_downloadPage, referrer);
+        view.OnNativeWindowOpenRequested(s_downloadPage);
+
+        using WebBrowserTabViewModel opened = editor.Opened!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(opened.CurrentUri, Is.EqualTo(s_downloadPage));
+            Assert.That(opened.TakeOpenerReferrer(), Is.EqualTo(expected == null ? null : new Uri(expected)));
+        });
+    }
+
     [AvaloniaTest]
     public void AReportForAnotherRequestLeavesThePagesOrigin()
     {

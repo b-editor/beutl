@@ -17,11 +17,13 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private static readonly nint s_responsePolicy = sel_registerName("webView:decidePolicyForNavigationResponse:decisionHandler:");
     private static readonly nint s_respondsToSelector = sel_registerName("respondsToSelector:");
     private static readonly nint s_delegateClass = CreateDelegateClass();
+    private static readonly nint s_uiDelegateClass = CreateUIDelegateClass();
     private readonly Action<Uri, string, IBrowserDownloadSource> _onDownload;
     private readonly Action<Uri?, string, IBrowserDownloadSource> _onGeneratedDownload;
     private readonly Action<Uri> _onNavigationCommitted;
     private readonly Action _onNavigationStarted;
     private readonly Action<Uri, string?> _onNewWindowRequested;
+    private readonly Action<Uri> _onWindowOpened;
     private readonly Dictionary<nint, NativeDownload> _pendingDownloads = [];
     private readonly BrowserDownloadNavigation _navigation = new();
     private readonly BrowserNavigationCancellations _cancellations = new(
@@ -30,10 +32,11 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private readonly nint _originalDelegate;
     private nint _webView;
     private nint _delegate;
+    private nint _uiDelegate;
 
     private MacOSBrowserDownloadHandler(nint webView, Action<Uri, string, IBrowserDownloadSource> onDownload,
         Action<Uri?, string, IBrowserDownloadSource> onGeneratedDownload, Action<Uri> onNavigationCommitted, Action onNavigationStarted,
-        Action<Uri, string?> onNewWindowRequested)
+        Action<Uri, string?> onNewWindowRequested, Action<Uri> onWindowOpened)
     {
         _webView = webView;
         _onDownload = onDownload;
@@ -41,21 +44,29 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         _onNavigationCommitted = onNavigationCommitted;
         _onNavigationStarted = onNavigationStarted;
         _onNewWindowRequested = onNewWindowRequested;
+        _onWindowOpened = onWindowOpened;
         _originalDelegate = Send(Send(webView, sel_registerName("navigationDelegate")), sel_registerName("retain"));
         _delegate = Send(s_delegateClass, sel_registerName("new"));
         s_handlers.Add(_delegate, this);
         SendPointer(webView, sel_registerName("setNavigationDelegate:"), _delegate);
+        // Avalonia sets no UI delegate, which leaves a page's window.open() with nothing to open.
+        if (Send(webView, sel_registerName("UIDelegate")) == 0)
+        {
+            _uiDelegate = Send(s_uiDelegateClass, sel_registerName("new"));
+            s_handlers.Add(_uiDelegate, this);
+            SendPointer(webView, sel_registerName("setUIDelegate:"), _uiDelegate);
+        }
     }
 
     internal static MacOSBrowserDownloadHandler? TryAttach(IPlatformHandle? handle, Action<Uri, string, IBrowserDownloadSource> onDownload,
         Action<Uri?, string, IBrowserDownloadSource> onGeneratedDownload, Action<Uri> onNavigationCommitted, Action onNavigationStarted,
-        Action<Uri, string?> onNewWindowRequested)
+        Action<Uri, string?> onNewWindowRequested, Action<Uri> onWindowOpened)
     {
         if (handle is not IAppleWKWebViewPlatformHandle apple) return null;
         nint webView = apple.GetWKWebViewRetained();
         return webView == 0 ? null
             : new MacOSBrowserDownloadHandler(webView, onDownload, onGeneratedDownload, onNavigationCommitted, onNavigationStarted,
-                onNewWindowRequested);
+                onNewWindowRequested, onWindowOpened);
     }
 
     public void Dispose()
@@ -64,6 +75,14 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         // Keep the WebView alive until its original delegate has been restored.
         if (Send(_webView, sel_registerName("navigationDelegate")) == _delegate)
             SendPointer(_webView, sel_registerName("setNavigationDelegate:"), _originalDelegate);
+        if (_uiDelegate != 0)
+        {
+            if (Send(_webView, sel_registerName("UIDelegate")) == _uiDelegate)
+                SendPointer(_webView, sel_registerName("setUIDelegate:"), 0);
+            s_handlers.Remove(_uiDelegate);
+            SendVoid(_uiDelegate, sel_registerName("release"));
+            _uiDelegate = 0;
+        }
         _cancellations.Dispose();
         foreach ((nint response, NativeDownload download) in _pendingDownloads)
         {
@@ -104,6 +123,42 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
             (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint>)&ForwardingTarget, "@@::");
         objc_registerClassPair(type);
         return type;
+    }
+
+    private static unsafe nint CreateUIDelegateClass()
+    {
+        nint type = objc_allocateClassPair(objc_getClass("NSObject"), "BeutlWindowOpenUIDelegate", 0);
+        class_addMethod(type, sel_registerName("webView:createWebViewWithConfiguration:forNavigationAction:windowFeatures:"),
+            (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, nint, nint, nint>)&OnCreateWebView, "@@:@@@@");
+        objc_registerClassPair(type);
+        return type;
+    }
+
+    // A page's window.open() asks the UI delegate for a web view, without asking the navigation delegate first. The
+    // page opens in a new tab instead, with the referrer WebKit computed for the request as for a link with
+    // target="_blank", and the page gets null back.
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static nint OnCreateWebView(nint self, nint selector, nint webView, nint configuration, nint navigationAction,
+        nint windowFeatures)
+    {
+        try
+        {
+            if (s_handlers.TryGetValue(self, out var handler))
+            {
+                nint request = Send(navigationAction, sel_registerName("request"));
+                string? address = GetString(Send(Send(request, sel_registerName("URL")), sel_registerName("absoluteString")));
+                if (Uri.TryCreate(address, UriKind.Absolute, out Uri? uri) && BrowserMediaDownload.IsHttpUri(uri))
+                {
+                    handler._onNewWindowRequested(uri, GetHeader(request, "Referer"));
+                    handler._onWindowOpened(uri);
+                }
+            }
+        }
+        catch
+        {
+            // Exceptions must not escape a native callback. The page then opens nothing, as before.
+        }
+        return 0;
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]

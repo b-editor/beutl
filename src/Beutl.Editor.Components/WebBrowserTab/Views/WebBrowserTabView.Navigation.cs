@@ -273,6 +273,14 @@ internal partial class WebBrowserTabView
         if (!_disposed) _nativeNewWindow = (request, Uri.TryCreate(referrer, UriKind.Absolute, out Uri? uri) ? uri : null);
     }
 
+    // A page's window.open() opens a tab as a link with target="_blank" does. WebView2 raises NewWindowRequested for
+    // both, while WKWebView and WebKitGTK ask only their own delegates for it, so the handlers report it here.
+    internal void OnNativeWindowOpenRequested(Uri request)
+    {
+        if (!_disposed && _webView is { } webView)
+            OnNewWindowRequested(webView, new WebViewNewWindowRequestedEventArgs { Request = request });
+    }
+
     internal void OnNewWindowRequested(object? sender, WebViewNewWindowRequestedEventArgs e)
     {
         (Uri Request, Uri? Referrer)? native = _nativeNewWindow;
