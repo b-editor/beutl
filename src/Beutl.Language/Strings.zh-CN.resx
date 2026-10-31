@@ -2874,7 +2874,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>将当前字幕翻译为其他语言。</value>
   </data>
   <data name="WebDownloadMedia" xml:space="preserve">
-    <value>下载媒体</value>
+    <value>下载文件</value>
   </data>
   <data name="WebDownloadProject" xml:space="preserve">
     <value>项目目录</value>
@@ -2889,10 +2889,10 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>使用项目目录前请先保存项目。</value>
   </data>
   <data name="WebDownloadUnsupported" xml:space="preserve">
-    <value>仅支持通过 HTTP(S) 直接下载图像、音频或视频文件。</value>
+    <value>仅支持通过 HTTP(S) 直接下载文件。</value>
   </data>
   <data name="WebDownloadHtmlResponse" xml:space="preserve">
-    <value>此 URL 返回的是网页而非媒体文件。请使用文件的下载链接。</value>
+    <value>此 URL 返回的是网页而非文件。请使用文件的下载链接。</value>
   </data>
   <data name="WebDownloadIncomplete" xml:space="preserve">
     <value>下载的文件为空或不完整。</value>
