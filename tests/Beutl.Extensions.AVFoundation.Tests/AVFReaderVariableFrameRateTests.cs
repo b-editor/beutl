@@ -12,12 +12,15 @@ namespace Beutl.Extensions.AVFoundation.Tests;
 [Platform("MacOSX")]
 public class AVFReaderVariableFrameRateTests
 {
-    // Frame counts and presentation times in 1/600 s, from the setpts expressions in the FFmpeg worker tests'
-    // Fixtures/README.md.
-    private static readonly Dictionary<string, (int Count, Func<int, int> Pts)> s_fixtures = new()
+    // Frame counts, the time the last frame ends and presentation times, in 1/600 s, from the setpts expressions in the
+    // FFmpeg worker tests' Fixtures/README.md.
+    private static readonly Dictionary<string, (int Count, int End, Func<int, int> Pts)> s_fixtures = new()
     {
-        ["vfr-30-60-30.mp4"] = (300, n => n < 105 ? n * 20 : n < 195 ? 2100 + (n - 105) * 10 : 3000 + (n - 195) * 20),
-        ["vfr-screen.mp4"] = (181, n =>
+        ["vfr-30-60-30.mp4"] = (300, 5100, n =>
+            n < 105 ? n * 20
+            : n < 195 ? 2100 + (n - 105) * 10
+            : 3000 + (n - 195) * 20),
+        ["vfr-screen.mp4"] = (181, 4800, n =>
             n < 1 ? 0
             : n < 41 ? 600 + (n - 1) * 10
             : n < 71 ? 1900 + (n - 41) * 20
@@ -40,7 +43,7 @@ public class AVFReaderVariableFrameRateTests
     public void ReadVideo_VariableFrameRate_ShowsTheFrameOnScreen(string name, string order)
     {
         using var reader = new AVFReader(FixturePath(name), new MediaOptions(MediaMode.Video), new AVFDecodingExtension());
-        int[] expected = FramesOnScreen(s_fixtures[name], reader.VideoInfo);
+        int[] expected = FramesOnScreen(s_fixtures[name], reader.VideoInfo.FrameRate.ToDouble());
         var random = new Random(1234);
         IEnumerable<int> frames = Enumerable.Range(0, expected.Length);
         frames = order switch
@@ -53,25 +56,29 @@ public class AVFReaderVariableFrameRateTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(reader.VideoInfo.NumFrames, Is.EqualTo(expected.Length), "the frame count");
             foreach (int frame in frames)
                 Assert.That(ReadIndex(reader, frame), Is.EqualTo(expected[frame]), $"frame {frame}");
+
+            // The last frame stays on screen until the track ends, and reads past that fail.
+            Assert.That(ReadIndex(reader, expected.Length - 1), Is.EqualTo(expected[^1]), "the last frame");
+            Assert.That(ReadIndex(reader, expected.Length), Is.EqualTo(-1), "past the end");
         });
     }
 
     private static string FixturePath(string name) => Path.Combine(AppContext.BaseDirectory, "Fixtures", name);
 
-    // Takes for each number up to where the stream ends the last frame whose timestamp rounds to it or earlier at the
+    // Takes for each number up to where the track ends the last frame whose timestamp rounds to it or earlier at the
     // reported rate. Numbers before the first frame show it.
-    private static int[] FramesOnScreen((int Count, Func<int, int> Pts) fixture, VideoStreamInfo info)
+    private static int[] FramesOnScreen((int Count, int End, Func<int, int> Pts) fixture, double rate)
     {
-        double rate = info.FrameRate.ToDouble();
-        long Number(int index) => (long)Math.Round(fixture.Pts(index) / 600.0 * rate, MidpointRounding.AwayFromZero);
+        long Number(int time) => (long)Math.Round(time / 600.0 * rate, MidpointRounding.AwayFromZero);
 
-        var expected = new int[info.NumFrames];
+        var expected = new int[Number(fixture.End)];
         for (int number = 0; number < expected.Length; number++)
         {
-            long target = Math.Max(number, Number(0));
-            expected[number] = Enumerable.Range(0, fixture.Count).Last(index => Number(index) <= target);
+            long target = Math.Max(number, Number(fixture.Pts(0)));
+            expected[number] = Enumerable.Range(0, fixture.Count).Last(index => Number(fixture.Pts(index)) <= target);
         }
 
         return expected;
