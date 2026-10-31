@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.SceneSettingsTab.Views.SceneSettingsTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="using:Beutl.Editor.Components.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -35,6 +36,16 @@
                              Margin="4,8,4,0"
                              EditorStyle="Compact"
                              Header="{x:Static lang:Strings.Number_of_Layers}" />
+
+            <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.ProjectAudioChannels}" />
+            <ComboBox x:Name="ChannelLayoutComboBox"
+                      Margin="8,0" HorizontalAlignment="Stretch"
+                      SelectedIndex="{Binding ChannelLayout.Value, Mode=TwoWay, Converter={x:Static converters:EnumIndexConverters.SpeakerLayouts}}">
+                <ComboBoxItem Content="{x:Static lang:Strings.SpeakerLayout_Mono}" />
+                <ComboBoxItem Content="{x:Static lang:Strings.SpeakerLayout_Stereo}" />
+                <ComboBoxItem Content="{x:Static lang:Strings.SpeakerLayout_Surround51}" />
+                <ComboBoxItem Content="{x:Static lang:Strings.SpeakerLayout_Surround71}" />
+            </ComboBox>
 
             <WrapPanel x:Name="ActionButtons" Margin="8" ItemSpacing="4" LineSpacing="4">
                 <Button x:Name="ApplyButton"

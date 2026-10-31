@@ -34,6 +34,24 @@ public class SceneSettingsServiceTests
     }
 
     [Test]
+    public void Apply_ProjectLayoutAndSceneChangesAreOneUndoableEntry()
+    {
+        var project = new Project { Items = { _scene } };
+        PixelSize previous = _scene.FrameSize.Value;
+        int before = _history.UndoCount;
+        _service.Apply(_scene, new PixelSize(800, 600), _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Surround51);
+        Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+        _history.Undo();
+        Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
+        Assert.That(_scene.FrameSize.Value, Is.EqualTo(previous));
+        _history.Redo();
+        Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+        Assert.That(_scene.FrameSize.Value, Is.EqualTo(new PixelSize(800, 600)));
+        Assert.That(_service.Apply(_scene, _scene.FrameSize.Value, _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Surround51), Is.False);
+    }
+
+    [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => new SceneSettingsService(null!));

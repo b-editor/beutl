@@ -38,6 +38,26 @@ public abstract partial class Sound : EngineObject
     [SuppressResourceClassGeneration]
     public IExpressionProperty<float> Gain { get; } = Property.CreateAnimatable(100f);
 
+    [Range(-100, 100)]
+    [Display(Name = nameof(AudioStrings.Sound_Pan), ResourceType = typeof(AudioStrings))]
+    [SuppressResourceClassGeneration]
+    public IExpressionProperty<float> Pan { get; } = Property.CreateAnimatable(0f);
+
+    [Range(0, 100)]
+    [Display(Name = nameof(AudioStrings.Sound_SurroundPan), ResourceType = typeof(AudioStrings))]
+    [SuppressResourceClassGeneration]
+    public IExpressionProperty<float> SurroundPan { get; } = Property.CreateAnimatable(0f);
+
+    [Range(0, 100)]
+    [Display(Name = nameof(AudioStrings.Sound_CenterLevel), ResourceType = typeof(AudioStrings))]
+    [SuppressResourceClassGeneration]
+    public IExpressionProperty<float> CenterLevel { get; } = Property.CreateAnimatable(0f);
+
+    [Range(0, 100)]
+    [Display(Name = nameof(AudioStrings.Sound_LfeLevel), ResourceType = typeof(AudioStrings))]
+    [SuppressResourceClassGeneration]
+    public IExpressionProperty<float> LfeLevel { get; } = Property.CreateAnimatable(0f);
+
     [Range(0, float.MaxValue)]
     [Display(Name = nameof(AudioStrings.Sound_Speed), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
@@ -70,11 +90,14 @@ public abstract partial class Sound : EngineObject
         var resampleNode = context.CreateResampleNode(soundSource.SampleRate);
         context.Connect(shiftNode, resampleNode);
 
-        var speedNode = context.CreateSpeedNode(Speed);
+        var speedNode = context.CreateSpeedNode(Speed, soundSource.ChannelLayout.ChannelCount);
         context.Connect(resampleNode, speedNode);
 
+        var pannerNode = context.CreatePannerNode(Pan, SurroundPan, CenterLevel, LfeLevel, soundSource.ChannelLayout);
+        context.Connect(speedNode, pannerNode);
+
         var gainNode = context.CreateGainNode(Gain);
-        context.Connect(speedNode, gainNode);
+        context.Connect(pannerNode, gainNode);
 
         AudioNode currentNode = gainNode;
 

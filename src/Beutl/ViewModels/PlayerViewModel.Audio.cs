@@ -21,10 +21,10 @@ public partial class PlayerViewModel
 
         // Always publish so the ReplaySubject retains the latest snapshot — a
         // visualizer tab opened after this point can replay it on subscribe.
-        var interleaved = new float[audio.SampleCount * 2];
+        var interleaved = new float[audio.SampleCount * audio.ChannelCount];
         AudioConversion.Interleave(audio, interleaved);
         // Teardown completes the subject so a racing publish is ignored.
-        _audioFramePushed.OnNext(new AudioFrameSnapshot(interleaved, audio.SampleRate, 2, startTime)
+        _audioFramePushed.OnNext(new AudioFrameSnapshot(interleaved, audio.SampleRate, audio.ChannelCount, startTime)
         {
             PlaybackId = Interlocked.Read(ref _previewPlaybackId)
         });
@@ -248,7 +248,9 @@ public partial class PlayerViewModel
                     sampleRate = audio.SampleRate;
                 }
 
-                buffer.BufferData(audio);
+                using AudioBuffer? stereo = audio.ChannelCount == 2 ? null
+                    : AudioChannelMatrix.Create(EditViewModel.Composer.Value.ChannelLayout, AudioChannelLayout.Stereo).Apply(audio);
+                buffer.BufferData(stereo ?? audio);
                 hasAudio = true;
                 _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(audio, bufferStartTime));
             }
@@ -376,7 +378,9 @@ public partial class PlayerViewModel
                     sampleRate = audio.SampleRate;
                 }
 
-                audioContext.BufferData(buffer, audio);
+                using AudioBuffer? stereo = audio.ChannelCount == 2 ? null
+                    : AudioChannelMatrix.Create(EditViewModel.Composer.Value.ChannelLayout, AudioChannelLayout.Stereo).Apply(audio);
+                audioContext.BufferData(buffer, stereo ?? audio);
                 fillSamples = audio.SampleCount;
                 hasAudio = true;
                 _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(audio, bufferStartTime));

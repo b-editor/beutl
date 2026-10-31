@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using Beutl.Audio;
+using System.Runtime.InteropServices;
 using Beutl.Editor.Models;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Logging;
@@ -83,6 +84,7 @@ internal sealed partial class MobilePreviewServer
     internal static float[]? SampleAudio(IReadOnlyList<AudioFrameSnapshot> blocks, long playbackId, double time)
     {
         var output = new float[960 * 2];
+        Dictionary<int, AudioChannelMatrix>? matrices = null;
         bool found = false;
         for (int i = 0; i < 960; i++)
         {
@@ -99,6 +101,23 @@ internal sealed partial class MobilePreviewServer
                 {
                     int c = Math.Min(channel, block.ChannelCount - 1);
                     float a = block.Interleaved[first * block.ChannelCount + c], b = block.Interleaved[second * block.ChannelCount + c];
+                    if (block.ChannelCount > 2)
+                    {
+                        matrices ??= new();
+                        if (!matrices.TryGetValue(block.ChannelCount, out AudioChannelMatrix? matrix))
+                        {
+                            matrix = AudioChannelMatrix.Create(AudioChannelLayout.GetDefault(block.ChannelCount), AudioChannelLayout.Stereo);
+                            matrices.Add(block.ChannelCount, matrix);
+                        }
+                        a = b = 0;
+                        for (int input = 0; input < block.ChannelCount; input++)
+                        {
+                            float gain = matrix.GetCoefficient(channel, input);
+                            if (gain == 0) continue;
+                            a += block.Interleaved[first * block.ChannelCount + input] * gain;
+                            b += block.Interleaved[second * block.ChannelCount + input] * gain;
+                        }
+                    }
                     float sample = a + (b - a) * fraction;
                     output[i * 2 + channel] = float.IsFinite(sample) ? Math.Clamp(sample, -1, 1) : 0;
                 }

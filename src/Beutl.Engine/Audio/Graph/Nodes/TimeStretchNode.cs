@@ -10,8 +10,10 @@ public sealed partial class TimeStretchNode : AudioNode, IAudioTimeMappingNode
 
     public TimeStretchNode()
     {
-        _processing = new(this, _mapping, sampleRate => new TimeStretchProcessor(sampleRate, 2, this), roundSampleClock: true);
+        _processing = new(this, _mapping, (sampleRate, channelCount) => new TimeStretchProcessor(sampleRate, channelCount, this), roundSampleClock: true);
     }
+
+    public int ChannelCount { get; set; } = 2;
 
     public IProperty<float>? Speed
     {
@@ -32,10 +34,10 @@ public sealed partial class TimeStretchNode : AudioNode, IAudioTimeMappingNode
         => _mapping.TryGetDrainSpeedFactor(sampleRate, out speed);
 
     public override AudioBuffer Process(AudioProcessContext context)
-        => RecordProcessedOutput(_processing.Process(context, draining: false));
+        => RecordProcessedOutput(_processing.Process(context, ChannelCount, draining: false));
 
     public override AudioBuffer Flush(AudioProcessContext context)
-        => RecordProcessedOutput(_processing.Process(context, draining: true));
+        => RecordProcessedOutput(_processing.Process(context, ChannelCount, draining: true));
 
     protected override void Dispose(bool disposing)
     {

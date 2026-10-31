@@ -1,4 +1,5 @@
-﻿using System.Buffers.Binary;
+﻿using Beutl.Audio;
+using System.Buffers.Binary;
 using System.Net;
 using System.Net.WebSockets;
 using System.Text.Json;
@@ -33,6 +34,23 @@ namespace Beutl.HeadlessUITests;
 [NonParallelizable]
 public sealed class MobilePreviewTests
 {
+    [TestCase(6)]
+    [TestCase(8)]
+    public void SampleAudio_FoldsCenterAndSurrounds(int channels)
+    {
+        var input = new float[960 * channels];
+        for (int i = 0; i < 960; i++)
+        {
+            input[i * channels + 2] = 0.25f;
+            input[i * channels + 4] = 0.125f;
+        }
+        var snapshot = new Beutl.Editor.Models.AudioFrameSnapshot(input, 48000, channels, MediaTime.Zero) { PlaybackId = 7 };
+        var output = MobilePreviewServer.SampleAudio([snapshot], 7, 0)!;
+        var matrix = AudioChannelMatrix.Create(AudioChannelLayout.GetDefault(channels), AudioChannelLayout.Stereo);
+        Assert.That(output[0], Is.EqualTo(0.25f * matrix.GetCoefficient(0, 2) + 0.125f * matrix.GetCoefficient(0, 4)));
+        Assert.That(output[1], Is.EqualTo(0.25f * matrix.GetCoefficient(1, 2)));
+    }
+
     [TestCase(600, "10:00")]
     [TestCase(59.1, "1:00")]
     [TestCase(0.1, "0:01")]

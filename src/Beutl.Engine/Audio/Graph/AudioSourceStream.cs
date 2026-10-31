@@ -61,13 +61,14 @@ internal sealed class AudioSourceStream(int sampleRate, int channels, Func<Media
         };
         // This reader consumes the pooled input fully; ownership does not escape it.
         using AudioBuffer result = draining ? input.Flush(subContext) : input.Process(subContext);
-        ReadOnlySpan<float> left = result.GetChannelData(0);
-        ReadOnlySpan<float> right = result.ChannelCount > 1 ? result.GetChannelData(1) : left;
+        if (result.ChannelCount != channels)
+            throw new InvalidOperationException("Upstream channel count does not match the audio stream.");
         int count = Math.Min(requestedFrames, result.SampleCount);
-        for (int i = 0; i < count; i++)
+        for (int channel = 0; channel < channels; channel++)
         {
-            buffer[i * channels] = left[i];
-            buffer[i * channels + 1] = right[i];
+            ReadOnlySpan<float> samples = result.GetChannelData(channel);
+            for (int i = 0; i < count; i++)
+                buffer[i * channels + channel] = samples[i];
         }
         Position += count;
         return count * channels;

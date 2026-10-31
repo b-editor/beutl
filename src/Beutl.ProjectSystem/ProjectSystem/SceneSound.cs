@@ -44,8 +44,12 @@ public sealed partial class SceneSound : Sound, ISplittable
 
         var sourceNode = context.CreateNode(
             parameters: r,
-            factory: static r => new SceneNode(r),
-            updater: static (r, node) => node._resource = r,
+            factory: r => new SceneNode(r) { Layout = context.ChannelLayout },
+            updater: (r, node) =>
+            {
+                node._resource = r;
+                node.Layout = context.ChannelLayout;
+            },
             comparer: static (r, node) => node._resource == r
         );
 
@@ -55,8 +59,11 @@ public sealed partial class SceneSound : Sound, ISplittable
         var speedNode = context.CreateSpeedNode(Speed);
         context.Connect(shiftNode, speedNode);
 
+        var pannerNode = context.CreatePannerNode(Pan, SurroundPan, CenterLevel, LfeLevel, context.ChannelLayout);
+        context.Connect(speedNode, pannerNode);
+
         var gainNode = context.CreateGainNode(Gain);
-        context.Connect(speedNode, gainNode);
+        context.Connect(pannerNode, gainNode);
 
         AudioNode currentNode = gainNode;
 
@@ -93,6 +100,10 @@ public sealed partial class SceneSound : Sound, ISplittable
     {
         internal Resource? _resource = resource;
         private Composer? _composer;
+        internal AudioChannelLayout Layout { get; set; }
+
+        protected override AudioBuffer CreateSilentFlush(AudioProcessContext context)
+            => new(context.SampleRate, Layout.ChannelCount, context.GetSampleCount());
 
         public override AudioBuffer Process(AudioProcessContext context)
         {
@@ -101,7 +112,7 @@ public sealed partial class SceneSound : Sound, ISplittable
             if (scene == null || compositor == null)
             {
                 AudioReadScope.ReportFailure();
-                return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
+                return CreateSilentFlush(context);
             }
 
             if (!Resource.s_evaluatingScenes.Enter(scene))
@@ -111,10 +122,10 @@ public sealed partial class SceneSound : Sound, ISplittable
 
             try
             {
-                if (_composer?.SampleRate != context.SampleRate)
+                if (_composer?.SampleRate != context.SampleRate || _composer.ChannelLayout != Layout)
                 {
                     _composer?.Dispose();
-                    _composer = new Composer { SampleRate = context.SampleRate };
+                    _composer = new Composer { SampleRate = context.SampleRate, ChannelLayout = Layout };
                 }
 
                 // The embed composes the referenced scene's own window from the clip-local request.
@@ -123,7 +134,7 @@ public sealed partial class SceneSound : Sound, ISplittable
                 var buffer = _composer.Compose(window, frame);
                 if (buffer == null)
                 {
-                    return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
+                    return CreateSilentFlush(context);
                 }
 
                 return buffer;
@@ -139,7 +150,8 @@ public sealed partial class SceneSound : Sound, ISplittable
             ArgumentNullException.ThrowIfNull(context);
             var scene = _resource?.ReferencedScene;
             var compositor = _resource?._compositor;
-            if (_composer is null || scene is null || compositor is null)
+            if (_composer is null || _composer.ChannelLayout != Layout || _composer.SampleRate != context.SampleRate
+                || scene is null || compositor is null)
                 return CreateSilentFlush(context);
 
             if (!Resource.s_evaluatingScenes.Enter(scene))
