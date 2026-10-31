@@ -46,4 +46,30 @@ public class WindowsAdBlockRequestTests
         Assert.That(WindowsAdBlockBackend.ShouldBlockRequest(rules, request, page, 6, site, "script"), Is.EqualTo(blocked));
         Assert.That(WindowsAdBlockBackend.ShouldBlockRequest(rules, request, page, 3, site, "image"), Is.False);
     }
+
+    // WebView2 names a page as it commits, NativeWebView only once it has loaded.
+    [TestCase("https://next.test/article", "https://next.test/article")]
+    [TestCase("about:blank", "https://opened.test/")]
+    [TestCase(null, "https://opened.test/")]
+    [TestCase("not an address", "https://opened.test/")]
+    public void TheCommittedDocumentIsThePageWhenItHasAWebAddress(string? committed, string expected)
+    {
+        Assert.That(WindowsAdBlockBackend.ChoosePage(committed, () => new Uri("https://opened.test/")),
+            Is.EqualTo(new Uri(expected)));
+    }
+
+    // A page reached through a link loads its resources before NativeWebView names it, and its own exceptions apply.
+    [Test]
+    public void ALoadingPagesRequestsMatchItsOwnDomainRules()
+    {
+        var rules = BrowserAdBlockTestRules.Parse("||cdn.example^\n@@||cdn.example^$domain=next.test");
+        var request = new Uri("https://cdn.example/app.js");
+        Uri page = WindowsAdBlockBackend.ChoosePage("https://next.test/article", () => new Uri("https://previous.test/"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(WindowsAdBlockBackend.ShouldBlockRequest(rules, request, page, 6, "cross-site", "script"), Is.False);
+            Assert.That(WindowsAdBlockBackend.ShouldBlockRequest(rules, request, new Uri("https://previous.test/"), 6,
+                "cross-site", "script"), Is.True);
+        });
+    }
 }
