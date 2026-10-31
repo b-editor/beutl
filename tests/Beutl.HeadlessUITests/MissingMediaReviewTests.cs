@@ -241,8 +241,10 @@ public partial class MissingMediaTests
             using var vm = new MissingMediaViewModel(editor);
             await vm.SetReplacementAsync(vm.Rows.Single(row => row.Media.Kind == MissingMediaKind.Model), replacement);
             await vm.SetReplacementAsync(vm.Rows.Single(row => row.Media.Kind == MissingMediaKind.Image), image);
+            // The repair rewrites the relinked element files; the scene's bytes stay the same, so saving skips it.
+            string modelFile = editor.Scene.Children[0].Uri!.LocalPath;
             using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
-                   { if (step == StorageWriteStep.Replace && path == editor.Scene.Uri!.LocalPath) throw new IOException("Injected repair save failure."); }))
+                   { if (step == StorageWriteStep.Replace && path == modelFile) throw new IOException("Injected repair save failure."); }))
                 Assert.That(await vm.ApplyAsync(), Is.False);
             Assert.That(CoreSerializer.SerializeToJsonObject(model).ToJsonString(), Is.EqualTo(before));
             Assert.That(editor.Scene.MediaFingerprints, Is.EquivalentTo(fingerprints));

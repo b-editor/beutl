@@ -5,6 +5,8 @@ namespace Beutl.Editor;
 public sealed class HistoryTransaction
 {
     private readonly List<ChangeOperation> _operations = new();
+    private readonly Dictionary<MergeKey, int> _mergeCandidates = [];
+    private bool _hasCustomMerges;
     // Recording observes operations already applied to the model. Track successful
     // execution per operation so retrying a partial undo/redo does not repeat it.
     private readonly List<bool> _applied = new();
@@ -49,7 +51,79 @@ public sealed class HistoryTransaction
     {
         _operations.Add(operation);
         _applied.Add(true);
+        if (!_hasCustomMerges && TryGetMergeKey(operation, out MergeKey key))
+        {
+            if (!_mergeCandidates.TryGetValue(key, out int index))
+            {
+                _mergeCandidates[key] = _operations.Count - 1;
+                return;
+            }
+            if (_applied[index] && _operations[index] is IMergableChangeOperation candidate
+                && candidate.TryMerge(operation))
+            {
+                _operations.RemoveAt(_operations.Count - 1);
+                _applied.RemoveAt(_applied.Count - 1);
+                if (candidate.IsNoop)
+                {
+                    _operations.RemoveAt(index);
+                    _applied.RemoveAt(index);
+                    RebuildMergeCandidates();
+                }
+                return;
+            }
+        }
+        else if (operation is IMergableChangeOperation)
+        {
+            // Extension operations may merge across identities. Preserve their existing policy.
+            _hasCustomMerges = true;
+            _mergeCandidates.Clear();
+        }
+        else if (!_hasCustomMerges)
+        {
+            return;
+        }
+
         CompactOperations();
+        if (!_hasCustomMerges) RebuildMergeCandidates();
+    }
+
+    // The built-in setters merge only writes of the same type to the same object and property.
+    // Indexing their merge candidates avoids scanning prior operations for every step of a bulk edit.
+    private static bool TryGetMergeKey(ChangeOperation operation, out MergeKey key)
+    {
+        Type type = operation.GetType();
+        switch (operation)
+        {
+            case IUpdatePropertyValueOperation value when type.IsGenericType
+                && type.GetGenericTypeDefinition() == typeof(UpdatePropertyValueOperation<>):
+                key = new MergeKey(value.Object, value.PropertyPath, type);
+                return true;
+            case UpdateSplineEasingOperation spline:
+                key = new MergeKey(spline.Easing, spline.PropertyPath, type);
+                return true;
+            case UpdateNodeMemberOperation node:
+                key = new MergeKey(node.NodeMember, node.PropertyPath, type);
+                return true;
+            default:
+                key = default;
+                return false;
+        }
+    }
+
+    private void RebuildMergeCandidates()
+    {
+        _mergeCandidates.Clear();
+        for (int i = 0; i < _operations.Count; i++)
+            if (TryGetMergeKey(_operations[i], out MergeKey key)) _mergeCandidates[key] = i;
+    }
+
+    private readonly record struct MergeKey(object Owner, string PropertyPath, Type OperationType)
+    {
+        public bool Equals(MergeKey other) => ReferenceEquals(Owner, other.Owner)
+            && PropertyPath == other.PropertyPath && OperationType == other.OperationType;
+
+        public override int GetHashCode()
+            => HashCode.Combine(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(Owner), PropertyPath, OperationType);
     }
 
     private void CompactOperations()

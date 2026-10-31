@@ -1,6 +1,4 @@
-﻿using System.Collections.Specialized;
-using System.Reactive;
-using Avalonia;
+﻿using Avalonia;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
@@ -44,20 +42,7 @@ public sealed partial class ElementViewModel
 
     private void InitializeTransition()
     {
-        // A boundary also moves when the element across it changes, and every edit reaches Scene.Edited.
-        Observable.FromEventPattern(h => Scene.Edited += h, h => Scene.Edited -= h)
-            .Select(_ => Unit.Default)
-            .Merge(Observable.FromEventPattern<NotifyCollectionChangedEventHandler, NotifyCollectionChangedEventArgs>(
-                    h => Scene.Children.CollectionChanged += h,
-                    h => Scene.Children.CollectionChanged -= h)
-                .Select(_ => Unit.Default))
-            .ObserveOnUIDispatcher()
-            .Subscribe(_ => UpdateTransitionParts())
-            .AddTo(_disposables);
-
-        Timeline.Scale
-            .Subscribe(_ => UpdateTransitionParts())
-            .AddTo(_disposables);
+        UpdateTransitionParts();
     }
 
     // The type of the transition at edge, as the boundary blends; null when the edge has none.
@@ -151,7 +136,7 @@ public sealed partial class ElementViewModel
             : ElementTransitions.GetBoundaryAtEnd(Model, _transitionPreview);
     }
 
-    private void UpdateTransitionParts()
+    internal void UpdateTransitionParts()
     {
         if (_isDisposed) return;
 

@@ -101,6 +101,7 @@ public class SaveRoundTripTests
         MigratedProject migrated = await OpenMigratedProjectAsync($"migrated-save-failure-{failingStep}");
         SavedFiles before = migrated.ReadFiles();
         string failingFile = migrated.PathOf(failingStep);
+        TouchScene(migrated.Editor);
 
         Exception? failure;
         using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
@@ -171,6 +172,7 @@ public class SaveRoundTripTests
             $"migrated-save-unrestorable-{unrestorableStep}");
         SavedFiles before = migrated.ReadFiles();
         string unrestorableFile = migrated.PathOf(unrestorableStep);
+        TouchScene(migrated.Editor);
 
         Exception? failure;
         using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
@@ -202,6 +204,14 @@ public class SaveRoundTripTests
 
         Assert.That(await migrated.Editor.SaveAsync(), Is.True);
         Assert.That(ReadJson(migrated.ElementFile)["$type"], Is.Not.Null);
+    }
+
+    // Migrating leaves the scene file's bytes as they were, and saving skips an unchanged file. Change the
+    // scene, without an auto-save, so the save rewrites it and a fault injected into that write runs.
+    private static void TouchScene(EditViewModel editor)
+    {
+        using (editor.HistoryManager.SuppressRecording())
+            editor.Scene.Duration.Value += MediaTime.FromSeconds(1);
     }
 
     // Opens a project as a 1.x build saved it (the project file records 1.0.0 and the element has no $type), so

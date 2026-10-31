@@ -150,7 +150,14 @@ public static partial class CoreSerializer
         // Recorded even when nothing is on disk yet, so the save that writes the project file later does
         // not record less than the files written before it.
         string required = RootFileVersions.RaiseMinAppVersion(project, minAppVersion);
-        if (project.Uri is not { IsFile: true } projectUri)
+        RaiseProjectFile(project, project.Uri, required);
+    }
+
+    // The URI and requirement can be captured with a save snapshot. Background writes only use
+    // that storage identity and the thread-safe version cache, never the live project graph.
+    private static void RaiseProjectFile(Project project, Uri? uri, string required)
+    {
+        if (uri is not { IsFile: true } projectUri)
         {
             return;
         }

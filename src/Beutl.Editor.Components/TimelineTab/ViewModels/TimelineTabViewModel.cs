@@ -23,6 +23,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
     private readonly Subject<System.Reactive.Unit> _canExecuteChangedSubject = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
+    private readonly Dictionary<Element, ElementViewModel> _elementsByModel = [];
     private readonly IEditorSelection _selection;
     private readonly IEditorClock _editorClock;
     private bool _isDisposed;
@@ -37,7 +38,10 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         var timelineOptions = editorContext.GetRequiredService<ITimelineOptionsProvider>();
         _editorClock = editorContext.GetRequiredService<IEditorClock>();
         Scene = timelineOptions.Scene;
-        Scale = timelineOptions.Scale;
+        // Share the distinct value: one subscription to Options, rather than running a filter
+        // for every clip binding each time the scroll offset changes.
+        Scale = timelineOptions.Scale.DistinctUntilChanged()
+            .ToReadOnlyReactivePropertySlim().AddTo(_disposables);
         Options = timelineOptions.Options;
         CurrentTime = _editorClock.CurrentTime;
         MaximumTime = _editorClock.MaximumTime;
@@ -62,8 +66,15 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             .AddTo(_disposables);
 
         InitializeTransitionParticipants();
+        TrackElementCollections();
 
         TrackLayerModels().AddTo(_disposables);
+
+        Elements.TrackCollectionChanged(
+                item => _elementsByModel.Add(item.Model, item),
+                item => _elementsByModel.Remove(item.Model),
+                _elementsByModel.Clear)
+            .AddTo(_disposables);
 
         TimelineOptions options = Options.Value;
         LayerHeaders.AddRange(Enumerable.Range(0, options.MaxLayerCount)
@@ -206,6 +217,43 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     private async Task AddElementCore(ElementDescription description)
         => await AddElementWithResultAsync(description);
+
+    private void TrackElementCollections()
+    {
+        void ThumbnailsDisabled(Guid id)
+        {
+            foreach (ElementViewModel element in Elements) element.OnThumbnailsDisabledElementsAttached(id);
+        }
+        void ThumbnailsEnabled(Guid id)
+        {
+            foreach (ElementViewModel element in Elements) element.OnThumbnailsDisabledElementsDetached(id);
+        }
+
+        ThumbnailsDisabledElements.Attached += ThumbnailsDisabled;
+        ThumbnailsDisabledElements.Detached += ThumbnailsEnabled;
+        Disposable.Create(() =>
+        {
+            ThumbnailsDisabledElements.Attached -= ThumbnailsDisabled;
+            ThumbnailsDisabledElements.Detached -= ThumbnailsEnabled;
+        }).AddTo(_disposables);
+
+        void RefreshThumbnails()
+        {
+            foreach (ElementViewModel element in Elements) element.InvalidateAndUpdateThumbnails();
+        }
+
+        // A source-mode change invalidates filmstrips. Subscribe once per tab so opening/closing
+        // a large scene does not add/remove tens of thousands of global configuration handlers.
+        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.GetObservable()
+            .Skip(1).DistinctUntilChanged().ObserveOnUIDispatcher()
+            .Subscribe(_ => RefreshThumbnails()).AddTo(_disposables);
+        GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.GetObservable()
+            .Skip(1).DistinctUntilChanged()
+            .Where(_ => ElementViewModel.ShouldRefreshThumbnailsForDefaultPresetChange(
+                GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value))
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ => RefreshThumbnails()).AddTo(_disposables);
+    }
 
     public async Task<ElementAddResult> AddElementWithResultAsync(
         ElementDescription description, CancellationToken cancellationToken = default)
@@ -403,6 +451,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         Inlines.Clear();
         LayerHeaders.Clear();
         Elements.Clear();
+        _elementsByModel.Clear();
         _logger.LogInformation("TimelineViewModel disposed successfully.");
     }
 
@@ -559,6 +608,6 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public ElementViewModel? GetViewModelFor(Element element)
     {
-        return Elements.FirstOrDefault(x => x.Model == element);
+        return _elementsByModel.GetValueOrDefault(element);
     }
 }

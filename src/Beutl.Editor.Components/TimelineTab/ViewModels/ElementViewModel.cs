@@ -394,9 +394,6 @@ public sealed partial class ElementViewModel : IDisposable
         if (_lastThumbnailsCacheKey != null)
             InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
 
-        Timeline.ThumbnailsDisabledElements.Attached -= OnThumbnailsDisabledElementsAttached;
-        Timeline.ThumbnailsDisabledElements.Detached -= OnThumbnailsDisabledElementsDetached;
-
         _disposables.Dispose();
         LayerHeader.Dispose();
         Scope.Dispose();

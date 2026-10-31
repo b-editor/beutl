@@ -33,9 +33,124 @@ public class AutoSaveServiceTests
 
     private Uri CreateUri(string relativePath) => new(Path.Combine(_directory, relativePath));
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void AutoSave_RestoredElementSurvivesSceneReload(bool undoAddition)
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task FailedElementDeletionKeepsItsExclusionThroughSaveRetryAndUndo(bool asynchronous, bool removeWhileSaving)
+    {
+        var scene = new Scene { Uri = CreateUri("main.scene") };
+        var blocked = new Element { Uri = CreateUri("blocked/clip.belm") };
+        var removed = new Element { Uri = CreateUri("removed.belm") };
+        var retained = new Element { Uri = CreateUri("retained.belm") };
+        scene.Children.AddRange([removed, retained]);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        using var harness = new HistoryHarness(scene);
+        using var service = new AutoSaveService();
+        var errors = new List<Exception>();
+        using var errorSubscription = service.SaveError.Subscribe(errors.Add);
+        IList<ChangeOperation> operations = [];
+        using var saveSubscription = harness.Observer.Operations.Buffer(harness.History.StateChanged)
+            .Subscribe(batch => operations = batch);
+        scene.Children.Add(blocked);
+        harness.History.Commit("Add element");
+
+        using var release = new ManualResetEventSlim();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+               {
+                   if (!removeWhileSaving || step != StorageWriteStep.Replace || path != blocked.Uri.LocalPath) return;
+                   started.TrySetResult();
+                   if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException();
+               }))
+        {
+            Task creation = SaveBatch(service, operations, asynchronous);
+            try
+            {
+                if (removeWhileSaving)
+                {
+                    await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                    Assert.That(File.Exists(blocked.Uri.LocalPath), Is.False);
+                    new ElementStructureService(harness.History).Delete(scene, [blocked, removed]);
+                }
+            }
+            finally
+            {
+                release.Set();
+                await creation;
+            }
+        }
+        Assert.That(errors, Is.Empty);
+        if (!removeWhileSaving)
+            new ElementStructureService(harness.History).Delete(scene, [blocked, removed]);
+        IList<ChangeOperation> deletion = operations;
+
+        // The editor serializes saves with its write lease. Fail the queued deletion only after
+        // the earlier save has finished creating the file, even when the removal happened sooner.
+        string blockedDirectory = Path.GetDirectoryName(blocked.Uri.LocalPath)!;
+        FileAttributes attributes = File.GetAttributes(blocked.Uri.LocalPath);
+        UnixFileMode mode = default;
+        if (OperatingSystem.IsWindows())
+            File.SetAttributes(blocked.Uri.LocalPath, attributes | FileAttributes.ReadOnly);
+        else
+        {
+            mode = File.GetUnixFileMode(blockedDirectory);
+            File.SetUnixFileMode(blockedDirectory, mode
+                & ~(UnixFileMode.UserWrite | UnixFileMode.GroupWrite | UnixFileMode.OtherWrite));
+        }
+        try
+        {
+            await SaveBatch(service, deletion, asynchronous);
+        }
+        finally
+        {
+            if (OperatingSystem.IsWindows()) File.SetAttributes(blocked.Uri.LocalPath, attributes);
+            else File.SetUnixFileMode(blockedDirectory, mode);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(errors, Has.Count.EqualTo(1));
+            Assert.That(File.Exists(blocked.Uri.LocalPath), Is.True);
+            Assert.That(File.Exists(removed.Uri.LocalPath), Is.False, "Other deletions in the same batch must still succeed.");
+            Assert.That(scene.Children, Is.EqualTo(new[] { retained }));
+        });
+        AssertRemovedElementsStayExcluded();
+
+        // Preparing a failed batch must not discard the live scene's exclusion either.
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        AssertRemovedElementsStayExcluded();
+
+        errors.Clear();
+        await SaveBatch(service, deletion, asynchronous);
+        Assert.Multiple(() =>
+        {
+            Assert.That(errors, Is.Empty);
+            Assert.That(File.Exists(blocked.Uri.LocalPath), Is.False);
+            Assert.That(JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!["Elements"]!["Exclude"], Is.Null);
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).Children.Select(child => child.Id.Value),
+                Is.EqualTo(new[] { retained.Id.Value }));
+        });
+
+        harness.History.Undo();
+        await SaveBatch(service, operations, asynchronous);
+        Assert.That(errors, Is.Empty);
+        Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).Children.Select(child => child.Id.Value),
+            Is.EquivalentTo(new[] { blocked.Id.Value, removed.Id.Value, retained.Id.Value }));
+
+        void AssertRemovedElementsStayExcluded()
+        {
+            Assert.That(JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!["Elements"]!["Exclude"]?.GetValue<string>(),
+                Is.EqualTo("blocked/clip.belm"), "Keep only the file whose deletion failed excluded.");
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).Children.Select(child => child.Id.Value),
+                Is.EqualTo(new[] { retained.Id.Value }));
+        }
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task AutoSave_RestoredElementSurvivesSceneReload(bool undoAddition, bool asynchronous)
     {
         var scene = new Scene { Uri = CreateUri("main.scene") };
         var element = new Element
@@ -49,18 +164,21 @@ public class AutoSaveServiceTests
         using var service = new AutoSaveService();
         var errors = new List<Exception>();
         using var errorSubscription = service.SaveError.Subscribe(errors.Add);
+        Task pendingSave = Task.CompletedTask;
         using var saveSubscription = harness.Observer.Operations
             .Buffer(harness.History.StateChanged)
-            .Subscribe(operations => service.AutoSave(operations));
+            .Subscribe(operations => pendingSave = SaveBatch(service, operations, asynchronous));
 
         scene.AddChild(element);
         harness.History.Commit("Add element");
+        await pendingSave;
         Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
 
         if (undoAddition)
             harness.History.Undo();
         else
             new ElementStructureService(harness.History).Delete(scene, [element]);
+        await pendingSave;
 
         Assert.Multiple(() =>
         {
@@ -75,12 +193,14 @@ public class AutoSaveServiceTests
             harness.History.Redo();
         else
             harness.History.Undo();
+        await pendingSave;
 
         Assert.That(scene.Children, Is.EqualTo(new[] { element }));
         for (int i = 0; i < 3; i++)
         {
             element.Name.Value = $"Restored element {i}";
             harness.History.Commit("Rename element");
+            await pendingSave;
         }
 
         Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
@@ -102,7 +222,7 @@ public class AutoSaveServiceTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public async Task AutoSave_WritesTheNewHalfOfASplitBeforeTheScene_SoTheSceneNeedsNoIncludeEntry(bool background)
+    public async Task AutoSave_WritesTheNewHalfOfASplitBeforeTheScene_SoTheSceneNeedsNoIncludeEntry(bool asynchronous)
     {
         var scene = new Scene { Uri = CreateUri("main.scene") };
         var element = new Element { Uri = CreateUri("clip.belm"), Length = { Value = MediaTime.FromSeconds(10) } };
@@ -112,17 +232,13 @@ public class AutoSaveServiceTests
         using var service = new AutoSaveService();
         var errors = new List<Exception>();
         using var errorSubscription = service.SaveError.Subscribe(errors.Add);
-        Task saving = Task.CompletedTask;
+        Task pendingSave = Task.CompletedTask;
         using var saveSubscription = harness.Observer.Operations
             .Buffer(harness.History.StateChanged)
-            .Subscribe(operations =>
-            {
-                if (background) saving = service.AutoSaveAsync(operations);
-                else service.AutoSave(operations);
-            });
+            .Subscribe(operations => pendingSave = SaveBatch(service, operations, asynchronous));
 
         new ElementStructureService(harness.History).Split(scene, [element], MediaTime.FromSeconds(4));
-        await saving;
+        await pendingSave;
 
         Element back = scene.Children.Single(child => child != element);
         JsonNode patterns = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!["Elements"]!;
@@ -135,11 +251,11 @@ public class AutoSaveServiceTests
                 Is.EquivalentTo(new[] { element.Id.Value, back.Id.Value }));
         });
         harness.History.Undo();
-        await saving;
+        await pendingSave;
         Assert.That(File.Exists(back.Uri!.LocalPath), Is.False);
         Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).Children.Single().Length.Value, Is.EqualTo(MediaTime.FromSeconds(10)));
         harness.History.Redo();
-        await saving;
+        await pendingSave;
         Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).Children, Has.Count.EqualTo(2));
         Assert.That(errors, Is.Empty);
     }
@@ -162,8 +278,9 @@ public class AutoSaveServiceTests
         Assert.That(File.Exists(element.Uri.LocalPath), Is.False);
     }
 
-    [Test]
-    public void RemovedFileBackedEngineObject_DeletesItsSidecarAndRestoresItOnUndo()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task RemovedFileBackedEngineObject_DeletesItsSidecarAndRestoresItOnUndo(bool asynchronous)
     {
         var scene = new Beutl.ProjectSystem.Scene { Uri = CreateUri("main.scene") };
         var element = new Beutl.ProjectSystem.Element { Uri = CreateUri("element.belm") };
@@ -185,13 +302,13 @@ public class AutoSaveServiceTests
             SequenceNumber = 1,
         };
 
-        service.AutoSave([removal]);
+        await SaveBatch(service, [removal], asynchronous);
         Assert.That(File.Exists(shape.Uri.LocalPath), Is.False);
         Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
         Assert.That(File.Exists(scene.Uri.LocalPath), Is.True);
 
         element.Objects.Add(shape);
-        service.AutoSave([removal]);
+        await SaveBatch(service, [removal], asynchronous);
         Assert.That(File.Exists(shape.Uri.LocalPath), Is.True);
         Assert.That(errors, Is.Empty);
     }
@@ -203,6 +320,129 @@ public class AutoSaveServiceTests
         using var service = new AutoSaveService();
         service.SaveObjects([shape]);
         Assert.That(File.Exists(shape.Uri.LocalPath), Is.True);
+    }
+
+    private static Task SaveBatch(AutoSaveService service, IEnumerable<ChangeOperation> operations, bool asynchronous)
+    {
+        if (asynchronous) return service.AutoSaveAsync(operations);
+        service.AutoSave(operations);
+        return Task.CompletedTask;
+    }
+
+    [Test]
+    public void PreparedSaveDetachesCustomJsonNodesAndKeepsTheCapturedStorageUri()
+    {
+        Uri original = CreateUri("snapshot.json");
+        var obj = new JsonSnapshotObject { Uri = original };
+        Action write = CoreSerializer.PrepareStoreToUri(obj, new Dictionary<string, bool>());
+        obj.Payload["value"] = "After";
+        obj.Uri = CreateUri("moved.json");
+        write();
+        Assert.That(JsonNode.Parse(File.ReadAllText(original.LocalPath))!["Payload"]!["value"]!.GetValue<string>(), Is.EqualTo("Before"));
+        Assert.That(File.Exists(obj.Uri.LocalPath), Is.False);
+    }
+
+    private sealed class JsonSnapshotObject : CoreObject
+    {
+        public JsonObject Payload { get; } = new() { ["value"] = "Before" };
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(Payload), Payload);
+        }
+    }
+
+    [Test]
+    public void PrepareSceneWithTwentyThousandPendingElementFilesKeepsCompactIncludes()
+    {
+        var scene = new Scene { Uri = CreateUri("main.scene") };
+        var pending = new Dictionary<string, bool>(StringComparer.Ordinal);
+        for (int i = 0; i < 20000; i++)
+        {
+            var element = new Element { Uri = CreateUri($"elements/{i}.belm") };
+            scene.Children.Add(element);
+            pending.Add(element.Uri.LocalPath, true);
+        }
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        Action write = CoreSerializer.PrepareStoreToUri(scene, pending);
+        TestContext.Out.WriteLine($"Prepare scene with 20000 pending files: {watch.Elapsed.TotalMilliseconds:F1} ms");
+        Assert.That(File.Exists(scene.Uri.LocalPath), Is.False);
+        write();
+        JsonNode patterns = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!["Elements"]!;
+        Assert.That(patterns["Include"]!.GetValue<string>(), Is.EqualTo("**/*.belm"));
+    }
+
+    [Test]
+    public async Task AsyncSave_CapturesBeforeYieldingAndWritesOffTheCallingThread()
+    {
+        var scene = new Scene { Uri = CreateUri("main.scene") };
+        var element = new Element { Uri = CreateUri("clip.belm"), Name = { Value = "Before" } };
+        scene.Children.Add(element);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        using var service = new AutoSaveService();
+        var errors = new List<Exception>();
+        using var subscription = service.SaveError.Subscribe(errors.Add);
+        using var started = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        int callerThread = Environment.CurrentManagedThreadId;
+        int writerThread = callerThread;
+        using var faults = StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+        {
+            if (step != StorageWriteStep.Replace || path != element.Uri.LocalPath) return;
+            writerThread = Environment.CurrentManagedThreadId;
+            started.Set();
+            if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException();
+        });
+        element.Name.Value = "Snapshot";
+        var operation = new UpdatePropertyValueOperation<string>(element, nameof(Element.Name), "Snapshot", "Before") { SequenceNumber = 1 };
+        Task saving = service.AutoSaveAsync([operation]);
+        try
+        {
+            Assert.That(await Task.Run(() => started.Wait(TimeSpan.FromSeconds(10))), Is.True);
+            Assert.That(saving.IsCompleted, Is.False);
+            element.Name.Value = "Edited while saving";
+            scene.Name.Value = "Later scene edit";
+            Assert.That(CoreSerializer.RestoreFromUri<Element>(element.Uri).Name.Value, Is.EqualTo("Before"));
+        }
+        finally
+        {
+            release.Set();
+            await saving;
+        }
+        Assert.That(writerThread, Is.Not.EqualTo(callerThread));
+        Assert.That(CoreSerializer.RestoreFromUri<Element>(element.Uri).Name.Value, Is.EqualTo("Snapshot"));
+        Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).Name.Value, Is.Not.EqualTo("Later scene edit"));
+        await service.AutoSaveAsync([operation]);
+        Assert.That(CoreSerializer.RestoreFromUri<Element>(element.Uri).Name.Value, Is.EqualTo("Edited while saving"));
+        Assert.That(errors, Is.Empty);
+    }
+
+    [Test]
+    public async Task AsyncSave_FailedReplacementKeepsThePreviousFileAndCanBeRetried()
+    {
+        var scene = new Scene { Uri = CreateUri("main.scene") };
+        var element = new Element { Uri = CreateUri("clip.belm"), Name = { Value = "Before" } };
+        scene.Children.Add(element);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        using var service = new AutoSaveService();
+        var errors = new List<Exception>();
+        using var subscription = service.SaveError.Subscribe(errors.Add);
+        element.Name.Value = "After";
+        var operation = new UpdatePropertyValueOperation<string>(element, nameof(Element.Name), "After", "Before") { SequenceNumber = 1 };
+        using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+               {
+                   if (step == StorageWriteStep.Replace && path == element.Uri.LocalPath)
+                       throw new IOException("Injected write failure");
+               }))
+        {
+            await service.AutoSaveAsync([operation]);
+        }
+        Assert.That(errors, Has.Count.EqualTo(1));
+        Assert.That(CoreSerializer.RestoreFromUri<Element>(element.Uri).Name.Value, Is.EqualTo("Before"));
+        Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+        await service.AutoSaveAsync([operation]);
+        Assert.That(CoreSerializer.RestoreFromUri<Element>(element.Uri).Name.Value, Is.EqualTo("After"));
     }
 
     #region Constructor and Dispose Tests

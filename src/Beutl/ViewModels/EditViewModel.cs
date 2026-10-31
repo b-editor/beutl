@@ -512,8 +512,23 @@ public sealed partial class EditViewModel
         }
     }
 
-    public ValueTask<bool> SaveAsync()
+    public async ValueTask<bool> SaveAsync()
     {
+        // A direct explicit save (including media repair) must not race an older auto-save's
+        // background replacements. Lifecycle callers may already hold the project write lease.
+        // A queued auto-save can replace the task while this waits, so wait until it settles.
+        Task pending;
+        do
+        {
+            pending = _autoSaveTask;
+            try { await pending; }
+            catch (Exception ex) when (!_disposed)
+            {
+                // The auto-save reported its own failure; the explicit save still runs.
+                _logger.LogDebug(ex, "An earlier auto-save did not complete.");
+            }
+        }
+        while (!ReferenceEquals(pending, _autoSaveTask));
         using UsageTelemetry.Operation? usage = UsageTelemetry.Current?.Begin("scene.save");
         Scene scene = Scene;
         _logger.LogInformation("Saving scene ({SceneId}).", scene.Id.Value);
@@ -556,6 +571,6 @@ public sealed partial class EditViewModel
         CaptureSavedMediaUris();
         ScheduleMediaFingerprints(force: !_fingerprintsFlushedForSave);
         _fingerprintsFlushedForSave = false;
-        return ValueTask.FromResult(true);
+        return true;
     }
 }

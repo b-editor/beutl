@@ -8,6 +8,25 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class EditorClockMaximumTimeTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Shortening_twenty_thousand_elements_updates_the_maximum_without_rescanning(bool sharedEnd)
+    {
+        var scene = new Scene();
+        Element[] elements = Enumerable.Range(1, 20000).Select(i => Clip(sharedEnd ? 20000 : i)).ToArray();
+        scene.Children.AddRange(elements);
+        using var clock = new EditorClockImpl(scene);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        for (int i = elements.Length - 1; i >= 0; i--)
+            elements[i].Length.Value = MediaTime.Zero;
+        Assert.That(clock.MaximumTime.Value, Is.EqualTo(MediaTime.Zero));
+        TestContext.Out.WriteLine($"Shorten 20000 clips (sharedEnd={sharedEnd}): {watch.Elapsed.TotalMilliseconds:F1} ms");
+        foreach (Element element in elements) element.Length.Value = MediaTime.FromSeconds(10);
+        Assert.That(clock.MaximumTime.Value, Is.EqualTo(MediaTime.FromSeconds(10)));
+        scene.Children.Clear();
+        Assert.That(clock.MaximumTime.Value, Is.EqualTo(MediaTime.Zero));
+    }
+
     [Test]
     [TestCase(false)]
     [TestCase(true)]

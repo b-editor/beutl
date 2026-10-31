@@ -3,6 +3,7 @@ using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Serialization;
 using Beutl.Threading;
@@ -11,6 +12,10 @@ namespace Beutl.Audio;
 
 public sealed partial class SourceSound : IThumbnailsProvider
 {
+    // Waveforms are composed on one thread. Bound the strips, including decoder initialization,
+    // so scrolling through short clips does not keep a decoder open for every visible element.
+    internal static ThumbnailStripGate WaveformGate { get; } = new(2);
+
     private EventHandler? _thumbnailHandler;
 
     public ThumbnailsKind ThumbnailsKind => ThumbnailsKind.Audio;
@@ -57,8 +62,29 @@ public sealed partial class SourceSound : IThumbnailsProvider
         IThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        // Opening a decoder can block on media I/O. Resource creation belongs to the same
-        // composition thread that reads it, not to the timeline's calling UI thread.
+        if (!await WaveformGate.TryEnterAsync(cancellationToken))
+            yield break;
+
+        try
+        {
+            await foreach (var chunk in GetWaveformChunksCoreAsync(
+                               chunkCount, samplesPerChunk, cacheService, cancellationToken))
+            {
+                yield return chunk;
+            }
+        }
+        finally
+        {
+            WaveformGate.Release();
+        }
+    }
+
+    private async IAsyncEnumerable<WaveformChunk> GetWaveformChunksCoreAsync(
+        int chunkCount,
+        int samplesPerChunk,
+        IThumbnailCacheService? cacheService,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
         using var resource = await ComposeThread.Dispatcher.InvokeAsync(
             () => ToResource(CompositionContext.Default), DispatchPriority.Low, cancellationToken);
         if (resource.Source == null)

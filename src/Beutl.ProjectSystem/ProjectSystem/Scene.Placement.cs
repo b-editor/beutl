@@ -209,21 +209,24 @@ public partial class Scene
 
     private void MoveChildrenCore(Element[] elements, int deltaZIndex, MediaTime deltaTime)
     {
+        var selected = elements.ToHashSet();
+        var obstacles = new SceneElementIndex(Children.Where(element => !selected.Contains(element)));
+        bool conflict = HasConflict(elements, obstacles, deltaZIndex, deltaTime);
         foreach (Element item in elements)
         {
-            if (!HasConflict(elements, deltaZIndex, deltaTime))
+            if (!conflict)
             {
                 break;
             }
 
-            MediaTime? newDeltaStart = DeltaStart(item, elements, deltaZIndex, deltaTime);
-            if (newDeltaStart.HasValue)
+            MediaTime? newDeltaStart = DeltaStart(item, obstacles, deltaZIndex, deltaTime);
+            if (newDeltaStart.HasValue && newDeltaStart.Value != deltaTime)
             {
                 deltaTime = newDeltaStart.Value;
+                conflict = HasConflict(elements, obstacles, deltaZIndex, deltaTime);
             }
         }
 
-        bool conflict = HasConflict(elements, deltaZIndex, deltaTime);
         bool adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value;
         MediaTime newSceneDuration = Duration.Value;
         if (adjustSceneDuration)
@@ -250,9 +253,8 @@ public partial class Scene
         }
     }
 
-    private bool HasConflict(Element[] elements, int deltaZIndex, MediaTime deltaTime)
+    private static bool HasConflict(Element[] elements, SceneElementIndex obstacles, int deltaZIndex, MediaTime deltaTime)
     {
-        Element[] others = Children.Except(elements).ToArray();
         foreach (Element item in elements)
         {
             TimeRange newRange = item.Range.AddStart(deltaTime);
@@ -260,26 +262,19 @@ public partial class Scene
             if (newLayer < 0 || newRange.Start < MediaTime.Zero)
                 return true;
 
-            foreach (Element other in others)
-            {
-                if (other.ZIndex.Value == newLayer && other.Range.Intersects(newRange))
-                {
-                    return true;
-                }
-            }
+            if (obstacles.Intersects(newLayer, newRange)) return true;
         }
 
         return false;
     }
 
-    private static MediaTime? DeltaStart(Element element, Element[] elements, int deltaZIndex, MediaTime deltaTime)
+    private static MediaTime? DeltaStart(Element element, SceneElementIndex obstacles, int deltaZIndex, MediaTime deltaTime)
     {
         MediaTime newStart = element.Start.Value + deltaTime;
 
         MediaTime newEnd = newStart + element.Length.Value;
         int newIndex = element.ZIndex.Value + deltaZIndex;
-        (Element? before, Element? after, Element? _) =
-            element.GetBeforeAndAfterAndCover(newIndex, newStart, elements);
+        (Element? before, Element? after) = obstacles.Neighbors(newIndex, new TimeRange(newStart, element.Length.Value));
 
         if (before != null && before.Range.End >= newStart)
         {

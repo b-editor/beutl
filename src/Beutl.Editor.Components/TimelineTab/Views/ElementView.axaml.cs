@@ -42,6 +42,16 @@ public sealed partial class ElementView : UserControl
     private MediaTime _transitionDragStartDuration;
     private readonly Action<Visual, ulong> _alignmentFeedback;
     private MediaTime? _lastSnapTarget;
+    private IPointer? _interactionPointer;
+    private int _runningAnimations;
+    private bool _colorPickerOpen;
+    private SaveAsTemplateFlyout? _saveTemplateFlyout;
+
+    internal bool KeepRealized => _runningAnimations > 0 || IsKeyboardFocusWithin || _colorPickerOpen
+        || _saveTemplateFlyout?.IsOpen == true
+        || border.ContextFlyout?.IsOpen == true
+        || _interactionPointer?.Captured is Visual captured
+            && (ReferenceEquals(captured, this) || this.IsVisualAncestorOf(captured));
 
     public ElementView()
         : this(NativeHapticFeedback.PerformAlignment)
@@ -52,6 +62,8 @@ public sealed partial class ElementView : UserControl
     {
         _alignmentFeedback = alignmentFeedback;
         InitializeComponent();
+        AddHandler(PointerPressedEvent, (_, e) => _interactionPointer = e.Pointer, RoutingStrategies.Tunnel, true);
+        LostFocus += (_, _) => _timeline?.InvalidateElementViewport();
         TimelineEditingModeMenu.Populate(editingModeMenu, "Timeline.");
 
         var cm = AppHelper.GetContextCommandManager?.Invoke();
@@ -263,6 +275,11 @@ public sealed partial class ElementView : UserControl
         obj.WaveformClear -= OnWaveformClear;
         obj.UpdateThumbnailsAsync();
 
+        obj.SetTimelineViewAttached(false);
+        thumbnailStrip.ClearThumbnails();
+        waveformControl.ClearChunks();
+        _interactionPointer = null;
+
         _disposables.Clear();
     }
 
@@ -271,19 +288,28 @@ public sealed partial class ElementView : UserControl
         obj.InitializeViewState();
         obj.AnimationRequested = async (args, token) =>
         {
-            await Dispatcher.UIThread.InvokeAsync(async () =>
+            _runningAnimations++;
+            try
             {
-                var animation1 = TimelineSettleAnimation.Create(
-                    [new Setter(MarginProperty, border.Margin), new Setter(WidthProperty, border.Width)],
-                    [new Setter(MarginProperty, args.BorderMargin), new Setter(WidthProperty, args.Width)]);
-                var animation2 = TimelineSettleAnimation.Create(
-                    [new Setter(MarginProperty, obj.Margin.Value)],
-                    [new Setter(MarginProperty, args.Margin)]);
+                await Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    var animation1 = TimelineSettleAnimation.Create(
+                        [new Setter(MarginProperty, border.Margin), new Setter(WidthProperty, border.Width)],
+                        [new Setter(MarginProperty, args.BorderMargin), new Setter(WidthProperty, args.Width)]);
+                    var animation2 = TimelineSettleAnimation.Create(
+                        [new Setter(MarginProperty, obj.Margin.Value)],
+                        [new Setter(MarginProperty, args.Margin)]);
 
-                Task task1 = animation1.RunAsync(border, token);
-                Task task2 = animation2.RunAsync(this, token);
-                await Task.WhenAll(task1, task2);
-            });
+                    Task task1 = animation1.RunAsync(border, token);
+                    Task task2 = animation2.RunAsync(this, token);
+                    await Task.WhenAll(task1, task2);
+                });
+            }
+            finally
+            {
+                _runningAnimations--;
+                _timeline?.InvalidateElementViewport();
+            }
         };
         obj.RenameRequested = () => Rename_Click(null, null!);
         obj.GetClickedTime = () => _pointerPosition;
@@ -296,7 +322,7 @@ public sealed partial class ElementView : UserControl
             .Subscribe(v =>
             {
                 ZIndex = v ? 5 : 0;
-                if (!v) _timeline?.QueueElementViewsUpdate();
+                if (!v) _timeline?.InvalidateElementViewport();
             })
             .DisposeWith(_disposables);
 
@@ -304,7 +330,7 @@ public sealed partial class ElementView : UserControl
         obj.ThumbnailsClear += OnThumbnailsClear;
         obj.WaveformChunkReady += OnWaveformChunkReady;
         obj.WaveformClear += OnWaveformClear;
-        obj.UpdateThumbnailsAsync();
+        obj.SetTimelineViewAttached(true);
     }
 
     private void OnThumbnailReady(int index, WriteableBitmap? thumbnail)
@@ -390,8 +416,16 @@ public sealed partial class ElementView : UserControl
     {
         if (DataContext is not ElementViewModel viewModel) return;
 
-        TemplateSaving.ShowSaveFlyout(
+        _saveTemplateFlyout = TemplateSaving.ShowSaveFlyout(
             this, viewModel.Model, TimelineTabExtension.GetDefaultTemplateName(viewModel.Model), showAtPointer: true);
+        _saveTemplateFlyout.Closed += OnSaveTemplateFlyoutClosed;
+    }
+
+    private void OnSaveTemplateFlyoutClosed(object? sender, EventArgs e)
+    {
+        _saveTemplateFlyout!.Closed -= OnSaveTemplateFlyoutClosed;
+        _saveTemplateFlyout = null;
+        _timeline?.InvalidateElementViewport();
     }
 
     private void ChangeColor_Click(object? sender, RoutedEventArgs e)
@@ -416,12 +450,15 @@ public sealed partial class ElementView : UserControl
         s_colorPickerFlyout.Closed += OnColorPickerFlyoutClosed;
 
         s_colorPickerFlyout.ShowAt(border);
+        _colorPickerOpen = s_colorPickerFlyout.IsOpen;
     }
 
     private void OnColorPickerFlyoutClosed(object? sender, EventArgs e)
     {
         s_colorPickerFlyout!.Confirmed -= OnColorPickerFlyoutConfirmed;
         s_colorPickerFlyout.Closed -= OnColorPickerFlyoutClosed;
+        _colorPickerOpen = false;
+        _timeline?.InvalidateElementViewport();
     }
 
     private void OnColorPickerFlyoutConfirmed(ColorPickerFlyout sender, EventArgs args)

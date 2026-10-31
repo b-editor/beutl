@@ -23,55 +23,105 @@ public sealed class AutoSaveService : IDisposable
     public void AutoSave(IEnumerable<ChangeOperation> operations)
     {
         ThrowIfDisposed();
-        var (objects, detached) = Collect(operations);
-        SaveObjects(objects, detached);
+        var (objectsToSave, detachedCollectionItems) = CollectSaveObjects(operations);
+        SaveObjects(objectsToSave, detachedCollectionItems);
     }
 
+    // Capture the complete batch before yielding. The writer only receives serialized JSON and
+    // paths, so edits made while I/O is pending belong to the next save, not half of this one.
     public async Task AutoSaveAsync(IEnumerable<ChangeOperation> operations, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
         ChangeOperation[] batch = operations.ToArray();
-        var (objects, detached) = Collect(batch);
-        // Await each file before capturing the scene's include patterns. All live-object reads,
-        // serializers and error notifications stay on the caller's document context.
-        int completed = 0, reported = -1;
-        Exception? error = null;
-        Report(0);
-        foreach (CoreObject obj in objects.OrderBy(obj => obj is Scene))
+        var (objectsToSave, detachedCollectionItems) = CollectSaveObjects(batch);
+        int reported = -1;
+        Exception? captureError = null;
+        var progressSync = new object();
+        bool hasDocumentContext = SynchronizationContext.Current != null;
+        IProgress<(int Percentage, Exception? Error)> progress =
+            new Progress<(int Percentage, Exception? Error)>(value => Report(value.Percentage, value.Error));
+        Report(0, null);
+        var writes = new List<Action>();
+        var pendingFiles = new Dictionary<string, bool>(StringComparer.Ordinal);
+        var deletedFiles = new HashSet<string>(StringComparer.Ordinal);
+        foreach (CoreObject obj in objectsToSave.OrderBy(obj => obj is Scene))
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                if (IsDetachedFromProject(obj, detached))
+                if (IsDetachedFromProject(obj, detachedCollectionItems))
                 {
-                    string? path = GetDeletedFilePath(obj);
-                    if (path != null) await Task.Run(() => { if (File.Exists(path)) File.Delete(path); });
+                    if (obj.SuppressedStorageSource is null && obj.Uri is { IsFile: true } uri)
+                    {
+                        string path = uri.LocalPath;
+                        writes.Add(() =>
+                        {
+                            File.Delete(path);
+                            deletedFiles.Add(path);
+                        });
+                        pendingFiles[path] = false;
+                    }
                 }
                 else
                 {
-                    await CoreSerializer.StoreToUriAsync(obj, obj.Uri!);
+                    writes.Add(CoreSerializer.PrepareStoreToUri(obj, pendingFiles, obj is Scene
+                        ? (json, uri) => Scene.RemoveDeletedElementExclusions(json, uri, deletedFiles)
+                        : null));
+                    pendingFiles[obj.Uri!.LocalPath] = true;
                 }
             }
             catch (Exception ex)
             {
-                error = ex;
-                _logger.LogError(ex, "An exception occurred while auto-saving the file.");
-                if (!_isDisposed) _saveError.OnNext(ex);
+                captureError = ex;
+                ReportError(ex);
             }
-            Report((int)((long)++completed * 100 / objects.Count));
         }
-        Report(100);
 
-        void Report(int value)
+        var errors = new List<Exception>();
+        try
         {
-            if (_isDisposed || reported == value) return;
-            reported = value;
-            _saveProgress.OnNext(new(batch, value, error));
+            await Task.Run(() =>
+            {
+                int completed = 0, lastPercentage = 0;
+                foreach (Action write in writes)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    try { write(); }
+                    catch (Exception ex) { errors.Add(ex); }
+                    int percentage = (int)((long)++completed * 100 / writes.Count);
+                    // At most one notification per percentage; completion is published after awaiting I/O.
+                    if (percentage < 100 && percentage != lastPercentage)
+                    {
+                        lastPercentage = percentage;
+                        Exception? error = errors.LastOrDefault() ?? captureError;
+                        if (hasDocumentContext) progress.Report((percentage, error));
+                        else Report(percentage, error);
+                    }
+                }
+            }, cancellationToken);
+        }
+        finally
+        {
+            foreach (Exception error in errors) ReportError(error);
+        }
+        Report(100, errors.LastOrDefault() ?? captureError);
+
+        void Report(int percentage, Exception? error)
+        {
+            lock (progressSync)
+            {
+                // A posted update may arrive after the completion continuation or after disposal.
+                if (_isDisposed || percentage <= reported) return;
+                reported = percentage;
+                _saveProgress.OnNext(new(batch, percentage, error));
+            }
         }
     }
 
-    private static (HashSet<CoreObject> Objects, HashSet<CoreObject> Detached) Collect(IEnumerable<ChangeOperation> operations)
+    private static (HashSet<CoreObject> Objects, HashSet<CoreObject> Detached) CollectSaveObjects(
+        IEnumerable<ChangeOperation> operations)
     {
+
         HashSet<CoreObject> objectsToSave = [];
         HashSet<CoreObject> detachedCollectionItems = [];
 
@@ -117,10 +167,15 @@ public sealed class AutoSaveService : IDisposable
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An exception occurred while auto-saving the file.");
-                _saveError.OnNext(ex);
+                ReportError(ex);
             }
         }
+    }
+
+    private void ReportError(Exception error)
+    {
+        _logger.LogError(error, "An exception occurred while auto-saving the file.");
+        if (!_isDisposed) _saveError.OnNext(error);
     }
 
     private static bool IsDetachedFromProject(CoreObject obj, IReadOnlySet<CoreObject>? detachedCollectionItems)
@@ -129,11 +184,15 @@ public sealed class AutoSaveService : IDisposable
 
     private static void DeleteStoredFile(CoreObject obj)
     {
-        if (GetDeletedFilePath(obj) is { } path && File.Exists(path)) File.Delete(path);
+        if (obj.SuppressedStorageSource is null && obj.Uri is { IsFile: true } uri)
+        {
+            var path = uri.LocalPath;
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
     }
-
-    private static string? GetDeletedFilePath(CoreObject obj)
-        => obj.SuppressedStorageSource is null && obj.Uri is { IsFile: true } uri ? uri.LocalPath : null;
 
     internal static void CollectObjectsToSave(ChangeOperation operation, HashSet<CoreObject> objectsToSave)
     {

@@ -1,4 +1,5 @@
-﻿using Beutl.Serialization;
+﻿using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Core;
@@ -17,6 +18,66 @@ public class StorageWriteTransactionTests
 
     [TearDown]
     public void TearDown() => Directory.Delete(_directory, true);
+
+    [Test]
+    public void StoreToUri_SkipsUnchangedBytes_ButWritesChangedAndMissingFiles()
+    {
+        string path = PathOf("unchanged.belm");
+        var element = new Element { Name = { Value = "before" }, Uri = new Uri(path) };
+        CoreSerializer.StoreToUri(element, element.Uri);
+        File.SetLastWriteTimeUtc(path, new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        DateTime lastWrite = File.GetLastWriteTimeUtc(path);
+        byte[] original = File.ReadAllBytes(path);
+        int replacements = 0;
+        using var faults = StorageWriteTransaction.InjectFaultsForTesting((step, target) =>
+        {
+            if (step == StorageWriteStep.Replace && target == path) replacements++;
+        });
+
+        CoreSerializer.StoreToUri(element, element.Uri);
+
+        Assert.That(replacements, Is.Zero);
+        Assert.That(File.GetLastWriteTimeUtc(path), Is.EqualTo(lastWrite));
+        Assert.That(File.ReadAllBytes(path), Is.EqualTo(original));
+
+        element.Name.Value = "after";
+        CoreSerializer.StoreToUri(element, element.Uri);
+        Assert.That(replacements, Is.EqualTo(1));
+        Assert.That(CoreSerializer.RestoreFromUri<Element>(element.Uri).Name.Value, Is.EqualTo("after"));
+
+        File.Delete(path);
+        CoreSerializer.StoreToUri(element, element.Uri);
+        Assert.That(replacements, Is.EqualTo(2));
+        Assert.That(CoreSerializer.RestoreFromUri<Element>(element.Uri).Name.Value, Is.EqualTo("after"));
+        Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+    }
+
+    [Test]
+    public void StoreToUri_UnchangedSceneStillSavesChangedElementAndUpdatesProjectStamp()
+    {
+        var project = new Project { Uri = new Uri(PathOf("project.bep")) };
+        var scene = new Scene { Uri = new Uri(PathOf("scene.scene")) };
+        var element = new Element { Uri = new Uri(PathOf("element.belm")), Name = { Value = "before" } };
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        CoreSerializer.StoreToUri(project, project.Uri);
+        byte[] projectBytes = File.ReadAllBytes(project.Uri.LocalPath);
+        File.SetLastWriteTimeUtc(project.Uri.LocalPath, new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        DateTime projectStamp = File.GetLastWriteTimeUtc(project.Uri.LocalPath);
+        var replaced = new List<string>();
+        using var faults = StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+        {
+            if (step == StorageWriteStep.Replace) replaced.Add(path);
+        });
+
+        element.Name.Value = "after";
+        CoreSerializer.StoreToUri(project, project.Uri);
+
+        Assert.That(replaced, Is.EquivalentTo(new[] { element.Uri.LocalPath, project.Uri.LocalPath }));
+        Assert.That(File.GetLastWriteTimeUtc(project.Uri.LocalPath), Is.GreaterThan(projectStamp));
+        Assert.That(File.ReadAllBytes(project.Uri.LocalPath), Is.EqualTo(projectBytes));
+        Assert.That(CoreSerializer.RestoreFromUri<Element>(element.Uri).Name.Value, Is.EqualTo("after"));
+    }
 
     [Test]
     public void Commit_KeepsEveryReplacementAndCreatedFile()

@@ -2,6 +2,7 @@
 using System.Collections.Specialized;
 using System.ComponentModel.DataAnnotations;
 using Beutl.Collections;
+using Beutl.Collections.Pooled;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -25,6 +26,7 @@ public partial class Element : Hierarchical, INotifyEdited
         Length.ValueChanged += (_, e) => OnRangeChanged(new TimeRange(Start.Value, e.OldValue));
         ZIndex.ValueChanged += (_, _) =>
         {
+            (HierarchicalParent as Scene)?.UpdateElementIndex(this);
             foreach (EngineObject obj in Objects)
             {
                 obj.ZIndex.Value = ZIndex.Value;
@@ -100,7 +102,10 @@ public partial class Element : Hierarchical, INotifyEdited
         if (MatteSourceKind.Value == ProjectSystem.MatteSourceKind.Layer) return MatteSourceZIndex.Value;
 
         int? nearest = null;
-        foreach (Element candidate in scene.Children)
+        using var candidates = new PooledList<Element>();
+        MediaTime tolerance = ElementTransitions.AdjacencyTolerance;
+        scene.ElementIndex.Query(time - tolerance, time + tolerance, candidates);
+        foreach (Element candidate in candidates)
         {
             int z = candidate.ZIndex.Value;
             bool closer = MatteSourceKind.Value switch
@@ -260,6 +265,8 @@ public partial class Element : Hierarchical, INotifyEdited
 
     private void OnRangeChanged(TimeRange oldRange)
     {
+        // Transition invalidation below queries the new range before Edited is raised.
+        (HierarchicalParent as Scene)?.UpdateElementIndex(this);
         TimeRange newRange = Range;
         foreach (EngineObject obj in Objects)
         {
@@ -277,6 +284,7 @@ public partial class Element : Hierarchical, INotifyEdited
 
     private void OnTransitionChanged(PropertyValueChangedEventArgs<ClipTransition?> change)
     {
+        (HierarchicalParent as Scene)?.UpdateTransitionElement(this);
         if (change.OldValue != null)
         {
             change.OldValue.Edited -= OnObjectEdited;
@@ -303,8 +311,8 @@ public partial class Element : Hierarchical, INotifyEdited
         ranges.Add(oldRange);
         if (HierarchicalParent is Scene scene)
         {
-            ranges.AddRange(ElementTransitions.GetRegionsNear(scene, newRange));
-            ranges.AddRange(ElementTransitions.GetRegionsNear(scene, oldRange));
+            ranges.AddRange(ElementTransitions.GetRegionsNear(scene, newRange, ZIndex.Value));
+            ranges.AddRange(ElementTransitions.GetRegionsNear(scene, oldRange, ZIndex.Value));
         }
 
         return ranges.DrainToImmutable();

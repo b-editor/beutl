@@ -32,6 +32,10 @@ public record CoreSerializerOptions
 
     // Embeds a copy, which holds each file-backed object itself but keeps referencing a project item's file.
     internal bool? EmbedsCopy { get; init; }
+
+    // An auto-save captures the whole batch before writing it. Scene file patterns must see the
+    // element files that this batch will create/delete, just as a synchronous save does.
+    internal IReadOnlyDictionary<string, bool>? PendingFileChanges { get; init; }
 }
 
 public static partial class CoreSerializer

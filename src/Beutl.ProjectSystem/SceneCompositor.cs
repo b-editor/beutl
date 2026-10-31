@@ -31,6 +31,8 @@ public sealed partial class SceneCompositor : ICompositor
     // on every edit, so a set built while an edit lands is not kept past it.
     private volatile ParticipantSnapshot? _participants;
     private int _participantsVersion;
+    private volatile AudioEligibilitySnapshot? _audioEligibility;
+    private int _audioEligibilityVersion;
 
     public SceneCompositor(Scene scene)
     {
@@ -230,32 +232,19 @@ public sealed partial class SceneCompositor : ICompositor
         conditions?.CancellationToken.ThrowIfCancellationRequested();
         BeginQueryGeneration();
         DisposeDetachedResources();
-        using var eligibleElements = new PooledList<Element>();
-        LayerSnapshot snapshot = GetLayerSnapshot();
-        foreach (Element item in Scene.Children)
-        {
-            if (!item.IsEnabled.Value) continue;
-            if (ShouldSkipLayer(item.ZIndex.Value, CompositionTarget.Audio, snapshot.HasSolo, snapshot.ByZIndex)) continue;
-            eligibleElements.OrderedAdd(item, x => x.ZIndex.Value);
-        }
+        AudioEligibilitySnapshot eligibility = GetAudioEligibility();
 
         using var currentElements = new PooledList<Element>();
         SortLayers(timeRange, currentElements, CompositionTarget.Audio);
 
-        var activeElementSet = new HashSet<Element>(ReferenceEqualityComparer.Instance);
+        using var activeObjects = new PooledList<EngineObject>();
         foreach (Element element in currentElements)
         {
-            activeElementSet.Add(element);
+            if (eligibility.ByElement.TryGetValue(element, out EngineObject[]? objects))
+                activeObjects.AddRange(objects);
         }
 
         using var eligibleObjects = new PooledList<EngineObject>();
-        foreach (Element element in eligibleElements)
-        {
-            if (!activeElementSet.Contains(element))
-            {
-                element.CollectObjects(CompositionTarget.Audio, eligibleObjects);
-            }
-        }
 
         using var tmpObjects = new PooledList<EngineObject>();
         using var flow = new PooledList<EngineObject.Resource>();
@@ -281,7 +270,7 @@ public sealed partial class SceneCompositor : ICompositor
             [.. allResources],
             timeRange,
             Scene.FrameSize.Value,
-            new CompositionEligibility(eligibleObjects));
+            eligibility.Objects.WithChanges(activeObjects, eligibleObjects));
     }
 
     // Analyze a selected element through the same flow as playback, including its SoundGroups and
@@ -299,10 +288,36 @@ public sealed partial class SceneCompositor : ICompositor
             new CompositionEligibility(flow.Select(resource => resource.RequireOriginal())));
     }
 
+    private AudioEligibilitySnapshot GetAudioEligibility()
+    {
+        int version = Volatile.Read(ref _audioEligibilityVersion);
+        if (_audioEligibility is { } cached && cached.Version == version) return cached;
+
+        LayerSnapshot layers = GetLayerSnapshot();
+        var byElement = new Dictionary<Element, EngineObject[]>(ReferenceEqualityComparer.Instance);
+        using var objects = new PooledList<EngineObject>();
+        using var allObjects = new PooledList<EngineObject>();
+        foreach (Element element in Scene.Children)
+        {
+            if (!element.IsEnabled.Value
+                || ShouldSkipLayer(element.ZIndex.Value, CompositionTarget.Audio, layers.HasSolo, layers.ByZIndex)) continue;
+            objects.Clear();
+            element.CollectObjects(CompositionTarget.Audio, objects);
+            if (objects.Count == 0) continue;
+            byElement.Add(element, objects.ToArray());
+            allObjects.AddRange(objects.Span);
+        }
+        return _audioEligibility = new AudioEligibilitySnapshot(version, new CompositionEligibility(allObjects), byElement);
+    }
+
+    private sealed record AudioEligibilitySnapshot(int Version, CompositionEligibility Objects,
+        Dictionary<Element, EngineObject[]> ByElement);
+
     private void CollectResourcesFromElement(
         Element element, CompositorContext context, PooledList<EngineObject> tmpObjects)
     {
         if (context.Target == CompositionTarget.Graphics
+            && GetTransitionParticipants().Contains(element)
             && ElementTransitions.TryGetActive(element, context.Time, out TransitionBoundary boundary))
         {
             if (context.IsMatteSource
@@ -529,12 +544,17 @@ public sealed partial class SceneCompositor : ICompositor
     {
         LayerSnapshot snapshot = GetLayerSnapshot();
         bool graphics = target == CompositionTarget.Graphics;
-        foreach (Element item in Scene.Children)
+        SceneElementIndex index = Scene.ElementIndex;
+        using var candidates = new PooledList<Element>();
+        MediaTime tolerance = graphics ? ElementTransitions.AdjacencyTolerance : MediaTime.Zero;
+        index.Query(time - tolerance, time + tolerance, candidates);
+        foreach (Element item in candidates)
         {
             if (!item.IsEnabled.Value || !(graphics ? item.CoversGraphicsTime(time) : item.Range.Contains(time))) continue;
             if (ShouldSkipLayer(item.ZIndex.Value, target, !ignoreSolo && snapshot.HasSolo, snapshot.ByZIndex)) continue;
-            currentElements.OrderedAdd(item, x => x.ZIndex.Value);
+            currentElements.Add(item);
         }
+        index.Sort(currentElements);
 
         if (graphics)
         {
@@ -583,12 +603,16 @@ public sealed partial class SceneCompositor : ICompositor
     private void SortLayers(TimeRange timeRange, PooledList<Element> currentElements, CompositionTarget target)
     {
         LayerSnapshot snapshot = GetLayerSnapshot();
-        foreach (Element item in Scene.Children)
+        SceneElementIndex index = Scene.ElementIndex;
+        using var candidates = new PooledList<Element>();
+        index.Query(timeRange.Start, timeRange.End, candidates);
+        foreach (Element item in candidates)
         {
             if (!item.IsEnabled.Value || !item.Range.Intersects(timeRange)) continue;
             if (ShouldSkipLayer(item.ZIndex.Value, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
-            currentElements.OrderedAdd(item, x => x.ZIndex.Value);
+            currentElements.Add(item);
         }
+        index.Sort(currentElements);
     }
 
     private sealed record LayerSnapshot(Dictionary<int, TimelineLayer> ByZIndex, bool HasSolo);
@@ -624,7 +648,10 @@ public sealed partial class SceneCompositor : ICompositor
     }
 
     private void OnLayersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        => _layerSnapshot = null;
+    {
+        _layerSnapshot = null;
+        Interlocked.Increment(ref _audioEligibilityVersion);
+    }
 
     private HashSet<Element> GetTransitionParticipants()
     {
@@ -637,10 +664,14 @@ public sealed partial class SceneCompositor : ICompositor
     }
 
     private void OnSceneEdited(object? sender, EventArgs e)
-        => Interlocked.Increment(ref _participantsVersion);
+    {
+        Interlocked.Increment(ref _participantsVersion);
+        Interlocked.Increment(ref _audioEligibilityVersion);
+        _audioEligibility = null;
+    }
 
     private void OnChildrenCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        => Interlocked.Increment(ref _participantsVersion);
+        => OnSceneEdited(sender, e);
 
     private sealed record ParticipantSnapshot(int Version, HashSet<Element> Elements);
 
@@ -660,17 +691,30 @@ public sealed partial class SceneCompositor : ICompositor
     {
         layer.ZIndex.ValueChanged += OnLayerZIndexChanged;
         layer.IsSolo.ValueChanged += OnLayerSoloChanged;
+        layer.IsAudioMuted.ValueChanged += OnLayerAudioMutedChanged;
     }
 
     private void ForgetLayer(TimelineLayer layer)
     {
         layer.ZIndex.ValueChanged -= OnLayerZIndexChanged;
         layer.IsSolo.ValueChanged -= OnLayerSoloChanged;
+        layer.IsAudioMuted.ValueChanged -= OnLayerAudioMutedChanged;
     }
 
-    private void OnLayerZIndexChanged(object? sender, PropertyValueChangedEventArgs<int> e) => _layerSnapshot = null;
+    private void OnLayerZIndexChanged(object? sender, PropertyValueChangedEventArgs<int> e)
+    {
+        _layerSnapshot = null;
+        Interlocked.Increment(ref _audioEligibilityVersion);
+    }
 
-    private void OnLayerSoloChanged(object? sender, PropertyValueChangedEventArgs<bool> e) => _layerSnapshot = null;
+    private void OnLayerSoloChanged(object? sender, PropertyValueChangedEventArgs<bool> e)
+    {
+        _layerSnapshot = null;
+        Interlocked.Increment(ref _audioEligibilityVersion);
+    }
+
+    private void OnLayerAudioMutedChanged(object? sender, PropertyValueChangedEventArgs<bool> e)
+        => Interlocked.Increment(ref _audioEligibilityVersion);
 
     // A layer without a TimelineLayer model cannot be soloed, so it is excluded
     // under solo mode. Mute is independent per target (audio vs video).

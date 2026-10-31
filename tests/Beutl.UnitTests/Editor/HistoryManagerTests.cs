@@ -6,6 +6,35 @@ namespace Beutl.UnitTests.Editor;
 
 public class HistoryManagerTests
 {
+    [Test]
+    public void IndexedMergingKeepsRemainingOperationsAfterANoopRemoval()
+    {
+        var transaction = new HistoryTransaction(1);
+        var first = new Beutl.ProjectSystem.Element();
+        var second = new Beutl.ProjectSystem.Element();
+        var third = new Beutl.ProjectSystem.Element();
+        void Add(CoreObject target, string before, string after)
+            => transaction.AddOperation(new UpdatePropertyValueOperation<string>(target, "Name", after, before)
+            {
+                SequenceNumber = _sequenceGenerator.GetNext(),
+            });
+
+        Add(first, "a", "b");
+        Add(second, "a", "b");
+        Add(third, "a", "b");
+        Add(second, "b", "a");
+        Add(third, "b", "c");
+        Assert.That(transaction.OperationCount, Is.EqualTo(2));
+        Assert.That(((UpdatePropertyValueOperation<string>)transaction.Operations[1]).NewValue, Is.EqualTo("c"));
+        Add(second, "a", "d");
+        Assert.That(transaction.OperationCount, Is.EqualTo(3));
+        Assert.That(((UpdatePropertyValueOperation<string>)transaction.Operations[2]).Object, Is.SameAs(second));
+        Add(first, "b", "a");
+        Add(third, "c", "a");
+        Add(second, "d", "a");
+        Assert.That(transaction.HasOperations, Is.False);
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void PartialHistoryFailure_RetryDoesNotRepeatSuccessfulOperations(bool redo)

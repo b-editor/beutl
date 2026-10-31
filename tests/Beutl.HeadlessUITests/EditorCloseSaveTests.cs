@@ -19,6 +19,95 @@ namespace Beutl.HeadlessUITests;
 public class EditorCloseSaveTests
 {
     [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task Closing_only_replaces_changed_element_files(bool closeProject, bool editElement)
+    {
+        EditViewModel editor = await OpenEditorAsync();
+        Uri sceneUri = editor.Scene.Uri!;
+        Element[] elements = Enumerable.Range(0, 100).Select(i => new Element
+        {
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(sceneUri.LocalPath)!, $"clip-{i}.belm")),
+            Name = { Value = $"Clip {i}" },
+        }).ToArray();
+        try
+        {
+            editor.Scene.Children.AddRange(elements);
+            editor.HistoryManager.Commit();
+            Assert.That(await editor.SaveAsync(), Is.True);
+            if (editElement) elements[50].Name.Value = "Edited before closing";
+
+            var replaced = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+                   {
+                       if (step == StorageWriteStep.Replace && Path.GetExtension(path) == ".belm")
+                           replaced.Add(path);
+                   }))
+            {
+                if (closeProject) await TestShell.Project.CloseProjectAsync();
+                else await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!);
+            }
+
+            Assert.That(replaced, Is.EquivalentTo(editElement ? new[] { elements[50].Uri!.LocalPath } : []));
+            Scene restored = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+            Assert.That(restored.Children.Count, Is.EqualTo(elements.Length));
+            Assert.That(restored.Children.Single(e => e.Id.Value == elements[50].Id.Value).Name.Value,
+                Is.EqualTo(editElement ? "Edited before closing" : "Clip 50"));
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Auto_save_keeps_the_UI_responsive_and_explicit_save_waits_for_older_writes()
+    {
+        EditViewModel editor = await OpenEditorAsync();
+        Uri uri = editor.Scene.Uri!;
+        bool suppressed = EditViewModel.IsAutoSaveSuppressedForTesting;
+        using var release = new ManualResetEventSlim();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int writes = 0;
+        using var faults = StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+        {
+            if (step != StorageWriteStep.Replace || path != uri.LocalPath || Interlocked.Increment(ref writes) != 1) return;
+            started.SetResult();
+            if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException();
+        });
+        try
+        {
+            EditViewModel.IsAutoSaveSuppressedForTesting = false;
+            editor.Scene.Duration.Value = MediaTime.FromSeconds(71);
+            editor.HistoryManager.Commit("First edit");
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(Avalonia.Threading.Dispatcher.UIThread.CheckAccess(), Is.True);
+
+            editor.Scene.Duration.Value = MediaTime.FromSeconds(72);
+            editor.HistoryManager.Commit("Edit while saving");
+            Task<bool> explicitSave = editor.SaveAsync().AsTask();
+            Assert.That(explicitSave.IsCompleted, Is.False);
+            bool dispatched = false;
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => dispatched = true);
+            Assert.That(dispatched, Is.True);
+            HeadlessTestHelpers.Render();
+
+            release.Set();
+            Assert.That(await explicitSave.WaitAsync(TimeSpan.FromSeconds(10)), Is.True);
+            await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!);
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration.Value, Is.EqualTo(MediaTime.FromSeconds(72)));
+        }
+        finally
+        {
+            release.Set();
+            EditViewModel.IsAutoSaveSuppressedForTesting = suppressed;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public async Task Blocked_history_jump_pauses_before_flushing_pending_nudge(bool useEntry)

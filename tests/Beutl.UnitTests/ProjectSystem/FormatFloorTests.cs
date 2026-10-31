@@ -36,6 +36,7 @@ public class FormatFloorTests
         Scene,
         Element,
         AutoSavedElement,
+        PreparedElement,
     }
 
     public enum LegacyShape
@@ -177,6 +178,20 @@ public class FormatFloorTests
             Assert.That((string?)Read(_projectPath)["minAppVersion"], Is.EqualTo(recorded));
             Assert.That(project.MinAppVersion, Is.EqualTo(recorded));
         });
+    }
+
+    [Test]
+    public void A_prepared_project_does_not_lower_a_gate_raised_before_its_write()
+    {
+        SaveProject();
+        Project project = LoadProject();
+        Element element = ((Scene)project.Items.Single()).Children.Single();
+        Action write = CoreSerializer.PrepareStoreToUri(project, new Dictionary<string, bool>());
+        RootFileVersions.RaiseMinAppVersion(element, AboveFloor);
+        CoreSerializer.StoreToUri(element, element.Uri!);
+        Assert.That((string?)Read(_projectPath)["minAppVersion"], Is.EqualTo(AboveFloor));
+        write();
+        Assert.That((string?)Read(_projectPath)["minAppVersion"], Is.EqualTo(AboveFloor));
     }
 
     // An auto-save of a project property writes the project file alone.
@@ -359,6 +374,7 @@ public class FormatFloorTests
     [TestCase(LoneSave.Scene)]
     [TestCase(LoneSave.Element)]
     [TestCase(LoneSave.AutoSavedElement)]
+    [TestCase(LoneSave.PreparedElement)]
     public void Saving_a_file_on_its_own_first_raises_only_the_version_fields_of_the_project_file(LoneSave save)
     {
         SaveProject();
@@ -367,6 +383,10 @@ public class FormatFloorTests
         Scene scene = (Scene)project.Items.Single();
         Element element = scene.Children.Single();
         JsonObject before = Read(_projectPath);
+
+        // Verify the compatibility gate precedes a real edit, rather than an unchanged save.
+        if (save == LoneSave.Scene) scene.Name.Value = "Edited scene";
+        else element.Name.Value = "Edited element";
 
         List<Replacement> replaced = RecordReplacements(() =>
         {
@@ -384,6 +404,9 @@ public class FormatFloorTests
                         autoSave.SaveObjects([element]);
                     }
 
+                    break;
+                case LoneSave.PreparedElement:
+                    CoreSerializer.PrepareStoreToUri(element, new Dictionary<string, bool>())();
                     break;
             }
         });
@@ -431,6 +454,7 @@ public class FormatFloorTests
         Project project = LoadProject();
         Scene scene = (Scene)project.Items.Single();
         byte[] before = File.ReadAllBytes(_projectPath);
+        scene.Name.Value = "Edited scene";
 
         List<Replacement> replaced = RecordReplacements(() =>
             CoreSerializer.StoreToUri(scene, scene.Uri!, CoreSerializationMode.Write));
@@ -451,6 +475,7 @@ public class FormatFloorTests
         Project project = LoadProject();
         Scene scene = (Scene)project.Items.Single();
 
+        scene.Name.Value = "Edited scene";
         List<Replacement> replaced = RecordReplacements(() =>
             CoreSerializer.StoreToUri(scene, scene.Uri!, CoreSerializationMode.Write));
 

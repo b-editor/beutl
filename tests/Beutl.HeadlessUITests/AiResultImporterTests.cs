@@ -644,6 +644,10 @@ public sealed class AiResultImporterTests
             Uri originalResource = source.Uri;
             scene.Uri = sceneUri;
             bool resourceCopiedBeforeFailure = false;
+            // Saving skips files whose bytes are unchanged, and the relocated sidecar alone leaves the
+            // scene's as they were. Give the scene a change of its own so its write runs and can fail.
+            using (editor.HistoryManager.SuppressRecording())
+                scene.Duration.Value += MediaTime.FromSeconds(1);
 
             // Fails either the relocated sidecar, written right after the resource copy, or the scene,
             // written after every sidecar.

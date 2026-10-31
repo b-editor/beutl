@@ -102,14 +102,15 @@ public partial class SourceVideo : IThumbnailsProvider
         RenderNodeRenderer? renderer = null;
         try
         {
-            // Creating the resource opens the media reader, which can block on metadata I/O.
+            // Opening the decoder can parse a large media file. Queue it with the strip's rendering
+            // work so enumeration from a timeline view never performs that I/O on the UI thread.
             resource = await RenderThread.Dispatcher.InvokeAsync(() => ToResource(preferProxy
                 ? new CompositionContext(MediaTime.Zero)
                 {
                     PreferProxy = true,
                     PreferredProxyPreset = preferredProxyPreset,
                 }
-                : CompositionContext.Default), DispatchPriority.Medium, cancellationToken);
+                : CompositionContext.Default), DispatchPriority.Low, cancellationToken);
 
             if (resource.Source is not { } source)
                 yield break;
@@ -191,7 +192,7 @@ public partial class SourceVideo : IThumbnailsProvider
 
                     using RenderNodeRasterization rasterization = renderer.Rasterize();
                     return rasterization.Bitmap?.Clone();
-                }, DispatchPriority.Medium, cancellationToken);
+                }, DispatchPriority.Low, cancellationToken);
 
                 if (thumbnail != null)
                 {

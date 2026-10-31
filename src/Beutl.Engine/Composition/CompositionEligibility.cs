@@ -35,4 +35,15 @@ public readonly struct CompositionEligibility
         ArgumentNullException.ThrowIfNull(obj);
         return _objects?.Contains(obj) ?? false;
     }
+
+    private CompositionEligibility(ImmutableHashSet<EngineObject> objects) => _objects = objects;
+
+    // Share unchanged identities between frames. Active elements replace their raw objects with
+    // the evaluated flow, which may consume, group or clear them.
+    internal CompositionEligibility WithChanges(IEnumerable<EngineObject> removed, IEnumerable<EngineObject> added)
+    {
+        var included = added.ToHashSet<EngineObject>(ReferenceEqualityComparer.Instance);
+        return new((_objects ?? ImmutableHashSet.Create<EngineObject>(ReferenceEqualityComparer.Instance))
+            .Except(removed.Where(obj => !included.Contains(obj))).Union(included));
+    }
 }
