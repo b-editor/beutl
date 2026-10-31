@@ -34,6 +34,7 @@ internal sealed class FontFamilyPickerFlyoutViewModel : SearchablePickerViewMode
                 FontFamilyNames.GetDisplayName(v),
                 v.Name,
                 new FontFamilySearchKey(FontFamilyNames.GetSearchNames(v))))
-            .OrderBy(i => i.DisplayName);
+            .OrderBy(i => FontFamilyNames.IsHidden((FontFamily)i.Value))
+            .ThenBy(i => i.DisplayName);
     }
 }
