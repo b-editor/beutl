@@ -1,8 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Nodes;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Serialization;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -10,12 +12,6 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
 public partial class StrokeEffect : FilterEffect
 {
-    public enum StrokeStyles
-    {
-        Background,
-        Foreground,
-    }
-
     public StrokeEffect()
     {
         ScanProperties<StrokeEffect>();
@@ -28,10 +24,23 @@ public partial class StrokeEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Offset), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<Point> Offset { get; } = Property.CreateAnimatable(default(Point));
 
-    [Display(Name = nameof(GraphicsStrings.StrokeEffect_Style), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<StrokeStyles> Style { get; } = Property.CreateAnimatable(StrokeStyles.Background);
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
 
-    private static Rect TransformBounds((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, Rect rect)
+        // The pen's stroke order replaced a Style member, saved as 0 for drawing the stroke over the content and 1
+        // for drawing it under. Only its value carries over: the stroke order is not animatable.
+        if (context is IJsonSerializationContext jsonContext
+            && jsonContext.GetNode("Style") is JsonValue style
+            && style.TryGetValue(out int value)
+            && value == 1
+            && Pen.Value is { } pen)
+        {
+            pen.StrokeOrder.Value = StrokeOrder.BelowFill;
+        }
+    }
+
+    private static Rect TransformBounds((Point Offset, Pen.Resource? Pen) data, Rect rect)
     {
         Rect borderBounds = PenHelper.GetBounds(rect, data.Pen);
         // Inflate symmetrically by offset so the source stays centered.
@@ -40,7 +49,7 @@ public partial class StrokeEffect : FilterEffect
             Math.Abs(data.Offset.X), Math.Abs(data.Offset.Y)));
     }
 
-    private static void Apply((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, CustomFilterEffectContext context)
+    private static void Apply((Point Offset, Pen.Resource? Pen) data, CustomFilterEffectContext context)
     {
         if (data.Pen is { } pen)
         {
@@ -67,11 +76,13 @@ public partial class StrokeEffect : FilterEffect
                     continue;
                 }
 
+                // The content is the fill the stroke outlines, so the pen's stroke order decides which goes on top.
+                bool strokeBeneath = PenHelper.DrawsBeneathFill(pen);
                 using (ImmediateCanvas newCanvas = context.Open(newTarget))
                 using (newCanvas.PushTransform(origin))
                 {
                     newCanvas.Clear();
-                    if (data.Style == StrokeStyles.Background)
+                    if (!strokeBeneath)
                     {
                         target.Draw(newCanvas);
                     }
@@ -81,7 +92,7 @@ public partial class StrokeEffect : FilterEffect
                         newCanvas.DrawSKPath(borderPath, pen);
                     }
 
-                    if (data.Style == StrokeStyles.Foreground)
+                    if (strokeBeneath)
                     {
                         target.Draw(newCanvas);
                     }
@@ -97,7 +108,7 @@ public partial class StrokeEffect : FilterEffect
         protected override void ApplyTo(FilterEffectContext context)
         {
             context.CustomEffect(
-                (Offset, Pen, Style),
+                (Offset, Pen),
                 Apply,
                 TransformBounds);
         }

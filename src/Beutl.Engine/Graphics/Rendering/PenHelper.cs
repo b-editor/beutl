@@ -115,6 +115,17 @@ public static class PenHelper
         return outer.ContainsExclusive(point) && !inner.ContainsExclusive(point);
     }
 
+    /// <summary>Gets whether the pen's stroke is drawn before the fill it outlines, so the fill covers it.</summary>
+    /// <param name="pen">The stroking pen.</param>
+    /// <returns>
+    /// <see langword="true"/> for a stroke placed <see cref="StrokeOrder.BelowFill"/>; <see langword="false"/> for one
+    /// placed above the fill and for a pen that paints nothing.
+    /// </returns>
+    internal static bool DrawsBeneathFill(Pen.Resource pen)
+    {
+        return pen.Thickness > 0 && pen.StrokeOrder == StrokeOrder.BelowFill;
+    }
+
     internal static void ConfigureStrokePaint(
         Pen.Resource pen,
         SKPaint paint, Size size,

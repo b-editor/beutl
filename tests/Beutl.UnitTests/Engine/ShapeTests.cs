@@ -155,6 +155,84 @@ public class ShapeTests
             (5, 5, Paint.None));
     }
 
+    // Drawn below the fill, the part of the stroke inside the left edge at x = 75 is covered by the fill.
+    [TestCase(StrokeAlignment.Center, Paint.White, Paint.Gray)]
+    [TestCase(StrokeAlignment.Inside, Paint.None, Paint.Gray)]
+    public void DrawRoundedRectWithStrokeBelowFill(StrokeAlignment alignment, Paint at72, Paint at77)
+    {
+        var shape = new RoundedRectShape();
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.TransformOrigin.Value = RelativePoint.Center;
+        shape.Width.Value = 100;
+        shape.Height.Value = 100;
+        shape.CornerRadius.Value = new CornerRadius(25);
+        shape.Fill.Value = Brushes.Gray;
+        var pen = new Pen();
+        pen.Brush.Value = Brushes.White;
+        pen.Thickness.Value = 10;
+        pen.StrokeAlignment.Value = alignment;
+        pen.StrokeOrder.Value = StrokeOrder.BelowFill;
+        shape.Pen.Value = pen;
+
+        using Bitmap bitmap = Render(shape);
+
+        AssertPaint(
+            bitmap,
+            (67, 125, Paint.None),
+            (72, 125, at72),
+            (77, 125, at77),
+            (125, 125, Paint.Gray));
+    }
+
+    // A thick stroke reaches over the neighbouring glyph or run; the colour tag starts a second run in the same gray.
+    // Placed below the fill, the stroke stays below every fill in the block, so every pixel a fill covers fully keeps
+    // the fill's colour.
+    [TestCase(false, WritingMode.HorizontalTb, "Beu<#808080>tl</#>")]
+    [TestCase(true, WritingMode.HorizontalTb, "Beutl")]
+    [TestCase(true, WritingMode.VerticalRl, "あいう")]
+    public void TextStrokeBelowFillStaysBelowEveryFill(bool split, WritingMode writingMode, string text)
+    {
+        using Bitmap fillOnly = Render(CreateTextBelowFill(split, writingMode, text, Brushes.Transparent));
+        using Bitmap stroked = Render(CreateTextBelowFill(split, writingMode, text, Brushes.White));
+
+        int filled = 0;
+        int covered = 0;
+        for (int y = 0; y < FrameSize; y++)
+        {
+            for (int x = 0; x < FrameSize; x++)
+            {
+                if (ImageMetrics.AlphaAt(fillOnly, x, y) < 0.99f)
+                    continue;
+
+                filled++;
+                if (PaintAt(stroked, x, y) != Paint.Gray)
+                    covered++;
+            }
+        }
+
+        Assert.That(filled, Is.GreaterThan(500), "the fixture must fill glyphs");
+        Assert.That(covered, Is.Zero);
+    }
+
+    private static TextBlock CreateTextBelowFill(bool split, WritingMode writingMode, string text, Brush penBrush)
+    {
+        var pen = new Pen();
+        pen.Brush.Value = penBrush;
+        pen.Thickness.Value = 24;
+        pen.StrokeOrder.Value = StrokeOrder.BelowFill;
+
+        var block = new TextBlock();
+        block.FontFamily.Value = TypefaceProvider.Typeface().FontFamily;
+        block.Size.Value = 48;
+        block.Text.Value = text;
+        block.SplitByCharacters.Value = split;
+        block.WritingMode.Value = writingMode;
+        block.Fill.Value = Brushes.Gray;
+        block.Pen.Value = pen;
+        return block;
+    }
+
     [Test]
     public void DrawGeometry()
     {

@@ -37,6 +37,9 @@ public sealed partial class Pen : EngineObject
     [Display(Name = nameof(GraphicsStrings.Pen_StrokeAlignment), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<StrokeAlignment> StrokeAlignment { get; } = Property.CreateExpression(Media.StrokeAlignment.Center);
 
+    [Display(Name = nameof(GraphicsStrings.Pen_StrokeOrder), ResourceType = typeof(GraphicsStrings))]
+    public IExpressionProperty<StrokeOrder> StrokeOrder { get; } = Property.CreateExpression(Media.StrokeOrder.AboveFill);
+
     [Display(Name = nameof(GraphicsStrings.Pen_TrimStart), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> TrimStart { get; } = Property.CreateAnimatable<float>(0);
 
