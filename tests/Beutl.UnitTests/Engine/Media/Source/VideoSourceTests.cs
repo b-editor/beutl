@@ -123,7 +123,7 @@ public class VideoSourceTests
         Assert.Multiple(() =>
         {
             Assert.That(resource.IsOffline, Is.False);
-            Assert.That(resource.MediaReader, Is.SameAs(_readers.Last().Object));
+            Assert.That(SharedMediaReaders.UnderlyingOf(resource.MediaReader!), Is.SameAs(_readers.Last().Object));
             Assert.That(resource.Duration, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(resource.FrameSize, Is.EqualTo(new PixelSize(80, 60)));
             Assert.That(resource.FrameRate, Is.EqualTo(new Rational(24, 1)));
@@ -214,6 +214,34 @@ public class VideoSourceTests
             Assert.That(resource.GetFrameIndex(end - new MediaTime(1)), Is.EqualTo(1));
             Assert.That(resource.GetFrameIndex(end), Is.EqualTo(2));
         });
+    }
+
+    // Splitting a clip regenerates its source, so each piece is a separate VideoSource of the same file.
+    [TestCase(false, 1)]
+    [TestCase(true, 2)]
+    public void SourcesOfOneFile_ShareItsReaderUnlessEncoding(bool disableResourceShare, int expectedReaders)
+    {
+        _hasVideo = true;
+        using var first = CreateSource().ToResource(CompositionContext.Default);
+        using var second = CreateSource().ToResource(new CompositionContext(MediaTime.Zero) { DisableResourceShare = disableResourceShare });
+
+        Assert.That(_readers, Has.Count.EqualTo(expectedReaders));
+        Assert.That(first.IsOffline || second.IsOffline, Is.False);
+        first.Dispose();
+        Assert.That(_readers[0].Object.IsDisposed, Is.EqualTo(disableResourceShare), "the second piece still reads the shared reader");
+    }
+
+    // The preview prefers proxies, and most files have none. Their pieces must still share the original.
+    [Test]
+    public void SourcesPreferringAnUnregisteredProxy_ShareTheOriginalReader()
+    {
+        _hasVideo = true;
+        var context = new CompositionContext(MediaTime.Zero) { PreferProxy = true };
+        using var first = CreateSource().ToResource(context);
+        using var second = CreateSource().ToResource(context);
+
+        Assert.That(first.ProxyResolution, Is.Null);
+        Assert.That(_readers, Has.Count.EqualTo(1));
     }
 
     private VideoSource CreateSource()

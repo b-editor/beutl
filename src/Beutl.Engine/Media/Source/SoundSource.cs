@@ -12,19 +12,9 @@ namespace Beutl.Media.Source;
 [SuppressResourceClassGeneration]
 public sealed class SoundSource : MediaSource
 {
-    private WeakReference<Counter<MediaReader>>? _mediaReaderRef;
-
     public override void ReadFrom(Uri uri)
     {
         if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
-
-        if (HasUri && Uri != uri)
-        {
-            // 古い URI の Counter を別 Resource が保持していると
-            // TryAddRef が成功して新 URI でも古い MediaReader を返してしまうため、
-            // URI が切り替わったタイミングで共有参照を破棄する。
-            Volatile.Write(ref _mediaReaderRef, null);
-        }
         Uri = uri;
     }
 
@@ -38,7 +28,8 @@ public sealed class SoundSource : MediaSource
 
     internal override void InvalidateResourceCache()
     {
-        Volatile.Write(ref _mediaReaderRef, null);
+        // The file may have changed on disk, so reloading resources must not join readers opened before.
+        if (HasUri) SharedMediaReaders.Shared.Invalidate(Path.GetFullPath(Uri.LocalPath));
         base.InvalidateResourceCache();
     }
 
@@ -118,35 +109,27 @@ public sealed class SoundSource : MediaSource
                 _counter?.Release();
                 _counter = null;
 
-                Counter<MediaReader>? shared = null;
-                if (!context.DisableResourceShare)
+                try
                 {
-                    var localRef = Volatile.Read(ref soundSource._mediaReaderRef);
-                    if (localRef?.TryGetTarget(out var counter) == true && counter.TryAddRef())
-                        shared = counter;
+                    string path = soundSource.Uri.LocalPath;
+                    // Encoding keeps its own reader; other resources share the file's readers. A media without an
+                    // audio stream never serves others, which would give them a silent source.
+                    MediaReader reader = context.DisableResourceShare
+                        ? MediaReader.Open(path, new(MediaMode.Audio))
+                        : SharedMediaReaders.Shared.Open(
+                            new(Path.GetFullPath(path), MediaMode.Audio, false, default, 0),
+                            () => MediaReader.Open(path, new(MediaMode.Audio)),
+                            opened => opened.HasAudio);
+                    _counter = new Counter<MediaReader>(reader, null);
+                }
+                catch
+                {
+                    _counter = null;
+                    _loadedUri = soundSource.Uri;
+                    return;
                 }
 
-                if (shared is not null)
-                {
-                    _counter = shared;
-                }
-                else
-                {
-                    try
-                    {
-                        var reader = MediaReader.Open(soundSource.Uri.LocalPath, new(MediaMode.Audio));
-                        _counter = new Counter<MediaReader>(reader, null);
-                    }
-                    catch
-                    {
-                        _counter = null;
-                        _loadedUri = soundSource.Uri;
-                        return;
-                    }
-                }
-
-                // A media without an audio stream cannot expose AudioInfo, so treat it as unreadable (#2183) and never
-                // publish its counter to the shared cache, which would give other resources a silent source.
+                // A media without an audio stream cannot expose AudioInfo, so treat it as unreadable (#2183).
                 if (!_counter.Value.HasAudio)
                 {
                     _counter.Release();
@@ -156,14 +139,6 @@ public sealed class SoundSource : MediaSource
                     NumChannels = 0;
                     _loadedUri = soundSource.Uri;
                     return;
-                }
-
-                // When DisableResourceShare is set, do not rewrite the WeakReference: it would
-                // contaminate other renderers' (preview-side) shared counter with an
-                // encode-only counter.
-                if (!context.DisableResourceShare && shared is null)
-                {
-                    Volatile.Write(ref soundSource._mediaReaderRef, new WeakReference<Counter<MediaReader>>(_counter));
                 }
 
                 Duration = MediaTime.FromSeconds(_counter.Value.AudioInfo.Duration.ToDouble());
