@@ -77,10 +77,10 @@ public static class ComponentAnimations
             new("R", v => v.R, (v, n) => new(n, v.G, v.B)),
             new("G", v => v.G, (v, n) => new(v.R, n, v.B)),
             new("B", v => v.B, (v, n) => new(v.R, v.G, n)));
-        Register<Graphics.RelativePoint, float>(
+        RegisterWithUnit<Graphics.RelativePoint, float>((a, b) => a.Unit != b.Unit,
             new("X", v => v.Point.X, (v, n) => new(n, v.Point.Y, v.Unit)),
             new("Y", v => v.Point.Y, (v, n) => new(v.Point.X, n, v.Unit)));
-        Register<Graphics.RelativeRect, float>(
+        RegisterWithUnit<Graphics.RelativeRect, float>((a, b) => a.Unit != b.Unit,
             new("X", v => v.Rect.X, (v, n) => new(new Graphics.Rect(n, v.Rect.Y, v.Rect.Width, v.Rect.Height), v.Unit)),
             new("Y", v => v.Rect.Y, (v, n) => new(new Graphics.Rect(v.Rect.X, n, v.Rect.Width, v.Rect.Height), v.Unit)),
             new("Width", v => v.Rect.Width, (v, n) => new(new Graphics.Rect(v.Rect.X, v.Rect.Y, n, v.Rect.Height), v.Unit)),
@@ -88,8 +88,14 @@ public static class ComponentAnimations
     }
 
     private static void Register<T, TComponent>(params ComponentDefinition<T, TComponent>[] components)
+        => RegisterWithUnit<T, TComponent>(null, components);
+
+    // unitChanged compares a unit that applies to the whole value. Separating such a type keeps the original
+    // animation's unit schedule, which an edit that changes the unit replaces.
+    private static void RegisterWithUnit<T, TComponent>(Func<T, T, bool>? unitChanged,
+        params ComponentDefinition<T, TComponent>[] components)
     {
-        s_definitions[typeof(T)] = components;
+        s_definitions[typeof(T)] = new ComponentSet<T, TComponent>(components, unitChanged);
         s_operations[typeof(T)] = (property => ComponentAnimation<T, TComponent>.Create((IProperty<T>)property), (property, time) =>
         {
             // Capture the rendered value, including component expressions and interpolation, before detaching the tracks.
@@ -101,8 +107,8 @@ public static class ComponentAnimations
         );
     }
 
-    internal static ComponentDefinition<T, TComponent>[] GetDefinitions<T, TComponent>()
-        => (ComponentDefinition<T, TComponent>[])s_definitions[typeof(T)];
+    internal static ComponentSet<T, TComponent> GetComponentSet<T, TComponent>()
+        => (ComponentSet<T, TComponent>)s_definitions[typeof(T)];
 
     internal static DisplayAttribute GetDisplayAttribute(string name)
         => name switch
@@ -134,3 +140,6 @@ public static class ComponentAnimations
 
 internal sealed record ComponentDefinition<T, TComponent>(
     string Name, Func<T, TComponent> Get, Func<T, TComponent, T> Set);
+
+internal sealed record ComponentSet<T, TComponent>(
+    ComponentDefinition<T, TComponent>[] Components, Func<T, T, bool>? UnitChanged);

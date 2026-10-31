@@ -89,6 +89,23 @@ public abstract partial class Drawable : EngineObject
             PrepareFilterEffectInput(context, null);
         }
 
+        // The drawable an input sample evaluates holds only the effects ahead of the sampling one.
+        internal override bool TryReconcileSampledChild(IProperty property, CompositionContext context,
+            ref EngineObject.Resource? field)
+        {
+            if (context.SampledDrawable is not { } sampledDrawable
+                || !ReferenceEquals(sampledDrawable, GetOriginal())
+                || !ReferenceEquals(property, sampledDrawable.FilterEffect))
+            {
+                return false;
+            }
+
+            var prefix = FilterEffectInputChain.EvaluatePrefix(this, context.Get(sampledDrawable.FilterEffect), context, field);
+            if (!ReferenceEquals(field, prefix)) field?.Dispose();
+            field = prefix;
+            return true;
+        }
+
         internal void PrepareFilterEffectInput(CompositionContext context,
             IReadOnlyList<FilterEffectInputChain.Entry>? chain)
         {
