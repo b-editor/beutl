@@ -97,7 +97,9 @@ public class PackageDetailsMarkdownTests
                 Assert.That(notes.GetVisualDescendants().OfType<Border>().Any(control => control.Classes.Contains("Heading3Block")), Is.True);
                 Assert.That(description.GetVisualDescendants().OfType<LiveMarkdown.Avalonia.CodeBlock>().Single().Language, Is.EqualTo("json"));
                 Assert.That(description.CodeBlockColorTheme, Is.EqualTo(theme == "dark" ? ThemeName.DarkPlus : ThemeName.LightPlus));
-                Assert.That(description.Bounds.Width, Is.GreaterThan(0).And.LessThan(width - 380));
+                Assert.That(description.Bounds.Width, Is.GreaterThan(0));
+                Assert.That(description.TranslatePoint(new Point(description.Bounds.Width, 0), window)!.Value.X, Is.LessThanOrEqualTo(width),
+                    "The description must wrap inside the window instead of running past its edge.");
                 Assert.That(notes.Bounds.Width, Is.EqualTo(description.Bounds.Width));
             });
 

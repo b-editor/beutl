@@ -326,9 +326,6 @@
   <data name="Others" xml:space="preserve">
     <value>其他</value>
   </data>
-  <data name="Link" xml:space="preserve">
-    <value>链接</value>
-  </data>
   <data name="ShowMore" xml:space="preserve">
     <value>显示更多</value>
   </data>

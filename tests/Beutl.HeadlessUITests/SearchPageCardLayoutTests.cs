@@ -1,4 +1,5 @@
 ﻿using System.Net.Http;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media;
@@ -13,8 +14,8 @@ using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 namespace Beutl.HeadlessUITests;
 
-// Pins the search result card for long text: single-line fields ellipsize, the description wraps with a
-// line cap, and the author column is bounded. Layout and TextBlock properties only.
+// Pins the store's package card for long text: single-line fields ellipsize, the description wraps with a
+// line cap, and every line, the price included, stays inside the card. Layout and TextBlock properties only.
 [TestFixture]
 public class SearchPageCardLayoutTests
 {
@@ -75,26 +76,29 @@ public class SearchPageCardLayoutTests
             window.Show();
             HeadlessTestHelpers.Render();
 
-            List<TextBlock> blocks = view.GetVisualDescendants().OfType<TextBlock>().ToList();
+            Button? card = view.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.DataContext == package);
+            Assert.That(
+                card,
+                Is.Not.Null,
+                "the package card did not materialize headlessly - revisit the test host before trusting it");
+
+            List<TextBlock> blocks = card!.GetVisualDescendants().OfType<TextBlock>().ToList();
             TextBlock? name = blocks.FirstOrDefault(t => t.Text == LongName);
             TextBlock? displayName = blocks.FirstOrDefault(t => t.Text == LongDisplayName);
             TextBlock? description = blocks.FirstOrDefault(t => t.Text == LongDescription);
             TextBlock? owner = blocks.FirstOrDefault(t => t.Text == LongOwner);
             TextBlock? price = blocks.FirstOrDefault(t => t.Text == package.FormattedPrice.Value);
 
-            Assert.That(
-                name,
-                Is.Not.Null,
-                "the package card did not materialize headlessly - revisit the test host before trusting it");
             Assert.That(displayName, Is.Not.Null);
             Assert.That(description, Is.Not.Null);
             Assert.That(owner, Is.Not.Null);
             Assert.That(price, Is.Not.Null);
 
             Assert.That(
-                name!.TextTrimming,
-                Is.EqualTo(TextTrimming.CharacterEllipsis),
-                "the package name must ellipsize instead of clipping");
+                name is null || !name.IsEffectivelyVisible,
+                Is.True,
+                "the package name only stands in for a missing display name");
+
             Assert.That(
                 displayName!.TextTrimming,
                 Is.EqualTo(TextTrimming.CharacterEllipsis),
@@ -117,33 +121,29 @@ public class SearchPageCardLayoutTests
                 Is.GreaterThan(0),
                 "the description must cap its line count so the card height stays bounded");
 
-            // The author column is capped so the name column keeps room.
-            Assert.That(
-                double.IsFinite(owner.MaxWidth),
-                Is.True,
-                "the author column must declare an explicit MaxWidth cap");
-            Assert.That(
-                owner.Bounds.Width,
-                Is.LessThanOrEqualTo(owner.MaxWidth + 1),
-                "the arranged author width must respect its MaxWidth cap");
-            Assert.That(
-                name.Bounds.Width,
-                Is.GreaterThan(0),
-                "the name column must keep positive width even next to a very long author");
-
-            Assert.That(
-                Grid.GetColumnSpan(displayName),
-                Is.EqualTo(1),
-                "the display name must not span into the price column");
-
             Assert.That(
                 double.IsFinite(price!.MaxWidth),
                 Is.True,
-                "the price column must declare an explicit MaxWidth cap");
+                "the price must declare an explicit MaxWidth cap");
             Assert.That(
                 price.TextTrimming,
                 Is.EqualTo(TextTrimming.CharacterEllipsis),
                 "the price must ellipsize instead of clipping");
+
+            // Every line stays inside the card, and the price keeps its place next to a very long author.
+            foreach (TextBlock block in new[] { displayName, owner, description, price })
+            {
+                Point? right = block.TranslatePoint(new Point(block.Bounds.Width, 0), card);
+                Assert.That(right, Is.Not.Null);
+                Assert.That(
+                    right!.Value.X,
+                    Is.LessThanOrEqualTo(card.Bounds.Width + 1),
+                    $"'{block.Text}' must stay inside the card");
+            }
+
+            Assert.That(price.IsEffectivelyVisible, Is.True, "a paid package must show its price");
+            Assert.That(price.Bounds.Width, Is.GreaterThan(0), "the price must keep room next to a very long author");
+            Assert.That(owner.Bounds.Width, Is.GreaterThan(0), "the author must keep room next to the price");
         }
         finally
         {

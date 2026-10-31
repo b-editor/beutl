@@ -1,9 +1,12 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Beutl.Api.Objects;
 using Beutl.ViewModels;
+using Beutl.ViewModels.ExtensionsPages;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using FluentAvalonia.UI.Controls;
+using Reactive.Bindings;
 
 namespace Beutl.Pages.ExtensionsPages.DiscoverPages;
 
@@ -26,16 +29,20 @@ internal static class DiscoverPageHelper
         return ((ExtensionsPageViewModel)page.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!).Discover.DataContextFactory;
     }
 
-    // Opens the details of the package card that was clicked; false when the sender is not a package card.
-    public static bool TryNavigateToPackage(Control page, object? sender)
+    // Handles a click that bubbled up from a package card (PackageCards.axaml): a package card opens its
+    // details, and the Show more card loads the next page.
+    public static void OnPackageCardClick(Control page, RoutedEventArgs e, AsyncReactiveCommand more)
     {
-        if (sender is Button { DataContext: Package package }
+        if (e.Source is Button { DataContext: Package package }
             && page.FindLogicalAncestorOfType<FAFrame>() is { } frame)
         {
             frame.Navigate(typeof(PackageDetailsPage), package);
-            return true;
+            e.Handled = true;
         }
-
-        return false;
+        else if (e.Source is Button { DataContext: LoadMoreItem })
+        {
+            more.Execute();
+            e.Handled = true;
+        }
     }
 }

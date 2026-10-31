@@ -273,6 +273,33 @@ public class GraphicsContext2DTests
     }
 
     [Test]
+    public void PushFilterEffect_AFlattenedGroupClosesExactlyTheScopesOfItsChildren()
+    {
+        using var root = new ContainerRenderNode();
+        using var twoChildren = new FilterEffectGroup { Children = { new Blur(), new Blur() } }
+            .ToResource(CompositionContext.Default);
+        using var noChildren = new FilterEffectGroup().ToResource(CompositionContext.Default);
+
+        using var context = new GraphicsContext2D(root, new Size(32, 24));
+        using (context.Push())
+        {
+            int depth = context.Depth;
+            using (context.PushFilterEffect(twoChildren))
+            {
+                Assert.That(context.Depth, Is.EqualTo(depth + 2));
+            }
+
+            Assert.That(context.Depth, Is.EqualTo(depth));
+            using (context.PushFilterEffect(noChildren))
+            {
+                Assert.That(context.Depth, Is.EqualTo(depth));
+            }
+
+            Assert.That(context.Depth, Is.EqualTo(depth));
+        }
+    }
+
+    [Test]
     public void Dispose_ShouldMarkTheRootContainerOfABareParameterChange()
     {
         var size = new Size(1920, 1080);
