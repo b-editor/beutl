@@ -178,7 +178,8 @@ public sealed class FFmpegReaderAudioConversionTests
         using var handler = new DecodingHandler();
         OpenFileResponse opened = handler.HandleOpen(IpcMessage.Create(1, MessageType.OpenFile, new OpenFileRequest
         {
-            FilePath = Fixture("surround51-tones.m4a"), StreamsToLoad = (int)MediaMode.Audio
+            FilePath = Fixture("surround51-tones.m4a"),
+            StreamsToLoad = (int)MediaMode.Audio
         })).GetPayload<OpenFileResponse>()!;
         Assert.That(opened.AudioNumChannels, Is.EqualTo(6));
         Assert.That(opened.AudioSpeakerMask, Is.EqualTo((uint)AudioChannelLayout.Surround51.Speakers));
@@ -226,7 +227,10 @@ public sealed class FFmpegReaderAudioConversionTests
     {
         var frame = new MediaFrame
         {
-            ChLayout = layout, SampleRate = rate, Format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLTP, NbSamples = samples
+            ChLayout = layout,
+            SampleRate = rate,
+            Format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLTP,
+            NbSamples = samples
         };
         frame.AllocateBuffer();
         AVFrame* native = frame;
@@ -251,9 +255,12 @@ public sealed class FFmpegReaderAudioConversionTests
     {
         var frequencies = new Dictionary<AudioSpeakers, int>
         {
-            [AudioSpeakers.FrontLeft] = 400, [AudioSpeakers.FrontRight] = 600,
-            [AudioSpeakers.FrontCenter] = 800, [AudioSpeakers.LowFrequency] = 80,
-            [AudioSpeakers.BackLeft] = 1000, [AudioSpeakers.BackRight] = 1200
+            [AudioSpeakers.FrontLeft] = 400,
+            [AudioSpeakers.FrontRight] = 600,
+            [AudioSpeakers.FrontCenter] = 800,
+            [AudioSpeakers.LowFrequency] = 80,
+            [AudioSpeakers.BackLeft] = 1000,
+            [AudioSpeakers.BackRight] = 1200
         };
         for (int c = 0; c < audio.ChannelCount; c++)
         {
