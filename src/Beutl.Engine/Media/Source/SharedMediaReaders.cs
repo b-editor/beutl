@@ -185,6 +185,9 @@ internal sealed class SharedMediaReaders(Func<long> clock)
             }
         }
 
+        // A frame can point into the reader's own buffer (FFmpeg returns it zero-copy), so the next read of that
+        // reader may overwrite it. Shared readers serve renderers on the render thread only (encoding opens its
+        // own), and DrawVideoSource copies the pixels and releases the frame before anything else reads.
         public bool ReadVideo(Handle handle, int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
         {
             image = null;
