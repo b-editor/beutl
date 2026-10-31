@@ -319,12 +319,17 @@ internal partial class WebBrowserTabView
     }
 
     // NativeWebView navigates without request headers, so the referrer goes through the web view's own API.
-    private static bool NavigateWithReferrer(NativeWebView webView, Uri uri, Uri referrer)
+    private bool NavigateWithReferrer(NativeWebView webView, Uri uri, Uri referrer)
     {
         string value = BrowserMediaDownload.FormatReferrerHeader(referrer);
         return webView.TryGetPlatformHandle() switch
         {
-            IWindowsWebView2PlatformHandle windows when OperatingSystem.IsWindows() => WindowsReferrerNavigation.TryNavigate(windows, uri, value),
+            // WebView2 answers later; a refusal then navigates without the referrer, unless the tab has moved on.
+            IWindowsWebView2PlatformHandle windows when OperatingSystem.IsWindows() => WindowsReferrerNavigation.TryNavigate(windows, uri, value,
+                () =>
+                {
+                    if (!_disposed && ReferenceEquals(_webView, webView) && _openerNavigation?.Uri == uri) webView.Navigate(uri);
+                }),
             IAppleWKWebViewPlatformHandle apple when OperatingSystem.IsMacOS() => MacOSReferrerNavigation.TryNavigate(apple, uri, value),
             IGtkWebViewPlatformHandle gtk when OperatingSystem.IsLinux() => LinuxReferrerNavigation.TryNavigate(gtk.WebKitWebView, false, uri, value),
             ILinuxWpePlatformHandle wpe when OperatingSystem.IsLinux() => LinuxReferrerNavigation.TryNavigate(wpe.WebKitWebView, true, uri, value),
