@@ -455,6 +455,8 @@ public sealed class AiResultImporterTests
                     0,
                     "Unsaved AI image"));
             HeadlessTestHelpers.Settle();
+            // The auto-save writes the new element's sidecar off the UI thread.
+            await TestShell.WaitForProjectWritesAsync();
 
             Assert.That(
                 result.IsSuccess,
