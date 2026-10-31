@@ -277,6 +277,9 @@ public class DockLayoutPresetTests
         var selection = (IEditorSelection)editor.GetService(typeof(IEditorSelection))!;
         selection.Select(editor.Scene.Children[0]);
         HeadlessTestHelpers.Settle();
+        // Adding the element started an auto-save, which saves the view state, the selected element's config
+        // included, before it lets go of the project's files.
+        await TestShell.WaitForProjectWritesAsync();
 
         // Some tool serializers write their own per-scene config as a side effect. Capturing a
         // layout discards tool state anyway, so it must not invoke them at all.
