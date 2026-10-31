@@ -52,11 +52,16 @@ public class ChannelMapEditorTests
                         Assert.That(sound.ChannelMap.Value.Sources, Is.EqualTo(new[] { 0, 1 }));
                         Assert.That(history.History.UndoCount, Is.EqualTo(1));
 
-                        GetChannelBox(control, "L").SelectedIndex = 3;
+                        var rows = vm.Channels.ToArray();
+                        ComboBox left = GetChannelBox(control, "L");
+                        ComboBox right = GetChannelBox(control, "R");
+                        left.SelectedIndex = 3;
                         HeadlessTestHelpers.Render();
+                        AssertRowsRetained();
                         Assert.That(history.History.UndoCount, Is.EqualTo(2));
-                        GetChannelBox(control, "R").SelectedIndex = 4;
+                        right.SelectedIndex = 4;
                         HeadlessTestHelpers.Render();
+                        AssertRowsRetained();
                         Assert.That(sound.ChannelMap.Value.Format, Is.EqualTo(AudioChannelFormat.Stereo));
                         Assert.That(sound.ChannelMap.Value.Sources, Is.EqualTo(new[] { 2, 3 }));
                         Assert.That(sound.ChannelMap.Value.SourceLayout, Is.EqualTo(AudioChannelLayout.GetDefault(4)));
@@ -64,14 +69,17 @@ public class ChannelMapEditorTests
                         Assert.That(history.History.HasPendingOperations, Is.False);
                         Assert.That(vm.Channels[0].SourceChannels, Is.EqualTo(new[] { AudioStrings.ChannelMap_None, "1 (L)", "2 (R)", "3 (Ls)", "4 (Rs)" }));
                         Assert.That(control.Bounds.Width, Is.LessThanOrEqualTo(width));
+                        AssertComboBoxesAligned(control);
                         HeadlessCapture.SaveIfRequested(window, nameof(ChannelMapEditorTests), $"stereo-{culture}-{width}");
 
                         history.History.Undo();
                         HeadlessTestHelpers.Render();
                         Assert.That(sound.ChannelMap.Value.Sources, Is.EqualTo(new[] { 2, 1 }));
                         Assert.That(GetChannelBox(control, "R").SelectedIndex, Is.EqualTo(2));
+                        AssertRowsRetained();
                         history.History.Redo();
                         HeadlessTestHelpers.Render();
+                        AssertRowsRetained();
                         Assert.That(sound.ChannelMap.Value.Sources, Is.EqualTo(new[] { 2, 3 }));
                         GetChannelBox(control, "L").SelectedIndex = 0;
                         Assert.That(sound.ChannelMap.Value.Sources, Is.EqualTo(new[] { -1, 3 }));
@@ -83,7 +91,18 @@ public class ChannelMapEditorTests
                             window.Height = 520;
                             HeadlessTestHelpers.Render();
                             Assert.That(vm.Channels.Count, Is.EqualTo(8));
+                            Assert.That(vm.Channels[0], Is.Not.SameAs(rows[0]));
+                            Assert.That(sound.ChannelMap.Value.Sources, Is.EqualTo(new[] { 0, 1, -1, -1, 2, 3, -1, -1 }));
+                            AssertComboBoxesAligned(control);
                             HeadlessCapture.SaveIfRequested(window, nameof(ChannelMapEditorTests), "surround71-ja-JP-280");
+                        }
+
+                        void AssertRowsRetained()
+                        {
+                            Assert.That(vm.Channels[0], Is.SameAs(rows[0]));
+                            Assert.That(vm.Channels[1], Is.SameAs(rows[1]));
+                            Assert.That(GetChannelBox(control, "L"), Is.SameAs(left));
+                            Assert.That(GetChannelBox(control, "R"), Is.SameAs(right));
                         }
                     }
                     finally { window.Close(); }
@@ -159,6 +178,14 @@ public class ChannelMapEditorTests
     private static ComboBox GetChannelBox(Control control, string channel)
         => control.GetVisualDescendants().OfType<ComboBox>()
             .Single(box => box.DataContext is ChannelAssignmentViewModel row && row.Name == channel);
+
+    private static void AssertComboBoxesAligned(Control control)
+    {
+        ComboBox[] boxes = control.GetVisualDescendants().OfType<ComboBox>().ToArray();
+        double x = boxes[0].TranslatePoint(default, control)!.Value.X;
+        foreach (ComboBox box in boxes)
+            Assert.That(box.TranslatePoint(default, control)!.Value.X, Is.EqualTo(x).Within(0.01));
+    }
 
     private static Window Show(Control control, int width, int height)
     {

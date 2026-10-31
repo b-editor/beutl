@@ -65,14 +65,26 @@ public sealed class AudioChannelMap : IEquatable<AudioChannelMap>
     public static AudioChannelMap CreateDefault(AudioChannelFormat format, AudioChannelLayout sourceLayout)
     {
         if (format == AudioChannelFormat.Auto) return Auto;
+        if (format == AudioChannelFormat.Mono) return new(format, sourceLayout, [0]);
+        if (format == AudioChannelFormat.Stereo) return new(format, sourceLayout, [0, sourceLayout.ChannelCount == 1 ? 0 : 1]);
 
-        AudioChannelLayout clipLayout = GetFormatLayout(format);
-        int[] sources = new int[clipLayout.ChannelCount];
+        var matrix = AudioChannelMatrix.Create(sourceLayout, GetFormatLayout(format));
+        int[] sources = new int[matrix.OutputChannelCount];
         for (int i = 0; i < sources.Length; i++)
         {
-            int source = format is AudioChannelFormat.Surround51 or AudioChannelFormat.Surround71
-                ? sourceLayout.IndexOf(clipLayout.GetSpeaker(i)) : -1;
-            sources[i] = source >= 0 ? source : i < sourceLayout.ChannelCount ? i : -1;
+            int source = -1;
+            for (int channel = 0; channel < matrix.InputChannelCount; channel++)
+            {
+                float coefficient = matrix.GetCoefficient(i, channel);
+                if (coefficient == 0) continue;
+                if (coefficient != 1 || source >= 0)
+                {
+                    source = -1;
+                    break;
+                }
+                source = channel;
+            }
+            sources[i] = source;
         }
         return new AudioChannelMap(format, sourceLayout, sources);
     }

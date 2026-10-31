@@ -11,6 +11,8 @@ public sealed class ChannelMapEditorViewModel : ValueEditorViewModel<AudioChanne
 {
     private readonly SourceSound? _sound;
     private AudioChannelLayout? _sourceLayout;
+    private AudioChannelLayout? _rowSourceLayout;
+    private AudioChannelFormat _rowFormat;
     private bool _refreshing;
     private string[] _sourceChannels = [];
 
@@ -83,7 +85,16 @@ public sealed class ChannelMapEditorViewModel : ValueEditorViewModel<AudioChanne
             SelectedFormatIndex.Value = (int)map.Format;
             Message.Value = _sourceLayout == null ? AudioStrings.ChannelMap_SourceUnavailable
                 : !map.Equals(Value.Value) ? AudioStrings.ChannelMap_SourceChanged : null;
+            if (_rowFormat == map.Format && _rowSourceLayout == _sourceLayout && Channels.Count == map.Sources.Length)
+            {
+                for (int channel = 0; channel < Channels.Count; channel++)
+                    Channels[channel].SelectedIndex.Value = map.Sources[channel] + 1;
+                return;
+            }
+
             ClearChannels();
+            _rowFormat = map.Format;
+            _rowSourceLayout = _sourceLayout;
             if (map.Format == AudioChannelFormat.Auto) return;
 
             AudioChannelLayout clipLayout = map.ResolveClipLayout(_sourceLayout!.Value);

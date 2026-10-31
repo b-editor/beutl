@@ -104,11 +104,25 @@ public class AudioChannelMapTests
     public void Defaults_SelectTheFirstChannelsOrMatchingSpeakerPositions()
     {
         Assert.That(AudioChannelMap.CreateDefault(AudioChannelFormat.Mono, AudioChannelLayout.Surround51).Sources, Is.EqualTo(new[] { 0 }));
-        Assert.That(AudioChannelMap.CreateDefault(AudioChannelFormat.Stereo, AudioChannelLayout.Mono).Sources, Is.EqualTo(new[] { 0, -1 }));
+        Assert.That(AudioChannelMap.CreateDefault(AudioChannelFormat.Stereo, AudioChannelLayout.Mono).Sources, Is.EqualTo(new[] { 0, 0 }));
+        Assert.That(AudioChannelMap.CreateDefault(AudioChannelFormat.Stereo, AudioChannelLayout.GetDefault(4)).Sources, Is.EqualTo(new[] { 0, 1 }));
         Assert.That(AudioChannelMap.CreateDefault(AudioChannelFormat.Surround51, AudioChannelLayout.GetDefault(4)).Sources,
-            Is.EqualTo(new[] { 0, 1, 2, 3, 2, 3 }));
+            Is.EqualTo(new[] { 0, 1, -1, -1, 2, 3 }));
+        Assert.That(AudioChannelMap.CreateDefault(AudioChannelFormat.Surround71, AudioChannelLayout.GetDefault(4)).Sources,
+            Is.EqualTo(new[] { 0, 1, -1, -1, 2, 3, -1, -1 }));
         Assert.That(AudioChannelMap.CreateDefault(AudioChannelFormat.Surround71, AudioChannelLayout.Discrete(4)).Sources,
-            Is.EqualTo(new[] { 0, 1, 2, 3, -1, -1, -1, -1 }));
+            Is.EqualTo(new[] { 0, 1, -1, -1, 2, 3, -1, -1 }));
+        var side51 = new AudioChannelLayout(6, AudioChannelLayout.Stereo.Speakers | AudioSpeakers.FrontCenter
+            | AudioSpeakers.LowFrequency | AudioSpeakers.SideLeft | AudioSpeakers.SideRight);
+        Assert.That(AudioChannelMap.CreateDefault(AudioChannelFormat.Surround51, side51).Sources,
+            Is.EqualTo(new[] { 0, 1, 2, 3, 4, 5 }));
+        Assert.That(AudioChannelMap.CreateDefault(AudioChannelFormat.Surround51, AudioChannelLayout.Mono).Sources,
+            Is.EqualTo(new[] { 0, 0, -1, -1, -1, -1 }));
+        Assert.That(AudioChannelMap.CreateDefault(AudioChannelFormat.Surround51, AudioChannelLayout.Surround71).Sources,
+            Is.EqualTo(new[] { 0, 1, 2, 3, -1, -1 }));
+        var height = new AudioChannelLayout(2, AudioSpeakers.TopFrontLeft | AudioSpeakers.TopFrontRight);
+        Assert.That(AudioChannelMap.CreateDefault(AudioChannelFormat.Surround51, height).Sources,
+            Is.EqualTo(new[] { -1, -1, -1, -1, -1, -1 }));
     }
 
     [Test]
