@@ -2,6 +2,7 @@
 
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Platform;
 using Avalonia.Threading;
 
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
@@ -34,11 +35,17 @@ internal partial class WebBrowserTabView
 
         _latestNavigationRequest = e.Request;
 
-        // The macOS delegate filters subframes before Avalonia reports policy decisions here.
-        // Actual main-frame starts and commits arrive through separate native callbacks.
+        // WebKit reports subframe policy decisions here without frame identity; only the macOS delegate
+        // can filter them. Main-frame commits arrive through NavigationCompleted, and on macOS main-frame
+        // starts also arrive through separate native callbacks.
         // App-initiated navigation and explicit download links are handled separately.
         if (_navigationStartedIncludesSubframes)
         {
+            // Without a native response handler, a media request must become a download offer here,
+            // even though a subframe may have made it; WebKit would otherwise play it in the page.
+            // Pages only start loading through the app in this mode, so loading also means the app started it.
+            if (!_handlesMediaResponsesNatively
+                && TryInterceptMediaNavigation(e, _pageDownloadNavigationPending || _viewModel?.IsLoading.Value == true)) return;
             // Expire script offers at the policy decision, but keep a captured native response
             // until the WK delegate confirms that a new main-frame navigation has started.
             if (_pendingPageDownloadRequest?.Source == null) InvalidatePageDownloadRequests();
@@ -47,20 +54,7 @@ internal partial class WebBrowserTabView
 
         _pageRevision++;
         _findRequest?.Cancel();
-        if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri)
-            && _nativeDownloadHandler is not WindowsBrowserDownloadHandler)
-        {
-            e.Cancel = true;
-            _latestNavigationRequest = null;
-            // A redirect can turn an in-flight page navigation into a download. Its document
-            // origin is no longer confirmed, and cancellation must release the request gate.
-            if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
-            else InvalidatePageDownloadRequests();
-            _mediaNavigationIntercepted = true;
-            _viewModel?.StopNavigation();
-            QueuePageDownloadRequest(mediaUri, null);
-            return;
-        }
+        if (_nativeDownloadHandler is not WindowsBrowserDownloadHandler && TryInterceptMediaNavigation(e, true)) return;
 
         if (e.Request is { } request)
         {
@@ -68,6 +62,44 @@ internal partial class WebBrowserTabView
             InvalidatePageDownloadRequests(navigationStarted: true);
             _viewModel?.BeginNavigation(request);
         }
+    }
+
+    // A media request that may come from a subframe only settles a navigation the app started;
+    // otherwise it must leave the top-level page's loading and failure state alone.
+    private bool TryInterceptMediaNavigation(WebViewNavigationStartingEventArgs e, bool settlesNavigation)
+    {
+        if (e.Request is not { } mediaUri || !BrowserMediaDownload.IsMediaLink(mediaUri)) return false;
+        e.Cancel = true;
+        StopCanceledGtkNavigation();
+        _latestNavigationRequest = null;
+        if (settlesNavigation)
+        {
+            // A redirect can turn an in-flight page navigation into a download. Its document
+            // origin is no longer confirmed, and cancellation must release the request gate.
+            if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
+            else InvalidatePageDownloadRequests();
+            _mediaNavigationIntercepted = true;
+            _viewModel?.StopNavigation();
+        }
+        else
+        {
+            ClearPageDownloadRequest();
+        }
+        QueuePageDownloadRequest(mediaUri, null);
+        return true;
+    }
+
+    // Avalonia's WebKitGTK adapter reports a canceled policy decision as handled without ignoring it,
+    // and WebKit uses a decision released undecided, so the media would still replace the page.
+    private void StopCanceledGtkNavigation()
+    {
+        if (!OperatingSystem.IsLinux() || _webView is not { } webView
+            || webView.TryGetPlatformHandle() is not IGtkWebViewPlatformHandle) return;
+        // The GLib thread waits for this handler; stopping synchronously here would deadlock.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!_disposed && ReferenceEquals(_webView, webView)) webView.Stop();
+        });
     }
 
     internal void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
@@ -110,6 +142,8 @@ internal partial class WebBrowserTabView
             // WebView2 handles attachment responses itself; an inline media page still offers a download.
             if (_nativeDownloadHandler is WindowsBrowserDownloadHandler && BrowserMediaDownload.IsMediaLink(uri))
                 QueuePageDownloadRequest(uri, null);
+            // Linux sees no response before showing it, so media served without a media extension is found here.
+            else if (!_handlesMediaResponsesNatively) _ = OfferInlineMediaPageAsync(uri);
         }
     }
 
@@ -142,6 +176,42 @@ internal partial class WebBrowserTabView
                     && ReferenceEquals(_webView, webView) && ReferenceEquals(_viewModel, viewModel))
                 {
                     viewModel.SetPageTitle(uri, title);
+                }
+            });
+        }
+        catch
+        {
+            // The dispatcher can be shutting down while a tab is being closed.
+        }
+    }
+
+    internal async Task OfferInlineMediaPageAsync(Uri uri)
+    {
+        NativeWebView? webView = _webView;
+        int revision = _pageRevision;
+        // On Linux a page-initiated navigation start changes the download document, not the page revision.
+        int documentId = _pageDownloadDocumentId;
+        if (webView == null) return;
+
+        string? contentType;
+        try
+        {
+            // WebKit reports the response type of a document it shows as media.
+            contentType = NormalizePageTitle(await _getPageContentType(webView));
+        }
+        catch
+        {
+            return;
+        }
+
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!_disposed && revision == _pageRevision && documentId == _pageDownloadDocumentId
+                    && ReferenceEquals(_webView, webView) && BrowserMediaDownload.IsMediaType(contentType))
+                {
+                    QueuePageDownloadRequest(uri, null);
                 }
             });
         }

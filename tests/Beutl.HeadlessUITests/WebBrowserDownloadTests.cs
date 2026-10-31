@@ -31,13 +31,15 @@ public class WebBrowserDownloadTests
     public void UnregisterDownloadTestDecoder() => DecoderRegistry.Unregister(_decoder);
 
     // A view whose web views show the requested address, with the web view runtime available.
+    // A view that reports subframe starts models macOS, whose delegate turns media responses into downloads.
     private static WebBrowserTabView CreateView(
         WebBrowserTabViewModel vm,
         bool? includesSubframes = null,
         Func<NativeWebView, Task<string?>>? getPageTitle = null)
         => new(uri => new NativeWebView { Source = uri }, () => (true, null, false),
             getPageTitle: getPageTitle,
-            navigationStartedIncludesSubframes: includesSubframes)
+            navigationStartedIncludesSubframes: includesSubframes,
+            handlesMediaResponsesNatively: includesSubframes == true ? true : null)
         {
             DataContext = vm,
         };
@@ -1195,6 +1197,179 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    public void WithoutNativeMediaResponses_SubframeModeStillOffersMediaNavigationAsADownload()
+    {
+        var page = new Uri("https://pixabay.com/videos/ocean-12345/");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        // Linux reports subframe starts, but no native handler sees the media response.
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false)
+        { DataContext = vm };
+        vm.CompleteNavigation(page, true, false, false);
+
+        var subframe = new WebViewNavigationStartingEventArgs { Request = WebBrowserTabViewModel.BlankPage };
+        view.OnNavigationStarted(null, subframe);
+        var media = new WebViewNavigationStartingEventArgs { Request = new Uri("https://cdn.pixabay.com/video/2024/01/01/12345_large.mp4") };
+        view.OnNavigationStarted(null, media);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(subframe.Cancel, Is.False);
+            Assert.That(media.Cancel, Is.True);
+            Assert.That(vm.CurrentUri, Is.EqualTo(page));
+            Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        });
+
+        // The request may have come from a subframe, so it must not hide a later top-level failure.
+        var next = new Uri("https://pixabay.com/videos/next/");
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
+        Assert.That(vm.ErrorMessage.Value, Is.EqualTo(Beutl.Language.Strings.WebPageLoadFailed));
+    }
+
+    [AvaloniaTest]
+    public void WithoutNativeMediaResponses_AnAddressRedirectedToMediaSettlesIntoADownloadOffer()
+    {
+        var page = new Uri("https://pixabay.com/videos/ocean-12345/");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false)
+        { DataContext = vm };
+        vm.CompleteNavigation(page, true, false, false);
+        vm.Address.Value = "https://pixabay.com/videos/download/12345/";
+        view.NavigateFromAddress();
+        Assert.That(vm.IsLoading.Value, Is.True);
+
+        var redirect = new WebViewNavigationStartingEventArgs { Request = new Uri("https://cdn.pixabay.com/video/2024/01/01/12345_large.mp4") };
+        view.OnNavigationStarted(null, redirect);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(redirect.Cancel, Is.True);
+            Assert.That(vm.IsLoading.Value, Is.False);
+            Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase("\"video/webm\"", true)]
+    [TestCase("\"image/png\"", true)]
+    [TestCase("\"text/html\"", false)]
+    // The WebKitGTK adapter returns a script's string result without JSON quotes.
+    [TestCase("video/mp4", true)]
+    [TestCase(null, false)]
+    public void WithoutNativeMediaResponses_AMediaPageWithoutAMediaExtensionOffersADownload(string? contentType, bool offered)
+    {
+        var media = new Uri("https://media.example/watch?id=1");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://media.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false,
+            getPageContentType: _ => Task.FromResult<string?>(contentType))
+        { DataContext = vm };
+
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.EqualTo(offered));
+        if (offered) Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo(media.AbsoluteUri));
+    }
+
+    [AvaloniaTest]
+    public void WithoutNativeMediaResponses_ATabsFirstNavigationRedirectedToMediaSettlesIntoADownloadOffer()
+    {
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://media.example/download/1/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false)
+        { DataContext = vm };
+        Assert.That(vm.IsLoading.Value, Is.True);
+
+        var redirect = new WebViewNavigationStartingEventArgs { Request = new Uri("https://cdn.example/1.mp4") };
+        view.OnNavigationStarted(null, redirect);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(redirect.Cancel, Is.True);
+            Assert.That(vm.IsLoading.Value, Is.False);
+            Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        });
+    }
+
+    [AvaloniaTest]
+    public void WithoutNativeMediaResponses_APageWhoseTypeCannotBeReadOffersNothing()
+    {
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://media.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false,
+            getPageContentType: _ => Task.FromException<string?>(new InvalidOperationException("The document was replaced.")))
+        { DataContext = vm };
+
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = new Uri("https://media.example/watch?id=1"), IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.False);
+    }
+
+    [AvaloniaTest]
+    public void WithoutNativeMediaResponses_AMediaPageCheckedAfterTheNextNavigationStartsOffersNothing()
+    {
+        var contentType = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://media.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false,
+            getPageContentType: _ => contentType.Task)
+        { DataContext = vm };
+
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = new Uri("https://media.example/watch?id=1"), IsSuccess = true });
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = new Uri("https://media.example/next") });
+        contentType.SetResult("video/webm");
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task ADownloadPresentsTheWebViewUserAgent()
+    {
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
+        var page = new Uri("https://site.example/page");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page,
+            new BrowserProfile(Path.Combine(root, "profile.json")));
+        using var view = CreateView(vm);
+        using var handler = new ReferrerHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        view.DownloadUserAgentProvider = _ => Task.FromResult<string?>("Beutl WebView");
+
+        await view.DownloadMediaAsync(new Uri("https://site.example/audio.mp3"), null, page);
+
+        Assert.That(handler.UserAgent, Is.EqualTo("Beutl WebView"));
+    }
+
+    [AvaloniaTest]
+    public void WithNativeMediaResponses_ACompletedPageIsNotProbedForMedia()
+    {
+        bool probed = false;
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://media.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: true,
+            getPageContentType: _ =>
+            {
+                probed = true;
+                return Task.FromResult<string?>("\"video/webm\"");
+            })
+        { DataContext = vm };
+
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = new Uri("https://media.example/watch?id=1"), IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(probed, Is.False);
+    }
+
+    [AvaloniaTest]
     public void RedirectedMediaDoesNotReenableDismissedPageRequests()
     {
         using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://original.example/"));
@@ -1509,11 +1684,13 @@ public class WebBrowserDownloadTests
     {
         internal Uri? Referrer { get; private set; }
         internal string? CookieHeader { get; private set; }
+        internal string? UserAgent { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Referrer = request.Headers.Referrer;
             CookieHeader = request.Headers.TryGetValues("Cookie", out var cookies) ? string.Join("; ", cookies) : null;
+            UserAgent = request.Headers.TryGetValues("User-Agent", out var userAgents) ? string.Join(" ", userAgents) : null;
             var content = new ByteArrayContent([1, 2, 3]);
             content.Headers.ContentType = new MediaTypeHeaderValue("audio/mpeg");
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content, RequestMessage = request });

@@ -17,8 +17,10 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private readonly Func<(bool IsAvailable, string? Detail, bool ShowLinuxRuntimeHelp)> _getWebViewAvailability;
     private readonly Func<Uri, Task<bool>>? _launchInDefaultBrowser;
     private readonly Func<NativeWebView, Task<string?>> _getPageTitle;
+    private readonly Func<NativeWebView, Task<string?>> _getPageContentType;
     private readonly Func<NativeWebView, bool> _canReparentWebView;
     private readonly bool _navigationStartedIncludesSubframes;
+    private readonly bool _handlesMediaResponsesNatively;
     private NativeWebView? _webView;
     private BrowserAdBlockSession? _adBlockSession;
     private IDisposable? _nativeDownloadHandler;
@@ -38,14 +40,20 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         Func<NativeWebView, Task<string?>>? getPageTitle = null,
         Func<NativeWebView, bool>? canReparentWebView = null,
         bool? navigationStartedIncludesSubframes = null,
-        BrowserFaviconLoader? faviconLoader = null)
+        BrowserFaviconLoader? faviconLoader = null,
+        bool? handlesMediaResponsesNatively = null,
+        Func<NativeWebView, Task<string?>>? getPageContentType = null)
     {
         _createWebView = createWebView;
         _getWebViewAvailability = getWebViewAvailability;
         _launchInDefaultBrowser = launchInDefaultBrowser;
         _getPageTitle = getPageTitle ?? (static webView => webView.InvokeScript("document.title"));
+        _getPageContentType = getPageContentType ?? (static webView => webView.InvokeScript("document.contentType"));
         _canReparentWebView = canReparentWebView ?? (static webView => webView.TryGetPlatformHandle() is not null);
-        _navigationStartedIncludesSubframes = navigationStartedIncludesSubframes ?? OperatingSystem.IsMacOS();
+        // WKWebView, WebKitGTK and WPE all report subframe navigations through NavigationStarted.
+        _navigationStartedIncludesSubframes = navigationStartedIncludesSubframes ?? (OperatingSystem.IsMacOS() || OperatingSystem.IsLinux());
+        // The macOS and Windows handlers turn a main-frame media response into a download; Linux has no such handler.
+        _handlesMediaResponsesNatively = handlesMediaResponsesNatively ?? !OperatingSystem.IsLinux();
         FaviconLoader = faviconLoader;
         InitializeComponent();
         AddressTextBox.SearchSuggestionsChanged += OnSearchSuggestionsChanged;
@@ -165,6 +173,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _adBlockSession = new BrowserAdBlockSession(webView, _viewModel.Profile,
             downloadInitialMedia ? WebBrowserTabViewModel.BlankPage : initialUri, ShowToolStatus);
         webView.EnvironmentRequested += BrowserWebViewEnvironment.Configure;
+        webView.AdapterCreated += LinuxWebKitCookies.PersistCookies;
         webView.AdapterCreated += OnAdapterCreated;
         webView.AdapterDestroyed += OnAdapterDestroyed;
         webView.NavigationStarted += OnNavigationStarted;
@@ -395,6 +404,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         _webView.EnvironmentRequested -= BrowserWebViewEnvironment.Configure;
+        _webView.AdapterCreated -= LinuxWebKitCookies.PersistCookies;
         _webView.AdapterCreated -= OnAdapterCreated;
         _webView.AdapterDestroyed -= OnAdapterDestroyed;
         _nativeDownloadHandler?.Dispose();
