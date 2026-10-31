@@ -286,7 +286,7 @@ internal partial class WebBrowserTabView
         // using destination cookies when the surviving document's origin is unknown.
         Uri? referrer = _pageDownloadReferrerUncertain ? ViewModels.WebBrowserTabViewModel.BlankPage : owner?.CurrentUri;
         var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId, referrerPolicy, downloadSource);
-        // A generated file's address is the page, which says less than the file's name.
+        // A generated file's address is the site credited with it, which says less than the file's name.
         string shown = downloadSource?.IsGenerated == true && !string.IsNullOrEmpty(suggestedName) ? suggestedName : uri.AbsoluteUri;
         _pendingPageDownloadRequest = request;
         Dispatcher.UIThread.Post(() =>

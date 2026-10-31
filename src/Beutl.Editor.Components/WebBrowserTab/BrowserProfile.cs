@@ -23,7 +23,7 @@ internal sealed record BrowserDownloadRecord(string Url, string FilePath, DateTi
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public BrowserReferrerPolicy ReferrerPolicy { get; init; }
 
-    // The page generated the file, so Url is that page and the file cannot be downloaded again.
+    // A page script generated the file, so Url is the site credited with it and the file cannot be downloaded again.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Generated { get; init; }
 }
