@@ -195,9 +195,13 @@ public sealed partial class TimelineTabView
 
     private void Place(Control control, int index)
     {
-        if (index < TimelinePanel.Children.Count && ReferenceEquals(TimelinePanel.Children[index], control)) return;
-        if (control.Parent is not null) TimelinePanel.Children.Remove(control);
-        TimelinePanel.Children.Insert(index, control);
+        var children = TimelinePanel.Children;
+        if (index < children.Count && ReferenceEquals(children[index], control)) return;
+        // Layers of runs that scrolled away stay until the end of the pass and can sit before a
+        // retained view. Move it rather than detaching it, which would end its drag or menu.
+        int current = children.IndexOf(control);
+        if (current >= 0) children.Move(current, index);
+        else children.Insert(index, control);
     }
 
     internal sealed class ViewportElement : IDisposable

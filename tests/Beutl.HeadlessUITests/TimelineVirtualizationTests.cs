@@ -257,11 +257,18 @@ public sealed class TimelineVirtualizationTests
     [AvaloniaTest]
     public async Task Captured_clip_survives_scrolling_and_can_be_moved_and_undone()
     {
+        // The narrow clip comes first in scene order, so its compact layers precede the captured view
+        // until the scroll below leaves them behind.
         using TimelineTestHost host = await TimelineTestHost.CreateAsync("virtualized-drag", MediaTime.FromSeconds(100),
-            [new ElementDescription(MediaTime.Zero, MediaTime.FromSeconds(2), 0,
+            [new ElementDescription(MediaTime.Zero, MediaTime.FromSeconds(0.1), 1,
+                new ElementSource.EngineObject(() => new RectShape())),
+             new ElementDescription(MediaTime.Zero, MediaTime.FromSeconds(2), 0,
                 new ElementSource.EngineObject(() => new RectShape()))]);
-        ElementViewModel model = host.Model.Elements.Single();
+        ElementViewModel model = host.Model.Elements[1];
+        Assert.That(host.Timeline.Children.OfType<CompactElementLayer>(), Is.Not.Empty);
         ElementView view = host.Timeline.Children.OfType<ElementView>().Single();
+        int detached = 0;
+        view.DetachedFromLogicalTree += (_, _) => detached++;
         Border border = view.FindControl<Border>("border")!;
         Point press = border.TranslatePoint(new Point(50, 12), host.Window)!.Value;
         TimelineTestHost.WaitForHitTest(host.Window, border, press);
@@ -269,6 +276,7 @@ public sealed class TimelineVirtualizationTests
         host.Model.Options.Value = host.Model.Options.Value with { Offset = new Vector2(2_000, 0) };
         HeadlessTestHelpers.Render();
         Assert.That(host.Timeline.Children, Does.Contain(view));
+        Assert.That(detached, Is.Zero, "Detaching the captured view ends its drag.");
 
         Point release = press + new Vector(50, 0);
         host.Window.MouseMove(release, RawInputModifiers.LeftMouseButton);
