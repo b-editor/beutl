@@ -17,17 +17,11 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="NoLogoImageAvailable" xml:space="preserve">
-    <value>No hay imagen de logotipo disponible</value>
-  </data>
   <data name="ExtensionFailed" xml:space="preserve">
     <value>{0} encontró un error</value>
   </data>
   <data name="ExtensionTurnedOff" xml:space="preserve">
     <value>Se desactiva hasta que Beutl se reinicie. Paquete: {0}</value>
-  </data>
-  <data name="Package_Screenshots" xml:space="preserve">
-    <value>Capturas de pantalla</value>
   </data>
   <data name="Install" xml:space="preserve">
     <value>Instalar</value>
@@ -108,9 +102,6 @@ Para aplicar los cambios del paquete, sal de Beutl.</value>
   <data name="PackageInstaller_SaveAndClose" xml:space="preserve">
     <value>Guardar y cerrar</value>
   </data>
-  <data name="Description" xml:space="preserve">
-    <value>Descripción</value>
-  </data>
   <data name="May_not_work_correctly_when_downgrading" xml:space="preserve">
     <value>Puede que no funcione correctamente al degradar la versión</value>
   </data>
@@ -132,9 +123,6 @@ Para forzar la instalación, usa la herramienta CLI.</value>
   </data>
   <data name="Uninstalling" xml:space="preserve">
     <value>Desinstalando...</value>
-  </data>
-  <data name="Free" xml:space="preserve">
-    <value>Gratis</value>
   </data>
   <data name="RemoveFromLibrary_Title" xml:space="preserve">
     <value>Quitar de la biblioteca</value>

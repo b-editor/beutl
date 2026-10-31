@@ -1,0 +1,123 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:api="using:Beutl.Api.Objects"
+                    xmlns:asyncImageLoader="using:AsyncImageLoader"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+                    xmlns:lang="using:Beutl.Language"
+                    xmlns:viewModel="using:Beutl.ViewModels.ExtensionsPages"
+                    x:CompileBindings="True">
+
+    <!--  The store's package card, shared by the Home, search and publisher pages, which handle its clicks.  -->
+    <DataTemplate x:Key="PackageCardTemplate">
+        <ContentControl Content="{ReflectionBinding}">
+            <ContentControl.DataTemplates>
+                <DataTemplate x:DataType="api:Package">
+                    <Button MinHeight="108"
+                            Padding="12"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Center">
+                        <Grid ColumnDefinitions="Auto,12,*">
+                            <Panel Width="56"
+                                   Height="56"
+                                   VerticalAlignment="Top">
+                                <Border Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                        CornerRadius="8"
+                                        IsVisible="{Binding LogoUrl.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}">
+                                    <icons:FluentIcon FontSize="24"
+                                                      Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                      Icon="PuzzlePiece" />
+                                </Border>
+                                <asyncImageLoader:AdvancedImage ImageClipping.CornerRadius="8" Source="{Binding LogoUrl.Value}" />
+                            </Panel>
+
+                            <StackPanel Grid.Column="2" Spacing="2">
+                                <TextBlock FontWeight="SemiBold"
+                                           IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                           Text="{Binding DisplayName.Value}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock FontWeight="SemiBold"
+                                           IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}"
+                                           Text="{Binding Name}"
+                                           TextTrimming="CharacterEllipsis" />
+
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               Text="{Binding Owner.Name}"
+                                               TextTrimming="CharacterEllipsis"
+                                               Theme="{StaticResource CaptionTextBlockStyle}" />
+                                    <!--  Free packages show no price.  -->
+                                    <TextBlock Grid.Column="1"
+                                               MaxWidth="120"
+                                               Margin="8,0,0,0"
+                                               FontWeight="SemiBold"
+                                               IsVisible="{Binding FormattedPrice.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                               Text="{Binding FormattedPrice.Value}"
+                                               TextTrimming="CharacterEllipsis"
+                                               Theme="{StaticResource CaptionTextBlockStyle}" />
+                                </Grid>
+
+                                <TextBlock Margin="0,2,0,0"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           IsVisible="{Binding ShortDescription.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                           MaxLines="2"
+                                           Text="{Binding ShortDescription.Value}"
+                                           TextTrimming="CharacterEllipsis"
+                                           TextWrapping="Wrap"
+                                           Theme="{StaticResource CaptionTextBlockStyle}" />
+                            </StackPanel>
+                        </Grid>
+                    </Button>
+                </DataTemplate>
+
+                <DataTemplate x:DataType="viewModel:LoadMoreItem">
+                    <Button MinHeight="108"
+                            Padding="12"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <icons:FluentIcon Icon="MoreHorizontal" />
+                            <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.ShowMore}" />
+                        </StackPanel>
+                    </Button>
+                </DataTemplate>
+
+                <DataTemplate x:DataType="viewModel:DummyItem">
+                    <Button MinHeight="108"
+                            Padding="12"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Center"
+                            IsHitTestVisible="False">
+                        <Grid ColumnDefinitions="Auto,12,*">
+                            <Border Width="56"
+                                    Height="56"
+                                    VerticalAlignment="Top"
+                                    Classes="placeholder"
+                                    CornerRadius="8" />
+
+                            <StackPanel Grid.Column="2" Spacing="6">
+                                <Border Width="120"
+                                        Height="14"
+                                        HorizontalAlignment="Left"
+                                        Classes="placeholder"
+                                        CornerRadius="7" />
+                                <Border Width="72"
+                                        Height="12"
+                                        HorizontalAlignment="Left"
+                                        Classes="placeholder"
+                                        CornerRadius="6" />
+                                <Border Width="160"
+                                        Height="12"
+                                        HorizontalAlignment="Left"
+                                        Classes="placeholder"
+                                        CornerRadius="6" />
+                            </StackPanel>
+                        </Grid>
+                    </Button>
+                </DataTemplate>
+            </ContentControl.DataTemplates>
+        </ContentControl>
+    </DataTemplate>
+</ResourceDictionary>

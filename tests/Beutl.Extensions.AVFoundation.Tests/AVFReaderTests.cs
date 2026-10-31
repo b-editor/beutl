@@ -310,6 +310,12 @@ public class AVFReaderTests
             : [source, destination, "-f", "m4af", "-d", "aac ", "-b", bitrate];
         foreach (string argument in arguments)
             info.ArgumentList.Add(argument);
+        if (ffmpeg == null && channels == 6)
+        {
+            // afconvert needs an explicit AAC layout for 5.1.
+            info.ArgumentList.Add("-l");
+            info.ArgumentList.Add("AAC_5_1");
+        }
         using var process = Process.Start(info)!;
         Task<string> output = process.StandardOutput.ReadToEndAsync();
         Task<string> error = process.StandardError.ReadToEndAsync();

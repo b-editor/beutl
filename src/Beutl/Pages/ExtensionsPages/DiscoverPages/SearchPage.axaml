@@ -1,15 +1,10 @@
 <UserControl x:Class="Beutl.Pages.ExtensionsPages.DiscoverPages.SearchPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:api="using:Beutl.Api.Objects"
-             xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:extensionsPage="using:Beutl.ViewModels.ExtensionsPages"
-             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.ExtensionsPages.DiscoverPages"
              d:DesignHeight="450"
              d:DesignWidth="800"
@@ -20,12 +15,13 @@
              RenderOptions.BitmapInterpolationMode="HighQuality"
              mc:Ignorable="d">
 
-    <UserControl.Styles>
-        <Style Selector="TextBlock.name">
-            <Setter Property="Theme" Value="{StaticResource BaseTextBlockStyle}" />
-            <Setter Property="FontSize" Value="16" />
-        </Style>
-    </UserControl.Styles>
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://Beutl/Pages/ExtensionsPages/PackageCards.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
 
     <UserControl.KeyBindings>
         <KeyBinding Command="{Binding Refresh}" Gesture="F5" />
@@ -33,14 +29,13 @@
     </UserControl.KeyBindings>
 
     <Panel>
-        <ScrollViewer Padding="18">
-            <StackPanel Margin="10,0">
-                <TextBlock HorizontalAlignment="Left"
-                           Text="{Binding Keyword, StringFormat='&quot;{0}&quot;'}"
+        <ScrollViewer>
+            <StackPanel Margin="24,12,24,24" Spacing="16">
+                <TextBlock Text="{Binding Keyword, StringFormat='&quot;{0}&quot;'}"
+                           TextTrimming="CharacterEllipsis"
                            Theme="{StaticResource SubtitleTextBlockStyle}" />
 
-                <TabStrip Margin="0,12"
-                          HorizontalAlignment="Left"
+                <TabStrip HorizontalAlignment="Left"
                           IsEnabled="{Binding !IsBusy.Value}"
                           SelectedIndex="{Binding Kind.SelectedIndex.Value, Mode=TwoWay}"
                           Theme="{DynamicResource SegmentedTabStrip}">
@@ -50,139 +45,12 @@
                     <TabStripItem Content="{x:Static lang:ExtensionsStrings.PackageKind_Templates}" />
                 </TabStrip>
 
-                <ItemsRepeater ItemsSource="{Binding Packages}">
+                <ItemsRepeater ItemTemplate="{StaticResource PackageCardTemplate}" ItemsSource="{Binding Packages}">
                     <ItemsRepeater.Layout>
-                        <controls:HorizontalGridLayout ColumnSpacing="16"
-                                                       MinItemWidth="345"
-                                                       RowSpacing="16" />
+                        <controls:HorizontalGridLayout ColumnSpacing="12"
+                                                       MinItemWidth="300"
+                                                       RowSpacing="12" />
                     </ItemsRepeater.Layout>
-                    <ItemsRepeater.ItemTemplate>
-                        <DataTemplate>
-                            <ContentControl Content="{Binding}">
-                                <ContentControl.DataTemplates>
-                                    <DataTemplate x:DataType="extensionsPage:LoadMoreItem">
-                                        <Button Padding="0"
-                                                HorizontalAlignment="Stretch"
-                                                HorizontalContentAlignment="Stretch"
-                                                VerticalContentAlignment="Stretch"
-                                                Click="Package_Click">
-                                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
-                                                <Border Width="80" Height="80">
-                                                    <icons:FluentIcon FontSize="32" Icon="MoreHorizontal" />
-                                                </Border>
-
-                                                <TextBlock Grid.Column="2"
-                                                           VerticalAlignment="Center"
-                                                           Text="{x:Static lang:Strings.ShowMore}" />
-                                            </Grid>
-                                        </Button>
-                                    </DataTemplate>
-                                    <DataTemplate x:DataType="api:Package">
-                                        <Button Padding="0"
-                                                HorizontalAlignment="Stretch"
-                                                HorizontalContentAlignment="Stretch"
-                                                VerticalContentAlignment="Stretch"
-                                                Click="Package_Click">
-                                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
-                                                <asyncImageLoader:AdvancedImage Width="80"
-                                                                                Height="80"
-                                                                                ImageClipping.CornerRadius="8"
-                                                                                Source="{Binding LogoUrl.Value}" />
-
-                                                <Grid Grid.Column="2"
-                                                      Margin="0,2"
-                                                      VerticalAlignment="Stretch"
-                                                      ColumnDefinitions="*,Auto"
-                                                      RowDefinitions="Auto,Auto,Auto">
-                                                    <TextBlock Text="{Binding Name}"
-                                                               TextTrimming="CharacterEllipsis" />
-
-                                                    <TextBlock Grid.Row="1"
-                                                               Classes="name"
-                                                               IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                               Text="{Binding DisplayName.Value}"
-                                                               TextTrimming="CharacterEllipsis" />
-
-                                                    <TextBlock Grid.Row="2"
-                                                               Grid.ColumnSpan="2"
-                                                               Margin="0,8,0,0"
-                                                               MaxLines="2"
-                                                               Text="{Binding ShortDescription.Value}"
-                                                               TextTrimming="CharacterEllipsis"
-                                                               TextWrapping="Wrap" />
-
-                                                    <TextBlock Grid.Column="1"
-                                                               MaxWidth="120"
-                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                               Text="{Binding Owner.Name}"
-                                                               TextTrimming="CharacterEllipsis" />
-
-                                                    <TextBlock Grid.Row="1"
-                                                               Grid.Column="1"
-                                                               MaxWidth="120"
-                                                               HorizontalAlignment="Right"
-                                                               VerticalAlignment="Center"
-                                                               FontWeight="SemiBold"
-                                                               Text="{Binding FormattedPrice.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Free}}"
-                                                               TextTrimming="CharacterEllipsis" />
-                                                </Grid>
-                                            </Grid>
-                                        </Button>
-                                    </DataTemplate>
-                                    <DataTemplate x:DataType="extensionsPage:DummyItem">
-                                        <Button Padding="0"
-                                                HorizontalAlignment="Stretch"
-                                                HorizontalContentAlignment="Stretch"
-                                                VerticalContentAlignment="Stretch"
-                                                IsHitTestVisible="False">
-                                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
-                                                <Border Width="80"
-                                                        Height="80"
-                                                        Classes="placeholder"
-                                                        CornerRadius="8" />
-
-                                                <Grid Grid.Column="2"
-                                                      Margin="0,2"
-                                                      VerticalAlignment="Stretch"
-                                                      ColumnDefinitions="*,Auto"
-                                                      RowDefinitions="Auto,Auto,Auto">
-                                                    <Border Width="80"
-                                                            Height="14"
-                                                            HorizontalAlignment="Left"
-                                                            Classes="placeholder"
-                                                            CornerRadius="8" />
-
-                                                    <Border Grid.Row="1"
-                                                            Grid.ColumnSpan="2"
-                                                            Width="100"
-                                                            Height="16"
-                                                            HorizontalAlignment="Left"
-                                                            Classes="placeholder"
-                                                            CornerRadius="8" />
-
-                                                    <Border Grid.Row="2"
-                                                            Grid.ColumnSpan="2"
-                                                            Width="90"
-                                                            Height="14"
-                                                            Margin="0,8,0,0"
-                                                            HorizontalAlignment="Left"
-                                                            Classes="placeholder"
-                                                            CornerRadius="8" />
-
-                                                    <Border Grid.Column="1"
-                                                            Width="80"
-                                                            Height="14"
-                                                            HorizontalAlignment="Left"
-                                                            Classes="placeholder"
-                                                            CornerRadius="8" />
-                                                </Grid>
-                                            </Grid>
-                                        </Button>
-                                    </DataTemplate>
-                                </ContentControl.DataTemplates>
-                            </ContentControl>
-                        </DataTemplate>
-                    </ItemsRepeater.ItemTemplate>
                 </ItemsRepeater>
             </StackPanel>
         </ScrollViewer>
