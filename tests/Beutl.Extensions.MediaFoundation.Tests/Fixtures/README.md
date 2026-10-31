@@ -67,6 +67,21 @@ ffmpeg -y -i marker-bframes.mp4 -c copy -use_editlist 0 marker-bframes-no-edit.m
 
 These fixtures also contain only generated test signals.
 
+## `surround51-tones.m4a`
+
+A 1.5-second AAC 5.1 clip (48000 Hz), linked by `FFmpegReaderAudioConversionTests`.
+Each WAVE speaker position carries a distinct sine: FL 400 Hz, FR 600 Hz,
+FC 800 Hz, LFE 80 Hz, BL 1000 Hz, BR 1200 Hz. The LFE tone stays below the
+AAC encoder's LFE low-pass cutoff. This is generated test signal only.
+
+Regenerate with ffmpeg (generated with FFmpeg 8.1.3):
+
+```sh
+ffmpeg -y -f lavfi \
+  -i 'aevalsrc=0.2*sin(2*PI*400*t)|0.2*sin(2*PI*600*t)|0.2*sin(2*PI*800*t)|0.2*sin(2*PI*80*t)|0.2*sin(2*PI*1000*t)|0.2*sin(2*PI*1200*t):s=48000:d=1.5:c=5.1' \
+  -c:a aac -b:a 384k -movflags +faststart surround51-tones.m4a
+```
+
 ## `late-video.mp4`
 
 A 2.5-second H.264 + AAC clip (64×64, 10 fps, 8000 Hz mono) whose video starts

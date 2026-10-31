@@ -1,5 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.IO.Pipes;
+using System.Runtime.InteropServices;
+using Beutl.Audio;
 using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
@@ -179,23 +181,104 @@ public class FFmpegReaderProxyIdleTests
         });
     }
 
-    [Test]
-    public void AudioOnlyReader_IsNotTracked_AndReadsAudio()
+    [TestCase(1, true)]
+    [TestCase(2, true)]
+    [TestCase(6, true)]
+    [TestCase(6, false)]
+    public void AudioOnlyReader_IsNotTracked_AndReadsAudio(int channels, bool positions)
     {
-        OpenFileResponse response = _worker.OpenAudio(sampleRate: 8000);
+        OpenFileResponse response = _worker.OpenAudio(sampleRate: 8000, channels, positions);
         using var reader = new FFmpegReaderProxy(
             _worker.Connection, response.ReaderId, response,
-            () => (_worker.Connection, _worker.OpenAudio(sampleRate: 8000)), _tracker);
+            () => (_worker.Connection, _worker.OpenAudio(sampleRate: 8000, channels, positions)), _tracker);
 
         Assert.That(_tracker.TrackedCount, Is.Zero);
-        Assert.That(reader.ReadAudio(0, 100, out var single), Is.True);
+        Assert.That(reader.AudioInfo.NumChannels, Is.EqualTo(channels));
+        Assert.That(reader.AudioInfo.ChannelLayout, Is.EqualTo(positions
+            ? AudioChannelLayout.GetDefault(channels) : AudioChannelLayout.Discrete(channels)));
+        Assert.That(reader.ReadAudio(17, 100, out var single), Is.True);
         using (single)
-            Assert.That(single!.SampleCount, Is.EqualTo(100));
+            AssertAudio(single!, channels, 17, 100);
 
         // Longer than one second, so the proxy splits the request into chunks.
+        Assert.That(reader.ReadAudio(23, 9000, out var chunked), Is.True);
+        using (chunked)
+            AssertAudio(chunked!, channels, 23, 9000);
+        Assert.That(reader.ReadAudio(0, 0, out var empty), Is.True);
+        using (empty)
+            AssertAudio(empty!, channels, 0, 0);
+    }
+
+    [TestCase(2)]
+    [TestCase(6)]
+    public void ReadAudio_AtEof_ReturnsTheDecodedChannelsAndLength(int channels)
+    {
+        _worker.AudioEnd = 8500;
+        OpenFileResponse response = _worker.OpenAudio(8000, channels);
+        using var reader = new FFmpegReaderProxy(_worker.Connection, response.ReaderId, response);
+        // Exercise a zero-length reply before there is any shared-memory mapping.
+        Assert.That(reader.ReadAudio(8500, 100, out var empty), Is.True);
+        using (empty)
+            AssertAudio(empty!, channels, 8500, 0);
+        Assert.That(reader.ReadAudio(8400, 200, out var shortRead), Is.True);
+        using (shortRead)
+            AssertAudio(shortRead!, channels, 8400, 100);
         Assert.That(reader.ReadAudio(0, 9000, out var chunked), Is.True);
         using (chunked)
-            Assert.That(chunked!.SampleCount, Is.EqualTo(9000));
+            AssertAudio(chunked!, channels, 0, 8500);
+    }
+
+    [TestCase(2, -4)]
+    [TestCase(2, 4)]
+    [TestCase(6, -4)]
+    [TestCase(6, 4)]
+    public void ReadAudio_MismatchedDataLength_IsRejectedBeforeCopying(int channels, int delta)
+    {
+        OpenFileResponse response = _worker.OpenAudio(8000, channels);
+        using var reader = new FFmpegReaderProxy(_worker.Connection, response.ReaderId, response);
+        _worker.ChangeAudioResponse = r => r.DataLength += delta;
+        Assert.That(() => reader.ReadAudio(0, 100, out _), Throws.TypeOf<InvalidOperationException>()
+            .With.Message.Contains("Audio response"));
+        _worker.ChangeAudioResponse = null;
+        Assert.That(reader.ReadAudio(0, 100, out var recovered), Is.True);
+        using (recovered)
+            AssertAudio(recovered!, channels, 0, 100);
+    }
+
+    [TestCase(0)]
+    [TestCase(2)]
+    public void ReadAudio_ChannelCountMustMatchTheOpenResponse(int reportedChannels)
+    {
+        OpenFileResponse response = _worker.OpenAudio(8000, 6);
+        using var reader = new FFmpegReaderProxy(_worker.Connection, response.ReaderId, response);
+        _worker.ChangeAudioResponse = r => r.NumChannels = reportedChannels;
+        Assert.That(() => reader.ReadAudio(0, 100, out _), Throws.TypeOf<InvalidOperationException>()
+            .With.Message.Contains("Audio response"));
+    }
+
+    [TestCase(-1)]
+    [TestCase(101)]
+    public void ReadAudio_SampleCountMustFitTheRequest(int samples)
+    {
+        OpenFileResponse response = _worker.OpenAudio(8000, 6);
+        using var reader = new FFmpegReaderProxy(_worker.Connection, response.ReaderId, response);
+        _worker.ChangeAudioResponse = r =>
+        {
+            r.NumSamples = samples;
+            r.DataLength = samples * r.NumChannels * sizeof(float);
+        };
+        Assert.That(() => reader.ReadAudio(0, 100, out _), Throws.TypeOf<InvalidOperationException>()
+            .With.Message.Contains("Audio response"));
+    }
+
+    private static void AssertAudio(AudioBuffer audio, int channels, int start, int count)
+    {
+        Assert.That(audio.SampleCount, Is.EqualTo(count));
+        Assert.That(audio.ChannelCount, Is.EqualTo(channels));
+        Assert.That(audio.SampleRate, Is.EqualTo(8000));
+        for (int channel = 0; channel < channels; channel++)
+            Assert.That(audio.GetChannelData(channel).ToArray(),
+                Is.EqualTo(Enumerable.Range(start, count).Select(i => FakeWorker.SampleValue(channel, i)).ToArray()));
     }
 
     [Test]
@@ -788,6 +871,7 @@ public class FFmpegReaderProxyIdleTests
         private readonly ConcurrentDictionary<int, bool> _closed = new();
         private readonly ConcurrentDictionary<int, bool> _recreateVideoBuffer = new();
         private readonly ConcurrentDictionary<int, (int Width, int Height)> _videoSizes = new();
+        private readonly ConcurrentDictionary<int, OpenFileResponse> _audioStreams = new();
         private readonly ConcurrentBag<SharedMemoryBuffer> _retiredBuffers = [];
         private readonly Task _loop;
         private int _nextReaderId;
@@ -819,6 +903,12 @@ public class FFmpegReaderProxyIdleTests
 
         public IpcConnection Connection { get; }
 
+        public int AudioEnd { get; set; } = int.MaxValue;
+
+        public Action<ReadAudioResponse>? ChangeAudioResponse { get; set; }
+
+        public static float SampleValue(int channel, int position) => (channel + 1) / 8f + position / 65536f;
+
         public static byte PixelValue(int readerId, int frame) => (byte)(readerId * 16 + frame);
 
         public OpenFileResponse OpenVideo(int frameRateNum = 30, int slotCount = 1, int bytesPerPixel = BytesPerPixel)
@@ -845,18 +935,19 @@ public class FFmpegReaderProxyIdleTests
             };
         }
 
-        public OpenFileResponse OpenAudio(int sampleRate)
+        public OpenFileResponse OpenAudio(int sampleRate, int channels = 2, bool positions = true)
         {
             int id = Interlocked.Increment(ref _nextReaderId);
             string name = $"beutl-fake-audio-{Guid.NewGuid():N}";
-            _buffers[id] = SharedMemoryBuffer.Create(name, sampleRate * 8L + 64);
-            return new OpenFileResponse
+            _buffers[id] = SharedMemoryBuffer.Create(name, (long)sampleRate * channels * sizeof(float) + 64);
+            return _audioStreams[id] = new OpenFileResponse
             {
                 ReaderId = id,
                 HasAudio = true,
                 AudioCodecName = "fake",
                 AudioSampleRate = sampleRate,
-                AudioNumChannels = 2,
+                AudioNumChannels = channels,
+                AudioSpeakerMask = positions ? (uint)AudioChannelLayout.GetDefault(channels).Speakers : 0,
                 AudioDurationNum = 10,
                 AudioDurationDen = 1,
                 AudioSharedMemoryName = name,
@@ -1013,20 +1104,30 @@ public class FFmpegReaderProxyIdleTests
                 return IpcMessage.CreateError(request.Id, $"Unknown reader ID: {payload.ReaderId}");
 
             // Like the worker, fail a request that does not fit the buffer created at open.
-            if (buffer.Capacity < payload.Length * 8L + 64)
+            OpenFileResponse stream = _audioStreams[payload.ReaderId];
+            int channels = stream.AudioNumChannels;
+            if (buffer.Capacity < (long)payload.Length * channels * sizeof(float) + 64)
             {
                 return IpcMessage.Create(
                     request.Id, MessageType.ReadAudioResult, new ReadAudioResponse { Success = false });
             }
 
-            // Fresh buffers are zero-filled, which is silence for stereo float samples.
-            return IpcMessage.Create(request.Id, MessageType.ReadAudioResult, new ReadAudioResponse
+            int samples = Math.Min(payload.Length, Math.Max(0, AudioEnd - payload.Start));
+            float[] interleaved = new float[samples * channels];
+            for (int i = 0; i < samples; i++)
+                for (int channel = 0; channel < channels; channel++)
+                    interleaved[i * channels + channel] = SampleValue(channel, payload.Start + i);
+            buffer.Write(MemoryMarshal.AsBytes(interleaved.AsSpan()));
+            var response = new ReadAudioResponse
             {
                 Success = true,
-                SampleRate = 8000,
-                NumSamples = payload.Length,
-                DataLength = payload.Length * 8,
-            });
+                SampleRate = stream.AudioSampleRate,
+                NumChannels = channels,
+                NumSamples = samples,
+                DataLength = samples * channels * sizeof(float),
+            };
+            ChangeAudioResponse?.Invoke(response);
+            return IpcMessage.Create(request.Id, MessageType.ReadAudioResult, response);
         }
 
         private IpcMessage HandleClose(IpcMessage request)

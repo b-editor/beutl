@@ -1,4 +1,5 @@
-﻿using Beutl.Extensions.FFmpeg.Decoding;
+﻿using Beutl.Audio;
+using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.FFmpegIpc.Protocol.Messages;
 
 namespace Beutl.UnitTests.Extensions.FFmpeg;
@@ -24,6 +25,7 @@ public class FFmpegReaderProxyStreamMatchTests
         ("VideoCodec", r => r.VideoCodecName = "hevc"),
         ("SampleRate", r => r.AudioSampleRate = 44100),
         ("Channels", r => r.AudioNumChannels = 6),
+        ("SpeakerMask", r => r.AudioSpeakerMask = (uint)(AudioSpeakers.SideLeft | AudioSpeakers.SideRight)),
         ("AudioDuration", r => r.AudioDurationNum = 20),
         ("AudioCodec", r => r.AudioCodecName = "opus"),
         ("NoAudio", r => r.HasAudio = false),
@@ -68,6 +70,7 @@ public class FFmpegReaderProxyStreamMatchTests
         AudioCodecName = "aac",
         AudioSampleRate = 48000,
         AudioNumChannels = 2,
+        AudioSpeakerMask = (uint)AudioChannelLayout.Stereo.Speakers,
         AudioDurationNum = 10,
         AudioDurationDen = 1,
     };
