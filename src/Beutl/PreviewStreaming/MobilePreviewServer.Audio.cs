@@ -1,5 +1,5 @@
-﻿using Beutl.Audio;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
+using Beutl.Audio;
 using Beutl.Editor.Models;
 using Beutl.Extensions.FFmpeg;
 using Beutl.FFmpegIpc.Protocol.Messages;

@@ -1,12 +1,12 @@
-﻿using System.Text.Json.Nodes;
-using Beutl.Audio;
-using Beutl.Editor.Services;
-using Beutl.Extensibility;
-using System.Reactive.Linq;
+﻿using System.Reactive.Linq;
+using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.VisualTree;
+using Beutl.Audio;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.ProjectSystem;

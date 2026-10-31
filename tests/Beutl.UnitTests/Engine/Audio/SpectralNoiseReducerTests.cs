@@ -1,7 +1,7 @@
-﻿using Beutl.Audio;
-using Beutl.Audio.Graph;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using Beutl.Audio;
+using Beutl.Audio.Graph;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
