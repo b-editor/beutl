@@ -12,6 +12,9 @@ public sealed class PannerNode : AudioNode
     private AudioChannelMatrix? _matrix;
     private AudioChannelLayout _matrixInput;
     private AudioChannelLayout _matrixOutput;
+    private BalanceSide[] _balanceSides = [];
+
+    private enum BalanceSide : byte { Other, Left, Right }
 
     public required IProperty<float> Pan { get; init; }
     public required IProperty<float> SurroundPan { get; init; }
@@ -36,6 +39,19 @@ public sealed class PannerNode : AudioNode
                 throw new InvalidOperationException("Input channel count does not match the panner layout.");
             if (_matrix is null || _matrixInput != InputLayout || _matrixOutput != OutputLayout)
             {
+                if (_matrix is null || _matrixOutput != OutputLayout)
+                {
+                    _balanceSides = new BalanceSide[OutputLayout.ChannelCount];
+                    for (int channel = 0; channel < _balanceSides.Length; channel++)
+                    {
+                        _balanceSides[channel] = OutputLayout.GetSpeaker(channel) switch
+                        {
+                            FrontLeft or FrontLeftOfCenter or SideLeft or BackLeft or TopFrontLeft or TopBackLeft => BalanceSide.Left,
+                            FrontRight or FrontRightOfCenter or SideRight or BackRight or TopFrontRight or TopBackRight => BalanceSide.Right,
+                            _ => BalanceSide.Other
+                        };
+                    }
+                }
                 // One/two-channel clips feed the panner's L/R sides; larger layouts retain positions.
                 AudioChannelLayout inputLayout = InputLayout.ChannelCount <= 2 && OutputLayout != AudioChannelLayout.Mono
                     ? AudioChannelLayout.GetDefault(InputLayout.ChannelCount) : InputLayout;
@@ -63,39 +79,11 @@ public sealed class PannerNode : AudioNode
             {
                 if (!animated)
                 {
-                    Apply(input, output, 0, input.SampleCount, Pan.Value, SurroundPan.Value, CenterLevel.Value, LfeLevel.Value, position);
+                    ApplyStatic(input, output, Pan.Value, SurroundPan.Value, CenterLevel.Value, LfeLevel.Value, position);
                 }
                 else
                 {
-                    const int maxChunk = 2048;
-                    Span<float> values = stackalloc float[maxChunk * 4];
-                    for (int offset = 0; offset < input.SampleCount; offset += maxChunk)
-                    {
-                        int count = Math.Min(maxChunk, input.SampleCount - offset);
-                        Span<float> pan = values[..count];
-                        Span<float> surround = values.Slice(maxChunk, count);
-                        Span<float> center = values.Slice(maxChunk * 2, count);
-                        Span<float> lfe = values.Slice(maxChunk * 3, count);
-                        Sample(Pan, pan);
-                        if (position)
-                        {
-                            Sample(SurroundPan, surround);
-                            Sample(CenterLevel, center);
-                            Sample(LfeLevel, lfe);
-                        }
-                        for (int i = 0; i < count; i++)
-                            Apply(input, output, offset + i, 1, pan[i], position ? surround[i] : 0,
-                                position ? center[i] : 0, position ? lfe[i] : 0, position);
-
-                        void Sample(IProperty<float> property, Span<float> destination)
-                        {
-                            if (property.GetKeyFrameAnimation() is null)
-                                destination.Fill(property.Value);
-                            else
-                                context.AnimationSampler.SampleBuffer(property, context.GetChunkRange(offset, count),
-                                    context.SampleRate, destination);
-                        }
-                    }
+                    ApplyAnimated(input, output, context, position);
                 }
             }
             if (input.SampleCount > 0)
@@ -114,7 +102,7 @@ public sealed class PannerNode : AudioNode
         }
     }
 
-    private void Apply(AudioBuffer input, AudioBuffer output, int offset, int count,
+    private void ApplyStatic(AudioBuffer input, AudioBuffer output,
         float pan, float surround, float center, float lfe, bool position)
     {
         float x = Math.Clamp(pan / 100f, -1, 1);
@@ -126,13 +114,14 @@ public sealed class PannerNode : AudioNode
                 return;
             for (int channel = 0; channel < output.ChannelCount; channel++)
             {
-                float gain = OutputLayout.GetSpeaker(channel) switch
+                float gain = _balanceSides[channel] switch
                 {
-                    FrontLeft or FrontLeftOfCenter or SideLeft or BackLeft or TopFrontLeft or TopBackLeft => left,
-                    FrontRight or FrontRightOfCenter or SideRight or BackRight or TopFrontRight or TopBackRight => right,
+                    BalanceSide.Left => left,
+                    BalanceSide.Right => right,
                     _ => 1
                 };
-                Scale(output.GetChannelData(channel).Slice(offset, count), gain);
+                if (gain != 1)
+                    Scale(output.GetChannelData(channel), gain);
             }
             return;
         }
@@ -140,48 +129,156 @@ public sealed class PannerNode : AudioNode
         float y = Math.Clamp(surround / 100f, 0, 1);
         float cs = Math.Clamp(center / 100f, 0, 1) * (1 - Math.Abs(x));
         float l = Math.Clamp(lfe / 100f, 0, 1);
-        float front, side = 0, back;
-        if (OutputLayout == AudioChannelLayout.Surround71)
+        bool surround71 = OutputLayout == AudioChannelLayout.Surround71;
+        var (front, side, back) = GetSurroundWeights(y, surround71);
+
+        bool mono = input.ChannelCount == 1;
+        ReadOnlySpan<float> sourceLeft = input.GetChannelData(0);
+        ReadOnlySpan<float> sourceRight = mono ? sourceLeft : input.GetChannelData(1);
+        // The default matrix has already copied FL/FR exactly, including signed zeros.
+        if (x == 0 && y == 0 && cs == 0 && l == 0)
         {
-            if (y <= 0.5f)
+            for (int i = 0; i < input.SampleCount; i++)
+                _lfeFilter.Process(mono ? sourceLeft[i] : (sourceLeft[i] + sourceRight[i]) / 2);
+            return;
+        }
+
+        Span<float> frontLeft = output.GetChannelData(0), frontRight = output.GetChannelData(1);
+        Span<float> centerChannel = output.GetChannelData(2), lfeChannel = output.GetChannelData(3);
+        Span<float> backLeft = output.GetChannelData(4), backRight = output.GetChannelData(5);
+        Span<float> sideLeft = surround71 ? output.GetChannelData(6) : default;
+        Span<float> sideRight = surround71 ? output.GetChannelData(7) : default;
+        for (int i = 0; i < input.SampleCount; i++)
+        {
+            float a = sourceLeft[i], b = sourceRight[i];
+            float low = _lfeFilter.Process(mono ? a : (a + b) / 2);
+            float balancedLeft = Multiply(a, left), balancedRight = Multiply(b, right);
+            float lf = Multiply(balancedLeft, front), rf = Multiply(balancedRight, front);
+            frontLeft[i] = Multiply(lf, 1 - cs);
+            frontRight[i] = Multiply(rf, 1 - cs);
+            centerChannel[i] = cs == 0 ? 0 : cs * (lf + rf) / 2;
+            lfeChannel[i] = Multiply(low, l);
+            backLeft[i] = Multiply(balancedLeft, back);
+            backRight[i] = Multiply(balancedRight, back);
+            if (surround71)
             {
-                (front, side) = Crossfade(y * 2);
-                back = 0;
+                sideLeft[i] = Multiply(balancedLeft, side);
+                sideRight[i] = Multiply(balancedRight, side);
+            }
+        }
+    }
+
+    private void ApplyAnimated(AudioBuffer input, AudioBuffer output, AudioProcessContext context, bool position)
+    {
+        const int maxChunk = 2048;
+        // Reuse sampled-property spans for gains, keeping scratch space bounded by the chunk size.
+        Span<float> values = stackalloc float[maxChunk * (position ? 7 : 2)];
+        bool surround71 = OutputLayout == AudioChannelLayout.Surround71;
+        for (int offset = 0; offset < input.SampleCount; offset += maxChunk)
+        {
+            int count = Math.Min(maxChunk, input.SampleCount - offset);
+            Span<float> left = values[..count], right = values.Slice(maxChunk, count);
+            Sample(Pan, left);
+            if (!position)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    float x = Math.Clamp(left[i] / 100f, -1, 1);
+                    left[i] = Math.Min(1, 1 - x);
+                    right[i] = Math.Min(1, 1 + x);
+                }
+                for (int channel = 0; channel < output.ChannelCount; channel++)
+                {
+                    if (_balanceSides[channel] == BalanceSide.Other)
+                        continue;
+                    ReadOnlySpan<float> gains = _balanceSides[channel] == BalanceSide.Left ? left : right;
+                    Span<float> samples = output.GetChannelData(channel).Slice(offset, count);
+                    for (int i = 0; i < count; i++)
+                        samples[i] = Multiply(samples[i], gains[i]);
+                }
             }
             else
             {
-                front = 0;
-                (side, back) = Crossfade(y * 2 - 1);
+                Span<float> front = values.Slice(maxChunk * 2, count), side = values.Slice(maxChunk * 3, count);
+                Span<float> back = values.Slice(maxChunk * 4, count), center = values.Slice(maxChunk * 5, count);
+                Span<float> lfe = values.Slice(maxChunk * 6, count);
+                Sample(SurroundPan, front);
+                Sample(CenterLevel, center);
+                Sample(LfeLevel, lfe);
+                for (int i = 0; i < count; i++)
+                {
+                    float x = Math.Clamp(left[i] / 100f, -1, 1);
+                    left[i] = Math.Min(1, 1 - x);
+                    right[i] = Math.Min(1, 1 + x);
+                    (front[i], side[i], back[i]) = GetSurroundWeights(Math.Clamp(front[i] / 100f, 0, 1), surround71);
+                    center[i] = Math.Clamp(center[i] / 100f, 0, 1) * (1 - Math.Abs(x));
+                    lfe[i] = Math.Clamp(lfe[i] / 100f, 0, 1);
+                }
+                ApplySurround(input, output, offset, left, right, front, side, back, center, lfe);
+            }
+
+            void Sample(IProperty<float> property, Span<float> destination)
+            {
+                if (property.GetKeyFrameAnimation() is null)
+                    destination.Fill(property.Value);
+                else
+                    context.AnimationSampler.SampleBuffer(property, context.GetChunkRange(offset, count),
+                        context.SampleRate, destination);
             }
         }
-        else
-        {
-            (front, back) = Crossfade(y);
-        }
+    }
 
+    private void ApplySurround(AudioBuffer input, AudioBuffer output, int offset,
+        ReadOnlySpan<float> left, ReadOnlySpan<float> right, ReadOnlySpan<float> front,
+        ReadOnlySpan<float> side, ReadOnlySpan<float> back, ReadOnlySpan<float> center, ReadOnlySpan<float> lfe)
+    {
+        int count = left.Length;
+        bool mono = input.ChannelCount == 1, surround71 = OutputLayout == AudioChannelLayout.Surround71;
         ReadOnlySpan<float> sourceLeft = input.GetChannelData(0).Slice(offset, count);
-        ReadOnlySpan<float> sourceRight = input.GetChannelData(input.ChannelCount == 1 ? 0 : 1).Slice(offset, count);
-        // The default matrix has already copied FL/FR exactly, including signed zeros.
-        bool defaults = x == 0 && y == 0 && cs == 0 && l == 0;
+        ReadOnlySpan<float> sourceRight = mono ? sourceLeft : input.GetChannelData(1).Slice(offset, count);
+        Span<float> frontLeft = output.GetChannelData(0).Slice(offset, count), frontRight = output.GetChannelData(1).Slice(offset, count);
+        Span<float> centerChannel = output.GetChannelData(2).Slice(offset, count), lfeChannel = output.GetChannelData(3).Slice(offset, count);
+        Span<float> backLeft = output.GetChannelData(4).Slice(offset, count), backRight = output.GetChannelData(5).Slice(offset, count);
+        Span<float> sideLeft = surround71 ? output.GetChannelData(6).Slice(offset, count) : default;
+        Span<float> sideRight = surround71 ? output.GetChannelData(7).Slice(offset, count) : default;
         for (int i = 0; i < count; i++)
         {
             float a = sourceLeft[i], b = sourceRight[i];
-            float low = _lfeFilter.Process(input.ChannelCount == 1 ? a : (a + b) / 2);
-            if (defaults)
-                continue;
-            float balancedLeft = Multiply(a, left), balancedRight = Multiply(b, right);
-            float lf = Multiply(balancedLeft, front), rf = Multiply(balancedRight, front);
-            output.GetChannelData(0)[offset + i] = Multiply(lf, 1 - cs);
-            output.GetChannelData(1)[offset + i] = Multiply(rf, 1 - cs);
-            output.GetChannelData(2)[offset + i] = cs == 0 ? 0 : cs * (lf + rf) / 2;
-            output.GetChannelData(3)[offset + i] = Multiply(low, l);
-            output.GetChannelData(4)[offset + i] = Multiply(balancedLeft, back);
-            output.GetChannelData(5)[offset + i] = Multiply(balancedRight, back);
-            if (OutputLayout == AudioChannelLayout.Surround71)
+            float low = _lfeFilter.Process(mono ? a : (a + b) / 2);
+            // Keep the balance, front weight and center share as separate multiplies for exact rounding.
+            float balancedLeft = Multiply(a, left[i]), balancedRight = Multiply(b, right[i]);
+            float lf = Multiply(balancedLeft, front[i]), rf = Multiply(balancedRight, front[i]);
+            float cs = center[i];
+            frontLeft[i] = Multiply(lf, 1 - cs);
+            frontRight[i] = Multiply(rf, 1 - cs);
+            centerChannel[i] = cs == 0 ? 0 : cs * (lf + rf) / 2;
+            lfeChannel[i] = Multiply(low, lfe[i]);
+            backLeft[i] = Multiply(balancedLeft, back[i]);
+            backRight[i] = Multiply(balancedRight, back[i]);
+            if (surround71)
             {
-                output.GetChannelData(6)[offset + i] = Multiply(balancedLeft, side);
-                output.GetChannelData(7)[offset + i] = Multiply(balancedRight, side);
+                sideLeft[i] = Multiply(balancedLeft, side[i]);
+                sideRight[i] = Multiply(balancedRight, side[i]);
             }
+        }
+    }
+
+    private static (float Front, float Side, float Back) GetSurroundWeights(float y, bool surround71)
+    {
+        if (!surround71)
+        {
+            var (front, back) = Crossfade(y);
+            return (front, 0, back);
+        }
+        if (y <= 0.5f)
+        {
+            var (front, side) = Crossfade(y * 2);
+            return (front, side, 0);
+        }
+        else
+        {
+            var (side, back) = Crossfade(y * 2 - 1);
+            return (0, side, back);
         }
     }
 

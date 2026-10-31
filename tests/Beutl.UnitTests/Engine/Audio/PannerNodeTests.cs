@@ -183,6 +183,40 @@ public class PannerNodeTests
                 Is.EqualTo(input.GetChannelData(0).ToArray().Select(BitConverter.SingleToInt32Bits)));
     }
 
+    [TestCase(1, 2)]
+    [TestCase(2, 6)]
+    [TestCase(2, 8)]
+    [TestCase(6, 8)]
+    public void LongAnimatedBuffer_MatchesSmallerContiguousContexts(int inputChannels, int outputChannels)
+    {
+        PannerNode CreateAnimated()
+        {
+            var node = Create(inputChannels, outputChannels);
+            var duration = MediaTime.FromSeconds(1);
+            node.Pan.SetKeyFrameAnimation(AudioTestAnimations.Ramp(-100, 100, duration));
+            node.SurroundPan.SetKeyFrameAnimation(AudioTestAnimations.Ramp(0, 100, duration));
+            node.CenterLevel.SetKeyFrameAnimation(AudioTestAnimations.Ramp(0, 80, duration));
+            node.LfeLevel.SetKeyFrameAnimation(AudioTestAnimations.Ramp(0, 70, duration));
+            node.AddInput(new TimelineInputNode(inputChannels));
+            return node;
+        }
+
+        using var continuous = CreateAnimated();
+        using var segmented = CreateAnimated();
+        using var expected = continuous.Process(AudioTestContexts.Exact(MediaTime.Zero, Rate, Rate));
+        using var actual = new AudioBuffer(Rate, outputChannels, Rate);
+        // Deliberately cross the panner's 2048-sample scratch boundaries at different offsets.
+        for (int offset = 0; offset < Rate; offset += 3001)
+        {
+            int count = Math.Min(3001, Rate - offset);
+            using var chunk = segmented.Process(AudioTestContexts.Exact(MediaTime.FromSamples(offset, Rate), count, Rate));
+            chunk.CopyTo(actual, offset);
+        }
+        for (int ch = 0; ch < outputChannels; ch++)
+            Assert.That(actual.GetChannelData(ch).ToArray().Select(BitConverter.SingleToInt32Bits),
+                Is.EqualTo(expected.GetChannelData(ch).ToArray().Select(BitConverter.SingleToInt32Bits)));
+    }
+
     [Test]
     public void ReuseUpdatesLayouts()
     {
@@ -199,6 +233,16 @@ public class PannerNodeTests
     private sealed class TransferNode(AudioBuffer buffer) : AudioNode
     {
         public override AudioBuffer Process(AudioProcessContext context) => buffer;
+    }
+
+    private sealed class TimelineInputNode(int channels) : AudioNode
+    {
+        public override AudioBuffer Process(AudioProcessContext context)
+        {
+            int start = (int)context.TimeRange.Start.ToSamples(context.SampleRate, MidpointRounding.ToZero);
+            return AudioTestBuffers.CreateBuffer(channels, context.GetSampleCount(),
+                (ch, i) => (((start + i) * 17 + ch * 11) % 101 - 50) / 128f, context.SampleRate);
+        }
     }
 
     private sealed class ImpulseNode : AudioNode
