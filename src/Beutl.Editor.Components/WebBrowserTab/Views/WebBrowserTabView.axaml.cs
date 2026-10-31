@@ -216,14 +216,14 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             if (OperatingSystem.IsWindows()) OnWindowsNativeDownloadRequested(uri, name, source);
             else OnNativeDownloadRequested(uri, name, source);
         }
-        void OnGeneratedDownload(string name, IBrowserDownloadSource source)
+        void OnGeneratedDownload(Uri? creator, string name, IBrowserDownloadSource source)
         {
             if (handlerVersion != _nativeDownloadHandlerVersion || !ReferenceEquals(webView, _webView))
             {
                 source.Dispose();
                 return;
             }
-            OnGeneratedDownloadRequested(name, source);
+            OnGeneratedDownloadRequested(creator, name, source);
         }
         if (OperatingSystem.IsMacOS())
         {

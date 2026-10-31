@@ -73,6 +73,12 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         address != null && (address.StartsWith("blob:", StringComparison.OrdinalIgnoreCase)
             || address.StartsWith("data:", StringComparison.OrdinalIgnoreCase));
 
+    // A blob: URL carries the origin of the document that created it; a data: URL names no one.
+    internal static Uri? GetGeneratedFileOrigin(string? address) =>
+        address != null && address.StartsWith("blob:", StringComparison.OrdinalIgnoreCase)
+        && Uri.TryCreate(address[5..], UriKind.Absolute, out Uri? creator) && IsHttpUri(creator)
+            ? new Uri(creator.GetLeftPart(UriPartial.Authority) + "/") : null;
+
     private static bool IsMediaExtension(string extension) =>
         s_mediaTypes.Values.Contains(extension, StringComparer.OrdinalIgnoreCase)
         || extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase);

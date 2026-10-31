@@ -93,16 +93,20 @@ internal partial class WebBrowserTabView
     }
 
     // A page script generated the file, and the engine holds it. No navigation took place, so the page and its loading
-    // state stay as they are; the file belongs to the document on display, even while another one loads.
-    internal void OnGeneratedDownloadRequested(string suggestedName, IBrowserDownloadSource source)
+    // state stay as they are. The file is credited to the document on display, even while another one loads, unless
+    // the engine names a creator from another site: an embedded document must not pass its file off as the page's.
+    internal void OnGeneratedDownloadRequested(Uri? creator, string suggestedName, IBrowserDownloadSource source)
     {
         if (_disposed || _viewModel is not { } vm)
         {
             source.Dispose();
             return;
         }
-        if (IsPageDownloadOfferBlocked) DeferNativeDownload(vm.CommittedUri, suggestedName, source);
-        else QueuePageDownloadRequest(vm.CommittedUri, suggestedName, BrowserReferrerPolicy.NoReferrer, source);
+        Uri page = vm.CommittedUri;
+        Uri credited = creator == null || (creator.Scheme == page.Scheme && creator.IdnHost == page.IdnHost
+            && creator.Port == page.Port) ? page : creator;
+        if (IsPageDownloadOfferBlocked) DeferNativeDownload(credited, suggestedName, source);
+        else QueuePageDownloadRequest(credited, suggestedName, BrowserReferrerPolicy.NoReferrer, source);
     }
 
     // The Linux handler kept the previous page in place of a main-frame file WebKitGTK cannot show, and dropped

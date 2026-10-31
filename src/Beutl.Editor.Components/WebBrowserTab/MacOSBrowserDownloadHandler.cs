@@ -18,7 +18,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private static readonly nint s_respondsToSelector = sel_registerName("respondsToSelector:");
     private static readonly nint s_delegateClass = CreateDelegateClass();
     private readonly Action<Uri, string, IBrowserDownloadSource> _onDownload;
-    private readonly Action<string, IBrowserDownloadSource> _onGeneratedDownload;
+    private readonly Action<Uri?, string, IBrowserDownloadSource> _onGeneratedDownload;
     private readonly Action<Uri> _onNavigationCommitted;
     private readonly Action _onNavigationStarted;
     private readonly Dictionary<nint, NativeDownload> _pendingDownloads = [];
@@ -31,7 +31,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private nint _delegate;
 
     private MacOSBrowserDownloadHandler(nint webView, Action<Uri, string, IBrowserDownloadSource> onDownload,
-        Action<string, IBrowserDownloadSource> onGeneratedDownload, Action<Uri> onNavigationCommitted, Action onNavigationStarted)
+        Action<Uri?, string, IBrowserDownloadSource> onGeneratedDownload, Action<Uri> onNavigationCommitted, Action onNavigationStarted)
     {
         _webView = webView;
         _onDownload = onDownload;
@@ -45,7 +45,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     }
 
     internal static MacOSBrowserDownloadHandler? TryAttach(IPlatformHandle? handle, Action<Uri, string, IBrowserDownloadSource> onDownload,
-        Action<string, IBrowserDownloadSource> onGeneratedDownload, Action<Uri> onNavigationCommitted, Action onNavigationStarted)
+        Action<Uri?, string, IBrowserDownloadSource> onGeneratedDownload, Action<Uri> onNavigationCommitted, Action onNavigationStarted)
     {
         if (handle is not IAppleWKWebViewPlatformHandle apple) return null;
         nint webView = apple.GetWKWebViewRetained();
@@ -165,7 +165,27 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
 
     // Reads only the scheme, without copying a data: URL that holds the whole file.
     private static bool IsGeneratedFileRequest(nint request) => BrowserMediaDownload.IsGeneratedFileAddress(
-        GetString(Send(Send(request, sel_registerName("URL")), sel_registerName("scheme"))) + ":");
+        GetScheme(request) + ":");
+
+    private static string? GetScheme(nint request) =>
+        GetString(Send(Send(request, sel_registerName("URL")), sel_registerName("scheme")));
+
+    // A blob: URL names the origin that created it. A data: URL names no one, so the frame whose link
+    // started the download is its creator.
+    private static Uri? GetGeneratedFileCreator(nint navigationAction, nint request)
+    {
+        if (string.Equals(GetScheme(request), "blob", StringComparison.OrdinalIgnoreCase))
+        {
+            return BrowserMediaDownload.GetGeneratedFileOrigin(
+                GetString(Send(Send(request, sel_registerName("URL")), sel_registerName("absoluteString"))));
+        }
+        nint origin = Send(Send(navigationAction, sel_registerName("sourceFrame")), sel_registerName("securityOrigin"));
+        string? protocol = GetString(Send(origin, sel_registerName("protocol")));
+        string? host = GetString(Send(origin, sel_registerName("host")));
+        nint port = Send(origin, sel_registerName("port"));
+        return protocol is "http" or "https" && !string.IsNullOrEmpty(host)
+            ? new UriBuilder(protocol, host, port == 0 ? -1 : (int)port).Uri : null;
+    }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static void OnActionBecameDownload(nint self, nint selector, nint webView, nint navigationAction, nint download)
@@ -177,9 +197,11 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
             {
                 // Only generated files are given the download policy. WebKit names the file when it asks
                 // for a destination, so the file is offered then.
-                if (IsGeneratedFileRequest(Send(navigationAction, sel_registerName("request"))))
+                nint request = Send(navigationAction, sel_registerName("request"));
+                if (IsGeneratedFileRequest(request))
                 {
-                    source = new NativeDownload(handler._onGeneratedDownload);
+                    Uri? creator = GetGeneratedFileCreator(navigationAction, request);
+                    source = new NativeDownload((name, offered) => handler._onGeneratedDownload(creator, name, offered));
                     source.Attach(download);
                     return;
                 }

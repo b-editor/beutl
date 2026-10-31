@@ -20,8 +20,10 @@ internal sealed partial class LinuxBrowserDownloadHandler
                 nint download = GetObject(values + 24);
                 LinuxBrowserDownloadHandler? handler;
                 lock (s_lock) s_handlers.TryGetValue(api.GetDownloadWebView(download), out handler);
-                if (handler is { _disposed: false } && BrowserMediaDownload.IsGeneratedFileAddress(api.GetDownloadUri(download)))
-                    GeneratedDownload.Adopt(handler, download);
+                string? address = api.GetDownloadUri(download);
+                // A WebKit download names no frame, so only a blob: URL tells which document created the file.
+                if (handler is { _disposed: false } && BrowserMediaDownload.IsGeneratedFileAddress(address))
+                    GeneratedDownload.Adopt(handler, download, BrowserMediaDownload.GetGeneratedFileOrigin(address));
             }
         }
         catch
@@ -37,6 +39,7 @@ internal sealed partial class LinuxBrowserDownloadHandler
     {
         private readonly LinuxBrowserDownloadHandler _owner;
         private readonly nint _download;
+        private readonly Uri? _creator;
         private readonly TaskCompletionSource _finished = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly Stopwatch _progressTimer = Stopwatch.StartNew();
         private GCHandle _self;
@@ -47,11 +50,12 @@ internal sealed partial class LinuxBrowserDownloadHandler
         private bool _saving;
         private int _disposed;
 
-        private GeneratedDownload(LinuxBrowserDownloadHandler owner, nint download)
+        private GeneratedDownload(LinuxBrowserDownloadHandler owner, nint download, Uri? creator)
         {
             _owner = owner;
             // Released on the GLib thread, like the web view.
             _download = ObjectRef(download);
+            _creator = creator;
         }
 
         public bool IsGenerated => true;
@@ -59,9 +63,9 @@ internal sealed partial class LinuxBrowserDownloadHandler
         private bool IsDisposed => Volatile.Read(ref _disposed) != 0;
 
         // Runs on the GLib thread, before WebKit asks for the destination.
-        internal static unsafe void Adopt(LinuxBrowserDownloadHandler owner, nint download)
+        internal static unsafe void Adopt(LinuxBrowserDownloadHandler owner, nint download, Uri? creator)
         {
-            var source = new GeneratedDownload(owner, download);
+            var source = new GeneratedDownload(owner, download, creator);
             source._self = GCHandle.Alloc(source);
             nint data = GCHandle.ToIntPtr(source._self);
             source._signals =
@@ -142,7 +146,7 @@ internal sealed partial class LinuxBrowserDownloadHandler
                     try
                     {
                         if (owner._disposed || offered.IsDisposed) offered.Dispose();
-                        else owner._onGeneratedDownload(name, offered);
+                        else owner._onGeneratedDownload(offered._creator, name, offered);
                     }
                     catch
                     {

@@ -1729,7 +1729,7 @@ public class WebBrowserDownloadTests
         try
         {
             window.Show();
-            view.OnGeneratedDownloadRequested("README.md", source);
+            view.OnGeneratedDownloadRequested(new Uri("https://github.com/"), "README.md", source);
             Dispatcher.UIThread.RunJobs();
             var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
             Assert.Multiple(() =>
@@ -1779,8 +1779,8 @@ public class WebBrowserDownloadTests
         view.NavigateFromAddress();
         var source = new GeneratedDownloadSource("notes.txt", "notes");
 
-        // The page still on display made the file while the next one loads.
-        view.OnGeneratedDownloadRequested("notes.txt", source);
+        // The page still on display made the file while the next one loads. A data: URL names no creator.
+        view.OnGeneratedDownloadRequested(null, "notes.txt", source);
         Dispatcher.UIThread.RunJobs();
         var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
         Assert.Multiple(() =>
@@ -1799,6 +1799,41 @@ public class WebBrowserDownloadTests
         Dispatcher.UIThread.RunJobs();
         Assert.That(offered, Is.EqualTo(page));
         Assert.That(source.IsDisposed, Is.True);
+    }
+
+    // An embedded document from another site, such as an ad, cannot pass its file off as the page's.
+    [AvaloniaTest]
+    public async Task AGeneratedFileFromAnotherSiteIsCreditedToThatSite()
+    {
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
+        var page = new Uri("https://github.com/b-editor/beutl/blob/main/README.md");
+        var embedded = new Uri("https://ads.example/");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page, profile);
+        using var view = CreateView(vm, includesSubframes: true);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = page, IsSuccess = true });
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        Uri? offered = null;
+        view.DownloadOptionsSelector = (uri, _) =>
+        {
+            offered = uri;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        };
+
+        view.OnGeneratedDownloadRequested(embedded, "invoice.pdf", new GeneratedDownloadSource("invoice.pdf", "%PDF"));
+        Dispatcher.UIThread.RunJobs();
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        Assert.That(ToolTip.GetTip(view.FindControl<TextBlock>("DownloadStatusText")!), Is.EqualTo(embedded.AbsoluteUri));
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(offered, Is.EqualTo(embedded));
+            Assert.That(profile.Downloads.Single().Url, Is.EqualTo(embedded.AbsoluteUri));
+            Assert.That(vm.CurrentUri, Is.EqualTo(page));
+        });
     }
 
     private sealed class GeneratedDownloadSource(string name, string content) : IBrowserDownloadSource

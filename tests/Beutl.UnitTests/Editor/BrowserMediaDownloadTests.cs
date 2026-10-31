@@ -127,6 +127,17 @@ public class BrowserMediaDownloadTests
         Assert.That(BrowserMediaDownload.IsGeneratedFileAddress(address), Is.EqualTo(expected));
     }
 
+    [TestCase("blob:https://github.com/6c1f9e0e-4d7a-4f1b-9d0e-2f1a3b4c5d6e", "https://github.com/")]
+    [TestCase("blob:http://localhost:8765/6c1f9e0e", "http://localhost:8765/")]
+    [TestCase("blob:null/6c1f9e0e", null)]
+    [TestCase("blob:file:///6c1f9e0e", null)]
+    [TestCase("data:text/plain;base64,SGVsbG8=", null)]
+    [TestCase(null, null)]
+    public void OnlyABlobAddressNamesTheOriginThatCreatedTheFile(string? address, string? expected)
+    {
+        Assert.That(BrowserMediaDownload.GetGeneratedFileOrigin(address)?.AbsoluteUri, Is.EqualTo(expected));
+    }
+
     [TestCase("README.md", "text/plain", "README.md")]
     [TestCase("index.html", "text/html", "index.html")]
     [TestCase("../../notes.txt", "text/plain", "notes.txt")]
