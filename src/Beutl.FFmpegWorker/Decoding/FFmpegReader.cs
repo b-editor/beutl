@@ -50,10 +50,17 @@ public sealed class FFmpegReader : MediaReader
     private AudioFrameConverter? _sampleConverter;
     private long _audioNowTimestamp;
     private long _audioNextTimestamp;
+    // The number of the decoded frame after the one on screen; once the stream has ended, where the last frame ends.
     private long _videoNowFrame;
+    private bool _videoEnded;
     private long _videoDiscardBefore = long.MinValue;
+    // The latest timestamp among packets decoded in full since the last seek.
+    private long _videoDecodedPts = long.MinValue;
     // Frames before the first video frame show it, as AVFoundation does.
     private long _firstVideoFrame;
+    // A frame stays on screen from its number until the next frame's, as ffmpeg's fps filter presents it.
+    private MediaFrame? _shownVideoFrame;
+    private long _shownFrameNumber = long.MinValue;
     private int _samplesReturn;
     private bool _audioSeek;
     // The target of a seek whose next frame starts after it; reads from there up to that frame are silence.
@@ -127,7 +134,7 @@ public sealed class FFmpegReader : MediaReader
                 VideoInfo = new VideoStreamInfo(
                     codec?.LongName ?? "Unknown",
                     // Counted from the container start; an unknown count stays 0 so callers use the duration.
-                    _videoStream!.NbFrames > 0 ? _firstVideoFrame + _videoStream.NbFrames : 0,
+                    _videoStream!.NbFrames > 0 ? GetVideoFrameCount() : 0,
                     new PixelSize(_videoDecoder.Width, _videoDecoder.Height),
                     new Rational(_videoStream.AvgFrameRate.num, _videoStream.AvgFrameRate.den))
                 {
@@ -398,39 +405,40 @@ public sealed class FFmpegReader : MediaReader
 
     private MediaFrame? ReadVideoCore(int frame)
     {
-        var videoFrame = ActiveVideoFrame;
-        if (_videoStream == null || _videoDecoder == null || videoFrame == null)
+        if (_videoStream == null || _videoDecoder == null || _shownVideoFrame == null)
             return null;
 
         // Leading frames map to the first frame, so reading them again does not seek.
-        frame = (int)Math.Max(frame, _firstVideoFrame);
-        long skip = frame - _videoNowFrame;
+        long target = Math.Max(frame, _firstVideoFrame);
+        long skip = target - _videoNowFrame;
 
-        // If the previous grab left the active frame unreferenced (a seek/grab that could not
-        // reach a decodable frame), _videoNowFrame no longer describes a usable frame, so `skip`
-        // (which can be 0) must not be trusted — force a fresh seek so a later in-range request
-        // recovers the frame instead of repeatedly returning the empty one.
-        bool currentUsable =
-            FFmpegFrameValidation.IsUsableVideoFrame(videoFrame.Format, videoFrame.Width, videoFrame.Height);
-        if (FFmpegSeekDecision.ShouldReseek(currentUsable, skip))
+        // The frame on screen covers reads up to the next frame's number, and after the last frame, reads past its
+        // end have nothing to decode.
+        bool settled = IsUsableVideoFrame(_shownVideoFrame) && target >= _shownFrameNumber && (skip < 0 || _videoEnded);
+        if (!settled)
         {
-            SeekVideo(frame);
-            skip = 0;
+            // If the previous grab left the active frame unreferenced (a seek/grab that could not
+            // reach a decodable frame), _videoNowFrame no longer describes a usable frame, so `skip`
+            // (which can be 0) must not be trusted — force a fresh seek so a later in-range request
+            // recovers the frame instead of repeatedly returning the empty one.
+            bool currentUsable = !_videoEnded && IsUsableVideoFrame(ActiveVideoFrame);
+            if (target < _shownFrameNumber || FFmpegSeekDecision.ShouldReseek(currentUsable, skip))
+            {
+                SeekVideo(target);
+            }
+            else
+            {
+                // Variable frame rate media numbers frames by time, so decode until the next frame starts after the
+                // target instead of counting frames.
+                while (target >= _videoNowFrame && AdvanceVideo())
+                {
+                }
+            }
         }
-
-        for (int i = 0; i < skip; i++)
-        {
-            if (!GrabVideo())
-                return null;
-        }
-
-        // GrabVideo後にActiveVideoFrameを再取得
-        videoFrame = ActiveVideoFrame;
-        if (videoFrame == null)
-            return null;
 
         // Drop an unreferenced frame (see above) instead of feeding AV_PIX_FMT_NONE to the buffer source, which throws.
-        if (!FFmpegFrameValidation.IsUsableVideoFrame(videoFrame.Format, videoFrame.Width, videoFrame.Height))
+        var videoFrame = _shownVideoFrame;
+        if (target >= _videoNowFrame || !IsUsableVideoFrame(videoFrame))
             return null;
 
         // AVFilterグラフを初期化（入力パラメータ変更時のみ再構築）
@@ -530,6 +538,9 @@ public sealed class FFmpegReader : MediaReader
             _currentVideoFrame?.Dispose();
             _currentVideoFrame = null;
 
+            _shownVideoFrame?.Dispose();
+            _shownVideoFrame = null;
+
             _currentAudioFrame?.Dispose();
             _currentAudioFrame = null;
 
@@ -623,6 +634,28 @@ public sealed class FFmpegReader : MediaReader
             _audioSilenceStart = sample_pos;
     }
 
+    private static bool IsUsableVideoFrame([NotNullWhen(true)] MediaFrame? frame)
+        => frame != null && FFmpegFrameValidation.IsUsableVideoFrame(frame.Format, frame.Width, frame.Height);
+
+    // The decoded frame takes the screen, and the frame after it decodes into the buffers the previous one held.
+    private bool AdvanceVideo()
+    {
+        if (_isHWDecoding)
+            (_shownVideoFrame, _swVideoFrame) = (_swVideoFrame, _shownVideoFrame);
+        else
+            (_shownVideoFrame, _currentVideoFrame) = (_currentVideoFrame, _shownVideoFrame);
+        _shownFrameNumber = _videoNowFrame;
+
+        if (GrabVideo())
+            return true;
+
+        // The last frame stays on screen until it ends, and at least for its own number.
+        _videoEnded = true;
+        _videoNowFrame = Math.Max(
+            _shownFrameNumber + 1, GetVideoFrameNumber(_shownVideoFrame!.Pts + _shownVideoFrame.Duration));
+        return false;
+    }
+
     private bool GrabVideo()
     {
         if (_demuxer == null || _videoDecoder == null || _packet == null || _videoStream == null)
@@ -658,15 +691,18 @@ public sealed class FFmpegReader : MediaReader
     // resent instead of lost when the demuxer reuses its buffer, and copies hardware frame props after the transfer.
     private unsafe bool DecodeVideoPacket(MediaPacket? packet)
     {
-        // A seek only needs reference pictures before its target. Keep the entire packet whose
-        // presentation interval contains the target, including reordered B frames, and decode
-        // normally when timestamps/duration are unknown. FFmpeg captures skip_frame per packet.
-        _videoDecoder!.SkipFrame = _videoDiscardBefore != long.MinValue
+        // A seek only needs reference pictures before its target. A packet that presents before a frame
+        // already decoded in full, whose number is still at most the target, never reaches the screen.
+        // Packet durations cannot tell this: they are decode order intervals, which differ from the
+        // presentation intervals around a frame rate change. Decode normally when timestamps are unknown.
+        // FFmpeg captures skip_frame per packet.
+        bool superseded = _videoDiscardBefore != long.MinValue
             && packet != null && packet.Pts != ffmpeg.AV_NOPTS_VALUE
-            && packet.Duration > 0 && GetVideoFrameNumber(packet.Pts + packet.Duration) <= _videoDiscardBefore
-            ? AVDiscard.AVDISCARD_NONREF
-            : AVDiscard.AVDISCARD_DEFAULT;
+            && packet.Pts < _videoDecodedPts && GetVideoFrameNumber(_videoDecodedPts) <= _videoDiscardBefore;
+        _videoDecoder!.SkipFrame = superseded ? AVDiscard.AVDISCARD_NONREF : AVDiscard.AVDISCARD_DEFAULT;
         int ret = _videoDecoder!.SendPacket(packet);
+        if (ret >= 0 && !superseded && packet != null && packet.Pts != ffmpeg.AV_NOPTS_VALUE)
+            _videoDecodedPts = Math.Max(_videoDecodedPts, packet.Pts);
         if (ret == ffmpeg.AVERROR(ffmpeg.EAGAIN) && packet != null)
         {
             KeepPendingVideoPacket(packet);
@@ -751,7 +787,7 @@ public sealed class FFmpegReader : MediaReader
         ffmpeg.av_frame_copy_props(swFrame, hwFrame).ThrowIfError();
     }
 
-    private unsafe void SeekVideo(int frame)
+    private unsafe void SeekVideo(long frame)
     {
         if (_demuxer == null || _videoDecoder == null) return;
 
@@ -762,6 +798,9 @@ public sealed class FFmpegReader : MediaReader
             _demuxer.Seek(timestamp, -1);
             ffmpeg.avcodec_flush_buffers(_videoDecoder);
             DiscardPendingVideoPacket();
+            _videoDecodedPts = long.MinValue;
+            _shownVideoFrame!.Unref();
+            _videoEnded = false;
             GrabVideo();
         }
 
@@ -779,8 +818,12 @@ public sealed class FFmpegReader : MediaReader
                 f -= 30;
             }
 
-            while (_videoNowFrame < frame && GrabVideo())
+            // The last frame that starts by the target takes the screen, or the first one when none does.
+            if (IsUsableVideoFrame(ActiveVideoFrame))
             {
+                while (AdvanceVideo() && _videoNowFrame <= frame)
+                {
+                }
             }
         }
         finally
@@ -802,6 +845,16 @@ public sealed class FFmpegReader : MediaReader
     {
         double seconds = pts * _videoTimeBaseDouble - _demuxer!.StartTime / (double)ffmpeg.AV_TIME_BASE;
         return (long)(seconds * _videoAvgFrameRateDouble + 0.5);
+    }
+
+    // The frame number where the stream ends. The sample count also holds samples an edit list hides, and variable
+    // frame rate media does not have one frame per number.
+    private long GetVideoFrameCount()
+    {
+        if (_videoStream!.StartTime == ffmpeg.AV_NOPTS_VALUE || _videoStream.Duration <= 0)
+            return _firstVideoFrame + _videoStream.NbFrames;
+
+        return GetVideoFrameNumber(_videoStream.StartTime + _videoStream.Duration);
     }
 
     private void ConfigureVideoStream()
@@ -851,6 +904,7 @@ public sealed class FFmpegReader : MediaReader
 
         // フレーム初期化
         _currentVideoFrame = new MediaFrame();
+        _shownVideoFrame = new MediaFrame();
         if (_isHWDecoding)
         {
             _swVideoFrame = new MediaFrame();
