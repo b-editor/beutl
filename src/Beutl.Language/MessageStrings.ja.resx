@@ -418,7 +418,7 @@
     <value>再生の一時停止中にシーン設定が無効になったため、適用をキャンセルしました。</value>
   </data>
   <data name="ScriptValidationUnavailable" xml:space="preserve">
-    <value>ここでは検証を利用できません（グラフィックスコンテキストがないため）。スクリプトはチェックされていません。</value>
+    <value>ここでは検証を利用できません。スクリプトはチェックされていません。</value>
   </data>
   <data name="WindowCapture_RecordingStarted" xml:space="preserve">
     <value>録画を開始しました: {0}x{1} @ {2}fps</value>

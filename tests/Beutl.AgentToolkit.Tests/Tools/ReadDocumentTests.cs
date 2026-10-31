@@ -386,6 +386,29 @@ public sealed class ReadDocumentTests
     }
 
     [Test]
+    public void Validate_shader_checks_glsl_against_the_effect_pass()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+        string validGlsl = new GLSLScriptEffect().FragmentShader.Value;
+        string unboundSampler = validGlsl
+            .Replace("void main() {", "layout(set = 0, binding = 1) uniform sampler2D mask;\n\nvoid main() {")
+            .Replace("outColor = c;", "outColor = c * texture(mask, fragCoord);");
+        Assert.That(unboundSampler, Does.Contain("texture(mask, fragCoord)"));
+
+        ToolResult<ValidateShaderResponse> ok = tools.ValidateShader("GLSLScriptEffect", validGlsl);
+        ToolResult<ValidateShaderResponse> unbound = tools.ValidateShader("GLSLScriptEffect", unboundSampler);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ok.IsSuccess, Is.True, ok.Error?.Message);
+            Assert.That(ok.Value!.Status, Is.EqualTo("compiled"));
+            Assert.That(unbound.Value!.Status, Is.EqualTo("failed"),
+                "A script the effect cannot bind must not report compiled, even with no graphics context.");
+            Assert.That(unbound.Value.Error, Is.Not.Null.And.Not.Empty);
+        });
+    }
+
+    [Test]
     public void Composition_tools_reuse_session_seed_when_seed_is_omitted()
     {
         var scene = new Scene(1920, 1080, "Scene");
