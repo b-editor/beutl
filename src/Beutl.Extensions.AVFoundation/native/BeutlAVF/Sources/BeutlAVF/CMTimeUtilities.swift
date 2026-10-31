@@ -8,8 +8,9 @@ enum CMTimeUtilities {
         return Int((seconds * rate).rounded(.toNearestOrAwayFromZero))
     }
 
-    static func timestamp(fromFrame frame: Int, rate: Double) -> CMTime {
-        guard rate > 0 else { return .zero }
-        return CMTimeMakeWithSeconds(Double(frame) / rate, preferredTimescale: 1)
+    // The exact time of `frame` at num/den frames per second.
+    static func timestamp(fromFrame frame: Int, rateNum: Int32, rateDen: Int32) -> CMTime {
+        guard rateNum > 0, rateDen > 0 else { return .zero }
+        return CMTimeMake(value: Int64(frame) * Int64(rateDen), timescale: rateNum)
     }
 }

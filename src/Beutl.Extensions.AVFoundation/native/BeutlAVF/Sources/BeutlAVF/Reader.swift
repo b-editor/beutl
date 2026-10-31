@@ -107,6 +107,9 @@ final class VideoReaderContext {
     private var reader: AVAssetReader
     private var output: AVAssetReaderTrackOutput
     private var currentTimestamp: CMTime = .zero
+    private var streamEnded = false
+    // The number where the track ends; the last sample stays on screen until then.
+    private let endFrame: Int
 
     let info: BeutlVideoInfo
     let frameRate: Double
@@ -130,13 +133,11 @@ final class VideoReaderContext {
         self.output = output
 
         let dimensions = track.naturalSize
-        let nominalFrameRate = track.nominalFrameRate
-        self.frameRate = Double(nominalFrameRate)
-
-        let duration = track.timeRange.duration
-        let frameRational = rational32(from: Double(nominalFrameRate))
-        let durationSeconds = CMTimeGetSeconds(duration)
-        let nominalFrameCount = Int64((durationSeconds * Double(nominalFrameRate)).rounded())
+        let frameRational = rational32(from: Double(track.nominalFrameRate))
+        // Samples are numbered at the rate the caller gets, since it turns times into numbers at that rate.
+        self.frameRate = Double(frameRational.num) / Double(frameRational.den)
+        self.endFrame = CMTimeUtilities.frame(fromTimestamp: CMTimeRangeGetEnd(track.timeRange), rate: frameRate)
+        let nominalFrameCount = Int64(endFrame)
 
         var codecFourCC: Int32 = 0
         if let desc = track.formatDescriptions.first {
@@ -157,10 +158,19 @@ final class VideoReaderContext {
     }
 
     func readFrame(index: Int, outBuffer: UnsafeMutableRawPointer, capacityBytes: Int, rowBytes: Int) throws {
-        if let cached = cache.search(frame: index) {
-            let pixelBuffer = try Self.pixelBuffer(from: cached)
-            try copyOut(pixelBuffer, outBuffer: outBuffer, capacityBytes: capacityBytes, rowBytes: rowBytes)
-            return
+        let pixelBuffer = try Self.pixelBuffer(from: try sampleOnScreen(at: index))
+        try copyOut(pixelBuffer, outBuffer: outBuffer, capacityBytes: capacityBytes, rowBytes: rowBytes)
+    }
+
+    // A sample stays on screen from the number its timestamp rounds to until the next sample's number, so variable
+    // frame rate media, which does not have one sample per number, shows the last sample numbered at or before
+    // `index`. Numbers before the first sample show it.
+    private func sampleOnScreen(at index: Int) throws -> CMSampleBuffer {
+        if frameRate > 0 && index >= endFrame {
+            throw BeutlAVFError.endOfStream
+        }
+        if let cached = cache.search(frame: index, streamEnded: streamEnded) {
+            return cached
         }
 
         var currentFrame = cache.lastFrameNumber()
@@ -169,19 +179,25 @@ final class VideoReaderContext {
         }
 
         if index < currentFrame || (currentFrame + thresholdFrameCount) < index {
-            let dest = CMTimeUtilities.timestamp(fromFrame: index, rate: frameRate)
-            try seek(to: dest)
+            // Start a few numbers early, as far as a forward read may decode, so that stepping backward finds the
+            // frames before the target in the cache. The first sample reports the seek time if it started earlier,
+            // so its number is at most the target too.
+            let lead = max(0, min(cache.capacity - 2, thresholdFrameCount))
+            try seek(to: CMTimeUtilities.timestamp(
+                fromFrame: max(0, index - lead), rateNum: info.frameRateNum, rateDen: info.frameRateDen))
         }
 
+        // Decode until a sample starts after the target; the one before it is on screen.
         while let sample = try readNextSample() {
-            let lastFrame = cache.lastFrameNumber()
-            if index <= lastFrame {
-                let pixelBuffer = try Self.pixelBuffer(from: sample)
-                try copyOut(pixelBuffer, outBuffer: outBuffer, capacityBytes: capacityBytes, rowBytes: rowBytes)
-                return
+            if index < cache.lastFrameNumber() {
+                return cache.search(frame: index, streamEnded: false) ?? sample
             }
         }
 
+        // The last sample stays on screen until the track ends.
+        if let last = cache.search(frame: index, streamEnded: true) {
+            return last
+        }
         throw BeutlAVFError.endOfStream
     }
 
@@ -204,6 +220,7 @@ final class VideoReaderContext {
 
     private func seek(to timestamp: CMTime) throws {
         cache.reset()
+        streamEnded = false
         // A seek past the end decodes nothing, so the next read must not take its position from a frame before it.
         currentTimestamp = timestamp
         let (newReader, newOutput) = try Self.makeReaderAndOutput(
@@ -217,6 +234,7 @@ final class VideoReaderContext {
             if reader.status == .failed {
                 throw BeutlAVFError.readerFailed(reader.error?.localizedDescription ?? "unknown")
             }
+            streamEnded = true
             return nil
         }
         guard CMSampleBufferDataIsReady(sample), CMSampleBufferIsValid(sample) else {
