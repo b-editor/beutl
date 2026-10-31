@@ -172,6 +172,9 @@ public class AVFReaderTests
     [TestCase(4, 0x33u)]
     [TestCase(6, 0x3fu)]
     [TestCase(8, 0x63fu)]
+    // Mask-0 cases reach the DiscreteInOrder fallback.
+    [TestCase(4, 0u)]
+    [TestCase(6, 0u)]
     public void ReadAudio_MultichannelWaveKeepsWaveOrderAcrossCacheSeekAndEof(int channels, uint mask)
     {
         string file = Path.Combine(_workDir, $"tones-{channels}.wav");
