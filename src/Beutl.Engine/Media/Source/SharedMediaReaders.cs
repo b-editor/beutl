@@ -77,14 +77,17 @@ internal sealed class SharedMediaReaders(Func<long> clock)
 
     /// <summary>
     /// Makes later opens of <paramref name="path"/> start fresh readers, for example after the file changed on
-    /// disk. Existing handles keep reading their readers until their sources reload.
+    /// disk. Existing handles keep reading the readers already open, without opening more, until their sources
+    /// reload.
     /// </summary>
     public void Invalidate(string path)
     {
         lock (_lock)
         {
             foreach (Key key in _groups.Keys.Where(key => key.Path == path).ToArray())
-                _groups.Remove(key);
+            {
+                if (_groups.Remove(key, out Group? group)) group.Retire();
+            }
         }
     }
 
@@ -127,6 +130,8 @@ internal sealed class SharedMediaReaders(Func<long> clock)
         // Readers being opened outside the lock, counted against MaxReaders.
         private int _opening;
         private volatile Exception? _openFailure;
+        // Set when the file may have changed on disk: a reader opened afterwards could read another version of it.
+        private volatile bool _retired;
 
         public Key Key { get; } = key;
 
@@ -143,6 +148,9 @@ internal sealed class SharedMediaReaders(Func<long> clock)
                 if (Interlocked.CompareExchange(ref _handles, handles + 1, handles) == handles) return true;
             }
         }
+
+        // Runs under the pool's lock too, so it takes no lock.
+        public void Retire() => _retired = true;
 
         public void EnsureOpened()
         {
@@ -231,6 +239,12 @@ internal sealed class SharedMediaReaders(Func<long> clock)
                     opened?.Reader.Dispose();
                     return null;
                 }
+                // Invalidated while this reader opened, so it may have read the replaced file.
+                if (_retired && opened is not null)
+                {
+                    opened.Reader.Dispose();
+                    opened = null;
+                }
                 if (opened is not null) _slots.Add(opened);
                 Slot slot = opened ?? _slots.MinBy(slot => slot.LastUse)!;
                 Claim(handle, slot, next);
@@ -272,7 +286,7 @@ internal sealed class SharedMediaReaders(Func<long> clock)
             // Every reader serves another consumer that is still reading. A consumer that already had one
             // lost it to such a consumer, so both keep running; give it a reader of its own. A newcomer
             // usually follows a consumer that just finished, such as the next piece of a split clip.
-            if (handle.Slot is not null && _slots.Count + _opening < MaxReaders) return null;
+            if (handle.Slot is not null && !_retired && _slots.Count + _opening < MaxReaders) return null;
             return _slots.MinBy(slot => slot.LastUse)!;
         }
 

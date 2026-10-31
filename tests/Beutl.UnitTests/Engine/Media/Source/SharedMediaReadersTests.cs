@@ -186,6 +186,22 @@ public class SharedMediaReadersTests
     }
 
     [Test]
+    public void AnInvalidatedGroup_KeepsToTheReadersItHas()
+    {
+        using MediaReader top = Open();
+        using MediaReader bottom = Open();
+        Read(top, 0, 1);
+        _pool.Invalidate(s_key.Path);
+
+        // The consumers contend, but another reader could read the replaced file.
+        Read(bottom, 5000, 1);
+        Read(top, 1, 1);
+
+        Assert.That(_opened, Has.Count.EqualTo(1));
+        Assert.That(_opened[0].Reads, Is.EqualTo(3));
+    }
+
+    [Test]
     public void DifferentKeys_DoNotShare()
     {
         using MediaReader original = Open();
@@ -315,6 +331,28 @@ public class SharedMediaReadersTests
         Assert.That(await opening.WaitAsync(TimeSpan.FromSeconds(10)), Is.False);
         Assert.That(_opened, Has.Count.EqualTo(2));
         Assert.That(_opened, Has.All.Matches<FakeReader>(reader => reader.IsDisposed));
+    }
+
+    [Test]
+    public async Task InvalidatingWhileAnotherReaderOpens_DisposesTheNewReader()
+    {
+        using MediaReader top = Open();
+        using MediaReader bottom = Open();
+        Read(top, 0, 1);
+        Read(bottom, 5000, 1);
+        using var gate = new ManualResetEventSlim();
+        _openEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _openGate = gate;
+
+        Task<bool> opening = Task.Run(() => top.ReadVideo(1, out _));
+        await _openEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        _pool.Invalidate(s_key.Path);
+        gate.Set();
+        await opening.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.That(_opened, Has.Count.EqualTo(2));
+        Assert.That(_opened[1].IsDisposed, Is.True);
+        Assert.That(_opened[0].Reads, Is.EqualTo(3), "the read falls back to the open reader");
     }
 
     [Test]
