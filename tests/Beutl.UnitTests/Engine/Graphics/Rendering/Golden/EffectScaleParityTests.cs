@@ -103,16 +103,16 @@ public class EffectScaleParityTests
             e.Offset.Value = new Point(20, 12);
             return e;
         }));
-        yield return new TestCaseData("StrokeEffect-Foreground", (Func<FilterEffect>)(() =>
+        yield return new TestCaseData("StrokeEffect-BelowContent", (Func<FilterEffect>)(() =>
         {
-            // Foreground draw-ordering branch at supersample.
+            // The stroke-below-content draw-ordering branch at supersample.
             var pen = new Pen();
             pen.Thickness.Value = 14;
             pen.Brush.Value = Brushes.Red;
+            pen.StrokeOrder.Value = StrokeOrder.BelowFill;
             var e = new StrokeEffect();
             e.Pen.Value = pen;
             e.Offset.Value = new Point(16, 16);
-            e.Style.Value = StrokeEffect.StrokeStyles.Foreground;
             return e;
         }));
         yield return new TestCaseData("TransformEffect", (Func<FilterEffect>)(() =>

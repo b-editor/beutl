@@ -752,9 +752,6 @@
   <data name="SplitEffect_VerticalSpacing" xml:space="preserve">
     <value>세로 간격</value>
   </data>
-  <data name="StrokeEffect_Style" xml:space="preserve">
-    <value>테두리 스타일</value>
-  </data>
   <data name="TextAlignment_Center" xml:space="preserve">
     <value>가운데 정렬</value>
   </data>
@@ -1034,6 +1031,9 @@
   <data name="Pen_StrokeAlignment" xml:space="preserve">
     <value>위치</value>
   </data>
+  <data name="Pen_StrokeOrder" xml:space="preserve">
+    <value>선 순서</value>
+  </data>
   <data name="Pen_StrokeCap" xml:space="preserve">
     <value>끝 모양</value>
   </data>
@@ -1213,6 +1213,12 @@
   </data>
   <data name="StrokeAlignment_Outside" xml:space="preserve">
     <value>바깥쪽</value>
+  </data>
+  <data name="StrokeOrder_AboveFill" xml:space="preserve">
+    <value>채우기 위</value>
+  </data>
+  <data name="StrokeOrder_BelowFill" xml:space="preserve">
+    <value>채우기 아래</value>
   </data>
   <data name="StrokeCap_Flat" xml:space="preserve">
     <value>납작</value>

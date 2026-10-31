@@ -14,7 +14,7 @@ public sealed class PropertyEditorMenuTypeAliasTests
     [TestCase(typeof(float), "float")]
     [TestCase(typeof(int?), "int?")]
     [TestCase(typeof(Vector3[]), "System.Numerics.Vector3[]")]
-    [TestCase(typeof(StrokeEffect.StrokeStyles), "Beutl.Graphics.Effects.StrokeEffect.StrokeStyles")]
+    [TestCase(typeof(StrokeEffect.Resource), "Beutl.Graphics.Effects.StrokeEffect.Resource")]
     [TestCase(typeof(ICoreList<GradientStop>), "Beutl.Collections.ICoreList<Beutl.Media.GradientStop>")]
     [TestCase(typeof(Dictionary<string, List<int>>),
         "System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<int>>")]

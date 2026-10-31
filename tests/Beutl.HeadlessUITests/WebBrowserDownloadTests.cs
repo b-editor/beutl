@@ -666,12 +666,19 @@ public class WebBrowserDownloadTests
         Dispatcher.UIThread.RunJobs();
         view.FindControl<Button>("DismissDownloadStatusButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
         view.OnNativeDownloadRequested(media, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
+        // An ignored generated file releases the engine's transfer rather than leaving it waiting for a destination.
+        var dismissedGenerated = new GeneratedDownloadSource("README.md", "# Beutl");
+        view.OnGeneratedDownloadRequested(null, "README.md", dismissedGenerated);
         Dispatcher.UIThread.RunJobs();
         Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.False);
+        Assert.That(dismissedGenerated.IsDisposed, Is.True);
         view.Dispose();
         view.OnNativeDownloadRequested(media, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
+        var lateGenerated = new GeneratedDownloadSource("README.md", "# Beutl");
+        view.OnGeneratedDownloadRequested(null, "README.md", lateGenerated);
         Dispatcher.UIThread.RunJobs();
         Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.False);
+        Assert.That(lateGenerated.IsDisposed, Is.True);
     }
 
     [AvaloniaTest]
@@ -1864,14 +1871,18 @@ public class WebBrowserDownloadTests
         Assert.That(offered, Is.EqualTo(next));
     }
 
-    // An embedded document from another site, such as an ad, cannot pass its file off as the page's.
+    // An embedded document from another origin, such as an ad, cannot pass its file off as the page's. The same host
+    // over another scheme or port is another origin too.
     [AvaloniaTest]
-    public async Task AGeneratedFileFromAnotherSiteIsCreditedToThatSite()
+    [TestCase("https://ads.example/")]
+    [TestCase("http://github.com/")]
+    [TestCase("https://github.com:8443/")]
+    public async Task AGeneratedFileFromAnotherSiteIsCreditedToThatSite(string creator)
     {
         using var temporary = new TemporaryDirectory();
         string root = temporary.Path;
         var page = new Uri("https://github.com/b-editor/beutl/blob/main/README.md");
-        var embedded = new Uri("https://ads.example/");
+        var embedded = new Uri(creator);
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
         using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page, profile);
         using var view = CreateView(vm, includesSubframes: true);

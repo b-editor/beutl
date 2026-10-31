@@ -41,11 +41,12 @@ public sealed class PenEditorViewModel : PropertyEditorViewModel, IObjectEditorC
         if (pen != null)
         {
             using var props = new PooledList<IPropertyAdapter>();
-            Span<IPropertyAdapter> span = props.AddSpan(4);
+            Span<IPropertyAdapter> span = props.AddSpan(5);
             span[0] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.Thickness, pen);
             span[1] = new SimplePropertyAdapter<StrokeJoin>((SimpleProperty<StrokeJoin>)pen.StrokeJoin, pen);
             span[2] = new SimplePropertyAdapter<StrokeAlignment>((SimpleProperty<StrokeAlignment>)pen.StrokeAlignment, pen);
-            span[3] = new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)pen.Brush, pen);
+            span[3] = new SimplePropertyAdapter<StrokeOrder>((SimpleProperty<StrokeOrder>)pen.StrokeOrder, pen);
+            span[4] = new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)pen.Brush, pen);
 
             CoreObjectPropertyEditorBuilder.CreateContexts(props, extensionProvider, MajorProperties.Add);
 

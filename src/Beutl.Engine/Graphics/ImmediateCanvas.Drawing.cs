@@ -156,9 +156,19 @@ public partial class ImmediateCanvas
         VerifyPixelOperation();
         VerifyCallbackResource(fill, nameof(fill));
         VerifyCallbackResource(pen, nameof(pen));
+        bool strokeBeneath = pen != null && PenHelper.DrawsBeneathFill(pen);
+        if (strokeBeneath)
+            DrawEllipseStroke(rect, pen);
+
         ConfigureFillPaint(rect, fill);
         Canvas.DrawOval(rect.ToSKRect(), _sharedFillPaint);
 
+        if (!strokeBeneath)
+            DrawEllipseStroke(rect, pen);
+    }
+
+    private void DrawEllipseStroke(Rect rect, Pen.Resource? pen)
+    {
         if (pen != null && pen.Thickness != 0)
         {
             using (var builder = new SKPathBuilder())
@@ -175,9 +185,19 @@ public partial class ImmediateCanvas
         VerifyPixelOperation();
         VerifyCallbackResource(fill, nameof(fill));
         VerifyCallbackResource(pen, nameof(pen));
+        bool strokeBeneath = pen != null && PenHelper.DrawsBeneathFill(pen);
+        if (strokeBeneath)
+            DrawRectangleStroke(rect, pen);
+
         ConfigureFillPaint(rect, fill);
         Canvas.DrawRect(rect.ToSKRect(), _sharedFillPaint);
 
+        if (!strokeBeneath)
+            DrawRectangleStroke(rect, pen);
+    }
+
+    private void DrawRectangleStroke(Rect rect, Pen.Resource? pen)
+    {
         if (pen != null && pen.Thickness != 0)
         {
             using (var builder = new SKPathBuilder())
@@ -215,12 +235,18 @@ public partial class ImmediateCanvas
             // under this CTM. Pass scale 1 so the density isn't applied twice to brush patterns.
             // Glyphs are positioned relative to their baseline, not the zero-origin layout rectangle.
             Rect brushBounds = text.ActualBounds * density;
+            SKPath? stroke = pen != null && pen.Thickness > 0 ? text.GetStrokePath(density) : null;
+            bool strokeBeneath = stroke != null && PenHelper.DrawsBeneathFill(pen!);
+            if (strokeBeneath)
+            {
+                ConfigureStrokePaint(brushBounds, pen, scale: 1f);
+                Canvas.DrawPath(stroke!, _sharedStrokePaint);
+            }
+
             ConfigureFillPaint(brushBounds, fill, scale: 1f);
             Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
 
-            if (pen != null
-                && pen.Thickness > 0
-                && text.GetStrokePath(density) is { } stroke)
+            if (stroke != null && !strokeBeneath)
             {
                 ConfigureStrokePaint(brushBounds, pen, scale: 1f);
                 Canvas.DrawPath(stroke, _sharedStrokePaint);
@@ -272,19 +298,22 @@ public partial class ImmediateCanvas
         VerifyCallbackResource(pen, nameof(pen));
         SKPath skPath = geometry.GetCachedPath();
         Rect rect = geometry.Bounds;
+        SKPath? stroke = pen != null && pen.Thickness > 0 ? geometry.GetCachedStrokePath(pen) : null;
+        bool strokeBeneath = stroke != null && PenHelper.DrawsBeneathFill(pen!);
+        if (strokeBeneath)
+        {
+            ConfigureStrokePaint(rect, pen);
+            Canvas.DrawPath(stroke!, _sharedStrokePaint);
+        }
 
         ConfigureFillPaint(geometry.Bounds, fill);
         if (!TryDrawProductCoverageRectangle(geometry, _sharedFillPaint))
             Canvas.DrawPath(skPath, _sharedFillPaint);
 
-        if (pen != null && pen.Thickness > 0)
+        if (stroke != null && !strokeBeneath)
         {
             ConfigureStrokePaint(rect, pen);
-            SKPath? stroke = geometry.GetCachedStrokePath(pen);
-            if (stroke != null)
-            {
-                Canvas.DrawPath(stroke, _sharedStrokePaint);
-            }
+            Canvas.DrawPath(stroke, _sharedStrokePaint);
         }
     }
 

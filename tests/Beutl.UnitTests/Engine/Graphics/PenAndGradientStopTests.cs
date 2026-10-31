@@ -19,6 +19,7 @@ public class PenAndGradientStopTests
             Assert.That(pen.StrokeCap.Value, Is.EqualTo(StrokeCap.Flat));
             Assert.That(pen.StrokeJoin.Value, Is.EqualTo(StrokeJoin.Miter));
             Assert.That(pen.StrokeAlignment.Value, Is.EqualTo(StrokeAlignment.Center));
+            Assert.That(pen.StrokeOrder.Value, Is.EqualTo(StrokeOrder.AboveFill));
             Assert.That(pen.TrimStart.Value, Is.EqualTo(0f));
             Assert.That(pen.TrimEnd.Value, Is.EqualTo(100f));
             Assert.That(pen.TrimOffset.Value, Is.EqualTo(0f));

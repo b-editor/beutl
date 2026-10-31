@@ -121,9 +121,6 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
-[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:StrokeEffect:StrokeStyles>
-  sealed
-  keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:BlendMode>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
@@ -196,9 +193,6 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<T>
   unsealed
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
-  unsealed
-  keys: Id, KeyFrames, Name, UseGlobalClock
-[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:StrokeEffect:StrokeStyles>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:BlendMode>
@@ -508,7 +502,7 @@ Beutl.Utilities
   keys: Animations, Expressions, HorizontalDivisions, HorizontalSpacing, Id, IsEnabled, Name, VerticalDivisions, VerticalSpacing
 [Beutl.Engine]Beutl.Graphics.Effects:StrokeEffect
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, Name, Offset, Pen, Style
+  keys: Animations, Expressions, Id, IsEnabled, Name, Offset, Pen
 [Beutl.Engine]Beutl.Graphics.Effects:Threshold
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Smoothness, Strength, Value
@@ -816,7 +810,7 @@ Beutl.Utilities
   abstract
 [Beutl.Engine]Beutl.Media:Pen
   sealed
-  keys: Animations, Brush, DashArray, DashOffset, Expressions, Id, IsEnabled, MiterLimit, Name, Offset, StrokeAlignment, StrokeCap, StrokeJoin, Thickness, TrimEnd, TrimOffset, TrimStart
+  keys: Animations, Brush, DashArray, DashOffset, Expressions, Id, IsEnabled, MiterLimit, Name, Offset, StrokeAlignment, StrokeCap, StrokeJoin, StrokeOrder, Thickness, TrimEnd, TrimOffset, TrimStart
 [Beutl.Engine]Beutl.Media:PerlinNoiseBrush
   sealed
   keys: Animations, BaseFrequencyX, BaseFrequencyY, Expressions, Id, IsEnabled, Name, Octaves, Opacity, PerlinNoiseType, Seed, Transform, TransformOrigin

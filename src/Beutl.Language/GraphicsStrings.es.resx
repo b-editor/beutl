@@ -752,9 +752,6 @@
   <data name="SplitEffect_VerticalSpacing" xml:space="preserve">
     <value>Espaciado vertical</value>
   </data>
-  <data name="StrokeEffect_Style" xml:space="preserve">
-    <value>Estilo de borde</value>
-  </data>
   <data name="TextAlignment_Center" xml:space="preserve">
     <value>Alinear al centro</value>
   </data>
@@ -1034,6 +1031,9 @@
   <data name="Pen_StrokeAlignment" xml:space="preserve">
     <value>Ubicación</value>
   </data>
+  <data name="Pen_StrokeOrder" xml:space="preserve">
+    <value>Orden del trazo</value>
+  </data>
   <data name="Pen_StrokeCap" xml:space="preserve">
     <value>Estilo de extremo</value>
   </data>
@@ -1213,6 +1213,12 @@
   </data>
   <data name="StrokeAlignment_Outside" xml:space="preserve">
     <value>Exterior</value>
+  </data>
+  <data name="StrokeOrder_AboveFill" xml:space="preserve">
+    <value>Sobre el relleno</value>
+  </data>
+  <data name="StrokeOrder_BelowFill" xml:space="preserve">
+    <value>Bajo el relleno</value>
   </data>
   <data name="StrokeCap_Flat" xml:space="preserve">
     <value>Plano</value>

@@ -730,9 +730,6 @@
   <data name="SplitEffect_VerticalSpacing" xml:space="preserve">
     <value>垂直方向の間隔</value>
   </data>
-  <data name="StrokeEffect_Style" xml:space="preserve">
-    <value>ボーダースタイル</value>
-  </data>
   <data name="TextAlignment_Center" xml:space="preserve">
     <value>中央揃え</value>
   </data>
@@ -1030,6 +1027,9 @@
   <data name="Pen_StrokeAlignment" xml:space="preserve">
     <value>位置</value>
   </data>
+  <data name="Pen_StrokeOrder" xml:space="preserve">
+    <value>重ね順</value>
+  </data>
   <data name="Pen_StrokeCap" xml:space="preserve">
     <value>キャップ</value>
   </data>
@@ -1209,6 +1209,12 @@
   </data>
   <data name="StrokeAlignment_Outside" xml:space="preserve">
     <value>外側</value>
+  </data>
+  <data name="StrokeOrder_AboveFill" xml:space="preserve">
+    <value>塗りの前面</value>
+  </data>
+  <data name="StrokeOrder_BelowFill" xml:space="preserve">
+    <value>塗りの背面</value>
   </data>
   <data name="StrokeCap_Flat" xml:space="preserve">
     <value>フラット</value>

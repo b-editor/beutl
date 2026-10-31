@@ -1,4 +1,4 @@
-comment:
+﻿comment:
   layout: "header, diff, files, footer"
   behavior: default
   require_changes: false
@@ -21,6 +21,8 @@ ignore:
   - "src/Beutl.Editor.Components/WebBrowserTab/LinuxWebKit.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/LinuxWebKitCookies.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/BrowserWebViewEnvironment.MacOS.cs"
+  - "src/Beutl.Editor.Components/WebBrowserTab/MacOSBrowserDownloadHandler.cs"
+  - "src/Beutl.Editor.Components/WebBrowserTab/MacOSBrowserDownloadHandler.Download.cs"
   - "src/Beutl.Engine/Media/Font/FreeTypeFonts.cs"
   - "src/Beutl.Engine/Graphics/Backend/Composite/CompositeContext.cs"
   - "src/Beutl.Engine/Graphics/Backend/Metal/MetalContext.cs"
