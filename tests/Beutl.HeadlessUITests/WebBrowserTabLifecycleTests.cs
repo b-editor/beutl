@@ -692,7 +692,15 @@ public class WebBrowserTabLifecycleTests
             // The dock moving the hidden tab finds its web view kept already.
             Assert.That(((IWebViewReparentingContent)view).BeginReparenting(), Is.Null);
 
+            // Hidden again before the scope could end, the tab keeps the same scope.
             window.Content = view;
+            window.Content = null;
+            Dispatcher.UIThread.RunJobs();
+            Assert.That(scopes, Has.Count.EqualTo(1));
+            Assert.That(scopes[0].Ended, Is.False);
+
+            window.Content = view;
+            Dispatcher.UIThread.RunJobs();
             Assert.That(scopes[0].Ended, Is.True);
 
             // Closed while hidden, the tab lets its native web view go.

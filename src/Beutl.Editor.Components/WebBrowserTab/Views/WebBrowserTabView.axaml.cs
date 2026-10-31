@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
@@ -87,12 +88,16 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
     }
 
-    // The web view attaches after this view. Ending the scope waits for a render, by which the web view has taken its
-    // native web view back.
+    // The web view attaches after this view and takes its native web view back, and the scope ends after that. Avalonia
+    // begins no other scope until it has let one go, so a tab hidden again before then keeps this one.
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        EndHiddenScope();
+        if (_hiddenScope == null) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (this.IsAttachedToVisualTree()) EndHiddenScope();
+        }, DispatcherPriority.Loaded);
     }
 
     // Ended while the tab is still out of the tree, the scope destroys the native web view.
