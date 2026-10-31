@@ -302,6 +302,39 @@ public class PaletteCommandTests
     }
 
     [AvaloniaTest]
+    public async Task Save_as_template_with_the_timeline_closed_saves_every_selected_clip()
+    {
+        EditViewModel editor = await OpenEditorForNewScene("palette-save-set-template-closed");
+        Element first = await AddRectAsync(editor, 0, 2, 0);
+        Element second = await AddRectAsync(editor, 3, 2, 1);
+        TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
+        timeline.SelectElement(timeline.GetViewModelFor(first)!);
+        timeline.SelectElement(timeline.GetViewModelFor(second)!);
+        editor.GetService<IEditorSelection>()!.Select(first);
+        CloseTimeline(editor);
+        string name = $"set-closed-{Guid.NewGuid():N}";
+
+        await RunAsync(TimelineTabExtension.Instance, Execution(
+            "timeline.saveAsTemplate", editor, new ScriptedInteraction().Input(_ => name)));
+
+        // The selection outlives the timeline, so both clips are saved, not only the selected element.
+        ObjectTemplateItem saved = ObjectTemplateService.Instance.FindByBaseType(typeof(ElementSet))
+            .Single(item => item.Name.Value == name);
+        try
+        {
+            var set = (ElementSet)saved.CreateInstance()!;
+            Assert.That(
+                set.Elements.Select(e => (e.Start.Value, e.ZIndex.Value)),
+                Is.EquivalentTo(new[] { (MediaTime.Zero, 0), (MediaTime.FromSeconds(3), 1) }));
+        }
+        finally
+        {
+            File.Delete(saved.FilePath!);
+            ObjectTemplateService.Instance.RefreshFromFileSystem();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Inline_rename_writes_the_name_once_editing_ends_as_one_history_entry()
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-inline-rename");

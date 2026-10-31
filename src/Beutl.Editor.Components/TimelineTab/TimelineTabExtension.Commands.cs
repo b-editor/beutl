@@ -272,7 +272,8 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
     }
 
     // The clips a template saves, locked ones too, since saving only reads them. An open timeline uses the clip's
-    // own rule (its selection and group, the clips Ctrl+C copies); otherwise the selected element and its group.
+    // own rule (its selection and group, the clips Ctrl+C copies); otherwise the editor's selection, which outlives
+    // the timeline, with the selected element and each clip's group.
     private static Element[] GetTemplateTargets(IEditorContext editorContext, Scene scene, Element element)
     {
         if (editorContext.FindToolTab<TimelineTabViewModel>()?.GetViewModelFor(element) is { } viewModel)
@@ -283,8 +284,10 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
                 .ToArray();
         }
 
-        ImmutableHashSet<Guid>? group = scene.Groups.FirstOrDefault(g => g.Contains(element.Id.Value));
-        return group is null ? [element] : scene.Children.Where(e => group.Contains(e.Id.Value)).ToArray();
+        IEnumerable<Guid> selection = editorContext.GetService<IEditorSelection>()?.SelectedElements
+            .Select(e => e.Id.Value) ?? [];
+        HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(selection.Append(element.Id.Value), scene.Groups);
+        return scene.Children.Where(e => ids.Contains(e.Id.Value)).ToArray();
     }
 
     private static async Task SaveAsTemplateAsync(
