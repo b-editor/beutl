@@ -13,6 +13,8 @@ internal partial class WebBrowserTabView
 {
     // A tab that a page opened goes to its first address with the origin that page sends. Until a document
     // commits, the tab's blank initial document belongs to that page, so its downloads send the origin too.
+    // WebView2 reports no commit before the page has loaded, so on Windows this ends when the navigation starts;
+    // until the page commits, only WebView2's own downloads answer it there.
     private (Uri Uri, Uri Referrer)? _openerNavigation;
     private bool _openerNavigationIssued;
     // The referrer WebKit computed for the latest new window request, from the page's policy and the link's rel.
@@ -24,7 +26,10 @@ internal partial class WebBrowserTabView
 
     internal void OnNativeNavigationCommitted(Uri uri)
     {
-        if (!_disposed) _viewModel?.CommitNavigation(uri);
+        if (_disposed) return;
+        _viewModel?.CommitNavigation(uri);
+        // The page loading now makes its own requests, before NavigationCompleted reports it loaded.
+        if (uri != WebBrowserTabViewModel.BlankPage) _openerNavigation = null;
     }
 
     internal void OnNativeNavigationStarted()
@@ -71,6 +76,7 @@ internal partial class WebBrowserTabView
         {
             PreservePendingNativeDownload();
             InvalidatePageDownloadRequests(navigationStarted: true);
+            _openerNavigation = null;
             _viewModel?.BeginNavigation(request);
         }
     }

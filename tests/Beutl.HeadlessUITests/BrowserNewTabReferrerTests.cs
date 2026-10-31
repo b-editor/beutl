@@ -27,21 +27,17 @@ public class BrowserNewTabReferrerTests
 
     // Opens a tab for the request from a tab that shows the page, and returns the new tab.
     private static WebBrowserTabViewModel OpenFrom(BrowserProfile profile, Uri page, Uri request,
-        Action<WebBrowserTabView>? beforeRequest = null)
+        Action<WebBrowserTabView>? beforeRequest = null, TabOpeningEditor? editor = null)
     {
-        IToolContext? opened = null;
-        var editor = new Mock<IEditorContext>();
-        editor.Setup(x => x.OpenToolTab(It.IsAny<IToolContext>()))
-            .Callback<IToolContext>(context => opened = context)
-            .Returns(true);
-        using var opener = new WebBrowserTabViewModel(editor.Object, page, profile);
+        editor ??= new TabOpeningEditor();
+        using var opener = new WebBrowserTabViewModel(editor.Mock.Object, page, profile);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false))
         { DataContext = opener };
         beforeRequest?.Invoke(view);
         var args = new WebViewNewWindowRequestedEventArgs { Request = request };
         view.OnNewWindowRequested(null, args);
         Assert.That(args.Handled, Is.True);
-        return (WebBrowserTabViewModel)opened!;
+        return editor.Opened!;
     }
 
     [AvaloniaTest]
@@ -107,6 +103,34 @@ public class BrowserNewTabReferrerTests
         view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
 
         Assert.That(created, Is.EqualTo(new[] { request }));
+    }
+
+    // Once the new tab's page commits, it makes its own requests, though it may still be loading. macOS reports the
+    // commit natively; WebView2 reports only main-frame starts until the page has loaded.
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ThePageTheNewTabCommitsOpensWindowsWithItsOwnOrigin(bool webKit)
+    {
+        using var temporary = new TemporaryDirectory();
+        var profile = new BrowserProfile(Path.Combine(temporary.Path, "profile.json"));
+        var editor = new TabOpeningEditor();
+        using WebBrowserTabViewModel opened = OpenFrom(profile, s_page, s_downloadPage, editor: editor);
+        NativeWebView? native = null;
+        using var view = new WebBrowserTabView(uri => native = new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: webKit, navigateWithReferrer: (_, _, _) => true)
+        { DataContext = opened };
+        view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
+        view.OnNavigationStarted(native, new WebViewNavigationStartingEventArgs { Request = s_downloadPage });
+        if (webKit) view.OnNativeNavigationCommitted(s_downloadPage);
+
+        var args = new WebViewNewWindowRequestedEventArgs { Request = new Uri("https://files.example/sounds/123") };
+        view.OnNewWindowRequested(native, args);
+
+        Assert.That(args.Handled, Is.True);
+        using WebBrowserTabViewModel next = editor.Opened!;
+        Assert.That(next, Is.Not.SameAs(opened));
+        Assert.That(next.TakeOpenerReferrer(), Is.EqualTo(new Uri("https://downloads.example/")));
     }
 
     // macOS reports the referrer WebKit computed for the request, which a noreferrer link leaves out.
@@ -193,6 +217,21 @@ public class BrowserNewTabReferrerTests
         view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
 
         Assert.That(native!.Source, Is.EqualTo(WebBrowserTabViewModel.BlankPage));
+    }
+
+    // An editor that opens every tab a browser tab asks for and keeps the latest one.
+    private sealed class TabOpeningEditor
+    {
+        internal TabOpeningEditor()
+        {
+            Mock.Setup(x => x.OpenToolTab(It.IsAny<IToolContext>()))
+                .Callback<IToolContext>(context => Opened = (WebBrowserTabViewModel)context)
+                .Returns(true);
+        }
+
+        internal Mock<IEditorContext> Mock { get; } = new();
+
+        internal WebBrowserTabViewModel? Opened { get; private set; }
     }
 
     private sealed class ReferrerHandler : HttpMessageHandler
