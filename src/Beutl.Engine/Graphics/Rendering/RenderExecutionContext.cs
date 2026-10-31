@@ -61,16 +61,17 @@ public sealed class RenderExecutionContext
     public RenderTargetImageLease RenderDependency(CompositionFrame frame, object identity)
     {
         VerifyAccess();
+        Size size = frame.Size.ToSize(1);
         using var nodes = new ContainerRenderNode();
-        foreach (EngineObject.Resource resource in frame.Objects)
+        using (var context = new GraphicsContext2D(nodes, size, WorkingScale))
         {
-            if (resource is not Drawable.Resource drawable) continue;
-            var node = new DrawableRenderNode(drawable);
-            nodes.AddChild(node);
-            using var context = new GraphicsContext2D(node, frame.Size.ToSize(1), WorkingScale);
-            drawable.Render(context);
+            foreach (EngineObject.Resource resource in frame.Objects)
+            {
+                if (resource is Drawable.Resource drawable)
+                    context.DrawDrawable(drawable);
+            }
         }
-        return RenderDependency(nodes, identity, new Rect(default, frame.Size.ToSize(1)));
+        return RenderDependency(nodes, identity, new Rect(default, size));
     }
 
     /// <summary>Renders a time-sampled input using this request's allocation, density and cache policy.</summary>

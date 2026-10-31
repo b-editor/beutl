@@ -16,7 +16,7 @@ using RectShape = Beutl.Graphics.Shapes.RectShape;
 
 namespace Beutl.HeadlessUITests;
 
-[TestFixture]
+[TestFixture, NonParallelizable]
 public class TimelineHapticFeedbackTests
 {
     [AvaloniaTest]
@@ -50,10 +50,8 @@ public class TimelineHapticFeedbackTests
             timeline.IsSlideMode.Value = kind == "slide";
             editor.HistoryManager.Commit();
 
-            int feedbackCount = 0;
-            view = new TimelineTabView(NativeScrollInput.UsesGestureAxes,
-                alignmentFeedback: (_, _) => feedbackCount++)
-            { DataContext = timeline };
+            using var feedback = new HapticFeedbackRecorder();
+            view = new TimelineTabView { DataContext = timeline };
             window = new Window { Content = view, Width = 1400, Height = 420 };
             window.Show();
             HeadlessTestHelpers.Render(5);
@@ -68,9 +66,9 @@ public class TimelineHapticFeedbackTests
 
             Begin();
             Move(target + 0.02);
-            Assert.That(feedbackCount, Is.EqualTo(1));
+            Assert.That(feedback.Pulses.Count, Is.EqualTo(1));
             Move(target + 0.03);
-            Assert.That(feedbackCount, Is.EqualTo(1), "Repeated trim calculations must not pulse for the press point.");
+            Assert.That(feedback.Pulses.Count, Is.EqualTo(1), "Repeated trim calculations must not pulse for the press point.");
             Assert.That(timeline.SnapBarPosition.Value,
                 Is.EqualTo(MediaTime.FromSeconds(target).TimeToPixel(1)).Within(0.001));
             HeadlessCapture.SaveIfRequested(window, nameof(TimelineHapticFeedbackTests), kind);
@@ -78,19 +76,19 @@ public class TimelineHapticFeedbackTests
             Move(unreachable + 0.02);
             Assert.Multiple(() =>
             {
-                Assert.That(feedbackCount, Is.EqualTo(1), "A constrained edge did not reach the candidate.");
+                Assert.That(feedback.Pulses.Count, Is.EqualTo(1), "A constrained edge did not reach the candidate.");
                 Assert.That(timeline.SnapBarPosition.Value, Is.Null);
             });
 
             Move(target + 0.02);
-            Assert.That(feedbackCount, Is.EqualTo(2), "Returning to a reachable snap produces feedback again.");
+            Assert.That(feedback.Pulses.Count, Is.EqualTo(2), "Returning to a reachable snap produces feedback again.");
             window.KeyPress(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
             window.KeyRelease(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
             window.MouseUp(press, MouseButton.Left);
             HeadlessTestHelpers.Render(3);
             Assert.Multiple(() =>
             {
-                Assert.That(feedbackCount, Is.EqualTo(2));
+                Assert.That(feedback.Pulses.Count, Is.EqualTo(2));
                 Assert.That(timeline.SnapBarPosition.Value, Is.Null);
                 Assert.That(clip.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(initialStart)));
                 Assert.That(clip.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(kind == "roll" ? 3 : 2)));
@@ -98,25 +96,25 @@ public class TimelineHapticFeedbackTests
 
             Begin();
             Point release = Move(target + 0.02);
-            Assert.That(feedbackCount, Is.EqualTo(3), "A new gesture can snap to the same target.");
+            Assert.That(feedback.Pulses.Count, Is.EqualTo(3), "A new gesture can snap to the same target.");
             window.MouseUp(release, MouseButton.Left);
             HeadlessTestHelpers.Settle(4);
             Assert.Multiple(() =>
             {
-                Assert.That(feedbackCount, Is.EqualTo(3), "Commit calculations are silent.");
+                Assert.That(feedback.Pulses.Count, Is.EqualTo(3), "Commit calculations are silent.");
                 Assert.That(timeline.SnapBarPosition.Value, Is.Null);
                 Assert.That(clip.Model.Start.Value.ToSeconds(), Is.EqualTo(kind == "left" ? 3 : kind == "slide" ? 5 : initialStart));
                 Assert.That(clip.Model.Range.End.ToSeconds(), Is.EqualTo(kind == "roll" ? 4 : kind is "right" or "slide" ? 7 : 6));
             });
             Assert.That(await editor.UndoAsync(), Is.True);
-            Assert.That(feedbackCount, Is.EqualTo(3));
+            Assert.That(feedback.Pulses.Count, Is.EqualTo(3));
 
             void Begin()
             {
-                int beforePress = feedbackCount;
+                int beforePress = feedback.Pulses.Count;
                 window.MouseMove(press);
                 window.MouseDown(press, MouseButton.Left);
-                Assert.That(feedbackCount, Is.EqualTo(beforePress), "Press alone is silent.");
+                Assert.That(feedback.Pulses.Count, Is.EqualTo(beforePress), "Press alone is silent.");
             }
 
             Point Move(double seconds)

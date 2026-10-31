@@ -179,8 +179,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         if (_webView is { } webView)
         {
-            _adBlockSession = new BrowserAdBlockSession(webView, viewModel.Profile, viewModel.CurrentUri, ShowToolStatus,
-                navigate: uri => ResumeNavigation(webView, uri), getPage: () => AdBlockPage(webView));
+            _adBlockSession = CreateAdBlockSession(webView, viewModel.Profile, viewModel.CurrentUri);
         }
 
         if (_webView != null && _webView.Source != viewModel.CurrentUri)
@@ -227,9 +226,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _openerNavigationIssued = false;
         NativeWebView webView = _createWebView(downloadInitialMedia || _openerNavigation != null || _viewModel.Profile.BlockAds
             ? WebBrowserTabViewModel.BlankPage : initialUri);
-        _adBlockSession = new BrowserAdBlockSession(webView, _viewModel.Profile,
-            downloadInitialMedia ? WebBrowserTabViewModel.BlankPage : initialUri, ShowToolStatus,
-            navigate: uri => ResumeNavigation(webView, uri), getPage: () => AdBlockPage(webView));
+        _adBlockSession = CreateAdBlockSession(webView, _viewModel.Profile,
+            downloadInitialMedia ? WebBrowserTabViewModel.BlankPage : initialUri);
         webView.EnvironmentRequested += BrowserWebViewEnvironment.Configure;
         webView.AdapterCreated += LinuxWebKitCookies.PersistCookies;
         webView.AdapterCreated += OnAdapterCreated;
@@ -251,6 +249,10 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
     }
 
+    private BrowserAdBlockSession CreateAdBlockSession(NativeWebView webView, BrowserProfile profile, Uri initialUri) =>
+        new(webView, profile, initialUri, ShowToolStatus,
+            navigate: uri => ResumeNavigation(webView, uri), getPage: () => AdBlockPage(webView));
+
     internal void OnAdapterCreated(object? sender, WebViewAdapterEventArgs e)
     {
         if (_disposed || _webView == null)
@@ -263,9 +265,10 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         NativeWebView webView = _webView;
         if (_pendingPageDownloadRequest?.Source != null) ClearPageDownloadRequest();
         _nativeDownloadHandler?.Dispose();
+        bool IsCurrent() => handlerVersion == _nativeDownloadHandlerVersion && ReferenceEquals(webView, _webView);
         void OnDownload(Uri uri, string name, IBrowserDownloadSource source)
         {
-            if (handlerVersion != _nativeDownloadHandlerVersion || !ReferenceEquals(webView, _webView))
+            if (!IsCurrent())
             {
                 source.Dispose();
                 return;
@@ -275,12 +278,11 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
         void OnWindowOpened(Uri request)
         {
-            if (handlerVersion == _nativeDownloadHandlerVersion && ReferenceEquals(webView, _webView))
-                OnNativeWindowOpenRequested(request);
+            if (IsCurrent()) OnNativeWindowOpenRequested(request);
         }
-        void OnGeneratedDownload(Uri? creator, string name, IBrowserDownloadSource source, Uri? document = null)
+        void OnGeneratedDownload(Uri? creator, string name, IBrowserDownloadSource source, Uri? document)
         {
-            if (handlerVersion != _nativeDownloadHandlerVersion || !ReferenceEquals(webView, _webView))
+            if (!IsCurrent())
             {
                 source.Dispose();
                 return;
@@ -290,8 +292,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         if (OperatingSystem.IsMacOS())
         {
             _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
-                (creator, name, source) => OnGeneratedDownload(creator, name, source), OnNativeNavigationCommitted,
-                OnNativeNavigationStarted, OnNativeNewWindowRequested, OnWindowOpened);
+                OnGeneratedDownload, OnNativeNavigationCommitted, OnNativeNavigationStarted, OnNativeNewWindowRequested,
+                OnWindowOpened);
         }
         else if (OperatingSystem.IsWindows())
         {
@@ -302,9 +304,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         {
             _nativeDownloadHandler = LinuxBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), (uri, name) =>
             {
-                if (handlerVersion == _nativeDownloadHandlerVersion && ReferenceEquals(webView, _webView))
-                    OnNavigationResponseNotShown(uri, name);
-            }, (creator, name, source) => OnGeneratedDownload(creator, name, source), OnWindowOpened);
+                if (IsCurrent()) OnNavigationResponseNotShown(uri, name);
+            }, OnGeneratedDownload, OnWindowOpened);
         }
         // The download handler is in place first, so a response of this navigation can become a download.
         // With ad blocking on, the session starts it once its rules are in place.

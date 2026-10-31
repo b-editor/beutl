@@ -76,5 +76,9 @@ public abstract partial class FilterEffect : EngineObject
                 resource => resource.CreateRenderNode(),
                 (node, resource) => node.Update(resource));
         }
+
+        // GraphicsContext2D.PushFilterEffect records through this, so a group can give its children their own nodes
+        // while its Push records one node.
+        internal virtual PushedState PushInto(GraphicsContext2D context) => Push(context);
     }
 }

@@ -19,7 +19,7 @@ internal static partial class SlippableMedia
         private readonly IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? _timingRoles;
         private readonly IReadOnlySet<DrawableTimeController>? _reenabledControllers;
         private readonly Dictionary<MediaSource, MediaTime?> _sourceDurations;
-        private readonly Dictionary<(Type, Uri), MediaTime?>? _batchSourceDurations;
+        private readonly SplitBatch? _batch;
         private readonly List<Target> _targets = new();
         private readonly List<DrawableTimeController> _disabledFlowControllers = new();
         private readonly HashSet<object> _path = new();
@@ -33,17 +33,17 @@ internal static partial class SlippableMedia
         public TargetCollector(Element element, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
             IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles,
             IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, MediaTime?>? sourceDurations = null,
-            bool forResize = false, Scene? contextScene = null, Dictionary<(Type, Uri), MediaTime?>? batchSourceDurations = null)
+            bool forResize = false, SplitBatch? batch = null)
         {
             _element = element;
-            _scene = element.HierarchicalParent as Scene ?? contextScene;
+            _scene = element.HierarchicalParent as Scene ?? batch?.Scene;
             _timingPeers = timingPeers;
             _ignoreLoops = ignoreLoops;
             _forResize = forResize;
             _timingRoles = timingRoles;
             _reenabledControllers = reenabledControllers;
             _sourceDurations = sourceDurations ?? new(ReferenceEqualityComparer.Instance);
-            _batchSourceDurations = batchSourceDurations;
+            _batch = batch;
             if (_scene is { } layerScene)
                 foreach (TimelineLayer layer in layerScene.Layers) _layers.TryAdd(layer.ZIndex.Value, layer);
             _hasSolo = _layers.Values.Any(layer => layer.IsSolo.Value);
@@ -77,7 +77,7 @@ internal static partial class SlippableMedia
                 for (int i = 0; i < _disabledFlowControllers.Count; i++)
                     if ((state & (1 << i)) != 0) enabled.Add(_disabledFlowControllers[i]);
                 var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, enabled, _sourceDurations,
-                    contextScene: _scene, batchSourceDurations: _batchSourceDurations);
+                    batch: _batch);
                 foreach (Target reenabled in collector.Collect())
                 {
                     Target[] owners = targetsByOffset[reenabled.Offset].ToArray();
@@ -103,8 +103,8 @@ internal static partial class SlippableMedia
             if (_sourceDurations.TryGetValue(source, out MediaTime? duration)) return duration;
             // Split copies have distinct MediaSource objects for the same file. Reuse metadata only
             // within this batch, rather than reopening a decoder for every generated fragment.
-            if (_batchSourceDurations != null && source.Uri is { } cachedUri
-                && _batchSourceDurations.TryGetValue((source.GetType(), cachedUri), out duration)) return duration;
+            if (_batch != null && source.Uri is { } cachedUri
+                && _batch.SourceDurations.TryGetValue((source.GetType(), cachedUri), out duration)) return duration;
             // All re-enabling states use the same pre-edit media. Keep only its
             // duration in this operation's cache so each reader is opened once
             // and its temporary resource is still disposed immediately.
@@ -120,8 +120,8 @@ internal static partial class SlippableMedia
                 _ => null
             };
             _sourceDurations.Add(source, duration);
-            if (_batchSourceDurations != null && source.Uri is { } uri)
-                _batchSourceDurations[(source.GetType(), uri)] = duration;
+            if (_batch != null && source.Uri is { } uri)
+                _batch.SourceDurations[(source.GetType(), uri)] = duration;
             return duration;
         }
 

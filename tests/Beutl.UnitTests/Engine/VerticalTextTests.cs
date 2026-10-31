@@ -151,6 +151,12 @@ public class VerticalTextTests
         Assert.That(resource.GetVerticalLayout().Columns.Single().Runs.Single().Sideways, Is.False);
         Assert.That(cache.Count, Is.EqualTo(1));
 
+        block.Text.Value = "ーー";
+        resource.Reconcile(block, CompositionContext.Default, ref changed);
+        Assert.That(cache.Count, Is.EqualTo(1), "text edits keep the typeface/cluster entries");
+        Assert.That(resource.GetVerticalLayout().Columns.Single().Runs.Single().Sideways, Is.False);
+        Assert.That(cache.Count, Is.EqualTo(1));
+
         FontManager.Instance.SetFallbackFonts([], null);
         resource.Reconcile(block, CompositionContext.Default, ref changed);
         Assert.That(cache.Count, Is.Zero, "font revisions invalidate cached selections");

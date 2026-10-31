@@ -5,50 +5,17 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.Editor;
 
-// Mirror of SceneCompositor's per-frame layer snapshot + ShouldSkipLayer so export preflight excludes
-// exactly the elements the compositor would: with any solo layer active only solo layers render;
-// otherwise the per-target mute flag (video for the graphics pass, audio for the audio pass) decides.
-// Layers are keyed by ZIndex, first one per ZIndex winning, matching GetLayerSnapshot. Shared by the
-// root-scene walk (ExportSourceValidator) and the referenced-scene walk (ProxySourceEnumerator) so a
-// muted/non-solo layer inside an embedded scene is skipped too.
-internal readonly struct SceneLayerSkipModel
+// Export preflight skips layers with SceneCompositor's own SceneLayerSnapshot, so it excludes exactly the
+// elements the compositor would. Shared by the root-scene walk (ExportSourceValidator) and the referenced-scene
+// walk (ProxySourceEnumerator) so a muted/non-solo layer inside an embedded scene is skipped too.
+internal static class SceneLayerSkipModel
 {
-    private readonly Dictionary<int, TimelineLayer> _byZIndex;
-    private readonly bool _hasSolo;
-
-    private SceneLayerSkipModel(Dictionary<int, TimelineLayer> byZIndex, bool hasSolo)
-    {
-        _byZIndex = byZIndex;
-        _hasSolo = hasSolo;
-    }
-
-    public static SceneLayerSkipModel Build(Scene scene)
-    {
-        var byZIndex = new Dictionary<int, TimelineLayer>(scene.Layers.Count);
-        bool hasSolo = false;
-        foreach (TimelineLayer layer in scene.Layers)
-        {
-            if (byZIndex.TryAdd(layer.ZIndex.Value, layer) && layer.IsSolo.Value)
-                hasSolo = true;
-        }
-
-        return new SceneLayerSkipModel(byZIndex, hasSolo);
-    }
-
-    public bool ShouldSkip(int zIndex, CompositionTarget target, bool ignoreSolo = false)
-    {
-        _byZIndex.TryGetValue(zIndex, out TimelineLayer? layer);
-        if (!ignoreSolo && _hasSolo && (layer is null || !layer.IsSolo.Value)) return true;
-        if (layer is null) return false;
-        return target == CompositionTarget.Graphics ? layer.IsVideoMuted.Value : layer.IsAudioMuted.Value;
-    }
-
     // Both preflight entry points follow the same output and matte dependencies. A matte ignores solo
     // and output visibility, but still obeys enable/mute and is needed only while its consumer is active.
     public static IEnumerable<(Element Element, TimeRange? Window, MediaTime? FrameOrigin)> EnumerateRenderableElements(
         Scene scene, CompositionTarget target, TimeRange? window, Rational? frameRate = null, MediaTime? frameOrigin = null)
     {
-        SceneLayerSkipModel layers = Build(scene);
+        SceneLayerSnapshot layers = SceneLayerSnapshot.Build(scene);
         var visiting = new HashSet<Element>();
         HashSet<Element> participants = target == CompositionTarget.Graphics ? ElementTransitions.GetParticipants(scene) : [];
         Rational rate = frameRate ?? scene.FindHierarchicalParent<Project>().GetFrameRate();

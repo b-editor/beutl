@@ -11,7 +11,7 @@ namespace Beutl.Views;
 public partial class PlayerView
 {
     private sealed class MouseControlEditingHandle(PlayerView view, PlayerViewModel model,
-        IEditingHandleProvider provider, EditingHandle handle) : IMouseControlHandler
+        IEditingHandleProvider provider, EditingHandle handle) : IEditingInteraction
     {
         private IPointer? _pointer;
         private Beutl.Graphics.Matrix _inverse;

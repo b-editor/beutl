@@ -23,7 +23,9 @@ internal sealed unsafe class VulkanDevice : IDisposable
         _vk = vk;
         _physicalDevice = physicalDevice;
 
-        _graphicsQueueFamilyIndex = VulkanPhysicalDeviceQueries.FindGraphicsQueueFamily(_vk, _physicalDevice);
+        _graphicsQueueFamilyIndex = VulkanPhysicalDeviceQueries.FindGraphicsQueueFamily(
+            _vk, _physicalDevice, out QueueFlags queueFlags);
+        GraphicsQueueSupportsCompute = (queueFlags & QueueFlags.ComputeBit) != 0;
         _enabledExtensions = GetRequiredDeviceExtensions();
         _device = CreateDevice(_enabledExtensions, out _enabledFeatures, out _timelineSemaphores);
 
@@ -33,6 +35,8 @@ internal sealed unsafe class VulkanDevice : IDisposable
         _vk.GetPhysicalDeviceProperties(_physicalDevice, &properties);
         var deviceName = Marshal.PtrToStringAnsi((IntPtr)properties.DeviceName);
         s_logger.LogInformation("Using GPU: {DeviceName}", deviceName);
+
+        Limits = properties.Limits;
 
         // An intermediate is sampled and drawn into, so it has to satisfy both the image limit and the
         // framebuffer one. These are not the same number: a device can sample an image wider than it can
@@ -120,9 +124,11 @@ internal sealed unsafe class VulkanDevice : IDisposable
 
     internal PhysicalDeviceFeatures EnabledFeatures => _enabledFeatures;
 
-    internal bool SupportsVertexStores => _enabledFeatures.VertexPipelineStoresAndAtomics;
+    /// <summary>The physical device's limits, read once when the device is created.</summary>
+    internal PhysicalDeviceLimits Limits { get; }
 
-    internal bool SupportsFragmentStores => _enabledFeatures.FragmentStoresAndAtomics;
+    /// <summary>Whether the queue every command is recorded for can also dispatch compute work.</summary>
+    internal bool GraphicsQueueSupportsCompute { get; }
 
     internal bool SupportsTriangleFans { get; private set; } = true;
     internal bool SupportsVertexAttributeBeyondStride { get; private set; } = true;

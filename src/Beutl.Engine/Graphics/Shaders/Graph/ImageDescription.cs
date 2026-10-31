@@ -27,23 +27,26 @@ public readonly record struct ImageDescription(ImageKind Kind, int Width, int He
         if (Kind == ImageKind.Image3D && Format.IsDepthFormat())
             throw new ArgumentException("Vulkan depth/stencil images must be two-dimensional.");
     }
+
+    internal (int Width, int Height, int Depth) MipExtent(int mip)
+        => (Math.Max(1, Width >> mip), Math.Max(1, Height >> mip), Math.Max(1, Depth >> mip));
 }
 
 /// <summary>Four clear components with the numeric type required by the image format.</summary>
 public readonly record struct ImageClearValue
 {
-    private ImageClearValue(uint x, uint y, uint z, uint w, int category)
+    private ImageClearValue(uint x, uint y, uint z, uint w, NumericType category)
         => (X, Y, Z, W, Category) = (x, y, z, w, category);
 
     internal uint X { get; }
     internal uint Y { get; }
     internal uint Z { get; }
     internal uint W { get; }
-    internal int Category { get; }
+    internal NumericType Category { get; }
 
     public static ImageClearValue Float(Vector4 value) => new(BitConverter.SingleToUInt32Bits(value.X),
-        BitConverter.SingleToUInt32Bits(value.Y), BitConverter.SingleToUInt32Bits(value.Z), BitConverter.SingleToUInt32Bits(value.W), 0);
+        BitConverter.SingleToUInt32Bits(value.Y), BitConverter.SingleToUInt32Bits(value.Z), BitConverter.SingleToUInt32Bits(value.W), NumericType.Float);
     public static ImageClearValue Int(int x, int y = 0, int z = 0, int w = 0)
-        => new(unchecked((uint)x), unchecked((uint)y), unchecked((uint)z), unchecked((uint)w), 1);
-    public static ImageClearValue UInt(uint x, uint y = 0, uint z = 0, uint w = 0) => new(x, y, z, w, 2);
+        => new(unchecked((uint)x), unchecked((uint)y), unchecked((uint)z), unchecked((uint)w), NumericType.SInt);
+    public static ImageClearValue UInt(uint x, uint y = 0, uint z = 0, uint w = 0) => new(x, y, z, w, NumericType.UInt);
 }

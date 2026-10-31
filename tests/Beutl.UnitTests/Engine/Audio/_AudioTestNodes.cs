@@ -370,8 +370,11 @@ internal sealed class AudioTestReader(AudioBuffer samples, AudioChannelLayout la
 {
     public bool FailReads { get; set; }
 
-    public override AudioStreamInfo AudioInfo { get; } = new("test", new Rational(samples.SampleCount, samples.SampleRate),
-        samples.SampleRate, samples.ChannelCount) { ChannelLayout = layout };
+    public override AudioStreamInfo AudioInfo { get; } = new(
+        "test", new Rational(samples.SampleCount, samples.SampleRate), samples.SampleRate, samples.ChannelCount)
+    {
+        ChannelLayout = layout
+    };
 
     public override VideoStreamInfo VideoInfo => throw new NotSupportedException();
 

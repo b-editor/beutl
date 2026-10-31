@@ -34,11 +34,14 @@ public sealed partial class WipeTransition : ClipTransition
 
         public override void Draw(ClipTransitionContext context)
         {
-            if (Shape == WipeTransitionShape.Linear)
+            // A shape this version does not know wipes with a straight edge too.
+            if (Shape is not (WipeTransitionShape.Box or WipeTransitionShape.Diamond or WipeTransitionShape.Clock))
             {
                 context.DrawWipe(_mask!, Direction);
                 return;
             }
+
+            if (context.DrawSettledSide()) return;
 
             using var path = new GeometryContext();
             Size size = context.Graphics.Size;
@@ -72,10 +75,6 @@ public sealed partial class WipeTransition : ClipTransition
                     path.ArcTo(new Size(clockRadius, clockRadius), 0, amount > 0.5f, Clockwise, end);
                     path.Close();
                     break;
-
-                default:
-                    context.DrawWipe(_mask!, Direction);
-                    return;
             }
 
             _geometry.Draw(context, path);

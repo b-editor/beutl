@@ -17,7 +17,7 @@ public sealed class SoundSource : MediaSource
         if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
         // A relink can switch back to a file that was replaced since other sources opened it, so read the
         // file switched to afresh instead of joining their readers.
-        if (HasUri && Uri != uri) SharedMediaReaders.Shared.Invalidate(Path.GetFullPath(uri.LocalPath));
+        if (HasUri && Uri != uri) SharedMediaReaders.Shared.Invalidate(uri);
         Uri = uri;
     }
 
@@ -32,13 +32,13 @@ public sealed class SoundSource : MediaSource
     internal override void InvalidateResourceCache()
     {
         // The file may have changed on disk, so reloading resources must not join readers opened before.
-        if (HasUri) SharedMediaReaders.Shared.Invalidate(Path.GetFullPath(Uri.LocalPath));
+        if (HasUri) SharedMediaReaders.Shared.Invalidate(Uri);
         base.InvalidateResourceCache();
     }
 
     public new sealed class Resource : MediaSource.Resource
     {
-        private Counter<MediaReader>? _counter;
+        private MediaReader? _reader;
         private Uri? _loadedUri;
 
         public MediaTime Duration { get; private set; }
@@ -49,50 +49,50 @@ public sealed class SoundSource : MediaSource
 
         public AudioChannelLayout ChannelLayout => MediaReader?.AudioInfo.ChannelLayout ?? AudioChannelLayout.Stereo;
 
-        public MediaReader? MediaReader => _counter?.Value;
+        public MediaReader? MediaReader => _reader;
 
         public bool Read(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
-            if (IsDisposed || _counter == null)
+            if (IsDisposed || _reader == null)
             {
                 sound = null;
                 return false;
             }
 
-            return _counter.Value.ReadAudio(start, length, out sound);
+            return _reader.ReadAudio(start, length, out sound);
         }
 
         public bool Read(MediaTime start, MediaTime length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
-            if (IsDisposed || _counter == null)
+            if (IsDisposed || _reader == null)
             {
                 sound = null;
                 return false;
             }
 
-            return _counter.Value.ReadAudio(ToSamples(start), ToSamples(length), out sound);
+            return _reader.ReadAudio(ToSamples(start), ToSamples(length), out sound);
         }
 
         public bool Read(MediaTime start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
-            if (IsDisposed || _counter == null)
+            if (IsDisposed || _reader == null)
             {
                 sound = null;
                 return false;
             }
 
-            return _counter.Value.ReadAudio(ToSamples(start), length, out sound);
+            return _reader.ReadAudio(ToSamples(start), length, out sound);
         }
 
         public bool Read(int start, MediaTime length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
-            if (IsDisposed || _counter == null)
+            if (IsDisposed || _reader == null)
             {
                 sound = null;
                 return false;
             }
 
-            return _counter.Value.ReadAudio(start, ToSamples(length), out sound);
+            return _reader.ReadAudio(start, ToSamples(length), out sound);
         }
 
         private int ToSamples(MediaTime timeSpan)
@@ -111,34 +111,33 @@ public sealed class SoundSource : MediaSource
             // A relink can restore the file at its original URI.
             if (soundSource.HasUri && (_loadedUri != soundSource.Uri || ReloadRequested))
             {
-                _counter?.Release();
-                _counter = null;
+                _reader?.Dispose();
+                _reader = null;
 
                 try
                 {
                     string path = soundSource.Uri.LocalPath;
                     // Encoding keeps its own reader; other resources share the file's readers. A media without an
                     // audio stream never serves others, which would give them a silent source.
-                    MediaReader reader = context.DisableResourceShare
+                    _reader = context.DisableResourceShare
                         ? MediaReader.Open(path, new(MediaMode.Audio))
                         : SharedMediaReaders.Shared.Open(
-                            new(Path.GetFullPath(path), MediaMode.Audio, false, default, 0),
+                            SharedMediaReaders.Key.ForFile(path, MediaMode.Audio),
                             () => MediaReader.Open(path, new(MediaMode.Audio)),
                             opened => opened.HasAudio);
-                    _counter = new Counter<MediaReader>(reader, null);
                 }
                 catch
                 {
-                    _counter = null;
+                    _reader = null;
                     _loadedUri = soundSource.Uri;
                     return;
                 }
 
                 // A media without an audio stream cannot expose AudioInfo, so treat it as unreadable (#2183).
-                if (!_counter.Value.HasAudio)
+                if (!_reader.HasAudio)
                 {
-                    _counter.Release();
-                    _counter = null;
+                    _reader.Dispose();
+                    _reader = null;
                     Duration = MediaTime.Zero;
                     SampleRate = 0;
                     NumChannels = 0;
@@ -146,9 +145,9 @@ public sealed class SoundSource : MediaSource
                     return;
                 }
 
-                Duration = MediaTime.FromSeconds(_counter.Value.AudioInfo.Duration.ToDouble());
-                SampleRate = _counter.Value.AudioInfo.SampleRate;
-                NumChannels = _counter.Value.AudioInfo.NumChannels;
+                Duration = MediaTime.FromSeconds(_reader.AudioInfo.Duration.ToDouble());
+                SampleRate = _reader.AudioInfo.SampleRate;
+                NumChannels = _reader.AudioInfo.NumChannels;
                 _loadedUri = soundSource.Uri;
 
                 if (!versionBumped)
@@ -162,8 +161,8 @@ public sealed class SoundSource : MediaSource
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
-            _counter?.Release();
-            _counter = null;
+            _reader?.Dispose();
+            _reader = null;
         }
     }
 }

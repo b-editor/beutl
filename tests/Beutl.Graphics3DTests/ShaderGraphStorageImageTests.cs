@@ -295,7 +295,8 @@ public sealed class ShaderGraphStorageImageTests
                 });
                 return builder.Output(output);
             });
-            bool supported = writer == ShaderStage.Vertex ? context.SupportsVertexStores : context.SupportsFragmentStores;
+            bool supported = writer == ShaderStage.Vertex
+                ? context.EnabledFeatures.VertexPipelineStoresAndAtomics : context.EnabledFeatures.FragmentStoresAndAtomics;
             if (supported)
                 Assert.That(Render(graph, bounds), Is.EqualTo(new[] { 0.25f, 0, 0, 1 }).Within(0.002));
             else

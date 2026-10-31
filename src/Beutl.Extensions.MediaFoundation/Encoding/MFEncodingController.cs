@@ -195,18 +195,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
                 Pack(VideoSettings.FrameRate.Value.Numerator, VideoSettings.FrameRate.Value.Denominator)).CheckError();
             type.Set(MediaTypeAttributeKeys.PixelAspectRatio, Pack(1, 1)).CheckError();
             type.Set(MediaTypeAttributeKeys.InterlaceMode, (uint)VideoInterlaceMode.Progressive).CheckError();
-            if (color.Matrix != VideoColorMatrix.Unknown)
-            {
-                // Input YUV pixels already match these output tags. BgraToI420 writes the limited range that the
-                // YCbCr defaults declare.
-                type.Set(MediaTypeAttributeKeys.VideoPrimaries, (uint)(color.Primaries == BitmapColorPrimaries.Rec2020
-                    ? VideoPrimaries.Bt2020 : VideoPrimaries.Bt709)).CheckError();
-                type.Set(MediaTypeAttributeKeys.TransferFunction, (uint)(color.Transfer == BitmapColorTransfer.Srgb
-                    ? VideoTransferFunction.FuncSRGB : VideoTransferFunction.Func709)).CheckError();
-                type.Set(MediaTypeAttributeKeys.VideoNominalRange, (uint)NominalRange.Range16_235).CheckError();
-                type.Set(MediaTypeAttributeKeys.YuvMatrix, (uint)(color.Matrix == VideoColorMatrix.Bt601
-                    ? VideoTransferMatrix.Bt601 : VideoTransferMatrix.Bt709)).CheckError();
-            }
+            MFColorTags.Apply(type, color);
             if (subtype == VideoFormatGuids.Rgb32)
                 type.Set(MediaTypeAttributeKeys.DefaultStride, checked((uint)VideoSettings.DestinationSize.Value.Width * 4)).CheckError();
             else if (subtype == VideoFormatGuids.Iyuv)

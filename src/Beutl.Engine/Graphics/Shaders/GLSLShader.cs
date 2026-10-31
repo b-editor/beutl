@@ -1,5 +1,4 @@
 ﻿using System.Buffers;
-using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Beutl.Graphics.Backend;
@@ -229,35 +228,6 @@ public sealed class GLSLShader : IDisposable
         }
     }
 
-    /// <summary>
-    /// Creates an engine-owned shader whose output is allowed to skip pooled-target initialization.
-    /// </summary>
-    /// <param name="fragmentShaderSource">
-    /// An audited built-in fragment shader that may claim <see cref="ShaderOutputCoverage.ProvablyFull"/>.
-    /// </param>
-    /// <param name="specializationConstants">Immutable values fixed for the lifetime of the created pipeline.</param>
-    /// <param name="inputCount">The number of consecutive sampler bindings in set 0.</param>
-    internal static GLSLShader CreateBuiltIn(
-        string fragmentShaderSource,
-        ImmutableArray<SpecializationConstant> specializationConstants = default,
-        int inputCount = 1)
-    {
-        IGraphicsContext context = RequireGraphicsContext();
-
-        GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(
-            context,
-            fragmentShaderSource,
-            ShaderOutputCoverage.ProvablyFull,
-            specializationConstants,
-            inputCount);
-        if (pipeline == null)
-        {
-            throw new InvalidOperationException("Failed to compile built-in GLSL shader.");
-        }
-
-        return new GLSLShader(pipeline);
-    }
-
     internal GLSLFilterPipeline Pipeline
     {
         get
@@ -350,33 +320,6 @@ public sealed class GLSLShader : IDisposable
 
             RunPassIntoReplacement(context, i, target, sourceTexture, pushConstants, static (_, value) => value);
         }
-    }
-
-    // Execute a single pass against specific textures (for use by multi-pass effects)
-    internal void ExecuteSingleTarget<T>(
-        ITexture2D source,
-        ITexture2D destination,
-        T pushConstants) where T : unmanaged
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _pipeline.Execute(source, destination, pushConstants);
-    }
-
-    // Execute a single pass with mask texture (for use by multi-pass effects)
-    internal void ExecuteSingleTargetWithMask<T>(
-        ITexture2D source,
-        ITexture2D mask,
-        ITexture2D destination,
-        T pushConstants) where T : unmanaged
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _pipeline.Execute(source, mask, destination, pushConstants);
-    }
-
-    internal void SubmitPendingCommands()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _pipeline.SubmitPendingCommands();
     }
 
     // Multi-pass apply with ping-pong intermediate textures

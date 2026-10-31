@@ -3,6 +3,8 @@ using System.Runtime.InteropServices;
 
 using Avalonia.Threading;
 
+using static Beutl.Editor.Components.Helpers.ObjCRuntime;
+
 namespace Beutl.Editor.Components.WebBrowserTab;
 
 internal sealed partial class MacOSBrowserDownloadHandler
@@ -41,13 +43,13 @@ internal sealed partial class MacOSBrowserDownloadHandler
         {
             if (IsDisposed)
             {
-                SendPointer(download, sel_registerName("cancel:"), 0);
+                SendVoid(download, Selector("cancel:"), 0);
                 return;
             }
-            _download = Send(download, sel_registerName("retain"));
-            _delegate = Send(s_downloadDelegateClass, sel_registerName("new"));
+            _download = Send(download, Selector("retain"));
+            _delegate = Send(s_downloadDelegateClass, Selector("new"));
             s_downloads.Add(_delegate, this);
-            SendPointer(download, sel_registerName("setDelegate:"), _delegate);
+            SendVoid(download, Selector("setDelegate:"), _delegate);
         }
 
         public async Task<string> SaveAsync(string directory, IProgress<(long Received, long? Total)>? progress,
@@ -67,18 +69,17 @@ internal sealed partial class MacOSBrowserDownloadHandler
             {
                 await _destinationReady.Task.WaitAsync(cancellation.Token);
                 cancellation.Token.ThrowIfCancellationRequested();
-                stagingDirectory = Path.Combine(Path.GetFullPath(directory), $".beutl-download-{Guid.NewGuid():N}");
+                (stagingDirectory, string temporaryPath) = BrowserMediaDownload.CreateStagingPaths(directory);
                 Directory.CreateDirectory(stagingDirectory);
-                string temporaryPath = Path.Combine(stagingDirectory, "response");
                 _progressTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
                 _progressTimer.Tick += (_, _) =>
                 {
                     if (IsDisposed || _download == 0) return;
                     try
                     {
-                        nint nativeProgress = Send(_download, sel_registerName("progress"));
-                        long received = Send(nativeProgress, sel_registerName("completedUnitCount"));
-                        long total = Send(nativeProgress, sel_registerName("totalUnitCount"));
+                        nint nativeProgress = Send(_download, Selector("progress"));
+                        long received = Send(nativeProgress, Selector("completedUnitCount"));
+                        long total = Send(nativeProgress, Selector("totalUnitCount"));
                         progress?.Report((Math.Max(0, received), total > 0 ? total : null));
                     }
                     catch (Exception ex)
@@ -90,9 +91,8 @@ internal sealed partial class MacOSBrowserDownloadHandler
                 ChooseDestination(temporaryPath);
                 await _finished.Task.WaitAsync(cancellation.Token);
                 _progressTimer.Stop();
-                return IsGenerated
-                    ? BrowserMediaDownload.PublishGeneratedFile(temporaryPath, directory, _fileName!, cancellation.Token)
-                    : await BrowserMediaDownload.ValidateAndPublishAsync(temporaryPath, directory, _fileName!, _charset, cancellation.Token);
+                return await BrowserMediaDownload.PublishNativeFileAsync(temporaryPath, directory, _fileName!, IsGenerated, _charset,
+                    cancellation.Token);
             }
             finally
             {
@@ -115,10 +115,10 @@ internal sealed partial class MacOSBrowserDownloadHandler
             if (_download != 0)
             {
                 s_downloads.Remove(_delegate);
-                SendPointer(_download, sel_registerName("setDelegate:"), 0);
-                if (!_finished.Task.IsCompletedSuccessfully) SendPointer(_download, sel_registerName("cancel:"), 0);
-                SendVoid(_delegate, sel_registerName("release"));
-                SendVoid(_download, sel_registerName("release"));
+                SendVoid(_download, Selector("setDelegate:"), 0);
+                if (!_finished.Task.IsCompletedSuccessfully) SendVoid(_download, Selector("cancel:"), 0);
+                SendVoid(_delegate, Selector("release"));
+                SendVoid(_download, Selector("release"));
                 _delegate = 0;
                 _download = 0;
             }
@@ -136,12 +136,12 @@ internal sealed partial class MacOSBrowserDownloadHandler
 
         private static unsafe nint CreateDownloadDelegateClass()
         {
-            nint type = objc_allocateClassPair(objc_getClass("NSObject"), "BeutlDownloadDelegate", 0);
-            class_addMethod(type, sel_registerName("download:decideDestinationUsingResponse:suggestedFilename:completionHandler:"),
+            nint type = objc_allocateClassPair(GetClass("NSObject"), "BeutlDownloadDelegate", 0);
+            class_addMethod(type, Selector("download:decideDestinationUsingResponse:suggestedFilename:completionHandler:"),
                 (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, nint, nint, void>)&OnDestination, "v@:@@@@");
-            class_addMethod(type, sel_registerName("downloadDidFinish:"),
+            class_addMethod(type, Selector("downloadDidFinish:"),
                 (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, void>)&OnFinished, "v@:@");
-            class_addMethod(type, sel_registerName("download:didFailWithError:resumeData:"),
+            class_addMethod(type, Selector("download:didFailWithError:resumeData:"),
                 (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, nint, void>)&OnFailed, "v@:@@@");
             objc_registerClassPair(type);
             return type;
@@ -159,8 +159,8 @@ internal sealed partial class MacOSBrowserDownloadHandler
             {
                 if (source.IsGenerated)
                 {
-                    source._fileName = BrowserMediaDownload.CreateGeneratedFileName(GetString(name),
-                        GetString(Send(response, sel_registerName("MIMEType"))));
+                    source._fileName = BrowserMediaDownload.CreateGeneratedFileName(ToManagedString(name),
+                        ToManagedString(Send(response, Selector("MIMEType"))));
                 }
                 source._destinationHandler = BlockCopy(completion);
                 if (source._destinationHandler == 0) throw new IOException(Strings.WebDownloadIncomplete);
@@ -196,7 +196,7 @@ internal sealed partial class MacOSBrowserDownloadHandler
         {
             if (!s_downloads.TryGetValue(self, out var source)) return;
             string message;
-            try { message = GetString(Send(error, sel_registerName("localizedDescription"))) ?? Strings.WebDownloadIncomplete; }
+            try { message = ToManagedString(Send(error, Selector("localizedDescription"))) ?? Strings.WebDownloadIncomplete; }
             catch { message = Strings.WebDownloadIncomplete; }
             var exception = new IOException(message);
             source._destinationReady.TrySetException(exception);
@@ -211,8 +211,8 @@ internal sealed partial class MacOSBrowserDownloadHandler
         nint url = 0;
         if (path != null)
         {
-            nint text = SendString(objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), path);
-            url = SendArgument(objc_getClass("NSURL"), sel_registerName("fileURLWithPath:"), text);
+            nint text = AutoreleasedString(path);
+            url = Send(GetClass("NSURL"), Selector("fileURLWithPath:"), text);
         }
         var callback = (delegate* unmanaged[Cdecl]<nint, nint, void>)((BlockLiteral*)block)->Invoke;
         callback(block, url);
@@ -223,10 +223,4 @@ internal sealed partial class MacOSBrowserDownloadHandler
 
     [LibraryImport("/usr/lib/libSystem.B.dylib", EntryPoint = "_Block_release")]
     private static partial void BlockRelease(nint block);
-
-    [LibraryImport(LibObjC, EntryPoint = "objc_msgSend", StringMarshalling = StringMarshalling.Utf8)]
-    private static partial nint SendString(nint receiver, nint selector, string value);
-
-    [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
-    private static partial nint SendArgument(nint receiver, nint selector, nint value);
 }

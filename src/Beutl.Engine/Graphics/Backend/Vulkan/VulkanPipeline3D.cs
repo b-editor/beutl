@@ -14,9 +14,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
     private readonly PipelineLayout _pipelineLayout;
     private readonly DescriptorSetLayout _descriptorSetLayout;
     private readonly VulkanDescriptorBindingTable _descriptorBindings;
-    private readonly ShaderModule _vertexShader;
-    private readonly ShaderModule _fragmentShader;
-    private readonly Dictionary<ShaderStage, ShaderModule> _additionalShaders = [];
+    private readonly Dictionary<ShaderStage, ShaderModule> _shaders = [];
     private readonly uint _patchControlPoints;
     private bool _disposed;
 
@@ -32,8 +30,36 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         ImmutableArray<SpecializationConstant> specializationConstants,
         int colorAttachmentCount,
         bool hasDepthAttachment,
+        in VulkanPipelineFixedFunctionState fixedFunctionState)
+        : this(
+            context,
+            renderPass,
+            new Dictionary<ShaderStage, byte[]>
+            {
+                [ShaderStage.Vertex] = vertexShaderSpirv,
+                [ShaderStage.Fragment] = fragmentShaderSpirv,
+            },
+            vertexInputDescription,
+            descriptorBindings,
+            specializationConstants,
+            colorAttachmentCount,
+            hasDepthAttachment,
+            in fixedFunctionState)
+    {
+    }
+
+    /// <summary>Creates a pipeline from every stage of a graphics program, which includes vertex and fragment.</summary>
+    public VulkanPipeline3D(
+        VulkanContext context,
+        RenderPass renderPass,
+        IReadOnlyDictionary<ShaderStage, byte[]> stages,
+        VulkanVertexInputDescription vertexInputDescription,
+        DescriptorSetLayoutBinding[] descriptorBindings,
+        ImmutableArray<SpecializationConstant> specializationConstants,
+        int colorAttachmentCount,
+        bool hasDepthAttachment,
         in VulkanPipelineFixedFunctionState fixedFunctionState,
-        IReadOnlyDictionary<ShaderStage, byte[]>? additionalStages = null, uint patchControlPoints = 3)
+        uint patchControlPoints = 3)
     {
         _context = context;
         _patchControlPoints = patchControlPoints;
@@ -45,54 +71,16 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         // A constructor that throws leaves no instance to dispose, so what it already created goes back here.
         try
         {
-            _vertexShader = CreateShaderModule(vk, device, vertexShaderSpirv);
-            _fragmentShader = CreateShaderModule(vk, device, fragmentShaderSpirv);
-            if (additionalStages is not null)
-                foreach (var (stage, bytes) in additionalStages)
-                    _additionalShaders.Add(stage, CreateShaderModule(vk, device, bytes));
-
-            fixed (DescriptorSetLayoutBinding* bindingsPtr = descriptorBindings)
+            // The pipeline lists its stages in this order: vertex, fragment, then the optional ones.
+            _shaders.Add(ShaderStage.Vertex, CreateShaderModule(vk, device, stages[ShaderStage.Vertex]));
+            _shaders.Add(ShaderStage.Fragment, CreateShaderModule(vk, device, stages[ShaderStage.Fragment]));
+            foreach (var (stage, bytes) in stages)
             {
-                var layoutInfo = new DescriptorSetLayoutCreateInfo
-                {
-                    SType = StructureType.DescriptorSetLayoutCreateInfo,
-                    BindingCount = (uint)descriptorBindings.Length,
-                    PBindings = bindingsPtr
-                };
-
-                DescriptorSetLayout descriptorLayout;
-                var result = vk.CreateDescriptorSetLayout(device, &layoutInfo, null, &descriptorLayout);
-                if (result != Result.Success)
-                {
-                    throw new InvalidOperationException($"Failed to create descriptor set layout: {result}");
-                }
-                _descriptorSetLayout = descriptorLayout;
+                if (stage is not (ShaderStage.Vertex or ShaderStage.Fragment))
+                    _shaders.Add(stage, CreateShaderModule(vk, device, bytes));
             }
 
-            var pushConstantRange = new PushConstantRange
-            {
-                StageFlags = PushConstantStages,
-                Offset = 0,
-                Size = MaxPushConstantsSize
-            };
-
-            var layouts = stackalloc DescriptorSetLayout[] { _descriptorSetLayout };
-            var pipelineLayoutInfo = new PipelineLayoutCreateInfo
-            {
-                SType = StructureType.PipelineLayoutCreateInfo,
-                SetLayoutCount = 1,
-                PSetLayouts = layouts,
-                PushConstantRangeCount = 1,
-                PPushConstantRanges = &pushConstantRange
-            };
-
-            PipelineLayout pipelineLayout;
-            var layoutResult = vk.CreatePipelineLayout(device, &pipelineLayoutInfo, null, &pipelineLayout);
-            if (layoutResult != Result.Success)
-            {
-                throw new InvalidOperationException($"Failed to create pipeline layout: {layoutResult}");
-            }
-            _pipelineLayout = pipelineLayout;
+            CreateLayouts(vk, device, descriptorBindings, PushConstantStages, out _descriptorSetLayout, out _pipelineLayout);
 
             _pipeline = CreateGraphicsPipeline(
                 vk, device, renderPass, vertexInputDescription, colorAttachmentCount,
@@ -145,7 +133,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         ImmutableArray<SpecializationConstant> specializationConstants)
     {
         var specialization = new VulkanSpecializationData(specializationConstants);
-        ShaderStage[] stages = [ShaderStage.Vertex, ShaderStage.Fragment, .. _additionalShaders.Keys];
+        ShaderStage[] stages = [.. _shaders.Keys];
         fixed (byte* mainPtr = "main\0"u8)
         fixed (SpecializationMapEntry* entries = specialization.MapEntries)
         fixed (byte* data = specialization.Data)
@@ -155,8 +143,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
             for (int i = 0; i < stages.Length; i++)
             {
                 ShaderStage stage = stages[i];
-                ShaderModule module = stage == ShaderStage.Vertex ? _vertexShader
-                    : stage == ShaderStage.Fragment ? _fragmentShader : _additionalShaders[stage];
+                ShaderModule module = _shaders[stage];
                 values[i] = specialization.Describe(stage, entries, data);
                 shaderStages[i] = DescribeShaderStage(VulkanFlagConverter.ToVulkan(stage), module, mainPtr,
                     values[i].MapEntryCount == 0 ? null : &values[i]);
@@ -230,7 +217,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
                 {
                     SType = StructureType.GraphicsPipelineCreateInfo,
                     StageCount = (uint)stages.Length,
-                    PTessellationState = _additionalShaders.ContainsKey(ShaderStage.TessellationControl) ? &tessellation : null,
+                    PTessellationState = _shaders.ContainsKey(ShaderStage.TessellationControl) ? &tessellation : null,
                     PStages = shaderStages,
                     PVertexInputState = &vertexInputInfo,
                     PInputAssemblyState = &inputAssembly,
@@ -335,6 +322,61 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         }
     }
 
+    /// <summary>
+    /// Creates a descriptor set layout for <paramref name="bindings"/> and a pipeline layout over it whose one
+    /// <see cref="MaxPushConstantsSize"/>-byte push-constant range covers <paramref name="pushStages"/>.
+    /// </summary>
+    /// <remarks>
+    /// Each handle is stored as soon as it exists, so an owner that passes its own fields still releases the
+    /// descriptor set layout when the pipeline layout cannot be created.
+    /// </remarks>
+    internal static void CreateLayouts(Vk vk, Device device, DescriptorSetLayoutBinding[] bindings,
+        ShaderStageFlags pushStages, out DescriptorSetLayout descriptorSetLayout, out PipelineLayout pipelineLayout)
+    {
+        fixed (DescriptorSetLayoutBinding* bindingsPtr = bindings)
+        {
+            var layoutInfo = new DescriptorSetLayoutCreateInfo
+            {
+                SType = StructureType.DescriptorSetLayoutCreateInfo,
+                BindingCount = (uint)bindings.Length,
+                PBindings = bindingsPtr
+            };
+
+            DescriptorSetLayout descriptorLayout;
+            var result = vk.CreateDescriptorSetLayout(device, &layoutInfo, null, &descriptorLayout);
+            if (result != Result.Success)
+            {
+                throw new InvalidOperationException($"Failed to create descriptor set layout: {result}");
+            }
+            descriptorSetLayout = descriptorLayout;
+        }
+
+        var pushConstantRange = new PushConstantRange
+        {
+            StageFlags = pushStages,
+            Offset = 0,
+            Size = MaxPushConstantsSize
+        };
+
+        var layouts = stackalloc DescriptorSetLayout[] { descriptorSetLayout };
+        var pipelineLayoutInfo = new PipelineLayoutCreateInfo
+        {
+            SType = StructureType.PipelineLayoutCreateInfo,
+            SetLayoutCount = 1,
+            PSetLayouts = layouts,
+            PushConstantRangeCount = 1,
+            PPushConstantRanges = &pushConstantRange
+        };
+
+        PipelineLayout created;
+        var layoutResult = vk.CreatePipelineLayout(device, &pipelineLayoutInfo, null, &created);
+        if (layoutResult != Result.Success)
+        {
+            throw new InvalidOperationException($"Failed to create pipeline layout: {layoutResult}");
+        }
+        pipelineLayout = created;
+    }
+
     public void Bind()
     {
         // Binding is done through command buffer
@@ -350,8 +392,6 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         Pipeline pipeline = _pipeline;
         PipelineLayout pipelineLayout = _pipelineLayout;
         DescriptorSetLayout descriptorSetLayout = _descriptorSetLayout;
-        ShaderModule vertexShader = _vertexShader;
-        ShaderModule fragmentShader = _fragmentShader;
         _context.DeferRelease(() =>
         {
             var vk = _context.Vk;
@@ -366,11 +406,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
             if (descriptorSetLayout.Handle != 0)
                 vk.DestroyDescriptorSetLayout(device, descriptorSetLayout, null);
 
-            if (vertexShader.Handle != 0)
-                vk.DestroyShaderModule(device, vertexShader, null);
-            if (fragmentShader.Handle != 0)
-                vk.DestroyShaderModule(device, fragmentShader, null);
-            foreach (ShaderModule module in _additionalShaders.Values)
+            foreach (ShaderModule module in _shaders.Values)
                 vk.DestroyShaderModule(device, module, null);
         });
     }

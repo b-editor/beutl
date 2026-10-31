@@ -496,7 +496,7 @@ internal sealed partial class RenderRequestExecutor
             CompiledShaderRun run,
             ProgramCacheContextKey contextKey)
         {
-            return _programCache.GetOrCreate(
+            return _programCaches.Sksl.GetOrCreate(
                 run.Program,
                 contextKey,
                 CachedSkRuntimeEffect.Create);
