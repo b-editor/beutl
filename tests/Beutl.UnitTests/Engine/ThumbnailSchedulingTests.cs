@@ -81,14 +81,14 @@ public class ThumbnailSchedulingTests
         Assert.That(await second.MoveNextAsync().AsTask().WaitAsync(s_timeout), Is.True);
         Task<bool> queued = waiting.MoveNextAsync().AsTask();
         Assert.That(queued.IsCompleted, Is.False);
-        Assert.That(decoder.Readers.Count(r => !r.IsDisposed), Is.EqualTo(2));
+        Assert.That(decoder.Readers.Count(r => !r.IsDisposed), Is.EqualTo(1), "strips of one file share its reader");
 
         cancellation.Cancel();
         Assert.That(await queued.WaitAsync(s_timeout), Is.False);
-        Assert.That(decoder.Readers, Has.Count.EqualTo(2), "cancelled work must not open a decoder");
+        Assert.That(decoder.Readers, Has.Count.EqualTo(1), "cancelled work must not open a decoder");
 
         await first.DisposeAsync();
-        Assert.That(decoder.Readers.Count(r => !r.IsDisposed), Is.EqualTo(1));
+        Assert.That(decoder.Readers.Count(r => !r.IsDisposed), Is.EqualTo(1), "the second strip still reads it");
         await using (var resumed = CreateProvider(decoder.Path, video: false)
                          .GetWaveformChunksAsync(1, 4096, null).GetAsyncEnumerator())
         {
@@ -96,7 +96,7 @@ public class ThumbnailSchedulingTests
         }
 
         await second.DisposeAsync();
-        Assert.That(decoder.Readers, Has.Count.EqualTo(3));
+        Assert.That(decoder.Readers, Has.Count.EqualTo(1));
         Assert.That(decoder.Readers, Has.All.Matches<MediaReader>(r => r.IsDisposed));
     }
 
