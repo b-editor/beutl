@@ -1827,6 +1827,43 @@ public class WebBrowserDownloadTests
         Assert.That(offered, Is.EqualTo(next));
     }
 
+    // WKWebView reports a page once it has loaded, after a script on it could already generate a file.
+    [AvaloniaTest]
+    public void AGeneratedFileOfferOutlivesTheLoadOfThePageThatMadeIt()
+    {
+        var page = new Uri("https://page.example/");
+        var next = new Uri("https://page.example/report");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: true);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = page, IsSuccess = true });
+        Uri? offered = null;
+        view.DownloadOptionsSelector = (uri, _) =>
+        {
+            offered = uri;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+        };
+
+        // A link starts the next page, which commits and generates a file while its images still load.
+        view.OnNativeNavigationStarted();
+        view.OnNativeNavigationCommitted(next);
+        var source = new GeneratedDownloadSource("report.csv", "a,b");
+        view.OnGeneratedDownloadRequested(page, "report.csv", source);
+        Dispatcher.UIThread.RunJobs();
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        Assert.That(confirm.IsVisible, Is.True);
+
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+        Assert.Multiple(() =>
+        {
+            Assert.That(source.IsDisposed, Is.False);
+            Assert.That(confirm.IsVisible, Is.True);
+        });
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(offered, Is.EqualTo(next));
+    }
+
     // An embedded document from another site, such as an ad, cannot pass its file off as the page's.
     [AvaloniaTest]
     public async Task AGeneratedFileFromAnotherSiteIsCreditedToThatSite()
