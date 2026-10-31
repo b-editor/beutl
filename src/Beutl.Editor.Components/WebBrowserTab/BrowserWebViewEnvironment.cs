@@ -33,11 +33,6 @@ internal static class BrowserWebViewEnvironment
                 // Program Files cannot create, and NativeWebView rethrows that failure on the dispatcher.
                 windows.UserDataFolder = s_webView2UserDataFolder.Value;
                 break;
-            case GtkWebViewEnvironmentRequestedEventArgs gtk:
-                // Embedding WebKitGTK as a child X11 window is unstable. Render it offscreen and composite
-                // its frames like the WPE adapter does; Ubuntu ships no WPE WebKit, so GTK is its only engine.
-                gtk.ExperimentalOffscreen = true;
-                break;
         }
     }
 

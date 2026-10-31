@@ -43,16 +43,6 @@ public class BrowserWebViewEnvironmentTests
     }
 
     [Test]
-    public void LinuxGtkEnvironment_RendersOffscreenInsteadOfEmbeddingAnX11Window()
-    {
-        var environment = CreateEventArgs<GtkWebViewEnvironmentRequestedEventArgs>();
-
-        BrowserWebViewEnvironment.Configure(null, environment);
-
-        Assert.That(environment.ExperimentalOffscreen, Is.True);
-    }
-
-    [Test]
     public void WindowsEnvironment_KeepsEveryWebViewInOneProfileUnderTheBeutlHome()
     {
         var tab = CreateEventArgs<WindowsWebView2EnvironmentRequestedEventArgs>();
