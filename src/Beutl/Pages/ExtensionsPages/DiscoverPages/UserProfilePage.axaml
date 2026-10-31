@@ -57,6 +57,7 @@
                                    TextTrimming="CharacterEllipsis"
                                    Theme="{StaticResource SubtitleTextBlockStyle}" />
                         <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   IsVisible="{Binding Profile.DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                    Text="{Binding Profile.Name}"
                                    TextTrimming="CharacterEllipsis" />
                     </StackPanel>

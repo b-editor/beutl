@@ -37,6 +37,7 @@ public class ExtensionsStoreCaptureTests
     [TestCase("dark", 800, 600)]
     [TestCase("light", 800, 600)]
     [TestCase("dark", 1200, 800)]
+    [TestCase("dark", 480, 600)]
     public async Task Capture_store_pages(string theme, int width, int height)
     {
         ThemeCaptureTests.UseCaptureTheme(

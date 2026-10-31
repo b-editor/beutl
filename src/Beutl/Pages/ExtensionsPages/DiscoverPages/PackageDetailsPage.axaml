@@ -103,17 +103,21 @@
                                    TextWrapping="Wrap"
                                    Theme="{StaticResource TitleTextBlockStyle}" />
 
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Button Click="OpenPublisherPage_Click"
-                                    Content="{Binding Package.Owner.Name}"
-                                    Theme="{StaticResource LiteButtonStyle}" />
+                        <!--  The kind docks right and the publisher takes what is left, so a long name shortens instead of running under the buttons.  -->
+                        <DockPanel HorizontalAlignment="Left">
                             <TextBlock VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       Text="·" />
-                            <TextBlock VerticalAlignment="Center"
+                                       DockPanel.Dock="Right"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                        Text="{Binding KindText.Value}" />
-                        </StackPanel>
+                            <TextBlock Margin="6,0"
+                                       VerticalAlignment="Center"
+                                       DockPanel.Dock="Right"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       Text="·" />
+                            <Button Click="OpenPublisherPage_Click" Theme="{StaticResource LiteButtonStyle}">
+                                <TextBlock Text="{Binding Package.Owner.Name}" TextTrimming="CharacterEllipsis" />
+                            </Button>
+                        </DockPanel>
 
                         <TextBlock Margin="0,4,0,0"
                                    IsVisible="{Binding Package.ShortDescription.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
