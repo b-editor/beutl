@@ -7,7 +7,7 @@ namespace Beutl.Editor.Components.WebBrowserTab;
 
 // Every web view sharing the browser profile must request the same environment: WebView2 rejects
 // a user data folder that its running browser process already opened with different options.
-internal static class BrowserWebViewEnvironment
+internal static partial class BrowserWebViewEnvironment
 {
     private static readonly Lazy<string> s_webView2UserDataFolder = new(() => PrepareWebView2UserDataFolder(
         Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "browser", "WebView2"),
@@ -16,15 +16,20 @@ internal static class BrowserWebViewEnvironment
         // and those permissions would deny the user's later unelevated runs.
         Environment.IsPrivilegedProcess ? null : Environment.ProcessPath));
 
+    // Safari updates replace the system WebKit, so the installed Safari names the engine that WKWebView runs.
+    private static readonly Lazy<string> s_safariApplicationName = new(() => GetSafariApplicationName(
+        OperatingSystem.IsMacOS() ? ReadBundleVersion("/Applications/Safari.app") : null, Environment.OSVersion.Version));
+
     internal static void Configure(object? sender, WebViewEnvironmentRequestedEventArgs e)
     {
         switch (e)
         {
             case AppleWKWebViewEnvironmentRequestedEventArgs apple:
-                // WKWebView omits Safari's product token, so Google serves its basic HTML UI.
-                // Append the compatibility token while retaining the system's OS and WebKit UA.
+                // WKWebView omits Safari's tokens: without the product Google serves its basic HTML UI, and without
+                // the version Google Drive asks for a browser update. Append both while retaining the system's OS
+                // and WebKit UA.
                 // EnvironmentRequested runs before the first navigation; AdapterCreated is too late.
-                apple.ApplicationNameForUserAgent = "Safari/605.1.15";
+                apple.ApplicationNameForUserAgent = s_safariApplicationName.Value;
                 break;
             case WindowsWebView2EnvironmentRequestedEventArgs windows:
                 // WebView2 defaults to a folder beside the executable, which an installation under
@@ -68,5 +73,16 @@ internal static class BrowserWebViewEnvironment
                 folder, fallbackFolder);
             return fallbackFolder;
         }
+    }
+
+    internal static string GetSafariApplicationName(string? safariVersion, Version osVersion)
+    {
+        if (!Version.TryParse(safariVersion, out Version? version))
+        {
+            // Safari's major version ran three ahead of macOS's until both moved to 26.
+            version = new Version(osVersion.Major >= 26 ? osVersion.Major : osVersion.Major + 3, osVersion.Minor);
+        }
+
+        return $"Version/{version} Safari/605.1.15";
     }
 }

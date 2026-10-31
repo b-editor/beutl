@@ -37,8 +37,46 @@ public class BrowserWebViewEnvironmentTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(environment.ApplicationNameForUserAgent, Is.EqualTo("Safari/605.1.15"));
+            Assert.That(environment.ApplicationNameForUserAgent, Does.Match(@"^Version/\d+(\.\d+)+ Safari/605\.1\.15$"));
             Assert.That(environment.NonPersistentDataStore, Is.True);
+        });
+    }
+
+    [TestCase("27.2", 27, 2, ExpectedResult = "Version/27.2 Safari/605.1.15")]
+    [TestCase("18.1.1", 15, 1, ExpectedResult = "Version/18.1.1 Safari/605.1.15")]
+    // A Safari update on an earlier macOS replaces the system WebKit too.
+    [TestCase("26.1", 15, 7, ExpectedResult = "Version/26.1 Safari/605.1.15")]
+    public string GetSafariApplicationName_StatesTheInstalledSafariVersion(string safariVersion, int osMajor, int osMinor)
+        => BrowserWebViewEnvironment.GetSafariApplicationName(safariVersion, new Version(osMajor, osMinor));
+
+    [TestCase(null, 26, 1, ExpectedResult = "Version/26.1 Safari/605.1.15")]
+    [TestCase(null, 15, 6, ExpectedResult = "Version/18.6 Safari/605.1.15")]
+    [TestCase("", 14, 4, ExpectedResult = "Version/17.4 Safari/605.1.15")]
+    [TestCase("27.2 beta", 27, 2, ExpectedResult = "Version/27.2 Safari/605.1.15")]
+    public string GetSafariApplicationName_WithoutAReadableVersion_FollowsMacOS(string? safariVersion, int osMajor, int osMinor)
+        => BrowserWebViewEnvironment.GetSafariApplicationName(safariVersion, new Version(osMajor, osMinor));
+
+    [Test]
+    [Platform("MacOsX")]
+    public void ReadBundleVersion_ReadsTheShortVersionString()
+    {
+        string bundle = Path.Combine(_root, "Safari.app");
+        Directory.CreateDirectory(Path.Combine(bundle, "Contents"));
+        File.WriteAllText(Path.Combine(bundle, "Contents", "Info.plist"), """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>CFBundleShortVersionString</key>
+                <string>26.1</string>
+            </dict>
+            </plist>
+            """);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(BrowserWebViewEnvironment.ReadBundleVersion(bundle), Is.EqualTo("26.1"));
+            Assert.That(BrowserWebViewEnvironment.ReadBundleVersion(Path.Combine(_root, "Missing.app")), Is.Null);
         });
     }
 
