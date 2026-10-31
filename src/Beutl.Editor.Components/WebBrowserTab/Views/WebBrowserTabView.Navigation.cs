@@ -11,17 +11,19 @@ namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
 internal partial class WebBrowserTabView
 {
-    // A tab that a page opened goes to its first address with the origin that page sends. Until a document
-    // commits, the tab's blank initial document belongs to that page, so its downloads send the origin too.
-    // WebView2 reports no commit before the page has loaded, so on Windows this ends when the navigation starts;
-    // until the page commits, only WebView2's own downloads answer it there.
+    // A tab that a page opened goes to its first address with the origin that page sends. Switching tabs replaces
+    // the adapter, and NativeWebView knows no address until the page has loaded, so each new adapter asks again.
+    // Until the page commits, the tab's blank initial document belongs to that page, so its downloads send the
+    // origin too. WebView2 reports no commit before the page has loaded, so on Windows that ends when the
+    // navigation starts; until the commit, only WebView2's own downloads answer it there.
     private (Uri Uri, Uri Referrer)? _openerNavigation;
     private bool _openerNavigationIssued;
+    private bool _openerPageCommitted;
     // The referrer WebKit computed for the latest new window request, from the page's policy and the link's rel.
     private (Uri Request, Uri? Referrer)? _nativeNewWindow;
 
     // The page whose document makes the current requests. BlankPage stands for a document of unknown origin.
-    private Uri? DocumentReferrer => _openerNavigation?.Referrer
+    private Uri? DocumentReferrer => (_openerPageCommitted ? null : _openerNavigation?.Referrer)
         ?? (_pageDownloadReferrerUncertain ? WebBrowserTabViewModel.BlankPage : _viewModel?.CurrentUri);
 
     internal void OnNativeNavigationCommitted(Uri uri)
@@ -29,7 +31,7 @@ internal partial class WebBrowserTabView
         if (_disposed) return;
         _viewModel?.CommitNavigation(uri);
         // The page loading now makes its own requests, before NavigationCompleted reports it loaded.
-        if (uri != WebBrowserTabViewModel.BlankPage) _openerNavigation = null;
+        if (uri != WebBrowserTabViewModel.BlankPage) _openerPageCommitted = true;
     }
 
     internal void OnNativeNavigationStarted()
@@ -76,7 +78,7 @@ internal partial class WebBrowserTabView
         {
             PreservePendingNativeDownload();
             InvalidatePageDownloadRequests(navigationStarted: true);
-            _openerNavigation = null;
+            _openerPageCommitted = true;
             _viewModel?.BeginNavigation(request);
         }
     }
@@ -321,6 +323,8 @@ internal partial class WebBrowserTabView
     {
         if (_disposed || _openerNavigation is not { } navigation || _openerNavigationIssued) return;
         _openerNavigationIssued = true;
+        // The tab starts over from its blank document, which belongs to the opener until the page commits again.
+        _openerPageCommitted = false;
         if (!_navigateWithReferrer(webView, navigation.Uri, navigation.Referrer)) webView.Navigate(navigation.Uri);
     }
 
@@ -334,7 +338,8 @@ internal partial class WebBrowserTabView
             IWindowsWebView2PlatformHandle windows when OperatingSystem.IsWindows() => WindowsReferrerNavigation.TryNavigate(windows, uri, value,
                 () =>
                 {
-                    if (!_disposed && ReferenceEquals(_webView, webView) && _openerNavigation?.Uri == uri) webView.Navigate(uri);
+                    if (!_disposed && ReferenceEquals(_webView, webView) && _openerNavigation?.Uri == uri && !_openerPageCommitted)
+                        webView.Navigate(uri);
                 }),
             IAppleWKWebViewPlatformHandle apple when OperatingSystem.IsMacOS() => MacOSReferrerNavigation.TryNavigate(apple, uri, value),
             IGtkWebViewPlatformHandle gtk when OperatingSystem.IsLinux() => LinuxReferrerNavigation.TryNavigate(gtk.WebKitWebView, false, uri, value),

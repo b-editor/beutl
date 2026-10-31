@@ -117,10 +117,16 @@ public class BrowserNewTabReferrerTests
         var editor = new TabOpeningEditor();
         using WebBrowserTabViewModel opened = OpenFrom(profile, s_page, s_downloadPage, editor: editor);
         NativeWebView? native = null;
+        int navigations = 0;
         using var view = new WebBrowserTabView(uri => native = new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: webKit, navigateWithReferrer: (_, _, _) => true)
+            navigationStartedIncludesSubframes: webKit, navigateWithReferrer: (_, _, _) =>
+            {
+                navigations++;
+                return true;
+            })
         { DataContext = opened };
-        view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
+        var adapter = new WebViewAdapterEventArgs(null);
+        view.OnAdapterCreated(native, adapter);
         view.OnNavigationStarted(native, new WebViewNavigationStartingEventArgs { Request = s_downloadPage });
         if (webKit) view.OnNativeNavigationCommitted(s_downloadPage);
 
@@ -131,6 +137,49 @@ public class BrowserNewTabReferrerTests
         using WebBrowserTabViewModel next = editor.Opened!;
         Assert.That(next, Is.Not.SameAs(opened));
         Assert.That(next.TakeOpenerReferrer(), Is.EqualTo(new Uri("https://downloads.example/")));
+
+        // Switching tabs replaces the adapter before the page has loaded, and NativeWebView still knows no address.
+        view.OnAdapterDestroyed(native, adapter);
+        view.OnAdapterCreated(native, adapter);
+        Assert.That(navigations, Is.EqualTo(2));
+    }
+
+    // On Linux, the handler keeps the blank page in place of a file WebKitGTK cannot show, and the downloader
+    // requests the file again.
+    [AvaloniaTest]
+    public async Task AFileTheFirstNavigationLeadsToIsRequestedAgainWithTheOpenersOrigin()
+    {
+        using var temporary = new TemporaryDirectory();
+        var profile = new BrowserProfile(Path.Combine(temporary.Path, "profile.json"));
+        using WebBrowserTabViewModel opened = OpenFrom(profile, s_page, s_downloadPage);
+        var archive = new Uri("https://cdn.example/files/123.zip");
+        NativeWebView? native = null;
+        using var view = new WebBrowserTabView(uri => native = new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false,
+            navigateWithReferrer: (_, _, _) => true)
+        { DataContext = opened };
+        using var handler = new ReferrerHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(temporary.Path, false));
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        var window = new Window { Width = 320, Height = 600, Content = view };
+        try
+        {
+            window.Show();
+            view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
+            view.OnNavigationStarted(native, new WebViewNavigationStartingEventArgs { Request = s_downloadPage });
+            view.OnNavigationResponseNotShown(archive, "Sound pack.zip");
+            Dispatcher.UIThread.RunJobs();
+            var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+            Assert.That(confirm.IsVisible, Is.True);
+            confirm.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.That(handler.Referrer, Is.EqualTo(s_origin));
+        }
+        finally { window.Close(); }
     }
 
     // macOS reports the referrer WebKit computed for the request, which a noreferrer link leaves out.
