@@ -301,11 +301,6 @@ internal sealed class SharedMediaReaders(Func<long> clock)
 
             return new Slot(reader);
         }
-
-        internal int ReaderCount
-        {
-            get { lock (_lock) return _slots.Count; }
-        }
     }
 
     private sealed class Handle(Group group) : MediaReader
@@ -357,6 +352,4 @@ internal sealed class SharedMediaReaders(Func<long> clock)
 
     // The reader a resource's reader stands for: the first shared reader of a handle, or the reader itself.
     internal static MediaReader UnderlyingOf(MediaReader reader) => reader is Handle handle ? handle.Group.First : reader;
-
-    internal static int ReaderCountOf(MediaReader reader) => reader is Handle handle ? handle.Group.ReaderCount : 1;
 }

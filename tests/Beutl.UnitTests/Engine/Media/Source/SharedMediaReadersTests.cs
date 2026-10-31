@@ -17,6 +17,8 @@ public class SharedMediaReadersTests
     // When set, the next open waits for it, signalling _openEntered first.
     private ManualResetEventSlim? _openGate;
     private TaskCompletionSource? _openEntered;
+    // When set, the next open returns or throws this instead of a default reader.
+    private Func<FakeReader>? _nextOpen;
 
     [SetUp]
     public void SetUp()
@@ -34,7 +36,7 @@ public class SharedMediaReadersTests
                 _openEntered?.TrySetResult();
                 gate.Wait(TimeSpan.FromSeconds(15));
             }
-            var reader = new FakeReader();
+            var reader = Interlocked.Exchange(ref _nextOpen, null)?.Invoke() ?? new FakeReader();
             lock (_opened) _opened.Add(reader);
             return reader;
         }, shareable);
@@ -269,6 +271,99 @@ public class SharedMediaReadersTests
     }
 
     [Test]
+    public async Task ClosingWhileAnotherReaderOpens_DisposesTheNewReader()
+    {
+        MediaReader top = Open();
+        MediaReader bottom = Open();
+        Read(top, 0, 1);
+        Read(bottom, 5000, 1);
+        using var gate = new ManualResetEventSlim();
+        _openEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _openGate = gate;
+
+        Task<bool> opening = Task.Run(() => top.ReadVideo(1, out _));
+        await _openEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        top.Dispose();
+        bottom.Dispose();
+        gate.Set();
+
+        Assert.That(await opening.WaitAsync(TimeSpan.FromSeconds(10)), Is.False);
+        Assert.That(_opened, Has.Count.EqualTo(2));
+        Assert.That(_opened, Has.All.Matches<FakeReader>(reader => reader.IsDisposed));
+    }
+
+    [Test]
+    public void AnExtraReaderThatFailsToOpen_FallsBackToAnOpenReader()
+    {
+        using MediaReader top = Open();
+        using MediaReader bottom = Open();
+        Read(top, 0, 1);
+        Read(bottom, 5000, 1);
+        _nextOpen = () => throw new IOException("unreadable");
+
+        Read(top, 1, 1);
+
+        Assert.That(_opened, Has.Count.EqualTo(1));
+        Assert.That(_opened[0].Reads, Is.EqualTo(3), "the failed open must not drop the read");
+    }
+
+    [Test]
+    public void AnExtraReaderThatResolvedDifferently_IsRejected()
+    {
+        using MediaReader top = Open();
+        using MediaReader bottom = Open();
+        Read(top, 0, 1);
+        Read(bottom, 5000, 1);
+        // For example, the proxy the first reader resolved was removed before this open.
+        _nextOpen = () => new FakeReader(hasVideo: false);
+
+        Read(top, 1, 1);
+
+        Assert.That(_opened, Has.Count.EqualTo(2));
+        Assert.That(_opened[1].IsDisposed, Is.True);
+        Assert.That(_opened[1].Reads, Is.Zero);
+        Assert.That(_opened[0].Reads, Is.EqualTo(3));
+    }
+
+    [Test]
+    public async Task AJoinerOfAFailedOpen_OpensOnItsOwn()
+    {
+        using var gate = new ManualResetEventSlim();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<MediaReader> failing = Task.Run(() => _pool.Open(s_key, () =>
+        {
+            entered.SetResult();
+            gate.Wait(TimeSpan.FromSeconds(15));
+            throw new IOException("unreadable");
+        }));
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Task<MediaReader> joiner = Task.Run(() => Open());
+        await Task.Delay(50);
+        gate.Set();
+
+        Assert.That(async () => await failing.WaitAsync(TimeSpan.FromSeconds(10)), Throws.InstanceOf<IOException>());
+        using MediaReader joined = await joiner.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.That(joined.HasVideo, Is.True);
+        Assert.That(_opened, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void ADisposedHandle_ReadsNothing()
+    {
+        using MediaReader live = Open();
+        MediaReader disposed = Open();
+        disposed.Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(disposed.ReadVideo(0, out _), Is.False);
+            Assert.That(disposed.ReadAudio(0, 100, out _), Is.False);
+            Assert.That(_opened[0].Reads, Is.Zero);
+            Assert.That(_opened[0].IsDisposed, Is.False, "the live handle still reads it");
+        });
+    }
+
+    [Test]
     public void AnUnshareableFirstReader_ServesOnlyItsHandle()
     {
         using MediaReader fallback = Open(shareable: _ => false);
@@ -305,7 +400,7 @@ public class SharedMediaReadersTests
     }
 
     // Counts reads that cannot continue from the previous one, which a real decoder answers by seeking.
-    private sealed class FakeReader : MediaReader
+    private sealed class FakeReader(bool hasVideo = true) : MediaReader
     {
         private long? _next;
 
@@ -322,7 +417,7 @@ public class SharedMediaReadersTests
 
         public override AudioStreamInfo AudioInfo { get; } = new("fake", new Rational(3600, 1), 48_000, 2);
 
-        public override bool HasVideo => true;
+        public override bool HasVideo => hasVideo;
 
         public override bool HasAudio => true;
 
