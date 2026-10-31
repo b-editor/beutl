@@ -1339,6 +1339,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AddFromTemplate" xml:space="preserve">
     <value>テンプレートから追加</value>
   </data>
+  <data name="MultipleElements" xml:space="preserve">
+    <value>複数の要素</value>
+  </data>
   <data name="TemplateSaved" xml:space="preserve">
     <value>テンプレートが保存されました。</value>
   </data>

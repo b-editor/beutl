@@ -106,6 +106,7 @@ public static class ObjectTemplatePreviewRenderer
         return instance switch
         {
             Element element => RenderElement(element),
+            ElementSet set => RenderElementSet(set),
             Sound or AudioEffect => null,
             Drawable drawable => RenderDrawable(drawable),
             _ => RenderNonDrawable(instance)
@@ -115,6 +116,15 @@ public static class ObjectTemplatePreviewRenderer
     private static byte[]? RenderElement(Element element)
     {
         return RenderElements([element], default, new PixelSize(PreviewWidth, PreviewHeight));
+    }
+
+    // Every element shows at once, as a caption's cues do, in the frame the set was saved from: its copies left
+    // their scene, so the frame cannot be read from them.
+    private static byte[]? RenderElementSet(ElementSet set)
+    {
+        return set.Elements.Count == 0
+            ? null
+            : RenderElements([.. set.Elements], set.FrameSize.Value, new PixelSize(PreviewWidth, PreviewHeight));
     }
 
     // The elements belong to the edited scene, so the throwaway scene gets clones. Start is

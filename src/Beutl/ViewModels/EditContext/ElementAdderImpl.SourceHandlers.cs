@@ -302,6 +302,103 @@ internal sealed partial class ElementAdderImpl
         }
     }
 
+    // Places a set the way pasting several elements does: together, at the free place nearest the request.
+    private sealed class ElementSetTemplateSourceHandler : IElementSourceHandler
+    {
+        public Type SourceType => typeof(ElementSource.ElementSetTemplate);
+
+        public ValueTask<ElementSourcePreflightResult> PreflightAsync(
+            ElementSourcePreflightContext context,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ElementDescription description = context.Description;
+            if (description.Length is not null
+                || description.Position is not null
+                || !string.IsNullOrWhiteSpace(description.Name))
+            {
+                return ValueTask.FromResult(ElementSourcePreflightResult.Rejected(
+                    new ElementSourcePreflightFailure(
+                        "An element-set template keeps the names, lengths and positions of its elements.")));
+            }
+
+            // Refused as a paste onto a locked layer is, rather than moved off it by the search.
+            if (context.Scene.IsLayerLocked(description.Layer))
+            {
+                return ValueTask.FromResult(ElementSourcePreflightResult.Rejected(
+                    new LockedElementLayerFailure(description.Layer)));
+            }
+
+            ElementSet set;
+            try
+            {
+                set = ((ElementSource.ElementSetTemplate)description.Source).Factory()
+                    ?? throw new InvalidOperationException("The element-set template factory returned null.");
+            }
+            catch (Exception ex)
+            {
+                return ValueTask.FromResult(ElementSourcePreflightResult.Rejected(
+                    new ElementSourcePreflightFailure("The element-set template factory failed.", ex)));
+            }
+
+            if (set.Elements.Count == 0)
+            {
+                return ValueTask.FromResult(ElementSourcePreflightResult.Rejected(
+                    new ElementSourcePreflightFailure("The element-set template holds no elements.")));
+            }
+
+            (Beutl.Media.TimeRange range, int minZIndex, _) = DuplicateHelper.ComputePlacementRange([.. set.Elements]);
+            HashSet<int> rowOffsets = set.Elements.Select(element => element.ZIndex.Value - minZIndex).ToHashSet();
+            HashSet<int> lockedRows = context.Scene.Layers
+                .Where(layer => layer.IsLocked.Value)
+                .Select(layer => layer.ZIndex.Value)
+                .ToHashSet();
+            if (ElementPlacementHelper.FindFreeAnchor(
+                    context.Scene, range, rowOffsets, lockedRows, description.Start, description.Layer)
+                is not { } anchor)
+            {
+                return ValueTask.FromResult(ElementSourcePreflightResult.Rejected(
+                    new ElementSourcePreflightFailure("No free place was found for the element-set template.")));
+            }
+
+            return ValueTask.FromResult(ElementSourcePreflightResult.Ready(
+                new ElementSetPreflight(set, anchor.Start - range.Start, anchor.ZIndex - minZIndex),
+                rowOffsets.Select(offset => anchor.ZIndex + offset)));
+        }
+
+        public ValueTask<ElementSourceMaterializationResult> MaterializeAsync(
+            ElementSourceMaterializationContext context,
+            IElementSourcePreflight preflight,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (preflight is not ElementSetPreflight setPreflight)
+            {
+                return ValueTask.FromResult(ElementSourceMaterializationResult.Rejected(
+                    new InvalidElementMaterializationFailure(
+                        "The element-set template handler received preflight state from another handler.")));
+            }
+
+            Element[] elements = [.. setPreflight.Set.Elements];
+            foreach (Element element in elements)
+            {
+                element.Start.Value += setPreflight.StartOffset;
+                element.ZIndex.Value += setPreflight.LayerOffset;
+            }
+
+            // The earliest element leads, so the timeline scrolls to where the set begins.
+            Element primary = elements
+                .OrderBy(element => element.Start.Value)
+                .ThenBy(element => element.ZIndex.Value)
+                .First();
+            return ValueTask.FromResult(ElementSourceMaterializationResult.Materialized(
+                new ElementMaterialization(
+                    primary,
+                    elements.Where(element => element != primary),
+                    setPreflight.Set.Groups)));
+        }
+    }
+
     private sealed class FileSourceHandler(ElementAdderImpl owner) : IElementSourceHandler
     {
         public Type SourceType => typeof(ElementSource.File);
@@ -510,6 +607,15 @@ internal sealed partial class ElementAdderImpl
     private sealed record FilePreflight(
         FileSourceKind Kind,
         bool HasAudio) : IElementSourcePreflight
+    {
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    // The set the template created, and how far its elements move to the place found for them.
+    private sealed record ElementSetPreflight(
+        ElementSet Set,
+        MediaTime StartOffset,
+        int LayerOffset) : IElementSourcePreflight
     {
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

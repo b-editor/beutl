@@ -257,6 +257,51 @@ public class PaletteCommandTests
     }
 
     [AvaloniaTest]
+    public async Task Save_as_template_saves_the_selected_clips_with_their_groups_as_one_template()
+    {
+        EditViewModel editor = await OpenEditorForNewScene("palette-save-set-template");
+        Element first = await AddRectAsync(editor, 2, 2, 1);
+        Element second = await AddRectAsync(editor, 3, 2, 2);
+        Element grouped = await AddRectAsync(editor, 6, 2, 3);
+        await AddRectAsync(editor, 0, 1, 0);
+        editor.Scene.Groups.Add([second.Id.Value, grouped.Id.Value]);
+        TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
+        timeline.SelectElement(timeline.GetViewModelFor(first)!);
+        timeline.SelectElement(timeline.GetViewModelFor(second)!);
+        editor.GetService<IEditorSelection>()!.Select(first);
+        string name = $"set-{Guid.NewGuid():N}";
+
+        await RunAsync(TimelineTabExtension.Instance, Execution(
+            "timeline.saveAsTemplate", editor, new ScriptedInteraction().Input(_ => name)));
+
+        // The selection takes the clip grouped with one of its clips along, as copying does, and nothing else.
+        ObjectTemplateItem saved = ObjectTemplateService.Instance.FindByBaseType(typeof(ElementSet))
+            .Single(item => item.Name.Value == name);
+        try
+        {
+            var set = (ElementSet)saved.CreateInstance()!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    set.Elements.Select(e => (e.Start.Value, e.ZIndex.Value)),
+                    Is.EquivalentTo(new[]
+                    {
+                        (MediaTime.Zero, 0),
+                        (MediaTime.FromSeconds(1), 1),
+                        (MediaTime.FromSeconds(4), 2),
+                    }));
+                Assert.That(set.Groups, Has.Count.EqualTo(1));
+                Assert.That(set.Groups[0], Has.Count.EqualTo(2));
+            });
+        }
+        finally
+        {
+            File.Delete(saved.FilePath!);
+            ObjectTemplateService.Instance.RefreshFromFileSystem();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Inline_rename_writes_the_name_once_editing_ends_as_one_history_entry()
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-inline-rename");

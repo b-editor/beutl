@@ -1267,6 +1267,9 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="AddFromTemplate" xml:space="preserve">
     <value>从模板添加</value>
   </data>
+  <data name="MultipleElements" xml:space="preserve">
+    <value>多个元素</value>
+  </data>
   <data name="TemplateSaved" xml:space="preserve">
     <value>模板已保存。</value>
   </data>
