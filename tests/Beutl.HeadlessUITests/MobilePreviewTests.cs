@@ -45,7 +45,8 @@ public sealed class MobilePreviewTests
             input[i * channels + 4] = 0.125f;
         }
         var snapshot = new Beutl.Editor.Models.AudioFrameSnapshot(input, 48000, channels, MediaTime.Zero) { PlaybackId = 7 };
-        var output = MobilePreviewServer.SampleAudio([snapshot], 7, 0)!;
+        var output = new float[960 * 2];
+        Assert.That(MobilePreviewServer.SampleAudio([snapshot], 7, 0, output), Is.True);
         var matrix = AudioChannelMatrix.Create(AudioChannelLayout.GetDefault(channels), AudioChannelLayout.Stereo);
         Assert.That(output[0], Is.EqualTo(0.25f * matrix.GetCoefficient(0, 2) + 0.125f * matrix.GetCoefficient(0, 4)));
         Assert.That(output[1], Is.EqualTo(0.25f * matrix.GetCoefficient(1, 2)));
