@@ -1,5 +1,6 @@
 ﻿using Beutl.FFmpegWorker.Encoding;
 using Beutl.Media;
+using Beutl.Audio;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 
@@ -129,7 +130,7 @@ public class EncodingCancellationTests
         Assert.That(new FileInfo(outputPath).Length, Is.InRange(1, previous.Length - 1));
     }
 
-    // The sample provider is always stereo; other channel counts are remixed into the encoder's layout.
+    // Direct callers can still supply stereo for a different encoder channel count.
     [TestCase(1)]
     [TestCase(2)]
     [TestCase(6)]
@@ -159,6 +160,110 @@ public class EncodingCancellationTests
         {
             Assert.That(levels[AVChannel.AV_CHAN_FRONT_RIGHT], Is.GreaterThan(0.01));
             Assert.That(levels[AVChannel.AV_CHAN_FRONT_LEFT] / levels[AVChannel.AV_CHAN_FRONT_RIGHT], Is.InRange(3.0, 5.0));
+        }
+    }
+
+    [TestCase(6, "m4a")]
+    [TestCase(8, "m4a")]
+    [TestCase(6, "wav")]
+    [TestCase(8, "wav")]
+    [TestCase(12, "wav")]
+    public async Task Encode_PreservesEachSpeakerTone(int channels, string extension)
+    {
+        FFmpegTestHelpers.RequireFFmpeg();
+        string path = Path.Combine(_workDir, $"speakers-{channels}.{extension}");
+        const int rate = 48000;
+        var layout = AudioChannelLayout.GetDefault(channels);
+        var codec = MediaCodec.FindEncoder(extension == "m4a" ? "aac" : "pcm_f32le");
+        if (codec == null || (extension == "m4a" && codec.GetChLayouts().Any()
+            && !codec.GetChLayouts().Any(l => l.nb_channels == channels)))
+            Assert.Ignore($"This FFmpeg build cannot encode {channels} channels as {extension}.");
+        var controller = FFmpegTestHelpers.CreateController(path, new PixelSize(32, 32), new Rational(30), rate, channels);
+        controller.AudioSettings.Codec.Value = new CodecRecord(extension == "m4a" ? "aac" : "pcm_f32le", "test");
+        controller.AudioSettings.Format.Value = FFmpegAudioEncoderSettings.AudioFormat.Default;
+        controller.AudioSettings.Bitrate.Value = channels * 96000;
+        using var frames = new GradientFrameProvider(0, new Rational(30), 32, 32);
+        using var samples = new SpeakerToneSampleProvider(rate * 2, rate, layout);
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        using var demuxer = MediaDemuxer.Open(path);
+        var stream = demuxer.Single(s => s.CodecparRef.codec_type == AVMediaType.AVMEDIA_TYPE_AUDIO);
+        Assert.That(stream.CodecparRef.ch_layout.nb_channels, Is.EqualTo(channels));
+        if (layout.HasPositions)
+            Assert.That(stream.CodecparRef.ch_layout.u.mask, Is.EqualTo((ulong)layout.Speakers));
+        float[][] decoded = DecodeChannels(demuxer, stream);
+        for (int ch = 0; ch < channels; ch++)
+        {
+            // Use the steady middle second so AAC priming and padding do not weaken the channel checks.
+            var middle = decoded[ch].AsSpan(rate / 2, rate);
+            for (int tone = 0; tone < channels; tone++)
+            {
+                double level = SpeakerToneSampleProvider.ToneLevel(middle, SpeakerToneSampleProvider.Frequency(tone), rate);
+                Assert.That(level, tone == ch ? Is.InRange(0.18, 0.30) : Is.LessThan(0.025),
+                    $"Speaker {ch}, tone {tone}, {extension}: {level}");
+            }
+        }
+    }
+
+    [TestCase(2, 384064L)]
+    [TestCase(6, 1152064L)]
+    [TestCase(12, 2304064L)]
+    public void SharedAudioBuffer_HoldsOneSecondOfProviderChannels(int channels, long expectedBytes)
+    {
+        var request = new Beutl.FFmpegIpc.Protocol.Messages.EncodeStartRequest
+        {
+            ProviderSampleRate = 48000,
+            ProviderChannelCount = channels,
+            AudioChannels = 1,
+        };
+        Assert.That(Beutl.FFmpegWorker.Handlers.EncodingHandler.GetAudioBufferSize(request), Is.EqualTo(expectedBytes));
+    }
+
+    [TestCase(6, 0x60fu)]
+    [TestCase(8, 0xffu)]
+    public void SelectChannelLayout_PrefersTheSpeakerMaskOverTheFirstMatchingCount(int channels, uint otherMask)
+    {
+        FFmpegTestHelpers.RequireFFmpeg();
+        var requested = AudioChannelLayout.GetDefault(channels);
+        AVChannelLayout Native(uint mask) => new()
+        {
+            order = AVChannelOrder.AV_CHANNEL_ORDER_NATIVE,
+            nb_channels = channels,
+            u = new AVChannelLayout_u { mask = mask },
+        };
+        var other = Native(otherMask);
+        var exact = Native((uint)requested.Speakers);
+        Assert.That(FFmpegEncodingController.SelectChannelLayout([other, exact], requested).u.mask,
+            Is.EqualTo(exact.u.mask));
+        Assert.That(FFmpegEncodingController.SelectChannelLayout([other], requested).u.mask,
+            Is.EqualTo(other.u.mask), "Fall back to a supported layout with the requested count.");
+        Assert.That(FFmpegEncodingController.SelectChannelLayout([], requested).u.mask,
+            Is.EqualTo(exact.u.mask), "Unrestricted codecs retain Beutl's native speaker order.");
+    }
+
+    private static unsafe float[][] DecodeChannels(MediaDemuxer demuxer, MediaStream stream)
+    {
+        var layout = stream.CodecparRef.ch_layout;
+        var channels = Enumerable.Range(0, layout.nb_channels).Select(_ => new List<float>()).ToArray();
+        using var decoder = MediaDecoder.CreateDecoder(stream.CodecparRef);
+        using var frame = new MediaFrame();
+        using var converter = SampleConverter.Create(layout, stream.CodecparRef.sample_rate, AVSampleFormat.AV_SAMPLE_FMT_FLT, 10000);
+        foreach (var packet in demuxer.ReadPackets())
+            if (packet.StreamIndex == stream.Index)
+                Append(decoder.DecodePacket(packet, frame));
+        Append(decoder.DecodePacket(null, frame));
+        return channels.Select(channel => channel.ToArray()).ToArray();
+
+        void Append(IEnumerable<MediaFrame> decoded)
+        {
+            foreach (var f in decoded)
+            {
+                using var packed = converter.ConvertFrame(f, out _, out _);
+                var data = new ReadOnlySpan<float>((void*)packed.Data[0], packed.NbSamples * channels.Length);
+                for (int i = 0; i < packed.NbSamples; i++)
+                    for (int ch = 0; ch < channels.Length; ch++)
+                        channels[ch].Add(data[i * channels.Length + ch]);
+            }
         }
     }
 

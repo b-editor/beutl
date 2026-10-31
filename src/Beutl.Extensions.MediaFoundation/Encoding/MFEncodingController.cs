@@ -78,7 +78,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         VideoColorTags color = VideoColorDefaults.Get(VideoColorTarget.YCbCr, hdr: false,
             recordsColor: videoCodec is MFVideoCodec.H264 or MFVideoCodec.HEVC);
         int videoStream = frameCount > 0 ? AddVideoStream(writer, videoCodec, color) : -1;
-        int audioStream = audioType != null ? AddAudioStream(writer, audioType, checked((int)samples.SampleRate)) : -1;
+        int audioStream = audioType != null ? AddAudioStream(writer, audioType, checked((int)samples.SampleRate), samples.ChannelLayout) : -1;
         writer.BeginWriting();
 
         long frame = 0;
@@ -105,8 +105,9 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
                 int length = (int)Math.Min(AudioBlockSize, sampleCount - sample);
                 using var audio = await samples.ReadNextSamples(length);
                 cancellationToken.ThrowIfCancellationRequested();
-                if (audio is null || audio.SampleCount != length || audio.SampleRate != samples.SampleRate)
-                    throw new InvalidOperationException("The audio provider returned an unexpected sample count or sample rate.");
+                if (audio is null || audio.SampleCount != length || audio.SampleRate != samples.SampleRate
+                    || audio.ChannelCount != samples.ChannelLayout.ChannelCount)
+                    throw new InvalidOperationException("The audio provider returned an unexpected sample count, sample rate, or channel count.");
 
                 WriteSample(writer, audioStream, audio, audioTime,
                     GetTimestamp(sample + length, samples.SampleRate) - audioTime);
@@ -215,7 +216,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         if (codec is MFAudioCodec.PCM or MFAudioCodec.Float)
         {
             int bits = codec == MFAudioCodec.Float ? 32 : (int)settings.BitDepth.Value;
-            return CreatePcm(subtype, settings.SampleRate.Value, settings.Channels.Value, bits);
+            return CreatePcm(subtype, settings.SampleRate.Value, settings.GetChannelLayout(), bits);
         }
 
         var result = MediaFactory.MFTranscodeGetAudioOutputAvailableTypes(subtype, (int)SoftwareEncoders,
@@ -271,15 +272,19 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
     }
 
     internal static IMFMediaType CreatePcm(Guid subtype, int rate, int channels, int bits)
+        => CreatePcm(subtype, rate, AudioChannelLayout.GetDefault(channels), bits);
+
+    internal static IMFMediaType CreatePcm(Guid subtype, int rate, AudioChannelLayout layout, int bits)
     {
         var type = MediaFactory.MFCreateMediaType();
         try
         {
-            uint alignment = checked((uint)(channels * bits / 8));
+            uint alignment = checked((uint)(layout.ChannelCount * bits / 8));
             type.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Audio).CheckError();
             type.Set(MediaTypeAttributeKeys.Subtype, subtype).CheckError();
             type.Set(MediaTypeAttributeKeys.AudioSamplesPerSecond, (uint)rate).CheckError();
-            type.Set(MediaTypeAttributeKeys.AudioNumChannels, (uint)channels).CheckError();
+            type.Set(MediaTypeAttributeKeys.AudioNumChannels, (uint)layout.ChannelCount).CheckError();
+            type.Set(MediaTypeAttributeKeys.AudioChannelMask, (uint)layout.Speakers).CheckError();
             type.Set(MediaTypeAttributeKeys.AudioBitsPerSample, (uint)bits).CheckError();
             type.Set(MediaTypeAttributeKeys.AudioBlockAlignment, alignment).CheckError();
             type.Set(MediaTypeAttributeKeys.AudioAvgBytesPerSecond, checked((uint)rate * alignment)).CheckError();
@@ -292,13 +297,12 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         }
     }
 
-    private static int AddAudioStream(IMFSinkWriter writer, IMFMediaType outputType, int sourceSampleRate)
+    private static int AddAudioStream(IMFSinkWriter writer, IMFMediaType outputType, int sourceSampleRate,
+        AudioChannelLayout sourceLayout)
     {
         int stream = writer.AddStream(outputType);
 
-        // The provider always supplies interleaved stereo float. The sink writer converts this to
-        // the encoder's input format, including the requested channel count and sample rate.
-        using var inputType = CreatePcm(AudioFormatGuids.Float, sourceSampleRate, 2, 32);
+        using var inputType = CreatePcm(AudioFormatGuids.Float, sourceSampleRate, sourceLayout, 32);
         writer.SetInputMediaType(stream, inputType, null);
         return stream;
     }
@@ -349,12 +353,12 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
 
     private static unsafe void WriteSample(IMFSinkWriter writer, int stream, AudioBuffer audio, long time, long duration)
     {
-        int length = checked(audio.SampleCount * 2 * sizeof(float));
+        int length = checked(audio.SampleCount * audio.ChannelCount * sizeof(float));
         using var buffer = MediaFactory.MFCreateMemoryBuffer(length);
         buffer.Lock(out nint destination, out _, out _);
         try
         {
-            AudioConversion.Interleave(audio, new Span<float>((void*)destination, audio.SampleCount * 2));
+            AudioConversion.Interleave(audio, new Span<float>((void*)destination, audio.SampleCount * audio.ChannelCount));
         }
         finally
         {
@@ -371,6 +375,13 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         sample.SampleTime = time;
         sample.SampleDuration = duration;
         writer.WriteSample(stream, sample);
+    }
+
+    internal static void ValidateAudioChannels(MFAudioCodec codec, int channels, bool supportsSurroundAac)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(channels);
+        if (codec == MFAudioCodec.AAC && (channels is not (1 or 2 or 6) || (channels == 6 && !supportsSurroundAac)))
+            throw new NotSupportedException("Media Foundation AAC supports 1 or 2 channels, or 6 channels on Windows 10 and later. Choose PCM or float for other channel counts.");
     }
 
     // Compute each timestamp from the absolute position; adding rounded frame durations drifts at 29.97 fps.
@@ -408,8 +419,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
                 throw new ArgumentException("The source sample rate must be positive and representable in Media Foundation.");
             if (AudioSettings.SampleRate.Value <= 0 || AudioSettings.SampleRate.Value > int.MaxValue / 8)
                 throw new ArgumentException("The output sample rate must be positive and representable in Media Foundation.");
-            if (AudioSettings.Channels.Value is not (1 or 2))
-                throw new ArgumentException("Media Foundation encoding supports mono or stereo output.");
+            ValidateAudioChannels(audioCodec, AudioSettings.Channels.Value, OperatingSystem.IsWindowsVersionAtLeast(10));
             if (audioCodec is MFAudioCodec.PCM or MFAudioCodec.FLAC or MFAudioCodec.ALAC)
             {
                 if (!Enum.IsDefined(AudioSettings.BitDepth.Value))

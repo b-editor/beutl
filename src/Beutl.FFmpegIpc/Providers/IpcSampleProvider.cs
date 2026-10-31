@@ -11,9 +11,6 @@ namespace Beutl.FFmpegIpc.Providers;
 
 internal sealed class IpcSampleProvider : ISampleProvider
 {
-    // Interleaved stereo float on the wire: 2 channels * 4 bytes.
-    private const int Stereo32BitFloatBytesPerSample = 8;
-
     private readonly IpcConnection _connection;
     private readonly SharedMemoryBuffer[] _audioBuffers;
 
@@ -29,7 +26,14 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
     public IpcSampleProvider(IpcConnection connection, SharedMemoryBuffer[] audioBuffers,
         long sampleCount, long sampleRate)
+        : this(connection, audioBuffers, sampleCount, sampleRate, AudioChannelLayout.Stereo)
     {
+    }
+
+    public IpcSampleProvider(IpcConnection connection, SharedMemoryBuffer[] audioBuffers,
+        long sampleCount, long sampleRate, AudioChannelLayout channelLayout)
+    {
+        ChannelLayout = channelLayout;
         _connection = connection;
         _audioBuffers = audioBuffers;
         SampleCount = sampleCount;
@@ -38,6 +42,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
     public long SampleCount { get; }
     public long SampleRate { get; }
+    public AudioChannelLayout ChannelLayout { get; }
 
     public async ValueTask<AudioBuffer?> ReadNextSamples(int length)
     {
@@ -57,7 +62,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
         else
         {
             using var filled = await SampleExact(offset, availableLength);
-            audio = new AudioBuffer((int)SampleRate, 2, length);
+            audio = new AudioBuffer((int)SampleRate, ChannelLayout.ChannelCount, length);
             filled.CopyTo(audio, 0);
         }
 
@@ -83,7 +88,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
         // チャンク境界をまたぐ場合: 前半を現在のチャンクからコピー
         long firstPartLength = cacheEnd - offset;
-        var result2 = new AudioBuffer((int)SampleRate, 2, (int)length);
+        var result2 = new AudioBuffer((int)SampleRate, ChannelLayout.ChannelCount, (int)length);
         try
         {
             // Test-only probe, inert in production (see CrossChunkSplitAllocatedForTest).
@@ -113,14 +118,14 @@ internal sealed class IpcSampleProvider : ISampleProvider
     private AudioBuffer CopyFromCache(long offset, long length)
     {
         int start = (int)(offset - _currentChunkOffset);
-        var result = new AudioBuffer((int)SampleRate, 2, (int)length);
+        var result = new AudioBuffer((int)SampleRate, ChannelLayout.ChannelCount, (int)length);
         CopySamples(_currentChunk!, start, result, 0, (int)length);
         return result;
     }
 
     private static void CopySamples(AudioBuffer source, int sourceStart, AudioBuffer destination, int destinationStart, int count)
     {
-        for (int channel = 0; channel < 2; channel++)
+        for (int channel = 0; channel < source.ChannelCount; channel++)
         {
             source.GetChannelData(channel).Slice(sourceStart, count)
                 .CopyTo(destination.GetChannelData(channel)[destinationStart..]);
@@ -188,17 +193,17 @@ internal sealed class IpcSampleProvider : ISampleProvider
             throw new InvalidOperationException(
                 $"Sample chunk has a negative NumSamples {sampleInfo.NumSamples}.");
 
-        long expected = (long)sampleInfo.NumSamples * Stereo32BitFloatBytesPerSample;
+        long expected = (long)sampleInfo.NumSamples * ChannelLayout.ChannelCount * sizeof(float);
         if (sampleInfo.DataLength != expected)
             throw new InvalidOperationException(
                 $"Sample DataLength {sampleInfo.DataLength} does not match the {sampleInfo.NumSamples}-sample " +
-                $"stereo float buffer size {expected}.");
+                $"{ChannelLayout.ChannelCount}-channel float buffer size {expected}.");
 
-        var chunk = new AudioBuffer((int)SampleRate, 2, sampleInfo.NumSamples);
-        float[] interleaved = ArrayPool<float>.Shared.Rent(sampleInfo.NumSamples * 2);
+        var chunk = new AudioBuffer((int)SampleRate, ChannelLayout.ChannelCount, sampleInfo.NumSamples);
+        float[] interleaved = ArrayPool<float>.Shared.Rent(checked(sampleInfo.NumSamples * ChannelLayout.ChannelCount));
         try
         {
-            Span<float> samples = interleaved.AsSpan(0, sampleInfo.NumSamples * 2);
+            Span<float> samples = interleaved.AsSpan(0, checked(sampleInfo.NumSamples * ChannelLayout.ChannelCount));
             _audioBuffers[bufferIndex].Read(MemoryMarshal.AsBytes(samples));
             AudioConversion.Deinterleave(samples, chunk);
             return chunk;

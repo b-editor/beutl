@@ -11,7 +11,7 @@ public class NativeInteropTests
     public void VersionMatchesManagedAbi()
     {
         int version = BeutlAVFNative.beutl_avf_version();
-        Assert.That(BeutlAVFNative.ExpectedAbiVersion, Is.EqualTo(4));
+        Assert.That(BeutlAVFNative.ExpectedAbiVersion, Is.EqualTo(5));
         Assert.That(version, Is.EqualTo(BeutlAVFNative.ExpectedAbiVersion));
     }
 

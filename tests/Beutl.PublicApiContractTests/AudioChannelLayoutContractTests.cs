@@ -3,6 +3,7 @@ using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Media;
+using Beutl.Extensibility;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -16,6 +17,22 @@ public class AudioChannelLayoutContractTests
         using var context = new AudioContext(48000, 6);
         Assert.That(composer.ChannelLayout, Is.EqualTo(AudioChannelLayout.Stereo));
         Assert.That(context.ChannelLayout, Is.EqualTo(AudioChannelLayout.Surround51));
+    }
+
+    [Test]
+    public void ExistingSampleProvidersDefaultToStereo()
+    {
+        using ISampleProvider provider = new LegacySampleProvider();
+        Assert.That(provider.ChannelLayout, Is.EqualTo(AudioChannelLayout.Stereo));
+    }
+
+    // Deliberately omits ChannelLayout to pin compatibility with existing extensions.
+    private sealed class LegacySampleProvider : ISampleProvider
+    {
+        public long SampleCount => 0;
+        public long SampleRate => 44100;
+        public ValueTask<AudioBuffer?> ReadNextSamples(int length) => ValueTask.FromResult<AudioBuffer?>(null);
+        public void Dispose() { }
     }
 
     private sealed class LegacyComposer : IComposer

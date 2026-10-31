@@ -1,6 +1,7 @@
 ﻿using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.Extensibility;
+using Beutl.Audio;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Media;
@@ -27,6 +28,8 @@ public sealed class ExportOrchestrationTests
     {
         var scene = new Scene(64, 64, "export") { Duration = { Value = MediaTime.FromSeconds(1) } };
 
+        var project = new Project { Items = { scene }, ChannelLayout = { Value = SpeakerLayout.Surround51 } };
+
         using SceneComposer composer = VideoExporter.CreateExportComposer(scene, 44100);
 
         Assert.Multiple(() =>
@@ -34,7 +37,27 @@ public sealed class ExportOrchestrationTests
             Assert.That(composer.Compositor.ForceOriginalSource, Is.True);
             Assert.That(composer.Compositor.DisableResourceShare, Is.True);
             Assert.That(composer.SampleRate, Is.EqualTo(44100));
+            Assert.That(composer.ChannelLayout, Is.EqualTo(project.GetChannelLayout()));
         });
+    }
+
+    [Test]
+    public async Task Export_uses_and_reports_the_project_channel_count()
+    {
+        var encoder = new DelegateEncoder(".layout-test", async (controller, frames, samples, token) =>
+        {
+            Assert.That(controller.AudioSettings.Channels.Value, Is.EqualTo(6));
+            Assert.That(samples.ChannelLayout, Is.EqualTo(AudioChannelLayout.Surround51));
+            using var audio = await samples.ReadNextSamples(32);
+            Assert.That(audio!.ChannelCount, Is.EqualTo(6));
+            await File.WriteAllTextAsync(controller.OutputFile, "encoded output", token);
+        });
+        var scene = new Scene(64, 64, "layout") { Duration = { Value = MediaTime.FromSeconds(0.1) } };
+        var project = new Project { Items = { scene }, ChannelLayout = { Value = SpeakerLayout.Surround51 } };
+        var exporter = new VideoExporter(new EncoderRegistration(encoder));
+        var response = await exporter.ExportAsync(scene, Path.Combine(TestWorkspace.CreateDirectory(), "movie.layout-test"),
+            new Rational(30), 48000, 1, CancellationToken.None);
+        Assert.That(response.AudioChannels, Is.EqualTo(project.GetChannelLayout().ChannelCount));
     }
 
     [Test]

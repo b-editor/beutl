@@ -70,6 +70,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 Project? project = Model.FindHierarchicalParent<Project>();
                 controller.VideoSettings.FrameRate.Value = project.GetFrameRate();
                 controller.AudioSettings.SampleRate.Value = project.GetSampleRate();
+                controller.AudioSettings.Channels.Value = project.GetChannelLayout().ChannelCount;
                 // A new controller starts at the scene's size, whatever default its encoder gives. Settings copied
                 // above, because only the destination changed, keep their output size like everything else.
                 controller.VideoSettings.DestinationSize.Value = Model.FrameSize.Value;
@@ -439,13 +440,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         using IFrameProvider frameProvider = renderer != null
             ? new FrameProviderImpl(scene, videoSettings.FrameRate.Value, renderer, frameProgress)
             : DisabledMediaProvider.Instance;
-        using var composer = audioEnabled ? new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
-        {
-            SampleRate = audioSettings.SampleRate.Value
-        } : null;
+        using var composer = audioEnabled ? CreateExportComposer(scene, audioSettings.SampleRate.Value) : null;
         using var sampleProgress = new Subject<MediaTime>();
         using ISampleProvider sampleProvider = composer != null
-            ? new SampleProviderImpl(scene, composer, audioSettings.SampleRate.Value, sampleProgress)
+            ? new SampleProviderImpl(scene, composer, audioSettings.SampleRate.Value, sampleProgress, audioSettings.GetChannelLayout())
             : DisabledMediaProvider.Instance;
 
         IObservable<MediaTime> progress = videoEnabled && audioEnabled
@@ -474,6 +472,13 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
     }
 
+    internal static SceneComposer CreateExportComposer(Scene scene, int sampleRate) =>
+        new(scene, disableResourceShare: true, forceOriginalSource: true)
+        {
+            SampleRate = sampleRate,
+            ChannelLayout = scene.FindHierarchicalParent<Project>().GetChannelLayout(),
+        };
+
     private sealed class DisabledMediaProvider : IFrameProvider, ISampleProvider
     {
         public static DisabledMediaProvider Instance { get; } = new();
@@ -481,6 +486,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         public Rational FrameRate => new(0, 1);
         public long SampleCount => 0;
         public long SampleRate => 0;
+        public AudioChannelLayout ChannelLayout => AudioChannelLayout.Stereo;
         public ValueTask<Bitmap?> ReadNextFrame() => ValueTask.FromResult<Bitmap?>(null);
         public ValueTask<AudioBuffer?> ReadNextSamples(int length)
             => ValueTask.FromResult<AudioBuffer?>(null);

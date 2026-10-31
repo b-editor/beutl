@@ -625,6 +625,49 @@ public class IpcProviderContractTests
         };
     }
 
+    [TestCase(1)]
+    [TestCase(6)]
+    [TestCase(8)]
+    [TestCase(12)]
+    public async Task ReadNextSamples_MovesEveryChannelAcrossChunksAndPadsTheTail(int channels)
+    {
+        var layout = AudioChannelLayout.GetDefault(channels);
+        await using var host = new FakeHost((request, buffers) =>
+        {
+            var payload = request.GetPayload<RequestSampleMessage>()!;
+            var values = new float[payload.Length * channels];
+            for (int i = 0; i < payload.Length; i++)
+                for (int ch = 0; ch < channels; ch++)
+                    values[i * channels + ch] = (payload.Offset + i) * 100 + ch + 1;
+            buffers[payload.BufferIndex].Write(MemoryMarshal.AsBytes(values.AsSpan()));
+            return IpcMessage.Create(request.Id, MessageType.ProvideSample, new ProvideSampleMessage
+            {
+                NumSamples = (int)payload.Length,
+                DataLength = values.Length * sizeof(float),
+            });
+        });
+        using var provider = new IpcSampleProvider(host.Connection, host.Buffers, 10, 4, layout);
+        Assert.That(provider.ChannelLayout, Is.EqualTo(layout));
+        for (int offset = 0; offset < 10; offset += 3)
+        {
+            using var audio = await provider.ReadNextSamples(3);
+            Assert.That(audio!.ChannelCount, Is.EqualTo(channels));
+            for (int ch = 0; ch < channels; ch++)
+                Assert.That(audio.GetChannelData(ch).ToArray(), Is.EqualTo(Enumerable.Range(offset, 3)
+                    .Select(i => i < 10 ? i * 100f + ch + 1 : 0)));
+        }
+        Assert.That(await provider.ReadNextSamples(3), Is.Null);
+    }
+
+    [TestCase(6)]
+    [TestCase(8)]
+    public async Task ReadNextSamples_RejectsStereoByteCountForMultichannelData(int channels)
+    {
+        await using var host = new FakeHost(MalformedSampleHost(numSamples: 4, dataLength: 4 * 2 * sizeof(float)));
+        using var provider = new IpcSampleProvider(host.Connection, host.Buffers, 4, 4, AudioChannelLayout.GetDefault(channels));
+        Assert.That(async () => await provider.ReadNextSamples(4), Throws.TypeOf<InvalidOperationException>());
+    }
+
     [TestCase(8 * Stereo32BitFloatBytesPerSample)]   // oversized: would overrun the chunk
     [TestCase(2 * Stereo32BitFloatBytesPerSample)]   // undersized vs NumSamples
     public async Task ReadNextSamples_WhenWorkerReportsMismatchedDataLength_Throws(int dataLength)

@@ -12,6 +12,8 @@ public sealed class EncodeStartRequest
     // Sample provider metadata
     public long SampleCount { get; set; }
     public long ProviderSampleRate { get; set; }
+    public int ProviderChannelCount { get; set; } = 2;
+    public uint ProviderSpeakerMask { get; set; } = 3;
 
     // Video settings
     public int SourceWidth { get; set; }

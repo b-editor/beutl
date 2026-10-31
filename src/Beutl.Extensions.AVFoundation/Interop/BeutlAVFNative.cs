@@ -6,7 +6,7 @@ namespace Beutl.Extensions.AVFoundation.Interop;
 internal static partial class BeutlAVFNative
 {
     internal const string DllName = "BeutlAVF";
-    internal const int ExpectedAbiVersion = 4;
+    internal const int ExpectedAbiVersion = 5;
 
     internal static void EnsureCompatibleVersion()
     {
@@ -89,6 +89,9 @@ internal static partial class BeutlAVFNative
         ref BeutlVideoEncoderConfig videoConfig,
         ref BeutlAudioEncoderConfig audioConfig,
         out AVFWriterSafeHandle outHandle);
+
+    [LibraryImport(DllName)]
+    internal static partial int beutl_avf_writer_audio_bitrate(AVFWriterSafeHandle handle);
 
     [LibraryImport(DllName)]
     internal static partial int beutl_avf_writer_start(AVFWriterSafeHandle handle);

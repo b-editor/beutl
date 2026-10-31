@@ -6,4 +6,7 @@ public sealed record ExportVideoResponse(
     long Samples,
     string Duration,
     string Encoder,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings)
+{
+    public int AudioChannels { get; init; }
+}

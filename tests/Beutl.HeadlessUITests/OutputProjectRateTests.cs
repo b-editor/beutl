@@ -24,6 +24,7 @@ public sealed class OutputProjectRateTests
     public async Task Output_view_shows_project_rates()
     {
         EditViewModel editor = await OpenEditor();
+        editor.Scene.FindHierarchicalParent<Project>()!.ChannelLayout.Value = SpeakerLayout.Surround51;
         const int packageId = 2858;
         var encoder = new TestEncoder();
         editor.ExtensionProvider.AddExtensions(packageId, [encoder]);
@@ -32,8 +33,10 @@ public sealed class OutputProjectRateTests
         var window = new Window { Content = view, Width = 650, Height = 720 };
         try
         {
+            Assert.That(output.Controller.Value!.AudioSettings.Channels.Value, Is.EqualTo(6));
             window.Show();
             HeadlessTestHelpers.Render();
+            HeadlessCapture.SaveIfRequested(window, nameof(OutputProjectRateTests), "surround-export");
 
             Assert.Multiple(() =>
             {
@@ -107,7 +110,7 @@ public sealed class OutputProjectRateTests
     }
 
     [AvaloniaTest]
-    public async Task Preview_publishes_the_project_channels_while_export_stays_stereo()
+    public async Task Preview_and_export_use_the_project_channels()
     {
         EditViewModel editor = await OpenEditor();
         Project project = editor.Scene.FindHierarchicalParent<Project>()!;
@@ -132,15 +135,20 @@ public sealed class OutputProjectRateTests
 
         var encoder = new LayoutEncoder();
         using var output = new OutputViewModel(editor);
-        output.DestinationFile.Value = Path.Combine(BeutlHomeIsolation.CurrentHome!, "stereo-export.mp4");
+        output.DestinationFile.Value = Path.Combine(BeutlHomeIsolation.CurrentHome!, "surround-export.mp4");
         output.SelectedEncoder.Value = encoder;
         await output.RunAsync(CancellationToken.None);
-        Assert.That(encoder.Channels, Is.EqualTo(2));
+        Assert.That(encoder.Channels, Is.EqualTo(6));
+        Assert.That(encoder.Layout, Is.EqualTo(AudioChannelLayout.Surround51));
+        Assert.That(output.Controller.Value!.AudioSettings.Channels.Value, Is.EqualTo(6));
+        using var composer = OutputViewModel.CreateExportComposer(editor.Scene, 48000);
+        Assert.That(composer.ChannelLayout, Is.EqualTo(AudioChannelLayout.Surround51));
     }
 
     private sealed class LayoutEncoder : ControllableEncodingExtension
     {
         public int Channels;
+        public AudioChannelLayout Layout;
         public override IEnumerable<string> SupportExtensions() => [".mp4"];
         public override EncodingController CreateController(string file) => new LayoutController(file, this);
     }
@@ -154,6 +162,7 @@ public sealed class OutputProjectRateTests
         {
             using var audio = await samples.ReadNextSamples(32);
             owner.Channels = audio!.ChannelCount;
+            owner.Layout = samples.ChannelLayout;
             await File.WriteAllTextAsync(OutputFile, "test output", token);
         }
     }
@@ -173,6 +182,7 @@ public sealed class OutputProjectRateTests
     {
         output.Controller.Value!.VideoSettings.FrameRate.Value = new Rational(24000, 1001);
         output.Controller.Value.AudioSettings.SampleRate.Value = 96000;
+        output.Controller.Value.AudioSettings.Channels.Value = 1;
     }
 
     private static void AssertCustomRates(OutputViewModel output)
@@ -182,6 +192,7 @@ public sealed class OutputProjectRateTests
         {
             Assert.That(output.Controller.Value!.VideoSettings.FrameRate.Value, Is.EqualTo(new Rational(24000, 1001)));
             Assert.That(output.Controller.Value.AudioSettings.SampleRate.Value, Is.EqualTo(96000));
+            Assert.That(output.Controller.Value.AudioSettings.Channels.Value, Is.EqualTo(1));
         });
     }
 

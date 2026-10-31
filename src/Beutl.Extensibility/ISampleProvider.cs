@@ -17,5 +17,8 @@ public interface ISampleProvider : IDisposable
 
     public long SampleRate { get; }
 
+    /// <summary>The channel layout of every buffer returned by <see cref="ReadNextSamples"/>.</summary>
+    public AudioChannelLayout ChannelLayout => AudioChannelLayout.Stereo;
+
     public ValueTask<AudioBuffer?> ReadNextSamples(int length);
 }

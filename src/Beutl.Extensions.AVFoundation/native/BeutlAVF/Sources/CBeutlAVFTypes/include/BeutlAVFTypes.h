@@ -96,6 +96,8 @@ typedef struct {
     int32_t sampleRateConverterQuality;
     int32_t linearPcmBitDepth;
     int32_t linearPcmFlags;           // bit0=Float, bit1=BigEndian, bit2=NonInterleaved
+    int32_t inputChannelCount;
+    uint32_t inputSpeakerMask;
 } BeutlAudioEncoderConfig;
 
 #pragma pack(pop)

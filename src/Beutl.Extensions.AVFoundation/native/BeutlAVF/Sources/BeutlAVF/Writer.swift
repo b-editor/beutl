@@ -13,6 +13,10 @@ final class Writer {
     private var videoInput: AVAssetWriterInput?
     private var videoAdaptor: AVAssetWriterInputPixelBufferAdaptor?
     private var audioInput: AVAssetWriterInput?
+    private var audioFormatDescription: CMAudioFormatDescription?
+    private var audioChannelCount = 2
+    private var audioLayoutTag = kAudioChannelLayoutTag_Stereo
+    private(set) var audioBitrate: Int32 = 0
     private var videoIsHdr: Bool = false
     private var videoColorAttachments: [String: Any] = [:]
     private var started = false
@@ -108,36 +112,24 @@ final class Writer {
         guard started else { throw BeutlAVFError.writerFailed("Writer not started.") }
         guard let input = audioInput else { throw BeutlAVFError.writerFailed("Audio input not configured.") }
 
-        var asbd = AudioStreamBasicDescription(
-            mSampleRate: Float64(sampleRate),
-            mFormatID: kAudioFormatLinearPCM,
-            mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
-            mBytesPerPacket: 8,
-            mFramesPerPacket: 1,
-            mBytesPerFrame: 8,
-            mChannelsPerFrame: 2,
-            mBitsPerChannel: 32,
-            mReserved: 0)
-
-        // Tag an explicit Stereo layout so the AAC encoder doesn't guess it from mChannelsPerFrame.
-        var layout = AudioChannelLayout()
-        layout.mChannelLayoutTag = kAudioChannelLayoutTag_Stereo
-        var formatDesc: CMFormatDescription?
-        let fmtStatus = withUnsafePointer(to: &layout) { layoutPtr -> OSStatus in
-            CMAudioFormatDescriptionCreate(
-                allocator: kCFAllocatorDefault,
-                asbd: &asbd,
-                layoutSize: MemoryLayout<AudioChannelLayout>.size,
-                layout: layoutPtr,
-                magicCookieSize: 0, magicCookie: nil,
-                extensions: nil,
-                formatDescriptionOut: &formatDesc)
+        if audioFormatDescription == nil {
+            var asbd = AudioEncoderLayout.pcmFormat(sampleRate: sampleRate, channelCount: audioChannelCount)
+            var layout = AudioEncoderLayout.layout(audioLayoutTag)
+            let status = CMAudioFormatDescriptionCreate(
+                allocator: kCFAllocatorDefault, asbd: &asbd,
+                layoutSize: MemoryLayout<AudioChannelLayout>.size, layout: &layout,
+                magicCookieSize: 0, magicCookie: nil, extensions: nil,
+                formatDescriptionOut: &audioFormatDescription)
+            guard status == noErr else {
+                throw BeutlAVFError.writerFailed("CMAudioFormatDescriptionCreate failed: \(status)")
+            }
         }
-        guard fmtStatus == noErr, let fmt = formatDesc else {
-            throw BeutlAVFError.writerFailed("CMAudioFormatDescriptionCreate failed: \(fmtStatus)")
+        guard let fmt = audioFormatDescription,
+            CMAudioFormatDescriptionGetStreamBasicDescription(fmt)?.pointee.mSampleRate == Float64(sampleRate) else {
+            throw BeutlAVFError.writerFailed("The audio provider changed its sample rate during encoding.")
         }
 
-        let dataLength = numSamples * 8  // 2ch × Float32
+        let dataLength = numSamples * audioChannelCount * MemoryLayout<Float>.size
         // Copy the caller's PCM into memory the CMBlockBuffer owns.
         var blockBuffer: CMBlockBuffer?
         let bbStatus = CMBlockBufferCreateWithMemoryBlock(
@@ -345,14 +337,34 @@ final class Writer {
     }
 
     private func configureAudio(config: BeutlAudioEncoderConfig) throws {
+        guard config.inputChannelCount > 0, config.channelCount > 0 else {
+            throw BeutlAVFError.invalidArgument("Audio channel counts must be positive.")
+        }
+        audioChannelCount = Int(config.inputChannelCount)
+        audioLayoutTag = AudioEncoderLayout.inputTag(channelCount: audioChannelCount, speakerMask: config.inputSpeakerMask)
         let formatId = UInt32(bitPattern: config.formatFourCC)
         var settings: [String: Any] = [
             AVFormatIDKey: formatId,
             AVSampleRateKey: Int(config.sampleRate),
             AVNumberOfChannelsKey: Int(config.channelCount),
         ]
-        if config.bitrate > 0 {
-            settings[AVEncoderBitRateKey] = config.bitrate
+        let outputChannels = Int(config.channelCount)
+        let defaultMasks: [Int: UInt32] = [1: 0x4, 2: 0x3, 6: 0x3f, 8: 0x63f]
+        var outputTag = outputChannels == audioChannelCount ? audioLayoutTag
+            : AudioEncoderLayout.inputTag(channelCount: outputChannels, speakerMask: defaultMasks[outputChannels] ?? 0)
+        audioBitrate = config.bitrate
+        if formatId == kAudioFormatMPEG4AAC {
+            outputTag = try AudioEncoderLayout.selectOutputTag(inputTag: outputTag,
+                available: AudioEncoderLayout.availableEncodeTags(format: formatId, channelCount: outputChannels))
+            audioBitrate = try AudioEncoderLayout.aacBitrate(requested: config.bitrate, sampleRate: Int(config.sampleRate),
+                inputTag: audioLayoutTag, outputTag: outputTag)
+        }
+        if outputChannels >= 3 {
+            var layout = AudioEncoderLayout.layout(outputTag)
+            settings[AVChannelLayoutKey] = Data(bytes: &layout, count: MemoryLayout<AudioChannelLayout>.size)
+        }
+        if audioBitrate > 0 {
+            settings[AVEncoderBitRateKey] = audioBitrate
         }
         if config.quality >= 0 {
             settings[AVEncoderAudioQualityKey] = config.quality
@@ -367,6 +379,9 @@ final class Writer {
             settings[AVLinearPCMIsNonInterleaved] = (config.linearPcmFlags & 0x4) != 0
         }
 
+        guard writer.canApply(outputSettings: settings, forMediaType: .audio) else {
+            throw BeutlAVFError.writerFailed("AVAssetWriter does not support the requested audio settings.")
+        }
         let input = AVAssetWriterInput(mediaType: .audio, outputSettings: settings)
         input.expectsMediaDataInRealTime = true
 

@@ -550,6 +550,8 @@ public class MFEncodingTests
 
     private sealed class TrackedSamples(long count, int rate) : ISampleProvider
     {
+        public AudioChannelLayout ChannelLayout => AudioChannelLayout.Stereo;
+
         private readonly SineSampleProvider _inner = new(count, rate);
         public long SampleCount => count;
         public long SampleRate => rate;

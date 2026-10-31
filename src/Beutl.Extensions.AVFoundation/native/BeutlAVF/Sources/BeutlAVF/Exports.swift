@@ -2,7 +2,7 @@ import CBeutlAVFTypes
 import Foundation
 
 // Increment on any breaking ABI change (struct layout, function signature).
-private let abiVersion: Int32 = 4
+private let abiVersion: Int32 = 5
 
 @_cdecl("beutl_avf_version")
 public func beutl_avf_version() -> Int32 {
@@ -211,6 +211,12 @@ public func beutl_avf_writer_create(
             audioConfig: audioConfigPtr.pointee)
         outHandle.pointee = HandleRegistry.retain(writer)
     }
+}
+
+@_cdecl("beutl_avf_writer_audio_bitrate")
+public func beutl_avf_writer_audio_bitrate(_ handle: OpaquePointer?) -> Int32 {
+    guard let writer: Writer = HandleRegistry.borrow(handle) else { return 0 }
+    return writer.audioBitrate
 }
 
 @_cdecl("beutl_avf_writer_start")

@@ -79,4 +79,6 @@ internal struct BeutlAudioEncoderConfig
     public int SampleRateConverterQuality;
     public int LinearPcmBitDepth;
     public int LinearPcmFlags;             // bit0=Float, bit1=BigEndian, bit2=NonInterleaved
+    public int InputChannelCount;
+    public uint InputSpeakerMask;
 }

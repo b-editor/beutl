@@ -2,6 +2,7 @@
 using Beutl.Extensions.AVFoundation.Decoding;
 using Beutl.Extensions.AVFoundation.Encoding;
 using Beutl.Media;
+using Beutl.Audio;
 using Beutl.Media.Decoding;
 
 namespace Beutl.Extensions.AVFoundation.Tests;
@@ -24,6 +25,41 @@ public class EncodeDecodeRoundTripTests
     {
         try { Directory.Delete(_workDir, recursive: true); }
         catch { /* best-effort cleanup */ }
+    }
+
+    [TestCase(6)]
+    [TestCase(8)]
+    public async Task AacRoundTripPreservesEachSpeakerTone(int channels)
+    {
+        const int rate = 48000;
+        string path = Path.Combine(_workDir, $"speakers-{channels}.mp4");
+        var layout = AudioChannelLayout.GetDefault(channels);
+        var controller = new AVFEncodingController(path);
+        controller.VideoSettings.SourceSize.Value = controller.VideoSettings.DestinationSize.Value = new PixelSize(64, 64);
+        controller.VideoSettings.FrameRate.Value = new Rational(30);
+        controller.AudioSettings.SampleRate.Value = rate;
+        controller.AudioSettings.Channels.Value = channels;
+        // Exercise the encoder's minimum bitrate adjustment as well as speaker reordering.
+        controller.AudioSettings.Bitrate.Value = 32000;
+        using var frames = new GradientFrameProvider(60, new Rational(30), 64, 64);
+        using var samples = new SpeakerToneSampleProvider(rate * 2, rate, layout);
+        await controller.Encode(frames, samples, CancellationToken.None);
+        Assert.That(controller.AudioSettings.Bitrate.Value, Is.GreaterThan(32000));
+        using var reader = new AVFReader(path, new MediaOptions(), new AVFDecodingExtension());
+        Assert.That(reader.AudioInfo.ChannelLayout, Is.EqualTo(layout));
+        Assert.That(reader.ReadAudio(rate / 2, rate, out var decoded), Is.True);
+        using (decoded)
+        {
+            Assert.That(decoded!.ChannelCount, Is.EqualTo(channels));
+            for (int ch = 0; ch < channels; ch++)
+                for (int tone = 0; tone < channels; tone++)
+                {
+                    double level = SpeakerToneSampleProvider.ToneLevel(decoded.GetChannelData(ch),
+                        SpeakerToneSampleProvider.Frequency(tone), rate);
+                    Assert.That(level, tone == ch ? Is.InRange(0.15, 0.32) : Is.LessThan(0.04),
+                        $"Speaker {ch}, tone {tone}: {level}");
+                }
+        }
     }
 
     // The expected codes are the ISO/IEC 23091-2 transfer and matrix values in the mp4 colr box.
