@@ -1801,6 +1801,32 @@ public class WebBrowserDownloadTests
         Assert.That(source.IsDisposed, Is.True);
     }
 
+    // WebView2 reports a page only once it has loaded, so its handler names the document the script ran in.
+    [AvaloniaTest]
+    public void AGeneratedFileFromAPageStillLoadingIsCreditedToThatPage()
+    {
+        var page = new Uri("https://page.example/");
+        var next = new Uri("https://next.example/report");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: false);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = page, IsSuccess = true });
+        Uri? offered = null;
+        view.DownloadOptionsSelector = (uri, _) =>
+        {
+            offered = uri;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+        };
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+
+        // The next page committed and generated the file while its images were still loading.
+        view.OnGeneratedDownloadRequested(null, "report.csv", new GeneratedDownloadSource("report.csv", "a,b"), next);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+        view.FindControl<Button>("ConfirmPageDownloadButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(offered, Is.EqualTo(next));
+    }
+
     // An embedded document from another site, such as an ad, cannot pass its file off as the page's.
     [AvaloniaTest]
     public async Task AGeneratedFileFromAnotherSiteIsCreditedToThatSite()

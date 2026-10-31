@@ -13,7 +13,7 @@ namespace Beutl.Editor.Components.WebBrowserTab;
 internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
 {
     private readonly Action<Uri, string, IBrowserDownloadSource> _onDownload;
-    private readonly Action<Uri?, string, IBrowserDownloadSource> _onGeneratedDownload;
+    private readonly Action<Uri?, string, IBrowserDownloadSource, Uri?> _onGeneratedDownload;
     private readonly DownloadStartingHandler _handler;
     private readonly HashSet<NativeDownload> _downloads = [];
     private nint _webView;
@@ -21,7 +21,7 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
     private bool _subscribed;
 
     private unsafe WindowsBrowserDownloadHandler(IWindowsWebView2PlatformHandle handle,
-        Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource> onGeneratedDownload)
+        Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload)
     {
         _onDownload = onDownload;
         _onGeneratedDownload = onGeneratedDownload;
@@ -59,7 +59,7 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
     }
 
     internal static WindowsBrowserDownloadHandler? TryAttach(IPlatformHandle? handle,
-        Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource> onGeneratedDownload)
+        Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload)
     {
         if (handle is not IWindowsWebView2PlatformHandle windows) return null;
         try { return new WindowsBrowserDownloadHandler(windows, onDownload, onGeneratedDownload); }
@@ -96,7 +96,7 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
             source.HideDefaultDialog();
             _downloads.Add(source);
             // DownloadStarting names no frame, so only a blob: URL tells which document created the file.
-            if (generated) _onGeneratedDownload(BrowserMediaDownload.GetGeneratedFileOrigin(address), name, source);
+            if (generated) _onGeneratedDownload(BrowserMediaDownload.GetGeneratedFileOrigin(address), name, source, GetDocument());
             else _onDownload(uri!, name, source);
         }
         catch (Exception ex)
@@ -114,6 +114,18 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
                 Marshal.Release(deferral);
             }
             if (operation != 0) Marshal.Release(operation);
+        }
+    }
+
+    // WebView2 reports a navigation only once its page has loaded, while scripts run from its commit. Its Source
+    // (ICoreWebView2::get_Source) changes at the commit, so it names the document on display.
+    private Uri? GetDocument()
+    {
+        try { return Uri.TryCreate(GetString(_webView, 4), UriKind.Absolute, out Uri? document) ? document : null; }
+        catch (Exception ex)
+        {
+            Trace.TraceError("WebView2 could not report its document: {0}", ex);
+            return null;
         }
     }
 

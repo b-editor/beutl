@@ -95,14 +95,16 @@ internal partial class WebBrowserTabView
     // A page script generated the file, and the engine holds it. No navigation took place, so the page and its loading
     // state stay as they are. The file is credited to the document on display, even while another one loads, unless
     // the engine names a creator from another site: an embedded document must not pass its file off as the page's.
-    internal void OnGeneratedDownloadRequested(Uri? creator, string suggestedName, IBrowserDownloadSource source)
+    // A handler names the document when the committed page can lag behind it, as WebView2's does.
+    internal void OnGeneratedDownloadRequested(Uri? creator, string suggestedName, IBrowserDownloadSource source,
+        Uri? document = null)
     {
         if (_disposed || _viewModel is not { } vm)
         {
             source.Dispose();
             return;
         }
-        Uri page = vm.CommittedUri;
+        Uri page = document ?? vm.CommittedUri;
         Uri credited = creator == null || (creator.Scheme == page.Scheme && creator.IdnHost == page.IdnHost
             && creator.Port == page.Port) ? page : creator;
         if (IsPageDownloadOfferBlocked) DeferNativeDownload(credited, suggestedName, source);
