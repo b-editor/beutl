@@ -268,6 +268,28 @@ public class BrowserNewTabReferrerTests
         Assert.That(native!.Source, Is.EqualTo(WebBrowserTabViewModel.BlankPage));
     }
 
+    // WebView2's ad blocking matches the page's requests against the page, which NativeWebView names only once it has
+    // loaded. The tab was opened for that page, so the view names it first.
+    [AvaloniaTest]
+    public void AdBlockingMatchesTheFirstPagesRequestsAgainstThatPage()
+    {
+        using var temporary = new TemporaryDirectory();
+        var profile = new BrowserProfile(Path.Combine(temporary.Path, "profile.json"));
+        using WebBrowserTabViewModel opened = OpenFrom(profile, s_page, s_downloadPage);
+        NativeWebView? native = null;
+        using var view = new WebBrowserTabView(uri => native = new NativeWebView { Source = uri }, () => (true, null, false),
+            navigateWithReferrer: (_, _, _) => true)
+        { DataContext = opened };
+        view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
+
+        Assert.That(native!.Source, Is.EqualTo(WebBrowserTabViewModel.BlankPage));
+        Assert.That(view.AdBlockPage(native), Is.EqualTo(s_downloadPage));
+
+        // Once the page has loaded, the address NativeWebView names is the page's own.
+        view.OnNavigationCompleted(native, new WebViewNavigationCompletedEventArgs { Request = s_downloadPage, IsSuccess = true });
+        Assert.That(view.AdBlockPage(native), Is.EqualTo(native.Source));
+    }
+
     // An editor that opens every tab a browser tab asks for and keeps the latest one.
     private sealed class TabOpeningEditor
     {

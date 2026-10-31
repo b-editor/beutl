@@ -139,7 +139,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         if (_webView is { } webView)
         {
             _adBlockSession = new BrowserAdBlockSession(webView, viewModel.Profile, viewModel.CurrentUri, ShowToolStatus,
-                navigate: uri => ResumeNavigation(webView, uri));
+                navigate: uri => ResumeNavigation(webView, uri), getPage: () => AdBlockPage(webView));
         }
 
         if (_webView != null && _webView.Source != viewModel.CurrentUri)
@@ -188,7 +188,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             ? WebBrowserTabViewModel.BlankPage : initialUri);
         _adBlockSession = new BrowserAdBlockSession(webView, _viewModel.Profile,
             downloadInitialMedia ? WebBrowserTabViewModel.BlankPage : initialUri, ShowToolStatus,
-            navigate: uri => ResumeNavigation(webView, uri));
+            navigate: uri => ResumeNavigation(webView, uri), getPage: () => AdBlockPage(webView));
         webView.EnvironmentRequested += BrowserWebViewEnvironment.Configure;
         webView.AdapterCreated += LinuxWebKitCookies.PersistCookies;
         webView.AdapterCreated += OnAdapterCreated;

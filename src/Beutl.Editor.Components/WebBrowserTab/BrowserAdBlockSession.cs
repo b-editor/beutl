@@ -26,16 +26,18 @@ internal sealed class BrowserAdBlockSession : IDisposable
     private int _revision;
     internal bool IsPreparing { get; private set; }
 
-    // navigate starts a deferred navigation; the view gives a tab's first navigation its opener's referrer.
+    // navigate starts a deferred navigation; the view gives a tab's first navigation its opener's referrer. getPage
+    // names the page a request belongs to, which the view knows while that navigation loads and NativeWebView does not.
     internal BrowserAdBlockSession(NativeWebView webView, BrowserProfile profile, Uri initialUri, Action<string> reportError,
         Func<IPlatformHandle, BrowserAdBlockRules, Task<IBrowserAdBlockBackend>>? createBackend = null,
-        Action<Uri>? navigate = null)
+        Action<Uri>? navigate = null, Func<Uri>? getPage = null)
     {
         _webView = webView;
         _profile = profile;
         _reportError = reportError;
         _navigate = navigate ?? (uri => webView.Source = uri);
-        _createBackend = createBackend ?? ((handle, rules) => BrowserAdBlockBackend.CreateAsync(handle, rules, () => webView.Source));
+        getPage ??= () => webView.Source;
+        _createBackend = createBackend ?? ((handle, rules) => BrowserAdBlockBackend.CreateAsync(handle, rules, getPage));
         _enabled = profile.BlockAds;
         IsPreparing = _enabled;
         if (_enabled && BrowserMediaDownload.IsHttpUri(initialUri)) _pendingNavigation = initialUri;

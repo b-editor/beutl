@@ -322,6 +322,10 @@ internal partial class WebBrowserTabView
         }
     }
 
+    // Ad blocking on Windows matches each request against its page, and NativeWebView names a page only once it has
+    // loaded. Until the page this tab was opened for has loaded, its requests belong to that page.
+    internal Uri AdBlockPage(NativeWebView webView) => _openerNavigation?.Uri ?? webView.Source;
+
     private void NavigateFromOpener(NativeWebView webView)
     {
         if (_disposed || _openerNavigation is not { } navigation || _openerNavigationIssued) return;
