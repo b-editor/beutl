@@ -80,7 +80,16 @@ internal sealed partial class MobilePreviewServer
                             {
                                 entry.Encoder?.Dispose();
                                 entry.Converter?.Dispose();
-                                entry = (new FrameConverter(width, height, hdr), new PreviewEncoder(width, height, hdr));
+                                var converter = new FrameConverter(width, height, hdr);
+                                try
+                                {
+                                    entry = (converter, new PreviewEncoder(width, height, hdr));
+                                }
+                                catch
+                                {
+                                    converter.Dispose();
+                                    throw;
+                                }
                                 encoders[hdr] = entry;
                             }
                             byte[] pixels = entry.Converter.Convert(frame.Image.Value, frame.ToneMapping, frame.Exposure);
