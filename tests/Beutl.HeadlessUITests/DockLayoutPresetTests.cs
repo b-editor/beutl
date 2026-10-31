@@ -282,8 +282,14 @@ public class DockLayoutPresetTests
         await TestShell.WaitForProjectWritesAsync();
 
         // Some tool serializers write their own per-scene config as a side effect. Capturing a
-        // layout discards tool state anyway, so it must not invoke them at all.
+        // layout discards tool state anyway, so it must not invoke them at all. The files the auto-save
+        // wrote go first, so that a serializer writing one again, even with the same contents, shows.
         string sceneDir = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+        if (Directory.Exists(sceneDir))
+        {
+            foreach (string file in Directory.GetFiles(sceneDir, "*.config", SearchOption.AllDirectories))
+                File.Delete(file);
+        }
         string[] before = ConfigFiles(sceneDir);
 
         editor.DockHost.CaptureLayout();
