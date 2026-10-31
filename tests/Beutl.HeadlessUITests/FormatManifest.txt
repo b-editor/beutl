@@ -306,7 +306,7 @@ Beutl.Utilities
   keys: Animations, CenterLevel, Children, Effect, Expressions, Gain, Id, IsEnabled, LfeLevel, Name, OffsetPosition, Pan, Speed, SurroundPan
 [Beutl.Engine]Beutl.Audio:SourceSound
   sealed
-  keys: Animations, CenterLevel, Effect, Expressions, Gain, Id, IsEnabled, LfeLevel, Name, OffsetPosition, Pan, Source, Speed, SurroundPan
+  keys: Animations, CenterLevel, ChannelMap, Effect, Expressions, Gain, Id, IsEnabled, LfeLevel, Name, OffsetPosition, Pan, Source, Speed, SurroundPan
 [Beutl.Engine]Beutl.Graphics.AudioVisualizers:AudioSpectrogramDrawable
   sealed
   keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FftSize, Fill, FilterEffect, FloorDb, FrequencyScale, Gain, Height, Id, IsEnabled, Name, Opacity, Source, TimeColumns, Transform, TransformOrigin, Width, WindowSeconds
