@@ -1,0 +1,2 @@
+# The decode fixtures are binary media files; never apply EOL normalization to them.
+*.mp4 binary

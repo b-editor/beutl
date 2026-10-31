@@ -80,6 +80,11 @@
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Encoding\FFmpegAudioEncoderSettings.cs" Link="Linked\FFmpegAudioEncoderSettings.cs" />
   </ItemGroup>
 
+  <!-- Frame timing fixtures, described in Fixtures/README.md. -->
+  <ItemGroup>
+    <None Update="Fixtures\*.mp4" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- Audio origin fixtures, described in the Media Foundation tests' Fixtures/README.md. -->
   <ItemGroup>
     <None Include="..\Beutl.Extensions.MediaFoundation.Tests\Fixtures\late-audio.mp4" Link="Fixtures\late-audio.mp4" CopyToOutputDirectory="PreserveNewest" />
