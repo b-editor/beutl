@@ -24,10 +24,13 @@ public static class EditFlash
         }
     };
 
-    public static async void Run(Control target)
+    public static void Run(Control target)
     {
-        if (AdornerLayer.GetAdornerLayer(target) is not { } layer)
+        if (AdornerLayer.GetAdornerLayer(target) is not { } layer
+            || TopLevel.GetTopLevel(target) is not { } topLevel)
+        {
             return;
+        }
 
         Color color = target.TryFindResource("SystemAccentColor", target.ActualThemeVariant, out object? resource)
                       && resource is Color accent
@@ -44,6 +47,14 @@ public static class EditFlash
         };
         AdornerLayer.SetAdornedElement(outline, target);
         layer.Children.Add(outline);
+        // Avalonia times an animation started mid-frame, or while a frame is still being composed, from that
+        // frame's start, so after a slow layout (an edit reopening the property tab, say) much of the pulse would
+        // be over before it showed. Start it on the next frame instead.
+        topLevel.RequestAnimationFrame(_ => Pulse(layer, outline));
+    }
+
+    private static async void Pulse(AdornerLayer layer, Border outline)
+    {
         try
         {
             await s_pulse.RunAsync(outline);
