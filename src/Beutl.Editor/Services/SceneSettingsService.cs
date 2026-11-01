@@ -1,4 +1,5 @@
-﻿using Beutl.Language;
+﻿using Beutl.Editor.Operations;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -37,9 +38,11 @@ public sealed class SceneSettingsService : ISceneSettingsService
         {
             // The project is outside the observed scene; record its edit in the same transaction.
             SpeakerLayout previous = project!.ChannelLayout.Value;
-            SetChannelLayout(project, channelLayout);
-            _historyManager.Record(() => SetChannelLayout(project, channelLayout),
-                () => SetChannelLayout(project, previous));
+            SetChannelLayout(project, channelLayout, out _);
+            _historyManager.Record(new ChannelLayoutChangeOperation(project, previous, channelLayout)
+            {
+                SequenceNumber = _historyManager.GetNextSequenceNumber()
+            });
         }
 
         // These writes batch into one transaction, collapsing to a single history entry on Commit.
@@ -50,14 +53,37 @@ public sealed class SceneSettingsService : ISceneSettingsService
         return true;
     }
 
-    private static void SetChannelLayout(Project project, SpeakerLayout layout)
+    private static void SetChannelLayout(Project project, SpeakerLayout layout,
+        out ChangeOperationFailureState failureState)
     {
+        failureState = ChangeOperationFailureState.Unknown;
         SpeakerLayout previous = project.ChannelLayout.Value;
         project.ChannelLayout.Value = layout;
         if (project.Uri is { } uri)
         {
-            ProjectPersistence.PersistOrRollback(() => CoreSerializer.StoreToUri(project, uri),
-                () => project.ChannelLayout.Value = previous);
+            try
+            {
+                ProjectPersistence.PersistOrRollback(() => CoreSerializer.StoreToUri(project, uri),
+                    () => project.ChannelLayout.Value = previous);
+            }
+            catch (Exception ex) when (ex is not ProjectStateDivergedException)
+            {
+                // Only a persistence failure with a successful rollback is safe to retry.
+                failureState = ChangeOperationFailureState.Unchanged;
+                throw;
+            }
         }
+    }
+
+    private sealed class ChannelLayoutChangeOperation(Project project, SpeakerLayout previous, SpeakerLayout next)
+        : ChangeOperation
+    {
+        private ChangeOperationFailureState _failureState;
+
+        public override ChangeOperationFailureState FailureState => _failureState;
+
+        public override void Apply() => SetChannelLayout(project, next, out _failureState);
+
+        public override void Revert() => SetChannelLayout(project, previous, out _failureState);
     }
 }
