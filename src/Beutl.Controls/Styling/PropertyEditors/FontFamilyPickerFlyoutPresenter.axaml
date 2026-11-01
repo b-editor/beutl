@@ -11,9 +11,11 @@
         <Setter Property="ItemTemplate">
             <DataTemplate x:DataType="local:PinnableLibraryItem">
                 <!--  A symbol font draws its own name as symbols, so the tooltip, which keeps the UI font, spells it out.  -->
+                <!--  A font without an ellipsis would draw a trimmed name's end as tofu, so the trimming falls back.  -->
                 <controls:MarqueeTextBlock VerticalAlignment="Center"
                                            FontFamily="{Binding UserData, Converter={x:Static local:BeutlFontFamilyToAvaloniaConverter.Instance}}"
                                            Text="{Binding DisplayName}"
+                                           TextTrimming="{x:Static controls:FallbackCharacterEllipsis.Instance}"
                                            ToolTip.Tip="{Binding ((media:FontFamily)UserData).Name}">
                     <controls:MarqueeTextBlock.IsMarqueeActive>
                         <MultiBinding Converter="{x:Static BoolConverters.Or}">

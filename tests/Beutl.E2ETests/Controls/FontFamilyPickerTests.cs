@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Language;
 using Beutl.Media;
@@ -367,6 +368,16 @@ public class FontFamilyPickerTests
             Assert.That(tip?.Text, Is.EqualTo(FontOf(row).Name));
             Assert.That(tip?.FontFamily, Is.EqualTo(name.FindResource("ContentControlThemeFontFamily")));
         });
+    }
+
+    [AvaloniaTest]
+    public void A_name_too_long_for_its_row_trims_with_an_ellipsis_that_falls_back()
+    {
+        // The name is drawn in its own font, which may have no ellipsis.
+        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        using var picker = PickerHost.Open(viewModel);
+
+        Assert.That(NameText(picker.List.GetRealizedContainers().First()).TextTrimming, Is.SameAs(FallbackCharacterEllipsis.Instance));
     }
 
     [AvaloniaTest]
