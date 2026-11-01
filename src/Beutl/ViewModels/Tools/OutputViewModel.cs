@@ -441,7 +441,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             : DisabledMediaProvider.Instance;
         using var composer = audioEnabled ? new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
         {
-            SampleRate = audioSettings.SampleRate.Value
+            SampleRate = audioSettings.SampleRate.Value,
+            ChannelLayout = scene.FindHierarchicalParent<Project>().GetChannelLayout()
         } : null;
         using var sampleProgress = new Subject<MediaTime>();
         using ISampleProvider sampleProvider = composer != null

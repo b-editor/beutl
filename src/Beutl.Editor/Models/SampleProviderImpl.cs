@@ -15,6 +15,7 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
     private readonly ILogger _logger = Log.CreateLogger<SampleProviderImpl>();
     private readonly Scene _scene;
     private readonly SceneComposer _composer;
+    private readonly AudioChannelMatrix? _stereoMatrix;
     private readonly long _sampleRate;
     private readonly Subject<MediaTime> _progress;
     private readonly long _sampleCount;
@@ -31,6 +32,8 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
     {
         _scene = scene;
         _composer = composer;
+        _stereoMatrix = composer.ChannelLayout == AudioChannelLayout.Stereo ? null
+            : AudioChannelMatrix.Create(composer.ChannelLayout, AudioChannelLayout.Stereo);
         _sampleRate = sampleRate;
         _progress = progress;
         _chunkSize = (int)sampleRate;
@@ -153,6 +156,11 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         AudioBuffer buffer = _composer.Compose(new(_scene.FromWindowTime(MediaTime.FromSamples(offset, (int)_sampleRate)),
             MediaTime.FromSeconds(1)))
                      ?? throw new InvalidOperationException("composer.Composeがnullを返しました。");
+        if (_stereoMatrix != null)
+        {
+            using AudioBuffer composed = buffer;
+            buffer = _stereoMatrix.Apply(composed);
+        }
         if (buffer.SampleCount == length)
             return buffer;
 
