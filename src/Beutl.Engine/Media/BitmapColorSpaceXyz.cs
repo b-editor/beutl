@@ -172,7 +172,7 @@ public readonly struct BitmapColorSpaceXyz : IEquatable<BitmapColorSpaceXyz>
 
     // CIE xy色度座標とホワイトポイントからtoXYZD50行列を計算する。
     // Bradford色順応変換を使用してD50に適応させる。
-    private static BitmapColorSpaceXyz FromPrimaries(
+    internal static BitmapColorSpaceXyz FromPrimaries(
         double xr, double yr, double xg, double yg, double xb, double yb,
         double xw, double yw)
     {

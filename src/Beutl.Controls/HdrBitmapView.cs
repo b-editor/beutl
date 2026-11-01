@@ -9,6 +9,7 @@ using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Media.Source;
 using BtlBitmap = Beutl.Media.Bitmap;
 using BtlStretch = Beutl.Media.Stretch;
+using PreviewGamutMapping = Beutl.Media.PreviewGamutMapping;
 
 namespace Beutl.Controls;
 
@@ -39,6 +40,8 @@ public partial class HdrBitmapView : NativeControlHost
     private Ref<BtlBitmap>? _clonedSource;
     private Size? _lastSourceSize;
     private IntPtr _macOSView;
+    private IntPtr _macOSScreenColorSpace;
+    private PreviewGamutMapping _displayGamut;
 
     static HdrBitmapView()
     {
@@ -82,6 +85,11 @@ public partial class HdrBitmapView : NativeControlHost
         {
             topLevel.ScalingChanged += OnTopLevelScalingChanged;
         }
+
+        if (e.Root is WindowBase window)
+        {
+            window.PositionChanged += OnWindowPositionChanged;
+        }
     }
 
     protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
@@ -91,6 +99,19 @@ public partial class HdrBitmapView : NativeControlHost
         {
             topLevel.ScalingChanged -= OnTopLevelScalingChanged;
         }
+
+        if (e.Root is WindowBase window)
+        {
+            window.PositionChanged -= OnWindowPositionChanged;
+        }
+    }
+
+    // A paused preview gets no new frame when its window moves to another screen, so the move presents it again if
+    // that screen's gamut differs.
+    private void OnWindowPositionChanged(object? sender, PixelPointEventArgs e)
+    {
+        if (UpdateDisplayGamut())
+            RequestRender();
     }
 
     private void OnTopLevelScalingChanged(object? sender, EventArgs e)
@@ -221,7 +242,9 @@ public partial class HdrBitmapView : NativeControlHost
         if (OperatingSystem.IsMacOS())
         {
             _macOSView = handle.Handle;
+            _displayGamut = PreviewGamutMapping.Srgb;
             UpdateEdrMetadata();
+            UpdateDisplayGamut();
         }
 
         return handle;
@@ -230,6 +253,9 @@ public partial class HdrBitmapView : NativeControlHost
     protected override void DestroyNativeControlCore(IPlatformHandle control)
     {
         _macOSView = IntPtr.Zero;
+        ReleaseMacOSObject(_macOSScreenColorSpace);
+        _macOSScreenColorSpace = IntPtr.Zero;
+        _displayGamut = PreviewGamutMapping.None;
 
         _renderer?.Dispose();
         _renderer = null;
@@ -264,6 +290,7 @@ public partial class HdrBitmapView : NativeControlHost
         }
 
         bool isLinear = bitmap.ColorSpace?.GammaIsLinear == true;
+        UpdateDisplayGamut();
 
         var renderParams = new RenderParams(
             SourceWidth: bitmap.Width,
@@ -271,7 +298,8 @@ public partial class HdrBitmapView : NativeControlHost
             Stretch: (BtlStretch)(int)Stretch,
             ToneMapping: ToneMapping,
             Exposure: ToneMappingExposure,
-            IsSourceLinear: isLinear);
+            IsSourceLinear: isLinear,
+            DisplayGamut: _displayGamut);
 
         _renderer.RequestRender(bitmapRef, renderParams);
     }
@@ -285,6 +313,33 @@ public partial class HdrBitmapView : NativeControlHost
             return;
 
         SetMacOSEdrMetadata(GetMacOSLayer(_macOSView), ToneMapping == UIToneMappingOperator.FitToDisplay);
+    }
+
+    // Follows the gamut FitToDisplay maps colors into on an HDR swapchain to the screen the view is on, and returns
+    // whether it changed. Core Animation applies the EDR metadata only after clipping the layer to its extended linear
+    // sRGB, so on macOS colors have to fit sRGB as well as the screen. Elsewhere the display's gamut is not known.
+    private bool UpdateDisplayGamut()
+    {
+        if (_macOSView == IntPtr.Zero)
+            return false;
+
+        // The cached NSColorSpace stays retained, so a new one cannot reuse its address.
+        IntPtr colorSpace = GetMacOSScreenColorSpace(_macOSView);
+        if (colorSpace == IntPtr.Zero || colorSpace == _macOSScreenColorSpace)
+            return false;
+
+        ReleaseMacOSObject(_macOSScreenColorSpace);
+        _macOSScreenColorSpace = RetainMacOSObject(colorSpace);
+
+        PreviewGamutMapping gamut = GetMacOSPrimaries(colorSpace) is { } primaries
+            ? PreviewGamutMapping.For(primaries, withinSrgb: true)
+            : PreviewGamutMapping.None;
+        if (!gamut.IsEnabled)
+            gamut = PreviewGamutMapping.Srgb;
+
+        bool changed = gamut != _displayGamut;
+        _displayGamut = gamut;
+        return changed;
     }
 
     private Size? GetSourceSize()

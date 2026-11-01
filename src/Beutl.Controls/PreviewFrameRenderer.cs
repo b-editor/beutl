@@ -3,6 +3,7 @@ using Beutl.Configuration;
 using SkiaSharp;
 using BtlBitmap = Beutl.Media.Bitmap;
 using PreviewDisplayMapping = Beutl.Media.PreviewDisplayMapping;
+using PreviewGamutMapping = Beutl.Media.PreviewGamutMapping;
 
 namespace Beutl.Controls;
 
@@ -21,7 +22,8 @@ internal static class PreviewFrameRenderer
 
     static PreviewFrameRenderer()
     {
-        // The 8-bit surface holds nothing above 1.0, so FitToDisplay rolls values off into that.
+        // The 8-bit surface holds nothing above 1.0 or outside sRGB, so FitToDisplay rolls values off into that and
+        // fits colors into sRGB, the working space itself.
         PreviewDisplayMapping mapping = PreviewDisplayMapping.For(1f);
         s_displayMapping = [mapping.Knee, mapping.Ks, mapping.MaxLum, mapping.SourcePq];
 
@@ -67,6 +69,8 @@ internal static class PreviewFrameRenderer
 
             {{PreviewDisplayMapping.ShaderSource}}
 
+            {{PreviewGamutMapping.ShaderSource}}
+
             half4 main(float2 coord) {
                 half4 c = src.eval(coord);
                 float alpha = c.a;
@@ -82,6 +86,8 @@ internal static class PreviewFrameRenderer
                 } else if (tmOperator == 3) {
                     rgb = hable(max(rgb, float3(0.0)));
                 } else if (tmOperator == 4) {
+                    float lum = gamutLuminance(rgb.r, rgb.g, rgb.b);
+                    rgb = lum + (rgb - lum) * gamutSaturation(rgb.r, rgb.g, rgb.b, lum);
                     rgb *= displayMapGain(max(rgb.r, max(rgb.g, rgb.b)),
                         displayMapping.x, displayMapping.y, displayMapping.z, displayMapping.w);
                 }

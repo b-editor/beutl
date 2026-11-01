@@ -6,6 +6,7 @@
 [assembly: InternalsVisibleTo("Beutl.Controls")]
 [assembly: InternalsVisibleTo("Beutl.ProjectSystem")]
 [assembly: InternalsVisibleTo("Beutl.UnitTests")]
+[assembly: InternalsVisibleTo("Beutl.HeadlessUITests")]
 [assembly: InternalsVisibleTo("Beutl.Graphics3DTests")]
 [assembly: InternalsVisibleTo("Beutl.Benchmarks")]
 [assembly: InternalsVisibleTo("Beutl.NodeGraph")]
