@@ -10,7 +10,10 @@ namespace Beutl.Editor;
 internal static partial class SceneSnapshot
 {
     // Call on the thread that owns the scene. The copy keeps the Ids of the scene and of the scenes it references.
-    internal static Scene Create(Scene scene)
+    internal static Scene Create(Scene scene) => Materialize(Capture(scene));
+
+    // Reads what the copy is made from, on the thread that owns the scene.
+    internal static SceneCapture Capture(Scene scene)
     {
         JsonObject json = CoreSerializer.SerializeToJsonObject(scene, new CoreSerializerOptions
         {
@@ -19,8 +22,22 @@ internal static partial class SceneSnapshot
             KeepUnknownMembers = false
         });
 
-        var clone = (Scene)DeserializeDetached(json, typeof(Scene), scene.Uri);
-        AttachRoot(scene, clone, CloneReferencedObjects(scene));
+        return new SceneCapture(json, scene.Uri, CaptureReferencedObjects(scene), CreateProject(scene));
+    }
+
+    // Builds the copy on any thread. It takes over the capture, so a capture is materialized once.
+    internal static Scene Materialize(SceneCapture capture)
+    {
+        var clone = (Scene)DeserializeDetached(capture.Scene, typeof(Scene), capture.Uri);
+        foreach (CapturedObject reference in capture.References)
+        {
+            if (DeserializeDetached(reference.Json, reference.Type, reference.Uri) is ProjectItem item)
+                capture.Project.Items.Add(item);
+        }
+
+        capture.Project.Items.Add(clone);
+        // A BeutlApplication of its own keeps the clone's expressions from reaching BeutlApplication.Current.
+        _ = new BeutlApplication { Project = { Value = capture.Project } };
         return clone;
     }
 
@@ -44,9 +61,9 @@ internal static partial class SceneSnapshot
     }
 
     // A reference expression finds its target by Id in the clone's own root, so the targets are cloned with it.
-    private static List<CoreObject> CloneReferencedObjects(Scene scene)
+    private static List<CapturedObject> CaptureReferencedObjects(Scene scene)
     {
-        var clones = new List<CoreObject>();
+        var captured = new List<CapturedObject>();
         var scanned = new HashSet<Guid> { scene.Id.Value };
         var queue = new Queue<IHierarchical>();
         queue.Enqueue(scene);
@@ -57,13 +74,18 @@ internal static partial class SceneSnapshot
                 if (!scanned.Add(target.Id.Value))
                     continue;
 
-                clones.Add(CloneDetached(target));
+                JsonObject json = CoreSerializer.SerializeToJsonObject(target, new CoreSerializerOptions
+                {
+                    BaseUri = target.Uri,
+                    Mode = CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects,
+                });
+                captured.Add(new CapturedObject(json, target.GetType(), target.Uri));
                 if (target is IHierarchical hierarchical)
                     queue.Enqueue(hierarchical);
             }
         }
 
-        return clones;
+        return captured;
     }
 
     // Expressions find other objects only by Id: reference expressions and GetProperty("{id}.Name") hold it as text.
@@ -107,19 +129,8 @@ internal static partial class SceneSnapshot
         }
     }
 
-    private static CoreObject CloneDetached(CoreObject source)
-    {
-        JsonObject json = CoreSerializer.SerializeToJsonObject(source, new CoreSerializerOptions
-        {
-            BaseUri = source.Uri,
-            Mode = CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects,
-        });
-
-        return DeserializeDetached(json, source.GetType(), source.Uri);
-    }
-
-    // A Project and BeutlApplication of its own keep the clone's expressions from reaching BeutlApplication.Current.
-    private static void AttachRoot(Scene source, Scene clone, List<CoreObject> references)
+    // A Project of its own, with the source project's settings, gives the clone a root apart from the open project.
+    private static Project CreateProject(Scene source)
     {
         var project = new Project();
         if (source.FindHierarchicalParent<Project>() is { } sourceProject)
@@ -135,13 +146,15 @@ internal static partial class SceneSnapshot
             }
         }
 
-        foreach (CoreObject reference in references)
-        {
-            if (reference is ProjectItem item)
-                project.Items.Add(item);
-        }
-
-        project.Items.Add(clone);
-        _ = new BeutlApplication { Project = { Value = project } };
+        return project;
     }
+
+    // What Materialize builds a copy from: the scene, the objects its expressions reach, and a project to hold them.
+    internal sealed record SceneCapture(
+        JsonObject Scene,
+        Uri? Uri,
+        IReadOnlyList<CapturedObject> References,
+        Project Project);
+
+    internal sealed record CapturedObject(JsonObject Json, Type Type, Uri? Uri);
 }
