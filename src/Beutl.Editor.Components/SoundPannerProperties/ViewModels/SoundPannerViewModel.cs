@@ -65,6 +65,8 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
 
     public PropertyEditorExtension Extension => SoundPannerPropertiesExtension.Instance;
 
+    public ReactivePropertySlim<bool> IsExpanded { get; } = new(true);
+
     public ReactivePropertySlim<MediaTime> CurrentTime { get; } = new();
 
     public ReactivePropertySlim<SpeakerLayout> Layout { get; } = new(SpeakerLayout.Stereo);
@@ -210,10 +212,13 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
 
     public void ReadFromJson(JsonObject json)
     {
+        if (json[nameof(IsExpanded)] is JsonValue value && value.TryGetValue(out bool isExpanded))
+            IsExpanded.Value = isExpanded;
     }
 
     public void WriteToJson(JsonObject json)
     {
+        json[nameof(IsExpanded)] = IsExpanded.Value;
     }
 
     public void Dispose()
@@ -229,6 +234,7 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
             editor.Value?.Dispose();
             editor.Dispose();
         }
+        IsExpanded.Dispose();
         CurrentTime.Dispose();
         Layout.Dispose();
         IsHorizontalOnly.Dispose();

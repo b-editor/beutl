@@ -1,25 +1,38 @@
 <UserControl x:Class="Beutl.Editor.Components.SoundPannerProperties.Views.SoundPannerEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Editor.Components.SoundPannerProperties.Views"
              xmlns:vm="using:Beutl.Editor.Components.SoundPannerProperties.ViewModels"
              x:CompileBindings="True"
              x:DataType="vm:SoundPannerViewModel">
-    <StackPanel Margin="4,8" Spacing="6">
-        <TextBlock Text="{x:Static lang:AudioStrings.Panner_Title}" FontWeight="SemiBold" />
-        <local:SoundPanner x:Name="Panner" Height="200" ViewModel="{Binding}"
-                           IsEnabled="{Binding CanDrag.Value}"
-                           ToolTip.Tip="{x:Static lang:AudioStrings.Panner_Help}" />
-        <TextBlock Text="{Binding Message.Value}" TextWrapping="Wrap" FontSize="12"
-                   IsVisible="{Binding Message.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
-        <ContentControl x:Name="PanControl" IsEnabled="{Binding CanPan.Value}">
-            <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding PanEditor.Value}" />
-        </ContentControl>
-        <StackPanel x:Name="PositionControls" Spacing="2" IsEnabled="{Binding CanPosition.Value}">
-            <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding SurroundPanEditor.Value}" />
-            <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding CenterLevelEditor.Value}" />
-            <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding LfeLevelEditor.Value}" />
-        </StackPanel>
-    </StackPanel>
+    <Grid RowDefinitions="Auto,Auto">
+        <ToggleButton x:Name="expandToggle"
+                      Margin="8,4"
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
+                      IsChecked="{Binding IsExpanded.Value}">
+            <TextBlock Text="{x:Static lang:AudioStrings.Panner_Title}" />
+        </ToggleButton>
+        <Panel x:Name="content" Grid.Row="1">
+            <controls:TreeLineDecorator LineBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                <StackPanel>
+                    <local:SoundPanner x:Name="Panner" Height="200" Margin="8,4" ViewModel="{Binding}"
+                                      IsEnabled="{Binding CanDrag.Value}"
+                                      ToolTip.Tip="{x:Static lang:AudioStrings.Panner_Help}" />
+                    <TextBlock Text="{Binding Message.Value}" TextWrapping="Wrap" Margin="8,0,32,4"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               IsVisible="{Binding Message.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    <ContentControl x:Name="PanControl" IsEnabled="{Binding CanPan.Value}">
+                        <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding PanEditor.Value}" />
+                    </ContentControl>
+                    <StackPanel x:Name="PositionControls" IsEnabled="{Binding CanPosition.Value}">
+                        <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding SurroundPanEditor.Value}" />
+                        <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding CenterLevelEditor.Value}" />
+                        <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding LfeLevelEditor.Value}" />
+                    </StackPanel>
+                </StackPanel>
+            </controls:TreeLineDecorator>
+        </Panel>
+    </Grid>
 </UserControl>

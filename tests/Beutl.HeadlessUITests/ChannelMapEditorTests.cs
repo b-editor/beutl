@@ -1,12 +1,17 @@
 ﻿using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Audio;
+using Beutl.Controls;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ChannelMapProperties.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Editor.Components.PropertyEditors.Views;
+using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Media.Decoding;
@@ -22,8 +27,35 @@ namespace Beutl.HeadlessUITests;
 public class ChannelMapEditorTests
 {
     [AvaloniaTest]
+    public void FormatRowUsesPropertyNameMenuAndStandardGrid()
+    {
+        var (vm, control) = CreateEditor(new SourceSound());
+        using (vm)
+        {
+            var window = Show(control, 480, 200);
+            try
+            {
+                var format = control.FindControl<EnumEditor>("FormatEditor")!;
+                var header = format.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Name == "PART_HeaderTextBlock");
+                Assert.That(format.Header, Is.EqualTo(vm.Header));
+                Assert.That(header.Text, Is.EqualTo(AudioStrings.SourceSound_ChannelMap));
+                Assert.That(header.FontWeight, Is.EqualTo(FontWeight.Normal));
+                Assert.That(format.GetVisualDescendants().OfType<PropertyEditorGrid>().Count(), Is.EqualTo(1));
+                Assert.That(format.GetVisualDescendants().OfType<GridSplitter>().Count(), Is.EqualTo(1));
+                Assert.That(format.MenuContent, Is.TypeOf<PropertyEditorMenu>());
+                var menu = (PropertyEditorMenu)format.MenuContent!;
+                Assert.That(menu.DataContext, Is.SameAs(vm));
+                Assert.That(menu.GetVisualDescendants().OfType<Button>().Single().IsEffectivelyVisible, Is.True);
+            }
+            finally { window.Close(); }
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase("en-US", 400)]
     [TestCase("ja-JP", 280)]
+    [TestCase("ja-JP", 480)]
+    [TestCase("ja-JP", 760)]
     [TestCase("ko-KR", 320)]
     [TestCase("es-ES", 320)]
     [TestCase("zh-CN", 320)]
@@ -44,7 +76,7 @@ public class ChannelMapEditorTests
                     var window = Show(control, width, 310);
                     try
                     {
-                        ComboBox format = control.GetVisualDescendants().OfType<ComboBox>().Single();
+                        ComboBox format = GetFormatBox(control);
                         Assert.That(format.Items.Count, Is.EqualTo(5));
                         Assert.That(history.History.UndoCount, Is.Zero);
                         format.SelectedIndex = (int)AudioChannelFormat.Stereo;
@@ -67,7 +99,9 @@ public class ChannelMapEditorTests
                         Assert.That(sound.ChannelMap.Value.SourceLayout, Is.EqualTo(AudioChannelLayout.GetDefault(4)));
                         Assert.That(history.History.UndoCount, Is.EqualTo(3));
                         Assert.That(history.History.HasPendingOperations, Is.False);
-                        Assert.That(vm.Channels[0].SourceChannels, Is.EqualTo(new[] { AudioStrings.ChannelMap_None, "1 (L)", "2 (R)", "3 (Ls)", "4 (Rs)" }));
+                        Assert.That(vm.Channels[0].SourceChannels.Select(item => item.DisplayName), Is.EqualTo(new[] { AudioStrings.ChannelMap_None, "1 (L)", "2 (R)", "3 (Ls)", "4 (Rs)" }));
+                        Assert.That(control.GetVisualDescendants().OfType<PropertyEditorMenu>().Count(), Is.EqualTo(1));
+                        Assert.That(left.GetVisualAncestors().OfType<TreeLineDecorator>().Any(), Is.True);
                         Assert.That(control.Bounds.Width, Is.LessThanOrEqualTo(width));
                         AssertComboBoxesAligned(control);
                         HeadlessCapture.SaveIfRequested(window, nameof(ChannelMapEditorTests), $"stereo-{culture}-{width}");
@@ -85,7 +119,7 @@ public class ChannelMapEditorTests
                         Assert.That(sound.ChannelMap.Value.Sources, Is.EqualTo(new[] { -1, 3 }));
                         Assert.That(history.History.UndoCount, Is.EqualTo(4));
 
-                        if (culture == "ja-JP")
+                        if (culture == "ja-JP" && width == 280)
                         {
                             format.SelectedIndex = (int)AudioChannelFormat.Surround71;
                             window.Height = 520;
@@ -154,7 +188,8 @@ public class ChannelMapEditorTests
 
                 void AssertUnavailable()
                 {
-                    Assert.That(vm.Formats, Is.EqualTo(new[] { AudioStrings.ChannelMap_Auto }));
+                    Assert.That(vm.Formats.Select(item => item.DisplayName), Is.EqualTo(new[] { AudioStrings.ChannelMap_Auto }));
+                    Assert.That(GetFormatBox(control).IsEffectivelyEnabled, Is.False);
                     Assert.That(vm.SelectedFormatIndex.Value, Is.Zero);
                     Assert.That(vm.Channels, Is.Empty);
                     Assert.That(vm.Message.Value, Is.EqualTo(AudioStrings.ChannelMap_SourceUnavailable));
@@ -164,9 +199,50 @@ public class ChannelMapEditorTests
         });
     }
 
+    [AvaloniaTest]
+    public void ExpressionDisablesSelectionsAndRemovingItRestoresEditing()
+    {
+        WithFourChannelSource(source =>
+        {
+            var sound = new SourceSound
+            {
+                Source = { Value = source },
+                ChannelMap = { Value = AudioChannelMap.CreateDefault(AudioChannelFormat.Stereo, AudioChannelLayout.GetDefault(4)) }
+            };
+            using var history = new PropertyEditorTestHost.HistoryScope(sound);
+            var (vm, control) = CreateEditor(sound);
+            using (vm)
+            {
+                vm.Accept(PropertyEditorTestHost.ServiceVisitor.For(history.History));
+                var window = Show(control, 480, 300);
+                try
+                {
+                    var rows = vm.Channels.ToArray();
+                    using (history.History.SuppressRecording())
+                        sound.ChannelMap.Expression = new StringExpression<AudioChannelMap>("default");
+                    HeadlessTestHelpers.Render();
+                    Assert.That(control.GetVisualDescendants().OfType<ComboBox>().All(box => !box.IsEffectivelyEnabled), Is.True);
+                    var format = control.FindControl<EnumEditor>("FormatEditor")!;
+                    Assert.That(((PropertyEditorMenu)format.MenuContent!).IsEffectivelyEnabled, Is.True,
+                        "The property menu remains available to remove the expression.");
+
+                    using (history.History.SuppressRecording())
+                        sound.ChannelMap.Expression = null;
+                    HeadlessTestHelpers.Render();
+                    Assert.That(control.GetVisualDescendants().OfType<ComboBox>().All(box => box.IsEffectivelyEnabled), Is.True);
+                    Assert.That(vm.Channels[0], Is.SameAs(rows[0]));
+                    GetChannelBox(control, "L").SelectedIndex = 3;
+                    Assert.That(sound.ChannelMap.Value.Sources, Is.EqualTo(new[] { 2, 1 }));
+                    Assert.That(history.History.UndoCount, Is.EqualTo(1));
+                }
+                finally { window.Close(); }
+            }
+        });
+    }
+
     private static (ChannelMapEditorViewModel Vm, Control Control) CreateEditor(SourceSound sound)
     {
-        var adapter = new EnginePropertyAdapter<AudioChannelMap>(sound.ChannelMap, sound);
+        var adapter = PropertyAdapterFactory.CreateAdapter(sound.ChannelMap, sound);
         var context = PropertyEditorResolver.CreateContext(adapter,
             LoadPrimitiveExtensionTask.PrimitiveExtensions.OfType<PropertyEditorExtension>().ToArray(), PropertyEditorSurface.Panel);
         Assert.That(context, Is.TypeOf<ChannelMapEditorViewModel>());
@@ -179,16 +255,24 @@ public class ChannelMapEditorTests
         => control.GetVisualDescendants().OfType<ComboBox>()
             .Single(box => box.DataContext is ChannelAssignmentViewModel row && row.Name == channel);
 
+    private static ComboBox GetFormatBox(Control control)
+        => control.FindControl<EnumEditor>("FormatEditor")!.GetVisualDescendants().OfType<ComboBox>().Single();
+
     private static void AssertComboBoxesAligned(Control control)
     {
         ComboBox[] boxes = control.GetVisualDescendants().OfType<ComboBox>().ToArray();
-        double x = boxes[0].TranslatePoint(default, control)!.Value.X;
+        ComboBox format = GetFormatBox(control);
+        double x = format.TranslatePoint(default, control)!.Value.X;
         foreach (ComboBox box in boxes)
+        {
             Assert.That(box.TranslatePoint(default, control)!.Value.X, Is.EqualTo(x).Within(0.01));
+            Assert.That(box.Bounds.Width, Is.EqualTo(format.Bounds.Width).Within(0.01));
+        }
     }
 
     private static Window Show(Control control, int width, int height)
     {
+        PropertyEditorGrid.SetIsAlignmentScope(control, true);
         var window = new Window
         {
             Content = new Border { Padding = new Thickness(12), Child = control },

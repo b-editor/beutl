@@ -1,4 +1,5 @@
-﻿using Reactive.Bindings;
+﻿using Beutl.Controls.PropertyEditors;
+using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.ChannelMapProperties.ViewModels;
 
@@ -6,7 +7,7 @@ public sealed class ChannelAssignmentViewModel : IDisposable
 {
     private readonly IDisposable _subscription;
 
-    public ChannelAssignmentViewModel(string name, IReadOnlyList<string> sourceChannels, int selectedIndex, Action<int> changed)
+    public ChannelAssignmentViewModel(string name, IReadOnlyList<EnumItem> sourceChannels, int selectedIndex, Action<int> changed)
     {
         Name = name;
         SourceChannels = sourceChannels;
@@ -16,7 +17,7 @@ public sealed class ChannelAssignmentViewModel : IDisposable
 
     public string Name { get; }
 
-    public IReadOnlyList<string> SourceChannels { get; }
+    public IReadOnlyList<EnumItem> SourceChannels { get; }
 
     public ReactivePropertySlim<int> SelectedIndex { get; }
 

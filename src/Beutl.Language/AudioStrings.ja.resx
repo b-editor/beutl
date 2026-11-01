@@ -235,9 +235,6 @@
   <data name="SourceSound_ChannelMap_Description" xml:space="preserve">
     <value>ソースのチャンネルをこのクリップに割り当てます。JSON: {"Format":"Stereo","Sources":[2,3],"SourceLayout":{"ChannelCount":4,"Speakers":51}}。Format: Auto、Mono、Stereo、Surround51、Surround71。Sourcesはクリップの各チャンネルに対応する0始まりの番号で、-1は無音です。SourceLayoutはソースのチャンネル数と数値のスピーカーマスク（配置不明は0）です。ソースの配置が変わると自動に戻ります。自動: {"Format":"Auto","Sources":[]}。</value>
   </data>
-  <data name="ChannelMap_Format" xml:space="preserve">
-    <value>形式</value>
-  </data>
   <data name="ChannelMap_Auto" xml:space="preserve">
     <value>自動</value>
   </data>

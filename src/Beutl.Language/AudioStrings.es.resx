@@ -239,9 +239,6 @@
   <data name="SourceSound_ChannelMap_Description" xml:space="preserve">
     <value>Asigna canales de la fuente a este clip. JSON: {"Format":"Stereo","Sources":[2,3],"SourceLayout":{"ChannelCount":4,"Speakers":51}}. Format: Auto, Mono, Stereo, Surround51 o Surround71. Sources contiene un índice desde 0 por canal del clip, o -1 para silencio. SourceLayout guarda el número de canales y la máscara numérica de altavoces (0 si no hay posiciones). Si cambia la disposición de la fuente, se usa Auto. Auto: {"Format":"Auto","Sources":[]}.</value>
   </data>
-  <data name="ChannelMap_Format" xml:space="preserve">
-    <value>Formato</value>
-  </data>
   <data name="ChannelMap_Auto" xml:space="preserve">
     <value>Automático</value>
   </data>

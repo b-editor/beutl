@@ -1,37 +1,48 @@
 <UserControl x:Class="Beutl.Editor.Components.ChannelMapProperties.Views.ChannelMapEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:lang="using:Beutl.Language"
+             xmlns:controls="using:Beutl.Controls"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
+             xmlns:editors="using:Beutl.Editor.Components.PropertyEditors.Views"
              xmlns:vm="using:Beutl.Editor.Components.ChannelMapProperties.ViewModels"
              x:CompileBindings="True"
              x:DataType="vm:ChannelMapEditorViewModel">
-    <StackPanel Margin="4,8" Spacing="8" IsEnabled="{Binding CanEdit.Value}" Grid.IsSharedSizeScope="True">
-        <TextBlock Text="{Binding Header}" FontWeight="SemiBold" TextWrapping="Wrap" />
-        <Grid ColumnSpacing="12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" SharedSizeGroup="ChannelLabel" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <TextBlock Text="{x:Static lang:AudioStrings.ChannelMap_Format}" VerticalAlignment="Center" />
-            <ComboBox x:Name="FormatBox" Grid.Column="1" HorizontalAlignment="Stretch"
-                      ItemsSource="{Binding Formats}" SelectedIndex="{Binding SelectedFormatIndex.Value, Mode=TwoWay}" />
-        </Grid>
-        <TextBlock Text="{Binding Message.Value}" TextWrapping="Wrap"
+    <UserControl.Styles>
+        <!-- Keep the inputs in the parent's columns; only the channel names are indented. -->
+        <Style Selector="pe|EnumEditor.channel /template/ TextBlock#PART_HeaderTextBlock">
+            <Setter Property="Margin" Value="20,0,0,0" />
+        </Style>
+    </UserControl.Styles>
+    <StackPanel>
+        <pe:EnumEditor x:Name="FormatEditor"
+                       Header="{Binding Header}"
+                       Description="{Binding Description.Value}"
+                       HoverInfo="{Binding HoverInfo.Value}"
+                       Items="{Binding Formats}"
+                       SelectedIndex="{Binding SelectedFormatIndex.Value, Mode=TwoWay}"
+                       IsReadOnly="{Binding !CanEditMap.Value}">
+            <pe:EnumEditor.MenuContent>
+                <editors:PropertyEditorMenu />
+            </pe:EnumEditor.MenuContent>
+        </pe:EnumEditor>
+        <TextBlock Text="{Binding Message.Value}" TextWrapping="Wrap" Margin="8,0,32,4"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                    IsVisible="{Binding Message.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
-        <ItemsControl ItemsSource="{Binding Channels}">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:ChannelAssignmentViewModel">
-                    <Grid Margin="0,0,0,6" ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" SharedSizeGroup="ChannelLabel" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
-                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
-                                  ItemsSource="{Binding SourceChannels}" SelectedIndex="{Binding SelectedIndex.Value, Mode=TwoWay}" />
-                    </Grid>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+        <controls:TreeLineDecorator LineBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+            <ItemsControl ItemsSource="{Binding Channels}" IsEnabled="{Binding CanEditMap.Value}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ChannelAssignmentViewModel">
+                        <!-- Offset the tree's 16 px indent and reserve the parent's 28 px menu column. -->
+                        <pe:EnumEditor Classes="channel" Margin="-12,0,4,0"
+                                       Header="{Binding Name}" Items="{Binding SourceChannels}"
+                                       SelectedIndex="{Binding SelectedIndex.Value, Mode=TwoWay}">
+                            <pe:EnumEditor.MenuContent>
+                                <Border Width="24" Margin="0,0,4,0" />
+                            </pe:EnumEditor.MenuContent>
+                        </pe:EnumEditor>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </controls:TreeLineDecorator>
     </StackPanel>
 </UserControl>

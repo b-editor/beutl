@@ -1,6 +1,8 @@
 ﻿using System.Globalization;
+using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
@@ -11,7 +13,11 @@ using Beutl.Audio;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
+using Beutl.Editor.Components.ChannelMapProperties.ViewModels;
+using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
+using Beutl.Editor.Components.ElementPropertyTab.Views;
 using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Components.SoundPannerProperties;
 using Beutl.Editor.Components.SoundPannerProperties.ViewModels;
 using Beutl.Editor.Components.SoundPannerProperties.Views;
@@ -39,6 +45,94 @@ public class SoundPannerEditorTests
 {
     private static PropertyEditorExtension[] Extensions => LoadPrimitiveExtensionTask.PrimitiveExtensions
         .OfType<PropertyEditorExtension>().ToArray();
+
+    [AvaloniaTest]
+    public async Task ExpandedByDefaultAndToggleCollapsesAndExpandsContent()
+    {
+        using var host = new PannerHost(SpeakerLayout.Stereo, 2);
+        var toggle = host.Editor.FindControl<ToggleButton>("expandToggle")!;
+        var content = host.Editor.FindControl<Panel>("content")!;
+        Assert.That(host.ViewModel.IsExpanded.Value, Is.True);
+        Assert.That(toggle.IsChecked, Is.True);
+        Assert.That(content.IsEffectivelyVisible, Is.True);
+
+        HeadlessTestHelpers.Click(toggle);
+        Assert.That(host.ViewModel.IsExpanded.Value, Is.False);
+        await HeadlessTestHelpers.WaitUntilAsync(() =>
+        {
+            HeadlessTestHelpers.Render();
+            return !content.IsVisible;
+        });
+        Assert.That(host.Panner.IsEffectivelyVisible, Is.False);
+
+        HeadlessTestHelpers.Click(toggle);
+        Assert.That(host.ViewModel.IsExpanded.Value, Is.True);
+        await HeadlessTestHelpers.WaitUntilAsync(() =>
+        {
+            HeadlessTestHelpers.Render();
+            return content.IsVisible && content.Opacity == 1;
+        });
+        Assert.That(host.Panner.IsEffectivelyVisible, Is.True);
+        Assert.That(host.History.UndoCount, Is.Zero, "Expansion is editor state, not an audio edit.");
+    }
+
+    [AvaloniaTest]
+    public void IsExpandedRoundTripsThroughJson([Values] bool expanded)
+    {
+        using var original = new SoundPannerViewModel(PannerAdapters(new SourceSound()));
+        original.IsExpanded.Value = expanded;
+        var json = new JsonObject();
+        original.WriteToJson(json);
+        using var restored = new SoundPannerViewModel(PannerAdapters(new SourceSound()));
+        restored.IsExpanded.Value = !expanded;
+        restored.ReadFromJson(JsonNode.Parse(json.ToJsonString())!.AsObject());
+        Assert.That((bool)json[nameof(SoundPannerViewModel.IsExpanded)]!, Is.EqualTo(expanded));
+        Assert.That(restored.IsExpanded.Value, Is.EqualTo(expanded));
+    }
+
+    [AvaloniaTest]
+    public void MissingOrInvalidExpansionStateIsIgnored([Values] bool expanded)
+    {
+        using var vm = new SoundPannerViewModel(PannerAdapters(new SourceSound()));
+        vm.IsExpanded.Value = expanded;
+        foreach (string json in new[] { "{}", "{\"IsExpanded\":null}", "{\"IsExpanded\":1}", "{\"IsExpanded\":\"false\"}", "{\"IsExpanded\":{}}" })
+        {
+            vm.ReadFromJson(JsonNode.Parse(json)!.AsObject());
+            Assert.That(vm.IsExpanded.Value, Is.EqualTo(expanded), json);
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(280)]
+    [TestCase(480)]
+    [TestCase(760)]
+    public void NestedNumberEditorsAlignWithOtherExpandedProperties(int width)
+    {
+        using var host = new PannerHost(SpeakerLayout.Stereo, 2, width: width);
+        var referenceMenu = new PropertyEditorMenu { DataContext = host.ViewModel.PanEditor.Value };
+        var reference = new NumberEditor<float> { Header = "Reference", MenuContent = referenceMenu };
+        var border = (Border)host.Window.Content!;
+        border.Child = null;
+        var rows = new StackPanel
+        {
+            Children = { host.Editor, new TreeLineDecorator { Child = reference } }
+        };
+        PropertyEditorGrid.SetIsAlignmentScope(host.Editor, false);
+        PropertyEditorGrid.SetIsAlignmentScope(rows, true);
+        border.Child = rows;
+        HeadlessTestHelpers.Render(3);
+        TextBox expected = reference.GetVisualDescendants().OfType<TextBox>().Single();
+        foreach (var number in host.Editor.GetVisualDescendants().OfType<NumberEditor<float>>())
+        {
+            var input = number.GetVisualDescendants().OfType<TextBox>().Single();
+            var menu = number.GetVisualDescendants().OfType<PropertyEditorMenu>().Single();
+            Assert.That(input.TranslatePoint(default, rows)!.Value.X,
+                Is.EqualTo(expected.TranslatePoint(default, rows)!.Value.X).Within(0.01));
+            Assert.That(input.Bounds.Width, Is.EqualTo(expected.Bounds.Width).Within(0.01));
+            Assert.That(menu.TranslatePoint(default, rows)!.Value.X,
+                Is.EqualTo(referenceMenu.TranslatePoint(default, rows)!.Value.X).Within(0.01));
+        }
+    }
 
     [AvaloniaTest]
     public void RegistrationReplacesExactlyTheFourSoundEditorsAndRequiresOneCompleteOwner()
@@ -494,7 +588,7 @@ public class SoundPannerEditorTests
     [TestCase("es-ES", SpeakerLayout.Surround51, 6, 280)]
     [TestCase("ko-KR", SpeakerLayout.Surround51, 6, 280)]
     [TestCase("zh-CN", SpeakerLayout.Surround51, 6, 280)]
-    public void RenderProjectLayouts(string culture, SpeakerLayout layout, int channels, int width)
+    public async Task RenderProjectLayouts(string culture, SpeakerLayout layout, int channels, int width)
     {
         var previous = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
@@ -513,6 +607,8 @@ public class SoundPannerEditorTests
                 Assert.That(input.TranslatePoint(new Point(input.Bounds.Width, 0), host.Window)!.Value.X, Is.LessThanOrEqualTo(width));
                 Assert.That(input.TranslatePoint(new Point(0, input.Bounds.Height), host.Window)!.Value.Y, Is.LessThanOrEqualTo(host.Window.Height - 12));
             }
+            if (HeadlessCapture.IsRequested)
+                await WaitForExpansion(host.Editor);
             HeadlessCapture.SaveIfRequested(host.Window, nameof(SoundPannerEditorTests), $"{layout}-{channels}ch-{culture}-{width}");
         }
         finally { CultureInfo.CurrentUICulture = previous; }
@@ -535,6 +631,98 @@ public class SoundPannerEditorTests
         property.SetKeyFrameAnimation(animation);
     }
 
+    [AvaloniaTest]
+    [Explicit("Captures the complete SourceSound property panel for visual review.")]
+    [TestCase(SpeakerLayout.Stereo, 2)]
+    [TestCase(SpeakerLayout.Surround51, 6)]
+    public async Task CaptureSourceSoundPropertyPanel(SpeakerLayout layout, int channels)
+    {
+        var previousCulture = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
+        string path = Path.Combine(Path.GetTempPath(), $"beutl-source-panel-{Guid.NewGuid():N}.wav");
+        var decoder = new WaveDecoderInfo();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            WriteWave(path, channels);
+            var (project, scene, editor) = await TestShell.OpenNewSceneAsync("source-sound-properties");
+            project.ChannelLayout.Value = layout;
+            var sound = new SourceSound
+            {
+                Source = { Value = SoundSource.Open(path) },
+                Pan = { Value = 20 },
+                SurroundPan = { Value = 35 }
+            };
+            if (channels == 6)
+                sound.ChannelMap.Value = AudioChannelMap.CreateDefault(AudioChannelFormat.Surround51, AudioChannelLayout.Surround51);
+            await TestShell.AddElementAsync(editor, () => sound, MediaTime.Zero, MediaTime.FromSeconds(10));
+            Element element = scene.Children.Single();
+            ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).Select(element);
+            using var tab = new ElementPropertyTabViewModel(editor);
+            tab.Element.Value = element;
+            var view = new EngineObjectPropertyView { DataContext = tab.Items.Single() };
+            PropertyEditorGrid.SetIsAlignmentScope(view, true);
+            var window = new Window
+            {
+                Width = 480,
+                SizeToContent = SizeToContent.Height,
+                RequestedThemeVariant = ThemeVariant.Dark,
+                Content = view
+            };
+            try
+            {
+                window.Show();
+                HeadlessTestHelpers.Render(3);
+                await WaitForExpansion(view.GetVisualDescendants().OfType<SoundPannerEditor>().Single());
+                Assert.That(view.GetVisualDescendants().OfType<SoundPanner>().Single().IsEffectivelyVisible, Is.True);
+                var map = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
+                    .OfType<ChannelMapEditorViewModel>().Single();
+                Assert.That(map.Channels.Count, Is.EqualTo(channels == 6 ? 6 : 0));
+                HeadlessCapture.SaveIfRequested(window, nameof(SoundPannerEditorTests), $"source-panel-{layout}-{channels}ch-ja-JP-480");
+            }
+            finally { window.Close(); }
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+            File.Delete(path);
+            CultureInfo.CurrentUICulture = previousCulture;
+        }
+    }
+
+    private static Task WaitForExpansion(SoundPannerEditor editor)
+    {
+        var content = editor.FindControl<Panel>("content")!;
+        return HeadlessTestHelpers.WaitUntilAsync(() =>
+        {
+            HeadlessTestHelpers.Render();
+            return content.IsVisible && content.Opacity == 1;
+        });
+    }
+
+    private static void WriteWave(string path, int channels)
+    {
+        using var writer = new BinaryWriter(File.Create(path));
+        int bytes = 128 * channels * sizeof(float);
+        writer.Write("RIFF"u8);
+        writer.Write(60 + bytes);
+        writer.Write("WAVEfmt "u8);
+        writer.Write(40);
+        writer.Write((ushort)0xFFFE);
+        writer.Write((ushort)channels);
+        writer.Write(44100);
+        writer.Write(44100 * channels * sizeof(float));
+        writer.Write((ushort)(channels * sizeof(float)));
+        writer.Write((ushort)32);
+        writer.Write((ushort)22);
+        writer.Write((ushort)32);
+        writer.Write((uint)AudioChannelLayout.GetDefault(channels).Speakers);
+        writer.Write(new Guid("00000003-0000-0010-8000-00aa00389b71").ToByteArray());
+        writer.Write("data"u8);
+        writer.Write(bytes);
+        writer.Write(new byte[bytes]);
+    }
+
     private sealed class PannerHost : IDisposable
     {
         private readonly string _path = Path.Combine(Path.GetTempPath(), $"beutl-panner-{Guid.NewGuid():N}.wav");
@@ -546,27 +734,7 @@ public class SoundPannerEditorTests
         {
             ((IModifiableHierarchical)new ComponentTestRoot()).AddChild(Project);
             DecoderRegistry.Register(_decoder);
-            using (var writer = new BinaryWriter(File.Create(_path)))
-            {
-                int bytes = 128 * channels * sizeof(float);
-                writer.Write("RIFF"u8);
-                writer.Write(60 + bytes);
-                writer.Write("WAVEfmt "u8);
-                writer.Write(40);
-                writer.Write((ushort)0xFFFE);
-                writer.Write((ushort)channels);
-                writer.Write(44100);
-                writer.Write(44100 * channels * sizeof(float));
-                writer.Write((ushort)(channels * sizeof(float)));
-                writer.Write((ushort)32);
-                writer.Write((ushort)22);
-                writer.Write((ushort)32);
-                writer.Write((uint)AudioChannelLayout.GetDefault(channels).Speakers);
-                writer.Write(new Guid("00000003-0000-0010-8000-00aa00389b71").ToByteArray());
-                writer.Write("data"u8);
-                writer.Write(bytes);
-                writer.Write(new byte[bytes]);
-            }
+            WriteWave(_path, channels);
             Sound = new SourceSound { Source = { Value = SoundSource.Open(_path) } };
             configure?.Invoke(Sound);
             var element = new Element { Start = { Value = MediaTime.FromSeconds(3) }, Length = { Value = MediaTime.FromSeconds(10) } };

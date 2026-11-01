@@ -239,9 +239,6 @@
   <data name="SourceSound_ChannelMap_Description" xml:space="preserve">
     <value>소스 채널을 이 클립에 할당합니다. JSON: {"Format":"Stereo","Sources":[2,3],"SourceLayout":{"ChannelCount":4,"Speakers":51}}. Format: Auto, Mono, Stereo, Surround51 또는 Surround71. Sources는 클립 채널마다 0부터 시작하는 인덱스이며 -1은 무음입니다. SourceLayout은 소스 채널 수와 숫자 스피커 마스크(위치 정보가 없으면 0)를 저장합니다. 소스 레이아웃이 바뀌면 Auto를 사용합니다. Auto: {"Format":"Auto","Sources":[]}.</value>
   </data>
-  <data name="ChannelMap_Format" xml:space="preserve">
-    <value>형식</value>
-  </data>
   <data name="ChannelMap_Auto" xml:space="preserve">
     <value>자동</value>
   </data>
