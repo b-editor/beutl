@@ -53,6 +53,10 @@ public partial class Composer : IComposer
 
     public bool IsAudioRendering { get; private set; }
 
+    // A nested scene's mix still goes through its parent's gain and master stage, so clamping it here would flatten
+    // peaks that the parent gain could have brought back under full scale.
+    internal bool ClampsToFullScale { get; init; } = true;
+
     public void Dispose()
     {
         if (!IsDisposed)
@@ -429,13 +433,17 @@ public partial class Composer : IComposer
         }
     }
 
-    private static void ApplyMasterEffects(AudioBuffer buffer)
+    private void ApplyMasterEffects(AudioBuffer buffer)
     {
         // Apply master limiter to prevent clipping
         for (int ch = 0; ch < buffer.ChannelCount; ch++)
         {
             var channelData = buffer.GetChannelData(ch);
             AudioMath.ApplyLimiter(channelData, 1.0f, 10.0f);
+            // The limiter's soft ratio still lets a loud mix, such as a large gain or a delay fed back at
+            // 100%, far past full scale, and it lets NaN through.
+            if (ClampsToFullScale)
+                AudioMath.ClampToFullScale(channelData);
         }
     }
 

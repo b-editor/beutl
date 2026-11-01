@@ -113,4 +113,44 @@ public class ComposerTests
             });
         }
     }
+
+    // The master stage only compressed above full scale at a soft ratio, so a loud mix played far past it: the
+    // test tone's 0.5 peak at a 1000% gain came out at 1.4 (#3616).
+    [Test]
+    public void Compose_LoudSound_StaysWithinFullScale()
+        => Assert.That(ComposeLoudPeak(clampsToFullScale: true), Is.EqualTo(1f));
+
+    // A nested scene's mix goes on through its parent's gain, so a clamp there would flatten peaks the parent's
+    // gain could bring back under full scale; only the soft limiter applies.
+    [Test]
+    public void Compose_NestedComposer_LeavesTheCeilingToItsParent()
+        => Assert.That(ComposeLoudPeak(clampsToFullScale: false), Is.GreaterThan(1.3f));
+
+    private static float ComposeLoudPeak(bool clampsToFullScale)
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        string path = TestMediaHelper.CreateTestAudioFile(sampleRate: 44100, channels: 2, durationSeconds: 1.0);
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(path));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
+        var sound = new SourceSound { Source = { Value = source }, TimeRange = { Value = range }, Gain = { Value = 1000f } };
+        using var resource = sound.ToResource(CompositionContext.Default);
+        var frame = new CompositionFrame(
+            ImmutableArray.Create((EngineObject.Resource)resource), range, default, new CompositionEligibility([sound]));
+        using var composer = new Composer { SampleRate = 44100, ClampsToFullScale = clampsToFullScale };
+
+        using AudioBuffer? buffer = composer.Compose(range, frame);
+
+        return Math.Max(AudioMath.FindPeak(buffer!.GetChannelData(0)), AudioMath.FindPeak(buffer.GetChannelData(1)));
+    }
+
+    [Test]
+    public void ClampToFullScale_HoldsSamplesWithinFullScaleAndSilencesNonFiniteOnes()
+    {
+        float[] samples = [2f, -3f, 0.5f, float.NaN, float.PositiveInfinity, float.NegativeInfinity];
+
+        AudioMath.ClampToFullScale(samples);
+
+        Assert.That(samples, Is.EqualTo(new[] { 1f, -1f, 0.5f, 0f, 0f, 0f }));
+    }
 }

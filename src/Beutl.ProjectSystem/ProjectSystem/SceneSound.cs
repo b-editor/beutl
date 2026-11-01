@@ -125,7 +125,7 @@ public sealed partial class SceneSound : Sound, ISplittable
                 if (_composer?.SampleRate != context.SampleRate || _composer.ChannelLayout != Layout)
                 {
                     _composer?.Dispose();
-                    _composer = new Composer { SampleRate = context.SampleRate, ChannelLayout = Layout };
+                    _composer = new Composer { SampleRate = context.SampleRate, ChannelLayout = Layout, ClampsToFullScale = false };
                 }
 
                 // The embed composes the referenced scene's own window from the clip-local request.
