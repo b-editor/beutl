@@ -12,6 +12,7 @@ using Beutl.Editor.Components.ElementPropertyTab.Views;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
@@ -54,8 +55,8 @@ public sealed class AgentEditFollowerTests
                 Assert.That(properties.Items.Single()!.Model, Is.SameAs(fixture.FarRect));
                 Assert.That(flashes.Targets, Does.Contain(farView.border), "The timeline clip flashes.");
                 Assert.That(flashes.Targets.Any(target => target.FindAncestorOfType<ElementPropertyTabView>() is not null
-                                                          && target.FindAncestorOfType<EngineObjectPropertyView>() is not null),
-                    Is.True, "A property row flashes.");
+                                                          && IsRowOf(target, fixture.FarRect.Width)),
+                    Is.True, "The edited property's row flashes.");
             });
 
             HeadlessTestHelpers.Render(60);
@@ -204,7 +205,7 @@ public sealed class AgentEditFollowerTests
             {
                 Assert.That(fixture.Editor.FindToolTab<ElementPropertyTabViewModel>()?.Items.Single()?.Model,
                     Is.SameAs(fixture.FarRect));
-                Assert.That(flashes.Targets.Any(target => target.FindAncestorOfType<EngineObjectPropertyView>() is not null),
+                Assert.That(flashes.Targets.Any(target => IsRowOf(target, fixture.FarRect.Width)),
                     Is.True, "The reopened tab still flashes the edited row.");
             });
         }
@@ -389,6 +390,12 @@ public sealed class AgentEditFollowerTests
         };
         return arguments;
     }
+
+    // Whether the control is the row of an element property tab that edits `property`.
+    private static bool IsRowOf(Control target, IProperty property)
+        => target.FindAncestorOfType<EngineObjectPropertyView>() is not null
+           && (target.DataContext as IServiceProvider)?.GetService(typeof(IPropertyAdapter)) is IPropertyAdapter adapter
+           && ReferenceEquals(adapter.GetEngineProperty(), property);
 
     private static Dictionary<string, object?> Target(Guid sceneId)
         => new() { ["sceneId"] = sceneId.ToString() };
