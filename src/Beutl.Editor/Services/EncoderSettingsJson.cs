@@ -73,6 +73,11 @@ public static class EncoderSettingsJson
         try
         {
             Populate(settings, json);
+            // Populate first so the helper scales the preset's bitrate from its own channels, once.
+            // A partial preset without a bitrate must not rescale the output's existing bitrate.
+            if (json.ContainsKey(nameof(AudioEncoderSettings.Channels))
+                && json.ContainsKey(nameof(AudioEncoderSettings.Bitrate)))
+                settings.SetChannels(channels);
             applied = true;
         }
         finally

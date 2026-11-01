@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Editor.Services;
+using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Media;
 using Beutl.Media.Encoding;
 
@@ -137,7 +138,7 @@ public class EncoderSettingsJsonTests
         {
             Assert.That(target.SampleRate.Value, Is.EqualTo(48000));
             Assert.That(target.Channels.Value, Is.EqualTo(2));
-            Assert.That(target.Bitrate.Value, Is.EqualTo(preset.Bitrate.Value));
+            Assert.That(target.Bitrate.Value, Is.EqualTo(192_000));
         });
     }
 
@@ -210,8 +211,52 @@ public class EncoderSettingsJsonTests
         {
             Assert.That(target.SampleRate.Value, Is.EqualTo(44100));
             Assert.That(target.Channels.Value, Is.EqualTo(6));
-            Assert.That(target.Bitrate.Value, Is.EqualTo(preset.Bitrate.Value));
+            Assert.That(target.Bitrate.Value, Is.EqualTo(576_000));
         });
+    }
+
+    [Test]
+    public void PopulateAudioPreset_ScalesFromPresetChannelsOnlyOnce()
+    {
+        JsonObject preset = EncoderSettingsJson.Serialize(new AudioEncoderSettings { Bitrate = { Value = 192_000 } })!;
+        var target = new AudioEncoderSettings { Channels = { Value = 6 } };
+
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            EncoderSettingsJson.PopulateAudioPreset(target, preset, appliesSampleRate: false);
+
+            Assert.That(target.Channels.Value, Is.EqualTo(6));
+            Assert.That(target.Bitrate.Value, Is.EqualTo(576_000));
+        }
+        Assert.That(preset[nameof(AudioEncoderSettings.Bitrate)]!.GetValue<int>(), Is.EqualTo(192_000));
+    }
+
+    [TestCase("""{"Bitrate":192000}""", 192_000)]
+    [TestCase("""{"Channels":2}""", 384_000)]
+    [TestCase("""{"Channels":2,"Bitrate":-1}""", -1)]
+    public void PopulateAudioPreset_OnlyScalesAPositiveBitrateWithItsOwnChannelCount(string json, int expected)
+    {
+        var target = new AudioEncoderSettings { Channels = { Value = 6 }, Bitrate = { Value = 384_000 } };
+
+        EncoderSettingsJson.PopulateAudioPreset(target, JsonNode.Parse(json)!.AsObject(), appliesSampleRate: false);
+
+        Assert.That(target.Channels.Value, Is.EqualTo(6));
+        Assert.That(target.Bitrate.Value, Is.EqualTo(expected));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RestoringOrCopyingAudioSettings_DoesNotScaleOrRestrictTheChannelCount(bool copy)
+    {
+        var saved = new AudioEncoderSettings { Channels = { Value = 7 }, Bitrate = { Value = 192_000 } };
+        var target = new FFmpegAudioEncoderSettings();
+        if (copy)
+            EncoderSettingsJson.CopyTo(saved, target);
+        else
+            EncoderSettingsJson.Populate(target, EncoderSettingsJson.Serialize(saved)!);
+
+        Assert.That(target.Channels.Value, Is.EqualTo(7));
+        Assert.That(target.Bitrate.Value, Is.EqualTo(192_000));
     }
 
     [Test]

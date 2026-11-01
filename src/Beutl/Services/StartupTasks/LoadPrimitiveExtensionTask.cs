@@ -42,6 +42,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
     [
         ExtensionsToolWindowExtension.Instance,
         OutputTabExtension.Instance,
+        AudioChannelsPropertyExtension.Instance,
         SceneEditorExtension.Instance,
         SceneOutputExtension.Instance,
         TimelineTabExtension.Instance,

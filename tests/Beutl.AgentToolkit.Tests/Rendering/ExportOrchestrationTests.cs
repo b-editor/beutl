@@ -49,6 +49,7 @@ public sealed class ExportOrchestrationTests
         var encoder = new DelegateEncoder(".layout-test", async (controller, frames, samples, token) =>
         {
             Assert.That(controller.AudioSettings.Channels.Value, Is.EqualTo(6));
+            Assert.That(controller.AudioSettings.Bitrate.Value, Is.EqualTo(384_000));
             Assert.That(samples.ChannelLayout, Is.EqualTo(AudioChannelLayout.Surround51));
             using var audio = await samples.ReadNextSamples(32);
             Assert.That(audio!.ChannelCount, Is.EqualTo(6));

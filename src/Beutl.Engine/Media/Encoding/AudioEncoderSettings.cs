@@ -21,6 +21,20 @@ public partial class AudioEncoderSettings : MediaEncoderSettings
     /// <summary>The speaker layout written by an export with these settings.</summary>
     public AudioChannelLayout GetChannelLayout() => AudioChannelLayout.GetDefault(Channels.Value);
 
+    /// <summary>Changes the channel count, keeping a positive total bitrate proportional to it.</summary>
+    /// <remarks>Use for edits and new exports, not when restoring or copying saved settings.</remarks>
+    public void SetChannels(int channels)
+    {
+        int previousChannels = Channels.Value;
+        if (previousChannels > 0 && channels > 0 && Bitrate.Value > 0)
+        {
+            Bitrate.Value = (int)Math.Round((double)Bitrate.Value * channels / previousChannels,
+                MidpointRounding.AwayFromZero);
+        }
+
+        Channels.Value = channels;
+    }
+
     [Display(Name = nameof(Strings.SampleRate), Description = nameof(Strings.SampleRate_Tip), ResourceType = typeof(Strings), Order = int.MinValue)]
     public IProperty<int> SampleRate { get; } = Property.CreateValue(44100);
 

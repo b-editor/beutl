@@ -70,7 +70,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 Project? project = Model.FindHierarchicalParent<Project>();
                 controller.VideoSettings.FrameRate.Value = project.GetFrameRate();
                 controller.AudioSettings.SampleRate.Value = project.GetSampleRate();
-                controller.AudioSettings.Channels.Value = project.GetChannelLayout().ChannelCount;
+                controller.AudioSettings.SetChannels(project.GetChannelLayout().ChannelCount);
                 // A new controller starts at the scene's size, whatever default its encoder gives. Settings copied
                 // above, because only the destination changed, keep their output size like everything else.
                 controller.VideoSettings.DestinationSize.Value = Model.FrameSize.Value;
