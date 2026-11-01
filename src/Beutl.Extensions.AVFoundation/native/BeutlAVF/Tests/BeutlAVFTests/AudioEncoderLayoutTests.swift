@@ -34,6 +34,18 @@ final class AudioEncoderLayoutTests: XCTestCase {
             available: [kAudioChannelLayoutTag_AAC_7_1]))
     }
 
+    func testAlacTagsPreserveSurround51AndRejectWide71() throws {
+        XCTAssertEqual(try AudioEncoderLayout.selectOutputTag(inputTag: kAudioChannelLayoutTag_MPEG_5_1_A,
+            available: [kAudioChannelLayoutTag_MPEG_5_1_D]), kAudioChannelLayoutTag_MPEG_5_1_D)
+        XCTAssertThrowsError(try AudioEncoderLayout.selectOutputTag(inputTag: kAudioChannelLayoutTag_WAVE_7_1,
+            available: [kAudioChannelLayoutTag_MPEG_7_1_A, kAudioChannelLayoutTag_MPEG_7_1_B])) { error in
+            guard case BeutlAVFError.writerFailed(let message) = error else {
+                return XCTFail("Expected an unsupported speaker layout error, got \(error)")
+            }
+            XCTAssertTrue(message.contains("no layout for the requested speakers"))
+        }
+    }
+
     func testAvailableAacTagsAndMinimumBitrate() throws {
         for (channels, inputTag) in [(6, kAudioChannelLayoutTag_MPEG_5_1_A), (8, kAudioChannelLayoutTag_WAVE_7_1)] {
             let tags = try AudioEncoderLayout.availableEncodeTags(format: kAudioFormatMPEG4AAC, channelCount: channels)

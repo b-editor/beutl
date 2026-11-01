@@ -353,9 +353,11 @@ final class Writer {
         var outputTag = outputChannels == audioChannelCount ? audioLayoutTag
             : AudioEncoderLayout.inputTag(channelCount: outputChannels, speakerMask: defaultMasks[outputChannels] ?? 0)
         audioBitrate = config.bitrate
-        if formatId == kAudioFormatMPEG4AAC {
+        if formatId == kAudioFormatMPEG4AAC || formatId == kAudioFormatAppleLossless {
             outputTag = try AudioEncoderLayout.selectOutputTag(inputTag: outputTag,
                 available: AudioEncoderLayout.availableEncodeTags(format: formatId, channelCount: outputChannels))
+        }
+        if formatId == kAudioFormatMPEG4AAC {
             audioBitrate = try AudioEncoderLayout.aacBitrate(requested: config.bitrate, sampleRate: Int(config.sampleRate),
                 inputTag: audioLayoutTag, outputTag: outputTag)
         }
@@ -377,6 +379,10 @@ final class Writer {
             settings[AVLinearPCMIsFloatKey] = (config.linearPcmFlags & 0x1) != 0
             settings[AVLinearPCMIsBigEndianKey] = (config.linearPcmFlags & 0x2) != 0
             settings[AVLinearPCMIsNonInterleaved] = (config.linearPcmFlags & 0x4) != 0
+        } else if formatId == kAudioFormatAppleLossless {
+            // AVAssetWriterInput throws without this key even when canApply accepts the settings.
+            let bitDepth = Int(config.linearPcmBitDepth)
+            settings[AVEncoderBitDepthHintKey] = [16, 24, 32].contains(bitDepth) ? bitDepth : 16
         }
 
         guard writer.canApply(outputSettings: settings, forMediaType: .audio) else {

@@ -25,6 +25,7 @@ public class AVFEncodingController : EncodingController
         ISampleProvider sampleProvider,
         CancellationToken cancellationToken)
     {
+        ValidateAudioChannels(AudioSettings.Format.Value, AudioSettings.Channels.Value);
         BeutlAVFNative.EnsureCompatibleVersion();
         var videoConfig = BuildVideoConfig();
         var audioConfig = BuildAudioConfig((int)sampleProvider.SampleRate, sampleProvider.ChannelLayout);
@@ -206,6 +207,14 @@ public class AVFEncodingController : EncodingController
             ColorPrimaries = (int)primaries,
             YCbCrMatrix = (int)matrix,
         };
+    }
+
+    internal static void ValidateAudioChannels(AVFAudioEncoderSettings.AudioFormatType format, int channels)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(channels);
+        // AVAssetWriter can accept AAC 7.1 settings while silently losing or relabeling speakers.
+        if (format == AVFAudioEncoderSettings.AudioFormatType.MPEG4AAC && channels is not (1 or 2 or 6))
+            throw new NotSupportedException("AVFoundation AAC supports 1, 2 or 6 channels. Choose Linear PCM, or the FFmpeg encoder, for other channel counts.");
     }
 
     internal BeutlAudioEncoderConfig BuildAudioConfig(int sourceSampleRate, AudioChannelLayout inputLayout)

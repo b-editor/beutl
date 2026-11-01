@@ -27,24 +27,50 @@ public class EncodeDecodeRoundTripTests
         catch { /* best-effort cleanup */ }
     }
 
-    [TestCase(6)]
-    [TestCase(8)]
-    public async Task AacRoundTripPreservesEachSpeakerTone(int channels)
+    [Test]
+    public async Task EightChannelAacIsRejectedBeforeWriterCreation()
+    {
+        string path = Path.Combine(_workDir, "speakers-8.mp4");
+        await File.WriteAllTextAsync(path, "existing output");
+        var controller = new AVFEncodingController(path);
+        controller.AudioSettings.Channels.Value = 8;
+        using var frames = new GradientFrameProvider(0, new Rational(30), 64, 64);
+        using var samples = new SpeakerToneSampleProvider(0, 48000, AudioChannelLayout.Surround71);
+
+        Assert.That(async () => await controller.Encode(frames, samples, CancellationToken.None),
+            Throws.TypeOf<NotSupportedException>().With.Message.EqualTo(
+                "AVFoundation AAC supports 1, 2 or 6 channels. Choose Linear PCM, or the FFmpeg encoder, for other channel counts."));
+        Assert.That(await File.ReadAllTextAsync(path), Is.EqualTo("existing output"));
+    }
+
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.MPEG4AAC, 6, ".mp4")]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 8, ".mov")]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 2, ".mov")]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 6, ".mov")]
+    public async Task AudioRoundTripPreservesEachSpeakerTone(AVFAudioEncoderSettings.AudioFormatType format, int channels, string extension)
     {
         const int rate = 48000;
-        string path = Path.Combine(_workDir, $"speakers-{channels}.mp4");
+        string path = Path.Combine(_workDir, $"speakers-{channels}{extension}");
         var layout = AudioChannelLayout.GetDefault(channels);
         var controller = new AVFEncodingController(path);
         controller.VideoSettings.SourceSize.Value = controller.VideoSettings.DestinationSize.Value = new PixelSize(64, 64);
         controller.VideoSettings.FrameRate.Value = new Rational(30);
         controller.AudioSettings.SampleRate.Value = rate;
         controller.AudioSettings.Channels.Value = channels;
+        controller.AudioSettings.Format.Value = format;
         // Exercise the encoder's minimum bitrate adjustment as well as speaker reordering.
-        controller.AudioSettings.Bitrate.Value = 32000;
+        if (format == AVFAudioEncoderSettings.AudioFormatType.MPEG4AAC)
+            controller.AudioSettings.Bitrate.Value = 32000;
+        if (format == AVFAudioEncoderSettings.AudioFormatType.LinearPCM)
+        {
+            controller.AudioSettings.LinearPcmFloat.Value = true;
+            controller.AudioSettings.LinearPcmBitDepth.Value = AVFAudioEncoderSettings.BitDepth.Bits32;
+        }
         using var frames = new GradientFrameProvider(60, new Rational(30), 64, 64);
         using var samples = new SpeakerToneSampleProvider(rate * 2, rate, layout);
         await controller.Encode(frames, samples, CancellationToken.None);
-        Assert.That(controller.AudioSettings.Bitrate.Value, Is.GreaterThan(32000));
+        if (format == AVFAudioEncoderSettings.AudioFormatType.MPEG4AAC)
+            Assert.That(controller.AudioSettings.Bitrate.Value, Is.GreaterThan(32000));
         using var reader = new AVFReader(path, new MediaOptions(), new AVFDecodingExtension());
         Assert.That(reader.AudioInfo.ChannelLayout, Is.EqualTo(layout));
         Assert.That(reader.ReadAudio(rate / 2, rate, out var decoded), Is.True);
