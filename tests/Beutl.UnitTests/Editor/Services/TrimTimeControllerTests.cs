@@ -476,7 +476,7 @@ public class TrimTimeControllerTests
         Element[] elements = reverseOrder ? [audioElement, videoElement] : [videoElement, audioElement];
         int before = _harness.History.UndoCount;
 
-        // The source wraps playback before adding the offset. Audio allows +4s,
+        // The editor bounds the slip by the playback window before the offset (#3835). Audio allows +4s,
         // but video permits only +3s, yielding offsets 4 and 3 in either order.
         var targets = elements.SelectMany(element => SlippableMedia.Collect(element)).ToArray();
         MediaTime clamped = SlippableMedia.ClampSharedDelta(targets, Seconds(6));
@@ -489,7 +489,8 @@ public class TrimTimeControllerTests
             Assert.That(clamped.ToSeconds(), Is.EqualTo(3).Within(0.000001));
             Assert.That(video.OffsetPosition.Value.ToSeconds(), Is.EqualTo(4).Within(0.000001));
             Assert.That(sound.OffsetPosition.Value.ToSeconds(), Is.EqualTo(3).Within(0.000001));
-            foreach (double localSeconds in new[] { 0d, 0.5d, 1d })
+            // The clip's end is exclusive; a looping source reads it at the wrapped start.
+            foreach (double localSeconds in new[] { 0d, 0.5d, 29d / 30 })
             {
                 double position = ReadPosition(video, 5 + localSeconds);
                 Assert.That(position, Is.EqualTo(4 + localSeconds).Within(0.000001));
