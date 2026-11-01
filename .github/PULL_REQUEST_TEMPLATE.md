@@ -1,6 +1,21 @@
 ## Description
 <!-- What does this PR do and why? Bullet points encouraged. -->
 
+## Screenshots / Render output
+<!-- Show what this PR changes on screen or in rendered output. Write "None" if nothing visible changes.
+     - UI: a screenshot or short screen recording of the new behavior
+     - Rendering / effects / text / 3D / video: the same scene rendered before and after, and the settings used
+     - Pixel-level changes: a diff image or the measured difference
+     Drag images or videos into this box, or pass them to `gh pr create` / `gh pr edit` with `--attach`
+     (gh rewrites Markdown references to the attached files; it leaves <img src> tags alone).
+     Before / after side by side:
+
+     | Before | After |
+     | --- | --- |
+     | ![Before](./before.png) | ![After](./after.png) |
+
+     Fold long galleries into <details><summary>More</summary> ... </details>. -->
+
 ## Affected areas
 <!-- Check the modules this PR touches. These map to the `area-*` labels. -->
 - [ ] `Beutl.Engine` (rendering / scene / track)
@@ -26,8 +41,7 @@
 
 ## Test plan
 <!-- - Unit/integration tests added or updated (path + brief intent)
-     - Manual repro steps for behavior changes
-     - For UI changes: screenshots or short screen recording (before/after if applicable) -->
+     - Manual repro steps for behavior changes -->
 
 ## Fixed issues / References
 <!-- - Closes #1234
