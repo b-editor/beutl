@@ -1,5 +1,4 @@
-﻿using Beutl.Audio;
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using System.Net;
 using System.Net.WebSockets;
 using System.Text.Json;
@@ -11,6 +10,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Api;
+using Beutl.Audio;
 using Beutl.Configuration;
 using Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
 using Beutl.Editor.Models;

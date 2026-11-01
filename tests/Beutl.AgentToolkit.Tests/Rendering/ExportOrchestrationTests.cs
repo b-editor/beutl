@@ -23,10 +23,14 @@ public sealed class ExportOrchestrationTests
         });
     }
 
-    [Test]
-    public void Export_composer_forces_original_source_for_audio()
+    [TestCase(SpeakerLayout.Mono)]
+    [TestCase(SpeakerLayout.Stereo)]
+    [TestCase(SpeakerLayout.Surround51)]
+    [TestCase(SpeakerLayout.Surround71)]
+    public void Export_composer_uses_the_project_layout_and_forces_original_source_for_audio(SpeakerLayout layout)
     {
         var scene = new Scene(64, 64, "export") { Duration = { Value = MediaTime.FromSeconds(1) } };
+        var project = new Project { ChannelLayout = { Value = layout }, Items = { scene } };
 
         var project = new Project { Items = { scene }, ChannelLayout = { Value = SpeakerLayout.Surround51 } };
 

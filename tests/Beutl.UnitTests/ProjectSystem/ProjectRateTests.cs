@@ -1,7 +1,7 @@
 ﻿using System.Globalization;
 using System.Text.Json.Nodes;
-using Beutl.Serialization;
 using Beutl.Audio;
+using Beutl.Serialization;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
