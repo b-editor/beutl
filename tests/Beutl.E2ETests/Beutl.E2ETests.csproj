@@ -24,6 +24,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Assets\*.ttf" LogicalName="%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Beutl.Testing.Headless\Beutl.Testing.Headless.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Core\Beutl.Core.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" />
