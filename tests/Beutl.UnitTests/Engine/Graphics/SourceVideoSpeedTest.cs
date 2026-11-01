@@ -245,6 +245,20 @@ public class SourceVideoSpeedTest
         Assert.That(originalTime!.Value.ToSeconds(), Is.EqualTo(200.0).Within(5.0));
     }
 
+    // A loop wrapped only the position the speed gives, but the frame is read OffsetPosition later, so the last
+    // OffsetPosition of each loop read past the end of the source and drew nothing (#3607).
+    [Test]
+    public void Loop_WithOffset_WrapsThePositionTheFrameIsReadAt()
+    {
+        _sourceVideo!.IsLoop.Value = true;
+        _sourceVideo.OffsetPosition.Value = MediaTime.FromSeconds(1);
+        _sourceVideo.TimeRange.Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(30));
+
+        SourceVideo.Resource resource = EvaluateAt(MediaTime.FromSeconds(9.5));
+
+        Assert.That((resource.RequestedPosition + resource.OffsetPosition).ToSeconds(), Is.EqualTo(0.5).Within(1e-6));
+    }
+
     // リソースを作り、time の時点で更新する
     private SourceVideo.Resource EvaluateAt(MediaTime time)
     {

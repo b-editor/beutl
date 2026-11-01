@@ -187,7 +187,10 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
 
             if (IsLoop && Source?.IsDisposed == false && Source.Duration > MediaTime.Zero)
             {
-                RequestedPosition = SpeedAdjustedTime.WrapIntoDuration(RequestedPosition, Source.Duration);
+                // A frame is read at RequestedPosition + OffsetPosition, so the loop wraps that sum; wrapping the
+                // requested position alone read past the end of the source for the last OffsetPosition of each loop.
+                RequestedPosition = SpeedAdjustedTime.WrapIntoDuration(RequestedPosition + OffsetPosition, Source.Duration)
+                                    - OffsetPosition;
             }
             else if (RequestedPosition < MediaTime.Zero)
             {
