@@ -220,6 +220,10 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
+        DisplayPeakLuminance = GlobalConfiguration.Instance.EditorConfig.DisplayPeakLuminance.GetObservable()
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
         // Re-render when an onion-skin setting changes.
@@ -399,6 +403,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     public ReactiveProperty<UIToneMappingOperator> ToneMappingMode { get; }
 
     public ReactiveProperty<float> ToneMappingExposure { get; }
+
+    public ReactiveProperty<float> DisplayPeakLuminance { get; }
 
     public ReactiveCommand OpenPreviewSettings { get; }
 

@@ -36,6 +36,9 @@ public partial class HdrBitmapView : NativeControlHost
     public static readonly StyledProperty<float> ToneMappingExposureProperty =
         AvaloniaProperty.Register<HdrBitmapView, float>(nameof(ToneMappingExposure), 0f);
 
+    public static readonly StyledProperty<float> DisplayPeakLuminanceProperty =
+        AvaloniaProperty.Register<HdrBitmapView, float>(nameof(DisplayPeakLuminance), 0f);
+
     private VulkanSwapchainRenderer? _renderer;
     private Ref<BtlBitmap>? _clonedSource;
     private Size? _lastSourceSize;
@@ -76,6 +79,14 @@ public partial class HdrBitmapView : NativeControlHost
     {
         get => GetValue(ToneMappingExposureProperty);
         set => SetValue(ToneMappingExposureProperty, value);
+    }
+
+    // The peak in nit FitToDisplay rolls highlights off into on a Windows HDR display in place of the one it reports,
+    // or 0 to use that. Core Animation tone maps on macOS, and elsewhere the display's white is not known.
+    public float DisplayPeakLuminance
+    {
+        get => GetValue(DisplayPeakLuminanceProperty);
+        set => SetValue(DisplayPeakLuminanceProperty, value);
     }
 
     protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
@@ -157,9 +168,11 @@ public partial class HdrBitmapView : NativeControlHost
             RequestRender();
         }
         else if (change.Property == ToneMappingExposureProperty ||
+                 change.Property == DisplayPeakLuminanceProperty ||
                  change.Property == StretchProperty ||
                  change.Property == InterpolationModeProperty)
         {
+            // Presents the frame again, so a paused preview follows too.
             RequestRender();
         }
     }
@@ -299,7 +312,8 @@ public partial class HdrBitmapView : NativeControlHost
             ToneMapping: ToneMapping,
             Exposure: ToneMappingExposure,
             IsSourceLinear: isLinear,
-            DisplayGamut: _displayGamut);
+            DisplayGamut: _displayGamut,
+            DisplayPeakLuminance: DisplayPeakLuminance);
 
         _renderer.RequestRender(bitmapRef, renderParams);
     }

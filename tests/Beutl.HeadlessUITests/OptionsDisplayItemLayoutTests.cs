@@ -180,7 +180,8 @@ public class OptionsDisplayItemLayoutTests
         {
             OptionsDisplayItem[] rows = page.GetVisualDescendants().OfType<OptionsDisplayItem>().ToArray();
             Assert.That(rows, Is.Not.Empty);
-            foreach (OptionsDisplayItem row in rows.Where(x => x.ActionButton?.IsVisible == true))
+            // A row hidden on this platform, such as the Windows-only display peak, has no layout to check.
+            foreach (OptionsDisplayItem row in rows.Where(x => x.IsEffectivelyVisible && x.ActionButton?.IsVisible == true))
             {
                 StackPanel text = Part<StackPanel>(row, "TextHost");
                 if (row.Description is string { Length: > 0 })

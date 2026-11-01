@@ -1,6 +1,7 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Media.Proxy;
 using Reactive.Bindings;
 
@@ -91,6 +92,14 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         UseHdrPreview = CreateSetting(
             _editorConfig.UseHdrPreview.GetObservable(),
             b => _editorConfig.UseHdrPreview.Value = b);
+
+        DisplayPeakLuminance = CreateSetting(
+            _editorConfig.DisplayPeakLuminance.GetObservable()
+                .Select(v => (double)v),
+            b => _editorConfig.DisplayPeakLuminance.Value = (float)b);
+
+        DisplayPeakLuminanceDescription = new ReactiveProperty<string>(DescribeDisplayPeakLuminance(null))
+            .DisposeWith(_disposables);
 
         PreviewSourceMode = CreateSetting(
             _editorConfig.PreviewSourceMode.GetObservable()
@@ -206,6 +215,20 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         InitializeGpuSelection();
     }
 
+    // Shows what the display the settings are on reports, for judging whether its peak needs overriding.
+    internal void ShowReportedDisplay(HdrDisplayReport? report)
+    {
+        DisplayPeakLuminanceDescription.Value = DescribeDisplayPeakLuminance(report);
+    }
+
+    private static string DescribeDisplayPeakLuminance(HdrDisplayReport? report)
+    {
+        string reported = report is { } r
+            ? string.Format(SettingsStrings.DisplayPeakLuminance_Reported, r.PeakNits, r.SdrWhiteNits)
+            : SettingsStrings.DisplayPeakLuminance_NotHdr;
+        return $"{SettingsStrings.DisplayPeakLuminance_Description}\n{reported}";
+    }
+
     private ReactiveProperty<T> CreateSetting<T>(IObservable<T> source, Action<T> write)
         where T : struct
     {
@@ -277,6 +300,13 @@ public sealed class EditorSettingsPageViewModel : IDisposable
     public ReactiveProperty<double> ToneMappingExposure { get; }
 
     public ReactiveProperty<bool> UseHdrPreview { get; }
+
+    // Windows only: Core Animation fits macOS's preview to the display itself, and elsewhere its white is not known.
+    public bool IsDisplayPeakLuminanceSupported { get; internal init; } = OperatingSystem.IsWindows();
+
+    public ReactiveProperty<double> DisplayPeakLuminance { get; }
+
+    public ReactiveProperty<string> DisplayPeakLuminanceDescription { get; }
 
     public ReactiveProperty<int> PreviewSourceMode { get; }
 

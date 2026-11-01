@@ -421,6 +421,22 @@
     <value>为预览播放器使用 HDR 渲染（鼠标操作等将受到限制）</value>
     <comment />
   </data>
+  <data name="DisplayPeakLuminance" xml:space="preserve">
+    <value>显示器峰值亮度（尼特）</value>
+    <comment />
+  </data>
+  <data name="DisplayPeakLuminance_Description" xml:space="preserve">
+    <value>在 Windows HDR 显示器上，“适应显示器”将高光压缩到的峰值。为 0 时使用 Windows 报告的值。</value>
+    <comment />
+  </data>
+  <data name="DisplayPeakLuminance_Reported" xml:space="preserve">
+    <value>此显示器报告的峰值为 {0:F0} 尼特，SDR 白色亮度为 {1:F0} 尼特。</value>
+    <comment />
+  </data>
+  <data name="DisplayPeakLuminance_NotHdr" xml:space="preserve">
+    <value>此显示器未处于 HDR 模式。</value>
+    <comment />
+  </data>
   <data name="AiAgents" xml:space="preserve">
     <value>AI 代理</value>
     <comment />
