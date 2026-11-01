@@ -30,7 +30,7 @@ internal static class RelativeUnitParser
             unit = RelativeUnit.Absolute;
         }
 
-        if (float.TryParse(span, out float value))
+        if (NumberEditorHelper.TryParse(span, out float value))
         {
             result = value * scale;
             return true;
