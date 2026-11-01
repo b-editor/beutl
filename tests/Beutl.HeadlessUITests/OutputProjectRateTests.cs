@@ -7,6 +7,7 @@ using Beutl.Audio;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
+using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.ProjectSystem;
@@ -66,6 +67,19 @@ public sealed class OutputProjectRateTests
             Assert.That(output.Controller.Value.AudioSettings.SampleRate.Value, Is.EqualTo(48000));
             Assert.That(editor.Composer.Value.SampleRate, Is.EqualTo(48000));
         });
+    }
+
+    [AvaloniaTest]
+    [TestCase(SpeakerLayout.Surround51, 6, 384_000)]
+    [TestCase(SpeakerLayout.Surround71, 8, 512_000)]
+    public async Task New_ffmpeg_controller_scales_the_stereo_default(SpeakerLayout layout, int channels, int bitrate)
+    {
+        EditViewModel editor = await OpenEditor();
+        editor.Scene.FindHierarchicalParent<Project>()!.ChannelLayout.Value = layout;
+        using var output = CreateOutput(editor, new FFmpegControlledEncodingExtension());
+
+        Assert.That(output.Controller.Value!.AudioSettings.Channels.Value, Is.EqualTo(channels));
+        Assert.That(output.Controller.Value.AudioSettings.Bitrate.Value, Is.EqualTo(bitrate));
     }
 
     [AvaloniaTest]
@@ -170,7 +184,7 @@ public sealed class OutputProjectRateTests
     private static async Task<EditViewModel> OpenEditor()
         => (await TestShell.OpenNewSceneAsync("rates", 320, 180, frameRate: 60, sampleRate: 48000)).Editor;
 
-    private static OutputViewModel CreateOutput(EditViewModel editor, TestEncoder encoder)
+    private static OutputViewModel CreateOutput(EditViewModel editor, ControllableEncodingExtension encoder)
     {
         var output = new OutputViewModel(editor);
         output.DestinationFile.Value = Path.Combine(BeutlHomeIsolation.CurrentHome!, "rates.mp4");
@@ -183,6 +197,7 @@ public sealed class OutputProjectRateTests
         output.Controller.Value!.VideoSettings.FrameRate.Value = new Rational(24000, 1001);
         output.Controller.Value.AudioSettings.SampleRate.Value = 96000;
         output.Controller.Value.AudioSettings.Channels.Value = 1;
+        output.Controller.Value.AudioSettings.Bitrate.Value = 192_000;
     }
 
     private static void AssertCustomRates(OutputViewModel output)
@@ -193,6 +208,7 @@ public sealed class OutputProjectRateTests
             Assert.That(output.Controller.Value!.VideoSettings.FrameRate.Value, Is.EqualTo(new Rational(24000, 1001)));
             Assert.That(output.Controller.Value.AudioSettings.SampleRate.Value, Is.EqualTo(96000));
             Assert.That(output.Controller.Value.AudioSettings.Channels.Value, Is.EqualTo(1));
+            Assert.That(output.Controller.Value.AudioSettings.Bitrate.Value, Is.EqualTo(192_000));
         });
     }
 

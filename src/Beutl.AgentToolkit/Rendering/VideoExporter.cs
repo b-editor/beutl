@@ -162,7 +162,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         controller.VideoSettings.DestinationSize.Value = scene.FrameSize.Value;
         controller.VideoSettings.FrameRate.Value = frameRate;
         controller.AudioSettings.SampleRate.Value = sampleRate;
-        controller.AudioSettings.Channels.Value = scene.FindHierarchicalParent<Project>().GetChannelLayout().ChannelCount;
+        controller.AudioSettings.SetChannels(scene.FindHierarchicalParent<Project>().GetChannelLayout().ChannelCount);
         return new List<string>(
             ApplyQualitySettings(controller.VideoSettings, crf, bitrate));
     }

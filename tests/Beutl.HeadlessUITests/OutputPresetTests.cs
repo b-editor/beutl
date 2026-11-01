@@ -81,6 +81,8 @@ public sealed class OutputPresetTests
         original.VideoSettings.DestinationSize.Value = new PixelSize(1280, 720);
         original.VideoSettings.FrameRate.Value = new Rational(24000, 1001);
         original.AudioSettings.SampleRate.Value = 96000;
+        original.AudioSettings.Channels.Value = 7;
+        original.AudioSettings.Bitrate.Value = 192_000;
 
         output.DestinationFile.Value = Path.Combine(Path.GetDirectoryName(original.OutputFile)!, "renamed.mp4");
 
@@ -91,6 +93,8 @@ public sealed class OutputPresetTests
             Assert.That(renamed.VideoSettings.DestinationSize.Value, Is.EqualTo(new PixelSize(1280, 720)));
             Assert.That(renamed.VideoSettings.FrameRate.Value, Is.EqualTo(new Rational(24000, 1001)));
             Assert.That(renamed.AudioSettings.SampleRate.Value, Is.EqualTo(96000));
+            Assert.That(renamed.AudioSettings.Channels.Value, Is.EqualTo(7));
+            Assert.That(renamed.AudioSettings.Bitrate.Value, Is.EqualTo(192_000));
             Assert.That(renamed.VideoSettings.SourceSize.Value, Is.EqualTo(s_sceneSize));
         });
     }
