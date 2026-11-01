@@ -89,7 +89,8 @@ public sealed class AudioChannelsEditorTests
 
             EncoderSettingsJson.CopyTo(new AudioEncoderSettings
             {
-                Channels = { Value = 6 }, Bitrate = { Value = 384_000 }
+                Channels = { Value = 6 },
+                Bitrate = { Value = 384_000 }
             }, settings);
             HeadlessTestHelpers.Settle();
             AssertChoices(editor);
@@ -174,8 +175,8 @@ public sealed class AudioChannelsEditorTests
         Assert.That(editor.Items!.Select(item => item.Value), Is.EqualTo(new[] { 1, 2, 6, 8 }));
         Assert.That(editor.Items!.Select(item => item.DisplayName), Is.EqualTo(new[]
         {
-            $"1 ({Strings.SpeakerLayout_Mono})", $"2 ({Strings.SpeakerLayout_Stereo})",
-            $"6 ({Strings.SpeakerLayout_Surround51})", $"8 ({Strings.SpeakerLayout_Surround71})"
+            Strings.SpeakerLayout_Mono, Strings.SpeakerLayout_Stereo,
+            Strings.SpeakerLayout_Surround51, Strings.SpeakerLayout_Surround71
         }));
     }
 }

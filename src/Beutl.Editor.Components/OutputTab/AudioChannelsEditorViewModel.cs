@@ -59,10 +59,10 @@ internal sealed class AudioChannelsEditorViewModel(IPropertyAdapter<int> propert
 
     private static string Label(int channels) => channels switch
     {
-        1 => $"1 ({Strings.SpeakerLayout_Mono})",
-        2 => $"2 ({Strings.SpeakerLayout_Stereo})",
-        6 => $"6 ({Strings.SpeakerLayout_Surround51})",
-        8 => $"8 ({Strings.SpeakerLayout_Surround71})",
+        1 => Strings.SpeakerLayout_Mono,
+        2 => Strings.SpeakerLayout_Stereo,
+        6 => Strings.SpeakerLayout_Surround51,
+        8 => Strings.SpeakerLayout_Surround71,
         _ => channels.ToString(),
     };
 }
