@@ -86,13 +86,14 @@ public sealed class NamedBufferBudgetReachTests
                 static session => session.Canvas.Use(session.Input.Draw),
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput),
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            leases,
-            BufferDimensionBudget.Named(TestBufferDimension));
+            new(RenderIntent.Preview, RenderRequestPurpose.Auxiliary)
+            {
+                OutputScale = 1,
+                WorkingScale = 1,
+                MaxWorkingScale = 1,
+                RenderTargetLeaseSession = leases,
+                Budget = BufferDimensionBudget.Named(TestBufferDimension),
+            });
 
         Assert.Multiple(() =>
         {
@@ -168,13 +169,14 @@ public sealed class NamedBufferBudgetReachTests
         => new(
             targets,
             builder,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1,
-            deviceGridOffset: default,
-            budget: budget);
+            new FilterEffectExecutionSettings(RenderIntent.Preview, RenderRequestPurpose.Auxiliary)
+            {
+                OutputScale = 1,
+                WorkingScale = 1,
+                MaxWorkingScale = 1,
+                DeviceGridOffset = default(Vector),
+                Budget = budget,
+            });
 
     private static EffectTargets CreateSolidTargets(Rect bounds)
     {

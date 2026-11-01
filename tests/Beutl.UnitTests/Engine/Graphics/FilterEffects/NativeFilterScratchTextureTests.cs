@@ -22,8 +22,7 @@ public sealed class NativeFilterScratchTextureTests
         using var targets = new EffectTargets();
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary);
+            new(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary));
 
         using NativeFilterTextureLease? lease = context.TryAcquireNativeScratchTexture(
             graphicsContext.Object,
@@ -49,8 +48,7 @@ public sealed class NativeFilterScratchTextureTests
         using var targets = new EffectTargets();
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary);
+            new(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary));
 
         InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(() =>
             context.TryAcquireNativeScratchTexture(graphicsContext.Object, 8, 6));
@@ -67,9 +65,10 @@ public sealed class NativeFilterScratchTextureTests
         using var targets = new EffectTargets();
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            renderTargetLeaseSession: session);
+            new(RenderIntent.Preview, RenderRequestPurpose.Auxiliary)
+            {
+                RenderTargetLeaseSession = session,
+            });
         var graphicsContext = new Mock<IGraphicsContext>();
 
         using NativeFilterTextureLease? lease = context.TryAcquireNativeScratchTexture(
@@ -92,9 +91,10 @@ public sealed class NativeFilterScratchTextureTests
         using var targets = new EffectTargets();
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Frame,
-            renderTargetLeaseSession: session);
+            new(RenderIntent.Delivery, RenderRequestPurpose.Frame)
+            {
+                RenderTargetLeaseSession = session,
+            });
         var graphicsContext = new Mock<IGraphicsContext>();
 
         Assert.That(

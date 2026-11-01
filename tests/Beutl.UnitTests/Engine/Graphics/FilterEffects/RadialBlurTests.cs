@@ -396,10 +396,15 @@ public sealed class RadialBlurTests
             using ProgramCache<ShaderGraphPipeline> cache = ShaderGraphPipeline.CreateCache();
             FilterEffectStageFallbackExecutor.ApplyShaderGraph(targets,
                 ((FEItem_ShaderGraph)context.GetOrderedItems().Single()).Description,
-                outputScale ?? scale, outputScale ?? scale, outputScale ?? scale,
-                RenderIntent.Preview, RenderRequestPurpose.Auxiliary, null, BufferDimensionBudget.EngineCeiling,
-                (device, pass, identity) => ShaderGraphPipeline.Acquire(cache,
-                    new ProgramCacheContextKey(cache, device, "test", "test"), device, pass, identity));
+                new(RenderIntent.Preview, RenderRequestPurpose.Auxiliary)
+                {
+                    OutputScale = outputScale ?? scale,
+                    WorkingScale = outputScale ?? scale,
+                    MaxWorkingScale = outputScale ?? scale,
+                    Budget = BufferDimensionBudget.EngineCeiling,
+                    ShaderGraphProgramAcquirer = (device, pass, identity) => ShaderGraphPipeline.Acquire(cache,
+                        new ProgramCacheContextKey(cache, device, "test", "test"), device, pass, identity),
+                });
         }
         else
         {

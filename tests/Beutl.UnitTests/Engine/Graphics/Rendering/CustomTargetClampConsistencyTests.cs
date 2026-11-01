@@ -16,11 +16,12 @@ public class CustomTargetClampConsistencyTests
     private static CustomFilterEffectContext Context(float workingScale)
         => new(
             new EffectTargets(),
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1f,
-            workingScale: workingScale,
-            budget: BufferDimensionBudget.Named(TestBufferDimension));
+            new FilterEffectExecutionSettings(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary)
+            {
+                OutputScale = 1f,
+                WorkingScale = workingScale,
+                Budget = BufferDimensionBudget.Named(TestBufferDimension),
+            });
 
     [Test]
     public void CreateTarget_WithinBudget_KeepsWorkingScale_AndOpenMatches()

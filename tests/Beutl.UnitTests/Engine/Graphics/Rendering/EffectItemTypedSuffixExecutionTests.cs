@@ -208,21 +208,21 @@ public sealed class EffectItemTypedSuffixExecutionTests
         FilterEffectStageFallbackExecutor.ApplyShader(
             targets,
             s_directBlueShader,
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            (target, source) =>
+            new(RenderIntent.Preview, RenderRequestPurpose.Auxiliary)
             {
-                observedTarget = target;
-                return SkRuntimeEffectProgramCache.AcquireForDestination(
-                    cache,
-                    target.RenderTarget!,
-                    source);
-            },
-            leaseSession: null,
-            budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation));
+                OutputScale = 1,
+                WorkingScale = 1,
+                MaxWorkingScale = 1,
+                ProgramAcquirer = (target, source) =>
+                {
+                    observedTarget = target;
+                    return SkRuntimeEffectProgramCache.AcquireForDestination(
+                        cache,
+                        target.RenderTarget!,
+                        source);
+                },
+                Budget = BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation),
+            });
 
         Assert.Multiple(() =>
         {
@@ -263,17 +263,18 @@ public sealed class EffectItemTypedSuffixExecutionTests
             FilterEffectStageFallbackExecutor.ApplyShader(
                 targets,
                 description,
-                outputScale: 1,
-                workingScale: 1,
-                maxWorkingScale: 1,
-                RenderIntent.Preview,
-                RenderRequestPurpose.Auxiliary,
-                (target, source) => SkRuntimeEffectProgramCache.AcquireForDestination(
-                    cache,
-                    target.RenderTarget!,
-                    source),
-                session,
-                budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation)));
+                new(RenderIntent.Preview, RenderRequestPurpose.Auxiliary)
+                {
+                    OutputScale = 1,
+                    WorkingScale = 1,
+                    MaxWorkingScale = 1,
+                    ProgramAcquirer = (target, source) => SkRuntimeEffectProgramCache.AcquireForDestination(
+                        cache,
+                        target.RenderTarget!,
+                        source),
+                    RenderTargetLeaseSession = session,
+                    Budget = BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation),
+                }));
 
         Assert.Multiple(() =>
         {
@@ -308,13 +309,13 @@ public sealed class EffectItemTypedSuffixExecutionTests
                 session => session.Canvas.Use(canvas => observedIntent = canvas.Intent),
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput),
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1,
-            intent,
-            RenderRequestPurpose.Auxiliary,
-            leaseSession: null,
-            budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation));
+            new(intent, RenderRequestPurpose.Auxiliary)
+            {
+                OutputScale = 1,
+                WorkingScale = 1,
+                MaxWorkingScale = 1,
+                Budget = BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation),
+            });
 
         Assert.That(observedIntent, Is.EqualTo(intent));
     }

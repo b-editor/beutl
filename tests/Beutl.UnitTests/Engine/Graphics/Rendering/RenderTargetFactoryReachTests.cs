@@ -31,17 +31,18 @@ public sealed class RenderTargetFactoryReachTests
         FilterEffectStageFallbackExecutor.ApplyShader(
             targets,
             ShaderDescription.CurrentPixel(BlueShader),
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            (target, source) => SkRuntimeEffectProgramCache.AcquireForDestination(
-                cache,
-                target.RenderTarget!,
-                source),
-            session,
-            budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation));
+            new(RenderIntent.Preview, RenderRequestPurpose.Auxiliary)
+            {
+                OutputScale = 1,
+                WorkingScale = 1,
+                MaxWorkingScale = 1,
+                ProgramAcquirer = (target, source) => SkRuntimeEffectProgramCache.AcquireForDestination(
+                    cache,
+                    target.RenderTarget!,
+                    source),
+                RenderTargetLeaseSession = session,
+                Budget = BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation),
+            });
 
         Assert.That(factory.Targets, Is.Not.Empty,
             "A typed shader stage must ask the caller's factory for its output surface.");
@@ -61,13 +62,14 @@ public sealed class RenderTargetFactoryReachTests
                 static session => session.Canvas.Use(static canvas => canvas.Clear()),
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput),
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            session,
-            budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation));
+            new(RenderIntent.Preview, RenderRequestPurpose.Auxiliary)
+            {
+                OutputScale = 1,
+                WorkingScale = 1,
+                MaxWorkingScale = 1,
+                RenderTargetLeaseSession = session,
+                Budget = BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation),
+            });
 
         Assert.That(factory.Targets, Is.Not.Empty,
             "A typed geometry stage must ask the caller's factory for its output surface.");
@@ -82,12 +84,13 @@ public sealed class RenderTargetFactoryReachTests
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1,
-            renderTargetLeaseSession: session);
+            new(RenderIntent.Preview, RenderRequestPurpose.Auxiliary)
+            {
+                OutputScale = 1,
+                WorkingScale = 1,
+                MaxWorkingScale = 1,
+                RenderTargetLeaseSession = session,
+            });
 
         using EffectTarget fresh = context.CreateTarget(s_bounds);
         int afterCreateTarget = factory.Targets.Count;
@@ -113,12 +116,13 @@ public sealed class RenderTargetFactoryReachTests
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1,
-            renderTargetLeaseSession: session);
+            new(RenderIntent.Preview, RenderRequestPurpose.Auxiliary)
+            {
+                OutputScale = 1,
+                WorkingScale = 1,
+                MaxWorkingScale = 1,
+                RenderTargetLeaseSession = session,
+            });
 
         using EffectTarget replacement = context.CreateNativeTargetLike(targets[0]);
 
@@ -142,12 +146,13 @@ public sealed class RenderTargetFactoryReachTests
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Delivery);
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Frame,
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1,
-            renderTargetLeaseSession: session);
+            new(RenderIntent.Delivery, RenderRequestPurpose.Frame)
+            {
+                OutputScale = 1,
+                WorkingScale = 1,
+                MaxWorkingScale = 1,
+                RenderTargetLeaseSession = session,
+            });
 
         Assert.Multiple(() =>
         {

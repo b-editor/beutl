@@ -38,10 +38,11 @@ public class WorkingScaleClampConsistencyTests
         using var targets = new EffectTargets();
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary,
-            workingScale: 1,
-            budget: BufferDimensionBudget.EngineCeiling);
+            new(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary)
+            {
+                WorkingScale = 1,
+                Budget = BufferDimensionBudget.EngineCeiling,
+            });
 
         Assert.Multiple(() =>
         {
@@ -157,13 +158,14 @@ public class WorkingScaleClampConsistencyTests
             using var executor = new FilterEffectExecutor(
                 targets,
                 builder,
-                RenderIntent.Preview,
-                RenderRequestPurpose.Auxiliary,
-                outputScale: 1f,
-                workingScale: 8f,
-                maxWorkingScale: 8f,
-                deviceGridOffset: default,
-                budget: BufferDimensionBudget.Named(TestBufferDimension));
+                new(RenderIntent.Preview, RenderRequestPurpose.Auxiliary)
+                {
+                    OutputScale = 1f,
+                    WorkingScale = 8f,
+                    MaxWorkingScale = 8f,
+                    DeviceGridOffset = default(Vector),
+                    Budget = BufferDimensionBudget.Named(TestBufferDimension),
+                });
 
             executor.Flush();
 
@@ -288,11 +290,12 @@ public class WorkingScaleClampConsistencyTests
             using var targets = new EffectTargets();
             var context = new CustomFilterEffectContext(
                 targets,
-                RenderIntent.Delivery,
-                RenderRequestPurpose.Auxiliary,
-                outputScale: 1f,
-                workingScale: 8f,
-                budget: BufferDimensionBudget.Named(TestBufferDimension));
+                new(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary)
+                {
+                    OutputScale = 1f,
+                    WorkingScale = 8f,
+                    Budget = BufferDimensionBudget.Named(TestBufferDimension),
+                });
 
             using EffectTarget target = context.CreateTarget(s_pathologicalBounds);
 

@@ -28,14 +28,9 @@ namespace Beutl.Graphics.Effects;
 public sealed partial class FilterEffectExecutor : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectExecutor");
-    private readonly SkRuntimeEffectProgramAcquirer? _injectedProgramAcquirer;
-    private readonly ShaderGraphProgramAcquirer? _injectedShaderGraphProgramAcquirer;
-    private readonly Vector? _deviceGridOffset;
-    private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
-    private readonly bool _useExecutorManagedCanvas;
-    private readonly RenderTargetLeaseSession? _renderTargetLeaseSession;
-    private readonly BufferDimensionBudget? _budget;
-    private readonly Rect? _targetDomain;
+    // Replaced rather than copied field by field when the working scale, execution context or instance changes,
+    // so whatever this executor starts takes the current values. Its program acquirers are always set.
+    private FilterEffectExecutionSettings _settings;
     private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
     private ProgramCache<ShaderGraphPipeline>? _ownedGraphProgramCache;
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
@@ -59,151 +54,71 @@ public sealed partial class FilterEffectExecutor : IDisposable
         : this(
             targets,
             builder,
-            intent,
-            purpose,
-            outputScale,
-            workingScale,
-            maxWorkingScale,
-            acquireProgram: null,
-            deviceGridOffset: null,
-            drawableBrushMaterializer,
-            useExecutorManagedCanvas: false,
-            renderTargetLeaseSession: null,
-            budget: null,
-            targetDomain)
+            new FilterEffectExecutionSettings(intent, purpose)
+            {
+                DrawableBrushMaterializer = drawableBrushMaterializer,
+                OutputScale = outputScale,
+                WorkingScale = workingScale,
+                MaxWorkingScale = maxWorkingScale,
+                TargetDomain = targetDomain,
+            })
     {
     }
 
+    /// <remarks>Without program acquirers in <paramref name="settings"/>, the executor keeps its own caches.</remarks>
     internal FilterEffectExecutor(
         EffectTargets targets,
         SKImageFilterBuilder builder,
-        RenderIntent intent,
-        RenderRequestPurpose purpose,
-        float outputScale,
-        float workingScale,
-        float maxWorkingScale,
-        Vector deviceGridOffset,
-        DrawableBrushMaterializer? drawableBrushMaterializer = null,
-        bool useExecutorManagedCanvas = false,
-        RenderTargetLeaseSession? renderTargetLeaseSession = null,
-        BufferDimensionBudget? budget = null,
-        Rect? targetDomain = null,
-        ShaderGraphProgramAcquirer? acquireShaderGraphProgram = null)
-        : this(
-            targets,
-            builder,
-            intent,
-            purpose,
-            outputScale,
-            workingScale,
-            maxWorkingScale,
-            acquireProgram: null,
-            deviceGridOffset,
-            drawableBrushMaterializer,
-            useExecutorManagedCanvas,
-            renderTargetLeaseSession,
-            budget,
-            targetDomain,
-            acquireShaderGraphProgram)
-    {
-    }
-
-    internal FilterEffectExecutor(
-        EffectTargets targets,
-        SKImageFilterBuilder builder,
-        RenderIntent intent,
-        RenderRequestPurpose purpose,
-        float outputScale,
-        float workingScale,
-        float maxWorkingScale,
-        Vector deviceGridOffset,
-        SkRuntimeEffectProgramAcquirer acquireProgram,
-        DrawableBrushMaterializer? drawableBrushMaterializer = null,
-        bool useExecutorManagedCanvas = false,
-        RenderTargetLeaseSession? renderTargetLeaseSession = null,
-        BufferDimensionBudget? budget = null,
-        Rect? targetDomain = null,
-        ShaderGraphProgramAcquirer? acquireShaderGraphProgram = null)
-        : this(
-            targets,
-            builder,
-            intent,
-            purpose,
-            outputScale,
-            workingScale,
-            maxWorkingScale,
-            acquireProgram ?? throw new ArgumentNullException(nameof(acquireProgram)),
-            deviceGridOffset,
-            drawableBrushMaterializer,
-            useExecutorManagedCanvas,
-            renderTargetLeaseSession,
-            budget,
-            targetDomain,
-            acquireShaderGraphProgram)
-    {
-    }
-
-    internal FilterEffectExecutor(
-        EffectTargets targets,
-        SKImageFilterBuilder builder,
-        RenderIntent intent,
-        RenderRequestPurpose purpose,
-        float outputScale,
-        float workingScale,
-        float maxWorkingScale,
-        SkRuntimeEffectProgramAcquirer? acquireProgram,
-        Vector? deviceGridOffset,
-        DrawableBrushMaterializer? drawableBrushMaterializer,
-        bool useExecutorManagedCanvas,
-        RenderTargetLeaseSession? renderTargetLeaseSession,
-        BufferDimensionBudget? budget,
-        Rect? targetDomain,
-        ShaderGraphProgramAcquirer? acquireShaderGraphProgram = null)
+        FilterEffectExecutionSettings settings)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(builder);
-        if (!Enum.IsDefined(intent))
-            throw new ArgumentOutOfRangeException(nameof(intent), intent, "The render intent is invalid.");
-        if (!Enum.IsDefined(purpose))
-            throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "The render request purpose is invalid.");
-        BufferDimensionBudget.ThrowIfUninitialized(budget, nameof(budget));
+        ArgumentNullException.ThrowIfNull(settings);
+        BufferDimensionBudget.ThrowIfUninitialized(settings.Budget, nameof(settings));
 
-        _budget = budget;
         Builder = builder;
         CurrentTargets = targets;
-        OutputScale = SanitizePositiveFinite(outputScale, nameof(outputScale));
-        WorkingScale = SanitizePositiveFinite(workingScale, nameof(workingScale));
-        MaxWorkingScale = SanitizeCeiling(maxWorkingScale, nameof(maxWorkingScale));
-        Intent = intent;
-        Purpose = purpose;
-        _deviceGridOffset = deviceGridOffset;
-        _drawableBrushMaterializer = drawableBrushMaterializer;
-        _useExecutorManagedCanvas = useExecutorManagedCanvas;
-        _renderTargetLeaseSession = renderTargetLeaseSession;
-        _targetDomain = targetDomain;
-        _injectedProgramAcquirer = acquireProgram;
-        _injectedShaderGraphProgramAcquirer = acquireShaderGraphProgram;
+        _settings = settings with
+        {
+            OutputScale = SanitizePositiveFinite(settings.OutputScale, nameof(settings.OutputScale)),
+            WorkingScale = SanitizePositiveFinite(settings.WorkingScale, nameof(settings.WorkingScale)),
+            MaxWorkingScale = SanitizeCeiling(settings.MaxWorkingScale, nameof(settings.MaxWorkingScale)),
+            ProgramAcquirer = settings.ProgramAcquirer ?? AcquireOwnedProgram,
+            ShaderGraphProgramAcquirer = settings.ShaderGraphProgramAcquirer ?? AcquireOwnedShaderGraphProgram,
+        };
     }
 
-    internal RenderExecutionContext? ExecutionContext { get; set; }
+    internal RenderExecutionContext? ExecutionContext
+    {
+        get => _settings.ExecutionContext;
+        set => _settings = _settings with { ExecutionContext = value };
+    }
 
-    internal FilterEffectInstance? Instance { get; set; }
+    internal FilterEffectInstance? Instance
+    {
+        get => _settings.Instance;
+        set => _settings = _settings with { Instance = value };
+    }
 
     public SKImageFilterBuilder Builder { get; }
 
     public EffectTargets CurrentTargets { get; }
 
     /// <summary>The render request's output scale <c>s_out</c>. Sanitized to positive-finite.</summary>
-    public float OutputScale { get; }
+    public float OutputScale => _settings.OutputScale;
 
     /// <summary>
     /// Working density <c>w</c> for buffer allocation. Reduced in place by <see cref="Flush"/>
     /// when the dimension clamp fires. Sanitized to positive-finite.
     /// </summary>
-    public float WorkingScale { get; private set; }
+    public float WorkingScale
+    {
+        get => _settings.WorkingScale;
+        private set => _settings = _settings with { WorkingScale = value };
+    }
 
     /// <summary>Working-scale ceiling forwarded into nested canvases. NaN or non-positive becomes +Inf (no ceiling).</summary>
-    public float MaxWorkingScale { get; }
+    public float MaxWorkingScale => _settings.MaxWorkingScale;
 
     /// <summary>
     /// Gets the budget an allocation from this executor is held to, on both axes.
@@ -212,14 +127,13 @@ public sealed partial class FilterEffectExecutor : IDisposable
     /// Resolved per call rather than in the constructor: an executor can outlive the moment the graphics
     /// context first answers, and until it does the engine ceiling stands in for the device's own limit.
     /// </remarks>
-    public BufferDimensionBudget Budget
-        => _budget ?? BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation);
+    public BufferDimensionBudget Budget => _settings.ResolveBudget();
 
     /// <summary>Gets the explicit preview or delivery classification for this execution.</summary>
-    public RenderIntent Intent { get; }
+    public RenderIntent Intent => _settings.Intent;
 
     /// <summary>Gets the explicit request purpose for this execution.</summary>
-    public RenderRequestPurpose Purpose { get; }
+    public RenderRequestPurpose Purpose => _settings.Purpose;
 
     private static float SanitizeCeiling(float value, string name)
     {
@@ -258,9 +172,6 @@ public sealed partial class FilterEffectExecutor : IDisposable
             source);
     }
 
-    private SkRuntimeEffectProgramAcquirer GetProgramAcquirer()
-        => _injectedProgramAcquirer ?? AcquireOwnedProgram;
-
     private ProgramCacheLease<ShaderGraphPipeline> AcquireOwnedShaderGraphProgram(VulkanContext context, ShaderPassDescription pass,
         ShaderProgramIdentity identity)
     {
@@ -268,9 +179,6 @@ public sealed partial class FilterEffectExecutor : IDisposable
         cache.SynchronizeContext(cache, context);
         return ShaderGraphPipeline.Acquire(cache, new ProgramCacheContextKey(cache, context, "shader-graph", "v1"), context, pass, identity);
     }
-
-    private ShaderGraphProgramAcquirer GetShaderGraphProgramAcquirer()
-        => _injectedShaderGraphProgramAcquirer ?? AcquireOwnedShaderGraphProgram;
 
     public void Dispose()
     {
@@ -329,38 +237,17 @@ public sealed partial class FilterEffectExecutor : IDisposable
                 case FEItem_ShaderGraph graph:
                     Flush(false);
                     if (CurrentTargets.Count == 0) return;
-                    FilterEffectStageFallbackExecutor.ApplyShaderGraph(
-                        CurrentTargets, graph.Description, OutputScale, WorkingScale, MaxWorkingScale,
-                        Intent, Purpose, _renderTargetLeaseSession, Budget, GetShaderGraphProgramAcquirer());
+                    FilterEffectStageFallbackExecutor.ApplyShaderGraph(CurrentTargets, graph.Description, _settings);
                     break;
                 case FEItem_Shader shader:
                     Flush(false);
                     if (CurrentTargets.Count == 0) return;
-                    FilterEffectStageFallbackExecutor.ApplyShader(
-                        CurrentTargets,
-                        shader.Description,
-                        OutputScale,
-                        WorkingScale,
-                        MaxWorkingScale,
-                        Intent,
-                        Purpose,
-                        GetProgramAcquirer(),
-                        _renderTargetLeaseSession,
-                        Budget);
+                    FilterEffectStageFallbackExecutor.ApplyShader(CurrentTargets, shader.Description, _settings);
                     break;
                 case FEItem_Geometry geometry:
                     Flush(false);
                     if (CurrentTargets.Count == 0) return;
-                    FilterEffectStageFallbackExecutor.ApplyGeometry(
-                        CurrentTargets,
-                        geometry.Description,
-                        OutputScale,
-                        WorkingScale,
-                        MaxWorkingScale,
-                        Intent,
-                        Purpose,
-                        _renderTargetLeaseSession,
-                        Budget);
+                    FilterEffectStageFallbackExecutor.ApplyGeometry(CurrentTargets, geometry.Description, _settings);
                     break;
             }
         }
@@ -404,24 +291,8 @@ public sealed partial class FilterEffectExecutor : IDisposable
     {
         _customEffectBoundaryMaterialized = true;
 
-        var customContext = new CustomFilterEffectContext(
-            CurrentTargets,
-            Intent,
-            Purpose,
-            OutputScale,
-            WorkingScale,
-            MaxWorkingScale,
-            _deviceGridOffset,
-            _drawableBrushMaterializer,
-            _useExecutorManagedCanvas,
-            _renderTargetLeaseSession,
-            _budget,
-            _targetDomain,
-            GetShaderGraphProgramAcquirer());
         RenderExecutionContext? execution = ExecutionContext?.CreateCallbackScope(WorkingScale, custom);
-        customContext.ExecutionContext = execution;
-        customContext.Instance = Instance;
-        customContext.ProgramAcquirer = GetProgramAcquirer();
+        var customContext = new CustomFilterEffectContext(CurrentTargets, _settings with { ExecutionContext = execution });
         if (continuation is not null)
             customContext.Continuation = new FilterEffectContinuation(customContext, continuation);
         if (execution is { CanAccessTarget: true })
@@ -451,21 +322,11 @@ public sealed partial class FilterEffectExecutor : IDisposable
         using var executor = new FilterEffectExecutor(
             cloned,
             builder,
-            Intent,
-            Purpose,
-            OutputScale,
-            WorkingScale,
-            MaxWorkingScale,
-            _deviceGridOffset
-                ?? (cloned.Count > 0 ? cloned[0].DeviceGridOffset : default),
-            GetProgramAcquirer(),
-            _drawableBrushMaterializer,
-            _useExecutorManagedCanvas,
-            _renderTargetLeaseSession,
-            _budget,
-            _targetDomain,
-            GetShaderGraphProgramAcquirer())
-        { ExecutionContext = ExecutionContext, Instance = Instance };
+            _settings with
+            {
+                DeviceGridOffset = _settings.DeviceGridOffset
+                    ?? (cloned.Count > 0 ? cloned[0].DeviceGridOffset : default),
+            });
 
         executor.Apply(context);
         executor.Flush(false);
@@ -520,6 +381,6 @@ public sealed partial class FilterEffectExecutor : IDisposable
             MaxWorkingScale,
             logicalSize,
             Intent,
-            _useExecutorManagedCanvas,
-            _drawableBrushMaterializer);
+            _settings.UseExecutorManagedCanvas,
+            _settings.DrawableBrushMaterializer);
 }

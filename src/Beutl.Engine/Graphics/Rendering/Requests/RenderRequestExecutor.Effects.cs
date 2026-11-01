@@ -358,20 +358,21 @@ internal sealed partial class RenderRequestExecutor
             => new FilterEffectExecutor(
                 targets,
                 builder,
-                _options.Intent,
-                _options.Purpose,
-                _options.OutputScale,
-                workingScale,
-                _options.MaxWorkingScale,
-                _activeDeviceGridOffset,
-                (target, source) => AcquireStandaloneProgram(
-                    target,
-                    source),
-                _drawableBrushMaterializer,
-                useExecutorManagedCanvas: true,
-                renderTargetLeaseSession: _targets,
-                targetDomain: _options.TargetDomain,
-                acquireShaderGraphProgram: AcquireShaderGraphProgram);
+                new FilterEffectExecutionSettings(_options.Intent, _options.Purpose)
+                {
+                    OutputScale = _options.OutputScale,
+                    WorkingScale = workingScale,
+                    MaxWorkingScale = _options.MaxWorkingScale,
+                    DeviceGridOffset = _activeDeviceGridOffset,
+                    ProgramAcquirer = (target, source) => AcquireStandaloneProgram(
+                        target,
+                        source),
+                    DrawableBrushMaterializer = _drawableBrushMaterializer,
+                    UseExecutorManagedCanvas = true,
+                    RenderTargetLeaseSession = _targets,
+                    TargetDomain = _options.TargetDomain,
+                    ShaderGraphProgramAcquirer = AcquireShaderGraphProgram,
+                });
 
         // Applies program and completes the executor's working-scale policy boundary. The program's callbacks get a
         // dependency context at the given scales, reaching target when there is one, that ends on return.

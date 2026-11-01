@@ -457,8 +457,17 @@ public sealed class DynamicRenderExecutionTests
             using var child = new ContainerRenderNode();
             using var image = context.ExecutionContext.RenderDependency(child, "density", Domain);
         });
-        using var executor = new FilterEffectExecutor(targets, builder, RenderIntent.Delivery,
-            RenderRequestPurpose.Frame, 1, 1, 1, default, budget: BufferDimensionBudget.Named(64))
+        using var executor = new FilterEffectExecutor(
+            targets,
+            builder,
+            new(RenderIntent.Delivery, RenderRequestPurpose.Frame)
+            {
+                OutputScale = 1,
+                WorkingScale = 1,
+                MaxWorkingScale = 1,
+                DeviceGridOffset = default(Vector),
+                Budget = BufferDimensionBudget.Named(64),
+            })
         { ExecutionContext = execution };
         executor.Apply(program);
         Assert.That(calls, Is.EqualTo(1));

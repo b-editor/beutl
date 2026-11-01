@@ -12,50 +12,24 @@ namespace Beutl.Graphics.Effects;
 public class CustomFilterEffectContext
 {
     private static readonly ILogger s_logger = Log.CreateLogger("CustomFilterEffectContext");
-    private readonly Vector _deviceGridOffset;
-    private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
-    private readonly bool _useExecutorManagedCanvas;
-    private readonly RenderTargetLeaseSession? _renderTargetLeaseSession;
-    private readonly BufferDimensionBudget? _budget;
-    private readonly ShaderGraphProgramAcquirer? _shaderGraphProgramAcquirer;
+    // The device grid offset is always set. The callback's end replaces the settings to drop the program acquirer.
+    private FilterEffectExecutionSettings _settings;
 
-    internal CustomFilterEffectContext(
-        EffectTargets targets,
-        RenderIntent intent,
-        RenderRequestPurpose purpose,
-        float outputScale = 1f,
-        float workingScale = 1f,
-        float maxWorkingScale = float.PositiveInfinity,
-        Vector? deviceGridOffset = null,
-        DrawableBrushMaterializer? drawableBrushMaterializer = null,
-        bool useExecutorManagedCanvas = false,
-        RenderTargetLeaseSession? renderTargetLeaseSession = null,
-        BufferDimensionBudget? budget = null,
-        Rect? targetDomain = null,
-        ShaderGraphProgramAcquirer? acquireShaderGraphProgram = null)
+    internal CustomFilterEffectContext(EffectTargets targets, FilterEffectExecutionSettings settings)
     {
-        _budget = budget;
         Targets = targets;
-        _deviceGridOffset = deviceGridOffset
-            ?? (targets.Count > 0 ? targets[0].DeviceGridOffset : default);
-        OutputScale = outputScale;
-        WorkingScale = workingScale;
-        MaxWorkingScale = maxWorkingScale;
-        TargetDomain = targetDomain;
-        Intent = intent;
-        Purpose = purpose;
-        _drawableBrushMaterializer = drawableBrushMaterializer;
-        _useExecutorManagedCanvas = useExecutorManagedCanvas;
-        _renderTargetLeaseSession = renderTargetLeaseSession;
-        _shaderGraphProgramAcquirer = acquireShaderGraphProgram;
+        _settings = settings with
+        {
+            DeviceGridOffset = settings.DeviceGridOffset
+                ?? (targets.Count > 0 ? targets[0].DeviceGridOffset : default),
+        };
     }
 
-    internal SkRuntimeEffectProgramAcquirer? ProgramAcquirer { get; set; }
     private bool _callbackEnded;
     internal void EndCallback()
     {
         _callbackEnded = true;
-        ProgramAcquirer = null;
+        _settings = _settings with { ProgramAcquirer = null };
     }
     internal void ThrowIfCallbackEnded() => ObjectDisposedException.ThrowIf(_callbackEnded, this);
 
@@ -65,48 +39,47 @@ public class CustomFilterEffectContext
     internal CompositionTargetAccess? TargetAccess { get; set; }
 
     /// <summary>The individual input an enclosing continuation is executing, or null outside one.</summary>
-    public FilterEffectInstance? Instance { get; internal set; }
+    public FilterEffectInstance? Instance => _settings.Instance;
 
     /// <summary>Renders dependencies through the active request, or null when the effect runs outside the renderer.</summary>
-    public RenderExecutionContext? ExecutionContext { get; internal set; }
+    public RenderExecutionContext? ExecutionContext => _settings.ExecutionContext;
 
     public EffectTargets Targets { get; }
 
     /// <summary>The render request's output scale <c>s_out</c>, not a ceiling on this effect's working scale.</summary>
-    public float OutputScale { get; }
+    public float OutputScale => _settings.OutputScale;
 
     /// <summary>
     /// Gets the nominal working density. Use <see cref="ResolveTargetDensity"/> or the target scale after clamping.
     /// </summary>
-    public float WorkingScale { get; }
+    public float WorkingScale => _settings.WorkingScale;
 
     /// <summary>Working-scale ceiling forwarded into canvases from <see cref="Open"/>. <c>+Inf</c> = no ceiling.</summary>
-    public float MaxWorkingScale { get; }
+    public float MaxWorkingScale => _settings.MaxWorkingScale;
 
     /// <summary>Gets the request-level delivery region, or <see langword="null"/>.</summary>
     /// <remarks>
     /// The value is not mapped into effect-local space. Use <see cref="Rect.TransformToDeliveredAABB"/> when
     /// bounding a target transform.
     /// </remarks>
-    public Rect? TargetDomain { get; }
+    public Rect? TargetDomain => _settings.TargetDomain;
 
     /// <summary>Gets the budget an allocation from this context is held to, on either axis.</summary>
     /// <remarks>
     /// Resolved per call because the graphics context may become available after this context is created.
     /// </remarks>
-    public BufferDimensionBudget Budget
-        => _budget ?? BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation);
+    public BufferDimensionBudget Budget => _settings.ResolveBudget();
 
     /// <summary>Gets the effect-local to composition-device grid translation.</summary>
-    public Vector DeviceGridOffset => _deviceGridOffset;
+    public Vector DeviceGridOffset => _settings.DeviceGridOffset.GetValueOrDefault();
 
     /// <summary>Gets the explicit preview or delivery classification for this execution.</summary>
-    public RenderIntent Intent { get; }
+    public RenderIntent Intent => _settings.Intent;
 
     /// <summary>Gets the explicit request purpose for this execution.</summary>
-    public RenderRequestPurpose Purpose { get; }
+    public RenderRequestPurpose Purpose => _settings.Purpose;
 
-    internal RenderTargetLeaseSession? RenderTargetLeaseSession => _renderTargetLeaseSession;
+    internal RenderTargetLeaseSession? RenderTargetLeaseSession => _settings.RenderTargetLeaseSession;
 
     internal BrushConstructor CreateBrushConstructor(
         Rect bounds,
@@ -120,8 +93,8 @@ public class CustomFilterEffectContext
             scale,
             MaxWorkingScale,
             Intent,
-            _drawableBrushMaterializer,
-            _renderTargetLeaseSession);
+            _settings.DrawableBrushMaterializer,
+            RenderTargetLeaseSession);
 
     /// <summary>Visits every target in place.</summary>
     /// <remarks>
@@ -244,7 +217,7 @@ public class CustomFilterEffectContext
         }
 
         PixelPoint deviceOrigin = DeviceBufferBounds(
-            bounds.Translate(_deviceGridOffset),
+            bounds.Translate(DeviceGridOffset),
             w).Position;
         (int width, int height) = DeviceBufferSize(bounds, w);
         var deviceBounds = new PixelRect(
@@ -281,7 +254,7 @@ public class CustomFilterEffectContext
 
         EffectTargetAllocation.FailDeliveryOrDrop(
             Intent,
-            _renderTargetLeaseSession,
+            RenderTargetLeaseSession,
             $"Custom-effect replacement target allocation failed ({source.DeviceBounds.Width}x{source.DeviceBounds.Height} px, "
             + $"target density {source.Scale.Value}, bounds {source.Bounds}); "
             + "the delivery render fails instead of shipping an unprocessed frame.");
@@ -304,7 +277,7 @@ public class CustomFilterEffectContext
     internal EffectTarget CreateNativeTargetLike(EffectTarget source)
     {
         ArgumentNullException.ThrowIfNull(source);
-        if (_renderTargetLeaseSession is null)
+        if (RenderTargetLeaseSession is null)
             return CreateTargetLike(source);
         if (!source.IsMaterialized)
             return new EffectTarget();
@@ -314,7 +287,7 @@ public class CustomFilterEffectContext
         // layout transitions around it - would be undone before anything read them.
         EffectTarget? replacement = AllocateReplacement(
             source,
-            _renderTargetLeaseSession,
+            RenderTargetLeaseSession,
             clearContents: false);
         if (replacement != null)
             return replacement;
@@ -325,7 +298,7 @@ public class CustomFilterEffectContext
             source.DeviceBounds.Height,
             source.Scale.Value,
             source.Bounds);
-        _renderTargetLeaseSession.MarkContentDropped();
+        RenderTargetLeaseSession.MarkContentDropped();
         return new EffectTarget();
     }
 
@@ -368,7 +341,7 @@ public class CustomFilterEffectContext
     {
         ArgumentNullException.ThrowIfNull(graphicsContext);
         NativeFilterTextureLease lease;
-        if (_renderTargetLeaseSession is null)
+        if (RenderTargetLeaseSession is null)
         {
             lease = NativeFilterTextureLease.Own(
                 graphicsContext.CreateTexture2D(width, height, TextureFormat.RGBA16Float));
@@ -376,10 +349,10 @@ public class CustomFilterEffectContext
         else
         {
             var size = new PixelSize(width, height);
-            RenderTargetLease? renderTargetLease = _renderTargetLeaseSession.TryAcquire(size);
+            RenderTargetLease? renderTargetLease = RenderTargetLeaseSession.TryAcquire(size);
             if (renderTargetLease is null)
             {
-                _renderTargetLeaseSession.MarkContentDropped();
+                RenderTargetLeaseSession.MarkContentDropped();
                 return null;
             }
 
@@ -558,7 +531,7 @@ public class CustomFilterEffectContext
             .ToRect(density)
             .Position - bounds.Position;
         EffectTarget? allocated = EffectTargetAllocation.Allocate(
-            _renderTargetLeaseSession,
+            RenderTargetLeaseSession,
             bounds,
             density,
             deviceBounds,
@@ -578,7 +551,7 @@ public class CustomFilterEffectContext
 
             EffectTargetAllocation.FailDeliveryOrDrop(
                 Intent,
-                _renderTargetLeaseSession,
+                RenderTargetLeaseSession,
                 $"Custom-effect target allocation failed ({deviceBounds.Width}x{deviceBounds.Height} px, "
                 + $"w {density}, bounds {bounds}); the delivery render fails instead of shipping an incomplete frame.");
             return new EffectTarget();
@@ -587,7 +560,7 @@ public class CustomFilterEffectContext
 
     // Only a caller-supplied factory redirects allocation through the lease session.
     private RenderTargetLeaseSession? FactoryBackedSession
-        => _renderTargetLeaseSession is { HasTargetFactory: true } session ? session : null;
+        => RenderTargetLeaseSession is { HasTargetFactory: true } session ? session : null;
 
     /// <summary>
     /// Opens an <see cref="ImmediateCanvas"/> over <paramref name="target"/>'s buffer.
@@ -611,8 +584,8 @@ public class CustomFilterEffectContext
             MaxWorkingScale,
             target.Bounds.Size,
             Intent,
-            _useExecutorManagedCanvas,
-            _drawableBrushMaterializer);
+            _settings.UseExecutorManagedCanvas,
+            _settings.DrawableBrushMaterializer);
     }
 
     /// <summary>
@@ -632,22 +605,6 @@ public class CustomFilterEffectContext
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(builder);
 
-        return new FilterEffectExecutor(
-            targets,
-            builder,
-            Intent,
-            Purpose,
-            OutputScale,
-            WorkingScale,
-            MaxWorkingScale,
-            ProgramAcquirer,
-            (Vector?)_deviceGridOffset,
-            _drawableBrushMaterializer,
-            _useExecutorManagedCanvas,
-            _renderTargetLeaseSession,
-            _budget,
-            TargetDomain,
-            _shaderGraphProgramAcquirer)
-        { ExecutionContext = ExecutionContext, Instance = Instance };
+        return new FilterEffectExecutor(targets, builder, _settings);
     }
 }

@@ -243,13 +243,14 @@ public sealed class PixelSortEffectSynchronizationTests
         using var executor = new FilterEffectExecutor(
             targets,
             builder,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1,
-            deviceGridOffset: default,
-            useExecutorManagedCanvas: true);
+            new(RenderIntent.Preview, RenderRequestPurpose.Auxiliary)
+            {
+                OutputScale = 1,
+                WorkingScale = 1,
+                MaxWorkingScale = 1,
+                DeviceGridOffset = default(Vector),
+                UseExecutorManagedCanvas = true,
+            });
 
         executor.Apply(context);
 
@@ -283,14 +284,15 @@ public sealed class PixelSortEffectSynchronizationTests
         using var executor = new FilterEffectExecutor(
             targets,
             builder,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1,
-            deviceGridOffset: default,
-            useExecutorManagedCanvas: true,
-            renderTargetLeaseSession: session);
+            new(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary)
+            {
+                OutputScale = 1,
+                WorkingScale = 1,
+                MaxWorkingScale = 1,
+                DeviceGridOffset = default(Vector),
+                UseExecutorManagedCanvas = true,
+                RenderTargetLeaseSession = session,
+            });
 
         var allocations = new List<TextureFormat>();
         using (VulkanContext.ObserveTextureAllocations(allocations.Add))
