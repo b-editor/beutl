@@ -244,6 +244,9 @@ public sealed class EncoderOptionsEditorViewModelTests
         model.RemoveOption(settings.Options.Value.Single(o => o.Name.Value == "crf"));
         Assert.That(model.BitrateNote, Is.Null);
 
+        model.SetValue("crf", "-1");
+        Assert.That(model.BitrateNote, Is.Null, "crf -1 leaves rate control to the bitrate");
+
         model.SetValue("crf", "20");
         settings.Bitrate.Value = 0;
         Assert.Multiple(() =>

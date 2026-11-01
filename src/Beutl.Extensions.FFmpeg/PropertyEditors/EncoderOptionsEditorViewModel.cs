@@ -63,10 +63,15 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
     // does not tell. Exports keep that behaviour, as the built-in presets pair a bitrate with crf on purpose. Other
     // encoders, such as VP9, use the two together, so they get no note.
     public string? BitrateNote => _settings.Bitrate.Value > 0
-                                  && !string.IsNullOrWhiteSpace(GetValue("crf"))
+                                  && IsCrfEnabled(GetValue("crf"))
                                   && IgnoresBitrateUnderCrf()
         ? Strings.EncoderOptionsBitrateUnusedWithCrf
         : null;
+
+    // A negative crf, such as the encoder default -1, leaves rate control to the bitrate.
+    private static bool IsCrfEnabled(string? crf)
+        => !string.IsNullOrWhiteSpace(crf)
+           && (!double.TryParse(crf, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) || value >= 0);
 
     private bool IgnoresBitrateUnderCrf()
     {
