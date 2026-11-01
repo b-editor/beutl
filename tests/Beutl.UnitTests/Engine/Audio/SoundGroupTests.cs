@@ -67,4 +67,26 @@ public class SoundGroupTests
 
         Assert.That(buffer!.GetChannelData(0).ToArray(), Is.All.EqualTo(0f));
     }
+
+    // A disabled group nested in another still played its children, so the parent played what should be silent.
+    [Test]
+    public void Compose_DisabledNestedGroup_PlaysSilence()
+    {
+        string path = TestMediaHelper.CreateTestAudioFile(sampleRate: 44100, channels: 2, durationSeconds: 1.0);
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(path));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
+        var inner = new SoundGroup { TimeRange = { Value = range }, IsEnabled = { Value = false } };
+        inner.Children.Add(new SourceSound { Source = { Value = source }, TimeRange = { Value = range } });
+        var outer = new SoundGroup { TimeRange = { Value = range } };
+        outer.Children.Add(inner);
+        using var resource = outer.ToResource(CompositionContext.Default);
+        var frame = new CompositionFrame(
+            ImmutableArray.Create((EngineObject.Resource)resource), range, default, new CompositionEligibility([outer]));
+        using var composer = new Composer { SampleRate = 44100 };
+
+        using AudioBuffer? buffer = composer.Compose(range, frame);
+
+        Assert.That(buffer!.GetChannelData(0).ToArray(), Is.All.EqualTo(0f));
+    }
 }

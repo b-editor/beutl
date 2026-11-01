@@ -23,7 +23,8 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
         var r = (Resource)resource;
-        if (r.Children.Count == 0)
+        // A disabled group is silent as a disabled sound is, whatever its children play.
+        if (!IsEnabled.Value || r.Children.Count == 0)
         {
             return;
         }
