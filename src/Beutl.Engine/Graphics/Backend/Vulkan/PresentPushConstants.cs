@@ -22,4 +22,7 @@ internal struct PresentPushConstants
     public float MapKs;
     public float MapMaxLum;
     public float MapSourcePq;
+
+    // PresentLuminance.ReferenceWhite: what reference white (1.0) is written as.
+    public float ReferenceWhite;
 }
