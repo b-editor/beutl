@@ -1,9 +1,8 @@
-﻿using Avalonia.Controls;
-using Avalonia.Headless;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 using Beutl.Editor.Components.AudioVisualizerTab.Views;
 using Beutl.Testing.Headless;
@@ -29,41 +28,48 @@ public sealed class LevelMeterControlTests
         var ring = new AudioSampleRingBuffer();
         ring.WriteInterleaved(Sine(channels, amplitudes), channels, SampleRate, MediaTime.Zero);
         var meter = new LevelMeterControl { RingBuffer = ring, PlayheadTime = MediaTime.FromSamples(Frames, SampleRate) };
-        var window = new Window { Width = 320, Height = 240, Background = Brushes.Black, Content = meter };
-        try
+        var size = new Size(320, 240);
+        // Render the control off-tree: in a window its 33 ms repaint timer keeps the dispatcher busy whenever
+        // a repaint takes longer than that (as under coverage on CI), so settling never returns.
+        meter.Measure(size);
+        meter.Arrange(new Rect(size));
+        using var bitmap = new RenderTargetBitmap(new PixelSize(320, 240));
+        bitmap.Render(meter);
+        if (HeadlessCapture.IsRequested)
         {
-            window.Show();
-            HeadlessTestHelpers.Render(3);
-            if (HeadlessCapture.IsRequested)
+            // The loudness readout eases in over ~200 ms of wall time; let it settle for the capture.
+            for (int i = 0; i < 20; i++)
             {
-                // The loudness readout eases in over ~200 ms of wall time; let it settle for the capture.
-                for (int i = 0; i < 20; i++)
-                {
-                    Thread.Sleep(60);
-                    meter.InvalidateVisual();
-                    HeadlessTestHelpers.Render(1);
-                }
+                Thread.Sleep(60);
+                bitmap.Render(meter);
             }
-
-            using WriteableBitmap? frame = window.CaptureRenderedFrame();
-            Assert.That(frame, Is.Not.Null);
-
-            List<double> centres = LitRunCentres(frame!, (int)(window.Height / 2));
-
-            Assert.That(centres, Has.Count.EqualTo(litBars));
-            if (name == "surround51-centre")
-            {
-                // C is the third of six equal bar slots left of the dB scale.
-                double slot = (window.Width - 4 * 3 - 20) / 6;
-                Assert.That(centres[0], Is.InRange(4 + slot * 2, 4 + slot * 3 + 10));
-            }
-
-            HeadlessCapture.SaveIfRequested(meter, nameof(LevelMeterControlTests), name);
         }
-        finally
+
+        List<double> centres = LitRunCentres(bitmap, (int)(size.Height / 2));
+
+        Assert.That(centres, Has.Count.EqualTo(litBars));
+        if (name == "surround51-centre")
         {
-            window.Close();
+            // C is the third of six equal bar slots left of the dB scale.
+            double slot = (size.Width - 4 * 3 - 20) / 6;
+            Assert.That(centres[0], Is.InRange(4 + slot * 2, 4 + slot * 3 + 10));
         }
+
+        SaveIfRequested(bitmap, name);
+    }
+
+    private static void SaveIfRequested(RenderTargetBitmap bitmap, string name)
+    {
+        if (Environment.GetEnvironmentVariable("BEUTL_HEADLESS_CAPTURE_DIR") is not { Length: > 0 } root) return;
+        string directory = Path.Combine(root, nameof(LevelMeterControlTests));
+        Directory.CreateDirectory(directory);
+        // Composite onto black, as the meter appears in the dark editor theme.
+        var frame = new Border { Background = Brushes.Black, Child = new Image { Source = bitmap } };
+        frame.Measure(bitmap.Size);
+        frame.Arrange(new Rect(bitmap.Size));
+        using var output = new RenderTargetBitmap(bitmap.PixelSize);
+        output.Render(frame);
+        output.Save(Path.Combine(directory, name + ".png"));
     }
 
     private static float[] Sine(int channels, float[] amplitudes)
@@ -78,22 +84,28 @@ public sealed class LevelMeterControlTests
         return samples;
     }
 
-    private static unsafe List<double> LitRunCentres(WriteableBitmap bitmap, int y)
+    private static List<double> LitRunCentres(RenderTargetBitmap bitmap, int y)
     {
-        using ILockedFramebuffer buffer = bitmap.Lock();
-        Assert.That(buffer.Format, Is.EqualTo(PixelFormat.Rgba8888).Or.EqualTo(PixelFormat.Bgra8888));
+        int width = bitmap.PixelSize.Width;
+        var row = new byte[width * 4];
+        unsafe
+        {
+            fixed (byte* p = row)
+            {
+                bitmap.CopyPixels(new PixelRect(0, y, width, 1), (nint)p, row.Length, row.Length);
+            }
+        }
+
         var centres = new List<double>();
-        uint* row = (uint*)((byte*)buffer.Address + y * buffer.RowBytes);
         int start = -1;
-        for (int x = 0; x <= buffer.Size.Width; x++)
+        for (int x = 0; x <= width; x++)
         {
             bool lit = false;
-            if (x < buffer.Size.Width)
+            if (x < width)
             {
-                uint pixel = row[x];
                 // The primary brush is green; both byte orders keep green in the second byte.
-                uint g = (pixel >> 8) & 0xFF;
-                uint rb = Math.Max(pixel & 0xFF, (pixel >> 16) & 0xFF);
+                int g = row[x * 4 + 1];
+                int rb = Math.Max(row[x * 4], row[x * 4 + 2]);
                 lit = g > 150 && g > rb + 40;
             }
 
