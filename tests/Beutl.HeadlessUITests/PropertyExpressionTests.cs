@@ -173,19 +173,25 @@ public class PropertyExpressionTests
 
             HeadlessTestHelpers.Click(button);
             Popup reopened = ExpressionEditors(window).Single();
-            Assert.That(((ExpressionEditorFlyoutPresenter)reopened.Child!).ExpressionText, Is.EqualTo("50f"));
+            var reopenedPresenter = (ExpressionEditorFlyoutPresenter)reopened.Child!;
+            Assert.That(reopenedPresenter.ExpressionText, Is.EqualTo("50f"));
 
             // The menu item that also opens the editor leaves the open one, and its edit, alone.
+            reopenedPresenter.ExpressionText = "75f";
             HeadlessTestHelpers.Click(button, button: MouseButton.Right);
             var contextMenu = (FAMenuFlyout)button.ContextFlyout!;
             contextMenu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == "editExpressionItem")
                 .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
             contextMenu.Hide();
             HeadlessTestHelpers.Render();
-            Assert.That(ExpressionEditors(window), Is.EqualTo(new[] { reopened }));
+            Assert.Multiple(() =>
+            {
+                Assert.That(ExpressionEditors(window), Is.EqualTo(new[] { reopened }));
+                Assert.That(reopenedPresenter.ExpressionText, Is.EqualTo("75f"));
+            });
 
             // An editor closed by × leaves the fx button opening a new one.
-            reopened.Child!.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "DismissButton")
+            reopenedPresenter.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "DismissButton")
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             HeadlessTestHelpers.Render();
             Assert.That(ExpressionEditors(window), Is.Empty);
