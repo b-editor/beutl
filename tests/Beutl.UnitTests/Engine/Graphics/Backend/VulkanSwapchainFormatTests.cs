@@ -142,4 +142,19 @@ public class VulkanSwapchainFormatTests
             Assert.That(columns[6 + row], Is.EqualTo(rows[row].Z).Within(1e-5f), $"row {row}, blue");
         }
     }
+
+    // A paused preview follows its surface's size, which is only a size when the surface reports one: 0xFFFFFFFF
+    // leaves it to the swapchain (Wayland), and a minimized window reports zero.
+    [TestCase(800u, 400u, true)]
+    [TestCase(uint.MaxValue, uint.MaxValue, false)]
+    [TestCase(0u, 0u, false)]
+    [TestCase(800u, 0u, false)]
+    public void OnlyASurfaceThatReportsASizeIsFollowed(uint width, uint height, bool followed)
+    {
+        Extent2D? extent = VulkanSwapchain.UsableExtent(new Extent2D(width, height));
+
+        Assert.That(extent.HasValue, Is.EqualTo(followed));
+        if (followed)
+            Assert.That((extent!.Value.Width, extent.Value.Height), Is.EqualTo((width, height)));
+    }
 }
