@@ -24,7 +24,7 @@ public sealed class LevelMeterControlTests
     [TestCase(6, new[] { 0f, 0f, 0.5f, 0f, 0f, 0f }, 1, "surround51-centre")]
     [TestCase(6, new[] { 0.9f, 0.8f, 0.7f, 0.6f, 0.5f, 0.4f }, 6, "surround51")]
     [TestCase(8, new[] { 0.9f, 0.8f, 0.7f, 0f, 0.6f, 0.5f, 0.4f, 0.3f }, 7, "surround71")]
-    public async Task DrawsOneBarPerSourceChannel(int channels, float[] amplitudes, int litBars, string name)
+    public void DrawsOneBarPerSourceChannel(int channels, float[] amplitudes, int litBars, string name)
     {
         var ring = new AudioSampleRingBuffer();
         ring.WriteInterleaved(Sine(channels, amplitudes), channels, SampleRate, MediaTime.Zero);
@@ -33,11 +33,16 @@ public sealed class LevelMeterControlTests
         try
         {
             window.Show();
-            // The loudness readout eases in over ~200 ms of wall time; let it settle for the capture.
-            for (int i = 0; i < 20; i++)
+            HeadlessTestHelpers.Render(3);
+            if (HeadlessCapture.IsRequested)
             {
-                await Task.Delay(60);
-                HeadlessTestHelpers.Render(1);
+                // The loudness readout eases in over ~200 ms of wall time; let it settle for the capture.
+                for (int i = 0; i < 20; i++)
+                {
+                    Thread.Sleep(60);
+                    meter.InvalidateVisual();
+                    HeadlessTestHelpers.Render(1);
+                }
             }
 
             using WriteableBitmap? frame = window.CaptureRenderedFrame();
