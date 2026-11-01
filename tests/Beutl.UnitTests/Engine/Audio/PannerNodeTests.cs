@@ -14,9 +14,12 @@ public class PannerNodeTests
     private static PannerNode Create(int input, int output, float pan = 0, float surround = 0, float center = 0, float lfe = 0)
         => new()
         {
-            InputLayout = AudioChannelLayout.GetDefault(input), OutputLayout = AudioChannelLayout.GetDefault(output),
-            Pan = Property.CreateAnimatable(pan), SurroundPan = Property.CreateAnimatable(surround),
-            CenterLevel = Property.CreateAnimatable(center), LfeLevel = Property.CreateAnimatable(lfe)
+            InputLayout = AudioChannelLayout.GetDefault(input),
+            OutputLayout = AudioChannelLayout.GetDefault(output),
+            Pan = Property.CreateAnimatable(pan),
+            SurroundPan = Property.CreateAnimatable(surround),
+            CenterLevel = Property.CreateAnimatable(center),
+            LfeLevel = Property.CreateAnimatable(lfe)
         };
 
     [TestCase(1)]

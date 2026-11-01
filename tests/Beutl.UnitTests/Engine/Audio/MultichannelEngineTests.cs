@@ -115,7 +115,10 @@ public class MultichannelEngineTests
             var first = Sound(source, 0.03);
             first.Effect.Value = new DelayEffect
             {
-                DelayTime = { Value = 20 }, Feedback = { Value = 0 }, DryMix = { Value = 100 }, WetMix = { Value = 100 }
+                DelayTime = { Value = 20 },
+                Feedback = { Value = 0 },
+                DryMix = { Value = 100 },
+                WetMix = { Value = 100 }
             };
             // Delay is intentional timing, not latency. A lookahead retains its echo for Flush.
             first.Effect.Value = new AudioEffectGroup
@@ -128,7 +131,10 @@ public class MultichannelEngineTests
                 var second = Sound(source, 0.03);
                 second.Effect.Value = new DelayEffect
                 {
-                    DelayTime = { Value = 10 }, Feedback = { Value = 0 }, DryMix = { Value = 100 }, WetMix = { Value = 100 }
+                    DelayTime = { Value = 10 },
+                    Feedback = { Value = 0 },
+                    DryMix = { Value = 100 },
+                    WetMix = { Value = 100 }
                 };
                 second.Effect.Value = new AudioEffectGroup
                 {
@@ -228,8 +234,10 @@ public class MultichannelEngineTests
             "stretch" => new TimeStretchNode { Speed = Property.CreateAnimatable(150f) },
             _ => new NoiseReductionNode
             {
-                Reduction = Property.CreateAnimatable(12f), Sensitivity = Property.CreateAnimatable(3f),
-                Smoothing = Property.CreateAnimatable(50f), Adaptation = Property.CreateAnimatable(2f)
+                Reduction = Property.CreateAnimatable(12f),
+                Sensitivity = Property.CreateAnimatable(3f),
+                Smoothing = Property.CreateAnimatable(50f),
+                Adaptation = Property.CreateAnimatable(2f)
             }
         };
         node.AddInput(source);

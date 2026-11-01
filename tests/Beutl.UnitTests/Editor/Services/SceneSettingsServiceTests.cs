@@ -1,7 +1,9 @@
-﻿using Beutl.Editor;
+﻿using System.Text.Json.Nodes;
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
@@ -49,6 +51,61 @@ public class SceneSettingsServiceTests
         Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
         Assert.That(_scene.FrameSize.Value, Is.EqualTo(new PixelSize(800, 600)));
         Assert.That(_service.Apply(_scene, _scene.FrameSize.Value, _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Surround51), Is.False);
+    }
+
+    [Test]
+    public void Apply_ProjectLayoutPersistsOnApplyUndoAndRedo()
+    {
+        string directory = Directory.CreateTempSubdirectory("beutl-layout-").FullName;
+        string path = Path.Combine(directory, "project.json");
+        _scene.Uri = new Uri(Path.Combine(directory, "scene.scene"));
+        var project = new Project { Uri = new Uri(path), Items = { _scene } };
+        try
+        {
+            CoreSerializer.StoreToUri(project, project.Uri);
+            int before = _history.UndoCount;
+            _service.Apply(_scene, _scene.FrameSize.Value, _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Surround51);
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+            AssertStoredLayout(SpeakerLayout.Surround51);
+
+            Assert.That(_history.Undo(), Is.True);
+            AssertStoredLayout(SpeakerLayout.Stereo);
+            Assert.That(_history.Redo(), Is.True);
+            AssertStoredLayout(SpeakerLayout.Surround51);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+
+        void AssertStoredLayout(SpeakerLayout expected)
+        {
+            Assert.That(project.ChannelLayout.Value, Is.EqualTo(expected));
+            Assert.That(JsonNode.Parse(File.ReadAllText(path))!["ChannelLayout"]!.GetValue<int>(), Is.EqualTo((int)expected));
+        }
+    }
+
+    [Test]
+    public void Apply_ProjectWriteFailureRestoresTheLayoutWithoutRecordingAnEdit()
+    {
+        string directory = Directory.CreateTempSubdirectory("beutl-layout-failure-").FullName;
+        _scene.Uri = new Uri(Path.Combine(directory, "scene.scene"));
+        var project = new Project { Uri = new Uri(directory), Items = { _scene } };
+        PixelSize previousSize = _scene.FrameSize.Value;
+        int before = _history.UndoCount;
+        try
+        {
+            Exception? failure = Assert.Catch<Exception>(() => _service.Apply(_scene, new PixelSize(800, 600),
+                _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Surround51));
+            Assert.That(failure, Is.InstanceOf<IOException>().Or.InstanceOf<UnauthorizedAccessException>());
+            Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
+            Assert.That(_scene.FrameSize.Value, Is.EqualTo(previousSize));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     [Test]
