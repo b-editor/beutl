@@ -18,6 +18,8 @@ public sealed partial class EditViewModel : IMediaRepairHost
     private bool _missingMediaScanRequested;
     private bool _missingMediaWarningDismissed;
     private readonly MissingMediaService _missingMediaDetector = new();
+    // Fed every change operation of the scene, so a query walks only the elements edited since the last one.
+    private readonly MediaReferenceIndex _mediaReferences;
     private HashSet<(object Source, Uri? Uri)>? _mediaReferenceKeys;
 
     // In-place URI repairs do not produce property-history entries. Retain this
@@ -28,7 +30,7 @@ public sealed partial class EditViewModel : IMediaRepairHost
 
     private bool MediaReferencesChanged()
     {
-        var current = MissingMediaService.GetReferenceKeys(Scene);
+        var current = MissingMediaService.GetReferenceKeys(_mediaReferences.GetReferences());
         if (_mediaReferenceKeys?.SetEquals(current) == true) return false;
         _mediaReferenceKeys = current;
         _fingerprintsFlushedForSave = false;
@@ -38,7 +40,7 @@ public sealed partial class EditViewModel : IMediaRepairHost
     internal void NotifyMissingMedia()
     {
         if (_disposed) return;
-        _mediaReferenceKeys = MissingMediaService.GetReferenceKeys(Scene);
+        _mediaReferenceKeys = MissingMediaService.GetReferenceKeys(_mediaReferences.GetReferences());
         _missingMediaScanRequested = true;
         if (_missingMediaScanTask.IsCompleted) _missingMediaScanTask = RecheckMissingMediaAsync();
     }
@@ -56,7 +58,8 @@ public sealed partial class EditViewModel : IMediaRepairHost
                 _missingMediaScanRequested = false;
                 await Task.Delay(200, MediaRepairCancellationToken);
                 if (_missingMediaScanRequested) continue;
-                int count = (await _missingMediaDetector.FindMissingAsync(Scene, MediaRepairCancellationToken, revalidateExisting: false)).Count;
+                int count = (await _missingMediaDetector.FindMissingAsync(Scene, _mediaReferences, MediaRepairCancellationToken,
+                    revalidateExisting: false)).Count;
                 if (_disposed) return;
                 if (_missingMediaScanRequested) continue;
                 if (count == 0)
@@ -175,7 +178,7 @@ public sealed partial class EditViewModel : IMediaRepairHost
             FrameCacheManager.Value.Clear();
             Player.QueuePreviewRender();
 
-            var missing = await _missingMediaDetector.FindMissingAsync(Scene, cancellationToken);
+            var missing = await _missingMediaDetector.FindMissingAsync(Scene, _mediaReferences, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if (existing != null) existing.RefreshRows(missing);
             else

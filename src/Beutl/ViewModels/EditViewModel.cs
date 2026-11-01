@@ -160,6 +160,10 @@ public sealed partial class EditViewModel
         var sequenceGenerator = new OperationSequenceGenerator();
         var observer = new CoreObjectOperationObserver(null, Scene, sequenceGenerator)
             .DisposeWith(_disposables);
+        // Each operation as it happens, not at the commit: a query between commits must see it too.
+        _mediaReferences = new MediaReferenceIndex(Scene);
+        observer.Operations.Subscribe(_mediaReferences.Invalidate)
+            .DisposeWith(_disposables);
         HistoryManager = new HistoryManager(sequenceGenerator);
         HistoryManager.Subscribe(observer)
             .DisposeWith(_disposables);
