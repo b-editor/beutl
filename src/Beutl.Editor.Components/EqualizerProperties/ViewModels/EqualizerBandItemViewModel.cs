@@ -35,11 +35,6 @@ public sealed class EqualizerBandItemViewModel : IDisposable
         QEditor = factory.CreateEditor(QAdapter);
         FilterTypeEditor = factory.CreateEditor(FilterTypeAdapter);
 
-        Label = band.Frequency.SubscribeCurrentValueChange()
-            .Select(FormatFrequencyLabel)
-            .ToReadOnlyReactivePropertySlim(FormatFrequencyLabel(band.Frequency.Value))!
-            .AddTo(_disposables);
-
         // BiQuadFilter ignores gainDb for LowPass/HighPass/BandPass/Notch, so showing the gain
         // editor for those types would just produce misleading no-op history entries.
         IsGainVisible = band.FilterType.SubscribeCurrentValueChange()
@@ -49,8 +44,6 @@ public sealed class EqualizerBandItemViewModel : IDisposable
     }
 
     public EqualizerBand Band { get; }
-
-    public ReadOnlyReactivePropertySlim<string> Label { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsGainVisible { get; }
 
@@ -134,14 +127,4 @@ public sealed class EqualizerBandItemViewModel : IDisposable
 
     internal static bool IsGainUsed(BiQuadFilterType type) =>
         type is BiQuadFilterType.Peak or BiQuadFilterType.LowShelf or BiQuadFilterType.HighShelf;
-
-    private static string FormatFrequencyLabel(float freq)
-    {
-        if (freq >= 1000f)
-        {
-            double k = freq / 1000.0;
-            return k == Math.Floor(k) ? $"{k:0}k" : $"{k:0.#}k";
-        }
-        return $"{freq:0}";
-    }
 }

@@ -21,17 +21,21 @@ public sealed class EqualizerCurveEditor : Control
     public const float MaxQ = 18f;
     private const double HandleRadius = 6.0;
     private const double HitTestRadius = 10.0;
+    // Keeps the largest handle inside the frame at the plot's edges.
+    private const double PlotInset = 12.0;
 
     // Used only when the host has not bound a session sample rate (e.g. design-time).
     private const int DefaultResponseSampleRate = 48000;
 
-    private static readonly ImmutableSolidColorBrush s_backgroundBrush = new(Color.FromArgb(32, 128, 128, 128));
-    private static readonly ImmutablePen s_gridPen = new(new ImmutableSolidColorBrush(Color.FromArgb(64, 128, 128, 128)));
-    private static readonly ImmutablePen s_gridStrongPen = new(new ImmutableSolidColorBrush(Color.FromArgb(120, 128, 128, 128)));
-    private static readonly ImmutablePen s_curvePen = new(new ImmutableSolidColorBrush(Color.FromArgb(220, 86, 156, 214)), 2);
-    private static readonly ImmutableSolidColorBrush s_handleSelectedBrush = new(Color.FromArgb(255, 86, 156, 214));
-    private static readonly ImmutableSolidColorBrush s_handleNormalBrush = new(Color.FromArgb(200, 200, 200, 200));
-    private static readonly ImmutablePen s_handleStrokePen = new(new ImmutableSolidColorBrush(Color.FromArgb(255, 32, 32, 32)), 1.5);
+    // The panner's palette (SoundPanner), so both audio canvases look alike.
+    private static readonly ImmutableSolidColorBrush s_backgroundBrush = new(Color.FromRgb(30, 32, 36));
+    private static readonly ImmutablePen s_gridPen = new(new ImmutableSolidColorBrush(Color.FromRgb(45, 48, 54)));
+    private static readonly ImmutablePen s_gridStrongPen = new(new ImmutableSolidColorBrush(Color.FromRgb(71, 76, 85)));
+    private static readonly ImmutablePen s_curvePen = new(new ImmutableSolidColorBrush(Color.FromRgb(100, 190, 245)), 2,
+        lineJoin: PenLineJoin.Round);
+    private static readonly ImmutableSolidColorBrush s_handleSelectedBrush = new(Color.FromRgb(100, 190, 245));
+    private static readonly ImmutableSolidColorBrush s_handleNormalBrush = new(Color.FromRgb(53, 57, 64));
+    private static readonly ImmutablePen s_handleStrokePen = new(Brushes.White, 1.5);
 
     public static readonly StyledProperty<ObservableCollection<EqualizerBandItemViewModel>?> BandViewModelsProperty =
         AvaloniaProperty.Register<EqualizerCurveEditor, ObservableCollection<EqualizerBandItemViewModel>?>(nameof(BandViewModels));
@@ -384,43 +388,47 @@ public sealed class EqualizerCurveEditor : Control
     {
         base.Render(context);
 
-        double w = Bounds.Width;
-        double h = Bounds.Height;
-        if (w <= 0 || h <= 0) return;
+        if (Bounds.Width <= 0 || Bounds.Height <= 0) return;
 
-        context.FillRectangle(s_backgroundBrush, new Rect(0, 0, w, h));
+        context.DrawRectangle(s_backgroundBrush, s_gridStrongPen, new RoundedRect(new Rect(Bounds.Size).Deflate(1), 6));
+        Rect area = PlotBounds;
 
-        for (int db = -24; db <= 24; db += 6)
+        for (int db = -18; db <= 18; db += 6)
         {
             double y = YFromGain(db);
-            context.DrawLine(db == 0 ? s_gridStrongPen : s_gridPen, new Point(0, y), new Point(w, y));
+            context.DrawLine(db == 0 ? s_gridStrongPen : s_gridPen, new Point(area.Left, y), new Point(area.Right, y));
         }
 
-        foreach (double freq in new double[] { 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000 })
+        foreach (double freq in new double[] { 50, 100, 200, 500, 1000, 2000, 5000, 10000 })
         {
             double x = XFromFrequency((float)freq);
             bool isDecade = Math.Abs(Math.Log10(freq) - Math.Round(Math.Log10(freq))) < 0.01;
-            context.DrawLine(isDecade ? s_gridStrongPen : s_gridPen, new Point(x, 0), new Point(x, h));
+            context.DrawLine(isDecade ? s_gridStrongPen : s_gridPen, new Point(x, area.Top), new Point(x, area.Bottom));
         }
+
+        context.DrawRectangle(null, s_gridStrongPen, area);
 
         if (_bandViewModels is { Count: > 0 })
         {
             const int samples = 256;
-            var points = new Point[samples];
-            for (int i = 0; i < samples; i++)
+            // One stroke, so the segment ends do not leave seams along the curve.
+            var curve = new StreamGeometry();
+            using (StreamGeometryContext ctx = curve.Open())
             {
-                double t = (double)i / (samples - 1);
-                float freq = (float)(MinFrequency * Math.Pow(MaxFrequency / MinFrequency, t));
-                float db = CalculateResponseDb(freq);
-                double x = XFromFrequency(freq);
-                double y = YFromGain(db);
-                points[i] = new Point(x, y);
+                for (int i = 0; i < samples; i++)
+                {
+                    double t = (double)i / (samples - 1);
+                    float freq = (float)(MinFrequency * Math.Pow(MaxFrequency / MinFrequency, t));
+                    float db = CalculateResponseDb(freq);
+                    var point = new Point(XFromFrequency(freq), YFromGain(db));
+                    if (i == 0)
+                        ctx.BeginFigure(point, false);
+                    else
+                        ctx.LineTo(point);
+                }
+                ctx.EndFigure(false);
             }
-
-            for (int i = 1; i < samples; i++)
-            {
-                context.DrawLine(s_curvePen, points[i - 1], points[i]);
-            }
+            context.DrawGeometry(null, s_curvePen, curve);
 
             for (int i = 0; i < _bandViewModels.Count; i++)
             {
@@ -459,7 +467,7 @@ public sealed class EqualizerCurveEditor : Control
     }
 
     // A band's handle sits on the combined response curve at the band's frequency.
-    private Point GetHandleCenter(EqualizerBandItemViewModel vm)
+    internal Point GetHandleCenter(EqualizerBandItemViewModel vm)
     {
         float freq = vm.GetEffectiveValue(vm.Band.Frequency, CurrentTime);
         double x = XFromFrequency(freq);
@@ -467,16 +475,19 @@ public sealed class EqualizerCurveEditor : Control
         return new Point(x, y);
     }
 
+    internal Rect PlotBounds => new(PlotInset, PlotInset,
+        Math.Max(1, Bounds.Width - PlotInset * 2), Math.Max(1, Bounds.Height - PlotInset * 2));
+
     private double XFromFrequency(float frequency)
     {
         double t = (Math.Log10(Math.Clamp(frequency, MinFrequency, MaxFrequency)) - Math.Log10(MinFrequency)) /
                    (Math.Log10(MaxFrequency) - Math.Log10(MinFrequency));
-        return t * Bounds.Width;
+        return PlotBounds.X + t * PlotBounds.Width;
     }
 
     private float FrequencyFromX(double x)
     {
-        double t = Math.Clamp(x / Bounds.Width, 0, 1);
+        double t = Math.Clamp((x - PlotBounds.X) / PlotBounds.Width, 0, 1);
         double f = Math.Pow(10, Math.Log10(MinFrequency) + t * (Math.Log10(MaxFrequency) - Math.Log10(MinFrequency)));
         // Clamp to session Nyquist so dragging cannot set a target the filter will silently rewrite.
         return (float)Math.Clamp(f, MinFrequency, EffectiveMaxFrequency);
@@ -485,12 +496,12 @@ public sealed class EqualizerCurveEditor : Control
     private double YFromGain(float gain)
     {
         double t = 1.0 - (Math.Clamp(gain, MinGain, MaxGain) - MinGain) / (MaxGain - MinGain);
-        return t * Bounds.Height;
+        return PlotBounds.Y + t * PlotBounds.Height;
     }
 
     private float GainFromY(double y)
     {
-        double t = 1.0 - Math.Clamp(y / Bounds.Height, 0, 1);
+        double t = 1.0 - Math.Clamp((y - PlotBounds.Y) / PlotBounds.Height, 0, 1);
         return (float)Math.Clamp(MinGain + t * (MaxGain - MinGain), MinGain, MaxGain);
     }
 
