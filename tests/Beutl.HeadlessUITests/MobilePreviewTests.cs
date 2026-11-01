@@ -365,6 +365,66 @@ public sealed class MobilePreviewTests
         Assert.That(pixel.Blue, Is.EqualTo(137).Within(3));
     }
 
+    // Below the roll-off, FitToDisplay leaves every color sRGB holds as it is, the saturated ones on its edge included.
+    [TestCase(0.4f, 0f, 0f)]
+    [TestCase(0f, 0.4f, 0f)]
+    [TestCase(0f, 0f, 0.4f)]
+    [TestCase(0.3f, 0.1f, 0.02f)]
+    public void Fit_to_display_leaves_colors_inside_srgb_as_they_are(float red, float green, float blue)
+    {
+        using var bitmap = LinearFrame(red, green, blue);
+        using var clipped = SdrBitmap(bitmap, UIToneMappingOperator.None, 0);
+        using var fitted = SdrBitmap(bitmap, UIToneMappingOperator.FitToDisplay, 0);
+
+        SKColor expected = clipped.GetPixel(16, 16);
+        SKColor pixel = fitted.GetPixel(16, 16);
+        Assert.That((int)pixel.Red, Is.EqualTo((int)expected.Red).Within(red == 0 ? 0 : 1));
+        Assert.That((int)pixel.Green, Is.EqualTo((int)expected.Green).Within(green == 0 ? 0 : 1));
+        Assert.That((int)pixel.Blue, Is.EqualTo((int)expected.Blue).Within(blue == 0 ? 0 : 1));
+    }
+
+    [Test]
+    public void Fit_to_display_desaturates_colors_outside_srgb_at_their_luminance()
+    {
+        // BT.2020's green at 35%, below the roll-off, which sRGB needs negative red and blue for.
+        using var bitmap = LinearFrame(-0.2057f, 0.3965f, -0.0352f);
+        using var clipped = SdrBitmap(bitmap, UIToneMappingOperator.None, 0);
+        using var fitted = SdrBitmap(bitmap, UIToneMappingOperator.FitToDisplay, 0);
+
+        // Clipping the negative channels leaves sRGB's own green, a fifth brighter than the color.
+        SKColor green = clipped.GetPixel(16, 16);
+        Assert.That(green.Red, Is.EqualTo(0));
+        Assert.That(green.Green, Is.EqualTo(169).Within(2));
+        Assert.That(green.Blue, Is.EqualTo(0));
+        Assert.That(Luminance(green), Is.EqualTo(0.284).Within(0.005));
+
+        // Moving toward the gray of the color's luminance keeps that luminance and the hue, a bluer green than
+        // sRGB's, and stops where red reaches zero.
+        SKColor pixel = fitted.GetPixel(16, 16);
+        Assert.That(pixel.Red, Is.EqualTo(0));
+        Assert.That(pixel.Green, Is.EqualTo(154).Within(2));
+        Assert.That(pixel.Blue, Is.EqualTo(85).Within(2));
+        Assert.That(Luminance(pixel), Is.EqualTo(0.237).Within(0.005));
+    }
+
+    [Test]
+    public void Fit_to_display_fits_bright_colors_outside_srgb_on_both_counts()
+    {
+        // BT.2020's red at reference white: brighter than sRGB's red and outside sRGB.
+        using var bitmap = LinearFrame(1.6605f, -0.1246f, -0.0182f);
+        using var clipped = SdrBitmap(bitmap, UIToneMappingOperator.None, 0);
+        using var fitted = SdrBitmap(bitmap, UIToneMappingOperator.FitToDisplay, 0);
+
+        SKColor red = clipped.GetPixel(16, 16);
+        Assert.That((red.Red, red.Green, red.Blue), Is.EqualTo(((byte)255, (byte)0, (byte)0)));
+
+        // It moves into sRGB first, where its blue is 6% of its red, and then rolls off below 1.0 with that ratio.
+        SKColor pixel = fitted.GetPixel(16, 16);
+        Assert.That(pixel.Red, Is.EqualTo(237).Within(2));
+        Assert.That(pixel.Green, Is.EqualTo(0));
+        Assert.That(pixel.Blue, Is.EqualTo(63).Within(2));
+    }
+
     [AvaloniaTest]
     public void Mobile_sdr_colors_match_the_editor_surface()
     {
@@ -757,6 +817,25 @@ public sealed class MobilePreviewTests
             using var json = JsonDocument.Parse(buffer.AsMemory(0, count));
             if (predicate(json.RootElement)) return json.RootElement.Clone();
         }
+    }
+
+    private static Bitmap LinearFrame(float red, float green, float blue)
+    {
+        var bitmap = new Bitmap(32, 32, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        bitmap.GetPixelSpan<RgbaF16>().Fill(new RgbaF16((Half)red, (Half)green, (Half)blue, (Half)1));
+        return bitmap;
+    }
+
+    // The relative luminance of an 8-bit sRGB pixel.
+    private static double Luminance(SKColor color)
+    {
+        static double Linear(byte value)
+        {
+            double c = value / 255.0;
+            return c <= 0.04045 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+        }
+
+        return 0.2126 * Linear(color.Red) + 0.7152 * Linear(color.Green) + 0.0722 * Linear(color.Blue);
     }
 
     private static SKBitmap SdrBitmap(Bitmap image, UIToneMappingOperator mode, float exposure)

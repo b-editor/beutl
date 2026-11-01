@@ -60,10 +60,19 @@ public partial class HdrBitmapView
 
     private static void ReleaseMacOSView(IntPtr nsView)
     {
-        if (nsView != IntPtr.Zero)
+        ReleaseMacOSObject(nsView);
+    }
+
+    private static IntPtr RetainMacOSObject(IntPtr obj)
+    {
+        return obj != IntPtr.Zero ? objc_msgSend_IntPtr(obj, sel_getUid("retain")) : IntPtr.Zero;
+    }
+
+    private static void ReleaseMacOSObject(IntPtr obj)
+    {
+        if (obj != IntPtr.Zero)
         {
-            var releaseSel = sel_getUid("release");
-            objc_msgSend_void(nsView, releaseSel);
+            objc_msgSend_void(obj, sel_getUid("release"));
         }
     }
 
@@ -98,6 +107,93 @@ public partial class HdrBitmapView
 
         objc_msgSend_void_IntPtr(layer, sel_getUid("setEDRMetadata:"), metadata);
     }
+
+    // [[[nsView window] screen] colorSpace]: the NSColorSpace of the screen the view is on, or IntPtr.Zero while the
+    // view has no window or the window no screen.
+    private static IntPtr GetMacOSScreenColorSpace(IntPtr nsView)
+    {
+        IntPtr window = objc_msgSend_IntPtr(nsView, sel_getUid("window"));
+        IntPtr screen = window != IntPtr.Zero ? objc_msgSend_IntPtr(window, sel_getUid("screen")) : IntPtr.Zero;
+        return screen != IntPtr.Zero ? objc_msgSend_IntPtr(screen, sel_getUid("colorSpace")) : IntPtr.Zero;
+    }
+
+    // The primaries of an NSColorSpace, or null when it is not RGB. ColorSync converts its pure red, green and blue to
+    // extended linear sRGB, which keeps components outside sRGB, and their chromaticities follow from that. A screen's
+    // profile can be a table rather than a matrix, so converting colors serves where reading its tags would not.
+    internal static unsafe DisplayPrimaries? GetMacOSPrimaries(IntPtr nsColorSpace)
+    {
+        IntPtr colorSpace = nsColorSpace != IntPtr.Zero
+            ? objc_msgSend_IntPtr(nsColorSpace, sel_getUid("CGColorSpace"))
+            : IntPtr.Zero;
+        if (colorSpace == IntPtr.Zero || CGColorSpaceGetModel(colorSpace) != ColorSpaceModelRgb
+            || s_extendedLinearSrgb.Value == IntPtr.Zero)
+        {
+            return null;
+        }
+
+        Span<float> xy = stackalloc float[6];
+        double* components = stackalloc double[4];
+        for (int i = 0; i < 3; i++)
+        {
+            // Pure red, green or blue, opaque.
+            components[0] = i == 0 ? 1 : 0;
+            components[1] = i == 1 ? 1 : 0;
+            components[2] = i == 2 ? 1 : 0;
+            components[3] = 1;
+
+            IntPtr color = CGColorCreate(colorSpace, components);
+            IntPtr converted = CGColorCreateCopyByMatchingToColorSpace(
+                s_extendedLinearSrgb.Value, RenderingIntentRelativeColorimetric, color, IntPtr.Zero);
+            CGColorRelease(color);
+            if (converted == IntPtr.Zero)
+                return null;
+
+            double* srgb = CGColorGetComponents(converted);
+            // Linear sRGB to CIE XYZ (D65).
+            double x = 0.4124564 * srgb[0] + 0.3575761 * srgb[1] + 0.1804375 * srgb[2];
+            double y = 0.2126729 * srgb[0] + 0.7151522 * srgb[1] + 0.0721750 * srgb[2];
+            double z = 0.0193339 * srgb[0] + 0.1191920 * srgb[1] + 0.9503041 * srgb[2];
+            CGColorRelease(converted);
+
+            xy[i * 2] = (float)(x / (x + y + z));
+            xy[i * 2 + 1] = (float)(y / (x + y + z));
+        }
+
+        return new DisplayPrimaries(xy[0], xy[1], xy[2], xy[3], xy[4], xy[5]);
+    }
+
+    private const string CoreGraphicsLibrary = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics";
+
+    private const int ColorSpaceModelRgb = 1;
+
+    private const int RenderingIntentRelativeColorimetric = 2;
+
+    private static readonly Lazy<IntPtr> s_extendedLinearSrgb = new(() =>
+    {
+        // kCGColorSpaceExtendedLinearSRGB is a CFStringRef variable, so its export holds the string's address.
+        IntPtr library = NativeLibrary.Load(CoreGraphicsLibrary);
+        IntPtr name = Marshal.ReadIntPtr(NativeLibrary.GetExport(library, "kCGColorSpaceExtendedLinearSRGB"));
+        return CGColorSpaceCreateWithName(name);
+    });
+
+    [DllImport(CoreGraphicsLibrary)]
+    private static extern IntPtr CGColorSpaceCreateWithName(IntPtr name);
+
+    [DllImport(CoreGraphicsLibrary)]
+    private static extern int CGColorSpaceGetModel(IntPtr space);
+
+    [DllImport(CoreGraphicsLibrary)]
+    private static extern unsafe IntPtr CGColorCreate(IntPtr space, double* components);
+
+    [DllImport(CoreGraphicsLibrary)]
+    private static extern IntPtr CGColorCreateCopyByMatchingToColorSpace(
+        IntPtr space, int intent, IntPtr color, IntPtr options);
+
+    [DllImport(CoreGraphicsLibrary)]
+    private static extern unsafe double* CGColorGetComponents(IntPtr color);
+
+    [DllImport(CoreGraphicsLibrary)]
+    private static extern void CGColorRelease(IntPtr color);
 
     [DllImport("/usr/lib/libobjc.dylib")]
     private static extern IntPtr objc_getClass(string className);

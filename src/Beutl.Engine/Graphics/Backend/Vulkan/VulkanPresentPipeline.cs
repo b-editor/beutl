@@ -43,6 +43,9 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             int linearToSrgb;
             int isSourceLinear;
             vec4 displayMapping;
+            vec4 gamut0;
+            vec4 gamut1;
+            vec4 gamut2;
             float referenceWhite;
         } pc;
 
@@ -63,6 +66,16 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         }
 
         {{PreviewDisplayMapping.ShaderSource}}
+
+        {{PreviewGamutMapping.ShaderSource}}
+
+        vec3 fitGamut(vec3 c) {
+            if (pc.gamut0.w == 0.0) return c;
+            float lum = gamutLuminance(c.r, c.g, c.b);
+            float s = gamutSaturation(dot(pc.gamut0.xyz, c), dot(pc.gamut1.xyz, c), dot(pc.gamut2.xyz, c), lum);
+            if (pc.gamut1.w != 0.0) s = min(s, gamutSaturation(c.r, c.g, c.b, lum));
+            return lum + (c - lum) * s;
+        }
 
         vec3 linearToSrgb(vec3 c) {
             vec3 lo = c * 12.92;
@@ -98,8 +111,11 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             if (pc.tmOperator == 1) rgb = reinhard(max(rgb, vec3(0.0)));
             else if (pc.tmOperator == 2) rgb = aces(max(rgb, vec3(0.0)));
             else if (pc.tmOperator == 3) rgb = hable(max(rgb, vec3(0.0)));
-            else if (pc.tmOperator == 4) rgb *= displayMapGain(max(rgb.r, max(rgb.g, rgb.b)),
-                pc.displayMapping.x, pc.displayMapping.y, pc.displayMapping.z, pc.displayMapping.w);
+            else if (pc.tmOperator == 4) {
+                rgb = fitGamut(rgb);
+                rgb *= displayMapGain(max(rgb.r, max(rgb.g, rgb.b)),
+                    pc.displayMapping.x, pc.displayMapping.y, pc.displayMapping.z, pc.displayMapping.w);
+            }
 
             // Reference white as bright as the UI's white (PresentLuminance).
             rgb *= pc.referenceWhite;
