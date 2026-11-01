@@ -28,4 +28,13 @@ internal readonly record struct PresentLuminance(float ReferenceWhite, float Hea
         float white = sdrWhiteNits > 0f ? sdrWhiteNits : ScRgbWhiteNits;
         return new PresentLuminance(white / ScRgbWhiteNits, maxLuminanceNits > 0f ? maxLuminanceNits / white : 0f);
     }
+
+    /// <summary>
+    /// <see cref="ForScRgbHdr(float, float)"/> for what a display reports, with <paramref name="peakOverrideNits"/> in
+    /// place of its peak when that is above 0.
+    /// </summary>
+    public static PresentLuminance ForScRgbHdr(HdrDisplayReport report, float peakOverrideNits)
+    {
+        return ForScRgbHdr(report.SdrWhiteNits, peakOverrideNits > 0f ? peakOverrideNits : report.PeakNits);
+    }
 }

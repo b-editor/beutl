@@ -421,6 +421,22 @@
     <value>Usa renderizado HDR para el reproductor de vista previa (las operaciones del mouse, etc., estarán restringidas)</value>
     <comment />
   </data>
+  <data name="DisplayPeakLuminance" xml:space="preserve">
+    <value>Luminancia máxima de la pantalla (nits)</value>
+    <comment />
+  </data>
+  <data name="DisplayPeakLuminance_Description" xml:space="preserve">
+    <value>El pico hacia el que "Ajustar a la pantalla" comprime las luces altas en una pantalla HDR de Windows. Con 0 se usa el que informa Windows.</value>
+    <comment />
+  </data>
+  <data name="DisplayPeakLuminance_Reported" xml:space="preserve">
+    <value>Esta pantalla informa un pico de {0:F0} nits y un nivel de blanco SDR de {1:F0} nits.</value>
+    <comment />
+  </data>
+  <data name="DisplayPeakLuminance_NotHdr" xml:space="preserve">
+    <value>Esta pantalla no está en modo HDR.</value>
+    <comment />
+  </data>
   <data name="AiAgents" xml:space="preserve">
     <value>Agentes de IA</value>
     <comment />

@@ -421,6 +421,22 @@
     <value>Use HDR rendering for the preview player (mouse operations, etc., will be restricted)</value>
     <comment/>
   </data>
+  <data name="DisplayPeakLuminance" xml:space="preserve">
+    <value>Display peak luminance (nits)</value>
+    <comment/>
+  </data>
+  <data name="DisplayPeakLuminance_Description" xml:space="preserve">
+    <value>The peak that "Fit to display" rolls highlights off into on a Windows HDR display. 0 uses the one Windows reports.</value>
+    <comment/>
+  </data>
+  <data name="DisplayPeakLuminance_Reported" xml:space="preserve">
+    <value>This display reports a peak of {0:F0} nits and an SDR white level of {1:F0} nits.</value>
+    <comment/>
+  </data>
+  <data name="DisplayPeakLuminance_NotHdr" xml:space="preserve">
+    <value>This display is not in HDR mode.</value>
+    <comment/>
+  </data>
   <data name="AiAgents" xml:space="preserve">
     <value>AI Agents</value>
     <comment/>

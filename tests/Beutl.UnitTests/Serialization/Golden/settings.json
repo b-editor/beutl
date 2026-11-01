@@ -52,6 +52,7 @@
     "ToneMappingMode": 2,
     "ToneMappingExposure": 0.5,
     "UseHdrPreview": false,
+    "DisplayPeakLuminance": 0,
     "IsOnionSkinEnabled": false,
     "OnionSkinPrevCount": 2,
     "OnionSkinNextCount": 0,

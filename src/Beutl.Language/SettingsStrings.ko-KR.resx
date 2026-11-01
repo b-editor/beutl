@@ -421,6 +421,22 @@
     <value>미리 보기 플레이어에 HDR 렌더링을 사용합니다(마우스 조작 등이 제한됨)</value>
     <comment />
   </data>
+  <data name="DisplayPeakLuminance" xml:space="preserve">
+    <value>디스플레이 최대 휘도(니트)</value>
+    <comment />
+  </data>
+  <data name="DisplayPeakLuminance_Description" xml:space="preserve">
+    <value>Windows HDR 디스플레이에서 '디스플레이에 맞춤'이 하이라이트를 압축해 넣는 최대 밝기입니다. 0이면 Windows가 보고하는 값을 사용합니다.</value>
+    <comment />
+  </data>
+  <data name="DisplayPeakLuminance_Reported" xml:space="preserve">
+    <value>이 디스플레이가 보고하는 값: 최대 {0:F0}니트, SDR 흰색 수준 {1:F0}니트</value>
+    <comment />
+  </data>
+  <data name="DisplayPeakLuminance_NotHdr" xml:space="preserve">
+    <value>이 디스플레이는 HDR 모드가 아닙니다.</value>
+    <comment />
+  </data>
   <data name="AiAgents" xml:space="preserve">
     <value>AI 에이전트</value>
     <comment />

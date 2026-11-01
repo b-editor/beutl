@@ -47,6 +47,35 @@ public class PresentLuminanceTests
         Assert.That(PreviewDisplayMapping.For(PresentLuminance.Sdr.Headroom), Is.EqualTo(PreviewDisplayMapping.For(1f)));
     }
 
+    // The editor settings' peak stands in for the one the display reports, against the same SDR white, and fills in
+    // a peak the display leaves out.
+    [TestCase(240f, 1000f, 600f, 2.5f)]
+    [TestCase(200f, 0f, 800f, 4f)]
+    [TestCase(0f, 1000f, 400f, 5f)]
+    public void ForScRgbHdr_PeakOverrideReplacesTheReportedPeak(
+        float sdrWhiteNits, float peakNits, float peakOverrideNits, float headroom)
+    {
+        var report = new HdrDisplayReport(sdrWhiteNits, peakNits);
+
+        PresentLuminance luminance = PresentLuminance.ForScRgbHdr(report, peakOverrideNits);
+
+        Assert.That(luminance.ReferenceWhite,
+            Is.EqualTo(PresentLuminance.ForScRgbHdr(sdrWhiteNits, peakNits).ReferenceWhite));
+        Assert.That(luminance.Headroom, Is.EqualTo(headroom).Within(1e-6f));
+    }
+
+    // Without an override (0, the default) or with one that is not a positive number, the reported peak decides.
+    [TestCase(0f)]
+    [TestCase(-100f)]
+    [TestCase(float.NaN)]
+    public void ForScRgbHdr_WithoutAPeakOverrideUsesTheReportedPeak(float peakOverrideNits)
+    {
+        var report = new HdrDisplayReport(SdrWhiteNits: 240f, PeakNits: 1000f);
+
+        Assert.That(PresentLuminance.ForScRgbHdr(report, peakOverrideNits),
+            Is.EqualTo(PresentLuminance.ForScRgbHdr(sdrWhiteNits: 240f, maxLuminanceNits: 1000f)));
+    }
+
     // The structs WindowsDisplayLuminance hands to DXGI and the display configuration keep the layout of their C
     // declarations on 64-bit Windows.
     [Test]
@@ -125,9 +154,16 @@ public class PresentLuminanceTests
 
         using var display = new WindowsDisplayLuminance(GetDesktopWindow());
         display.Refresh();
-        TestContext.Out.WriteLine($"{display.Current}, {display.Gamut}");
+        TestContext.Out.WriteLine($"{display.Current}, {display.Gamut}, {display.Report}");
 
         Assert.That(display.Refresh(), Is.False);
+
+        // A peak override reads the display again and changes only an HDR one, against the white it reports.
+        PresentLuminance reported = display.Current;
+        display.Refresh(peakLuminanceOverride: 600f);
+        Assert.That(display.Current,
+            Is.EqualTo(display.Report is { } report ? PresentLuminance.ForScRgbHdr(report, 600f) : reported));
+        Assert.That(display.Refresh(peakLuminanceOverride: 600f), Is.False);
     }
 
 #pragma warning disable CA1416 // Only flags are read; nothing here calls Windows.

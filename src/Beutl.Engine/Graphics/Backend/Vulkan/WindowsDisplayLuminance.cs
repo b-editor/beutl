@@ -37,6 +37,7 @@ internal sealed unsafe partial class WindowsDisplayLuminance(nint hwnd) : IDispo
 
     private nint _factory;
     private nint _monitor;
+    private float _peakLuminanceOverride;
 
     /// <summary>The display's luminance as of the last <see cref="Refresh"/>.</summary>
     public PresentLuminance Current { get; private set; } = PresentLuminance.Unknown;
@@ -44,17 +45,31 @@ internal sealed unsafe partial class WindowsDisplayLuminance(nint hwnd) : IDispo
     /// <summary>The gamut FitToDisplay fits colors into, as of the last <see cref="Refresh"/>.</summary>
     public PreviewGamutMapping Gamut { get; private set; }
 
-    /// <summary>Reads the display again if the window moved to another one or the displays changed.</summary>
-    /// <returns>Whether <see cref="Current"/> or <see cref="Gamut"/> changed.</returns>
-    public bool Refresh()
+    /// <summary>
+    /// What the display reported at the last <see cref="Refresh"/>, or null when it is not in HDR mode or could not be
+    /// read.
+    /// </summary>
+    public HdrDisplayReport? Report { get; private set; }
+
+    /// <summary>
+    /// Reads the display again if the window moved to another one, the displays changed or the override did.
+    /// </summary>
+    /// <param name="peakLuminanceOverride">The peak in nit to roll highlights off into in place of the one an HDR
+    /// display reports, or 0 to use that.</param>
+    /// <returns>Whether <see cref="Current"/>, <see cref="Gamut"/> or <see cref="Report"/> changed.</returns>
+    public bool Refresh(float peakLuminanceOverride = 0f)
     {
+        if (!(peakLuminanceOverride > 0f))
+            peakLuminanceOverride = 0f;
+
         nint monitor = MonitorFromWindow(hwnd, MonitorDefaultToNearest);
         bool stale = _factory != 0 && !IsCurrent(_factory);
         // A factory DXGI failed to create is tried again on the next monitor, not on every frame.
-        if (monitor == _monitor && !stale)
+        if (monitor == _monitor && !stale && peakLuminanceOverride == _peakLuminanceOverride)
             return false;
 
         _monitor = monitor;
+        _peakLuminanceOverride = peakLuminanceOverride;
         if (_factory == 0 || stale)
         {
             ReleaseFactory();
@@ -63,13 +78,14 @@ internal sealed unsafe partial class WindowsDisplayLuminance(nint hwnd) : IDispo
             _factory = CreateDXGIFactory1(&iid, &factory) >= 0 ? factory : 0;
         }
 
-        (PresentLuminance luminance, PreviewGamutMapping gamut) =
+        (PresentLuminance luminance, PreviewGamutMapping gamut, HdrDisplayReport? report) =
             _factory != 0 && TryGetOutputDesc(monitor, out DxgiOutputDesc1 desc)
-                ? Read(desc)
-                : (PresentLuminance.Unknown, PreviewGamutMapping.None);
-        bool changed = luminance != Current || gamut != Gamut;
+                ? Read(desc, peakLuminanceOverride)
+                : (PresentLuminance.Unknown, PreviewGamutMapping.None, null);
+        bool changed = luminance != Current || gamut != Gamut || report != Report;
         Current = luminance;
         Gamut = gamut;
+        Report = report;
         return changed;
     }
 
@@ -82,17 +98,18 @@ internal sealed unsafe partial class WindowsDisplayLuminance(nint hwnd) : IDispo
     // Windows passes colors outside sRGB on for the display to clip at its primaries, so they are fitted to those
     // first. In SDR mode DXGI does not tell whether Windows manages colors into the primaries or clips them to sRGB, so
     // the display configuration is asked.
-    private static (PresentLuminance Luminance, PreviewGamutMapping Gamut) Read(DxgiOutputDesc1 desc)
+    private static (PresentLuminance Luminance, PreviewGamutMapping Gamut, HdrDisplayReport? Report) Read(
+        DxgiOutputDesc1 desc, float peakLuminanceOverride)
     {
         ReadOnlySpan<char> deviceName = TrimNull(new ReadOnlySpan<char>(desc.DeviceName, 32));
         float* xy = desc.Primaries;
         var primaries = new DisplayPrimaries(xy[0], xy[1], xy[2], xy[3], xy[4], xy[5]);
         if (desc.ColorSpace != DxgiColorSpaceRgbFullG2084NoneP2020)
-            return (PresentLuminance.Sdr, GamutInSdrMode(GetColorMode(deviceName), primaries));
+            return (PresentLuminance.Sdr, GamutInSdrMode(GetColorMode(deviceName), primaries), null);
 
-        float sdrWhiteNits = GetSdrWhiteLevelNits(deviceName);
-        return (PresentLuminance.ForScRgbHdr(sdrWhiteNits, desc.MaxLuminance),
-            PreviewGamutMapping.For(primaries, withinSrgb: false));
+        var report = new HdrDisplayReport(GetSdrWhiteLevelNits(deviceName), desc.MaxLuminance);
+        return (PresentLuminance.ForScRgbHdr(report, peakLuminanceOverride),
+            PreviewGamutMapping.For(primaries, withinSrgb: false), report);
     }
 
     // In SDR mode Windows clips colors to sRGB, unless auto color management has the display in WCG mode, where Windows
