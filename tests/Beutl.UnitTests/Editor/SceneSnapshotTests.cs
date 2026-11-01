@@ -80,6 +80,33 @@ public sealed class SceneSnapshotTests
         });
     }
 
+    // Silence analysis captures on the document thread and builds the copy on a worker after the document moved on.
+    [Test]
+    public async Task Materialize_OnAnotherThread_BuildsTheSceneAsCaptured()
+    {
+        var scene = new Scene(320, 240, "Export");
+        var other = new Scene(320, 240, "Other at capture");
+        var project = new Project { Name = { Value = "Project at capture" }, Items = { scene, other } };
+        var application = new BeutlApplication { Project = { Value = project } };
+        AddText(scene).Text.Expression = Reference(project, nameof(Project.Name), stringExpression: false);
+        AddText(scene).Text.Expression = Reference(other, nameof(Scene.Name), stringExpression: false);
+
+        SceneSnapshot.SceneCapture capture = SceneSnapshot.Capture(scene);
+        project.Name.Value = "Project edited after capture";
+        other.Name.Value = "Other edited after capture";
+        int captureThread = Environment.CurrentManagedThreadId;
+        (Scene snapshot, int materializeThread) = await Task.Run(
+            () => (SceneSnapshot.Materialize(capture), Environment.CurrentManagedThreadId));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(materializeThread, Is.Not.EqualTo(captureThread));
+            Assert.That(snapshot.FindHierarchicalRoot(), Is.InstanceOf<BeutlApplication>().And.Not.SameAs(application));
+            Assert.That(EvaluateText(snapshot), Is.EqualTo("Project at capture"));
+            Assert.That(EvaluateText(snapshot, 1), Is.EqualTo("Other at capture"));
+        });
+    }
+
     private static IExpression<string?> Reference(CoreObject target, string propertyName, bool stringExpression)
         => stringExpression
             ? new StringExpression<string?>($"GetProperty<string>(\"{target.Id.Value}.{propertyName}\")")
