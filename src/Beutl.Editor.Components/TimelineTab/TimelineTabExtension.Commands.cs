@@ -67,8 +67,10 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
             Scope = ContextCommandScope.Extension,
             // Saving a template only reads the element, so a lock does not stop it.
             CanExecute = execution => TryGetSelectedElement(execution.EditorContext, out _, out _),
-            ExecuteAsync = execution => OnSelectedElement(execution, (_, _, element) =>
-                execution.Interaction is { } interaction ? SaveAsTemplateAsync(element, interaction) : Task.CompletedTask)
+            ExecuteAsync = execution => OnSelectedElement(execution, (editorContext, scene, element) =>
+                execution.Interaction is { } interaction
+                    ? SaveAsTemplateAsync(editorContext, scene, element, interaction)
+                    : Task.CompletedTask)
         },
         Command("timeline.duplicate", Strings.Duplicate, Strings.Duplicate_Description,
             [new("Ctrl+D"), new("Cmd+D", OSPlatform.OSX)], timeline => timeline.Duplicate.Execute(), HasSelection),
@@ -269,8 +271,30 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
             .ToArray();
     }
 
-    private static async Task SaveAsTemplateAsync(Element element, IContextCommandInteraction interaction)
+    // The clips a template saves, locked ones too, since saving only reads them. An open timeline uses the clip's
+    // own rule (its selection and group, the clips Ctrl+C copies); otherwise the editor's selection, which outlives
+    // the timeline, with the selected element and each clip's group.
+    private static Element[] GetTemplateTargets(IEditorContext editorContext, Scene scene, Element element)
     {
+        if (editorContext.FindToolTab<TimelineTabViewModel>()?.GetViewModelFor(element) is { } viewModel)
+        {
+            IReadOnlyList<ElementViewModel> selected = viewModel.GetGroupOrSelectedElements();
+            return (selected.Count == 0 ? [viewModel] : selected)
+                .Select(e => e.Model)
+                .ToArray();
+        }
+
+        IEnumerable<Guid> selection = editorContext.GetService<IEditorSelection>()?.SelectedElements
+            .Select(e => e.Id.Value) ?? [];
+        HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(selection.Append(element.Id.Value), scene.Groups);
+        return scene.Children.Where(e => ids.Contains(e.Id.Value)).ToArray();
+    }
+
+    private static async Task SaveAsTemplateAsync(
+        IEditorContext editorContext, Scene scene, Element element, IContextCommandInteraction interaction)
+    {
+        // Taken before the name is asked for, so the template holds the clips the command was run on.
+        Element[] targets = GetTemplateTargets(editorContext, scene, element);
         string? name = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
             Value = GetDefaultTemplateName(element),
@@ -279,7 +303,10 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
         if (name is null) return;
 
         // Switching editors cancels the command, which stops rendering the preview and saving.
-        await TemplateSaving.SaveAsync(element, name.Trim(), cancellationToken: interaction.CancellationToken);
+        await TemplateSaving.SaveAsync(
+            TemplateSaving.CreateElementTemplate(scene, targets),
+            name.Trim(),
+            cancellationToken: interaction.CancellationToken);
     }
 
     // The element's name, or its type's when it has none, made unique among the templates.
