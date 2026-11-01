@@ -1,4 +1,8 @@
-﻿using Beutl.Graphics.Backend.Vulkan;
+﻿using System.Globalization;
+using System.Numerics;
+using System.Text.RegularExpressions;
+using Beutl.Graphics.Backend.Vulkan;
+using Beutl.Media;
 using Silk.NET.Vulkan;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
@@ -69,5 +73,73 @@ public class VulkanSwapchainFormatTests
 
         SurfaceFormatKHR chosen = VulkanSwapchain.SelectFallbackFormat(formats);
         Assert.That((chosen.Format, chosen.ColorSpace), Is.EqualTo((Format.A2B10G10R10UnormPack32, ColorSpaceKHR.SpaceHdr10ST2084Ext)));
+    }
+
+    // Core Animation clips EDR content to the layer's color space before tone mapping it, so a macOS HDR swapchain
+    // takes linear BT.2020 in half floats, and only that pair, when the surface offers it.
+    [Test]
+    public void TheHdrFormatTakesLinearBt2020WhenPreferred()
+    {
+        SurfaceFormatKHR[] formats =
+        [
+            new(Format.B8G8R8A8Srgb, ColorSpaceKHR.SpaceSrgbNonlinearKhr),
+            new(Format.R16G16B16A16Sfloat, ColorSpaceKHR.SpaceExtendedSrgbLinearExt),
+            new(Format.A2B10G10R10UnormPack32, ColorSpaceKHR.SpaceBT2020LinearExt),
+            new(Format.R16G16B16A16Sfloat, ColorSpaceKHR.SpaceBT2020LinearExt),
+        ];
+
+        SurfaceFormatKHR? preferred = VulkanSwapchain.SelectHdrFormat(formats, preferBt2020: true);
+        SurfaceFormatKHR? plain = VulkanSwapchain.SelectHdrFormat(formats, preferBt2020: false);
+
+        Assert.That(preferred, Is.EqualTo(new SurfaceFormatKHR(Format.R16G16B16A16Sfloat, ColorSpaceKHR.SpaceBT2020LinearExt)));
+        Assert.That(plain, Is.EqualTo(new SurfaceFormatKHR(Format.R16G16B16A16Sfloat, ColorSpaceKHR.SpaceExtendedSrgbLinearExt)));
+    }
+
+    [Test]
+    public void TheHdrFormatFallsBackToExtendedSrgbWithoutBt2020()
+    {
+        SurfaceFormatKHR[] formats =
+        [
+            new(Format.B8G8R8A8Srgb, ColorSpaceKHR.SpaceSrgbNonlinearKhr),
+            new(Format.R16G16B16A16Sfloat, ColorSpaceKHR.SpaceDisplayP3LinearExt),
+            new(Format.R16G16B16A16Sfloat, ColorSpaceKHR.SpaceExtendedSrgbLinearExt),
+        ];
+
+        SurfaceFormatKHR? chosen = VulkanSwapchain.SelectHdrFormat(formats, preferBt2020: true);
+
+        Assert.That(chosen, Is.EqualTo(new SurfaceFormatKHR(Format.R16G16B16A16Sfloat, ColorSpaceKHR.SpaceExtendedSrgbLinearExt)));
+    }
+
+    [Test]
+    public void ThereIsNoHdrFormatWithoutAHalfFloatPair()
+    {
+        SurfaceFormatKHR[] formats =
+        [
+            new(Format.B8G8R8A8Srgb, ColorSpaceKHR.SpaceSrgbNonlinearKhr),
+            new(Format.A2B10G10R10UnormPack32, ColorSpaceKHR.SpaceHdr10ST2084Ext),
+            new(Format.A2B10G10R10UnormPack32, ColorSpaceKHR.SpaceBT2020LinearExt),
+        ];
+
+        Assert.That(VulkanSwapchain.SelectHdrFormat(formats, preferBt2020: true), Is.Null);
+    }
+
+    // A BT.2020 swapchain gets the present shader's linear sRGB through the matrix BT.2020's primaries give.
+    [Test]
+    public void TheShaderConvertsToBt2020WithItsPrimaries()
+    {
+        float[] columns = Regex.Matches(VulkanPresentPipeline.SrgbToBt2020, @"-?\d+\.\d+")
+            .Select(m => float.Parse(m.Value, CultureInfo.InvariantCulture))
+            .ToArray();
+        PreviewGamutMapping bt2020 = PreviewGamutMapping.For(
+            new DisplayPrimaries(0.708f, 0.292f, 0.170f, 0.797f, 0.131f, 0.046f), withinSrgb: false);
+        Vector3[] rows = [bt2020.ToDisplay0, bt2020.ToDisplay1, bt2020.ToDisplay2];
+
+        Assert.That(columns, Has.Length.EqualTo(9));
+        for (int row = 0; row < 3; row++)
+        {
+            Assert.That(columns[row], Is.EqualTo(rows[row].X).Within(1e-5f), $"row {row}, red");
+            Assert.That(columns[3 + row], Is.EqualTo(rows[row].Y).Within(1e-5f), $"row {row}, green");
+            Assert.That(columns[6 + row], Is.EqualTo(rows[row].Z).Within(1e-5f), $"row {row}, blue");
+        }
     }
 }

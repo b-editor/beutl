@@ -29,6 +29,11 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         }
         """;
 
+    // Linear sRGB to linear BT.2020 (ITU-R BT.2087), both with a D65 white, for a swapchain in BT.2020. GLSL fills a
+    // mat3 column by column.
+    internal const string SrgbToBt2020 =
+        "mat3(0.6274039, 0.0690973, 0.0163914, 0.3292830, 0.9195404, 0.0880133, 0.0433131, 0.0113623, 0.8955953)";
+
     internal const string FragmentShaderSource = $$"""
         #version 450
         layout(location = 0) in vec2 uv;
@@ -47,6 +52,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             vec4 gamut1;
             vec4 gamut2;
             float referenceWhite;
+            int outputBt2020;
         } pc;
 
         vec3 reinhard(vec3 c) { return c / (1.0 + c); }
@@ -76,6 +82,8 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             if (pc.gamut1.w != 0.0) s = min(s, gamutSaturation(c.r, c.g, c.b, lum));
             return lum + (c - lum) * s;
         }
+
+        const mat3 srgbToBt2020 = {{SrgbToBt2020}};
 
         vec3 linearToSrgb(vec3 c) {
             vec3 lo = c * 12.92;
@@ -122,6 +130,11 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
 
             if (pc.linearToSrgb == 1) {
                 rgb = linearToSrgb(rgb);
+            }
+
+            // A BT.2020 swapchain takes the same colors in its own primaries.
+            if (pc.outputBt2020 == 1) {
+                rgb = srgbToBt2020 * rgb;
             }
 
             outColor = vec4(rgb * alpha, alpha);

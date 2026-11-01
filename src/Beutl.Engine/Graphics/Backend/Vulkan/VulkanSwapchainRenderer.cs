@@ -90,6 +90,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
     public bool IsHdrActive => _swapchain?.IsHdr ?? false;
 
+    /// <summary>Whether the swapchain takes linear BT.2020, whose gamut holds any display's.</summary>
+    public bool IsBt2020Active => _swapchain?.IsBt2020 ?? false;
+
     public void Initialize(IntPtr nativeHandle, uint width, uint height)
     {
         _surfaceInfo = VulkanSurfaceHelper.CreateSurface(_vk, _instance, nativeHandle);
@@ -381,6 +384,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         // Srgbフォーマットなら変換は不要。Unorm系は必要
         pushConstants.LinearToSrgb = !_swapchain.SrgbFormat ? 1 : 0;
         pushConstants.IsSourceLinear = renderParams.IsSourceLinear ? 1 : 0;
+        pushConstants.OutputBt2020 = _swapchain.IsBt2020 ? 1 : 0;
 
         // An SDR format holds nothing above 1.0, so FitToDisplay rolls values off into that. A Windows HDR display
         // shows an HDR swapchain's 1.0 at 80 nit, so reference white is written as the SDR white the UI is shown at,
