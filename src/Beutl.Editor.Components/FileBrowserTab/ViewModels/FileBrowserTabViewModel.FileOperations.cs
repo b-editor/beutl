@@ -51,22 +51,24 @@ public sealed partial class FileBrowserTabViewModel
         }
     }
 
-    private bool CanMutateItem(FileSystemItemViewModel item)
+    private bool CanMutateItem(FileSystemItemViewModel item) => CanMutate(item.FullPath, item.IsDirectory);
+
+    private bool CanMutate(string fullPath, bool isDirectory)
     {
         if (_disposed) return false;
         try
         {
             bool inUse = _editorContext.GetService<IEditorFileUsage>() is { } usage
-                ? usage.IsFileInUse(item.FullPath, item.IsDirectory)
-                : _editorContext.Object.Uri is { IsFile: true } own && (item.IsDirectory
-                    ? FilePathComparison.IsSameOrDescendant(item.FullPath, own.LocalPath)
-                    : FilePathComparison.AreSameCanonicalPath(item.FullPath, own.LocalPath));
+                ? usage.IsFileInUse(fullPath, isDirectory)
+                : _editorContext.Object.Uri is { IsFile: true } own && (isDirectory
+                    ? FilePathComparison.IsSameOrDescendant(fullPath, own.LocalPath)
+                    : FilePathComparison.AreSameCanonicalPath(fullPath, own.LocalPath));
             if (!inUse) return true;
             NotificationService.ShowError(Strings.File, MessageStrings.FileInUse);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not verify whether {Path} is in use.", item.FullPath);
+            _logger.LogWarning(ex, "Could not verify whether {Path} is in use.", fullPath);
             NotificationService.ShowError(Strings.File, MessageStrings.OperationFailed);
         }
         return false;
@@ -411,6 +413,10 @@ public sealed partial class FileBrowserTabViewModel
         string operation = move ? Strings.Move : Strings.Copy;
         string runningMessage = move ? Strings.FileBrowser_MovingFiles : Strings.FileBrowser_CopyingFiles;
         (string LocalPath, bool IsDirectory)[] entries = files.ToArray();
+        // The document keeps reading a moved file at its old path, so a file it uses stays, as it does for a rename.
+        if (move && entries.Any(entry => !CanMutate(entry.LocalPath, entry.IsDirectory)))
+            return;
+
         HashSet<string> merging = [];
         if (!move)
         {
