@@ -1,9 +1,13 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
+using Beutl.Audio;
 using Beutl.Editor;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.Components.OutputTab;
 using Beutl.Editor.Services;
+using Beutl.Media.Decoding;
+using Beutl.Media.Source;
+using Beutl.Media.Wave;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Testing.Headless;
@@ -32,6 +36,58 @@ public sealed class ExternalReviewRegressionTests
         Assert.That(File.Exists(path), Is.True);
         await browser.DeleteItemAsync(item);
         Assert.That(File.Exists(path), Is.True);
+    }
+
+    // A media source keeps its file in its own Uri, which hides CoreObject.Uri, so the file a clip plays went
+    // unprotected (#3619).
+    [AvaloniaTest]
+    public async Task FileBrowser_ProtectsMediaThatAClipPlays()
+    {
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("media-in-use-review", 320, 180)).Editor;
+        string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "clip.wav");
+        WriteSilentWave(path);
+        var decoder = new WaveDecoderInfo();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            var element = new Element();
+            element.Objects.Add(new SourceSound { Source = { Value = SoundSource.Open(path) } });
+            editor.Scene.Children.Add(element);
+            using var browser = new FileBrowserTabViewModel(editor);
+            using var item = new FileSystemItemViewModel(path, false);
+            await browser.RenameItemAsync(item, "renamed.wav");
+            Assert.That(File.Exists(path), Is.True);
+            await browser.DeleteItemAsync(item);
+            Assert.That(File.Exists(path), Is.True);
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    private static void WriteSilentWave(string path)
+    {
+        const int channels = 2;
+        using var writer = new BinaryWriter(File.Create(path));
+        int bytes = 128 * channels * sizeof(float);
+        writer.Write("RIFF"u8);
+        writer.Write(60 + bytes);
+        writer.Write("WAVEfmt "u8);
+        writer.Write(40);
+        writer.Write((ushort)0xFFFE);
+        writer.Write((ushort)channels);
+        writer.Write(44100);
+        writer.Write(44100 * channels * sizeof(float));
+        writer.Write((ushort)(channels * sizeof(float)));
+        writer.Write((ushort)32);
+        writer.Write((ushort)22);
+        writer.Write((ushort)32);
+        writer.Write((uint)AudioChannelLayout.Stereo.Speakers);
+        writer.Write(new Guid("00000003-0000-0010-8000-00aa00389b71").ToByteArray());
+        writer.Write("data"u8);
+        writer.Write(bytes);
+        writer.Write(new byte[bytes]);
     }
 
     [AvaloniaTest]

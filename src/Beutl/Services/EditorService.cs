@@ -4,6 +4,7 @@ using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.VersionControl;
+using Beutl.IO;
 using Beutl.Logging;
 using Beutl.Serialization;
 using Beutl.ViewModels;
@@ -25,18 +26,19 @@ public sealed partial class EditorService
             .OfType<CoreObject>();
         if (BeutlApplication.Current.Project.Value is { } project)
             objects = objects.Concat(project.Items).Prepend(project);
-        foreach (CoreObject obj in objects
+        foreach (object value in objects
                      .SelectMany(Beutl.ProjectSystem.SerializedGraphTraversal.Enumerate)
-                     .OfType<CoreObject>()
-                     .Distinct<CoreObject>(ReferenceEqualityComparer.Instance))
+                     .Distinct(ReferenceEqualityComparer.Instance))
         {
-            if (Matches(obj.Uri)) return true;
+            if (value is CoreObject { Uri: { IsFile: true } uri } && Matches(uri.LocalPath)) return true;
+            // Media and model sources keep their file in IFileSource.Uri, which hides CoreObject.Uri.
+            if (value is IFileSource source && FileSourceFiles.EnumerateLocalPaths(source).Any(Matches)) return true;
         }
         return false;
 
-        bool Matches(Uri? uri) => uri is { IsFile: true } && (isDirectory
-            ? FilePathComparison.IsSameOrDescendant(path, uri.LocalPath)
-            : FilePathComparison.AreSameCanonicalPath(path, uri.LocalPath));
+        bool Matches(string file) => isDirectory
+            ? FilePathComparison.IsSameOrDescendant(path, file)
+            : FilePathComparison.AreSameCanonicalPath(path, file);
     }
 
     internal Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost? BrowserSettingsHost { get; set; }
