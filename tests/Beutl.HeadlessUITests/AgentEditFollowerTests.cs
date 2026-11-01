@@ -37,11 +37,12 @@ public sealed class AgentEditFollowerTests
             await host.StartAsync();
             await using McpClient client = await ConnectAsync(host);
 
+            using var flashes = new FlashRecorder(fixture.Window);
             Success(await client.CallToolAsync("apply_edit", Patch(fixture, new JsonObject { ["Width"] = 200 })));
             HeadlessTestHelpers.Render(2);
 
             await HeadlessTestHelpers.WaitUntilAsync(() => fixture.Window.GetVisualDescendants().OfType<ElementView>()
-                .Any(view => ((ElementViewModel)view.DataContext!).Model == fixture.Far && HasFlash(view.border)));
+                .Any(view => ((ElementViewModel)view.DataContext!).Model == fixture.Far && flashes.Targets.Contains(view.border)));
 
             ElementView farView = fixture.Window.GetVisualDescendants().OfType<ElementView>()
                 .Single(view => ((ElementViewModel)view.DataContext!).Model == fixture.Far);
@@ -51,9 +52,9 @@ public sealed class AgentEditFollowerTests
                 Assert.That(fixture.Selection.Value, Is.SameAs(fixture.Far));
                 Assert.That(fixture.Clock.Value, Is.EqualTo(fixture.Far.Start.Value), "The playhead moves the least to show the element.");
                 Assert.That(properties.Items.Single()!.Model, Is.SameAs(fixture.FarRect));
-                Assert.That(HasFlash(farView.border), Is.True, "The timeline clip flashes.");
-                Assert.That(Flashed(fixture.Window).Any(target => target.FindAncestorOfType<ElementPropertyTabView>() is not null
-                                                                  && target.FindAncestorOfType<EngineObjectPropertyView>() is not null),
+                Assert.That(flashes.Targets, Does.Contain(farView.border), "The timeline clip flashes.");
+                Assert.That(flashes.Targets.Any(target => target.FindAncestorOfType<ElementPropertyTabView>() is not null
+                                                          && target.FindAncestorOfType<EngineObjectPropertyView>() is not null),
                     Is.True, "A property row flashes.");
             });
 
@@ -195,6 +196,7 @@ public sealed class AgentEditFollowerTests
             await host.StartAsync();
             await using McpClient client = await ConnectAsync(host);
 
+            using var flashes = new FlashRecorder(fixture.Window);
             Success(await client.CallToolAsync("apply_edit", Patch(fixture, new JsonObject { ["Width"] = 200 })));
             HeadlessTestHelpers.Render(5);
 
@@ -202,7 +204,7 @@ public sealed class AgentEditFollowerTests
             {
                 Assert.That(fixture.Editor.FindToolTab<ElementPropertyTabViewModel>()?.Items.Single()?.Model,
                     Is.SameAs(fixture.FarRect));
-                Assert.That(Flashed(fixture.Window).Any(target => target.FindAncestorOfType<EngineObjectPropertyView>() is not null),
+                Assert.That(flashes.Targets.Any(target => target.FindAncestorOfType<EngineObjectPropertyView>() is not null),
                     Is.True, "The reopened tab still flashes the edited row.");
             });
         }
@@ -259,6 +261,7 @@ public sealed class AgentEditFollowerTests
             await host.StartAsync();
             await using McpClient client = await ConnectAsync(host);
 
+            using var flashes = new FlashRecorder(fixture.Window);
             Success(await client.CallToolAsync("apply_edit", Patch(fixture, new JsonObject { ["Width"] = 200 })));
             Dictionary<string, object?> arguments = Target(fixture.Editor.Scene.Id.Value);
             arguments["outputPath"] = Path.Combine(fixture.Directory, "frame.png");
@@ -272,7 +275,7 @@ public sealed class AgentEditFollowerTests
                 Assert.That(fixture.Selection.Value, Is.Null);
                 Assert.That(fixture.Clock.Value, Is.EqualTo(MediaTime.Zero));
                 Assert.That(fixture.Timeline.Options.Value.Offset.X, Is.Zero);
-                Assert.That(Flashed(fixture.Window), Is.Empty);
+                Assert.That(flashes.Targets, Is.Empty);
             });
         }
         finally
@@ -280,6 +283,27 @@ public sealed class AgentEditFollowerTests
             fixture.Window.Close();
             HeadlessTestHelpers.Settle();
         }
+    }
+
+    // Records each control in the window that is given an adorner, which is how EditFlash outlines it. The outline
+    // comes down once its pulse has played, on wall-clock time a loaded run can use up before it looks, so check what
+    // was flashed rather than what still is.
+    private sealed class FlashRecorder : IDisposable
+    {
+        private readonly IDisposable _subscription;
+
+        public FlashRecorder(Window window)
+        {
+            _subscription = AdornerLayer.AdornedElementProperty.Changed.Subscribe(e =>
+            {
+                if (e.NewValue.GetValueOrDefault() is Control target && TopLevel.GetTopLevel(target) == window)
+                    Targets.Add(target);
+            });
+        }
+
+        public List<Control> Targets { get; } = [];
+
+        public void Dispose() => _subscription.Dispose();
     }
 
     private sealed record Fixture(
@@ -365,15 +389,6 @@ public sealed class AgentEditFollowerTests
         };
         return arguments;
     }
-
-    private static IEnumerable<Control> Flashed(Window window)
-        => window.GetVisualDescendants().OfType<AdornerLayer>()
-            .SelectMany(layer => layer.Children)
-            .Select(adorner => AdornerLayer.GetAdornedElement(adorner))
-            .OfType<Control>();
-
-    private static bool HasFlash(Control target)
-        => Flashed(target.FindAncestorOfType<Window>()!).Contains(target);
 
     private static Dictionary<string, object?> Target(Guid sceneId)
         => new() { ["sceneId"] = sceneId.ToString() };
