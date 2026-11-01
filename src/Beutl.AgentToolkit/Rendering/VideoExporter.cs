@@ -142,6 +142,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         return new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
         {
             SampleRate = sampleRate,
+            ChannelLayout = scene.FindHierarchicalParent<Project>().GetChannelLayout(),
         };
     }
 

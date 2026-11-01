@@ -1,4 +1,5 @@
 ﻿using System.Reactive.Linq;
+using System.Reflection;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
@@ -9,6 +10,7 @@ using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.Media.Encoding;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -107,7 +109,7 @@ public sealed class OutputProjectRateTests
     }
 
     [AvaloniaTest]
-    public async Task Preview_publishes_the_project_channels_while_export_stays_stereo()
+    public async Task Preview_and_export_compose_the_project_layout_while_the_encoder_receives_stereo()
     {
         EditViewModel editor = await OpenEditor();
         Project project = editor.Scene.FindHierarchicalParent<Project>()!;
@@ -135,12 +137,14 @@ public sealed class OutputProjectRateTests
         output.DestinationFile.Value = Path.Combine(BeutlHomeIsolation.CurrentHome!, "stereo-export.mp4");
         output.SelectedEncoder.Value = encoder;
         await output.RunAsync(CancellationToken.None);
+        Assert.That(encoder.ComposerLayout, Is.EqualTo(AudioChannelLayout.Surround51));
         Assert.That(encoder.Channels, Is.EqualTo(2));
     }
 
     private sealed class LayoutEncoder : ControllableEncodingExtension
     {
         public int Channels;
+        public AudioChannelLayout ComposerLayout;
         public override IEnumerable<string> SupportExtensions() => [".mp4"];
         public override EncodingController CreateController(string file) => new LayoutController(file, this);
     }
@@ -152,6 +156,9 @@ public sealed class OutputProjectRateTests
         public override AudioEncoderSettings AudioSettings { get; } = new();
         public override async ValueTask Encode(IFrameProvider frames, ISampleProvider samples, CancellationToken token)
         {
+            var composer = (SceneComposer)typeof(SampleProviderImpl)
+                .GetField("_composer", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(samples)!;
+            owner.ComposerLayout = composer.ChannelLayout;
             using var audio = await samples.ReadNextSamples(32);
             owner.Channels = audio!.ChannelCount;
             await File.WriteAllTextAsync(OutputFile, "test output", token);
