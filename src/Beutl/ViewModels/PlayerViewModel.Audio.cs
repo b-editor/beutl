@@ -100,18 +100,24 @@ public partial class PlayerViewModel
         try
         {
             playbackToken.ThrowIfCancellationRequested();
+            AudioChannelLayout projectLayout = EditViewModel.Composer.Value.ChannelLayout;
+            bool useMultichannelBackend = AudioPlaybackOutput.UseMultichannelBackend(projectLayout);
             if (OperatingSystem.IsWindows())
             {
-                using var audioContext = new XAudioContext();
-                await PlayWithXA2(audioContext, scene, clock, startTime, sampleRate, generation, playbackToken).ConfigureAwait(false);
+                using var audioContext = useMultichannelBackend
+                    ? new XAudioContext(useDeviceDefaults: true)
+                    : new XAudioContext();
+                await PlayWithXA2(audioContext, projectLayout, useMultichannelBackend,
+                    scene, clock, startTime, sampleRate, generation, playbackToken).ConfigureAwait(false);
             }
             else
             {
                 await Task.Run(async () =>
                 {
                     playbackToken.ThrowIfCancellationRequested();
-                    using var audioContext = new AudioContext();
-                    await PlayWithOpenAL(audioContext, scene, clock, startTime, sampleRate, generation, playbackToken);
+                    using var audioContext = useMultichannelBackend ? new AudioContext(soft: true) : new AudioContext();
+                    await PlayWithOpenAL(audioContext, projectLayout, useMultichannelBackend,
+                        scene, clock, startTime, sampleRate, generation, playbackToken);
                 }, playbackToken);
             }
         }
@@ -220,11 +226,13 @@ public partial class PlayerViewModel
         return false;
     }
 
-    private async Task PlayWithXA2(XAudioContext audioContext, Scene scene,
+    private async Task PlayWithXA2(XAudioContext audioContext, AudioChannelLayout projectLayout,
+        bool useMultichannelBackend, Scene scene,
         AudioPlaybackClock clock, MediaTime startTime, int sampleRate, int generation, CancellationToken playbackToken)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(playbackToken);
         cts.Token.ThrowIfCancellationRequested();
+        var (outputLayout, outputMatrix) = AudioPlaybackOutput.Create(projectLayout, audioContext.DeviceLayout);
         MediaTime cur = startTime;
         MediaTime sceneEndTime = default;
         var source = new XAudioSource(audioContext);
@@ -248,9 +256,11 @@ public partial class PlayerViewModel
                     sampleRate = audio.SampleRate;
                 }
 
-                using AudioBuffer? stereo = audio.ChannelCount == 2 ? null
-                    : AudioChannelMatrix.Create(EditViewModel.Composer.Value.ChannelLayout, AudioChannelLayout.Stereo).Apply(audio);
-                buffer.BufferData(stereo ?? audio);
+                using AudioBuffer? converted = outputMatrix?.Apply(audio);
+                if (useMultichannelBackend)
+                    buffer.BufferData(converted ?? audio, outputLayout);
+                else
+                    buffer.BufferData(converted ?? audio);
                 hasAudio = true;
                 _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(audio, bufferStartTime));
             }
@@ -334,12 +344,14 @@ public partial class PlayerViewModel
         await playback().ConfigureAwait(false);
     }
 
-    private async Task PlayWithOpenAL(AudioContext audioContext, Scene scene,
+    private async Task PlayWithOpenAL(AudioContext audioContext, AudioChannelLayout projectLayout,
+        bool useMultichannelBackend, Scene scene,
         AudioPlaybackClock clock, MediaTime startTime, int sampleRate, int generation, CancellationToken playbackToken)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(playbackToken);
         cts.Token.ThrowIfCancellationRequested();
         audioContext.MakeCurrent();
+        var (outputLayout, outputMatrix) = AudioPlaybackOutput.Create(projectLayout, audioContext.DeviceLayout);
 
         MediaTime cur = startTime;
         MediaTime sceneEndTime = default;
@@ -378,9 +390,11 @@ public partial class PlayerViewModel
                     sampleRate = audio.SampleRate;
                 }
 
-                using AudioBuffer? stereo = audio.ChannelCount == 2 ? null
-                    : AudioChannelMatrix.Create(EditViewModel.Composer.Value.ChannelLayout, AudioChannelLayout.Stereo).Apply(audio);
-                audioContext.BufferData(buffer, stereo ?? audio);
+                using AudioBuffer? converted = outputMatrix?.Apply(audio);
+                if (useMultichannelBackend)
+                    audioContext.BufferData(buffer, converted ?? audio, outputLayout);
+                else
+                    audioContext.BufferData(buffer, converted ?? audio);
                 fillSamples = audio.SampleCount;
                 hasAudio = true;
                 _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(audio, bufferStartTime));
