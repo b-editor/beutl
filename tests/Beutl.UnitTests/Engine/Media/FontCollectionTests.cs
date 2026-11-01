@@ -70,6 +70,26 @@ public class FontCollectionTests
     }
 
     [Test]
+    public void CopyFontData_CopiesAFaceAfterTheFirstAsAFontOfItsOwn()
+    {
+        var project = new Project { Uri = new Uri(Path.Combine(_root, "project.bep")) };
+        try
+        {
+            FontManager.Instance.LoadProjectFonts(project);
+            byte[]? data = FontManager.Instance.CopyFontData(new Typeface(new FontFamily("Beutl Test Variable")));
+
+            // A reader that opens only the first face, as Avalonia's does, must find this one there.
+            using var stream = new MemoryStream(data!, writable: false);
+            using SKTypeface? face = SKTypeface.FromStream(stream);
+            Assert.That(face?.FamilyName, Is.EqualTo("Beutl Test Variable"));
+        }
+        finally
+        {
+            FontManager.Instance.ClearProjectFonts(project);
+        }
+    }
+
+    [Test]
     public void InstalledCollections_RegisterEveryFace()
     {
         var family = new FontFamily("Beutl Test Variable");
