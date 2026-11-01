@@ -259,6 +259,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         if (acquireResult == Result.ErrorOutOfDateKhr)
         {
             ExecuteResize(_swapchain.Extent.Width, _swapchain.Extent.Height);
+            // Nothing was drawn, and a paused preview sends no later frame, so the uploaded one is drawn once more.
+            if (redrawIfOutOfDate)
+                ExecuteRender(null, renderParams, redrawIfOutOfDate: false);
             return;
         }
 
