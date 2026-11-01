@@ -5,7 +5,9 @@ namespace Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 
 // Fixed-size ring buffer holding the most recent planar L/R samples together
 // with a scene-time anchor so consumers can read samples corresponding to a
-// specific playback time — not just the newest sample written.
+// specific playback time — not just the newest sample written. Sources with
+// more than two channels are folded to L/R for the stereo views and also kept
+// per channel for the surround meter.
 // Writes may come from ComposeThread; reads happen on the UI thread.
 public sealed class AudioSampleRingBuffer
 {
@@ -17,6 +19,9 @@ public sealed class AudioSampleRingBuffer
     private readonly object _gate = new();
     private float[] _left = [];
     private float[] _right = [];
+    private float[][] _channels = [];
+    private float[][] _sourceChannels = [];
+    private int _channelCount;
     private int _capacity;
     private int _writeIndex;
     private long _totalWritten;
@@ -36,6 +41,15 @@ public sealed class AudioSampleRingBuffer
         }
     }
 
+    // Channel count of the last write, before folding. Zero until the first write.
+    public int ChannelCount
+    {
+        get
+        {
+            lock (_gate) return _channelCount;
+        }
+    }
+
     public void WriteInterleaved(ReadOnlySpan<float> interleaved, int channelCount, int sampleRate, MediaTime startTime)
     {
         if (channelCount < 1) return;
@@ -47,7 +61,7 @@ public sealed class AudioSampleRingBuffer
 
         lock (_gate)
         {
-            bool needsReset = _capacity == 0 || _sampleRate != sampleRate;
+            bool needsReset = _capacity == 0 || _sampleRate != sampleRate || _channelCount != channelCount;
             if (_hasAnchor && !needsReset)
             {
                 // Any backward overlap (paused frame-step composes a fixed 100 ms
@@ -66,7 +80,7 @@ public sealed class AudioSampleRingBuffer
                 // 5s default keeps enough history for the spectrogram view (default window 4s)
                 // while staying small (~1MB per channel at 48 kHz).
                 int cap = Math.Max(_capacity, sampleRate * 5);
-                ResetInternal(sampleRate, cap);
+                ResetInternal(sampleRate, cap, channelCount);
             }
 
             int capacity = _capacity;
@@ -84,6 +98,7 @@ public sealed class AudioSampleRingBuffer
                         float leftGain = matrix.GetCoefficient(0, channel), rightGain = matrix.GetCoefficient(1, channel);
                         if (leftGain != 0) l += interleaved[baseIdx + channel] * leftGain;
                         if (rightGain != 0) r += interleaved[baseIdx + channel] * rightGain;
+                        _channels[channel][idx] = interleaved[baseIdx + channel];
                     }
                 }
                 _left[idx] = l;
@@ -106,6 +121,7 @@ public sealed class AudioSampleRingBuffer
         {
             Array.Clear(_left);
             Array.Clear(_right);
+            foreach (float[] channel in _channels) Array.Clear(channel);
             _writeIndex = 0;
             _totalWritten = 0;
             _hasAnchor = false;
@@ -131,14 +147,45 @@ public sealed class AudioSampleRingBuffer
         {
             if (!_hasAnchor || _sampleRate <= 0)
             {
-                ClearRange(destLeft, destRight, 0, length);
+                destLeft.Slice(0, length).Clear();
+                destRight.Slice(0, length).Clear();
                 return 0;
             }
 
-            double secondsFromEnd = (_lastWriteEndTime - playheadTime).ToSeconds();
-            long samplesFromEnd = (long)Math.Round(secondsFromEnd * _sampleRate);
-            long targetEnd = _lastWriteEndIndex - samplesFromEnd;
-            return ReadEndingAtLocked(targetEnd, destLeft, destRight, length, out leadingZeros);
+            int got = LocateLocked(playheadTime, length, out leadingZeros, out int ringStart);
+            CopyLocked(_left, destLeft, length, leadingZeros, got, ringStart);
+            CopyLocked(_right, destRight, length, leadingZeros, got, ringStart);
+            return got;
+        }
+    }
+
+    // Per-channel variant of ReadAroundTime. `dest` needs ChannelCount arrays of at least
+    // `length` samples; channels are unfolded (a mono source yields one channel).
+    // Returns 0 without touching `dest` when its shape doesn't match.
+    public int ReadChannelsAroundTime(MediaTime playheadTime, float[][] dest, int length, out int leadingZeros)
+    {
+        leadingZeros = 0;
+        lock (_gate)
+        {
+            if (dest.Length != _sourceChannels.Length) return 0;
+            foreach (float[] channel in dest)
+            {
+                if (channel.Length < length) return 0;
+            }
+
+            int got = 0;
+            int ringStart = 0;
+            if (_hasAnchor && _sampleRate > 0)
+            {
+                got = LocateLocked(playheadTime, length, out leadingZeros, out ringStart);
+            }
+
+            for (int ch = 0; ch < dest.Length; ch++)
+            {
+                CopyLocked(_sourceChannels[ch], dest[ch], length, leadingZeros, got, ringStart);
+            }
+
+            return got;
         }
     }
 
@@ -163,22 +210,43 @@ public sealed class AudioSampleRingBuffer
             AudioMath.FindPeak(rSlice));
     }
 
-    private int ReadEndingAtLocked(long endAbsIndex, Span<float> destLeft, Span<float> destRight, int length, out int leadingZeros)
+    // Per-channel RMS / peak over `windowSamples` ending at `playheadTime`. `samples` is
+    // caller-owned scratch shaped as ReadChannelsAroundTime expects. Returns the channel
+    // count written to `rms` / `peak`, or 0 when nothing is buffered.
+    public int ComputeChannelMeters(
+        int windowSamples, MediaTime playheadTime, float[][] samples, Span<float> rms, Span<float> peak)
+    {
+        int channels = samples.Length;
+        if (rms.Length < channels || peak.Length < channels) return 0;
+        int got = ReadChannelsAroundTime(playheadTime, samples, windowSamples, out int leadingZeros);
+        if (got <= 0) return 0;
+
+        for (int ch = 0; ch < channels; ch++)
+        {
+            ReadOnlySpan<float> slice = samples[ch].AsSpan(leadingZeros, got);
+            rms[ch] = AudioMath.CalculateRms(slice);
+            peak[ch] = AudioMath.FindPeak(slice);
+        }
+
+        return channels;
+    }
+
+    // Maps `playheadTime` to a ring range: the real samples land at
+    // [leadingZeros, leadingZeros + returned count) of a `length` window and start at
+    // ring index `ringStart`. Must be called with an anchor.
+    private int LocateLocked(MediaTime playheadTime, int length, out int leadingZeros, out int ringStart)
     {
         leadingZeros = 0;
-        if (_capacity == 0)
-        {
-            ClearRange(destLeft, destRight, 0, length);
-            return 0;
-        }
+        ringStart = 0;
+        if (_capacity == 0) return 0;
+
+        double secondsFromEnd = (_lastWriteEndTime - playheadTime).ToSeconds();
+        long samplesFromEnd = (long)Math.Round(secondsFromEnd * _sampleRate);
+        long endAbsIndex = _lastWriteEndIndex - samplesFromEnd;
 
         long oldestAbs = Math.Max(0L, _totalWritten - _capacity);
         if (endAbsIndex > _totalWritten) endAbsIndex = _totalWritten;
-        if (endAbsIndex <= oldestAbs)
-        {
-            ClearRange(destLeft, destRight, 0, length);
-            return 0;
-        }
+        if (endAbsIndex <= oldestAbs) return 0;
 
         long startAbs = endAbsIndex - length;
         if (startAbs < oldestAbs)
@@ -186,55 +254,56 @@ public sealed class AudioSampleRingBuffer
             leadingZeros = (int)(oldestAbs - startAbs);
             startAbs = oldestAbs;
         }
-        if (leadingZeros > 0)
-        {
-            ClearRange(destLeft, destRight, 0, leadingZeros);
-        }
 
         int toCopy = (int)(endAbsIndex - startAbs);
-        if (toCopy <= 0)
-        {
-            ClearRange(destLeft, destRight, leadingZeros, length - leadingZeros);
-            return 0;
-        }
+        if (toCopy <= 0) return 0;
 
         long backFromWriteIdx = _totalWritten - startAbs;
-        int ringStart = (int)(((long)_writeIndex - backFromWriteIdx) % _capacity);
+        ringStart = (int)(((long)_writeIndex - backFromWriteIdx) % _capacity);
         if (ringStart < 0) ringStart += _capacity;
+        return toCopy;
+    }
 
+    // Copies `toCopy` ring samples from `ringStart` into dest[leadingZeros..] and
+    // zero-pads the rest of the `length` window.
+    private void CopyLocked(float[] source, Span<float> dest, int length, int leadingZeros, int toCopy, int ringStart)
+    {
+        if (toCopy <= 0)
+        {
+            dest.Slice(0, length).Clear();
+            return;
+        }
+
+        dest.Slice(0, leadingZeros).Clear();
         int firstChunk = Math.Min(toCopy, _capacity - ringStart);
-        _left.AsSpan(ringStart, firstChunk).CopyTo(destLeft.Slice(leadingZeros));
-        _right.AsSpan(ringStart, firstChunk).CopyTo(destRight.Slice(leadingZeros));
+        source.AsSpan(ringStart, firstChunk).CopyTo(dest.Slice(leadingZeros));
 
         int remaining = toCopy - firstChunk;
         if (remaining > 0)
         {
-            _left.AsSpan(0, remaining).CopyTo(destLeft.Slice(leadingZeros + firstChunk));
-            _right.AsSpan(0, remaining).CopyTo(destRight.Slice(leadingZeros + firstChunk));
+            source.AsSpan(0, remaining).CopyTo(dest.Slice(leadingZeros + firstChunk));
         }
 
         // Trailing zero-pad if the request extends past the anchor end.
         int trailingStart = leadingZeros + toCopy;
-        if (trailingStart < length)
-        {
-            ClearRange(destLeft, destRight, trailingStart, length - trailingStart);
-        }
-
-        return toCopy;
+        dest.Slice(trailingStart, length - trailingStart).Clear();
     }
 
-    private static void ClearRange(Span<float> left, Span<float> right, int start, int count)
-    {
-        left.Slice(start, count).Clear();
-        right.Slice(start, count).Clear();
-    }
-
-    private void ResetInternal(int sampleRate, int capacity)
+    private void ResetInternal(int sampleRate, int capacity, int channelCount)
     {
         _sampleRate = sampleRate;
         _capacity = capacity;
+        _channelCount = channelCount;
         _left = new float[capacity];
         _right = new float[capacity];
+        _channels = new float[channelCount > 2 ? channelCount : 0][];
+        for (int ch = 0; ch < _channels.Length; ch++) _channels[ch] = new float[capacity];
+        _sourceChannels = channelCount switch
+        {
+            1 => [_left],
+            2 => [_left, _right],
+            _ => _channels,
+        };
         _writeIndex = 0;
         _totalWritten = 0;
         _hasAnchor = false;
