@@ -379,19 +379,23 @@ internal sealed partial class ElementAdderImpl
                         "The element-set template handler received preflight state from another handler.")));
             }
 
-            ElementSetFactory.Move(setPreflight.Set, setPreflight.StartOffset, setPreflight.LayerOffset);
             Element[] elements = [.. setPreflight.Set.Elements];
+            ElementPlacementHelper.MoveTogether(elements, setPreflight.StartOffset, setPreflight.LayerOffset);
 
             // The earliest element leads, so the timeline scrolls to where the set begins.
             Element primary = elements
                 .OrderBy(element => element.Start.Value)
                 .ThenBy(element => element.ZIndex.Value)
                 .First();
+            // Kept together, so clips that overlap on one layer stay overlapped instead of being fitted apart.
             return ValueTask.FromResult(ElementSourceMaterializationResult.Materialized(
                 new ElementMaterialization(
                     primary,
                     elements.Where(element => element != primary),
-                    setPreflight.Set.Groups)));
+                    setPreflight.Set.Groups)
+                {
+                    KeepsArrangement = true
+                }));
         }
     }
 

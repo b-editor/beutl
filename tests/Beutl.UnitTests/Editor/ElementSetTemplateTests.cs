@@ -78,7 +78,7 @@ public class ElementSetTemplateTests
 
         ElementSet set = ElementSetFactory.Create(_harness.Scene, [source, target, outsider]);
         int? saved = set.Elements[1].MatteSourceZIndex.Value;
-        ElementSetFactory.Move(set, MediaTime.FromSeconds(1), 7);
+        ElementPlacementHelper.MoveTogether(set.Elements, MediaTime.FromSeconds(1), 7);
 
         Assert.Multiple(() =>
         {

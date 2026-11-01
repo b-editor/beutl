@@ -122,6 +122,13 @@ public sealed class ElementMaterialization
     public IReadOnlyList<IReadOnlySet<Guid>> Groups { get; }
 
     /// <summary>
+    /// Whether the elements keep where they start and lie relative to each other. The host then moves them together
+    /// to the free place nearest where they are, clear of the scene and of the earlier items of the same batch, and
+    /// adds them as they are; otherwise it fits each element on its own around whatever it overlaps.
+    /// </summary>
+    public bool KeepsArrangement { get; init; }
+
+    /// <summary>
     /// Resource leases acquired during materialization. The host releases every lease after the
     /// materialization pipeline finishes. A handler that needs a resource to outlive materialization
     /// must attach it to the returned element graph itself.
