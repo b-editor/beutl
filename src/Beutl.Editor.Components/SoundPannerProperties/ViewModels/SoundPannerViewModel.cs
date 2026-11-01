@@ -41,6 +41,20 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
                     else RefreshLayout();
                 }).AddTo(_subscriptions);
         }
+        foreach (var property in properties.OfType<IAnimatablePropertyAdapter>())
+        {
+            if (!ReferenceEquals(property.GetEngineProperty(), Sound.Pan)
+                && !ReferenceEquals(property.GetEngineProperty(), Sound.SurroundPan)) continue;
+            property.ObserveAnimation
+                .Select(animation => animation == null
+                    ? Observable.ReturnThenNever<IListProperty<IKeyFrame>?>(null)
+                    : animation.KeyFrames.CollectionChangedAsObservable()
+                        .Select(_ => animation.KeyFrames)
+                        .StartWith(animation.KeyFrames))
+                .Switch()
+                .Subscribe(_ => RefreshValues())
+                .AddTo(_subscriptions);
+        }
         Sound.AttachedToHierarchy += OnHierarchyChanged;
         Sound.DetachedFromHierarchy += OnHierarchyChanged;
         CurrentTime.Subscribe(_ => RefreshValues()).AddTo(_subscriptions);

@@ -28,6 +28,7 @@ using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Services.StartupTasks;
 using Beutl.Testing.Headless;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Reactive.Bindings;
 
@@ -130,6 +131,67 @@ public class SoundPannerEditorTests
         host.Time.Value = MediaTime.FromSeconds(origin);
         HeadlessTestHelpers.Render();
         Assert.That(host.ViewModel.CanDrag.Value, Is.True);
+    }
+
+    [AvaloniaTest]
+    public void KeyFrameCollectionChangesRefreshThePuckWithoutSeeking([Values] bool surround, [Values] bool last)
+    {
+        using var host = new PannerHost(SpeakerLayout.Surround51, 2,
+            sound => AddKeys(surround ? sound.SurroundPan : sound.Pan, false, 10, 90));
+        var property = surround ? host.Sound.SurroundPan : host.Sound.Pan;
+        var animation = property.GetKeyFrameAnimation()!;
+        var time = MediaTime.FromSeconds(last ? 5 : 3);
+        host.Time.Value = time;
+        AssertDisplayed(last ? 90 : 10);
+
+        AnimationOperations.RemoveKeyFrame(animation, animation.KeyFrames[last ? 1 : 0], NullLogger.Instance);
+        AssertDisplayed(last ? 10 : 90);
+
+        var added = new KeyFrame<float>
+        {
+            KeyTime = { Value = animation.ToLocal(time) }, Value = { Value = 45 }
+        };
+        animation.KeyFrames.Add(added, out _);
+        AssertDisplayed(45);
+        host.Drag(60, 65);
+        Assert.That(added.Value.Value, Is.EqualTo(surround ? 65 : 60).Within(0.01));
+        Assert.That(animation.KeyFrames.Single(k => !ReferenceEquals(k, added)).Value, Is.EqualTo(last ? 10f : 90f));
+
+        void AssertDisplayed(float value)
+        {
+            HeadlessTestHelpers.Render();
+            Assert.That(host.Time.Value, Is.EqualTo(time));
+            Assert.That(surround ? host.ViewModel.SurroundPan.Value : host.ViewModel.Pan.Value, Is.EqualTo(value));
+            Rect area = host.Panner.PanningBounds;
+            Assert.That(surround ? host.Panner.PuckCenter.Y : host.Panner.PuckCenter.X,
+                Is.EqualTo(surround ? area.Y + value / 100 * area.Height : area.X + (value + 100) / 200 * area.Width).Within(0.01));
+        }
+    }
+
+    [AvaloniaTest]
+    public void KeyFrameCollectionSubscriptionsFollowAnimationReplacementAndRemoval([Values] bool surround)
+    {
+        using var host = new PannerHost(SpeakerLayout.Surround51, 2, sound =>
+        {
+            var property = surround ? sound.SurroundPan : sound.Pan;
+            property.Value = 7;
+            AddKeys(property, false, 10, 90);
+        });
+        var property = surround ? host.Sound.SurroundPan : host.Sound.Pan;
+        var displayed = surround ? host.ViewModel.SurroundPan : host.ViewModel.Pan;
+        AddKeys(property, false, 30, 70);
+        Assert.That(displayed.Value, Is.EqualTo(30));
+        var replacement = property.GetKeyFrameAnimation()!;
+        AnimationOperations.RemoveKeyFrame(replacement, replacement.KeyFrames[0], NullLogger.Instance);
+        Assert.That(displayed.Value, Is.EqualTo(70));
+
+        property.SetKeyFrameAnimation(null);
+        Assert.That(displayed.Value, Is.EqualTo(7));
+        AddKeys(property, false, 20, 80);
+        var reattached = property.GetKeyFrameAnimation()!;
+        AnimationOperations.RemoveKeyFrame(reattached, reattached.KeyFrames[0], NullLogger.Instance);
+        Assert.That(displayed.Value, Is.EqualTo(80));
+        Assert.That(host.Time.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
     }
 
     [AvaloniaTest]
