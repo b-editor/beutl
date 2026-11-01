@@ -156,7 +156,8 @@ public sealed class ShaderGraphContractTests
 
     internal static (float[] Pixels, ShaderGraphExecutionStatistics Statistics) Execute(ShaderGraphDescription graph,
         Rect sourceBounds, float scale = 1, Rect? region = null, Vector4? sourceColor = null,
-        ProgramCache<ShaderGraphPipeline>? cache = null, Func<int, int, Vector4>? sourcePixel = null)
+        ProgramCache<ShaderGraphPipeline>? cache = null, Func<int, int, Vector4>? sourcePixel = null,
+        ShaderGraphImagePool? images = null)
     {
         var context = GpuTestEnvironment.ResolveVulkan(GraphicsContextFactory.SharedContext!);
         PixelRect sourcePixels = PixelRect.FromRect(sourceBounds, scale);
@@ -180,7 +181,8 @@ public sealed class ShaderGraphContractTests
             new(sourcePixels.X / scale, sourcePixels.Y / scale, sourcePixels.Width / scale, sourcePixels.Height / scale),
             sourcePixels.Size, scale);
         ShaderGraphExecutionStatistics statistics = ShaderGraphExecutor.Execute(graph, source, frame, output, scale, default,
-            (device, pass, identity) => ShaderGraphPipeline.Acquire(programs, new(context, context, "test", "test"), device, pass, identity), region);
+            (device, pass, identity) => ShaderGraphPipeline.Acquire(programs, new(context, context, "test", "test"), device, pass, identity), region,
+            images);
         float[] pixels = MemoryMarshal.Cast<byte, Half>(output.DownloadPixels()).ToArray().Select(v => (float)v).ToArray();
         return (pixels, statistics);
     }

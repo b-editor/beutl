@@ -39,6 +39,9 @@ internal sealed unsafe class ShaderGraphImage : IDisposable
     }
 
     internal NativeImage Handle { get; }
+    internal VulkanContext Context => _context;
+    // A borrowed image wraps the caller's texture for one execution.
+    internal bool IsBorrowed => _borrowed is not null;
     internal ImageDescription Description { get; }
     internal ImageUsageFlags Usage { get; }
     internal ulong AllocationSize { get; }

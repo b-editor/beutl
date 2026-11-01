@@ -327,7 +327,8 @@ public sealed class ShaderGraphRenderingTests
 
     internal static float[] Render(ShaderGraphDescription graph, Rect targetBounds, float scale = 1,
         Rect? requestedRegion = null, ProgramCache<ShaderGraphPipeline>? cache = null,
-        RenderTargetPool? sharedPool = null, Action<FilterEffectContext>? beforeGraph = null, bool nestedGraph = false)
+        RenderTargetPool? sharedPool = null, Action<FilterEffectContext>? beforeGraph = null, bool nestedGraph = false,
+        ShaderGraphImagePool? images = null)
     {
         var effect = new GraphEffect(graph, beforeGraph, nestedGraph);
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
@@ -348,7 +349,7 @@ public sealed class ShaderGraphRenderingTests
         RenderTargetPool pool = sharedPool ?? ownedPool!;
         var result = Graphics3DTestHelpers.ExecuteIntoPool(pool, compiled, targetBounds, requestedRegion ?? targetBounds,
             scale, scale, translateToTarget: true,
-            createExecutor: targets => new RenderRequestExecutor(targets, graphProgramCache: cache));
+            createExecutor: targets => new RenderRequestExecutor(targets, graphProgramCache: cache, shaderGraphImages: images));
         return result.Pixels.Select(v => (float)BitConverter.UInt16BitsToHalf(v)).ToArray();
     }
 
