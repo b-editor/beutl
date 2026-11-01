@@ -38,6 +38,7 @@ public partial class HdrBitmapView : NativeControlHost
     private VulkanSwapchainRenderer? _renderer;
     private Ref<BtlBitmap>? _clonedSource;
     private Size? _lastSourceSize;
+    private IntPtr _macOSView;
 
     static HdrBitmapView()
     {
@@ -129,8 +130,12 @@ public partial class HdrBitmapView : NativeControlHost
 
             RequestRender();
         }
-        else if (change.Property == ToneMappingProperty ||
-                 change.Property == ToneMappingExposureProperty ||
+        else if (change.Property == ToneMappingProperty)
+        {
+            UpdateEdrMetadata();
+            RequestRender();
+        }
+        else if (change.Property == ToneMappingExposureProperty ||
                  change.Property == StretchProperty ||
                  change.Property == InterpolationModeProperty)
         {
@@ -213,11 +218,19 @@ public partial class HdrBitmapView : NativeControlHost
             throw;
         }
 
+        if (OperatingSystem.IsMacOS())
+        {
+            _macOSView = handle.Handle;
+            UpdateEdrMetadata();
+        }
+
         return handle;
     }
 
     protected override void DestroyNativeControlCore(IPlatformHandle control)
     {
+        _macOSView = IntPtr.Zero;
+
         _renderer?.Dispose();
         _renderer = null;
 
@@ -261,6 +274,17 @@ public partial class HdrBitmapView : NativeControlHost
             IsSourceLinear: isLinear);
 
         _renderer.RequestRender(bitmapRef, renderParams);
+    }
+
+    // On macOS, FitToDisplay hands tone mapping to Core Animation, which fits the frame into the screen's current
+    // headroom the way QuickTime plays HDR10 and follows it as brightness changes. The present shader then passes
+    // values through.
+    private void UpdateEdrMetadata()
+    {
+        if (_macOSView == IntPtr.Zero)
+            return;
+
+        SetMacOSEdrMetadata(GetMacOSLayer(_macOSView), ToneMapping == UIToneMappingOperator.FitToDisplay);
     }
 
     private Size? GetSourceSize()

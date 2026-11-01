@@ -345,6 +345,7 @@
                                     <ComboBoxItem Content="{x:Static lang:SettingsStrings.ToneMappingMode_Reinhard}" />
                                     <ComboBoxItem Content="{x:Static lang:SettingsStrings.ToneMappingMode_ACES}" />
                                     <ComboBoxItem Content="{x:Static lang:SettingsStrings.ToneMappingMode_Hable}" />
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.ToneMappingMode_FitToDisplay}" />
                                 </ComboBox>
                             </ctrls:OptionsDisplayItem.ActionButton>
                         </ctrls:OptionsDisplayItem>

@@ -401,6 +401,10 @@
     <value>Hable</value>
     <comment />
   </data>
+  <data name="ToneMappingMode_FitToDisplay" xml:space="preserve">
+    <value>适应显示器</value>
+    <comment/>
+  </data>
   <data name="ToneMappingExposure" xml:space="preserve">
     <value>曝光</value>
     <comment />

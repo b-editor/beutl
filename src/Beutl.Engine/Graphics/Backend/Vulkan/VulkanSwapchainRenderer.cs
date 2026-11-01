@@ -333,6 +333,15 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         pushConstants.LinearToSrgb = !_swapchain.SrgbFormat ? 1 : 0;
         pushConstants.IsSourceLinear = renderParams.IsSourceLinear ? 1 : 0;
 
+        // An SDR format holds nothing above 1.0, so FitToDisplay rolls values off into that. An HDR swapchain gets
+        // them as they are: on macOS the layer's EDR metadata has Core Animation tone map them (HdrBitmapView), and
+        // elsewhere the display's headroom is not known.
+        var mapping = _swapchain.IsHdr ? PreviewDisplayMapping.Identity : PreviewDisplayMapping.For(1f);
+        pushConstants.MapKnee = mapping.Knee;
+        pushConstants.MapKs = mapping.Ks;
+        pushConstants.MapMaxLum = mapping.MaxLum;
+        pushConstants.MapSourcePq = mapping.SourcePq;
+
         var clearValue = new ClearValue { Color = new ClearColorValue(0f, 0f, 0f, 1f) };
         var renderPassInfo = new RenderPassBeginInfo
         {
