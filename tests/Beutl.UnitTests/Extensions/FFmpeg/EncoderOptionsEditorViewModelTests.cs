@@ -253,6 +253,23 @@ public sealed class EncoderOptionsEditorViewModelTests
         });
     }
 
+    // VP9 uses the bitrate together with crf, so the note does not tell it to remove crf.
+    [TestCase("libvpx-vp9", ".webm", false)]
+    [TestCase("libx265", ".mp4", true)]
+    [TestCase(null, ".mp4", true)]
+    [TestCase(null, ".webm", false)]
+    public async Task The_bitrate_note_applies_to_encoders_that_ignore_the_bitrate_under_crf(
+        string? codec, string extension, bool noted)
+    {
+        var settings = CreateSettings();
+        settings.Codec.Value = codec is null ? CodecRecord.Default : new CodecRecord(codec, codec);
+        settings.OutputFile = $"{Guid.NewGuid():N}{extension}";
+        await Cache(settings, Schema("high"));
+        using var model = CreateModel(settings);
+
+        Assert.That(model.BitrateNote is not null, Is.EqualTo(noted));
+    }
+
     private static EncoderOptionsEditorViewModel CreateModel(FFmpegVideoEncoderSettings settings)
         => new(new EnginePropertyAdapter<CoreList<AdditionalOption>>(settings.Options, settings),
             new FFmpegEncoderSpecializedPropertyExtension());

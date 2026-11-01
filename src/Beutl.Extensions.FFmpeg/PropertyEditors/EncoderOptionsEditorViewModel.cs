@@ -59,11 +59,23 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
 
     public string? GetValue(string name) => Options.FirstOrDefault(o => o.Name.Value == name)?.Value.Value;
 
-    // H.264 and H.265 encode at crf's quality and ignore the bitrate while crf is set, which the bitrate field alone
-    // does not tell. Exports keep that behaviour, as the built-in presets pair a bitrate with crf on purpose.
-    public string? BitrateNote => _settings.Bitrate.Value > 0 && !string.IsNullOrWhiteSpace(GetValue("crf"))
+    // x264 and x265 encode at crf's quality and ignore the bitrate while crf is set, which the bitrate field alone
+    // does not tell. Exports keep that behaviour, as the built-in presets pair a bitrate with crf on purpose. Other
+    // encoders, such as VP9, use the two together, so they get no note.
+    public string? BitrateNote => _settings.Bitrate.Value > 0
+                                  && !string.IsNullOrWhiteSpace(GetValue("crf"))
+                                  && IgnoresBitrateUnderCrf()
         ? Strings.EncoderOptionsBitrateUnusedWithCrf
         : null;
+
+    private bool IgnoresBitrateUnderCrf()
+    {
+        if (!_settings.Codec.Value.Equals(CodecRecord.Default))
+            return _settings.Codec.Value.Name is "libx264" or "libx264rgb" or "libx265";
+
+        // These containers default to x264.
+        return Path.GetExtension(_settings.OutputFile)?.ToLowerInvariant() is ".mp4" or ".m4v" or ".mov" or ".mkv";
+    }
 
     public void SetValue(string name, string? value)
     {
