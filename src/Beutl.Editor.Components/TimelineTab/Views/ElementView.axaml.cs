@@ -423,8 +423,13 @@ public sealed partial class ElementView : UserControl
     {
         if (DataContext is not ElementViewModel viewModel) return;
 
+        // The clips Copy takes: the selection, each clip with its group.
+        Element[] elements = [.. viewModel.GetGroupOrSelectedElements().Select(item => item.Model)];
         KeepRealizedWhileOpen(TemplateSaving.ShowSaveFlyout(
-            this, viewModel.Model, TimelineTabExtension.GetDefaultTemplateName(viewModel.Model), showAtPointer: true));
+            this,
+            TemplateSaving.CreateElementTemplate(viewModel.Scene, elements.Length > 0 ? elements : [viewModel.Model]),
+            TimelineTabExtension.GetDefaultTemplateName(viewModel.Model),
+            showAtPointer: true));
     }
 
     private void ChangeColor_Click(object? sender, RoutedEventArgs e)

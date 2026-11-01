@@ -199,7 +199,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "validate_shader")]
-    [Description("Compiles a candidate script for a script-compilable FilterEffect (SKSLScriptEffect, GLSLScriptEffect, CSharpScriptEffect) WITHOUT rendering, so shader edits can be checked before apply_edit. Pass the effect type name (e.g. SKSLScriptEffect) and the script text. status is one of: compiled; failed (error holds the compiler message); unavailable (compilation needs a graphics context absent in this session, e.g. headless GLSL — verify with render_still instead); unknown_type; not_script_effect. Call get_schema with type=<effect> first for the default script and its uniform list.")]
+    [Description("Compiles a candidate script for a script-compilable FilterEffect (SKSLScriptEffect, GLSLScriptEffect, CSharpScriptEffect) WITHOUT rendering, so shader edits can be checked before apply_edit. Pass the effect type name (e.g. SKSLScriptEffect) and the script text. status is one of: compiled; failed (error holds the compiler message; GLSL is also checked against the sampler and push constants the effect binds); unavailable (the shader compiler could not start in this session — verify with render_still instead); unknown_type; not_script_effect. Call get_schema with type=<effect> first for the default script and its uniform list.")]
     public ToolResult<ValidateShaderResponse> ValidateShader(string effectType, string script)
     {
         return Execute(() =>
@@ -209,7 +209,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
             {
                 "compiled" => "The script compiled. Place it in the effect's script property via apply_edit.",
                 "failed" => "Fix the reported compiler error, then validate again before apply_edit.",
-                "unavailable" => "Compilation could not be attempted here (no graphics context). Validate GLSL inside the in-app editor session, or apply it and verify with render_still.",
+                "unavailable" => "Compilation could not be attempted here (the shader compiler could not start). Apply the script and verify it with render_still.",
                 "unknown_type" => "Pass a FilterEffect type name from list_effects, such as SKSLScriptEffect.",
                 "not_script_effect" => "Only SKSLScriptEffect, GLSLScriptEffect, and CSharpScriptEffect accept a script.",
                 _ => string.Empty,

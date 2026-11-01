@@ -114,6 +114,7 @@ public class FileSystemItemViewModel : IDisposable
     private static Icon GetTemplateIconSymbol(Type baseType)
     {
         if (baseType.IsAssignableTo(typeof(Element))) return Icon.Filmstrip;
+        if (baseType.IsAssignableTo(typeof(ElementSet))) return Icon.Layer;
         if (baseType.IsAssignableTo(typeof(FilterEffect))) return Icon.Wand;
         if (baseType.IsAssignableTo(typeof(Transform))) return Icon.ArrowMove;
         if (baseType.IsAssignableTo(typeof(Drawable))) return Icon.Shapes;

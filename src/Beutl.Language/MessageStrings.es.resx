@@ -423,7 +423,7 @@ Podrás seguir editando cuando termine.</value>
     <value>Se canceló la aplicación porque la configuración de la escena se volvió no válida al pausar la reproducción.</value>
   </data>
   <data name="ScriptValidationUnavailable" xml:space="preserve">
-    <value>La validación no está disponible aquí (sin contexto gráfico); el script no se comprobó.</value>
+    <value>La validación no está disponible aquí; el script no se comprobó.</value>
   </data>
   <data name="WindowCapture_RecordingStarted" xml:space="preserve">
     <value>Grabación iniciada: {0}x{1} @ {2}fps</value>

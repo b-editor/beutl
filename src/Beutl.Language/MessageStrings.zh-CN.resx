@@ -423,7 +423,7 @@
     <value>暂停播放期间场景设置变得无效，因此取消了应用。</value>
   </data>
   <data name="ScriptValidationUnavailable" xml:space="preserve">
-    <value>此处无法进行验证（没有图形上下文）；脚本未检查。</value>
+    <value>此处无法进行验证；脚本未检查。</value>
   </data>
   <data name="WindowCapture_RecordingStarted" xml:space="preserve">
     <value>录制已开始：{0}x{1} @ {2}fps</value>
