@@ -41,7 +41,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
     {
         return ThumbnailsCacheKey.Compute(
             CoreSerializer.SerializeToJsonObject(this),
-            ["Source", "OffsetPosition", "Gain", "Pan", "Speed", "Effect"]);
+            ["Source", "ChannelMap", "OffsetPosition", "Gain", "Pan", "Speed", "Effect"]);
     }
 
     public async IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(

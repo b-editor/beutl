@@ -105,16 +105,27 @@ public sealed class AudioContext : IDisposable
     /// <returns>The created source node.</returns>
     public SourceNode CreateSourceNode(SoundSource.Resource source)
     {
+        ArgumentNullException.ThrowIfNull(source);
+        return CreateSourceNode(source, source.ChannelLayout, AudioChannelMap.Auto);
+    }
+
+    public SourceNode CreateSourceNode(SoundSource.Resource source, AudioChannelLayout clipLayout, AudioChannelMap channelMap)
+    {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(channelMap);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(clipLayout.ChannelCount, nameof(clipLayout));
 
         if (_previousNodes?.OfType<SourceNode>().FirstOrDefault(n => source.Compare(n.Source)) is { } existing)
         {
-            existing.ClipLayout = source.ChannelLayout;
+            if (existing.ClipLayout != clipLayout || !existing.ChannelMap.Equals(channelMap))
+                RetireDependentNodes(existing);
+            existing.ClipLayout = clipLayout;
+            existing.ChannelMap = channelMap;
             return AddNode(Reclaim(existing));
         }
 
-        var node = new SourceNode { Source = source.Capture(), ClipLayout = source.ChannelLayout };
+        var node = new SourceNode { Source = source.Capture(), ClipLayout = clipLayout, ChannelMap = channelMap };
         return AddNode(node);
     }
 
@@ -485,6 +496,31 @@ public sealed class AudioContext : IDisposable
         RemoveReference(_previousNodes!, node);
         node.ClearInputs();
         return node;
+    }
+
+    // Routing changes invalidate buffered samples, even when the channel count stays the same.
+    private void RetireDependentNodes(AudioNode source)
+    {
+        HashSet<AudioNode> affected = new(ReferenceEqualityComparer.Instance) { source };
+        bool added;
+        do
+        {
+            added = false;
+            foreach (var node in _previousNodes!)
+            {
+                if (!affected.Contains(node) && node.Inputs.Any(affected.Contains))
+                    added |= affected.Add(node);
+            }
+        } while (added);
+
+        foreach (var node in affected)
+        {
+            if (!ReferenceEquals(node, source))
+            {
+                RemoveReference(_previousNodes!, node);
+                node.Dispose();
+            }
+        }
     }
 
     // A context for a child sound that takes its reused nodes from this context's pool.

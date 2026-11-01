@@ -13,6 +13,21 @@ public class SourceSoundThumbnailTests
     [OneTimeSetUp]
     public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
 
+    [Test]
+    public void CacheKey_IncludesChannelAssignmentsAndRestoresForAuto()
+    {
+        var sound = new SourceSound();
+        string? automatic = sound.GetThumbnailsCacheKey();
+        Assert.That(automatic, Is.Not.Null);
+        sound.ChannelMap.Value = new AudioChannelMap(AudioChannelFormat.Stereo, AudioChannelLayout.GetDefault(4), [2, 3]);
+        string? selected = sound.GetThumbnailsCacheKey();
+        Assert.That(selected, Is.Not.EqualTo(automatic));
+        sound.ChannelMap.Value = sound.ChannelMap.Value.WithSources([2, -1]);
+        Assert.That(sound.GetThumbnailsCacheKey(), Is.Not.EqualTo(selected));
+        sound.ChannelMap.Value = AudioChannelMap.Auto;
+        Assert.That(sound.GetThumbnailsCacheKey(), Is.EqualTo(automatic));
+    }
+
     // Cache-control-flow contract of GetWaveformChunksAsync: a miss computes and saves the chunk, a
     // hit returns the cached value and is not re-saved, and every chunk is still produced either way.
     [Test]

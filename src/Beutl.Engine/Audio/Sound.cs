@@ -82,7 +82,9 @@ public abstract partial class Sound : EngineObject
             return;
         }
 
-        var sourceNode = context.CreateSourceNode(soundSource);
+        var channelMap = resource.GetChannelMap();
+        var clipLayout = channelMap.ResolveClipLayout(soundSource.ChannelLayout);
+        var sourceNode = context.CreateSourceNode(soundSource, clipLayout, channelMap);
 
         var shiftNode = context.CreateShiftNode(OffsetPosition.Value);
         context.Connect(sourceNode, shiftNode);
@@ -90,10 +92,10 @@ public abstract partial class Sound : EngineObject
         var resampleNode = context.CreateResampleNode(soundSource.SampleRate);
         context.Connect(shiftNode, resampleNode);
 
-        var speedNode = context.CreateSpeedNode(Speed, soundSource.ChannelLayout.ChannelCount);
+        var speedNode = context.CreateSpeedNode(Speed, clipLayout.ChannelCount);
         context.Connect(resampleNode, speedNode);
 
-        var pannerNode = context.CreatePannerNode(Pan, SurroundPan, CenterLevel, LfeLevel, soundSource.ChannelLayout);
+        var pannerNode = context.CreatePannerNode(Pan, SurroundPan, CenterLevel, LfeLevel, clipLayout);
         context.Connect(speedNode, pannerNode);
 
         var gainNode = context.CreateGainNode(Gain);
@@ -114,5 +116,7 @@ public abstract partial class Sound : EngineObject
     public partial class Resource
     {
         public abstract SoundSource.Resource? GetSoundSource();
+
+        public virtual AudioChannelMap GetChannelMap() => AudioChannelMap.Auto;
     }
 }

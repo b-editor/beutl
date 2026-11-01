@@ -17,6 +17,10 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ISpl
     [Display(Name = nameof(AudioStrings.SourceSound_Source), ResourceType = typeof(AudioStrings))]
     public IExpressionProperty<SoundSource?> Source { get; } = Property.CreateExpression<SoundSource?>();
 
+    [Display(Name = nameof(AudioStrings.SourceSound_ChannelMap),
+        Description = nameof(AudioStrings.SourceSound_ChannelMap_Description), ResourceType = typeof(AudioStrings))]
+    public IExpressionProperty<AudioChannelMap> ChannelMap { get; } = Property.CreateExpression(AudioChannelMap.Auto);
+
     public bool HasOriginalDuration()
     {
         return Source.Value != null;
@@ -48,5 +52,7 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ISpl
     public partial class Resource
     {
         public override SoundSource.Resource? GetSoundSource() => Source;
+
+        public override AudioChannelMap GetChannelMap() => ChannelMap;
     }
 }
