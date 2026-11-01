@@ -61,7 +61,7 @@ public sealed partial class LibraryTabExtension
 
     private static ObjectTemplateItem[] FindElementTemplates()
     {
-        return ObjectTemplateService.Instance.FindByBaseType(typeof(Element)).ToArray();
+        return ElementTemplateResolver.FindElementTemplates().ToArray();
     }
 
     // Flattens the library the way the timeline's "Add element" menu does; the group path goes in the

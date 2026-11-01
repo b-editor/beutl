@@ -54,6 +54,25 @@ public abstract record ElementSource
 
         public Func<Element> Factory { get; }
     }
+
+    /// <summary>
+    /// Creates several complete elements, with the groups among them, from a template saved from them.
+    /// </summary>
+    /// <remarks>
+    /// The elements keep their names, lengths and transforms, and where each starts and lies relative to the
+    /// others; a description that asks for a name, a length or a position is refused. Like pasted elements, they go
+    /// together to the free place nearest the requested start and layer.
+    /// </remarks>
+    public sealed record ElementSetTemplate : ElementSource
+    {
+        public ElementSetTemplate(Func<ElementSet> factory)
+        {
+            ArgumentNullException.ThrowIfNull(factory);
+            Factory = factory;
+        }
+
+        public Func<ElementSet> Factory { get; }
+    }
 }
 
 /// <summary>

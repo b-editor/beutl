@@ -82,6 +82,16 @@ public sealed class Bitmap : ICloneable, IDisposable
 
     internal SKBitmap SKBitmap => _skBitmap;
 
+    // An image over these pixels, without the full copy SKImage.FromBitmap makes of a mutable bitmap. The pixels must
+    // stay alive and unchanged until the draw call that reads the image returns: a raster canvas reads them there, and
+    // a GPU canvas of a direct context uploads them there.
+    internal SKImage? CreateImageWithoutCopy()
+    {
+        ThrowIfDisposed();
+        using SKPixmap? pixmap = _skBitmap.PeekPixels();
+        return pixmap is not null ? SKImage.FromPixels(pixmap) : SKImage.FromBitmap(_skBitmap);
+    }
+
     public BitmapInfo Info => new(Width, Height, ByteCount, BytesPerPixel, ColorType, AlphaType, _colorSpace);
 
     public unsafe Span<byte> GetPixelSpan()

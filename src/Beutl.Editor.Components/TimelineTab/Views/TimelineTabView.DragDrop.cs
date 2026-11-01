@@ -7,7 +7,6 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
-using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 
@@ -38,8 +37,7 @@ public sealed partial class TimelineTabView
 
         if (template != null)
         {
-            if (typeof(Element).IsAssignableFrom(template.ActualType)
-                || typeof(EngineObject).IsAssignableFrom(template.ActualType))
+            if (ElementTemplateResolver.CanCreateDescription(template))
             {
                 viewModel.AddElement.Execute(ElementTemplateResolver.CreateDescription(
                     template,

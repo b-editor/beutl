@@ -2,6 +2,7 @@
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
+using Beutl.Media;
 
 using Silk.NET.Vulkan;
 using SkiaSharp;
@@ -91,6 +92,44 @@ public class SkiaSurfaceSamplingTests
                 Assert.That(CenterPixel(destination), Is.EqualTo(SKColors.Red));
                 Assert.That(CenterPixel(source), Is.EqualTo(SKColors.Blue), "The source was not overwritten.");
             });
+        });
+    }
+
+    // b-editor/beutl#3754: the preview draws its frame without copying it, and the frame may be released or
+    // reused once the draw call returns. On a GPU canvas Skia must therefore upload the pixels during that call.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AnImageWithoutCopy_IsReadByItsDrawEvenWhenThePixelsChangeBeforeTheFlush(bool throughShader)
+    {
+        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var frame = new Bitmap(Size, Size, alphaType: BitmapAlphaType.Premul);
+            frame.SKBitmap.Erase(SKColors.Red);
+            using RenderTarget destination = CreateTarget();
+            destination.BeginDraw();
+            using (SKImage? image = frame.CreateImageWithoutCopy())
+            {
+                Assert.That(image, Is.Not.Null);
+                if (throughShader)
+                {
+                    // The tone-mapped preview samples the frame through an image shader.
+                    using SKShader shader = image!.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp,
+                        SKSamplingOptions.Default);
+                    using var paint = new SKPaint { Shader = shader };
+                    destination.Value.Canvas.DrawRect(SKRect.Create(Size, Size), paint);
+                }
+                else
+                {
+                    destination.Value.Canvas.DrawImage(image, 0, 0, SKSamplingOptions.Default, null);
+                }
+            }
+
+            frame.SKBitmap.Erase(SKColors.Blue);
+            context.SkiaContext.Flush(submit: true, synchronous: true);
+
+            Assert.That(CenterPixel(destination), Is.EqualTo(SKColors.Red));
         });
     }
 

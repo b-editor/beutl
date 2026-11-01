@@ -74,7 +74,7 @@ internal sealed partial class DecodingHandler : IDisposable
 
         if (reader.HasAudio)
         {
-            long audioBufferSize = reader.AudioInfo.SampleRate * 8 + 64; // 1 second stereo float
+            long audioBufferSize = (long)reader.AudioInfo.SampleRate * reader.AudioInfo.ChannelLayout.ChannelCount * sizeof(float) + 64;
             string audioShmName = $"beutl-ffmpeg-audio-{Environment.ProcessId}-{id}";
             state.AudioBuffer = SharedMemoryBuffer.Create(audioShmName, audioBufferSize);
         }
@@ -117,6 +117,7 @@ internal sealed partial class DecodingHandler : IDisposable
             response.AudioDurationDen = ai.Duration.Denominator;
             response.AudioSampleRate = ai.SampleRate;
             response.AudioNumChannels = ai.NumChannels;
+            response.AudioSpeakerMask = (uint)ai.ChannelLayout.Speakers;
         }
 
         return response;
@@ -189,9 +190,9 @@ internal sealed partial class DecodingHandler : IDisposable
         state.ReaderLock.Wait();
         try
         {
-            // 共有メモリに直接デコード
-            // 必要なバッファサイズを推定（Stereo32BitFloat = 8 bytes per sample）
-            long estimatedSize = (long)request.Length * 8 + 64;
+            // Decode packed float samples directly into the shared memory allocated at open.
+            int channels = state.Reader.HasAudio ? state.Reader.AudioInfo.ChannelLayout.ChannelCount : 0;
+            long estimatedSize = (long)request.Length * channels * sizeof(float) + 64;
 
             // The host splits requests into one-second chunks, which fit the buffer created at open.
             if (state.AudioBuffer == null || state.AudioBuffer.Capacity < estimatedSize)
@@ -215,6 +216,7 @@ internal sealed partial class DecodingHandler : IDisposable
                 {
                     Success = true,
                     SampleRate = audioInfo.SampleRate,
+                    NumChannels = audioInfo.NumChannels,
                     NumSamples = audioInfo.NumSamples,
                     DataLength = audioInfo.DataLength,
                 });

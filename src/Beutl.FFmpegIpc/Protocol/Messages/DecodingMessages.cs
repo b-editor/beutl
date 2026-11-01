@@ -34,6 +34,7 @@ public sealed class OpenFileResponse
     public long AudioDurationDen { get; set; }
     public int AudioSampleRate { get; set; }
     public int AudioNumChannels { get; set; }
+    public uint AudioSpeakerMask { get; set; } // 0 means discrete channels without speaker positions
 
     // リングバッファ情報
     public int VideoRingBufferSlotCount { get; set; } // 0 when the file has no video
@@ -75,6 +76,7 @@ public sealed class ReadAudioResponse
 {
     public bool Success { get; set; }
     public int SampleRate { get; set; }
+    public int NumChannels { get; set; }
     public int NumSamples { get; set; }
     public int DataLength { get; set; }
 }
