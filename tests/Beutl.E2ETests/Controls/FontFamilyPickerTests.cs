@@ -7,7 +7,6 @@ using Avalonia.Interactivity;
 using Avalonia.Media.TextFormatting;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
-using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Language;
 using Beutl.Media;
@@ -30,6 +29,8 @@ public class FontFamilyPickerTests
         new("Sans"),
         new("Beta Mono"),
     ];
+
+    private static readonly string s_ellipsis = char.ConvertFromUtf32(0x2026);
 
     private string? _pinnedItems;
 
@@ -370,9 +371,11 @@ public class FontFamilyPickerTests
             foreach (FontFamily family in families)
             {
                 TextBlock name = NameText(picker.List.GetRealizedContainers().Single(row => FontOf(row) == family));
+                // A trimmed name ends in an ellipsis, which the UI font draws when the font has none.
                 string[] faces = [.. name.TextLayout.TextLines
                     .SelectMany(line => line.TextRuns)
                     .OfType<ShapedTextRun>()
+                    .Where(run => run.Text.ToString() != s_ellipsis)
                     .Select(run => run.GlyphRun.GlyphTypeface.FamilyName)];
                 Assert.That(faces, Is.Not.Empty.And.All.EqualTo(family.Name), family.Name);
             }
@@ -434,14 +437,23 @@ public class FontFamilyPickerTests
     }
 
     [AvaloniaTest]
-    public void The_rows_are_set_to_trim_with_an_ellipsis_that_falls_back()
+    public void A_trimmed_name_ends_in_an_ellipsis_even_when_its_font_has_none()
     {
-        // The name is drawn in its own font, which may have no ellipsis. FallbackCharacterEllipsisTests checks the
-        // glyph the trimmed end falls back to.
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
-        using var picker = PickerHost.Open(viewModel);
+        // The light test font has no ellipsis, and the row is too narrow for its name.
+        using var fonts = ProjectFonts.Load("BeutlTestBlocks.ttf", "BeutlTestBlocksLight.ttf");
+        var light = new FontFamily("Beutl Test Blocks Light");
+        Assume.That(FontManager.Instance.IsRegistered(light), Is.True, "Needs a font stack that gives the light font a family of its own.");
+        using var picker = PickerHost.Open(new FontFamilyPickerFlyoutViewModel([new FontFamily("Beutl Test Blocks"), light], TimeSpan.Zero));
 
-        Assert.That(NameText(picker.List.GetRealizedContainers().First()).TextTrimming, Is.SameAs(FallbackCharacterEllipsis.Instance));
+        TextBlock name = NameText(picker.List.GetRealizedContainers().Single(row => FontOf(row) == light));
+        ShapedTextRun ellipsis = name.TextLayout.TextLines.Single().TextRuns.OfType<ShapedTextRun>().Last();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ellipsis.Text.ToString(), Is.EqualTo(s_ellipsis));
+            Assert.That(ellipsis.GlyphRun.GlyphInfos.Select(info => info.GlyphIndex), Has.None.EqualTo(0),
+                "Glyph 0 is the box a font draws for a missing glyph.");
+        });
     }
 
     [AvaloniaTest]
