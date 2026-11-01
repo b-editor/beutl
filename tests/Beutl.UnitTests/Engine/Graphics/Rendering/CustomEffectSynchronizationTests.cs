@@ -241,13 +241,14 @@ public sealed class CustomEffectSynchronizationTests
             using var executor = new FilterEffectExecutor(
                 targets,
                 builder,
-                RenderIntent.Preview,
-                RenderRequestPurpose.Auxiliary,
-                outputScale: 1,
-                workingScale: 1,
-                maxWorkingScale: 1,
-                deviceGridOffset: default,
-                useExecutorManagedCanvas: true);
+                new(RenderIntent.Preview, RenderRequestPurpose.Auxiliary)
+                {
+                    OutputScale = 1,
+                    WorkingScale = 1,
+                    MaxWorkingScale = 1,
+                    DeviceGridOffset = default(Vector),
+                    UseExecutorManagedCanvas = true,
+                });
             var flushes = new List<ImmediateCanvasFlushKind>();
 
             Assert.That(source.Value.Context, Is.Null);

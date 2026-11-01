@@ -98,7 +98,7 @@ public class GLSLShaderTests
             using var pool = new RenderTargetPool(new DecliningRenderTargetFactory());
             using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Preview, red);
             var context = new CustomFilterEffectContext(
-                targets, RenderIntent.Preview, RenderRequestPurpose.Auxiliary, renderTargetLeaseSession: session);
+                targets, new(RenderIntent.Preview, RenderRequestPurpose.Auxiliary) { RenderTargetLeaseSession = session });
             using var shader = GLSLShader.Create(ConstantBlueFragment, inputCount);
             const int iterations = 128;
             for (int i = 0; i < iterations; i++)
@@ -326,7 +326,7 @@ public class GLSLShaderTests
             using var input = new EffectTarget(red, new Rect(0, 0, 4, 4));
             using var targets = new EffectTargets();
             var context = new CustomFilterEffectContext(
-                targets, RenderIntent.Delivery, RenderRequestPurpose.Auxiliary, workingScale: density);
+                targets, new(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary) { WorkingScale = density });
             using var shader = GLSLShader.Create(ConstantBlueFragment);
             var bounds = new Rect(-2, -2, 8, 8);
             using EffectTarget output = shader.Render(context, [input], bounds, destination =>
@@ -382,7 +382,7 @@ public class GLSLShaderTests
             using var pool = new RenderTargetPool(new FailAtTargetFactory(0));
             using RenderTargetLeaseSession session = pool.BeginSession(intent, red);
             var context = new CustomFilterEffectContext(
-                targets, intent, RenderRequestPurpose.Auxiliary, renderTargetLeaseSession: session);
+                targets, new(intent, RenderRequestPurpose.Auxiliary) { RenderTargetLeaseSession = session });
             using var shader = GLSLShader.Create(ConstantBlueFragment);
 
             if (intent == RenderIntent.Preview)
@@ -633,9 +633,10 @@ public class GLSLShaderTests
             EffectTarget original = targets[0];
             var context = new CustomFilterEffectContext(
                 targets,
-                RenderIntent.Preview,
-                RenderRequestPurpose.Auxiliary,
-                renderTargetLeaseSession: session);
+                new(RenderIntent.Preview, RenderRequestPurpose.Auxiliary)
+                {
+                    RenderTargetLeaseSession = session,
+                });
             using var shader = GLSLShader.Create(ConstantBlueFragment);
 
             Assert.That(
@@ -821,7 +822,8 @@ public class GLSLShaderTests
         RenderTargetLeaseSession? session = null)
         => new CustomFilterEffectContext(
             targets,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary,
-            renderTargetLeaseSession: session);
+            new(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary)
+            {
+                RenderTargetLeaseSession = session,
+            });
 }

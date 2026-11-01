@@ -22,31 +22,30 @@ internal static class FilterEffectStageFallbackExecutor
         RenderIntent Intent,
         RenderRequestPurpose Purpose,
         RenderTargetLeaseSession? LeaseSession,
-        BufferDimensionBudget Budget);
+        BufferDimensionBudget Budget)
+    {
+        public static StageEnvironment From(FilterEffectExecutionSettings settings)
+            => new(
+                settings.OutputScale,
+                settings.WorkingScale,
+                settings.MaxWorkingScale,
+                settings.Intent,
+                settings.Purpose,
+                settings.RenderTargetLeaseSession,
+                settings.ResolveBudget());
+    }
 
     public static void ApplyShader(
         EffectTargets targets,
         ShaderDescription description,
-        float outputScale,
-        float workingScale,
-        float maxWorkingScale,
-        RenderIntent intent,
-        RenderRequestPurpose purpose,
-        SkRuntimeEffectProgramAcquirer acquireProgram,
-        RenderTargetLeaseSession? leaseSession,
-        BufferDimensionBudget budget)
+        FilterEffectExecutionSettings settings)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(description);
-        ArgumentNullException.ThrowIfNull(acquireProgram);
-        var environment = new StageEnvironment(
-            outputScale,
-            workingScale,
-            maxWorkingScale,
-            intent,
-            purpose,
-            leaseSession,
-            budget);
+        ArgumentNullException.ThrowIfNull(settings);
+        SkRuntimeEffectProgramAcquirer acquireProgram = settings.ProgramAcquirer
+            ?? throw new ArgumentException("A shader stage needs a program acquirer.", nameof(settings));
+        var environment = StageEnvironment.From(settings);
         ReplaceTargets(
             targets,
             target => ExecuteShader(target, description, acquireProgram, environment));
@@ -55,36 +54,23 @@ internal static class FilterEffectStageFallbackExecutor
     public static void ApplyGeometry(
         EffectTargets targets,
         GeometryDescription description,
-        float outputScale,
-        float workingScale,
-        float maxWorkingScale,
-        RenderIntent intent,
-        RenderRequestPurpose purpose,
-        RenderTargetLeaseSession? leaseSession,
-        BufferDimensionBudget budget)
+        FilterEffectExecutionSettings settings)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(description);
-        var environment = new StageEnvironment(
-            outputScale,
-            workingScale,
-            maxWorkingScale,
-            intent,
-            purpose,
-            leaseSession,
-            budget);
+        ArgumentNullException.ThrowIfNull(settings);
+        var environment = StageEnvironment.From(settings);
         ReplaceTargets(
             targets,
             target => ExecuteGeometry(target, description, environment));
     }
 
     public static void ApplyShaderGraph(EffectTargets targets, ShaderGraphDescription description,
-        float outputScale, float workingScale, float maxWorkingScale, RenderIntent intent,
-        RenderRequestPurpose purpose, RenderTargetLeaseSession? leaseSession, BufferDimensionBudget budget,
-        ShaderGraphProgramAcquirer acquireProgram)
+        FilterEffectExecutionSettings settings)
     {
-        var environment = new StageEnvironment(outputScale, workingScale, maxWorkingScale,
-            intent, purpose, leaseSession, budget);
+        ShaderGraphProgramAcquirer acquireProgram = settings.ShaderGraphProgramAcquirer
+            ?? throw new ArgumentException("A shader graph stage needs a program acquirer.", nameof(settings));
+        var environment = StageEnvironment.From(settings);
         Rect referenceBounds = targets.CalculateBounds();
         ReplaceTargets(targets, source =>
         {

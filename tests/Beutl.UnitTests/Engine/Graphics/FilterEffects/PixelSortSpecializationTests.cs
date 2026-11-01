@@ -158,13 +158,14 @@ public sealed class PixelSortSpecializationTests
         using var executor = new FilterEffectExecutor(
             targets,
             builder,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1,
-            deviceGridOffset: default,
-            useExecutorManagedCanvas: true);
+            new(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary)
+            {
+                OutputScale = 1,
+                WorkingScale = 1,
+                MaxWorkingScale = 1,
+                DeviceGridOffset = default(Vector),
+                UseExecutorManagedCanvas = true,
+            });
 
         executor.Apply(context);
 

@@ -136,7 +136,7 @@ public sealed partial class FilterEffectExecutor
                 w,
                 hasFilter);
             EffectTarget? newTarget = EffectTargetAllocation.Allocate(
-                _renderTargetLeaseSession,
+                _settings.RenderTargetLeaseSession,
                 target.Bounds,
                 w,
                 geometry.DeviceBounds,
@@ -196,7 +196,7 @@ public sealed partial class FilterEffectExecutor
     private void DropUnflushableTarget(EffectTarget target, int index, string message)
     {
         target.Dispose();
-        EffectTargetAllocation.FailDeliveryOrDrop(Intent, _renderTargetLeaseSession, message);
+        EffectTargetAllocation.FailDeliveryOrDrop(Intent, _settings.RenderTargetLeaseSession, message);
         CurrentTargets.RemoveAt(index);
     }
 
@@ -214,7 +214,7 @@ public sealed partial class FilterEffectExecutor
     {
         bool preserveImperativeRasterPlacement = !hasFilter;
         Vector allocationGridOffset = preserveImperativeRasterPlacement
-            ? _deviceGridOffset ?? default
+            ? _settings.DeviceGridOffset ?? default
             : target.DeviceGridOffset;
         Rect deviceRoundingSource = preserveImperativeRasterPlacement
             ? target.Bounds
