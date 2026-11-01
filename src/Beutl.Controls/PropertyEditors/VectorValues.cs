@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using System.Numerics;
+﻿using System.Numerics;
 
 using Avalonia;
 using Avalonia.Input;
@@ -102,7 +101,7 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
 
     public override bool IsValid(string? text)
     {
-        return TElement.TryParse(text, CultureInfo.CurrentCulture, out _);
+        return NumberEditorHelper.TryParse<TElement>(text, out _);
     }
 
     public override void Edit(int index, string? newText, string? oldText)
@@ -125,7 +124,7 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
 
     public override bool Step(int index, string? text, PointerWheelEventArgs e)
     {
-        if (!TElement.TryParse(text, CultureInfo.CurrentCulture, out TElement? value) || value is null)
+        if (!NumberEditorHelper.TryParse(text, out TElement? value) || value is null)
             return false;
 
         TElement oldValue = index >= 0 ? _values[index] : value;

@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Numerics;
 
 using Avalonia;
@@ -77,7 +76,7 @@ public class NumberEditor<TValue> : ValueStringEditor<TValue>
 
     private protected override bool TryParse(string? text, [MaybeNullWhen(false)] out TValue value)
     {
-        return TValue.TryParse(text, CultureInfo.CurrentCulture, out value) && value is not null;
+        return NumberEditorHelper.TryParse(text, out value) && value is not null;
     }
 
     private protected override TValue StepByWheel(TValue value, PointerWheelEventArgs e)

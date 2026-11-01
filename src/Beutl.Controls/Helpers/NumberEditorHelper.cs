@@ -70,6 +70,28 @@ public static class NumberEditorHelper
         return (bits[3] >> 16) & 0xFF;
     }
 
+    // Reads a number typed into an editor in the current culture or with a period as the decimal point. Where the
+    // decimal separator is a comma, the culture's own parse took the period for a group separator and read "1.5" as
+    // 15, so group separators are allowed only for text neither decimal point reads, such as "1.000,5".
+    // An integer takes no decimal point, so "1.000" stays rejected rather than becoming 1.
+    internal static bool TryParse<TValue>(ReadOnlySpan<char> text, [MaybeNullWhen(false)] out TValue value)
+        where TValue : INumberBase<TValue>
+    {
+        NumberStyles style = DecimalStyle<TValue>.Value;
+        return TValue.TryParse(text, style, CultureInfo.CurrentCulture, out value)
+            || TValue.TryParse(text, style, CultureInfo.InvariantCulture, out value)
+            || TValue.TryParse(text, CultureInfo.CurrentCulture, out value);
+    }
+
+    private static class DecimalStyle<TValue>
+        where TValue : INumberBase<TValue>
+    {
+        public static readonly NumberStyles Value =
+            TValue.TryParse("0.5", NumberStyles.Float, CultureInfo.InvariantCulture, out _)
+                ? NumberStyles.Float
+                : NumberStyles.Integer;
+    }
+
     // An edit applies when the new text parses and either the old text did not parse or the value changed.
     internal static bool TryParseEdit<TValue>(
         string? newText,
@@ -78,10 +100,10 @@ public static class NumberEditorHelper
         [NotNullWhen(true)] out TValue? oldValue)
         where TValue : INumber<TValue>
     {
-        if (TValue.TryParse(newText, CultureInfo.CurrentCulture, out newValue)
+        if (TryParse(newText, out newValue)
             && newValue is not null)
         {
-            if (!TValue.TryParse(oldText, CultureInfo.CurrentCulture, out oldValue) || oldValue is null)
+            if (!TryParse(oldText, out oldValue) || oldValue is null)
             {
                 oldValue = newValue;
                 return true;
