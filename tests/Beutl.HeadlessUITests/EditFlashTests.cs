@@ -13,7 +13,7 @@ public sealed class EditFlashTests
     // Avalonia times an animation started during a frame from that frame's start. A flash started at the end of a
     // slow layout pass, as when an agent edit reopens the property tab, still plays from the frame that draws it.
     [AvaloniaTest]
-    public void A_flash_started_after_a_slow_layout_plays_its_pulse()
+    public async Task A_flash_started_after_a_slow_layout_plays_its_pulse()
     {
         var target = new Border { Width = 40, Height = 20 };
         var stalling = new StallingDecorator { Child = target };
@@ -36,8 +36,11 @@ public sealed class EditFlashTests
             HeadlessTestHelpers.Settle();
             HeadlessTestHelpers.Render(2);
 
-            Assert.That(AdornerLayer.GetAdornerLayer(target)!.Children.Any(c => AdornerLayer.GetAdornedElement(c) == target),
-                Is.True, "The outline still pulses on the frames after that layout.");
+            Control? outline = AdornerLayer.GetAdornerLayer(target)!.Children
+                .SingleOrDefault(c => AdornerLayer.GetAdornedElement(c) == target);
+            Assert.That(outline, Is.Not.Null, "The outline is still up on the frames after that layout.");
+            // It goes up at opacity 0, so an outline whose pulse never starts would stay up unseen.
+            await HeadlessTestHelpers.WaitUntilAsync(() => outline!.Opacity > 0, message: "The outline fades in.");
         }
         finally
         {
