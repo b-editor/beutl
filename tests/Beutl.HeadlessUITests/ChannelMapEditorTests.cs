@@ -191,7 +191,9 @@ public class ChannelMapEditorTests
     {
         var window = new Window
         {
-            Content = new Border { Padding = new Thickness(12), Child = control }, Width = width, Height = height,
+            Content = new Border { Padding = new Thickness(12), Child = control },
+            Width = width,
+            Height = height,
             RequestedThemeVariant = ThemeVariant.Dark
         };
         window.Show();
