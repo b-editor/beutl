@@ -106,7 +106,8 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                 sampleProvider.SampleCount,
                 scene.Duration.Value.ToTimeSpan().ToString("c"),
                 GetEncoderName(encoder),
-                warnings) { AudioChannels = controller.AudioSettings.Channels.Value };
+                warnings)
+            { AudioChannels = controller.AudioSettings.Channels.Value };
         }
 
         // FFmpeg registers first, but its native libraries or out-of-process worker may be absent; fall

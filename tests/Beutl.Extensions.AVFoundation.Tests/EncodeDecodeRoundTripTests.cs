@@ -1,8 +1,8 @@
 ﻿using System.Runtime.InteropServices;
+using Beutl.Audio;
 using Beutl.Extensions.AVFoundation.Decoding;
 using Beutl.Extensions.AVFoundation.Encoding;
 using Beutl.Media;
-using Beutl.Audio;
 using Beutl.Media.Decoding;
 
 namespace Beutl.Extensions.AVFoundation.Tests;

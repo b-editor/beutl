@@ -3,8 +3,8 @@ using System.Runtime.Versioning;
 using Beutl.Audio;
 using Beutl.Extensibility;
 using Beutl.Extensions.AVFoundation.Interop;
-using Beutl.Media;
 using Beutl.Logging;
+using Beutl.Media;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.AVFoundation.Encoding;

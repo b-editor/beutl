@@ -1,6 +1,6 @@
-﻿using Beutl.FFmpegWorker.Encoding;
+﻿using Beutl.Audio;
+using Beutl.FFmpegWorker.Encoding;
 using Beutl.Media;
-using Beutl.Audio;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 

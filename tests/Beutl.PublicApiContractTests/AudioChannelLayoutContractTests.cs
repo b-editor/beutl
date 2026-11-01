@@ -2,8 +2,8 @@
 using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
 using Beutl.Composition;
-using Beutl.Media;
 using Beutl.Extensibility;
+using Beutl.Media;
 
 namespace Beutl.PublicApiContractTests;
 

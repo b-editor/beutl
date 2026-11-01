@@ -1,7 +1,7 @@
 ﻿using System.Reactive.Subjects;
 using Beutl.Audio;
-using Beutl.Models;
 using Beutl.Media;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Audio;
 
