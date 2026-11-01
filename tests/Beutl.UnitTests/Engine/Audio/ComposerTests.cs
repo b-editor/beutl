@@ -118,6 +118,15 @@ public class ComposerTests
     // test tone's 0.5 peak at a 1000% gain came out at 1.4 (#3616).
     [Test]
     public void Compose_LoudSound_StaysWithinFullScale()
+        => Assert.That(ComposeLoudPeak(clampsToFullScale: true), Is.EqualTo(1f));
+
+    // A nested scene's mix goes on through its parent's gain, so a clamp there would flatten peaks the parent's
+    // gain could bring back under full scale; only the soft limiter applies.
+    [Test]
+    public void Compose_NestedComposer_LeavesTheCeilingToItsParent()
+        => Assert.That(ComposeLoudPeak(clampsToFullScale: false), Is.GreaterThan(1.3f));
+
+    private static float ComposeLoudPeak(bool clampsToFullScale)
     {
         TestMediaHelper.RegisterTestDecoder();
         string path = TestMediaHelper.CreateTestAudioFile(sampleRate: 44100, channels: 2, durationSeconds: 1.0);
@@ -128,15 +137,11 @@ public class ComposerTests
         using var resource = sound.ToResource(CompositionContext.Default);
         var frame = new CompositionFrame(
             ImmutableArray.Create((EngineObject.Resource)resource), range, default, new CompositionEligibility([sound]));
-        using var composer = new Composer { SampleRate = 44100 };
+        using var composer = new Composer { SampleRate = 44100, ClampsToFullScale = clampsToFullScale };
 
         using AudioBuffer? buffer = composer.Compose(range, frame);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(AudioMath.FindPeak(buffer!.GetChannelData(0)), Is.EqualTo(1f));
-            Assert.That(AudioMath.FindPeak(buffer.GetChannelData(1)), Is.EqualTo(1f));
-        });
+        return Math.Max(AudioMath.FindPeak(buffer!.GetChannelData(0)), AudioMath.FindPeak(buffer.GetChannelData(1)));
     }
 
     [Test]
