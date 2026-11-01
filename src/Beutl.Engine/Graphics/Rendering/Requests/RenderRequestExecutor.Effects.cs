@@ -372,6 +372,7 @@ internal sealed partial class RenderRequestExecutor
                     RenderTargetLeaseSession = _targets,
                     TargetDomain = _options.TargetDomain,
                     ShaderGraphProgramAcquirer = AcquireShaderGraphProgram,
+                    ShaderGraphImages = _programCaches.ShaderGraphImages,
                 });
 
         // Applies program and completes the executor's working-scale policy boundary. The program's callbacks get a
