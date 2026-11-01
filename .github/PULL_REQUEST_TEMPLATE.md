@@ -6,7 +6,8 @@
      - UI: a screenshot or short screen recording of the new behavior
      - Rendering / effects / text / 3D / video: the same scene rendered before and after, and the settings used
      - Pixel-level changes: a diff image or the measured difference
-     Drag images or videos into this box, or pass them to `gh pr create` / `gh pr edit` with `--attach`
+     Put everything below this comment: text inside it stays hidden, and `--attach` does not rewrite it.
+     Drag images or videos in, or pass them to `gh pr create` / `gh pr edit` with `--attach`
      (gh rewrites Markdown references to the attached files; it leaves <img src> tags alone).
      Before / after side by side:
 
