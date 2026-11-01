@@ -76,6 +76,27 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
         _khrSwapchain.DestroySwapchain(_device, oldSwapchain, null);
     }
 
+    /// <summary>
+    /// Reads the surface's current size, or returns null when the surface cannot be read or reports no size to follow.
+    /// </summary>
+    public Extent2D? GetSurfaceExtent()
+    {
+        SurfaceCapabilitiesKHR capabilities;
+        if (_khrSurface.GetPhysicalDeviceSurfaceCapabilities(_physicalDevice, _surface, &capabilities) != Result.Success)
+            return null;
+
+        return UsableExtent(capabilities.CurrentExtent);
+    }
+
+    /// <summary>
+    /// A surface's current extent, or null when the swapchain picks the size instead (0xFFFFFFFF, as on Wayland) or
+    /// the surface has none (zero, as while its window is minimized).
+    /// </summary>
+    internal static Extent2D? UsableExtent(Extent2D current)
+    {
+        return current.Width is 0 or uint.MaxValue || current.Height is 0 or uint.MaxValue ? null : current;
+    }
+
     public Result AcquireNextImage(Semaphore imageAvailable, out uint imageIndex)
     {
         uint index = 0;

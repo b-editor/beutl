@@ -71,6 +71,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
     // What the last uploaded frame was drawn with, to draw it again for a changed display.
     private RenderParams? _lastRenderParams;
 
+    // The size the last shown frame was drawn at, to draw it again once the surface takes another size.
+    private Extent2D _presentedExtent;
+
     public VulkanSwapchainRenderer()
     {
         var vulkanInstance = GraphicsContextFactory.VulkanInstance
@@ -151,9 +154,10 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             {
                 if (!_commandQueue.TryTake(out var command, 100))
                 {
-                    // A paused preview gets no new frame when its window moves to another display or the
-                    // display's settings change, so the last one is drawn again.
-                    if (_lastRenderParams is not { } lastParams || !RefreshDisplay())
+                    // A paused preview gets no new frame when its window moves to another display, the display's
+                    // settings change, or its native view takes a new size after the last frame, so the last one is
+                    // drawn again.
+                    if (_lastRenderParams is not { } lastParams || !(RefreshDisplay() || SurfaceOutgrewLastFrame()))
                         continue;
 
                     command = new RenderCommand.RedrawCommand(lastParams);
@@ -185,6 +189,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
                             break;
 
                         case RenderCommand.RedrawCommand redraw:
+                            FollowSurfaceSize();
                             ExecuteRender(null, redraw.Params);
                             break;
 
@@ -277,16 +282,38 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         RecordAndSubmit(imageIndex, renderParams);
 
         var presentResult = _swapchain.Present(_graphicsQueue, _renderFinishedSemaphore, imageIndex);
+        if (presentResult is Result.Success or Result.SuboptimalKhr)
+            _presentedExtent = _swapchain.Extent;
+
         if (presentResult is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
         {
             ExecuteResize(_swapchain.Extent.Width, _swapchain.Extent.Height);
-            // A suboptimal frame was still shown; an out-of-date one was not, so it is drawn once more.
+            // A suboptimal frame was still shown, at the old size, which a paused preview's idle wait draws again;
+            // an out-of-date one was not, so it is drawn once more.
             if (presentResult == Result.ErrorOutOfDateKhr && redrawIfOutOfDate)
                 ExecuteRender(bitmapRef, renderParams, redrawIfOutOfDate: false);
             return;
         }
 
         Check(presentResult, "vkQueuePresentKHR");
+    }
+
+    // Whether the surface has a size the last shown frame was not drawn at. A resize can run before the native view
+    // takes its new size, and acquiring or presenting reports the change only for a frame after it.
+    private bool SurfaceOutgrewLastFrame()
+    {
+        return !_faulted && _swapchain?.GetSurfaceExtent() is { } surface
+            && (surface.Width != _presentedExtent.Width || surface.Height != _presentedExtent.Height);
+    }
+
+    // Recreates the swapchain at the surface's size when the two differ.
+    private void FollowSurfaceSize()
+    {
+        if (_swapchain?.GetSurfaceExtent() is { } surface
+            && (surface.Width != _swapchain.Extent.Width || surface.Height != _swapchain.Extent.Height))
+        {
+            ExecuteResize(surface.Width, surface.Height);
+        }
     }
 
     // Reads the display again for an HDR swapchain on Windows, and returns whether it changed.
