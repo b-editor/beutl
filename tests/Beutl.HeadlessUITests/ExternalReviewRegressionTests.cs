@@ -139,4 +139,25 @@ public sealed class ExternalReviewRegressionTests
         Assert.That(File.Exists(path), Is.True);
         Assert.That(File.Exists(Path.Combine(Path.GetDirectoryName(path)!, "renamed.scene")), Is.False);
     }
+
+    // A move left the document reading the old path, and saving the open scene wrote it there again (#3620).
+    [AvaloniaTest]
+    public async Task FileBrowser_DoesNotMoveAFileTheDocumentUses()
+    {
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("move-in-use-review", 320, 180)).Editor;
+        string path = editor.Scene.Uri!.LocalPath;
+        string target = Path.Combine(Path.GetDirectoryName(path)!, "moved");
+        Directory.CreateDirectory(target);
+        using var browser = new FileBrowserTabViewModel(editor);
+        using var notifications = new NotificationCapture();
+
+        await browser.TransferFilesToDirectoryAsync([(path, false)], target, move: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(path), Is.True);
+            Assert.That(Directory.EnumerateFileSystemEntries(target), Is.Empty);
+            Assert.That(notifications.Single().Message, Is.EqualTo(Beutl.Language.MessageStrings.FileInUse));
+        });
+    }
 }
