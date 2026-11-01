@@ -37,4 +37,7 @@ internal struct PresentPushConstants
     public float Gamut2Y;
     public float Gamut2Z;
     public float Gamut2W; // Unused; fills the vec4.
+
+    // PresentLuminance.ReferenceWhite: what reference white (1.0) is written as.
+    public float ReferenceWhite;
 }

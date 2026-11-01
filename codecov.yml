@@ -8,8 +8,9 @@
 
 # The coverage job runs on Linux and cannot execute the Windows WebView2 COM handler, the WebView2, WKWebView and
 # WebKitGTK/WPE interop that needs a native web view, the macOS-only NSBundle read of the installed Safari's version,
-# the Windows-only loader for the FreeType font manager in Beutl's libSkiaSharp, nor the macOS-only Metal/MoltenVK
-# interop that pairs Skia's Metal queue with the engine's Vulkan one.
+# the Windows-only loader for the FreeType font manager in Beutl's libSkiaSharp, the Windows-only DXGI and display
+# configuration queries for the HDR preview, nor the macOS-only Metal/MoltenVK interop that pairs Skia's Metal queue
+# with the engine's Vulkan one.
 ignore:
   - "src/Beutl.Editor.Components/WebBrowserTab/WindowsBrowserDownloadHandler.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/WindowsReferrerNavigation.cs"
@@ -25,6 +26,7 @@ ignore:
   - "src/Beutl.Editor.Components/WebBrowserTab/MacOSBrowserDownloadHandler.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/MacOSBrowserDownloadHandler.Download.cs"
   - "src/Beutl.Engine/Media/Font/FreeTypeFonts.cs"
+  - "src/Beutl.Engine/Graphics/Backend/Vulkan/WindowsDisplayLuminance.cs"
   - "src/Beutl.Engine/Graphics/Backend/Composite/CompositeContext.cs"
   - "src/Beutl.Engine/Graphics/Backend/Metal/MetalContext.cs"
   - "src/Beutl.Engine/Graphics/Backend/Metal/MetalVulkanTexture2D.cs"

@@ -46,6 +46,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             vec4 gamut0;
             vec4 gamut1;
             vec4 gamut2;
+            float referenceWhite;
         } pc;
 
         vec3 reinhard(vec3 c) { return c / (1.0 + c); }
@@ -115,6 +116,9 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
                 rgb *= displayMapGain(max(rgb.r, max(rgb.g, rgb.b)),
                     pc.displayMapping.x, pc.displayMapping.y, pc.displayMapping.z, pc.displayMapping.w);
             }
+
+            // Reference white as bright as the UI's white (PresentLuminance).
+            rgb *= pc.referenceWhite;
 
             if (pc.linearToSrgb == 1) {
                 rgb = linearToSrgb(rgb);

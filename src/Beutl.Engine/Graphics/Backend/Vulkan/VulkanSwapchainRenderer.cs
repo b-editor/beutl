@@ -63,6 +63,14 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
     // unsignaled, so later frames are dropped instead of waiting on it; recreating the view recovers.
     private bool _faulted;
 
+    // Windows only: the display the window is on, which an HDR swapchain is fitted to.
+    private WindowsDisplayLuminance? _windowsDisplay;
+    private PresentLuminance _hdrLuminance = PresentLuminance.Unknown;
+    private PreviewGamutMapping _hdrGamut;
+
+    // What the last uploaded frame was drawn with, to draw it again for a changed display.
+    private RenderParams? _lastRenderParams;
+
     public VulkanSwapchainRenderer()
     {
         var vulkanInstance = GraphicsContextFactory.VulkanInstance
@@ -89,6 +97,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         _pipeline = new VulkanPresentPipeline(_vk, _device, _swapchain.Format, _swapchain.ImageViews, _swapchain.Extent);
         _renderCommandBuffer = AllocateCommandBuffer();
         _uploadCommandBuffer = AllocateCommandBuffer();
+
+        if (OperatingSystem.IsWindows())
+            _windowsDisplay = new WindowsDisplayLuminance(nativeHandle);
 
         StartPresentThread();
 
@@ -136,7 +147,14 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             while (_running)
             {
                 if (!_commandQueue.TryTake(out var command, 100))
-                    continue;
+                {
+                    // A paused preview gets no new frame when its window moves to another display or the
+                    // display's settings change, so the last one is drawn again.
+                    if (_lastRenderParams is not { } lastParams || !RefreshDisplay())
+                        continue;
+
+                    command = new RenderCommand.RedrawCommand(lastParams);
+                }
 
                 // Drain queue to get latest command, dispose intermediate bitmaps
                 while (_commandQueue.TryTake(out var newer))
@@ -161,6 +179,10 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
                                 draw.BitmapRef.Dispose();
                             }
 
+                            break;
+
+                        case RenderCommand.RedrawCommand redraw:
+                            ExecuteRender(null, redraw.Params);
                             break;
 
                         case RenderCommand.ResizeCommand resize:
@@ -201,13 +223,14 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         s_logger.LogDebug("Swapchain resized to {Width}x{Height}", width, height);
     }
 
-    private void ExecuteRender(Ref<Bitmap> bitmapRef, RenderParams renderParams, bool redrawIfOutOfDate = true)
+    // Without a bitmap, draws the one uploaded last again.
+    private void ExecuteRender(Ref<Bitmap>? bitmapRef, RenderParams renderParams, bool redrawIfOutOfDate = true)
     {
         if (_faulted || _swapchain == null || _pipeline == null)
             return;
 
-        var bitmap = bitmapRef.Value;
-        if (bitmap.IsDisposed)
+        var bitmap = bitmapRef?.Value;
+        if (bitmap?.IsDisposed == true)
             return;
 
         // The previous frame fence covers its upload and present draw because both use this queue.
@@ -223,14 +246,23 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         Check(waitResult, "vkWaitForFences");
 
-        // The following render submission is ordered after this upload on the same queue, so it
-        // needs no per-operation CPU fence wait.
-        UploadBitmap(bitmap);
+        if (bitmap != null)
+        {
+            // The following render submission is ordered after this upload on the same queue, so it
+            // needs no per-operation CPU fence wait.
+            UploadBitmap(bitmap);
+            _lastRenderParams = renderParams;
+        }
+
+        RefreshDisplay();
 
         var acquireResult = _swapchain.AcquireNextImage(_imageAvailableSemaphore, out uint imageIndex);
         if (acquireResult == Result.ErrorOutOfDateKhr)
         {
             ExecuteResize(_swapchain.Extent.Width, _swapchain.Extent.Height);
+            // Nothing was drawn, and a paused preview sends no later frame, so the uploaded one is drawn once more.
+            if (redrawIfOutOfDate)
+                ExecuteRender(null, renderParams, redrawIfOutOfDate: false);
             return;
         }
 
@@ -252,6 +284,23 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         }
 
         Check(presentResult, "vkQueuePresentKHR");
+    }
+
+    // Reads the display again for an HDR swapchain on Windows, and returns whether it changed.
+    private bool RefreshDisplay()
+    {
+        if (!OperatingSystem.IsWindows() || _windowsDisplay == null || _swapchain?.IsHdr != true
+            || !_windowsDisplay.Refresh())
+        {
+            return false;
+        }
+
+        _hdrLuminance = _windowsDisplay.Current;
+        _hdrGamut = _windowsDisplay.Gamut;
+        s_logger.LogInformation(
+            "Fitting the preview to its display: reference white {ReferenceWhite}, headroom {Headroom}, gamut {Gamut}",
+            _hdrLuminance.ReferenceWhite, _hdrLuminance.Headroom, _hdrGamut.IsEnabled ? "display" : "none");
+        return true;
     }
 
     private static void Check(Result result, string operation)
@@ -333,18 +382,25 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         pushConstants.LinearToSrgb = !_swapchain.SrgbFormat ? 1 : 0;
         pushConstants.IsSourceLinear = renderParams.IsSourceLinear ? 1 : 0;
 
-        // An SDR format holds nothing above 1.0, so FitToDisplay rolls values off into that. An HDR swapchain gets
-        // them as they are: on macOS the layer's EDR metadata has Core Animation tone map them (HdrBitmapView), and
-        // elsewhere the display's headroom is not known.
-        var mapping = _swapchain.IsHdr ? PreviewDisplayMapping.Identity : PreviewDisplayMapping.For(1f);
+        // An SDR format holds nothing above 1.0, so FitToDisplay rolls values off into that. A Windows HDR display
+        // shows an HDR swapchain's 1.0 at 80 nit, so reference white is written as the SDR white the UI is shown at,
+        // and FitToDisplay rolls values off into the display's peak. Elsewhere an HDR swapchain gets values as they
+        // are: on macOS the layer's EDR metadata has Core Animation tone map them (HdrBitmapView), and on Linux the
+        // display's headroom is not known.
+        PresentLuminance luminance = _swapchain.IsHdr ? _hdrLuminance : PresentLuminance.Sdr;
+        pushConstants.ReferenceWhite = luminance.ReferenceWhite;
+
+        var mapping = PreviewDisplayMapping.For(luminance.Headroom);
         pushConstants.MapKnee = mapping.Knee;
         pushConstants.MapKs = mapping.Ks;
         pushConstants.MapMaxLum = mapping.MaxLum;
         pushConstants.MapSourcePq = mapping.SourcePq;
 
         // Colors outside the gamut go the same way: an SDR format holds sRGB, and an HDR swapchain hands colors to a
-        // display whose gamut HdrBitmapView looks up.
-        var gamut = _swapchain.IsHdr ? renderParams.DisplayGamut : PreviewGamutMapping.Srgb;
+        // display whose gamut Windows reports (WindowsDisplayLuminance) and HdrBitmapView looks up elsewhere.
+        var gamut = !_swapchain.IsHdr ? PreviewGamutMapping.Srgb
+            : OperatingSystem.IsWindows() ? _hdrGamut
+            : renderParams.DisplayGamut;
         pushConstants.Gamut0X = gamut.ToDisplay0.X;
         pushConstants.Gamut0Y = gamut.ToDisplay0.Y;
         pushConstants.Gamut0Z = gamut.ToDisplay0.Z;
@@ -475,6 +531,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         _commandQueue.Dispose();
 
+        if (OperatingSystem.IsWindows())
+            _windowsDisplay?.Dispose();
+
         if (_device.Handle != 0)
         {
             _vk.DeviceWaitIdle(_device);
@@ -505,6 +564,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
     private abstract record RenderCommand
     {
         public sealed record DrawCommand(Ref<Bitmap> BitmapRef, RenderParams Params) : RenderCommand;
+        public sealed record RedrawCommand(RenderParams Params) : RenderCommand;
         public sealed record ResizeCommand(uint Width, uint Height) : RenderCommand;
     }
 }
