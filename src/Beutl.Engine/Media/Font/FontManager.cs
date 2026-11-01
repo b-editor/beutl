@@ -247,6 +247,26 @@ public sealed class FontManager
         }
     }
 
+    // The face a typeface resolves to as a standalone font, for UI that draws it through another font stack;
+    // null for an unregistered family.
+    internal byte[]? CopyFontData(Typeface typeface)
+    {
+        SKTypeface face;
+        lock (_gate)
+        {
+            if (!TryResolveTypeface(typeface, out face))
+                return null;
+        }
+
+        // Registered faces live as long as the manager, so their data is read outside the gate.
+        using SKStreamAsset? stream = face.OpenStream(out int index);
+        using SKData? data = stream is null ? null : SKData.Create(stream);
+        if (data is null)
+            return null;
+        // A face of a collection is copied alone, without the faces it shares the file with.
+        return data.AsSpan().StartsWith("ttcf"u8) ? FontCollection.CopyFace(data.AsSpan(), index) : data.ToArray();
+    }
+
     public void LoadProjectFonts(Project project)
     {
         ArgumentNullException.ThrowIfNull(project);

@@ -4,6 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media.TextFormatting;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Controls;
@@ -350,6 +351,68 @@ public class FontFamilyPickerTests
     }
 
     [AvaloniaTest]
+    public void Fonts_only_Beutl_reads_show_their_names_in_their_own_typefaces()
+    {
+        // No OS has the test fonts, so Beutl reads them from the project as it reads a material package's fonts. Their
+        // printable ASCII glyphs are blocks, which a capture cannot mistake for the UI font. The light font has no
+        // typographic family name, so a font stack names its family "Beutl Test Blocks Light", and Avalonia looks
+        // that name up without "Light".
+        using var fonts = ProjectFonts.Load("BeutlTestBlocks.ttf", "BeutlTestBlocksLight.ttf");
+        FontFamily[] families = [.. FontManager.Instance.FontFamilies
+            .Where(family => family.Name.StartsWith("Beutl Test Blocks", StringComparison.Ordinal))];
+        var viewModel = new FontFamilyPickerFlyoutViewModel([.. families, FontManager.Instance.DefaultTypeface.FontFamily], TimeSpan.Zero);
+        using var picker = PickerHost.Open(viewModel);
+        HeadlessCapture.SaveIfRequested(picker.List, nameof(FontFamilyPickerTests), "fonts-only-beutl-reads");
+
+        Assert.That(families, Is.Not.Empty);
+        Assert.Multiple(() =>
+        {
+            foreach (FontFamily family in families)
+            {
+                TextBlock name = NameText(picker.List.GetRealizedContainers().Single(row => FontOf(row) == family));
+                string[] faces = [.. name.TextLayout.TextLines
+                    .SelectMany(line => line.TextRuns)
+                    .OfType<ShapedTextRun>()
+                    .Select(run => run.GlyphRun.GlyphTypeface.FamilyName)];
+                Assert.That(faces, Is.Not.Empty.And.All.EqualTo(family.Name), family.Name);
+            }
+        });
+    }
+
+    [AvaloniaTest]
+    public void A_font_neither_the_OS_nor_Beutl_has_keeps_its_plain_name()
+    {
+        // A plain name draws in the default font, while a font collection that cannot find the family throws when
+        // the text is laid out.
+        var family = new FontFamily("Beutl Test Missing Font");
+        using var picker = PickerHost.Open(new FontFamilyPickerFlyoutViewModel([family], TimeSpan.Zero));
+
+        Assert.That(NameText(picker.List.GetRealizedContainers().Single()).FontFamily.Key, Is.Null);
+    }
+
+    [AvaloniaTest]
+    public void A_family_past_the_copy_budget_is_not_copied()
+    {
+        // Every family the picker names keeps its copy as long as the app runs, so the copies stop at a budget.
+        using var fonts = ProjectFonts.Load("BeutlTestBlocks.ttf", "BeutlTestBlocksLight.ttf");
+        using var collection = new BeutlFontCollection(maxCopiedBytes: 1);
+
+        Lookup(collection, "Beutl Test Blocks");
+        long copied = collection.CopiedBytes;
+        Lookup(collection, "Beutl Test Blocks Light");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(copied, Is.GreaterThan(0));
+            Assert.That(collection.CopiedBytes, Is.EqualTo(copied));
+        });
+
+        static void Lookup(BeutlFontCollection collection, string familyName)
+            => collection.TryGetGlyphTypeface(familyName, Avalonia.Media.FontStyle.Normal, Avalonia.Media.FontWeight.Normal,
+                Avalonia.Media.FontStretch.Normal, out _);
+    }
+
+    [AvaloniaTest]
     public void The_tooltip_spells_the_font_name_in_the_UI_typeface()
     {
         // A symbol font draws its own name as symbols.
@@ -459,6 +522,41 @@ public class FontFamilyPickerTests
     {
         string name = ((PinnableLibraryItem)row.DataContext!).DisplayName;
         return row.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Text == name);
+    }
+
+    // Test fonts among the fonts a project bundles, which Beutl reads itself.
+    private sealed class ProjectFonts : IDisposable
+    {
+        private readonly Project _project;
+        private readonly string _root;
+
+        private ProjectFonts(Project project, string root)
+        {
+            _project = project;
+            _root = root;
+        }
+
+        public static ProjectFonts Load(params string[] resources)
+        {
+            string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "project-fonts-" + Guid.NewGuid().ToString("N"));
+            string directory = Directory.CreateDirectory(Path.Combine(root, "resources", "fonts")).FullName;
+            foreach (string resource in resources)
+            {
+                using Stream input = typeof(FontFamilyPickerTests).Assembly.GetManifestResourceStream(resource)!;
+                using Stream output = File.Create(Path.Combine(directory, resource));
+                input.CopyTo(output);
+            }
+
+            var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
+            FontManager.Instance.LoadProjectFonts(project);
+            return new ProjectFonts(project, root);
+        }
+
+        public void Dispose()
+        {
+            FontManager.Instance.ClearProjectFonts(_project);
+            Directory.Delete(_root, recursive: true);
+        }
     }
 
     private sealed class PickerHost : IDisposable

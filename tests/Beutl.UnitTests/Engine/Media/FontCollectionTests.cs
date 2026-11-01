@@ -69,6 +69,32 @@ public class FontCollectionTests
         }
     }
 
+    [TestCase("Roboto")]
+    [TestCase("Beutl Test Variable")]
+    public void CopyFontData_CopiesAFaceOfACollectionAsAFontOfItsOwn(string familyName)
+    {
+        var project = new Project { Uri = new Uri(Path.Combine(_root, "project.bep")) };
+        try
+        {
+            FontManager.Instance.LoadProjectFonts(project);
+            byte[] data = FontManager.Instance.CopyFontData(new Typeface(new FontFamily(familyName)))!;
+
+            // A reader that opens only the first face, as Avalonia's does, must find this one there, and the copy
+            // leaves the other faces of the collection behind.
+            using var stream = new MemoryStream(data, writable: false);
+            using SKTypeface? face = SKTypeface.FromStream(stream);
+            Assert.Multiple(() =>
+            {
+                Assert.That(face?.FamilyName, Is.EqualTo(familyName));
+                Assert.That(data.AsSpan(0, 4).SequenceEqual("ttcf"u8), Is.False);
+            });
+        }
+        finally
+        {
+            FontManager.Instance.ClearProjectFonts(project);
+        }
+    }
+
     [Test]
     public void InstalledCollections_RegisterEveryFace()
     {
