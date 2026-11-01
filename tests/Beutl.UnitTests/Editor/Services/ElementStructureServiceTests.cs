@@ -241,25 +241,28 @@ public class ElementStructureServiceTests
     public void Split_GroupsTheBackPiecesOfEachGroupRightAfterIt()
     {
         Element[] clips = [.. Enumerable.Range(0, 5).Select(layer => AddElement(MediaTime.Zero, MediaTime.FromSeconds(4), layer))];
+        // Ends before the cut, so the third group gets one back piece and no new group.
+        Element shortClip = AddElement(MediaTime.Zero, MediaTime.FromSeconds(1), 5);
         ImmutableHashSet<Guid> first = [clips[0].Id.Value, clips[1].Id.Value];
         ImmutableHashSet<Guid> second = [clips[2].Id.Value, clips[3].Id.Value];
-        _scene.Groups.Add(first);
-        _scene.Groups.Add(second);
+        ImmutableHashSet<Guid> third = [clips[4].Id.Value, shortClip.Id.Value];
+        _scene.Groups.AddRange([first, second, third]);
         _history.Commit("Group");
 
-        _service.Split(_scene, [clips[2], clips[0], clips[4], clips[1], clips[3]], MediaTime.FromSeconds(2));
+        _service.Split(_scene, [clips[2], clips[0], clips[4], shortClip, clips[1], clips[3]], MediaTime.FromSeconds(2));
         Element[] backs = [.. clips.Select(clip => PieceAt(clip, 2))];
         // The first split added the groups of these pieces, so cutting them again must find those groups.
         _service.Split(_scene, [backs[0], backs[1]], MediaTime.FromSeconds(3));
 
         Assert.Multiple(() =>
         {
-            Assert.That(_scene.Groups, Has.Count.EqualTo(5));
+            Assert.That(_scene.Groups, Has.Count.EqualTo(6));
             Assert.That(_scene.Groups[0], Is.SameAs(first));
             Assert.That(_scene.Groups[1], Is.EquivalentTo(Ids(backs[0], backs[1])));
             Assert.That(_scene.Groups[2], Is.EquivalentTo(Ids(PieceAt(clips[0], 3), PieceAt(clips[1], 3))));
             Assert.That(_scene.Groups[3], Is.SameAs(second));
             Assert.That(_scene.Groups[4], Is.EquivalentTo(Ids(backs[2], backs[3])));
+            Assert.That(_scene.Groups[5], Is.SameAs(third));
         });
 
         Element PieceAt(Element clip, double seconds)
