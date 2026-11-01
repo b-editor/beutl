@@ -32,8 +32,48 @@ internal readonly record struct ShaderImageFrame(Rect Bounds, Rect RasterBounds,
     ];
 }
 
+// ImageAllocations and BufferAllocations count allocations from the driver. ResourceReuses counts what an execution
+// took instead: its own returned resources, or images an earlier execution left in a ShaderGraphImagePool.
 internal readonly record struct ShaderGraphExecutionStatistics(int ProgramCacheHits, int ExecutedPasses,
     long PeakResourceBytes, int ImageAllocations, int BufferAllocations, int ResourceReuses, long ScheduledPixels);
+
+/// <summary>The frames an execution's passes bind as image metadata, in one buffer with an aligned slot per image.</summary>
+internal sealed class ShaderGraphParameters : IDisposable
+{
+    private readonly Dictionary<int, ulong> _offsets;
+
+    private ShaderGraphParameters(VulkanBuffer buffer, Dictionary<int, ulong> offsets)
+        => (Buffer, _offsets) = (buffer, offsets);
+
+    internal VulkanBuffer Buffer { get; }
+
+    internal ulong OffsetOf(int image) => _offsets[image];
+
+    // Every metadata binding of one image reads the same frame, so one slot serves all of them.
+    internal static ShaderGraphParameters? Create(VulkanContext context, ShaderGraphDescription graph,
+        IReadOnlyDictionary<int, ShaderImageFrame> frames)
+    {
+        ulong alignment = Math.Max(1, context.Limits.MinUniformBufferOffsetAlignment);
+        ulong stride = (ShaderImageFrame.ParameterSize + alignment - 1) / alignment * alignment;
+        var offsets = new Dictionary<int, ulong>();
+        foreach (ShaderPassDescription pass in graph.Passes)
+            foreach (ShaderPassBinding binding in pass.Bindings)
+                if (binding.Metadata && frames.ContainsKey(binding.Resource.Id))
+                    offsets.TryAdd(binding.Resource.Id, (ulong)offsets.Count * stride);
+        if (offsets.Count == 0)
+            return null;
+
+        var data = new byte[checked((int)((ulong)offsets.Count * stride))];
+        foreach ((int image, ulong offset) in offsets)
+            MemoryMarshal.AsBytes(frames[image].GetParameters().AsSpan()).CopyTo(data.AsSpan((int)offset));
+        var buffer = (VulkanBuffer)context.CreateBuffer((ulong)data.Length, BufferUsage.UniformBuffer,
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+        buffer.Upload<byte>(data);
+        return new(buffer, offsets);
+    }
+
+    public void Dispose() => Buffer.Dispose();
+}
 
 internal static class ShaderGraphExecutor
 {
@@ -73,8 +113,11 @@ internal static class ShaderGraphExecutor
             [new(0, selected, DescriptorType.CombinedImageSampler, ResourceAccess.Read, SamplerState.LinearClamp, false)],
             [new(0, s_result, AttachmentLoadOp.Clear)], mapping, BlendState.Replace, (3, 1, 1), false);
 
+    /// <param name="retainedImages">Where the execution takes images from and returns them to, so later executions
+    /// skip the allocation; without it the execution disposes its images.</param>
     public static ShaderGraphExecutionStatistics Execute(ShaderGraphDescription graph, ITexture2D source, ShaderImageFrame sourceFrame,
-        ITexture2D output, float scale, Vector gridOffset, ShaderGraphProgramAcquirer acquireProgram, Rect? requiredOutput = null)
+        ITexture2D output, float scale, Vector gridOffset, ShaderGraphProgramAcquirer acquireProgram, Rect? requiredOutput = null,
+        ShaderGraphImagePool? retainedImages = null)
     {
         VulkanContext context = GLSLFilterPipeline.TryResolveVulkan(GraphicsContextFactory.SharedContext)
             ?? throw new NotSupportedException("Shader graphs require a Vulkan rendering context.");
@@ -89,9 +132,11 @@ internal static class ShaderGraphExecutor
             requiredOutput ?? graph.TransformBounds(sourceFrame.Bounds, sourceFrame.ReferenceBounds));
         Dictionary<int, ShaderImageFrame> frames = regions.Frames;
         var descriptions = new Dictionary<int, ImageDescription>();
+        ShaderGraphParameters? parameters = null;
         long liveBytes = 0;
         long peakBytes = 0, scheduledPixels = 0;
         int imageAllocations = 0, bufferAllocations = 0, reuses = 0, executedPasses = 0;
+        bool completed = false, synchronizedRetained = false;
         ImageUsageFlags[] usages = [.. graph.ImageUsages];
         try
         {
@@ -150,6 +195,7 @@ internal static class ShaderGraphExecutor
             ProgramCacheLease<ShaderGraphPipeline> copyLease = acquireProgram(context, copy, s_copyIdentity);
             leases.Add(copyLease);
             copyLease.Program.Validate(copy);
+            parameters = ShaderGraphParameters.Create(context, graph, frames);
 
             VulkanTexture2D sourceTexture = context.RequireOwned<VulkanTexture2D>(source, nameof(source));
             if ((usages[0] & ~sourceTexture.Usage) != 0)
@@ -195,7 +241,7 @@ internal static class ShaderGraphExecutor
                         scheduledPixels += (long)area.Width * area.Height;
                         if (regions.PassRegions[index].HasValue) scissor = area;
                     }
-                    programs[index]!.Execute(pass, images, buffers, frames, scissor);
+                    programs[index]!.Execute(pass, images, buffers, frames, parameters, scissor);
                     executedPasses++;
                 }
                 foreach (ShaderResource resource in graph.ReleasesAfter[index])
@@ -206,7 +252,8 @@ internal static class ShaderGraphExecutor
             // intermediate formats remain untouched, including scalar data attachments.
             Allocate(selected);
             images.Add(-1, output);
-            copyLease.Program.Execute(copy, images, buffers, frames);
+            copyLease.Program.Execute(copy, images, buffers, frames, parameters);
+            completed = true;
             return new(leases.Count(lease => lease.IsCacheHit), executedPasses, peakBytes,
                 imageAllocations, bufferAllocations, reuses, scheduledPixels);
         }
@@ -220,8 +267,16 @@ internal static class ShaderGraphExecutor
             }
             finally
             {
-                imagePool.DisposeAll();
-                bufferPool.DisposeAll();
+                // A failed execution may have left an image mid-way, so only a completed one is kept.
+                imagePool.Release(image =>
+                {
+                    if (completed && retainedImages is not null && !image.IsBorrowed)
+                        retainedImages.Return(image);
+                    else
+                        image.Dispose();
+                });
+                bufferPool.Release(static buffer => buffer.Dispose());
+                parameters?.Dispose();
                 foreach (ProgramCacheLease<ShaderGraphPipeline> lease in leases)
                     lease.Dispose();
             }
@@ -238,6 +293,19 @@ internal static class ShaderGraphExecutor
                     owner = imagePool.Take(i => i.Description == description && (i.Usage & usages[root.Id]) == usages[root.Id]);
                     if (owner is not null)
                         reuses++;
+                    else if ((owner = retainedImages?.Take(context, description, usages[root.Id])) is not null)
+                    {
+                        // The image's layouts can match what this execution needs, so no transition would order
+                        // it after the work that used it last; one barrier orders every retained image at once.
+                        if (!synchronizedRetained)
+                        {
+                            ShaderGraphPipeline.SynchronizeResources(context);
+                            synchronizedRetained = true;
+                        }
+                        imagePool.Add(owner);
+                        Admit(owner.AllocationSize, resource.Name);
+                        reuses++;
+                    }
                     else
                     {
                         CheckBudget(EstimateImageBytes(description), resource.Name);
@@ -307,7 +375,7 @@ internal static class ShaderGraphExecutor
     }
 
     /// <summary>The allocations one execution owns. A returned allocation waits for a compatible request
-    /// until budget pressure reclaims it.</summary>
+    /// until budget pressure reclaims it, or until <see cref="Release"/> hands every allocation on.</summary>
     private sealed class TransientPool<T> where T : class, IDisposable
     {
         private readonly HashSet<T> _owned = [];
@@ -343,10 +411,10 @@ internal static class ShaderGraphExecutor
             return bytes;
         }
 
-        public void DisposeAll()
+        public void Release(Action<T> release)
         {
             foreach (T item in _owned)
-                item.Dispose();
+                release(item);
         }
     }
 }

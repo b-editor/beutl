@@ -285,136 +285,127 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
     }
 
     /// <remarks>The caller validates <paramref name="pass"/> first: runtime parameter sizes and buffer ranges are
-    /// deliberately absent from the pipeline key, so a cached pipeline has only checked the pass it was created for.</remarks>
+    /// deliberately absent from the pipeline key, so a cached pipeline has only checked the pass it was created for.
+    /// <paramref name="parameters"/> holds the frames of the images the pass binds as metadata.</remarks>
     public void Execute(ShaderPassDescription pass, IReadOnlyDictionary<int, ITexture2D> images,
-        IReadOnlyDictionary<int, IBuffer> buffers, IReadOnlyDictionary<int, ShaderImageFrame> frames, Beutl.Media.PixelRect? scissor = null)
+        IReadOnlyDictionary<int, IBuffer> buffers, IReadOnlyDictionary<int, ShaderImageFrame> frames,
+        ShaderGraphParameters? parameters, Beutl.Media.PixelRect? scissor = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         using var descriptors = new VulkanDescriptorSet(_context,
             _compute?.DescriptorLayout ?? _graphics!.DescriptorSetLayoutHandle,
             _compute?.Bindings ?? _graphics!.DescriptorBindings, _pools);
-        var parameterBuffers = new List<IBuffer>();
-        try
+        // One image can be bound both as a sampler and as storage. Every descriptor for it must
+        // name the same layout for the entire pass; transitioning in binding order would invalidate
+        // whichever descriptor was written first.
+        var layouts = new Dictionary<int, ImageLayout>();
+        foreach (var group in pass.Bindings.Where(b => !b.Metadata && b.Resource is ShaderImage)
+                     .GroupBy(b => ((ShaderImage)b.Resource).Root.Id))
         {
-            // One image can be bound both as a sampler and as storage. Every descriptor for it must
-            // name the same layout for the entire pass; transitioning in binding order would invalidate
-            // whichever descriptor was written first.
-            var layouts = new Dictionary<int, ImageLayout>();
-            foreach (var group in pass.Bindings.Where(b => !b.Metadata && b.Resource is ShaderImage)
-                         .GroupBy(b => ((ShaderImage)b.Resource).Root.Id))
+            ImageLayout layout = group.Any(b => b.Type == DescriptorType.StorageImage)
+                ? ImageLayout.General : ImageLayout.ShaderReadOnlyOptimal;
+            foreach (ShaderPassBinding binding in group)
             {
-                ImageLayout layout = group.Any(b => b.Type == DescriptorType.StorageImage)
-                    ? ImageLayout.General : ImageLayout.ShaderReadOnlyOptimal;
-                foreach (ShaderPassBinding binding in group)
-                {
-                    VulkanTexture2D image = _context.RequireOwned<VulkanTexture2D>(images[binding.Resource.Id], nameof(images));
-                    if ((binding.Access & ResourceAccess.Write) != 0) image.MarkContentsUnknown();
-                    image.TransitionTo(layout);
-                    layouts[binding.Resource.Id] = layout;
-                }
+                VulkanTexture2D image = _context.RequireOwned<VulkanTexture2D>(images[binding.Resource.Id], nameof(images));
+                if ((binding.Access & ResourceAccess.Write) != 0) image.MarkContentsUnknown();
+                image.TransitionTo(layout);
+                layouts[binding.Resource.Id] = layout;
             }
-            foreach (ShaderPassBinding binding in pass.Bindings)
+        }
+        foreach (ShaderPassBinding binding in pass.Bindings)
+        {
+            switch (binding.Type)
             {
-                switch (binding.Type)
-                {
-                    case DescriptorType.CombinedImageSampler:
-                        descriptors.UpdateTexture(binding.Binding, images[binding.Resource.Id],
-                            _samplers[binding.Binding], layouts[binding.Resource.Id]);
-                        break;
-                    case DescriptorType.StorageImage:
-                        descriptors.UpdateStorageImage(binding.Binding, images[binding.Resource.Id]);
-                        break;
-                    case DescriptorType.StorageBuffer:
-                        descriptors.UpdateStorageBuffer(binding.Binding, buffers[binding.Resource.Id]);
-                        break;
-                    case DescriptorType.UniformBuffer:
-                        if (binding.Metadata)
-                        {
-                            IBuffer parameters = _context.CreateBuffer(ShaderImageFrame.ParameterSize, BufferUsage.UniformBuffer,
-                                MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-                            parameterBuffers.Add(parameters);
-                            System.Numerics.Vector4[] values = frames[binding.Resource.Id].GetParameters();
-                            parameters.Upload<System.Numerics.Vector4>(values);
-                            descriptors.UpdateBuffer(binding.Binding, parameters);
-                        }
-                        else
-                            descriptors.UpdateBuffer(binding.Binding, buffers[binding.Resource.Id]);
-                        break;
-                }
+                case DescriptorType.CombinedImageSampler:
+                    descriptors.UpdateTexture(binding.Binding, images[binding.Resource.Id],
+                        _samplers[binding.Binding], layouts[binding.Resource.Id]);
+                    break;
+                case DescriptorType.StorageImage:
+                    descriptors.UpdateStorageImage(binding.Binding, images[binding.Resource.Id]);
+                    break;
+                case DescriptorType.StorageBuffer:
+                    descriptors.UpdateStorageBuffer(binding.Binding, buffers[binding.Resource.Id]);
+                    break;
+                case DescriptorType.UniformBuffer:
+                    if (binding.Metadata)
+                    {
+                        ShaderGraphParameters metadata = parameters
+                            ?? throw new InvalidOperationException($"Pass '{pass.Name}' binds image metadata without parameters.");
+                        descriptors.UpdateBuffer(binding.Binding, metadata.Buffer, metadata.OffsetOf(binding.Resource.Id),
+                            ShaderImageFrame.ParameterSize);
+                    }
+                    else
+                        descriptors.UpdateBuffer(binding.Binding, buffers[binding.Resource.Id]);
+                    break;
             }
-            SynchronizeResources(_context);
-            if (_compute is { } compute)
+        }
+        SynchronizeResources(_context);
+        if (_compute is { } compute)
+        {
+            CommandBuffer command = _context.GetRecordingCommandBuffer();
+            _context.Vk.CmdBindPipeline(command, PipelineBindPoint.Compute, compute.Handle);
+            DescriptorSet set = descriptors.Handle;
+            _context.Vk.CmdBindDescriptorSets(command, PipelineBindPoint.Compute, compute.Layout, 0, 1, &set, 0, null);
+            if (!pass.Constants.IsEmpty)
             {
-                CommandBuffer command = _context.GetRecordingCommandBuffer();
-                _context.Vk.CmdBindPipeline(command, PipelineBindPoint.Compute, compute.Handle);
-                DescriptorSet set = descriptors.Handle;
-                _context.Vk.CmdBindDescriptorSets(command, PipelineBindPoint.Compute, compute.Layout, 0, 1, &set, 0, null);
+                Span<byte> constants = stackalloc byte[pass.Constants.Length];
+                WriteConstants(constants, pass, frames);
+                fixed (byte* bytes = constants)
+                    _context.Vk.CmdPushConstants(command, compute.Layout, ShaderStageFlags.ComputeBit, 0, (uint)constants.Length, bytes);
+            }
+            if (pass.Draw.Indirect is { } indirect)
+                _context.Vk.CmdDispatchIndirect(command,
+                    _context.RequireOwned<VulkanBuffer>(buffers[indirect.Buffer.Id], nameof(buffers)).Handle, (ulong)indirect.Offset);
+            else
+            {
+                (uint x, uint y, uint z) = ResolveGroups(pass);
+                _context.Vk.CmdDispatch(command, x, y, z);
+            }
+        }
+        else
+        {
+            ITexture2D[] targets = pass.Attachments.Select(a => images[a.Image.Id]).ToArray();
+            if (targets.Any(t => t.Width != targets[0].Width || t.Height != targets[0].Height))
+                throw new InvalidOperationException($"Pass '{pass.Name}' requires matching attachment dimensions.");
+            ITexture2D? depthTarget = pass.DepthAttachment is { } depth ? images[depth.Image.Id] : null;
+            using IFramebuffer3D framebuffer = _context.CreateFramebuffer3D(_renderPass!, targets, depthTarget);
+            _renderPass!.Begin(framebuffer, new Color[targets.Length], pass.DepthAttachment?.ClearDepth ?? 1,
+                pass.DepthAttachment?.ClearStencil ?? 0);
+            try
+            {
+                _renderPass.BindPipeline(_graphics!);
+                _renderPass.BindDescriptorSet(_graphics!, descriptors);
+                if (scissor is { } area)
+                    _renderPass.SetScissor(area);
                 if (!pass.Constants.IsEmpty)
                 {
                     Span<byte> constants = stackalloc byte[pass.Constants.Length];
                     WriteConstants(constants, pass, frames);
-                    fixed (byte* bytes = constants)
-                        _context.Vk.CmdPushConstants(command, compute.Layout, ShaderStageFlags.ComputeBit, 0, (uint)constants.Length, bytes);
+                    _renderPass.SetPushConstants(constants);
+                }
+                foreach (ShaderVertexBuffer vertex in pass.Draw.Vertices)
+                    _renderPass.BindVertexBuffer((uint)vertex.Binding, buffers[vertex.Buffer.Id], (ulong)vertex.Offset);
+                if (pass.Draw.Indices is { } indices)
+                {
+                    _renderPass.BindIndexBuffer(buffers[indices.Buffer.Id],
+                        indices.Format == IndexFormat.UInt16 ? IndexType.Uint16 : IndexType.Uint32, (ulong)indices.Offset);
                 }
                 if (pass.Draw.Indirect is { } indirect)
-                    _context.Vk.CmdDispatchIndirect(command,
-                        _context.RequireOwned<VulkanBuffer>(buffers[indirect.Buffer.Id], nameof(buffers)).Handle, (ulong)indirect.Offset);
+                    _renderPass.DrawIndirect(buffers[indirect.Buffer.Id], (ulong)indirect.Offset, (uint)indirect.Count,
+                        (uint)indirect.Stride, pass.Draw.Indices is not null);
+                else if (pass.Draw.Indices is not null)
+                {
+                    _renderPass.DrawIndexed((uint)pass.Work.X, (uint)pass.Work.Y, (uint)pass.Draw.FirstElement,
+                        pass.Draw.VertexOffset, (uint)pass.Draw.FirstInstance);
+                }
                 else
-                {
-                    (uint x, uint y, uint z) = ResolveGroups(pass);
-                    _context.Vk.CmdDispatch(command, x, y, z);
-                }
+                    _renderPass.Draw((uint)pass.Work.X, (uint)pass.Work.Y,
+                        (uint)pass.Draw.FirstElement, (uint)pass.Draw.FirstInstance);
             }
-            else
+            finally
             {
-                ITexture2D[] targets = pass.Attachments.Select(a => images[a.Image.Id]).ToArray();
-                if (targets.Any(t => t.Width != targets[0].Width || t.Height != targets[0].Height))
-                    throw new InvalidOperationException($"Pass '{pass.Name}' requires matching attachment dimensions.");
-                ITexture2D? depthTarget = pass.DepthAttachment is { } depth ? images[depth.Image.Id] : null;
-                using IFramebuffer3D framebuffer = _context.CreateFramebuffer3D(_renderPass!, targets, depthTarget);
-                _renderPass!.Begin(framebuffer, new Color[targets.Length], pass.DepthAttachment?.ClearDepth ?? 1,
-                    pass.DepthAttachment?.ClearStencil ?? 0);
-                try
-                {
-                    _renderPass.BindPipeline(_graphics!);
-                    _renderPass.BindDescriptorSet(_graphics!, descriptors);
-                    if (scissor is { } area)
-                        _renderPass.SetScissor(area);
-                    if (!pass.Constants.IsEmpty)
-                    {
-                        Span<byte> constants = stackalloc byte[pass.Constants.Length];
-                        WriteConstants(constants, pass, frames);
-                        _renderPass.SetPushConstants(constants);
-                    }
-                    foreach (ShaderVertexBuffer vertex in pass.Draw.Vertices)
-                        _renderPass.BindVertexBuffer((uint)vertex.Binding, buffers[vertex.Buffer.Id], (ulong)vertex.Offset);
-                    if (pass.Draw.Indices is { } indices)
-                    {
-                        _renderPass.BindIndexBuffer(buffers[indices.Buffer.Id],
-                            indices.Format == IndexFormat.UInt16 ? IndexType.Uint16 : IndexType.Uint32, (ulong)indices.Offset);
-                    }
-                    if (pass.Draw.Indirect is { } indirect)
-                        _renderPass.DrawIndirect(buffers[indirect.Buffer.Id], (ulong)indirect.Offset, (uint)indirect.Count,
-                            (uint)indirect.Stride, pass.Draw.Indices is not null);
-                    else if (pass.Draw.Indices is not null)
-                    {
-                        _renderPass.DrawIndexed((uint)pass.Work.X, (uint)pass.Work.Y, (uint)pass.Draw.FirstElement,
-                            pass.Draw.VertexOffset, (uint)pass.Draw.FirstInstance);
-                    }
-                    else
-                        _renderPass.Draw((uint)pass.Work.X, (uint)pass.Work.Y,
-                            (uint)pass.Draw.FirstElement, (uint)pass.Draw.FirstInstance);
-                }
-                finally
-                {
-                    _renderPass.End();
-                }
+                _renderPass.End();
             }
-        }
-        finally
-        {
-            foreach (IBuffer buffer in parameterBuffers)
-                buffer.Dispose();
         }
     }
 

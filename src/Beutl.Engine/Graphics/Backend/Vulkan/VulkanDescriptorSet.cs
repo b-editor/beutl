@@ -79,10 +79,16 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
     public void UpdateBuffer(int binding, IBuffer buffer)
         => UpdateBuffer(binding, buffer, Silk.NET.Vulkan.DescriptorType.UniformBuffer);
 
+    /// <summary>Binds <paramref name="range"/> bytes of a uniform buffer from <paramref name="offset"/>, which is a
+    /// multiple of <c>minUniformBufferOffsetAlignment</c>.</summary>
+    internal void UpdateBuffer(int binding, IBuffer buffer, ulong offset, ulong range)
+        => UpdateBuffer(binding, buffer, Silk.NET.Vulkan.DescriptorType.UniformBuffer, offset, range);
+
     internal void UpdateStorageBuffer(int binding, IBuffer buffer)
         => UpdateBuffer(binding, buffer, Silk.NET.Vulkan.DescriptorType.StorageBuffer);
 
-    private void UpdateBuffer(int binding, IBuffer buffer, Silk.NET.Vulkan.DescriptorType type)
+    private void UpdateBuffer(int binding, IBuffer buffer, Silk.NET.Vulkan.DescriptorType type,
+        ulong offset = 0, ulong? range = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -92,8 +98,8 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
         var bufferInfo = new DescriptorBufferInfo
         {
             Buffer = vulkanBuffer.Handle,
-            Offset = 0,
-            Range = vulkanBuffer.Size
+            Offset = offset,
+            Range = range ?? vulkanBuffer.Size
         };
 
         var writeDescriptor = new WriteDescriptorSet

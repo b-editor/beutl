@@ -603,6 +603,8 @@ public sealed class RenderNodeRenderer : IDisposable
         try
         {
             SynchronizeProgramCacheContext(targets);
+            // Ages the graph images once per request, as the target pool behind targets ages its targets.
+            _programCaches.ShaderGraphImages?.BeginRequest();
             var recorder = new RenderRequestRecorder(request);
             RecordedRenderGraph graph = recorder.Record(Root);
             bool allowPersistentLookup = renderRequest.CacheOptions.IsEnabled

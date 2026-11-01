@@ -14,6 +14,7 @@ internal sealed partial class RenderRequestExecutor
     private readonly ProgramCache<CachedSkRuntimeEffect>? _programCache;
     private readonly ProgramCache<GLSLFilterPipeline>? _spirvProgramCache;
     private readonly ProgramCache<ShaderGraphPipeline>? _graphProgramCache;
+    private readonly ShaderGraphImagePool? _shaderGraphImages;
     private readonly ShaderBackendPreference _shaderBackendPreference;
     private readonly CancellationToken _cancellationToken;
 
@@ -30,12 +31,14 @@ internal sealed partial class RenderRequestExecutor
         ProgramCache<GLSLFilterPipeline>? spirvProgramCache = null,
         ShaderBackendPreference shaderBackendPreference = ShaderBackendPreference.Auto,
         ProgramCache<ShaderGraphPipeline>? graphProgramCache = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ShaderGraphImagePool? shaderGraphImages = null)
     {
         _targets = targets ?? throw new ArgumentNullException(nameof(targets));
         _programCache = programCache;
         _spirvProgramCache = spirvProgramCache;
         _graphProgramCache = graphProgramCache;
+        _shaderGraphImages = shaderGraphImages;
         _cancellationToken = cancellationToken;
         if (!Enum.IsDefined(shaderBackendPreference))
             throw new ArgumentOutOfRangeException(nameof(shaderBackendPreference));
@@ -53,7 +56,8 @@ internal sealed partial class RenderRequestExecutor
             programCaches.Spirv,
             shaderBackendPreference,
             programCaches.ShaderGraph,
-            cancellationToken)
+            cancellationToken,
+            programCaches.ShaderGraphImages)
     {
     }
 
@@ -85,7 +89,8 @@ internal sealed partial class RenderRequestExecutor
         var familyProgramCaches = new RenderProgramCaches(
             _programCache ?? localProgramCache!,
             _spirvProgramCache ?? localSpirvProgramCache!,
-            _graphProgramCache ?? localGraphProgramCache!);
+            _graphProgramCache ?? localGraphProgramCache!,
+            _shaderGraphImages);
         var frames = new List<RenderRequestExecutionState>();
         var cleanupFailures = new List<Exception>();
         ExceptionDispatchInfo? primaryFailure = null;

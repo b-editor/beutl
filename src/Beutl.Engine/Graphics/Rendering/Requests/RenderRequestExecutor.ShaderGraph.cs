@@ -56,7 +56,8 @@ internal sealed partial class RenderRequestExecutor
                         sourceValue.Target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
                         ShaderGraphExecutionStatistics execution = ShaderGraphExecutor.Execute(graph, source,
                             new(sourceValue.CompleteBounds, sourceValue.RasterBounds, sourceValue.DeviceBounds.Size, sourceValue.EffectiveScale.Value, referenceBounds),
-                            destination, density, _activeDeviceGridOffset, AcquireShaderGraphProgram, required);
+                            destination, density, _activeDeviceGridOffset, AcquireShaderGraphProgram, required,
+                            _programCaches.ShaderGraphImages);
                         _programCacheHits += execution.ProgramCacheHits;
                         _shaderRunExecutions++;
                         _spirvShaderRunExecutions++;
