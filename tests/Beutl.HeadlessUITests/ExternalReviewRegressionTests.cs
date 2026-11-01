@@ -55,10 +55,14 @@ public sealed class ExternalReviewRegressionTests
             editor.Scene.Children.Add(element);
             using var browser = new FileBrowserTabViewModel(editor);
             using var item = new FileSystemItemViewModel(path, false);
+            using var notifications = new NotificationCapture();
             await browser.RenameItemAsync(item, "renamed.wav");
             Assert.That(File.Exists(path), Is.True);
             await browser.DeleteItemAsync(item);
             Assert.That(File.Exists(path), Is.True);
+            // A failed check also keeps the file, so the refusal must say the file is in use.
+            Assert.That(notifications.All.Select(n => n.Message),
+                Is.EqualTo(new[] { Beutl.Language.MessageStrings.FileInUse, Beutl.Language.MessageStrings.FileInUse }));
         }
         finally
         {
