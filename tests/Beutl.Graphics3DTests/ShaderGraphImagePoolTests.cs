@@ -64,6 +64,27 @@ public sealed class ShaderGraphImagePoolTests
     }
 
     [Test]
+    public void ThePoolKeepsTheLatestImagesThatFitTheBudget()
+    {
+        OnDevice(_ =>
+        {
+            ShaderGraphDescription graph = ShaderGraphEffectTests.Record(new Bloom());
+            using ProgramCache<ShaderGraphPipeline> cache = ShaderGraphPipeline.CreateCache();
+            long all;
+            using (var unlimited = new ShaderGraphImagePool())
+            {
+                Execute(graph, s_bounds, cache: cache, sourcePixel: BrightCenter, images: unlimited);
+                all = unlimited.RetainedBytes;
+            }
+            using var pool = new ShaderGraphImagePool(maximumRetainedBytes: all - 1);
+
+            Execute(graph, s_bounds, cache: cache, sourcePixel: BrightCenter, images: pool);
+
+            Assert.That(pool.RetainedBytes, Is.InRange(1, all - 1), "The oldest images make room; the rest stay.");
+        });
+    }
+
+    [Test]
     public void ImagesNoExecutionTakesAreDisposedAfterTheIdleRequests()
     {
         OnDevice(_ =>

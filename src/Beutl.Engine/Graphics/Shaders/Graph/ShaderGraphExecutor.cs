@@ -68,7 +68,15 @@ internal sealed class ShaderGraphParameters : IDisposable
             MemoryMarshal.AsBytes(frames[image].GetParameters().AsSpan()).CopyTo(data.AsSpan((int)offset));
         var buffer = (VulkanBuffer)context.CreateBuffer((ulong)data.Length, BufferUsage.UniformBuffer,
             MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-        buffer.Upload<byte>(data);
+        try
+        {
+            buffer.Upload<byte>(data);
+        }
+        catch
+        {
+            buffer.Dispose();
+            throw;
+        }
         return new(buffer, offsets);
     }
 
@@ -264,6 +272,12 @@ internal static class ShaderGraphExecutor
             try
             {
                 context.FlushCommands(waitForCompletion: false);
+            }
+            catch
+            {
+                // The discarded command buffer held transitions the images already recorded as done.
+                completed = false;
+                throw;
             }
             finally
             {
