@@ -79,7 +79,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         _filterGraph.Initialize();
     }
 
-    private void ConfigureAudioStream(
+    private unsafe void ConfigureAudioStream(
         OutputFormat outFormat, MediaMuxer muxer,
         MediaFrame audioFrame, ISampleProvider sampleProvider, out MediaEncoder encoder, out MediaStream stream, out SampleConverter swr)
     {
@@ -87,6 +87,15 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             ? MediaCodec.FindEncoder(outFormat.AudioCodec)
             : MediaCodec.FindEncoder(AudioSettings.Codec.Value.Name);
         AVChannelLayout channelLayout = SelectChannelLayout(codec.GetChLayouts().ToArray(), AudioSettings.GetChannelLayout());
+        bool retagsSevenPointOne = codec.Name == "aac" && IsSevenPointOne(channelLayout);
+        // ADTS and MPEG-TS carry the channel configuration in a 3-bit field per frame, which cannot hold 12.
+        if (retagsSevenPointOne && (outFormat.Flags & ffmpeg.AVFMT_GLOBALHEADER) == 0)
+        {
+            throw new InvalidOperationException(
+                $"7.1 AAC cannot be written to {outFormat.Name}: its per-frame header cannot tag the channels as 7.1, "
+                + "so players would place them as 7.1 (wide). Use MP4, MOV or MKV, or another codec such as PCM.");
+        }
+
         int sampleRate = AudioSettings.SampleRate.Value;
         var format = (AVSampleFormat)AudioSettings.Format.Value;
         int bitRate = AudioSettings.Bitrate.Value;
@@ -142,6 +151,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             }
         });
         stream = muxer.AddStream(encoder);
+        if (retagsSevenPointOne)
+        {
+            RetagSevenPointOne(new Span<byte>(stream.Codecpar->extradata, stream.Codecpar->extradata_size));
+        }
 
         int nbsamples = (codec.Capabilities & ffmpeg.AV_CODEC_CAP_VARIABLE_FRAME_SIZE) != 0
             ? 10000
@@ -178,6 +191,46 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         }
 
         return DefaultChannelLayout(requested.ChannelCount);
+    }
+
+    private static bool IsSevenPointOne(AVChannelLayout layout) =>
+        layout.order == AVChannelOrder.AV_CHANNEL_ORDER_NATIVE && layout.u.mask == (ulong)AudioChannelLayout.Surround71.Speakers;
+
+    // FFmpeg 8's AAC encoder tags 7.1 with channel configuration 7, which ISO 14496-3 defines as 7.1 (wide):
+    // CoreAudio and AVFoundation then play FL/FR from Lc/Rc and the side pair from L/R (#3798). Configuration 12
+    // (C, L/R, Ls/Rs, Lrs/Rrs, LFE) has the same elements in the same order, so only the AudioSpecificConfig changes.
+    // FFmpeg 9 writes 12 itself and is left as it is.
+    internal static bool RetagSevenPointOne(Span<byte> audioSpecificConfig)
+    {
+        // audioObjectType (5 bits, 6 more when escaped), samplingFrequencyIndex (4 bits, 24 more when explicit)
+        int bit = (audioSpecificConfig.Length > 0 && audioSpecificConfig[0] >> 3 == 31) ? 11 : 5;
+        if (audioSpecificConfig.Length * 8 >= bit + 4 && ReadBits(audioSpecificConfig, bit, 4) == 15)
+            bit += 24;
+        bit += 4;
+
+        if (audioSpecificConfig.Length * 8 < bit + 4 || ReadBits(audioSpecificConfig, bit, 4) != 7)
+            return false;
+
+        WriteBits(audioSpecificConfig, bit, 4, 12);
+        return true;
+    }
+
+    private static int ReadBits(ReadOnlySpan<byte> data, int bit, int count)
+    {
+        int value = 0;
+        for (int i = bit; i < bit + count; i++)
+            value = (value << 1) | ((data[i / 8] >> (7 - i % 8)) & 1);
+        return value;
+    }
+
+    private static void WriteBits(Span<byte> data, int bit, int count, int value)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            int pos = bit + i;
+            int mask = 1 << (7 - pos % 8);
+            data[pos / 8] = (byte)(((value >> (count - 1 - i)) & 1) != 0 ? data[pos / 8] | mask : data[pos / 8] & ~mask);
+        }
     }
 
     private static AVChannelLayout ToNativeLayout(AudioChannelLayout layout) => layout.HasPositions

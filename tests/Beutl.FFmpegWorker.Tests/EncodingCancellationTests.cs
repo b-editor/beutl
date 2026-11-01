@@ -259,6 +259,131 @@ public class EncodingCancellationTests
         });
     }
 
+    // CoreAudio reads AAC channel configuration 7 as 7.1 (wide), which put FL/FR on Lc/Rc and the side pair on L/R (#3798).
+    [Test]
+    public async Task Encode_Aac71_CoreAudioPlaysEachToneFromItsSpeaker()
+    {
+        FFmpegTestHelpers.RequireFFmpeg();
+        if (!OperatingSystem.IsMacOS() || !File.Exists("/usr/bin/afconvert"))
+            Assert.Ignore("CoreAudio's afconvert is only available on macOS.");
+        string path = await EncodeAac71("speakers-71.m4a");
+
+        // MPEG_7_1_C is L R C LFE Ls Rs Rls Rrs. Beutl's 7.1 is FL FR FC LFE BL BR SL SR, and Ls/Rs are its sides.
+        string wav = Path.Combine(_workDir, "speakers-71-coreaudio.wav");
+        RunAfconvert("-f", "WAVE", "-d", "LEF32", "-l", "MPEG_7_1_C", path, wav);
+        int[] toneOfSpeaker = [0, 1, 2, 3, 6, 7, 4, 5];
+        const int rate = 48000;
+        using var demuxer = MediaDemuxer.Open(wav);
+        var stream = demuxer.Single(s => s.CodecparRef.codec_type == AVMediaType.AVMEDIA_TYPE_AUDIO);
+        float[][] decoded = DecodeChannels(demuxer, stream);
+        Assert.That(decoded, Has.Length.EqualTo(8));
+        Assert.Multiple(() =>
+        {
+            for (int speaker = 0; speaker < 8; speaker++)
+            {
+                var middle = decoded[speaker].AsSpan(rate / 2, rate);
+                for (int tone = 0; tone < 8; tone++)
+                {
+                    double level = SpeakerToneSampleProvider.ToneLevel(middle, SpeakerToneSampleProvider.Frequency(tone), rate);
+                    Assert.That(level, tone == toneOfSpeaker[speaker] ? Is.InRange(0.18, 0.30) : Is.LessThan(0.025),
+                        $"CoreAudio speaker {speaker}, tone {tone}: {level}");
+                }
+            }
+        });
+    }
+
+    [Test]
+    public async Task Encode_Aac71_TagsChannelConfiguration12()
+    {
+        FFmpegTestHelpers.RequireFFmpeg();
+        string path = await EncodeAac71("config-71.m4a");
+
+        using var demuxer = MediaDemuxer.Open(path);
+        var stream = demuxer.Single(s => s.CodecparRef.codec_type == AVMediaType.AVMEDIA_TYPE_AUDIO);
+        byte[] asc = GetExtradata(stream);
+        // audioObjectType 2 (LC) and samplingFrequencyIndex 3 (48 kHz) put channelConfiguration at bits 9-12.
+        Assert.That(asc, Has.Length.GreaterThanOrEqualTo(2));
+        Assert.That(((asc[0] << 8 | asc[1]) >> 3) & 0xf, Is.EqualTo(12));
+    }
+
+    [Test]
+    public async Task Encode_Aac71ToAdts_FailsWithTheReason()
+    {
+        FFmpegTestHelpers.RequireFFmpeg();
+        if (MediaCodec.FindEncoder("aac") == null)
+            Assert.Ignore("This FFmpeg build has no AAC encoder.");
+        string path = Path.Combine(_workDir, "speakers-71.aac");
+        var controller = CreateAac71Controller(path);
+        using var frames = new GradientFrameProvider(0, new Rational(30), 32, 32);
+        using var samples = new SpeakerToneSampleProvider(48000, 48000, AudioChannelLayout.GetDefault(8));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await controller.Encode(frames, samples, CancellationToken.None));
+        Assert.That(exception!.Message, Does.StartWith("7.1 AAC cannot be written to adts"));
+    }
+
+    [TestCase("11b856e500", "11e056e500", true)] // FFmpeg 8, 7.1 at 48 kHz
+    [TestCase("11e056e500", "11e056e500", false)] // FFmpeg 9 already writes 12
+    [TestCase("11b056e500", "11b056e500", false)] // 5.1
+    [TestCase("1780562230", "1780562230", false)] // Explicit 44100 Hz (index 15), 5.1
+    [TestCase("1780562238", "1780562260", true)] // Explicit 44100 Hz, 7.1
+    [TestCase("11", "11", false)]
+    public void RetagSevenPointOne_RewritesOnlyConfiguration7(string before, string after, bool retagged)
+    {
+        byte[] asc = Convert.FromHexString(before);
+        Assert.Multiple(() =>
+        {
+            Assert.That(FFmpegEncodingController.RetagSevenPointOne(asc), Is.EqualTo(retagged));
+            Assert.That(Convert.ToHexString(asc).ToLowerInvariant(), Is.EqualTo(after));
+        });
+    }
+
+    private FFmpegEncodingController CreateAac71Controller(string path)
+    {
+        var controller = FFmpegTestHelpers.CreateController(path, new PixelSize(32, 32), new Rational(30), 48000, 8);
+        controller.AudioSettings.Codec.Value = new CodecRecord("aac", "test");
+        controller.AudioSettings.Format.Value = FFmpegAudioEncoderSettings.AudioFormat.Default;
+        controller.AudioSettings.Bitrate.Value = 8 * 96000;
+        return controller;
+    }
+
+    private async Task<string> EncodeAac71(string fileName)
+    {
+        var codec = MediaCodec.FindEncoder("aac");
+        if (codec == null || (codec.GetChLayouts().Any() && !codec.GetChLayouts().Any(l => l.nb_channels == 8)))
+            Assert.Ignore("This FFmpeg build cannot encode 8 channels as AAC.");
+        string path = Path.Combine(_workDir, fileName);
+        var controller = CreateAac71Controller(path);
+        using var frames = new GradientFrameProvider(0, new Rational(30), 32, 32);
+        using var samples = new SpeakerToneSampleProvider(48000 * 2, 48000, AudioChannelLayout.GetDefault(8));
+        await controller.Encode(frames, samples, CancellationToken.None);
+        return path;
+    }
+
+    private static unsafe byte[] GetExtradata(MediaStream stream) =>
+        new ReadOnlySpan<byte>(stream.CodecparRef.extradata, stream.CodecparRef.extradata_size).ToArray();
+
+    private static void RunAfconvert(params string[] arguments)
+    {
+        var info = new System.Diagnostics.ProcessStartInfo("/usr/bin/afconvert")
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        foreach (string argument in arguments)
+            info.ArgumentList.Add(argument);
+        using var process = System.Diagnostics.Process.Start(info)!;
+        Task<string> error = process.StandardError.ReadToEndAsync();
+        _ = process.StandardOutput.ReadToEndAsync();
+        if (!process.WaitForExit(30000))
+        {
+            process.Kill(entireProcessTree: true);
+            Assert.Fail("afconvert timed out.");
+        }
+        Assert.That(process.ExitCode, Is.Zero, error.Result);
+    }
+
     private static unsafe float[][] DecodeChannels(MediaDemuxer demuxer, MediaStream stream)
     {
         var layout = stream.CodecparRef.ch_layout;
