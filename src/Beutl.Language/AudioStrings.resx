@@ -255,10 +255,10 @@
   <data name="ChannelMap_None" xml:space="preserve">
     <value>None</value>
   </data>
-  <data name="ChannelMap_SourceUnavailable" xml:space="preserve">
-    <value>The audio source is missing or unreadable. Only Auto is available.</value>
+  <data name="Panner_Title" xml:space="preserve">
+    <value>Panner</value>
   </data>
-  <data name="ChannelMap_SourceChanged" xml:space="preserve">
-    <value>The source channel layout has changed. Auto is used until you assign channels again.</value>
+  <data name="Panner_Help" xml:space="preserve">
+    <value>Drag the puck to pan. Double-click to reset.</value>
   </data>
 </root>

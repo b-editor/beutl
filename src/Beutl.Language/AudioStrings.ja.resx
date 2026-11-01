@@ -250,10 +250,10 @@
   <data name="ChannelMap_None" xml:space="preserve">
     <value>なし</value>
   </data>
-  <data name="ChannelMap_SourceUnavailable" xml:space="preserve">
-    <value>音声ソースが見つからないか、読み込めません。自動のみ使用できます。</value>
+  <data name="Panner_Title" xml:space="preserve">
+    <value>パンナー</value>
   </data>
-  <data name="ChannelMap_SourceChanged" xml:space="preserve">
-    <value>ソースのチャンネル配置が変わりました。再割り当てするまで自動を使用します。</value>
+  <data name="Panner_Help" xml:space="preserve">
+    <value>パックをドラッグして定位を調整します。ダブルクリックでリセットします。</value>
   </data>
 </root>

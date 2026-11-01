@@ -1,6 +1,8 @@
 ﻿using System.Collections.ObjectModel;
+using System.Text.Json.Nodes;
 using Beutl.Audio;
 using Beutl.Composition;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -10,14 +12,18 @@ namespace Beutl.Editor.Components.ChannelMapProperties.ViewModels;
 public sealed class ChannelMapEditorViewModel : ValueEditorViewModel<AudioChannelMap>
 {
     private readonly SourceSound? _sound;
+    private readonly ReactivePropertySlim<bool> _hasSource = new();
     private AudioChannelLayout? _sourceLayout;
     private AudioChannelLayout? _rowSourceLayout;
     private AudioChannelFormat _rowFormat;
     private bool _refreshing;
-    private string[] _sourceChannels = [];
+    private EnumItem[] _sourceChannels = [];
 
     public ChannelMapEditorViewModel(IPropertyAdapter<AudioChannelMap> property) : base(property)
     {
+        _hasSource.AddTo(Disposables);
+        CanEditMap = CanEdit.CombineLatest(_hasSource, (canEdit, hasSource) => canEdit && hasSource)
+            .ToReadOnlyReactivePropertySlim().AddTo(Disposables);
         _sound = property.GetEngineProperty()?.GetOwnerObject() as SourceSound;
         if (_sound != null)
         {
@@ -36,33 +42,36 @@ public sealed class ChannelMapEditorViewModel : ValueEditorViewModel<AudioChanne
         }).AddTo(Disposables);
     }
 
-    public ObservableCollection<string> Formats { get; } = [];
+    public ObservableCollection<EnumItem> Formats { get; } = [];
+
+    public ReactivePropertySlim<bool> IsExpanded { get; } = new(false);
+
+    public ReadOnlyReactivePropertySlim<bool> CanEditMap { get; }
 
     public ReactivePropertySlim<int> SelectedFormatIndex { get; } = new();
 
     public ObservableCollection<ChannelAssignmentViewModel> Channels { get; } = [];
-
-    public ReactivePropertySlim<string?> Message { get; } = new();
 
     private void RefreshSource()
     {
         using var source = _sound?.Source.Value?.ToResource(CompositionContext.Default);
         _sourceLayout = source is { MediaReader: not null, SampleRate: > 0, NumChannels: > 0 }
             ? source.ChannelLayout : null;
+        _hasSource.Value = _sourceLayout != null;
 
         _refreshing = true;
         try
         {
             Formats.Clear();
-            Formats.Add(AudioStrings.ChannelMap_Auto);
+            Formats.Add(new EnumItem(AudioStrings.ChannelMap_Auto, null, AudioChannelFormat.Auto));
             if (_sourceLayout is { } layout)
             {
-                Formats.Add(Strings.SpeakerLayout_Mono);
-                Formats.Add(Strings.SpeakerLayout_Stereo);
-                Formats.Add(AudioStrings.ChannelMap_Surround51);
-                Formats.Add(AudioStrings.ChannelMap_Surround71);
-                _sourceChannels = [AudioStrings.ChannelMap_None, .. Enumerable.Range(0, layout.ChannelCount)
-                    .Select(channel => AudioChannelMap.DescribeSourceChannel(layout, channel))];
+                Formats.Add(new EnumItem(Strings.SpeakerLayout_Mono, null, AudioChannelFormat.Mono));
+                Formats.Add(new EnumItem(Strings.SpeakerLayout_Stereo, null, AudioChannelFormat.Stereo));
+                Formats.Add(new EnumItem(AudioStrings.ChannelMap_Surround51, null, AudioChannelFormat.Surround51));
+                Formats.Add(new EnumItem(AudioStrings.ChannelMap_Surround71, null, AudioChannelFormat.Surround71));
+                _sourceChannels = [new EnumItem(AudioStrings.ChannelMap_None, null, -1), .. Enumerable.Range(0, layout.ChannelCount)
+                    .Select(channel => new EnumItem(AudioChannelMap.DescribeSourceChannel(layout, channel), null, channel))];
             }
             else
             {
@@ -83,8 +92,6 @@ public sealed class ChannelMapEditorViewModel : ValueEditorViewModel<AudioChanne
         {
             AudioChannelMap map = _sourceLayout is { } layout ? Value.Value.Resolve(layout) : AudioChannelMap.Auto;
             SelectedFormatIndex.Value = (int)map.Format;
-            Message.Value = _sourceLayout == null ? AudioStrings.ChannelMap_SourceUnavailable
-                : !map.Equals(Value.Value) ? AudioStrings.ChannelMap_SourceChanged : null;
             if (_rowFormat == map.Format && _rowSourceLayout == _sourceLayout && Channels.Count == map.Sources.Length)
             {
                 for (int channel = 0; channel < Channels.Count; channel++)
@@ -126,11 +133,24 @@ public sealed class ChannelMapEditorViewModel : ValueEditorViewModel<AudioChanne
         Channels.Clear();
     }
 
+    public override void ReadFromJson(JsonObject json)
+    {
+        base.ReadFromJson(json);
+        if (json[nameof(IsExpanded)] is JsonValue value && value.TryGetValue(out bool isExpanded))
+            IsExpanded.Value = isExpanded;
+    }
+
+    public override void WriteToJson(JsonObject json)
+    {
+        base.WriteToJson(json);
+        json[nameof(IsExpanded)] = IsExpanded.Value;
+    }
+
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
         ClearChannels();
+        IsExpanded.Dispose();
         SelectedFormatIndex.Dispose();
-        Message.Dispose();
     }
 }

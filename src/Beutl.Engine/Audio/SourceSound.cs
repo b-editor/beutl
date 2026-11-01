@@ -21,6 +21,15 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ISpl
         Description = nameof(AudioStrings.SourceSound_ChannelMap_Description), ResourceType = typeof(AudioStrings))]
     public IExpressionProperty<AudioChannelMap> ChannelMap { get; } = Property.CreateExpression(AudioChannelMap.Auto);
 
+    public override AudioChannelLayout GetClipLayout(AudioChannelLayout projectLayout, MediaTime time)
+    {
+        var context = new CompositionContext(time);
+        using var source = Source.Evaluate(context)?.ToResource(context);
+        return source is { MediaReader: not null, SampleRate: > 0, NumChannels: > 0 }
+            ? ChannelMap.Evaluate(context).ResolveClipLayout(source.ChannelLayout)
+            : projectLayout;
+    }
+
     public bool HasOriginalDuration()
     {
         return Source.Value != null;
