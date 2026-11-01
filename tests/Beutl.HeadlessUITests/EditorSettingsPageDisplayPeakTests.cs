@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Controls;
@@ -8,7 +9,9 @@ using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Language;
 using Beutl.Pages.SettingsPages;
 using Beutl.Testing.Headless;
+using Beutl.ViewModels;
 using Beutl.ViewModels.SettingsPages;
+using Beutl.Views;
 
 namespace Beutl.HeadlessUITests;
 
@@ -16,6 +19,33 @@ namespace Beutl.HeadlessUITests;
 [NonParallelizable] // drives GlobalConfiguration.Instance singletons
 public sealed class EditorSettingsPageDisplayPeakTests
 {
+    // The HDR preview takes the setting from the player, which reads the editor settings, and follows a change.
+    [AvaloniaTest]
+    public async Task Hdr_preview_follows_the_display_peak_setting()
+    {
+        await TestReset.ResetShellAsync();
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        float prior = config.DisplayPeakLuminance.Value;
+        try
+        {
+            config.DisplayPeakLuminance.Value = 600f;
+            EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("display-peak");
+            // Unattached: headless cannot create the native child window, and the bindings need only the DataContext.
+            var image = (HdrBitmapView)PreviewSurface.CreateImage(useHdr: true, "PreviewImage.Value");
+            image.DataContext = editor.Player;
+            Dispatcher.UIThread.RunJobs();
+            Assert.That(image.DisplayPeakLuminance, Is.EqualTo(600f));
+
+            config.DisplayPeakLuminance.Value = 0f;
+            Dispatcher.UIThread.RunJobs();
+            Assert.That(image.DisplayPeakLuminance, Is.Zero);
+        }
+        finally
+        {
+            config.DisplayPeakLuminance.Value = prior;
+        }
+    }
+
     // The override goes to the editor settings, which keep it within what PQ carries, and the description names what
     // the display reports, so the user can tell whether its peak needs overriding.
     [AvaloniaTest]
