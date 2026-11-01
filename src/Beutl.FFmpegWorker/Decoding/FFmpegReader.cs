@@ -626,7 +626,7 @@ public sealed class FFmpegReader : MediaReader
         _bufferSinkCtx = _filterGraph.AddVideoSinkFilter(bufferSink, [dstPixFmt]);
 
         // HDR (PQ/HLG): RGBA64LEに変換のみ。
-        // 輝度マッピングはSkiaの色空間変換で行う（BuildHdrColorSpaceでガマット行列にスケーリングを組み込み済み）
+        // 輝度マッピングはSkiaの色空間変換で行う（BuildHdrColorSpaceの色空間で基準白が1.0になる）
         // SDR: BGRAに変換
         string pixelFormats = _isHdr ? "pix_fmts=rgba64le" : "pix_fmts=bgra";
         var formatFilter = new MediaFilter("format");

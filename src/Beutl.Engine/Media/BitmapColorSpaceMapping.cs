@@ -1,20 +1,14 @@
 ﻿namespace Beutl.Media;
 
 /// <summary>
-/// SDR/HDR color-space mapping shared by the encode/decode backends, so the HDR luminance scaling (PQ: reference
-/// white 203 nit out of a 10000 nit peak; HLG: the BT.2100 reference code level) is defined in one place.
+/// SDR/HDR color-space mapping shared by the encode/decode backends, so the HDR luminance mapping (internal linear 1.0
+/// is the 203 nit reference white, for PQ and HLG alike) is defined in one place.
 /// </summary>
 public static class BitmapColorSpaceMapping
 {
-    private const float PqReferenceWhiteNits = 203f;
-    private const float PqPeakNits = 10000f;
-
-    // The reciprocal of the HLG EOTF at the BT.2100 reference code level (0.75).
-    private static readonly float s_hlgLuminanceScale = 1f / BitmapColorSpaceTransferFn.Hlg.Transform(0.75f);
-
     /// <summary>
-    /// Returns whether <paramref name="transfer"/> denotes an HDR transfer (PQ / HLG), which
-    /// requires the luminance-scaled gamut produced by <see cref="BuildHdrColorSpace"/>.
+    /// Returns whether <paramref name="transfer"/> denotes an HDR transfer (PQ / HLG), whose color space comes from
+    /// <see cref="BuildHdrColorSpace"/>.
     /// </summary>
     public static bool IsHdrTransfer(BitmapColorTransfer transfer)
     {
@@ -83,9 +77,9 @@ public static class BitmapColorSpaceMapping
     }
 
     /// <summary>
-    /// Builds the HDR color space for a transfer/primaries tag pair. The luminance scale is baked
-    /// into the gamut matrix so that internal linear 1.0 maps to reference white (PQ: 203 nit out of
-    /// 10000 nit; HLG: the BT.2100 reference code level).
+    /// Builds the HDR color space for a transfer/primaries tag pair. Skia converts it so that internal linear 1.0 is
+    /// the 203 nit reference white: PQ directly, and HLG through its OOTF for a 1000 nit display, which puts the
+    /// BT.2100 reference code level (0.75) there.
     /// </summary>
     public static BitmapColorSpace BuildHdrColorSpace(BitmapColorTransfer transfer, BitmapColorPrimaries primaries)
     {
@@ -93,26 +87,20 @@ public static class BitmapColorSpaceMapping
         if (IsHdrTransfer(transfer) && primaries == BitmapColorPrimaries.Unknown)
             primaries = BitmapColorPrimaries.Rec2020;
 
-        var transferFn = GetTransferFunction(transfer);
-        var gamut = GetPrimaries(primaries);
-
-        float scale = GetHdrLuminanceScale(transfer);
-        if (scale != 1.0f)
-        {
-            gamut = gamut.Scale(scale);
-        }
-
-        return BitmapColorSpace.CreateRgb(transferFn, gamut);
+        return BitmapColorSpace.CreateRgb(GetTransferFunction(transfer), GetPrimaries(primaries));
     }
 
-    /// <summary>Returns the luminance scale baked into an HDR gamut matrix, or 1.0 for a non-HDR transfer.</summary>
+    /// <summary>
+    /// Returns the luminance scale an HDR color space adds to Skia's conversion: 1.0 for every transfer, since Skia
+    /// already converts PQ and HLG to the 203 nit reference white.
+    /// </summary>
+    /// <remarks>
+    /// SkiaSharp 4.152 began converting PQ in units of reference white and applying HLG's OOTF with the same
+    /// normalization. The scales this used to bake into the gamut (10000/203 for PQ, the inverse of HLG's EOTF at the
+    /// reference code level) assumed a Skia that did neither, and made decoded PQ 49 and HLG about 5 times too bright.
+    /// </remarks>
     public static float GetHdrLuminanceScale(BitmapColorTransfer transfer)
     {
-        return transfer switch
-        {
-            BitmapColorTransfer.Pq => PqPeakNits / PqReferenceWhiteNits,
-            BitmapColorTransfer.Hlg => s_hlgLuminanceScale,
-            _ => 1.0f,
-        };
+        return 1.0f;
     }
 }
