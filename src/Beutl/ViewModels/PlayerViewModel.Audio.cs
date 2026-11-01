@@ -1,5 +1,7 @@
-﻿using Beutl.Audio;
+﻿using System.Runtime.Versioning;
+using Beutl.Audio;
 using Beutl.Audio.Composing;
+using Beutl.Audio.Platforms.AVFoundation;
 using Beutl.Audio.Platforms.XAudio2;
 using Beutl.Editor.Models;
 using Beutl.Media;
@@ -115,6 +117,32 @@ public partial class PlayerViewModel
                 await Task.Run(async () =>
                 {
                     playbackToken.ThrowIfCancellationRequested();
+                    if (OperatingSystem.IsMacOS() && useMultichannelBackend)
+                    {
+                        using var renderer = AudioPlaybackOutput.TryCreateAVSampleBufferRenderer(
+                            projectLayout, isMacOS: true,
+                            () => OperatingSystem.IsMacOS()
+                                ? new AVSampleBufferAudioRenderer(projectLayout, sampleRate)
+                                : throw new PlatformNotSupportedException(), _logger);
+                        if (renderer != null)
+                        {
+                            try
+                            {
+                                await PlayWithAVSampleBufferRenderer(renderer, scene, clock, startTime,
+                                    sampleRate, generation, playbackToken).ConfigureAwait(false);
+                                return;
+                            }
+                            catch (AVSampleBufferAudioRendererException ex) when (!clock.StartedTask.IsCompleted)
+                            {
+                                // Only failures before startup is signaled fall back; later failures use PlayAudio's error handler.
+                                _logger.LogWarning(ex, "AVSampleBufferAudioRenderer failed; falling back to OpenAL Soft.");
+                            }
+                        }
+
+                        playbackToken.ThrowIfCancellationRequested();
+                        if (!IsPlaying.Value || !_sessionGuard.Owns(generation)) return;
+                    }
+
                     using var audioContext = useMultichannelBackend ? new AudioContext(soft: true) : new AudioContext();
                     await PlayWithOpenAL(audioContext, projectLayout, useMultichannelBackend,
                         scene, clock, startTime, sampleRate, generation, playbackToken);
@@ -342,6 +370,116 @@ public partial class PlayerViewModel
     {
         using CancellationTokenRegistration stopPlayback = token.Register(stop);
         await playback().ConfigureAwait(false);
+    }
+
+    [SupportedOSPlatform("macos")]
+    private async Task PlayWithAVSampleBufferRenderer(AVSampleBufferAudioRenderer renderer, Scene scene,
+        AudioPlaybackClock clock, MediaTime startTime, int sampleRate, int generation, CancellationToken playbackToken)
+    {
+        MediaTime cur = startTime;
+        MediaTime sceneEndTime = default;
+        long nextSample = 0;
+        bool hasAudio = false;
+        bool audioClockValid = false;
+        bool started = false;
+
+        bool IsActive() => IsPlaying.Value && !playbackToken.IsCancellationRequested && _sessionGuard.Owns(generation);
+
+        void CheckPlayback()
+        {
+            if (!IsActive()) throw new OperationCanceledException(playbackToken);
+        }
+
+        void AnchorClock()
+        {
+            if (hasAudio && audioClockValid)
+                clock.Anchor(startTime + MediaTime.FromSeconds(renderer.PositionSeconds));
+        }
+
+        async Task FillAndQueue()
+        {
+            CheckPlayback();
+            MediaTime bufferStartTime = cur;
+            var bufferData = FillAudioData(cur, scene, generation, playbackToken);
+            sceneEndTime = bufferData.SceneEnd;
+            using AudioBuffer? audio = bufferData.Audio;
+            CheckPlayback();
+
+            if (audio is { SampleCount: > 0 })
+            {
+                long deadline = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 2;
+                // Composition runs outside the renderer's gate, so cancellation can stop native
+                // playback immediately even if the compose dispatcher is blocked.
+                while (!renderer.TryEnqueue(audio, nextSample))
+                {
+                    CheckPlayback();
+                    if (!started && Stopwatch.GetTimestamp() >= deadline)
+                        throw new AVSampleBufferAudioRendererException("The renderer was not ready within the startup deadline.");
+                    await Task.Delay(10, playbackToken).ConfigureAwait(false);
+                }
+
+                nextSample += audio.SampleCount;
+                hasAudio = true;
+                _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(audio, bufferStartTime));
+            }
+            else
+            {
+                nextSample += sampleRate;
+            }
+            cur += s_second;
+        }
+
+        async Task PlaybackLoop()
+        {
+            await FillAndQueue().ConfigureAwait(false);
+            // Do not wait for a second buffer at rate 0 if the renderer is already backpressuring.
+            if (cur < sceneEndTime && renderer.IsReadyForMoreMediaData)
+                await FillAndQueue().ConfigureAwait(false);
+
+            CheckPlayback();
+            renderer.Play();
+            started = true;
+            audioClockValid = await WaitForFirstSampleAsync(
+                () => renderer.PositionSeconds > 0, hasAudio, playbackToken).ConfigureAwait(false);
+            CheckPlayback();
+            if (hasAudio && !audioClockValid)
+                throw new AVSampleBufferAudioRendererException("The timebase did not advance within the startup deadline.");
+            AnchorClock();
+            clock.SignalStarted();
+
+            while (IsActive() && cur < sceneEndTime)
+            {
+                // FillAudioData composes one second. Only append when it fits in a two-second
+                // window ahead of the native playhead, and keep the project's channels unchanged.
+                if (nextSample - renderer.PositionSeconds * sampleRate <= sampleRate
+                    && renderer.IsReadyForMoreMediaData)
+                {
+                    await FillAndQueue().ConfigureAwait(false);
+                }
+                AnchorClock();
+                await Task.Delay(100, playbackToken).ConfigureAwait(false);
+            }
+
+            // The final chunk is silence-padded at the scene boundary, just like OpenAL's buffers.
+            while (IsActive() && hasAudio && renderer.PositionSeconds < (double)nextSample / sampleRate)
+            {
+                AnchorClock();
+                await Task.Delay(100, playbackToken).ConfigureAwait(false);
+            }
+        }
+
+        try
+        {
+            await RunAudioPlaybackWithImmediateStopAsync(playbackToken, renderer.Stop, PlaybackLoop)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            renderer.Stop();
+        }
     }
 
     private async Task PlayWithOpenAL(AudioContext audioContext, AudioChannelLayout projectLayout,
