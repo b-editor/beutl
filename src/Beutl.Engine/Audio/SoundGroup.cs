@@ -23,7 +23,8 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
         var r = (Resource)resource;
-        if (r.Children.Count == 0)
+        // A disabled group is silent as a disabled sound is, whatever its children play.
+        if (!IsEnabled.Value || r.Children.Count == 0)
         {
             return;
         }
@@ -49,21 +50,32 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
         }
 
         // SoundGroupの処理を加える
-        var mixerNode = context.CreateMixerNode();
-
+        var childOutputs = new List<(AudioNode Output, Sound Original)>();
         foreach (var child in r.Children)
         {
             Sound original = child.RequireOriginal();
-
             foreach (var outputNode in ComposeChildInto(context, original, child))
             {
-                // ShiftNodeでSoundGroupのStartを加算して打ち消す
-                var shiftNode = context.CreateShiftNode(TimeRange.Value.Start);
-                context.Connect(outputNode, shiftNode);
-                context.Connect(shiftNode, mixerNode);
-                // Let the mixer skip a child's already-recovered tail.
-                mixerNode.SetBranchEndTime(shiftNode, original.TimeRange.Value.End - TimeRange.Value.Start);
+                childOutputs.Add((outputNode, original));
             }
+        }
+
+        // A disabled child, or one whose source has no audio, composes no node. A group left without any is
+        // silent, as a mixer needs at least one input.
+        if (childOutputs.Count == 0)
+        {
+            return;
+        }
+
+        var mixerNode = context.CreateMixerNode();
+        foreach ((AudioNode outputNode, Sound original) in childOutputs)
+        {
+            // ShiftNodeでSoundGroupのStartを加算して打ち消す
+            var shiftNode = context.CreateShiftNode(TimeRange.Value.Start);
+            context.Connect(outputNode, shiftNode);
+            context.Connect(shiftNode, mixerNode);
+            // Let the mixer skip a child's already-recovered tail.
+            mixerNode.SetBranchEndTime(shiftNode, original.TimeRange.Value.End - TimeRange.Value.Start);
         }
 
         var pannerNode = context.CreatePannerNode(Pan, SurroundPan, CenterLevel, LfeLevel, context.ChannelLayout);

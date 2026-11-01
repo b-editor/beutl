@@ -1,7 +1,10 @@
-﻿using Beutl.Audio;
+﻿using System.Collections.Immutable;
+using Beutl.Audio;
+using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -41,5 +44,49 @@ public class SoundGroupTests
             Assert.That(previous.OfType<SourceNode>(), Is.Not.Empty);
             Assert.That(second.Nodes, Is.EquivalentTo(previous));
         });
+    }
+
+    // A child whose source has no audio composes no node, which left the group's mixer without inputs; the
+    // first window threw instead of playing silence, and playback and export stopped (#3622).
+    [Test]
+    public void Compose_WithoutChildAudio_PlaysSilence()
+    {
+        string path = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 30);
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(path));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
+        var child = new SourceSound { Source = { Value = source }, TimeRange = { Value = range } };
+        var group = new SoundGroup { TimeRange = { Value = range } };
+        group.Children.Add(child);
+        using var resource = group.ToResource(CompositionContext.Default);
+        var frame = new CompositionFrame(
+            ImmutableArray.Create((EngineObject.Resource)resource), range, default, new CompositionEligibility([group]));
+        using var composer = new Composer { SampleRate = 44100 };
+
+        using AudioBuffer? buffer = composer.Compose(range, frame);
+
+        Assert.That(buffer!.GetChannelData(0).ToArray(), Is.All.EqualTo(0f));
+    }
+
+    // A disabled group nested in another still played its children, so the parent played what should be silent.
+    [Test]
+    public void Compose_DisabledNestedGroup_PlaysSilence()
+    {
+        string path = TestMediaHelper.CreateTestAudioFile(sampleRate: 44100, channels: 2, durationSeconds: 1.0);
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(path));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
+        var inner = new SoundGroup { TimeRange = { Value = range }, IsEnabled = { Value = false } };
+        inner.Children.Add(new SourceSound { Source = { Value = source }, TimeRange = { Value = range } });
+        var outer = new SoundGroup { TimeRange = { Value = range } };
+        outer.Children.Add(inner);
+        using var resource = outer.ToResource(CompositionContext.Default);
+        var frame = new CompositionFrame(
+            ImmutableArray.Create((EngineObject.Resource)resource), range, default, new CompositionEligibility([outer]));
+        using var composer = new Composer { SampleRate = 44100 };
+
+        using AudioBuffer? buffer = composer.Compose(range, frame);
+
+        Assert.That(buffer!.GetChannelData(0).ToArray(), Is.All.EqualTo(0f));
     }
 }
