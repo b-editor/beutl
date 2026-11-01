@@ -73,7 +73,7 @@ public static class NumberEditorHelper
     // Reads a number typed into an editor in the current culture or with a period as the decimal point. Where the
     // decimal separator is a comma, the culture's own parse took the period for a group separator and read "1.5" as
     // 15, so group separators are allowed only for text neither decimal point reads, such as "1.000,5".
-    // An integer takes no decimal point, so "1.000" stays the grouped 1000 there rather than becoming 1.
+    // An integer takes no decimal point, so "1.000" stays rejected rather than becoming 1.
     internal static bool TryParse<TValue>(ReadOnlySpan<char> text, [MaybeNullWhen(false)] out TValue value)
         where TValue : INumberBase<TValue>
     {
