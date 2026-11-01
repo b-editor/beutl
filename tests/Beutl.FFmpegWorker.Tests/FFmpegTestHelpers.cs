@@ -88,6 +88,8 @@ internal static class FFmpegTestHelpers
 
 internal sealed class EmptySampleProvider : ISampleProvider
 {
+    public AudioChannelLayout ChannelLayout => AudioChannelLayout.Stereo;
+
     public long SampleCount => 0;
 
     public long SampleRate => 44100;

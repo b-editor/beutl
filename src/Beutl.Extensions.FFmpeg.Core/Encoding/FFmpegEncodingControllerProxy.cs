@@ -112,11 +112,14 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                                     $"The worker asked for samples from {sampleReq.Offset}, but the next sample is {nextSample}.");
                             using var audio = await sampleProvider.ReadNextSamples(checked((int)sampleReq.Length))
                                 ?? throw new InvalidOperationException($"The sample provider ended before sample {nextSample}.");
+                            if (audio.ChannelCount != sampleProvider.ChannelLayout.ChannelCount)
+                                throw new InvalidOperationException("The audio buffer does not match the provider channel layout.");
+
                             nextSample += sampleReq.Length;
 
                             // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
                             var targetAudioBuffer = audioBuffers[sampleReq.BufferIndex];
-                            int length = audio.SampleCount * 2;
+                            int length = checked(audio.SampleCount * sampleProvider.ChannelLayout.ChannelCount);
                             float[] interleaved = ArrayPool<float>.Shared.Rent(length);
                             try
                             {
@@ -160,7 +163,7 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
         }
     }
 
-    private EncodeStartRequest CreateStartRequest(IFrameProvider frameProvider, ISampleProvider sampleProvider)
+    internal EncodeStartRequest CreateStartRequest(IFrameProvider frameProvider, ISampleProvider sampleProvider)
     {
         return new EncodeStartRequest
         {
@@ -170,6 +173,8 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
             FrameRateDen = frameProvider.FrameRate.Denominator,
             SampleCount = sampleProvider.SampleCount,
             ProviderSampleRate = sampleProvider.SampleRate,
+            ProviderChannelCount = sampleProvider.ChannelLayout.ChannelCount,
+            ProviderSpeakerMask = (uint)sampleProvider.ChannelLayout.Speakers,
             SourceWidth = VideoSettings.SourceSize.Value.Width,
             SourceHeight = VideoSettings.SourceSize.Value.Height,
             DestWidth = VideoSettings.DestinationSize.Value.Width,

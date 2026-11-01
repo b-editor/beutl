@@ -1,4 +1,5 @@
-﻿using Beutl.FFmpegIpc.Protocol;
+﻿using Beutl.Audio;
+using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.Providers;
 using Beutl.FFmpegIpc.SharedMemory;
@@ -20,7 +21,8 @@ internal sealed class EncodingHandler
 
             // 共有メモリ作成 (ダブルバッファリング)
             long videoBufferSize = (long)request.SourceWidth * request.SourceHeight * 8 + 64;
-            long audioBufferSize = request.ProviderSampleRate * 8 + 64;
+            var layout = new AudioChannelLayout(request.ProviderChannelCount, (AudioSpeakers)request.ProviderSpeakerMask);
+            long audioBufferSize = GetAudioBufferSize(request);
 
             string videoShmName0 = $"beutl-ffmpeg-encode-video-{Environment.ProcessId}-{msg.Id}-0";
             string videoShmName1 = $"beutl-ffmpeg-encode-video-{Environment.ProcessId}-{msg.Id}-1";
@@ -54,7 +56,7 @@ internal sealed class EncodingHandler
                 request.FrameCount, new Rational(request.FrameRateNum, request.FrameRateDen),
                 request.SourceWidth, request.SourceHeight);
             using var sampleProvider = new IpcSampleProvider(connection, audioBuffers,
-                request.SampleCount, request.ProviderSampleRate);
+                request.SampleCount, request.ProviderSampleRate, layout);
 
             await controller.Encode(frameProvider, sampleProvider, ct);
 
@@ -78,6 +80,9 @@ internal sealed class EncodingHandler
                 });
         }
     }
+
+    internal static long GetAudioBufferSize(EncodeStartRequest request)
+        => checked(request.ProviderSampleRate * request.ProviderChannelCount * sizeof(float) + 64);
 
     private static FFmpegEncodingController CreateController(EncodeStartRequest request)
     {

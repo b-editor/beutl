@@ -3,7 +3,9 @@ using System.Runtime.Versioning;
 using Beutl.Audio;
 using Beutl.Extensibility;
 using Beutl.Extensions.AVFoundation.Interop;
+using Beutl.Logging;
 using Beutl.Media;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.AVFoundation.Encoding;
 
@@ -23,8 +25,10 @@ public class AVFEncodingController : EncodingController
         ISampleProvider sampleProvider,
         CancellationToken cancellationToken)
     {
+        ValidateAudioChannels(AudioSettings.Format.Value, AudioSettings.Channels.Value);
+        BeutlAVFNative.EnsureCompatibleVersion();
         var videoConfig = BuildVideoConfig();
-        var audioConfig = BuildAudioConfig((int)sampleProvider.SampleRate);
+        var audioConfig = BuildAudioConfig((int)sampleProvider.SampleRate, sampleProvider.ChannelLayout);
 
         bool isHdr = VideoSettings.IsHdr;
         // Convert pixels to the same transfer/primaries as the encoded stream, including SDR.
@@ -40,6 +44,14 @@ public class AVFEncodingController : EncodingController
 
         using (handle)
         {
+            int bitrate = BeutlAVFNative.beutl_avf_writer_audio_bitrate(handle);
+            if (bitrate > audioConfig.Bitrate && audioConfig.Bitrate > 0)
+            {
+                Log.CreateLogger<AVFEncodingController>().LogWarning(
+                    "AVFoundation raised the audio bitrate from {Requested} to {Actual} bit/s for {Channels} channels.",
+                    audioConfig.Bitrate, bitrate, AudioSettings.Channels.Value);
+                AudioSettings.Bitrate.Value = bitrate;
+            }
             BeutlAVFException.ThrowIfFailed(BeutlAVFNative.beutl_avf_writer_start(handle));
 
             bool encodeVideo = true;
@@ -129,7 +141,10 @@ public class AVFEncodingController : EncodingController
         if (sound is null)
             return false;
 
-        float[] interleaved = ArrayPool<float>.Shared.Rent(sound.SampleCount * 2);
+        if (sound.ChannelCount != sampleProvider.ChannelLayout.ChannelCount)
+            throw new InvalidOperationException("The audio buffer does not match the provider channel layout.");
+
+        float[] interleaved = ArrayPool<float>.Shared.Rent(checked(sound.SampleCount * sampleProvider.ChannelLayout.ChannelCount));
         try
         {
             AudioConversion.Interleave(sound, interleaved);
@@ -194,7 +209,15 @@ public class AVFEncodingController : EncodingController
         };
     }
 
-    private BeutlAudioEncoderConfig BuildAudioConfig(int sourceSampleRate)
+    internal static void ValidateAudioChannels(AVFAudioEncoderSettings.AudioFormatType format, int channels)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(channels);
+        // AVAssetWriter can accept AAC 7.1 settings while silently losing or relabeling speakers.
+        if (format == AVFAudioEncoderSettings.AudioFormatType.MPEG4AAC && channels is not (1 or 2 or 6))
+            throw new NotSupportedException("AVFoundation AAC supports 1, 2 or 6 channels. Choose Linear PCM, or the FFmpeg encoder, for other channel counts.");
+    }
+
+    internal BeutlAudioEncoderConfig BuildAudioConfig(int sourceSampleRate, AudioChannelLayout inputLayout)
     {
         int sampleRate = AudioSettings.SampleRate.Value > 0 ? AudioSettings.SampleRate.Value : sourceSampleRate;
         int flags = 0;
@@ -212,6 +235,8 @@ public class AVFEncodingController : EncodingController
             SampleRateConverterQuality = (int)AudioSettings.SampleRateConverterQuality.Value,
             LinearPcmBitDepth = (int)AudioSettings.LinearPcmBitDepth.Value,
             LinearPcmFlags = flags,
+            InputChannelCount = inputLayout.ChannelCount,
+            InputSpeakerMask = (uint)inputLayout.Speakers,
         };
     }
 

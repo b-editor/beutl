@@ -8,6 +8,8 @@ namespace Beutl.Extensions.AVFoundation.Tests;
 // rest — a stale-buffer regression shows up as widely separated chunks being bitwise identical.
 internal sealed class SweepSampleProvider(long sampleCount, long sampleRate) : ISampleProvider
 {
+    public AudioChannelLayout ChannelLayout => AudioChannelLayout.Stereo;
+
     public long SampleCount { get; } = sampleCount;
     public long SampleRate { get; } = sampleRate;
 

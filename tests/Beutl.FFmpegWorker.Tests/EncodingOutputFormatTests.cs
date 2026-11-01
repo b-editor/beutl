@@ -78,6 +78,8 @@ public sealed class EncodingOutputFormatTests
 
     private sealed class UnusedSampleProvider : ISampleProvider
     {
+        public AudioChannelLayout ChannelLayout => AudioChannelLayout.Stereo;
+
         public long SampleCount => throw new AssertionException("Invalid output formats must be rejected before reading samples.");
 
         public long SampleRate => throw new AssertionException("Invalid output formats must be rejected before reading samples.");

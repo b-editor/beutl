@@ -138,6 +138,8 @@ internal sealed class ColorBarsFrameProvider : IFrameProvider
 // 440 Hz sine wave in stereo; the right channel is scaled by rightGain.
 internal sealed class SineSampleProvider(long sampleCount, long sampleRate, float rightGain = 1) : ISampleProvider
 {
+    public AudioChannelLayout ChannelLayout => AudioChannelLayout.Stereo;
+
     public long SampleCount { get; } = sampleCount;
 
     public long SampleRate { get; } = sampleRate;
@@ -169,4 +171,41 @@ internal sealed class SineSampleProvider(long sampleCount, long sampleRate, floa
     {
         // No prefetch or owned resources to drain.
     }
+}
+
+internal sealed class SpeakerToneSampleProvider(long sampleCount, int sampleRate, AudioChannelLayout layout) : ISampleProvider
+{
+    private long _nextSample;
+    public long SampleCount => sampleCount;
+    public long SampleRate => sampleRate;
+    public AudioChannelLayout ChannelLayout => layout;
+
+    // Keep the LFE below the AAC low-pass cutoff, with an integral number of cycles per second.
+    public static int Frequency(int channel) => channel == 3 ? 60 : 300 + channel * 180;
+
+    public ValueTask<AudioBuffer?> ReadNextSamples(int length)
+    {
+        if (_nextSample >= SampleCount)
+            return ValueTask.FromResult<AudioBuffer?>(null);
+        var audio = new AudioBuffer(sampleRate, layout.ChannelCount, length);
+        for (int ch = 0; ch < layout.ChannelCount; ch++)
+            for (int i = 0; i < Math.Min(length, SampleCount - _nextSample); i++)
+                audio.GetChannelData(ch)[i] = (float)(0.25 * Math.Sin(2 * Math.PI * Frequency(ch) * (_nextSample + i) / sampleRate));
+        _nextSample += length;
+        return ValueTask.FromResult<AudioBuffer?>(audio);
+    }
+
+    public static double ToneLevel(ReadOnlySpan<float> samples, int frequency, int rate)
+    {
+        double real = 0, imaginary = 0;
+        for (int i = 0; i < samples.Length; i++)
+        {
+            double phase = 2 * Math.PI * frequency * i / rate;
+            real += samples[i] * Math.Cos(phase);
+            imaginary += samples[i] * Math.Sin(phase);
+        }
+        return 2 * Math.Sqrt(real * real + imaginary * imaginary) / samples.Length;
+    }
+
+    public void Dispose() { }
 }

@@ -15,8 +15,8 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
     private readonly ILogger _logger = Log.CreateLogger<SampleProviderImpl>();
     private readonly Scene _scene;
     private readonly SceneComposer _composer;
-    private readonly AudioChannelMatrix? _stereoMatrix;
     private readonly long _sampleRate;
+    private readonly AudioChannelMatrix? _matrix;
     private readonly Subject<MediaTime> _progress;
     private readonly long _sampleCount;
     private readonly Channel<AudioBuffer> _channel;
@@ -29,11 +29,18 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
     private bool _disposed;
 
     public SampleProviderImpl(Scene scene, SceneComposer composer, long sampleRate, Subject<MediaTime> progress)
+        : this(scene, composer, sampleRate, progress, AudioChannelLayout.Stereo)
     {
+    }
+
+    public SampleProviderImpl(Scene scene, SceneComposer composer, long sampleRate, Subject<MediaTime> progress,
+        AudioChannelLayout outputLayout)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(outputLayout.ChannelCount, nameof(outputLayout));
+        ChannelLayout = outputLayout;
+        _matrix = composer.ChannelLayout == outputLayout ? null : AudioChannelMatrix.Create(composer.ChannelLayout, outputLayout);
         _scene = scene;
         _composer = composer;
-        _stereoMatrix = composer.ChannelLayout == AudioChannelLayout.Stereo ? null
-            : AudioChannelMatrix.Create(composer.ChannelLayout, AudioChannelLayout.Stereo);
         _sampleRate = sampleRate;
         _progress = progress;
         _chunkSize = (int)sampleRate;
@@ -56,6 +63,8 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
 
     public long SampleRate => _sampleRate;
 
+    public AudioChannelLayout ChannelLayout { get; }
+
     public async ValueTask<AudioBuffer?> ReadNextSamples(int length)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -66,7 +75,7 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         _progress.OnNext(MediaTime.FromSamples(Math.Min(offset + length, _sampleCount), (int)_sampleRate));
 
         // Past the end the samples stay zero.
-        var audio = new AudioBuffer((int)_sampleRate, 2, length);
+        var audio = new AudioBuffer((int)_sampleRate, ChannelLayout.ChannelCount, length);
         int available = (int)Math.Min(length, _sampleCount - offset);
         try
         {
@@ -81,7 +90,7 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
                 }
 
                 int copyLength = Math.Min(available - written, _chunk.SampleCount - _chunkPosition);
-                for (int channel = 0; channel < 2; channel++)
+                for (int channel = 0; channel < ChannelLayout.ChannelCount; channel++)
                 {
                     _chunk.GetChannelData(channel).Slice(_chunkPosition, copyLength)
                         .CopyTo(audio.GetChannelData(channel)[written..]);
@@ -120,7 +129,15 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
             for (long offset = 0; offset < _sampleCount && !_cts.Token.IsCancellationRequested; offset += _chunkSize)
             {
                 var chunk = await ComposeChunk(offset, _cts.Token);
-                await _channel.Writer.WriteAsync(chunk, _cts.Token);
+                try
+                {
+                    await _channel.Writer.WriteAsync(chunk, _cts.Token);
+                }
+                catch
+                {
+                    chunk.Dispose();
+                    throw;
+                }
             }
         }
         catch (OperationCanceledException)
@@ -156,11 +173,12 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         AudioBuffer buffer = _composer.Compose(new(_scene.FromWindowTime(MediaTime.FromSamples(offset, (int)_sampleRate)),
             MediaTime.FromSeconds(1)))
                      ?? throw new InvalidOperationException("composer.Composeがnullを返しました。");
-        if (_stereoMatrix != null)
+        if (_matrix != null)
         {
-            using AudioBuffer composed = buffer;
-            buffer = _stereoMatrix.Apply(composed);
+            using var input = buffer;
+            buffer = _matrix.Apply(input);
         }
+
         if (buffer.SampleCount == length)
             return buffer;
 

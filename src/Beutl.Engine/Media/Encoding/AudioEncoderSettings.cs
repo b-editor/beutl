@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Audio;
 using Beutl.Language;
 
 namespace Beutl.Media.Encoding;
@@ -16,6 +17,9 @@ public partial class AudioEncoderSettings : MediaEncoderSettings
         Bitrate = Property.CreateValue(defaultBitrate);
         ScanProperties<AudioEncoderSettings>();
     }
+
+    /// <summary>The speaker layout written by an export with these settings.</summary>
+    public AudioChannelLayout GetChannelLayout() => AudioChannelLayout.GetDefault(Channels.Value);
 
     [Display(Name = nameof(Strings.SampleRate), Description = nameof(Strings.SampleRate_Tip), ResourceType = typeof(Strings), Order = int.MinValue)]
     public IProperty<int> SampleRate { get; } = Property.CreateValue(44100);

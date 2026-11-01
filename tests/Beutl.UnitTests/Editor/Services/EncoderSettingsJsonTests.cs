@@ -136,7 +136,7 @@ public class EncoderSettingsJsonTests
         Assert.Multiple(() =>
         {
             Assert.That(target.SampleRate.Value, Is.EqualTo(48000));
-            Assert.That(target.Channels.Value, Is.EqualTo(preset.Channels.Value));
+            Assert.That(target.Channels.Value, Is.EqualTo(2));
             Assert.That(target.Bitrate.Value, Is.EqualTo(preset.Bitrate.Value));
         });
     }
@@ -184,10 +184,11 @@ public class EncoderSettingsJsonTests
             Throws.Exception);
 
         Assert.That(target.SampleRate.Value, Is.EqualTo(44100));
+        Assert.That(target.Channels.Value, Is.EqualTo(2));
     }
 
     [Test]
-    public void PopulateAudioPreset_PreservesSampleRate()
+    public void PopulateAudioPreset_PreservesSampleRateAndChannels()
     {
         var preset = new AudioEncoderSettings
         {
@@ -198,7 +199,7 @@ public class EncoderSettingsJsonTests
         var target = new AudioEncoderSettings
         {
             SampleRate = { Value = 44100 },
-            Channels = { Value = 2 },
+            Channels = { Value = 6 },
             Bitrate = { Value = 128_000 }
         };
 
@@ -208,7 +209,7 @@ public class EncoderSettingsJsonTests
         Assert.Multiple(() =>
         {
             Assert.That(target.SampleRate.Value, Is.EqualTo(44100));
-            Assert.That(target.Channels.Value, Is.EqualTo(preset.Channels.Value));
+            Assert.That(target.Channels.Value, Is.EqualTo(6));
             Assert.That(target.Bitrate.Value, Is.EqualTo(preset.Bitrate.Value));
         });
     }
@@ -223,7 +224,7 @@ public class EncoderSettingsJsonTests
             Bitrate = { Value = 96_000 }
         };
         JsonObject json = EncoderSettingsJson.Serialize(preset)!;
-        json[nameof(AudioEncoderSettings.Channels)] = JsonValue.Create("invalid");
+        json[nameof(AudioEncoderSettings.Bitrate)] = JsonValue.Create("invalid");
         var target = new AudioEncoderSettings
         {
             SampleRate = { Value = 44100 },
@@ -236,6 +237,7 @@ public class EncoderSettingsJsonTests
             Throws.Exception);
 
         Assert.That(target.SampleRate.Value, Is.EqualTo(44100));
+        Assert.That(target.Channels.Value, Is.EqualTo(2));
     }
 
     [Test]

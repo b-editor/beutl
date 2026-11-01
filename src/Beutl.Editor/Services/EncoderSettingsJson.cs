@@ -57,7 +57,7 @@ public static class EncoderSettingsJson
         }
     }
 
-    /// <summary>Applies a preset to <paramref name="settings"/>.</summary>
+    /// <summary>Applies a preset to <paramref name="settings"/>, preserving the output channel count.</summary>
     /// <param name="settings">The settings to apply the preset to.</param>
     /// <param name="json">The preset's audio settings.</param>
     /// <param name="appliesSampleRate">
@@ -67,6 +67,7 @@ public static class EncoderSettingsJson
     public static void PopulateAudioPreset(AudioEncoderSettings settings, JsonObject json, bool appliesSampleRate)
     {
         int sampleRate = settings.SampleRate.Value;
+        int channels = settings.Channels.Value;
         bool applied = false;
 
         try
@@ -76,6 +77,7 @@ public static class EncoderSettingsJson
         }
         finally
         {
+            settings.Channels.Value = channels;
             if (!appliesSampleRate || !applied)
                 settings.SampleRate.Value = sampleRate;
         }

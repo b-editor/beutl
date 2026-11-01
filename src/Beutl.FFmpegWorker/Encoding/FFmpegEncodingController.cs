@@ -1,4 +1,5 @@
 ﻿using System.Runtime.ExceptionServices;
+using Beutl.Audio;
 using Beutl.Extensibility;
 using Beutl.Logging;
 using Beutl.Media;
@@ -80,12 +81,12 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
     private void ConfigureAudioStream(
         OutputFormat outFormat, MediaMuxer muxer,
-        MediaFrame audioFrame, out MediaEncoder encoder, out MediaStream stream, out SampleConverter swr)
+        MediaFrame audioFrame, ISampleProvider sampleProvider, out MediaEncoder encoder, out MediaStream stream, out SampleConverter swr)
     {
         var codec = AudioSettings.Codec.Value.Equals(CodecRecord.Default)
             ? MediaCodec.FindEncoder(outFormat.AudioCodec)
             : MediaCodec.FindEncoder(AudioSettings.Codec.Value.Name);
-        AVChannelLayout channelLayout = SelectChannelLayout(codec, AudioSettings.Channels.Value);
+        AVChannelLayout channelLayout = SelectChannelLayout(codec.GetChLayouts().ToArray(), AudioSettings.GetChannelLayout());
         int sampleRate = AudioSettings.SampleRate.Value;
         var format = (AVSampleFormat)AudioSettings.Format.Value;
         int bitRate = AudioSettings.Bitrate.Value;
@@ -150,26 +151,43 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         swr = new SampleConverter();
         swr.SetOpts(encoder.ChLayout, encoder.SampleRate, encoder.SampleFmt, nbsamples);
 
-        // src: the sample provider always delivers planar stereo, which swr remixes into the encoder's layout
-        audioFrame.ChLayout = DefaultChannelLayout(2);
+        // Packed input also supports more than AVFrame.data's eight planes.
+        audioFrame.ChLayout = ToNativeLayout(sampleProvider.ChannelLayout);
         audioFrame.NbSamples = nbsamples;
-        audioFrame.Format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLTP;
+        audioFrame.Format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLT;
         audioFrame.SampleRate = encoder.SampleRate;
         audioFrame.AllocateBuffer();
     }
 
-    // The codec's own layout for the channel count comes first: AAC takes 5.1 only with back
-    // speakers, while FFmpeg's default six-channel layout uses side ones.
-    private static AVChannelLayout SelectChannelLayout(MediaCodec codec, int channels)
+    internal static AVChannelLayout SelectChannelLayout(AVChannelLayout[] layouts, AudioChannelLayout requested)
     {
-        foreach (AVChannelLayout layout in codec.GetChLayouts())
+        if (layouts.Length == 0)
+            return ToNativeLayout(requested);
+
+        foreach (AVChannelLayout layout in layouts)
         {
-            if (layout.nb_channels == channels)
+            if (requested.HasPositions && layout.order == AVChannelOrder.AV_CHANNEL_ORDER_NATIVE
+                && layout.u.mask == (uint)requested.Speakers)
                 return layout;
         }
 
-        return DefaultChannelLayout(channels);
+        foreach (AVChannelLayout layout in layouts)
+        {
+            if (layout.nb_channels == requested.ChannelCount)
+                return layout;
+        }
+
+        return DefaultChannelLayout(requested.ChannelCount);
     }
+
+    private static AVChannelLayout ToNativeLayout(AudioChannelLayout layout) => layout.HasPositions
+        ? new AVChannelLayout
+        {
+            order = AVChannelOrder.AV_CHANNEL_ORDER_NATIVE,
+            nb_channels = layout.ChannelCount,
+            u = new AVChannelLayout_u { mask = (uint)layout.Speakers },
+        }
+        : new AVChannelLayout { order = AVChannelOrder.AV_CHANNEL_ORDER_UNSPEC, nb_channels = layout.ChannelCount };
 
     private static unsafe AVChannelLayout DefaultChannelLayout(int channels)
     {
@@ -347,7 +365,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             {
                 if (outFormat.AudioCodec != AVCodecID.AV_CODEC_ID_NONE)
                 {
-                    ConfigureAudioStream(outFormat, muxer, audioFrame, out var encoder, out var stream, out swr);
+                    ConfigureAudioStream(outFormat, muxer, audioFrame, sampleProvider, out var encoder, out var stream, out swr);
                     encoders.Add((encoder, stream));
                     audioRef = (encoder, stream);
                     encodeAudio = true;
@@ -473,10 +491,13 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         if (audio is null)
             return null;
 
+        if (audio.ChannelCount != frame.ChLayout.nb_channels)
+            throw new InvalidOperationException("The audio buffer does not match the provider channel layout.");
+
         unsafe
         {
-            audio.GetChannelData(0).CopyTo(new Span<float>((void*)frame.Data[0], frame.NbSamples));
-            audio.GetChannelData(1).CopyTo(new Span<float>((void*)frame.Data[1], frame.NbSamples));
+            AudioConversion.Interleave(audio, new Span<float>((void*)frame.Data[0],
+                checked(frame.NbSamples * sampleProvider.ChannelLayout.ChannelCount)));
         }
 
         var converted = swr.ConvertFrame(frame, out _, out _);

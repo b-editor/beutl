@@ -79,9 +79,12 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                     frameProvider.FrameCount));
             using var composer = CreateExportComposer(scene, normalizedSampleRate);
             using var sampleProgress = new Subject<MediaTime>();
-            using var sampleProvider = new SampleProviderImpl(scene, composer, normalizedSampleRate, sampleProgress);
+            using var sampleProvider = new SampleProviderImpl(scene, composer, normalizedSampleRate, sampleProgress, controller.AudioSettings.GetChannelLayout());
 
+            int requestedAudioBitrate = controller.AudioSettings.Bitrate.Value;
             await controller.Encode(frameProvider, sampleProvider, cancellationToken).ConfigureAwait(false);
+            if (controller.AudioSettings.Bitrate.Value > requestedAudioBitrate && requestedAudioBitrate > 0)
+                warnings.Add($"The audio encoder raised the bitrate from {requestedAudioBitrate} to {controller.AudioSettings.Bitrate.Value} bit/s for {controller.AudioSettings.Channels.Value} channels.");
             if (encoder is AVFEncodingExtension
                 && bitrate is int requestedBitrate
                 && CreateAvFoundationBitrateWarning(
@@ -103,7 +106,8 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                 sampleProvider.SampleCount,
                 scene.Duration.Value.ToTimeSpan().ToString("c"),
                 GetEncoderName(encoder),
-                warnings);
+                warnings)
+            { AudioChannels = controller.AudioSettings.Channels.Value };
         }
 
         // FFmpeg registers first, but its native libraries or out-of-process worker may be absent; fall
@@ -158,7 +162,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         controller.VideoSettings.DestinationSize.Value = scene.FrameSize.Value;
         controller.VideoSettings.FrameRate.Value = frameRate;
         controller.AudioSettings.SampleRate.Value = sampleRate;
-        controller.AudioSettings.Channels.Value = 2;
+        controller.AudioSettings.Channels.Value = scene.FindHierarchicalParent<Project>().GetChannelLayout().ChannelCount;
         return new List<string>(
             ApplyQualitySettings(controller.VideoSettings, crf, bitrate));
     }
