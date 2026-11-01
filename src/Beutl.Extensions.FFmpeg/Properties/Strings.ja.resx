@@ -198,6 +198,9 @@
   <data name="EncoderOptionInvalidValue" xml:space="preserve">
     <value>{0}: 「{1}」は現在のコーデックまたはピクセル形式に対応していません。</value>
   </data>
+  <data name="EncoderOptionsBitrateUnusedWithCrf" xml:space="preserve">
+    <value>crf を設定している間、H.264 と H.265 は crf の画質で書き出し、ビットレートは使いません。ビットレートで書き出すには crf を削除してください。</value>
+  </data>
   <data name="EncoderOptionsDuplicate" xml:space="preserve">
     <value>同じ名前のオプションが重複しています。</value>
   </data>

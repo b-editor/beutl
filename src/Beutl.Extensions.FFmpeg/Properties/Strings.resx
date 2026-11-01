@@ -198,6 +198,9 @@
   <data name="EncoderOptionInvalidValue" xml:space="preserve">
     <value>{0}: “{1}” is not supported by the current encoder or pixel format.</value>
   </data>
+  <data name="EncoderOptionsBitrateUnusedWithCrf" xml:space="preserve">
+    <value>While crf is set, H.264 and H.265 encode at its quality and do not use the bitrate. Remove crf to export at the bitrate.</value>
+  </data>
   <data name="EncoderOptionsDuplicate" xml:space="preserve">
     <value>Option names must be unique.</value>
   </data>

@@ -37,6 +37,10 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
         _subscriptions.Add(property.GetObservable().Subscribe(ObserveList));
         _subscriptions.Add(_settings.Codec.GetObservable().Subscribe(_ => RequestUpdate()));
         _subscriptions.Add(_settings.Format.GetObservable().Subscribe(_ => RequestUpdate()));
+        _subscriptions.Add(_settings.Bitrate.GetObservable().Subscribe(_ =>
+        {
+            if (!_mutating) ValuesChanged?.Invoke();
+        }));
     }
 
     public PropertyEditorExtension Extension { get; }
@@ -54,6 +58,12 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
         => Descriptors.Where(d => Options.Any(o => o.Name.Value == d.Name));
 
     public string? GetValue(string name) => Options.FirstOrDefault(o => o.Name.Value == name)?.Value.Value;
+
+    // H.264 and H.265 encode at crf's quality and ignore the bitrate while crf is set, which the bitrate field alone
+    // does not tell. Exports keep that behaviour, as the built-in presets pair a bitrate with crf on purpose.
+    public string? BitrateNote => _settings.Bitrate.Value > 0 && !string.IsNullOrWhiteSpace(GetValue("crf"))
+        ? Strings.EncoderOptionsBitrateUnusedWithCrf
+        : null;
 
     public void SetValue(string name, string? value)
     {
