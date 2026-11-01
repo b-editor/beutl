@@ -118,10 +118,11 @@ public sealed class DeviceBufferBudgetTests
         using var targets = new EffectTargets();
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary,
-            workingScale: 2f,
-            budget: BufferDimensionBudget.Named(DeviceBudget));
+            new(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary)
+            {
+                WorkingScale = 2f,
+                Budget = BufferDimensionBudget.Named(DeviceBudget),
+            });
 
         float density = context.ResolveTargetDensity(s_overBudgetBounds);
 
@@ -147,11 +148,12 @@ public sealed class DeviceBufferBudgetTests
         using var targets = new EffectTargets();
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary,
-            workingScale: 2f,
-            renderTargetLeaseSession: session,
-            budget: BufferDimensionBudget.Named(DeviceBudget));
+            new(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary)
+            {
+                WorkingScale = 2f,
+                RenderTargetLeaseSession = session,
+                Budget = BufferDimensionBudget.Named(DeviceBudget),
+            });
 
         using EffectTarget target = context.CreateTarget(s_overBudgetBounds);
 
@@ -175,8 +177,7 @@ public sealed class DeviceBufferBudgetTests
         using var targets = new EffectTargets();
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary);
+            new(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary));
         using var builder = new SKImageFilterBuilder();
         using var executor = new FilterEffectExecutor(
             targets,
@@ -295,13 +296,14 @@ public sealed class DeviceBufferBudgetTests
                 () => new FilterEffectExecutor(
                     targets,
                     builder,
-                    RenderIntent.Delivery,
-                    RenderRequestPurpose.Auxiliary,
-                    outputScale: 1f,
-                    workingScale: 1f,
-                    maxWorkingScale: float.PositiveInfinity,
-                    deviceGridOffset: default,
-                    budget: default(BufferDimensionBudget)),
+                    new(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary)
+                    {
+                        OutputScale = 1f,
+                        WorkingScale = 1f,
+                        MaxWorkingScale = float.PositiveInfinity,
+                        DeviceGridOffset = default(Vector),
+                        Budget = default(BufferDimensionBudget),
+                    }),
                 Throws.InstanceOf<ArgumentOutOfRangeException>());
             Assert.That(
                 () => new RenderTargetPool(

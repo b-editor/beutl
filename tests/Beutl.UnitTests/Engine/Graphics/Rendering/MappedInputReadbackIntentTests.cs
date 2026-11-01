@@ -102,11 +102,12 @@ public sealed class MappedInputReadbackIntentTests
     private static CustomFilterEffectContext CreateContext(EffectTargets targets, RenderIntent intent)
         => new(
             targets,
-            intent,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1f,
-            workingScale: 1f,
-            maxWorkingScale: 1f);
+            new FilterEffectExecutionSettings(intent, RenderRequestPurpose.Auxiliary)
+            {
+                OutputScale = 1f,
+                WorkingScale = 1f,
+                MaxWorkingScale = 1f,
+            });
 
     private static EffectTarget CreateUnallocatableSourceTarget()
     {

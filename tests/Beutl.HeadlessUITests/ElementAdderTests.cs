@@ -314,6 +314,83 @@ public class ElementAdderTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task ElementSetTemplate_KeepsClipsThatOverlapOnOneLayer()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-set-template-overlap");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        var outgoing = new Element
+        {
+            Length = { Value = MediaTime.FromSeconds(2.5) },
+            Name = { Value = "Outgoing" },
+        };
+        outgoing.AddObject(new RectShape());
+        var incoming = new Element
+        {
+            Start = { Value = MediaTime.FromSeconds(2) },
+            Length = { Value = MediaTime.FromSeconds(2) },
+            Name = { Value = "Incoming" },
+        };
+        incoming.AddObject(new EllipseShape());
+        var set = new ElementSet();
+        set.Elements.AddRange([outgoing, incoming]);
+        ObjectTemplateItem template = ObjectTemplateItem.CreateFromInstance(set, "Cross");
+
+        ElementAddResult result = await adder.AddAsync(
+            [ElementTemplateResolver.CreateDescription(template, MediaTime.FromSeconds(10), 3)],
+            CancellationToken.None);
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(
+                editor.Scene.Children.Select(e => (e.Name.Value, e.Start.Value, e.Length.Value, e.ZIndex.Value)),
+                Is.EquivalentTo(new[]
+                {
+                    ("Outgoing", MediaTime.FromSeconds(10), MediaTime.FromSeconds(2.5), 3),
+                    ("Incoming", MediaTime.FromSeconds(12), MediaTime.FromSeconds(2), 3),
+                }));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ElementSetTemplates_InOneBatch_GoToSeparatePlacesInOnePiece()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-set-template-batch");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        ObjectTemplateItem template = CreateSetTemplate();
+
+        // Both are placed before either is added, so the second is placed again against the first as it goes in.
+        ElementAddResult result = await adder.AddAsync(
+            [
+                ElementTemplateResolver.CreateDescription(template, MediaTime.FromSeconds(10), 3),
+                ElementTemplateResolver.CreateDescription(template, MediaTime.FromSeconds(12), 3),
+            ],
+            CancellationToken.None);
+        HeadlessTestHelpers.Settle();
+
+        IReadOnlyList<Element> first = result.Items[0].Elements;
+        IReadOnlyList<Element> second = result.Items[1].Elements;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(
+                first.Select(e => (e.Start.Value, e.ZIndex.Value)),
+                Is.EquivalentTo(new[] { (MediaTime.FromSeconds(10), 3), (MediaTime.FromSeconds(11), 5) }));
+            Assert.That(
+                second.Select(e => e.Length.Value),
+                Is.EquivalentTo(new[] { MediaTime.FromSeconds(4), MediaTime.FromSeconds(2) }));
+            Assert.That(Offsets(second), Is.EquivalentTo(Offsets(first)));
+            Assert.That(
+                second.Any(e => first.Any(
+                    f => f.ZIndex.Value == e.ZIndex.Value && f.Range.Intersects(e.Range))),
+                Is.False);
+        }
+    }
+
     // A "Back" element over the whole set and a "Text" element a second in and two layers up, grouped.
     private static ObjectTemplateItem CreateSetTemplate()
     {

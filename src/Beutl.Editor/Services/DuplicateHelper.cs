@@ -111,7 +111,7 @@ public static class DuplicateHelper
     /// </summary>
     /// <remarks>
     /// Writes no file: each element gets its file when the scene is next saved. Not atomic: a failure can leave
-    /// partial children behind.
+    /// partial children behind. Each duplicate is fitted around what it overlaps as it is added.
     /// </remarks>
     public static void PlaceDuplicates(
         Scene scene,
@@ -119,6 +119,21 @@ public static class DuplicateHelper
         Element[] sourceElements,
         MediaTime anchorStart,
         int anchorZIndex)
+        => PlaceDuplicates(scene, newElements, sourceElements, anchorStart, anchorZIndex, ElementOverlapHandling.Auto);
+
+    /// <inheritdoc cref="PlaceDuplicates(Scene, Element[], Element[], MediaTime, int)"/>
+    /// <remarks>
+    /// Writes no file, and is not atomic. <paramref name="overlapHandling"/> applies to each duplicate as it is
+    /// added: a caller that found the anchor free for the whole set passes <see cref="ElementOverlapHandling.Allow"/>,
+    /// so duplicates that overlap each other on one layer keep that overlap.
+    /// </remarks>
+    public static void PlaceDuplicates(
+        Scene scene,
+        Element[] newElements,
+        Element[] sourceElements,
+        MediaTime anchorStart,
+        int anchorZIndex,
+        ElementOverlapHandling overlapHandling)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(newElements);
@@ -166,7 +181,7 @@ public static class DuplicateHelper
 
         foreach (Element newElement in newElements)
         {
-            scene.AddChild(newElement);
+            scene.AddChild(newElement, overlapHandling);
         }
     }
 }

@@ -459,9 +459,10 @@ public sealed class RasterFootprintMetadataTests
         using var targets = new EffectTargets { source.Clone() };
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            budget: BufferDimensionBudget.EngineCeiling);
+            new(RenderIntent.Preview, RenderRequestPurpose.Frame)
+            {
+                Budget = BufferDimensionBudget.EngineCeiling,
+            });
         var requestedBounds = new Rect(
             0,
             0,
@@ -514,9 +515,10 @@ public sealed class RasterFootprintMetadataTests
 
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            deviceGridOffset: ambientOffset);
+            new(RenderIntent.Preview, RenderRequestPurpose.Frame)
+            {
+                DeviceGridOffset = ambientOffset,
+            });
 
         Assert.Multiple(() =>
         {
@@ -544,8 +546,7 @@ public sealed class RasterFootprintMetadataTests
         using var targets = new EffectTargets { source.Clone() };
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame);
+            new(RenderIntent.Preview, RenderRequestPurpose.Frame));
         using RenderTarget replacementBacking = RenderTarget.CreateNull(
             deviceBounds.Width,
             deviceBounds.Height);
@@ -588,8 +589,7 @@ public sealed class RasterFootprintMetadataTests
             using var targets = new EffectTargets { source.Clone() };
             var context = new CustomFilterEffectContext(
                 targets,
-                RenderIntent.Preview,
-                RenderRequestPurpose.Frame);
+                new(RenderIntent.Preview, RenderRequestPurpose.Frame));
             int[] callbackEntries = [0];
 
             bool rendered = context.UseMappedInputShader(
@@ -639,8 +639,7 @@ public sealed class RasterFootprintMetadataTests
         using var targets = new EffectTargets();
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame);
+            new(RenderIntent.Preview, RenderRequestPurpose.Frame));
         using var emptyTarget = new EffectTarget();
 
         Assert.That(
@@ -672,8 +671,7 @@ public sealed class RasterFootprintMetadataTests
         using var targets = new EffectTargets { source.Clone() };
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame);
+            new(RenderIntent.Preview, RenderRequestPurpose.Frame));
         using RenderTarget wrongSize = RenderTarget.CreateNull(
             deviceBounds.Width + 1,
             deviceBounds.Height);

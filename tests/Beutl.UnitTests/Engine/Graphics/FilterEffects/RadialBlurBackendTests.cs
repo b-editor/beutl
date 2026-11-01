@@ -111,8 +111,17 @@ public sealed class RadialBlurBackendTests
             using var pool = new RenderTargetPool(factory);
             using RenderTargetLeaseSession session = pool.BeginSession(intent);
             using var builder = new SKImageFilterBuilder();
-            using var executor = new FilterEffectExecutor(targets, builder, intent, RenderRequestPurpose.Auxiliary,
-                1, 1, 1, default, renderTargetLeaseSession: session);
+            using var executor = new FilterEffectExecutor(
+                targets,
+                builder,
+                new(intent, RenderRequestPurpose.Auxiliary)
+                {
+                    OutputScale = 1,
+                    WorkingScale = 1,
+                    MaxWorkingScale = 1,
+                    DeviceGridOffset = default(Vector),
+                    RenderTargetLeaseSession = session,
+                });
             var effect = new RadialBlur { Mode = { Value = mode } };
             using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
             using var context = new FilterEffectContext(bounds);

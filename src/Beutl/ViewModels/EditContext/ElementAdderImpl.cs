@@ -110,15 +110,24 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         var preparedElements = new List<Element>(descriptions.Count);
         var itemResults = new List<ElementAddItemResult>(descriptions.Count);
         var groups = new List<ImmutableHashSet<Guid>>();
+        var arrangements = new List<bool>(descriptions.Count);
         ElementAddResult? materializationFailure = await MaterializeAsync(
-            scene, plans, preparedElements, itemResults, groups, materializationResources, cancellationToken);
+            scene,
+            plans,
+            preparedElements,
+            itemResults,
+            groups,
+            arrangements,
+            materializationResources,
+            cancellationToken);
         if (materializationFailure is not null)
             return materializationFailure;
 
         // A batch prepared while an edit session is open, such as an AI result, is added after the session ends.
         ElementAddResult? result = null;
         await _context.HistoryManager.RunAfterEditAsync(
-            () => result = CommitBatch(scene, sceneId, plans, preparedElements, itemResults, groups, cancellationToken),
+            () => result = CommitBatch(
+                scene, sceneId, plans, preparedElements, itemResults, groups, arrangements, cancellationToken),
             cancellationToken);
 
         return result!;
@@ -207,6 +216,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         List<Element> preparedElements,
         List<ElementAddItemResult> itemResults,
         List<ImmutableHashSet<Guid>> groups,
+        List<bool> arrangements,
         ICollection<ElementMaterializationResource> materializationResources,
         CancellationToken cancellationToken)
     {
@@ -279,6 +289,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             }
 
             groups.AddRange(materialization.Groups.Select(group => group.ToImmutableHashSet()));
+            arrangements.Add(materialization.KeepsArrangement);
             itemResults.Add(new ElementAddItemResult(
                 plan.Description,
                 materialization.PrimaryElement,
@@ -314,6 +325,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         List<Element> preparedElements,
         List<ElementAddItemResult> itemResults,
         List<ImmutableHashSet<Guid>> groups,
+        List<bool> arrangements,
         CancellationToken cancellationToken)
     {
         CommitValidationFailure? commitValidation = RevalidateBeforeCommit(
@@ -341,9 +353,20 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 if (gatedCommitValidation is not null)
                     return;
 
-                foreach (Element element in preparedElements)
+                for (int index = 0; index < itemResults.Count; index++)
                 {
-                    scene.AddChild(element);
+                    IReadOnlyList<Element> elements = itemResults[index].Elements;
+                    if (arrangements[index])
+                    {
+                        PlaceTogether(scene, elements);
+                    }
+
+                    foreach (Element element in elements)
+                    {
+                        scene.AddChild(
+                            element,
+                            arrangements[index] ? ElementOverlapHandling.Allow : ElementOverlapHandling.Auto);
+                    }
                 }
 
                 if (groups.Count > 0)
@@ -368,6 +391,22 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
 
         _logger.LogInformation("Added {Count} elements successfully.", preparedElements.Count);
         return ElementAddResult.Succeeded(itemResults);
+    }
+
+    // Moves elements that keep their arrangement to the free place nearest where they are, clear of the scene as it
+    // is now, earlier items of the batch included, so they can be added as they are. Throwing rolls the batch back.
+    private static void PlaceTogether(Scene scene, IReadOnlyList<Element> elements)
+    {
+        (TimeRange range, int minZIndex, _) = DuplicateHelper.ComputePlacementRange(elements);
+        HashSet<int> rowOffsets = elements.Select(element => element.ZIndex.Value - minZIndex).ToHashSet();
+        HashSet<int> lockedRows = scene.Layers
+            .Where(layer => layer.IsLocked.Value)
+            .Select(layer => layer.ZIndex.Value)
+            .ToHashSet();
+        (MediaTime start, int zIndex) = ElementPlacementHelper.FindFreeAnchor(
+                scene, range, rowOffsets, lockedRows, range.Start, minZIndex)
+            ?? throw new InvalidOperationException("No free place was found for elements that keep their arrangement.");
+        ElementPlacementHelper.MoveTogether(elements, start - range.Start, zIndex - minZIndex);
     }
 
     private CommitValidationFailure? RevalidateBeforeCommit(

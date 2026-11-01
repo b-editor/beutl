@@ -385,8 +385,7 @@ public sealed class WholeSourceFilterEffectTests
         using var targets = new EffectTargets { original };
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary);
+            new(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary));
         var failure = new InvalidOperationException("draw failed");
 
         InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() =>
@@ -425,8 +424,7 @@ public sealed class WholeSourceFilterEffectTests
         using var targets = new EffectTargets { original };
         var context = new CustomFilterEffectContext(
             targets,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary);
+            new(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary));
 
         DisplacementMapEffect.RenderAndCommitReplacement(
             context,

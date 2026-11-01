@@ -111,6 +111,28 @@ public class ElementDuplicateServiceTests
     }
 
     [Test]
+    public void DuplicateAtClickedPosition_KeepsDuplicatesThatOverlapOnOneLayer()
+    {
+        Element outgoing = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2.5));
+        Element incoming = AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2));
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [outgoing, incoming], MediaTime.FromSeconds(20), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.True);
+            Assert.That(
+                _scene.Children.Except([outgoing, incoming]).Select(e => (e.Start.Value, e.Length.Value, e.ZIndex.Value)),
+                Is.EquivalentTo(new[]
+                {
+                    (MediaTime.FromSeconds(20), MediaTime.FromSeconds(2.5), 0),
+                    (MediaTime.FromSeconds(22), MediaTime.FromSeconds(2), 0),
+                }));
+        });
+    }
+
+    [Test]
     public void DuplicateAtClickedPosition_EmptySources_ReturnsFailed()
     {
         DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(

@@ -165,7 +165,7 @@ internal sealed class BufferedPlayer : IDisposable
 
             // A rendered frame is queued as a full-size snapshot (one from the frame cache is smaller), so
             // the lead is bounded by memory rather than by a fixed frame count.
-            if (QueuedFrames >= MaxQueuedFrames(activeRenderer))
+            if (IsQueueFull(activeRenderer))
             {
                 stop = false;
                 Park(WaitingForRoom);
@@ -236,7 +236,7 @@ internal sealed class BufferedPlayer : IDisposable
         lock (_queue)
         {
             wake = _restartFrame.HasValue
-                || (reason == WaitingForRoom && _queue.Count < MaxQueuedFrames(_editViewModel.Renderer.Value));
+                || (reason == WaitingForRoom && !IsQueueFull(_editViewModel.Renderer.Value));
         }
 
         if (wake || ShouldStopProducing)
@@ -327,10 +327,25 @@ internal sealed class BufferedPlayer : IDisposable
     private IEnumerable<TimeRange> WithTransitionRegions(ImmutableArray<TimeRange> ranges)
         => ranges.Concat(ElementTransitions.GetRegionsNear(_scene, ranges));
 
-    private int MaxQueuedFrames(SceneRenderer renderer)
-        => ReadAheadBudget.FrameCount(
-            ReadAheadBudget.SnapshotBytes(renderer.DeviceSize) * (_editViewModel.Player.IsCleanPreviewEnabled ? 2 : 1),
-            MaxReadAheadFrames, ReadAheadBytes);
+    // A queued frame holds one snapshot, and a second only when its clean image is drawn apart: a frame with a 3D
+    // scene draws it again without gizmos, while any other frame lends its pixels. The next frame may need two
+    // while the clean preview is on, so room for both is kept.
+    private bool IsQueueFull(SceneRenderer renderer)
+    {
+        lock (_queue)
+        {
+            if (_queue.Count >= MaxReadAheadFrames)
+                return true;
+            if (_queue.Count < ReadAheadBudget.MinFrames)
+                return false;
+
+            int snapshots = _editViewModel.Player.IsCleanPreviewEnabled ? 2 : 1;
+            foreach (Frame frame in _queue)
+                snapshots += frame.CleanBitmap is { } clean && !ReferenceEquals(clean.Value, frame.Bitmap.Value) ? 2 : 1;
+
+            return snapshots * ReadAheadBudget.SnapshotBytes(renderer.DeviceSize) > ReadAheadBytes;
+        }
+    }
 
     // Queues the frame from the cache, or renders, queues and caches it. A frame rendered across an edit is shown
     // but not cached, so edits that come faster than frames render cannot hold playback.

@@ -69,7 +69,9 @@ public sealed class ElementDuplicateService : IElementDuplicateService
                 return DuplicateOutcome.Failed;
             }
 
-            DuplicateHelper.PlaceDuplicates(scene, regenerated, sourceArray, anchorStart, anchorZIndex);
+            // The anchor is free for the whole set, so the duplicates go in as they are.
+            DuplicateHelper.PlaceDuplicates(
+                scene, regenerated, sourceArray, anchorStart, anchorZIndex, ElementOverlapHandling.Allow);
         }
         catch (Exception ex)
         {

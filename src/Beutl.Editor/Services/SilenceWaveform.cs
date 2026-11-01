@@ -1,6 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
@@ -66,28 +65,23 @@ internal static class SilenceWaveform
                 return false;
             });
         }
-        JsonObject? json = null;
+        SceneSnapshot.SceneCapture? capture = null;
         if (canCopy)
         {
-            try { json = CoreSerializer.SerializeToJsonObject(scene, new() { Mode = CoreSerializationMode.EmbedReferencedObjects }); }
+            try { capture = SceneSnapshot.Capture(scene); }
             catch (Exception ex) when (ex is JsonException or InvalidOperationException or NotSupportedException) { }
         }
         bool isolated = false;
-        if (json != null)
+        if (capture != null)
         {
-            Uri? uri = scene.Uri;
             Guid elementId = element.Id.Value;
-            Rational frameRate = SceneTimeRangeService.GetFrameRate(scene);
             Scene? snapshot = await Task.Run(() =>
             {
                 try
                 {
-                    var copy = new Scene { Uri = uri };
-                    CoreSerializer.PopulateFromJsonObject(copy, json, new() { BaseUri = uri });
-                    var scenes = new HashSet<Scene>();
+                    Scene copy = SceneSnapshot.Materialize(capture);
                     if (CoreSerializer.Visit(copy, visit =>
                     {
-                        if (visit.Value is Scene referenced) scenes.Add(referenced);
                         // Flow children can have evaluated timing that is not persisted unless
                         // they are time anchors. Keep the captured composition window intact.
                         if (visit.Value is EngineObject obj && timing.TryGetValue(obj.Id.Value, out var time))
@@ -97,8 +91,6 @@ internal static class SilenceWaveform
                         }
                         return visit.Value is IFallback;
                     })) return null;
-                    var project = new Project { FrameRate = { Value = frameRate }, SampleRate = { Value = sampleRate }, ChannelLayout = { Value = channelLayout } };
-                    foreach (Scene referenced in scenes) project.Items.Add(referenced);
                     return copy;
                 }
                 catch (Exception ex) when (ex is JsonException or InvalidOperationException or NotSupportedException) { return null; }
