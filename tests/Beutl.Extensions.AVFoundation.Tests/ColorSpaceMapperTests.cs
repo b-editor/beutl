@@ -15,18 +15,16 @@ public class ColorSpaceMapperTests
         Assert.That(cs, Is.EqualTo(BitmapColorSpace.Srgb));
     }
 
-    // PQ and HLG bake their luminance scale into the Rec.2020 gamut.
+    // PQ and HLG keep the Rec.2020 gamut: Skia already converts both so that 1.0 is the 203 nit reference white.
     [TestCase(BitmapColorTransfer.Pq)]
     [TestCase(BitmapColorTransfer.Hlg)]
-    public void HdrAppliesLuminanceScaling(BitmapColorTransfer transfer)
+    public void HdrUsesTheRec2020Gamut(BitmapColorTransfer transfer)
     {
-        float scale = BitmapColorSpaceMapping.GetHdrLuminanceScale(transfer);
         var expected = BitmapColorSpace.CreateRgb(
-            BitmapColorSpaceMapping.GetTransferFunction(transfer), BitmapColorSpaceXyz.Rec2020.Scale(scale));
+            BitmapColorSpaceMapping.GetTransferFunction(transfer), BitmapColorSpaceXyz.Rec2020);
 
         var hdr = ColorSpaceMapper.BuildColorSpace(isHdr: true, transfer, BitmapColorPrimaries.Rec2020);
 
-        Assert.That(scale, Is.Not.EqualTo(1f));
         Assert.That(hdr, Is.EqualTo(expected));
     }
 
@@ -36,8 +34,7 @@ public class ColorSpaceMapperTests
         // Mirror the Swift writer's HDR-default: when a PQ/HLG stream reaches us with no
         // primaries tag, we must use the Rec.2020 gamut, not sRGB — otherwise encoder and
         // decoder pick different gamuts for the same untagged content.
-        var expected = BitmapColorSpace.CreateRgb(
-            BitmapColorSpaceTransferFn.Pq, BitmapColorSpaceXyz.Rec2020.Scale(10000f / 203f));
+        var expected = BitmapColorSpace.CreateRgb(BitmapColorSpaceTransferFn.Pq, BitmapColorSpaceXyz.Rec2020);
         var actual = ColorSpaceMapper.BuildColorSpace(
             isHdr: true, BitmapColorTransfer.Pq, BitmapColorPrimaries.Unknown);
         Assert.That(actual, Is.EqualTo(expected));

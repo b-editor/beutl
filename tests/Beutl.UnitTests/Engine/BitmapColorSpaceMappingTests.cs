@@ -1,4 +1,5 @@
 ﻿using Beutl.Media;
+using Beutl.Media.Pixel;
 
 namespace Beutl.UnitTests.Engine;
 
@@ -16,26 +17,43 @@ public class BitmapColorSpaceMappingTests
         Assert.That(BitmapColorSpaceMapping.IsHdrTransfer(transfer), Is.EqualTo(expected));
     }
 
-    [Test]
-    public void GetHdrLuminanceScale_Pq_Is10000Over203()
+    // Skia already converts PQ and HLG so that 1.0 is the 203 nit reference white.
+    [TestCase(BitmapColorTransfer.Pq)]
+    [TestCase(BitmapColorTransfer.Hlg)]
+    public void GetHdrLuminanceScale_Hdr_IsOne(BitmapColorTransfer transfer)
     {
-        Assert.That(BitmapColorSpaceMapping.GetHdrLuminanceScale(BitmapColorTransfer.Pq),
-            Is.EqualTo(10000f / 203f));
+        Assert.That(BitmapColorSpaceMapping.GetHdrLuminanceScale(transfer), Is.EqualTo(1f));
     }
 
-    [Test]
-    public void GetHdrLuminanceScale_Hlg_IsReciprocalOfEotfAtReferenceCode()
+    // What decoders and encoders actually get from Skia: internal linear 1.0 is reference white. A scale that assumes
+    // a different PQ normalization in Skia shows up here as a factor of 49.
+    [TestCase(BitmapColorTransfer.Pq, 0.58069f, 1f)]
+    [TestCase(BitmapColorTransfer.Pq, 0.75183f, 1000f / 203f)]
+    [TestCase(BitmapColorTransfer.Hlg, 0.75f, 1f)]
+    public void BuildHdrColorSpace_DecodesReferenceWhiteToOne(BitmapColorTransfer transfer, float code, float expected)
     {
-        // Mirror the production HLG path: scale = 1 / EOTF(0.75), the BT.2100 reference code level.
-        const float hlgReferenceCode = 0.75f;
-        float eotf = BitmapColorSpaceTransferFn.Hlg.Transform(hlgReferenceCode);
+        var colorSpace = BitmapColorSpaceMapping.BuildHdrColorSpace(transfer, BitmapColorPrimaries.Rec2020);
+        using var encoded = new Bitmap(1, 1, BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, colorSpace);
+        ushort value = (ushort)MathF.Round(code * 65535);
+        encoded.GetPixelSpan<ushort>().Fill(value);
+        encoded.GetPixelSpan<ushort>()[3] = 65535;
 
-        // The scale is only usable while the EOTF stays finite and positive.
-        Assert.That(float.IsFinite(eotf), Is.True);
-        Assert.That(eotf, Is.GreaterThan(0f));
+        using var linear = encoded.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
 
-        float scale = BitmapColorSpaceMapping.GetHdrLuminanceScale(BitmapColorTransfer.Hlg);
-        Assert.That(scale, Is.EqualTo(1f / eotf));
+        Assert.That((float)linear.GetPixelSpan<RgbaF16>()[0].G, Is.EqualTo(expected).Within(expected * 0.01f));
+    }
+
+    [TestCase(BitmapColorTransfer.Pq, 0.58069f)]
+    [TestCase(BitmapColorTransfer.Hlg, 0.75f)]
+    public void BuildHdrColorSpace_EncodesOneToReferenceWhite(BitmapColorTransfer transfer, float expectedCode)
+    {
+        var colorSpace = BitmapColorSpaceMapping.BuildHdrColorSpace(transfer, BitmapColorPrimaries.Rec2020);
+        using var linear = new Bitmap(1, 1, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        linear.GetPixelSpan<RgbaF16>()[0] = new RgbaF16((Half)1, (Half)1, (Half)1, (Half)1);
+
+        using var encoded = linear.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, colorSpace);
+
+        Assert.That(encoded.GetPixelSpan<ushort>()[1] / 65535f, Is.EqualTo(expectedCode).Within(0.003f));
     }
 
     [TestCase(BitmapColorTransfer.Srgb)]
@@ -103,10 +121,9 @@ public class BitmapColorSpaceMappingTests
     }
 
     [Test]
-    public void BuildHdrColorSpace_Pq_BakesLuminanceScaleIntoGamut()
+    public void BuildHdrColorSpace_Pq_KeepsTheRec2020Gamut()
     {
-        var expected = BitmapColorSpace.CreateRgb(
-            BitmapColorSpaceTransferFn.Pq, BitmapColorSpaceXyz.Rec2020.Scale(10000f / 203f));
+        var expected = BitmapColorSpace.CreateRgb(BitmapColorSpaceTransferFn.Pq, BitmapColorSpaceXyz.Rec2020);
         var actual = BitmapColorSpaceMapping.BuildHdrColorSpace(
             BitmapColorTransfer.Pq, BitmapColorPrimaries.Rec2020);
 
@@ -115,14 +132,13 @@ public class BitmapColorSpaceMappingTests
     }
 
     [Test]
-    public void BuildHdrColorSpace_Hlg_BakesLuminanceScaleAndKeepsTransfer()
+    public void BuildHdrColorSpace_Hlg_KeepsTheRec2020Gamut()
     {
-        var unscaled = BitmapColorSpace.CreateRgb(
-            BitmapColorSpaceTransferFn.Hlg, BitmapColorSpaceXyz.Rec2020);
+        var expected = BitmapColorSpace.CreateRgb(BitmapColorSpaceTransferFn.Hlg, BitmapColorSpaceXyz.Rec2020);
         var hdr = BitmapColorSpaceMapping.BuildHdrColorSpace(
             BitmapColorTransfer.Hlg, BitmapColorPrimaries.Rec2020);
 
-        Assert.That(hdr, Is.Not.EqualTo(unscaled));
+        Assert.That(hdr, Is.EqualTo(expected));
         Assert.That(hdr.GetNumericalTransferFunction(), Is.EqualTo(BitmapColorSpaceTransferFn.Hlg));
     }
 

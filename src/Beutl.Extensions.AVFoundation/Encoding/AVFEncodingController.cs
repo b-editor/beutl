@@ -114,7 +114,7 @@ public class AVFEncodingController : EncodingController
 
         using var converted = isHdr
             // Skia converts the renderer's LinearSrgb working space to the HDR target
-            // (e.g. Rec.2020 + PQ with luminance scaling baked into the gamut matrix),
+            // (e.g. Rec.2020 + PQ, where linear 1.0 is the 203 nit reference white),
             // emitting 16-bit-per-channel unpremultiplied RGBA for the Writer input.
             ? image.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, targetColorSpace)
             : image.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, targetColorSpace);
