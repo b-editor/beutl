@@ -9,9 +9,9 @@ internal readonly record struct NoiseReductionSettings(
     float Smoothing,
     float AdaptationSeconds);
 
-// Short-time spectral noise reduction for a stereo stream addressed by absolute sample positions.
-// Both channels share one complex FFT per 75%-overlapped Hann frame (left in the real part, right in
-// the imaginary part) and one gain per bin, so suppression cannot move the stereo image. Minimum
+// Short-time spectral noise reduction for a stream addressed by absolute sample positions.
+// Channel pairs share a complex FFT per 75%-overlapped Hann frame, and all channels share one
+// gain per bin, so suppression cannot move the spatial image. Minimum
 // statistics track the noise floor, and a two-step decision-directed Wiener rule turns it into gains no
 // lower than the requested reduction. The filtered difference is added to the dry input, so unity gain
 // reproduces the input exactly.
@@ -43,8 +43,9 @@ internal sealed class SpectralNoiseReducer
     private readonly double[] _windowEnergy;
     private readonly float _synthesisScale;
 
-    private readonly float[] _real;
-    private readonly float[] _imag;
+    private readonly int _channels;
+    private readonly float[][] _real;
+    private readonly float[][] _imag;
     private readonly float[] _power;
     private readonly float[] _smoothedPower;
     private readonly float[] _subWindowMin;
@@ -56,13 +57,9 @@ internal sealed class SpectralNoiseReducer
     private readonly float[] _noise;
     private readonly float[] _cleanPower;
     private readonly float[] _gain;
-    private readonly float[] _overlapLeft;
-    private readonly float[] _overlapRight;
-    private readonly float[] _blockLeft;
-    private readonly float[] _blockRight;
-
-    private float[] _inputLeft;
-    private float[] _inputRight;
+    private readonly float[][] _overlap;
+    private readonly float[][] _block;
+    private readonly float[][] _input;
     private long _inputBase;
     private long _inputEnd;
     private long _origin;
@@ -81,8 +78,14 @@ internal sealed class SpectralNoiseReducer
     private int _ringCount;
     private int _ringIndex;
 
-    public SpectralNoiseReducer(int sampleRate)
+    public SpectralNoiseReducer(int sampleRate) : this(sampleRate, 2)
     {
+    }
+
+    public SpectralNoiseReducer(int sampleRate, int channels)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(channels);
+        _channels = channels;
         _frameSize = GetFrameSize(sampleRate);
         _hopSize = _frameSize / 4;
         _bins = _frameSize / 2 + 1;
@@ -101,8 +104,8 @@ internal sealed class SpectralNoiseReducer
         // and the inverse transform below is unnormalized.
         _synthesisScale = 1f / (_frameSize * 1.5f);
 
-        _real = new float[_frameSize];
-        _imag = new float[_frameSize];
+        _real = CreateChannels((channels + 1) / 2, _frameSize);
+        _imag = CreateChannels((channels + 1) / 2, _frameSize);
         _power = new float[_bins];
         _smoothedPower = new float[_bins];
         _subWindowMin = new float[_bins];
@@ -111,15 +114,15 @@ internal sealed class SpectralNoiseReducer
         _noise = new float[_bins];
         _cleanPower = new float[_bins];
         _gain = new float[_bins];
-        _overlapLeft = new float[_frameSize];
-        _overlapRight = new float[_frameSize];
-        _blockLeft = new float[_hopSize];
-        _blockRight = new float[_hopSize];
-        _inputLeft = new float[_frameSize * 2];
-        _inputRight = new float[_frameSize * 2];
+        _overlap = CreateChannels(channels, _frameSize);
+        _block = CreateChannels(channels, _hopSize);
+        _input = CreateChannels(channels, _frameSize * 2);
 
         Reset(0, 0);
     }
+
+    private static float[][] CreateChannels(int channels, int length)
+        => Enumerable.Range(0, channels).Select(_ => new float[length]).ToArray();
 
     // Test-only (via InternalsVisibleTo); production code reads only HopSize.
     public int FrameSize => _frameSize;
@@ -163,10 +166,11 @@ internal sealed class SpectralNoiseReducer
         _paddingStart = long.MaxValue;
         _nextFrame = _inputBase;
         _outputPosition = outputStart;
-        Array.Clear(_inputLeft, 0, history);
-        Array.Clear(_inputRight, 0, history);
-        Array.Clear(_overlapLeft);
-        Array.Clear(_overlapRight);
+        for (int channel = 0; channel < _channels; channel++)
+        {
+            Array.Clear(_input[channel], 0, history);
+            Array.Clear(_overlap[channel]);
+        }
         _blockOffset = 0;
         _blockCount = 0;
         if (keepNoiseFloor)
@@ -184,24 +188,24 @@ internal sealed class SpectralNoiseReducer
         Array.Clear(_noise);
     }
 
-    /// <summary>Appends interleaved stereo input. Non-finite samples are replaced with silence.</summary>
+    /// <summary>Appends interleaved input. Non-finite samples are replaced with silence.</summary>
     public void Write(ReadOnlySpan<float> interleaved)
     {
-        if ((interleaved.Length & 1) != 0)
-            throw new ArgumentException("Interleaved stereo input must contain whole frames.", nameof(interleaved));
+        if (interleaved.Length % _channels != 0)
+            throw new ArgumentException("Interleaved input must contain whole frames.", nameof(interleaved));
         if (_paddingStart != long.MaxValue)
             throw new InvalidOperationException("Cannot append audio after the stream was padded with silence.");
 
-        int count = interleaved.Length / 2;
+        int count = interleaved.Length / _channels;
         int offset = PrepareWrite(count);
-        Span<float> left = _inputLeft.AsSpan(offset, count);
-        Span<float> right = _inputRight.AsSpan(offset, count);
-        for (int i = 0; i < count; i++)
+        for (int channel = 0; channel < _channels; channel++)
         {
-            float l = interleaved[i * 2];
-            float r = interleaved[i * 2 + 1];
-            left[i] = float.IsFinite(l) ? l : 0f;
-            right[i] = float.IsFinite(r) ? r : 0f;
+            Span<float> destination = _input[channel].AsSpan(offset, count);
+            for (int i = 0; i < count; i++)
+            {
+                float sample = interleaved[i * _channels + channel];
+                destination[i] = float.IsFinite(sample) ? sample : 0f;
+            }
         }
 
         _inputEnd += count;
@@ -218,8 +222,8 @@ internal sealed class SpectralNoiseReducer
             _paddingStart = _inputEnd;
 
         int offset = PrepareWrite(count);
-        Array.Clear(_inputLeft, offset, count);
-        Array.Clear(_inputRight, offset, count);
+        foreach (float[] channel in _input)
+            Array.Clear(channel, offset, count);
         _inputEnd += count;
     }
 
@@ -307,12 +311,10 @@ internal sealed class SpectralNoiseReducer
         long cut = Math.Min(end, _paddingStart);
         int count = (int)Math.Max(0, cut - replay);
         int offset = (int)(replay - _inputBase);
-        var interleaved = new float[count * 2];
-        for (int i = 0; i < count; i++)
-        {
-            interleaved[i * 2] = _inputLeft[offset + i];
-            interleaved[i * 2 + 1] = _inputRight[offset + i];
-        }
+        var interleaved = new float[count * _channels];
+        for (int channel = 0; channel < _channels; channel++)
+            for (int i = 0; i < count; i++)
+                interleaved[i * _channels + channel] = _input[channel][offset + i];
 
         Reset(replay, _outputPosition, keepNoiseFloor: true);
         Write(interleaved);
@@ -329,22 +331,52 @@ internal sealed class SpectralNoiseReducer
         if (left.Length != right.Length)
             throw new ArgumentException("Both channels must have the same length.", nameof(right));
 
-        int count = left.Length;
-        if (count == 0)
-            return;
-        if (_inputEnd < GetRequiredInputEnd(_outputPosition + count))
-            throw new InvalidOperationException("The reducer needs more input before it can produce this output.");
-
+        if (_channels != 2)
+            throw new InvalidOperationException("This overload requires a stereo reducer.");
+        ValidateRead(left.Length);
         int written = 0;
-        while (written < count)
+        while (written < left.Length)
+        {
+            int n = PrepareBlock(left.Length - written, settingsAt);
+            _block[0].AsSpan(_blockOffset, n).CopyTo(left.Slice(written, n));
+            _block[1].AsSpan(_blockOffset, n).CopyTo(right.Slice(written, n));
+            Advance(n);
+            written += n;
+        }
+    }
+
+    public void Read(AudioBuffer output, Func<long, NoiseReductionSettings> settingsAt)
+    {
+        ArgumentNullException.ThrowIfNull(settingsAt);
+        if (output.ChannelCount != _channels)
+            throw new ArgumentException("Output channel count must match the reducer.", nameof(output));
+        ValidateRead(output.SampleCount);
+        int written = 0;
+        while (written < output.SampleCount)
+        {
+            int n = PrepareBlock(output.SampleCount - written, settingsAt);
+            for (int channel = 0; channel < _channels; channel++)
+                _block[channel].AsSpan(_blockOffset, n).CopyTo(output.GetChannelData(channel).Slice(written, n));
+            Advance(n);
+            written += n;
+        }
+    }
+
+    private void ValidateRead(int count)
+    {
+        if (count > 0 && _inputEnd < GetRequiredInputEnd(_outputPosition + count))
+            throw new InvalidOperationException("The reducer needs more input before it can produce this output.");
+    }
+
+    private int PrepareBlock(int count, Func<long, NoiseReductionSettings> settingsAt)
+    {
+        while (true)
         {
             if (_blockCount == 0)
             {
                 ProcessFrame(settingsAt(_nextFrame + _frameSize / 2));
                 continue;
             }
-
-            // A block can begin before the output when the stream was reset ahead of it.
             long blockPosition = _blockPosition + _blockOffset;
             if (blockPosition < _outputPosition)
             {
@@ -353,15 +385,15 @@ internal sealed class SpectralNoiseReducer
                 _blockCount -= skip;
                 continue;
             }
-
-            int n = Math.Min(_blockCount, count - written);
-            _blockLeft.AsSpan(_blockOffset, n).CopyTo(left.Slice(written, n));
-            _blockRight.AsSpan(_blockOffset, n).CopyTo(right.Slice(written, n));
-            _blockOffset += n;
-            _blockCount -= n;
-            written += n;
-            _outputPosition += n;
+            return Math.Min(_blockCount, count);
         }
+    }
+
+    private void Advance(int count)
+    {
+        _blockOffset += count;
+        _blockCount -= count;
+        _outputPosition += count;
     }
 
     private void ProcessFrame(in NoiseReductionSettings settings)
@@ -385,20 +417,24 @@ internal sealed class SpectralNoiseReducer
         _nextFrame = start + _hopSize;
     }
 
-    // Windows and transforms the frame at start, then stores the mean power of the two channels per bin.
+    // Windows and transforms the frame at start, then stores the mean power of all channels per bin.
     // Returns the share of the window's energy that falls on real input; the power is normalized by it,
     // so a frame cut by the start or end of the stream is judged by the audio it does contain.
     private double AnalyzeFrame(long start)
     {
         int offset = (int)(start - _inputBase);
-        for (int n = 0; n < _frameSize; n++)
+        for (int pair = 0; pair < _real.Length; pair++)
         {
-            float w = _window[n];
-            _real[n] = w * _inputLeft[offset + n];
-            _imag[n] = w * _inputRight[offset + n];
+            float[] real = _real[pair], imag = _imag[pair];
+            int channel = pair * 2;
+            for (int n = 0; n < _frameSize; n++)
+            {
+                float w = _window[n];
+                real[n] = w * _input[channel][offset + n];
+                imag[n] = channel + 1 < _channels ? w * _input[channel + 1][offset + n] : 0;
+            }
+            Fft.Forward(real, imag);
         }
-
-        Fft.Forward(_real, _imag);
 
         long validStart = Math.Max(start, _origin);
         long validEnd = Math.Min(start + _frameSize, _paddingStart);
@@ -409,16 +445,22 @@ internal sealed class SpectralNoiseReducer
             return fraction;
 
         // With z = l + i r, |L[k]|^2 + |R[k]|^2 = (|Z[k]|^2 + |Z[N-k]|^2) / 2.
-        float scale = (float)(0.25 / fraction);
+        float scale = _channels == 2 ? (float)(0.25 / fraction) : (float)(0.5 / _channels / fraction);
         int mask = _frameSize - 1;
         for (int k = 0; k < _bins; k++)
         {
             int mirror = (_frameSize - k) & mask;
-            float re = _real[k];
-            float im = _imag[k];
-            float mirrorRe = _real[mirror];
-            float mirrorIm = _imag[mirror];
-            _power[k] = (re * re + im * im + mirrorRe * mirrorRe + mirrorIm * mirrorIm) * scale;
+            float power = 0;
+            for (int pair = 0; pair < _real.Length; pair++)
+            {
+                float re = _real[pair][k];
+                float im = _imag[pair][k];
+                float mirrorRe = _real[pair][mirror];
+                float mirrorIm = _imag[pair][mirror];
+                float pairPower = re * re + im * im + mirrorRe * mirrorRe + mirrorIm * mirrorIm;
+                power = pair == 0 ? pairPower : power + pairPower;
+            }
+            _power[k] = power * scale;
         }
 
         return fraction;
@@ -473,7 +515,7 @@ internal sealed class SpectralNoiseReducer
             return;
         }
 
-        float bias = GetMinimumBias(frames);
+        float bias = GetMinimumBias(frames, _channels);
         for (int k = 0; k < _bins; k++)
         {
             float minimum = _subWindowFrames > 0 ? _subWindowMin[k] : float.PositiveInfinity;
@@ -532,23 +574,25 @@ internal sealed class SpectralNoiseReducer
     private void ApplyCorrection()
     {
         int half = _frameSize / 2;
-        for (int k = 0; k < _frameSize; k++)
+        for (int pair = 0; pair < _real.Length; pair++)
         {
-            // Bins k and N-k share a gain, so each channel's correction stays real.
-            float difference = _gain[k <= half ? k : _frameSize - k] - 1f;
-            _real[k] *= difference;
-
-            // Conjugating before and after the forward transform computes the inverse transform.
-            _imag[k] *= -difference;
-        }
-
-        Fft.Forward(_real, _imag);
-
-        for (int n = 0; n < _frameSize; n++)
-        {
-            float w = _window[n] * _synthesisScale;
-            _overlapLeft[n] += w * _real[n];
-            _overlapRight[n] -= w * _imag[n];
+            float[] real = _real[pair], imag = _imag[pair];
+            for (int k = 0; k < _frameSize; k++)
+            {
+                // Mirrored bins share a gain; conjugating around Forward computes the inverse.
+                float difference = _gain[k <= half ? k : _frameSize - k] - 1f;
+                real[k] *= difference;
+                imag[k] *= -difference;
+            }
+            Fft.Forward(real, imag);
+            int channel = pair * 2;
+            for (int n = 0; n < _frameSize; n++)
+            {
+                float w = _window[n] * _synthesisScale;
+                _overlap[channel][n] += w * real[n];
+                if (channel + 1 < _channels)
+                    _overlap[channel + 1][n] -= w * imag[n];
+            }
         }
     }
 
@@ -558,11 +602,9 @@ internal sealed class SpectralNoiseReducer
         if (start + _hopSize > _outputPosition)
         {
             int offset = (int)(start - _inputBase);
-            for (int i = 0; i < _hopSize; i++)
-            {
-                _blockLeft[i] = _inputLeft[offset + i] + _overlapLeft[i];
-                _blockRight[i] = _inputRight[offset + i] + _overlapRight[i];
-            }
+            for (int channel = 0; channel < _channels; channel++)
+                for (int i = 0; i < _hopSize; i++)
+                    _block[channel][i] = _input[channel][offset + i] + _overlap[channel][i];
 
             _blockPosition = start;
             _blockOffset = 0;
@@ -570,10 +612,11 @@ internal sealed class SpectralNoiseReducer
         }
 
         int remaining = _frameSize - _hopSize;
-        Array.Copy(_overlapLeft, _hopSize, _overlapLeft, 0, remaining);
-        Array.Copy(_overlapRight, _hopSize, _overlapRight, 0, remaining);
-        Array.Clear(_overlapLeft, remaining, _hopSize);
-        Array.Clear(_overlapRight, remaining, _hopSize);
+        foreach (float[] channel in _overlap)
+        {
+            Array.Copy(channel, _hopSize, channel, 0, remaining);
+            Array.Clear(channel, remaining, _hopSize);
+        }
     }
 
     // Returns the offset in the input arrays where count new samples go.
@@ -581,7 +624,7 @@ internal sealed class SpectralNoiseReducer
     {
         int used = checked((int)(_inputEnd - _inputBase));
         int required = checked(used + count);
-        if (required <= _inputLeft.Length)
+        if (required <= _input[0].Length)
             return used;
 
         // Input before the next frame has been emitted. One frame of it stays for EndInputAt.
@@ -589,18 +632,18 @@ internal sealed class SpectralNoiseReducer
         if (discard > 0)
         {
             int shift = (int)discard;
-            Array.Copy(_inputLeft, shift, _inputLeft, 0, used - shift);
-            Array.Copy(_inputRight, shift, _inputRight, 0, used - shift);
+            foreach (float[] channel in _input)
+                Array.Copy(channel, shift, channel, 0, used - shift);
             _inputBase += shift;
             used -= shift;
             required -= shift;
         }
 
-        if (required > _inputLeft.Length)
+        if (required > _input[0].Length)
         {
             int capacity = (int)BitOperations.RoundUpToPowerOf2((uint)required);
-            Array.Resize(ref _inputLeft, capacity);
-            Array.Resize(ref _inputRight, capacity);
+            for (int channel = 0; channel < _channels; channel++)
+                Array.Resize(ref _input[channel], capacity);
         }
 
         return used;
@@ -613,7 +656,7 @@ internal sealed class SpectralNoiseReducer
     // this factor restores the mean. Measured on Gaussian noise for windows of 2^i frames, it is the
     // geometric mean of identical channels (2.52 over a 2 s window) and independent ones (1.92), so
     // either estimate is within 0.6 dB.
-    internal static float GetMinimumBias(int frames)
+    internal static float GetMinimumBias(int frames, int channels = 2)
     {
         ReadOnlySpan<float> bias =
         [
@@ -625,7 +668,11 @@ internal sealed class SpectralNoiseReducer
         double index = Math.Log2(Math.Max(frames, 1));
         int lower = Math.Min((int)index, bias.Length - 2);
         double fraction = index - lower;
-        return (float)(bias[lower] + (bias[lower + 1] - bias[lower]) * fraction);
+        float stereoBias = (float)(bias[lower] + (bias[lower + 1] - bias[lower]) * fraction);
+        // Averaging N independent periodograms reduces their standard deviation by sqrt(N).
+        // Scale the measured stereo log-bias by sqrt(2/N), approaching unity as channels grow.
+        // This approximation retains the correlated/independent stereo calibration exactly.
+        return channels == 2 ? stereoBias : (float)Math.Pow(stereoBias, Math.Sqrt(2d / channels));
     }
 
     internal static long FloorToHop(long position, int hop) => position - FloorMod(position, hop);

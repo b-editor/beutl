@@ -88,7 +88,7 @@ Beutl.Utilities
   abstract
 [Beutl.Core]Beutl:Project
   sealed
-  keys: FrameRate, Id, Name, SampleRate, items, variables
+  keys: ChannelLayout, FrameRate, Id, Name, SampleRate, items, variables
 [Beutl.Core]Beutl:ProjectItem
   abstract
 [Beutl.Editor].Services:ObjectRegenerator:ListWrapper<T>
@@ -298,15 +298,15 @@ Beutl.Utilities
   keys: Animations, Expressions, Id, IsEnabled, Name, Speed
 [Beutl.Engine]Beutl.Audio:FallbackSound
   sealed
-  keys: Animations, Effect, Expressions, Gain, Id, IsEnabled, Name, OffsetPosition, Speed
+  keys: Animations, CenterLevel, Effect, Expressions, Gain, Id, IsEnabled, LfeLevel, Name, OffsetPosition, Pan, Speed, SurroundPan
 [Beutl.Engine]Beutl.Audio:Sound
   abstract
 [Beutl.Engine]Beutl.Audio:SoundGroup
   sealed
-  keys: Animations, Children, Effect, Expressions, Gain, Id, IsEnabled, Name, OffsetPosition, Speed
+  keys: Animations, CenterLevel, Children, Effect, Expressions, Gain, Id, IsEnabled, LfeLevel, Name, OffsetPosition, Pan, Speed, SurroundPan
 [Beutl.Engine]Beutl.Audio:SourceSound
   sealed
-  keys: Animations, Effect, Expressions, Gain, Id, IsEnabled, Name, OffsetPosition, Source, Speed
+  keys: Animations, CenterLevel, Effect, Expressions, Gain, Id, IsEnabled, LfeLevel, Name, OffsetPosition, Pan, Source, Speed, SurroundPan
 [Beutl.Engine]Beutl.Graphics.AudioVisualizers:AudioSpectrogramDrawable
   sealed
   keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FftSize, Fill, FilterEffect, FloorDb, FrequencyScale, Gain, Height, Id, IsEnabled, Name, Opacity, Source, TimeColumns, Transform, TransformOrigin, Width, WindowSeconds
@@ -1302,7 +1302,7 @@ Beutl.Utilities
   keys: Color, Id, Name, Note, Time
 [Beutl.ProjectSystem]:SceneSound
   sealed
-  keys: Animations, Effect, Expressions, Gain, Id, IsEnabled, Name, OffsetPosition, ReferencedScene, Speed
+  keys: Animations, CenterLevel, Effect, Expressions, Gain, Id, IsEnabled, LfeLevel, Name, OffsetPosition, Pan, ReferencedScene, Speed, SurroundPan
 [Beutl.ProjectSystem]:TimelineLayer
   unsealed
   keys: Color, Id, IsAudioMuted, IsLocked, IsSolo, IsVideoMuted, Name, ZIndex

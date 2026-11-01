@@ -4,6 +4,7 @@ public abstract class AudioNode : IDisposable
 {
     private readonly List<AudioNode> _inputs = new();
     private bool _disposed;
+    private bool _hasProcessedChannelCount;
 
     public IReadOnlyList<AudioNode> Inputs => _inputs;
 
@@ -114,7 +115,17 @@ public abstract class AudioNode : IDisposable
     /// <summary>Records the channel count emitted by <see cref="Process"/> so
     /// <see cref="CreateSilentFlush"/> can produce matching silence. Zero-input custom nodes must call
     /// this method when they emit a non-stereo layout.</summary>
-    protected void RecordProcessedChannelCount(int channelCount) => LastProcessedChannelCount = channelCount;
+    protected void RecordProcessedChannelCount(int channelCount)
+    {
+        LastProcessedChannelCount = channelCount;
+        _hasProcessedChannelCount = true;
+    }
+
+    internal void SeedChannelCount(int channelCount)
+    {
+        if (!_hasProcessedChannelCount)
+            LastProcessedChannelCount = channelCount;
+    }
 
     /// <summary>Records and returns a successfully emitted buffer for transforming nodes.</summary>
     protected AudioBuffer RecordProcessedOutput(AudioBuffer output)

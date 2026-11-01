@@ -20,6 +20,40 @@ namespace Beutl.HeadlessUITests;
 public class SceneSettingsLayoutTests
 {
     [AvaloniaTest]
+    public async Task Project_layout_apply_undo_and_redo_rebuild_the_preview_composer()
+    {
+        (Project project, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("layout-settings");
+        using var model = new SceneSettingsTabViewModel(editor);
+        int before = editor.HistoryManager.UndoCount;
+        var previous = editor.Composer.Value;
+        model.ChannelLayout.Value = SpeakerLayout.Surround51;
+        Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
+        await model.Apply.ExecuteAsync();
+        HeadlessTestHelpers.Settle();
+        Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+        await WaitForLayout(6);
+        Assert.That(previous.IsDisposed, Is.True);
+        Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
+        editor.HistoryManager.Undo();
+        HeadlessTestHelpers.Settle();
+        Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
+        Assert.That(model.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
+        await WaitForLayout(2);
+        editor.HistoryManager.Redo();
+        HeadlessTestHelpers.Settle();
+        await WaitForLayout(6);
+        async Task WaitForLayout(int channels)
+        {
+            for (int attempt = 0; attempt < 200 && editor.Composer.Value.ChannelLayout.ChannelCount != channels; attempt++)
+                await Task.Delay(10);
+            Assert.That(editor.Composer.Value.ChannelLayout.ChannelCount, Is.EqualTo(channels));
+        }
+        model.ChannelLayout.Value = SpeakerLayout.Mono;
+        model.Revert.Execute();
+        Assert.That(model.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+    }
+
+    [AvaloniaTest]
     [TestCase(320, 160, false)]
     [TestCase(320, 160, true)]
     [TestCase(640, 420, false)]

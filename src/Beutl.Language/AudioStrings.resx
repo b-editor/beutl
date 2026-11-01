@@ -222,4 +222,16 @@
   <data name="NoiseReductionEffect_Adaptation_Description" xml:space="preserve">
     <value>How much past audio the noise level is learned from. Sounds that last longer than this are treated as noise, so use longer times for music and shorter times for noise that changes.</value>
   </data>
+  <data name="Sound_Pan" xml:space="preserve">
+    <value>Pan</value>
+  </data>
+  <data name="Sound_SurroundPan" xml:space="preserve">
+    <value>Front / back</value>
+  </data>
+  <data name="Sound_CenterLevel" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="Sound_LfeLevel" xml:space="preserve">
+    <value>LFE</value>
+  </data>
 </root>

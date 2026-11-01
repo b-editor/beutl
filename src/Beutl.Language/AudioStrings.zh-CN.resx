@@ -221,4 +221,16 @@
   <data name="NoiseReductionEffect_Adaptation_Description" xml:space="preserve">
     <value>用于学习噪声电平的过往音频长度。持续时间超过该值的声音会被视为噪声，因此音乐请使用较长时间，变化的噪声请使用较短时间。</value>
   </data>
+  <data name="Sound_Pan" xml:space="preserve">
+    <value>声像</value>
+  </data>
+  <data name="Sound_SurroundPan" xml:space="preserve">
+    <value>前后</value>
+  </data>
+  <data name="Sound_CenterLevel" xml:space="preserve">
+    <value>中置</value>
+  </data>
+  <data name="Sound_LfeLevel" xml:space="preserve">
+    <value>LFE</value>
+  </data>
 </root>

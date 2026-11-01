@@ -221,4 +221,16 @@
   <data name="NoiseReductionEffect_Adaptation_Description" xml:space="preserve">
     <value>Cuánto audio pasado se usa para aprender el nivel de ruido. Los sonidos que duran más que este tiempo se tratan como ruido, así que usa tiempos más largos para música y más cortos para ruido que cambia.</value>
   </data>
+  <data name="Sound_Pan" xml:space="preserve">
+    <value>Panorama</value>
+  </data>
+  <data name="Sound_SurroundPan" xml:space="preserve">
+    <value>Delante / detrás</value>
+  </data>
+  <data name="Sound_CenterLevel" xml:space="preserve">
+    <value>Centro</value>
+  </data>
+  <data name="Sound_LfeLevel" xml:space="preserve">
+    <value>LFE</value>
+  </data>
 </root>

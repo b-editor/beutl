@@ -66,7 +66,9 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
             }
         }
 
-        AudioNode currentNode = mixerNode;
+        var pannerNode = context.CreatePannerNode(Pan, SurroundPan, CenterLevel, LfeLevel, context.ChannelLayout);
+        context.Connect(mixerNode, pannerNode);
+        AudioNode currentNode = pannerNode;
 
         var gainNode = context.CreateGainNode(Gain);
         context.Connect(currentNode, gainNode);

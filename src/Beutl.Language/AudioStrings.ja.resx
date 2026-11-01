@@ -217,4 +217,16 @@
   <data name="NoiseReductionEffect_Adaptation_Description" xml:space="preserve">
     <value>ノイズレベルを学習するために参照する過去の音声の長さ。これより長く続く音はノイズとみなされるため、音楽では長く、変化するノイズでは短くします。</value>
   </data>
+  <data name="Sound_Pan" xml:space="preserve">
+    <value>パン</value>
+  </data>
+  <data name="Sound_SurroundPan" xml:space="preserve">
+    <value>前後</value>
+  </data>
+  <data name="Sound_CenterLevel" xml:space="preserve">
+    <value>センター</value>
+  </data>
+  <data name="Sound_LfeLevel" xml:space="preserve">
+    <value>LFE</value>
+  </data>
 </root>

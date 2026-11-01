@@ -217,6 +217,9 @@ public class SceneSettingsTabViewModelTests
 
         public MediaTime Duration { get; private set; }
 
+        public bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration, SpeakerLayout channelLayout)
+            => Apply(scene, frameSize, start, duration);
+
         public bool Apply(
             Scene scene,
             PixelSize frameSize,

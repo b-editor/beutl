@@ -3669,4 +3669,22 @@ cuando el registro del historial está activado.</value>
   <data name="Clipboard_WaitingForSave" xml:space="preserve">
     <value>Esperando a que termine el guardado…</value>
   </data>
+  <data name="SpeakerLayout_Mono" xml:space="preserve">
+    <value>Mono</value>
+  </data>
+  <data name="SpeakerLayout_Stereo" xml:space="preserve">
+    <value>Estéreo</value>
+  </data>
+  <data name="SpeakerLayout_Surround51" xml:space="preserve">
+    <value>Envolvente 5.1</value>
+  </data>
+  <data name="SpeakerLayout_Surround71" xml:space="preserve">
+    <value>Envolvente 7.1</value>
+  </data>
+  <data name="AudioChannels" xml:space="preserve">
+    <value>Canales de audio</value>
+  </data>
+  <data name="ProjectAudioChannels" xml:space="preserve">
+    <value>Canales de audio del proyecto</value>
+  </data>
 </root>

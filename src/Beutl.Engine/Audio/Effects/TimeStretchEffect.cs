@@ -29,6 +29,7 @@ public sealed partial class TimeStretchEffect : AudioEffect
             static speed => new TimeStretchNode { Speed = speed },
             static (speed, existing) => existing.Speed = speed,
             static (speed, existing) => ReferenceEquals(existing.Speed, speed));
+        node.ChannelCount = context.ChannelCount;
         context.Connect(inputNode, node);
         return node;
     }

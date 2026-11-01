@@ -1,6 +1,7 @@
 <ui:FAContentDialog x:Class="Beutl.Views.Dialogs.CreateNewProject"
                   xmlns="https://github.com/avaloniaui"
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:components="using:Beutl.Editor.Components.Converters"
                   xmlns:converters="clr-namespace:Beutl.Converters;assembly=Beutl"
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                   xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -72,6 +73,16 @@
                                    Text="Hz" />
                     </TextBox.InnerRightContent>
                 </TextBox>
+
+                <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.AudioChannels}" />
+                <ComboBox x:Name="ChannelLayoutComboBox"
+                          HorizontalAlignment="Stretch"
+                          SelectedIndex="{Binding ChannelLayout.Value, Mode=TwoWay, Converter={x:Static components:EnumIndexConverters.SpeakerLayouts}}">
+                    <ComboBoxItem Content="{x:Static lang:Strings.SpeakerLayout_Mono}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.SpeakerLayout_Stereo}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.SpeakerLayout_Surround51}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.SpeakerLayout_Surround71}" />
+                </ComboBox>
 
                 <CheckBox Margin="0,8,0,0"
                           Content="{x:Static lang:Strings.VersionControl_TrackHistory}"

@@ -33,6 +33,8 @@ public sealed partial class Project : Hierarchical
 
     public IProperty<int> SampleRate { get; } = Property.CreateValue(44100);
 
+    public IProperty<SpeakerLayout> ChannelLayout { get; } = Property.CreateValue(SpeakerLayout.Stereo);
+
     /// <summary>
     /// Gets the version of Beutl that last saved the project file, as the file records it, or the running
     /// version for a project that has no file yet.

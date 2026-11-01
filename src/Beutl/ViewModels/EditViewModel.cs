@@ -1,5 +1,6 @@
 ﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using Beutl.Audio;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
@@ -88,11 +89,14 @@ public sealed partial class EditViewModel
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
-        // SceneComposer is scale-independent; rebuild only on frame-size changes.
-        Composer = scene.FrameSize.GetObservable()
-            .Select(_ => new SceneComposer(Scene)
+        Project? project = Scene.FindHierarchicalParent<Project>();
+        var channelLayout = new ReactivePropertySlim<AudioChannelLayout>(project.GetChannelLayout())
+            .DisposeWith(_disposables);
+        Composer = scene.FrameSize.GetObservable().CombineLatest(channelLayout)
+            .Select(t => new SceneComposer(Scene)
             {
-                SampleRate = Scene.FindHierarchicalParent<Project>().GetSampleRate()
+                SampleRate = project.GetSampleRate(),
+                ChannelLayout = t.Second
             })
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
@@ -111,6 +115,17 @@ public sealed partial class EditViewModel
             .DisposeWith(_disposables)!;
 
         Player = new PlayerViewModel(this);
+        project?.ChannelLayout.GetObservable().Skip(1)
+            .Select(layout => Observable.FromAsync(async () =>
+            {
+                // Retire the device queue before disposing the composer it is reading.
+                await Player.Pause();
+                return layout.ToAudioChannelLayout();
+            }))
+            .Switch()
+            .ObserveOnUIDispatcher()
+            .Subscribe(layout => channelLayout.Value = layout, ex => _logger.LogError(ex, "Could not change audio layout."))
+            .DisposeWith(_disposables);
         GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.GetObservable()
             .Skip(1)
             .Subscribe(_ =>

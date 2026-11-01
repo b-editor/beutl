@@ -47,6 +47,8 @@ public partial class Composer : IComposer
 
     public int SampleRate { get; init; }
 
+    public AudioChannelLayout ChannelLayout { get; init; } = AudioChannelLayout.Stereo;
+
     public bool IsDisposed { get; private set; }
 
     public bool IsAudioRendering { get; private set; }
@@ -171,7 +173,7 @@ public partial class Composer : IComposer
                 if (!contiguous)
                 {
                     DiscardRetainedState(entries);
-                    return new AudioBuffer(SampleRate, 2, sampleCount);
+                    return new AudioBuffer(SampleRate, ChannelLayout.ChannelCount, sampleCount);
                 }
 
                 foreach (var entry in entries)
@@ -193,7 +195,7 @@ public partial class Composer : IComposer
                 }
 
                 mixedBuffer = MixBuffers(buffers)
-                    ?? new AudioBuffer(SampleRate, 2, AudioProcessContext.GetSampleCount(range, SampleRate));
+                    ?? new AudioBuffer(SampleRate, ChannelLayout.ChannelCount, AudioProcessContext.GetSampleCount(range, SampleRate));
                 ApplyMasterEffects(mixedBuffer);
 
                 _currentEntry.Clear();
@@ -252,7 +254,7 @@ public partial class Composer : IComposer
 
             if (mixedBuffer == null)
             {
-                return new AudioBuffer(SampleRate, 2, AudioProcessContext.GetSampleCount(range, SampleRate));
+                return new AudioBuffer(SampleRate, ChannelLayout.ChannelCount, AudioProcessContext.GetSampleCount(range, SampleRate));
             }
 
             ApplyMasterEffects(mixedBuffer);
@@ -393,8 +395,11 @@ public partial class Composer : IComposer
         if (buffers.Count == 0)
             return null;
 
+        if (buffers.Any(buffer => buffer.ChannelCount != ChannelLayout.ChannelCount))
+            throw new InvalidOperationException("Audio buffer channel count does not match the composer layout.");
+
         var firstBuffer = buffers[0];
-        var mixedBuffer = new AudioBuffer(firstBuffer.SampleRate, firstBuffer.ChannelCount, firstBuffer.SampleCount);
+        var mixedBuffer = new AudioBuffer(firstBuffer.SampleRate, ChannelLayout.ChannelCount, firstBuffer.SampleCount);
 
         // Dispose the mix buffer rather than leak it if a (possibly disposed) source read throws.
         try
@@ -405,15 +410,12 @@ public partial class Composer : IComposer
 
                 foreach (var buffer in buffers)
                 {
-                    if (buffer.ChannelCount > ch)
-                    {
-                        var sourceChannel = buffer.GetChannelData(ch);
-                        var sampleCount = Math.Min(mixedBuffer.SampleCount, buffer.SampleCount);
+                    var sourceChannel = buffer.GetChannelData(ch);
+                    var sampleCount = Math.Min(mixedBuffer.SampleCount, buffer.SampleCount);
 
-                        for (int i = 0; i < sampleCount; i++)
-                        {
-                            mixedChannel[i] += sourceChannel[i];
-                        }
+                    for (int i = 0; i < sampleCount; i++)
+                    {
+                        mixedChannel[i] += sourceChannel[i];
                     }
                 }
             }
@@ -473,7 +475,7 @@ public partial class Composer : IComposer
         if (entry.IsDirty || entry.Version != resource.Version)
         {
             // AudioContextはDisposeしない。AudioNodeが解放されてしまうので
-            var context = new AudioContext(SampleRate, 2);
+            var context = new AudioContext(SampleRate, ChannelLayout);
 
             context.BeginUpdate(entry.Nodes);
             sound.Compose(context, resource);

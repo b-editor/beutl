@@ -1,10 +1,16 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Reactive.Linq;
+using System.Reflection;
+using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.VisualTree;
+using Beutl.Audio;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.Media.Encoding;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -99,6 +105,63 @@ public sealed class OutputProjectRateTests
         finally
         {
             editor.ExtensionProvider.RemoveExtensions(packageId);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Preview_and_export_compose_the_project_layout_while_the_encoder_receives_stereo()
+    {
+        EditViewModel editor = await OpenEditor();
+        Project project = editor.Scene.FindHierarchicalParent<Project>()!;
+        bool? playingAtSwap = null;
+        using var composerSubscription = editor.Composer.Skip(1).Subscribe(_ => playingAtSwap = editor.Player.IsPlaying.Value);
+        editor.Player.IsPlaying.Value = true;
+        project.ChannelLayout.Value = SpeakerLayout.Mono;
+        project.ChannelLayout.Value = SpeakerLayout.Surround51;
+        HeadlessTestHelpers.Settle();
+        for (int attempt = 0; attempt < 200 && editor.Composer.Value.ChannelLayout != AudioChannelLayout.Surround51; attempt++)
+            await Task.Delay(10);
+        Assert.That(editor.Composer.Value.ChannelLayout, Is.EqualTo(AudioChannelLayout.Surround51));
+        Assert.That(playingAtSwap, Is.False, "Playback must stop before the composer is replaced.");
+        var snapshots = new List<Beutl.Editor.Models.AudioFrameSnapshot>();
+        using var subscription = ((IPreviewPlayer)editor.Player).AudioFramePushed.Subscribe(snapshots.Add);
+        using var audio = new AudioBuffer(48000, 6, 32);
+        for (int ch = 0; ch < 6; ch++) audio.GetChannelData(ch).Fill(ch / 16f);
+        editor.Player.PublishAudioSnapshot(audio, MediaTime.Zero);
+        Assert.That(snapshots.Single().ChannelCount, Is.EqualTo(6));
+        Assert.That(snapshots.Single().Interleaved.Length, Is.EqualTo(192));
+        Assert.That(snapshots.Single().Interleaved[5], Is.EqualTo(5 / 16f));
+
+        var encoder = new LayoutEncoder();
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(BeutlHomeIsolation.CurrentHome!, "stereo-export.mp4");
+        output.SelectedEncoder.Value = encoder;
+        await output.RunAsync(CancellationToken.None);
+        Assert.That(encoder.ComposerLayout, Is.EqualTo(AudioChannelLayout.Surround51));
+        Assert.That(encoder.Channels, Is.EqualTo(2));
+    }
+
+    private sealed class LayoutEncoder : ControllableEncodingExtension
+    {
+        public int Channels;
+        public AudioChannelLayout ComposerLayout;
+        public override IEnumerable<string> SupportExtensions() => [".mp4"];
+        public override EncodingController CreateController(string file) => new LayoutController(file, this);
+    }
+
+    private sealed class LayoutController(string file, LayoutEncoder owner) : EncodingController(file)
+    {
+        public override bool IsVideoEnabled => false;
+        public override VideoEncoderSettings VideoSettings { get; } = new();
+        public override AudioEncoderSettings AudioSettings { get; } = new();
+        public override async ValueTask Encode(IFrameProvider frames, ISampleProvider samples, CancellationToken token)
+        {
+            var composer = (SceneComposer)typeof(SampleProviderImpl)
+                .GetField("_composer", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(samples)!;
+            owner.ComposerLayout = composer.ChannelLayout;
+            using var audio = await samples.ReadNextSamples(32);
+            owner.Channels = audio!.ChannelCount;
+            await File.WriteAllTextAsync(OutputFile, "test output", token);
         }
     }
 

@@ -11,6 +11,8 @@ public interface IComposer : IDisposable
 
     int SampleRate { get; }
 
+    AudioChannelLayout ChannelLayout => AudioChannelLayout.Stereo;
+
     AudioBuffer? Compose(TimeRange range, CompositionFrame frame);
 
     /// <summary>Reports the largest latency among the nodes retained by the latest composition.</summary>

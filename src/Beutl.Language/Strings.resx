@@ -3669,4 +3669,22 @@ when history recording is enabled.</value>
   <data name="Clipboard_WaitingForSave" xml:space="preserve">
     <value>Waiting for save to finish…</value>
   </data>
+  <data name="SpeakerLayout_Mono" xml:space="preserve">
+    <value>Mono</value>
+  </data>
+  <data name="SpeakerLayout_Stereo" xml:space="preserve">
+    <value>Stereo</value>
+  </data>
+  <data name="SpeakerLayout_Surround51" xml:space="preserve">
+    <value>5.1 surround</value>
+  </data>
+  <data name="SpeakerLayout_Surround71" xml:space="preserve">
+    <value>7.1 surround</value>
+  </data>
+  <data name="AudioChannels" xml:space="preserve">
+    <value>Audio channels</value>
+  </data>
+  <data name="ProjectAudioChannels" xml:space="preserve">
+    <value>Project audio channels</value>
+  </data>
 </root>

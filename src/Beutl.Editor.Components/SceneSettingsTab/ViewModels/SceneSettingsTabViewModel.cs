@@ -44,6 +44,10 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             .ToReactiveProperty()
             .DisposeWith(_disposable);
 
+        ChannelLayout = (_scene.FindHierarchicalParent<Project>()?.ChannelLayout.GetObservable()
+                ?? Observable.Return(SpeakerLayout.Stereo))
+            .ToReactiveProperty().DisposeWith(_disposable);
+
         Width.SetValidateNotifyError(ValidateSize);
         Height.SetValidateNotifyError(ValidateSize);
         LayerCount.SetValidateNotifyError(ValidateSize);
@@ -73,7 +77,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             // still draining the last frame, which IsPlaying no longer shows.
             if ((frameSize != _scene.FrameSize.Value
                     || start != _scene.Start.Value
-                    || duration != _scene.Duration.Value)
+                    || duration != _scene.Duration.Value
+                    || ChannelLayout.Value != (_scene.FindHierarchicalParent<Project>()?.ChannelLayout.Value ?? SpeakerLayout.Stereo))
                 && _editorContext.GetService<IPreviewPlayer>() is { } player)
             {
                 await player.Pause();
@@ -93,7 +98,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                 _scene,
                 frameSize,
                 start,
-                duration);
+                duration,
+                ChannelLayout.Value);
 
             _optionsProvider.Options.Value = _optionsProvider.Options.Value with
             {
@@ -109,6 +115,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         StartInput.Value = TimeText.Format(_scene.Start.Value);
         DurationInput.Value = TimeText.Format(_scene.Duration.Value);
         LayerCount.Value = _optionsProvider.Options.Value.MaxLayerCount;
+        ChannelLayout.Value = _scene.FindHierarchicalParent<Project>()?.ChannelLayout.Value ?? SpeakerLayout.Stereo;
     }
 
     internal static string? DurationValidator(string str)
@@ -162,6 +169,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     public ReactiveProperty<string> DurationInput { get; }
 
     public ReactiveProperty<int> LayerCount { get; }
+
+    public ReactiveProperty<SpeakerLayout> ChannelLayout { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanApply { get; }
 

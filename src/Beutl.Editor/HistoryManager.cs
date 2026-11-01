@@ -421,6 +421,8 @@ public sealed partial class HistoryManager : IDisposable
             : [failure];
     }
 
+    internal long GetNextSequenceNumber() => _sequenceGenerator.GetNext();
+
     public void Record(ChangeOperation operation)
     {
         ThrowIfDisposed();

@@ -1,6 +1,7 @@
 {
   "FrameRate": "30000/1001",
   "SampleRate": 44100,
+  "ChannelLayout": 1,
   "Id": "00000000-0000-0000-0000-000000000001",
   "Name": "",
   "items": [

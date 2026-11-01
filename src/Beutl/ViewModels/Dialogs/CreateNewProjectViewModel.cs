@@ -68,7 +68,8 @@ public sealed class CreateNewProjectViewModel
                         : (project, cancellationToken) => InitializeVersionControlAsync(
                             versionControl,
                             project,
-                            cancellationToken));
+                            cancellationToken),
+                    ChannelLayout.Value);
             }
             finally
             {
@@ -105,6 +106,8 @@ public sealed class CreateNewProjectViewModel
     public IReadOnlyList<string> FrameRates { get; } = ["23.976", "24", "25", "29.97", "30", "50", "59.94", "60"];
 
     public ReactiveProperty<int> SampleRate { get; } = new(44100);
+
+    public ReactiveProperty<SpeakerLayout> ChannelLayout { get; } = new(SpeakerLayout.Stereo);
 
     public ReactiveProperty<string> Name { get; } = new();
 

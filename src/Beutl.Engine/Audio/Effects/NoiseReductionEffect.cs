@@ -68,6 +68,7 @@ public sealed partial class NoiseReductionEffect : AudioEffect
             },
             static (_, existing) => existing.InvalidateInput(),
             static (effect, existing) => ReferenceEquals(existing.Reduction, effect.Reduction));
+        node.ChannelCount = context.ChannelCount;
         context.Connect(inputNode, node);
         return node;
     }

@@ -40,7 +40,7 @@ internal sealed class AudioReadScope : IDisposable
         public override AudioBuffer Process(AudioProcessContext context)
         {
             ReportFailure();
-            return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
+            return new AudioBuffer(context.SampleRate, LastProcessedChannelCount, context.GetSampleCount());
         }
     }
 }
