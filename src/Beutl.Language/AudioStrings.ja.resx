@@ -235,6 +235,9 @@
   <data name="SourceSound_ChannelMap_Description" xml:space="preserve">
     <value>ソースのチャンネルをこのクリップに割り当てます。JSON: {"Format":"Stereo","Sources":[2,3],"SourceLayout":{"ChannelCount":4,"Speakers":51}}。Format: Auto、Mono、Stereo、Surround51、Surround71。Sourcesはクリップの各チャンネルに対応する0始まりの番号で、-1は無音です。SourceLayoutはソースのチャンネル数と数値のスピーカーマスク（配置不明は0）です。ソースの配置が変わると自動に戻ります。自動: {"Format":"Auto","Sources":[]}。</value>
   </data>
+  <data name="ChannelMap_Format" xml:space="preserve">
+    <value>形式</value>
+  </data>
   <data name="ChannelMap_Auto" xml:space="preserve">
     <value>自動</value>
   </data>
@@ -247,25 +250,10 @@
   <data name="ChannelMap_None" xml:space="preserve">
     <value>なし</value>
   </data>
-  <data name="ChannelMap_SourceUnavailable" xml:space="preserve">
-    <value>音声ソースが見つからないか、読み込めません。自動のみ使用できます。</value>
-  </data>
-  <data name="ChannelMap_SourceChanged" xml:space="preserve">
-    <value>ソースのチャンネル配置が変わりました。再割り当てするまで自動を使用します。</value>
-  </data>
   <data name="Panner_Title" xml:space="preserve">
     <value>パンナー</value>
   </data>
   <data name="Panner_Help" xml:space="preserve">
     <value>パックをドラッグして定位を調整します。ダブルクリックでリセットします。</value>
-  </data>
-  <data name="Panner_Mono" xml:space="preserve">
-    <value>モノラルのプロジェクトでは、パンは適用されません。</value>
-  </data>
-  <data name="Panner_Stereo" xml:space="preserve">
-    <value>ステレオのプロジェクトでは左右のバランスのみ調整できます。前後・センター・LFEは無効です。</value>
-  </data>
-  <data name="Panner_Multichannel" xml:space="preserve">
-    <value>前後・センター・LFEはモノラルとステレオのクリップにのみ適用されます。このクリップでは左右のバランスのみ調整できます。</value>
   </data>
 </root>

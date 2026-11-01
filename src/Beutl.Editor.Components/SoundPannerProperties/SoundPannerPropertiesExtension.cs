@@ -14,6 +14,11 @@ public sealed class SoundPannerPropertiesExtension : PropertyEditorExtension
         registry.RegisterGroup(
             properties =>
             {
+                // Wait until the panel reaches these properties instead of taking them ahead of earlier rows.
+                if (properties.FirstOrDefault()?.GetEngineProperty()?.Name is not
+                    (nameof(Sound.Pan) or nameof(Sound.SurroundPan) or nameof(Sound.CenterLevel) or nameof(Sound.LfeLevel)))
+                    return [];
+
                 // List item adapters need not implement ImplementedType.
                 foreach (var group in properties
                     .Where(p => p.GetEngineProperty()?.GetOwnerObject() is Sound)

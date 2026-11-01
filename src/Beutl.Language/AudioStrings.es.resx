@@ -239,6 +239,9 @@
   <data name="SourceSound_ChannelMap_Description" xml:space="preserve">
     <value>Asigna canales de la fuente a este clip. JSON: {"Format":"Stereo","Sources":[2,3],"SourceLayout":{"ChannelCount":4,"Speakers":51}}. Format: Auto, Mono, Stereo, Surround51 o Surround71. Sources contiene un índice desde 0 por canal del clip, o -1 para silencio. SourceLayout guarda el número de canales y la máscara numérica de altavoces (0 si no hay posiciones). Si cambia la disposición de la fuente, se usa Auto. Auto: {"Format":"Auto","Sources":[]}.</value>
   </data>
+  <data name="ChannelMap_Format" xml:space="preserve">
+    <value>Formato</value>
+  </data>
   <data name="ChannelMap_Auto" xml:space="preserve">
     <value>Automático</value>
   </data>
@@ -251,25 +254,10 @@
   <data name="ChannelMap_None" xml:space="preserve">
     <value>Ninguno</value>
   </data>
-  <data name="ChannelMap_SourceUnavailable" xml:space="preserve">
-    <value>La fuente de audio no está disponible o no se puede leer. Solo se puede usar Automático.</value>
-  </data>
-  <data name="ChannelMap_SourceChanged" xml:space="preserve">
-    <value>La disposición de canales de la fuente ha cambiado. Se usará Automático hasta que vuelvas a asignar los canales.</value>
-  </data>
   <data name="Panner_Title" xml:space="preserve">
     <value>Panoramizador</value>
   </data>
   <data name="Panner_Help" xml:space="preserve">
     <value>Arrastra el punto para ajustar la posición. Haz doble clic para restablecer.</value>
-  </data>
-  <data name="Panner_Mono" xml:space="preserve">
-    <value>La panoramización no tiene efecto en un proyecto mono.</value>
-  </data>
-  <data name="Panner_Stereo" xml:space="preserve">
-    <value>Los proyectos estéreo solo permiten el balance izquierdo/derecho. Delante/detrás, centro y LFE están desactivados.</value>
-  </data>
-  <data name="Panner_Multichannel" xml:space="preserve">
-    <value>Delante/detrás, centro y LFE solo se aplican a clips mono y estéreo. Este clip solo permite el balance izquierdo/derecho.</value>
   </data>
 </root>

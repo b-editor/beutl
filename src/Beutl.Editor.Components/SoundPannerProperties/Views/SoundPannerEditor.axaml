@@ -20,9 +20,6 @@
                     <local:SoundPanner x:Name="Panner" Height="200" Margin="8,4" ViewModel="{Binding}"
                                       IsEnabled="{Binding CanDrag.Value}"
                                       ToolTip.Tip="{x:Static lang:AudioStrings.Panner_Help}" />
-                    <TextBlock Text="{Binding Message.Value}" TextWrapping="Wrap" Margin="8,0,32,4"
-                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                               IsVisible="{Binding Message.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
                     <ContentControl x:Name="PanControl" IsEnabled="{Binding CanPan.Value}">
                         <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding PanEditor.Value}" />
                     </ContentControl>

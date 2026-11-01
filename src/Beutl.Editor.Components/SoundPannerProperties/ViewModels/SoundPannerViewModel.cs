@@ -83,8 +83,6 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
 
     public ReactivePropertySlim<float> SurroundPan { get; } = new();
 
-    public ReactivePropertySlim<string?> Message { get; } = new();
-
     public ReactivePropertySlim<IPropertyEditorContext?> PanEditor { get; } = new();
 
     public ReactivePropertySlim<IPropertyEditorContext?> SurroundPanEditor { get; } = new();
@@ -144,9 +142,6 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
         bool multichannel = !mono && !stereo && Sound.GetClipLayout(project.GetChannelLayout(), CurrentTime.Value).ChannelCount >= 3;
         IsHorizontalOnly.Value = mono || stereo || multichannel;
         CanPosition.Value = !IsHorizontalOnly.Value;
-        Message.Value = mono ? AudioStrings.Panner_Mono
-            : stereo ? AudioStrings.Panner_Stereo
-            : multichannel ? AudioStrings.Panner_Multichannel : null;
         RefreshValues();
     }
 
@@ -243,6 +238,5 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
         CanDrag.Dispose();
         Pan.Dispose();
         SurroundPan.Dispose();
-        Message.Dispose();
     }
 }

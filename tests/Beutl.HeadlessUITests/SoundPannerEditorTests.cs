@@ -14,6 +14,7 @@ using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Editor.Components.ChannelMapProperties.ViewModels;
+using Beutl.Editor.Components.ChannelMapProperties.Views;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
 using Beutl.Editor.Components.PropertyEditors.Services;
@@ -135,6 +136,65 @@ public class SoundPannerEditorTests
     }
 
     [AvaloniaTest]
+    [TestCase(280)]
+    [TestCase(480)]
+    [TestCase(760)]
+    public void ChannelMapRowsAlignWithNestedPannerEditors(int width)
+    {
+        using var host = new PannerHost(SpeakerLayout.Surround51, 6,
+            sound => sound.ChannelMap.Value = AudioChannelMap.CreateDefault(AudioChannelFormat.Surround51, AudioChannelLayout.Surround51), width);
+        var adapter = PropertyAdapterFactory.CreateAdapter(host.Sound.ChannelMap, host.Sound);
+        using var map = (ChannelMapEditorViewModel)PropertyEditorResolver.CreateContext(adapter, Extensions, PropertyEditorSurface.Panel)!;
+        Assert.That(PropertyEditorHost.TryCreateControl(map, PropertyEditorSurface.Panel, out var control), Is.True);
+        control!.DataContext = map;
+        var border = (Border)host.Window.Content!;
+        border.Child = null;
+        var rows = new StackPanel { Children = { control, host.Editor } };
+        PropertyEditorGrid.SetIsAlignmentScope(host.Editor, false);
+        PropertyEditorGrid.SetIsAlignmentScope(rows, true);
+        border.Child = rows;
+        host.Window.Height = 900;
+        HeadlessTestHelpers.Render(3);
+        var inputs = host.Editor.GetVisualDescendants().OfType<NumberEditor<float>>()
+            .Select(number => number.GetVisualDescendants().OfType<TextBox>().Single()).ToArray();
+        var boxes = control.GetVisualDescendants().OfType<ComboBox>().ToArray();
+        Assert.That(boxes, Has.Length.EqualTo(7));
+        foreach (Control input in inputs.Cast<Control>().Concat(boxes))
+        {
+            Assert.That(input.TranslatePoint(default, rows)!.Value.X,
+                Is.EqualTo(inputs[0].TranslatePoint(default, rows)!.Value.X).Within(0.01));
+            Assert.That(input.Bounds.Width, Is.EqualTo(inputs[0].Bounds.Width).Within(0.01));
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(typeof(SourceSound))]
+    [TestCase(typeof(SoundGroup))]
+    [TestCase(typeof(SceneSound))]
+    public void PannerFollowsAudioEffectsAtTheEndOfSoundPanels(Type soundType)
+    {
+        var sound = (Sound)Activator.CreateInstance(soundType)!;
+        var contexts = new List<IPropertyEditorContext>();
+        PropertyEditorResolver.CreateContexts(PropertyAdapterFactory.CreateAdapters(sound), Extensions, PropertyEditorSurface.Panel, contexts.Add);
+        try
+        {
+            string[] expected = sound switch
+            {
+                SourceSound => [nameof(SourceSound.Source), nameof(SourceSound.ChannelMap), nameof(Sound.OffsetPosition),
+                    nameof(Sound.Gain), nameof(Sound.Speed), nameof(Sound.Effect), "Panner"],
+                SoundGroup => [nameof(SoundGroup.Children), nameof(Sound.Gain), nameof(Sound.Effect), "Panner"],
+                SceneSound => [nameof(SceneSound.ReferencedScene), nameof(Sound.OffsetPosition), nameof(Sound.Gain),
+                    nameof(Sound.Speed), nameof(Sound.Effect), "Panner"],
+                _ => throw new ArgumentOutOfRangeException(nameof(soundType))
+            };
+            Assert.That(contexts.Select(context => context is SoundPannerViewModel
+                ? "Panner" : ((PropertyEditorViewModel)context).PropertyAdapter.GetEngineProperty()!.Name), Is.EqualTo(expected));
+            Assert.That(((SoundPannerViewModel)contexts[^1]).Sound, Is.SameAs(sound));
+        }
+        finally { foreach (var context in contexts) context.Dispose(); }
+    }
+
+    [AvaloniaTest]
     public void RegistrationReplacesExactlyTheFourSoundEditorsAndRequiresOneCompleteOwner()
     {
         var sound = new SourceSound();
@@ -155,7 +215,10 @@ public class SoundPannerEditorTests
         Assert.That(registration.Match!([.. first.Take(3), second[3]]), Is.Empty);
         var listItem = new Mock<IPropertyAdapter>();
         listItem.SetupGet(x => x.ImplementedType).Throws<NotSupportedException>();
-        Assert.That(registration.Match!([listItem.Object, .. first]), Is.EquivalentTo(first));
+        Assert.That(registration.Match!([]), Is.Empty);
+        Assert.That(registration.Match!([listItem.Object, .. first]), Is.Empty);
+        Assert.That(registration.Match!([PropertyAdapterFactory.CreateAdapter(sound.Effect, sound), .. first]), Is.Empty);
+        Assert.That(registration.Match!([first[0], listItem.Object, .. first.Skip(1)]), Is.EquivalentTo(first));
     }
 
     [AvaloniaTest]
@@ -400,7 +463,7 @@ public class SoundPannerEditorTests
     {
         using var host = new PannerHost(SpeakerLayout.Surround51, 6);
         Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.True);
-        Assert.That(host.ViewModel.Message.Value, Is.EqualTo(AudioStrings.Panner_Multichannel));
+        Assert.That(host.ViewModel.CanPosition.Value, Is.False);
         using (host.History.SuppressRecording())
         {
             host.Sound.ChannelMap.Value = AudioChannelMap.CreateDefault(AudioChannelFormat.Stereo, AudioChannelLayout.Surround51);
@@ -577,6 +640,7 @@ public class SoundPannerEditorTests
     [AvaloniaTest]
     [TestCase("en-US", SpeakerLayout.Stereo, 2, 400)]
     [TestCase("en-US", SpeakerLayout.Surround51, 2, 400)]
+    [TestCase("en-US", SpeakerLayout.Surround51, 3, 400)]
     [TestCase("en-US", SpeakerLayout.Surround71, 2, 400)]
     [TestCase("en-US", SpeakerLayout.Surround51, 6, 400)]
     [TestCase("en-US", SpeakerLayout.Mono, 2, 400)]
@@ -596,6 +660,15 @@ public class SoundPannerEditorTests
         {
             using var host = new PannerHost(layout, channels,
                 sound => { sound.Pan.Value = 20; sound.SurroundPan.Value = 35; }, width);
+            bool horizontalOnly = layout is SpeakerLayout.Mono or SpeakerLayout.Stereo || channels >= 3;
+            bool canPan = layout != SpeakerLayout.Mono;
+            Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.EqualTo(horizontalOnly));
+            Assert.That(host.ViewModel.CanPan.Value, Is.EqualTo(canPan));
+            Assert.That(host.ViewModel.CanPosition.Value, Is.EqualTo(!horizontalOnly));
+            Assert.That(host.ViewModel.CanDrag.Value, Is.EqualTo(canPan));
+            Assert.That(host.Panner.IsEffectivelyEnabled, Is.EqualTo(canPan));
+            Assert.That(host.Editor.FindControl<StackPanel>("PositionControls")!.IsEffectivelyEnabled, Is.EqualTo(!horizontalOnly));
+            Assert.That(ToolTip.GetTip(host.Panner), Is.EqualTo(AudioStrings.Panner_Help));
             var numbers = host.Editor.GetVisualDescendants().OfType<NumberEditor<float>>().ToArray();
             Assert.That(numbers.Length, Is.EqualTo(4));
             Assert.That(numbers.Count(n => n.IsEffectivelyEnabled), Is.EqualTo(layout == SpeakerLayout.Mono ? 0
@@ -674,6 +747,7 @@ public class SoundPannerEditorTests
                 window.Show();
                 HeadlessTestHelpers.Render(3);
                 await WaitForExpansion(view.GetVisualDescendants().OfType<SoundPannerEditor>().Single());
+                await WaitForExpansion(view.GetVisualDescendants().OfType<ChannelMapEditor>().Single());
                 Assert.That(view.GetVisualDescendants().OfType<SoundPanner>().Single().IsEffectivelyVisible, Is.True);
                 var map = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
                     .OfType<ChannelMapEditorViewModel>().Single();
@@ -690,7 +764,7 @@ public class SoundPannerEditorTests
         }
     }
 
-    private static Task WaitForExpansion(SoundPannerEditor editor)
+    private static Task WaitForExpansion(Control editor)
     {
         var content = editor.FindControl<Panel>("content")!;
         return HeadlessTestHelpers.WaitUntilAsync(() =>

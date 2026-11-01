@@ -1,6 +1,9 @@
 ﻿using System.Globalization;
+using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
@@ -20,6 +23,7 @@ using Beutl.Media.Wave;
 using Beutl.PropertyAdapters;
 using Beutl.Services.StartupTasks;
 using Beutl.Testing.Headless;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
 
@@ -27,7 +31,7 @@ namespace Beutl.HeadlessUITests;
 public class ChannelMapEditorTests
 {
     [AvaloniaTest]
-    public void FormatRowUsesPropertyNameMenuAndStandardGrid()
+    public void HeaderUsesPropertyNameAndMenuAndFormatRowUsesStandardGrid()
     {
         var (vm, control) = CreateEditor(new SourceSound());
         using (vm)
@@ -36,18 +40,98 @@ public class ChannelMapEditorTests
             try
             {
                 var format = control.FindControl<EnumEditor>("FormatEditor")!;
+                var toggle = control.FindControl<ToggleButton>("expandToggle")!;
+                var title = (TextBlock)toggle.Content!;
                 var header = format.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Name == "PART_HeaderTextBlock");
-                Assert.That(format.Header, Is.EqualTo(vm.Header));
-                Assert.That(header.Text, Is.EqualTo(AudioStrings.SourceSound_ChannelMap));
+                Assert.That(title.Text, Is.EqualTo(vm.Header));
+                Assert.That(title.FontWeight, Is.EqualTo(FontWeight.Normal));
+                Assert.That(header.Text, Is.EqualTo(AudioStrings.ChannelMap_Format));
                 Assert.That(header.FontWeight, Is.EqualTo(FontWeight.Normal));
                 Assert.That(format.GetVisualDescendants().OfType<PropertyEditorGrid>().Count(), Is.EqualTo(1));
                 Assert.That(format.GetVisualDescendants().OfType<GridSplitter>().Count(), Is.EqualTo(1));
-                Assert.That(format.MenuContent, Is.TypeOf<PropertyEditorMenu>());
-                var menu = (PropertyEditorMenu)format.MenuContent!;
+                Assert.That(toggle.Tag, Is.TypeOf<PropertyEditorMenu>());
+                Assert.That(format.GetVisualDescendants().OfType<PropertyEditorMenu>(), Is.Empty);
+                var menu = (PropertyEditorMenu)toggle.Tag!;
                 Assert.That(menu.DataContext, Is.SameAs(vm));
                 Assert.That(menu.GetVisualDescendants().OfType<Button>().Single().IsEffectivelyVisible, Is.True);
+                Assert.That(menu.IsEffectivelyEnabled, Is.True);
             }
             finally { window.Close(); }
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ExpandedByDefaultAndToggleCollapsesAndExpandsContent()
+    {
+        await WithFourChannelSource(async source =>
+        {
+            var sound = new SourceSound
+            {
+                Source = { Value = source },
+                ChannelMap = { Value = AudioChannelMap.CreateDefault(AudioChannelFormat.Stereo, AudioChannelLayout.GetDefault(4)) }
+            };
+            using var history = new PropertyEditorTestHost.HistoryScope(sound);
+            var (vm, control) = CreateEditor(sound);
+            using (vm)
+            {
+                vm.Accept(PropertyEditorTestHost.ServiceVisitor.For(history.History));
+                var window = Show(control, 480, 300);
+                try
+                {
+                    await WaitForExpansion(control);
+                    var toggle = control.FindControl<ToggleButton>("expandToggle")!;
+                    var content = control.FindControl<Panel>("content")!;
+                    var left = GetChannelBox(control, "L");
+                    Assert.That(vm.IsExpanded.Value, Is.True);
+                    Assert.That(toggle.IsChecked, Is.True);
+                    Assert.That(left.IsEffectivelyVisible, Is.True);
+                    HeadlessTestHelpers.Click(toggle);
+                    Assert.That(vm.IsExpanded.Value, Is.False);
+                    await HeadlessTestHelpers.WaitUntilAsync(() =>
+                    {
+                        HeadlessTestHelpers.Render();
+                        return !content.IsVisible;
+                    });
+                    Assert.That(left.IsEffectivelyVisible, Is.False);
+                    Assert.That(((PropertyEditorMenu)toggle.Tag!).IsEffectivelyVisible, Is.True);
+                    HeadlessTestHelpers.Click(toggle);
+                    await WaitForExpansion(control);
+                    Assert.That(vm.IsExpanded.Value, Is.True);
+                    Assert.That(left.IsEffectivelyVisible, Is.True);
+                    Assert.That(GetChannelBox(control, "L"), Is.SameAs(left));
+                    Assert.That(history.History.UndoCount, Is.Zero);
+                }
+                finally { window.Close(); }
+            }
+        });
+    }
+
+    [AvaloniaTest]
+    public void IsExpandedRoundTripsThroughJson([Values] bool expanded)
+    {
+        var sound = new SourceSound();
+        var adapter = new EnginePropertyAdapter<AudioChannelMap>(sound.ChannelMap, sound);
+        using var original = new ChannelMapEditorViewModel(adapter);
+        original.IsExpanded.Value = expanded;
+        var json = new JsonObject();
+        original.WriteToJson(json);
+        using var restored = new ChannelMapEditorViewModel(adapter);
+        restored.IsExpanded.Value = !expanded;
+        restored.ReadFromJson(JsonNode.Parse(json.ToJsonString())!.AsObject());
+        Assert.That((bool)json[nameof(ChannelMapEditorViewModel.IsExpanded)]!, Is.EqualTo(expanded));
+        Assert.That(restored.IsExpanded.Value, Is.EqualTo(expanded));
+    }
+
+    [AvaloniaTest]
+    public void MissingOrInvalidExpansionStateIsIgnored([Values] bool expanded)
+    {
+        var sound = new SourceSound();
+        using var vm = new ChannelMapEditorViewModel(new EnginePropertyAdapter<AudioChannelMap>(sound.ChannelMap, sound));
+        vm.IsExpanded.Value = expanded;
+        foreach (string json in new[] { "{}", "{\"IsExpanded\":null}", "{\"IsExpanded\":1}", "{\"IsExpanded\":\"false\"}", "{\"IsExpanded\":{}}" })
+        {
+            vm.ReadFromJson(JsonNode.Parse(json)!.AsObject());
+            Assert.That(vm.IsExpanded.Value, Is.EqualTo(expanded), json);
         }
     }
 
@@ -59,13 +143,13 @@ public class ChannelMapEditorTests
     [TestCase("ko-KR", 320)]
     [TestCase("es-ES", 320)]
     [TestCase("zh-CN", 320)]
-    public void StereoAssignments_EditThePropertyAndCommitOneUndoStepPerSelection(string culture, int width)
+    public async Task StereoAssignments_EditThePropertyAndCommitOneUndoStepPerSelection(string culture, int width)
     {
         var previousCulture = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
         try
         {
-            WithFourChannelSource(source =>
+            await WithFourChannelSource(async source =>
             {
                 var sound = new SourceSound { Source = { Value = source } };
                 using var history = new PropertyEditorTestHost.HistoryScope(sound);
@@ -104,6 +188,8 @@ public class ChannelMapEditorTests
                         Assert.That(left.GetVisualAncestors().OfType<TreeLineDecorator>().Any(), Is.True);
                         Assert.That(control.Bounds.Width, Is.LessThanOrEqualTo(width));
                         AssertComboBoxesAligned(control);
+                        if (HeadlessCapture.IsRequested)
+                            await WaitForExpansion(control);
                         HeadlessCapture.SaveIfRequested(window, nameof(ChannelMapEditorTests), $"stereo-{culture}-{width}");
 
                         history.History.Undo();
@@ -147,9 +233,9 @@ public class ChannelMapEditorTests
     }
 
     [AvaloniaTest]
-    public void MissingUnreadableAndChangedSources_ShowAutoWithoutRewritingTheSavedMap()
+    public async Task MissingUnreadableAndChangedSources_ShowAutoWithoutRewritingTheSavedMap()
     {
-        WithFourChannelSource(source =>
+        await WithFourChannelSource(async source =>
         {
             var saved = new AudioChannelMap(AudioChannelFormat.Stereo, AudioChannelLayout.GetDefault(4), [2, 3]);
             var sound = new SourceSound { ChannelMap = { Value = saved } };
@@ -162,6 +248,8 @@ public class ChannelMapEditorTests
                 try
                 {
                     AssertUnavailable();
+                    if (HeadlessCapture.IsRequested)
+                        await WaitForExpansion(control);
                     HeadlessCapture.SaveIfRequested(window, nameof(ChannelMapEditorTests), "source-unavailable-280");
                     using (history.History.SuppressRecording())
                     {
@@ -172,15 +260,18 @@ public class ChannelMapEditorTests
                         HeadlessTestHelpers.Render();
                         Assert.That(vm.SelectedFormatIndex.Value, Is.EqualTo(2));
                         Assert.That(vm.Channels.Count, Is.EqualTo(2));
-                        Assert.That(vm.Message.Value, Is.Null);
+                        Assert.That(vm.CanEditMap.Value, Is.True);
 
-                        sound.ChannelMap.Value = new AudioChannelMap(AudioChannelFormat.Mono, AudioChannelLayout.Discrete(4), [2]);
+                        var mismatchedMap = new AudioChannelMap(AudioChannelFormat.Mono, AudioChannelLayout.Discrete(4), [2]);
+                        sound.ChannelMap.Value = mismatchedMap;
                         HeadlessTestHelpers.Render();
                         Assert.That(vm.SelectedFormatIndex.Value, Is.Zero);
                         Assert.That(vm.Formats.Count, Is.EqualTo(5));
                         Assert.That(vm.Channels, Is.Empty);
-                        Assert.That(vm.Message.Value, Is.EqualTo(AudioStrings.ChannelMap_SourceChanged));
-                        Assert.That(sound.ChannelMap.Value.Format, Is.EqualTo(AudioChannelFormat.Mono));
+                        Assert.That(vm.CanEditMap.Value, Is.True);
+                        Assert.That(GetFormatBox(control).SelectedIndex, Is.Zero);
+                        Assert.That(sound.ChannelMap.Value, Is.EqualTo(mismatchedMap));
+                        HeadlessCapture.SaveIfRequested(window, nameof(ChannelMapEditorTests), "source-changed-280");
                     }
                     Assert.That(history.History.UndoCount, Is.Zero);
                 }
@@ -192,7 +283,7 @@ public class ChannelMapEditorTests
                     Assert.That(GetFormatBox(control).IsEffectivelyEnabled, Is.False);
                     Assert.That(vm.SelectedFormatIndex.Value, Is.Zero);
                     Assert.That(vm.Channels, Is.Empty);
-                    Assert.That(vm.Message.Value, Is.EqualTo(AudioStrings.ChannelMap_SourceUnavailable));
+                    Assert.That(vm.CanEditMap.Value, Is.False);
                     Assert.That(sound.ChannelMap.Value, Is.EqualTo(saved));
                 }
             }
@@ -200,9 +291,9 @@ public class ChannelMapEditorTests
     }
 
     [AvaloniaTest]
-    public void ExpressionDisablesSelectionsAndRemovingItRestoresEditing()
+    public async Task ExpressionDisablesSelectionsAndRemovingItRestoresEditing()
     {
-        WithFourChannelSource(source =>
+        await WithFourChannelSource(async source =>
         {
             var sound = new SourceSound
             {
@@ -217,23 +308,33 @@ public class ChannelMapEditorTests
                 var window = Show(control, 480, 300);
                 try
                 {
+                    await WaitForExpansion(control);
                     var rows = vm.Channels.ToArray();
                     using (history.History.SuppressRecording())
                         sound.ChannelMap.Expression = new StringExpression<AudioChannelMap>("default");
                     HeadlessTestHelpers.Render();
                     Assert.That(control.GetVisualDescendants().OfType<ComboBox>().All(box => !box.IsEffectivelyEnabled), Is.True);
-                    var format = control.FindControl<EnumEditor>("FormatEditor")!;
-                    Assert.That(((PropertyEditorMenu)format.MenuContent!).IsEffectivelyEnabled, Is.True,
+                    var toggle = control.FindControl<ToggleButton>("expandToggle")!;
+                    var menu = (PropertyEditorMenu)toggle.Tag!;
+                    Assert.That(menu.IsEffectivelyEnabled, Is.True,
                         "The property menu remains available to remove the expression.");
 
-                    using (history.History.SuppressRecording())
-                        sound.ChannelMap.Expression = null;
+                    var button = menu.GetVisualDescendants().OfType<Button>().Single();
+                    HeadlessTestHelpers.Click(button, button: MouseButton.Right);
+                    var flyout = (FAMenuFlyout)button.ContextFlyout!;
+                    Assert.That(flyout.IsOpen, Is.True);
+                    var remove = flyout.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == "removeExpressionItem");
+                    Assert.That(remove.IsEnabled, Is.True);
+                    HeadlessTestHelpers.Click(remove);
                     HeadlessTestHelpers.Render();
+                    Assert.That(sound.ChannelMap.Expression, Is.Null);
+                    Assert.That(vm.IsExpanded.Value, Is.True, "The header menu must not toggle expansion.");
+                    Assert.That(history.History.UndoCount, Is.EqualTo(1));
                     Assert.That(control.GetVisualDescendants().OfType<ComboBox>().All(box => box.IsEffectivelyEnabled), Is.True);
                     Assert.That(vm.Channels[0], Is.SameAs(rows[0]));
                     GetChannelBox(control, "L").SelectedIndex = 3;
                     Assert.That(sound.ChannelMap.Value.Sources, Is.EqualTo(new[] { 2, 1 }));
-                    Assert.That(history.History.UndoCount, Is.EqualTo(1));
+                    Assert.That(history.History.UndoCount, Is.EqualTo(2));
                 }
                 finally { window.Close(); }
             }
@@ -285,7 +386,17 @@ public class ChannelMapEditorTests
         return window;
     }
 
-    private static void WithFourChannelSource(Action<SoundSource> body)
+    private static Task WaitForExpansion(Control control)
+    {
+        var content = control.FindControl<Panel>("content")!;
+        return HeadlessTestHelpers.WaitUntilAsync(() =>
+        {
+            HeadlessTestHelpers.Render();
+            return content.IsVisible && content.Opacity == 1;
+        });
+    }
+
+    private static async Task WithFourChannelSource(Func<SoundSource, Task> body)
     {
         string path = Path.Combine(Path.GetTempPath(), $"beutl-channel-editor-{Guid.NewGuid():N}.wav");
         var decoder = new WaveDecoderInfo();
@@ -313,7 +424,7 @@ public class ChannelMapEditorTests
                 writer.Write(bytes);
                 writer.Write(new byte[bytes]);
             }
-            body(SoundSource.Open(path));
+            await body(SoundSource.Open(path));
         }
         finally
         {

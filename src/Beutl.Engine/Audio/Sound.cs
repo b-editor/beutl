@@ -24,6 +24,10 @@ public abstract partial class Sound : EngineObject
     public Sound()
     {
         ScanProperties<Sound>();
+        MovePropertyAfter(Pan, Effect);
+        MovePropertyAfter(SurroundPan, Pan);
+        MovePropertyAfter(CenterLevel, SurroundPan);
+        MovePropertyAfter(LfeLevel, CenterLevel);
         Effect.Value = new AudioEffectGroup();
     }
 

@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Text.Json.Nodes;
 using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Controls.PropertyEditors;
@@ -43,13 +44,13 @@ public sealed class ChannelMapEditorViewModel : ValueEditorViewModel<AudioChanne
 
     public ObservableCollection<EnumItem> Formats { get; } = [];
 
+    public ReactivePropertySlim<bool> IsExpanded { get; } = new(true);
+
     public ReadOnlyReactivePropertySlim<bool> CanEditMap { get; }
 
     public ReactivePropertySlim<int> SelectedFormatIndex { get; } = new();
 
     public ObservableCollection<ChannelAssignmentViewModel> Channels { get; } = [];
-
-    public ReactivePropertySlim<string?> Message { get; } = new();
 
     private void RefreshSource()
     {
@@ -91,8 +92,6 @@ public sealed class ChannelMapEditorViewModel : ValueEditorViewModel<AudioChanne
         {
             AudioChannelMap map = _sourceLayout is { } layout ? Value.Value.Resolve(layout) : AudioChannelMap.Auto;
             SelectedFormatIndex.Value = (int)map.Format;
-            Message.Value = _sourceLayout == null ? AudioStrings.ChannelMap_SourceUnavailable
-                : !map.Equals(Value.Value) ? AudioStrings.ChannelMap_SourceChanged : null;
             if (_rowFormat == map.Format && _rowSourceLayout == _sourceLayout && Channels.Count == map.Sources.Length)
             {
                 for (int channel = 0; channel < Channels.Count; channel++)
@@ -134,11 +133,24 @@ public sealed class ChannelMapEditorViewModel : ValueEditorViewModel<AudioChanne
         Channels.Clear();
     }
 
+    public override void ReadFromJson(JsonObject json)
+    {
+        base.ReadFromJson(json);
+        if (json[nameof(IsExpanded)] is JsonValue value && value.TryGetValue(out bool isExpanded))
+            IsExpanded.Value = isExpanded;
+    }
+
+    public override void WriteToJson(JsonObject json)
+    {
+        base.WriteToJson(json);
+        json[nameof(IsExpanded)] = IsExpanded.Value;
+    }
+
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
         ClearChannels();
+        IsExpanded.Dispose();
         SelectedFormatIndex.Dispose();
-        Message.Dispose();
     }
 }

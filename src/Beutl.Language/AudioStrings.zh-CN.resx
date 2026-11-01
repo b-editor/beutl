@@ -239,6 +239,9 @@
   <data name="SourceSound_ChannelMap_Description" xml:space="preserve">
     <value>将源声道分配给此片段。JSON: {"Format":"Stereo","Sources":[2,3],"SourceLayout":{"ChannelCount":4,"Speakers":51}}。Format：Auto、Mono、Stereo、Surround51 或 Surround71。Sources 为每个片段声道指定从 0 开始的源声道索引，-1 表示静音。SourceLayout 记录源声道数和数字扬声器掩码（无位置信息时为 0）。源布局变化后使用 Auto。Auto: {"Format":"Auto","Sources":[]}。</value>
   </data>
+  <data name="ChannelMap_Format" xml:space="preserve">
+    <value>格式</value>
+  </data>
   <data name="ChannelMap_Auto" xml:space="preserve">
     <value>自动</value>
   </data>
@@ -251,25 +254,10 @@
   <data name="ChannelMap_None" xml:space="preserve">
     <value>无</value>
   </data>
-  <data name="ChannelMap_SourceUnavailable" xml:space="preserve">
-    <value>音频源缺失或无法读取。只能使用自动模式。</value>
-  </data>
-  <data name="ChannelMap_SourceChanged" xml:space="preserve">
-    <value>源声道布局已更改。重新分配声道前将使用自动模式。</value>
-  </data>
   <data name="Panner_Title" xml:space="preserve">
     <value>声像调节</value>
   </data>
   <data name="Panner_Help" xml:space="preserve">
     <value>拖动圆点调整声像。双击重置。</value>
-  </data>
-  <data name="Panner_Mono" xml:space="preserve">
-    <value>声像调节在单声道项目中不生效。</value>
-  </data>
-  <data name="Panner_Stereo" xml:space="preserve">
-    <value>立体声项目仅支持左右平衡。前后、中央声道和 LFE 已禁用。</value>
-  </data>
-  <data name="Panner_Multichannel" xml:space="preserve">
-    <value>前后、中央声道和 LFE 仅适用于单声道和立体声片段。此片段仅支持左右平衡。</value>
   </data>
 </root>
