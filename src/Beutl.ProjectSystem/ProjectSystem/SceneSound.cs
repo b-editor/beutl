@@ -11,7 +11,7 @@ using Beutl.Media.Source;
 namespace Beutl.ProjectSystem;
 
 [Display(Name = nameof(AudioStrings.SceneSound), ResourceType = typeof(AudioStrings))]
-public sealed partial class SceneSound : Sound, ISplittable
+public sealed partial class SceneSound : Sound, ITimeMappedSource
 {
     public SceneSound()
     {
@@ -21,10 +21,13 @@ public sealed partial class SceneSound : Sound, ISplittable
     [Display(Name = nameof(AudioStrings.SceneSound_ReferencedScene), ResourceType = typeof(AudioStrings))]
     public IExpressionProperty<Scene?> ReferencedScene { get; } = Property.CreateReference<Scene?>();
 
-    public void NotifySplitted(bool backward, MediaTime startDelta, MediaTime durationDelta)
-    {
-        if (backward) OffsetPosition.Value += startDelta;
-    }
+    // Audio plays the stored offset at its speed whichever scene plays. The scene reference is itself an
+    // expression and hides only the scene's length, so a split still follows the speed (#3642).
+    bool ITimeMappedSource.HasDynamicMapping => false;
+
+    bool ITimeMappedSource.HasDynamicTimeline => ReferencedScene.HasExpression;
+
+    MediaTime? ITimeMappedSource.GetSourceDuration() => ReferencedScene.Value?.Duration.Value;
 
     public override void Compose(AudioContext context, Sound.Resource resource)
     {

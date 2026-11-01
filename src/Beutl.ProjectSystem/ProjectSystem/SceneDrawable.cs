@@ -10,7 +10,7 @@ using Beutl.Media;
 namespace Beutl.ProjectSystem;
 
 [Display(Name = nameof(GraphicsStrings.SceneDrawable), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class SceneDrawable : Drawable, ISplittable
+public sealed partial class SceneDrawable : Drawable, ITimeMappedSource
 {
     public SceneDrawable()
     {
@@ -23,10 +23,15 @@ public sealed partial class SceneDrawable : Drawable, ISplittable
     [Display(Name = nameof(GraphicsStrings.SourceVideo_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<MediaTime> OffsetPosition { get; } = Property.CreateExpression<MediaTime>();
 
-    public void NotifySplitted(bool backward, MediaTime startDelta, MediaTime durationDelta)
-    {
-        if (backward) OffsetPosition.Value += startDelta;
-    }
+    IExpressionProperty<float>? ITimeMappedSource.Speed => null;
+
+    // Rendering evaluates OffsetPosition. Slip and Trim accept the unknown length of a scene
+    // reference, as they do for offline media.
+    bool ITimeMappedSource.HasDynamicMapping => OffsetPosition.HasExpression;
+
+    bool ITimeMappedSource.HasDynamicTimeline => false;
+
+    MediaTime? ITimeMappedSource.GetSourceDuration() => ReferencedScene.Value?.Duration.Value;
 
     private readonly record struct SceneBitmapParameters(Resource Resource, float OutputScale);
 

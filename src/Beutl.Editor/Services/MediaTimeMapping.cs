@@ -29,6 +29,7 @@ internal sealed partial class MediaTimeMapping
     private readonly bool _loopVideo;
     private readonly KeyFrameAnimation<bool>? _loopAnimation;
     private readonly bool _sourceSupported;
+    private readonly bool _timelineKnown;
     private readonly bool _sourceLocked;
     private readonly bool _opaquePortal;
     private readonly bool _clipToSourceRange;
@@ -36,15 +37,18 @@ internal sealed partial class MediaTimeMapping
     internal readonly record struct ControllerLink(DrawableTimeController Controller, Drawable Target);
 
     public MediaTimeMapping(Element element, EngineObject source, IProperty<float> speed,
-        IReadOnlyList<ControllerLink> controllers, int sampleRate, MediaTime? videoDuration = null,
+        IReadOnlyList<ControllerLink> controllers, int sampleRate, MediaTime? sourceDuration = null,
         IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false,
         IReadOnlyDictionary<Element, TrimRole>? timingRoles = null, bool portalInput = false)
     {
         _elementRange = element.Range;
         _sourceClock = new Clock(element, source, timingPeers, timingRoles);
-        _speed = new SpeedMap(speed, sampleRate, videoPlayback: source is SourceVideo);
+        // Drawables share SpeedAdjustedTime's speed arithmetic.
+        _speed = new SpeedMap(speed, sampleRate, videoPlayback: source is Drawable);
         _controllers = controllers.Select(c => new Controller(element, c.Controller, c.Target, timingPeers, ignoreLoops, timingRoles)).ToArray();
-        _videoDuration = videoDuration;
+        // SourceVideo wraps its position into the file: it loops while IsLoop is set, and
+        // otherwise plays a negative position back from the end.
+        _videoDuration = source is SourceVideo ? sourceDuration : null;
         _loopVideo = !ignoreLoops && source is SourceVideo video && video.IsLoop.Value;
         _loopAnimation = !ignoreLoops && source is SourceVideo animatedVideo ? animatedVideo.IsLoop.GetKeyFrameAnimation() : null;
         _opaquePortal = source is PortalObject;
@@ -58,19 +62,20 @@ internal sealed partial class MediaTimeMapping
         // switch/expression. Keep these edits atomic until their mapping is bounded.
         _sourceSupported = source switch
         {
-            SourceVideo videoSource => videoSource.Source.GetKeyFrameAnimation() == null && !videoSource.Source.HasExpression
-                && !videoSource.IsLoop.HasExpression && !videoSource.OffsetPosition.HasExpression,
-            SourceSound sound => !sound.Source.HasExpression,
-            SceneSound sound => !sound.ReferencedScene.HasExpression,
-            SceneDrawable drawable => !drawable.OffsetPosition.HasExpression,
+            ITimeMappedSource mapped => !mapped.HasDynamicMapping,
             DrawableTimeController controller => !controller.Target.HasExpression,
             IPresenter<Drawable> presenter => !presenter.Target.HasExpression,
             PortalObject => false,
             _ => true
         };
+        // An expression that picks the timeline hides only its length.
+        _timelineKnown = source is not ITimeMappedSource { HasDynamicTimeline: true };
     }
 
-    public bool IsSupported => _sourceSupported && _speed.IsSupported && _controllers.All(c => c.IsSupported);
+    public bool IsSupported => _timelineKnown && IsMappingSupported;
+
+    // A split continues whichever timeline plays, so unlike other edits it needs no length.
+    public bool IsMappingSupported => _sourceSupported && _speed.IsSupported && _controllers.All(c => c.IsSupported);
 
     public bool CanWriteOffsets => !_sourceLocked && IsSupported && _speed.CanWriteOffsets;
 

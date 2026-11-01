@@ -6,6 +6,7 @@ using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
@@ -201,6 +202,46 @@ public sealed class ElementSplitSpeedTests
         Assert.That(drawable.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
     }
 
+    // The editor stores a scene reference as an expression, which must not drop the speed from the cut (#3642).
+    [TestCase(false, 200f, 2.0)]
+    [TestCase(false, 50f, 0.5)]
+    [TestCase(true, 200f, 2.0)]
+    public void Split_SceneSoundReferencingAScene_AdvancesTheBackOffsetByTheSourceIntegral(
+        bool batch, float speed, double expected)
+    {
+        var sound = new SceneSound { Speed = { Value = speed } };
+        sound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(_harness.Scene, new Scene());
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), sound);
+
+        if (batch)
+            new SilenceSplitService(_harness.History).Apply(_harness.Scene, element,
+                [new TimeRange(MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(0.5))], SilenceSplitMode.DeleteSilence, false);
+        else
+            _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Element back = _harness.Scene.Children.Single(child => child != element);
+        Assert.Multiple(() =>
+        {
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
+            Assert.That(BackObject<SceneSound>(back).OffsetPosition.Value,
+                Is.EqualTo(MediaTime.FromSeconds(expected)));
+        });
+    }
+
+    // A source type needs nothing but the contract for its cut to follow its speed.
+    [Test]
+    public void Split_ASourceImplementingOnlyTheContract_AdvancesTheBackOffsetByTheSourceIntegral()
+    {
+        var sound = new ContractOnlySound { Speed = { Value = 200f } };
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), sound);
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Element back = _harness.Scene.Children.Single(child => child != element);
+        Assert.That(BackObject<ContractOnlySound>(back).OffsetPosition.Value,
+            Is.EqualTo(MediaTime.FromSeconds(2)));
+    }
+
     [Test]
     public void Split_LoopingVideo_KeepsTheWrappedSourcePosition()
     {
@@ -306,5 +347,18 @@ public sealed class ElementSplitSpeedTests
             Assert.That(BackObject<SourceVideo>(back).OffsetPosition.Value,
                 Is.EqualTo(MediaTime.FromSeconds(0.5)));
         });
+    }
+}
+
+// Stands in for an extension's source: Sound supplies the offset and speed, and the type adds only its length.
+public sealed partial class ContractOnlySound : Sound, ITimeMappedSource
+{
+    public ContractOnlySound() => ScanProperties<ContractOnlySound>();
+
+    MediaTime? ITimeMappedSource.GetSourceDuration() => MediaTime.FromSeconds(10);
+
+    public partial class Resource
+    {
+        public override SoundSource.Resource? GetSoundSource() => null;
     }
 }

@@ -2,7 +2,6 @@
 using Beutl.Animation;
 using Beutl.Audio;
 using Beutl.Engine;
-using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 
@@ -300,7 +299,7 @@ public sealed class ElementStructureService : IElementStructureService
     }
 
     private readonly record struct SplitSource(
-        ISplittable Source, MediaTime PositionAtCut, MediaTime ContextAtCut, bool WrapVideo, bool Supported);
+        ISplittable Source, MediaTime PositionAtCut, MediaTime ContextAtCut, bool Supported);
 
     private static List<SplitSource> CaptureSplitSources(Element element, MediaTime forwardDuration, SplitBatch? batch)
     {
@@ -311,18 +310,16 @@ public sealed class ElementStructureService : IElementStructureService
         Dictionary<ISplittable, SlippableMedia.Target> targets = CollectSplitTargets(element, splittables, batch);
         foreach (ISplittable splittable in splittables)
         {
-            bool wrapsVideo = splittable is SourceVideo;
-            if (!targets.TryGetValue(splittable, out SlippableMedia.Target? target) || !target.IsSupported)
+            if (!targets.TryGetValue(splittable, out SlippableMedia.Target? target) || !target.IsMappingSupported)
             {
-                sources.Add(new(splittable, MediaTime.Zero, MediaTime.Zero, wrapsVideo, false));
+                sources.Add(new(splittable, MediaTime.Zero, MediaTime.Zero, false));
                 continue;
             }
 
             sources.Add(new(
                 splittable,
-                target.SourcePosition(forwardDuration, wrapsVideo),
+                target.SourcePosition(forwardDuration),
                 target.ContextTime(forwardDuration),
-                wrapsVideo,
                 true));
         }
 
@@ -361,6 +358,17 @@ public sealed class ElementStructureService : IElementStructureService
             return;
         }
 
+        // A copy plays the same timeline as its original, so a batch reads each file's length once.
+        if (batch != null)
+        {
+            for (int i = 0; i < copies.Count; i++)
+            {
+                if (copies[i] is ITimeMappedSource copy && sources[i].Source is ITimeMappedSource original
+                    && batch.SourceDurations.TryGetValue(original, out MediaTime? duration))
+                    batch.SourceDurations.TryAdd(copy, duration);
+            }
+        }
+
         Dictionary<ISplittable, SlippableMedia.Target> backTargets = CollectSplitTargets(backward, copies, batch);
         var supported = new bool[copies.Count];
         bool shifted = false;
@@ -387,9 +395,7 @@ public sealed class ElementStructureService : IElementStructureService
                 continue;
             }
 
-            SplitSource source = sources[i];
-            MediaTime delta = source.PositionAtCut
-                              - backTarget.SourcePosition(MediaTime.Zero, source.WrapVideo);
+            MediaTime delta = sources[i].PositionAtCut - backTarget.SourcePosition(MediaTime.Zero);
             copies[i].NotifySplitted(true, delta, -forwardDuration);
         }
     }
