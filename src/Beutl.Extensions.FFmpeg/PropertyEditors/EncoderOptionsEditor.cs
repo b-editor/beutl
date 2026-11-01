@@ -24,6 +24,7 @@ internal sealed class EncoderOptionsEditor : UserControl
     private readonly StackPanel _advancedRows = new();
     private readonly TextBlock _status = new() { Margin = new Thickness(8, 4), TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _warning = new() { Margin = new Thickness(8, 4), TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _bitrateNote = new() { Name = "BitrateNote", Margin = new Thickness(8, 4), TextWrapping = TextWrapping.Wrap };
     private readonly AutoCompleteStringEditor _optionName = new()
     {
         Name = "AddEncoderOptionName",
@@ -46,6 +47,7 @@ internal sealed class EncoderOptionsEditor : UserControl
         PropertyEditorGrid.SetIsAlignmentScope(this, true);
         _status.Bind(ThemeProperty, new DynamicResourceExtension("LabelTextBlockStyle"));
         _warning.Bind(ThemeProperty, new DynamicResourceExtension("ErrorTextBlockStyle"));
+        _bitrateNote.Bind(ForegroundProperty, new DynamicResourceExtension("SystemFillColorCautionBrush"));
         _add = IconButton(Icon.Add, Strings.EncoderOptionsAdd, "AddEncoderOption");
         _optionName.Header = Strings.EncoderOptionsOptionName;
         _optionName.MenuContent = _add;
@@ -66,7 +68,7 @@ internal sealed class EncoderOptionsEditor : UserControl
         var advancedToggle = Disclosure(Strings.EncoderOptionsAdvanced, advancedBranch, false, "AdvancedEncoderOptions");
         var body = new StackPanel
         {
-            Children = { _status, _primary, _warning, advancedToggle, advancedBranch },
+            Children = { _status, _primary, _bitrateNote, _warning, advancedToggle, advancedBranch },
         };
         var branch = Branch(body);
         Content = new StackPanel
@@ -207,6 +209,8 @@ internal sealed class EncoderOptionsEditor : UserControl
             if (_model.Options.Any(o => string.IsNullOrWhiteSpace(o.Name.Value))) warnings.Add(Strings.EncoderOptionsEmptyName);
             _warning.Text = string.Join("\n", warnings);
             _warning.IsVisible = warnings.Count > 0;
+            _bitrateNote.Text = _model.BitrateNote;
+            _bitrateNote.IsVisible = _model.BitrateNote != null;
             UpdateAddButton();
         }
         finally { _updating = false; }

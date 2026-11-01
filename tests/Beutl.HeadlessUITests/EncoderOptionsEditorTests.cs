@@ -243,6 +243,33 @@ public sealed class EncoderOptionsEditorTests
         }
     }
 
+    // crf decides an H.264 export's quality, so a bitrate set beside it went unused without a word (#3617).
+    [AvaloniaTest]
+    public async Task A_bitrate_beside_crf_shows_that_it_is_unused()
+    {
+        var settings = new FFmpegVideoEncoderSettings
+        {
+            Codec = { Value = new CodecRecord("libx264", "H.264") },
+            OutputFile = UniqueOutputFile(".mp4"),
+            Bitrate = { Value = 20_000_000 },
+        };
+        await PrimeSchema(settings, [new() { Name = "crf", Kind = EncoderOptionKind.Number, Minimum = 0, Maximum = 51 }]);
+        using var model = CreateModel(settings);
+        var view = new EncoderOptionsEditor(model);
+        var window = new Window { Content = view, Width = 440, Height = 480 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(2);
+            TextBlock note = view.GetVisualDescendants().OfType<TextBlock>().Single(c => c.Name == "BitrateNote");
+            Assert.That(note.IsEffectivelyVisible, Is.True);
+            settings.Bitrate.Value = 0;
+            HeadlessTestHelpers.Render(2);
+            Assert.That(note.IsEffectivelyVisible, Is.False);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTest]
     public async Task NativeOptionNamesAndConstantsSupportTypedControlsAndCustomNumericValues()
     {

@@ -37,6 +37,10 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
         _subscriptions.Add(property.GetObservable().Subscribe(ObserveList));
         _subscriptions.Add(_settings.Codec.GetObservable().Subscribe(_ => RequestUpdate()));
         _subscriptions.Add(_settings.Format.GetObservable().Subscribe(_ => RequestUpdate()));
+        _subscriptions.Add(_settings.Bitrate.GetObservable().Subscribe(_ =>
+        {
+            if (!_mutating) ValuesChanged?.Invoke();
+        }));
     }
 
     public PropertyEditorExtension Extension { get; }
@@ -54,6 +58,29 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
         => Descriptors.Where(d => Options.Any(o => o.Name.Value == d.Name));
 
     public string? GetValue(string name) => Options.FirstOrDefault(o => o.Name.Value == name)?.Value.Value;
+
+    // x264 and x265 encode at crf's quality and ignore the bitrate while crf is set, which the bitrate field alone
+    // does not tell. Exports keep that behaviour, as the built-in presets pair a bitrate with crf on purpose. Other
+    // encoders, such as VP9, use the two together, so they get no note.
+    public string? BitrateNote => _settings.Bitrate.Value > 0
+                                  && IsCrfEnabled(GetValue("crf"))
+                                  && IgnoresBitrateUnderCrf()
+        ? Strings.EncoderOptionsBitrateUnusedWithCrf
+        : null;
+
+    // A negative crf, such as the encoder default -1, leaves rate control to the bitrate.
+    private static bool IsCrfEnabled(string? crf)
+        => !string.IsNullOrWhiteSpace(crf)
+           && (!double.TryParse(crf, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) || value >= 0);
+
+    private bool IgnoresBitrateUnderCrf()
+    {
+        if (!_settings.Codec.Value.Equals(CodecRecord.Default))
+            return _settings.Codec.Value.Name is "libx264" or "libx264rgb" or "libx265";
+
+        // These containers default to x264.
+        return Path.GetExtension(_settings.OutputFile)?.ToLowerInvariant() is ".mp4" or ".m4v" or ".mov" or ".mkv";
+    }
 
     public void SetValue(string name, string? value)
     {

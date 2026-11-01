@@ -229,6 +229,50 @@ public sealed class EncoderOptionsEditorViewModelTests
         Assert.That(model.GetWarning(descriptor, "unknown"), Is.Not.Null);
     }
 
+    // crf decides an H.264 export's quality and the bitrate field went unused without a word (#3617).
+    [Test]
+    public async Task A_bitrate_beside_crf_carries_a_note_that_it_is_unused()
+    {
+        var settings = CreateSettings();
+        await Cache(settings, Schema("high"));
+        using var model = CreateModel(settings);
+        int changes = 0;
+        model.ValuesChanged += () => changes++;
+
+        Assert.That(model.BitrateNote, Is.Not.Null, "the default settings pair 5 Mbps with crf 22");
+
+        model.RemoveOption(settings.Options.Value.Single(o => o.Name.Value == "crf"));
+        Assert.That(model.BitrateNote, Is.Null);
+
+        model.SetValue("crf", "-1");
+        Assert.That(model.BitrateNote, Is.Null, "crf -1 leaves rate control to the bitrate");
+
+        model.SetValue("crf", "20");
+        settings.Bitrate.Value = 0;
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.BitrateNote, Is.Null);
+            Assert.That(changes, Is.GreaterThanOrEqualTo(3), "a bitrate change refreshes the editor too");
+        });
+    }
+
+    // VP9 uses the bitrate together with crf, so the note does not tell it to remove crf.
+    [TestCase("libvpx-vp9", ".webm", false)]
+    [TestCase("libx265", ".mp4", true)]
+    [TestCase(null, ".mp4", true)]
+    [TestCase(null, ".webm", false)]
+    public async Task The_bitrate_note_applies_to_encoders_that_ignore_the_bitrate_under_crf(
+        string? codec, string extension, bool noted)
+    {
+        var settings = CreateSettings();
+        settings.Codec.Value = codec is null ? CodecRecord.Default : new CodecRecord(codec, codec);
+        settings.OutputFile = $"{Guid.NewGuid():N}{extension}";
+        await Cache(settings, Schema("high"));
+        using var model = CreateModel(settings);
+
+        Assert.That(model.BitrateNote is not null, Is.EqualTo(noted));
+    }
+
     private static EncoderOptionsEditorViewModel CreateModel(FFmpegVideoEncoderSettings settings)
         => new(new EnginePropertyAdapter<CoreList<AdditionalOption>>(settings.Options, settings),
             new FFmpegEncoderSpecializedPropertyExtension());
