@@ -317,7 +317,8 @@ public partial class HdrBitmapView : NativeControlHost
 
     // Follows the gamut FitToDisplay maps colors into on an HDR swapchain to the screen the view is on, and returns
     // whether it changed. Core Animation applies the EDR metadata only after clipping the layer to its extended linear
-    // sRGB, so on macOS colors have to fit sRGB as well as the screen. Elsewhere the display's gamut is not known.
+    // sRGB, so on macOS colors have to fit sRGB as well as the screen. On Windows the renderer reads the display's gamut
+    // itself, and elsewhere it is not known.
     private bool UpdateDisplayGamut()
     {
         if (_macOSView == IntPtr.Zero)

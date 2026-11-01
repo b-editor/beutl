@@ -66,6 +66,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
     // Windows only: the display the window is on, which an HDR swapchain is fitted to.
     private WindowsDisplayLuminance? _windowsDisplay;
     private PresentLuminance _hdrLuminance = PresentLuminance.Unknown;
+    private PreviewGamutMapping _hdrGamut;
 
     // What the last uploaded frame was drawn with, to draw it again for a changed display.
     private RenderParams? _lastRenderParams;
@@ -295,9 +296,10 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         }
 
         _hdrLuminance = _windowsDisplay.Current;
+        _hdrGamut = _windowsDisplay.Gamut;
         s_logger.LogInformation(
-            "Fitting the preview to its display: reference white {ReferenceWhite}, headroom {Headroom}",
-            _hdrLuminance.ReferenceWhite, _hdrLuminance.Headroom);
+            "Fitting the preview to its display: reference white {ReferenceWhite}, headroom {Headroom}, gamut {Gamut}",
+            _hdrLuminance.ReferenceWhite, _hdrLuminance.Headroom, _hdrGamut.IsEnabled ? "display" : "none");
         return true;
     }
 
@@ -395,8 +397,10 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         pushConstants.MapSourcePq = mapping.SourcePq;
 
         // Colors outside the gamut go the same way: an SDR format holds sRGB, and an HDR swapchain hands colors to a
-        // display whose gamut HdrBitmapView looks up.
-        var gamut = _swapchain.IsHdr ? renderParams.DisplayGamut : PreviewGamutMapping.Srgb;
+        // display whose gamut Windows reports (WindowsDisplayLuminance) and HdrBitmapView looks up elsewhere.
+        var gamut = !_swapchain.IsHdr ? PreviewGamutMapping.Srgb
+            : OperatingSystem.IsWindows() ? _hdrGamut
+            : renderParams.DisplayGamut;
         pushConstants.Gamut0X = gamut.ToDisplay0.X;
         pushConstants.Gamut0Y = gamut.ToDisplay0.Y;
         pushConstants.Gamut0Z = gamut.ToDisplay0.Z;

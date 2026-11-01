@@ -62,6 +62,7 @@ public class PresentLuminanceTests
 #pragma warning disable CA1416 // Only offsets are taken; nothing here calls Windows.
         Assert.That((byte*)&desc.Monitor - start, Is.EqualTo(88));
         Assert.That((byte*)&desc.ColorSpace - start, Is.EqualTo(100));
+        Assert.That((byte*)desc.Primaries - start, Is.EqualTo(104));
         Assert.That((byte*)&desc.MaxLuminance - start, Is.EqualTo(140));
 #pragma warning restore CA1416
     }

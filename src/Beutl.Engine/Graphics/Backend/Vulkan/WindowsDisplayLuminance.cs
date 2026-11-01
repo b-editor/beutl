@@ -1,10 +1,11 @@
 ﻿using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Backend.Vulkan;
 
 /// <summary>
-/// Reads the peak luminance and SDR white level of the display a window is on, from DXGI and the display
+/// Reads the peak luminance, SDR white level and primaries of the display a window is on, from DXGI and the display
 /// configuration, for an scRGB swapchain to match.
 /// </summary>
 /// <remarks>
@@ -38,8 +39,11 @@ internal sealed unsafe partial class WindowsDisplayLuminance(nint hwnd) : IDispo
     /// <summary>The display's luminance as of the last <see cref="Refresh"/>.</summary>
     public PresentLuminance Current { get; private set; } = PresentLuminance.Unknown;
 
+    /// <summary>The gamut FitToDisplay fits colors into, as of the last <see cref="Refresh"/>.</summary>
+    public PreviewGamutMapping Gamut { get; private set; }
+
     /// <summary>Reads the display again if the window moved to another one or the displays changed.</summary>
-    /// <returns>Whether <see cref="Current"/> changed.</returns>
+    /// <returns>Whether <see cref="Current"/> or <see cref="Gamut"/> changed.</returns>
     public bool Refresh()
     {
         nint monitor = MonitorFromWindow(hwnd, MonitorDefaultToNearest);
@@ -57,11 +61,13 @@ internal sealed unsafe partial class WindowsDisplayLuminance(nint hwnd) : IDispo
             _factory = CreateDXGIFactory1(&iid, &factory) >= 0 ? factory : 0;
         }
 
-        PresentLuminance luminance = _factory != 0 && TryGetOutputDesc(monitor, out DxgiOutputDesc1 desc)
-            ? Read(desc)
-            : PresentLuminance.Unknown;
-        bool changed = luminance != Current;
+        (PresentLuminance luminance, PreviewGamutMapping gamut) =
+            _factory != 0 && TryGetOutputDesc(monitor, out DxgiOutputDesc1 desc)
+                ? Read(desc)
+                : (PresentLuminance.Unknown, PreviewGamutMapping.None);
+        bool changed = luminance != Current || gamut != Gamut;
         Current = luminance;
+        Gamut = gamut;
         return changed;
     }
 
@@ -70,14 +76,20 @@ internal sealed unsafe partial class WindowsDisplayLuminance(nint hwnd) : IDispo
         ReleaseFactory();
     }
 
-    // DXGI describes a display in HDR mode as HDR10, and any other, wide-gamut SDR included, as sRGB.
-    private static PresentLuminance Read(DxgiOutputDesc1 desc)
+    // DXGI describes a display in HDR mode as HDR10, and any other, wide-gamut SDR included, as sRGB. In HDR mode
+    // Windows passes colors outside sRGB on for the display to clip at its primaries, so they are fitted to those
+    // first. In SDR mode DXGI does not tell whether Windows manages colors into the primaries or clips them to sRGB, so
+    // they are left to it.
+    private static (PresentLuminance Luminance, PreviewGamutMapping Gamut) Read(DxgiOutputDesc1 desc)
     {
         if (desc.ColorSpace != DxgiColorSpaceRgbFullG2084NoneP2020)
-            return PresentLuminance.Sdr;
+            return (PresentLuminance.Sdr, PreviewGamutMapping.None);
 
         float sdrWhiteNits = GetSdrWhiteLevelNits(TrimNull(new ReadOnlySpan<char>(desc.DeviceName, 32)));
-        return PresentLuminance.ForScRgbHdr(sdrWhiteNits, desc.MaxLuminance);
+        float* xy = desc.Primaries;
+        var primaries = new DisplayPrimaries(xy[0], xy[1], xy[2], xy[3], xy[4], xy[5]);
+        return (PresentLuminance.ForScRgbHdr(sdrWhiteNits, desc.MaxLuminance),
+            PreviewGamutMapping.For(primaries, withinSrgb: false));
     }
 
     // The output that shows the monitor, on whichever adapter drives it.
