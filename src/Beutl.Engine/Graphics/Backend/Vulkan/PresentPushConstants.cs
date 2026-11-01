@@ -22,4 +22,19 @@ internal struct PresentPushConstants
     public float MapKs;
     public float MapMaxLum;
     public float MapSourcePq;
+
+    // The PreviewGamutMapping FitToDisplay applies: a vec4 per row of the sRGB-to-display matrix, whose w carries
+    // 1 to map colors into the display's gamut (row 0) and 1 to keep them within sRGB as well (row 1).
+    public float Gamut0X;
+    public float Gamut0Y;
+    public float Gamut0Z;
+    public float GamutEnabled;
+    public float Gamut1X;
+    public float Gamut1Y;
+    public float Gamut1Z;
+    public float GamutWithinSrgb;
+    public float Gamut2X;
+    public float Gamut2Y;
+    public float Gamut2Z;
+    public float Gamut2W; // Unused; fills the vec4.
 }
