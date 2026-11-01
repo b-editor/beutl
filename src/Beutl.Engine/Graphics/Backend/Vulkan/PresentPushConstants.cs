@@ -13,7 +13,13 @@ internal struct PresentPushConstants
     public float DstW;
     public float DstH;
     public float Exposure;
-    public int TmOperator; // 0=None, 1=Reinhard, 2=ACES, 3=Hable
+    public int TmOperator; // 0=None, 1=Reinhard, 2=ACES, 3=Hable, 4=FitToDisplay
     public int LinearToSrgb;      // 1 = LinearからGammaへの変換が必要
     public int IsSourceLinear; // 1 = Linear, 0 = Gamma
+
+    // The PreviewDisplayMapping FitToDisplay applies, field by field; a vec4 in the shader.
+    public float MapKnee;
+    public float MapKs;
+    public float MapMaxLum;
+    public float MapSourcePq;
 }

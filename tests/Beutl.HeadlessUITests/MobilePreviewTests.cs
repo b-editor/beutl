@@ -331,6 +331,10 @@ public sealed class MobilePreviewTests
     [TestCase(UIToneMappingOperator.Reinhard, 0f, 4f, 231)]
     [TestCase(UIToneMappingOperator.ACES, 0f, 4f, 252)]
     [TestCase(UIToneMappingOperator.Hable, 0f, 4f, 220)]
+    [TestCase(UIToneMappingOperator.FitToDisplay, 0f, 0.25f, 137)]
+    [TestCase(UIToneMappingOperator.FitToDisplay, 0f, 1f, 229)]
+    [TestCase(UIToneMappingOperator.FitToDisplay, 0f, 2f, 250)]
+    [TestCase(UIToneMappingOperator.FitToDisplay, -1f, 4f, 250)]
     public void Linear_frames_are_tone_mapped_and_encoded_as_sdr(UIToneMappingOperator mode, float exposure, float intensity, int expected)
     {
         using var bitmap = new Bitmap(32, 32, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
@@ -340,6 +344,25 @@ public sealed class MobilePreviewTests
         Assert.That(pixel.Red, Is.EqualTo(expected).Within(3));
         Assert.That(pixel.Green, Is.EqualTo(expected).Within(3));
         Assert.That(pixel.Blue, Is.EqualTo(expected).Within(3));
+    }
+
+    [Test]
+    public void Fit_to_display_rolls_colors_off_without_shifting_their_hue()
+    {
+        using var bitmap = new Bitmap(32, 32, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        bitmap.GetPixelSpan<RgbaF16>().Fill(new RgbaF16((Half)4, (Half)2, (Half)1, (Half)1));
+        using var clipped = SdrBitmap(bitmap, UIToneMappingOperator.None, 0);
+        using var fitted = SdrBitmap(bitmap, UIToneMappingOperator.FitToDisplay, 0);
+
+        // Every channel is above 1.0, so clipping each one turns the orange white.
+        SKColor white = clipped.GetPixel(16, 16);
+        Assert.That((white.Red, white.Green, white.Blue), Is.EqualTo(((byte)255, (byte)255, (byte)255)));
+
+        // The largest channel rolls off just under 1.0 and the others keep their 4:2:1 ratio to it.
+        SKColor pixel = fitted.GetPixel(16, 16);
+        Assert.That(pixel.Red, Is.EqualTo(255).Within(3));
+        Assert.That(pixel.Green, Is.EqualTo(187).Within(3));
+        Assert.That(pixel.Blue, Is.EqualTo(137).Within(3));
     }
 
     [AvaloniaTest]

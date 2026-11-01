@@ -1,4 +1,5 @@
 ﻿using Beutl.Logging;
+using Beutl.Media;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
 using VkAttachmentLoadOp = Silk.NET.Vulkan.AttachmentLoadOp;
@@ -28,7 +29,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         }
         """;
 
-    private const string FragmentShaderSource = """
+    internal const string FragmentShaderSource = $$"""
         #version 450
         layout(location = 0) in vec2 uv;
         layout(location = 0) out vec4 outColor;
@@ -41,6 +42,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             int tmOperator;
             int linearToSrgb;
             int isSourceLinear;
+            vec4 displayMapping;
         } pc;
 
         vec3 reinhard(vec3 c) { return c / (1.0 + c); }
@@ -58,6 +60,8 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         vec3 hable(vec3 c) {
             return hable_partial(c) / hable_partial(vec3(11.2));
         }
+
+        {{PreviewDisplayMapping.ShaderSource}}
 
         vec3 linearToSrgb(vec3 c) {
             vec3 lo = c * 12.92;
@@ -93,6 +97,8 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             if (pc.tmOperator == 1) rgb = reinhard(max(rgb, vec3(0.0)));
             else if (pc.tmOperator == 2) rgb = aces(max(rgb, vec3(0.0)));
             else if (pc.tmOperator == 3) rgb = hable(max(rgb, vec3(0.0)));
+            else if (pc.tmOperator == 4) rgb *= displayMapGain(max(rgb.r, max(rgb.g, rgb.b)),
+                pc.displayMapping.x, pc.displayMapping.y, pc.displayMapping.z, pc.displayMapping.w);
 
             if (pc.linearToSrgb == 1) {
                 rgb = linearToSrgb(rgb);

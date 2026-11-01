@@ -2,6 +2,7 @@
 using Beutl.Configuration;
 using SkiaSharp;
 using BtlBitmap = Beutl.Media.Bitmap;
+using PreviewDisplayMapping = Beutl.Media.PreviewDisplayMapping;
 
 namespace Beutl.Controls;
 
@@ -16,12 +17,19 @@ internal static class PreviewFrameRenderer
 
     private static readonly SKRuntimeEffect? s_toneMappingEffect;
 
+    private static readonly float[] s_displayMapping;
+
     static PreviewFrameRenderer()
     {
-        string sksl = """
+        // The 8-bit surface holds nothing above 1.0, so FitToDisplay rolls values off into that.
+        PreviewDisplayMapping mapping = PreviewDisplayMapping.For(1f);
+        s_displayMapping = [mapping.Knee, mapping.Ks, mapping.MaxLum, mapping.SourcePq];
+
+        string sksl = $$"""
             uniform shader src;
             uniform float exposure;
             uniform int tmOperator;
+            uniform float4 displayMapping;
 
             float3 linearToSrgb(float3 c) {
                 float3 lo = c * 12.92;
@@ -57,6 +65,8 @@ internal static class PreviewFrameRenderer
                 return hable_partial(c) / hable_partial(W);
             }
 
+            {{PreviewDisplayMapping.ShaderSource}}
+
             half4 main(float2 coord) {
                 half4 c = src.eval(coord);
                 float alpha = c.a;
@@ -71,6 +81,9 @@ internal static class PreviewFrameRenderer
                     rgb = aces(max(rgb, float3(0.0)));
                 } else if (tmOperator == 3) {
                     rgb = hable(max(rgb, float3(0.0)));
+                } else if (tmOperator == 4) {
+                    rgb *= displayMapGain(max(rgb.r, max(rgb.g, rgb.b)),
+                        displayMapping.x, displayMapping.y, displayMapping.z, displayMapping.w);
                 }
 
                 rgb = clamp(rgb, 0.0, 1.0);
@@ -127,6 +140,7 @@ internal static class PreviewFrameRenderer
             builder.Children["src"] = imageShader;
             builder.Uniforms["exposure"] = tmExposure;
             builder.Uniforms["tmOperator"] = (int)tmOperator;
+            builder.Uniforms["displayMapping"] = s_displayMapping;
 
             using var finalShader = builder.Build();
             using var paint = BitmapView.CreatePreviewPaint(null);

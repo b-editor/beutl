@@ -401,6 +401,10 @@
     <value>Hable</value>
     <comment/>
   </data>
+  <data name="ToneMappingMode_FitToDisplay" xml:space="preserve">
+    <value>Fit to display</value>
+    <comment/>
+  </data>
   <data name="ToneMappingExposure" xml:space="preserve">
     <value>Exposure</value>
     <comment/>

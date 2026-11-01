@@ -44,7 +44,10 @@ public enum UIToneMappingOperator
     None,
     Reinhard,
     ACES,
-    Hable
+    Hable,
+
+    // Rolls off only what the display cannot show, keeping hue, instead of clipping each channel.
+    FitToDisplay
 }
 
 public sealed partial class EditorConfig : ConfigurationBase
