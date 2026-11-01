@@ -149,7 +149,8 @@ public class SoundPannerEditorTests
 
         var added = new KeyFrame<float>
         {
-            KeyTime = { Value = animation.ToLocal(time) }, Value = { Value = 45 }
+            KeyTime = { Value = animation.ToLocal(time) },
+            Value = { Value = 45 }
         };
         animation.KeyFrames.Add(added, out _);
         AssertDisplayed(45);
@@ -592,7 +593,9 @@ public class SoundPannerEditorTests
             PropertyEditorGrid.SetIsAlignmentScope(Editor, true);
             Window = new Window
             {
-                Content = new Border { Padding = new Thickness(12), Child = Editor }, Width = width, Height = 540,
+                Content = new Border { Padding = new Thickness(12), Child = Editor },
+                Width = width,
+                Height = 540,
                 RequestedThemeVariant = ThemeVariant.Dark
             };
             Window.Show();
