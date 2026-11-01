@@ -155,13 +155,19 @@ public partial class Scene
 
                 if (elementsObject.TryGetPropertyValue("Include", out JsonNode? includeNode))
                 {
-                    ReadElementPatterns(includeNode!, _includeElements);
+                    _includeElements.Clear();
+                    _includeElements.AddRange(ReadElementPatterns(includeNode!));
                     includes = _includeElements;
                 }
 
                 if (elementsObject.TryGetPropertyValue("Exclude", out JsonNode? excludeNode))
                 {
-                    ReadElementPatterns(excludeNode!, _excludeElements);
+                    _excludeElements.Clear();
+                    foreach (string pattern in ReadElementPatterns(excludeNode!))
+                    {
+                        _excludeElements.Add(pattern);
+                    }
+
                     excludes = _excludeElements;
                 }
 
@@ -198,11 +204,11 @@ public partial class Scene
 
     }
 
-    private static void WriteElementPatterns(JsonObject jobject, string jsonName, List<string> list)
+    private static void WriteElementPatterns(JsonObject jobject, string jsonName, IReadOnlyCollection<string> list)
     {
         if (list.Count == 1)
         {
-            jobject[jsonName] = JsonValue.Create(NormalizeElementPattern(list[0]));
+            jobject[jsonName] = JsonValue.Create(NormalizeElementPattern(list.First()));
         }
         else if (list.Count >= 2)
         {
@@ -220,14 +226,12 @@ public partial class Scene
         }
     }
 
-    private static void ReadElementPatterns(JsonNode node, List<string> list)
+    private static IEnumerable<string> ReadElementPatterns(JsonNode node)
     {
-        list.Clear();
         if (node is JsonValue jvalue &&
             jvalue.TryGetValue(out string? pattern))
         {
-            pattern = NormalizeElementPattern(pattern);
-            list.Add(pattern);
+            yield return NormalizeElementPattern(pattern);
         }
         else if (node is JsonArray array)
         {
@@ -235,8 +239,7 @@ public partial class Scene
             {
                 if (item.TryGetValue(out pattern))
                 {
-                    pattern = NormalizeElementPattern(pattern);
-                    list.Add(pattern);
+                    yield return NormalizeElementPattern(pattern);
                 }
             }
         }
@@ -276,30 +279,36 @@ public partial class Scene
         string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
         var elementPaths = Children.Select(item => NormalizeElementPattern(
             Path.GetRelativePath(dirPath, item.Uri!.LocalPath))).ToHashSet(StringComparer.Ordinal);
-        var pathsByName = elementPaths.ToLookup(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase);
 
-        // Attached children must not retain exclusions left by an earlier removal.
-        _excludeElements.RemoveAll(pattern => elementPaths.Contains(pattern)
-            || pathsByName[Path.GetFileName(pattern)].Any(path => AreSameElementPaths(dirPath, pattern, path)));
-        // A pending deletion can fail. Keep its exclusion in the live model and snapshot until
-        // the writer confirms success; a later save prunes the live entry once the file is gone.
-        _excludeElements.RemoveAll(pattern => GetLiteralElementPath(dirPath, pattern) is { } path
-            && pendingFiles?.ContainsKey(path) != true && !File.Exists(path));
-
-        var files = MatchElementFiles(dirPath, _includeElements, _excludeElements, pendingFiles).ToHashSet(StringComparer.Ordinal);
-        var includes = _includeElements.ToHashSet(StringComparer.Ordinal);
-        foreach (string rel in elementPaths)
+        if (_excludeElements.Count > 0)
         {
-            if (!files.Contains(rel) && includes.Add(rel))
+            // Attached children must not retain exclusions left by an earlier removal.
+            foreach (string rel in elementPaths)
             {
-                _includeElements.Add(rel);
+                RemoveExclusions(dirPath, rel);
             }
+
+            // A pending deletion can fail. Keep its exclusion in the live model and snapshot until
+            // the writer confirms success; a later save prunes the live entry once the file is gone.
+            _excludeElements.RemoveAll(pattern => GetLiteralElementPath(dirPath, pattern) is { } path
+                && pendingFiles?.ContainsKey(path) != true && !File.Exists(path));
         }
+
+        // The children's element files are what the next load must find, so they are matched in memory instead of
+        // listing the disk. A child needs an include of its own only where no include matches it; one would not
+        // override an exclusion.
+        var includes = _includeElements.ToHashSet(StringComparer.Ordinal);
+        string[] unmatched = [.. elementPaths.Where(rel => !includes.Contains(rel))];
+        if (unmatched.Length == 0) return;
+
+        var matcher = new Matcher();
+        matcher.AddIncludePatterns(_includeElements);
+        var matched = matcher.Match(dirPath, unmatched).Files.Select(file => file.Path).ToHashSet(StringComparer.Ordinal);
+        _includeElements.AddRange(unmatched.Where(rel => !matched.Contains(rel)));
     }
 
     private static string[] MatchElementFiles(
-        string directoryName, IEnumerable<string> includes, IEnumerable<string> excludes,
-        IReadOnlyDictionary<string, bool>? pendingFiles = null)
+        string directoryName, IEnumerable<string> includes, IEnumerable<string> excludes)
     {
         var matcher = new Matcher();
         matcher.AddIncludePatterns(includes);
@@ -320,15 +329,9 @@ public partial class Scene
 
         // The glob matcher ignores case. Literal files instead follow their actual storage identity.
         var directory = new DirectoryInfoWrapper(new DirectoryInfo(directoryName));
-        IEnumerable<string> files = matcher.Execute(directory).Files.Select(file => file.Path);
-        if (pendingFiles is not null)
-        {
-            files = files.Where(path => !pendingFiles.TryGetValue(Path.GetFullPath(path, directoryName), out bool exists) || exists)
-                .Concat(matcher.Match(directoryName, pendingFiles.Where(pair => pair.Value).Select(pair => pair.Key))
-                    .Files.Select(file => file.Path));
-        }
         var exclusionsByName = literalExclusions.ToLookup(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase);
-        return files.Where(path => !exclusionsByName[Path.GetFileName(path)]
+        return matcher.Execute(directory).Files.Select(file => file.Path)
+            .Where(path => !exclusionsByName[Path.GetFileName(path)]
                 .Any(pattern => AreSameElementPaths(directoryName, pattern, path)))
             .ToArray();
     }
@@ -340,8 +343,7 @@ public partial class Scene
         if (deletedFiles.Count == 0 || snapshot["Elements"] is not JsonObject elements
             || elements["Exclude"] is not { } excluded) return;
 
-        List<string> patterns = [];
-        ReadElementPatterns(excluded, patterns);
+        List<string> patterns = [.. ReadElementPatterns(excluded)];
         string directory = Path.GetDirectoryName(sceneUri.LocalPath)!;
         patterns.RemoveAll(pattern => GetLiteralElementPath(directory, pattern) is { } path && deletedFiles.Contains(path));
         WriteElementPatterns(elements, "Exclude", patterns);

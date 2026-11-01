@@ -96,11 +96,14 @@ public class SceneTests
         Assert.That(File.Exists(elementPath), Is.True);
     }
 
-    [Test]
-    public void Storing_scene_before_child_does_not_duplicate_include_patterns()
+    // A save matches the children without looking for their files: the glob covers one not written yet, and a name it
+    // does not cover gets a single include of its own.
+    [TestCase("child.belm", new[] { "**/*.belm" })]
+    [TestCase("child.clip", new[] { "**/*.belm", "elements/child.clip" })]
+    public void Storing_scene_before_child_does_not_duplicate_include_patterns(string fileName, string[] expected)
     {
         var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "project.scene")) };
-        var element = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "elements", "child.belm")) };
+        var element = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "elements", fileName)) };
         scene.Children.Add(element);
 
         for (int i = 0; i < 3; i++)
@@ -108,12 +111,10 @@ public class SceneTests
             CoreSerializer.StoreToUri(scene, scene.Uri, CoreSerializationMode.Write);
         }
 
-        JsonNode patterns = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!["Elements"]!;
         Assert.Multiple(() =>
         {
             Assert.That(File.Exists(element.Uri.LocalPath), Is.False);
-            Assert.That(patterns["Include"]!.AsArray().Select(node => node!.GetValue<string>()),
-                Is.EqualTo(new[] { "**/*.belm", "elements/child.belm" }));
+            Assert.That(ReadPatterns(scene, "Include"), Is.EqualTo(expected));
         });
 
         CoreSerializer.StoreToUri(element, element.Uri);
@@ -221,6 +222,41 @@ public class SceneTests
 
     private static string? ReadExclude(Scene scene)
         => JsonNode.Parse(File.ReadAllText(scene.Uri!.LocalPath))!["Elements"]!["Exclude"]?.GetValue<string>();
+
+    private static string[] ReadPatterns(Scene scene, string name)
+        => JsonNode.Parse(File.ReadAllText(scene.Uri!.LocalPath))!["Elements"]![name] switch
+        {
+            JsonArray array => [.. array.Select(node => node!.GetValue<string>())],
+            { } value => [value.GetValue<string>()],
+            null => [],
+        };
+
+    // Exclusions are saved in the order their elements left; one that comes back and leaves again moves last.
+    [Test]
+    public void Storing_scene_keeps_exclusions_in_removal_order()
+    {
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "project.scene")) };
+        Element[] elements = [.. Enumerable.Range(0, 3)
+            .Select(i => new Element { Uri = new Uri(Path.Combine(_tempDirectory, "elements", $"{i}.belm")) })];
+        scene.Children.AddRange(elements);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+
+        foreach (Element element in elements)
+        {
+            scene.Children.Remove(element);
+        }
+
+        scene.Children.Add(elements[1]);
+        scene.Children.Remove(elements[1]);
+        CoreSerializer.StoreToUri(scene, scene.Uri, CoreSerializationMode.Write);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadPatterns(scene, "Exclude"),
+                Is.EqualTo(new[] { "elements/0.belm", "elements/2.belm", "elements/1.belm" }));
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).Children, Is.Empty);
+        });
+    }
 
     [TestCase(false)]
     [TestCase(true)]
