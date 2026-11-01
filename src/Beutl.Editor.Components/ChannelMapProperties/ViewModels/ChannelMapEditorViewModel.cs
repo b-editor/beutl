@@ -44,7 +44,7 @@ public sealed class ChannelMapEditorViewModel : ValueEditorViewModel<AudioChanne
 
     public ObservableCollection<EnumItem> Formats { get; } = [];
 
-    public ReactivePropertySlim<bool> IsExpanded { get; } = new(true);
+    public ReactivePropertySlim<bool> IsExpanded { get; } = new(false);
 
     public ReadOnlyReactivePropertySlim<bool> CanEditMap { get; }
 

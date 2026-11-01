@@ -65,7 +65,7 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
 
     public PropertyEditorExtension Extension => SoundPannerPropertiesExtension.Instance;
 
-    public ReactivePropertySlim<bool> IsExpanded { get; } = new(true);
+    public ReactivePropertySlim<bool> IsExpanded { get; } = new(false);
 
     public ReactivePropertySlim<MediaTime> CurrentTime { get; } = new();
 

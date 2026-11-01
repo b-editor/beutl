@@ -3,9 +3,9 @@ using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Audio;
@@ -61,7 +61,7 @@ public class ChannelMapEditorTests
     }
 
     [AvaloniaTest]
-    public async Task ExpandedByDefaultAndToggleCollapsesAndExpandsContent()
+    public async Task CollapsedByDefaultAndToggleExpandsAndCollapsesContent()
     {
         await WithFourChannelSource(async source =>
         {
@@ -71,31 +71,33 @@ public class ChannelMapEditorTests
                 ChannelMap = { Value = AudioChannelMap.CreateDefault(AudioChannelFormat.Stereo, AudioChannelLayout.GetDefault(4)) }
             };
             using var history = new PropertyEditorTestHost.HistoryScope(sound);
-            var (vm, control) = CreateEditor(sound);
+            var (vm, control) = CreateEditor(sound, expand: false);
             using (vm)
             {
                 vm.Accept(PropertyEditorTestHost.ServiceVisitor.For(history.History));
                 var window = Show(control, 480, 300);
                 try
                 {
-                    await WaitForExpansion(control);
                     var toggle = control.FindControl<ToggleButton>("expandToggle")!;
                     var content = control.FindControl<Panel>("content")!;
+                    Assert.That(vm.IsExpanded.Value, Is.False);
+                    Assert.That(toggle.IsChecked, Is.False);
+                    await WaitForExpansionState(control, false);
+                    Assert.That(content.IsEffectivelyVisible, Is.False);
+                    Assert.That(((PropertyEditorMenu)toggle.Tag!).IsEffectivelyVisible, Is.True);
+                    HeadlessTestHelpers.Click(toggle);
+                    await WaitForExpansionState(control);
                     var left = GetChannelBox(control, "L");
                     Assert.That(vm.IsExpanded.Value, Is.True);
                     Assert.That(toggle.IsChecked, Is.True);
                     Assert.That(left.IsEffectivelyVisible, Is.True);
                     HeadlessTestHelpers.Click(toggle);
                     Assert.That(vm.IsExpanded.Value, Is.False);
-                    await HeadlessTestHelpers.WaitUntilAsync(() =>
-                    {
-                        HeadlessTestHelpers.Render();
-                        return !content.IsVisible;
-                    });
+                    await WaitForExpansionState(control, false);
                     Assert.That(left.IsEffectivelyVisible, Is.False);
                     Assert.That(((PropertyEditorMenu)toggle.Tag!).IsEffectivelyVisible, Is.True);
                     HeadlessTestHelpers.Click(toggle);
-                    await WaitForExpansion(control);
+                    await WaitForExpansionState(control);
                     Assert.That(vm.IsExpanded.Value, Is.True);
                     Assert.That(left.IsEffectivelyVisible, Is.True);
                     Assert.That(GetChannelBox(control, "L"), Is.SameAs(left));
@@ -189,7 +191,7 @@ public class ChannelMapEditorTests
                         Assert.That(control.Bounds.Width, Is.LessThanOrEqualTo(width));
                         AssertComboBoxesAligned(control);
                         if (HeadlessCapture.IsRequested)
-                            await WaitForExpansion(control);
+                            await WaitForExpansionState(control);
                         HeadlessCapture.SaveIfRequested(window, nameof(ChannelMapEditorTests), $"stereo-{culture}-{width}");
 
                         history.History.Undo();
@@ -249,7 +251,7 @@ public class ChannelMapEditorTests
                 {
                     AssertUnavailable();
                     if (HeadlessCapture.IsRequested)
-                        await WaitForExpansion(control);
+                        await WaitForExpansionState(control);
                     HeadlessCapture.SaveIfRequested(window, nameof(ChannelMapEditorTests), "source-unavailable-280");
                     using (history.History.SuppressRecording())
                     {
@@ -308,7 +310,7 @@ public class ChannelMapEditorTests
                 var window = Show(control, 480, 300);
                 try
                 {
-                    await WaitForExpansion(control);
+                    await WaitForExpansionState(control);
                     var rows = vm.Channels.ToArray();
                     using (history.History.SuppressRecording())
                         sound.ChannelMap.Expression = new StringExpression<AudioChannelMap>("default");
@@ -341,15 +343,18 @@ public class ChannelMapEditorTests
         });
     }
 
-    private static (ChannelMapEditorViewModel Vm, Control Control) CreateEditor(SourceSound sound)
+    private static (ChannelMapEditorViewModel Vm, Control Control) CreateEditor(SourceSound sound, bool expand = true)
     {
         var adapter = PropertyAdapterFactory.CreateAdapter(sound.ChannelMap, sound);
         var context = PropertyEditorResolver.CreateContext(adapter,
             LoadPrimitiveExtensionTask.PrimitiveExtensions.OfType<PropertyEditorExtension>().ToArray(), PropertyEditorSurface.Panel);
         Assert.That(context, Is.TypeOf<ChannelMapEditorViewModel>());
+        var vm = (ChannelMapEditorViewModel)context!;
+        if (expand)
+            vm.IsExpanded.Value = true;
         Assert.That(PropertyEditorHost.TryCreateControl(context!, PropertyEditorSurface.Panel, out var control), Is.True);
         control!.DataContext = context;
-        return ((ChannelMapEditorViewModel)context!, control);
+        return (vm, control);
     }
 
     private static ComboBox GetChannelBox(Control control, string channel)
@@ -386,13 +391,13 @@ public class ChannelMapEditorTests
         return window;
     }
 
-    private static Task WaitForExpansion(Control control)
+    private static Task WaitForExpansionState(Control control, bool expanded = true)
     {
         var content = control.FindControl<Panel>("content")!;
         return HeadlessTestHelpers.WaitUntilAsync(() =>
         {
             HeadlessTestHelpers.Render();
-            return content.IsVisible && content.Opacity == 1;
+            return expanded ? content.IsVisible && content.Opacity == 1 : !content.IsVisible;
         });
     }
 

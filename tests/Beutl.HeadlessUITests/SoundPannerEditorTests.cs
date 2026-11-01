@@ -48,31 +48,31 @@ public class SoundPannerEditorTests
         .OfType<PropertyEditorExtension>().ToArray();
 
     [AvaloniaTest]
-    public async Task ExpandedByDefaultAndToggleCollapsesAndExpandsContent()
+    public async Task CollapsedByDefaultAndToggleExpandsAndCollapsesContent()
     {
-        using var host = new PannerHost(SpeakerLayout.Stereo, 2);
+        using var host = new PannerHost(SpeakerLayout.Stereo, 2, expand: false);
         var toggle = host.Editor.FindControl<ToggleButton>("expandToggle")!;
         var content = host.Editor.FindControl<Panel>("content")!;
+        Assert.That(host.ViewModel.IsExpanded.Value, Is.False);
+        Assert.That(toggle.IsChecked, Is.False);
+        await WaitForExpansionState(host.Editor, false);
+        Assert.That(content.IsEffectivelyVisible, Is.False);
+        Assert.That(host.Panner.IsEffectivelyVisible, Is.False);
+
+        HeadlessTestHelpers.Click(toggle);
+        await WaitForExpansionState(host.Editor);
         Assert.That(host.ViewModel.IsExpanded.Value, Is.True);
         Assert.That(toggle.IsChecked, Is.True);
         Assert.That(content.IsEffectivelyVisible, Is.True);
 
         HeadlessTestHelpers.Click(toggle);
         Assert.That(host.ViewModel.IsExpanded.Value, Is.False);
-        await HeadlessTestHelpers.WaitUntilAsync(() =>
-        {
-            HeadlessTestHelpers.Render();
-            return !content.IsVisible;
-        });
+        await WaitForExpansionState(host.Editor, false);
         Assert.That(host.Panner.IsEffectivelyVisible, Is.False);
 
         HeadlessTestHelpers.Click(toggle);
         Assert.That(host.ViewModel.IsExpanded.Value, Is.True);
-        await HeadlessTestHelpers.WaitUntilAsync(() =>
-        {
-            HeadlessTestHelpers.Render();
-            return content.IsVisible && content.Opacity == 1;
-        });
+        await WaitForExpansionState(host.Editor);
         Assert.That(host.Panner.IsEffectivelyVisible, Is.True);
         Assert.That(host.History.UndoCount, Is.Zero, "Expansion is editor state, not an audio edit.");
     }
@@ -145,6 +145,7 @@ public class SoundPannerEditorTests
             sound => sound.ChannelMap.Value = AudioChannelMap.CreateDefault(AudioChannelFormat.Surround51, AudioChannelLayout.Surround51), width);
         var adapter = PropertyAdapterFactory.CreateAdapter(host.Sound.ChannelMap, host.Sound);
         using var map = (ChannelMapEditorViewModel)PropertyEditorResolver.CreateContext(adapter, Extensions, PropertyEditorSurface.Panel)!;
+        map.IsExpanded.Value = true;
         Assert.That(PropertyEditorHost.TryCreateControl(map, PropertyEditorSurface.Panel, out var control), Is.True);
         control!.DataContext = map;
         var border = (Border)host.Window.Content!;
@@ -681,7 +682,7 @@ public class SoundPannerEditorTests
                 Assert.That(input.TranslatePoint(new Point(0, input.Bounds.Height), host.Window)!.Value.Y, Is.LessThanOrEqualTo(host.Window.Height - 12));
             }
             if (HeadlessCapture.IsRequested)
-                await WaitForExpansion(host.Editor);
+                await WaitForExpansionState(host.Editor);
             HeadlessCapture.SaveIfRequested(host.Window, nameof(SoundPannerEditorTests), $"{layout}-{channels}ch-{culture}-{width}");
         }
         finally { CultureInfo.CurrentUICulture = previous; }
@@ -706,9 +707,10 @@ public class SoundPannerEditorTests
 
     [AvaloniaTest]
     [Explicit("Captures the complete SourceSound property panel for visual review.")]
-    [TestCase(SpeakerLayout.Stereo, 2)]
-    [TestCase(SpeakerLayout.Surround51, 6)]
-    public async Task CaptureSourceSoundPropertyPanel(SpeakerLayout layout, int channels)
+    [TestCase(SpeakerLayout.Stereo, 2, true)]
+    [TestCase(SpeakerLayout.Surround51, 6, true)]
+    [TestCase(SpeakerLayout.Stereo, 2, false)]
+    public async Task CaptureSourceSoundPropertyPanel(SpeakerLayout layout, int channels, bool expanded)
     {
         var previousCulture = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
@@ -733,6 +735,16 @@ public class SoundPannerEditorTests
             ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).Select(element);
             using var tab = new ElementPropertyTabViewModel(editor);
             tab.Element.Value = element;
+            var contexts = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false).ToArray();
+            var panner = contexts.OfType<SoundPannerViewModel>().Single();
+            var map = contexts.OfType<ChannelMapEditorViewModel>().Single();
+            if (expanded)
+            {
+                panner.IsExpanded.Value = true;
+                map.IsExpanded.Value = true;
+            }
+            Assert.That(panner.IsExpanded.Value, Is.EqualTo(expanded));
+            Assert.That(map.IsExpanded.Value, Is.EqualTo(expanded));
             var view = new EngineObjectPropertyView { DataContext = tab.Items.Single() };
             PropertyEditorGrid.SetIsAlignmentScope(view, true);
             var window = new Window
@@ -746,13 +758,12 @@ public class SoundPannerEditorTests
             {
                 window.Show();
                 HeadlessTestHelpers.Render(3);
-                await WaitForExpansion(view.GetVisualDescendants().OfType<SoundPannerEditor>().Single());
-                await WaitForExpansion(view.GetVisualDescendants().OfType<ChannelMapEditor>().Single());
-                Assert.That(view.GetVisualDescendants().OfType<SoundPanner>().Single().IsEffectivelyVisible, Is.True);
-                var map = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
-                    .OfType<ChannelMapEditorViewModel>().Single();
+                await WaitForExpansionState(view.GetVisualDescendants().OfType<SoundPannerEditor>().Single(), expanded);
+                await WaitForExpansionState(view.GetVisualDescendants().OfType<ChannelMapEditor>().Single(), expanded);
+                Assert.That(view.GetVisualDescendants().OfType<SoundPanner>().Single().IsEffectivelyVisible, Is.EqualTo(expanded));
                 Assert.That(map.Channels.Count, Is.EqualTo(channels == 6 ? 6 : 0));
-                HeadlessCapture.SaveIfRequested(window, nameof(SoundPannerEditorTests), $"source-panel-{layout}-{channels}ch-ja-JP-480");
+                HeadlessCapture.SaveIfRequested(window, nameof(SoundPannerEditorTests),
+                    $"source-panel-{layout}-{channels}ch-ja-JP-480{(expanded ? "" : "-collapsed")}");
             }
             finally { window.Close(); }
         }
@@ -764,13 +775,13 @@ public class SoundPannerEditorTests
         }
     }
 
-    private static Task WaitForExpansion(Control editor)
+    private static Task WaitForExpansionState(Control editor, bool expanded = true)
     {
         var content = editor.FindControl<Panel>("content")!;
         return HeadlessTestHelpers.WaitUntilAsync(() =>
         {
             HeadlessTestHelpers.Render();
-            return content.IsVisible && content.Opacity == 1;
+            return expanded ? content.IsVisible && content.Opacity == 1 : !content.IsVisible;
         });
     }
 
@@ -804,7 +815,7 @@ public class SoundPannerEditorTests
         private readonly PropertyEditorTestHost.HistoryScope _history;
         private Point _pointer;
 
-        public PannerHost(SpeakerLayout layout, int channels, Action<SourceSound>? configure = null, int width = 400)
+        public PannerHost(SpeakerLayout layout, int channels, Action<SourceSound>? configure = null, int width = 400, bool expand = true)
         {
             ((IModifiableHierarchical)new ComponentTestRoot()).AddChild(Project);
             DecoderRegistry.Register(_decoder);
@@ -821,6 +832,8 @@ public class SoundPannerEditorTests
             var contexts = new List<IPropertyEditorContext>();
             PropertyEditorResolver.CreateContexts(PannerAdapters(Sound).ToList(), Extensions, PropertyEditorSurface.Panel, contexts.Add);
             ViewModel = (SoundPannerViewModel)contexts.Single();
+            if (expand)
+                ViewModel.IsExpanded.Value = true;
             var clock = new Mock<IEditorClock>();
             clock.SetupGet(c => c.CurrentTime).Returns(Time);
             clock.Setup(c => c.Seek(It.IsAny<MediaTime>())).Callback<MediaTime>(time => Time.Value = time);
