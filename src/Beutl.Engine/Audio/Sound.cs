@@ -93,7 +93,7 @@ public abstract partial class Sound : EngineObject
         var clipLayout = channelMap.ResolveClipLayout(soundSource.ChannelLayout);
         var sourceNode = context.CreateSourceNode(soundSource, clipLayout, channelMap);
 
-        var shiftNode = context.CreateShiftNode(OffsetPosition.Value);
+        var shiftNode = context.CreateShiftNode(OffsetPosition);
         context.Connect(sourceNode, shiftNode);
 
         var resampleNode = context.CreateResampleNode(soundSource.SampleRate);

@@ -53,7 +53,7 @@ public sealed partial class SceneSound : Sound, ISplittable
             comparer: static (r, node) => node._resource == r
         );
 
-        var shiftNode = context.CreateShiftNode(OffsetPosition.Value);
+        var shiftNode = context.CreateShiftNode(OffsetPosition);
         context.Connect(sourceNode, shiftNode);
 
         var speedNode = context.CreateSpeedNode(Speed);
