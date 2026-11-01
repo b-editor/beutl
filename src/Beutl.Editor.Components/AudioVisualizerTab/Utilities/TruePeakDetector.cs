@@ -1,60 +1,53 @@
 ﻿namespace Beutl.Editor.Components.AudioVisualizerTab.Utilities;
 
-// 4x oversampled true-peak estimator. Uses simple zero-stuffing followed by a
-// windowed-sinc anti-imaging filter with 12 taps per phase (per BS.1770-4 Annex 2
-// reference implementation, truncated for runtime cost). Returns the largest
-// absolute sample after upsampling.
+// 4x oversampled true-peak estimator per ITU-R BS.1770-5 Annex 2: the order-48,
+// 4-phase FIR interpolator given there, then the largest absolute value. Only
+// positions where all 12 taps of a phase fall inside the block are interpolated;
+// a truncated sum of these alternating-sign taps overshoots the signal (#3807).
 internal static class TruePeakDetector
 {
-    // Polyphase coefficients for the 4× anti-imaging FIR. Each phase is 12 taps.
-    // Generated from a Kaiser-windowed sinc with cutoff at 0.5/4.
-    private static readonly float[] s_quarterPhase =
+    private static readonly float[][] s_phases =
     [
-        0.00131f, -0.00659f, 0.01918f, -0.04412f, 0.09640f, -0.24029f,
-        0.97225f, 0.27840f, -0.10261f, 0.04575f, -0.01950f, 0.00658f
+        [
+            0.0017089843750f, 0.0109863281250f, -0.0196533203125f, 0.0332031250000f, -0.0594482421875f, 0.1373291015625f,
+            0.9721679687500f, -0.1022949218750f, 0.0476074218750f, -0.0266113281250f, 0.0148925781250f, -0.0083007812500f
+        ],
+        [
+            -0.0291748046875f, 0.0292968750000f, -0.0517578125000f, 0.0891113281250f, -0.1665039062500f, 0.4650878906250f,
+            0.7797851562500f, -0.2003173828125f, 0.1015625000000f, -0.0582275390625f, 0.0330810546875f, -0.0189208984375f
+        ],
+        [
+            -0.0189208984375f, 0.0330810546875f, -0.0582275390625f, 0.1015625000000f, -0.2003173828125f, 0.7797851562500f,
+            0.4650878906250f, -0.1665039062500f, 0.0891113281250f, -0.0517578125000f, 0.0292968750000f, -0.0291748046875f
+        ],
+        [
+            -0.0083007812500f, 0.0148925781250f, -0.0266113281250f, 0.0476074218750f, -0.1022949218750f, 0.9721679687500f,
+            0.1373291015625f, -0.0594482421875f, 0.0332031250000f, -0.0196533203125f, 0.0109863281250f, 0.0017089843750f
+        ],
     ];
 
-    private static readonly float[] s_halfPhase =
-    [
-        0.00305f, -0.01316f, 0.03525f, -0.08017f, 0.18002f, -0.44944f,
-        0.83357f, 0.83357f, -0.44944f, 0.18002f, -0.08017f, 0.03525f
-    ];
-
-    private static readonly float[] s_threeQuarterPhase =
-    [
-        0.00658f, -0.01950f, 0.04575f, -0.10261f, 0.27840f, 0.97225f,
-        -0.24029f, 0.09640f, -0.04412f, 0.01918f, -0.00659f, 0.00131f
-    ];
+    private const int Taps = 12;
 
     public static float Detect(ReadOnlySpan<float> samples)
     {
-        if (samples.Length == 0) return 0f;
-        int taps = s_quarterPhase.Length;
-        int n = samples.Length;
         float peak = 0f;
-
-        for (int i = 0; i < n; i++)
+        // The sample peak is a floor: the reading never drops below it on blocks too
+        // short to interpolate, or through the filter's passband ripple.
+        foreach (float s in samples)
         {
-            // Phase 0 (decimated input) is the input sample itself.
-            float a = MathF.Abs(samples[i]);
+            float a = MathF.Abs(s);
             if (a > peak) peak = a;
+        }
 
-            float p1 = 0f, p2 = 0f, p3 = 0f;
-            for (int t = 0; t < taps; t++)
+        for (int n = Taps - 1; n < samples.Length; n++)
+        {
+            foreach (float[] phase in s_phases)
             {
-                int idx = i + t - taps / 2;
-                if ((uint)idx >= (uint)n) continue;
-                float s = samples[idx];
-                p1 += s * s_halfPhase[t];
-                p2 += s * s_threeQuarterPhase[t];
-                p3 += s * s_quarterPhase[t];
+                float y = 0f;
+                for (int k = 0; k < Taps; k++) y += phase[k] * samples[n - k];
+                float a = MathF.Abs(y);
+                if (a > peak) peak = a;
             }
-            float ap1 = MathF.Abs(p1);
-            float ap2 = MathF.Abs(p2);
-            float ap3 = MathF.Abs(p3);
-            if (ap1 > peak) peak = ap1;
-            if (ap2 > peak) peak = ap2;
-            if (ap3 > peak) peak = ap3;
         }
 
         return peak;
