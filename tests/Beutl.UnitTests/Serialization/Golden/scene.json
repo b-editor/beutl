@@ -33,11 +33,7 @@
     }
   ],
   "Elements": {
-    "Include": [
-      "**/*.belm",
-      "first.belm",
-      "second.belm"
-    ]
+    "Include": "**/*.belm"
   },
   "$type": "[Beutl.ProjectSystem]:Scene"
 }
