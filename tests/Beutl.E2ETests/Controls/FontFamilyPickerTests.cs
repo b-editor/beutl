@@ -390,6 +390,28 @@ public class FontFamilyPickerTests
     }
 
     [AvaloniaTest]
+    public void A_family_past_the_copy_budget_is_not_copied()
+    {
+        // Every family the picker names keeps its copy as long as the app runs, so the copies stop at a budget.
+        using var fonts = ProjectFonts.Load("BeutlTestBlocks.ttf", "BeutlTestBlocksLight.ttf");
+        using var collection = new BeutlFontCollection(maxCopiedBytes: 1);
+
+        Lookup(collection, "Beutl Test Blocks");
+        long copied = collection.CopiedBytes;
+        Lookup(collection, "Beutl Test Blocks Light");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(copied, Is.GreaterThan(0));
+            Assert.That(collection.CopiedBytes, Is.EqualTo(copied));
+        });
+
+        static void Lookup(BeutlFontCollection collection, string familyName)
+            => collection.TryGetGlyphTypeface(familyName, Avalonia.Media.FontStyle.Normal, Avalonia.Media.FontWeight.Normal,
+                Avalonia.Media.FontStretch.Normal, out _);
+    }
+
+    [AvaloniaTest]
     public void The_tooltip_spells_the_font_name_in_the_UI_typeface()
     {
         // A symbol font draws its own name as symbols.

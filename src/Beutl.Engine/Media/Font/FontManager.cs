@@ -263,7 +263,8 @@ public sealed class FontManager
         using SKData? data = stream is null ? null : SKData.Create(stream);
         if (data is null)
             return null;
-        return index == 0 ? data.ToArray() : FontCollection.CopyFace(data.AsSpan(), index);
+        // A face of a collection is copied alone, without the faces it shares the file with.
+        return data.AsSpan().StartsWith("ttcf"u8) ? FontCollection.CopyFace(data.AsSpan(), index) : data.ToArray();
     }
 
     public void LoadProjectFonts(Project project)
