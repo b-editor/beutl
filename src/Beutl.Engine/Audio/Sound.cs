@@ -30,7 +30,7 @@ public abstract partial class Sound : EngineObject
     public override CompositionTarget GetCompositionTarget() => CompositionTarget.Audio;
 
     // Groups and scenes feed the panner in the project layout.
-    public virtual AudioChannelLayout GetClipLayout(AudioChannelLayout projectLayout) => projectLayout;
+    public virtual AudioChannelLayout GetClipLayout(AudioChannelLayout projectLayout, MediaTime time) => projectLayout;
 
     [Display(Name = nameof(AudioStrings.Sound_OffsetPosition), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]

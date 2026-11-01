@@ -5,6 +5,7 @@ using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -19,6 +20,9 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
     private IServiceProvider? _services;
     private IDisposable? _clockSubscription;
     private IDisposable? _layoutSubscription;
+    private IDisposable? _editabilitySubscription;
+    private Element? _element;
+    private Scene? _scene;
     private bool _editorsCreated;
 
     public SoundPannerViewModel(IReadOnlyList<IPropertyAdapter> properties)
@@ -105,6 +109,10 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
 
     private void AttachProject()
     {
+        _editabilitySubscription?.Dispose();
+        _element = Sound.FindHierarchicalParent<Element>() ?? _services?.GetService<Element>();
+        _scene = _element?.FindHierarchicalParent<Scene>() ?? _services?.GetService<Scene>();
+        _editabilitySubscription = ElementEditability.Observe(_element, _scene).Subscribe(_ => RefreshValues());
         _layoutSubscription?.Dispose();
         var project = Sound.FindHierarchicalParent<Project>();
         _layoutSubscription = project?.ChannelLayout.GetObservable().Subscribe(_ => RefreshLayout());
@@ -117,9 +125,8 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
         Layout.Value = project?.ChannelLayout.Value ?? SpeakerLayout.Stereo;
         bool mono = Layout.Value == SpeakerLayout.Mono;
         bool stereo = Layout.Value == SpeakerLayout.Stereo;
-        bool multichannel = !mono && !stereo && Sound.GetClipLayout(project.GetChannelLayout()).ChannelCount >= 3;
+        bool multichannel = !mono && !stereo && Sound.GetClipLayout(project.GetChannelLayout(), CurrentTime.Value).ChannelCount >= 3;
         IsHorizontalOnly.Value = mono || stereo || multichannel;
-        CanPan.Value = !mono;
         CanPosition.Value = !IsHorizontalOnly.Value;
         Message.Value = mono ? AudioStrings.Panner_Mono
             : stereo ? AudioStrings.Panner_Stereo
@@ -131,6 +138,7 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
     {
         Pan.Value = GetEffectiveValue(Sound.Pan);
         SurroundPan.Value = GetEffectiveValue(Sound.SurroundPan);
+        CanPan.Value = Layout.Value != SpeakerLayout.Mono && ElementEditability.IsEditable(_element, _scene);
         CanDrag.Value = CanPan.Value && CanEditProperty(Sound.Pan)
             && (IsHorizontalOnly.Value || CanEditProperty(Sound.SurroundPan));
     }
@@ -168,7 +176,7 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
 
     public bool SetPosition(float pan, float surroundPan)
     {
-        if (!CanDrag.Value) return false;
+        if (!CanDrag.Value || !ElementEditability.IsEditable(_element, _scene)) return false;
         bool changed = SetPropertyValue(Sound.Pan, Math.Clamp(pan, -100, 100));
         if (!IsHorizontalOnly.Value)
             changed |= SetPropertyValue(Sound.SurroundPan, Math.Clamp(surroundPan, 0, 100));
@@ -177,7 +185,8 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
 
     public void ResetPosition()
     {
-        if (!CanPan.Value || !CanEditProperty(Sound.Pan) || !CanEditProperty(Sound.SurroundPan)) return;
+        if (!CanPan.Value || !ElementEditability.IsEditable(_element, _scene)
+            || !CanEditProperty(Sound.Pan) || !CanEditProperty(Sound.SurroundPan)) return;
         bool changed = SetPropertyValue(Sound.Pan, 0);
         changed |= SetPropertyValue(Sound.SurroundPan, 0);
         if (changed) Commit();
@@ -199,6 +208,7 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
         Sound.DetachedFromHierarchy -= OnHierarchyChanged;
         _subscriptions.Dispose();
         _layoutSubscription?.Dispose();
+        _editabilitySubscription?.Dispose();
         _clockSubscription?.Dispose();
         foreach (var editor in new[] { PanEditor, SurroundPanEditor, CenterLevelEditor, LfeLevelEditor })
         {

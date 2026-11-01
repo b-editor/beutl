@@ -162,11 +162,11 @@ public class SoundPannerEditorTests
     [AvaloniaTest]
     [TestCase(SpeakerLayout.Surround51)]
     [TestCase(SpeakerLayout.Surround71)]
-    public void GainEditsDoNotReadTheClipLayout(SpeakerLayout layout)
+    public void GainEditsAndSeekingDoNotReadTheClipLayout(SpeakerLayout layout)
     {
         int calls = 0;
         var probe = new Mock<Sound> { CallBase = true };
-        probe.Setup(s => s.GetClipLayout(It.IsAny<AudioChannelLayout>())).Returns(() =>
+        probe.Setup(s => s.GetClipLayout(It.IsAny<AudioChannelLayout>(), It.IsAny<MediaTime>())).Returns(() =>
         {
             calls++;
             return AudioChannelLayout.Stereo;
@@ -186,6 +186,9 @@ public class SoundPannerEditorTests
         sound.Pan.Value = 20;
         sound.SurroundPan.Value = 30;
         element.Start.Value = MediaTime.FromSeconds(3);
+        for (int i = 0; i < 10; i++) vm.CurrentTime.Value = MediaTime.FromSeconds(i);
+        element.IsLocked.Value = true;
+        element.IsLocked.Value = false;
         Assert.That(calls, Is.EqualTo(initialCalls));
         Assert.That(vm.Pan.Value, Is.EqualTo(20));
         Assert.That(vm.SurroundPan.Value, Is.EqualTo(30));
@@ -269,6 +272,100 @@ public class SoundPannerEditorTests
             Assert.That(host.ViewModel.CanPosition.Value, Is.True);
         }
         Assert.That(host.History.UndoCount, Is.Zero);
+    }
+
+    [AvaloniaTest]
+    public void AChannelMapExpressionEnablesPositioningAtTheCurrentTime()
+    {
+        using var host = new PannerHost(SpeakerLayout.Surround51, 6);
+        Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.True);
+        host.Time.Value = MediaTime.FromSeconds(5);
+        using (host.History.SuppressRecording())
+        {
+            host.Sound.ChannelMap.Expression = new StringExpression<AudioChannelMap>(
+                "Time < 2 ? Beutl.Audio.AudioChannelMap.Auto : Beutl.Audio.AudioChannelMap.CreateDefault(Beutl.Audio.AudioChannelFormat.Stereo, Beutl.Audio.AudioChannelLayout.Surround51)");
+        }
+        HeadlessTestHelpers.Render();
+        Assert.That(host.Sound.ChannelMap.Value, Is.EqualTo(AudioChannelMap.Auto));
+        Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.False);
+        Assert.That(host.ViewModel.CanPosition.Value, Is.True);
+        Assert.That(host.ViewModel.CanDrag.Value, Is.True);
+        Assert.That(host.Editor.GetVisualDescendants().OfType<NumberEditor<float>>().All(n => n.IsEffectivelyEnabled), Is.True);
+        host.Drag(60, 75);
+        Assert.That(host.Sound.Pan.Value, Is.EqualTo(60).Within(0.01));
+        Assert.That(host.Sound.SurroundPan.Value, Is.EqualTo(75).Within(0.01));
+        Assert.That(host.History.UndoCount, Is.EqualTo(1));
+    }
+
+    [AvaloniaTest]
+    [TestCase("element")]
+    [TestCase("layer")]
+    [TestCase("recovery")]
+    public void ProtectedElementsRejectDraggingAndResetUntilUnlocked(string protection)
+    {
+        using var host = new PannerHost(SpeakerLayout.Surround51, 2,
+            sound => { sound.Pan.Value = 45; sound.SurroundPan.Value = 65; });
+        var element = host.Sound.FindHierarchicalParent<Element>()!;
+        var scene = element.FindHierarchicalParent<Scene>()!;
+        var layer = new TimelineLayer { ZIndex = { Value = element.ZIndex.Value } };
+        scene.Layers.Add(layer);
+        SetProtected(true);
+        HeadlessTestHelpers.Render();
+        Assert.That(host.ViewModel.CanPan.Value, Is.False);
+        Assert.That(host.ViewModel.CanDrag.Value, Is.False);
+        Assert.That(host.Panner.IsEffectivelyEnabled, Is.False);
+        host.Drag(-60, 35);
+        DoubleClick();
+
+        // Writes must also reject a stale enabled state.
+        host.ViewModel.CanPan.Value = true;
+        host.ViewModel.CanDrag.Value = true;
+        Assert.That(host.ViewModel.SetPosition(-60, 35), Is.False);
+        host.ViewModel.ResetPosition();
+        Assert.That(host.Sound.Pan.Value, Is.EqualTo(45));
+        Assert.That(host.Sound.SurroundPan.Value, Is.EqualTo(65));
+        Assert.That(host.History.UndoCount, Is.Zero);
+        Assert.That(host.History.HasPendingOperations, Is.False);
+
+        host.ViewModel.CanPan.Value = false;
+        host.ViewModel.CanDrag.Value = false;
+        SetProtected(false);
+        HeadlessTestHelpers.Render();
+        Assert.That(host.ViewModel.CanPan.Value, Is.True);
+        Assert.That(host.ViewModel.CanDrag.Value, Is.True);
+        Assert.That(host.Panner.IsEffectivelyEnabled, Is.True);
+        host.Drag(-60, 35);
+        Assert.That(host.Sound.Pan.Value, Is.EqualTo(-60).Within(0.01));
+        Assert.That(host.Sound.SurroundPan.Value, Is.EqualTo(35).Within(0.01));
+        Assert.That(host.History.UndoCount, Is.EqualTo(1));
+        DoubleClick();
+        Assert.That(host.Sound.Pan.Value, Is.Zero);
+        Assert.That(host.Sound.SurroundPan.Value, Is.Zero);
+        Assert.That(host.History.UndoCount, Is.EqualTo(2));
+
+        void SetProtected(bool value)
+        {
+            switch (protection)
+            {
+                case "element": element.IsLocked.Value = value; break;
+                case "layer": layer.IsLocked.Value = value; break;
+                case "recovery":
+                    element.SuppressedStorageSource = value
+                        ? new SuppressedStorageSource([], new Uri(Path.Combine(Path.GetTempPath(), "panner-protected.belm"))) : null;
+                    break;
+            }
+        }
+
+        void DoubleClick()
+        {
+            Point point = host.Panner.TranslatePoint(host.Panner.PuckCenter, host.Window)!.Value;
+            host.Window.MouseMove(point);
+            for (int i = 0; i < 2; i++)
+            {
+                host.Window.MouseDown(point, MouseButton.Left);
+                host.Window.MouseUp(point, MouseButton.Left);
+            }
+        }
     }
 
     [AvaloniaTest]
