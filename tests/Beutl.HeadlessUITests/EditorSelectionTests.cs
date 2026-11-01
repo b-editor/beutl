@@ -182,6 +182,31 @@ public sealed class EditorSelectionTests
     }
 
     [AvaloniaTest]
+    public async Task Group_and_ungroup_follow_the_selection_and_the_groups()
+    {
+        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenAsync("editor-selection-group", 4);
+        ElementViewModel[] items = [.. timeline.Elements.OrderBy(item => item.Model.ZIndex.Value)];
+        editor.Scene.Groups.Add([items[0].Model.Id.Value, items[1].Model.Id.Value]);
+
+        (bool Group, bool Ungroup) Commands(params ElementViewModel[] selected)
+        {
+            timeline.ClearSelected();
+            foreach (ElementViewModel item in selected) timeline.SelectElement(item);
+            return (selected[0].CanGroupSelectedElements(), selected[0].CanUngroupSelectedElements());
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Commands(items[0], items[1]), Is.EqualTo((false, true)), "The selection is the group.");
+            Assert.That(Commands(items[1], items[2]), Is.EqualTo((true, true)), "As many clips as the group, one of them in it.");
+            Assert.That(Commands(items[2], items[3]), Is.EqualTo((true, false)));
+        });
+
+        items[2].GroupSelectedElements.Execute();
+        Assert.That(Commands(items[2], items[3]), Is.EqualTo((false, true)), "The new group counts at once.");
+    }
+
+    [AvaloniaTest]
     public async Task Clicking_a_selected_clip_keeps_the_selection_and_an_unselected_clip_replaces_it()
     {
         using TimelineTestHost host = await TimelineTestHost.CreateAsync(

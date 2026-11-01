@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+﻿using System.Collections.Immutable;
+using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
@@ -234,6 +235,36 @@ public class ElementStructureServiceTests
             Assert.That(back.ExitTransition.Value, Is.TypeOf<WipeTransition>(), "the back half keeps the clip's end");
             Assert.That((back.ExitTransition.Value as WipeTransition)?.Direction.Value, Is.EqualTo(ClipTransitionDirection.TopToBottom));
         });
+    }
+
+    [Test]
+    public void Split_GroupsTheBackPiecesOfEachGroupRightAfterIt()
+    {
+        Element[] clips = [.. Enumerable.Range(0, 5).Select(layer => AddElement(MediaTime.Zero, MediaTime.FromSeconds(4), layer))];
+        ImmutableHashSet<Guid> first = [clips[0].Id.Value, clips[1].Id.Value];
+        ImmutableHashSet<Guid> second = [clips[2].Id.Value, clips[3].Id.Value];
+        _scene.Groups.Add(first);
+        _scene.Groups.Add(second);
+        _history.Commit("Group");
+
+        _service.Split(_scene, [clips[2], clips[0], clips[4], clips[1], clips[3]], MediaTime.FromSeconds(2));
+        Element[] backs = [.. clips.Select(clip => PieceAt(clip, 2))];
+        // The first split added the groups of these pieces, so cutting them again must find those groups.
+        _service.Split(_scene, [backs[0], backs[1]], MediaTime.FromSeconds(3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Groups, Has.Count.EqualTo(5));
+            Assert.That(_scene.Groups[0], Is.SameAs(first));
+            Assert.That(_scene.Groups[1], Is.EquivalentTo(Ids(backs[0], backs[1])));
+            Assert.That(_scene.Groups[2], Is.EquivalentTo(Ids(PieceAt(clips[0], 3), PieceAt(clips[1], 3))));
+            Assert.That(_scene.Groups[3], Is.SameAs(second));
+            Assert.That(_scene.Groups[4], Is.EquivalentTo(Ids(backs[2], backs[3])));
+        });
+
+        Element PieceAt(Element clip, double seconds)
+            => _scene.Children.Single(e => e.ZIndex.Value == clip.ZIndex.Value && e.Start.Value == MediaTime.FromSeconds(seconds));
+        static Guid[] Ids(params Element[] elements) => [.. elements.Select(e => e.Id.Value)];
     }
 
     [Test]

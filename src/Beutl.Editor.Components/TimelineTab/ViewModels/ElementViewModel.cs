@@ -365,14 +365,15 @@ public sealed partial class ElementViewModel : IDisposable
 
     public bool CanGroupSelectedElements()
     {
-        IReadOnlyCollection<Guid> ids = GetEditableSelectedIdsOrSelf();
-        return ids.Count >= 2 && !Scene.Groups.Any(x => x.SetEquals(ids));
+        HashSet<Guid> ids = GetEditableSelectedIdsOrSelf();
+        // SetEquals copies ids into a new set for every group; compare the sizes first instead.
+        return ids.Count >= 2 && !Scene.Groups.Any(x => x.Count == ids.Count && x.All(ids.Contains));
     }
 
     public bool CanUngroupSelectedElements()
     {
-        IReadOnlyCollection<Guid> ids = GetEditableSelectedIdsOrSelf();
-        return Scene.Groups.Any(x => x.Overlaps(ids));
+        HashSet<Guid> ids = GetEditableSelectedIdsOrSelf();
+        return ids.Any(id => Scene.FindGroup(id) is not null);
     }
 
     public void Dispose()
