@@ -49,6 +49,20 @@ public sealed class EditFlashTests
         }
     }
 
+    // Outside a window there is no frame to start the pulse on, so the flash leaves the control alone instead of
+    // parking an outline in a layer that nothing draws.
+    [AvaloniaTest]
+    public void A_flash_outside_a_window_adds_no_outline()
+    {
+        var target = new Border();
+        _ = new VisualLayerManager { Child = target };
+
+        EditFlash.Run(new Border());
+        EditFlash.Run(target);
+
+        Assert.That(AdornerLayer.GetAdornerLayer(target)!.Children, Is.Empty);
+    }
+
     // Spends Stall in its next measure, as a property tab opening on a loaded machine can.
     private sealed class StallingDecorator : Decorator
     {
