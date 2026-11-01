@@ -436,6 +436,9 @@ public partial class Composer : IComposer
         {
             var channelData = buffer.GetChannelData(ch);
             AudioMath.ApplyLimiter(channelData, 1.0f, 10.0f);
+            // The limiter's soft ratio still lets a loud mix, such as a large gain or a delay fed back at
+            // 100%, far past full scale, and it lets NaN through.
+            AudioMath.ClampToFullScale(channelData);
         }
     }
 
