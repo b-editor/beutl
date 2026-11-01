@@ -4,6 +4,7 @@ using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.Services;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
@@ -104,6 +105,96 @@ public class SceneSettingsServiceTests
         }
         finally
         {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Replay_ProjectWriteFailureRestoresTheLayoutAndCanBeRetried(bool redo)
+    {
+        string directory = Directory.CreateTempSubdirectory("beutl-layout-retry-").FullName;
+        string path = Path.Combine(directory, "project.json");
+        _scene.Uri = new Uri(Path.Combine(directory, "scene.scene"));
+        var project = new Project { Uri = new Uri(path), Items = { _scene } };
+        try
+        {
+            _service.Apply(_scene, _scene.FrameSize.Value, _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Surround51);
+            if (redo) Assert.That(_history.Undo(), Is.True);
+            SpeakerLayout previous = project.ChannelLayout.Value;
+            int undoCount = _history.UndoCount;
+            int redoCount = _history.RedoCount;
+            project.Uri = new Uri(directory);
+
+            Exception? failure = Assert.Catch<Exception>(() =>
+            {
+                if (redo) _history.Redo(); else _history.Undo();
+            });
+            Assert.That(failure, Is.InstanceOf<IOException>().Or.InstanceOf<UnauthorizedAccessException>());
+            Assert.That(project.ChannelLayout.Value, Is.EqualTo(previous));
+            Assert.That(_history.UndoCount, Is.EqualTo(undoCount));
+            Assert.That(_history.RedoCount, Is.EqualTo(redoCount));
+            Assert.That(redo ? _history.CanRedo : _history.CanUndo, Is.True);
+
+            project.Uri = new Uri(path);
+            Assert.That(redo ? _history.Redo() : _history.Undo(), Is.True);
+            SpeakerLayout expected = redo ? SpeakerLayout.Surround51 : SpeakerLayout.Stereo;
+            Assert.That(project.ChannelLayout.Value, Is.EqualTo(expected));
+            Assert.That(JsonNode.Parse(File.ReadAllText(path))!["ChannelLayout"]!.GetValue<int>(), Is.EqualTo((int)expected));
+            Assert.That(redo ? _history.Undo() : _history.Redo(), Is.True);
+            Assert.That(project.ChannelLayout.Value, Is.EqualTo(previous));
+            Assert.That(JsonNode.Parse(File.ReadAllText(path))!["ChannelLayout"]!.GetValue<int>(), Is.EqualTo((int)previous));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Undo_LayoutObserverFailureBlocksReplay(bool duringRollback)
+    {
+        string directory = Directory.CreateTempSubdirectory("beutl-layout-diverged-").FullName;
+        string path = Path.Combine(directory, "project.json");
+        _scene.Uri = new Uri(Path.Combine(directory, "scene.scene"));
+        var project = new Project { Uri = new Uri(path), Items = { _scene } };
+        var observerFailure = new InvalidOperationException("layout observer failed");
+        void FailOnLayoutChange(object? sender, PropertyValueChangedEventArgs<SpeakerLayout> e)
+        {
+            if (e.NewValue == (duringRollback ? SpeakerLayout.Surround51 : SpeakerLayout.Stereo))
+                throw observerFailure;
+        }
+
+        try
+        {
+            _service.Apply(_scene, _scene.FrameSize.Value, _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Surround51);
+            project.Uri = new Uri(directory);
+            project.ChannelLayout.ValueChanged += FailOnLayoutChange;
+
+            HistoryReplayException? failure = Assert.Throws<HistoryReplayException>(() => _history.Undo());
+            if (duringRollback)
+            {
+                Assert.That(failure!.InnerException, Is.TypeOf<ProjectStateDivergedException>());
+                var diverged = (ProjectStateDivergedException)failure.InnerException!;
+                Assert.That(diverged.InnerException, Is.InstanceOf<IOException>().Or.InstanceOf<UnauthorizedAccessException>());
+                Assert.That(diverged.RollbackException, Is.SameAs(observerFailure));
+            }
+            else
+            {
+                Assert.That(failure!.InnerException, Is.SameAs(observerFailure));
+            }
+
+            project.ChannelLayout.ValueChanged -= FailOnLayoutChange;
+            project.Uri = new Uri(path);
+            Assert.That(_history.CanUndo, Is.False);
+            Assert.That(_history.CanRedo, Is.False);
+            Assert.That(_history.Undo(), Is.False);
+            Assert.That(_history.Redo(), Is.False);
+        }
+        finally
+        {
+            project.ChannelLayout.ValueChanged -= FailOnLayoutChange;
             Directory.Delete(directory, recursive: true);
         }
     }
