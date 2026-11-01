@@ -71,9 +71,9 @@ public sealed class PannerNode : AudioNode
             }
 
             bool animated = OutputLayout != AudioChannelLayout.Mono
-                && (Pan.GetKeyFrameAnimation() != null || (position
-                    && (SurroundPan.GetKeyFrameAnimation() != null || CenterLevel.GetKeyFrameAnimation() != null
-                        || LfeLevel.GetKeyFrameAnimation() != null)));
+                && (AnimationSampler.IsAnimated(Pan) || (position
+                    && (AnimationSampler.IsAnimated(SurroundPan) || AnimationSampler.IsAnimated(CenterLevel)
+                        || AnimationSampler.IsAnimated(LfeLevel))));
             output = _matrix.IsIdentity ? input : _matrix.Apply(input);
             if (OutputLayout != AudioChannelLayout.Mono)
             {
@@ -219,7 +219,7 @@ public sealed class PannerNode : AudioNode
 
             void Sample(IProperty<float> property, Span<float> destination)
             {
-                if (property.GetKeyFrameAnimation() is null)
+                if (!AnimationSampler.IsAnimated(property))
                     destination.Fill(property.Value);
                 else
                     context.AnimationSampler.SampleBuffer(property, context.GetChunkRange(offset, count),

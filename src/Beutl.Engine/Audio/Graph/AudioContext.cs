@@ -177,7 +177,7 @@ public sealed class AudioContext : IDisposable
     {
         ThrowIfDisposed();
 
-        if (_previousNodes?.OfType<ShiftNode>().FirstOrDefault(n => n.Shift == shift) is { } existing)
+        if (_previousNodes?.OfType<ShiftNode>().FirstOrDefault(n => n.Offset is null && n.Shift == shift) is { } existing)
         {
             return AddNode(Reclaim(existing));
         }
@@ -187,6 +187,24 @@ public sealed class AudioContext : IDisposable
             Shift = shift
         };
         return AddNode(node);
+    }
+
+    // A shift node for a sound's offset. A fixed offset makes a node per value, as editing it composes the sound
+    // again; one under an expression is read for each window so that the expression takes effect.
+    internal ShiftNode CreateShiftNode(IExpressionProperty<MediaTime> offset)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(offset);
+
+        if (!offset.HasExpression)
+            return CreateShiftNode(offset.Value);
+
+        if (_previousNodes?.OfType<ShiftNode>().FirstOrDefault(n => ReferenceEquals(n.Offset, offset)) is { } existing)
+        {
+            return AddNode(Reclaim(existing));
+        }
+
+        return AddNode(new ShiftNode { Offset = offset });
     }
 
     /// <summary>
