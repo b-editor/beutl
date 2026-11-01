@@ -86,6 +86,24 @@ internal static class ElementPlacementHelper
         }
     }
 
+    /// <summary>
+    /// Moves every element by the deltas. A matte that names its source layer moves with the elements, so it keeps
+    /// the source it had among them, or its distance from them when they do not hold that layer.
+    /// </summary>
+    internal static void MoveTogether(IEnumerable<Element> elements, MediaTime startDelta, int layerDelta)
+    {
+        foreach (Element element in elements)
+        {
+            element.Start.Value += startDelta;
+            element.ZIndex.Value += layerDelta;
+            if (element.MatteSourceKind.Value == MatteSourceKind.Layer
+                && element.MatteSourceZIndex.Value is { } source)
+            {
+                element.MatteSourceZIndex.Value = source + layerDelta;
+            }
+        }
+    }
+
     internal static bool AnyDestinationRowLocked(
         int anchorZIndex, IReadOnlySet<int> rowOffsets, IReadOnlySet<int> lockedRows)
     {
