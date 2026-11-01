@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Media;
+using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Editor.Components.AudioVisualizerTab.Utilities;
 using Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
@@ -34,6 +35,16 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
     private float[] _loudnessLeft = [];
     private float[] _loudnessRight = [];
 
+    // Surround (3+ channel) state, sized to the buffer's channel count.
+    private AudioChannelLayout _surroundLayout;
+    private float[][] _meterChannels = [];
+    private float[][] _loudnessChannels = [];
+    private float[] _channelRms = [];
+    private float[] _channelPeaks = [];
+    private float[] _peakHolds = [];
+    private float[] _truePeakHolds = [];
+    private DateTime?[] _clipAts = [];
+
     public override void Render(DrawingContext context)
     {
         Rect bounds = new(Bounds.Size);
@@ -41,6 +52,13 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
 
         AudioSampleRingBuffer? buffer = RingBuffer;
         if (buffer == null || bounds.Width < 20 || bounds.Height < 20) return;
+
+        int channelCount = buffer.ChannelCount;
+        if (channelCount > 2)
+        {
+            RenderSurround(context, bounds, buffer, channelCount);
+            return;
+        }
 
         var (rmsL, rmsR, peakL, peakR) = buffer.ComputeMeters(RmsWindowSamples, PlayheadTime);
         DateTime now = DateTime.UtcNow;
@@ -91,6 +109,128 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         }
 
         DrawLoudnessAndTruePeakText(context, leftX, topInset + barHeight + 4);
+    }
+
+    // One bar per source channel with its speaker label, and BS.1770 weighted
+    // loudness over all of them. The stereo layout above stays as it was.
+    private void RenderSurround(DrawingContext context, Rect bounds, AudioSampleRingBuffer buffer, int channelCount)
+    {
+        EnsureSurroundState(channelCount);
+        int got = buffer.ComputeChannelMeters(RmsWindowSamples, PlayheadTime, _meterChannels, _channelRms, _channelPeaks);
+        if (got == 0)
+        {
+            Array.Clear(_channelRms);
+            Array.Clear(_channelPeaks);
+        }
+
+        DateTime now = DateTime.UtcNow;
+        double elapsed = Math.Clamp((now - _lastRenderTime).TotalSeconds, 0, 0.5);
+        _lastRenderTime = now;
+
+        for (int ch = 0; ch < channelCount; ch++)
+        {
+            _peakHolds[ch] = DecayHold(_peakHolds[ch], _channelPeaks[ch], elapsed);
+            if (_channelPeaks[ch] >= ClipThreshold) _clipAts[ch] = now;
+        }
+
+        UpdateSurroundLoudnessAndTruePeak(buffer, channelCount, elapsed);
+
+        double padding = 4;
+        double gap = 2;
+        double scaleWidth = bounds.Width >= 80 ? ScaleAreaWidth : 0;
+        double barAreaWidth = bounds.Width - padding * 3 - scaleWidth - gap * (channelCount - 1);
+        double barWidth = Math.Max(1, barAreaWidth / channelCount);
+        double clipLedHeight = 8;
+        double labelHeight = MeasureTextHeight("L", LabelFontSize);
+        double labelGap = 2;
+        double ledGap = 4;
+        double textStripHeight = labelHeight * 2;
+        double topInset = labelHeight + labelGap + clipLedHeight + ledGap;
+        double barHeight = bounds.Height - topInset - padding - textStripHeight;
+        double clipLedY = labelHeight + labelGap;
+
+        for (int ch = 0; ch < channelCount; ch++)
+        {
+            double x = padding + ch * (barWidth + gap);
+            bool clip = _clipAts[ch] is { } at && now - at < s_clipHold;
+            DrawChannelLabel(context, AudioChannelMap.GetChannelName(_surroundLayout, ch), x + barWidth / 2, 0);
+            DrawClipLed(context, x, clipLedY, barWidth, clipLedHeight, clip);
+            DrawChannel(context, x, topInset, barWidth, barHeight, _channelRms[ch], _peakHolds[ch]);
+        }
+
+        double barsEnd = padding + channelCount * barWidth + (channelCount - 1) * gap;
+        if (scaleWidth > 0)
+        {
+            DrawDbScale(context, barsEnd + padding, topInset, scaleWidth, barHeight, padding, barsEnd);
+        }
+
+        DrawSurroundLoudnessAndTruePeakText(context, padding, topInset + barHeight + 4);
+    }
+
+    private void EnsureSurroundState(int channelCount)
+    {
+        if (_meterChannels.Length == channelCount) return;
+        _surroundLayout = AudioChannelLayout.GetDefault(channelCount);
+        _meterChannels = new float[channelCount][];
+        for (int ch = 0; ch < channelCount; ch++) _meterChannels[ch] = new float[RmsWindowSamples];
+        _loudnessChannels = new float[channelCount][];
+        for (int ch = 0; ch < channelCount; ch++) _loudnessChannels[ch] = [];
+        _channelRms = new float[channelCount];
+        _channelPeaks = new float[channelCount];
+        _peakHolds = new float[channelCount];
+        _truePeakHolds = new float[channelCount];
+        _clipAts = new DateTime?[channelCount];
+    }
+
+    private void UpdateSurroundLoudnessAndTruePeak(AudioSampleRingBuffer buffer, int channelCount, double elapsed)
+    {
+        int sampleRate = buffer.SampleRate;
+        if (sampleRate <= 0) return;
+
+        int n = (int)(LoudnessWindowSeconds * sampleRate);
+        if (_loudnessChannels[0].Length < n)
+        {
+            for (int ch = 0; ch < channelCount; ch++) _loudnessChannels[ch] = new float[n];
+        }
+
+        int got = buffer.ReadChannelsAroundTime(PlayheadTime, _loudnessChannels, n, out int leadingZeros);
+        if (got <= 0) return;
+
+        float lufs = _loudness.Compute(_loudnessChannels, leadingZeros, got, _surroundLayout, sampleRate);
+        if (float.IsFinite(lufs))
+        {
+            float alpha = (float)Math.Clamp(elapsed / 0.2, 0.05, 1.0);
+            _displayLufs = _displayLufs * (1f - alpha) + lufs * alpha;
+        }
+
+        for (int ch = 0; ch < channelCount; ch++)
+        {
+            float tp = TruePeakDetector.Detect(_loudnessChannels[ch].AsSpan(leadingZeros, got));
+            _truePeakHolds[ch] = DecayHold(_truePeakHolds[ch], tp, elapsed);
+        }
+    }
+
+    private void DrawSurroundLoudnessAndTruePeakText(DrawingContext context, double x, double y)
+    {
+        Typeface tf = Typeface.Default;
+
+        string lufsLabel = _displayLufs <= -159f
+            ? "M  -∞ LUFS"
+            : $"M {_displayLufs,5:0.0} LUFS";
+
+        // Too many channels to list each true peak; show the loudest and where it is.
+        int loudest = 0;
+        for (int ch = 1; ch < _truePeakHolds.Length; ch++)
+        {
+            if (_truePeakHolds[ch] > _truePeakHolds[loudest]) loudest = ch;
+        }
+        string tpLabel = $"TP {LinearToDbtp(_truePeakHolds[loudest]),5:0.0} ({AudioChannelMap.GetChannelName(_surroundLayout, loudest)})";
+
+        var lufsText = new FormattedText(lufsLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LabelFontSize, Brushes.White);
+        var tpText = new FormattedText(tpLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LabelFontSize, Brushes.White);
+
+        context.DrawText(lufsText, new Point(x, y));
+        context.DrawText(tpText, new Point(x, y + lufsText.Height));
     }
 
     private double MeasureTextHeight(string text, double fontSize)
