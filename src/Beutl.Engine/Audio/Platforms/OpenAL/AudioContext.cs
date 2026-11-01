@@ -9,20 +9,34 @@ public sealed unsafe class AudioContext : IDisposable
     private readonly ALContext _alc;
     private readonly Device* _device;
     private readonly Context* _context;
+    private readonly int _directChannelsMode;
 
     public AudioContext() : this(soft: false)
     {
     }
 
-    public AudioContext(bool soft)
+    public AudioContext(bool soft) : this(soft, null, [])
+    {
+    }
+
+    // Takes ownership of the supplied device, allowing tests to use OpenAL Soft's loopback output.
+    internal AudioContext(bool soft, Device* device, ReadOnlySpan<int> attributes)
     {
         _al = AL.GetApi(soft);
         _alc = ALContext.GetApi(soft);
-        _device = _alc.OpenDevice(null);
-        _context = _alc.CreateContext(_device, null);
+        _device = device != null ? device : _alc.OpenDevice(null);
+        fixed (int* attributeList = attributes)
+        {
+            _context = _alc.CreateContext(_device, attributeList);
+        }
         VerifyContextError();
 
         MakeCurrent();
+
+        bool supportsDirectChannels = _al.IsExtensionPresent("AL_SOFT_direct_channels");
+        bool supportsDirectChannelsRemix = _al.IsExtensionPresent("AL_SOFT_direct_channels_remix");
+        VerifyAudioError();
+        _directChannelsMode = supportsDirectChannelsRemix ? 2 : supportsDirectChannels ? 1 : 0;
 
         int? outputMode = null;
         if (_alc.IsExtensionPresent(_device, "ALC_SOFT_output_mode"))
@@ -160,6 +174,14 @@ public sealed unsafe class AudioContext : IDisposable
     {
         uint src = _al.GenSource();
         VerifyAudioError();
+
+        if (_directChannelsMode != 0)
+        {
+            // Preserve speaker routing, remixing unmatched channels when supported.
+            // AL_DIRECT_CHANNELS_SOFT: AL_REMIX_UNMATCHED_SOFT (2), otherwise AL_TRUE (1).
+            _al.SetSourceProperty(src, (SourceInteger)0x1033, _directChannelsMode);
+            VerifyAudioError();
+        }
 
         return src;
     }
