@@ -371,9 +371,10 @@ public class FontFamilyPickerTests
     }
 
     [AvaloniaTest]
-    public void A_name_too_long_for_its_row_trims_with_an_ellipsis_that_falls_back()
+    public void The_rows_are_set_to_trim_with_an_ellipsis_that_falls_back()
     {
-        // The name is drawn in its own font, which may have no ellipsis.
+        // The name is drawn in its own font, which may have no ellipsis. FallbackCharacterEllipsisTests checks the
+        // glyph the trimmed end falls back to.
         var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
         using var picker = PickerHost.Open(viewModel);
 
