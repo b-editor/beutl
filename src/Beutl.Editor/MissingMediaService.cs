@@ -52,10 +52,19 @@ public sealed class MissingMediaService
 
     public Task<IReadOnlyList<MissingMedia>> FindMissingAsync(Scene scene, CancellationToken token = default,
         bool revalidateExisting = true)
+        => FindMissingAsync(scene, EnumerateReferences(scene), token, revalidateExisting);
+
+    // Takes the references from an editor's index, which walks only the elements edited since its last query.
+    internal Task<IReadOnlyList<MissingMedia>> FindMissingAsync(Scene scene, MediaReferenceIndex index,
+        CancellationToken token = default, bool revalidateExisting = true)
+        => FindMissingAsync(scene, index.GetReferences(), token, revalidateExisting);
+
+    private Task<IReadOnlyList<MissingMedia>> FindMissingAsync(Scene scene, IReadOnlyList<MediaReference> found,
+        CancellationToken token, bool revalidateExisting)
     {
         // Capture the editable graph before moving filesystem probes and decoders
         // off the UI thread. Worker tasks never traverse mutable engine objects.
-        var references = CaptureReferences(scene);
+        var references = CaptureReferences(scene, found);
         var current = references.Where(item => item.ExpectedUri != null).Select(item => (item.Kind, item.ExpectedUri!)).ToHashSet();
         foreach (var key in _validated.Keys.Where(key => !current.Contains(key))) _validated.TryRemove(key, out _);
         return Task.Run<IReadOnlyList<MissingMedia>>(async () =>
@@ -88,13 +97,13 @@ public sealed class MissingMediaService
         }, token);
     }
 
-    private static IReadOnlyList<MissingMedia> CaptureReferences(Scene scene)
+    private static IReadOnlyList<MissingMedia> CaptureReferences(Scene scene, IReadOnlyList<MediaReference> found)
     {
         var groups = new Dictionary<(MissingMediaKind Kind, string Key), List<MissingMediaReference>>();
         var values = new Dictionary<(MissingMediaKind Kind, string Key), (Uri? Uri, FontFamily? Font)>();
-        foreach (CoreSerializationVisit visit in EnumerateReferences(scene))
+        foreach (MediaReference reference in found)
         {
-            object value = visit.Value;
+            object value = reference.Value;
             Uri? uri = GetUri(value);
             FontFamily? font = value as FontFamily;
             MissingMediaKind? kind = GetKind(value);
@@ -116,12 +125,7 @@ public sealed class MissingMediaService
                 groups[groupKey] = references = [];
                 values[groupKey] = (uri, font);
             }
-            Element? element = null;
-            for (CoreSerializationVisit? parent = visit.Parent; parent is not null; parent = parent.Parent)
-            {
-                if (parent.Value is Element owner) { element = owner; break; }
-            }
-            references.Add(new MissingMediaReference(value as IFileSource, element));
+            references.Add(new MissingMediaReference(value as IFileSource, reference.Element));
         }
         return groups.Select(pair =>
         {
@@ -131,26 +135,19 @@ public sealed class MissingMediaService
         }).OrderBy(item => item.Kind).ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
-    internal static Uri[] GetFileUris(Scene scene) => EnumerateReferences(scene)
-        .Select(visit => GetUri(visit.Value)).OfType<Uri>().Where(uri => uri.IsFile).Distinct().ToArray();
+    internal static Uri[] GetFileUris(Scene scene) => GetFileUris(EnumerateReferences(scene));
 
-    internal static HashSet<(object Source, Uri? Uri)> GetReferenceKeys(Scene scene)
-        => EnumerateReferences(scene).Select(visit => (visit.Value, GetUri(visit.Value))).ToHashSet();
+    internal static Uri[] GetFileUris(IEnumerable<MediaReference> references) => references
+        .Select(reference => GetUri(reference.Value)).OfType<Uri>().Where(uri => uri.IsFile).Distinct().ToArray();
 
-    private static IEnumerable<CoreSerializationVisit> EnumerateReferences(Scene scene)
-    {
-        var result = new List<CoreSerializationVisit>();
-        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
-        CoreSerializer.Visit(scene, visit =>
-        {
-            if ((visit.Value is FontFamily || GetUri(visit.Value) is { IsFile: true }) && visited.Add(visit.Value))
-                result.Add(visit);
-            return false;
-        });
-        return result;
-    }
+    internal static HashSet<(object Source, Uri? Uri)> GetReferenceKeys(IEnumerable<MediaReference> references)
+        => references.Select(reference => (reference.Value, GetUri(reference.Value))).ToHashSet();
 
-    private static Uri? GetUri(object value) => value switch
+    // Walks every element of the scene; an editor keeps an index instead, which walks only the edited ones.
+    private static IReadOnlyList<MediaReference> EnumerateReferences(Scene scene)
+        => new MediaReferenceIndex(scene).GetReferences();
+
+    internal static Uri? GetUri(object value) => value switch
     {
         MediaSource { HasUri: true } source => source.Uri,
         ModelSource { HasUri: true } source => source.Uri,
@@ -401,13 +398,19 @@ public sealed class MissingMediaService
         }, token);
 
     // Caches hashes in the scene folder's .beutl/ only when asked, so a staged package copy gets none.
-    public async Task UpdateFingerprintsAsync(Scene scene, CancellationToken token = default, bool force = true,
+    public Task UpdateFingerprintsAsync(Scene scene, CancellationToken token = default, bool force = true,
         bool cacheHashes = false)
+        => UpdateFingerprintsAsync(scene, null, token, force, cacheHashes);
+
+    // Takes the references from an editor's index, if it has one, instead of walking the whole scene twice.
+    internal async Task UpdateFingerprintsAsync(Scene scene, MediaReferenceIndex? index, CancellationToken token = default,
+        bool force = true, bool cacheHashes = false)
     {
-        Uri[] uris = GetFileUris(scene);
+        IReadOnlyList<MediaReference> references = index?.GetReferences() ?? EnumerateReferences(scene);
+        Uri[] uris = GetFileUris(references);
         Uri? cacheScene = cacheHashes && scene.Uri is { IsFile: true } sceneUri ? sceneUri : null;
         var previous = new Dictionary<string, MediaFileFingerprint>(scene.MediaFingerprints);
-        var modelDependencies = EnumerateReferences(scene).Select(visit => visit.Value)
+        var modelDependencies = references.Select(reference => reference.Value)
             .OfType<ModelSource>().Where(model => model is { HasUri: true, MeshCount: > 0 }).GroupBy(model => model.Uri.AbsoluteUri)
             .ToDictionary(group => group.Key, group => group.First().Dependencies
                 .Where(path => !FilePathComparison.AreSameCanonicalPath(path, group.First().Uri.LocalPath)).ToArray());
@@ -460,7 +463,8 @@ public sealed class MissingMediaService
         token.ThrowIfCancellationRequested();
         // Edits can occur while hashing. Merge only references still in the live graph
         // and preserve newer entries, including fingerprints for offline sources.
-        var current = GetFileUris(scene).Select(uri => uri.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
+        var current = GetFileUris(index?.GetReferences() ?? EnumerateReferences(scene)).Select(uri => uri.AbsoluteUri)
+            .ToHashSet(StringComparer.Ordinal);
         var fingerprints = scene.MediaFingerprints.Where(pair => current.Contains(pair.Key))
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         foreach (var pair in updated)

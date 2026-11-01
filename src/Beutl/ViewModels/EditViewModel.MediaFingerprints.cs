@@ -33,7 +33,8 @@ public sealed partial class EditViewModel
     {
         if (_fingerprintCaptureTask.IsCompleted)
             _fingerprintCaptureTask = CaptureMediaFingerprints?.Invoke(scene, _autoSaveCancellation.Token)
-                ?? new MissingMediaService().UpdateFingerprintsAsync(scene, _autoSaveCancellation.Token, force, cacheHashes: true);
+                ?? new MissingMediaService().UpdateFingerprintsAsync(scene, _mediaReferences, _autoSaveCancellation.Token, force,
+                    cacheHashes: true);
         return _fingerprintCaptureTask;
     }
 
@@ -54,13 +55,14 @@ public sealed partial class EditViewModel
         }
     }
 
-    private static HashSet<string> CollectMediaUris(Scene scene)
-        => MissingMediaService.GetFileUris(scene).Select(uri => uri.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
+    private HashSet<string> CollectMediaUris()
+        => MissingMediaService.GetFileUris(_mediaReferences.GetReferences()).Select(uri => uri.AbsoluteUri)
+            .ToHashSet(StringComparer.Ordinal);
 
     private void CaptureSavedMediaUris(HashSet<string>? savedUris = null,
         IReadOnlyDictionary<string, MediaFileFingerprint>? savedFingerprints = null)
     {
-        _savedMediaUris = savedUris ?? CollectMediaUris(Scene);
+        _savedMediaUris = savedUris ?? CollectMediaUris();
         foreach (string key in _savedMediaFingerprints.Keys.Where(key => !_savedMediaUris.Contains(key)).ToArray())
             _savedMediaFingerprints.Remove(key);
         MergeSavedMediaFingerprints(savedFingerprints ?? Scene.MediaFingerprints);
@@ -87,10 +89,10 @@ public sealed partial class EditViewModel
                 bool force = _forceFingerprintScanRequested;
                 _forceFingerprintScanRequested = false;
                 Scene scene = Scene;
-                Uri[] before = MissingMediaService.GetFileUris(scene);
+                Uri[] before = MissingMediaService.GetFileUris(_mediaReferences.GetReferences());
                 await CaptureMediaFingerprintsAsync(scene, force);
                 if (_disposed) return;
-                Uri[] after = MissingMediaService.GetFileUris(scene);
+                Uri[] after = MissingMediaService.GetFileUris(_mediaReferences.GetReferences());
                 if (!before.ToHashSet().SetEquals(after)) _fingerprintScanRequested = true;
 
                 using var write = await EditorService.BeginProjectFileWriteAsync(_autoSaveCancellation.Token);
