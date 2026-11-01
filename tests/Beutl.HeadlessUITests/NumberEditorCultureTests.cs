@@ -17,6 +17,15 @@ public sealed class NumberEditorCultureTests
         AssertReads(text, expected);
     }
 
+    // An integer editor reads no decimal point, so a grouped "1.000" is not taken for 1 and stays rejected.
+    [TestCase("1.000")]
+    [TestCase("1.5")]
+    [SetCulture("de-DE")]
+    public void An_integer_editor_reads_no_decimal_point(string text)
+    {
+        Assert.That(NumberEditorHelper.TryParseEdit(text, "2", out int _, out _), Is.False);
+    }
+
     [TestCase("1.5", 1.5f)]
     [TestCase("1,000.5", 1000.5f)]
     [SetCulture("en-US")]

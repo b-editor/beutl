@@ -73,12 +73,23 @@ public static class NumberEditorHelper
     // Reads a number typed into an editor in the current culture or with a period as the decimal point. Where the
     // decimal separator is a comma, the culture's own parse took the period for a group separator and read "1.5" as
     // 15, so group separators are allowed only for text neither decimal point reads, such as "1.000,5".
+    // An integer takes no decimal point, so "1.000" stays the grouped 1000 there rather than becoming 1.
     internal static bool TryParse<TValue>(ReadOnlySpan<char> text, [MaybeNullWhen(false)] out TValue value)
         where TValue : INumberBase<TValue>
     {
-        return TValue.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value)
-            || TValue.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
+        NumberStyles style = DecimalStyle<TValue>.Value;
+        return TValue.TryParse(text, style, CultureInfo.CurrentCulture, out value)
+            || TValue.TryParse(text, style, CultureInfo.InvariantCulture, out value)
             || TValue.TryParse(text, CultureInfo.CurrentCulture, out value);
+    }
+
+    private static class DecimalStyle<TValue>
+        where TValue : INumberBase<TValue>
+    {
+        public static readonly NumberStyles Value =
+            TValue.TryParse("0.5", NumberStyles.Float, CultureInfo.InvariantCulture, out _)
+                ? NumberStyles.Float
+                : NumberStyles.Integer;
     }
 
     // An edit applies when the new text parses and either the old text did not parse or the value changed.
