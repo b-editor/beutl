@@ -32,8 +32,6 @@ public sealed class ExportOrchestrationTests
         var scene = new Scene(64, 64, "export") { Duration = { Value = MediaTime.FromSeconds(1) } };
         var project = new Project { ChannelLayout = { Value = layout }, Items = { scene } };
 
-        var project = new Project { Items = { scene }, ChannelLayout = { Value = SpeakerLayout.Surround51 } };
-
         using SceneComposer composer = VideoExporter.CreateExportComposer(scene, 44100);
 
         Assert.Multiple(() =>
