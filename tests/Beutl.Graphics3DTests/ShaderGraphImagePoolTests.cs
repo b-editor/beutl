@@ -160,6 +160,34 @@ public sealed class ShaderGraphImagePoolTests
         });
     }
 
+    // The executor a custom effect creates inherits the request's settings, so its graph takes from the same pool.
+    [Test]
+    public void AGraphNestedInACustomEffectUsesTheRequestsPool()
+    {
+        GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ShaderGraphDescription graph = ShaderGraphEffectTests.Record(new Bloom());
+            using ProgramCache<ShaderGraphPipeline> cache = ShaderGraphPipeline.CreateCache();
+            using var targets = new RenderTargetPool(factory: null);
+            using var pool = new ShaderGraphImagePool();
+            Rect bounds = ShaderGraphRenderingTests.SourceBounds;
+
+            float[] first = ShaderGraphRenderingTests.Render(graph, bounds, cache: cache, sharedPool: targets,
+                nestedGraph: true, images: pool);
+            long retained = pool.RetainedBytes;
+            float[] second = ShaderGraphRenderingTests.Render(graph, bounds, cache: cache, sharedPool: targets,
+                nestedGraph: true, images: pool);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(retained, Is.GreaterThan(0));
+                Assert.That(pool.RetainedBytes, Is.EqualTo(retained));
+                Assert.That(second, Is.EqualTo(first));
+            });
+        });
+    }
+
     private static Vector4 BrightCenter(int x, int y)
         => Math.Abs(x - 32) < 4 && Math.Abs(y - 24) < 4 ? new Vector4(4, 4, 4, 1) : new Vector4(0, 0, 0, 1);
 }

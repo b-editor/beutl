@@ -56,6 +56,9 @@ internal sealed record FilterEffectExecutionSettings
 
     public ShaderGraphProgramAcquirer? ShaderGraphProgramAcquirer { get; init; }
 
+    /// <summary>The images shader graph stages return for later executions, or null to allocate them every time.</summary>
+    public ShaderGraphImagePool? ShaderGraphImages { get; init; }
+
     /// <summary>Renders dependencies through the active request, or null outside the renderer.</summary>
     public RenderExecutionContext? ExecutionContext { get; init; }
 
