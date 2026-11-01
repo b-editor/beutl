@@ -365,6 +365,20 @@
                                 </StackPanel>
                             </ctrls:OptionsDisplayItem.ActionButton>
                         </ctrls:OptionsDisplayItem>
+
+                        <ctrls:OptionsDisplayItem Description="{CompiledBinding DisplayPeakLuminanceDescription.Value}"
+                                                  Header="{x:Static lang:SettingsStrings.DisplayPeakLuminance}"
+                                                  IsVisible="{CompiledBinding IsDisplayPeakLuminanceSupported}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <NumericUpDown MinWidth="250"
+                                               VerticalAlignment="Center"
+                                               FormatString="F0"
+                                               Increment="10"
+                                               Maximum="10000"
+                                               Minimum="0"
+                                               Value="{CompiledBinding DisplayPeakLuminance.Value, Mode=TwoWay}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
                     </ctrls:OptionsGroupPanel>
                 </Border>
 

@@ -417,6 +417,22 @@
     <value>プレビュープレーヤーにHDRレンダリングを使用します（マウス操作などが制限されます）</value>
     <comment/>
   </data>
+  <data name="DisplayPeakLuminance" xml:space="preserve">
+    <value>ディスプレイのピーク輝度（nit）</value>
+    <comment/>
+  </data>
+  <data name="DisplayPeakLuminance_Description" xml:space="preserve">
+    <value>WindowsのHDRディスプレイで、「ディスプレイに合わせる」がハイライトを丸める先の明るさです。0ならWindowsが報告する値を使います。</value>
+    <comment/>
+  </data>
+  <data name="DisplayPeakLuminance_Reported" xml:space="preserve">
+    <value>このディスプレイの報告値: ピーク {0:F0} nit、SDR白レベル {1:F0} nit</value>
+    <comment/>
+  </data>
+  <data name="DisplayPeakLuminance_NotHdr" xml:space="preserve">
+    <value>このディスプレイはHDRモードではありません。</value>
+    <comment/>
+  </data>
   <data name="AiAgents" xml:space="preserve">
     <value>AI エージェント</value>
     <comment/>

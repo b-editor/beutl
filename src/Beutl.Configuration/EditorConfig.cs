@@ -107,6 +107,11 @@ public sealed partial class EditorConfig : ConfigurationBase
 
     public IProperty<bool> UseHdrPreview { get; } = Property.CreateValue(false);
 
+    // The peak in nit that FitToDisplay rolls highlights off into on a Windows HDR display, in place of the one DXGI
+    // reports, which mostly comes from the EDID and can be far from the panel's or missing. 0 uses the reported one.
+    [Range(0.0, 10000.0)]
+    public IProperty<float> DisplayPeakLuminance { get; } = Property.CreateValue(0f);
+
     [Display(Name = nameof(Strings.OnionSkin), ResourceType = typeof(Strings))]
     public IProperty<bool> IsOnionSkinEnabled { get; } = Property.CreateValue(false);
 

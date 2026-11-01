@@ -40,6 +40,13 @@ internal sealed class PreviewSurface : Border, IDisposable
             new ReflectionBinding("ToneMappingMode.Value") { Mode = BindingMode.OneWay });
         image.Bind(useHdr ? HdrBitmapView.ToneMappingExposureProperty : BitmapView.ToneMappingExposureProperty,
             new ReflectionBinding("ToneMappingExposure.Value") { Mode = BindingMode.OneWay });
+        // An SDR preview rolls highlights off into its own white, so only the HDR one takes the display's peak.
+        if (useHdr)
+        {
+            image.Bind(HdrBitmapView.DisplayPeakLuminanceProperty,
+                new ReflectionBinding("DisplayPeakLuminance.Value") { Mode = BindingMode.OneWay });
+        }
+
         return image;
     }
 

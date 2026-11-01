@@ -157,8 +157,11 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
                     // A paused preview gets no new frame when its window moves to another display, the display's
                     // settings change, or its native view takes a new size after the last frame, so the last one is
                     // drawn again.
-                    if (_lastRenderParams is not { } lastParams || !(RefreshDisplay() || SurfaceOutgrewLastFrame()))
+                    if (_lastRenderParams is not { } lastParams
+                        || !(RefreshDisplay(lastParams.DisplayPeakLuminance) || SurfaceOutgrewLastFrame()))
+                    {
                         continue;
+                    }
 
                     command = new RenderCommand.RedrawCommand(lastParams);
                 }
@@ -262,7 +265,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             _lastRenderParams = renderParams;
         }
 
-        RefreshDisplay();
+        RefreshDisplay(renderParams.DisplayPeakLuminance);
 
         var acquireResult = _swapchain.AcquireNextImage(_imageAvailableSemaphore, out uint imageIndex);
         if (acquireResult == Result.ErrorOutOfDateKhr)
@@ -316,11 +319,12 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         }
     }
 
-    // Reads the display again for an HDR swapchain on Windows, and returns whether it changed.
-    private bool RefreshDisplay()
+    // Reads the display again for an HDR swapchain on Windows, and returns whether it changed. A peak override in nit
+    // stands in for the one the display reports.
+    private bool RefreshDisplay(float peakLuminanceOverride)
     {
         if (!OperatingSystem.IsWindows() || _windowsDisplay == null || _swapchain?.IsHdr != true
-            || !_windowsDisplay.Refresh())
+            || !_windowsDisplay.Refresh(peakLuminanceOverride))
         {
             return false;
         }
@@ -415,9 +419,10 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         // An SDR format holds nothing above 1.0, so FitToDisplay rolls values off into that. A Windows HDR display
         // shows an HDR swapchain's 1.0 at 80 nit, so reference white is written as the SDR white the UI is shown at,
-        // and FitToDisplay rolls values off into the display's peak. Elsewhere an HDR swapchain gets values as they
-        // are: on macOS the layer's EDR metadata has Core Animation tone map them (HdrBitmapView), and on Linux the
-        // display's headroom is not known.
+        // and FitToDisplay rolls values off into the display's peak, or the one the editor settings give in its place
+        // (RenderParams.DisplayPeakLuminance). Elsewhere an HDR swapchain gets values as they are: on macOS the
+        // layer's EDR metadata has Core Animation tone map them (HdrBitmapView), and on Linux the display's headroom
+        // is not known.
         PresentLuminance luminance = _swapchain.IsHdr ? _hdrLuminance : PresentLuminance.Sdr;
         pushConstants.ReferenceWhite = luminance.ReferenceWhite;
 
