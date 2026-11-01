@@ -260,4 +260,19 @@
   <data name="ChannelMap_SourceChanged" xml:space="preserve">
     <value>소스 채널 배치가 변경되었습니다. 채널을 다시 할당할 때까지 자동을 사용합니다.</value>
   </data>
+  <data name="Panner_Title" xml:space="preserve">
+    <value>패너</value>
+  </data>
+  <data name="Panner_Help" xml:space="preserve">
+    <value>퍽을 드래그하여 위치를 조절합니다. 두 번 클릭하면 초기화됩니다.</value>
+  </data>
+  <data name="Panner_Mono" xml:space="preserve">
+    <value>모노 프로젝트에서는 패닝이 적용되지 않습니다.</value>
+  </data>
+  <data name="Panner_Stereo" xml:space="preserve">
+    <value>스테레오 프로젝트에서는 좌우 밸런스만 조절할 수 있습니다. 앞뒤, 센터 및 LFE는 비활성화됩니다.</value>
+  </data>
+  <data name="Panner_Multichannel" xml:space="preserve">
+    <value>앞뒤, 센터 및 LFE는 모노와 스테레오 클립에만 적용됩니다. 이 클립에서는 좌우 밸런스만 조절할 수 있습니다.</value>
+  </data>
 </root>

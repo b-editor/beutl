@@ -260,4 +260,19 @@
   <data name="ChannelMap_SourceChanged" xml:space="preserve">
     <value>源声道布局已更改。重新分配声道前将使用自动模式。</value>
   </data>
+  <data name="Panner_Title" xml:space="preserve">
+    <value>声像调节</value>
+  </data>
+  <data name="Panner_Help" xml:space="preserve">
+    <value>拖动圆点调整声像。双击重置。</value>
+  </data>
+  <data name="Panner_Mono" xml:space="preserve">
+    <value>声像调节在单声道项目中不生效。</value>
+  </data>
+  <data name="Panner_Stereo" xml:space="preserve">
+    <value>立体声项目仅支持左右平衡。前后、中央声道和 LFE 已禁用。</value>
+  </data>
+  <data name="Panner_Multichannel" xml:space="preserve">
+    <value>前后、中央声道和 LFE 仅适用于单声道和立体声片段。此片段仅支持左右平衡。</value>
+  </data>
 </root>

@@ -261,4 +261,19 @@
   <data name="ChannelMap_SourceChanged" xml:space="preserve">
     <value>The source channel layout has changed. Auto is used until you assign channels again.</value>
   </data>
+  <data name="Panner_Title" xml:space="preserve">
+    <value>Panner</value>
+  </data>
+  <data name="Panner_Help" xml:space="preserve">
+    <value>Drag the puck to pan. Double-click to reset.</value>
+  </data>
+  <data name="Panner_Mono" xml:space="preserve">
+    <value>Panning has no effect in a mono project.</value>
+  </data>
+  <data name="Panner_Stereo" xml:space="preserve">
+    <value>Stereo projects use left/right balance only. Front/back, center and LFE are disabled.</value>
+  </data>
+  <data name="Panner_Multichannel" xml:space="preserve">
+    <value>Front/back, center and LFE apply only to mono and stereo clips. This clip uses left/right balance only.</value>
+  </data>
 </root>

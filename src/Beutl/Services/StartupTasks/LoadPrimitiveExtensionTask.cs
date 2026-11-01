@@ -22,6 +22,7 @@ using Beutl.Editor.Components.PreviewSettingsTab;
 using Beutl.Editor.Components.ProxiesTab;
 using Beutl.Editor.Components.SceneSettingsTab;
 using Beutl.Editor.Components.SilenceSplitTab;
+using Beutl.Editor.Components.SoundPannerProperties;
 using Beutl.Editor.Components.TerminalTab;
 using Beutl.Editor.Components.TransitionTab;
 using Beutl.Editor.Components.VersionControlTab;
@@ -67,6 +68,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         Beutl.Editor.Components.NodeGraphTab.PropertyEditors.GenerativeChoicePropertyExtension.Instance,
         EqualizerPropertiesExtension.Instance,
         ChannelMapPropertiesExtension.Instance,
+        SoundPannerPropertiesExtension.Instance,
         ScriptEditorExtension.Instance,
         FileBrowserTabExtension.Instance,
         AiWorkspaceTabExtension.Instance,
