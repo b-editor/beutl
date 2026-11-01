@@ -34,7 +34,7 @@ public enum ElementOverlapHandling
 public partial class Scene : ProjectItem, INotifyEdited
 {
     private readonly List<string> _includeElements = ["**/*.belm"];
-    private readonly List<string> _excludeElements = [];
+    private readonly ElementPatternSet _excludeElements = new();
     private readonly SceneRecovery _recovery;
     private SceneElementIndex? _elementIndex;
     private readonly object _elementIndexLock = new();
@@ -245,8 +245,7 @@ public partial class Scene : ProjectItem, INotifyEdited
         {
             foreach (Element item in e.OldItems.OfType<Element>())
             {
-                if (TryGetStoredElementPattern(dirPath, item, out string? rel)
-                    && !_excludeElements.Contains(rel))
+                if (TryGetStoredElementPattern(dirPath, item, out string? rel))
                 {
                     // A previous save may still be creating the file. Record the removal now;
                     // saving prunes the exclusion once the file has actually been deleted.
@@ -264,7 +263,7 @@ public partial class Scene : ProjectItem, INotifyEdited
                 if (TryGetStoredElementPattern(dirPath, item, out string? rel))
                 {
                     // Undo/Redo can reattach an element before auto-save recreates its file.
-                    _excludeElements.RemoveAll(pattern => AreSameElementPaths(dirPath!, pattern, rel));
+                    RemoveExclusions(dirPath!, rel);
                 }
 
                 affectedRange.Add(item.Range);
@@ -290,6 +289,10 @@ public partial class Scene : ProjectItem, INotifyEdited
         pattern = null;
         return false;
     }
+
+    // Drops the exclusions that name the element file at path, in any spelling.
+    private void RemoveExclusions(string dirPath, string path)
+        => _excludeElements.RemoveAll(Path.GetFileName(path), pattern => AreSameElementPaths(dirPath, pattern, path));
 
     private void Layers_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
