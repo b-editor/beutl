@@ -371,9 +371,8 @@ final class Writer {
         if config.quality >= 0 {
             settings[AVEncoderAudioQualityKey] = config.quality
         }
-        if config.sampleRateConverterQuality >= 0 {
-            settings[AVSampleRateConverterAudioQualityKey] = config.sampleRateConverterQuality
-        }
+        // config.sampleRateConverterQuality is ignored: AVAssetWriterInput throws on
+        // AVSampleRateConverterAudioQualityKey even when canApply accepts the settings.
         if formatId == kAudioFormatLinearPCM {
             settings[AVLinearPCMBitDepthKey] = Int(config.linearPcmBitDepth)
             settings[AVLinearPCMIsFloatKey] = (config.linearPcmFlags & 0x1) != 0

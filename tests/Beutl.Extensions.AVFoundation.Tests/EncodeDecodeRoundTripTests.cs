@@ -91,6 +91,27 @@ public class EncodeDecodeRoundTripTests
         }
     }
 
+    [TestCase(AVFAudioEncoderSettings.AudioQuality.Min)]
+    [TestCase(AVFAudioEncoderSettings.AudioQuality.Max)]
+    public async Task NonDefaultSampleRateConverterQualityEncodesResampledAudio(AVFAudioEncoderSettings.AudioQuality quality)
+    {
+        const int sourceRate = 44100;
+        const int outputRate = 48000;
+        string path = Path.Combine(_workDir, $"src-quality-{quality}.mp4");
+        var controller = new AVFEncodingController(path);
+        controller.VideoSettings.SourceSize.Value = controller.VideoSettings.DestinationSize.Value = new PixelSize(64, 64);
+        controller.VideoSettings.FrameRate.Value = new Rational(30);
+        controller.AudioSettings.SampleRate.Value = outputRate;
+        controller.AudioSettings.SampleRateConverterQuality.Value = quality;
+        using var frames = new GradientFrameProvider(30, new Rational(30), 64, 64);
+        using var samples = new SpeakerToneSampleProvider(sourceRate, sourceRate, AudioChannelLayout.Stereo);
+
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        using var reader = new AVFReader(path, new MediaOptions(), new AVFDecodingExtension());
+        Assert.That(reader.AudioInfo.SampleRate, Is.EqualTo(outputRate));
+    }
+
     // The expected codes are the ISO/IEC 23091-2 transfer and matrix values in the mp4 colr box.
     [TestCase(AVFVideoEncoderSettings.ColorTransferCharacteristic.Default, AVFVideoEncoderSettings.YCbCrMatrixType.Default, 1, 1)]
     [TestCase(AVFVideoEncoderSettings.ColorTransferCharacteristic.Default, AVFVideoEncoderSettings.YCbCrMatrixType.Bt601, 1, 6)]
