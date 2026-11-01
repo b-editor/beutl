@@ -7,7 +7,11 @@ final class AudioEncoderLayoutTests: XCTestCase {
         for (count, mask, tag) in [
             (1, UInt32(0x4), kAudioChannelLayoutTag_Mono),
             (2, UInt32(0x3), kAudioChannelLayoutTag_Stereo),
+            (3, UInt32(0x7), kAudioChannelLayoutTag_WAVE_3_0),
+            (4, UInt32(0x33), kAudioChannelLayoutTag_WAVE_4_0_A),
+            (5, UInt32(0x37), kAudioChannelLayoutTag_WAVE_5_0_A),
             (6, UInt32(0x3f), kAudioChannelLayoutTag_MPEG_5_1_A),
+            (7, UInt32(0x70f), kAudioChannelLayoutTag_WAVE_6_1),
             (8, UInt32(0x63f), kAudioChannelLayoutTag_WAVE_7_1),
             (12, UInt32(0), kAudioChannelLayoutTag_DiscreteInOrder | 12),
             (6, UInt32(0), kAudioChannelLayoutTag_DiscreteInOrder | 6)

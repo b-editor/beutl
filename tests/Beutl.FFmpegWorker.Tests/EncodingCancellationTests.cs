@@ -165,6 +165,8 @@ public class EncodingCancellationTests
 
     [TestCase(6, "m4a")]
     [TestCase(8, "m4a")]
+    [TestCase(3, "wav")]
+    [TestCase(4, "wav")]
     [TestCase(6, "wav")]
     [TestCase(8, "wav")]
     [TestCase(12, "wav")]
@@ -239,6 +241,22 @@ public class EncodingCancellationTests
             Is.EqualTo(other.u.mask), "Fall back to a supported layout with the requested count.");
         Assert.That(FFmpegEncodingController.SelectChannelLayout([], requested).u.mask,
             Is.EqualTo(exact.u.mask), "Unrestricted codecs retain Beutl's native speaker order.");
+    }
+
+    [TestCase(3, 0x7u)]
+    [TestCase(4, 0x33u)]
+    [TestCase(3, 0u)]
+    public void SelectChannelLayout_WithoutRestrictionsPreservesTheRequestedLayout(int channels, uint mask)
+    {
+        var requested = new AudioChannelLayout(channels, (AudioSpeakers)mask);
+        var actual = FFmpegEncodingController.SelectChannelLayout([], requested);
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual.nb_channels, Is.EqualTo(channels));
+            Assert.That(actual.order, Is.EqualTo(mask == 0
+                ? AVChannelOrder.AV_CHANNEL_ORDER_UNSPEC : AVChannelOrder.AV_CHANNEL_ORDER_NATIVE));
+            Assert.That(actual.u.mask, Is.EqualTo((ulong)mask));
+        });
     }
 
     private static unsafe float[][] DecodeChannels(MediaDemuxer demuxer, MediaStream stream)

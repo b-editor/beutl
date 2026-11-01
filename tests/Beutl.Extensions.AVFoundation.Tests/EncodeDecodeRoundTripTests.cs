@@ -44,6 +44,9 @@ public class EncodeDecodeRoundTripTests
     }
 
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.MPEG4AAC, 6, ".mp4")]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 3, ".mov")]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 4, ".mov")]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 5, ".mov")]
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 8, ".mov")]
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 2, ".mov")]
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 6, ".mov")]

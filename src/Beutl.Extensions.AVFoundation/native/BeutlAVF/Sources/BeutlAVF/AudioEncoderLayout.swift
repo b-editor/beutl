@@ -6,7 +6,11 @@ enum AudioEncoderLayout {
         switch (channelCount, speakerMask) {
         case (1, 0x4): return kAudioChannelLayoutTag_Mono
         case (2, 0x3): return kAudioChannelLayoutTag_Stereo
+        case (3, 0x7): return kAudioChannelLayoutTag_WAVE_3_0
+        case (4, 0x33): return kAudioChannelLayoutTag_WAVE_4_0_A
+        case (5, 0x37): return kAudioChannelLayoutTag_WAVE_5_0_A
         case (6, 0x3f): return kAudioChannelLayoutTag_MPEG_5_1_A
+        case (7, 0x70f): return kAudioChannelLayoutTag_WAVE_6_1
         case (8, 0x63f): return kAudioChannelLayoutTag_WAVE_7_1
         default: return kAudioChannelLayoutTag_DiscreteInOrder | UInt32(channelCount)
         }

@@ -161,6 +161,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
     internal static AVChannelLayout SelectChannelLayout(AVChannelLayout[] layouts, AudioChannelLayout requested)
     {
+        if (layouts.Length == 0)
+            return ToNativeLayout(requested);
+
         foreach (AVChannelLayout layout in layouts)
         {
             if (requested.HasPositions && layout.order == AVChannelOrder.AV_CHANNEL_ORDER_NATIVE
