@@ -18,6 +18,7 @@ using Beutl.Editor.Components.SoundPannerProperties.Views;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Media.Decoding;
@@ -88,9 +89,13 @@ public class SoundPannerEditorTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public void DragEditsTheCurrentKeyAndDisablesBetweenKeysWhileThePuckInterpolates(bool global)
+    [TestCase(false, -1, 0)]
+    [TestCase(true, -1, 0)]
+    [TestCase(false, 1, 1)]
+    [TestCase(true, 1, 1)]
+    [TestCase(false, 3, 1)]
+    [TestCase(true, 3, 1)]
+    public void DragEditsAndDisplaysTheKeyAtOrAfterThePlayhead(bool global, int seconds, int index)
     {
         using var host = new PannerHost(SpeakerLayout.Surround51, 2, sound =>
         {
@@ -98,33 +103,95 @@ public class SoundPannerEditorTests
             AddKeys(sound.SurroundPan, global, 20, 80);
         });
         double origin = global ? 0 : 3;
-        host.Time.Value = MediaTime.FromSeconds(origin + 1);
-        HeadlessTestHelpers.Render();
-        Assert.That(host.ViewModel.CanDrag.Value, Is.False);
-        Assert.That(host.ViewModel.Pan.Value, Is.EqualTo(0).Within(0.01));
-        Assert.That(host.ViewModel.SurroundPan.Value, Is.EqualTo(50).Within(0.01));
-        Assert.That(host.Panner.PuckCenter.X, Is.EqualTo(host.Panner.PanningBounds.Center.X).Within(0.01));
-        Assert.That(host.Panner.PuckCenter.Y, Is.EqualTo(host.Panner.PanningBounds.Center.Y).Within(0.01));
-        host.Drag(70, 90);
-        Assert.That(host.History.UndoCount, Is.Zero);
-
-        host.Time.Value = MediaTime.FromSeconds(origin + 2);
+        host.Time.Value = MediaTime.FromSeconds(origin + seconds);
         HeadlessTestHelpers.Render();
         Assert.That(host.ViewModel.CanDrag.Value, Is.True);
+        float expectedPan = index == 0 ? -40 : 40;
+        float expectedBack = index == 0 ? 20 : 80;
+        Assert.That(host.ViewModel.Pan.Value, Is.EqualTo(expectedPan));
+        Assert.That(host.ViewModel.SurroundPan.Value, Is.EqualTo(expectedBack));
+        Rect area = host.Panner.PanningBounds;
+        Assert.That(host.Panner.PuckCenter.X, Is.EqualTo(area.X + (expectedPan + 100) / 200 * area.Width).Within(0.01));
+        Assert.That(host.Panner.PuckCenter.Y, Is.EqualTo(area.Y + expectedBack / 100 * area.Height).Within(0.01));
+        var numbers = host.Editor.GetVisualDescendants().OfType<NumberEditor<float>>().ToArray();
+        Assert.That(numbers.Single(n => ReferenceEquals(n.DataContext, host.ViewModel.PanEditor.Value)).Value, Is.EqualTo(expectedPan));
+        Assert.That(numbers.Single(n => ReferenceEquals(n.DataContext, host.ViewModel.SurroundPanEditor.Value)).Value, Is.EqualTo(expectedBack));
         host.Drag(-60, 35);
-        Assert.That(GetKey(host.Sound.Pan, 0).Value.Value, Is.EqualTo(-40));
-        Assert.That(GetKey(host.Sound.Pan, 1).Value.Value, Is.EqualTo(-60).Within(0.01));
-        Assert.That(GetKey(host.Sound.SurroundPan, 0).Value.Value, Is.EqualTo(20));
-        Assert.That(GetKey(host.Sound.SurroundPan, 1).Value.Value, Is.EqualTo(35).Within(0.01));
+        Assert.That(GetKey(host.Sound.Pan, index).Value.Value, Is.EqualTo(-60).Within(0.01));
+        Assert.That(GetKey(host.Sound.SurroundPan, index).Value.Value, Is.EqualTo(35).Within(0.01));
+        Assert.That(GetKey(host.Sound.Pan, 1 - index).Value.Value, Is.EqualTo(index == 0 ? 40 : -40));
+        Assert.That(GetKey(host.Sound.SurroundPan, 1 - index).Value.Value, Is.EqualTo(index == 0 ? 80 : 20));
         Assert.That(host.Sound.Pan.Value, Is.Zero);
         Assert.That(host.Sound.SurroundPan.Value, Is.Zero);
         Assert.That(host.History.UndoCount, Is.EqualTo(1));
         host.History.Undo();
-        Assert.That(GetKey(host.Sound.Pan, 1).Value.Value, Is.EqualTo(40));
-        Assert.That(GetKey(host.Sound.SurroundPan, 1).Value.Value, Is.EqualTo(80));
+        Assert.That(GetKey(host.Sound.Pan, index).Value.Value, Is.EqualTo(expectedPan));
+        Assert.That(GetKey(host.Sound.SurroundPan, index).Value.Value, Is.EqualTo(expectedBack));
         host.Time.Value = MediaTime.FromSeconds(origin);
         HeadlessTestHelpers.Render();
         Assert.That(host.ViewModel.CanDrag.Value, Is.True);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AnExpressionDisablesDraggingAndShowsItsEvaluatedValue(bool surround)
+    {
+        using var host = new PannerHost(SpeakerLayout.Surround51, 2, sound =>
+        {
+            var property = surround ? sound.SurroundPan : sound.Pan;
+            AddKeys(property, false, 10, 90);
+            property.Value = 7;
+            property.Expression = new StringExpression<float>("(float)Time * 10");
+        });
+        Assert.That(host.ViewModel.CanDrag.Value, Is.False);
+        // Expression time is local to the element, which starts at 3s.
+        Assert.That(surround ? host.ViewModel.SurroundPan.Value : host.ViewModel.Pan.Value, Is.Zero);
+        host.Time.Value = MediaTime.FromSeconds(4);
+        HeadlessTestHelpers.Render();
+        Assert.That(surround ? host.ViewModel.SurroundPan.Value : host.ViewModel.Pan.Value, Is.EqualTo(10));
+        host.Drag(70, 90);
+        var editedProperty = surround ? host.Sound.SurroundPan : host.Sound.Pan;
+        Assert.That(editedProperty.Value, Is.EqualTo(7));
+        Assert.That(GetKey(editedProperty, 0).Value.Value, Is.EqualTo(10));
+        Assert.That(GetKey(editedProperty, 1).Value.Value, Is.EqualTo(90));
+        Assert.That(host.History.UndoCount, Is.Zero);
+        Assert.That(host.History.HasPendingOperations, Is.False);
+    }
+
+    [AvaloniaTest]
+    [TestCase(SpeakerLayout.Surround51)]
+    [TestCase(SpeakerLayout.Surround71)]
+    public void GainEditsDoNotReadTheClipLayout(SpeakerLayout layout)
+    {
+        int calls = 0;
+        var probe = new Mock<Sound> { CallBase = true };
+        probe.Setup(s => s.GetClipLayout(It.IsAny<AudioChannelLayout>())).Returns(() =>
+        {
+            calls++;
+            return AudioChannelLayout.Stereo;
+        });
+        Sound sound = probe.Object;
+        var project = new Project { ChannelLayout = { Value = layout } };
+        var scene = new Scene();
+        var element = new Element { Objects = { sound } };
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        ((IModifiableHierarchical)new ComponentTestRoot()).AddChild(project);
+        using var vm = new SoundPannerViewModel(PannerAdapters(sound));
+        int initialCalls = calls;
+        Assert.That(initialCalls, Is.GreaterThan(0));
+
+        for (int i = 0; i < 10; i++) sound.Gain.Value = 50 + i;
+        sound.Pan.Value = 20;
+        sound.SurroundPan.Value = 30;
+        element.Start.Value = MediaTime.FromSeconds(3);
+        Assert.That(calls, Is.EqualTo(initialCalls));
+        Assert.That(vm.Pan.Value, Is.EqualTo(20));
+        Assert.That(vm.SurroundPan.Value, Is.EqualTo(30));
+
+        project.ChannelLayout.Value = layout == SpeakerLayout.Surround51 ? SpeakerLayout.Surround71 : SpeakerLayout.Surround51;
+        Assert.That(calls, Is.EqualTo(initialCalls + 1));
     }
 
     [AvaloniaTest]

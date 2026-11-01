@@ -29,6 +29,7 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
         {
             bool isPosition = properties.Any(p => ReferenceEquals(p.GetEngineProperty(), property))
                 || ReferenceEquals(property, Sound.TimeRange);
+            if (!isPosition && typeof(Sound).GetProperty(property.Name) != null) continue;
             Observable.FromEventPattern(h => property.Edited += h, h => property.Edited -= h)
                 .Subscribe(_ =>
                 {
@@ -128,21 +129,25 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
 
     private void RefreshValues()
     {
-        var context = new CompositionContext(CurrentTime.Value);
-        Pan.Value = Sound.Pan.Evaluate(context);
-        SurroundPan.Value = Sound.SurroundPan.Evaluate(context);
+        Pan.Value = GetEffectiveValue(Sound.Pan);
+        SurroundPan.Value = GetEffectiveValue(Sound.SurroundPan);
         CanDrag.Value = CanPan.Value && CanEditProperty(Sound.Pan)
             && (IsHorizontalOnly.Value || CanEditProperty(Sound.SurroundPan));
     }
 
-    private bool CanEditProperty(IExpressionProperty<float> property)
-        => !property.HasExpression && (property.GetKeyFrameAnimation() == null || GetEditingKeyFrame(property) != null);
+    private float GetEffectiveValue(IExpressionProperty<float> property)
+        => GetEditingKeyFrame(property)?.Value.Value ?? property.Evaluate(new CompositionContext(CurrentTime.Value));
+
+    private static bool CanEditProperty(IExpressionProperty<float> property) => !property.HasExpression;
 
     private KeyFrame<float>? GetEditingKeyFrame(IExpressionProperty<float> property)
     {
-        if (property.GetKeyFrameAnimation() is not { } animation) return null;
+        if (property.HasExpression || property.GetKeyFrameAnimation() is not { } animation
+            || animation.KeyFrames.Count == 0) return null;
+        var keyFrames = animation.KeyFrames;
         MediaTime time = animation.ToLocal(CurrentTime.Value);
-        return animation.KeyFrames.OfType<KeyFrame<float>>().FirstOrDefault(k => k.KeyTime.Value == time);
+        int index = Math.Clamp(keyFrames.IndexAtOrCount(time), 0, keyFrames.Count - 1);
+        return keyFrames[index] as KeyFrame<float>;
     }
 
     private bool SetPropertyValue(IExpressionProperty<float> property, float value)
