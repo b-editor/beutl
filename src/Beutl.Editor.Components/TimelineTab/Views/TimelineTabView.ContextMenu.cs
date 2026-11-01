@@ -5,7 +5,6 @@ using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
-using Beutl.ProjectSystem;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
 
@@ -104,8 +103,7 @@ public sealed partial class TimelineTabView
     private void PopulateAddFromTemplateSubMenu()
     {
         AddFromTemplateSubMenu.Items.Clear();
-        foreach (ObjectTemplateItem template in ObjectTemplateService.Instance
-            .FindByBaseType(typeof(Element)))
+        foreach (ObjectTemplateItem template in ElementTemplateResolver.FindElementTemplates())
         {
             var menuItem = new FAMenuFlyoutItem { Text = template.Name.Value, Tag = template };
             menuItem.Click += AddElementFromTemplateClick;

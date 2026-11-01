@@ -82,7 +82,12 @@ public sealed class AVFReader : MediaReader
                 BeutlAVFNative.FourCCToString(ai.CodecFourCC),
                 new Rational(ai.DurationNum, ai.DurationDen),
                 ai.SampleRate,
-                ai.ChannelCount);
+                ai.OutputChannelCount)
+            {
+                ChannelLayout = ai.SpeakerMask == 0
+                    ? AudioChannelLayout.Discrete(ai.OutputChannelCount)
+                    : new AudioChannelLayout(ai.OutputChannelCount, (AudioSpeakers)ai.SpeakerMask)
+            };
         }
     }
 
@@ -139,14 +144,16 @@ public sealed class AVFReader : MediaReader
             return false;
         }
 
+        int channels = AudioInfo.ChannelLayout.ChannelCount;
         if (length <= 0)
         {
-            sound = new AudioBuffer(AudioInfo.SampleRate, 2, 0);
+            sound = new AudioBuffer(AudioInfo.SampleRate, channels, 0);
             return true;
         }
 
-        // Native code writes interleaved stereo up to the requested length; only the decoded part is kept.
-        float[] interleaved = ArrayPool<float>.Shared.Rent(length * 2);
+        // Native code writes interleaved float32 in the declared layout; only the decoded part is kept.
+        int capacityBytes = checked(length * channels * sizeof(float));
+        float[] interleaved = ArrayPool<float>.Shared.Rent(capacityBytes / sizeof(float));
         try
         {
             int result;
@@ -156,7 +163,7 @@ public sealed class AVFReader : MediaReader
                 fixed (float* data = interleaved)
                 {
                     result = BeutlAVFNative.beutl_avf_reader_read_audio(
-                        _handle, start, length, (IntPtr)data, length * 2 * sizeof(float), out decoded);
+                        _handle, start, length, (IntPtr)data, capacityBytes, out decoded);
                 }
             }
 
@@ -173,8 +180,8 @@ public sealed class AVFReader : MediaReader
                 throw new InvalidOperationException($"BeutlAVF returned an invalid decoded sample count: {decoded}.");
             }
 
-            var audio = new AudioBuffer(AudioInfo.SampleRate, 2, decoded);
-            AudioConversion.Deinterleave(interleaved.AsSpan(0, decoded * 2), audio);
+            var audio = new AudioBuffer(AudioInfo.SampleRate, channels, decoded);
+            AudioConversion.Deinterleave(interleaved.AsSpan(0, decoded * channels), audio);
             sound = audio;
             return true;
         }

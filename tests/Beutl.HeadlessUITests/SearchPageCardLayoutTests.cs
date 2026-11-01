@@ -1,4 +1,6 @@
-﻿using System.Net.Http;
+﻿using System.Net;
+using System.Net.Http;
+using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
@@ -62,9 +64,11 @@ public class SearchPageCardLayoutTests
     [AvaloniaTest]
     public async Task Long_card_text_ellipsizes_wraps_and_stays_bounded()
     {
-        using var httpClient = new HttpClient();
+        using var httpClient = new HttpClient(new NoResultsHandler());
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var viewModel = new SearchPageViewModel(new DiscoverService(clients), "search");
+        // The page searches as it opens; add the card once that search has come back empty.
+        await HeadlessTestHelpers.WaitUntilAsync(() => !viewModel.IsBusy.Value);
         Package package = CreatePackage(clients);
         viewModel.Packages.Add(package);
 
@@ -149,6 +153,18 @@ public class SearchPageCardLayoutTests
         {
             window.Close();
             HeadlessTestHelpers.Settle();
+        }
+    }
+
+    // Answers every store request, the page's own search included, with no packages.
+    private sealed class NoResultsHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("[]", Encoding.UTF8, "application/json"),
+            });
         }
     }
 }
