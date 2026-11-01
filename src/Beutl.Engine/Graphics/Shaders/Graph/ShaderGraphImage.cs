@@ -150,14 +150,15 @@ internal sealed unsafe class ShaderGraphImage : IDisposable
     private sealed class View : VulkanTexture2D
     {
         private readonly ShaderGraphImage _owner;
-        private readonly ShaderImage _description;
+        // Not the ShaderImage: it holds the builder of its graph, which a pooled image outlives.
+        private readonly ImageSubresourceRange _range;
 
         internal View(ShaderGraphImage owner, ShaderImage image, ImageView handle)
             : base(owner._context, (int)owner.Extent(image.BaseMipLevel).Width,
                 (int)owner.Extent(image.BaseMipLevel).Height, image.Format, owner.Handle, handle, owner.Usage)
-            => (_owner, _description) = (owner, image);
+            => (_owner, _range) = (owner, Range(image));
 
-        public override void TransitionTo(ImageLayout layout) => _owner.Transition(_description, layout);
+        public override void TransitionTo(ImageLayout layout) => _owner.Transition(_range, layout);
         public override SKSurface CreateSkiaSurface() => throw new NotSupportedException("Graph image views are used inside shader passes.");
 
         public override void Dispose()
