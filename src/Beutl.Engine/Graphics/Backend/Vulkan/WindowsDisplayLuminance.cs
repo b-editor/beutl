@@ -5,8 +5,8 @@ using Beutl.Media;
 namespace Beutl.Graphics.Backend.Vulkan;
 
 /// <summary>
-/// Reads the peak luminance, SDR white level and primaries of the display a window is on, from DXGI and the display
-/// configuration, for an scRGB swapchain to match.
+/// Reads the peak luminance, SDR white level, primaries and color mode of the display a window is on, from DXGI and the
+/// display configuration, for an scRGB swapchain to match.
 /// </summary>
 /// <remarks>
 /// Windows sends no message when a display's HDR settings change, and the window's moves reach Avalonia, not the
@@ -31,7 +31,9 @@ internal sealed unsafe partial class WindowsDisplayLuminance(nint hwnd) : IDispo
     private const uint QdcOnlyActivePaths = 2;
     private const int ErrorInsufficientBuffer = 122;
     private const int DisplayConfigDeviceInfoGetSourceName = 1;
+    private const int DisplayConfigDeviceInfoGetAdvancedColorInfo = 9;
     private const int DisplayConfigDeviceInfoGetSdrWhiteLevel = 11;
+    private const int DisplayConfigDeviceInfoGetAdvancedColorInfo2 = 15;
 
     private nint _factory;
     private nint _monitor;
@@ -95,19 +97,32 @@ internal sealed unsafe partial class WindowsDisplayLuminance(nint hwnd) : IDispo
     // DXGI describes a display in HDR mode as HDR10, and any other, wide-gamut SDR included, as sRGB. In HDR mode
     // Windows passes colors outside sRGB on for the display to clip at its primaries, so they are fitted to those
     // first. In SDR mode DXGI does not tell whether Windows manages colors into the primaries or clips them to sRGB, so
-    // they are left to it.
+    // the display configuration is asked.
     private static (PresentLuminance Luminance, PreviewGamutMapping Gamut, HdrDisplayReport? Report) Read(
         DxgiOutputDesc1 desc, float peakLuminanceOverride)
     {
-        if (desc.ColorSpace != DxgiColorSpaceRgbFullG2084NoneP2020)
-            return (PresentLuminance.Sdr, PreviewGamutMapping.None, null);
-
-        var report = new HdrDisplayReport(
-            GetSdrWhiteLevelNits(TrimNull(new ReadOnlySpan<char>(desc.DeviceName, 32))), desc.MaxLuminance);
+        ReadOnlySpan<char> deviceName = TrimNull(new ReadOnlySpan<char>(desc.DeviceName, 32));
         float* xy = desc.Primaries;
         var primaries = new DisplayPrimaries(xy[0], xy[1], xy[2], xy[3], xy[4], xy[5]);
+        if (desc.ColorSpace != DxgiColorSpaceRgbFullG2084NoneP2020)
+            return (PresentLuminance.Sdr, GamutInSdrMode(GetColorMode(deviceName), primaries), null);
+
+        var report = new HdrDisplayReport(GetSdrWhiteLevelNits(deviceName), desc.MaxLuminance);
         return (PresentLuminance.ForScRgbHdr(report, peakLuminanceOverride),
             PreviewGamutMapping.For(primaries, withinSrgb: false), report);
+    }
+
+    // In SDR mode Windows clips colors to sRGB, unless auto color management has the display in WCG mode, where Windows
+    // converts them to the display's primaries and clips them there. A mode that cannot be read, or HDR while DXGI
+    // still describes the display as SDR, leaves them to Windows.
+    internal static PreviewGamutMapping GamutInSdrMode(DisplayConfigAdvancedColorMode? mode, DisplayPrimaries primaries)
+    {
+        return mode switch
+        {
+            DisplayConfigAdvancedColorMode.Sdr => PreviewGamutMapping.Srgb,
+            DisplayConfigAdvancedColorMode.Wcg => PreviewGamutMapping.For(primaries, withinSrgb: false),
+            _ => PreviewGamutMapping.None
+        };
     }
 
     // The output that shows the monitor, on whichever adapter drives it.
@@ -160,13 +175,57 @@ internal sealed unsafe partial class WindowsDisplayLuminance(nint hwnd) : IDispo
     // The SDR white level of the display named deviceName (\\.\DISPLAY1), or 0 when it cannot be read.
     private static float GetSdrWhiteLevelNits(ReadOnlySpan<char> deviceName)
     {
+        if (!TryGetPath(deviceName, out DisplayConfigPathInfo path))
+            return 0;
+
+        var white = new DisplayConfigSdrWhiteLevel
+        {
+            Header = new DisplayConfigDeviceInfoHeader(
+                DisplayConfigDeviceInfoGetSdrWhiteLevel, sizeof(DisplayConfigSdrWhiteLevel),
+                path.TargetAdapterId, path.TargetId)
+        };
+        // SDRWhiteLevel counts in thousandths of 80 nit.
+        return DisplayConfigGetDeviceInfo(&white.Header) == 0
+            ? white.SdrWhiteLevel / 1000f * PresentLuminance.ScRgbWhiteNits
+            : 0;
+    }
+
+    // The color mode of the display named deviceName, or null when it cannot be read. Windows 11 24H2 and later name
+    // it; earlier versions only flag it in the older query.
+    private static DisplayConfigAdvancedColorMode? GetColorMode(ReadOnlySpan<char> deviceName)
+    {
+        if (!TryGetPath(deviceName, out DisplayConfigPathInfo path))
+            return null;
+
+        var info2 = new DisplayConfigGetAdvancedColorInfo2
+        {
+            Header = new DisplayConfigDeviceInfoHeader(
+                DisplayConfigDeviceInfoGetAdvancedColorInfo2, sizeof(DisplayConfigGetAdvancedColorInfo2),
+                path.TargetAdapterId, path.TargetId)
+        };
+        if (DisplayConfigGetDeviceInfo(&info2.Header) == 0)
+            return info2.ActiveColorMode;
+
+        var info = new DisplayConfigGetAdvancedColorInfo
+        {
+            Header = new DisplayConfigDeviceInfoHeader(
+                DisplayConfigDeviceInfoGetAdvancedColorInfo, sizeof(DisplayConfigGetAdvancedColorInfo),
+                path.TargetAdapterId, path.TargetId)
+        };
+        return DisplayConfigGetDeviceInfo(&info.Header) == 0 ? info.ColorMode : null;
+    }
+
+    // The active path that shows the display named deviceName.
+    private static bool TryGetPath(ReadOnlySpan<char> deviceName, out DisplayConfigPathInfo path)
+    {
+        path = default;
         DisplayConfigPathInfo[] paths;
         uint pathCount, modeCount;
         int result;
         do
         {
             if (GetDisplayConfigBufferSizes(QdcOnlyActivePaths, &pathCount, &modeCount) != 0)
-                return 0;
+                return false;
 
             paths = new DisplayConfigPathInfo[pathCount];
             // Nothing here reads the modes, but QueryDisplayConfig fills them.
@@ -181,36 +240,25 @@ internal sealed unsafe partial class WindowsDisplayLuminance(nint hwnd) : IDispo
         while (result == ErrorInsufficientBuffer);
 
         if (result != 0)
-            return 0;
+            return false;
 
         for (uint i = 0; i < pathCount; i++)
         {
-            DisplayConfigPathInfo path = paths[i];
             var source = new DisplayConfigSourceDeviceName
             {
                 Header = new DisplayConfigDeviceInfoHeader(
                     DisplayConfigDeviceInfoGetSourceName, sizeof(DisplayConfigSourceDeviceName),
-                    path.SourceAdapterId, path.SourceId)
+                    paths[i].SourceAdapterId, paths[i].SourceId)
             };
-            if (DisplayConfigGetDeviceInfo(&source.Header) != 0
-                || !TrimNull(new ReadOnlySpan<char>(source.ViewGdiDeviceName, 32)).SequenceEqual(deviceName))
+            if (DisplayConfigGetDeviceInfo(&source.Header) == 0
+                && TrimNull(new ReadOnlySpan<char>(source.ViewGdiDeviceName, 32)).SequenceEqual(deviceName))
             {
-                continue;
+                path = paths[i];
+                return true;
             }
-
-            var white = new DisplayConfigSdrWhiteLevel
-            {
-                Header = new DisplayConfigDeviceInfoHeader(
-                    DisplayConfigDeviceInfoGetSdrWhiteLevel, sizeof(DisplayConfigSdrWhiteLevel),
-                    path.TargetAdapterId, path.TargetId)
-            };
-            // SDRWhiteLevel counts in thousandths of 80 nit.
-            return DisplayConfigGetDeviceInfo(&white.Header) == 0
-                ? white.SdrWhiteLevel / 1000f * PresentLuminance.ScRgbWhiteNits
-                : 0;
         }
 
-        return 0;
+        return false;
     }
 
     private static ReadOnlySpan<char> TrimNull(ReadOnlySpan<char> name)
@@ -354,5 +402,43 @@ internal sealed unsafe partial class WindowsDisplayLuminance(nint hwnd) : IDispo
     {
         public DisplayConfigDeviceInfoHeader Header;
         public uint SdrWhiteLevel;
+    }
+
+    // DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct DisplayConfigGetAdvancedColorInfo
+    {
+        public DisplayConfigDeviceInfoHeader Header;
+        // advancedColorSupported, advancedColorEnabled, wideColorEnforced and advancedColorForceDisabled, from bit 0.
+        public uint Value;
+        public int ColorEncoding;
+        public uint BitsPerColorChannel;
+
+        // Windows 11 22H2 and 23H2 enforce wide color on the SDR displays auto color management can take on, so enabled
+        // advanced color is WCG there and HDR on any other display.
+        public readonly DisplayConfigAdvancedColorMode ColorMode =>
+            (Value & 0b10) == 0 ? DisplayConfigAdvancedColorMode.Sdr
+            : (Value & 0b100) != 0 ? DisplayConfigAdvancedColorMode.Wcg
+            : DisplayConfigAdvancedColorMode.Hdr;
+    }
+
+    // DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO_2, from Windows 11 24H2
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct DisplayConfigGetAdvancedColorInfo2
+    {
+        public DisplayConfigDeviceInfoHeader Header;
+        // What the display supports and the user enabled, which the active mode already settles.
+        public uint Value;
+        public int ColorEncoding;
+        public uint BitsPerColorChannel;
+        public DisplayConfigAdvancedColorMode ActiveColorMode;
+    }
+
+    // DISPLAYCONFIG_ADVANCED_COLOR_MODE
+    internal enum DisplayConfigAdvancedColorMode
+    {
+        Sdr,
+        Wcg,
+        Hdr
     }
 }
