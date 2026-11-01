@@ -82,6 +82,10 @@ internal sealed class AudioSpeedMapping : IDisposable
 
     public double? GetFiniteSourceEndSample(double? inputEnd, int sampleRate)
     {
+        // An expression's speed is known for one window only, which bounds no end, and is asked for before the
+        // first window is evaluated.
+        if (HasExpression)
+            return null;
         if (inputEnd is not { } end || !TryGetBoundedMinimumSpeedFactor(out double minimumSpeed))
             return null;
         if (end <= 0)

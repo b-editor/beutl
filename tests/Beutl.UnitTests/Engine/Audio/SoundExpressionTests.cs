@@ -63,6 +63,25 @@ public class SoundExpressionTests
         });
     }
 
+    // A speed or offset an expression gives is known for one window only, and a time stretch asked for the source's
+    // end before the first window evaluated it, so the stored value cut the input short.
+    [Test]
+    public void Expression_LeavesTheSourceEndUnknown()
+    {
+        IExpressionProperty<float> speedProperty = Property.CreateAnimatable(100f);
+        speedProperty.Expression = new CountingExpression<float>(50f);
+        using var speed = new Beutl.Audio.Graph.AudioSpeedMapping { Speed = speedProperty };
+        IExpressionProperty<MediaTime> offset = Property.CreateExpression<MediaTime>();
+        offset.Expression = new CountingExpression<MediaTime>(MediaTime.FromSeconds(0.25));
+        using var shift = new Beutl.Audio.Graph.Nodes.ShiftNode { Offset = offset };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(speed.GetFiniteSourceEndSample(SampleRate, SampleRate), Is.Null);
+            Assert.That(shift.GetFiniteSourceEndSample(SampleRate), Is.Null);
+        });
+    }
+
     private static float[] Compose(Action<SourceSound> configure)
     {
         string path = TestMediaHelper.CreateTestAudioFile(sampleRate: SampleRate, channels: 2, durationSeconds: 2.0);
