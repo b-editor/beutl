@@ -132,15 +132,10 @@ public partial class PlayerViewModel
                                     sampleRate, generation, playbackToken).ConfigureAwait(false);
                                 return;
                             }
-                            catch (AVSampleBufferAudioRendererException ex)
+                            catch (AVSampleBufferAudioRendererException ex) when (clock.GetTime() is null)
                             {
+                                // Only startup failures fall back; failures after the clock starts use PlayAudio's error handler.
                                 _logger.LogWarning(ex, "AVSampleBufferAudioRenderer failed; falling back to OpenAL Soft.");
-                                // If the device failed during playback, resume at the clock's position.
-                                if (clock.GetTime() is { } position)
-                                {
-                                    startTime = position;
-                                    clock.Pause();
-                                }
                             }
                         }
 
