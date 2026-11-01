@@ -56,6 +56,10 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
 
     public bool IsHdr => _isHdr;
     public bool SrgbFormat { get; private set; }
+
+    /// <summary>Whether the swapchain takes linear BT.2020 rather than sRGB-primaried values.</summary>
+    public bool IsBt2020 => _colorSpace == ColorSpaceKHR.SpaceBT2020LinearExt;
+
     public Format Format => _format;
     public Extent2D Extent => _extent;
     public ImageView[] ImageViews => _imageViews;
@@ -222,17 +226,16 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
             s_logger.LogDebug("Available surface format: {Format} / {ColorSpace}", f.Format, f.ColorSpace);
         }
 
-        foreach (var f in formats)
+        // On macOS, Core Animation clips EDR content to the layer's color space before it tone maps it (FitToDisplay),
+        // and MoltenVK gives an extended linear sRGB swapchain an sRGB layer. A linear BT.2020 one keeps the colors a
+        // wide-gamut screen shows, and without the metadata both show the same.
+        if (SelectHdrFormat(formats, preferBt2020: OperatingSystem.IsMacOS()) is { } hdr)
         {
-            if (f.Format == Format.R16G16B16A16Sfloat &&
-                f.ColorSpace == ColorSpaceKHR.SpaceExtendedSrgbLinearExt)
-            {
-                format = f.Format;
-                colorSpace = f.ColorSpace;
-                isHdr = true;
-                s_logger.LogInformation("Selected HDR format: R16G16B16A16_SFLOAT + EXTENDED_SRGB_LINEAR");
-                return;
-            }
+            format = hdr.Format;
+            colorSpace = hdr.ColorSpace;
+            isHdr = true;
+            s_logger.LogInformation("Selected HDR format: R16G16B16A16_SFLOAT + {ColorSpace}", colorSpace);
+            return;
         }
 
         foreach (var f in formats)
@@ -260,6 +263,28 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
         }
 
         throw new InvalidOperationException("No surface formats available");
+    }
+
+    /// <summary>
+    /// Picks the half-float pair an HDR swapchain takes: linear BT.2020 when <paramref name="preferBt2020"/> is set and
+    /// the surface offers it, else extended linear sRGB, or null when the surface has neither.
+    /// </summary>
+    internal static SurfaceFormatKHR? SelectHdrFormat(SurfaceFormatKHR[] formats, bool preferBt2020)
+    {
+        SurfaceFormatKHR? extendedSrgb = null;
+        foreach (var f in formats)
+        {
+            if (f.Format != Format.R16G16B16A16Sfloat)
+                continue;
+
+            if (preferBt2020 && f.ColorSpace == ColorSpaceKHR.SpaceBT2020LinearExt)
+                return f;
+
+            if (f.ColorSpace == ColorSpaceKHR.SpaceExtendedSrgbLinearExt)
+                extendedSrgb ??= f;
+        }
+
+        return extendedSrgb;
     }
 
     /// <summary>

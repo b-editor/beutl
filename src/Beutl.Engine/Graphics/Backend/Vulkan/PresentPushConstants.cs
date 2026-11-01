@@ -40,4 +40,6 @@ internal struct PresentPushConstants
 
     // PresentLuminance.ReferenceWhite: what reference white (1.0) is written as.
     public float ReferenceWhite;
+
+    public int OutputBt2020; // 1 = the swapchain takes linear BT.2020 rather than linear sRGB
 }

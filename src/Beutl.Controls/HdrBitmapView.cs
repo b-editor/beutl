@@ -316,9 +316,10 @@ public partial class HdrBitmapView : NativeControlHost
     }
 
     // Follows the gamut FitToDisplay maps colors into on an HDR swapchain to the screen the view is on, and returns
-    // whether it changed. Core Animation applies the EDR metadata only after clipping the layer to its extended linear
-    // sRGB, so on macOS colors have to fit sRGB as well as the screen. On Windows the renderer reads the display's gamut
-    // itself, and elsewhere it is not known.
+    // whether it changed. Core Animation applies the EDR metadata only after clipping the layer to its color space,
+    // which holds every screen's colors when the swapchain is in BT.2020; with an extended linear sRGB one, colors have
+    // to fit sRGB as well as the screen. On Windows the renderer reads the display's gamut itself, and elsewhere it is
+    // not known.
     private bool UpdateDisplayGamut()
     {
         if (_macOSView == IntPtr.Zero)
@@ -333,7 +334,7 @@ public partial class HdrBitmapView : NativeControlHost
         _macOSScreenColorSpace = RetainMacOSObject(colorSpace);
 
         PreviewGamutMapping gamut = GetMacOSPrimaries(colorSpace) is { } primaries
-            ? PreviewGamutMapping.For(primaries, withinSrgb: true)
+            ? PreviewGamutMapping.For(primaries, withinSrgb: _renderer?.IsBt2020Active != true)
             : PreviewGamutMapping.None;
         if (!gamut.IsEnabled)
             gamut = PreviewGamutMapping.Srgb;
