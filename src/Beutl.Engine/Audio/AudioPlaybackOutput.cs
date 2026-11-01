@@ -1,8 +1,26 @@
-﻿namespace Beutl.Audio;
+﻿using Microsoft.Extensions.Logging;
+
+namespace Beutl.Audio;
 
 internal static class AudioPlaybackOutput
 {
     public static bool UseMultichannelBackend(AudioChannelLayout project) => project.ChannelCount > 2;
+
+    // A factory seam keeps backend selection and initialization-failure coverage device-free.
+    public static T? TryCreateAVSampleBufferRenderer<T>(AudioChannelLayout project, bool isMacOS,
+        Func<T> createRenderer, ILogger logger) where T : class
+    {
+        if (!isMacOS || !UseMultichannelBackend(project)) return null;
+        try
+        {
+            return createRenderer();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not create AVSampleBufferAudioRenderer; falling back to OpenAL Soft.");
+            return null;
+        }
+    }
 
     public static (AudioChannelLayout Layout, AudioChannelMatrix? Matrix) Create(
         AudioChannelLayout project, AudioChannelLayout device)
