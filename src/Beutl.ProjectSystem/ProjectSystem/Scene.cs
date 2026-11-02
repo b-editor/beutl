@@ -293,7 +293,7 @@ public partial class Scene : ProjectItem, INotifyEdited
             throw new ArgumentOutOfRangeException(nameof(elements));
         }
 
-        MoveChildrenCore(elements, deltaIndex, deltaStart);
+        MoveChildrenCore(elements, deltaIndex, deltaStart, fitAroundConflicts: true);
     }
 
     private void Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
