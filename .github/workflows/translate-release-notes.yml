@@ -197,7 +197,7 @@ jobs:
               - `For extension developers:` → `拡張機能の開発者向け:`
               - `## New Contributors` → `## 新しいコントリビューター`, and each `* @<user> made their first contribution in <URL>` → `* @<user> さんが <URL> で初めてコントリビュートしました`
               - `**Full Changelog**` → `**フルチェンジログ**`, keeping the URL.
-            - Write each bullet that describes a change as complete polite sentences ending in `ました。` or `ます。`, for example `トラックマットを追加しました。`. Never end it on a noun or a bare verb stem, such as `トラックマットを追加` or `問題を修正`. Bullets that are labels, such as `Windows (x64)`, stay labels.
+            - Write each bullet that describes a change as complete polite sentences ending in `ました。` or `ます。`, or `ました（破壊的変更）。` with that label, for example `トラックマットを追加しました。`. Never end it on a noun or a bare verb stem, such as `トラックマットを追加` or `問題を修正`. Bullets that are labels, such as `Windows (x64)`, stay labels.
             - Use Beutl's own words. The <ui-terms> below list the labels of its interface, one `English = Japanese` line each: when an English word or phrase matches one, use its Japanese side exactly. Also write `要素` for a clip, `描画オブジェクト` for a drawable, `フィルターエフェクト` for a filter effect, `音声エフェクト` for an audio effect, `コンポジション` for a composition, `書き出し` for an export, `ブラウザ` for a browser and the `ファイル` tab for the File Browser. Do not spell an English word in katakana when these terms or ordinary Japanese have a word for it.
             - Keep class names and other code identifiers in English.
             - Translate the meaning rather than word by word, and split a long sentence in two when that reads better.
