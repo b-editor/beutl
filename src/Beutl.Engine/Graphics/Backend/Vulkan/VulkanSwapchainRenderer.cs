@@ -65,8 +65,6 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
     // Windows only: the display the window is on, which an HDR swapchain is fitted to.
     private WindowsDisplayLuminance? _windowsDisplay;
-    private PresentLuminance _hdrLuminance = PresentLuminance.Unknown;
-    private PreviewGamutMapping _hdrGamut;
 
     // What the last uploaded frame was drawn with, to draw it again for a changed display.
     private RenderParams? _lastRenderParams;
@@ -345,11 +343,10 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             return false;
         }
 
-        _hdrLuminance = _windowsDisplay.Current;
-        _hdrGamut = _windowsDisplay.Gamut;
         s_logger.LogInformation(
             "Fitting the preview to its display: reference white {ReferenceWhite}, headroom {Headroom}, gamut {Gamut}",
-            _hdrLuminance.ReferenceWhite, _hdrLuminance.Headroom, _hdrGamut.IsEnabled ? "display" : "none");
+            _windowsDisplay.Current.ReferenceWhite, _windowsDisplay.Current.Headroom,
+            _windowsDisplay.Gamut.IsEnabled ? "display" : "none");
         return true;
     }
 
@@ -439,31 +436,19 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         // (RenderParams.DisplayPeakLuminance). Elsewhere an HDR swapchain gets values as they are: on macOS the
         // layer's EDR metadata has Core Animation tone map them (HdrBitmapView), and on Linux the display's headroom
         // is not known.
-        PresentLuminance luminance = _swapchain.IsHdr ? _hdrLuminance : PresentLuminance.Sdr;
+        PresentLuminance luminance = !_swapchain.IsHdr ? PresentLuminance.Sdr
+            : OperatingSystem.IsWindows() ? _windowsDisplay!.Current
+            : PresentLuminance.Unknown;
         pushConstants.ReferenceWhite = luminance.ReferenceWhite;
 
-        var mapping = PreviewDisplayMapping.For(luminance.Headroom);
-        pushConstants.MapKnee = mapping.Knee;
-        pushConstants.MapKs = mapping.Ks;
-        pushConstants.MapMaxLum = mapping.MaxLum;
-        pushConstants.MapSourcePq = mapping.SourcePq;
+        pushConstants.SetDisplayMapping(PreviewDisplayMapping.For(luminance.Headroom));
 
         // Colors outside the gamut go the same way: an SDR format holds sRGB, and an HDR swapchain hands colors to a
         // display whose gamut Windows reports (WindowsDisplayLuminance) and HdrBitmapView looks up elsewhere.
         var gamut = !_swapchain.IsHdr ? PreviewGamutMapping.Srgb
-            : OperatingSystem.IsWindows() ? _hdrGamut
+            : OperatingSystem.IsWindows() ? _windowsDisplay!.Gamut
             : renderParams.DisplayGamut;
-        pushConstants.Gamut0X = gamut.ToDisplay0.X;
-        pushConstants.Gamut0Y = gamut.ToDisplay0.Y;
-        pushConstants.Gamut0Z = gamut.ToDisplay0.Z;
-        pushConstants.GamutEnabled = gamut.IsEnabled ? 1f : 0f;
-        pushConstants.Gamut1X = gamut.ToDisplay1.X;
-        pushConstants.Gamut1Y = gamut.ToDisplay1.Y;
-        pushConstants.Gamut1Z = gamut.ToDisplay1.Z;
-        pushConstants.GamutWithinSrgb = gamut.WithinSrgb ? 1f : 0f;
-        pushConstants.Gamut2X = gamut.ToDisplay2.X;
-        pushConstants.Gamut2Y = gamut.ToDisplay2.Y;
-        pushConstants.Gamut2Z = gamut.ToDisplay2.Z;
+        pushConstants.SetGamut(gamut);
 
         var clearValue = new ClearValue { Color = new ClearColorValue(0f, 0f, 0f, 1f) };
         var renderPassInfo = new RenderPassBeginInfo

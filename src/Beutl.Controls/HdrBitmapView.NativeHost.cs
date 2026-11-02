@@ -58,11 +58,6 @@ public partial class HdrBitmapView
         return new PlatformHandle(nsView, "NSView");
     }
 
-    private static void ReleaseMacOSView(IntPtr nsView)
-    {
-        ReleaseMacOSObject(nsView);
-    }
-
     private static IntPtr RetainMacOSObject(IntPtr obj)
     {
         return obj != IntPtr.Zero ? objc_msgSend_IntPtr(obj, sel_getUid("retain")) : IntPtr.Zero;
