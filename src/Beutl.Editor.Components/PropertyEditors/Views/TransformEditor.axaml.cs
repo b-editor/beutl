@@ -143,11 +143,6 @@ public partial class TransformEditor : UserControl
     {
         if (DataContext is not TransformEditorViewModel { IsDisposed: false } vm) return;
 
-        await TargetSelectionHelper.HandleSelectTargetRequestAsync<TransformEditorViewModel, Transform>(
-            this,
-            sender as Control,
-            vm,
-            vm => vm.GetAvailableTargets(),
-            (vm, target) => vm.SetTarget(target));
+        await TargetSelectionHelper.PickTargetAsync(this, sender as Control, vm);
     }
 }

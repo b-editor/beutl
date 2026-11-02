@@ -15,8 +15,7 @@ public partial class ReferencePropertyEditor : UserControl
     {
         if (DataContext is not IReferencePropertyEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } vm) return;
 
-        await TargetSelectionHelper.HandleSelectTargetRequestAsync<IReferencePropertyEditorViewModel, CoreObject>(
-            this, sender as Control, vm, viewModel => viewModel.GetAvailableTargets(), (viewModel, target) => viewModel.SetTarget(target));
+        await TargetSelectionHelper.PickTargetAsync(this, sender as Control, vm);
     }
 
     private void SetNullClick(object? sender, RoutedEventArgs e)

@@ -1,7 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
-using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -16,12 +15,7 @@ public partial class SceneEditor : UserControl
     {
         if (DataContext is not SceneEditorViewModel { IsDisposed: false } vm) return;
 
-        await TargetSelectionHelper.HandleSelectTargetRequestAsync<SceneEditorViewModel, Scene>(
-            this,
-            sender as Control,
-            vm,
-            viewModel => viewModel.GetAvailableScenes(),
-            (viewModel, target) => viewModel.SetTarget(target));
+        await TargetSelectionHelper.PickTargetAsync(this, sender as Control, vm);
     }
 
     private void SetNullClick(object? sender, RoutedEventArgs e)

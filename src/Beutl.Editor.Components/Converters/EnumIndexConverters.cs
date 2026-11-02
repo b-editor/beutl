@@ -8,6 +8,15 @@ public static class EnumIndexConverters
 {
     public static readonly IValueConverter SpeakerLayouts = new EnumIndexConverter<SpeakerLayout>(SpeakerLayout.Stereo);
 
+    // The items of a ComboBox whose index goes through SpeakerLayouts, so in the order of the enum.
+    public static string[] SpeakerLayoutNames =>
+    [
+        Strings.SpeakerLayout_Mono,
+        Strings.SpeakerLayout_Stereo,
+        Strings.SpeakerLayout_Surround51,
+        Strings.SpeakerLayout_Surround71
+    ];
+
     public static readonly IValueConverter ScopeTypes = new EnumIndexConverter<ColorScopeType>(ColorScopeType.Waveform);
 
     public static readonly IValueConverter WaveformModes = new EnumIndexConverter<WaveformMode>(WaveformMode.Luma);

@@ -1,10 +1,10 @@
 <UserControl x:Class="Beutl.Pages.ExtensionsPages.DiscoverPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pages="using:Beutl.Pages.ExtensionsPages"
              xmlns:viewModel="using:Beutl.ViewModels.ExtensionsPages"
              d:DesignHeight="450"
              d:DesignWidth="800"
@@ -13,14 +13,6 @@
              Focusable="True"
              RenderOptions.BitmapInterpolationMode="HighQuality"
              mc:Ignorable="d">
-
-    <UserControl.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceInclude Source="avares://Beutl/Pages/ExtensionsPages/PackageCards.axaml" />
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </UserControl.Resources>
 
     <UserControl.KeyBindings>
         <KeyBinding Command="{Binding Refresh}" Gesture="F5" />
@@ -40,13 +32,7 @@
                     <TabStripItem Content="{x:Static lang:ExtensionsStrings.PackageKind_Templates}" />
                 </TabStrip>
 
-                <ItemsRepeater ItemTemplate="{StaticResource PackageCardTemplate}" ItemsSource="{Binding Items}">
-                    <ItemsRepeater.Layout>
-                        <controls:HorizontalGridLayout ColumnSpacing="12"
-                                                       MinItemWidth="300"
-                                                       RowSpacing="12" />
-                    </ItemsRepeater.Layout>
-                </ItemsRepeater>
+                <pages:PackageCardGrid ItemsSource="{Binding Items}" More="{Binding More}" />
             </StackPanel>
         </ScrollViewer>
 

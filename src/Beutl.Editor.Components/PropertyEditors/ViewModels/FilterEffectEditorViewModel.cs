@@ -37,7 +37,7 @@ public sealed class FilterEffectEditorViewModel : GroupableEditorViewModel<Filte
 
     public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
-    void IPresenterEditorViewModel.SetTarget(CoreObject? target) => SetTarget(target as FilterEffect);
+    void ITargetPickerViewModel.SetTarget(CoreObject? target) => SetTarget(target as FilterEffect);
 
     public void ChangeFilter(FilterEffect instance) => ChangeValue(instance);
 

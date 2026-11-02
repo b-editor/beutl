@@ -69,6 +69,6 @@ public partial class CoreObjectEditor : UserControl
     {
         if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
 
-        await CoreObjectPickerHelper.PickTargetAsync(this, sender as Control, viewModel);
+        await TargetSelectionHelper.PickTargetAsync(this, sender as Control, viewModel);
     }
 }
