@@ -6,7 +6,7 @@ namespace Beutl.Editor.Services;
 /// <summary>
 /// Copies elements of a scene into an <see cref="ElementSet"/>, the form a template keeps several elements in.
 /// </summary>
-public static class ElementSetFactory
+internal static class ElementSetFactory
 {
     /// <summary>
     /// A copy of <paramref name="elements"/> apart from <paramref name="scene"/>. Each copy starts and lies where it

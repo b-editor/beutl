@@ -10,13 +10,13 @@ public static class ElementTemplateResolver
     /// <summary>
     /// The templates a timeline adds as complete elements: one element's, and those saved from several.
     /// </summary>
-    public static IEnumerable<ObjectTemplateItem> FindElementTemplates()
+    internal static IEnumerable<ObjectTemplateItem> FindElementTemplates()
         => ObjectTemplateService.Instance.FindByBaseTypes(typeof(Element), typeof(ElementSet));
 
     /// <summary>
     /// Whether <see cref="CreateDescription"/> can add what <paramref name="template"/> holds to a scene.
     /// </summary>
-    public static bool CanCreateDescription(ObjectTemplateItem template)
+    internal static bool CanCreateDescription(ObjectTemplateItem template)
     {
         ArgumentNullException.ThrowIfNull(template);
 
