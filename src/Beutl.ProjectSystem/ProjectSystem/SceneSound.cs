@@ -21,13 +21,12 @@ public sealed partial class SceneSound : Sound, ITimeMappedSource
     [Display(Name = nameof(AudioStrings.SceneSound_ReferencedScene), ResourceType = typeof(AudioStrings))]
     public IExpressionProperty<Scene?> ReferencedScene { get; } = Property.CreateReference<Scene?>();
 
-    // Audio plays the stored offset at its speed whichever scene plays. The scene reference is itself an
-    // expression and hides only the scene's length, so a split still follows the speed (#3642).
-    bool ITimeMappedSource.HasDynamicMapping => false;
+    // Playback evaluates an expression on OffsetPosition.
+    bool ITimeMappedSource.HasDynamicMapping => OffsetPosition.HasExpression;
 
-    bool ITimeMappedSource.HasDynamicTimeline => ReferencedScene.HasExpression;
+    bool ITimeMappedSource.HasDynamicTimeline => SceneReference.IsDynamic(ReferencedScene);
 
-    MediaTime? ITimeMappedSource.GetSourceDuration() => ReferencedScene.Value?.Duration.Value;
+    MediaTime? ITimeMappedSource.GetSourceDuration() => SceneReference.GetDuration(this, ReferencedScene);
 
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
