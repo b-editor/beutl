@@ -17,6 +17,7 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 public sealed partial class PropertyEditorMenu : UserControl
 {
     private IDisposable? _componentSubscription;
+    private ExpressionEditorFlyout? _expressionFlyout;
 
     public PropertyEditorMenu()
     {
@@ -101,7 +102,16 @@ public sealed partial class PropertyEditorMenu : UserControl
 
             if (viewModel.HasExpression.Value && SupportsTextExpression(viewModel))
             {
-                EditExpression_Click(sender, e);
+                // The editor does not light-dismiss, so a second click on the button closes it and drops
+                // the unconfirmed edit, as × does.
+                if (_expressionFlyout is { IsOpen: true })
+                {
+                    _expressionFlyout.Hide();
+                }
+                else
+                {
+                    EditExpression_Click(sender, e);
+                }
             }
             else if (viewModel.HasAnimation.Value && viewModel.GetService<IEditorClock>() is { } editorClock)
             {
@@ -185,6 +195,9 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void EditExpression_Click(object? sender, RoutedEventArgs e)
     {
+        // Opening the editor again would stack a second one over it; the open one keeps its edit.
+        if (_expressionFlyout is { IsOpen: true }) return;
+
         if (DataContext is PropertyEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel
             && SupportsTextExpression(viewModel))
         {
@@ -201,6 +214,7 @@ public sealed partial class PropertyEditorMenu : UserControl
                 args.Error = error;
             };
 
+            _expressionFlyout = flyout;
             flyout.ShowAt(this);
         }
     }
