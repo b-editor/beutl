@@ -7,7 +7,7 @@ using Beutl.Media.Source;
 namespace Beutl.Audio;
 
 [Display(Name = nameof(AudioStrings.SourceSound), ResourceType = typeof(AudioStrings))]
-public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ISplittable
+public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ITimeMappedSource
 {
     public SourceSound()
     {
@@ -50,13 +50,14 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ISpl
         }
     }
 
-    public void NotifySplitted(bool backward, MediaTime startDelta, MediaTime durationDelta)
-    {
-        if (backward)
-        {
-            OffsetPosition.Value += startDelta;
-        }
-    }
+    // Audio plays the stored offset at its speed whichever file plays; an expression on Source
+    // hides only that file's length.
+    bool ITimeMappedSource.HasDynamicMapping => false;
+
+    bool ITimeMappedSource.HasDynamicTimeline => Source.HasExpression;
+
+    MediaTime? ITimeMappedSource.GetSourceDuration()
+        => TryGetOriginalDuration(out MediaTime duration) ? duration : null;
 
     public partial class Resource
     {

@@ -10,7 +10,7 @@ using Beutl.Media.Source;
 namespace Beutl.Graphics;
 
 [Display(Name = nameof(GraphicsStrings.SourceVideo), ResourceType = typeof(GraphicsStrings))]
-public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplittable
+public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMappedSource
 {
     public SourceVideo()
     {
@@ -51,12 +51,20 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         }
     }
 
-    public void NotifySplitted(bool backward, MediaTime startDelta, MediaTime durationDelta)
+    // Rendering evaluates OffsetPosition and IsLoop expressions, and it wraps the position by the
+    // file's length, so a file that Source switches changes the mapping as well.
+    bool ITimeMappedSource.HasDynamicMapping => SwitchesFiles || IsLoop.HasExpression || OffsetPosition.HasExpression;
+
+    bool ITimeMappedSource.HasDynamicTimeline => SwitchesFiles;
+
+    private bool SwitchesFiles => Source.GetKeyFrameAnimation() != null || Source.HasExpression;
+
+    MediaTime? ITimeMappedSource.GetSourceDuration()
     {
-        if (backward)
-        {
-            OffsetPosition.Value += startDelta;
-        }
+        using var resource = Source.Value?.ToResource(CompositionContext.Default);
+        // An offline reader reports a zero duration; treat it as unknown so a placeholder clip keeps
+        // the length the user asked for and stays resizable.
+        return resource is { IsOffline: false } && resource.Duration > MediaTime.Zero ? resource.Duration : null;
     }
 
     private MediaTime CalculateVideoTime(MediaTime timeSpan, Resource resource)

@@ -2,7 +2,6 @@
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
-using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -18,7 +17,7 @@ internal static partial class SlippableMedia
         private readonly bool _forResize;
         private readonly IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? _timingRoles;
         private readonly IReadOnlySet<DrawableTimeController>? _reenabledControllers;
-        private readonly Dictionary<MediaSource, MediaTime?> _sourceDurations;
+        private readonly Dictionary<ITimeMappedSource, MediaTime?> _sourceDurations;
         private readonly SplitBatch? _batch;
         private readonly List<Target> _targets = new();
         private readonly List<DrawableTimeController> _disabledFlowControllers = new();
@@ -32,7 +31,7 @@ internal static partial class SlippableMedia
 
         public TargetCollector(Element element, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
             IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles,
-            IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, MediaTime?>? sourceDurations = null,
+            IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<ITimeMappedSource, MediaTime?>? sourceDurations = null,
             bool forResize = false, SplitBatch? batch = null)
         {
             _element = element;
@@ -97,31 +96,18 @@ internal static partial class SlippableMedia
         private bool IsEnabled(EngineObject obj)
             => obj.IsEnabled.Value || obj is DrawableTimeController controller && _reenabledControllers?.Contains(controller) == true;
 
-        private MediaTime? GetSourceDuration(MediaSource? source)
+        private MediaTime? GetSourceDuration(ITimeMappedSource source)
         {
-            if (source == null) return null;
             if (_sourceDurations.TryGetValue(source, out MediaTime? duration)) return duration;
-            // Split copies have distinct MediaSource objects for the same file. Reuse metadata only
+            // Split copies hold the length of the source they were copied from. Reuse it only
             // within this batch, rather than reopening a decoder for every generated fragment.
-            if (_batch != null && source.Uri is { } cachedUri
-                && _batch.SourceDurations.TryGetValue((source.GetType(), cachedUri), out duration)) return duration;
+            if (_batch != null && _batch.SourceDurations.TryGetValue(source, out duration)) return duration;
             // All re-enabling states use the same pre-edit media. Keep only its
             // duration in this operation's cache so each reader is opened once
             // and its temporary resource is still disposed immediately.
-            using var resource = source.ToResource(CompositionContext.Default);
-            duration = resource switch
-            {
-                // An offline reader reports a zero duration; treat it as unknown so a
-                // placeholder clip keeps the length the user asked for and stays resizable.
-                VideoSource.Resource video => video.IsOffline || video.Duration <= MediaTime.Zero
-                    ? null
-                    : video.Duration,
-                SoundSource.Resource sound => sound.Duration > MediaTime.Zero ? sound.Duration : null,
-                _ => null
-            };
+            duration = source.GetSourceDuration();
             _sourceDurations.Add(source, duration);
-            if (_batch != null && source.Uri is { } uri)
-                _batch.SourceDurations[(source.GetType(), uri)] = duration;
+            _batch?.SourceDurations.TryAdd(source, duration);
             return duration;
         }
 
@@ -274,25 +260,15 @@ internal static partial class SlippableMedia
             }
             switch (obj)
             {
-                case SourceVideo video:
+                case ITimeMappedSource source:
                     {
-                        MediaTime? duration = GetSourceDuration(video.Source.Value);
-                        _targets.Add(new Target(video.OffsetPosition, duration,
-                            new MediaTimeMapping(_element, video, video.Speed, _controllers, 60, duration, _timingPeers, _ignoreLoops, _timingRoles, portalInput), _element.Length.Value));
+                        MediaTime? duration = GetSourceDuration(source);
+                        // Audio integrates its speed per sample; drawables integrate theirs at 60 Hz.
+                        int sampleRate = obj is Sound ? _sampleRate : 60;
+                        _targets.Add(new Target(source.OffsetPosition, duration,
+                            new MediaTimeMapping(_element, obj, source.Speed ?? Property.CreateValue(100f), _controllers, sampleRate,
+                                duration, _timingPeers, _ignoreLoops, _timingRoles, portalInput), _element.Length.Value));
                     }
-                    break;
-                case SourceSound sound:
-                    _targets.Add(new Target(sound.OffsetPosition, GetSourceDuration(sound.Source.Value),
-                        new MediaTimeMapping(_element, sound, sound.Speed, _controllers, _sampleRate, timingPeers: _timingPeers, timingRoles: _timingRoles, portalInput: portalInput), _element.Length.Value));
-                    break;
-                case SceneSound sound:
-                    _targets.Add(new Target(sound.OffsetPosition, sound.ReferencedScene.Value?.Duration.Value,
-                        new MediaTimeMapping(_element, sound, sound.Speed, _controllers, _sampleRate, timingPeers: _timingPeers, timingRoles: _timingRoles, portalInput: portalInput), _element.Length.Value));
-                    break;
-                case SceneDrawable drawable:
-                    _targets.Add(new Target(drawable.OffsetPosition, drawable.ReferencedScene.Value?.Duration.Value,
-                        new MediaTimeMapping(_element, drawable, Property.CreateValue(100f), _controllers, 60,
-                            timingPeers: _timingPeers, timingRoles: _timingRoles, portalInput: portalInput), _element.Length.Value));
                     break;
                 case SoundGroup group:
                     foreach (Sound child in group.Children) CollectFrom(child);

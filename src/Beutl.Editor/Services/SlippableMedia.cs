@@ -1,6 +1,4 @@
-﻿using Beutl.Audio;
-using Beutl.Engine;
-using Beutl.Graphics;
+﻿using Beutl.Engine;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
@@ -20,6 +18,7 @@ internal static partial class SlippableMedia
         public MediaTime Length { get; } = length;
 
         public bool IsSupported => SampleMappings.All(m => m.IsSupported);
+        public bool IsMappingSupported => SampleMappings.All(m => m.IsMappingSupported);
         public bool CanWriteOffsets => IsSupported && Mapping.CanWriteOffsets;
         public bool HasVariableDuration => SampleMappings.Any(m => m.HasVariableDuration);
         public bool HasSharedClock => SampleMappings.Any(m => m.HasSharedClock);
@@ -32,9 +31,9 @@ internal static partial class SlippableMedia
         public MediaTime ContextTime(MediaTime localTime)
             => Mapping.MapControllerTime(localTime);
 
-        public MediaTime SourcePosition(MediaTime localTime, bool wrapVideo)
-            => Mapping.Range(localTime, localTime, extrapolate: false, conservative: false,
-                sourceOffset: !wrapVideo).Min;
+        // The position playback shows, after any wrap the source applies.
+        public MediaTime SourcePosition(MediaTime localTime)
+            => Mapping.Range(localTime, localTime, extrapolate: false, conservative: false).Min;
 
         public bool CanSlip(MediaTime delta)
         {
@@ -236,7 +235,7 @@ internal static partial class SlippableMedia
         MediaTime? duration = null;
         foreach (EngineObject obj in element.Objects)
         {
-            if (obj is SourceVideo or SourceSound || obj is not IOriginalDurationProvider provider) continue;
+            if (obj is ITimeMappedSource || obj is not IOriginalDurationProvider provider) continue;
             if (provider.HasOriginalDuration() && provider.TryGetOriginalDuration(out MediaTime value) && value >= MediaTime.Zero
                 && (duration == null || value < duration)) duration = value;
         }
