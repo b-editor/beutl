@@ -631,6 +631,73 @@ public sealed class ApplyEditLockTests
         });
     }
 
+    // Locked members of one group share the check of the group they keep, and each of them must still keep it.
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Apply_edit_checks_each_locked_member_of_a_group(bool keepBoth)
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element first = AddElement(scene, "First locked", zIndex: 0);
+        Element second = AddElement(scene, "Second locked", zIndex: 1);
+        Element other = AddElement(scene, "Other", zIndex: 2);
+        first.IsLocked.Value = true;
+        second.IsLocked.Value = true;
+        scene.Groups.Add(ImmutableHashSet.Create(first.Id.Value, second.Id.Value, other.Id.Value));
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = session.CreateEditTools();
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: new JsonObject
+            {
+                ["Groups"] = new JsonArray(keepBoth
+                    ? $"{first.Id.Value}:{second.Id.Value}"
+                    : $"{first.Id.Value}:{other.Id.Value}")
+            },
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.EqualTo(keepBoth), result.Error?.Message);
+            if (keepBoth)
+            {
+                Assert.That(scene.Groups.Single(), Is.EquivalentTo(new[] { first.Id.Value, second.Id.Value }));
+            }
+            else
+            {
+                Assert.That(result.Error!.Message, Does.Contain($"({second.Id.Value}) is locked, so an agent cannot add it to a group"));
+            }
+        });
+    }
+
+    // Each locked element used to scan every group, so an edit cost locked elements × groups.
+    [Test]
+    public void Apply_edit_walks_the_groups_once_however_many_elements_are_locked()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element[] locked = [.. Enumerable.Range(0, 64).Select(index => AddElement(scene, $"Locked {index}", zIndex: 0))];
+        Element other = AddElement(scene, "Other", zIndex: 1);
+        foreach (Element element in locked)
+        {
+            element.IsLocked.Value = true;
+        }
+
+        scene.Groups.Add(ImmutableHashSet.Create(locked[0].Id.Value, locked[1].Id.Value));
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = session.CreateEditTools();
+        int accesses = 0;
+        ((ListProperty<ImmutableHashSet<Guid>>)scene.Groups).BeforeAccess = () => accesses++;
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: ElementPatch(other, new JsonObject { [nameof(Element.Name)] = "Renamed" }),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(accesses, Is.LessThan(locked.Length));
+        });
+    }
+
     // A corrupted project can repeat an element Id, and the applier edits whichever copy comes first.
     // This edit renames the locked second copy and locks the first one so that the copies look alike.
     [Test]

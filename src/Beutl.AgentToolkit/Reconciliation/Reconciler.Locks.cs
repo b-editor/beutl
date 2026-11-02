@@ -89,11 +89,16 @@ public sealed partial class Reconciler
             return null;
         }
 
+        HashSet<Guid> lockedIds = lockedElements.Select(element => element.Id.Value).ToHashSet();
+        ILookup<Guid, ImmutableHashSet<Guid>> groupsBefore = GroupsHolding(scene, lockedIds);
+        ILookup<Guid, ImmutableHashSet<Guid>> groupsAfter = GroupsHolding(sandbox, lockedIds);
+        // Locked members of one group share the answer, and IsSubsetOf copies the original into a new set on each call.
+        var keptGroups = new HashSet<(ImmutableHashSet<Guid> After, ImmutableHashSet<Guid> Original)>();
         HashSet<Guid> remaining = sandbox.Children.Select(element => element.Id.Value).ToHashSet();
         foreach (Element locked in lockedElements)
         {
-            ImmutableHashSet<Guid>[] before = scene.Groups.Where(group => group.Contains(locked.Id.Value)).ToArray();
-            ImmutableHashSet<Guid>[] after = sandbox.Groups.Where(group => group.Contains(locked.Id.Value)).ToArray();
+            ImmutableHashSet<Guid>[] before = groupsBefore[locked.Id.Value].ToArray();
+            ImmutableHashSet<Guid>[] after = groupsAfter[locked.Id.Value].ToArray();
             // The editor never puts an element in two groups, so that comes from a corrupted project, whose
             // groups cannot be matched before and after the edit. Refuse until the project is repaired.
             if (before.Length > 1)
@@ -109,7 +114,9 @@ public sealed partial class Reconciler
             bool kept = after.Length switch
             {
                 0 => original is null || !original.Any(id => id != locked.Id.Value && remaining.Contains(id)),
-                1 => original is not null && after[0].IsSubsetOf(original),
+                1 => original is not null
+                     && (keptGroups.Contains((after[0], original))
+                         || (after[0].IsSubsetOf(original) && keptGroups.Add((after[0], original)))),
                 _ => false,
             };
             if (!kept)
@@ -124,6 +131,12 @@ public sealed partial class Reconciler
 
         return null;
     }
+
+    // Every group holding each of these elements, from one pass over the groups rather than one per element.
+    private static ILookup<Guid, ImmutableHashSet<Guid>> GroupsHolding(Scene scene, HashSet<Guid> elementIds)
+        => scene.Groups
+            .SelectMany(group => group.Where(elementIds.Contains), (group, id) => (Id: id, Group: group))
+            .ToLookup(member => member.Id, member => member.Group);
 
     // A locked element's blend at each edge stays: the deciding transition, even the neighbour's, and its time range.
     private static ToolError? FindChangedTransitionAtLockedElement(Scene scene, Scene sandbox, Element[] lockedElements)
