@@ -1,4 +1,7 @@
-﻿namespace Beutl.Editor.Components.AudioVisualizerTab.Utilities;
+﻿using System.Runtime.Intrinsics;
+using Beutl.Audio.Graph;
+
+namespace Beutl.Editor.Components.AudioVisualizerTab.Utilities;
 
 // 4x oversampled true-peak estimator per ITU-R BS.1770-5 Annex 2: the order-48,
 // 4-phase FIR interpolator given there, then the largest absolute value. Only
@@ -28,26 +31,32 @@ internal static class TruePeakDetector
 
     private const int Taps = 12;
 
+    // s_phases by tap, one lane per phase, so a single multiply covers all four phases.
+    private static readonly Vector128<float>[] s_tapColumns =
+        [.. Enumerable.Range(0, Taps).Select(k => Vector128.Create(s_phases[0][k], s_phases[1][k], s_phases[2][k], s_phases[3][k]))];
+
     public static float Detect(ReadOnlySpan<float> samples)
     {
-        float peak = 0f;
         // The sample peak is a floor: the reading never drops below it on blocks too
         // short to interpolate, or through the filter's passband ripple.
-        foreach (float s in samples)
-        {
-            float a = MathF.Abs(s);
-            if (a > peak) peak = a;
-        }
+        float peak = AudioMath.FindPeak(samples);
+        // All zeros interpolate to zero, and a NaN never reads above the floor.
+        if (peak == 0f) return 0f;
 
+        // Plain multiplies and adds in tap order: a fused form rounds differently and would change the reading.
+        Vector128<float>[] columns = s_tapColumns;
+        Vector128<float> peaks = Vector128<float>.Zero;
         for (int n = Taps - 1; n < samples.Length; n++)
         {
-            foreach (float[] phase in s_phases)
-            {
-                float y = 0f;
-                for (int k = 0; k < Taps; k++) y += phase[k] * samples[n - k];
-                float a = MathF.Abs(y);
-                if (a > peak) peak = a;
-            }
+            Vector128<float> y = Vector128<float>.Zero;
+            for (int k = 0; k < Taps; k++) y += columns[k] * Vector128.Create(samples[n - k]);
+            Vector128<float> a = Vector128.Abs(y);
+            peaks = Vector128.ConditionalSelect(Vector128.GreaterThan(a, peaks), a, peaks);
+        }
+
+        for (int i = 0; i < Vector128<float>.Count; i++)
+        {
+            if (peaks[i] > peak) peak = peaks[i];
         }
 
         return peak;
