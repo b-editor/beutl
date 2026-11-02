@@ -128,4 +128,67 @@
   <data name="FFmpegDecoder" xml:space="preserve">
     <value>FFmpeg 解码器</value>
   </data>
+  <data name="EncoderOptionsHeader" xml:space="preserve">
+    <value>编码选项</value>
+  </data>
+  <data name="EncoderOptionsLoading" xml:space="preserve">
+    <value>正在加载可用选项…</value>
+  </data>
+  <data name="EncoderOptionsUnavailable" xml:space="preserve">
+    <value>无法加载编码器选项。你仍可编辑高级选项。</value>
+  </data>
+  <data name="EncoderOptionInvalidValue" xml:space="preserve">
+    <value>{0}: 当前编码器或像素格式不支持“{1}”。</value>
+  </data>
+  <data name="EncoderOptionsBitrateUnusedWithCrf" xml:space="preserve">
+    <value>设置 crf 时，H.264 和 H.265 按其质量编码，不使用比特率。要按比特率导出，请删除 crf。</value>
+  </data>
+  <data name="EncoderOptionsDuplicate" xml:space="preserve">
+    <value>选项名称不能重复。</value>
+  </data>
+  <data name="EncoderOptionsAdvanced" xml:space="preserve">
+    <value>高级选项</value>
+  </data>
+  <data name="EncoderOptionsOptionName" xml:space="preserve">
+    <value>选项名称</value>
+  </data>
+  <data name="EncoderOptionsEmptyName" xml:space="preserve">
+    <value>选项名称不能为空。</value>
+  </data>
+  <data name="EncoderOptionsAdd" xml:space="preserve">
+    <value>添加</value>
+  </data>
+  <data name="EncoderOptionsRemove" xml:space="preserve">
+    <value>移除选项</value>
+  </data>
+  <data name="EncoderOptionsAutomatic" xml:space="preserve">
+    <value>自动</value>
+  </data>
+  <data name="EncoderOptionsPreset" xml:space="preserve">
+    <value>速度预设</value>
+  </data>
+  <data name="EncoderOptionsProfile" xml:space="preserve">
+    <value>配置文件</value>
+  </data>
+  <data name="EncoderOptionsQuality" xml:space="preserve">
+    <value>质量</value>
+  </data>
+  <data name="EncoderOptionsLevel" xml:space="preserve">
+    <value>级别</value>
+  </data>
+  <data name="EncoderOptionsTune" xml:space="preserve">
+    <value>内容调优</value>
+  </data>
+  <data name="EncoderOptionsEnabled" xml:space="preserve">
+    <value>已启用</value>
+  </data>
+  <data name="EncoderOptionsDisabled" xml:space="preserve">
+    <value>已禁用</value>
+  </data>
+  <data name="EncoderOptionsValue" xml:space="preserve">
+    <value>值</value>
+  </data>
+  <data name="CodecPicker_NoResults" xml:space="preserve">
+    <value>没有匹配的编码器</value>
+  </data>
 </root>

@@ -185,4 +185,7 @@ Este archivo de paquete puede haber sido manipulado.</value>
   <data name="Unknown" xml:space="preserve">
     <value>Desconocido</value>
   </data>
+  <data name="Double_click_to_show_or_hide_the_details" xml:space="preserve">
+    <value>Haz doble clic para mostrar u ocultar los detalles</value>
+  </data>
 </root>

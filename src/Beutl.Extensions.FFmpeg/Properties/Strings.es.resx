@@ -128,4 +128,67 @@
   <data name="FFmpegDecoder" xml:space="preserve">
     <value>Decodificador FFmpeg</value>
   </data>
+  <data name="EncoderOptionsHeader" xml:space="preserve">
+    <value>Opciones de codificación</value>
+  </data>
+  <data name="EncoderOptionsLoading" xml:space="preserve">
+    <value>Cargando las opciones disponibles…</value>
+  </data>
+  <data name="EncoderOptionsUnavailable" xml:space="preserve">
+    <value>No se pudieron cargar las opciones del codificador. Aún puedes editar las opciones avanzadas.</value>
+  </data>
+  <data name="EncoderOptionInvalidValue" xml:space="preserve">
+    <value>{0}: «{1}» no es compatible con el codificador o el formato de píxel actuales.</value>
+  </data>
+  <data name="EncoderOptionsBitrateUnusedWithCrf" xml:space="preserve">
+    <value>Mientras crf esté definido, H.264 y H.265 codifican con su calidad y no usan la tasa de bits. Elimina crf para exportar con la tasa de bits.</value>
+  </data>
+  <data name="EncoderOptionsDuplicate" xml:space="preserve">
+    <value>Los nombres de las opciones deben ser únicos.</value>
+  </data>
+  <data name="EncoderOptionsAdvanced" xml:space="preserve">
+    <value>Opciones avanzadas</value>
+  </data>
+  <data name="EncoderOptionsOptionName" xml:space="preserve">
+    <value>Nombre de la opción</value>
+  </data>
+  <data name="EncoderOptionsEmptyName" xml:space="preserve">
+    <value>El nombre de la opción no puede estar vacío.</value>
+  </data>
+  <data name="EncoderOptionsAdd" xml:space="preserve">
+    <value>Agregar</value>
+  </data>
+  <data name="EncoderOptionsRemove" xml:space="preserve">
+    <value>Quitar la opción</value>
+  </data>
+  <data name="EncoderOptionsAutomatic" xml:space="preserve">
+    <value>Automático</value>
+  </data>
+  <data name="EncoderOptionsPreset" xml:space="preserve">
+    <value>Ajuste preestablecido de velocidad</value>
+  </data>
+  <data name="EncoderOptionsProfile" xml:space="preserve">
+    <value>Perfil</value>
+  </data>
+  <data name="EncoderOptionsQuality" xml:space="preserve">
+    <value>Calidad</value>
+  </data>
+  <data name="EncoderOptionsLevel" xml:space="preserve">
+    <value>Nivel</value>
+  </data>
+  <data name="EncoderOptionsTune" xml:space="preserve">
+    <value>Ajuste de contenido</value>
+  </data>
+  <data name="EncoderOptionsEnabled" xml:space="preserve">
+    <value>Activado</value>
+  </data>
+  <data name="EncoderOptionsDisabled" xml:space="preserve">
+    <value>Desactivado</value>
+  </data>
+  <data name="EncoderOptionsValue" xml:space="preserve">
+    <value>Valor</value>
+  </data>
+  <data name="CodecPicker_NoResults" xml:space="preserve">
+    <value>Ningún códec coincide</value>
+  </data>
 </root>
