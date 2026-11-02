@@ -123,9 +123,7 @@ public sealed partial class EqualizerEffect : AudioEffect
             return false;
         }
 
-        // Expressions render at Value, so only an animation keeps the gain live.
-        // FIXME(expression): also treat HasExpression as live once AnimationSampler evaluates expressions.
-        if (band.Gain.GetKeyFrameAnimation() is not null) return false;
+        if (AnimationSampler.IsAnimated(band.Gain)) return false;
 
         return band.Gain.Value == 0f;
     }

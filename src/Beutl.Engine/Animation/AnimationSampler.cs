@@ -49,6 +49,18 @@ public sealed class AnimationSampler
         }
     }
 
+    // One value, for a node that holds it for a frame: an expression is evaluated at time itself, not on the grid.
+    internal T SampleAt<T>(IProperty<T> property, MediaTime time, int sampleRate)
+        where T : struct
+    {
+        if (property is IExpressionProperty<T> { HasExpression: true } expressionProperty)
+            return Evaluate(expressionProperty, GetOwnerStart(property) + time);
+
+        T value = default;
+        SampleBuffer(property, new TimeRange(time, MediaTime.Zero), sampleRate, new Span<T>(ref value));
+        return value;
+    }
+
     private static MediaTime GetOwnerStart(IProperty property)
         => (property.GetOwnerObject() as EngineObject)?.TimeRange.Value.Start ?? MediaTime.Zero;
 
@@ -66,8 +78,8 @@ public sealed class AnimationSampler
             long index = (long)Math.Floor(time / ExpressionInterval);
             if (index != cell)
             {
-                from = index == cell + 1 ? to : Evaluate(property, index);
-                to = Evaluate(property, index + 1);
+                from = index == cell + 1 ? to : Evaluate(property, new MediaTime(index * ExpressionInterval));
+                to = Evaluate(property, new MediaTime((index + 1) * ExpressionInterval));
                 cell = index;
             }
 
@@ -75,8 +87,13 @@ public sealed class AnimationSampler
         }
     }
 
-    private static T Evaluate<T>(IExpressionProperty<T> property, long index)
-        => property.Evaluate(new EvaluationContext(new MediaTime(index * ExpressionInterval)));
+    private static T Evaluate<T>(IExpressionProperty<T> property, MediaTime time)
+        where T : struct
+    {
+        T value = property.Evaluate(new EvaluationContext(time));
+        // A script can return what no keyframe can, and nodes such as a delay line index by the value.
+        return typeof(T) == typeof(float) && !float.IsFinite(Unsafe.As<T, float>(ref value)) ? property.Value : value;
+    }
 
     // Linear for a float, which is what the audio graph samples; any other value holds until the next grid point.
     private static T Interpolate<T>(T from, T to, double fraction)
