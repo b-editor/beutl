@@ -54,7 +54,7 @@ public partial class Scene : ProjectItem, INotifyEdited
         Duration.Value = MediaTime.FromSeconds(300);
         ScanProperties<Scene>();
         FrameSize.Value = new PixelSize(width, height);
-        Children.CollectionChanged += (_, _) => { lock (_elementIndexLock) _elementIndex = null; };
+        Children.CollectionChanged += (_, e) => ApplyToElementIndex(e);
         Children.CollectionChanged += Children_CollectionChanged;
         Children.Attached += item =>
         {
@@ -101,6 +101,26 @@ public partial class Scene : ProjectItem, INotifyEdited
     internal void UpdateElementIndex(Element element)
     {
         lock (_elementIndexLock) _elementIndex?.Update(element);
+    }
+
+    // Appending keeps the scene order of the other elements, so adding clips one by one with a placement check for
+    // each does not rebuild the index every time. Anything else gets a new one on demand: a renderer between a query
+    // and a sort still needs the elements it found in the instance it holds, even after they are removed.
+    private void ApplyToElementIndex(NotifyCollectionChangedEventArgs e)
+    {
+        lock (_elementIndexLock)
+        {
+            if (_elementIndex is not { } index) return;
+
+            if (e.Action == NotifyCollectionChangedAction.Add && e.NewStartingIndex + e.NewItems!.Count == Children.Count)
+            {
+                foreach (Element element in e.NewItems) index.Append(element);
+            }
+            else
+            {
+                _elementIndex = null;
+            }
+        }
     }
 
     internal void UpdateTransitionElement(Element element)
