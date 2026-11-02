@@ -863,19 +863,18 @@ public class ElementSlipServiceTests
         });
     }
 
-    [TestCase(0, 2, 1, 100f, 0)]
-    [TestCase(0, 2, 1, 50f, 0)]
-    [TestCase(0, 2, 1, 200f, 0)]
-    [TestCase(1, 1, 8, 100f, 1)]
-    [TestCase(6, 2, 0, 100f, 2)]
-    [TestCase(0, 12, 0, 100f, 0)]
-    [TestCase(1, 1, 0, 100f, 3)]
-    [TestCase(0, 1, 5, 100f, 4)]
-    [TestCase(0, 1, 10, 100f, 4)]
-    [TestCase(0, 1, 10, 50f, 4.5)]
-    [TestCase(0, 1, 2.5, 200f, 3)]
-    public void Slip_LoopingVideo_ClampsToMaximumMappedSample(
-        double start, double length, double videoStart, float speed, double expectedOffset)
+    [TestCase(0, 2, 1, 100f)]
+    [TestCase(0, 2, 1, 50f)]
+    [TestCase(0, 2, 1, 200f)]
+    [TestCase(1, 1, 8, 100f)]
+    [TestCase(6, 2, 0, 100f)]
+    [TestCase(0, 12, 0, 100f)]
+    [TestCase(1, 1, 0, 100f)]
+    [TestCase(0, 1, 5, 100f)]
+    [TestCase(0, 1, 10, 100f)]
+    [TestCase(0, 1, 10, 50f)]
+    [TestCase(0, 1, 2.5, 200f)]
+    public void Slip_LoopingVideo_IsNotLimitedByTheSourceEnd(double start, double length, double videoStart, float speed)
     {
         Element element = AddElement(MediaTime.FromSeconds(start), MediaTime.FromSeconds(length));
         var source = CreateVideoSource(5);
@@ -896,9 +895,9 @@ public class ElementSlipServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(applied, Is.EqualTo(expectedOffset > 0));
-            Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(expectedOffset)));
-            Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedOffset > 0 ? 1 : 0)));
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(20 * speed / 100)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
             foreach (MediaTime time in new[]
                      {
                          element.Start.Value,
@@ -909,13 +908,14 @@ public class ElementSlipServiceTests
             {
                 using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(time));
                 var sampled = (SourceVideo.Resource)resource.Children.Single();
-                Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(MediaTime.FromSeconds(5)));
+                Assert.That(sampled.RequestedPosition + sampled.OffsetPosition,
+                    Is.GreaterThanOrEqualTo(MediaTime.Zero).And.LessThan(MediaTime.FromSeconds(5)));
             }
         });
     }
 
-    [TestCase(false, true, true, 2)]
-    [TestCase(true, true, true, 2)]
+    [TestCase(false, true, true, 20)]
+    [TestCase(true, true, true, 20)]
     [TestCase(true, false, false, 0)]
     [TestCase(true, null, null, 0)]
     [TestCase(false, false, true, 0)]
@@ -954,9 +954,8 @@ public class ElementSlipServiceTests
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(expectedOffset)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedOffset > 0 ? 1 : 0)));
             Assert.That(sampled.IsLoop, Is.EqualTo(last ?? false));
-            Assert.That(sampled.RequestedPosition, Is.EqualTo(MediaTime.FromSeconds(last == true ? 2.9 : 7.9)));
-            if (expectedOffset > 0)
-                Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(MediaTime.FromSeconds(5)));
+            Assert.That(sampled.RequestedPosition + sampled.OffsetPosition,
+                Is.EqualTo(MediaTime.FromSeconds(last == true ? 2.9 : 7.9)));
         });
     }
 
@@ -1005,7 +1004,8 @@ public class ElementSlipServiceTests
         var sampled = resource.Target is DrawablePresenter.Resource wrapper
             ? (SourceVideo.Resource)wrapper.Target!
             : (SourceVideo.Resource)resource.Target!;
-        double expectedVideoOffset = speed == 100 ? 3 : 1;
+        // A loop stays in the source at any offset, so only plain playback stops at the source end.
+        double expectedVideoOffset = loop ? 5 * speed / 100 : speed == 100 ? 3 : 1;
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
@@ -1019,7 +1019,7 @@ public class ElementSlipServiceTests
     [TestCase(false, false)]
     [TestCase(true, false)]
     [TestCase(false, true)]
-    public void Slip_NestedMedia_CombinesVisibleWindowsWithSpeedAndLoopBounds(bool audio, bool loop)
+    public void Slip_NestedMedia_CombinesVisibleWindowsWithSpeedAndLoops(bool audio, bool loop)
     {
         Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(10));
         IProperty<MediaTime> offset;
@@ -1056,8 +1056,8 @@ public class ElementSlipServiceTests
             element.Objects.Add(group);
         }
 
-        Assert.That(_service.Slip(_scene, [element], MediaTime.FromSeconds(3)), Is.EqualTo(audio));
-        Assert.That(offset.Value, Is.EqualTo(MediaTime.FromSeconds(audio ? 1 : 0)));
+        Assert.That(_service.Slip(_scene, [element], MediaTime.FromSeconds(3)), Is.EqualTo(audio || loop));
+        Assert.That(offset.Value, Is.EqualTo(MediaTime.FromSeconds(audio ? 1 : loop ? 3 : 0)));
     }
 
     [Test]
