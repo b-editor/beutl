@@ -309,6 +309,35 @@ public class ElementDuplicateServiceTests
     }
 
     [Test]
+    public void DuplicateAtPosition_SourceMovedOffItsLayer_MatteFollowsIt()
+    {
+        Element source = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 3);
+        Element target = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 4);
+        Element blocker = AddElement(MediaTime.Zero, MediaTime.FromSeconds(20), zIndex: 10);
+        target.MatteSourceKind.Value = MatteSourceKind.Layer;
+        target.MatteSourceZIndex.Value = 3;
+        _history.Commit();
+
+        bool success = _service.DuplicateAtPosition(_scene, [source, target], MediaTime.FromSeconds(1), 10);
+
+        Element[] copies = Copies(source, target, blocker);
+        Element targetCopy = copies.Single(copy => copy.MatteSourceKind.Value == MatteSourceKind.Layer);
+        Element sourceCopy = copies.Single(copy => copy != targetCopy);
+        Assert.Multiple(() =>
+        {
+            Assert.That(success, Is.True);
+            Assert.That(sourceCopy.ZIndex.Value, Is.Not.EqualTo(10), "The blocker holds the layer the copy was aimed at.");
+            Assert.That(targetCopy.MatteSourceZIndex.Value, Is.EqualTo(sourceCopy.ZIndex.Value));
+        });
+
+        _history.Undo();
+        Assert.That(_scene.Children, Is.EquivalentTo(new[] { source, target, blocker }));
+
+        _history.Redo();
+        Assert.That(targetCopy.MatteSourceZIndex.Value, Is.EqualTo(sourceCopy.ZIndex.Value), "After a redo.");
+    }
+
+    [Test]
     public void DuplicateAtClickedPosition_MatteWithoutItsSource_KeepsNamingThatLayer()
     {
         AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 3);

@@ -182,22 +182,17 @@ public static class DuplicateHelper
         }
 
         (MediaTime minStart, int minZIndex) = ComputeMinOrigin(newElements);
-        int layerDelta = anchorZIndex - minZIndex;
-        HashSet<int> copiedLayers = newElements.Select(element => element.ZIndex.Value).ToHashSet();
+        var copyOnLayer = new Dictionary<int, Element>();
+        foreach (Element newElement in newElements)
+        {
+            copyOnLayer.TryAdd(newElement.ZIndex.Value, newElement);
+        }
 
         foreach (Element newElement in newElements)
         {
             newElement.Start.Value = newElement.Start.Value - minStart + anchorStart;
-            newElement.ZIndex.Value += layerDelta;
+            newElement.ZIndex.Value = newElement.ZIndex.Value - minZIndex + anchorZIndex;
             newElement.Uri = ElementFileNaming.GetUri(scene.Uri, newElement.Id.Value);
-
-            // A matte follows a source copied with it. Any other layer it names still holds its source.
-            if (newElement.MatteSourceKind.Value == MatteSourceKind.Layer
-                && newElement.MatteSourceZIndex.Value is { } source
-                && copiedLayers.Contains(source))
-            {
-                newElement.MatteSourceZIndex.Value = source + layerDelta;
-            }
         }
 
         List<ImmutableHashSet<Guid>> newGroups = MapGroups(scene.Groups, sourceElements, newElements);
@@ -209,6 +204,18 @@ public static class DuplicateHelper
         foreach (Element newElement in newElements)
         {
             scene.AddChild(newElement, overlapHandling);
+        }
+
+        // A matte follows a source copied with it, to the layer that copy ended up on: fitting it around what it
+        // overlaps can move it off its layer. Any other layer the matte names still holds its source.
+        foreach (Element newElement in newElements)
+        {
+            if (newElement.MatteSourceKind.Value == MatteSourceKind.Layer
+                && newElement.MatteSourceZIndex.Value is { } source
+                && copyOnLayer.TryGetValue(source, out Element? sourceCopy))
+            {
+                newElement.MatteSourceZIndex.Value = sourceCopy.ZIndex.Value;
+            }
         }
     }
 }
