@@ -103,6 +103,13 @@ public partial class HdrBitmapView : NativeControlHost
         }
     }
 
+    // A native view that moved here from another window keeps its layer, at that window's scale.
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        UpdateContentsScale();
+    }
+
     protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromLogicalTree(e);
@@ -127,6 +134,8 @@ public partial class HdrBitmapView : NativeControlHost
 
     private void OnTopLevelScalingChanged(object? sender, EventArgs e)
     {
+        UpdateContentsScale();
+
         if (_renderer != null && Bounds.Width > 0 && Bounds.Height > 0)
         {
             var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
@@ -256,6 +265,7 @@ public partial class HdrBitmapView : NativeControlHost
         {
             _macOSView = handle.Handle;
             _displayGamut = PreviewGamutMapping.Srgb;
+            UpdateContentsScale();
             UpdateEdrMetadata();
             UpdateDisplayGamut();
         }
@@ -316,6 +326,14 @@ public partial class HdrBitmapView : NativeControlHost
             DisplayPeakLuminance: DisplayPeakLuminance);
 
         _renderer.RequestRender(bitmapRef, renderParams);
+    }
+
+    // AppKit leaves a layer it did not create at a scale of 1. The swapchain would then have as many pixels as the view
+    // has points, and Core Animation would stretch it on a 2x screen.
+    private void UpdateContentsScale()
+    {
+        if (_macOSView != IntPtr.Zero && TopLevel.GetTopLevel(this) is { } topLevel)
+            SetMacOSContentsScale(GetMacOSLayer(_macOSView), topLevel.RenderScaling);
     }
 
     // On macOS, FitToDisplay hands tone mapping to Core Animation, which fits the frame into the screen's current
