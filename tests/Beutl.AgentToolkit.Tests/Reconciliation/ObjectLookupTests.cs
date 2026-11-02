@@ -106,4 +106,17 @@ public sealed class ObjectLookupTests
             Assert.That(lookup.FindReference(Guid.NewGuid()), Is.Null);
         });
     }
+
+    [Test]
+    public void FindReference_searches_a_hierarchical_root_outside_any_project_alone()
+    {
+        var root = new RectShape();
+        var lookup = new ObjectLookup(root);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lookup.FindReference(root.Id.Value), Is.SameAs(root));
+            Assert.That(lookup.FindReference(Guid.NewGuid()), Is.Null);
+        });
+    }
 }

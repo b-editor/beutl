@@ -16,6 +16,18 @@ internal sealed class ExpressionEvaluationState<T>(IExpression<T> expression)
 
     public void ClearError() => Volatile.Write(ref _error, null);
 
+    // A script can return NaN or infinity without throwing, as a division by zero does. Neither is a value a
+    // property can mean, and a range validator would turn infinity into a bound that looks valid.
+    public static T RequireFinite(T value)
+    {
+        if (value is float single && !float.IsFinite(single) || value is double number && !double.IsFinite(number))
+        {
+            throw new ExpressionException($"The expression returned {value}, which is not a finite number.");
+        }
+
+        return value;
+    }
+
     public void ReportFailure(string? propertyName, CoreObject? owner, ExpressionException exception)
     {
         Volatile.Write(ref _error, exception.Message);

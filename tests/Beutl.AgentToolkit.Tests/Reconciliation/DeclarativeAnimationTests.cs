@@ -313,6 +313,35 @@ public sealed class DeclarativeAnimationTests
     }
 
     [Test]
+    public void A_new_key_frame_is_added_to_a_list_that_repeats_an_id()
+    {
+        Scene scene = CreateSceneWithText(out _, out TextBlock text);
+        var animation = new KeyFrameAnimation<float>();
+        var first = new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 10 } };
+        var second = new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 20 } };
+        animation.KeyFrames.Add(first, out _);
+        animation.KeyFrames.Add(second, out _);
+        second.Id.Value = first.Id.Value;
+        text.Opacity.SetKeyFrameAnimation(animation);
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject desired = session.Documents.Read(scene);
+        JsonArray frames = desired["Elements"]![0]![nameof(Element.Objects)]![0]!["Animations"]!["Opacity"]![nameof(IKeyFrameAnimation.KeyFrames)]!.AsArray();
+        JsonObject newFrame = frames[1]!.DeepClone().AsObject();
+        newFrame.Remove(nameof(CoreObject.Id));
+        newFrame[nameof(KeyFrame.KeyTime)] = TimeSpan.FromSeconds(2).ToString("c");
+        frames.Add(newFrame);
+
+        ToolResult<ApplyEditResponse> result = session.CreateEditTools().ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(animation.KeyFrames, Has.Count.EqualTo(3));
+            Assert.That(animation.KeyFrames, Has.Exactly(1).Matches<KeyFrame<float>>(frame => frame.Id.Value != first.Id.Value && frame.KeyTime.Value == MediaTime.FromSeconds(2)));
+        });
+    }
+
+    [Test]
     public void Creating_an_animation_with_unsorted_keyframes_sorts_them_by_key_time()
     {
         Scene scene = CreateSceneWithText(out Element element, out TextBlock text);

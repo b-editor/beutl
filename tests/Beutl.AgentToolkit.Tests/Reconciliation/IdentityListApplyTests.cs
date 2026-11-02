@@ -103,7 +103,7 @@ public sealed class IdentityListApplyTests
         JsonObject desired = session.Documents.Read(scene);
         desired["Elements"]!.AsArray().RemoveAt(2);
         desired["Groups"] = new JsonArray(
-            $"{elements[0].Id.Value}:{elements[1].Id.Value}:{Guid.NewGuid()}",
+            $"{elements[0].Id.Value}:{elements[1].Id.Value}:{Guid.NewGuid()}:not-a-guid",
             $"{elements[2].Id.Value}:{elements[3].Id.Value}");
 
         ToolResult<ApplyEditResponse> result = session.CreateEditTools().ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);

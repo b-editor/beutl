@@ -1,10 +1,12 @@
 ﻿using Beutl.Animation;
+using Beutl.Audio.Effects;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics.Shapes;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.Engine.Audio;
 using Beutl.UnitTests.TestInfrastructure;
 using Microsoft.Extensions.Logging;
 
@@ -112,6 +114,39 @@ public class PropertyExpressionTests
             release.Set();
             await pending.WaitAsync(TimeSpan.FromSeconds(10));
         }
+    }
+
+    [Test]
+    public void NotFiniteResult_FailsLikeAnExpressionThatThrows(
+        [Values] bool animated,
+        [Values(float.NaN, float.PositiveInfinity, float.NegativeInfinity)] float result)
+    {
+        IExpressionProperty<float> property = animated ? new AnimatableProperty<float>(7) : new SimpleProperty<float>(7);
+        property.Expression = new SoundExpressionTests.CountingExpression<float>(result);
+
+        Assert.That(property.Evaluate(new CompositionContext(MediaTime.Zero)), Is.EqualTo(7));
+        Assert.That(property.ExpressionError, Is.Not.Empty);
+    }
+
+    [TestCase(double.NaN)]
+    [TestCase(double.PositiveInfinity)]
+    public void NotFiniteDoubleResult_UsesCurrentValue(double result)
+    {
+        var property = new AnimatableProperty<double>(7) { Expression = new SoundExpressionTests.CountingExpression<double>(result) };
+
+        Assert.That(property.Evaluate(new CompositionContext(MediaTime.Zero)), Is.EqualTo(7));
+    }
+
+    // A range would otherwise clamp infinity to a bound, a valid-looking value the failure could not be told from.
+    [TestCase(float.PositiveInfinity)]
+    [TestCase(float.NegativeInfinity)]
+    public void InfiniteResult_OnARangedProperty_UsesCurrentValue(float result)
+    {
+        var delay = new DelayEffect();
+        delay.Feedback.Expression = new SoundExpressionTests.CountingExpression<float>(result);
+
+        Assert.That(delay.Feedback.Evaluate(new CompositionContext(MediaTime.Zero)), Is.EqualTo(delay.Feedback.Value));
+        Assert.That(delay.Feedback.ExpressionError, Is.Not.Empty);
     }
 
     [TestCase(false)]

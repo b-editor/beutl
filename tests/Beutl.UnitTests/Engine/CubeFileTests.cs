@@ -138,6 +138,27 @@ public class CubeFileTests
     [TestCase(2)]
     [TestCase(3)]
     [TestCase(17)]
+    [TestCase(1024)]
+    public void ToLUT_IdentityOfAnySize_PreservesEveryByte(int size)
+    {
+        CubeFile cube = MakeIdentity1D(size);
+        var r = new byte[256];
+        var g = new byte[256];
+        var b = new byte[256];
+
+        cube.ToLUT(1f, r, g, b);
+
+        for (int i = 0; i < 256; i++)
+        {
+            Assert.That(r[i], Is.EqualTo((byte)i));
+            Assert.That(g[i], Is.EqualTo((byte)i));
+            Assert.That(b[i], Is.EqualTo((byte)i));
+        }
+    }
+
+    [TestCase(2)]
+    [TestCase(3)]
+    [TestCase(17)]
     [TestCase(33)]
     public void TrilinearInterplate_IdentityEdgeRamps_PreserveEveryByte(int size)
     {
@@ -182,6 +203,35 @@ public class CubeFileTests
                     Assert.That(actual, Is.EqualTo(expected));
                 }
             }
+        }
+    }
+
+    [Test]
+    public void TrilinearInterplate_WeighsEachCornerByItsDistance()
+    {
+        // 51, 102 and 204 lie 0.2, 0.4 and 0.8 of the way along the axes of a 2x2x2 LUT.
+        const float x = 0.2f, y = 0.4f, z = 0.8f;
+
+        for (int corner = 0; corner < 8; corner++)
+        {
+            var data = new Vector3[8];
+            data[corner] = Vector3.One;
+            var cube = new CubeFile
+            {
+                Title = "one-corner",
+                Dimention = CubeFileDimension.ThreeDimension,
+                Size = 2,
+                Min = Vector3.Zero,
+                Max = Vector3.One,
+                Data = data,
+            };
+
+            float expected = ((corner & 1) != 0 ? x : 1 - x)
+                * ((corner & 2) != 0 ? y : 1 - y)
+                * ((corner & 4) != 0 ? z : 1 - z);
+            Vector3 actual = cube.TrilinearInterplate(51, 102, 204);
+
+            Assert.That(Vector3.Distance(actual, new Vector3(expected)), Is.LessThan(0.00001f), $"corner={corner}");
         }
     }
 

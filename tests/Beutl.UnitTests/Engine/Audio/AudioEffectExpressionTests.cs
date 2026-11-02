@@ -74,14 +74,16 @@ public class AudioEffectExpressionTests
     }
 
     // A script can return what no keyframe can, and a delay line indexes by its time.
-    [Test]
-    public void Parameter_NotFiniteExpression_PlaysTheStoredValue()
+    [TestCase(float.NaN)]
+    [TestCase(float.PositiveInfinity)]
+    [TestCase(float.NegativeInfinity)]
+    public void Parameter_NotFiniteExpression_PlaysTheStoredValue(float result)
     {
         float[] expected = Compose(sound => sound.Effect.Value = new DelayEffect());
         float[] actual = Compose(sound =>
         {
             var delay = new DelayEffect();
-            delay.DelayTime.Expression = new CountingExpression<float>(float.NaN);
+            delay.DelayTime.Expression = new CountingExpression<float>(result);
             sound.Effect.Value = delay;
         });
 

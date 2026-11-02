@@ -10,14 +10,14 @@ public partial class Scene
         if (IsOverlapping(element.Range, element.ZIndex.Value))
         {
             int layerMax = Children.Max(i => i.ZIndex.Value);
+            SceneElementIndex index = ElementIndex;
 
             // 使うことができるレイヤー番号。ロックされたレイヤーには自動配置しない。
             var numbers = new List<int>();
 
             for (int l = 0; l <= layerMax; l++)
             {
-                if (!IsLayerLocked(l)
-                    && !Children.Any(i => i.ZIndex.Value == l && i.Range.Intersects(element.Range)))
+                if (!IsLayerLocked(l) && !index.Intersects(l, element.Range))
                 {
                     numbers.Add(l);
                 }
@@ -56,21 +56,7 @@ public partial class Scene
 
     private bool IsOverlapping(TimeRange timeRange, int zindex)
     {
-        return Children.Any(i =>
-        {
-            if (i.ZIndex.Value == zindex)
-            {
-                if (i.Range == timeRange
-                    || i.Range.Intersects(timeRange)
-                    || i.Range.Contains(timeRange)
-                    || timeRange.Contains(i.Range))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        });
+        return ElementIndex.Overlaps(zindex, timeRange);
     }
 
     private bool IsFreeRange(TimeRange range, int zindex)
