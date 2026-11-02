@@ -563,41 +563,13 @@ public class SceneGapTests
         return scene;
     }
 
-    // Each gap, from the right, moves what follows it up to the first locked cohort by exactly its width, unless
-    // that would still collide with what stays. CloseAllGaps reaches the same places without the intermediate moves.
+    // Each gap, from the right, closes on its own. CloseAllGaps reaches the same places without the intermediate moves.
     private static int CloseGapsOneAtATime(Scene scene)
     {
         int closed = 0;
-        foreach (IGrouping<int, SceneGap> layer in Gaps(scene).GroupBy(g => g.ZIndex))
+        foreach (SceneGap gap in Gaps(scene).OrderByDescending(g => g.Range.Start))
         {
-            if (scene.IsLayerLocked(layer.Key)) continue;
-
-            foreach (SceneGap gap in layer.OrderByDescending(g => g.Range.Start))
-            {
-                var toShift = new List<Element>();
-                foreach (IGrouping<MediaTime, Element> cohort in scene.Children
-                    .Where(e => e.ZIndex.Value == layer.Key && e.Start.Value >= gap.Range.End)
-                    .GroupBy(e => e.Start.Value)
-                    .OrderBy(g => g.Key))
-                {
-                    if (cohort.Any(scene.IsElementLocked)) break;
-                    toShift.AddRange(cohort);
-                }
-
-                Element[] staying = [.. scene.Children.Where(e => e.ZIndex.Value == layer.Key && !toShift.Contains(e))];
-                if (toShift.Count == 0
-                    || toShift.Any(e => staying.Any(other => other.Range.Intersects(e.Range.SubtractStart(gap.Range.Duration)))))
-                {
-                    continue;
-                }
-
-                foreach (Element element in toShift)
-                {
-                    element.Start.Value -= gap.Range.Duration;
-                }
-
-                closed++;
-            }
+            if (scene.CloseGapAfter(gap.Anchor)) closed++;
         }
 
         return closed;
@@ -746,6 +718,29 @@ public class SceneGapTests
             Assert.That(locked.Start.Value, Is.EqualTo(MediaTime.FromSeconds(8)));
             Assert.That(c1.Start.Value, Is.EqualTo(MediaTime.FromSeconds(12)));
             Assert.That(c2.Start.Value, Is.EqualTo(MediaTime.FromSeconds(12)));
+        });
+    }
+
+    [Test]
+    public void CloseGapAfter_ClipStillOnALockedElement_MovesNothing()
+    {
+        using var harness = new SceneHistoryHarness("beutl_scene_gaps");
+        Scene scene = harness.Scene;
+        // [100s..101s], gap 101s-102s, [102s..103s], then [105s..110s] over the locked [107s..120s]. One second
+        // earlier the last clip would still overlap the locked one, so the gap stays and nothing moves further.
+        Element anchor = harness.AddElement(MediaTime.FromSeconds(100), MediaTime.FromSeconds(1));
+        Element next = harness.AddElement(MediaTime.FromSeconds(102), MediaTime.FromSeconds(1));
+        Element onLocked = harness.AddElement(MediaTime.FromSeconds(105), MediaTime.FromSeconds(5));
+        Element locked = harness.AddElement(MediaTime.FromSeconds(107), MediaTime.FromSeconds(13));
+        locked.IsLocked.Value = true;
+
+        bool closed = scene.CloseGapAfter(anchor);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(closed, Is.False);
+            Assert.That(next.Start.Value, Is.EqualTo(MediaTime.FromSeconds(102)));
+            Assert.That(onLocked.Start.Value, Is.EqualTo(MediaTime.FromSeconds(105)));
         });
     }
 

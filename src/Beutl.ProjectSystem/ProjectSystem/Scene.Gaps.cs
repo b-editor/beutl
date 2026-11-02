@@ -48,11 +48,12 @@ public partial class Scene
     /// size. An overlapping peer that extends the run past the anchor moves the
     /// target gap to the run's covered end. Returns <see langword="false"/> when
     /// there is no gap after the run (no next element, or the next element
-    /// touches or overlaps the run), when the layer is locked, or when a locked
-    /// element blocks every shiftable follower. Locked layers and locked
-    /// elements are never moved; a locked element acts as an immovable barrier
-    /// that halts the shift. Does not commit history; the caller owns the single
-    /// <c>HistoryManager.Commit</c> boundary.
+    /// touches or overlaps the run), when the layer is locked, when a locked
+    /// element blocks every shiftable follower, or when a follower would still
+    /// overlap what stays after moving by the gap size, in which case nothing
+    /// moves. Locked layers and locked elements are never moved; a locked element
+    /// acts as an immovable barrier that halts the shift. Does not commit history;
+    /// the caller owns the single <c>HistoryManager.Commit</c> boundary.
     /// </summary>
     public bool CloseGapAfter(Element anchor)
     {
@@ -70,8 +71,10 @@ public partial class Scene
             return false;
         }
 
+        // Moving by anything but the gap's width would not close this gap, so a clip that would still land on what
+        // stays keeps it open rather than fitting around it.
         Element[] toShift = ShiftableAfter(z, gap.Range.End);
-        return toShift.Length != 0 && MoveChildrenAndDetectChange(toShift, -gap.Range.Duration);
+        return toShift.Length != 0 && MoveChildrenCore(toShift, 0, -gap.Range.Duration, fitAroundConflicts: false);
     }
 
     /// <summary>
@@ -196,23 +199,6 @@ public partial class Scene
         }
 
         return [.. result];
-    }
-
-    private bool MoveChildrenAndDetectChange(Element[] elements, MediaTime deltaStart)
-    {
-        MediaTime[] originalStarts = elements.Select(e => e.Start.Value).ToArray();
-
-        MoveChildren(0, deltaStart, elements);
-
-        for (int i = 0; i < elements.Length; i++)
-        {
-            if (elements[i].Start.Value != originalStarts[i])
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>

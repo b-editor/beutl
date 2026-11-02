@@ -193,14 +193,16 @@ public partial class Scene
         }
     }
 
-    private void MoveChildrenCore(Element[] elements, int deltaZIndex, MediaTime deltaTime)
+    // Returns whether the elements moved. A drag fits around what it hits, which can move them further than asked;
+    // without fitAroundConflicts they move by exactly deltaTime or not at all.
+    private bool MoveChildrenCore(Element[] elements, int deltaZIndex, MediaTime deltaTime, bool fitAroundConflicts)
     {
         var selected = elements.ToHashSet();
         var obstacles = new SceneElementIndex(Children.Where(element => !selected.Contains(element)));
         bool conflict = HasConflict(elements, obstacles, deltaZIndex, deltaTime);
         foreach (Element item in elements)
         {
-            if (!conflict)
+            if (!conflict || !fitAroundConflicts)
             {
                 break;
             }
@@ -237,6 +239,8 @@ public partial class Scene
                 Duration.Value = newSceneDuration;
             }
         }
+
+        return !conflict;
     }
 
     private static bool HasConflict(Element[] elements, SceneElementIndex obstacles, int deltaZIndex, MediaTime deltaTime)
