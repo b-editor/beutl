@@ -138,7 +138,7 @@ public sealed partial class ObjectTemplateService
     public IEnumerable<ObjectTemplateItem> FindByBaseType(Type baseType) => FindByBaseTypes(baseType);
 
     // The templates of any of the base types, in the order the service holds them rather than grouped by type.
-    public IEnumerable<ObjectTemplateItem> FindByBaseTypes(params Type[] baseTypes)
+    internal IEnumerable<ObjectTemplateItem> FindByBaseTypes(params Type[] baseTypes)
     {
         lock (_lock)
         {

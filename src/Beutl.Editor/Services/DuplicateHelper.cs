@@ -155,7 +155,7 @@ public static class DuplicateHelper
     /// added: a caller that found the anchor free for the whole set passes <see cref="ElementOverlapHandling.Allow"/>,
     /// so duplicates that overlap each other on one layer keep that overlap.
     /// </remarks>
-    public static void PlaceDuplicates(
+    internal static void PlaceDuplicates(
         Scene scene,
         Element[] newElements,
         Element[] sourceElements,
