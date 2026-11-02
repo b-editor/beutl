@@ -669,6 +669,50 @@ public sealed class ApplyEditLockTests
         });
     }
 
+    // Each locked member's new group can be part of the old one and still part it from another locked member,
+    // which the editor cannot do. Together they keep one group, and the other members may form their own.
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Apply_edit_keeps_the_locked_members_of_a_group_together(bool together)
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element first = AddElement(scene, "First locked", zIndex: 0);
+        Element second = AddElement(scene, "Second locked", zIndex: 1);
+        Element firstOther = AddElement(scene, "First other", zIndex: 2);
+        Element secondOther = AddElement(scene, "Second other", zIndex: 3);
+        first.IsLocked.Value = true;
+        second.IsLocked.Value = true;
+        scene.Groups.Add(ImmutableHashSet.Create(first.Id.Value, second.Id.Value, firstOther.Id.Value, secondOther.Id.Value));
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = session.CreateEditTools();
+        string before = session.Documents.Read(scene).ToJsonString();
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: new JsonObject
+            {
+                ["Groups"] = together
+                    ? new JsonArray($"{first.Id.Value}:{second.Id.Value}", $"{firstOther.Id.Value}:{secondOther.Id.Value}")
+                    : new JsonArray($"{first.Id.Value}:{firstOther.Id.Value}", $"{second.Id.Value}:{secondOther.Id.Value}")
+            },
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.EqualTo(together), result.Error?.Message);
+            if (together)
+            {
+                Assert.That(scene.Groups, Has.Count.EqualTo(2));
+                Assert.That(scene.Groups[0], Is.EquivalentTo(new[] { first.Id.Value, second.Id.Value }));
+                Assert.That(scene.Groups[1], Is.EquivalentTo(new[] { firstOther.Id.Value, secondOther.Id.Value }));
+            }
+            else
+            {
+                Assert.That(result.Error!.Message, Does.Contain($"({second.Id.Value}) is locked, so an agent cannot add it to a group"));
+                Assert.That(session.Documents.Read(scene).ToJsonString(), Is.EqualTo(before));
+            }
+        });
+    }
+
     // Each locked element used to scan every group, so an edit cost locked elements × groups.
     [Test]
     public void Apply_edit_walks_the_groups_once_however_many_elements_are_locked()
