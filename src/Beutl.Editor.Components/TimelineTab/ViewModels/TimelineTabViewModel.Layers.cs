@@ -169,6 +169,13 @@ public sealed partial class TimelineTabViewModel
         return _layerTops[Math.Max(0, count)];
     }
 
+    // The bottom of the last row, which unlike CalculateLayerTop adds no row.
+    internal double CalculateLayersBottom()
+    {
+        EnsureLayerTops(LayerHeaders.Count);
+        return _layerTops[LayerHeaders.Count];
+    }
+
     public int ToLayerNumber(double pixel)
     {
         return FindLayerNumber(pixel, pixel);
