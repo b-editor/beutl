@@ -185,6 +185,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
                         case RenderCommand.DrawCommand draw:
                             try
                             {
+                                // The drain above can drop a resize queued just before this frame, which would
+                                // then be drawn at the old size and stay stretched until the idle redraw.
+                                FollowSurfaceSize();
                                 ExecuteRender(draw.BitmapRef, draw.Params);
                             }
                             finally
