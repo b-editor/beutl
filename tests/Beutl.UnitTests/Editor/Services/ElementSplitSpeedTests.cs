@@ -602,6 +602,108 @@ public sealed class ElementSplitSpeedTests
         Assert.That(ComposedPosition(later).ToSeconds(), Is.EqualTo(uncut.ToSeconds()).Within(0.01));
     }
 
+    private Element AddVideoUnder(params DrawableTimeController[] controllers)
+    {
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(4),
+            new SourceVideo { Source = { Value = TrimTestMedia.CreateVideoSource(60) } });
+        foreach (DrawableTimeController controller in controllers)
+            element.Objects.Add(controller);
+        return element;
+    }
+
+    private static void SetExpression(DrawableTimeController controller, string property, string expression)
+    {
+        switch (property)
+        {
+            case "OffsetPosition": controller.OffsetPosition.Expression = Expression.Create<MediaTime>(expression); break;
+            case "AdjustTimeRange": controller.AdjustTimeRange.Expression = Expression.Create<bool>(expression); break;
+            case "Reverse": controller.Reverse.Expression = Expression.Create<bool>(expression); break;
+            case "Loop": controller.Loop.Expression = Expression.Create<bool>(expression); break;
+            case "HoldFirstFrame": controller.HoldFirstFrame.Expression = Expression.Create<bool>(expression); break;
+            case "HoldLastFrame": controller.HoldLastFrame.Expression = Expression.Create<bool>(expression); break;
+            case "FrameRate": controller.FrameRate.Expression = Expression.Create<float>(expression); break;
+        }
+    }
+
+    // A controller's other expressions read like its speed's, at the cut and where the back piece starts, and leave the
+    // stored speed in force (#3890). A script that fails plays the stored offset. AdjustTimeRange changes no position
+    // here, because the controller and the video share the clip's clock.
+    [TestCase("OffsetPosition", "TimeSpan.FromSeconds(3)", 1, 8)]
+    [TestCase("OffsetPosition", "TimeSpan.FromSeconds(Time)", 1, 4)]
+    [TestCase("OffsetPosition", "this does not compile", 1, 8, 3)]
+    [TestCase("AdjustTimeRange", "true", 1, 2)]
+    [TestCase("Reverse", "true", 1, 2)]
+    [TestCase("Reverse", "Time >= 0.5", 1.5, 1)]
+    [TestCase("Loop", "true", 3, 2)]
+    [TestCase("HoldFirstFrame", "true", 1, 0, -2)]
+    [TestCase("HoldLastFrame", "true", 3, 4)]
+    [TestCase("FrameRate", "0.75", 1, 1.333)]
+    public void Split_ControllerExpression_ContinuesFromTheCut(string property, string expression, double cutAt, double position, double offset = 0)
+    {
+        var controller = new DrawableTimeController
+        {
+            Speed = { Value = 200f },
+            OffsetPosition = { Value = MediaTime.FromSeconds(offset) },
+        };
+        SetExpression(controller, property, expression);
+        Element element = AddVideoUnder(controller);
+        MediaTime cut = MediaTime.FromSeconds(cutAt);
+        Assert.That(ComposedPosition(cut).ToSeconds(), Is.EqualTo(position).Within(0.01), "Before the cut.");
+
+        _service.Split(_harness.Scene, [element], cut);
+
+        Assert.That(ComposedPosition(cut).ToSeconds(), Is.EqualTo(position).Within(0.01), "After the cut.");
+    }
+
+    [TestCase("OffsetPosition", "TimeSpan.FromSeconds(3)")]
+    [TestCase("Reverse", "true")]
+    [TestCase("FrameRate", "10")]
+    public void Split_ConstantControllerExpression_PlaysOnAsIfUncut(string property, string expression)
+    {
+        var controller = new DrawableTimeController { Speed = { Value = 200f } };
+        SetExpression(controller, property, expression);
+        Element element = AddVideoUnder(controller);
+        MediaTime later = MediaTime.FromSeconds(3);
+        MediaTime uncut = ComposedPosition(later);
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Assert.That(ComposedPosition(later).ToSeconds(), Is.EqualTo(uncut.ToSeconds()).Within(0.01));
+    }
+
+    // The outer controller plays second 1 at 200%, and so the inner one reads its expression at second 2, not at second 1.
+    [Test]
+    public void Split_ExpressionOnAnInnerController_ContinuesFromTheCut()
+    {
+        var inner = new DrawableTimeController();
+        inner.OffsetPosition.Expression = Expression.Create<MediaTime>("TimeSpan.FromSeconds(Time)");
+        Element element = AddVideoUnder(inner, new DrawableTimeController { Speed = { Value = 200f } });
+        MediaTime cut = MediaTime.FromSeconds(1);
+        Assert.That(ComposedPosition(cut).ToSeconds(), Is.EqualTo(4).Within(0.01), "Before the cut.");
+
+        _service.Split(_harness.Scene, [element], cut);
+
+        Assert.That(ComposedPosition(cut).ToSeconds(), Is.EqualTo(4).Within(0.01), "After the cut.");
+    }
+
+    // The back piece reads the other clip where it starts, which only a piece in the scene can do.
+    [Test]
+    public void SilenceSplit_ControllerOffsetReadingAnotherClip_PlaysOnAcrossTheCut()
+    {
+        var provider = new SourceSound { OffsetPosition = { Value = MediaTime.FromSeconds(1) } };
+        AddElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(1), provider);
+        var controller = new DrawableTimeController { Speed = { Value = 200f } };
+        controller.OffsetPosition.Expression = new ReferenceExpression<MediaTime>(provider.Id.Value, nameof(SourceSound.OffsetPosition));
+        Element element = AddVideoUnder(controller);
+        MediaTime later = MediaTime.FromSeconds(3.5);
+        MediaTime uncut = ComposedPosition(later);
+
+        new SilenceSplitService(_harness.History).Apply(_harness.Scene, element,
+            [new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1))], SilenceSplitMode.DeleteSilence, false);
+
+        Assert.That(ComposedPosition(later).ToSeconds(), Is.EqualTo(uncut.ToSeconds()).Within(0.01));
+    }
+
     [Test]
     public void Split_LoopingVideoWithASpeedExpression_KeepsTheWrappedSourcePosition()
     {
