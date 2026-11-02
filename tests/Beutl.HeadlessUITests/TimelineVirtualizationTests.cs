@@ -304,6 +304,29 @@ public sealed class TimelineVirtualizationTests
     }
 
     [AvaloniaTest]
+    public async Task The_razor_cuts_a_clip_without_a_view_model_and_leaves_a_locked_one()
+    {
+        using var host = await TimelineTestHost.CreateAsync("razor-no-view-model", MediaTime.FromSeconds(120));
+        Element distant = Clip(0, 100);
+        Element locked = Clip(1, 100);
+        locked.IsLocked.Value = true;
+        Element elsewhere = Clip(2, 110);
+        host.Scene.Children.AddRange([distant, locked, elsewhere]);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(host.Model.FindViewModelFor(distant), Is.Null);
+
+        host.Model.RazorSplitAt(MediaTime.FromSeconds(100.5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(distant.Length.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
+            Assert.That(locked.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+            Assert.That(elsewhere.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+            Assert.That(host.Scene.Children, Has.Count.EqualTo(4));
+        });
+    }
+
+    [AvaloniaTest]
     public void Recycling_preserves_selection_order_and_tracks_edits_and_scopes()
     {
         var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(100) } };
