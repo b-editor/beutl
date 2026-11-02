@@ -30,13 +30,12 @@ public sealed class GateNode : DynamicsNode
 
     protected override string DiagnosticName => "Gate";
 
-    // AnimationSampler does not yet evaluate expressions per sample.
     protected override bool HasAnimatedParameters =>
-        Threshold.GetKeyFrameAnimation() != null ||
-        Attack.GetKeyFrameAnimation() != null ||
-        Hold.GetKeyFrameAnimation() != null ||
-        Release.GetKeyFrameAnimation() != null ||
-        Range.GetKeyFrameAnimation() != null;
+        AnimationSampler.IsAnimated(Threshold) ||
+        AnimationSampler.IsAnimated(Attack) ||
+        AnimationSampler.IsAnimated(Hold) ||
+        AnimationSampler.IsAnimated(Release) ||
+        AnimationSampler.IsAnimated(Range);
 
     protected override AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {

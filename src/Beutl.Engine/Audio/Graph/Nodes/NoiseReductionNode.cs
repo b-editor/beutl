@@ -265,10 +265,10 @@ public sealed class NoiseReductionNode : AudioNode
     {
         _sampler = context.AnimationSampler;
         _processedControls = ReadControls();
-        _animated = Reduction.GetKeyFrameAnimation() != null
-                    || Sensitivity.GetKeyFrameAnimation() != null
-                    || Smoothing.GetKeyFrameAnimation() != null
-                    || Adaptation.GetKeyFrameAnimation() != null;
+        _animated = AnimationSampler.IsAnimated(Reduction)
+                    || AnimationSampler.IsAnimated(Sensitivity)
+                    || AnimationSampler.IsAnimated(Smoothing)
+                    || AnimationSampler.IsAnimated(Adaptation);
         _staticSettings = NoiseReductionParameters.Normalize(
             Reduction.Value,
             Sensitivity.Value,
@@ -276,14 +276,18 @@ public sealed class NoiseReductionNode : AudioNode
             Adaptation.Value);
     }
 
-    // Animated controls are compared by animation; static ones by value.
+    // Animated controls are compared by their keyframes or expression; static ones by value.
     private Controls ReadControls()
     {
         return new Controls(
-            Reduction.GetKeyFrameAnimation(), Reduction.GetKeyFrameAnimation() is null ? Reduction.Value : 0,
-            Sensitivity.GetKeyFrameAnimation(), Sensitivity.GetKeyFrameAnimation() is null ? Sensitivity.Value : 0,
-            Smoothing.GetKeyFrameAnimation(), Smoothing.GetKeyFrameAnimation() is null ? Smoothing.Value : 0,
-            Adaptation.GetKeyFrameAnimation(), Adaptation.GetKeyFrameAnimation() is null ? Adaptation.Value : 0);
+            GetAnimation(Reduction), GetStaticValue(Reduction),
+            GetAnimation(Sensitivity), GetStaticValue(Sensitivity),
+            GetAnimation(Smoothing), GetStaticValue(Smoothing),
+            GetAnimation(Adaptation), GetStaticValue(Adaptation));
+
+        static object? GetAnimation(IProperty<float> property) => (property as IExpressionProperty)?.Expression;
+
+        static float GetStaticValue(IProperty<float> property) => AnimationSampler.IsAnimated(property) ? 0 : property.Value;
     }
 
     // Animated parameters are evaluated once per frame, at the frame's center.
@@ -302,7 +306,7 @@ public sealed class NoiseReductionNode : AudioNode
 
     private float Sample(IProperty<float> property, MediaTime time)
     {
-        if (property.GetKeyFrameAnimation() is null)
+        if (!AnimationSampler.IsAnimated(property))
             return property.Value;
 
         Span<float> value = stackalloc float[1];

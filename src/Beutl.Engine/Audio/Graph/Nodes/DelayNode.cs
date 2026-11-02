@@ -56,11 +56,11 @@ public sealed class DelayNode : AudioNode
         }
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
-        // Check Animation (actual keyframe), not IsAnimatable (always true for animatable properties).
-        bool hasAnimation = DelayTime.GetKeyFrameAnimation() != null ||
-                            Feedback.GetKeyFrameAnimation() != null ||
-                            DryMix.GetKeyFrameAnimation() != null ||
-                            WetMix.GetKeyFrameAnimation() != null;
+        // Check for keyframes or an expression, not IsAnimatable (always true for animatable properties).
+        bool hasAnimation = AnimationSampler.IsAnimated(DelayTime) ||
+                            AnimationSampler.IsAnimated(Feedback) ||
+                            AnimationSampler.IsAnimated(DryMix) ||
+                            AnimationSampler.IsAnimated(WetMix);
 
         if (!hasAnimation)
         {

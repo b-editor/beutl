@@ -56,6 +56,13 @@ public sealed class AnimationSampler
         IExpressionProperty<T> property, MediaTime start, int sampleRate, Span<T> output)
         where T : struct
     {
+        // One sample, as a node that holds a value for a frame asks for, has nothing to interpolate.
+        if (output.Length == 1)
+        {
+            output[0] = Evaluate(property, start);
+            return;
+        }
+
         double flicksPerSample = (double)MediaTime.FlicksPerSecond / sampleRate;
         long cell = long.MinValue;
         T from = default;
@@ -66,8 +73,8 @@ public sealed class AnimationSampler
             long index = (long)Math.Floor(time / ExpressionInterval);
             if (index != cell)
             {
-                from = index == cell + 1 ? to : Evaluate(property, index);
-                to = Evaluate(property, index + 1);
+                from = index == cell + 1 ? to : Evaluate(property, new MediaTime(index * ExpressionInterval));
+                to = Evaluate(property, new MediaTime((index + 1) * ExpressionInterval));
                 cell = index;
             }
 
@@ -75,8 +82,13 @@ public sealed class AnimationSampler
         }
     }
 
-    private static T Evaluate<T>(IExpressionProperty<T> property, long index)
-        => property.Evaluate(new EvaluationContext(new MediaTime(index * ExpressionInterval)));
+    private static T Evaluate<T>(IExpressionProperty<T> property, MediaTime time)
+        where T : struct
+    {
+        T value = property.Evaluate(new EvaluationContext(time));
+        // A script can return what no keyframe can, and nodes such as a delay line index by the value.
+        return typeof(T) == typeof(float) && !float.IsFinite(Unsafe.As<T, float>(ref value)) ? property.Value : value;
+    }
 
     // Linear for a float, which is what the audio graph samples; any other value holds until the next grid point.
     private static T Interpolate<T>(T from, T to, double fraction)

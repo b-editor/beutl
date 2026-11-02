@@ -30,15 +30,13 @@ public sealed class CompressorNode : DynamicsNode
 
     protected override string DiagnosticName => "Compressor";
 
-    // AnimationSampler does not evaluate expressions per sample, so expression-backed properties
-    // remain at Value.
     protected override bool HasAnimatedParameters =>
-        Threshold.GetKeyFrameAnimation() != null ||
-        Ratio.GetKeyFrameAnimation() != null ||
-        Attack.GetKeyFrameAnimation() != null ||
-        Release.GetKeyFrameAnimation() != null ||
-        Knee.GetKeyFrameAnimation() != null ||
-        MakeupGain.GetKeyFrameAnimation() != null;
+        AnimationSampler.IsAnimated(Threshold) ||
+        AnimationSampler.IsAnimated(Ratio) ||
+        AnimationSampler.IsAnimated(Attack) ||
+        AnimationSampler.IsAnimated(Release) ||
+        AnimationSampler.IsAnimated(Knee) ||
+        AnimationSampler.IsAnimated(MakeupGain);
 
     protected override AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {
