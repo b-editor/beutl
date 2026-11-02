@@ -472,11 +472,12 @@ public sealed class ElementSplitSpeedTests
     }
 
     // A controller multiplies the time it has played by what its expression gives, which continues from the cut (#3860).
-    // A script that fails plays the stored speed.
+    // A script that fails or gives no finite value plays the stored speed.
     [TestCase("200", 0, 2)]
     [TestCase("100 + 100 * Time", 0, 2)]
     [TestCase("100 + 100 * Time", 1, 4)]
     [TestCase("this does not compile", 0, 3)]
+    [TestCase("float.NaN", 0, 3)]
     public void Split_ControllerSpeedExpression_ContinuesFromTheCut(string speed, double offset, double position)
     {
         Element element = AddVideoUnderASpeedExpression(Expression.Create<float>(speed), offset);
@@ -570,11 +571,13 @@ public sealed class ElementSplitSpeedTests
         Assert.That(BackObject<SourceVideo>(back).OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
+    // An expression with no finite value falls back to the stored speed, so that has to have none either.
     [Test]
-    public void Split_ControllerSpeedExpressionWithoutAFiniteValue_ShiftsByLocalTime()
+    public void Split_ControllerSpeedWithoutAFiniteValue_ShiftsByLocalTime()
     {
         var video = new SourceVideo { Source = { Value = TrimTestMedia.CreateVideoSource(60) } };
         Element element = AddVideoUnderASpeedExpression(Expression.Create<float>("float.NaN"), video: video);
+        element.Objects.OfType<DrawableTimeController>().Single().Speed.Value = float.NaN;
 
         _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
 
