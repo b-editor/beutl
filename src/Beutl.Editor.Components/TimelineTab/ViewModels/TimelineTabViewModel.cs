@@ -599,12 +599,23 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             if (range.Intersects(element.Range)) entering.Add(element);
         }
 
+        // A run leaves at once, so the clips after it shift once however long the run is.
         ICoreList<Element> selected = _selection.SelectedElements;
+        int leaving = 0;
         for (int i = selected.Count - 1; i >= 0; i--)
         {
-            if (!entering.Remove(selected[i])) selected.RemoveAt(i);
+            if (!entering.Remove(selected[i]))
+            {
+                leaving++;
+            }
+            else if (leaving > 0)
+            {
+                selected.RemoveRange(i + 1, leaving);
+                leaving = 0;
+            }
         }
 
+        selected.RemoveRange(0, leaving);
         selected.AddRange(entering);
     }
 
