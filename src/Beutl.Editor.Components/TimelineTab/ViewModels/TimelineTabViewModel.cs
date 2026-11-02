@@ -1,5 +1,6 @@
 ﻿using System.Reactive.Subjects;
 using Avalonia;
+using Beutl.Collections.Pooled;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Models;
@@ -579,6 +580,32 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     {
         if (!_selection.SelectedElements.Contains(item.Model))
             _selection.SelectedElements.Add(item.Model);
+    }
+
+    // Selects the elements in range on the layers and no others. A pointer move changes few of them, so only those
+    // that enter or leave the selection notify.
+    internal void SelectRange(TimeRange range, int firstLayer, int lastLayer)
+    {
+        using var candidates = new PooledList<Element>();
+        SceneElementIndex index = Scene.ElementIndex;
+        for (int layer = firstLayer; layer <= lastLayer; layer++)
+        {
+            index.Query(range.Start, range.End, candidates, layer);
+        }
+
+        var entering = new HashSet<Element>(candidates.Count);
+        foreach (Element element in candidates)
+        {
+            if (range.Intersects(element.Range)) entering.Add(element);
+        }
+
+        ICoreList<Element> selected = _selection.SelectedElements;
+        for (int i = selected.Count - 1; i >= 0; i--)
+        {
+            if (!entering.Remove(selected[i])) selected.RemoveAt(i);
+        }
+
+        selected.AddRange(entering);
     }
 
     public void SwitchSelectedElement(ElementViewModel item)

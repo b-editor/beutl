@@ -165,14 +165,16 @@ public sealed partial class TimelineTabView
     {
         if (ViewModel == null) return;
         TimelineTabViewModel viewModel = ViewModel;
-        viewModel.ClearSelected();
 
         // Hit-test only existing rows inside the visible scroll viewport.
-        var bounds = new Rect(0, 0, TimelinePanel.Bounds.Width,
-            viewModel.LayerHeaders.Sum(layer => layer.Height.Value));
+        var bounds = new Rect(0, 0, TimelinePanel.Bounds.Width, viewModel.CalculateLayersBottom());
         var viewport = new Rect(new Point(ContentScroll.Offset.X, ContentScroll.Offset.Y), ContentScroll.Viewport);
         Rect rect = overlay.SelectionRange.Normalize().Intersect(bounds).Intersect(viewport);
-        if (rect == default) return;
+        if (rect == default)
+        {
+            viewModel.ClearSelected();
+            return;
+        }
 
         var startTime = rect.Left.PixelToTime(viewModel.Options.Value.Scale);
         var endTime = rect.Right.PixelToTime(viewModel.Options.Value.Scale);
@@ -182,14 +184,7 @@ public sealed partial class TimelineTabView
         int startLayer = viewModel.ToLayerNumber(Math.BitIncrement(rect.Top));
         int endLayer = viewModel.ToLayerNumber(rect.Bottom);
 
-        foreach (ElementViewModel item in viewModel.Elements)
-        {
-            if (timeRange.Intersects(item.Model.Range)
-                && startLayer <= item.Model.ZIndex.Value && item.Model.ZIndex.Value <= endLayer)
-            {
-                viewModel.SelectElement(item);
-            }
-        }
+        viewModel.SelectRange(timeRange, startLayer, endLayer);
     }
 
     private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)

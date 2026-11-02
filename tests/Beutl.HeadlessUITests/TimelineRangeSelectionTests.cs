@@ -1,14 +1,20 @@
-﻿using Avalonia;
+﻿using System.Collections.Specialized;
+using System.Reactive.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Beutl.Collections;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.Views;
+using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
+using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.HeadlessUITests;
 
@@ -77,6 +83,55 @@ public class TimelineRangeSelectionTests
         session.Model.SelectElement(session.Model.Elements.First());
         session.Drag(session.Ruler.TranslatePoint(new Point(15, 5), session.Window)!.Value,
             session.Ruler.TranslatePoint(new Point(225, 25), session.Window)!.Value, []);
+    }
+
+    [AvaloniaTest]
+    public async Task Moving_the_range_only_touches_the_clips_entering_or_leaving_it()
+    {
+        using TimelineSession session = await TimelineSession.CreateAsync();
+        TimelineTabViewModel model = session.Model;
+        ICoreList<Element> selection = model.EditorContext.GetRequiredService<IEditorSelection>().SelectedElements;
+        Point press = session.Ruler.TranslatePoint(new Point(15, 10), session.Window)!.Value;
+        Point Row(int layer) => session.ToWindow(new Point(100, model.CalculateLayerTop(layer + 1) - 10));
+        RawInputModifiers modifier = TimelineTestHost.CommandModifier;
+
+        session.Window.MouseMove(press, modifier);
+        session.Window.MouseDown(press, MouseButton.Left, modifier);
+        try
+        {
+            session.Window.MouseMove(Row(2), modifier | RawInputModifiers.LeftMouseButton);
+            Assert.That(selection.Select(e => e.ZIndex.Value), Is.EquivalentTo(new[] { 0, 2 }));
+
+            ElementViewModel kept = model.SelectedElements.First();
+            int keptNotifications = 0;
+            using IDisposable subscription = kept.IsSelected.Skip(1).Subscribe(_ => keptNotifications++);
+            var changes = new List<NotifyCollectionChangedEventArgs>();
+            selection.CollectionChanged += OnChanged;
+            void OnChanged(object? sender, NotifyCollectionChangedEventArgs e) => changes.Add(e);
+            try
+            {
+                session.Window.MouseMove(Row(3), modifier | RawInputModifiers.LeftMouseButton);
+                Assert.That(selection.Select(e => e.ZIndex.Value), Is.EquivalentTo(new[] { 0, 2, 3 }));
+                Assert.That(changes.Select(e => (e.Action, e.NewItems?.Count)),
+                    Is.EqualTo(new (NotifyCollectionChangedAction, int?)[] { (NotifyCollectionChangedAction.Add, 1) }));
+
+                changes.Clear();
+                session.Window.MouseMove(Row(2), modifier | RawInputModifiers.LeftMouseButton);
+                Assert.That(selection.Select(e => e.ZIndex.Value), Is.EquivalentTo(new[] { 0, 2 }));
+                Assert.That(changes.Select(e => (e.Action, e.OldItems?.Count)),
+                    Is.EqualTo(new (NotifyCollectionChangedAction, int?)[] { (NotifyCollectionChangedAction.Remove, 1) }));
+                Assert.That(keptNotifications, Is.Zero);
+            }
+            finally
+            {
+                selection.CollectionChanged -= OnChanged;
+            }
+        }
+        finally
+        {
+            session.Window.MouseUp(Row(2), MouseButton.Left, modifier);
+            HeadlessTestHelpers.Render();
+        }
     }
 
     private sealed class TimelineSession : IDisposable
