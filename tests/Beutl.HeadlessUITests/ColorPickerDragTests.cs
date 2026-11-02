@@ -171,12 +171,13 @@ public sealed class ColorPickerDragTests
             HeadlessTestHelpers.Render();
 
             bool kept = end is DragEnd.CaptureLoss or DragEnd.Playback;
-            Color2 picked = window.GetVisualDescendants().OfType<SimpleColorPicker>().Single().Color;
-            Color shown = Color.FromArgb(picked.A, picked.R, picked.G, picked.B);
+            SimpleColorPicker picker = window.GetVisualDescendants().OfType<SimpleColorPicker>().Single();
+            Color Shown() => Color.FromArgb(picker.Color.A, picker.Color.R, picker.Color.G, picker.Color.B);
+            // A reverted color reaches the picker through the render thread, which Render does not wait for.
+            await HeadlessTestHelpers.WaitUntilAsync(() => Shown() == brush.Color.Value, message: "The picker shows the brush's color.");
             Assert.Multiple(() =>
             {
                 Assert.That(brush.Color.Value, Is.EqualTo(kept ? reached : Colors.Red));
-                Assert.That(shown, Is.EqualTo(brush.Color.Value), "The picker shows the brush's color.");
                 Assert.That(history.History.UndoCount, Is.EqualTo(kept ? 1 : 0));
                 Assert.That(history.History.IsEditing, Is.False);
             });
