@@ -198,8 +198,6 @@ public partial class HdrBitmapView : NativeControlHost
 
     protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
-        base.OnSizeChanged(e);
-
         if (_renderer != null && e.NewSize.Width > 0 && e.NewSize.Height > 0 && !_drawAtNewSizeQueued)
         {
             // A frame drawn before the native view takes this size would be stretched over it, and that has to wait
@@ -207,6 +205,9 @@ public partial class HdrBitmapView : NativeControlHost
             _drawAtNewSizeQueued = true;
             Dispatcher.UIThread.Post(DrawAtNewSize, DispatcherPriority.Loaded);
         }
+
+        // Raises SizeChanged, whose handlers may set a frame that has to wait like any other.
+        base.OnSizeChanged(e);
     }
 
     private void DrawAtNewSize()

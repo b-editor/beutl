@@ -5,6 +5,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using Beutl.Controls;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Media;
 using Beutl.Media.Source;
 using BtlBitmap = Beutl.Media.Bitmap;
@@ -51,7 +52,8 @@ public class HdrBitmapViewFirstFrameTests
 
             Dispatcher.UIThread.RunJobs(DispatcherPriority.Loaded);
 
-            Assert.That(view.WaitForFirstDraw(), Is.True, "The frame was not drawn after layout.");
+            Assert.That(
+                view.WaitForFirstDrawnWidth(), Is.EqualTo(source.Value.Width), "The frame was not drawn after layout.");
         });
     }
 
@@ -62,7 +64,7 @@ public class HdrBitmapViewFirstFrameTests
         RunWithView((view, window) =>
         {
             using Ref<BtlBitmap> first = NewSource();
-            using Ref<BtlBitmap> next = NewSource();
+            using Ref<BtlBitmap> next = NewSource(8);
             view.Source = first;
             window.UpdateLayout();
 
@@ -72,7 +74,27 @@ public class HdrBitmapViewFirstFrameTests
 
             Dispatcher.UIThread.RunJobs(DispatcherPriority.Loaded);
 
-            Assert.That(view.WaitForFirstDraw(), Is.True, "The frame was not drawn by the queued draw.");
+            Assert.That(
+                view.WaitForFirstDrawnWidth(),
+                Is.EqualTo(next.Value.Width),
+                "The queued draw did not take the latest frame.");
+        });
+    }
+
+    // A handler of SizeChanged runs inside layout, before the native view has that size.
+    [AvaloniaTest]
+    public void A_frame_set_from_a_size_changed_handler_waits_for_the_queued_draw()
+    {
+        RunWithView((view, window) =>
+        {
+            using Ref<BtlBitmap> first = NewSource();
+            using Ref<BtlBitmap> next = NewSource(8);
+            view.SizeChanged += (_, _) => view.Source = next;
+            view.Source = first;
+
+            window.UpdateLayout();
+
+            Assert.That(next.RefCount, Is.EqualTo(HeldByTheView), "The frame did not wait for the queued draw.");
         });
     }
 
@@ -98,10 +120,10 @@ public class HdrBitmapViewFirstFrameTests
         });
     }
 
-    private static Ref<BtlBitmap> NewSource()
+    private static Ref<BtlBitmap> NewSource(int size = 4)
     {
         return Ref<BtlBitmap>.Create(
-            new BtlBitmap(4, 4, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb));
+            new BtlBitmap(size, size, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb));
     }
 
     private static void RunOnMacOS(Action test)
@@ -131,11 +153,13 @@ public class HdrBitmapViewFirstFrameTests
 
         public void Destroy(IPlatformHandle control) => DestroyNativeControlCore(control);
 
-        public bool WaitForFirstDraw()
+        // The width of the first frame to reach the renderer, or null when none does.
+        public float? WaitForFirstDrawnWidth()
         {
             object renderer = typeof(HdrBitmapView).GetField("_renderer", Flags)!.GetValue(this)!;
             FieldInfo lastParams = renderer.GetType().GetField("_lastRenderParams", Flags)!;
-            return SpinWait.SpinUntil(() => lastParams.GetValue(renderer) != null, TimeSpan.FromSeconds(10));
+            SpinWait.SpinUntil(() => lastParams.GetValue(renderer) != null, TimeSpan.FromSeconds(10));
+            return ((RenderParams?)lastParams.GetValue(renderer))?.SourceWidth;
         }
     }
 
