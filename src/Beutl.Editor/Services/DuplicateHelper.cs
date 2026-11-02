@@ -182,6 +182,7 @@ public static class DuplicateHelper
         }
 
         (MediaTime minStart, int minZIndex) = ComputeMinOrigin(newElements);
+        List<(Element Matte, Element Source)> copiedMattes = FindCopiedMatteSources(newElements);
 
         foreach (Element newElement in newElements)
         {
@@ -200,5 +201,31 @@ public static class DuplicateHelper
         {
             scene.AddChild(newElement, overlapHandling);
         }
+
+        // A matte follows a source copied with it, to the layer that copy ended up on: fitting it around what it
+        // overlaps can move it off its layer. Any other layer the matte names still holds its source.
+        foreach ((Element matte, Element source) in copiedMattes)
+        {
+            matte.MatteSourceZIndex.Value = source.ZIndex.Value;
+        }
+    }
+
+    // The copies whose matte names a layer where another copy is at the same time, and that other copy.
+    private static List<(Element Matte, Element Source)> FindCopiedMatteSources(Element[] copies)
+    {
+        var result = new List<(Element Matte, Element Source)>();
+        foreach (Element copy in copies)
+        {
+            if (copy.MatteSourceKind.Value == MatteSourceKind.Layer
+                && copy.MatteSourceZIndex.Value is { } layer
+                && copies.FirstOrDefault(other => other != copy
+                    && other.ZIndex.Value == layer
+                    && other.Range.Intersects(copy.Range)) is { } source)
+            {
+                result.Add((copy, source));
+            }
+        }
+
+        return result;
     }
 }
