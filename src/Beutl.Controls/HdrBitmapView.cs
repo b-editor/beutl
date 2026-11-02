@@ -4,6 +4,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Media.Source;
@@ -42,6 +43,7 @@ public partial class HdrBitmapView : NativeControlHost
     private VulkanSwapchainRenderer? _renderer;
     private Ref<BtlBitmap>? _clonedSource;
     private Size? _lastSourceSize;
+    private bool _drawAtNewSizeQueued;
     private IntPtr _macOSView;
     private IntPtr _macOSScreenColorSpace;
     private PreviewGamutMapping _displayGamut;
@@ -198,15 +200,31 @@ public partial class HdrBitmapView : NativeControlHost
     {
         base.OnSizeChanged(e);
 
-        if (_renderer != null && e.NewSize.Width > 0 && e.NewSize.Height > 0)
+        if (_renderer != null && e.NewSize.Width > 0 && e.NewSize.Height > 0 && !_drawAtNewSizeQueued)
         {
-            var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
-            _renderer.Resize(
-                (uint)(e.NewSize.Width * scaling),
-                (uint)(e.NewSize.Height * scaling));
-
-            RequestRender();
+            // A frame drawn before the native view takes this size would be stretched over it, and that has to wait
+            // for layout to end: ancestors still being arranged have their old bounds, so its place is not known yet.
+            _drawAtNewSizeQueued = true;
+            Dispatcher.UIThread.Post(DrawAtNewSize, DispatcherPriority.Loaded);
         }
+    }
+
+    private void DrawAtNewSize()
+    {
+        _drawAtNewSizeQueued = false;
+        if (_renderer == null || Bounds.Width <= 0 || Bounds.Height <= 0)
+            return;
+
+        // NativeControlHost has moved the native view by now, unless layout ran from the updateLayer of Avalonia's view
+        // on macOS, which puts the move off with dispatch_async. This priority never runs there, so it applies at once.
+        TryUpdateNativeControlPosition();
+
+        var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
+        _renderer.Resize(
+            (uint)(Bounds.Width * scaling),
+            (uint)(Bounds.Height * scaling));
+
+        RequestRender();
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -311,8 +329,12 @@ public partial class HdrBitmapView : NativeControlHost
 
     private void RequestRender()
     {
-        if (_renderer == null || _clonedSource == null)
+        // Until the native view has the view's size, a frame would only be stretched over it. DrawAtNewSize draws then.
+        if (_renderer == null || _clonedSource == null || _drawAtNewSizeQueued
+            || Bounds.Width <= 0 || Bounds.Height <= 0)
+        {
             return;
+        }
 
         var bitmapRef = _clonedSource.TryClone();
         if (bitmapRef == null)
