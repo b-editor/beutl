@@ -170,7 +170,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
             expressionContext.BeginEvaluation(this);
             try
             {
-                value = expressionState.Expression.Evaluate(expressionContext);
+                value = ExpressionEvaluationState<T>.RequireFinite(expressionState.Expression.Evaluate(expressionContext));
                 expressionState.ClearError();
                 return ValidateAndCoerce(value);
             }
