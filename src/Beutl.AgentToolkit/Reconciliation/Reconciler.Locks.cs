@@ -81,8 +81,9 @@ public sealed partial class Reconciler
     }
 
     // As in the editor (ElementStructureService.Group and Ungroup), a locked element is never added to a
-    // group, taken out of one or moved to another. Its group may only lose other members, and it may be
-    // left alone only when the others were deleted, since deleting an element prunes its group.
+    // group, taken out of one or moved to another, so the locked members of a group stay together. Its group
+    // may only lose unlocked members, and it may be left alone only when the others were deleted, since
+    // deleting an element prunes its group.
     private static ToolError? FindRegroupedLockedElement(Scene scene, Scene sandbox, Element[] lockedElements)
     {
         if (lockedElements.Length == 0 || (scene.Groups.Count == 0 && sandbox.Groups.Count == 0))
@@ -93,8 +94,9 @@ public sealed partial class Reconciler
         HashSet<Guid> lockedIds = lockedElements.Select(element => element.Id.Value).ToHashSet();
         ILookup<Guid, ImmutableHashSet<Guid>> groupsBefore = GroupsHolding(scene, lockedIds);
         ILookup<Guid, ImmutableHashSet<Guid>> groupsAfter = GroupsHolding(sandbox, lockedIds);
-        // Locked members of one group share the answer, and IsSubsetOf copies the original into a new set on each call.
-        var keptGroups = new HashSet<(ImmutableHashSet<Guid> After, ImmutableHashSet<Guid> Original)>();
+        // The group each original became. Its other locked members must be in that one too, which also spares
+        // them IsSubsetOf, since it copies the original into a new set on each call.
+        var keptGroups = new Dictionary<ImmutableHashSet<Guid>, ImmutableHashSet<Guid>>();
         HashSet<Guid> remaining = sandbox.Children.Select(element => element.Id.Value).ToHashSet();
         foreach (Element locked in lockedElements)
         {
@@ -116,8 +118,9 @@ public sealed partial class Reconciler
             {
                 0 => original is null || !original.Any(id => id != locked.Id.Value && remaining.Contains(id)),
                 1 => original is not null
-                     && (keptGroups.Contains((after[0], original))
-                         || (after[0].IsSubsetOf(original) && keptGroups.Add((after[0], original)))),
+                     && (keptGroups.TryGetValue(original, out ImmutableHashSet<Guid>? keptGroup)
+                         ? keptGroup == after[0]
+                         : after[0].IsSubsetOf(original) && keptGroups.TryAdd(original, after[0])),
                 _ => false,
             };
             if (!kept)
@@ -126,7 +129,7 @@ public sealed partial class Reconciler
                     ErrorCode.ValidationRejected,
                     $"Element {DescribeElement(locked)} is locked, so an agent cannot add it to a group, take it out of its group or move it to another.",
                     ElementTarget(locked),
-                    $"Keep the Groups entry that holds this element as it is; other members may leave it. Or ask the user to unlock the element in the timeline. {LockHint}");
+                    $"Keep the Groups entry that holds this element as it is; unlocked members may leave it. Or ask the user to unlock the element in the timeline. {LockHint}");
             }
         }
 
