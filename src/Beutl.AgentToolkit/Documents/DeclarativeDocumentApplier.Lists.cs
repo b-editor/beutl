@@ -273,6 +273,12 @@ internal sealed partial class DeclarativeDocumentApplier
         }
     }
 
+    private static CoreObject? FindById(IList list, Guid id)
+    {
+        int index = IndexOfId(list, id, 0);
+        return index < 0 ? null : (CoreObject)list[index]!;
+    }
+
     private static int IndexOfId(IList list, Guid id, int start)
     {
         for (int i = start; i < list.Count; i++)

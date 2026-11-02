@@ -309,13 +309,15 @@ internal sealed partial class DeclarativeDocumentApplier
     private void ApplyKeyFrameList(ICoreList<IKeyFrame> list, JsonArray desired, CoreObject? owner)
     {
         var desiredIds = new HashSet<Guid>();
-        // A repeated Id finds its first frame, as a scan of the list would.
+        // A corrupted project can repeat an Id. Changing a frame's time can move it past its copy,
+        // so a list with a repeated Id is searched as it stands.
         var framesById = new Dictionary<Guid, CoreObject>(list.Count);
+        bool repeatedId = false;
         foreach (IKeyFrame frame in list)
         {
             if (frame is CoreObject coreObject)
             {
-                framesById.TryAdd(coreObject.Id.Value, coreObject);
+                repeatedId |= !framesById.TryAdd(coreObject.Id.Value, coreObject);
             }
         }
 
@@ -333,7 +335,8 @@ internal sealed partial class DeclarativeDocumentApplier
             }
 
             CoreObject item;
-            if (CollectionReconciler.TryGetId(itemJson, out Guid id) && framesById.TryGetValue(id, out CoreObject? existing))
+            if (CollectionReconciler.TryGetId(itemJson, out Guid id)
+                && (repeatedId ? FindById(list, id) : framesById.GetValueOrDefault(id)) is { } existing)
             {
                 item = existing;
                 ApplyCoreObject(existing, itemJson);
