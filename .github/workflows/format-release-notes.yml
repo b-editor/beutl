@@ -132,21 +132,25 @@ jobs:
               }
             }
           PROMPT: |
-            You are writing the categorized summary for the release notes of Beutl ${{ inputs.tag }}, a video editing application. The <changelog> below is GitHub's auto-generated list of the pull requests in this release, one `* <PR title> by @<author> in <PR URL>` line each.
+            You are writing the summary at the top of the release notes of Beutl ${{ inputs.tag }}, a video editing application. The <changelog> below is GitHub's auto-generated list of the pull requests in this release, one `* <PR title> by @<author> in <PR URL>` line each. The release notes show that full list right below your summary, so do not repeat it: the summary tells a user what changed for them, and reads in about a minute.
 
             Produce a JSON object with exactly these four keys, each an array of bullets:
-            - "newFeatures": PR titles starting with `feat:` / `feature:`
-            - "improvements": `refactor:` / `perf:` / `improve:` / `chore(refactor):` style
-            - "bugFixes": `fix:`
-            - "other": any other user-visible PR
-            A scope or a breaking-change marker does not change the category (`feat(audio)!:` is a new feature). Skip dependabot bumps and pure `chore:` / `ci:` / `build:` / `docs:` / `test:` PRs that have no end-user impact. Leave a category as an empty array when nothing belongs in it.
+            - "newFeatures": what users can now do, from PR titles starting with `feat:` / `feature:`
+            - "improvements": what users notice from `perf:` / `improve:` / `refactor:` style PRs
+            - "bugFixes": the problems users had that `fix:` PRs solved
+            - "other": anything else users notice
+            A scope or a breaking-change marker does not change the category (`feat(audio)!:` is a new feature). Leave a category as an empty array when nothing belongs in it.
 
-            A bullet is `{"text": "<change>"}`, or `{"text": "<feature area>", "children": ["<change>", ...]}` to group several PRs that touch one feature area, for example:
-            {"newFeatures": [{"text": "Audio", "children": ["Added an audio equalizer effect", "Added waveform shapes to the audio visualizer"]}, {"text": "Added the border design theme (breaking change)"}], "improvements": [], "bugFixes": [{"text": "Fixed a crash when importing video without an audio track"}], "other": []}
+            A bullet is `{"text": "<change>"}`, for example:
+            {"newFeatures": [{"text": "Added an audio equalizer effect and waveform shapes for the audio visualizer"}, {"text": "Added the border design theme (breaking change)"}], "improvements": [], "bugFixes": [{"text": "Fixed a crash when importing video without an audio track"}], "other": []}
 
-            - Describe each user-visible change in past tense, paraphrasing the PR title. Never copy a changelog line verbatim.
-            - Merge related PRs into a single bullet when natural.
-            - Append " (breaking change)" to a change whose PR title has `!` before the colon.
+            Keep it short. These are upper limits, and a smaller release needs fewer: 12 bullets in "newFeatures", 3 in "improvements", 8 in "bugFixes", 2 in "other".
+            - Write one bullet per feature, however many PRs built it, saying what users can do with it. Combine small features of one area, such as several new effects, into one bullet.
+            - Write bug fixes by area, naming what used to go wrong, rather than one bullet per PR.
+            - Write performance work as the one effect users feel, such as large projects staying responsive.
+            - Leave out what users would not notice: refactoring, tests, tooling, dependency bumps, and small visual adjustments. Also leave out fixes to something added in this same release, since no user had that problem.
+            - Each bullet is one short sentence in past tense, in your own words. Never copy a changelog line verbatim.
+            - Append " (breaking change)" to a bullet when a PR it covers has `!` before the colon in its title. Do not leave such a PR out.
             - Write plain text: no links, URLs, PR numbers, author names, or line breaks.
         run: |
           set -euo pipefail
@@ -270,7 +274,7 @@ jobs:
             # Escape what could still form a link: HTML tags and Markdown or reference-style brackets.
             def md: gsub("^\\s+|\\s+$"; "") | gsub("<"; "&lt;") | gsub(">"; "&gt;") | gsub("\\["; "\\[") | gsub("\\]"; "\\]");
             def bullets: map("- \(.text | md)" + (.children // [] | map("\n  - \(md)") | join("")));
-            [["New Features", .newFeatures], ["Improvements & Refactoring", .improvements], ["Bug Fixes", .bugFixes], ["Other", .other]]
+            [["New Features", .newFeatures], ["Improvements", .improvements], ["Bug Fixes", .bugFixes], ["Other", .other]]
             | map(select(.[1] | length > 0) | "**\(.[0])**\n" + (.[1] | bullets | join("\n")))
             | join("\n\n")
           ' "$SUMMARY")
