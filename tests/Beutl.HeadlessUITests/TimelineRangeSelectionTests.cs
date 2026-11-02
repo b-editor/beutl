@@ -80,7 +80,7 @@ public class TimelineRangeSelectionTests
     {
         using TimelineSession session = await TimelineSession.CreateAsync();
         if (scrollY > 0) session.Scroll(scrollY);
-        session.Model.SelectElement(session.Model.Elements.First());
+        session.Model.SelectElement(session.Model.AllElements().First());
         session.Drag(session.Ruler.TranslatePoint(new Point(15, 5), session.Window)!.Value,
             session.Ruler.TranslatePoint(new Point(225, 25), session.Window)!.Value, []);
     }

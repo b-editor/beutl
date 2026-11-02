@@ -140,14 +140,9 @@ public sealed partial class ElementViewModel : IDisposable
         zIndexSubject.Subscribe(number =>
             {
                 // A header's number is its index in LayerHeaders.
-                LayerHeaderViewModel? newLH = number >= 0 && number < Timeline.LayerHeaders.Count
+                LayerHeader.Value = number >= 0 && number < Timeline.LayerHeaders.Count
                     ? Timeline.LayerHeaders[number]
                     : null;
-
-                LayerHeader.Value?.ElementRemoved();
-
-                newLH?.ElementAdded();
-                LayerHeader.Value = newLH;
             })
             .AddTo(_disposables);
 
@@ -358,8 +353,10 @@ public sealed partial class ElementViewModel : IDisposable
             return [];
         }
 
-        return Timeline.Elements
-            .Where(x => ids.Contains(x.Model.Id.Value))
+        return Scene.Children
+            .Where(x => ids.Contains(x.Id.Value))
+            .Select(Timeline.GetViewModelFor)
+            .OfType<ElementViewModel>()
             .ToArray();
     }
 

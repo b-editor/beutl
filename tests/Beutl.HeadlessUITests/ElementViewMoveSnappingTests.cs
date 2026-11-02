@@ -28,8 +28,8 @@ public class ElementViewMoveSnappingTests
             new(MediaTime.FromSeconds(40), MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(() => new RectShape())),
             new(MediaTime.FromSeconds(25), MediaTime.FromSeconds(2), 1, new ElementSource.EngineObject(() => new RectShape()))
         ]);
-        ElementViewModel pressed = host.Model.Elements.Single(e => e.Model.ZIndex.Value == 0);
-        ElementViewModel companion = host.Model.Elements.Single(e => e.Model.ZIndex.Value == 1);
+        ElementViewModel pressed = host.Model.AllElements().Single(e => e.Model.ZIndex.Value == 0);
+        ElementViewModel companion = host.Model.AllElements().Single(e => e.Model.ZIndex.Value == 1);
         host.Scene.Groups.Add([pressed.Model.Id.Value, companion.Model.Id.Value]);
         host.Model.ClearSelected();
         host.Content.Offset = new Vector(MediaTime.FromSeconds(40).TimeToPixel(1), 0);

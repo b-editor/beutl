@@ -167,8 +167,9 @@ public sealed partial class TimelineTabView
         if (element == null)
         {
             int layer = viewModel.ToLayerNumber(position.Y);
-            element = viewModel.Elements.FirstOrDefault(
-                item => item.Model.ZIndex.Value == layer && item.Model.Range.Contains(time));
+            Element? hit = viewModel.Scene.Children.FirstOrDefault(
+                item => item.ZIndex.Value == layer && item.Range.Contains(time));
+            element = hit is null ? null : viewModel.GetViewModelFor(hit);
         }
 
         if (element == null) return null;

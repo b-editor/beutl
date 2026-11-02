@@ -126,9 +126,8 @@ public sealed partial class TimelineTabViewModel
 
     public void RazorSplitAt(MediaTime time)
     {
-        Element[] models = Elements
-            .Where(e => e.Model.Range.Contains(time) && e.IsEditable.Value)
-            .Select(e => e.Model)
+        Element[] models = Scene.Children
+            .Where(e => e.Range.Contains(time) && !Scene.IsElementLocked(e))
             .ToArray();
         if (models.Length == 0) return;
 

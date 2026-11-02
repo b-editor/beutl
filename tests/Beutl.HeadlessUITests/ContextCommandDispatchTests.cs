@@ -122,7 +122,7 @@ public class ContextCommandDispatchTests
             Assert.That(added.IsSuccess, Is.True);
             HeadlessTestHelpers.Settle();
             TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
-            ElementViewModel target = timeline.Elements.Single();
+            ElementViewModel target = timeline.AllElements().Single();
             timeline.SelectElement(target);
             AsyncReactiveCommand command = commandId switch
             {
