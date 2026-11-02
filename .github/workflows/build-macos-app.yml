@@ -80,6 +80,10 @@ jobs:
             --assembly-version ${{ inputs.asmVer }} \
             --informational-version ${{ inputs.infoVer }}
 
+      # The daily build checks only its own zips, so check what ships here, before it is signed.
+      - name: Verify native architecture
+        run: python3 build/verify_native_architecture.py --rid ${{ matrix.rid }} output/AppBundle/Beutl.app
+
       - name: Store Metadata
         shell: bash
         run: |
