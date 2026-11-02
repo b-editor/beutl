@@ -78,11 +78,7 @@ internal sealed class SpectralNoiseReducer
     private int _ringCount;
     private int _ringIndex;
 
-    public SpectralNoiseReducer(int sampleRate) : this(sampleRate, 2)
-    {
-    }
-
-    public SpectralNoiseReducer(int sampleRate, int channels)
+    public SpectralNoiseReducer(int sampleRate, int channels = 2)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(channels);
         _channels = channels;
@@ -128,6 +124,8 @@ internal sealed class SpectralNoiseReducer
     public int FrameSize => _frameSize;
 
     public int HopSize => _hopSize;
+
+    public int ChannelCount => _channels;
 
     /// <summary>The absolute position after the last written input sample.</summary>
     public long InputEnd => _inputEnd;
@@ -191,19 +189,20 @@ internal sealed class SpectralNoiseReducer
     /// <summary>Appends interleaved input. Non-finite samples are replaced with silence.</summary>
     public void Write(ReadOnlySpan<float> interleaved)
     {
-        if (interleaved.Length % _channels != 0)
+        int channels = _channels;
+        if (interleaved.Length % channels != 0)
             throw new ArgumentException("Interleaved input must contain whole frames.", nameof(interleaved));
         if (_paddingStart != long.MaxValue)
             throw new InvalidOperationException("Cannot append audio after the stream was padded with silence.");
 
-        int count = interleaved.Length / _channels;
+        int count = interleaved.Length / channels;
         int offset = PrepareWrite(count);
-        for (int channel = 0; channel < _channels; channel++)
+        for (int channel = 0; channel < channels; channel++)
         {
             Span<float> destination = _input[channel].AsSpan(offset, count);
             for (int i = 0; i < count; i++)
             {
-                float sample = interleaved[i * _channels + channel];
+                float sample = interleaved[i * channels + channel];
                 destination[i] = float.IsFinite(sample) ? sample : 0f;
             }
         }
@@ -325,32 +324,13 @@ internal sealed class SpectralNoiseReducer
     /// Produces the next output samples. <paramref name="settingsAt"/> receives the absolute position
     /// of each frame's center. Throws when <see cref="GetRequiredInputEnd"/> has not been satisfied.
     /// </summary>
-    public void Read(Span<float> left, Span<float> right, Func<long, NoiseReductionSettings> settingsAt)
-    {
-        ArgumentNullException.ThrowIfNull(settingsAt);
-        if (left.Length != right.Length)
-            throw new ArgumentException("Both channels must have the same length.", nameof(right));
-
-        if (_channels != 2)
-            throw new InvalidOperationException("This overload requires a stereo reducer.");
-        ValidateRead(left.Length);
-        int written = 0;
-        while (written < left.Length)
-        {
-            int n = PrepareBlock(left.Length - written, settingsAt);
-            _block[0].AsSpan(_blockOffset, n).CopyTo(left.Slice(written, n));
-            _block[1].AsSpan(_blockOffset, n).CopyTo(right.Slice(written, n));
-            Advance(n);
-            written += n;
-        }
-    }
-
     public void Read(AudioBuffer output, Func<long, NoiseReductionSettings> settingsAt)
     {
         ArgumentNullException.ThrowIfNull(settingsAt);
         if (output.ChannelCount != _channels)
             throw new ArgumentException("Output channel count must match the reducer.", nameof(output));
-        ValidateRead(output.SampleCount);
+        if (output.SampleCount > 0 && _inputEnd < GetRequiredInputEnd(_outputPosition + output.SampleCount))
+            throw new InvalidOperationException("The reducer needs more input before it can produce this output.");
         int written = 0;
         while (written < output.SampleCount)
         {
@@ -360,12 +340,6 @@ internal sealed class SpectralNoiseReducer
             Advance(n);
             written += n;
         }
-    }
-
-    private void ValidateRead(int count)
-    {
-        if (count > 0 && _inputEnd < GetRequiredInputEnd(_outputPosition + count))
-            throw new InvalidOperationException("The reducer needs more input before it can produce this output.");
     }
 
     private int PrepareBlock(int count, Func<long, NoiseReductionSettings> settingsAt)
@@ -423,15 +397,27 @@ internal sealed class SpectralNoiseReducer
     private double AnalyzeFrame(long start)
     {
         int offset = (int)(start - _inputBase);
+        float[] window = _window;
         for (int pair = 0; pair < _real.Length; pair++)
         {
             float[] real = _real[pair], imag = _imag[pair];
             int channel = pair * 2;
-            for (int n = 0; n < _frameSize; n++)
+            float[] first = _input[channel];
+            if (channel + 1 < _channels)
             {
-                float w = _window[n];
-                real[n] = w * _input[channel][offset + n];
-                imag[n] = channel + 1 < _channels ? w * _input[channel + 1][offset + n] : 0;
+                float[] second = _input[channel + 1];
+                for (int n = 0; n < _frameSize; n++)
+                {
+                    float w = window[n];
+                    real[n] = w * first[offset + n];
+                    imag[n] = w * second[offset + n];
+                }
+            }
+            else
+            {
+                for (int n = 0; n < _frameSize; n++)
+                    real[n] = window[n] * first[offset + n];
+                Array.Clear(imag);
             }
             Fft.Forward(real, imag);
         }
@@ -445,23 +431,27 @@ internal sealed class SpectralNoiseReducer
             return fraction;
 
         // With z = l + i r, |L[k]|^2 + |R[k]|^2 = (|Z[k]|^2 + |Z[N-k]|^2) / 2.
-        float scale = _channels == 2 ? (float)(0.25 / fraction) : (float)(0.5 / _channels / fraction);
+        float scale = (float)(0.5 / _channels / fraction);
         int mask = _frameSize - 1;
-        for (int k = 0; k < _bins; k++)
+        float[] power = _power;
+        Array.Clear(power);
+        for (int pair = 0; pair < _real.Length; pair++)
         {
-            int mirror = (_frameSize - k) & mask;
-            float power = 0;
-            for (int pair = 0; pair < _real.Length; pair++)
+            float[] real = _real[pair], imag = _imag[pair];
+            for (int k = 0; k < _bins; k++)
             {
-                float re = _real[pair][k];
-                float im = _imag[pair][k];
-                float mirrorRe = _real[pair][mirror];
-                float mirrorIm = _imag[pair][mirror];
-                float pairPower = re * re + im * im + mirrorRe * mirrorRe + mirrorIm * mirrorIm;
-                power = pair == 0 ? pairPower : power + pairPower;
+                int mirror = (_frameSize - k) & mask;
+                float re = real[k];
+                float im = imag[k];
+                float mirrorRe = real[mirror];
+                float mirrorIm = imag[mirror];
+                // A sum of squares is never -0, so adding it to the cleared +0 leaves its bits alone.
+                power[k] += re * re + im * im + mirrorRe * mirrorRe + mirrorIm * mirrorIm;
             }
-            _power[k] = power * scale;
         }
+
+        for (int k = 0; k < _bins; k++)
+            power[k] *= scale;
 
         return fraction;
     }
@@ -574,6 +564,7 @@ internal sealed class SpectralNoiseReducer
     private void ApplyCorrection()
     {
         int half = _frameSize / 2;
+        float[] window = _window;
         for (int pair = 0; pair < _real.Length; pair++)
         {
             float[] real = _real[pair], imag = _imag[pair];
@@ -586,12 +577,24 @@ internal sealed class SpectralNoiseReducer
             }
             Fft.Forward(real, imag);
             int channel = pair * 2;
-            for (int n = 0; n < _frameSize; n++)
+            float[] first = _overlap[channel];
+            if (channel + 1 < _channels)
             {
-                float w = _window[n] * _synthesisScale;
-                _overlap[channel][n] += w * real[n];
-                if (channel + 1 < _channels)
-                    _overlap[channel + 1][n] -= w * imag[n];
+                float[] second = _overlap[channel + 1];
+                for (int n = 0; n < _frameSize; n++)
+                {
+                    float w = window[n] * _synthesisScale;
+                    first[n] += w * real[n];
+                    second[n] -= w * imag[n];
+                }
+            }
+            else
+            {
+                for (int n = 0; n < _frameSize; n++)
+                {
+                    float w = window[n] * _synthesisScale;
+                    first[n] += w * real[n];
+                }
             }
         }
     }
@@ -603,8 +606,11 @@ internal sealed class SpectralNoiseReducer
         {
             int offset = (int)(start - _inputBase);
             for (int channel = 0; channel < _channels; channel++)
+            {
+                float[] block = _block[channel], input = _input[channel], overlap = _overlap[channel];
                 for (int i = 0; i < _hopSize; i++)
-                    _block[channel][i] = _input[channel][offset + i] + _overlap[channel][i];
+                    block[i] = input[offset + i] + overlap[i];
+            }
 
             _blockPosition = start;
             _blockOffset = 0;

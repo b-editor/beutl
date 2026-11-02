@@ -38,8 +38,7 @@ public sealed class FilterEffectContinuation
             context.ApplyTransactional(head);
         context.AppendItems(_items);
         using var builder = new SKImageFilterBuilder();
-        using var executor = _owner.CreateExecutor(targets, builder);
-        executor.Instance = instance;
+        using var executor = _owner.CreateExecutor(targets, builder, instance);
         executor.Apply(context);
         executor.Flush();
     }

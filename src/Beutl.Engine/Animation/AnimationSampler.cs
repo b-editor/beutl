@@ -61,7 +61,7 @@ public sealed class AnimationSampler
         return value;
     }
 
-    private static MediaTime GetOwnerStart(IProperty property)
+    internal static MediaTime GetOwnerStart(IProperty property)
         => (property.GetOwnerObject() as EngineObject)?.TimeRange.Value.Start ?? MediaTime.Zero;
 
     private static void SampleExpression<T>(

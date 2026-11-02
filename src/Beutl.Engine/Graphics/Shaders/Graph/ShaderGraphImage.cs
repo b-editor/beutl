@@ -46,6 +46,9 @@ internal sealed unsafe class ShaderGraphImage : IDisposable
     internal ImageUsageFlags Usage { get; }
     internal ulong AllocationSize { get; }
 
+    internal bool Supports(ImageDescription description, ImageUsageFlags usage)
+        => Description == description && (Usage & usage) == usage;
+
     private static ImageCreateFlags CubeFlags(ImageDescription description)
         => description.Kind is ImageKind.Cube or ImageKind.CubeArray ? ImageCreateFlags.CreateCubeCompatibleBit : 0;
 

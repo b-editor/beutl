@@ -13,10 +13,8 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public interface IReferencePropertyEditorViewModel
+public interface IReferencePropertyEditorViewModel : ITargetPickerViewModel
 {
-    bool IsDisposed { get; }
-
     string Header { get; }
 
     ReactivePropertySlim<string?> HoverInfo { get; }
@@ -24,10 +22,6 @@ public interface IReferencePropertyEditorViewModel
     ReadOnlyReactivePropertySlim<bool> CanEditProperty { get; }
 
     ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
-
-    IReadOnlyList<TargetObjectInfo> GetAvailableTargets();
-
-    void SetTarget(CoreObject? target);
 }
 
 public sealed class ReferencePropertyEditorViewModel<T> : PropertyEditorViewModel<T?>, IReferencePropertyEditorViewModel

@@ -64,12 +64,7 @@ internal sealed class AudioSourceStream(int sampleRate, int channels, Func<Media
         if (result.ChannelCount != channels)
             throw new InvalidOperationException("Upstream channel count does not match the audio stream.");
         int count = Math.Min(requestedFrames, result.SampleCount);
-        for (int channel = 0; channel < channels; channel++)
-        {
-            ReadOnlySpan<float> samples = result.GetChannelData(channel);
-            for (int i = 0; i < count; i++)
-                buffer[i * channels + channel] = samples[i];
-        }
+        AudioConversion.Interleave(result, count, buffer);
         Position += count;
         return count * channels;
     }

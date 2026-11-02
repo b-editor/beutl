@@ -43,7 +43,7 @@ internal sealed class SpeedMappedProcessing<TProcessor>(
         mapping.Configure(context.SampleRate);
         // A drain keeps the last live speed, which its tail budget was counted at.
         if (!draining)
-            mapping.BeginWindow(context.TimeRange.Start);
+            mapping.BeginWindow(context);
         bool upstreamChanged = AudioSourceStream.UpstreamChangedAndCapture(owner, ref _upstreamSnapshot);
         if (_processor is null || _lastSampleRate != context.SampleRate || _lastChannelCount != channelCount || upstreamChanged)
         {

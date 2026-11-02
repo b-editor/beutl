@@ -77,7 +77,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                     // are complete at this point.
                     Math.Min(time.ToFrame(frameRate, MidpointRounding.AwayFromZero), frameProvider.FrameCount),
                     frameProvider.FrameCount));
-            using var composer = CreateExportComposer(scene, normalizedSampleRate);
+            using var composer = ExportRendererFactory.CreateComposer(scene, normalizedSampleRate);
             using var sampleProgress = new Subject<MediaTime>();
             using var sampleProvider = new SampleProviderImpl(scene, composer, normalizedSampleRate, sampleProgress, controller.AudioSettings.GetChannelLayout());
 
@@ -138,16 +138,6 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         }
 
         throw ffmpegFailure ?? new CodecUnavailableException("FFmpeg libraries are not available.");
-    }
-
-    // Final output: audio must never read proxy media, even though audio opens skip the proxy resolver today.
-    internal static SceneComposer CreateExportComposer(Scene scene, int sampleRate)
-    {
-        return new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
-        {
-            SampleRate = sampleRate,
-            ChannelLayout = scene.FindHierarchicalParent<Project>().GetChannelLayout(),
-        };
     }
 
     private static List<string> ConfigureController(

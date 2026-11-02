@@ -1,5 +1,4 @@
 ﻿using Beutl.Animation;
-using Beutl.Engine;
 using Beutl.Media;
 
 namespace Beutl.Audio.Graph;
@@ -54,14 +53,14 @@ internal sealed class AudioSpeedMapping : IDisposable
 
     // An expression runs a script, so it is evaluated once for each window, at its start, and the window plays at
     // that speed as at a fixed one. A change between windows re-anchors the source as a fixed speed's edit does.
-    public void BeginWindow(MediaTime start)
+    public void BeginWindow(AudioProcessContext context)
     {
-        _expressionPercent = Speed is IExpressionProperty<float> { HasExpression: true } expression
-            ? expression.Evaluate(new EvaluationContext(GetOwnerStart() + start))
+        _expressionPercent = HasExpression
+            ? context.AnimationSampler.SampleAt(Speed!, context.TimeRange.Start, context.SampleRate)
             : null;
     }
 
-    private MediaTime GetOwnerStart() => (Speed?.GetOwnerObject() as EngineObject)?.TimeRange.Value.Start ?? MediaTime.Zero;
+    private MediaTime GetOwnerStart() => AnimationSampler.GetOwnerStart(Speed!);
 
     public void AcknowledgeChanges() => IsInvalidated = false;
     private float Normalize(float percent) => _normalize?.Invoke(percent) ?? percent;

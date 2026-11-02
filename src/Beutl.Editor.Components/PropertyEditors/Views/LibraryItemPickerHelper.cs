@@ -16,22 +16,22 @@ public static class LibraryItemPickerHelper
         var tcs = new TaskCompletionSource<object?>();
         dialog.Pinned += (_, item) => selectVm.Pin(item);
         dialog.Unpinned += (_, item) => selectVm.Unpin(item);
-        dialog.Dismissed += (_, _) => tcs.SetResult(null);
+        dialog.Dismissed += (_, _) => tcs.TrySetResult(null);
         dialog.Confirmed += (_, _) =>
         {
             switch (selectVm.SelectedItem.Value?.UserData)
             {
                 case TargetObjectInfo target:
-                    tcs.SetResult(target.Object);
+                    tcs.TrySetResult(target.Object);
                     break;
                 case SingleTypeLibraryItem single:
-                    tcs.SetResult(single.ImplementationType);
+                    tcs.TrySetResult(single.ImplementationType);
                     break;
                 case MultipleTypeLibraryItem multi:
-                    tcs.SetResult(multi.Types.GetValueOrDefault(multipleTypeFormat));
+                    tcs.TrySetResult(multi.Types.GetValueOrDefault(multipleTypeFormat));
                     break;
                 default:
-                    tcs.SetResult(null);
+                    tcs.TrySetResult(null);
                     break;
             }
         };

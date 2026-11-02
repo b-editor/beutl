@@ -23,7 +23,7 @@
                     <ContentControl x:Name="PanControl" IsEnabled="{Binding CanPan.Value}">
                         <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding PanEditor.Value}" />
                     </ContentControl>
-                    <StackPanel x:Name="PositionControls" IsEnabled="{Binding CanPosition.Value}">
+                    <StackPanel x:Name="PositionControls" IsEnabled="{Binding !IsHorizontalOnly.Value}">
                         <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding SurroundPanEditor.Value}" />
                         <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding CenterLevelEditor.Value}" />
                         <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding LfeLevelEditor.Value}" />

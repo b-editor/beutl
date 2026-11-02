@@ -142,6 +142,7 @@ internal static class PreviewFrameRenderer
             using var imageShader = image.ToShader(
                 SKShaderTileMode.Clamp, SKShaderTileMode.Clamp,
                 sampling, localMatrix);
+            // Not disposed: disposing a builder disposes its effect too, and this effect is shared.
             var builder = new SKRuntimeShaderBuilder(s_toneMappingEffect!);
             builder.Children["src"] = imageShader;
             builder.Uniforms["exposure"] = tmExposure;

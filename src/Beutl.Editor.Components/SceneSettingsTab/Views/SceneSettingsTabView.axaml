@@ -38,14 +38,10 @@
                              Header="{x:Static lang:Strings.Number_of_Layers}" />
 
             <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.ProjectAudioChannels}" />
-            <ComboBox x:Name="ChannelLayoutComboBox"
-                      Margin="8,0" HorizontalAlignment="Stretch"
-                      SelectedIndex="{Binding ChannelLayout.Value, Mode=TwoWay, Converter={x:Static converters:EnumIndexConverters.SpeakerLayouts}}">
-                <ComboBoxItem Content="{x:Static lang:Strings.SpeakerLayout_Mono}" />
-                <ComboBoxItem Content="{x:Static lang:Strings.SpeakerLayout_Stereo}" />
-                <ComboBoxItem Content="{x:Static lang:Strings.SpeakerLayout_Surround51}" />
-                <ComboBoxItem Content="{x:Static lang:Strings.SpeakerLayout_Surround71}" />
-            </ComboBox>
+            <ComboBox Margin="8,0"
+                      HorizontalAlignment="Stretch"
+                      ItemsSource="{x:Static converters:EnumIndexConverters.SpeakerLayoutNames}"
+                      SelectedIndex="{Binding ChannelLayout.Value, Mode=TwoWay, Converter={x:Static converters:EnumIndexConverters.SpeakerLayouts}}" />
 
             <WrapPanel x:Name="ActionButtons" Margin="8" ItemSpacing="4" LineSpacing="4">
                 <Button x:Name="ApplyButton"

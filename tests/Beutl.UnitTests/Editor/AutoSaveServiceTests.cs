@@ -334,7 +334,7 @@ public class AutoSaveServiceTests
     {
         Uri original = CreateUri("snapshot.json");
         var obj = new JsonSnapshotObject { Uri = original };
-        Action write = CoreSerializer.PrepareStoreToUri(obj, new Dictionary<string, bool>());
+        Action write = CoreSerializer.PrepareStoreToUri(obj, new HashSet<string>());
         obj.Payload["value"] = "After";
         obj.Uri = CreateUri("moved.json");
         write();
@@ -357,12 +357,12 @@ public class AutoSaveServiceTests
     public void PrepareSceneWithTwentyThousandPendingElementFilesKeepsCompactIncludes()
     {
         var scene = new Scene { Uri = CreateUri("main.scene") };
-        var pending = new Dictionary<string, bool>(StringComparer.Ordinal);
+        var pending = new HashSet<string>(StringComparer.Ordinal);
         for (int i = 0; i < 20000; i++)
         {
             var element = new Element { Uri = CreateUri($"elements/{i}.belm") };
             scene.Children.Add(element);
-            pending.Add(element.Uri.LocalPath, true);
+            pending.Add(element.Uri.LocalPath);
         }
         var watch = System.Diagnostics.Stopwatch.StartNew();
         Action write = CoreSerializer.PrepareStoreToUri(scene, pending);

@@ -21,8 +21,11 @@ public interface ITimeMappedSource : ISplittable
     /// stored values do not show. No edit can follow such a mapping, so a split shifts <see cref="OffsetPosition"/>
     /// by the local time alone.
     /// </summary>
-    /// <remarks><see cref="Speed"/> does not count; editors read its keyframes, and a split reads an expression on it at the cut.</remarks>
-    bool HasDynamicMapping => false;
+    /// <remarks>
+    /// The default reports an expression on <see cref="OffsetPosition"/>, which playback and rendering evaluate.
+    /// <see cref="Speed"/> does not count; editors read its keyframes, and a split reads an expression on it at the cut.
+    /// </remarks>
+    bool HasDynamicMapping => OffsetPosition.HasExpression;
 
     /// <summary>
     /// Whether edits that the timeline's length bounds, such as Slip and Trim, must leave

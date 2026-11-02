@@ -1,6 +1,5 @@
 ﻿using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
-using System.Numerics;
 using System.Runtime.Versioning;
 
 using Beutl.Audio;
@@ -132,6 +131,7 @@ public class MFReader : MediaReader
 
     private static AudioChannelLayout ReadChannelLayout(string file, WaveFormat format)
     {
+        uint? mask = null;
         try
         {
             using var attributes = MediaFactory.MFCreateAttributes(1u);
@@ -146,21 +146,15 @@ public class MFReader : MediaReader
             partialType.Set(MediaTypeAttributeKeys.AudioSamplesPerSecond, (uint)format.SampleRate).CheckError();
             reader.SetCurrentMediaType(SourceReaderIndex.FirstAudioStream, partialType);
             using var currentType = reader.GetCurrentMediaType(SourceReaderIndex.FirstAudioStream);
-            if (currentType.GetUInt32(MediaTypeAttributeKeys.AudioChannelMask, out uint mask).Success)
-            {
-                mask &= 0x3FFFF;
-                if (BitOperations.PopCount(mask) == format.Channels)
-                    return new AudioChannelLayout(format.Channels, (AudioSpeakers)mask);
-            }
+            if (currentType.GetUInt32(MediaTypeAttributeKeys.AudioChannelMask, out uint channelMask).Success)
+                mask = channelMask;
         }
         catch
         {
             // Optional channel metadata must not prevent an already-open audio stream from decoding.
         }
 
-        return format.Channels <= 2
-            ? AudioChannelLayout.GetDefault(format.Channels)
-            : AudioChannelLayout.Discrete(format.Channels);
+        return AudioChannelLayout.FromChannelMask(format.Channels, mask);
     }
 
     public override VideoStreamInfo VideoInfo => _videoInfo ?? throw new NotSupportedException();

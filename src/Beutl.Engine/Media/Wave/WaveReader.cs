@@ -1,6 +1,5 @@
 ﻿using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
-using System.Numerics;
 
 using Beutl.Audio;
 using Beutl.Media.Decoding;
@@ -45,16 +44,10 @@ public sealed class WaveReader : MediaReader
 
     private static AudioChannelLayout GetChannelLayout(WaveFormat format)
     {
-        if (format is WaveFormatExtraData { Encoding: WaveFormatEncoding.Extensible, ExtraSize: >= 22 } extra)
-        {
-            uint mask = BinaryPrimitives.ReadUInt32LittleEndian(extra.ExtraData.AsSpan(2, 4)) & 0x3FFFF;
-            if (BitOperations.PopCount(mask) == format.Channels)
-                return new AudioChannelLayout(format.Channels, (AudioSpeakers)mask);
-        }
-
-        return format.Channels <= 2
-            ? AudioChannelLayout.GetDefault(format.Channels)
-            : AudioChannelLayout.Discrete(format.Channels);
+        uint? mask = format is WaveFormatExtraData { Encoding: WaveFormatEncoding.Extensible, ExtraSize: >= 22 } extra
+            ? BinaryPrimitives.ReadUInt32LittleEndian(extra.ExtraData.AsSpan(2, 4))
+            : null;
+        return AudioChannelLayout.FromChannelMask(format.Channels, mask);
     }
 
     public override VideoStreamInfo VideoInfo => throw new NotSupportedException();

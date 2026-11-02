@@ -27,14 +27,14 @@ internal static class ReadAheadBudget
     public static long SnapshotBytes(PixelSize size) => (long)size.Width * size.Height * SnapshotBytesPerPixel;
 
     /// <summary>
-    /// How many frames of <paramref name="frameBytes"/> each fit in <paramref name="budgetBytes"/>, at least
+    /// How many frames of <paramref name="frameBytes"/> each fit in <see cref="Bytes"/>, at least
     /// <see cref="MinFrames"/> and at most <paramref name="maxFrames"/>.
     /// </summary>
-    public static int FrameCount(long frameBytes, int maxFrames, long budgetBytes = Bytes)
+    public static int FrameCount(long frameBytes, int maxFrames)
     {
         if (frameBytes <= 0)
             return maxFrames;
 
-        return (int)Math.Clamp(budgetBytes / frameBytes, Math.Min(MinFrames, maxFrames), maxFrames);
+        return (int)Math.Clamp(Bytes / frameBytes, Math.Min(MinFrames, maxFrames), maxFrames);
     }
 }

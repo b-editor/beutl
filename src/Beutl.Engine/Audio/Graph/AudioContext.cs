@@ -106,15 +106,15 @@ public sealed class AudioContext : IDisposable
     public SourceNode CreateSourceNode(SoundSource.Resource source)
     {
         ArgumentNullException.ThrowIfNull(source);
-        return CreateSourceNode(source, source.ChannelLayout, AudioChannelMap.Auto);
+        return CreateSourceNode(source, AudioChannelMap.Auto);
     }
 
-    public SourceNode CreateSourceNode(SoundSource.Resource source, AudioChannelLayout clipLayout, AudioChannelMap channelMap)
+    public SourceNode CreateSourceNode(SoundSource.Resource source, AudioChannelMap channelMap)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(channelMap);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(clipLayout.ChannelCount, nameof(clipLayout));
+        AudioChannelLayout clipLayout = channelMap.ResolveClipLayout(source.ChannelLayout);
 
         if (_previousNodes?.OfType<SourceNode>().FirstOrDefault(n => source.Compare(n.Source)) is { } existing)
         {

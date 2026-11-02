@@ -116,7 +116,7 @@ public partial class HdrBitmapView : NativeControlHost
         // A view attached again keeps its bounds, so OnSizeChanged does not draw on its new native control. Only now
         // does that control have a window, whose screen gives the gamut, and the size the renderer follows. A new view
         // has no size yet and draws from OnSizeChanged.
-        if (_renderer != previous && Bounds.Width > 0 && Bounds.Height > 0)
+        if (_renderer != previous)
             RequestRender();
     }
 
@@ -147,14 +147,7 @@ public partial class HdrBitmapView : NativeControlHost
         UpdateContentsScale();
 
         if (_renderer != null && Bounds.Width > 0 && Bounds.Height > 0)
-        {
-            var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
-            _renderer.Resize(
-                (uint)(Bounds.Width * scaling),
-                (uint)(Bounds.Height * scaling));
-
-            RequestRender();
-        }
+            ResizeRendererAndDraw(_renderer);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -220,8 +213,13 @@ public partial class HdrBitmapView : NativeControlHost
         // on macOS, which puts the move off with dispatch_async. This priority never runs there, so it applies at once.
         TryUpdateNativeControlPosition();
 
+        ResizeRendererAndDraw(_renderer);
+    }
+
+    private void ResizeRendererAndDraw(VulkanSwapchainRenderer renderer)
+    {
         var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
-        _renderer.Resize(
+        renderer.Resize(
             (uint)(Bounds.Width * scaling),
             (uint)(Bounds.Height * scaling));
 
@@ -283,7 +281,7 @@ public partial class HdrBitmapView : NativeControlHost
             if (OperatingSystem.IsWindows())
                 DestroyWindow(handle.Handle);
             else if (OperatingSystem.IsMacOS())
-                ReleaseMacOSView(handle.Handle);
+                ReleaseMacOSObject(handle.Handle);
 
             throw;
         }
@@ -294,7 +292,6 @@ public partial class HdrBitmapView : NativeControlHost
             _displayGamut = PreviewGamutMapping.Srgb;
             UpdateContentsScale();
             UpdateEdrMetadata();
-            UpdateDisplayGamut();
         }
 
         // DestroyNativeControlCore released the frame, and a view attached again sees no change of Source to bring it
@@ -310,7 +307,6 @@ public partial class HdrBitmapView : NativeControlHost
         _macOSView = IntPtr.Zero;
         ReleaseMacOSObject(_macOSScreenColorSpace);
         _macOSScreenColorSpace = IntPtr.Zero;
-        _displayGamut = PreviewGamutMapping.None;
 
         _renderer?.Dispose();
         _renderer = null;
@@ -324,7 +320,7 @@ public partial class HdrBitmapView : NativeControlHost
         }
         else if (OperatingSystem.IsMacOS())
         {
-            ReleaseMacOSView(control.Handle);
+            ReleaseMacOSObject(control.Handle);
         }
     }
 

@@ -153,15 +153,18 @@ public sealed class EqualizerNode : AudioNode
                     context.AnimationSampler.SampleBuffer(band.Gain, chunkRange, context.SampleRate, gains[..chunkSize]);
                     context.AnimationSampler.SampleBuffer(band.Q, chunkRange, context.SampleRate, qs[..chunkSize]);
 
-                    for (int ch = 0; ch < input.ChannelCount; ch++)
+                    // Every channel of a band follows the same settings, so one computes the coefficients for all.
+                    BiQuadFilter[] filters = _filters![bandIndex];
+                    BiQuadFilter first = filters[0];
+                    Span<float> raw = output.GetRawSpan();
+                    for (int i = 0; i < chunkSize; i++)
                     {
-                        var outData = output.GetChannelData(ch).Slice(processed, chunkSize);
-                        var filter = _filters![bandIndex][ch];
-
-                        for (int i = 0; i < chunkSize; i++)
+                        first.CalculateCoefficients(filterType, frequencies[i], qs[i], gains[i], context.SampleRate);
+                        int index = processed + i;
+                        for (int ch = 0; ch < filters.Length; ch++, index += output.SampleCount)
                         {
-                            filter.CalculateCoefficients(filterType, frequencies[i], qs[i], gains[i], context.SampleRate);
-                            outData[i] = filter.Process(outData[i]);
+                            if (ch > 0) filters[ch].CopyCoefficientsFrom(first);
+                            raw[index] = filters[ch].Process(raw[index]);
                         }
                     }
                 }

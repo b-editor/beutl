@@ -4,9 +4,11 @@ internal sealed class RenderTargetPoolOptions
 {
     public const long DefaultMaximumRetainedBytes = 256L * 1024 * 1024;
 
+    public const int DefaultMaximumIdleRequests = 120;
+
     public long MaximumRetainedBytes { get; init; } = DefaultMaximumRetainedBytes;
 
-    public int MaximumIdleRequests { get; init; } = 120;
+    public int MaximumIdleRequests { get; init; } = DefaultMaximumIdleRequests;
 
     /// <summary>
     /// The budget this pool will allocate within, or <see langword="null"/> to bound each allocation by

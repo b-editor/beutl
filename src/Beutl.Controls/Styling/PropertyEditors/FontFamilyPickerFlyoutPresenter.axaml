@@ -16,14 +16,7 @@
                                            FontFamily="{Binding UserData, Converter={x:Static local:BeutlFontFamilyToAvaloniaConverter.Instance}}"
                                            Text="{Binding DisplayName}"
                                            TextTrimming="{x:Static controls:FallbackCharacterEllipsis.Instance}"
-                                           ToolTip.Tip="{Binding ((media:FontFamily)UserData).Name}">
-                    <controls:MarqueeTextBlock.IsMarqueeActive>
-                        <MultiBinding Converter="{x:Static BoolConverters.Or}">
-                            <Binding Path="$parent[ListBoxItem].IsPointerOver" />
-                            <Binding Path="$parent[ListBoxItem].IsSelected" />
-                        </MultiBinding>
-                    </controls:MarqueeTextBlock.IsMarqueeActive>
-                </controls:MarqueeTextBlock>
+                                           ToolTip.Tip="{Binding ((media:FontFamily)UserData).Name}" />
             </DataTemplate>
         </Setter>
 

@@ -5,7 +5,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public sealed class SceneEditorViewModel : ValueEditorViewModel<Scene?>
+public sealed class SceneEditorViewModel : ValueEditorViewModel<Scene?>, ITargetPickerViewModel
 {
     public SceneEditorViewModel(IPropertyAdapter<Scene?> property)
         : base(property)
@@ -35,6 +35,8 @@ public sealed class SceneEditorViewModel : ValueEditorViewModel<Scene?>
         }
     }
 
+    void ITargetPickerViewModel.SetTarget(CoreObject? target) => SetTarget(target as Scene);
+
     public void SetNull()
     {
         if (!IsElementEditable) return;
@@ -59,4 +61,6 @@ public sealed class SceneEditorViewModel : ValueEditorViewModel<Scene?>
             .OfType<Scene>()
             .Select(s => new TargetObjectInfo(s.Name.Value, s))];
     }
+
+    IReadOnlyList<TargetObjectInfo> ITargetPickerViewModel.GetAvailableTargets() => GetAvailableScenes();
 }

@@ -91,6 +91,60 @@ public class AudioSampleRingBufferTests
         Assert.That(ring.ReadChannelsAroundTime(MediaTime.FromSamples(32, 48000), dest, 32, out _), Is.Zero);
     }
 
+    // Stepping a paused playhead writes a window that starts before the last one ended. The reset
+    // keeps the ring arrays, so the first write's samples are still there past the new write index.
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(6)]
+    [TestCase(8)]
+    public void BackwardOverlapKeepsTheRingArraysButHidesTheirOldSamples(int channels)
+    {
+        const int sampleRate = 48000;
+        const int window = 64;
+        MediaTime start = MediaTime.FromSamples(32, sampleRate);
+        float[] overlap = Interleave(channels, 16, _ => 0.25f);
+        var ring = new AudioSampleRingBuffer();
+        ring.WriteInterleaved(Interleave(channels, window, _ => 1f), channels, sampleRate, MediaTime.Zero);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        ring.WriteInterleaved(overlap, channels, sampleRate, start);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.That(allocated, Is.LessThan(sampleRate * 5 * sizeof(float)), "The reset must keep the ring arrays.");
+
+        // A ring that never held the old samples gives the expected stereo fold.
+        var fresh = new AudioSampleRingBuffer();
+        fresh.WriteInterleaved(overlap, channels, sampleRate, start);
+        float[][] dest = Enumerable.Range(0, channels).Select(_ => new float[window]).ToArray();
+        var left = new float[window];
+        var right = new float[window];
+        var expectedLeft = new float[window];
+        var expectedRight = new float[window];
+
+        // Inside the new write, at and past its end, and before its start, where the first write reached.
+        foreach ((int endSample, int real) in new[] { (40, 8), (48, 16), (96, 16), (16, 0) })
+        {
+            MediaTime playhead = MediaTime.FromSamples(endSample, sampleRate);
+            foreach (float[] channel in dest) Array.Fill(channel, -1f);
+            Array.Fill(left, -1f);
+            Array.Fill(right, -1f);
+            float[] expected = [.. Enumerable.Repeat(0f, window - real), .. Enumerable.Repeat(0.25f, real)];
+
+            int got = ring.ReadChannelsAroundTime(playhead, dest, window, out int leadingZeros);
+
+            Assert.That(got, Is.EqualTo(real), $"playhead at {endSample}");
+            Assert.That(leadingZeros, Is.EqualTo(real == 0 ? 0 : window - real), $"playhead at {endSample}");
+            foreach (float[] channel in dest) Assert.That(channel, Is.EqualTo(expected), $"playhead at {endSample}");
+
+            got = ring.ReadAroundTime(playhead, left, right, window);
+            fresh.ReadAroundTime(playhead, expectedLeft, expectedRight, window);
+
+            Assert.That(got, Is.EqualTo(real), $"playhead at {endSample}");
+            Assert.That(left, Is.EqualTo(expectedLeft), $"playhead at {endSample}");
+            Assert.That(right, Is.EqualTo(expectedRight), $"playhead at {endSample}");
+        }
+    }
+
     private static float[] Interleave(int channels, int frames, Func<int, float> value)
     {
         var samples = new float[channels * frames];

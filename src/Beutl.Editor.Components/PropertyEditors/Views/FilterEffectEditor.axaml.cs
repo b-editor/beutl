@@ -156,11 +156,6 @@ public partial class FilterEffectEditor : UserControl
     {
         if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } vm) return;
 
-        await TargetSelectionHelper.HandleSelectTargetRequestAsync<FilterEffectEditorViewModel, FilterEffect>(
-            this,
-            sender as Control,
-            vm,
-            vm => vm.GetAvailableTargets(),
-            (vm, target) => vm.SetTarget(target));
+        await TargetSelectionHelper.PickTargetAsync(this, sender as Control, vm);
     }
 }

@@ -440,7 +440,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         using IFrameProvider frameProvider = renderer != null
             ? new FrameProviderImpl(scene, videoSettings.FrameRate.Value, renderer, frameProgress)
             : DisabledMediaProvider.Instance;
-        using var composer = audioEnabled ? CreateExportComposer(scene, audioSettings.SampleRate.Value) : null;
+        using var composer = audioEnabled ? ExportRendererFactory.CreateComposer(scene, audioSettings.SampleRate.Value) : null;
         using var sampleProgress = new Subject<MediaTime>();
         using ISampleProvider sampleProvider = composer != null
             ? new SampleProviderImpl(scene, composer, audioSettings.SampleRate.Value, sampleProgress, audioSettings.GetChannelLayout())
@@ -472,13 +472,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
     }
 
-    internal static SceneComposer CreateExportComposer(Scene scene, int sampleRate) =>
-        new(scene, disableResourceShare: true, forceOriginalSource: true)
-        {
-            SampleRate = sampleRate,
-            ChannelLayout = scene.FindHierarchicalParent<Project>().GetChannelLayout(),
-        };
-
     private sealed class DisabledMediaProvider : IFrameProvider, ISampleProvider
     {
         public static DisabledMediaProvider Instance { get; } = new();
@@ -486,7 +479,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         public Rational FrameRate => new(0, 1);
         public long SampleCount => 0;
         public long SampleRate => 0;
-        public AudioChannelLayout ChannelLayout => AudioChannelLayout.Stereo;
         public ValueTask<Bitmap?> ReadNextFrame() => ValueTask.FromResult<Bitmap?>(null);
         public ValueTask<AudioBuffer?> ReadNextSamples(int length)
             => ValueTask.FromResult<AudioBuffer?>(null);

@@ -50,6 +50,21 @@ public sealed class BiQuadFilter
             out _b0, out _b1, out _b2, out _a1, out _a2);
     }
 
+    // Takes the coefficients and settings of a filter with the same history, keeping this filter's own state.
+    internal void CopyCoefficientsFrom(BiQuadFilter source)
+    {
+        _b0 = source._b0;
+        _b1 = source._b1;
+        _b2 = source._b2;
+        _a1 = source._a1;
+        _a2 = source._a2;
+        _type = source._type;
+        _frequency = source._frequency;
+        _q = source._q;
+        _gainDb = source._gainDb;
+        _sampleRate = source._sampleRate;
+    }
+
     /// <summary>
     /// Computes normalized BiQuad coefficients without touching any filter state.
     /// </summary>

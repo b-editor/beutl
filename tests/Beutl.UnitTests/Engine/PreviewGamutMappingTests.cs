@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Media;
 
@@ -52,6 +53,61 @@ public class PreviewGamutMappingTests
     public unsafe void PresentPushConstants_FitTheGuaranteedSize()
     {
         Assert.That(sizeof(PresentPushConstants), Is.LessThanOrEqualTo(128));
+    }
+
+    // vkCmdPushConstants copies the struct as it is, so each member must sit where the present shader's block reads it.
+    [Test]
+    public unsafe void PresentPushConstants_LineUpWithTheShadersBlock()
+    {
+        Assert.That(OffsetOf(nameof(PresentPushConstants.DisplayMapping)), Is.EqualTo(32));
+        Assert.That(OffsetOf(nameof(PresentPushConstants.Gamut0)), Is.EqualTo(48));
+        Assert.That(OffsetOf(nameof(PresentPushConstants.Gamut1)), Is.EqualTo(64));
+        Assert.That(OffsetOf(nameof(PresentPushConstants.Gamut2)), Is.EqualTo(80));
+        Assert.That(OffsetOf(nameof(PresentPushConstants.ReferenceWhite)), Is.EqualTo(96));
+        Assert.That(OffsetOf(nameof(PresentPushConstants.OutputBt2020)), Is.EqualTo(100));
+        Assert.That(sizeof(PresentPushConstants), Is.EqualTo(104));
+    }
+
+    // The shader hands displayMapping's x, y, z and w to displayMapGain's knee, ks, maxLum and sourcePq.
+    [Test]
+    public void PresentPushConstants_TakeADisplayMappingInTheShadersOrder()
+    {
+        PresentPushConstants constants = default;
+
+        constants.SetDisplayMapping(new PreviewDisplayMapping(Knee: 1f, Ks: 2f, MaxLum: 3f, SourcePq: 4f));
+
+        Assert.That(constants.DisplayMapping, Is.EqualTo(new Vector4(1f, 2f, 3f, 4f)));
+    }
+
+    // The shader's fitGamut takes a row of the matrix from each xyz, returns early when gamut0.w is 0, and keeps colors
+    // within sRGB when gamut1.w is not.
+    [Test]
+    public void PresentPushConstants_TakeAGamutMappingAsRowsAndFlags()
+    {
+        var row0 = new Vector3(1f, 2f, 3f);
+        var row1 = new Vector3(4f, 5f, 6f);
+        var row2 = new Vector3(7f, 8f, 9f);
+        PresentPushConstants constants = default;
+
+        constants.SetGamut(new PreviewGamutMapping(row0, row1, row2, WithinSrgb: true));
+
+        Assert.That(constants.Gamut0, Is.EqualTo(new Vector4(1f, 2f, 3f, 1f)));
+        Assert.That(constants.Gamut1, Is.EqualTo(new Vector4(4f, 5f, 6f, 1f)));
+        Assert.That(constants.Gamut2, Is.EqualTo(new Vector4(7f, 8f, 9f, 0f)));
+
+        constants.SetGamut(new PreviewGamutMapping(row0, row1, row2, WithinSrgb: false));
+
+        Assert.That(constants.Gamut0.W, Is.EqualTo(1f));
+        Assert.That(constants.Gamut1.W, Is.EqualTo(0f));
+
+        constants.SetGamut(PreviewGamutMapping.None);
+
+        Assert.That(constants.Gamut0.W, Is.EqualTo(0f));
+    }
+
+    private static int OffsetOf(string member)
+    {
+        return Marshal.OffsetOf<PresentPushConstants>(member).ToInt32();
     }
 
     private static Vector3 ToDisplay(PreviewGamutMapping mapping, Vector3 srgb)

@@ -1,5 +1,4 @@
-﻿using Beutl.Configuration;
-using Beutl.JsonConverters;
+﻿using Beutl.JsonConverters;
 using Beutl.Media;
 
 namespace Beutl.ProjectSystem;
@@ -97,11 +96,7 @@ public partial class Scene
             }
         }
 
-        if (GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value
-            && movedEnd is { } end && Duration.Value + Start.Value < end)
-        {
-            Duration.Value = end - Start.Value;
-        }
+        if (movedEnd is { } end) ExtendDurationToCover(end);
 
         return closed;
     }

@@ -84,11 +84,8 @@ public unsafe class OpenALLoopbackTests
             uint source = 0;
             try
             {
-                // Follow PlayerViewModel: mono/stereo projects use the stereo overload.
-                if (AudioPlaybackOutput.UseMultichannelBackend(project))
-                    context.BufferData(buffer, converted ?? audio, outputLayout);
-                else
-                    context.BufferData(buffer, converted ?? audio);
+                // Follow PlayerViewModel: mono/stereo projects get a stereo output layout.
+                context.BufferData(buffer, converted ?? audio, outputLayout);
 
                 source = context.GenSource();
                 context.GetSource(source, (GetSourceInteger)0x1033, out int directChannelsMode);

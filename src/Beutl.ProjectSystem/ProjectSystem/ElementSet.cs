@@ -34,26 +34,18 @@ public sealed partial class ElementSet : CoreObject
     {
         base.Serialize(context);
 
-        context.SetValue(nameof(Groups), Groups.Select(ids => string.Join(':', ids)).ToArray());
+        context.SetValue(nameof(Groups), ElementGroups.Write(Groups));
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
 
-        // A group keeps only the elements the set holds, and is dropped once fewer than two are left.
         var elementIds = Elements.Select(element => element.Id.Value).ToHashSet();
         Groups.Clear();
-        foreach (string group in context.GetValue<string[]>(nameof(Groups)) ?? [])
+        foreach (ImmutableHashSet<Guid> ids in ElementGroups.Read(context.GetValue<string[]>(nameof(Groups)), elementIds))
         {
-            ImmutableHashSet<Guid> ids = group.Split(':')
-                .Select(text => Guid.TryParse(text, out Guid id) ? id : Guid.Empty)
-                .Where(elementIds.Contains)
-                .ToImmutableHashSet();
-            if (ids.Count >= 2)
-            {
-                Groups.Add(ids);
-            }
+            Groups.Add(ids);
         }
     }
 }

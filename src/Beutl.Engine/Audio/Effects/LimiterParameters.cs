@@ -1,4 +1,6 @@
-﻿namespace Beutl.Audio.Effects;
+﻿using Beutl.Animation;
+
+namespace Beutl.Audio.Effects;
 
 // Single source of truth for the limiter's ranges and defaults, shared by LimiterEffect's
 // [Range] declarations and LimiterNode's per-sample clamps so the two cannot drift.
@@ -23,6 +25,10 @@ internal static class LimiterParameters
     public const float MinMakeupGainDb = -24f;
     public const float MaxMakeupGainDb = 24f;
     public const float DefaultMakeupGainDb = 0f;
+
+    // Reserves the worst-case lookahead when automation is present.
+    public static int GetLatencySamples(IProperty<float> lookahead, int sampleRate)
+        => ToLatencySamples(AnimationSampler.IsAnimated(lookahead) ? MaxLookaheadMs : lookahead.Value, sampleRate);
 
     public static int ToLatencySamples(float lookaheadMs, int sampleRate)
     {

@@ -267,7 +267,7 @@ public sealed partial class FilterEffectExecutor
                 geometry.DeviceBounds,
                 geometry.DeviceGridOffset,
                 w);
-            using ImmediateCanvas canvas = CreateExecutionCanvas(
+            using ImmediateCanvas canvas = _settings.CreateCanvas(
                 destination.RenderTarget!,
                 w,
                 geometry.RasterBounds.Size);

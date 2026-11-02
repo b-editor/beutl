@@ -92,7 +92,7 @@ internal sealed partial class MobilePreviewServer
         const int channels = PreviewEncodingFormat.AudioChannels;
         const double rate = PreviewEncodingFormat.SampleRate;
         output.Clear();
-        Dictionary<int, AudioChannelMatrix>? matrices = null;
+        AudioChannelMatrix? fold = null;
         bool found = false;
         for (int i = 0; i < PreviewEncodingFormat.AudioPacketSamples; i++)
         {
@@ -105,26 +105,27 @@ internal sealed partial class MobilePreviewServer
                 if (offset < 0 || offset >= count) continue;
                 int first = (int)offset, second = Math.Min(first + 1, count - 1);
                 float fraction = (float)(offset - first);
+                if (block.ChannelCount > 2 && fold?.InputChannelCount != block.ChannelCount)
+                    fold = AudioChannelMatrix.Create(AudioChannelLayout.GetDefault(block.ChannelCount), AudioChannelLayout.Stereo);
                 for (int channel = 0; channel < channels; channel++)
                 {
-                    int c = Math.Min(channel, block.ChannelCount - 1);
-                    float a = block.Interleaved[first * block.ChannelCount + c], b = block.Interleaved[second * block.ChannelCount + c];
+                    float a, b;
                     if (block.ChannelCount > 2)
                     {
-                        matrices ??= new();
-                        if (!matrices.TryGetValue(block.ChannelCount, out AudioChannelMatrix? matrix))
-                        {
-                            matrix = AudioChannelMatrix.Create(AudioChannelLayout.GetDefault(block.ChannelCount), AudioChannelLayout.Stereo);
-                            matrices.Add(block.ChannelCount, matrix);
-                        }
                         a = b = 0;
                         for (int input = 0; input < block.ChannelCount; input++)
                         {
-                            float gain = matrix.GetCoefficient(channel, input);
+                            float gain = fold!.GetCoefficient(channel, input);
                             if (gain == 0) continue;
                             a += block.Interleaved[first * block.ChannelCount + input] * gain;
                             b += block.Interleaved[second * block.ChannelCount + input] * gain;
                         }
+                    }
+                    else
+                    {
+                        int c = Math.Min(channel, block.ChannelCount - 1);
+                        a = block.Interleaved[first * block.ChannelCount + c];
+                        b = block.Interleaved[second * block.ChannelCount + c];
                     }
                     float sample = a + (b - a) * fraction;
                     output[i * channels + channel] = float.IsFinite(sample) ? Math.Clamp(sample, -1, 1) : 0;

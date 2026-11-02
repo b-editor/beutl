@@ -41,7 +41,9 @@ internal static partial class SlippableMedia
             _forResize = forResize;
             _timingRoles = timingRoles;
             _reenabledControllers = reenabledControllers;
-            _sourceDurations = sourceDurations ?? new(ReferenceEqualityComparer.Instance);
+            // Split copies hold the length of the source they were copied from. Reuse it only
+            // within this batch, rather than reopening a decoder for every generated fragment.
+            _sourceDurations = sourceDurations ?? batch?.SourceDurations ?? new(ReferenceEqualityComparer.Instance);
             _batch = batch;
             if (_scene is { } layerScene)
                 foreach (TimelineLayer layer in layerScene.Layers) _layers.TryAdd(layer.ZIndex.Value, layer);
@@ -99,15 +101,11 @@ internal static partial class SlippableMedia
         private MediaTime? GetSourceDuration(ITimeMappedSource source)
         {
             if (_sourceDurations.TryGetValue(source, out MediaTime? duration)) return duration;
-            // Split copies hold the length of the source they were copied from. Reuse it only
-            // within this batch, rather than reopening a decoder for every generated fragment.
-            if (_batch != null && _batch.SourceDurations.TryGetValue(source, out duration)) return duration;
             // All re-enabling states use the same pre-edit media. Keep only its
             // duration in this operation's cache so each reader is opened once
             // and its temporary resource is still disposed immediately.
             duration = source.GetSourceDuration();
             _sourceDurations.Add(source, duration);
-            _batch?.SourceDurations.TryAdd(source, duration);
             return duration;
         }
 

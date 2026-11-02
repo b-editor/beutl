@@ -271,9 +271,6 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         }
     }
 
-    internal static IMFMediaType CreatePcm(Guid subtype, int rate, int channels, int bits)
-        => CreatePcm(subtype, rate, AudioChannelLayout.GetDefault(channels), bits);
-
     internal static IMFMediaType CreatePcm(Guid subtype, int rate, AudioChannelLayout layout, int bits)
     {
         var type = MediaFactory.MFCreateMediaType();

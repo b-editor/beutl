@@ -47,14 +47,4 @@ internal static class CoreObjectPickerHelper
                 break;
         }
     }
-
-    public static Task PickTargetAsync(Control control, Control? button, ICoreObjectEditorViewModel viewModel)
-    {
-        return TargetSelectionHelper.HandleSelectTargetRequestAsync<ICoreObjectEditorViewModel, CoreObject>(
-            control,
-            button,
-            viewModel,
-            vm => vm.GetAvailableTargets(),
-            (vm, target) => vm.SetTarget(target));
-    }
 }

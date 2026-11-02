@@ -360,8 +360,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
                     if (chunk.SampleCount == 0)
                         break;
 
-                    for (int channel = 0; channel < channels; channel++)
-                        chunk.GetChannelData(channel).CopyTo(scratch.GetChannelData(channel)[offset..]);
+                    chunk.CopyTo(scratch, offset);
                     offset += chunk.SampleCount;
                 }
             }

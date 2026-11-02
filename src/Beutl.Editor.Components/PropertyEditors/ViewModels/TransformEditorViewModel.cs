@@ -84,7 +84,7 @@ public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transfor
 
     public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
-    void IPresenterEditorViewModel.SetTarget(CoreObject? target) => SetTarget(target as Transform);
+    void ITargetPickerViewModel.SetTarget(CoreObject? target) => SetTarget(target as Transform);
 
     public void ChangeTransform(Transform instance) => ChangeValue(instance);
 

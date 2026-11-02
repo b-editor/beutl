@@ -8,6 +8,7 @@ using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using Beutl.Audio.Effects.Equalizer;
 using Beutl.Editor.Components.EqualizerProperties.ViewModels;
+using Beutl.Editor.Components.Helpers;
 
 namespace Beutl.Editor.Components.EqualizerProperties.Views;
 
@@ -27,15 +28,8 @@ public sealed class EqualizerCurveEditor : Control
     // Used only when the host has not bound a session sample rate (e.g. design-time).
     private const int DefaultResponseSampleRate = 48000;
 
-    // The panner's palette (SoundPanner), so both audio canvases look alike.
-    private static readonly ImmutableSolidColorBrush s_backgroundBrush = new(Color.FromRgb(30, 32, 36));
     private static readonly ImmutablePen s_gridPen = new(new ImmutableSolidColorBrush(Color.FromRgb(45, 48, 54)));
-    private static readonly ImmutablePen s_gridStrongPen = new(new ImmutableSolidColorBrush(Color.FromRgb(71, 76, 85)));
-    private static readonly ImmutablePen s_curvePen = new(new ImmutableSolidColorBrush(Color.FromRgb(100, 190, 245)), 2,
-        lineJoin: PenLineJoin.Round);
-    private static readonly ImmutableSolidColorBrush s_handleSelectedBrush = new(Color.FromRgb(100, 190, 245));
-    private static readonly ImmutableSolidColorBrush s_handleNormalBrush = new(Color.FromRgb(53, 57, 64));
-    private static readonly ImmutablePen s_handleStrokePen = new(Brushes.White, 1.5);
+    private static readonly ImmutablePen s_curvePen = new(AudioCanvasStyle.Accent, 2, lineJoin: PenLineJoin.Round);
 
     public static readonly StyledProperty<ObservableCollection<EqualizerBandItemViewModel>?> BandViewModelsProperty =
         AvaloniaProperty.Register<EqualizerCurveEditor, ObservableCollection<EqualizerBandItemViewModel>?>(nameof(BandViewModels));
@@ -390,23 +384,23 @@ public sealed class EqualizerCurveEditor : Control
 
         if (Bounds.Width <= 0 || Bounds.Height <= 0) return;
 
-        context.DrawRectangle(s_backgroundBrush, s_gridStrongPen, new RoundedRect(new Rect(Bounds.Size).Deflate(1), 6));
+        AudioCanvasStyle.DrawFrame(context, Bounds.Size);
         Rect area = PlotBounds;
 
         for (int db = -18; db <= 18; db += 6)
         {
             double y = YFromGain(db);
-            context.DrawLine(db == 0 ? s_gridStrongPen : s_gridPen, new Point(area.Left, y), new Point(area.Right, y));
+            context.DrawLine(db == 0 ? AudioCanvasStyle.Line : s_gridPen, new Point(area.Left, y), new Point(area.Right, y));
         }
 
         foreach (double freq in new double[] { 50, 100, 200, 500, 1000, 2000, 5000, 10000 })
         {
             double x = XFromFrequency((float)freq);
             bool isDecade = Math.Abs(Math.Log10(freq) - Math.Round(Math.Log10(freq))) < 0.01;
-            context.DrawLine(isDecade ? s_gridStrongPen : s_gridPen, new Point(x, area.Top), new Point(x, area.Bottom));
+            context.DrawLine(isDecade ? AudioCanvasStyle.Line : s_gridPen, new Point(x, area.Top), new Point(x, area.Bottom));
         }
 
-        context.DrawRectangle(null, s_gridStrongPen, area);
+        context.DrawRectangle(null, AudioCanvasStyle.Line, area);
 
         if (_bandViewModels is { Count: > 0 })
         {
@@ -440,9 +434,7 @@ public sealed class EqualizerCurveEditor : Control
                 bool isHover = i == _hoverIndex || i == _draggingIndex;
                 double radius = isSelected || isHover ? HandleRadius + 2 : HandleRadius;
 
-                var fillBrush = isSelected ? s_handleSelectedBrush : s_handleNormalBrush;
-
-                context.DrawEllipse(fillBrush, s_handleStrokePen, center, radius, radius);
+                AudioCanvasStyle.DrawHandle(context, center, radius, isSelected);
             }
         }
     }
@@ -475,8 +467,7 @@ public sealed class EqualizerCurveEditor : Control
         return new Point(x, y);
     }
 
-    internal Rect PlotBounds => new(PlotInset, PlotInset,
-        Math.Max(1, Bounds.Width - PlotInset * 2), Math.Max(1, Bounds.Height - PlotInset * 2));
+    internal Rect PlotBounds => AudioCanvasStyle.Inset(Bounds.Size, PlotInset, PlotInset);
 
     private double XFromFrequency(float frequency)
     {

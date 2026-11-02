@@ -154,6 +154,12 @@
         <Setter Property="IsHitTestVisible" Value="True" />
     </Style>
 
+    <!--  A name too long for its row scrolls while the pointer is over it or it is selected.  -->
+    <!--  Here rather than in a presenter's ControlTheme, whose styles do not reach DataTemplate content.  -->
+    <Style Selector="ListBoxItem:pointerover local|MarqueeTextBlock, ListBoxItem:selected local|MarqueeTextBlock">
+        <Setter Property="IsMarqueeActive" Value="True" />
+    </Style>
+
     <Style Selector="Border.OverlayCard">
         <Setter Property="Background" Value="{DynamicResource SolidBackgroundFillColorBaseBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />

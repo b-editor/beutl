@@ -1,4 +1,6 @@
-﻿using Beutl.Audio;
+﻿using System.Buffers;
+
+using Beutl.Audio;
 
 using NAudio.Wave;
 
@@ -26,13 +28,21 @@ public static class SampleProviderReader
         if (length <= 0)
             return new AudioBuffer(sampleRate, channelCount, 0);
 
-        float[] buffer = new float[checked(length * channelCount)];
-        int frames = provider.Read(buffer.AsSpan()) / channelCount;
-        if (frames <= 0)
-            return new AudioBuffer(sampleRate, channelCount, 0);
+        int valueCount = checked(length * channelCount);
+        float[] buffer = ArrayPool<float>.Shared.Rent(valueCount);
+        try
+        {
+            int frames = provider.Read(buffer.AsSpan(0, valueCount)) / channelCount;
+            if (frames <= 0)
+                return new AudioBuffer(sampleRate, channelCount, 0);
 
-        var audio = new AudioBuffer(sampleRate, channelCount, frames);
-        AudioConversion.Deinterleave(buffer.AsSpan(0, frames * channelCount), audio);
-        return audio;
+            var audio = new AudioBuffer(sampleRate, channelCount, frames);
+            AudioConversion.Deinterleave(buffer.AsSpan(0, frames * channelCount), audio);
+            return audio;
+        }
+        finally
+        {
+            ArrayPool<float>.Shared.Return(buffer);
+        }
     }
 }

@@ -186,7 +186,7 @@ public class FormatFloorTests
         SaveProject();
         Project project = LoadProject();
         Element element = ((Scene)project.Items.Single()).Children.Single();
-        Action write = CoreSerializer.PrepareStoreToUri(project, new Dictionary<string, bool>());
+        Action write = CoreSerializer.PrepareStoreToUri(project, new HashSet<string>());
         RootFileVersions.RaiseMinAppVersion(element, AboveFloor);
         CoreSerializer.StoreToUri(element, element.Uri!);
         Assert.That((string?)Read(_projectPath)["minAppVersion"], Is.EqualTo(AboveFloor));
@@ -406,7 +406,7 @@ public class FormatFloorTests
 
                     break;
                 case LoneSave.PreparedElement:
-                    CoreSerializer.PrepareStoreToUri(element, new Dictionary<string, bool>())();
+                    CoreSerializer.PrepareStoreToUri(element, new HashSet<string>())();
                     break;
             }
         });

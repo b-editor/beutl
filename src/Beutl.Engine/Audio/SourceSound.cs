@@ -25,8 +25,8 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ITim
     {
         var context = new CompositionContext(time);
         using var source = Source.Evaluate(context)?.ToResource(context);
-        return source is { MediaReader: not null, SampleRate: > 0, NumChannels: > 0 }
-            ? ChannelMap.Evaluate(context).ResolveClipLayout(source.ChannelLayout)
+        return source?.ReadableChannelLayout is { } layout
+            ? ChannelMap.Evaluate(context).ResolveClipLayout(layout)
             : projectLayout;
     }
 
@@ -50,9 +50,7 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ITim
         }
     }
 
-    // Playback evaluates an expression on OffsetPosition; one on Source hides only the file's length.
-    bool ITimeMappedSource.HasDynamicMapping => OffsetPosition.HasExpression;
-
+    // An expression on Source hides only the file's length.
     bool ITimeMappedSource.HasDynamicTimeline => Source.HasExpression;
 
     MediaTime? ITimeMappedSource.GetSourceDuration()

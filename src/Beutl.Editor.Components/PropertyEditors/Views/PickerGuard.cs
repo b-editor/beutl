@@ -33,18 +33,13 @@ internal static class PickerGuard
         }
     }
 
-    public static async Task RunAsync(Control owner, Control? button, Func<Task> pick)
+    public static Task RunAsync(Control owner, Control? button, Func<Task> pick)
     {
-        if (!TryBegin(owner, button)) return;
-
-        try
+        return RunAsync<object?>(owner, button, async () =>
         {
             await pick();
-        }
-        finally
-        {
-            s_open.Remove(owner);
-        }
+            return null;
+        });
     }
 
     // Shows the picker that owner's current request made.

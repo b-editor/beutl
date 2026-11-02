@@ -51,11 +51,6 @@ public class PresenterListItemEditor : UserControl, IListItemEditor
     {
         if (DataContext is not IPresenterEditorViewModel { IsDisposed: false } viewModel) return;
 
-        await TargetSelectionHelper.HandleSelectTargetRequestAsync<IPresenterEditorViewModel, CoreObject>(
-            this,
-            sender as Control,
-            viewModel,
-            vm => vm.GetAvailableTargets(),
-            (vm, target) => vm.SetTarget(target));
+        await TargetSelectionHelper.PickTargetAsync(this, sender as Control, viewModel);
     }
 }

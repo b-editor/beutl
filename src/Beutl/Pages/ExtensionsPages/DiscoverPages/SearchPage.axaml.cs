@@ -15,7 +15,6 @@ public partial class SearchPage : UserControl
         InitializeComponent();
         AddHandler(FAFrame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
         AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
-        AddHandler(Button.ClickEvent, OnPackageCardClick);
     }
 
     private void OnNavigatedTo(object? sender, FANavigationEventArgs e)
@@ -31,13 +30,5 @@ public partial class SearchPage : UserControl
     private void OnNavigatedFrom(object? sender, FANavigationEventArgs e)
     {
         DiscoverPageHelper.DestroyDataContext<SearchPageViewModel>(this);
-    }
-
-    private void OnPackageCardClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is SearchPageViewModel viewModel)
-        {
-            DiscoverPageHelper.OnPackageCardClick(this, e, viewModel.More);
-        }
     }
 }

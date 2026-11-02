@@ -58,7 +58,7 @@ internal sealed class ShaderGraphParameters : IDisposable
         var offsets = new Dictionary<int, ulong>();
         foreach (ShaderPassDescription pass in graph.Passes)
             foreach (ShaderPassBinding binding in pass.Bindings)
-                if (binding.Metadata && frames.ContainsKey(binding.Resource.Id))
+                if (binding.Metadata)
                     offsets.TryAdd(binding.Resource.Id, (ulong)offsets.Count * stride);
         if (offsets.Count == 0)
             return null;
@@ -304,7 +304,7 @@ internal static class ShaderGraphExecutor
                 if (!storage.TryGetValue(root.Id, out ShaderGraphImage? owner))
                 {
                     ImageDescription description = descriptions[root.Id];
-                    owner = imagePool.Take(i => i.Description == description && (i.Usage & usages[root.Id]) == usages[root.Id]);
+                    owner = imagePool.Take(i => i.Supports(description, usages[root.Id]));
                     if (owner is not null)
                         reuses++;
                     else if ((owner = retainedImages?.Take(context, description, usages[root.Id])) is not null)

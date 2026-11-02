@@ -14,7 +14,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObjectViewModel, IObjectEditorCommands
+public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObjectViewModel, IObjectEditorCommands, ITargetPickerViewModel
 {
     private IDisposable? _revoker;
     private Action? _update;
@@ -239,6 +239,8 @@ public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObj
         CompleteElementRepair();
         Commit();
     }
+
+    void ITargetPickerViewModel.SetTarget(CoreObject? target) => SetTarget(target as Brush);
 
     public void SetDrawableTarget(Drawable? target)
     {

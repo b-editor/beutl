@@ -56,6 +56,22 @@ public readonly record struct AudioChannelLayout
 
     public static AudioChannelLayout Discrete(int count) => new(count, AudioSpeakers.None);
 
+    /// <summary>
+    /// Uses a WAVEFORMATEXTENSIBLE channel mask whose known speaker bits name one speaker per channel. Without
+    /// one, mono and stereo take Beutl's default order and larger counts have no known positions.
+    /// </summary>
+    public static AudioChannelLayout FromChannelMask(int channelCount, uint? mask)
+    {
+        if (mask is { } value)
+        {
+            uint speakers = value & 0x3FFFF;
+            if (BitOperations.PopCount(speakers) == channelCount)
+                return new AudioChannelLayout(channelCount, (AudioSpeakers)speakers);
+        }
+
+        return channelCount <= 2 ? GetDefault(channelCount) : Discrete(channelCount);
+    }
+
     /// <summary>Uses the declared layout when its count matches the buffer, otherwise Beutl's default order.</summary>
     public static AudioChannelLayout ForChannelCount(AudioChannelLayout declared, int channelCount)
     {

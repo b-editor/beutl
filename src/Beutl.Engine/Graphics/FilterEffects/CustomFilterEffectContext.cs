@@ -12,25 +12,17 @@ namespace Beutl.Graphics.Effects;
 public class CustomFilterEffectContext
 {
     private static readonly ILogger s_logger = Log.CreateLogger("CustomFilterEffectContext");
-    // The device grid offset is always set. The callback's end replaces the settings to drop the program acquirer.
-    private FilterEffectExecutionSettings _settings;
+    // The device grid offset is always set.
+    private readonly FilterEffectExecutionSettings _settings;
 
     internal CustomFilterEffectContext(EffectTargets targets, FilterEffectExecutionSettings settings)
     {
         Targets = targets;
-        _settings = settings with
-        {
-            DeviceGridOffset = settings.DeviceGridOffset
-                ?? (targets.Count > 0 ? targets[0].DeviceGridOffset : default),
-        };
+        _settings = settings.WithDeviceGridOffsetFrom(targets);
     }
 
     private bool _callbackEnded;
-    internal void EndCallback()
-    {
-        _callbackEnded = true;
-        _settings = _settings with { ProgramAcquirer = null };
-    }
+    internal void EndCallback() => _callbackEnded = true;
     internal void ThrowIfCallbackEnded() => ObjectDisposedException.ThrowIf(_callbackEnded, this);
 
     // Handed to ContinuationEffect and TargetEffect callbacks as arguments.
@@ -578,14 +570,7 @@ public class CustomFilterEffectContext
 
         // Prefer the target's concrete Scale (may be clamped below WorkingScale by CreateTarget).
         float density = target.Scale.IsUnbounded ? WorkingScale : target.Scale.Value;
-        return ImmediateCanvas.CreateCustomEffectCanvas(
-            target.RenderTarget,
-            density,
-            MaxWorkingScale,
-            target.Bounds.Size,
-            Intent,
-            _settings.UseExecutorManagedCanvas,
-            _settings.DrawableBrushMaterializer);
+        return _settings.CreateCanvas(target.RenderTarget, density, target.Bounds.Size);
     }
 
     /// <summary>
@@ -600,11 +585,18 @@ public class CustomFilterEffectContext
     /// <param name="targets">The targets the nested pipeline reads and replaces.</param>
     /// <param name="builder">The Skia filter builder the nested pipeline accumulates into.</param>
     public FilterEffectExecutor CreateExecutor(EffectTargets targets, SKImageFilterBuilder builder)
+        => CreateExecutor(targets, builder, Instance);
+
+    // A continuation executes for the individual input it was handed, which need not be this context's.
+    internal FilterEffectExecutor CreateExecutor(
+        EffectTargets targets,
+        SKImageFilterBuilder builder,
+        FilterEffectInstance? instance)
     {
         ThrowIfCallbackEnded();
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(builder);
 
-        return new FilterEffectExecutor(targets, builder, _settings);
+        return new FilterEffectExecutor(targets, builder, _settings with { Instance = instance });
     }
 }
