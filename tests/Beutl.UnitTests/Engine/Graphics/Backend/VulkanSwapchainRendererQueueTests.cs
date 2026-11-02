@@ -29,7 +29,9 @@ public class VulkanSwapchainRendererQueueTests
 
         IntPtr pool = objc_autoreleasePoolPush();
         IntPtr view = objc_msgSend_NSRect(
-            objc_msgSend(objc_getClass("NSView"), sel_getUid("alloc")), sel_getUid("initWithFrame:"), 0, 0, 64, 36);
+            objc_msgSend(objc_getClass("NSView"), sel_getUid("alloc")),
+            sel_getUid("initWithFrame:"),
+            new NSRect(0, 0, 64, 36));
         using var holding = new ManualResetEventSlim();
         using var hold = new ManualResetEventSlim();
         using var presented = new ManualResetEventSlim();
@@ -79,6 +81,9 @@ public class VulkanSwapchainRendererQueueTests
             onRelease);
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct NSRect(double X, double Y, double Width, double Height);
+
     [DllImport("/usr/lib/libobjc.dylib")]
     private static extern IntPtr objc_getClass(string className);
 
@@ -89,8 +94,7 @@ public class VulkanSwapchainRendererQueueTests
     private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
 
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
-    private static extern IntPtr objc_msgSend_NSRect(
-        IntPtr receiver, IntPtr selector, double x, double y, double width, double height);
+    private static extern IntPtr objc_msgSend_NSRect(IntPtr receiver, IntPtr selector, NSRect frame);
 
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     private static extern void objc_msgSend_double(IntPtr receiver, IntPtr selector, double arg);
