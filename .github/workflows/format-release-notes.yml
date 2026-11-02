@@ -89,12 +89,29 @@ jobs:
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "Release notes of $TAG: $mode"
 
+      # Beside the notes rather than around them: a checkout deletes what the step above wrote.
+      - name: Check out the interface strings
+        if: steps.release.outputs.mode == 'format'
+        uses: actions/checkout@v7.0.1
+        with:
+          path: source
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            src/Beutl.Language
+
+      - name: List the interface terms for opencode
+        if: steps.release.outputs.mode == 'format'
+        run: python3 source/.github/scripts/release_notes_terms.py source/src/Beutl.Language > terms.txt
+
       - name: Upload the changelog for opencode
         if: steps.release.outputs.mode == 'format'
         uses: actions/upload-artifact@v7.0.2
         with:
           name: changelog
-          path: changelog.md
+          path: |
+            changelog.md
+            terms.txt
           retention-days: 1
           if-no-files-found: error
           # A re-run uploads the artifact again.
@@ -132,7 +149,7 @@ jobs:
               }
             }
           PROMPT: |
-            You are writing the summary at the top of the release notes of Beutl ${{ inputs.tag }}, a video editing application. The <changelog> below is GitHub's auto-generated list of the pull requests in this release, one `* <PR title> by @<author> in <PR URL>` line each. The release notes show that full list right below your summary, so do not repeat it: the summary tells a user what changed for them, and reads in about a minute.
+            You are writing the summary at the top of the release notes of Beutl ${{ inputs.tag }}, a video editing application. The <changelog> below is GitHub's auto-generated list of the pull requests in this release, one `* <PR title> by @<author> in <PR URL>` line each. The release notes show that full list right below your summary, so do not repeat it: the summary tells a user what changed for them, and reads in about a minute. The <ui-terms> below list the labels of Beutl's interface, one `English = Japanese` line each.
 
             Produce a JSON object with exactly these four keys, each an array of bullets:
             - "newFeatures": what users can now do, from PR titles starting with `feat:` / `feature:`
@@ -144,11 +161,16 @@ jobs:
             A bullet is `{"text": "<change>"}`, for example:
             {"newFeatures": [{"text": "Added an audio equalizer effect and waveform shapes for the audio visualizer"}, {"text": "Added the border design theme (breaking change)"}], "improvements": [], "bugFixes": [{"text": "Fixed a crash when importing video without an audio track"}], "other": []}
 
-            Keep it short. These are upper limits, and a smaller release needs fewer: 12 bullets in "newFeatures", 3 in "improvements", 8 in "bugFixes", 2 in "other".
-            - Write one bullet per feature, however many PRs built it, saying what users can do with it. Combine small features of one area, such as several new effects, into one bullet.
-            - Write bug fixes by area, naming what used to go wrong, rather than one bullet per PR.
+            Keep it short. These are upper limits, and a smaller release needs fewer: 15 bullets in "newFeatures", 3 in "improvements", 8 in "bugFixes", 2 in "other".
+            - Write one bullet per feature, however many PRs built it, saying what users can do with it. Combine small features only when they belong together, such as several new effects. Never join unrelated features in one bullet.
+            - Write bug fixes by area, naming what used to go wrong, rather than one bullet per PR. Name at most three problems in a bullet: the changelog has the rest.
             - Write performance work as the one effect users feel, such as large projects staying responsive.
             - Leave out what users would not notice: refactoring, tests, tooling, dependency bumps, and small visual adjustments. Also leave out fixes to something added in this same release, since no user had that problem.
+            - Order the bullets of each category by how much users notice them.
+            - Say only what the PR titles say. Do not guess how something works.
+            - Describe what users can do or what went wrong for them, not how it is built. Leave out standards, internal names and other technical details, such as BS.1770, blob downloads or storage images.
+            - Name things as the interface does: when a label in <ui-terms> names what changed, use its English side. PR titles use words from the code that users never see, such as "clean presentation preview output" for what the interface calls "Show Preview in Another Window".
+            - Put what users cannot reach from the interface, such as new or changed extension APIs, shader graphs, composition queries and effect inputs, in one bullet in "improvements" that starts with "For extension developers:". Only that bullet names classes and other code identifiers.
             - Each bullet is one short sentence in past tense, in your own words. Never copy a changelog line verbatim.
             - Append " (breaking change)" to a bullet when a PR it covers has `!` before the colon in its title. Do not leave such a PR out.
             - Write plain text: no links, URLs, PR numbers, author names, or line breaks.
@@ -161,7 +183,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/opencode"
           cd "$RUNNER_TEMP/opencode"
           {
-            printf '%s\n<changelog>\n' "$PROMPT"
+            printf '%s\n<ui-terms>\n' "$PROMPT"
+            cat "$RUNNER_TEMP/input/terms.txt"
+            printf '</ui-terms>\n<changelog>\n'
             cat "$RUNNER_TEMP/input/changelog.md"
             printf '</changelog>\n\nWrite the JSON object to %s with the write tool, and write no other file.\n' "$PWD/summary.json"
           } | opencode run --pure --model "$OPENCODE_MODEL" --title "Summarize $TAG"
