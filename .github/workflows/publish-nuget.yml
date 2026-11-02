@@ -99,9 +99,16 @@ jobs:
         run: |
           # The feed registers a version before it stores the file, so a retry can report a duplicate for a package whose
           # upload failed. Only what the feed serves shows that the file arrived.
-          base=$(curl -fsSL "$NUGET_SOURCE" | jq -r '.resources[] | select(."@type" | startswith("PackageBaseAddress")) | ."@id"' | head -n 1)
+          if ! index=$(curl -fsSL --retry 3 --retry-delay 5 --retry-all-errors "$NUGET_SOURCE"); then
+            echo "::error::Could not read the service index, so the published packages were not verified."
+            exit 1
+          fi
+          if ! base=$(printf '%s' "$index" | jq -r '[.resources[] | select(."@type" | startswith("PackageBaseAddress")) | ."@id"] | first // empty'); then
+            echo "::error::Could not parse the service index, so the published packages were not verified."
+            exit 1
+          fi
           if [ -z "$base" ]; then
-            echo "::warning::The source has no package base address, so the published packages were not verified."
+            echo "::warning::The feed has no package base address, so the published packages were not verified."
             exit 0
           fi
           failed=0
@@ -109,7 +116,7 @@ jobs:
             name=$(basename "$package" .nupkg | tr '[:upper:]' '[:lower:]')
             id=$(printf '%s' "$name" | sed -E 's/\.[0-9]+\.[0-9]+\.[0-9]+.*$//')
             version=${name#"$id".}
-            if ! curl -fsSL --retry 3 --retry-delay 5 -o served.nupkg "${base%/}/$id/$version/$name.nupkg"; then
+            if ! curl -fsSL --retry 3 --retry-delay 5 --retry-all-errors -o served.nupkg "${base%/}/$id/$version/$name.nupkg"; then
               echo "::error::$(basename "$package") could not be downloaded from the feed."
               failed=1
             elif ! cmp -s "$package" served.nupkg; then
