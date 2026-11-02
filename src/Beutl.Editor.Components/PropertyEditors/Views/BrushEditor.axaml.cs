@@ -158,9 +158,9 @@ public sealed partial class BrushEditor : UserControl
         return TypeDisplayHelpers.GetLocalizedName(type);
     }
 
-    private Task<object?> SelectTypeOrReference()
+    private Task<object?> SelectTypeOrReference(Control button)
     {
-        return PickerGuard.RunAsync(this, () =>
+        return PickerGuard.RunAsync(this, button, () =>
         {
             var selectVm = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.Drawable, typeof(Drawable));
 
@@ -177,6 +177,13 @@ public sealed partial class BrushEditor : UserControl
     private void OpenFlyout_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not BrushEditorViewModel) return;
+
+        // The picker does not light-dismiss, so the button that opened it closes it again.
+        if (_flyout is { IsOpen: true })
+        {
+            _flyout.Hide();
+            return;
+        }
 
         if (_flyout == null)
         {
@@ -216,7 +223,7 @@ public sealed partial class BrushEditor : UserControl
     {
         if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
 
-        object? result = await SelectTypeOrReference();
+        object? result = await SelectTypeOrReference(e);
 
         switch (result)
         {
@@ -383,6 +390,7 @@ public sealed partial class BrushEditor : UserControl
 
         await TargetSelectionHelper.HandleSelectTargetRequestAsync<BrushEditorViewModel, Brush>(
             this,
+            sender as Control,
             vm,
             vm => vm.GetAvailableTargets(),
             (vm, target) => vm.SetTarget(target));

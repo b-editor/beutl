@@ -70,7 +70,7 @@ public partial class FilterEffectEditor : UserControl
 
         if (viewModel.IsGroup.Value)
         {
-            object? result = await SelectTypeOrReference();
+            object? result = await SelectTypeOrReference(sender as Control);
 
             try
             {
@@ -99,9 +99,9 @@ public partial class FilterEffectEditor : UserControl
         }
     }
 
-    private Task<object?> SelectTypeOrReference()
+    private Task<object?> SelectTypeOrReference(Control? button)
     {
-        return PickerGuard.RunAsync(this, () =>
+        return PickerGuard.RunAsync(this, button, () =>
         {
             var selectVm = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
 
@@ -120,7 +120,7 @@ public partial class FilterEffectEditor : UserControl
     {
         if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel) return;
 
-        object? result = await SelectTypeOrReference();
+        object? result = await SelectTypeOrReference(null);
 
         try
         {
@@ -158,6 +158,7 @@ public partial class FilterEffectEditor : UserControl
 
         await TargetSelectionHelper.HandleSelectTargetRequestAsync<FilterEffectEditorViewModel, FilterEffect>(
             this,
+            sender as Control,
             vm,
             vm => vm.GetAvailableTargets(),
             (vm, target) => vm.SetTarget(target));

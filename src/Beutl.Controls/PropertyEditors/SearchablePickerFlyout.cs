@@ -13,8 +13,11 @@ namespace Beutl.Controls.PropertyEditors;
 // cancels even from the search box.
 public sealed class SearchablePickerFlyout(ISearchablePickerViewModel viewModel) : FAPickerFlyoutBase
 {
+    private bool _confirmed;
+
     public event TypedEventHandler<SearchablePickerFlyout, EventArgs>? Confirmed;
 
+    // Raised when the picker closes any way but by confirming, even with the control it is placed at.
     public event TypedEventHandler<SearchablePickerFlyout, EventArgs>? Dismissed;
 
     // The key of the presenter's ControlTheme, which lays out the items.
@@ -68,7 +71,6 @@ public sealed class SearchablePickerFlyout(ISearchablePickerViewModel viewModel)
                 // Escape cancels the picker even from the search box, which would otherwise only close the box.
                 case Key.Escape:
                     e.Handled = true;
-                    Dismissed?.Invoke(this, EventArgs.Empty);
                     Hide();
                     break;
                 // These move through the results, so show the results for everything typed so far first.
@@ -92,7 +94,6 @@ public sealed class SearchablePickerFlyout(ISearchablePickerViewModel viewModel)
 
     private void OnFlyoutDismissed(DraggablePickerFlyoutPresenter sender, object args)
     {
-        Dismissed?.Invoke(this, EventArgs.Empty);
         Hide();
     }
 
@@ -105,8 +106,20 @@ public sealed class SearchablePickerFlyout(ISearchablePickerViewModel viewModel)
     {
         // Enter, the checkmark and any other way of confirming pick from the results for everything typed.
         viewModel.FlushSearch();
+        _confirmed = true;
         Confirmed?.Invoke(this, EventArgs.Empty);
         Hide();
+    }
+
+    protected override void OnClosed()
+    {
+        base.OnClosed();
+        if (!_confirmed)
+        {
+            Dismissed?.Invoke(this, EventArgs.Empty);
+        }
+
+        _confirmed = false;
     }
 
     protected override void OnOpening(CancelEventArgs args)

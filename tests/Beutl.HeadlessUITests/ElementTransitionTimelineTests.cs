@@ -290,6 +290,13 @@ public class ElementTransitionTimelineTests
             HeadlessTestHelpers.Settle();
             Assert.That(incoming.Model.EnterTransition.Value, Is.TypeOf<FadeTransition>());
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
+
+            // The drop-down button that opened the picker closes it again.
+            await OpenPicker();
+            view.FindControl<DropDownPickerEditor>("typeEditor")!
+                .RaiseEvent(new RoutedEventArgs(DropDownPickerEditor.DropDownClickEvent));
+            HeadlessTestHelpers.Render();
+            Assert.That(window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>(), Is.Empty);
         }
         finally
         {

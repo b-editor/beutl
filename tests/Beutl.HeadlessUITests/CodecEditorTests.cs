@@ -96,6 +96,27 @@ public sealed class CodecEditorTests
         });
     }
 
+    // The picker does not light-dismiss, so the button that opened it closes it again.
+    [AvaloniaTest]
+    public void The_drop_down_button_closes_the_picker_and_keeps_the_codec()
+    {
+        using var host = EditorHost.Create(s_libx264);
+
+        host.OpenPicker();
+        host.Window.KeyTextInput("prores");
+        HeadlessTestHelpers.Render();
+        host.OpenPicker();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>(), Is.Empty);
+            Assert.That(host.Settings.Codec.Value, Is.EqualTo(s_libx264));
+        });
+
+        host.OpenPicker();
+        Assert.That(host.Highlighted, Is.EqualTo(s_libx264));
+    }
+
     [AvaloniaTest]
     public void Confirming_a_search_without_matches_keeps_the_codec()
     {

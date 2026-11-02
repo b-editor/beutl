@@ -12,8 +12,11 @@ public abstract class ConfirmablePickerFlyout<TSelf, TPresenter> : FAPickerFlyou
     where TSelf : ConfirmablePickerFlyout<TSelf, TPresenter>
     where TPresenter : DraggablePickerFlyoutPresenter
 {
+    private bool _confirmed;
+
     public event TypedEventHandler<TSelf, EventArgs>? Confirmed;
 
+    // Raised when the picker closes any way but by confirming, even with the control it is placed at.
     public event TypedEventHandler<TSelf, EventArgs>? Dismissed;
 
     protected abstract TPresenter CreatePickerPresenter();
@@ -21,9 +24,9 @@ public abstract class ConfirmablePickerFlyout<TSelf, TPresenter> : FAPickerFlyou
     protected sealed override Control CreatePresenter()
     {
         TPresenter presenter = CreatePickerPresenter();
-        presenter.CloseClicked += (_, _) => Dismiss();
+        presenter.CloseClicked += (_, _) => Hide();
         presenter.Confirmed += (_, _) => OnConfirmed();
-        presenter.Dismissed += (_, _) => Dismiss();
+        presenter.Dismissed += (_, _) => Hide();
         presenter.KeyDown += (_, e) =>
         {
             switch (e.Key)
@@ -32,7 +35,7 @@ public abstract class ConfirmablePickerFlyout<TSelf, TPresenter> : FAPickerFlyou
                     OnConfirmed();
                     break;
                 case Key.Escape:
-                    Dismiss();
+                    Hide();
                     break;
             }
         };
@@ -50,8 +53,20 @@ public abstract class ConfirmablePickerFlyout<TSelf, TPresenter> : FAPickerFlyou
 
     protected override void OnConfirmed()
     {
+        _confirmed = true;
         Confirmed?.Invoke((TSelf)this, EventArgs.Empty);
         Hide();
+    }
+
+    protected override void OnClosed()
+    {
+        base.OnClosed();
+        if (!_confirmed)
+        {
+            Dismissed?.Invoke((TSelf)this, EventArgs.Empty);
+        }
+
+        _confirmed = false;
     }
 
     protected override void OnOpening(CancelEventArgs args)
@@ -61,10 +76,4 @@ public abstract class ConfirmablePickerFlyout<TSelf, TPresenter> : FAPickerFlyou
     }
 
     protected override bool ShouldShowConfirmationButtons() => true;
-
-    private void Dismiss()
-    {
-        Dismissed?.Invoke((TSelf)this, EventArgs.Empty);
-        Hide();
-    }
 }

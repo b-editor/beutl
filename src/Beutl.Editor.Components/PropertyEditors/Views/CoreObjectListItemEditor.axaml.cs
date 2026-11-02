@@ -1,4 +1,5 @@
-﻿using Avalonia.Interactivity;
+﻿using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
@@ -15,6 +16,6 @@ public partial class CoreObjectListItemEditor : PresenterListItemEditor
     {
         if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
 
-        await CoreObjectPickerHelper.NewInstanceOrPickAsync(this, viewModel);
+        await CoreObjectPickerHelper.NewInstanceOrPickAsync(this, sender as Button, viewModel);
     }
 }
