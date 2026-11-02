@@ -168,7 +168,7 @@
     <value>速度预设</value>
   </data>
   <data name="EncoderOptionsProfile" xml:space="preserve">
-    <value>配置文件</value>
+    <value>编码档次</value>
   </data>
   <data name="EncoderOptionsQuality" xml:space="preserve">
     <value>质量</value>
