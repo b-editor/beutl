@@ -139,7 +139,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
             expressionContext.BeginEvaluation(this);
             try
             {
-                T value = expressionState.Expression.Evaluate(expressionContext);
+                T value = ExpressionEvaluationState<T>.RequireFinite(expressionState.Expression.Evaluate(expressionContext));
                 expressionState.ClearError();
                 return ValidateAndCoerce(value);
             }
