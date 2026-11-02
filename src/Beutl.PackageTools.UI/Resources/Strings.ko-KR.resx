@@ -185,4 +185,7 @@
   <data name="Unknown" xml:space="preserve">
     <value>알 수 없음</value>
   </data>
+  <data name="Double_click_to_show_or_hide_the_details" xml:space="preserve">
+    <value>두 번 클릭하여 세부 정보를 표시하거나 숨깁니다</value>
+  </data>
 </root>
