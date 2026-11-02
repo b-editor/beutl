@@ -553,7 +553,7 @@ public class SceneGapTests
                 scene.Children.Add(new Element
                 {
                     Start = { Value = MediaTime.FromSeconds(random.Next(80)) },
-                    Length = { Value = MediaTime.FromSeconds(random.Next(locked ? 1 : 0, 8)) },
+                    Length = { Value = MediaTime.FromSeconds(random.Next(8)) },
                     ZIndex = { Value = layer },
                     IsLocked = { Value = locked },
                 });
@@ -621,6 +621,30 @@ public class SceneGapTests
         {
             Assert.That(closed, Is.EqualTo(0));
             Assert.That(clip.Start.Value, Is.EqualTo(MediaTime.FromSeconds(10)));
+        });
+    }
+
+    [Test]
+    public void CloseAllGaps_EmptyLockedElement_StopsTheShiftButCollidesWithNothing()
+    {
+        using var harness = new SceneHistoryHarness("beutl_scene_gaps");
+        Scene scene = harness.Scene;
+        // [0s..5s], gap 5s-10s, [10s..30s] over an empty locked element at 20s, then [40s..41s] past a gap.
+        harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(5));
+        Element clip = harness.AddElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(20));
+        Element locked = harness.AddElement(MediaTime.FromSeconds(20), MediaTime.Zero);
+        locked.IsLocked.Value = true;
+        Element last = harness.AddElement(MediaTime.FromSeconds(40), MediaTime.FromSeconds(1));
+
+        int closed = scene.CloseAllGaps();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(closed, Is.EqualTo(2));
+            Assert.That(clip.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(locked.Start.Value, Is.EqualTo(MediaTime.FromSeconds(20)));
+            // The shift stops at the locked element, so the last clip only closes the gap after [10s..30s].
+            Assert.That(last.Start.Value, Is.EqualTo(MediaTime.FromSeconds(30)));
         });
     }
 

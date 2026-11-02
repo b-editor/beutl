@@ -121,23 +121,29 @@ public partial class Scene
         }
 
         // Which gaps close, from the right. A gap moves everything up to the next locked cohort, and stays open
-        // when that would leave a clip on the locked element, which depends on the gaps closed to its right.
+        // when that would leave a clip on what stays, which depends on the gaps closed to its right. Empty elements
+        // collide with nothing, so an empty locked cohort stops the shift but does not count as what stays.
         int closed = 0;
         MediaTime? wall = null;
+        MediaTime? earliest = null;
         MediaTime? reach = null;
         for (int i = cohorts.Length - 1; i >= 0; i--)
         {
             if (cohorts[i].Any(IsElementLocked))
             {
                 locked[i] = true;
-                wall = cohorts[i].Key;
+                wall = cohorts[i].Any(e => !e.Range.IsEmpty) ? cohorts[i].Key : earliest ?? wall;
+                earliest = null;
                 reach = null;
                 continue;
             }
 
             foreach (Element element in cohorts[i])
             {
-                if (!element.Range.IsEmpty && (reach is null || element.Range.End > reach)) reach = element.Range.End;
+                if (element.Range.IsEmpty) continue;
+
+                earliest = cohorts[i].Key;
+                if (reach is null || element.Range.End > reach) reach = element.Range.End;
             }
 
             if (gaps[i] == MediaTime.Zero) continue;
@@ -148,6 +154,7 @@ public partial class Scene
                 continue;
             }
 
+            earliest -= gaps[i];
             reach -= gaps[i];
             closed++;
         }
