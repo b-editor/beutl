@@ -348,6 +348,37 @@ public class SceneTests
         Assert.That(restored.Children.Select(child => child.Id.Value), Is.EqualTo(new[] { retained.Id.Value }));
     }
 
+    // A literal names a directory at that path from the scene folder, in the matcher's terms: any case, no leading
+    // slash or dot segments, and an empty segment standing for any one directory. A path starting with ".." is outside.
+    [TestCase("a", new[] { "top.belm", "x/a/b/five.belm" })]
+    [TestCase("/A", new[] { "top.belm", "x/a/b/five.belm" })]
+    [TestCase("a/b", new[] { "top.belm", "a/one.belm", "a/d/four.belm", "x/a/b/five.belm" })]
+    [TestCase("A/./B", new[] { "top.belm", "a/one.belm", "a/d/four.belm", "x/a/b/five.belm" })]
+    [TestCase("a/b/c", new[] { "top.belm", "a/one.belm", "a/b/two.belm", "a/d/four.belm", "x/a/b/five.belm" })]
+    [TestCase("x/a", new[] { "top.belm", "a/one.belm", "a/b/two.belm", "a/b/c/three.belm", "a/d/four.belm" })]
+    [TestCase("b", new[] { "top.belm", "a/one.belm", "a/b/two.belm", "a/b/c/three.belm", "a/d/four.belm", "x/a/b/five.belm" })]
+    [TestCase("a//c", new[] { "top.belm", "a/one.belm", "a/b/two.belm", "a/d/four.belm", "x/a/b/five.belm" })]
+    [TestCase("../a", new[] { "top.belm", "a/one.belm", "a/b/two.belm", "a/b/c/three.belm", "a/d/four.belm", "x/a/b/five.belm" })]
+    public void SceneReload_ExcludesTheDirectoryALiteralPatternNames(string pattern, string[] expected)
+    {
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "project.scene")) };
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        foreach (string file in new[] { "top.belm", "a/one.belm", "a/b/two.belm", "a/b/c/three.belm", "a/d/four.belm", "x/a/b/five.belm" })
+        {
+            CoreSerializer.StoreToUri(new Element(), new Uri(Path.Combine(_tempDirectory, file)));
+        }
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!.AsObject();
+        json["Elements"]!["Exclude"] = pattern;
+        json.JsonSave(scene.Uri.LocalPath);
+
+        Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+
+        Assert.That(
+            restored.Children.Select(child => Path.GetRelativePath(_tempDirectory, child.Uri!.LocalPath).Replace('\\', '/')),
+            Is.EquivalentTo(expected));
+    }
+
     [Test]
     public void Element_patterns_normalize_legacy_backslashes_when_stored()
     {

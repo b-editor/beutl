@@ -313,6 +313,7 @@ public partial class Scene
         var matcher = new Matcher();
         matcher.AddIncludePatterns(includes);
         var literalExclusions = new List<string>();
+        var excludedDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (string pattern in excludes)
         {
             if (!IsLiteralPattern(pattern))
@@ -322,13 +323,22 @@ public partial class Scene
             else
             {
                 // A literal can also name a directory, using the matcher's case and path rules.
-                matcher.AddExclude(pattern + "/");
+                if (GetLiteralDirectoryPath(pattern) is { } directoryPath)
+                {
+                    excludedDirectories.Add(directoryPath);
+                }
+                else
+                {
+                    matcher.AddExclude(pattern + "/");
+                }
+
                 literalExclusions.Add(pattern);
             }
         }
 
         // The glob matcher ignores case. Literal files instead follow their actual storage identity.
-        var directory = new DirectoryInfoWrapper(new DirectoryInfo(directoryName));
+        var directory = new FilteredDirectoryInfo(
+            new DirectoryInfoWrapper(new DirectoryInfo(directoryName)), excludedDirectories);
         var exclusionsByName = literalExclusions.ToLookup(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase);
         return matcher.Execute(directory).Files.Select(file => file.Path)
             .Where(path => !exclusionsByName[Path.GetFileName(path)]
@@ -352,6 +362,16 @@ public partial class Scene
     private static string? GetLiteralElementPath(string directory, string pattern)
         => IsLiteralPattern(pattern) && pattern.EndsWith(".belm", StringComparison.OrdinalIgnoreCase)
             ? Path.GetFullPath(pattern.TrimStart('/'), directory) : null;
+
+    // The directory a literal names as the matcher reads it: from the scene folder, without a leading slash or dot
+    // segments. Null where only the matcher can read it: an empty segment matches any name and ".." has its own rules.
+    private static string? GetLiteralDirectoryPath(string pattern)
+    {
+        string[] segments = pattern.TrimStart('/').Split('/');
+        return segments.Any(segment => segment is "" or "..")
+            ? null
+            : string.Join('/', segments.Where(segment => segment != "."));
+    }
 
     private static bool IsLiteralPattern(string pattern)
         => !pattern.Contains('*') && !pattern.EndsWith('/') && Path.GetFileName(pattern) is not ("" or "." or "..");
