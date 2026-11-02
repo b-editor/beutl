@@ -103,11 +103,19 @@ public partial class HdrBitmapView : NativeControlHost
         }
     }
 
-    // A native view that moved here from another window keeps its layer, at that window's scale.
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        VulkanSwapchainRenderer? previous = _renderer;
         base.OnAttachedToVisualTree(e);
+
+        // A native view that moved here from another window keeps its layer, at that window's scale.
         UpdateContentsScale();
+
+        // A view attached again keeps its bounds, so OnSizeChanged does not draw on its new native control. Only now
+        // does that control have a window, whose screen gives the gamut, and the size the renderer follows. A new view
+        // has no size yet and draws from OnSizeChanged.
+        if (_renderer != previous && Bounds.Width > 0 && Bounds.Height > 0)
+            RequestRender();
     }
 
     protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
@@ -269,6 +277,11 @@ public partial class HdrBitmapView : NativeControlHost
             UpdateEdrMetadata();
             UpdateDisplayGamut();
         }
+
+        // DestroyNativeControlCore released the frame, and a view attached again sees no change of Source to bring it
+        // back. A ref playback already disposed leaves nothing to show until a live frame arrives, as in
+        // OnPropertyChanged.
+        _clonedSource ??= Source?.TryClone();
 
         return handle;
     }
