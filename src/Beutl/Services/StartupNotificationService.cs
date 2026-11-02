@@ -5,6 +5,7 @@ using Beutl.Configuration;
 using Beutl.Logging;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
+using NuGet.Versioning;
 
 namespace Beutl.Services;
 
@@ -13,6 +14,7 @@ internal static class StartupNotificationService
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(StartupNotificationService));
 
     internal const string TelemetryDetailsUrl = "https://beutl.beditor.net/about/telemetry";
+    internal const string ReleasePageUrl = "https://github.com/b-editor/beutl/releases/tag/v";
     internal const int MaxVisibleSideloadPackages = 3;
     internal const int MaxSideloadPackageNameLength = 80;
 
@@ -34,6 +36,37 @@ internal static class StartupNotificationService
                 new(Strings.Agree, () => SetTelemetryEnabled(config, true))
             ],
             isClosable: false);
+    }
+
+    // Tells that Beutl was updated, and points at what changed.
+    public static void ShowReleaseNotes(string? lastStartedVersion, string currentVersion)
+    {
+        if (GetReleaseNotesUrl(lastStartedVersion, currentVersion) is not { } url)
+        {
+            return;
+        }
+
+        NotificationService.ShowInformation(
+            string.Format(MessageStrings.UpdatedToVersion_Title, currentVersion),
+            MessageStrings.UpdatedToVersion_Content,
+            expiration: TimeSpan.FromSeconds(30),
+            actions: [new(MessageStrings.ReleaseNotes, () => OpenInBrowser(url))]);
+    }
+
+    // Null unless this is a newer version than the last one started, and a published one: a daily build has its
+    // commit after the release label, and no release page.
+    internal static string? GetReleaseNotesUrl(string? lastStartedVersion, string currentVersion)
+    {
+        if (!NuGetVersion.TryParse(lastStartedVersion, out NuGetVersion? last)
+            || !NuGetVersion.TryParse(currentVersion, out NuGetVersion? current)
+            || last >= current
+            || current.HasMetadata
+            || current.ReleaseLabels.Count() is not (0 or 2))
+        {
+            return null;
+        }
+
+        return $"{ReleasePageUrl}{current}";
     }
 
     public static Task<bool> ConfirmSideloadExtensions(IReadOnlyList<string> packageNames)
@@ -144,9 +177,11 @@ internal static class StartupNotificationService
             : $"{singleLineName[..(MaxSideloadPackageNameLength - 1)]}…";
     }
 
-    private static void OpenTelemetryDetails()
+    private static void OpenTelemetryDetails() => OpenInBrowser(TelemetryDetailsUrl);
+
+    private static void OpenInBrowser(string url)
     {
-        Process.Start(new ProcessStartInfo(TelemetryDetailsUrl)
+        Process.Start(new ProcessStartInfo(url)
         {
             UseShellExecute = true,
             Verb = "open"

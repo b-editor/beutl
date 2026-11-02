@@ -507,4 +507,13 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   <data name="KeptUnknownDataSavedByMessage" xml:space="preserve">
     <value>Este proyecto se guardó por última vez con Beutl {0} y contiene datos de una versión más reciente de Beutl o de una extensión que no está instalada. Beutl conserva esos datos al guardar el proyecto, pero no los muestra ni los usa.</value>
   </data>
+  <data name="UpdatedToVersion_Title" xml:space="preserve">
+    <value>Beutl se actualizó a {0}</value>
+  </data>
+  <data name="UpdatedToVersion_Content" xml:space="preserve">
+    <value>Las notas de la versión muestran qué ha cambiado.</value>
+  </data>
+  <data name="ReleaseNotes" xml:space="preserve">
+    <value>Notas de la versión</value>
+  </data>
 </root>
