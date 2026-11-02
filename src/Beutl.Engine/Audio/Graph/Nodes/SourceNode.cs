@@ -33,7 +33,6 @@ public sealed class SourceNode : AudioNode
 
         var resource = Source.Value.Resource;
         var sampleCount = context.GetSampleCount();
-        RecordProcessedChannelCount(ClipLayout.ChannelCount);
         var buffer = new AudioBuffer(context.SampleRate, ClipLayout.ChannelCount, sampleCount);
 
         // An unloaded or failed-to-open source has SampleRate == 0 and is unreadable — return silence
@@ -64,9 +63,9 @@ public sealed class SourceNode : AudioNode
                     AudioChannelLayout layout = AudioChannelLayout.ForChannelCount(
                         resource.ChannelLayout, audio.ChannelCount);
                     var map = ChannelMap.Resolve(resource.ChannelLayout).Resolve(layout);
+                    int copyLength = Math.Min(audio.SampleCount, buffer.SampleCount);
                     if (map.Format != AudioChannelFormat.Auto)
                     {
-                        int copyLength = Math.Min(audio.SampleCount, buffer.SampleCount);
                         for (int channel = 0; channel < buffer.ChannelCount; channel++)
                         {
                             int source = map.Sources[channel];
@@ -76,18 +75,7 @@ public sealed class SourceNode : AudioNode
                     }
                     else
                     {
-                        var matrix = AudioChannelMatrix.Create(layout, ClipLayout);
-                        if (audio.SampleCount == buffer.SampleCount && audio.SampleRate == buffer.SampleRate)
-                        {
-                            matrix.Apply(audio, buffer);
-                        }
-                        else
-                        {
-                            using var converted = matrix.Apply(audio);
-                            int copyLength = Math.Min(converted.SampleCount, buffer.SampleCount);
-                            for (int channel = 0; channel < buffer.ChannelCount; channel++)
-                                converted.GetChannelData(channel)[..copyLength].CopyTo(buffer.GetChannelData(channel));
-                        }
+                        AudioChannelMatrix.Create(layout, ClipLayout).ApplyFrames(audio, buffer, copyLength);
                     }
                 }
             }

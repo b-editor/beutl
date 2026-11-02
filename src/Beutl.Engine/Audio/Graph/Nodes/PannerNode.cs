@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+﻿using System.Runtime.CompilerServices;
+using Beutl.Animation;
 using Beutl.Audio.Effects.Equalizer;
 using Beutl.Engine;
 using static Beutl.Audio.AudioSpeakers;
@@ -23,6 +24,13 @@ public sealed class PannerNode : AudioNode
     public AudioChannelLayout InputLayout { get; set; } = AudioChannelLayout.Stereo;
     public AudioChannelLayout OutputLayout { get; set; } = AudioChannelLayout.Stereo;
 
+    // The surround, center and LFE controls need the speakers of these layouts.
+    internal static bool PositionsOnto(AudioChannelLayout output)
+        => output == AudioChannelLayout.Surround51 || output == AudioChannelLayout.Surround71;
+
+    // A clip of more than two channels keeps its own speaker positions, so the surround controls leave it alone.
+    internal static bool IsPositionedClip(int clipChannels) => clipChannels <= 2;
+
     public override AudioBuffer Process(AudioProcessContext context)
     {
         if (Inputs.Count != 1)
@@ -39,18 +47,15 @@ public sealed class PannerNode : AudioNode
                 throw new InvalidOperationException("Input channel count does not match the panner layout.");
             if (_matrix is null || _matrixInput != InputLayout || _matrixOutput != OutputLayout)
             {
-                if (_matrix is null || _matrixOutput != OutputLayout)
+                _balanceSides = new BalanceSide[OutputLayout.ChannelCount];
+                for (int channel = 0; channel < _balanceSides.Length; channel++)
                 {
-                    _balanceSides = new BalanceSide[OutputLayout.ChannelCount];
-                    for (int channel = 0; channel < _balanceSides.Length; channel++)
+                    _balanceSides[channel] = OutputLayout.GetSpeaker(channel) switch
                     {
-                        _balanceSides[channel] = OutputLayout.GetSpeaker(channel) switch
-                        {
-                            FrontLeft or FrontLeftOfCenter or SideLeft or BackLeft or TopFrontLeft or TopBackLeft => BalanceSide.Left,
-                            FrontRight or FrontRightOfCenter or SideRight or BackRight or TopFrontRight or TopBackRight => BalanceSide.Right,
-                            _ => BalanceSide.Other
-                        };
-                    }
+                        FrontLeft or FrontLeftOfCenter or SideLeft or BackLeft or TopFrontLeft or TopBackLeft => BalanceSide.Left,
+                        FrontRight or FrontRightOfCenter or SideRight or BackRight or TopFrontRight or TopBackRight => BalanceSide.Right,
+                        _ => BalanceSide.Other
+                    };
                 }
                 // One/two-channel clips feed the panner's L/R sides; larger layouts retain positions.
                 AudioChannelLayout inputLayout = InputLayout.ChannelCount <= 2 && OutputLayout != AudioChannelLayout.Mono
@@ -60,8 +65,7 @@ public sealed class PannerNode : AudioNode
                 _matrixOutput = OutputLayout;
             }
 
-            bool position = input.ChannelCount <= 2
-                && (OutputLayout == AudioChannelLayout.Surround51 || OutputLayout == AudioChannelLayout.Surround71);
+            bool position = IsPositionedClip(input.ChannelCount) && PositionsOnto(OutputLayout);
             if (position)
             {
                 if (_lastEnd is not { } end || !context.ContinuesFrom(end))
@@ -105,13 +109,9 @@ public sealed class PannerNode : AudioNode
     private void ApplyStatic(AudioBuffer input, AudioBuffer output,
         float pan, float surround, float center, float lfe, bool position)
     {
-        float x = Math.Clamp(pan / 100f, -1, 1);
-        float left = Math.Min(1, 1 - x);
-        float right = Math.Min(1, 1 + x);
         if (!position)
         {
-            if (left == 1 && right == 1)
-                return;
+            var (_, left, right) = GetBalance(pan);
             for (int channel = 0; channel < output.ChannelCount; channel++)
             {
                 float gain = _balanceSides[channel] switch
@@ -126,67 +126,40 @@ public sealed class PannerNode : AudioNode
             return;
         }
 
-        float y = Math.Clamp(surround / 100f, 0, 1);
-        float cs = Math.Clamp(center / 100f, 0, 1) * (1 - Math.Abs(x));
-        float l = Math.Clamp(lfe / 100f, 0, 1);
         bool surround71 = OutputLayout == AudioChannelLayout.Surround71;
-        var (front, side, back) = GetSurroundWeights(y, surround71);
-
-        bool mono = input.ChannelCount == 1;
-        ReadOnlySpan<float> sourceLeft = input.GetChannelData(0);
-        ReadOnlySpan<float> sourceRight = mono ? sourceLeft : input.GetChannelData(1);
+        SurroundGains gains = GetSurroundGains(pan, surround, center, lfe, surround71);
+        var writer = new SurroundWriter(input, output, 0, input.SampleCount, surround71, _lfeFilter);
         // The default matrix has already copied FL/FR exactly, including signed zeros.
-        if (x == 0 && y == 0 && cs == 0 && l == 0)
+        if (gains.Left == 1 && gains.Right == 1 && gains.Front == 1 && gains.Side == 0 && gains.Back == 0
+            && gains.Center == 0 && gains.Lfe == 0)
         {
             for (int i = 0; i < input.SampleCount; i++)
-                _lfeFilter.Process(mono ? sourceLeft[i] : (sourceLeft[i] + sourceRight[i]) / 2);
+                writer.AdvanceLfe(i);
             return;
         }
 
-        Span<float> frontLeft = output.GetChannelData(0), frontRight = output.GetChannelData(1);
-        Span<float> centerChannel = output.GetChannelData(2), lfeChannel = output.GetChannelData(3);
-        Span<float> backLeft = output.GetChannelData(4), backRight = output.GetChannelData(5);
-        Span<float> sideLeft = surround71 ? output.GetChannelData(6) : default;
-        Span<float> sideRight = surround71 ? output.GetChannelData(7) : default;
         for (int i = 0; i < input.SampleCount; i++)
-        {
-            float a = sourceLeft[i], b = sourceRight[i];
-            float low = _lfeFilter.Process(mono ? a : (a + b) / 2);
-            float balancedLeft = Multiply(a, left), balancedRight = Multiply(b, right);
-            float lf = Multiply(balancedLeft, front), rf = Multiply(balancedRight, front);
-            frontLeft[i] = Multiply(lf, 1 - cs);
-            frontRight[i] = Multiply(rf, 1 - cs);
-            centerChannel[i] = cs == 0 ? 0 : cs * (lf + rf) / 2;
-            lfeChannel[i] = Multiply(low, l);
-            backLeft[i] = Multiply(balancedLeft, back);
-            backRight[i] = Multiply(balancedRight, back);
-            if (surround71)
-            {
-                sideLeft[i] = Multiply(balancedLeft, side);
-                sideRight[i] = Multiply(balancedRight, side);
-            }
-        }
+            writer.Write(i, gains);
     }
 
     private void ApplyAnimated(AudioBuffer input, AudioBuffer output, AudioProcessContext context, bool position)
     {
         const int maxChunk = 2048;
-        // Reuse sampled-property spans for gains, keeping scratch space bounded by the chunk size.
-        Span<float> values = stackalloc float[maxChunk * (position ? 7 : 2)];
+        // One span per sampled property, keeping scratch space bounded by the chunk size. The balance-only path
+        // reuses the one for Pan for its left gains.
+        Span<float> values = stackalloc float[maxChunk * (position ? 4 : 2)];
         bool surround71 = OutputLayout == AudioChannelLayout.Surround71;
         for (int offset = 0; offset < input.SampleCount; offset += maxChunk)
         {
             int count = Math.Min(maxChunk, input.SampleCount - offset);
-            Span<float> left = values[..count], right = values.Slice(maxChunk, count);
-            Sample(Pan, left);
+            var range = context.GetChunkRange(offset, count);
+            Span<float> pan = values[..count];
+            context.AnimationSampler.SampleBuffer(Pan, range, context.SampleRate, pan);
             if (!position)
             {
+                Span<float> left = pan, right = values.Slice(maxChunk, count);
                 for (int i = 0; i < count; i++)
-                {
-                    float x = Math.Clamp(left[i] / 100f, -1, 1);
-                    left[i] = Math.Min(1, 1 - x);
-                    right[i] = Math.Min(1, 1 + x);
-                }
+                    (_, left[i], right[i]) = GetBalance(pan[i]);
                 for (int channel = 0; channel < output.ChannelCount; channel++)
                 {
                     if (_balanceSides[channel] == BalanceSide.Other)
@@ -199,68 +172,31 @@ public sealed class PannerNode : AudioNode
             }
             else
             {
-                Span<float> front = values.Slice(maxChunk * 2, count), side = values.Slice(maxChunk * 3, count);
-                Span<float> back = values.Slice(maxChunk * 4, count), center = values.Slice(maxChunk * 5, count);
-                Span<float> lfe = values.Slice(maxChunk * 6, count);
-                Sample(SurroundPan, front);
-                Sample(CenterLevel, center);
-                Sample(LfeLevel, lfe);
+                Span<float> surround = values.Slice(maxChunk, count);
+                Span<float> center = values.Slice(maxChunk * 2, count), lfe = values.Slice(maxChunk * 3, count);
+                context.AnimationSampler.SampleBuffer(SurroundPan, range, context.SampleRate, surround);
+                context.AnimationSampler.SampleBuffer(CenterLevel, range, context.SampleRate, center);
+                context.AnimationSampler.SampleBuffer(LfeLevel, range, context.SampleRate, lfe);
+                var writer = new SurroundWriter(input, output, offset, count, surround71, _lfeFilter);
                 for (int i = 0; i < count; i++)
-                {
-                    float x = Math.Clamp(left[i] / 100f, -1, 1);
-                    left[i] = Math.Min(1, 1 - x);
-                    right[i] = Math.Min(1, 1 + x);
-                    (front[i], side[i], back[i]) = GetSurroundWeights(Math.Clamp(front[i] / 100f, 0, 1), surround71);
-                    center[i] = Math.Clamp(center[i] / 100f, 0, 1) * (1 - Math.Abs(x));
-                    lfe[i] = Math.Clamp(lfe[i] / 100f, 0, 1);
-                }
-                ApplySurround(input, output, offset, left, right, front, side, back, center, lfe);
-            }
-
-            void Sample(IProperty<float> property, Span<float> destination)
-            {
-                if (!AnimationSampler.IsAnimated(property))
-                    destination.Fill(property.Value);
-                else
-                    context.AnimationSampler.SampleBuffer(property, context.GetChunkRange(offset, count),
-                        context.SampleRate, destination);
+                    writer.Write(i, GetSurroundGains(pan[i], surround[i], center[i], lfe[i], surround71));
             }
         }
     }
 
-    private void ApplySurround(AudioBuffer input, AudioBuffer output, int offset,
-        ReadOnlySpan<float> left, ReadOnlySpan<float> right, ReadOnlySpan<float> front,
-        ReadOnlySpan<float> side, ReadOnlySpan<float> back, ReadOnlySpan<float> center, ReadOnlySpan<float> lfe)
+    // The balance position in [-1, 1] and the gain it gives each side.
+    private static (float X, float Left, float Right) GetBalance(float pan)
     {
-        int count = left.Length;
-        bool mono = input.ChannelCount == 1, surround71 = OutputLayout == AudioChannelLayout.Surround71;
-        ReadOnlySpan<float> sourceLeft = input.GetChannelData(0).Slice(offset, count);
-        ReadOnlySpan<float> sourceRight = mono ? sourceLeft : input.GetChannelData(1).Slice(offset, count);
-        Span<float> frontLeft = output.GetChannelData(0).Slice(offset, count), frontRight = output.GetChannelData(1).Slice(offset, count);
-        Span<float> centerChannel = output.GetChannelData(2).Slice(offset, count), lfeChannel = output.GetChannelData(3).Slice(offset, count);
-        Span<float> backLeft = output.GetChannelData(4).Slice(offset, count), backRight = output.GetChannelData(5).Slice(offset, count);
-        Span<float> sideLeft = surround71 ? output.GetChannelData(6).Slice(offset, count) : default;
-        Span<float> sideRight = surround71 ? output.GetChannelData(7).Slice(offset, count) : default;
-        for (int i = 0; i < count; i++)
-        {
-            float a = sourceLeft[i], b = sourceRight[i];
-            float low = _lfeFilter.Process(mono ? a : (a + b) / 2);
-            // Keep the balance, front weight and center share as separate multiplies for exact rounding.
-            float balancedLeft = Multiply(a, left[i]), balancedRight = Multiply(b, right[i]);
-            float lf = Multiply(balancedLeft, front[i]), rf = Multiply(balancedRight, front[i]);
-            float cs = center[i];
-            frontLeft[i] = Multiply(lf, 1 - cs);
-            frontRight[i] = Multiply(rf, 1 - cs);
-            centerChannel[i] = cs == 0 ? 0 : cs * (lf + rf) / 2;
-            lfeChannel[i] = Multiply(low, lfe[i]);
-            backLeft[i] = Multiply(balancedLeft, back[i]);
-            backRight[i] = Multiply(balancedRight, back[i]);
-            if (surround71)
-            {
-                sideLeft[i] = Multiply(balancedLeft, side[i]);
-                sideRight[i] = Multiply(balancedRight, side[i]);
-            }
-        }
+        float x = Math.Clamp(pan / 100f, -1, 1);
+        return (x, Math.Min(1, 1 - x), Math.Min(1, 1 + x));
+    }
+
+    private static SurroundGains GetSurroundGains(float pan, float surround, float center, float lfe, bool surround71)
+    {
+        var (x, left, right) = GetBalance(pan);
+        var (front, side, back) = GetSurroundWeights(Math.Clamp(surround / 100f, 0, 1), surround71);
+        return new SurroundGains(left, right, front, side, back,
+            Math.Clamp(center / 100f, 0, 1) * (1 - Math.Abs(x)), Math.Clamp(lfe / 100f, 0, 1));
     }
 
     private static (float Front, float Side, float Back) GetSurroundWeights(float y, bool surround71)
@@ -293,8 +229,70 @@ public sealed class PannerNode : AudioNode
 
     private static void Scale(Span<float> samples, float gain)
     {
-        if (gain == 1) return;
         if (gain == 0) samples.Clear();
         else for (int i = 0; i < samples.Length; i++) samples[i] *= gain;
+    }
+
+    private readonly record struct SurroundGains(float Left, float Right, float Front, float Side, float Back, float Center, float Lfe);
+
+    // One run of frames of a positioned clip, written with fixed or per-frame gains alike.
+    private readonly ref struct SurroundWriter
+    {
+        private readonly ReadOnlySpan<float> _sourceLeft;
+        private readonly ReadOnlySpan<float> _sourceRight;
+        private readonly Span<float> _frontLeft;
+        private readonly Span<float> _frontRight;
+        private readonly Span<float> _centerChannel;
+        private readonly Span<float> _lfeChannel;
+        private readonly Span<float> _backLeft;
+        private readonly Span<float> _backRight;
+        private readonly Span<float> _sideLeft;
+        private readonly Span<float> _sideRight;
+        private readonly bool _mono;
+        private readonly bool _surround71;
+        private readonly BiQuadFilter _lfeFilter;
+
+        public SurroundWriter(AudioBuffer input, AudioBuffer output, int offset, int count, bool surround71, BiQuadFilter lfeFilter)
+        {
+            _mono = input.ChannelCount == 1;
+            _surround71 = surround71;
+            _lfeFilter = lfeFilter;
+            _sourceLeft = input.GetChannelData(0).Slice(offset, count);
+            _sourceRight = _mono ? _sourceLeft : input.GetChannelData(1).Slice(offset, count);
+            _frontLeft = output.GetChannelData(0).Slice(offset, count);
+            _frontRight = output.GetChannelData(1).Slice(offset, count);
+            _centerChannel = output.GetChannelData(2).Slice(offset, count);
+            _lfeChannel = output.GetChannelData(3).Slice(offset, count);
+            _backLeft = output.GetChannelData(4).Slice(offset, count);
+            _backRight = output.GetChannelData(5).Slice(offset, count);
+            _sideLeft = surround71 ? output.GetChannelData(6).Slice(offset, count) : default;
+            _sideRight = surround71 ? output.GetChannelData(7).Slice(offset, count) : default;
+        }
+
+        // Keeps the filter's state for a frame whose output is left as it is.
+        public void AdvanceLfe(int i)
+            => _lfeFilter.Process(_mono ? _sourceLeft[i] : (_sourceLeft[i] + _sourceRight[i]) / 2);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Write(int i, in SurroundGains g)
+        {
+            float a = _sourceLeft[i], b = _sourceRight[i];
+            float low = _lfeFilter.Process(_mono ? a : (a + b) / 2);
+            // Keep the balance, front weight and center share as separate multiplies for exact rounding.
+            float balancedLeft = Multiply(a, g.Left), balancedRight = Multiply(b, g.Right);
+            float lf = Multiply(balancedLeft, g.Front), rf = Multiply(balancedRight, g.Front);
+            float cs = g.Center;
+            _frontLeft[i] = Multiply(lf, 1 - cs);
+            _frontRight[i] = Multiply(rf, 1 - cs);
+            _centerChannel[i] = cs == 0 ? 0 : cs * (lf + rf) / 2;
+            _lfeChannel[i] = Multiply(low, g.Lfe);
+            _backLeft[i] = Multiply(balancedLeft, g.Back);
+            _backRight[i] = Multiply(balancedRight, g.Back);
+            if (_surround71)
+            {
+                _sideLeft[i] = Multiply(balancedLeft, g.Side);
+                _sideRight[i] = Multiply(balancedRight, g.Side);
+            }
+        }
     }
 }

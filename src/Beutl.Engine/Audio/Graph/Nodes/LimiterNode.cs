@@ -139,9 +139,7 @@ public sealed class LimiterNode : AudioNode
     public override int GetLatencySamples(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
-        return AnimationSampler.IsAnimated(Lookahead)
-            ? LimiterParameters.ToLatencySamples(LimiterParameters.MaxLookaheadMs, sampleRate)
-            : LimiterParameters.ToLatencySamples(Lookahead.Value, sampleRate);
+        return LimiterParameters.GetLatencySamples(Lookahead, sampleRate);
     }
 
     public override int GetDrainLatencySamples(int sampleRate)

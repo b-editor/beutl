@@ -16,7 +16,6 @@ public sealed class NoiseReductionNode : AudioNode
     // The input format is supplied when the graph is built, without pulling upstream audio.
     public int ChannelCount { get; set; } = 2;
 
-    private int _reducerChannels;
     private const int MaxReadFrames = 16384;
 
     // Audio around a restart that seeds the noise floor. At most half of it precedes the restart, so a
@@ -115,12 +114,11 @@ public sealed class NoiseReductionNode : AudioNode
     {
         int sampleRate = context.SampleRate;
         bool upstreamChanged = AudioSourceStream.UpstreamChangedAndCapture(this, ref _upstreamSnapshot);
-        if (_reducer is null || _sampleRate != sampleRate || _reducerChannels != ChannelCount || upstreamChanged)
+        if (_reducer is null || _sampleRate != sampleRate || _reducer.ChannelCount != ChannelCount || upstreamChanged)
         {
             _reducer = new SpectralNoiseReducer(sampleRate, ChannelCount);
             _stream = new AudioSourceStream(sampleRate, ChannelCount, static time => time);
             _sampleRate = sampleRate;
-            _reducerChannels = ChannelCount;
             _lastTimeRangeEnd = null;
         }
 
@@ -298,18 +296,10 @@ public sealed class NoiseReductionNode : AudioNode
 
         var time = MediaTime.FromSeconds(position / (double)_sampleRate);
         return NoiseReductionParameters.Normalize(
-            Sample(Reduction, time),
-            Sample(Sensitivity, time),
-            Sample(Smoothing, time),
-            Sample(Adaptation, time));
-    }
-
-    private float Sample(IProperty<float> property, MediaTime time)
-    {
-        if (!AnimationSampler.IsAnimated(property))
-            return property.Value;
-
-        return _sampler!.SampleAt(property, time, _sampleRate);
+            _sampler!.SampleAt(Reduction, time, _sampleRate),
+            _sampler!.SampleAt(Sensitivity, time, _sampleRate),
+            _sampler!.SampleAt(Smoothing, time, _sampleRate),
+            _sampler!.SampleAt(Adaptation, time, _sampleRate));
     }
 
     // A fractional end still contains the sample it cuts into.

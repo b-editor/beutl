@@ -24,7 +24,7 @@ public class SpectralNoiseReducerTests
         reducer.WritePadding((int)(reducer.GetRequiredInputEnd(count) - reducer.InputEnd));
         var left = new float[count];
         var right = new float[count];
-        reducer.Read(left, right, _ => new(12, 3, 50, 2));
+        Read(reducer, left, right, _ => new(12, 3, 50, 2));
         // Captured from SpectralNoiseReducer at b11267b2d with this exact input and read sequence.
         Assert.That(Convert.ToHexString(SHA256.HashData(MemoryMarshal.AsBytes(left.AsSpan()))),
             Is.EqualTo("2AD5FDC9059A5F09C030EB771144E39021EA7E38BC2EB370678749C92E6FD92B"));
@@ -267,9 +267,9 @@ public class SpectralNoiseReducerTests
 
         // Reading up to the change processes every frame before it; one more hop processes the first
         // frame with the new adaptation time and adds a single frame of evidence.
-        reducer.Read(new float[change], new float[change], settingsAt);
+        Read(reducer, new float[change], new float[change], settingsAt);
         double beforeChange = MeanNoise(reducer);
-        reducer.Read(new float[reducer.HopSize], new float[reducer.HopSize], settingsAt);
+        Read(reducer, new float[reducer.HopSize], new float[reducer.HopSize], settingsAt);
         double afterChange = MeanNoise(reducer);
 
         Assert.That(Decibels(afterChange / beforeChange), Is.EqualTo(0).Within(0.25));
@@ -288,7 +288,7 @@ public class SpectralNoiseReducerTests
         resumed.Write(Interleave(noise, 0));
         resumed.WritePadding(resumed.FrameSize * 2);
         resumed.Seed(SampleRate);
-        resumed.Read(new float[resume], new float[resume], _ => s_default);
+        Read(resumed, new float[resume], new float[resume], _ => s_default);
         float[] learned = resumed.NoiseEstimate.ToArray();
 
         // Replay half a second of the same timeline, as a node does when it refetches its input.
@@ -299,7 +299,7 @@ public class SpectralNoiseReducerTests
         resumed.Write(Interleave(noise, origin));
         resumed.WritePadding(resumed.FrameSize * 2);
         var output = new float[noise.Length - resume];
-        resumed.Read(output, new float[output.Length], _ => s_default);
+        Read(resumed, output, new float[output.Length], _ => s_default);
 
         // Replayed frames are not counted twice, so the floor evolves as in an uninterrupted stream.
         Assert.That(resumed.NoiseEstimate.ToArray(), Is.EqualTo(continuous.NoiseEstimate.ToArray()));
@@ -323,13 +323,13 @@ public class SpectralNoiseReducerTests
             int count = Math.Min(1000, boundary - position);
             while (reducer.InputEnd < reducer.GetRequiredInputEnd(position + count))
                 reducer.Write(Interleave(noise, (int)reducer.InputEnd, 4096));
-            reducer.Read(new float[count], new float[count], _ => settings);
+            Read(reducer, new float[count], new float[count], _ => settings);
         }
 
         reducer.EndInputAt(boundary + 300);
         var tail = new float[reducer.FrameSize * 2];
         reducer.WritePadding((int)(reducer.GetRequiredInputEnd(boundary + tail.Length) - reducer.InputEnd));
-        reducer.Read(tail, new float[tail.Length], _ => settings);
+        Read(reducer, tail, new float[tail.Length], _ => settings);
 
         // The recomputed frames see silence after the end, so a frame after it nothing remains.
         Assert.That(tail.AsSpan(300 + reducer.FrameSize).ToArray(), Is.All.EqualTo(0f));
@@ -352,7 +352,7 @@ public class SpectralNoiseReducerTests
 
         // Reading up to a frame before the seed's end processes only frames the seed already saw.
         int read = SampleRate - reducer.FrameSize;
-        reducer.Read(new float[read], new float[read], _ => s_default);
+        Read(reducer, new float[read], new float[read], _ => s_default);
 
         Assert.That(reducer.NoiseEstimate.ToArray(), Is.EqualTo(seeded));
     }
@@ -367,7 +367,7 @@ public class SpectralNoiseReducerTests
 
         long required = reducer.GetRequiredInputEnd(SampleRate);
         Assert.That(required, Is.GreaterThan(SampleRate));
-        Assert.That(() => reducer.Read(output, new float[SampleRate], _ => s_default), Throws.InvalidOperationException);
+        Assert.That(() => Read(reducer, output, new float[SampleRate], _ => s_default), Throws.InvalidOperationException);
     }
 
     [Test]
@@ -441,10 +441,19 @@ public class SpectralNoiseReducerTests
         for (int position = 0; position < left.Length; position += chunk)
         {
             int count = Math.Min(chunk, left.Length - position);
-            reducer.Read(outLeft.AsSpan(position, count), outRight.AsSpan(position, count), settingsAt);
+            Read(reducer, outLeft.AsSpan(position, count), outRight.AsSpan(position, count), settingsAt);
         }
 
         return (outLeft, outRight);
+    }
+
+    private static void Read(
+        SpectralNoiseReducer reducer, Span<float> left, Span<float> right, Func<long, NoiseReductionSettings> settingsAt)
+    {
+        using var output = new AudioBuffer(SampleRate, 2, left.Length);
+        reducer.Read(output, settingsAt);
+        output.GetChannelData(0).CopyTo(left);
+        output.GetChannelData(1).CopyTo(right);
     }
 
     internal static float[] Noise(int count, double sigma, int seed)

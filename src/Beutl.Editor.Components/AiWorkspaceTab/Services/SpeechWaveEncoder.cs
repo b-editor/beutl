@@ -62,10 +62,7 @@ internal static class SpeechWaveEncoder
 
             using (audio)
             {
-                AudioChannelLayout layout = AudioChannelLayout.ForChannelCount(
-                    reader.AudioInfo.ChannelLayout, audio.ChannelCount);
-                var matrix = AudioChannelMatrix.Create(layout, AudioChannelLayout.Stereo);
-                using var converted = matrix.IsIdentity ? null : matrix.Apply(audio);
+                using var converted = AudioChannelMatrix.ConvertOrNull(audio, reader.AudioInfo.ChannelLayout, AudioChannelLayout.Stereo);
                 AudioBuffer stereo = converted ?? audio;
 
                 int decodedSamples = Math.Min(audio.SampleCount, length);

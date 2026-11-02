@@ -21,9 +21,6 @@ public sealed partial class SceneSound : Sound, ITimeMappedSource
     [Display(Name = nameof(AudioStrings.SceneSound_ReferencedScene), ResourceType = typeof(AudioStrings))]
     public IExpressionProperty<Scene?> ReferencedScene { get; } = Property.CreateReference<Scene?>();
 
-    // Playback evaluates an expression on OffsetPosition.
-    bool ITimeMappedSource.HasDynamicMapping => OffsetPosition.HasExpression;
-
     bool ITimeMappedSource.HasDynamicTimeline => SceneReference.IsDynamic(ReferencedScene);
 
     MediaTime? ITimeMappedSource.GetSourceDuration() => SceneReference.GetDuration(this, ReferencedScene);
@@ -61,22 +58,7 @@ public sealed partial class SceneSound : Sound, ITimeMappedSource
         var speedNode = context.CreateSpeedNode(Speed);
         context.Connect(shiftNode, speedNode);
 
-        var pannerNode = context.CreatePannerNode(Pan, SurroundPan, CenterLevel, LfeLevel, context.ChannelLayout);
-        context.Connect(speedNode, pannerNode);
-
-        var gainNode = context.CreateGainNode(Gain);
-        context.Connect(pannerNode, gainNode);
-
-        AudioNode currentNode = gainNode;
-
-        if (Effect.Value != null && Effect.Value.IsEnabled.Value)
-        {
-            currentNode = Effect.Value.CreateNode(context, currentNode);
-        }
-
-        var clipNode = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
-        context.Connect(currentNode, clipNode);
-        context.MarkAsOutput(clipNode);
+        ComposeOutputStages(context, speedNode, context.ChannelLayout);
     }
 
     public partial class Resource

@@ -6,33 +6,42 @@ public static class AudioConversion
     public static void Interleave(AudioBuffer source, Span<float> destination)
     {
         ThrowIfMismatched(source, destination.Length, nameof(destination));
-        for (int channel = 0; channel < source.ChannelCount; channel++)
+        Interleave(source, source.SampleCount, destination);
+    }
+
+    // The first frames of source, for a caller that has checked destination holds them.
+    internal static void Interleave(AudioBuffer source, int frames, Span<float> destination)
+    {
+        int channels = source.ChannelCount;
+        for (int channel = 0; channel < channels; channel++)
         {
-            Span<float> samples = source.GetChannelData(channel);
+            Span<float> samples = source.GetChannelData(channel)[..frames];
             for (int i = 0; i < samples.Length; i++)
-                destination[i * source.ChannelCount + channel] = samples[i];
+                destination[i * channels + channel] = samples[i];
         }
     }
 
     public static void Interleave(AudioBuffer source, Span<short> destination)
     {
         ThrowIfMismatched(source, destination.Length, nameof(destination));
-        for (int channel = 0; channel < source.ChannelCount; channel++)
+        int channels = source.ChannelCount;
+        for (int channel = 0; channel < channels; channel++)
         {
             Span<float> samples = source.GetChannelData(channel);
             for (int i = 0; i < samples.Length; i++)
-                destination[i * source.ChannelCount + channel] = ToInt16(samples[i]);
+                destination[i * channels + channel] = ToInt16(samples[i]);
         }
     }
 
     public static void Deinterleave(ReadOnlySpan<float> source, AudioBuffer destination)
     {
         ThrowIfMismatched(destination, source.Length, nameof(source));
-        for (int channel = 0; channel < destination.ChannelCount; channel++)
+        int channels = destination.ChannelCount;
+        for (int channel = 0; channel < channels; channel++)
         {
             Span<float> samples = destination.GetChannelData(channel);
             for (int i = 0; i < samples.Length; i++)
-                samples[i] = source[i * destination.ChannelCount + channel];
+                samples[i] = source[i * channels + channel];
         }
     }
 

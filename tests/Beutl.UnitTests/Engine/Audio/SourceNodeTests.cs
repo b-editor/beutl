@@ -158,7 +158,7 @@ public class SourceNodeTests
         WithReader(reader, resource =>
         {
             using var context = new AudioContext(samples.SampleRate, 2);
-            var node = context.CreateSourceNode(resource, AudioChannelLayout.Stereo,
+            var node = context.CreateSourceNode(resource,
                 new AudioChannelMap(AudioChannelFormat.Stereo, layout, [2, -1]));
             using var output = node.Process(AudioTestContexts.AtSample(0, 8, samples.SampleRate));
             Assert.That(output.GetChannelData(0)[..4].ToArray().Select(BitConverter.SingleToInt32Bits),
@@ -177,7 +177,7 @@ public class SourceNodeTests
         WithReader(reader, resource =>
         {
             using var context = new AudioContext(samples.SampleRate, 2);
-            var node = context.CreateSourceNode(resource, AudioChannelLayout.Stereo,
+            var node = context.CreateSourceNode(resource,
                 new AudioChannelMap(AudioChannelFormat.Stereo, declared, [3, 2]));
             using var output = node.Process(AudioTestContexts.AtSample(0, 4, samples.SampleRate));
             Assert.That(output.GetChannelData(0).ToArray(), Is.All.EqualTo(1));

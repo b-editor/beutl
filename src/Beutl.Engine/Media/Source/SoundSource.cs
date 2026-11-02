@@ -49,6 +49,10 @@ public sealed class SoundSource : MediaSource
 
         public AudioChannelLayout ChannelLayout => MediaReader?.AudioInfo.ChannelLayout ?? AudioChannelLayout.Stereo;
 
+        // Null for a source without readable audio, whose ChannelLayout only falls back to stereo.
+        internal AudioChannelLayout? ReadableChannelLayout
+            => MediaReader is not null && SampleRate > 0 && NumChannels > 0 ? ChannelLayout : null;
+
         public MediaReader? MediaReader => _reader;
 
         public bool Read(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
