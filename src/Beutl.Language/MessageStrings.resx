@@ -356,6 +356,12 @@ Do you want to restart the application?</value>
   <data name="PackagesCanBeUpdated" xml:space="preserve">
     <value>{0} package(s) can be updated.</value>
   </data>
+  <data name="PackageUpdatesRequired" xml:space="preserve">
+    <value>Package updates are required.</value>
+  </data>
+  <data name="PackagesNotLoadedOnThisVersion" xml:space="preserve">
+    <value>{0} package(s) could not be loaded on this version of Beutl.</value>
+  </data>
   <data name="IsNotValid" xml:space="preserve">
     <value>{0} is not a valid.</value>
   </data>

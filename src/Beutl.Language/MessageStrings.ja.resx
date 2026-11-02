@@ -351,6 +351,12 @@
   <data name="PackagesCanBeUpdated" xml:space="preserve">
     <value>{0}個のパッケージを更新できます。</value>
   </data>
+  <data name="PackageUpdatesRequired" xml:space="preserve">
+    <value>パッケージの更新が必要です。</value>
+  </data>
+  <data name="PackagesNotLoadedOnThisVersion" xml:space="preserve">
+    <value>{0}個のパッケージはこのバージョンの Beutl では読み込めませんでした。</value>
+  </data>
   <data name="IsNotValid" xml:space="preserve">
     <value>{0}は無効です。</value>
   </data>
