@@ -657,7 +657,6 @@ public sealed class ElementSplitSpeedTests
 
     [TestCase("OffsetPosition", "TimeSpan.FromSeconds(3)")]
     [TestCase("Reverse", "true")]
-    [TestCase("FrameRate", "10")]
     public void Split_ConstantControllerExpression_PlaysOnAsIfUncut(string property, string expression)
     {
         var controller = new DrawableTimeController { Speed = { Value = 200f } };
@@ -669,6 +668,22 @@ public sealed class ElementSplitSpeedTests
         _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
 
         Assert.That(ComposedPosition(later).ToSeconds(), Is.EqualTo(uncut.ToSeconds()).Within(0.01));
+    }
+
+    // The back piece counts its frames from its own start, with a stored rate as with an expression, so this position is
+    // a frame behind the uncut clip's 4 s (#3894).
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Split_ControllerFrameRate_CountsFramesFromTheBackPiecesStart(bool expression)
+    {
+        var controller = new DrawableTimeController { Speed = { Value = 200f } };
+        if (expression) controller.FrameRate.Expression = Expression.Create<float>("0.75");
+        else controller.FrameRate.Value = 0.75f;
+        Element element = AddVideoUnder(controller);
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Assert.That(ComposedPosition(MediaTime.FromSeconds(2)).ToSeconds(), Is.EqualTo(2.667).Within(0.01));
     }
 
     // The outer controller plays second 1 at 200%, and so the inner one reads its expression at second 2, not at second 1.
