@@ -1,4 +1,7 @@
-﻿using Beutl.Audio.Effects;
+﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Animation;
+using Beutl.Audio.Effects;
+using Beutl.Media;
 using static Beutl.UnitTests.Engine.Audio.SoundExpressionTests;
 
 namespace Beutl.UnitTests.Engine.Audio;
@@ -85,6 +88,20 @@ public class AudioEffectExpressionTests
         Assert.That(actual, Is.EqualTo(expected).Within(1e-3f));
     }
 
+    // A chunk's last sample can be alone in its span, and must not jump off the line its neighbours are on.
+    [Test]
+    public void SampleBuffer_OneSample_StaysOnTheGrid()
+    {
+        var delay = new DelayEffect();
+        delay.DelayTime.Expression = new StepExpression(MediaTime.FromSeconds(0.02), 100, 200);
+        Span<float> output = stackalloc float[1];
+
+        new AnimationSampler().SampleBuffer(
+            delay.DelayTime, new TimeRange(MediaTime.FromSeconds(0.015), MediaTime.Zero), 44100, output);
+
+        Assert.That(output[0], Is.EqualTo(150).Within(1e-3f));
+    }
+
     [Test]
     public void Latency_ExpressionOnLookahead_ReservesTheWorstCase()
     {
@@ -103,5 +120,18 @@ public class AudioEffectExpressionTests
         stretch.Speed.Expression = new CountingExpression<float>(200);
 
         Assert.That(stretch.GetLatencySamples(44100, 100), Is.EqualTo(400));
+    }
+
+    private sealed class StepExpression(MediaTime step, float before, float after) : IExpression<float>
+    {
+        public string ExpressionString => string.Empty;
+
+        public float Evaluate(ExpressionContext context) => context.Time < step ? before : after;
+
+        public bool Validate([NotNullWhen(false)] out string? error)
+        {
+            error = null;
+            return true;
+        }
     }
 }

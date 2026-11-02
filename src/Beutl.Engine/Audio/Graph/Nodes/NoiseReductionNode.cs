@@ -309,9 +309,7 @@ public sealed class NoiseReductionNode : AudioNode
         if (!AnimationSampler.IsAnimated(property))
             return property.Value;
 
-        Span<float> value = stackalloc float[1];
-        _sampler!.SampleBuffer(property, new TimeRange(time, MediaTime.Zero), _sampleRate, value);
-        return value[0];
+        return _sampler!.SampleAt(property, time, _sampleRate);
     }
 
     // A fractional end still contains the sample it cuts into.

@@ -49,6 +49,18 @@ public sealed class AnimationSampler
         }
     }
 
+    // One value, for a node that holds it for a frame: an expression is evaluated at time itself, not on the grid.
+    internal T SampleAt<T>(IProperty<T> property, MediaTime time, int sampleRate)
+        where T : struct
+    {
+        if (property is IExpressionProperty<T> { HasExpression: true } expressionProperty)
+            return Evaluate(expressionProperty, GetOwnerStart(property) + time);
+
+        T value = default;
+        SampleBuffer(property, new TimeRange(time, MediaTime.Zero), sampleRate, new Span<T>(ref value));
+        return value;
+    }
+
     private static MediaTime GetOwnerStart(IProperty property)
         => (property.GetOwnerObject() as EngineObject)?.TimeRange.Value.Start ?? MediaTime.Zero;
 
@@ -56,13 +68,6 @@ public sealed class AnimationSampler
         IExpressionProperty<T> property, MediaTime start, int sampleRate, Span<T> output)
         where T : struct
     {
-        // One sample, as a node that holds a value for a frame asks for, has nothing to interpolate.
-        if (output.Length == 1)
-        {
-            output[0] = Evaluate(property, start);
-            return;
-        }
-
         double flicksPerSample = (double)MediaTime.FlicksPerSecond / sampleRate;
         long cell = long.MinValue;
         T from = default;
