@@ -61,7 +61,10 @@ internal static partial class SlippableMedia
             MediaTime maximum = MediaTime.MaxValue;
             foreach (MediaTimeMapping sampleMapping in SampleMappings)
             {
-                MediaTimeMapping.Interval window = InitialWindow(sampleMapping);
+                // A window that loops all through stays in the source whatever the offset, so it limits no slip.
+                if (sampleMapping.LoopsThrough(MediaTime.Zero, Length)) continue;
+                // Where a loop flag changes within the window, only the plain part moves with the offset.
+                MediaTimeMapping.Interval window = InitialWindow(sampleMapping, plainOnly: true);
                 (MediaTime lower, MediaTime? upper) = SourceLimits(sampleMapping, clampEnd: true, allowRecovery: true);
                 if (lower - window.Min > minimum) minimum = lower - window.Min;
                 if (upper is { } end && end - window.Max < maximum) maximum = end - window.Max;
@@ -95,12 +98,11 @@ internal static partial class SlippableMedia
             if (offset < MediaTime.Zero) return false;
             foreach (MediaTimeMapping sampleMapping in SampleMappings)
             {
-                if (sampleMapping.SampledRange(MediaTime.Zero, length, startDelta, length - Length) is not { } sampled) continue;
-                MediaTimeMapping.Interval range = sampled.Shift(offset);
+                if (sampleMapping.SampledRange(MediaTime.Zero, length, startDelta, length - Length, offset: offset) is not { } range) continue;
                 if (allowRecovery)
                 {
                     MediaTimeMapping.Interval nominal = sampleMapping.SampledRange(MediaTime.Zero, length, startDelta,
-                        length - Length, conservative: false)!.Value.Shift(offset);
+                        length - Length, conservative: false, offset: offset)!.Value;
                     MediaTimeMapping.Interval before = InitialWindow(sampleMapping, conservative: false);
                     MediaTime minimum = before.Min < MediaTime.Zero ? before.Min : MediaTime.Zero;
                     MediaTime? maximum = clampEnd ? Total : null;
@@ -130,8 +132,8 @@ internal static partial class SlippableMedia
             return (lower, upper);
         }
 
-        private MediaTimeMapping.Interval InitialWindow(MediaTimeMapping sampleMapping, bool conservative = true)
-            => sampleMapping.SampledRange(MediaTime.Zero, Length, conservative: conservative)?.Shift(InitialOffset)
+        private MediaTimeMapping.Interval InitialWindow(MediaTimeMapping sampleMapping, bool conservative = true, bool plainOnly = false)
+            => sampleMapping.SampledRange(MediaTime.Zero, Length, conservative: conservative, offset: InitialOffset, plainOnly: plainOnly)
                 ?? new MediaTimeMapping.Interval(MediaTime.Zero, MediaTime.Zero);
     }
 
@@ -232,7 +234,8 @@ internal static partial class SlippableMedia
         foreach (Target target in targets)
         {
             if (target.Total is not { } total) continue;
-            MediaTime remaining = total > target.InitialOffset ? total - target.InitialOffset : MediaTime.Zero;
+            MediaTime start = target.Mapping.SampledRange(MediaTime.Zero, MediaTime.Zero, offset: target.InitialOffset)?.Min ?? target.InitialOffset;
+            MediaTime remaining = total > start ? total - start : MediaTime.Zero;
             if (duration == null || remaining < duration) duration = remaining;
         }
         return duration;

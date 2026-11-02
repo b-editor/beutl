@@ -12,7 +12,7 @@ public static class LibraryItemPickerHelper
         string multipleTypeFormat)
     {
         var dialog = new LibraryItemPickerFlyout(selectVm);
-        dialog.ShowAt(host, true);
+        PickerGuard.Show(host, dialog);
         var tcs = new TaskCompletionSource<object?>();
         dialog.Pinned += (_, item) => selectVm.Pin(item);
         dialog.Unpinned += (_, item) => selectVm.Unpin(item);

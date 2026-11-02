@@ -270,6 +270,33 @@ public sealed class ElementSplitSpeedTests
         });
     }
 
+    // The back half's offset can pass one cycle of the source. The loop reads it wrapped, so playback continues at the cut.
+    [Test]
+    public void Split_LoopingVideoWithAnOffset_ContinuesFromTheCut()
+    {
+        var video = new SourceVideo
+        {
+            Source = { Value = TrimTestMedia.CreateVideoSource(2) },
+            IsLoop = { Value = true },
+            Speed = { Value = 300f },
+            OffsetPosition = { Value = MediaTime.FromSeconds(1.5) },
+        };
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), video);
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Element back = _harness.Scene.Children.Single(child => child != element);
+        SourceVideo backVideo = BackObject<SourceVideo>(back);
+        using var resource = (SourceVideo.Resource)backVideo.ToResource(
+            new CompositionContext(back.Range.Start));
+        Assert.Multiple(() =>
+        {
+            Assert.That(backVideo.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
+            Assert.That(resource.RequestedPosition + resource.OffsetPosition,
+                Is.EqualTo(MediaTime.FromSeconds(0.5)));
+        });
+    }
+
     [Test]
     public void Split_AnimatedSpeedUnderAController_MatchesPlaybackAfterTheCut()
     {

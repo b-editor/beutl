@@ -774,20 +774,19 @@ public class ElementResizeServiceTests
         });
     }
 
-    [TestCase(false, 3, 0, 7)]
-    [TestCase(true, 3, 0, 7)]
-    [TestCase(false, 3, 1, 1)]
-    [TestCase(true, 3, 1, 1)]
-    [TestCase(false, 3, 2, 0)]
-    [TestCase(true, 3, 2, 0)]
-    [TestCase(false, 5, 0, 7)]
-    [TestCase(true, 5, 0, 7)]
-    [TestCase(false, 5, 1, 3)]
-    [TestCase(true, 5, 1, 3)]
-    [TestCase(false, 5, 2, 2)]
-    [TestCase(true, 5, 2, 2)]
-    public void Trim_LoopingVideo_StopsBeforeOffsetMovesWrappedFramesPastSourceEnd(
-        bool slide, int videoStart, int offset, int expectedDelta)
+    [TestCase(false, 3, 0)]
+    [TestCase(true, 3, 0)]
+    [TestCase(false, 3, 1)]
+    [TestCase(true, 3, 1)]
+    [TestCase(false, 3, 2)]
+    [TestCase(true, 3, 2)]
+    [TestCase(false, 5, 0)]
+    [TestCase(true, 5, 0)]
+    [TestCase(false, 5, 1)]
+    [TestCase(true, 5, 1)]
+    [TestCase(false, 5, 2)]
+    [TestCase(true, 5, 2)]
+    public void Trim_LoopingVideo_IsNotLimitedByTheSourceEnd(bool slide, int videoStart, int offset)
     {
         Element front = AddElement(MediaTime.Zero, MediaTime.FromSeconds(1));
         Element? middle = slide ? AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1)) : null;
@@ -811,11 +810,11 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(applied, Is.EqualTo(expectedDelta > 0));
-            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1 + expectedDelta)));
-            Assert.That(back.Start.Value, Is.EqualTo(backStart + MediaTime.FromSeconds(expectedDelta)));
-            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(10 - expectedDelta)));
-            Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedDelta > 0 ? 1 : 0)));
+            Assert.That(applied, Is.True);
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(8)));
+            Assert.That(back.Start.Value, Is.EqualTo(backStart + MediaTime.FromSeconds(7)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
             foreach (MediaTime time in new[]
                      {
                          front.Start.Value,
@@ -825,7 +824,8 @@ public class ElementResizeServiceTests
             {
                 using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(time));
                 var sampled = (SourceVideo.Resource)resource.Children.Single();
-                Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(MediaTime.FromSeconds(5)));
+                Assert.That(sampled.RequestedPosition + sampled.OffsetPosition,
+                    Is.GreaterThanOrEqualTo(MediaTime.Zero).And.LessThan(MediaTime.FromSeconds(5)));
             }
         });
     }

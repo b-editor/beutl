@@ -25,7 +25,7 @@ internal static class CoreObjectPickerHelper
     }
 
     // A sealed type is created directly; otherwise the picked type is created, or the picked object referenced.
-    public static async Task NewInstanceOrPickAsync(Control control, ICoreObjectEditorViewModel viewModel)
+    public static async Task NewInstanceOrPickAsync(Control control, Control? button, ICoreObjectEditorViewModel viewModel)
     {
         Type propertyType = viewModel.PropertyAdapter.PropertyType;
 
@@ -35,7 +35,7 @@ internal static class CoreObjectPickerHelper
             return;
         }
 
-        object? result = await PickerGuard.RunAsync(control, () => ShowTypeOrReferenceAsync(control, viewModel));
+        object? result = await PickerGuard.RunAsync(control, button, () => ShowTypeOrReferenceAsync(control, viewModel));
 
         switch (result)
         {
@@ -48,10 +48,11 @@ internal static class CoreObjectPickerHelper
         }
     }
 
-    public static Task PickTargetAsync(Control control, ICoreObjectEditorViewModel viewModel)
+    public static Task PickTargetAsync(Control control, Control? button, ICoreObjectEditorViewModel viewModel)
     {
         return TargetSelectionHelper.HandleSelectTargetRequestAsync<ICoreObjectEditorViewModel, CoreObject>(
             control,
+            button,
             viewModel,
             vm => vm.GetAvailableTargets(),
             (vm, target) => vm.SetTarget(target));

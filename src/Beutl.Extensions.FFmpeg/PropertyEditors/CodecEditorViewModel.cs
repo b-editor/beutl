@@ -18,7 +18,7 @@ internal sealed class CodecEditorViewModel : IPropertyEditorContext
     private readonly CodecRecord[] _codecs;
     private readonly string _pinnedItemsKey;
     private readonly CompositeDisposable _disposables = [];
-    private bool _pickerOpen;
+    private SearchablePickerFlyout? _picker;
 
     public CodecEditorViewModel(
         IPropertyAdapter<CodecRecord> property,
@@ -53,7 +53,13 @@ internal sealed class CodecEditorViewModel : IPropertyEditorContext
 
     private void OnDropDownClick(object? sender, RoutedEventArgs e)
     {
-        if (_pickerOpen || sender is not DropDownPickerEditor editor) return;
+        if (sender is not DropDownPickerEditor editor) return;
+        // The picker does not light-dismiss, so the button that opened it closes it again.
+        if (_picker != null)
+        {
+            _picker.Hide();
+            return;
+        }
 
         var viewModel = new CodecPickerViewModel(_codecs, _pinnedItemsKey);
         CodecRecord? current = _property.GetValue();
@@ -68,8 +74,8 @@ internal sealed class CodecEditorViewModel : IPropertyEditorContext
                 _property.SetValue(codec);
             }
         };
-        flyout.Closed += (_, _) => _pickerOpen = false;
-        _pickerOpen = true;
+        flyout.Closed += (_, _) => _picker = null;
+        _picker = flyout;
         flyout.ShowAt(editor);
     }
 

@@ -55,7 +55,7 @@ public partial class CoreObjectEditor : UserControl
     {
         if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
 
-        await CoreObjectPickerHelper.NewInstanceOrPickAsync(this, viewModel);
+        await CoreObjectPickerHelper.NewInstanceOrPickAsync(this, sender as Button, viewModel);
     }
 
     private void SetNullClick(object? sender, RoutedEventArgs e)
@@ -69,6 +69,6 @@ public partial class CoreObjectEditor : UserControl
     {
         if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
 
-        await CoreObjectPickerHelper.PickTargetAsync(this, viewModel);
+        await CoreObjectPickerHelper.PickTargetAsync(this, sender as Control, viewModel);
     }
 }

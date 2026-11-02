@@ -49,7 +49,7 @@ public sealed class PresenterListItemEditorTests
     }
 
     [AvaloniaTest]
-    public async Task A_second_target_request_while_the_picker_is_open_opens_no_second_picker()
+    public async Task A_second_target_request_closes_the_open_picker()
     {
         var group = new FilterEffectGroup();
         group.Children.Add(new FilterEffectPresenter());
@@ -66,9 +66,14 @@ public sealed class PresenterListItemEditorTests
                 .GetVisualDescendants().OfType<ReferenceEditor>().Single();
             presenterEditor.RaiseEvent(new RoutedEventArgs(ReferenceEditor.SelectTargetRequestedEvent));
             HeadlessTestHelpers.Render();
+            Assert.That(window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().Count(), Is.EqualTo(1));
+
             presenterEditor.RaiseEvent(new RoutedEventArgs(ReferenceEditor.SelectTargetRequestedEvent));
             HeadlessTestHelpers.Render();
+            Assert.That(window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>(), Is.Empty);
 
+            presenterEditor.RaiseEvent(new RoutedEventArgs(ReferenceEditor.SelectTargetRequestedEvent));
+            HeadlessTestHelpers.Render();
             Assert.That(window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().Count(), Is.EqualTo(1));
         }
         finally

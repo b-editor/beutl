@@ -28,6 +28,7 @@ internal sealed partial class MediaTimeMapping
     private readonly MediaTime? _videoDuration;
     private readonly bool _loopVideo;
     private readonly KeyFrameAnimation<bool>? _loopAnimation;
+    private readonly bool _countsOneCycle;
     private readonly bool _sourceSupported;
     private readonly bool _timelineKnown;
     private readonly bool _sourceLocked;
@@ -51,6 +52,8 @@ internal sealed partial class MediaTimeMapping
         _videoDuration = source is SourceVideo ? sourceDuration : null;
         _loopVideo = !ignoreLoops && source is SourceVideo video && video.IsLoop.Value;
         _loopAnimation = !ignoreLoops && source is SourceVideo animatedVideo ? animatedVideo.IsLoop.GetKeyFrameAnimation() : null;
+        _countsOneCycle = ignoreLoops && source is SourceVideo looping
+            && (looping.IsLoop.Value || looping.IsLoop.GetKeyFrameAnimation() != null);
         _opaquePortal = source is PortalObject;
         _clipToSourceRange = portalInput || source is Sound;
         // Referenced/portal media can belong to a locked element even when the
@@ -130,8 +133,10 @@ internal sealed partial class MediaTimeMapping
         return mapping;
     }
 
+    // The positions the source reads over the range with OffsetPosition at offset. With plainOnly, those it would
+    // read without looping, which are what moves with the offset.
     public Interval? SampledRange(MediaTime from, MediaTime to, MediaTime startDelta = default, MediaTime lengthDelta = default,
-        bool conservative = true)
+        bool conservative = true, MediaTime offset = default, bool plainOnly = false)
     {
         var elementRange = new TimeRange(_elementRange.Start + startDelta, _elementRange.Duration + lengthDelta);
         Interval range = Interval.Between(from, to).Shift(elementRange.Start);
@@ -143,10 +148,22 @@ internal sealed partial class MediaTimeMapping
             if (range.Max <= visible.Start || range.Min >= visible.End) return null;
             range = new Interval(Max(range.Min, visible.Start), Min(range.Max, visible.End));
         }
-        return Map(range, elementRange, extrapolate: false, conservative, sourceOffset: false);
+        return Map(range, elementRange, extrapolate: false, conservative, sourceOffset: false, offset, plainOnly);
     }
 
-    private Interval Map(Interval range, TimeRange elementRange, bool extrapolate, bool conservative, bool sourceOffset)
+    // Whether the source loops all through the range, so that it reads any offset within its duration.
+    public bool LoopsThrough(MediaTime from, MediaTime to)
+    {
+        if (_videoDuration is not { } duration || duration <= MediaTime.Zero) return false;
+        Interval range = Interval.Between(from, to).Shift(_elementRange.Start);
+        foreach (Controller controller in _controllers)
+            range = controller.Map(range, _elementRange);
+        (bool loop, bool plain) = LoopModes(range, _sourceClock.GetRange(_elementRange).Start);
+        return loop && !plain;
+    }
+
+    private Interval Map(Interval range, TimeRange elementRange, bool extrapolate, bool conservative, bool sourceOffset,
+        MediaTime offset = default, bool plainOnly = false)
     {
         foreach (Controller controller in _controllers)
             range = controller.Map(range, elementRange);
@@ -154,17 +171,23 @@ internal sealed partial class MediaTimeMapping
         TimeRange sourceRange = _sourceClock.GetRange(elementRange);
         Interval sourceTime = range;
         range = _speed.Map(range.Shift(-sourceRange.Start), sourceRange.Start, extrapolate, conservative);
-        // SourceVideo applies its wrap before OffsetPosition. Offset writes use
-        // the speed integral, while bounds use the wrapped playback window.
+        // Offset writes use the speed integral, while bounds use the positions SourceVideo reads:
+        // a loop wraps the position with OffsetPosition added, and plain playback adds it last.
         if (sourceOffset) return range;
         (bool loop, bool plain) = LoopModes(sourceTime, sourceRange.Start);
-        Interval? wrapped = loop && _videoDuration is { } duration && duration > MediaTime.Zero ? Loop(range, duration) : null;
-        if (wrapped.HasValue && !plain) return wrapped.Value;
+        Interval? wrapped = loop && _videoDuration is { } duration && duration > MediaTime.Zero
+            ? Loop(range.Shift(offset), duration)
+            : null;
+        if (wrapped.HasValue && !plain && !plainOnly) return wrapped.Value;
         if (!extrapolate && _videoDuration is { } original && range.Min < MediaTime.Zero)
             range = range.Max < MediaTime.Zero
                 ? range.Shift(original)
                 : Interval.Between(Min(range.Min + original, MediaTime.Zero), Max(original, range.Max));
-        return wrapped is { } looped
+        range = range.Shift(offset);
+        // Counted without its loop, a video plays one cycle from where the loop starts reading.
+        if (_countsOneCycle && _videoDuration is { } cycle && cycle > MediaTime.Zero)
+            range = range.Shift(Loop(new Interval(range.Min, range.Min), cycle).Min - range.Min);
+        return wrapped is { } looped && !plainOnly
             ? new Interval(Min(range.Min, looped.Min), Max(range.Max, looped.Max))
             : range;
     }

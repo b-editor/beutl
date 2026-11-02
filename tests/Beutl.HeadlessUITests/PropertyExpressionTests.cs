@@ -1,7 +1,10 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -136,6 +139,75 @@ public class PropertyExpressionTests
             window.Close();
         }
     }
+
+    // The editor turns off light dismiss, so the fx button that opened it is the click that closes it again.
+    [AvaloniaTest]
+    public void The_fx_button_closes_the_expression_editor_it_opened()
+    {
+        var shape = new RectShape();
+        var property = (AnimatableProperty<float>)shape.Opacity;
+        property.Expression = new StringExpression<float>("50f");
+        using var model = new NumberEditorViewModel<float>(new AnimatablePropertyAdapter<float>(property, shape));
+        var menu = new PropertyEditorMenu { DataContext = model, VerticalAlignment = VerticalAlignment.Top };
+        var window = new Window { Content = menu, Width = 640, Height = 800 };
+        try
+        {
+            window.Show();
+            Button button = menu.GetVisualDescendants().OfType<Button>().First();
+            var center = HeadlessTestHelpers.Center(button, window);
+            TimelineTestHost.WaitForHitTest(window, button, center);
+
+            HeadlessTestHelpers.Click(button);
+            var presenter = (ExpressionEditorFlyoutPresenter)ExpressionEditors(window).Single().Child!;
+            presenter.ExpressionText = "100f";
+            // The editor opens below the row, as in the app, so it leaves the fx button to click.
+            TimelineTestHost.WaitForHitTest(window, button, center);
+            HeadlessCapture.SaveIfRequested(window, nameof(PropertyExpressionTests), "fx-editor-open");
+            HeadlessTestHelpers.Click(button);
+            HeadlessCapture.SaveIfRequested(window, nameof(PropertyExpressionTests), "fx-clicked-again");
+            Assert.Multiple(() =>
+            {
+                Assert.That(ExpressionEditors(window), Is.Empty, "The second click closes the editor.");
+                Assert.That(property.Expression?.ExpressionString, Is.EqualTo("50f"), "Closing drops the edit, as × does.");
+            });
+
+            HeadlessTestHelpers.Click(button);
+            Popup reopened = ExpressionEditors(window).Single();
+            var reopenedPresenter = (ExpressionEditorFlyoutPresenter)reopened.Child!;
+            Assert.That(reopenedPresenter.ExpressionText, Is.EqualTo("50f"));
+
+            // The menu item that also opens the editor leaves the open one, and its edit, alone.
+            reopenedPresenter.ExpressionText = "75f";
+            HeadlessTestHelpers.Click(button, button: MouseButton.Right);
+            var contextMenu = (FAMenuFlyout)button.ContextFlyout!;
+            contextMenu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == "editExpressionItem")
+                .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            contextMenu.Hide();
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(ExpressionEditors(window), Is.EqualTo(new[] { reopened }));
+                Assert.That(reopenedPresenter.ExpressionText, Is.EqualTo("75f"));
+            });
+
+            // An editor closed by × leaves the fx button opening a new one.
+            reopenedPresenter.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "DismissButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render();
+            Assert.That(ExpressionEditors(window), Is.Empty);
+            HeadlessTestHelpers.Click(button);
+            Assert.That(ExpressionEditors(window).Count(), Is.EqualTo(1));
+        }
+        finally
+        {
+            foreach (var popup in window.OpenedPopups.ToArray())
+                popup.Close();
+            window.Close();
+        }
+    }
+
+    private static IEnumerable<Popup> ExpressionEditors(TopLevel topLevel)
+        => topLevel.OpenedPopups.Where(popup => popup.Child is ExpressionEditorFlyoutPresenter);
 
     // Derives from the typed base directly, as an extension's view model can, so its value is made when a control connects.
     private sealed class FloatEditorViewModel(IPropertyAdapter<float> property) : PropertyEditorViewModel<float, float>(property)

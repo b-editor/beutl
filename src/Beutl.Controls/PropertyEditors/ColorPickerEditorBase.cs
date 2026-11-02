@@ -118,7 +118,12 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
     private void OnButtonClick(object? sender, RoutedEventArgs e)
     {
         if (_flyout == null) return;
-        _flyout.Hide();
+        // The picker does not light-dismiss, so the button that opened it closes it again.
+        if (_flyout.IsOpen)
+        {
+            _flyout.Hide();
+            return;
+        }
 
         SetFlyoutColor(_flyout, Value);
 

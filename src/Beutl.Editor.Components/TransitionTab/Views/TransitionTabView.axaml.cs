@@ -19,7 +19,7 @@ public partial class TransitionTabView : UserControl
     {
         if (DataContext is not TransitionTabViewModel viewModel) return;
 
-        await PickerGuard.RunAsync(this, async () =>
+        await PickerGuard.RunAsync(typeEditor, typeEditor, async () =>
         {
             try
             {
