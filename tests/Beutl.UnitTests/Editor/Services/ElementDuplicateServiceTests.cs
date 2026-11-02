@@ -282,4 +282,68 @@ public class ElementDuplicateServiceTests
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
+
+    private Element[] Copies(params Element[] originals)
+        => [.. _scene.Children.Except(originals).OrderBy(element => element.ZIndex.Value)];
+
+    [Test]
+    public void DuplicateAtClickedPosition_MatteWithItsSource_NamesTheCopyOfTheSource()
+    {
+        Element source = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 3);
+        Element target = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 4);
+        target.MatteSourceKind.Value = MatteSourceKind.Layer;
+        target.MatteSourceZIndex.Value = 3;
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [source, target], MediaTime.FromSeconds(1), 10);
+
+        Element[] copies = Copies(source, target);
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.True);
+            Assert.That(copies.Select(copy => copy.ZIndex.Value), Is.EqualTo(new[] { 10, 11 }));
+            Assert.That(copies[1].MatteSourceKind.Value, Is.EqualTo(MatteSourceKind.Layer));
+            Assert.That(copies[1].MatteSourceZIndex.Value, Is.EqualTo(10));
+            Assert.That(target.MatteSourceZIndex.Value, Is.EqualTo(3), "The original keeps its source.");
+        });
+    }
+
+    [Test]
+    public void DuplicateAtClickedPosition_MatteWithoutItsSource_KeepsNamingThatLayer()
+    {
+        AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 3);
+        Element target = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 4);
+        Element other = _scene.Children[0];
+        target.MatteSourceKind.Value = MatteSourceKind.Layer;
+        target.MatteSourceZIndex.Value = 3;
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [target], MediaTime.FromSeconds(1), 10);
+
+        Element[] copies = Copies(other, target);
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.True);
+            Assert.That(copies.Single().ZIndex.Value, Is.EqualTo(10));
+            Assert.That(copies.Single().MatteSourceZIndex.Value, Is.EqualTo(3), "That layer still holds the source.");
+        });
+    }
+
+    [Test]
+    public void DuplicateAtPosition_RelativeMatte_NamesNoLayer()
+    {
+        Element source = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 3);
+        Element target = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 4);
+        target.MatteSourceKind.Value = MatteSourceKind.Above;
+
+        bool success = _service.DuplicateAtPosition(_scene, [source, target], MediaTime.FromSeconds(1), 10);
+
+        Element[] copies = Copies(source, target);
+        Assert.Multiple(() =>
+        {
+            Assert.That(success, Is.True);
+            Assert.That(copies[1].MatteSourceKind.Value, Is.EqualTo(MatteSourceKind.Above));
+            Assert.That(copies[1].MatteSourceZIndex.Value, Is.Null);
+        });
+    }
 }
