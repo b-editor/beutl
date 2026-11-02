@@ -283,6 +283,35 @@ public sealed class DeclarativeAnimationTests
         Assert.That(createdAnimation.KeyFrames, Has.Count.EqualTo(2));
     }
 
+    // A corrupted project can repeat a key frame's Id. Changing a frame's time moves it within the list, so each entry
+    // with that Id edits the copy that is first by then.
+    [Test]
+    public void Each_entry_with_a_repeated_key_frame_id_edits_the_copy_first_in_the_list()
+    {
+        Scene scene = CreateSceneWithText(out _, out TextBlock text);
+        var animation = new KeyFrameAnimation<float>();
+        var first = new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 10 } };
+        var second = new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 20 } };
+        animation.KeyFrames.Add(first, out _);
+        animation.KeyFrames.Add(second, out _);
+        second.Id.Value = first.Id.Value;
+        text.Opacity.SetKeyFrameAnimation(animation);
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject desired = session.Documents.Read(scene);
+        JsonArray frames = desired["Elements"]![0]![nameof(Element.Objects)]![0]!["Animations"]!["Opacity"]![nameof(IKeyFrameAnimation.KeyFrames)]!.AsArray();
+        frames[0]![nameof(KeyFrame.KeyTime)] = TimeSpan.FromSeconds(2).ToString("c");
+        frames[1]![nameof(KeyFrame.KeyTime)] = TimeSpan.FromSeconds(3).ToString("c");
+
+        ToolResult<ApplyEditResponse> result = session.CreateEditTools().ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(first.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+        });
+    }
+
     [Test]
     public void Creating_an_animation_with_unsorted_keyframes_sorts_them_by_key_time()
     {
