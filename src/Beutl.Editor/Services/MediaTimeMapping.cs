@@ -28,6 +28,7 @@ internal sealed partial class MediaTimeMapping
     private readonly MediaTime? _videoDuration;
     private readonly bool _loopVideo;
     private readonly KeyFrameAnimation<bool>? _loopAnimation;
+    private readonly bool _countsOneCycle;
     private readonly bool _sourceSupported;
     private readonly bool _sourceLocked;
     private readonly bool _opaquePortal;
@@ -47,6 +48,8 @@ internal sealed partial class MediaTimeMapping
         _videoDuration = videoDuration;
         _loopVideo = !ignoreLoops && source is SourceVideo video && video.IsLoop.Value;
         _loopAnimation = !ignoreLoops && source is SourceVideo animatedVideo ? animatedVideo.IsLoop.GetKeyFrameAnimation() : null;
+        _countsOneCycle = ignoreLoops && source is SourceVideo looping
+            && (looping.IsLoop.Value || looping.IsLoop.GetKeyFrameAnimation() != null);
         _opaquePortal = source is PortalObject;
         _clipToSourceRange = portalInput || source is Sound;
         // Referenced/portal media can belong to a locked element even when the
@@ -110,9 +113,10 @@ internal sealed partial class MediaTimeMapping
         return time.Min - sourceRange.Start;
     }
 
-    // The positions the source reads over the range with OffsetPosition at offset.
+    // The positions the source reads over the range with OffsetPosition at offset. With plainOnly, those it would
+    // read without looping, which are what moves with the offset.
     public Interval? SampledRange(MediaTime from, MediaTime to, MediaTime startDelta = default, MediaTime lengthDelta = default,
-        bool conservative = true, MediaTime offset = default)
+        bool conservative = true, MediaTime offset = default, bool plainOnly = false)
     {
         var elementRange = new TimeRange(_elementRange.Start + startDelta, _elementRange.Duration + lengthDelta);
         Interval range = Interval.Between(from, to).Shift(elementRange.Start);
@@ -124,7 +128,7 @@ internal sealed partial class MediaTimeMapping
             if (range.Max <= visible.Start || range.Min >= visible.End) return null;
             range = new Interval(Max(range.Min, visible.Start), Min(range.Max, visible.End));
         }
-        return Map(range, elementRange, extrapolate: false, conservative, sourceOffset: false, offset);
+        return Map(range, elementRange, extrapolate: false, conservative, sourceOffset: false, offset, plainOnly);
     }
 
     // Whether the source loops all through the range, so that it reads any offset within its duration.
@@ -139,7 +143,7 @@ internal sealed partial class MediaTimeMapping
     }
 
     private Interval Map(Interval range, TimeRange elementRange, bool extrapolate, bool conservative, bool sourceOffset,
-        MediaTime offset = default)
+        MediaTime offset = default, bool plainOnly = false)
     {
         foreach (Controller controller in _controllers)
             range = controller.Map(range, elementRange);
@@ -154,13 +158,16 @@ internal sealed partial class MediaTimeMapping
         Interval? wrapped = loop && _videoDuration is { } duration && duration > MediaTime.Zero
             ? Loop(range.Shift(offset), duration)
             : null;
-        if (wrapped.HasValue && !plain) return wrapped.Value;
+        if (wrapped.HasValue && !plain && !plainOnly) return wrapped.Value;
         if (!extrapolate && _videoDuration is { } original && range.Min < MediaTime.Zero)
             range = range.Max < MediaTime.Zero
                 ? range.Shift(original)
                 : Interval.Between(Min(range.Min + original, MediaTime.Zero), Max(original, range.Max));
         range = range.Shift(offset);
-        return wrapped is { } looped
+        // Counted without its loop, a video plays one cycle from where the loop starts reading.
+        if (_countsOneCycle && _videoDuration is { } cycle && cycle > MediaTime.Zero)
+            range = range.Shift(Loop(new Interval(range.Min, range.Min), cycle).Min - range.Min);
+        return wrapped is { } looped && !plainOnly
             ? new Interval(Min(range.Min, looped.Min), Max(range.Max, looped.Max))
             : range;
     }

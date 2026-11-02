@@ -496,6 +496,27 @@ public class TrimTimeControllerTests
         });
     }
 
+    // Where the loop flag changes within the window, the looping part stays in the source but the plain part
+    // still moves with the offset, so it alone sets how far the search goes.
+    [Test]
+    public void Slip_VideoThatStartsLoopingMidClip_GoesBackAllTheWayToOffsetZero()
+    {
+        var video = CreateVideo(5, offsetSeconds: 2);
+        var animation = new KeyFrameAnimation<bool>();
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = false } });
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = { Value = Seconds(2) }, Value = { Value = true } });
+        video.IsLoop.SetKeyFrameAnimation(animation);
+        Element element = AddElement(0, 4, video);
+
+        bool applied = _slip.Slip(_harness.Scene, [element], Seconds(-3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
+        });
+    }
+
     [Test]
     public void Resize_LoopingVideoWithAnOffset_GrowsPastTheSourceEnd()
     {
@@ -719,6 +740,18 @@ public class TrimTimeControllerTests
         Element element = AddElement(0, 1, video);
 
         Assert.That(SlippableMedia.GetOriginalDuration(element), Is.EqualTo(Seconds(expected)));
+    }
+
+    // A controller also moves where the loop starts reading: (6 + 7) % 5 = 3, which leaves 2s of the source.
+    [Test]
+    public void OriginalDuration_LoopingVideoUnderAController_CountsFromWhereTheLoopStarts()
+    {
+        var video = CreateVideo(5, offsetSeconds: 7);
+        video.IsLoop.Value = true;
+        var controller = CreateController(video, offsetSeconds: 6);
+        Element element = AddElement(0, 1, controller);
+
+        Assert.That(SlippableMedia.GetOriginalDuration(element), Is.EqualTo(Seconds(2)));
     }
 
     [Test]

@@ -1,5 +1,4 @@
-﻿using Beutl.Animation;
-using Beutl.Audio;
+﻿using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -97,16 +96,6 @@ internal static partial class SlippableMedia
 
         private bool IsEnabled(EngineObject obj)
             => obj.IsEnabled.Value || obj is DrawableTimeController controller && _reenabledControllers?.Contains(controller) == true;
-
-        // Counted without its loop, a video still starts where the loop reads the offset, within one cycle.
-        private MediaTime GetInitialOffset(SourceVideo video, MediaTime? duration)
-        {
-            MediaTime offset = video.OffsetPosition.Value;
-            bool loops = video.IsLoop.Value || video.IsLoop.GetKeyFrameAnimation() != null;
-            return _ignoreLoops && loops && duration is { } total && total > MediaTime.Zero
-                ? SpeedAdjustedTime.WrapIntoDuration(offset, total)
-                : offset;
-        }
 
         private MediaTime? GetSourceDuration(MediaSource? source)
         {
@@ -289,10 +278,7 @@ internal static partial class SlippableMedia
                     {
                         MediaTime? duration = GetSourceDuration(video.Source.Value);
                         _targets.Add(new Target(video.OffsetPosition, duration,
-                            new MediaTimeMapping(_element, video, video.Speed, _controllers, 60, duration, _timingPeers, _ignoreLoops, _timingRoles, portalInput), _element.Length.Value)
-                        {
-                            InitialOffset = GetInitialOffset(video, duration)
-                        });
+                            new MediaTimeMapping(_element, video, video.Speed, _controllers, 60, duration, _timingPeers, _ignoreLoops, _timingRoles, portalInput), _element.Length.Value));
                     }
                     break;
                 case SourceSound sound:
