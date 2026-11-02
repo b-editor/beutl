@@ -170,7 +170,7 @@ jobs:
             - Translate these labels exactly:
               - `## What's Changed` → `## 変更点`
               - `**New Features**` → `**新機能**`
-              - `**Improvements & Refactoring**` → `**改善・リファクタリング**`
+              - `**Improvements**` → `**改善**`
               - `**Bug Fixes**` → `**バグ修正**`
               - `**Other**` → `**その他**`
               - `Installer` → `インストーラー`, `Debian package` → `Debian パッケージ`. Keep `Zip (arm64)`, `Zip (x64)`, `Zip`, `Flatpak` and the platform names as they are.
