@@ -50,9 +50,8 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ITim
         }
     }
 
-    // Audio plays the stored offset at its speed whichever file plays; an expression on Source
-    // hides only that file's length.
-    bool ITimeMappedSource.HasDynamicMapping => false;
+    // Playback evaluates an expression on OffsetPosition; one on Source hides only the file's length.
+    bool ITimeMappedSource.HasDynamicMapping => OffsetPosition.HasExpression;
 
     bool ITimeMappedSource.HasDynamicTimeline => Source.HasExpression;
 

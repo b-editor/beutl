@@ -31,12 +31,10 @@ internal sealed partial class MediaTimeMapping
             _maximum = _constant;
             bool known = _animation == null || _animation.TryGetOutputRange(out _minimum, out _maximum);
             IsSupported = known && float.IsFinite(_minimum) && float.IsFinite(_maximum) && _minimum >= 0 && _maximum >= _minimum;
-            if (videoPlayback)
-            {
-                // Video/controller playback integrates only nonempty keyframe curves.
-                // An expression over no keyframes multiplies time by its evaluated value instead.
-                IsSupported &= speed is not IExpressionProperty { HasExpression: true } || _animation is { KeyFrames.Count: > 0 };
-            }
+            // Video/controller playback integrates only nonempty keyframe curves, and an expression over no
+            // keyframes multiplies time by its evaluated value instead. Audio evaluates any expression for each
+            // window, even over keyframes, so nothing stored says how far it has played.
+            IsSupported &= speed is not IExpressionProperty { HasExpression: true } || videoPlayback && _animation is { KeyFrames.Count: > 0 };
             _integrator = new SpeedIntegrator(sampleRate);
             if (sampleRate > 60 && _animation != null)
             {
