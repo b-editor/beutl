@@ -71,9 +71,21 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
         var oldSwapchain = _swapchain;
         DestroyImageViews();
 
+        // When a swapchain replaces one with a frame still on its way to the screen, MoltenVK 1.4.0 sets the layer's
+        // drawableSize to 1x1 after taking the new size, so every later frame is one pixel stretched over the view.
+        // MoltenVK 1.4.2 fixes it, but Silk.NET.MoltenVK.Native 2.23.0 ships 1.4.0. Destroying the old swapchain first
+        // does the same to the layer before the new one sets its size.
+        if (OperatingSystem.IsMacOS())
+        {
+            _khrSwapchain.DestroySwapchain(_device, oldSwapchain, null);
+            _swapchain = default;
+            oldSwapchain = default;
+        }
+
         Create(width, height, oldSwapchain);
 
-        _khrSwapchain.DestroySwapchain(_device, oldSwapchain, null);
+        if (oldSwapchain.Handle != 0)
+            _khrSwapchain.DestroySwapchain(_device, oldSwapchain, null);
     }
 
     /// <summary>
@@ -100,7 +112,10 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
     public Result AcquireNextImage(Semaphore imageAvailable, out uint imageIndex)
     {
         uint index = 0;
-        var result = _khrSwapchain.AcquireNextImage(_device, _swapchain, ulong.MaxValue, imageAvailable, default, &index);
+        // A failed Recreate on macOS leaves no swapchain.
+        var result = _swapchain.Handle == 0
+            ? Result.ErrorSurfaceLostKhr
+            : _khrSwapchain.AcquireNextImage(_device, _swapchain, ulong.MaxValue, imageAvailable, default, &index);
         imageIndex = index;
         return result;
     }
