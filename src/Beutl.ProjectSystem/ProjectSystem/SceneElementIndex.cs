@@ -3,9 +3,9 @@ using Beutl.Media;
 
 namespace Beutl.ProjectSystem;
 
-// Time and layer lookups shared by playback, sampling and editing. Range changes, appends and removals
-// update balanced interval trees in O(log N); other collection changes rebuild once on demand. Queries
-// hold the lock only while collecting candidates, never while evaluating plugin objects.
+// Time and layer lookups shared by playback, sampling and editing. Range changes and appends update
+// balanced interval trees in O(log N); other collection changes rebuild once on demand. Queries hold the
+// lock only while collecting candidates, never while evaluating plugin objects.
 internal sealed class SceneElementIndex
 {
     private readonly object _sync = new();
@@ -46,17 +46,6 @@ internal sealed class SceneElementIndex
         {
             if (_entries.ContainsKey(element)) return;
             AddEntry(new Entry(element, element.Range, element.ZIndex.Value, _nextOrder++));
-            _transitionParticipants = null;
-        }
-    }
-
-    // The orders only get compared, so the one this leaves unused needs no renumbering.
-    public void Remove(Element element)
-    {
-        lock (_sync)
-        {
-            if (!_entries.Remove(element, out Entry entry)) return;
-            RemoveEntry(entry);
             _transitionParticipants = null;
         }
     }

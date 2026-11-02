@@ -76,18 +76,43 @@ public class SceneElementIndexTests
     }
 
     [Test]
-    public void AppendingAndRemovingKeepTheIndexInPlace()
+    public void RemovingLeavesTheIndexARendererHoldsIntact()
     {
         var scene = new Scene();
         Element first = Clip(0, 0);
         Element second = Clip(0, 0);
         scene.Children.AddRange([first, second]);
         SceneElementIndex index = scene.ElementIndex;
+        using var found = new PooledList<Element>();
+        index.Query(MediaTime.Zero, MediaTime.FromSeconds(1), found);
+
+        // The editor removes a clip while the renderer is between its query and its sort.
+        scene.Children.Remove(first);
+        index.Sort(found);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(found.ToArray(), Is.EqualTo(new[] { second, first }));
+            Assert.That(index.CompareSceneOrder(first, second), Is.Negative);
+            Assert.That(scene.ElementIndex, Is.Not.SameAs(index));
+            Assert.That(scene.ElementIndex.Overlaps(0, TimeRange.FromSeconds(1)), Is.True);
+        });
+
+        scene.Children.Remove(second);
+        Assert.That(scene.ElementIndex.Overlaps(0, TimeRange.FromSeconds(1)), Is.False);
+    }
+
+    [Test]
+    public void AppendingKeepsTheIndexInPlace()
+    {
+        var scene = new Scene();
+        Element first = Clip(0, 0);
+        scene.Children.Add(first);
+        SceneElementIndex index = scene.ElementIndex;
 
         Element added = Clip(0, 0);
         scene.Children.Add(added);
         scene.AddChild(Clip(10, 0), ElementOverlapHandling.Allow);
-        scene.Children.Remove(second);
 
         Assert.Multiple(() =>
         {

@@ -103,8 +103,9 @@ public partial class Scene : ProjectItem, INotifyEdited
         lock (_elementIndexLock) _elementIndex?.Update(element);
     }
 
-    // Appending and removing keep the scene order of the other elements, so only they touch the index, and adding
-    // clips one by one with a placement check for each does not rebuild it every time. Anything else renumbers it.
+    // Appending keeps the scene order of the other elements, so adding clips one by one with a placement check for
+    // each does not rebuild the index every time. Anything else gets a new one on demand: a renderer between a query
+    // and a sort still needs the elements it found in the instance it holds, even after they are removed.
     private void ApplyToElementIndex(NotifyCollectionChangedEventArgs e)
     {
         lock (_elementIndexLock)
@@ -114,10 +115,6 @@ public partial class Scene : ProjectItem, INotifyEdited
             if (e.Action == NotifyCollectionChangedAction.Add && e.NewStartingIndex + e.NewItems!.Count == Children.Count)
             {
                 foreach (Element element in e.NewItems) index.Append(element);
-            }
-            else if (e.Action == NotifyCollectionChangedAction.Remove)
-            {
-                foreach (Element element in e.OldItems!) index.Remove(element);
             }
             else
             {
