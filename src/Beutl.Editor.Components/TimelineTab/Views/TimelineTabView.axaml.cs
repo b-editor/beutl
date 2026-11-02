@@ -120,11 +120,25 @@ public sealed partial class TimelineTabView : UserControl
 
         TimelinePanel.Children.AddRange(vm.Inlines.Select(e => new InlineAnimationLayer { DataContext = e }));
 
-        vm.Elements.ForEachItem(
-                AddElement,
-                RemoveElement,
-                ClearElementViewport)
+        foreach (ElementViewModel element in vm.RealizedElements)
+        {
+            AddElement(element);
+        }
+
+        // A clip with no view model does not report that the view can now show it.
+        void OnSceneEdited(object? sender, EventArgs e) => InvalidateElementViewport();
+        vm.ElementRealized += AddElement;
+        vm.ElementReleased += RemoveElement;
+        vm.Scene.Edited += OnSceneEdited;
+        Disposable.Create(() =>
+            {
+                vm.ElementRealized -= AddElement;
+                vm.ElementReleased -= RemoveElement;
+                vm.Scene.Edited -= OnSceneEdited;
+            })
             .DisposeWith(_disposables);
+        vm.Scale.Subscribe(_ => InvalidateElementViewport()).DisposeWith(_disposables);
+        vm.LayerHeightChanged.Subscribe(_ => InvalidateElementViewport()).DisposeWith(_disposables);
 
         vm.Inlines.TrackCollectionChanged(
                 OnAddedInline,
@@ -230,7 +244,7 @@ public sealed partial class TimelineTabView : UserControl
 
     private ElementView? FindElementView(Element element)
     {
-        ViewportElement? entry = _viewportElements.Find(item => ReferenceEquals(item.Model.Model, element));
+        ViewportElement? entry = _viewportEntries.GetValueOrDefault(element);
         return entry is null ? null : entry.View ?? RealizeCompactElement(entry);
     }
 }

@@ -16,6 +16,13 @@ using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 
+internal static class TimelineTabViewModelTestExtensions
+{
+    // Every element's view model, in scene order, created for those not shown yet.
+    public static List<ElementViewModel> AllElements(this TimelineTabViewModel timeline)
+        => [.. timeline.Scene.Children.Select(element => timeline.GetViewModelFor(element)!)];
+}
+
 // A new scene's timeline tab shown in a window at scale 1 and offset 0.
 internal sealed class TimelineTestHost : IDisposable
 {

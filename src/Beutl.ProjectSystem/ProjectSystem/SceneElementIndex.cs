@@ -87,6 +87,11 @@ internal sealed class SceneElementIndex
         }
     }
 
+    public bool HasLayer(int layer)
+    {
+        lock (_sync) return _layers.ContainsKey(layer);
+    }
+
     public bool Intersects(int layer, TimeRange range)
     {
         lock (_sync)

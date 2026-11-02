@@ -69,12 +69,23 @@ public sealed partial class LayerHeader : UserControl
         if (_pressed && GetOrFindTimeline() is { } timeline)
         {
             LayerHeaderViewModel vm = ViewModel;
-            // The first move opens the DragSession; null means another gesture holds history.
-            _drag ??= DragSession.Begin(vm.Timeline.EditorContext, border, CommandNames.MoveLayer, ConfirmDrag, CancelDrag);
             if (_drag is null)
             {
-                CancelDrag();
-                return;
+                // The first move opens the DragSession; null means another gesture holds history.
+                _drag = DragSession.Begin(vm.Timeline.EditorContext, border, CommandNames.MoveLayer, ConfirmDrag, CancelDrag);
+                if (_drag is null)
+                {
+                    CancelDrag();
+                    return;
+                }
+
+                // Only a drag moves the row's clips, so a click on the header gives them no view models.
+                Scene scene = vm.Timeline.Scene;
+                _elements = scene.Children
+                    .Where(i => i.ZIndex.Value == vm.Number && !scene.IsElementLocked(i))
+                    .Select(vm.Timeline.GetViewModelFor)
+                    .OfType<ElementViewModel>()
+                    .ToArray();
             }
 
             Point position = e.GetPosition(timeline.TimelinePanel);
@@ -163,7 +174,7 @@ public sealed partial class LayerHeader : UserControl
 
         foreach (Element shifted in plan.ShiftedElements)
         {
-            ElementViewModel? shiftedVm = vm.Timeline.GetViewModelFor(shifted);
+            ElementViewModel? shiftedVm = vm.Timeline.FindViewModelFor(shifted);
             shiftedVm?.AnimationRequest(shifted.ZIndex.Value);
         }
     }
@@ -188,9 +199,6 @@ public sealed partial class LayerHeader : UserControl
             _newLayer = ViewModel.Number;
             _startRel = point.Position;
             _start = e.GetCurrentPoint(timeline.TimelinePanel).Position;
-            _elements = ViewModel.Timeline.Elements
-                .Where(i => i.Model.ZIndex.Value == ViewModel.Number && i.IsEditable.Value)
-                .ToArray();
         }
     }
 

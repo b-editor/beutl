@@ -30,7 +30,7 @@ public sealed class EditorSelectionTests
     {
         (EditViewModel editor, TimelineTabViewModel timeline) = await OpenAsync("editor-selection", 3);
         IEditorSelection selection = editor.GetRequiredService<IEditorSelection>();
-        ElementViewModel[] items = [.. timeline.Elements.OrderBy(item => item.Model.ZIndex.Value)];
+        ElementViewModel[] items = [.. timeline.AllElements().OrderBy(item => item.Model.ZIndex.Value)];
 
         timeline.SelectElement(items[0]);
         timeline.SelectElement(items[1]);
@@ -101,7 +101,7 @@ public sealed class EditorSelectionTests
                     MediaTime.Zero, MediaTime.FromSeconds(1), layer, new ElementSource.EngineObject(() => new RectShape())))]);
             TimelineTabViewModel timeline = host.Model;
             var editor = (EditViewModel)timeline.EditorContext;
-            ElementViewModel[] items = [.. timeline.Elements.OrderBy(item => item.Model.ZIndex.Value)];
+            ElementViewModel[] items = [.. timeline.AllElements().OrderBy(item => item.Model.ZIndex.Value)];
             for (int i = 0; i < items.Length; i++)
                 items[i].Model.Name.Value = ((char)('A' + i)).ToString();
             host.Scene.Groups.Add([items[0].Model.Id.Value, items[1].Model.Id.Value]);
@@ -185,7 +185,7 @@ public sealed class EditorSelectionTests
     public async Task Group_and_ungroup_follow_the_selection_and_the_groups()
     {
         (EditViewModel editor, TimelineTabViewModel timeline) = await OpenAsync("editor-selection-group", 4);
-        ElementViewModel[] items = [.. timeline.Elements.OrderBy(item => item.Model.ZIndex.Value)];
+        ElementViewModel[] items = [.. timeline.AllElements().OrderBy(item => item.Model.ZIndex.Value)];
         editor.Scene.Groups.Add([items[0].Model.Id.Value, items[1].Model.Id.Value]);
 
         (bool Group, bool Ungroup) Commands(params ElementViewModel[] selected)
@@ -213,7 +213,7 @@ public sealed class EditorSelectionTests
             "selection-click", MediaTime.FromSeconds(10),
             [.. Enumerable.Range(0, 3).Select(layer => new ElementDescription(
                 MediaTime.Zero, MediaTime.FromSeconds(1), layer, new ElementSource.EngineObject(() => new RectShape())))]);
-        ElementViewModel[] items = [.. host.Model.Elements.OrderBy(item => item.Model.ZIndex.Value)];
+        ElementViewModel[] items = [.. host.Model.AllElements().OrderBy(item => item.Model.ZIndex.Value)];
         IEditorSelection selection = host.Model.EditorContext.GetRequiredService<IEditorSelection>();
         host.Model.ClearSelected();
 

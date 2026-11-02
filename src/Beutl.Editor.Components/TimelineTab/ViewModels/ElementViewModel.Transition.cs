@@ -107,7 +107,7 @@ public sealed partial class ElementViewModel
                 : null;
         SetTransitionPreview(preview);
         if (ElementTransitionEdits.FindPartner(Model, edge) is { } partner
-            && Timeline.GetViewModelFor(partner) is { } partnerViewModel)
+            && Timeline.FindViewModelFor(partner) is { } partnerViewModel)
         {
             partnerViewModel.SetTransitionPreview(preview);
         }

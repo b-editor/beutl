@@ -6,15 +6,19 @@ using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class TimelineTabView
 {
+    private readonly Dictionary<Element, ViewportElement> _viewportEntries = [];
     private readonly List<ViewportElement> _viewportElements = [];
     private readonly Stack<ElementView> _recycledElementViews = [];
     private readonly List<CompactElementLayer> _compactLayers = [];
     private bool _viewportUpdateQueued;
+    private bool _viewportOrderChanged;
+    private bool _realizingElements;
     private bool _compactPaintQueued;
     private ViewportElement? _activeCompactElement;
 
@@ -23,7 +27,7 @@ public sealed partial class TimelineTabView
     // matter: vertical-only virtualization still realizes every clip on a densely populated row.
     internal void InvalidateElementViewport()
     {
-        if (_viewportUpdateQueued || ViewModel is null) return;
+        if (_viewportUpdateQueued || _realizingElements || ViewModel is null) return;
         _viewportUpdateQueued = true;
         Dispatcher.UIThread.Post(() =>
         {
@@ -32,33 +36,36 @@ public sealed partial class TimelineTabView
         }, DispatcherPriority.Render);
     }
 
-    private void AddElement(int index, ElementViewModel model)
+    private void AddElement(ElementViewModel model)
     {
-        _viewportElements.Insert(index, new ViewportElement(model, InvalidateElementViewport, InvalidateCompactPaint));
+        _viewportEntries.Add(model.Model, new ViewportElement(model, InvalidateElementViewport, InvalidateCompactPaint));
+        _viewportOrderChanged = true;
         InvalidateElementViewport();
     }
 
-    private void RemoveElement(int index, ElementViewModel model)
+    private void RemoveElement(ElementViewModel model)
     {
-        ViewportElement entry = _viewportElements[index];
-        _viewportElements.RemoveAt(index);
+        if (!_viewportEntries.Remove(model.Model, out ViewportElement? entry)) return;
         entry.Dispose();
         RecycleElement(entry);
         if (ReferenceEquals(_activeCompactElement, entry)) _activeCompactElement = null;
         RemoveScope(entry);
+        _viewportOrderChanged = true;
         InvalidateElementViewport();
     }
 
     private void ClearElementViewport()
     {
         _activeCompactElement = null;
-        foreach (ViewportElement entry in _viewportElements)
+        foreach (ViewportElement entry in _viewportEntries.Values)
         {
             entry.Dispose();
             RecycleElement(entry);
             RemoveScope(entry);
         }
+        _viewportEntries.Clear();
         _viewportElements.Clear();
+        _viewportOrderChanged = false;
         foreach (CompactElementLayer layer in _compactLayers) TimelinePanel.Children.Remove(layer);
         _compactLayers.Clear();
     }
@@ -123,6 +130,13 @@ public sealed partial class TimelineTabView
         var visibleViewport = new Rect(ContentScroll.Offset.X, ContentScroll.Offset.Y,
             ContentScroll.Viewport.Width, ContentScroll.Viewport.Height);
         Rect viewport = visibleViewport.Inflate(new Thickness(200, 50));
+
+        // The clips in view may have no view model yet, and those that have none report nothing, so look for them on
+        // every pass.
+        _realizingElements = true;
+        ViewModel.RealizeElements(viewport);
+        _realizingElements = false;
+        UpdateViewportOrder(ViewModel.Scene);
 
         foreach (ViewportElement entry in _viewportElements)
         {
@@ -190,6 +204,18 @@ public sealed partial class TimelineTabView
                 Place(layer, childIndex++);
             }
             compactRun = null;
+        }
+    }
+
+    private void UpdateViewportOrder(Scene scene)
+    {
+        if (!_viewportOrderChanged) return;
+
+        _viewportOrderChanged = false;
+        _viewportElements.Clear();
+        foreach (Element element in scene.Children)
+        {
+            if (_viewportEntries.TryGetValue(element, out ViewportElement? entry)) _viewportElements.Add(entry);
         }
     }
 

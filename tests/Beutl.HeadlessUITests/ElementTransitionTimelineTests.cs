@@ -519,7 +519,7 @@ public class ElementTransitionTimelineTests
             top.Objects.Add(shape);
             editor.Scene.Children.Add(top);
             HeadlessTestHelpers.Settle(3);
-            ElementViewModel topViewModel = outgoing.Timeline.Elements.Single(item => item.Model == top);
+            ElementViewModel topViewModel = outgoing.Timeline.GetViewModelFor(top)!;
             (view, window) = Show(topViewModel);
             Border border = FindElementView(view, topViewModel).FindControl<Border>("border")!;
             Point point = new(3, border.Bounds.Height / 2);

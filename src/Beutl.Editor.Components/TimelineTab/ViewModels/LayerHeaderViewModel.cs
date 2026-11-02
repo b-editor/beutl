@@ -128,8 +128,6 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public ReactiveProperty<bool> IsSolo { get; }
 
-    public ReactiveProperty<int> ItemsCount { get; } = new();
-
     public ReactiveProperty<double> Height { get; } = new(FrameNumberHelper.LayerHeight);
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new() { ResetBehavior = ResetBehavior.Remove };
@@ -151,10 +149,6 @@ public sealed class LayerHeaderViewModel : IDisposable
         return Timeline.EditorContext.GetRequiredService<ILayerMoveService>()
             .ApplyMove(Timeline.Scene, Number, newLayerNum, directElements);
     }
-
-    public void ElementAdded() => ItemsCount.Value++;
-
-    public void ElementRemoved() => ItemsCount.Value--;
 
     public void Dispose()
     {

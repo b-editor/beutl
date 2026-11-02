@@ -299,7 +299,7 @@ public class GraphEditorEditingTests
         graph.Model.HistoryManager.Commit();
         var timeline = ((EditViewModel)graph.Model.EditorContext).FindToolTab<TimelineTabViewModel>()!;
         var property = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Height, shape);
-        using var inline = new InlineAnimationLayerViewModel(property, timeline, timeline.Elements.Single());
+        using var inline = new InlineAnimationLayerViewModel(property, timeline, timeline.AllElements().Single());
         string before = GraphScope.Snapshot(target);
         int undo = graph.Model.HistoryManager.UndoCount;
         if (keyMenu) await inline.Items.Single(item => item.Model.KeyTime.Value.ToSeconds() == start).PasteAsync(graph.Window.Clipboard);
@@ -340,7 +340,7 @@ public class GraphEditorEditingTests
         graph.Model.HistoryManager.Commit();
         var timeline = ((EditViewModel)graph.Model.EditorContext).FindToolTab<TimelineTabViewModel>()!;
         var property = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Height, shape);
-        using var inline = new InlineAnimationLayerViewModel(property, timeline, timeline.Elements.Single());
+        using var inline = new InlineAnimationLayerViewModel(property, timeline, timeline.AllElements().Single());
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var clipboard = new Mock<IClipboard>();
         clipboard.Setup(x => x.TryGetDataAsync()).Returns(Read);

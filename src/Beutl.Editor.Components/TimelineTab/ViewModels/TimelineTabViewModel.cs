@@ -24,7 +24,6 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
     private readonly Subject<System.Reactive.Unit> _canExecuteChangedSubject = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
-    private readonly Dictionary<Element, ElementViewModel> _elementsByModel = [];
     private readonly IEditorSelection _selection;
     private readonly IEditorClock _editorClock;
     private bool _isDisposed;
@@ -71,20 +70,12 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
         TrackLayerModels().AddTo(_disposables);
 
-        Elements.TrackCollectionChanged(
-                item => _elementsByModel.Add(item.Model, item),
-                item => _elementsByModel.Remove(item.Model),
-                _elementsByModel.Clear)
-            .AddTo(_disposables);
-
         TimelineOptions options = Options.Value;
         LayerHeaders.AddRange(Enumerable.Range(0, options.MaxLayerCount)
             .Select(num => new LayerHeaderViewModel(num, this)));
         if (Scene.Children.Count > 0)
         {
             AddLayerHeaders(Scene.Children.Max(i => i.ZIndex.Value) + 1);
-            Elements.EnsureCapacity(Scene.Children.Count);
-            Elements.AddRange(Scene.Children.Select(item => new ElementViewModel(item, this)));
         }
 
         // A persisted layer-only model (solo/mute/lock on a clipless row) still
@@ -94,33 +85,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             AddLayerHeaders(Scene.Layers.Max(l => l.ZIndex.Value) + 1);
         }
 
-        Scene.Children.TrackCollectionChanged(
-                (idx, item) =>
-                {
-                    _logger.LogDebug("Element added {Id}.", item.Id.Value);
-                    AddLayerHeaders(item.ZIndex.Value + 1);
-                    Elements.Insert(idx, new ElementViewModel(item, this));
-                },
-                (idx, _) =>
-                {
-                    ElementViewModel element = Elements[idx];
-                    _logger.LogDebug("Element removed {Id}.", element.Model.Id.Value);
-                    SelectedElements.Remove(element);
-                    Elements.RemoveAt(idx);
-                    element.Dispose();
-                },
-                () =>
-                {
-                    _logger.LogDebug("All elements cleared.");
-                    ElementViewModel[] tmp = [.. Elements];
-                    Elements.Clear();
-                    SelectedElements.Clear();
-                    foreach (ElementViewModel? item in tmp)
-                    {
-                        item.Dispose();
-                    }
-                })
-            .AddTo(_disposables);
+        TrackSceneElements();
 
         // SelectedElements mirrors the editor's selection, which outlives this tab.
         _selection = editorContext.GetRequiredService<IEditorSelection>();
@@ -223,11 +188,11 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     {
         void ThumbnailsDisabled(Guid id)
         {
-            foreach (ElementViewModel element in Elements) element.OnThumbnailsDisabledElementsAttached(id);
+            foreach (ElementViewModel element in RealizedElementsSnapshot()) element.OnThumbnailsDisabledElementsAttached(id);
         }
         void ThumbnailsEnabled(Guid id)
         {
-            foreach (ElementViewModel element in Elements) element.OnThumbnailsDisabledElementsDetached(id);
+            foreach (ElementViewModel element in RealizedElementsSnapshot()) element.OnThumbnailsDisabledElementsDetached(id);
         }
 
         ThumbnailsDisabledElements.Attached += ThumbnailsDisabled;
@@ -240,7 +205,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
         void RefreshThumbnails()
         {
-            foreach (ElementViewModel element in Elements) element.InvalidateAndUpdateThumbnails();
+            foreach (ElementViewModel element in RealizedElementsSnapshot()) element.InvalidateAndUpdateThumbnails();
         }
 
         // A source-mode change invalidates filmstrips. Subscribe once per tab so opening/closing
@@ -327,8 +292,6 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
     public AsyncReactiveCommand<ElementDescription> AddElement { get; } = new();
-
-    public CoreList<ElementViewModel> Elements { get; } = [];
 
     public CoreList<Guid> ThumbnailsDisabledElements { get; } = [];
 
@@ -425,7 +388,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         // 以降の OnNext を抑止してから内部 Subject を Dispose する。
         _isDisposed = true;
         _disposables.Dispose();
-        foreach (ElementViewModel? item in Elements.AsSpan())
+        ElementViewModel[] elements = RealizedElementsSnapshot();
+        foreach (ElementViewModel item in elements)
         {
             item.Dispose();
         }
@@ -451,8 +415,12 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
         Inlines.Clear();
         LayerHeaders.Clear();
-        Elements.Clear();
         _elementsByModel.Clear();
+        foreach (ElementViewModel item in elements)
+        {
+            ElementReleased?.Invoke(item);
+        }
+
         _logger.LogInformation("TimelineViewModel disposed successfully.");
     }
 
@@ -470,9 +438,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             SelectedElements.Select(s => s.Model.Id.Value),
             Scene.Groups);
 
-        var sources = Elements
-            .Where(x => ids.Contains(x.Model.Id.Value))
-            .Select(x => x.Model)
+        var sources = Scene.Children
+            .Where(x => ids.Contains(x.Id.Value))
             .ToArray();
 
         try
@@ -627,7 +594,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     private void SetSelected(Element element, bool selected)
     {
-        if (GetViewModelFor(element) is not { } item)
+        // Selecting an element gives it a view model; one that has none was not selected.
+        if ((selected ? GetViewModelFor(element) : FindViewModelFor(element)) is not { } item)
             return;
 
         item.IsSelected.Value = selected;
@@ -642,10 +610,5 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     public object? GetService(Type serviceType)
     {
         return EditorContext.GetService(serviceType);
-    }
-
-    public ElementViewModel? GetViewModelFor(Element element)
-    {
-        return _elementsByModel.GetValueOrDefault(element);
     }
 }
