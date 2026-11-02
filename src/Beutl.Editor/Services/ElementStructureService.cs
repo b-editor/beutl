@@ -292,8 +292,10 @@ public sealed class ElementStructureService : IElementStructureService
         }
     }
 
+    // Speed is what an expression gave at the cut. The back piece's position is read at that same speed, because its
+    // copy of the expression starts over from its own local time.
     private readonly record struct SplitSource(
-        ISplittable Source, MediaTime PositionAtCut, MediaTime ContextAtCut, bool Supported);
+        ISplittable Source, MediaTime PositionAtCut, MediaTime ContextAtCut, float? Speed, bool Supported);
 
     private static List<SplitSource> CaptureSplitSources(Element element, MediaTime forwardDuration, SplitBatch? batch)
     {
@@ -304,16 +306,18 @@ public sealed class ElementStructureService : IElementStructureService
         Dictionary<ISplittable, SlippableMedia.Target> targets = CollectSplitTargets(element, splittables, batch);
         foreach (ISplittable splittable in splittables)
         {
-            if (!targets.TryGetValue(splittable, out SlippableMedia.Target? target) || !target.IsMappingSupported)
+            if (!targets.TryGetValue(splittable, out SlippableMedia.Target? target) || !target.IsMappingSupported
+                || !target.TryReadSpeed(forwardDuration, out float? speed))
             {
-                sources.Add(new(splittable, MediaTime.Zero, MediaTime.Zero, false));
+                sources.Add(new(splittable, MediaTime.Zero, MediaTime.Zero, null, false));
                 continue;
             }
 
             sources.Add(new(
                 splittable,
-                target.SourcePosition(forwardDuration),
+                target.SourcePosition(forwardDuration, speed),
                 target.ContextTime(forwardDuration),
+                speed,
                 true));
         }
 
@@ -389,7 +393,7 @@ public sealed class ElementStructureService : IElementStructureService
                 continue;
             }
 
-            MediaTime delta = sources[i].PositionAtCut - backTarget.SourcePosition(MediaTime.Zero);
+            MediaTime delta = sources[i].PositionAtCut - backTarget.SourcePosition(MediaTime.Zero, sources[i].Speed);
             copies[i].NotifySplitted(true, delta, -forwardDuration);
         }
     }

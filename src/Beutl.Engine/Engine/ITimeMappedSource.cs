@@ -21,7 +21,7 @@ public interface ITimeMappedSource : ISplittable
     /// stored values do not show. No edit can follow such a mapping, so a split shifts <see cref="OffsetPosition"/>
     /// by the local time alone.
     /// </summary>
-    /// <remarks><see cref="Speed"/> does not count; editors read its keyframes themselves.</remarks>
+    /// <remarks><see cref="Speed"/> does not count; editors read its keyframes, and a split reads an expression on it at the cut.</remarks>
     bool HasDynamicMapping => false;
 
     /// <summary>

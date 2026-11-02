@@ -3,13 +3,15 @@ using Beutl.Audio;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
 
-// Playback evaluates an expression on a sound's offset or speed (#3833). Edits read the stored values, which then do
-// not say what plays, so moving the offset by them would not change what is heard.
+// Playback evaluates an expression on a sound's offset or speed (#3833). Slip and Trim read the stored values, which
+// then do not say what plays, so moving the offset by them would not change what is heard. A split needs only where
+// the front piece stops, so it reads a speed expression at the cut (#3851).
 [TestFixture(nameof(SourceSound))]
 [TestFixture(nameof(SceneSound))]
 public sealed class SoundExpressionEditTests(string soundType)
@@ -29,7 +31,7 @@ public sealed class SoundExpressionEditTests(string soundType)
     [TearDown]
     public void TearDown() => _harness.Dispose();
 
-    private (Element Element, Sound Sound) AddClip()
+    private (Element Element, Sound Sound) AddClip(double start = 0)
     {
         Sound sound;
         if (soundType == nameof(SourceSound))
@@ -44,7 +46,7 @@ public sealed class SoundExpressionEditTests(string soundType)
             sound = sceneSound;
         }
 
-        Element element = _harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
+        Element element = _harness.AddElement(MediaTime.FromSeconds(start), MediaTime.FromSeconds(2));
         element.AddObject(sound);
         return (element, sound);
     }
@@ -60,13 +62,17 @@ public sealed class SoundExpressionEditTests(string soundType)
         });
     }
 
-    // Without a mapping to follow, the back piece moves by the local time alone.
-    private void AssertSplitShiftsByLocalTime(Element element)
+    private MediaTime BackOffset(Element front)
     {
-        _structure.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+        Element back = _harness.Scene.Children.Single(child => child != front);
+        return back.Objects.OfType<Sound>().Single().OffsetPosition.Value;
+    }
 
-        Element back = _harness.Scene.Children.Single(child => child != element);
-        Assert.That(back.Objects.OfType<Sound>().Single().OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+    // One second into the clip.
+    private MediaTime SplitAndReadBackOffset(Element element)
+    {
+        _structure.Split(_harness.Scene, [element], element.Start.Value + MediaTime.FromSeconds(1));
+        return BackOffset(element);
     }
 
     [Test]
@@ -105,16 +111,90 @@ public sealed class SoundExpressionEditTests(string soundType)
         sound.Speed.Value = 200;
         sound.OffsetPosition.Expression = Expression.Create<MediaTime>("TimeSpan.FromSeconds(1)");
 
-        AssertSplitShiftsByLocalTime(element);
+        // Without a mapping to follow, the back piece moves by the local time alone.
+        Assert.That(SplitAndReadBackOffset(element), Is.EqualTo(MediaTime.FromSeconds(1)));
     }
 
     [Test]
-    public void Split_SpeedExpression_ShiftsByLocalTime()
+    public void Split_SpeedExpression_ContinuesAtItsValue()
     {
         (Element element, Sound sound) = AddClip();
         sound.Speed.Value = 300;
         sound.Speed.Expression = Expression.Create<float>("200");
 
-        AssertSplitShiftsByLocalTime(element);
+        Assert.That(SplitAndReadBackOffset(element), Is.EqualTo(MediaTime.FromSeconds(2)));
+    }
+
+    [Test]
+    public void Split_SpeedExpressionOverKeyFrames_ContinuesAtItsValue()
+    {
+        (Element element, Sound sound) = AddClip();
+        sound.Speed.SetKeyFrameAnimation(TrimTestMedia.CreateSpeedRamp(useGlobalClock: false));
+        sound.Speed.Expression = Expression.Create<float>("200");
+
+        Assert.That(SplitAndReadBackOffset(element), Is.EqualTo(MediaTime.FromSeconds(2)));
+    }
+
+    // Time is the clip's local time, one second at the cut here, however late the clip starts.
+    [Test]
+    public void Split_SpeedExpressionThatChanges_ReadsItsValueAtTheCut()
+    {
+        (Element element, Sound sound) = AddClip(start: 3);
+        sound.Speed.Expression = Expression.Create<float>("100 + 100 * Time");
+
+        Assert.That(SplitAndReadBackOffset(element), Is.EqualTo(MediaTime.FromSeconds(2)));
+    }
+
+    // Playback falls back to the stored speed when the script fails, so the split must too.
+    [Test]
+    public void Split_SpeedExpressionThatFails_ContinuesAtTheStoredSpeed()
+    {
+        (Element element, Sound sound) = AddClip();
+        sound.Speed.Value = 300;
+        sound.Speed.Expression = Expression.Create<float>("this does not compile");
+
+        Assert.That(SplitAndReadBackOffset(element), Is.EqualTo(MediaTime.FromSeconds(3)));
+    }
+
+    [Test]
+    public void Split_SpeedExpressionWithoutAFiniteValue_ShiftsByLocalTime()
+    {
+        (Element element, Sound sound) = AddClip();
+        sound.Speed.Expression = Expression.Create<float>("float.NaN");
+
+        Assert.That(SplitAndReadBackOffset(element), Is.EqualTo(MediaTime.FromSeconds(1)));
+    }
+
+    [Test]
+    public void SilenceSplit_SpeedExpression_ContinuesAtItsValue()
+    {
+        (Element element, Sound sound) = AddClip();
+        sound.Speed.Expression = Expression.Create<float>("200");
+
+        new SilenceSplitService(_harness.History).Apply(_harness.Scene, element,
+            [new TimeRange(MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(0.5))], SilenceSplitMode.DeleteSilence, false);
+
+        Assert.That(BackOffset(element), Is.EqualTo(MediaTime.FromSeconds(2)));
+    }
+
+    // Background preparation works on private copies of the clips, where a speed that reads another clip finds nothing.
+    [Test]
+    public async Task SilenceSplitInTheBackground_SpeedReadingAnotherClip_ContinuesAtItsValue()
+    {
+        (Element element, Sound sound) = AddClip();
+        _ = SceneReferenceTestHelper.Create(_harness.Scene, new Scene());
+        var provider = new SourceSound { Speed = { Value = 200 } };
+        Element providerElement = _harness.AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(1), zIndex: 1);
+        providerElement.AddObject(provider);
+        sound.Speed.Expression = new ReferenceExpression<float>(provider.Id.Value, nameof(Sound.Speed));
+
+        await new SilenceSplitService(_harness.History).ApplyAsync(_harness.Scene, element,
+            [new TimeRange(MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(0.5))], SilenceSplitMode.DeleteSilence, false);
+
+        Element back = _harness.Scene.Children
+            .Where(child => child != providerElement)
+            .OrderBy(child => child.Start.Value)
+            .Last();
+        Assert.That(back.Objects.OfType<Sound>().Single().OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 }
