@@ -43,6 +43,21 @@ public static class ExportRendererFactory
         return renderer;
     }
 
+    /// <summary>
+    /// Creates a composer configured for final output: audio must never read proxy media, even though
+    /// audio opens skip the proxy resolver today.
+    /// </summary>
+    /// <param name="scene">The scene to compose.</param>
+    /// <param name="sampleRate">Output sample rate in Hz.</param>
+    public static SceneComposer CreateComposer(Scene scene, int sampleRate)
+    {
+        return new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
+        {
+            SampleRate = sampleRate,
+            ChannelLayout = scene.FindHierarchicalParent<Project>().GetChannelLayout(),
+        };
+    }
+
     private static void DisposePreservingPrimaryFailure(IDisposable? value)
     {
         try

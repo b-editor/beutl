@@ -174,9 +174,6 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
     internal static AVChannelLayout SelectChannelLayout(AVChannelLayout[] layouts, AudioChannelLayout requested)
     {
-        if (layouts.Length == 0)
-            return ToNativeLayout(requested);
-
         foreach (AVChannelLayout layout in layouts)
         {
             if (requested.HasPositions && layout.order == AVChannelOrder.AV_CHANNEL_ORDER_NATIVE
@@ -190,7 +187,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                 return layout;
         }
 
-        return DefaultChannelLayout(requested.ChannelCount);
+        return ToNativeLayout(requested);
     }
 
     private static bool IsSevenPointOne(AVChannelLayout layout) =>
@@ -241,13 +238,6 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             u = new AVChannelLayout_u { mask = (uint)layout.Speakers },
         }
         : new AVChannelLayout { order = AVChannelOrder.AV_CHANNEL_ORDER_UNSPEC, nb_channels = layout.ChannelCount };
-
-    private static unsafe AVChannelLayout DefaultChannelLayout(int channels)
-    {
-        AVChannelLayout layout;
-        ffmpeg.av_channel_layout_default(&layout, channels);
-        return layout;
-    }
 
     // New settings start with these H.264 options. Only an H.264 encoder gets them, and only the ones it parses (#3434).
     private static bool IsH264Default(AdditionalOption option) =>

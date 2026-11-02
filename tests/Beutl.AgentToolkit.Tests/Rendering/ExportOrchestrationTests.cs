@@ -5,6 +5,7 @@ using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Media;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Rendering;
@@ -32,7 +33,7 @@ public sealed class ExportOrchestrationTests
         var scene = new Scene(64, 64, "export") { Duration = { Value = MediaTime.FromSeconds(1) } };
         var project = new Project { ChannelLayout = { Value = layout }, Items = { scene } };
 
-        using SceneComposer composer = VideoExporter.CreateExportComposer(scene, 44100);
+        using SceneComposer composer = ExportRendererFactory.CreateComposer(scene, 44100);
 
         Assert.Multiple(() =>
         {

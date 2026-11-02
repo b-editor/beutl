@@ -355,7 +355,7 @@ public class MFEncodingTests
             int stream = (int)SourceReaderIndex.FirstAudioStream;
             source.SetStreamSelection((int)SourceReaderIndex.AllStreams, false);
             source.SetStreamSelection(stream, true);
-            using var type = MFEncodingController.CreatePcm(AudioFormatGuids.Float, sampleRate, 2, 32);
+            using var type = MFEncodingController.CreatePcm(AudioFormatGuids.Float, sampleRate, AudioChannelLayout.Stereo, 32);
             source.SetCurrentMediaType(stream, type);
             bool signal = false;
             long sampleCount = 0;

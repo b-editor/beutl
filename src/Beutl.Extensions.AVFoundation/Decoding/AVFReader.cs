@@ -84,9 +84,7 @@ public sealed class AVFReader : MediaReader
                 ai.SampleRate,
                 ai.OutputChannelCount)
             {
-                ChannelLayout = ai.SpeakerMask == 0
-                    ? AudioChannelLayout.Discrete(ai.OutputChannelCount)
-                    : new AudioChannelLayout(ai.OutputChannelCount, (AudioSpeakers)ai.SpeakerMask)
+                ChannelLayout = new AudioChannelLayout(ai.OutputChannelCount, (AudioSpeakers)ai.SpeakerMask)
             };
         }
     }
