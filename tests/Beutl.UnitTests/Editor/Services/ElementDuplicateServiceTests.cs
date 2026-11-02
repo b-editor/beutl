@@ -359,6 +359,27 @@ public class ElementDuplicateServiceTests
     }
 
     [Test]
+    public void DuplicateAtClickedPosition_OtherClipOnTheSourceLayer_KeepsNamingThatLayer()
+    {
+        Element source = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 3);
+        Element laterOnThatLayer = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(1), zIndex: 3);
+        Element target = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 4);
+        target.MatteSourceKind.Value = MatteSourceKind.Layer;
+        target.MatteSourceZIndex.Value = 3;
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [laterOnThatLayer, target], MediaTime.FromSeconds(1), 10);
+
+        Element targetCopy = Copies(source, laterOnThatLayer, target)
+            .Single(copy => copy.MatteSourceKind.Value == MatteSourceKind.Layer);
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.True);
+            Assert.That(targetCopy.MatteSourceZIndex.Value, Is.EqualTo(3), "The copied clip is not there at the matte's time.");
+        });
+    }
+
+    [Test]
     public void DuplicateAtPosition_RelativeMatte_NamesNoLayer()
     {
         Element source = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 3);
