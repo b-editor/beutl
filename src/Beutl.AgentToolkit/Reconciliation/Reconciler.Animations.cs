@@ -192,13 +192,13 @@ public sealed partial class Reconciler
         => engineObject.Properties.FirstOrDefault(
             property => property.Name == propertyName && !engineObject.IsBaseField(property));
 
-    private static bool ExpandAnimationShorthand(CoreObject sandboxRoot, JsonNode? node)
+    private static bool ExpandAnimationShorthand(ObjectLookup sandbox, JsonNode? node)
     {
         bool expanded = false;
         if (node is JsonObject obj)
         {
             if (CollectionReconciler.TryGetId(obj, out Guid id)
-                && sandboxRoot.FindById(id) is EngineObject engineObject
+                && sandbox.Find(id) is EngineObject engineObject
                 && obj["Animations"] is JsonObject animations)
             {
                 foreach ((string propertyName, JsonNode? animationNode) in animations.ToArray())
@@ -215,14 +215,14 @@ public sealed partial class Reconciler
 
             foreach ((_, JsonNode? child) in obj.ToArray())
             {
-                expanded |= ExpandAnimationShorthand(sandboxRoot, child);
+                expanded |= ExpandAnimationShorthand(sandbox, child);
             }
         }
         else if (node is JsonArray array)
         {
             foreach (JsonNode? child in array)
             {
-                expanded |= ExpandAnimationShorthand(sandboxRoot, child);
+                expanded |= ExpandAnimationShorthand(sandbox, child);
             }
         }
 
@@ -230,14 +230,14 @@ public sealed partial class Reconciler
     }
 
     private static void ValidateChangedAnimationValues(
-        CoreObject sandboxRoot,
+        ObjectLookup sandbox,
         JsonObject currentDocument,
         JsonObject desiredDocument,
         List<ValidationOutcome> validation)
     {
         HashSet<Guid> ambiguousIds = CollectionReconciler.CollectDuplicatedIds(currentDocument);
         ValidateChangedAnimationValuesInNode(
-            sandboxRoot,
+            sandbox,
             currentDocument,
             desiredDocument,
             ambiguousIds,
@@ -245,7 +245,7 @@ public sealed partial class Reconciler
     }
 
     private static void ValidateChangedAnimationValuesInNode(
-        CoreObject sandboxRoot,
+        ObjectLookup sandbox,
         JsonNode? currentNode,
         JsonNode? desiredNode,
         IReadOnlySet<Guid> ambiguousIds,
@@ -256,7 +256,7 @@ public sealed partial class Reconciler
             JsonObject? currentObject = currentNode as JsonObject;
             if (CollectionReconciler.TryGetId(desiredObject, out Guid id))
             {
-                ValidateOwnerAnimations(sandboxRoot, currentObject, desiredObject, id, ambiguousIds, validation);
+                ValidateOwnerAnimations(sandbox, currentObject, desiredObject, id, ambiguousIds, validation);
             }
 
             foreach ((string propertyName, JsonNode? desiredChild) in desiredObject)
@@ -264,7 +264,7 @@ public sealed partial class Reconciler
                 JsonNode? currentChild = null;
                 currentObject?.TryGetPropertyValue(propertyName, out currentChild);
                 ValidateChangedAnimationValuesInNode(
-                    sandboxRoot,
+                    sandbox,
                     currentChild,
                     desiredChild,
                     ambiguousIds,
@@ -274,7 +274,7 @@ public sealed partial class Reconciler
         else if (desiredNode is JsonArray desiredArray)
         {
             ValidateChangedAnimationValuesInArray(
-                sandboxRoot,
+                sandbox,
                 currentNode as JsonArray,
                 desiredArray,
                 ambiguousIds,
@@ -283,7 +283,7 @@ public sealed partial class Reconciler
     }
 
     private static void ValidateOwnerAnimations(
-        CoreObject sandboxRoot,
+        ObjectLookup sandbox,
         JsonObject? currentObject,
         JsonObject desiredObject,
         Guid id,
@@ -307,7 +307,7 @@ public sealed partial class Reconciler
         }
 
         if (desiredAnimations is null
-            || sandboxRoot.FindById(id) is not EngineObject engineObject)
+            || sandbox.Find(id) is not EngineObject engineObject)
         {
             return;
         }
@@ -324,7 +324,7 @@ public sealed partial class Reconciler
             }
 
             ValidateAnimationKeyFrameValues(
-                sandboxRoot,
+                sandbox,
                 engineObject,
                 property,
                 currentAnimationNode,
@@ -334,7 +334,7 @@ public sealed partial class Reconciler
     }
 
     private static void ValidateAnimationKeyFrameValues(
-        CoreObject sandboxRoot,
+        ObjectLookup sandbox,
         EngineObject engineObject,
         IProperty property,
         JsonNode? currentAnimationNode,
@@ -353,7 +353,7 @@ public sealed partial class Reconciler
             currentAnimationNode as JsonObject,
             normalizedAnimation);
         CoreSerializerOptions options = DeclarativeDocumentApplier.CreateOptions(
-            DeclarativeDocumentApplier.ResolveBaseUri(engineObject) ?? sandboxRoot.Uri);
+            DeclarativeDocumentApplier.ResolveBaseUri(engineObject) ?? sandbox.Root.Uri);
         foreach (JsonObject keyFrame in keyFrames.OfType<JsonObject>())
         {
             if (changedValueIds is not null
@@ -408,7 +408,7 @@ public sealed partial class Reconciler
     }
 
     private static void ValidateChangedAnimationValuesInArray(
-        CoreObject sandboxRoot,
+        ObjectLookup sandbox,
         JsonArray? currentArray,
         JsonArray desiredArray,
         IReadOnlySet<Guid> ambiguousIds,
@@ -430,7 +430,7 @@ public sealed partial class Reconciler
                 }
 
                 ValidateChangedAnimationValuesInNode(
-                    sandboxRoot,
+                    sandbox,
                     currentChild,
                     desiredChild,
                     ambiguousIds,
@@ -442,7 +442,7 @@ public sealed partial class Reconciler
             for (int i = 0; i < desiredArray.Count; i++)
             {
                 ValidateChangedAnimationValuesInNode(
-                    sandboxRoot,
+                    sandbox,
                     currentArray is not null && i < currentArray.Count ? currentArray[i] : null,
                     desiredArray[i],
                     ambiguousIds,

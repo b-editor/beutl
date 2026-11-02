@@ -189,12 +189,13 @@ internal sealed partial class DeclarativeDocumentApplier
         if (desired.TryGetPropertyValue("Groups", out JsonNode? groupsNode))
         {
             scene.Groups.Clear();
+            HashSet<Guid> elementIds = scene.Children.Select(element => element.Id.Value).ToHashSet();
             foreach (string group in groupsNode?.Deserialize<string[]>() ?? [])
             {
                 HashSet<Guid> ids = group
                     .Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .Select(text => Guid.TryParse(text, out Guid id) ? id : Guid.Empty)
-                    .Where(id => id != Guid.Empty && scene.Children.Any(element => element.Id.Value == id))
+                    .Where(id => id != Guid.Empty && elementIds.Contains(id))
                     .ToHashSet();
                 if (ids.Count >= 2)
                 {

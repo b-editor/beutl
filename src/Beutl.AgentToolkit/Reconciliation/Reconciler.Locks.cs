@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.Collections.Pooled;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Transitions;
@@ -208,10 +209,12 @@ public sealed partial class Reconciler
         }
 
         Dictionary<Guid, (int Index, Element Element)> current = IndexElementsById(scene.Children);
-        ILookup<int, Element> layers = sandbox.Children.ToLookup(element => element.ZIndex.Value);
+        SceneElementIndex index = sandbox.ElementIndex;
+        using var candidates = new PooledList<Element>();
         foreach (Element locked in lockedElements)
         {
-            foreach (Element placed in layers[locked.ZIndex.Value])
+            QueryOverlapCandidates(index, locked, candidates);
+            foreach (Element placed in candidates)
             {
                 if (placed.Id.Value == locked.Id.Value
                     || !Overlaps(placed, locked)
@@ -239,11 +242,9 @@ public sealed partial class Reconciler
             return null;
         }
 
-        Dictionary<Guid, (int Index, Element Element)> current = IndexElementsById(scene.Children);
         Dictionary<Guid, (int Index, Element Element)> applied = IndexElementsById(sandbox.Children);
-        ILookup<int, (Element Element, int Index)> layers = scene.Children
-            .Select((element, index) => (element, index))
-            .ToLookup(pair => pair.element.ZIndex.Value);
+        SceneElementIndex index = scene.ElementIndex;
+        using var candidates = new PooledList<Element>();
         foreach (Element locked in lockedElements)
         {
             if (!applied.TryGetValue(locked.Id.Value, out (int Index, Element Element) lockedAfter))
@@ -251,14 +252,14 @@ public sealed partial class Reconciler
                 continue;
             }
 
-            int lockedBefore = current[locked.Id.Value].Index;
-            foreach ((Element other, int otherBefore) in layers[locked.ZIndex.Value])
+            QueryOverlapCandidates(index, locked, candidates);
+            foreach (Element other in candidates)
             {
                 if (other == locked
                     || !Overlaps(other, locked)
                     || !applied.TryGetValue(other.Id.Value, out (int Index, Element Element) otherAfter)
                     || !Overlaps(otherAfter.Element, locked)
-                    || (otherBefore > lockedBefore) == (otherAfter.Index > lockedAfter.Index))
+                    || (index.CompareSceneOrder(other, locked) > 0) == (otherAfter.Index > lockedAfter.Index))
                 {
                     continue;
                 }
@@ -272,6 +273,14 @@ public sealed partial class Reconciler
         }
 
         return null;
+    }
+
+    // The elements that may overlap this one on its layer, in Elements order, without walking the layer for each lock.
+    private static void QueryOverlapCandidates(SceneElementIndex index, Element element, PooledList<Element> candidates)
+    {
+        candidates.Clear();
+        index.Query(element.Start.Value, element.Range.End, candidates, element.ZIndex.Value);
+        candidates.Span.Sort(index.CompareSceneOrder);
     }
 
     private static bool Overlaps(Element element, Element other)

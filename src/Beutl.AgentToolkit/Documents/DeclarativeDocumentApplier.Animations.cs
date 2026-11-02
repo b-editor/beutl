@@ -309,6 +309,16 @@ internal sealed partial class DeclarativeDocumentApplier
     private void ApplyKeyFrameList(ICoreList<IKeyFrame> list, JsonArray desired, CoreObject? owner)
     {
         var desiredIds = new HashSet<Guid>();
+        // A repeated Id finds its first frame, as a scan of the list would.
+        var framesById = new Dictionary<Guid, CoreObject>(list.Count);
+        foreach (IKeyFrame frame in list)
+        {
+            if (frame is CoreObject coreObject)
+            {
+                framesById.TryAdd(coreObject.Id.Value, coreObject);
+            }
+        }
+
         for (int index = 0; index < desired.Count; index++)
         {
             if (desired[index] is not JsonObject itemJson)
@@ -323,7 +333,7 @@ internal sealed partial class DeclarativeDocumentApplier
             }
 
             CoreObject item;
-            if (CollectionReconciler.TryGetId(itemJson, out Guid id) && FindById(list, id) is { } existing)
+            if (CollectionReconciler.TryGetId(itemJson, out Guid id) && framesById.TryGetValue(id, out CoreObject? existing))
             {
                 item = existing;
                 ApplyCoreObject(existing, itemJson);
@@ -335,6 +345,7 @@ internal sealed partial class DeclarativeDocumentApplier
                     typeof(IKeyFrame),
                     CreateOptions(owner));
                 list.Add((IKeyFrame)item, out _);
+                framesById.TryAdd(item.Id.Value, item);
             }
 
             desiredIds.Add(item.Id.Value);
@@ -358,11 +369,13 @@ internal sealed partial class DeclarativeDocumentApplier
         List<IKeyFrame> sorted = list.OrderBy(frame => frame.KeyTime.Value).ToList();
         for (int target = 0; target < sorted.Count; target++)
         {
-            int current = list.IndexOf(sorted[target]);
-            if (current != target)
+            // A frame already in place, as nearly all are, needs no search.
+            if (ReferenceEquals(list[target], sorted[target]))
             {
-                Move(list, current, target);
+                continue;
             }
+
+            Move(list, list.IndexOf(sorted[target]), target);
         }
     }
 
