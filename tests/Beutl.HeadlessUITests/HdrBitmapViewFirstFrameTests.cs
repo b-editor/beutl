@@ -24,16 +24,13 @@ public class HdrBitmapViewFirstFrameTests
     [AvaloniaTest]
     public void A_view_without_a_size_queues_no_frame()
     {
-        RunOnMacOS(() =>
+        RunWithView((view, _) =>
         {
             using Ref<BtlBitmap> source = NewSource();
-            var view = new TestView();
-            IPlatformHandle control = view.Create();
 
             view.Source = source;
 
             Assert.That(source.RefCount, Is.EqualTo(HeldByTheView));
-            view.Destroy(control);
         });
     }
 
@@ -42,13 +39,9 @@ public class HdrBitmapViewFirstFrameTests
     [AvaloniaTest]
     public void A_new_size_is_drawn_after_layout()
     {
-        RunOnMacOS(() =>
+        RunWithView((view, window) =>
         {
             using Ref<BtlBitmap> source = NewSource();
-            var view = new TestView();
-            IPlatformHandle control = view.Create();
-            var window = new Window { Content = view, Width = 200, Height = 100 };
-            window.Show();
             view.Source = source;
 
             window.UpdateLayout();
@@ -59,8 +52,6 @@ public class HdrBitmapViewFirstFrameTests
             Dispatcher.UIThread.RunJobs(DispatcherPriority.Loaded);
 
             Assert.That(view.WaitForFirstDraw(), Is.True, "The frame was not drawn after layout.");
-            window.Close();
-            view.Destroy(control);
         });
     }
 
@@ -68,14 +59,10 @@ public class HdrBitmapViewFirstFrameTests
     [AvaloniaTest]
     public void A_frame_arriving_before_the_queued_draw_waits_for_it()
     {
-        RunOnMacOS(() =>
+        RunWithView((view, window) =>
         {
             using Ref<BtlBitmap> first = NewSource();
             using Ref<BtlBitmap> next = NewSource();
-            var view = new TestView();
-            IPlatformHandle control = view.Create();
-            var window = new Window { Content = view, Width = 200, Height = 100 };
-            window.Show();
             view.Source = first;
             window.UpdateLayout();
 
@@ -86,8 +73,28 @@ public class HdrBitmapViewFirstFrameTests
             Dispatcher.UIThread.RunJobs(DispatcherPriority.Loaded);
 
             Assert.That(view.WaitForFirstDraw(), Is.True, "The frame was not drawn by the queued draw.");
-            window.Close();
-            view.Destroy(control);
+        });
+    }
+
+    // A view in a shown window, with no source yet and so no size. It goes away even when an assertion fails, or its
+    // presentation thread and native view would outlive the test.
+    private static void RunWithView(Action<TestView, Window> test)
+    {
+        RunOnMacOS(() =>
+        {
+            var view = new TestView();
+            IPlatformHandle control = view.Create();
+            var window = new Window { Content = view, Width = 200, Height = 100 };
+            try
+            {
+                window.Show();
+                test(view, window);
+            }
+            finally
+            {
+                window.Close();
+                view.Destroy(control);
+            }
         });
     }
 
