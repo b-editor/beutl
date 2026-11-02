@@ -429,15 +429,14 @@ public class TrimTimeControllerTests
     }
 
     [Test]
-    public void Slip_LoopingSourceVideo_UsesWrappedPlaybackWindowBeforeSourceOffset()
+    public void Slip_LoopingSourceVideo_WrapsThePositionWithTheOffset()
     {
         var video = CreateVideo(5);
         video.IsLoop.Value = true;
         var controller = CreateController(video, offsetSeconds: 6);
         Element element = AddElement(5, 1, controller);
 
-        // SourceVideo wraps controller time 6..7 to 1..2 before adding OffsetPosition.
-        // There are 3s of source headroom; the unwrapped 6..7 window would reject the edit.
+        // SourceVideo wraps controller time 6..7 with OffsetPosition added, so no offset leaves the source.
         MediaTime clamped = SlippableMedia.ClampSharedDelta(
             SlippableMedia.Collect(element), Seconds(3.5));
 
@@ -445,7 +444,7 @@ public class TrimTimeControllerTests
         {
             Assert.That(ReadPosition(controller, 5), Is.EqualTo(1).Within(0.000001));
             Assert.That(ReadPosition(controller, 6), Is.EqualTo(2).Within(0.000001));
-            Assert.That(clamped.ToSeconds(), Is.EqualTo(3).Within(0.000001));
+            Assert.That(clamped.ToSeconds(), Is.EqualTo(3.5).Within(0.000001));
         });
 
         bool applied = _slip.Slip(_harness.Scene, [element], Seconds(3.5));
@@ -453,15 +452,90 @@ public class TrimTimeControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.Value.ToSeconds(), Is.EqualTo(3).Within(0.000001));
-            Assert.That(ReadPosition(controller, 5), Is.EqualTo(4).Within(0.000001));
-            Assert.That(ReadPosition(controller, 5.75), Is.EqualTo(4.75).Within(0.000001));
+            Assert.That(video.OffsetPosition.Value.ToSeconds(), Is.EqualTo(3.5).Within(0.000001));
+            Assert.That(ReadPosition(controller, 5), Is.EqualTo(4.5).Within(0.000001));
+            Assert.That(ReadPosition(controller, 5.75), Is.EqualTo(0.25).Within(0.000001));
+        });
+    }
+
+    // A window of a whole cycle plus any offset ran past the source end, so every slip was refused, though the loop
+    // reads those positions wrapped into the source (#3835).
+    [Test]
+    public void Slip_LoopingVideoOfAWholeCycle_AcceptsAPositiveSlip()
+    {
+        var video = CreateVideo(5, offsetSeconds: 1);
+        video.IsLoop.Value = true;
+        Element element = AddElement(0, 10, video);
+
+        bool applied = _slip.Slip(_harness.Scene, [element], Seconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(3)));
+            Assert.That(ReadPosition(video, 1), Is.EqualTo(4).Within(0.000001));
+            Assert.That(ReadPosition(video, 3), Is.EqualTo(1).Within(0.000001));
+        });
+    }
+
+    // The search for the furthest slip prunes by source limits; a looping window, which stays in the source at any
+    // offset, must not narrow them and stop the slip short of offset zero.
+    [Test]
+    public void Slip_LoopingVideo_GoesBackAllTheWayToOffsetZero()
+    {
+        var video = CreateVideo(5, offsetSeconds: 1.2);
+        video.IsLoop.Value = true;
+        Element element = AddElement(0, 10, video);
+
+        bool applied = _slip.Slip(_harness.Scene, [element], Seconds(-3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
+        });
+    }
+
+    // Where the loop flag changes within the window, the looping part stays in the source but the plain part
+    // still moves with the offset, so it alone sets how far the search goes.
+    [Test]
+    public void Slip_VideoThatStartsLoopingMidClip_GoesBackAllTheWayToOffsetZero()
+    {
+        var video = CreateVideo(5, offsetSeconds: 2);
+        var animation = new KeyFrameAnimation<bool>();
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = false } });
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = { Value = Seconds(2) }, Value = { Value = true } });
+        video.IsLoop.SetKeyFrameAnimation(animation);
+        Element element = AddElement(0, 4, video);
+
+        bool applied = _slip.Slip(_harness.Scene, [element], Seconds(-3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
+        });
+    }
+
+    [Test]
+    public void Resize_LoopingVideoWithAnOffset_GrowsPastTheSourceEnd()
+    {
+        var video = CreateVideo(5, offsetSeconds: 1);
+        video.IsLoop.Value = true;
+        Element element = AddElement(0, 2, video);
+
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(12), 0)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Length.Value, Is.EqualTo(Seconds(12)));
+            Assert.That(SlippableMedia.CreateResizeConstraints(element).GetMaximumDuration(), Is.Null);
         });
     }
 
     [TestCase(false)]
     [TestCase(true)]
-    public void Slip_LinkedLoopingVideo_RechecksBoundsAfterAnotherStreamReducesDelta(bool reverseOrder)
+    public void Slip_LinkedLoopingVideo_TakesTheOtherStreamsBound(bool reverseOrder)
     {
         var video = CreateVideo(5, offsetSeconds: 1);
         video.IsLoop.Value = true;
@@ -476,8 +550,8 @@ public class TrimTimeControllerTests
         Element[] elements = reverseOrder ? [audioElement, videoElement] : [videoElement, audioElement];
         int before = _harness.History.UndoCount;
 
-        // The editor bounds the slip by the playback window before the offset (#3835). Audio allows +4s,
-        // but video permits only +3s, yielding offsets 4 and 3 in either order.
+        // The loop keeps the video in its source at any offset, so the audio's +4s
+        // decides, yielding offsets 5 and 4 in either order.
         var targets = elements.SelectMany(element => SlippableMedia.Collect(element)).ToArray();
         MediaTime clamped = SlippableMedia.ClampSharedDelta(targets, Seconds(6));
 
@@ -486,15 +560,13 @@ public class TrimTimeControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(clamped.ToSeconds(), Is.EqualTo(3).Within(0.000001));
-            Assert.That(video.OffsetPosition.Value.ToSeconds(), Is.EqualTo(4).Within(0.000001));
-            Assert.That(sound.OffsetPosition.Value.ToSeconds(), Is.EqualTo(3).Within(0.000001));
-            // The clip's end is exclusive; a looping source reads it at the wrapped start.
+            Assert.That(clamped.ToSeconds(), Is.EqualTo(4).Within(0.000001));
+            Assert.That(video.OffsetPosition.Value.ToSeconds(), Is.EqualTo(5).Within(0.000001));
+            Assert.That(sound.OffsetPosition.Value.ToSeconds(), Is.EqualTo(4).Within(0.000001));
+            // Offset 5 is one whole cycle of the source, so playback reads from its start.
             foreach (double localSeconds in new[] { 0d, 0.5d, 29d / 30 })
             {
-                double position = ReadPosition(video, 5 + localSeconds);
-                Assert.That(position, Is.EqualTo(4 + localSeconds).Within(0.000001));
-                Assert.That(position, Is.InRange(0d, 5d), $"Looping video source time at local {localSeconds}s");
+                Assert.That(ReadPosition(video, 5 + localSeconds), Is.EqualTo(localSeconds).Within(0.000001));
             }
             Assert.That(sound.OffsetPosition.Value + audioElement.Length.Value, Is.LessThanOrEqualTo(Seconds(5)));
             foreach (Element element in elements)
@@ -570,8 +642,8 @@ public class TrimTimeControllerTests
         });
     }
 
-    [TestCase(false, 9.5, 3, 1, 0, 4, 3)]
-    [TestCase(true, 9.5, 3, 1, 0, 4, 3)]
+    [TestCase(false, 9.5, 9.5, 1, 0, 10.5, 9.5)]
+    [TestCase(true, 9.5, 9.5, 1, 0, 10.5, 9.5)]
     [TestCase(false, -9.5, -4, 4, 15, 0, 11)]
     [TestCase(true, -9.5, -4, 4, 15, 0, 11)]
     public void Slip_LinkedLoopingSource_DoesNotWrapTheOffsetWrite(bool reverseOrder, double requested,
@@ -644,6 +716,42 @@ public class TrimTimeControllerTests
             Assert.That(SlippableMedia.HasOriginalDuration(element), Is.True);
             Assert.That(SlippableMedia.GetOriginalDuration(element), Is.EqualTo(Seconds(expected)));
         });
+    }
+
+    // A slip can leave a looping video's offset past one cycle. Counted without the loop, it still starts where the
+    // loop reads that offset, so the clip's original duration never comes out as zero.
+    [TestCase(1d, 4d, false)]
+    [TestCase(5d, 5d, false)]
+    [TestCase(7d, 3d, false)]
+    [TestCase(7d, 3d, true)]
+    public void OriginalDuration_LoopingVideo_CountsFromWhereTheLoopReadsTheOffset(double offset, double expected, bool animated)
+    {
+        var video = CreateVideo(5, offsetSeconds: offset);
+        if (animated)
+        {
+            var animation = new KeyFrameAnimation<bool>();
+            animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = true } });
+            video.IsLoop.SetKeyFrameAnimation(animation);
+        }
+        else
+        {
+            video.IsLoop.Value = true;
+        }
+        Element element = AddElement(0, 1, video);
+
+        Assert.That(SlippableMedia.GetOriginalDuration(element), Is.EqualTo(Seconds(expected)));
+    }
+
+    // A controller also moves where the loop starts reading: (6 + 7) % 5 = 3, which leaves 2s of the source.
+    [Test]
+    public void OriginalDuration_LoopingVideoUnderAController_CountsFromWhereTheLoopStarts()
+    {
+        var video = CreateVideo(5, offsetSeconds: 7);
+        video.IsLoop.Value = true;
+        var controller = CreateController(video, offsetSeconds: 6);
+        Element element = AddElement(0, 1, controller);
+
+        Assert.That(SlippableMedia.GetOriginalDuration(element), Is.EqualTo(Seconds(2)));
     }
 
     [Test]
