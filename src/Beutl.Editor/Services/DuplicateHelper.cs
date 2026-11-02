@@ -17,7 +17,8 @@ public static class DuplicateHelper
         var ids = new HashSet<Guid>(seedIds);
         foreach (ImmutableHashSet<Guid> group in groups)
         {
-            if (group.Overlaps(ids))
+            // Walk the group, not ids: Overlaps walks its argument, which costs groups × ids.
+            if (group.Any(ids.Contains))
             {
                 ids.UnionWith(group);
             }

@@ -39,6 +39,9 @@ public partial class Scene : ProjectItem, INotifyEdited
     private SceneElementIndex? _elementIndex;
     private readonly object _elementIndexLock = new();
     private readonly HashSet<Element> _transitionElements = new(ReferenceEqualityComparer.Instance);
+    // Element id to its first group, built on the first lookup. Only the document's thread reads the groups,
+    // so unlike the element index it needs no lock.
+    private Dictionary<Guid, ImmutableHashSet<Guid>>? _groupByElement;
 
     public Scene()
         : this(1920, 1080, string.Empty)
@@ -64,6 +67,13 @@ public partial class Scene : ProjectItem, INotifyEdited
             lock (_elementIndexLock) _transitionElements.Remove(item);
         };
         Edited += (_, _) => { lock (_elementIndexLock) _elementIndex?.InvalidateTransitions(); };
+        // An added group is applied to the lookup as it arrives, so the groups a split adds after every cut do
+        // not rebuild it. Any other change drops it until the next lookup.
+        Groups.Attached += OnGroupAttached;
+        Groups.CollectionChanged += (_, e) =>
+        {
+            if (e.Action != NotifyCollectionChangedAction.Add) _groupByElement = null;
+        };
         Layers.CollectionChanged += Layers_CollectionChanged;
         Layers.Attached += OnLayerAttached;
         Layers.Detached += OnLayerDetached;
@@ -168,13 +178,15 @@ public partial class Scene : ProjectItem, INotifyEdited
     public bool RemoveElementsFromGroups(IReadOnlyCollection<Guid> ids)
     {
         ArgumentNullException.ThrowIfNull(ids);
+        // Look the members up in a set: Overlaps and Except walk their argument, which costs groups × ids.
+        var idSet = new HashSet<Guid>(ids);
         bool removed = false;
         for (int i = Groups.Count - 1; i >= 0; i--)
         {
             ImmutableHashSet<Guid> group = Groups[i];
-            if (!group.Overlaps(ids)) continue;
+            if (!group.Any(idSet.Contains)) continue;
 
-            ImmutableHashSet<Guid> updated = group.Except(ids);
+            ImmutableHashSet<Guid> updated = group.Except(group.Where(idSet.Contains));
             if (updated.Count >= 2)
             {
                 Groups[i] = updated;
@@ -188,6 +200,39 @@ public partial class Scene : ProjectItem, INotifyEdited
         }
 
         return removed;
+    }
+
+    // The first group holding the element, as a scan from the start would find it, without scanning the groups
+    // for every element looked up.
+    internal ImmutableHashSet<Guid>? FindGroup(Guid elementId)
+    {
+        if (_groupByElement is null)
+        {
+            var index = new Dictionary<Guid, ImmutableHashSet<Guid>>();
+            foreach (ImmutableHashSet<Guid> group in Groups)
+            {
+                foreach (Guid id in group) index.TryAdd(id, group);
+            }
+
+            _groupByElement = index;
+        }
+
+        return _groupByElement.GetValueOrDefault(elementId);
+    }
+
+    private void OnGroupAttached(ImmutableHashSet<Guid> group)
+    {
+        if (_groupByElement is not { } index) return;
+
+        foreach (Guid id in group)
+        {
+            // Already in another group: rebuild, so that the first of its groups stays the one found.
+            if (!index.TryAdd(id, group))
+            {
+                _groupByElement = null;
+                return;
+            }
+        }
     }
 
     // Expects element.Uri to be set.

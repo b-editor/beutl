@@ -47,7 +47,7 @@ public sealed class ElementStructureService : IElementStructureService
     internal static IReadOnlyList<Element> SplitCore(Scene scene, IReadOnlyList<Element> targets, MediaTime at,
         SplitBatch? batch = null)
     {
-        var groupUpdates = new Dictionary<int, List<Guid>>();
+        var groupUpdates = new Dictionary<ImmutableHashSet<Guid>, List<Guid>>(ReferenceEqualityComparer.Instance);
         var added = new List<Element>();
         foreach (Element target in targets)
         {
@@ -56,13 +56,12 @@ public sealed class ElementStructureService : IElementStructureService
             Element backward = SplitElement(scene, target, at, batch);
             added.Add(backward);
 
-            int groupIndex = FindGroupIndex(scene, target.Id.Value);
-            if (groupIndex >= 0)
+            if (scene.FindGroup(target.Id.Value) is { } group)
             {
-                if (!groupUpdates.TryGetValue(groupIndex, out List<Guid>? newIds))
+                if (!groupUpdates.TryGetValue(group, out List<Guid>? newIds))
                 {
                     newIds = [];
-                    groupUpdates.Add(groupIndex, newIds);
+                    groupUpdates.Add(group, newIds);
                 }
 
                 newIds.Add(backward.Id.Value);
@@ -120,29 +119,26 @@ public sealed class ElementStructureService : IElementStructureService
                && SceneTimeRangeService.SnapToFrame(scene, target.Range.End) - at >= frame;
     }
 
-    private static int FindGroupIndex(Scene scene, Guid id)
+    // Each group of new pieces goes right after the group its clips came from. One pass finds where those groups
+    // are; inserting from the highest index down keeps the indices of the groups still to be processed valid.
+    private static void InsertSplitGroups(Scene scene, Dictionary<ImmutableHashSet<Guid>, List<Guid>> groupUpdates)
     {
-        for (int i = 0; i < scene.Groups.Count; i++)
+        var inserts = new List<(int Index, ImmutableHashSet<Guid> Group)>(groupUpdates.Count);
+        for (int i = 0; i < scene.Groups.Count && groupUpdates.Count > 0; i++)
         {
-            if (scene.Groups[i].Contains(id))
+            if (groupUpdates.Remove(scene.Groups[i], out List<Guid>? value))
             {
-                return i;
+                ImmutableHashSet<Guid> newGroup = [.. value];
+                if (newGroup.Count >= 2)
+                {
+                    inserts.Add((i, newGroup));
+                }
             }
         }
 
-        return -1;
-    }
-
-    // Inserting from the highest index down keeps the indices of the groups still to be processed valid.
-    private static void InsertSplitGroups(Scene scene, Dictionary<int, List<Guid>> groupUpdates)
-    {
-        foreach ((int index, List<Guid> value) in groupUpdates.OrderByDescending(x => x.Key))
+        for (int i = inserts.Count - 1; i >= 0; i--)
         {
-            ImmutableHashSet<Guid> newGroup = [.. value];
-            if (newGroup.Count >= 2)
-            {
-                scene.Groups.Insert(index + 1, newGroup);
-            }
+            scene.Groups.Insert(inserts[i].Index + 1, inserts[i].Group);
         }
     }
 
@@ -160,12 +156,10 @@ public sealed class ElementStructureService : IElementStructureService
         bool created = false;
         if (ids.Count >= 2)
         {
+            // The ids were just taken out of every group, so no group can already equal the new one.
             ImmutableHashSet<Guid> newGroup = [.. ids];
-            if (!scene.Groups.Any(g => g.SetEquals(newGroup)))
-            {
-                scene.Groups.Add(newGroup);
-                created = true;
-            }
+            scene.Groups.Add(newGroup);
+            created = true;
         }
 
         // Commit only when something changed; an unconditional Commit would
