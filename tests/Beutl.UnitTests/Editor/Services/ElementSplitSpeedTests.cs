@@ -1,13 +1,16 @@
 ﻿using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Audio;
+using Beutl.Audio.Composing;
 using Beutl.Composition;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.Engine.Audio;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
 
@@ -328,6 +331,150 @@ public sealed class ElementSplitSpeedTests
 
         Assert.That((after.RequestedPosition + after.OffsetPosition).ToSeconds(),
             Is.EqualTo(before.ToSeconds()).Within(0.01));
+    }
+
+    private static MediaTime PlaybackPosition(SourceVideo video, MediaTime time)
+    {
+        using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(time));
+        return resource.RequestedPosition + resource.OffsetPosition;
+    }
+
+    // Playback multiplies the elapsed time by what the expression gives, whatever speed is stored (#3851).
+    [Test]
+    public void Split_VideoSpeedExpression_MatchesPlaybackAfterTheCut()
+    {
+        var video = new SourceVideo { Speed = { Value = 300f } };
+        video.Speed.Expression = Expression.Create<float>("200");
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(4), video);
+        MediaTime before = PlaybackPosition(video, MediaTime.FromSeconds(3));
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Element back = _harness.Scene.Children.Single(child => child != element);
+        Assert.That(PlaybackPosition(BackObject<SourceVideo>(back), back.Range.Start + MediaTime.FromSeconds(2)).ToSeconds(),
+            Is.EqualTo(before.ToSeconds()).Within(0.01));
+    }
+
+    // The back piece plays what the uncut clip played after the cut. The test decoder's 440 Hz sine looks the same a
+    // whole second away, so this plays a ramp that differs at every position.
+    [Test]
+    public void Split_SoundSpeedExpression_PlaysOnAcrossTheCut()
+    {
+        const int rate = 44100;
+        const int frames = rate * 4;
+        AudioTestWaves.WithTemporaryWave(rate, frames, i => ((float)i / frames, 0f), source =>
+        {
+            var sound = new SourceSound { Source = { Value = source } };
+            sound.Speed.Expression = Expression.Create<float>("200");
+            Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), sound);
+            var afterTheCut = new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1));
+            float[] uncut = Play(afterTheCut);
+
+            _service.Split(_harness.Scene, [element], afterTheCut.Start);
+
+            Assert.Multiple(() =>
+            {
+                // Half a second into the window, 1.5 s at 200% is three seconds up the four-second ramp.
+                Assert.That(uncut[rate / 2], Is.EqualTo(0.75f).Within(0.001f));
+                Assert.That(Play(afterTheCut), Is.EqualTo(uncut).Within(1e-6f));
+            });
+        });
+
+        float[] Play(TimeRange range)
+        {
+            using var compositor = new SceneCompositor(_harness.Scene);
+            using var composer = new Composer { SampleRate = rate };
+            using AudioBuffer? buffer = composer.Compose(range, compositor.EvaluateAudio(range));
+            return buffer!.GetChannelData(0).ToArray();
+        }
+    }
+
+    // Under a controller the video plays the time the controller maps the cut to, so that is when the expression is read.
+    [Test]
+    public void Split_ChangingVideoSpeedExpressionUnderAController_ContinuesFromTheCut()
+    {
+        var video = new SourceVideo();
+        video.Speed.Expression = Expression.Create<float>("100 + 100 * Time");
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(4), video);
+        element.Objects.Add(new DrawableTimeController { Speed = { Value = 200f } });
+        MediaTime atTheCut = PlaybackPosition(video, MediaTime.FromSeconds(2));
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Element back = _harness.Scene.Children.Single(child => child != element);
+        Assert.That(BackObject<SourceVideo>(back).OffsetPosition.Value.ToSeconds(), Is.EqualTo(atTheCut.ToSeconds()).Within(0.01));
+    }
+
+    // A controller's offset starts the back piece partway into its own clock, where its expression gives another value
+    // than the original did at the cut.
+    [Test]
+    public void Split_ChangingVideoSpeedExpressionUnderAnOffsetController_ContinuesFromTheCut()
+    {
+        var video = new SourceVideo();
+        video.Speed.Expression = Expression.Create<float>("100 + 100 * Time");
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(4), video);
+        element.Objects.Add(new DrawableTimeController { OffsetPosition = { Value = MediaTime.FromSeconds(1) } });
+        MediaTime atTheCut = PlaybackPosition(video, MediaTime.FromSeconds(2));
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Element back = _harness.Scene.Children.Single(child => child != element);
+        Assert.That(PlaybackPosition(BackObject<SourceVideo>(back), MediaTime.FromSeconds(2)).ToSeconds(),
+            Is.EqualTo(atTheCut.ToSeconds()).Within(0.01));
+    }
+
+    // That read happens while the back piece is new, and a speed that reads another clip finds nothing outside the scene.
+    [Test]
+    public void SilenceSplit_SpeedReadingAnotherClipUnderAnOffsetController_PlaysOnAcrossTheCut()
+    {
+        var provider = new SourceSound { Speed = { Value = 200f } };
+        Element providerElement = AddElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(1), provider);
+        var video = new SourceVideo();
+        video.Speed.Expression = new ReferenceExpression<float>(provider.Id.Value, nameof(Sound.Speed));
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(4), video);
+        element.Objects.Add(new DrawableTimeController { OffsetPosition = { Value = MediaTime.FromSeconds(1) } });
+        // Half a second after the last cut, at 3 s, which the controller's offset moves on by a second.
+        MediaTime uncut = PlaybackPosition(video, MediaTime.FromSeconds(4.5));
+
+        new SilenceSplitService(_harness.History).Apply(_harness.Scene, element,
+            [new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1))], SilenceSplitMode.DeleteSilence, false);
+
+        Element back = _harness.Scene.Children.Single(child => child != element && child != providerElement);
+        Assert.That(PlaybackPosition(BackObject<SourceVideo>(back), MediaTime.FromSeconds(4.5)).ToSeconds(),
+            Is.EqualTo(uncut.ToSeconds()).Within(0.01));
+    }
+
+    [Test]
+    public void Split_LoopingVideoWithASpeedExpression_KeepsTheWrappedSourcePosition()
+    {
+        var video = new SourceVideo
+        {
+            Source = { Value = TrimTestMedia.CreateVideoSource(2) },
+            IsLoop = { Value = true },
+        };
+        video.Speed.Expression = Expression.Create<float>("250");
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), video);
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Element back = _harness.Scene.Children.Single(child => child != element);
+        Assert.That(PlaybackPosition(BackObject<SourceVideo>(back), back.Range.Start).ToSeconds(), Is.EqualTo(0.5).Within(0.01));
+    }
+
+    // A child anchored in time keeps its own clock through the cut, so nothing moves it, at any speed.
+    [Test]
+    public void Split_AnchoredChildWithASpeedExpression_KeepsItsOffset()
+    {
+        var child = new SourceSound { IsTimeAnchor = { Value = true }, TimeRange = { Value = TimeRange.FromSeconds(2, 4) } };
+        child.Speed.Expression = Expression.Create<float>("200");
+        var group = new SoundGroup();
+        group.Children.Add(child);
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(10), group);
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(3));
+
+        Element back = _harness.Scene.Children.Single(child => child != element);
+        Assert.That(BackObject<SoundGroup>(back).Children.Single().OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
     }
 
     [Test]

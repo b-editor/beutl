@@ -23,7 +23,7 @@ internal sealed partial class MediaTimeMapping
 
     private readonly TimeRange _elementRange;
     private readonly Clock _sourceClock;
-    private readonly SpeedMap _speed;
+    private SpeedMap _speed;
     private readonly Controller[] _controllers;
     private readonly MediaTime? _videoDuration;
     private readonly bool _loopVideo;
@@ -75,10 +75,12 @@ internal sealed partial class MediaTimeMapping
         _timelineKnown = source is not ITimeMappedSource { HasDynamicTimeline: true };
     }
 
-    public bool IsSupported => _timelineKnown && IsMappingSupported;
+    public bool IsSupported => _timelineKnown && _speed.IsSupported && IsMappingSupported;
 
-    // A split continues whichever timeline plays, so unlike other edits it needs no length.
-    public bool IsMappingSupported => _sourceSupported && _speed.IsSupported && _controllers.All(c => c.IsSupported);
+    // A split continues whichever timeline plays and reads a speed expression at the cut, so unlike other edits it
+    // needs neither a length nor a stored speed.
+    public bool IsMappingSupported => _sourceSupported && (_speed.IsSupported || _speed.Expression != null)
+        && _controllers.All(c => c.IsSupported);
 
     public bool CanWriteOffsets => !_sourceLocked && IsSupported && _speed.CanWriteOffsets;
 
@@ -116,6 +118,19 @@ internal sealed partial class MediaTimeMapping
         foreach (Controller controller in _controllers)
             time = controller.Map(time, _elementRange);
         return time.Min - sourceRange.Start;
+    }
+
+    // What an expression on the speed gives while the source plays localTime, or null without one.
+    public float? EvaluateSpeed(MediaTime localTime)
+        => _speed.Expression?.Evaluate(new EvaluationContext(_sourceClock.GetRange(_elementRange).Start + MapControllerTime(localTime)));
+
+    // This mapping at a fixed speed, which is how playback applies what an expression gives: the elapsed time times
+    // that value.
+    public MediaTimeMapping AtSpeed(float percent)
+    {
+        var mapping = (MediaTimeMapping)MemberwiseClone();
+        mapping._speed = new SpeedMap(Property.CreateValue(percent), 60);
+        return mapping;
     }
 
     // The positions the source reads over the range with OffsetPosition at offset. With plainOnly, those it would

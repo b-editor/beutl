@@ -304,7 +304,8 @@ public sealed class ElementStructureService : IElementStructureService
         Dictionary<ISplittable, SlippableMedia.Target> targets = CollectSplitTargets(element, splittables, batch);
         foreach (ISplittable splittable in splittables)
         {
-            if (!targets.TryGetValue(splittable, out SlippableMedia.Target? target) || !target.IsMappingSupported)
+            if (!targets.TryGetValue(splittable, out SlippableMedia.Target? target) || !target.IsMappingSupported
+                || !target.TryReadSpeed(forwardDuration, out float? speed))
             {
                 sources.Add(new(splittable, MediaTime.Zero, MediaTime.Zero, false));
                 continue;
@@ -312,7 +313,7 @@ public sealed class ElementStructureService : IElementStructureService
 
             sources.Add(new(
                 splittable,
-                target.SourcePosition(forwardDuration),
+                target.SourcePosition(forwardDuration, speed),
                 target.ContextTime(forwardDuration),
                 true));
         }
@@ -383,13 +384,14 @@ public sealed class ElementStructureService : IElementStructureService
 
         for (int i = 0; i < copies.Count; i++)
         {
-            if (!supported[i] || !backTargets.TryGetValue(copies[i], out SlippableMedia.Target? backTarget))
+            if (!supported[i] || !backTargets.TryGetValue(copies[i], out SlippableMedia.Target? backTarget)
+                || !backTarget.TryReadSpeed(MediaTime.Zero, out float? speed))
             {
                 copies[i].NotifySplitted(true, forwardDuration, -forwardDuration);
                 continue;
             }
 
-            MediaTime delta = sources[i].PositionAtCut - backTarget.SourcePosition(MediaTime.Zero);
+            MediaTime delta = sources[i].PositionAtCut - backTarget.SourcePosition(MediaTime.Zero, speed);
             copies[i].NotifySplitted(true, delta, -forwardDuration);
         }
     }

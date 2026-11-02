@@ -18,10 +18,11 @@ public sealed partial class SilenceSplitService
         cancellationToken.ThrowIfCancellationRequested();
         if (!TryResolveTargets(scene, element, ranges, includeLinked, out var group, out int groupIndex, out Element[] originals))
             return false;
-        // Scene references, portals and extension callbacks can depend on live objects outside the
-        // clip. They retain the existing Razor path, without limiting which clips can be edited.
+        // Scene references, portals, extension callbacks and the speed expressions a cut reads can depend on live
+        // objects outside the clip. They retain the existing Razor path, without limiting which clips can be edited.
         if (!originals.All(e => e.GetType() == typeof(Element)
-            && e.Objects.All(o => o.GetType() == typeof(SourceSound) || o.GetType() == typeof(SourceVideo))))
+            && e.Objects.All(o => (o.GetType() == typeof(SourceSound) || o.GetType() == typeof(SourceVideo))
+                && o is not ITimeMappedSource { Speed.HasExpression: true })))
         {
             progress?.Report(100);
             Apply(scene, element, ranges, mode, includeLinked);
