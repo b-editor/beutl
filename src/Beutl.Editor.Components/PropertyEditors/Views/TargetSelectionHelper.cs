@@ -14,7 +14,7 @@ public static class TargetSelectionHelper
     {
         var pickerVm = new SelectLibraryItemDialogViewModel(targets);
         var flyout = new LibraryItemPickerFlyout(pickerVm);
-        flyout.ShowAt(host, true);
+        PickerGuard.Show(host, flyout);
 
         var tcs = new TaskCompletionSource<T?>();
         flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
@@ -24,16 +24,18 @@ public static class TargetSelectionHelper
         return await tcs.Task;
     }
 
-    // Opens the picker through PickerGuard, so a second request to the same host while it is open does nothing.
+    // Opens the picker through PickerGuard, so a second request from the same button closes it, and any other request
+    // to the same host while it is open does nothing.
     public static Task HandleSelectTargetRequestAsync<TViewModel, TTarget>(
         Control host,
+        Control? button,
         TViewModel viewModel,
         Func<TViewModel, IReadOnlyList<TargetObjectInfo>> getAvailableTargets,
         Action<TViewModel, TTarget?> setTarget)
         where TViewModel : class
         where TTarget : CoreObject
     {
-        return PickerGuard.RunAsync(host, async () =>
+        return PickerGuard.RunAsync(host, button, async () =>
         {
             var result = await ShowTargetPickerAsync<TTarget>(host, getAvailableTargets(viewModel));
 

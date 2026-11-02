@@ -17,6 +17,7 @@ namespace Beutl.Editor.Components.OutputTab.Views;
 public partial class OutputTabView : UserControl
 {
     private readonly IDataTemplate _sharedDataTemplate = new _DataTemplate();
+    private OutputPickerFlyout? _profilesFlyout;
 
     public OutputTabView()
     {
@@ -108,6 +109,13 @@ public partial class OutputTabView : UserControl
     {
         if (DataContext is not OutputTabViewModel viewModel) return;
 
+        // The picker does not light-dismiss, so the button that opened it closes it again.
+        if (_profilesFlyout != null)
+        {
+            _profilesFlyout.Hide();
+            return;
+        }
+
         var pickerVm = new OutputPickerViewModel(viewModel.Items, viewModel.PresetItems);
         pickerVm.SetInitialSelection(viewModel.SelectedItem.Value);
 
@@ -116,11 +124,13 @@ public partial class OutputTabView : UserControl
         flyout.MoreMenuRequested += OnPickerMoreMenuRequested;
         flyout.Closed += (_, _) =>
         {
+            _profilesFlyout = null;
             flyout.Confirmed -= OnPickerConfirmed;
             flyout.MoreMenuRequested -= OnPickerMoreMenuRequested;
             pickerVm.Dispose();
         };
 
+        _profilesFlyout = flyout;
         flyout.ShowAt(ProfilesButton);
     }
 

@@ -64,7 +64,7 @@ public partial class AudioEffectEditor : UserControl
 
         if (viewModel.IsGroup.Value)
         {
-            Type? type = await SelectType();
+            Type? type = await SelectType(sender as Control);
             if (type != null)
             {
                 try
@@ -83,9 +83,9 @@ public partial class AudioEffectEditor : UserControl
         }
     }
 
-    private Task<Type?> SelectType()
+    private Task<Type?> SelectType(Control? button)
     {
-        return PickerGuard.RunAsync(this, async () =>
+        return PickerGuard.RunAsync(this, button, async () =>
         {
             var viewModel = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.AudioEffect, typeof(AudioEffect));
             return await LibraryItemPickerHelper.ShowAsync(this, viewModel, KnownLibraryItemFormats.AudioEffect) as Type;
@@ -96,7 +96,7 @@ public partial class AudioEffectEditor : UserControl
     {
         if (DataContext is not AudioEffectEditorViewModel { IsDisposed: false } viewModel) return;
 
-        Type? type = await SelectType();
+        Type? type = await SelectType(null);
         if (type != null)
         {
             try

@@ -145,6 +145,7 @@ public partial class TransformEditor : UserControl
 
         await TargetSelectionHelper.HandleSelectTargetRequestAsync<TransformEditorViewModel, Transform>(
             this,
+            sender as Control,
             vm,
             vm => vm.GetAvailableTargets(),
             (vm, target) => vm.SetTarget(target));

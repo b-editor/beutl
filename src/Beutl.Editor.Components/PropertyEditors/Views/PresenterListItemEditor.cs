@@ -53,6 +53,7 @@ public class PresenterListItemEditor : UserControl, IListItemEditor
 
         await TargetSelectionHelper.HandleSelectTargetRequestAsync<IPresenterEditorViewModel, CoreObject>(
             this,
+            sender as Control,
             viewModel,
             vm => vm.GetAvailableTargets(),
             (vm, target) => vm.SetTarget(target));

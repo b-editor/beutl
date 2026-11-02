@@ -72,11 +72,11 @@ public partial class ListEditor : UserControl
         }
     }
 
-    private Task<object?> SelectTypeOrReference()
+    private Task<object?> SelectTypeOrReference(Control? button)
     {
         if (DataContext is not IListEditorViewModel { IsDisposed: false } viewModel) return Task.FromResult<object?>(null);
 
-        return PickerGuard.RunAsync(this, () =>
+        return PickerGuard.RunAsync(this, button, () =>
         {
             Type propertyType = viewModel.ItemType;
             string format = propertyType.FullName!;
@@ -102,7 +102,7 @@ public partial class ListEditor : UserControl
                 {
                     viewModel.AddItem(itemType);
                 }
-                else if (await SelectTypeOrReference() is Type selectedType)
+                else if (await SelectTypeOrReference(sender as Control) is Type selectedType)
                 {
                     viewModel.AddItem(selectedType);
                 }

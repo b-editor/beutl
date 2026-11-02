@@ -21,7 +21,7 @@ public class FontFamilyEditor : PropertyEditor, IValueEditorControl<Media.FontFa
             defaultBindingMode: BindingMode.TwoWay);
 
     private DropDownButton? _button;
-    private bool _flyoutActive;
+    private SearchablePickerFlyout? _flyout;
 
     public Media.FontFamily Value
     {
@@ -76,6 +76,7 @@ public class FontFamilyEditor : PropertyEditor, IValueEditorControl<Media.FontFa
         SearchablePickerFlyout dialog = CreatePicker(viewModel);
         // A search still waiting for typing to pause can highlight a font after the picker has closed.
         dialog.Closed += (_, _) => preview.Dispose();
+        _flyout = dialog;
         dialog.ShowAt(this);
         var tcs = new TaskCompletionSource<Media.FontFamily?>();
         dialog.Dismissed += (_, _) => tcs.SetResult(null);
@@ -97,11 +98,15 @@ public class FontFamilyEditor : PropertyEditor, IValueEditorControl<Media.FontFa
 
     private async void OnButtonClick(object? sender, RoutedEventArgs e)
     {
-        if (_flyoutActive) return;
+        // The picker does not light-dismiss, so the button that opened it closes it again.
+        if (_flyout != null)
+        {
+            _flyout.Hide();
+            return;
+        }
 
         try
         {
-            _flyoutActive = true;
             Media.FontFamily oldValue = Value;
             var newValue = await Select();
             if (newValue == null)
@@ -120,7 +125,7 @@ public class FontFamilyEditor : PropertyEditor, IValueEditorControl<Media.FontFa
         }
         finally
         {
-            _flyoutActive = false;
+            _flyout = null;
         }
     }
 

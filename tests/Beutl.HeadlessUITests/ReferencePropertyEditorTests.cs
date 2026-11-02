@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
 using Beutl.Controls.PropertyEditors;
@@ -500,15 +501,30 @@ public class ReferencePropertyEditorTests
     }
 
     [AvaloniaTest]
-    public async Task ThePickerCancelsConfirmsAndIgnoresDuplicateRequests()
+    public async Task ThePickerCancelsConfirmsAndClosesOnTheTargetButton()
     {
         using var fixture = new Fixture(typeof(DrawablePresenter));
+        // At the top of a tall window, the picker opens below the button as it does in the app.
+        fixture.Window.Height = 900;
+        fixture.Control.VerticalAlignment = VerticalAlignment.Top;
         fixture.Show();
         ReferenceEditor editor = fixture.Window.GetVisualDescendants().OfType<ReferenceEditor>().Single();
-        HeadlessTestHelpers.Click(editor.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_TargetPickerButton"));
+        Button targetButton = editor.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_TargetPickerButton");
+        HeadlessTestHelpers.Click(targetButton);
+        LibraryItemPickerFlyoutPresenter picker = fixture.Window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().Single();
+        picker.SelectedItem = picker.ReferenceItems!.Single(item => ((TargetObjectInfo)item.UserData).Object == fixture.Target);
+        TimelineTestHost.WaitForHitTest(fixture.Window, targetButton, HeadlessTestHelpers.Center(targetButton, fixture.Window));
+        HeadlessTestHelpers.Click(targetButton);
+        await Task.Yield();
+        Assert.Multiple(() =>
+        {
+            Assert.That(fixture.Window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>(), Is.Empty);
+            Assert.That(fixture.Property.Expression, Is.Null);
+        });
+
         editor.RaiseEvent(new RoutedEventArgs(ReferenceEditor.SelectTargetRequestedEvent));
         HeadlessTestHelpers.Render();
-        LibraryItemPickerFlyoutPresenter picker = fixture.Window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().Single();
+        picker = fixture.Window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().Single();
         picker.SelectedItem = picker.ReferenceItems!.Single(item => ((TargetObjectInfo)item.UserData).Object == fixture.Target);
         HeadlessTestHelpers.Click(picker.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "DismissButton"));
         await Task.Yield();

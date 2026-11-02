@@ -18,6 +18,7 @@ public partial class SceneEditor : UserControl
 
         await TargetSelectionHelper.HandleSelectTargetRequestAsync<SceneEditorViewModel, Scene>(
             this,
+            sender as Control,
             vm,
             viewModel => viewModel.GetAvailableScenes(),
             (viewModel, target) => viewModel.SetTarget(target));
