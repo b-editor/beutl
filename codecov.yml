@@ -6,6 +6,14 @@
   require_head: true
   hide_project_coverage: false
 
+# Coverage of the whole repository moves without a related change (#2571). Commits that changed no code moved it by up
+# to 0.03%, and all but one of the drops on the last 80 merged pull requests were 0.04% or less. Allow for that much.
+coverage:
+  status:
+    project:
+      default:
+        threshold: 0.05%
+
 # The coverage job runs on Linux and cannot execute the Windows WebView2 COM handler, the WebView2, WKWebView and
 # WebKitGTK/WPE interop that needs a native web view, the macOS-only NSBundle read of the installed Safari's version,
 # the Windows-only loader for the FreeType font manager in Beutl's libSkiaSharp, the Windows-only DXGI and display
