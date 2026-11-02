@@ -1013,6 +1013,75 @@ public sealed class ApplyEditLockTests
         });
     }
 
+    // Of several elements that come to overlap a locked one, the first in Elements order is named, whatever their times.
+    [Test]
+    public void Apply_edit_names_the_first_element_placed_over_a_locked_element_in_elements_order()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element locked = AddElement(scene, "Locked", zIndex: 0);
+        locked.Length.Value = MediaTime.FromSeconds(10);
+        locked.IsLocked.Value = true;
+        Element first = AddElement(scene, "First", zIndex: 0);
+        first.Start.Value = MediaTime.FromSeconds(20);
+        Element second = AddElement(scene, "Second", zIndex: 0);
+        second.Start.Value = MediaTime.FromSeconds(30);
+        using var session = new AgentToolkitTestSession(scene);
+
+        ToolResult<ApplyEditResponse> result = session.CreateEditTools().ApplyEdit(
+            patch: new JsonObject
+            {
+                ["Elements"] = new JsonArray(
+                    new JsonObject { ["Id"] = first.Id.Value.ToString(), [nameof(Element.Start)] = TimeSpan.FromSeconds(5).ToString("c") },
+                    new JsonObject { ["Id"] = second.Id.Value.ToString(), [nameof(Element.Start)] = TimeSpan.FromSeconds(1).ToString("c") })
+            },
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Message, Does.Contain($"'First' ({first.Id.Value}) would overlap locked element"));
+        });
+    }
+
+    // Elements below and above a locked element each keep their side of it, and the first of them in Elements
+    // order is named, whatever their times.
+    [TestCase("reverse", "Below")]
+    [TestCase("above to the bottom", "Above")]
+    [TestCase("below to the top", "Below")]
+    public void Apply_edit_rejects_moving_an_overlapping_element_across_a_locked_element(string edit, string named)
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element below = AddElement(scene, "Below", zIndex: 0);
+        below.Start.Value = MediaTime.FromSeconds(1);
+        Element locked = AddElement(scene, "Locked", zIndex: 0);
+        locked.Start.Value = MediaTime.Zero;
+        locked.Length.Value = MediaTime.FromSeconds(10);
+        locked.IsLocked.Value = true;
+        Element above = AddElement(scene, "Above", zIndex: 0);
+        above.Start.Value = MediaTime.Zero;
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject document = session.Documents.Read(scene);
+        JsonArray elements = document["Elements"]!.AsArray();
+        JsonNode[] current = [.. elements.Select(item => item!.DeepClone())];
+        document["Elements"] = edit switch
+        {
+            "reverse" => new JsonArray(current[2], current[1], current[0]),
+            "above to the bottom" => new JsonArray(current[2], current[0], current[1]),
+            _ => new JsonArray(current[1], current[2], current[0]),
+        };
+
+        ToolResult<ApplyEditResponse> result = session.CreateEditTools()
+            .ApplyEdit(desired: document, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Message, Does.Contain($"'{named}' ("));
+            Assert.That(result.Error.Message, Does.Contain("overlaps locked element 'Locked'"));
+            Assert.That(scene.Children, Is.EqualTo(new[] { below, locked, above }));
+        });
+    }
+
     // An element that overlapped a locked element before the edit may stay there and change.
     [Test]
     public void Apply_edit_lets_an_element_that_already_overlaps_a_locked_element_change()

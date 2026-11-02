@@ -52,9 +52,9 @@ public sealed class EqualizerNode : AudioNode
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
         bool hasAnimation = Bands.Any(band =>
-            band.Frequency.GetKeyFrameAnimation() != null ||
-            band.Gain.GetKeyFrameAnimation() != null ||
-            band.Q.GetKeyFrameAnimation() != null);
+            AnimationSampler.IsAnimated(band.Frequency) ||
+            AnimationSampler.IsAnimated(band.Gain) ||
+            AnimationSampler.IsAnimated(band.Q));
 
         if (!hasAnimation)
         {
@@ -140,20 +140,23 @@ public sealed class EqualizerNode : AudioNode
 
                 for (int ch = 0; ch < input.ChannelCount; ch++)
                 {
-                    var inData = input.GetChannelData(ch).Slice(processed, chunkSize);
-                    var outData = output.GetChannelData(ch).Slice(processed, chunkSize);
+                    input.GetChannelData(ch).Slice(processed, chunkSize).CopyTo(output.GetChannelData(ch).Slice(processed, chunkSize));
+                }
 
-                    inData.CopyTo(outData);
+                for (int bandIndex = 0; bandIndex < Bands.Count; bandIndex++)
+                {
+                    var band = Bands[bandIndex];
+                    var filterType = band.FilterType.Value;
 
-                    for (int bandIndex = 0; bandIndex < Bands.Count; bandIndex++)
+                    // Sampled once for all channels, as an expression runs a script for each evaluation.
+                    context.AnimationSampler.SampleBuffer(band.Frequency, chunkRange, context.SampleRate, frequencies[..chunkSize]);
+                    context.AnimationSampler.SampleBuffer(band.Gain, chunkRange, context.SampleRate, gains[..chunkSize]);
+                    context.AnimationSampler.SampleBuffer(band.Q, chunkRange, context.SampleRate, qs[..chunkSize]);
+
+                    for (int ch = 0; ch < input.ChannelCount; ch++)
                     {
-                        var band = Bands[bandIndex];
+                        var outData = output.GetChannelData(ch).Slice(processed, chunkSize);
                         var filter = _filters![bandIndex][ch];
-                        var filterType = band.FilterType.Value;
-
-                        context.AnimationSampler.SampleBuffer(band.Frequency, chunkRange, context.SampleRate, frequencies[..chunkSize]);
-                        context.AnimationSampler.SampleBuffer(band.Gain, chunkRange, context.SampleRate, gains[..chunkSize]);
-                        context.AnimationSampler.SampleBuffer(band.Q, chunkRange, context.SampleRate, qs[..chunkSize]);
 
                         for (int i = 0; i < chunkSize; i++)
                         {

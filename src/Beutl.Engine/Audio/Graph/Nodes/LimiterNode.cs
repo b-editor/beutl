@@ -106,13 +106,13 @@ public sealed class LimiterNode : AudioNode
             Reset();
         }
 
-        bool hasAnimation = Threshold.GetKeyFrameAnimation() != null
-                            || Release.GetKeyFrameAnimation() != null
-                            || Lookahead.GetKeyFrameAnimation() != null
-                            || MakeupGain.GetKeyFrameAnimation() != null;
+        bool hasAnimation = AnimationSampler.IsAnimated(Threshold)
+                            || AnimationSampler.IsAnimated(Release)
+                            || AnimationSampler.IsAnimated(Lookahead)
+                            || AnimationSampler.IsAnimated(MakeupGain);
 
         AudioBuffer output;
-        if (draining && Lookahead.GetKeyFrameAnimation() != null && _hasLastDerived)
+        if (draining && AnimationSampler.IsAnimated(Lookahead) && _hasLastDerived)
         {
             // Freeze the terminal lookahead while the other parameters remain animated during drain.
             output = ProcessAnimated(input, context, _lastDerived.LookaheadSamples);
@@ -139,7 +139,7 @@ public sealed class LimiterNode : AudioNode
     public override int GetLatencySamples(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
-        return Lookahead.GetKeyFrameAnimation() != null
+        return AnimationSampler.IsAnimated(Lookahead)
             ? LimiterParameters.ToLatencySamples(LimiterParameters.MaxLookaheadMs, sampleRate)
             : LimiterParameters.ToLatencySamples(Lookahead.Value, sampleRate);
     }
@@ -149,7 +149,7 @@ public sealed class LimiterNode : AudioNode
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 
         int upstream = GetMaxInputLatency(sampleRate, drain: true);
-        int ownLatency = Lookahead.GetKeyFrameAnimation() != null
+        int ownLatency = AnimationSampler.IsAnimated(Lookahead)
             && _hasLastDerived
             && _lastSampleRate == sampleRate
             ? _lastDerived.LookaheadSamples

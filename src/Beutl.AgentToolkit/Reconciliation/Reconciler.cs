@@ -52,8 +52,8 @@ public sealed partial class Reconciler
         ThrowIfIdentityConflicts(currentDocument, desiredDocument, newIds);
 
         var validation = new List<ValidationOutcome>();
-        CoreObject sandboxRoot = BuildValidationSandbox(session, currentDocument, desiredDocument);
-        if (ExpandAnimationShorthand(sandboxRoot, desiredDocument))
+        var sandbox = new ObjectLookup(BuildValidationSandbox(session, currentDocument, desiredDocument));
+        if (ExpandAnimationShorthand(sandbox, desiredDocument))
         {
             newIds.UnionWith(CollectionReconciler.MintMissingIds(
                 desiredDocument,
@@ -63,17 +63,17 @@ public sealed partial class Reconciler
 
             // Use the same expanded, Id-complete document for validation, change reporting, and
             // eventual live application so plan/apply parity does not depend on synthetic $kf nodes.
-            sandboxRoot = BuildValidationSandbox(session, currentDocument, desiredDocument);
+            sandbox = new ObjectLookup(BuildValidationSandbox(session, currentDocument, desiredDocument));
         }
 
-        ValidateChangedAnimationValues(sandboxRoot, currentDocument, desiredDocument, validation);
+        ValidateChangedAnimationValues(sandbox, currentDocument, desiredDocument, validation);
 
         var changes = new List<ChangeSetEntry>();
-        CompareObject(session.Root, currentDocument, desiredDocument, "$", changes, validation);
-        ThrowIfLockedChanges(session, sandboxRoot, currentDocument);
-        ValidateInsertedSubtrees(sandboxRoot, changes, validation);
-        ValidateChangedElementTimelines(sandboxRoot, changes, validation);
-        ValidateSceneInvariants(sandboxRoot, validation);
+        CompareObject(new ObjectLookup(session.Root), currentDocument, desiredDocument, "$", changes, validation);
+        ThrowIfLockedChanges(session, sandbox.Root, currentDocument);
+        ValidateInsertedSubtrees(sandbox, changes, validation);
+        ValidateChangedElementTimelines(sandbox, changes, validation);
+        ValidateSceneInvariants(sandbox.Root, validation);
         AddRelativeKeyFrameRangeWarnings(desiredDocument, validation);
 
         if (validation.FirstOrDefault(item => item.Status == ValidationStatus.Rejected) is { } rejected)
@@ -451,7 +451,7 @@ public sealed partial class Reconciler
             document[nameof(CoreObject.Id)] = session.Root.Id.Value.ToString();
         }
 
-        ValidateReferenceValues(session.Root, document);
+        ValidateReferenceValues(new ObjectLookup(session.Root), document);
         return document;
     }
 }

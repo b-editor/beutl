@@ -57,8 +57,9 @@ internal sealed class AudioSpeedMapping : IDisposable
     public void BeginWindow(MediaTime start)
     {
         _expressionPercent = Speed is IExpressionProperty<float> { HasExpression: true } expression
-            ? expression.Evaluate(new EvaluationContext(GetOwnerStart() + start))
-            : null;
+            && expression.Evaluate(new EvaluationContext(GetOwnerStart() + start)) is var percent && float.IsFinite(percent)
+                ? percent
+                : null;
     }
 
     private MediaTime GetOwnerStart() => (Speed?.GetOwnerObject() as EngineObject)?.TimeRange.Value.Start ?? MediaTime.Zero;
