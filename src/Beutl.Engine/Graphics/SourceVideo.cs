@@ -57,14 +57,14 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
 
     bool ITimeMappedSource.HasDynamicTimeline => SwitchesFiles;
 
-    private bool SwitchesFiles => Source.GetKeyFrameAnimation() != null || Source.HasExpression;
+    private bool SwitchesFiles => AnimationSampler.IsAnimated(Source);
 
     MediaTime? ITimeMappedSource.GetSourceDuration()
     {
         using var resource = Source.Value?.ToResource(CompositionContext.Default);
         // An offline reader reports a zero duration; treat it as unknown so a placeholder clip keeps
         // the length the user asked for and stays resizable.
-        return resource is { IsOffline: false } && resource.Duration > MediaTime.Zero ? resource.Duration : null;
+        return resource is { Duration: var duration } && duration > MediaTime.Zero ? duration : null;
     }
 
     private MediaTime CalculateVideoTime(MediaTime timeSpan, Resource resource)

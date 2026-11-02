@@ -20,7 +20,8 @@ namespace Beutl.Graphics.Effects;
 /// </para>
 /// <para>
 /// Inside a custom effect callback there is one, so call
-/// <see cref="CustomFilterEffectContext.CreateExecutor"/> instead of constructing an executor: it carries
+/// <see cref="CustomFilterEffectContext.CreateExecutor(EffectTargets, SKImageFilterBuilder)"/>
+/// instead of constructing an executor: it carries
 /// the running render's lease session, and so allocates through a caller-supplied
 /// <see cref="IRenderTargetFactory"/> rather than drawing factory-made inputs into a shared-context buffer.
 /// </para>
@@ -28,7 +29,7 @@ namespace Beutl.Graphics.Effects;
 public sealed partial class FilterEffectExecutor : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectExecutor");
-    // Replaced rather than copied field by field when the working scale, execution context or instance changes,
+    // Replaced rather than copied field by field when the working scale or execution context changes,
     // so whatever this executor starts takes the current values. Its program acquirers are always set.
     private FilterEffectExecutionSettings _settings;
     private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
@@ -92,12 +93,6 @@ public sealed partial class FilterEffectExecutor : IDisposable
     {
         get => _settings.ExecutionContext;
         set => _settings = _settings with { ExecutionContext = value };
-    }
-
-    internal FilterEffectInstance? Instance
-    {
-        get => _settings.Instance;
-        set => _settings = _settings with { Instance = value };
     }
 
     public SKImageFilterBuilder Builder { get; }
@@ -322,11 +317,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
         using var executor = new FilterEffectExecutor(
             cloned,
             builder,
-            _settings with
-            {
-                DeviceGridOffset = _settings.DeviceGridOffset
-                    ?? (cloned.Count > 0 ? cloned[0].DeviceGridOffset : default),
-            });
+            _settings.WithDeviceGridOffsetFrom(cloned));
 
         executor.Apply(context);
         executor.Flush(false);
@@ -370,17 +361,4 @@ public sealed partial class FilterEffectExecutor : IDisposable
         /// </summary>
         public Rect AnchorFrame { get; set; } = anchorFrame;
     }
-
-    private ImmediateCanvas CreateExecutionCanvas(
-        RenderTarget target,
-        float density,
-        Size logicalSize)
-        => ImmediateCanvas.CreateCustomEffectCanvas(
-            target,
-            density,
-            MaxWorkingScale,
-            logicalSize,
-            Intent,
-            _settings.UseExecutorManagedCanvas,
-            _settings.DrawableBrushMaterializer);
 }

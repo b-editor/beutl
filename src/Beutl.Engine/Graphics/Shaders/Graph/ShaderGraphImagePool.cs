@@ -14,14 +14,10 @@ namespace Beutl.Graphics.Shaders;
 /// keeps the layouts it recorded; a taking execution synchronizes with the work that last used it before its first command.
 /// </remarks>
 internal sealed class ShaderGraphImagePool(
-    long maximumRetainedBytes = ShaderGraphImagePool.DefaultMaximumRetainedBytes,
-    int maximumIdleRequests = ShaderGraphImagePool.DefaultMaximumIdleRequests) : IDisposable
+    // The render target pool's defaults, so both pools let go of an effect's memory at the same time.
+    long maximumRetainedBytes = RenderTargetPoolOptions.DefaultMaximumRetainedBytes,
+    int maximumIdleRequests = RenderTargetPoolOptions.DefaultMaximumIdleRequests) : IDisposable
 {
-    internal const long DefaultMaximumRetainedBytes = RenderTargetPoolOptions.DefaultMaximumRetainedBytes;
-
-    // The render target pool's default, so both pools let go of an effect's memory at the same time.
-    internal const int DefaultMaximumIdleRequests = 120;
-
     private readonly Lock _gate = new();
     // Oldest first, so eviction takes from the front and a lookup prefers the most recent match.
     private readonly LinkedList<(ShaderGraphImage Image, long ReturnedRequest)> _retained = [];
@@ -48,7 +44,7 @@ internal sealed class ShaderGraphImagePool(
                  node is not null; node = node.Previous)
             {
                 ShaderGraphImage image = node.Value.Image;
-                if (image.Context != context || image.Description != description || (image.Usage & usage) != usage)
+                if (image.Context != context || !image.Supports(description, usage))
                     continue;
 
                 _retained.Remove(node);
