@@ -69,8 +69,59 @@ jobs:
           NUGET_SOURCE: ${{ secrets.NUGET_SOURCE }}
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          dotnet nuget push "packages/*.nupkg" \
-            --source "$NUGET_SOURCE" \
-            --api-key "$NUGET_API_KEY" \
-            --skip-duplicate \
-            --no-symbols
+          # The feed can answer 500 for a package it went on to store, and dotnet gives up after its own three tries. Give
+          # each package more tries of its own, and let one that still fails leave the others to be pushed.
+          failed=0
+          for package in packages/*.nupkg; do
+            pushed=false
+            for attempt in 1 2 3 4 5; do
+              if dotnet nuget push "$package" \
+                --source "$NUGET_SOURCE" \
+                --api-key "$NUGET_API_KEY" \
+                --skip-duplicate \
+                --no-symbols; then
+                pushed=true
+                break
+              fi
+              echo "::warning::Push attempt $attempt of $(basename "$package") failed."
+              sleep $((attempt * 15))
+            done
+            if [ "$pushed" = false ]; then
+              echo "::error::Could not push $(basename "$package")."
+              failed=1
+            fi
+          done
+          exit "$failed"
+
+      - name: Verify the packages on the feed
+        env:
+          NUGET_SOURCE: ${{ secrets.NUGET_SOURCE }}
+        run: |
+          # The feed registers a version before it stores the file, so a retry can report a duplicate for a package whose
+          # upload failed. Only what the feed serves shows that the file arrived.
+          if ! index=$(curl -fsSL --retry 3 --retry-delay 5 --retry-all-errors "$NUGET_SOURCE"); then
+            echo "::error::Could not read the service index, so the published packages were not verified."
+            exit 1
+          fi
+          if ! base=$(printf '%s' "$index" | jq -r '[.resources[] | select(."@type" | startswith("PackageBaseAddress")) | ."@id"] | first // empty'); then
+            echo "::error::Could not parse the service index, so the published packages were not verified."
+            exit 1
+          fi
+          if [ -z "$base" ]; then
+            echo "::warning::The feed has no package base address, so the published packages were not verified."
+            exit 0
+          fi
+          failed=0
+          for package in packages/*.nupkg; do
+            name=$(basename "$package" .nupkg | tr '[:upper:]' '[:lower:]')
+            id=$(printf '%s' "$name" | sed -E 's/\.[0-9]+\.[0-9]+\.[0-9]+.*$//')
+            version=${name#"$id".}
+            if ! curl -fsSL --retry 3 --retry-delay 5 --retry-all-errors -o served.nupkg "${base%/}/$id/$version/$name.nupkg"; then
+              echo "::error::$(basename "$package") could not be downloaded from the feed."
+              failed=1
+            elif ! cmp -s "$package" served.nupkg; then
+              echo "::error::The feed serves a different $(basename "$package")."
+              failed=1
+            fi
+          done
+          exit "$failed"
