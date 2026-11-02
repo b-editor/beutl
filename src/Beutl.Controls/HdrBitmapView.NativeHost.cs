@@ -85,6 +85,14 @@ public partial class HdrBitmapView
         return objc_msgSend_IntPtr(nsView, sel_getUid("layer"));
     }
 
+    // layer.contentsScale = scale. MoltenVK reports the layer's bounds times this as the surface's size and the
+    // swapchain takes that size, whatever size it is asked for.
+    internal static void SetMacOSContentsScale(IntPtr layer, double scale)
+    {
+        if (layer != IntPtr.Zero)
+            objc_msgSend_void_double(layer, sel_getUid("setContentsScale:"), scale);
+    }
+
     // layer.EDRMetadata = [CAEDRMetadata HDR10MetadataWithMinLuminance:maxLuminance:opticalOutputScale:], or nil to
     // show values as they are, clipped at the screen's headroom. The metadata describes a 1000 nit mastering display,
     // as most HDR10 content declares, and a value of 1.0 as Beutl's 203 nit reference white.
@@ -211,6 +219,9 @@ public partial class HdrBitmapView
     private static extern void objc_msgSend_void_IntPtr(IntPtr receiver, IntPtr selector, IntPtr arg);
 
     // Float arguments travel in floating-point registers on arm64 and x86_64 alike, so plain objc_msgSend serves.
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void objc_msgSend_void_double(IntPtr receiver, IntPtr selector, double arg);
+
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     private static extern IntPtr objc_msgSend_float3(IntPtr receiver, IntPtr selector, float arg1, float arg2, float arg3);
 

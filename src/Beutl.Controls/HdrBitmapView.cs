@@ -108,6 +108,9 @@ public partial class HdrBitmapView : NativeControlHost
         VulkanSwapchainRenderer? previous = _renderer;
         base.OnAttachedToVisualTree(e);
 
+        // A native view that moved here from another window keeps its layer, at that window's scale.
+        UpdateContentsScale();
+
         // A view attached again keeps its bounds, so OnSizeChanged does not draw on its new native control. Only now
         // does that control have a window, whose screen gives the gamut, and the size the renderer follows. A new view
         // has no size yet and draws from OnSizeChanged.
@@ -139,6 +142,8 @@ public partial class HdrBitmapView : NativeControlHost
 
     private void OnTopLevelScalingChanged(object? sender, EventArgs e)
     {
+        UpdateContentsScale();
+
         if (_renderer != null && Bounds.Width > 0 && Bounds.Height > 0)
         {
             var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
@@ -268,6 +273,7 @@ public partial class HdrBitmapView : NativeControlHost
         {
             _macOSView = handle.Handle;
             _displayGamut = PreviewGamutMapping.Srgb;
+            UpdateContentsScale();
             UpdateEdrMetadata();
             UpdateDisplayGamut();
         }
@@ -333,6 +339,14 @@ public partial class HdrBitmapView : NativeControlHost
             DisplayPeakLuminance: DisplayPeakLuminance);
 
         _renderer.RequestRender(bitmapRef, renderParams);
+    }
+
+    // AppKit leaves a layer it did not create at a scale of 1. The swapchain would then have as many pixels as the view
+    // has points, and Core Animation would stretch it on a 2x screen.
+    private void UpdateContentsScale()
+    {
+        if (_macOSView != IntPtr.Zero && TopLevel.GetTopLevel(this) is { } topLevel)
+            SetMacOSContentsScale(GetMacOSLayer(_macOSView), topLevel.RenderScaling);
     }
 
     // On macOS, FitToDisplay hands tone mapping to Core Animation, which fits the frame into the screen's current

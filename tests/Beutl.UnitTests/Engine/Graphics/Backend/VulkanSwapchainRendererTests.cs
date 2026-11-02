@@ -1,4 +1,9 @@
-﻿using Beutl.Graphics.Backend.Vulkan;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
+using Beutl.Configuration;
+using Beutl.Graphics.Backend.Vulkan;
+using Beutl.Media;
+using Beutl.Media.Source;
 using Silk.NET.Vulkan;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
@@ -8,6 +13,9 @@ public class VulkanSwapchainRendererTests
 {
     private static readonly Extent2D s_view = new(1760, 990);
     private static readonly Extent2D s_old = new(1, 1);
+
+    // Long enough for the presentation thread to take a resize and rebuild the swapchain.
+    private static readonly TimeSpan s_rebuildTime = TimeSpan.FromMilliseconds(50);
 
     // The native view took its new size after the last frame was presented: the swapchain is rebuilt at the view's
     // size and the frame drawn again.
@@ -44,4 +52,82 @@ public class VulkanSwapchainRendererTests
         Assert.That(VulkanSwapchainRenderer.ShouldRedrawPaused(true, null, presented: s_old), Is.True);
         Assert.That(VulkanSwapchainRenderer.ShouldRedrawPaused(true, s_view, presented: s_view), Is.True);
     }
+
+    // MoltenVK 1.4.0 leaves the layer at 1x1 when a swapchain replaces one with a frame still on its way to the screen,
+    // and every frame after that shows as one pixel stretched over the view. A layer outside any window starts holding
+    // its presents back about two seconds after it is created, so the later rebuilds here meet that case.
+    [Test]
+    public void RebuildsAfterPresentsLeaveTheLayerAtTheSwapchainsSize()
+    {
+        if (!OperatingSystem.IsMacOS())
+            Assert.Ignore("MoltenVK runs only on macOS.");
+
+        VulkanTestEnvironment.EnsureAvailable();
+        NativeLibrary.Load("/System/Library/Frameworks/AppKit.framework/AppKit");
+
+        IntPtr pool = objc_autoreleasePoolPush();
+        IntPtr view = objc_msgSend_NSRect(
+            objc_msgSend(objc_getClass("NSView"), sel_getUid("alloc")),
+            sel_getUid("initWithFrame:"),
+            new NSRect(0, 0, 64, 36));
+        try
+        {
+            using var renderer = new VulkanSwapchainRenderer();
+            renderer.Initialize(view, 64, 36);
+            IntPtr layer = objc_msgSend(view, sel_getUid("layer"));
+
+            var elapsed = Stopwatch.StartNew();
+            for (int i = 0; elapsed.Elapsed < TimeSpan.FromSeconds(3); i++)
+            {
+                using var presented = new ManualResetEventSlim();
+                renderer.RequestRender(
+                    Ref<Bitmap>.Create(
+                        new Bitmap(16, 9, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb),
+                        presented.Set),
+                    new RenderParams(16, 9, Stretch.Uniform, UIToneMappingOperator.None, 0f, IsSourceLinear: true));
+                Assert.That(presented.Wait(TimeSpan.FromSeconds(10)), Is.True, "The frame was not presented.");
+
+                renderer.Resize(64, 36);
+                Thread.Sleep(s_rebuildTime);
+
+                Assert.That(
+                    objc_msgSend_NSSize(layer, sel_getUid("drawableSize")),
+                    Is.EqualTo(new NSSize(64, 36)),
+                    $"After rebuild {i}, {elapsed.Elapsed} in.");
+            }
+        }
+        finally
+        {
+            objc_msgSend(view, sel_getUid("release"));
+            objc_autoreleasePoolPop(pool);
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct NSSize(double Width, double Height);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct NSRect(double X, double Y, double Width, double Height);
+
+    [DllImport("/usr/lib/libobjc.dylib")]
+    private static extern IntPtr objc_getClass(string className);
+
+    [DllImport("/usr/lib/libobjc.dylib")]
+    private static extern IntPtr sel_getUid(string selector);
+
+    [DllImport("/usr/lib/libobjc.dylib")]
+    private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
+
+    // By value, because x86-64 passes a struct this large on the stack rather than in floating-point registers.
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern IntPtr objc_msgSend_NSRect(IntPtr receiver, IntPtr selector, NSRect frame);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern NSSize objc_msgSend_NSSize(IntPtr receiver, IntPtr selector);
+
+    [DllImport("/usr/lib/libobjc.dylib")]
+    private static extern IntPtr objc_autoreleasePoolPush();
+
+    [DllImport("/usr/lib/libobjc.dylib")]
+    private static extern void objc_autoreleasePoolPop(IntPtr pool);
 }
