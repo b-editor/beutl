@@ -1,4 +1,5 @@
-﻿using Beutl.JsonConverters;
+﻿using Beutl.Configuration;
+using Beutl.JsonConverters;
 using Beutl.Media;
 
 namespace Beutl.ProjectSystem;
@@ -76,31 +77,98 @@ public partial class Scene
     /// <summary>
     /// Closes every gap between elements on every ZIndex (the space before the
     /// first element on a ZIndex is not closed). Returns the number of gaps
-    /// closed. Gaps are closed right-to-left within each ZIndex so earlier
-    /// closes do not shift elements that later closes depend on. Locked layers
+    /// closed. Each element moves once, by the gaps closed before it. Locked layers
     /// are skipped and locked elements are never moved; a locked element acts as
     /// an immovable barrier that halts the shift. Does not commit history; the
     /// caller owns the single commit boundary.
     /// </summary>
     public int CloseAllGaps()
     {
-        List<SceneGap> gaps = EnumerateGaps().ToList();
-        if (gaps.Count == 0) return 0;
-
         int closed = 0;
-        foreach (IGrouping<int, SceneGap> zGroup in gaps.GroupBy(g => g.ZIndex))
+        MediaTime? movedEnd = null;
+        foreach (IGrouping<int, Element> layer in Children.GroupBy(e => e.ZIndex.Value))
         {
-            if (IsLayerLocked(zGroup.Key)) continue;
-
-            foreach (SceneGap gap in zGroup.OrderByDescending(g => g.Range.Start))
+            if (!IsLayerLocked(layer.Key))
             {
-                Element[] toShift = ShiftableAfter(zGroup.Key, gap.Range.End);
-                if (toShift.Length == 0) continue;
+                closed += CloseLayerGaps(layer, ref movedEnd);
+            }
+        }
 
-                if (MoveChildrenAndDetectChange(toShift, -gap.Range.Duration))
-                {
-                    closed++;
-                }
+        if (GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value
+            && movedEnd is { } end && Duration.Value + Start.Value < end)
+        {
+            Duration.Value = end - Start.Value;
+        }
+
+        return closed;
+    }
+
+    private int CloseLayerGaps(IEnumerable<Element> layer, ref MediaTime? movedEnd)
+    {
+        // Grouping by Start keeps same-start elements atomic, independent of Children enumeration order.
+        IGrouping<MediaTime, Element>[] cohorts = [.. layer.GroupBy(e => e.Start.Value).OrderBy(g => g.Key)];
+        var gaps = new MediaTime[cohorts.Length];
+        var locked = new bool[cohorts.Length];
+
+        MediaTime coveredEnd = cohorts[0].Key;
+        for (int i = 0; i < cohorts.Length; i++)
+        {
+            if (cohorts[i].Key > coveredEnd) gaps[i] = cohorts[i].Key - coveredEnd;
+            foreach (Element element in cohorts[i])
+            {
+                if (element.Range.End > coveredEnd) coveredEnd = element.Range.End;
+            }
+        }
+
+        // Which gaps close, from the right. A gap moves everything up to the next locked cohort, and stays open
+        // when that would leave a clip on what stays, which depends on the gaps closed to its right. Empty elements
+        // collide with nothing, so an empty locked cohort stops the shift but does not count as what stays.
+        int closed = 0;
+        MediaTime? wall = null;
+        MediaTime? earliest = null;
+        MediaTime? reach = null;
+        for (int i = cohorts.Length - 1; i >= 0; i--)
+        {
+            if (cohorts[i].Any(IsElementLocked))
+            {
+                locked[i] = true;
+                wall = cohorts[i].Any(e => !e.Range.IsEmpty) ? cohorts[i].Key : earliest ?? wall;
+                earliest = null;
+                reach = null;
+                continue;
+            }
+
+            foreach (Element element in cohorts[i])
+            {
+                if (element.Range.IsEmpty) continue;
+
+                earliest = cohorts[i].Key;
+                if (reach is null || element.Range.End > reach) reach = element.Range.End;
+            }
+
+            if (gaps[i] == MediaTime.Zero) continue;
+
+            if (reach - gaps[i] > wall)
+            {
+                gaps[i] = MediaTime.Zero;
+                continue;
+            }
+
+            earliest -= gaps[i];
+            reach -= gaps[i];
+            closed++;
+        }
+
+        MediaTime shift = MediaTime.Zero;
+        for (int i = 0; i < cohorts.Length; i++)
+        {
+            shift = locked[i] ? MediaTime.Zero : shift + gaps[i];
+            if (shift == MediaTime.Zero) continue;
+
+            foreach (Element element in cohorts[i])
+            {
+                element.Start.Value -= shift;
+                if (movedEnd is null || element.Range.End > movedEnd) movedEnd = element.Range.End;
             }
         }
 

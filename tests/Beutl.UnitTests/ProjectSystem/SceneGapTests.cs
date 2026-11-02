@@ -1,4 +1,5 @@
-﻿using Beutl.Editor;
+﻿using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -493,6 +494,230 @@ public class SceneGapTests
             Assert.That(m.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(n.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
+    }
+
+    [Test]
+    public void CloseAllGaps_MovesEachElementOnce()
+    {
+        using var harness = new SceneHistoryHarness("beutl_scene_gaps");
+        Scene scene = harness.Scene;
+        Element[] elements = [.. Enumerable.Range(0, 20)
+            .Select(i => harness.AddElement(MediaTime.FromSeconds(i * 3), MediaTime.FromSeconds(1)))];
+        int moves = 0;
+        foreach (Element element in elements)
+        {
+            element.Start.ValueChanged += (_, _) => moves++;
+        }
+
+        int closed = scene.CloseAllGaps();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(closed, Is.EqualTo(19));
+            Assert.That(moves, Is.EqualTo(19), "The first element stays; every other one moves once.");
+            Assert.That(elements.Select(e => e.Start.Value),
+                Is.EqualTo(Enumerable.Range(0, 20).Select(i => MediaTime.FromSeconds(i))));
+        });
+    }
+
+    [Test]
+    public void CloseAllGaps_MatchesClosingOneGapAtATime([Range(0, 199)] int seed)
+    {
+        Scene expected = CreateRandomScene(seed);
+        Scene actual = CreateRandomScene(seed);
+
+        int expectedClosed = CloseGapsOneAtATime(expected);
+        int actualClosed = actual.CloseAllGaps();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actualClosed, Is.EqualTo(expectedClosed));
+            Assert.That(actual.Children.Select(e => e.Start.Value), Is.EqualTo(expected.Children.Select(e => e.Start.Value)));
+        });
+    }
+
+    private static Scene CreateRandomScene(int seed)
+    {
+        var random = new Random(seed);
+        var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(1000) } };
+        for (int layer = 0; layer < 3; layer++)
+        {
+            if (random.Next(5) == 0)
+            {
+                scene.Layers.Add(new TimelineLayer { ZIndex = { Value = layer }, IsLocked = { Value = true } });
+            }
+
+            for (int i = random.Next(2, 14); i > 0; i--)
+            {
+                bool locked = random.Next(6) == 0;
+                scene.Children.Add(new Element
+                {
+                    Start = { Value = MediaTime.FromSeconds(random.Next(80)) },
+                    Length = { Value = MediaTime.FromSeconds(random.Next(8)) },
+                    ZIndex = { Value = layer },
+                    IsLocked = { Value = locked },
+                });
+            }
+        }
+
+        return scene;
+    }
+
+    // Each gap, from the right, moves what follows it up to the first locked cohort by exactly its width, unless
+    // that would still collide with what stays. CloseAllGaps reaches the same places without the intermediate moves.
+    private static int CloseGapsOneAtATime(Scene scene)
+    {
+        int closed = 0;
+        foreach (IGrouping<int, SceneGap> layer in Gaps(scene).GroupBy(g => g.ZIndex))
+        {
+            if (scene.IsLayerLocked(layer.Key)) continue;
+
+            foreach (SceneGap gap in layer.OrderByDescending(g => g.Range.Start))
+            {
+                var toShift = new List<Element>();
+                foreach (IGrouping<MediaTime, Element> cohort in scene.Children
+                    .Where(e => e.ZIndex.Value == layer.Key && e.Start.Value >= gap.Range.End)
+                    .GroupBy(e => e.Start.Value)
+                    .OrderBy(g => g.Key))
+                {
+                    if (cohort.Any(scene.IsElementLocked)) break;
+                    toShift.AddRange(cohort);
+                }
+
+                Element[] staying = [.. scene.Children.Where(e => e.ZIndex.Value == layer.Key && !toShift.Contains(e))];
+                if (toShift.Count == 0
+                    || toShift.Any(e => staying.Any(other => other.Range.Intersects(e.Range.SubtractStart(gap.Range.Duration)))))
+                {
+                    continue;
+                }
+
+                foreach (Element element in toShift)
+                {
+                    element.Start.Value -= gap.Range.Duration;
+                }
+
+                closed++;
+            }
+        }
+
+        return closed;
+    }
+
+    [Test]
+    public void CloseAllGaps_ClipStillOnALockedElement_KeepsItsGapOpen()
+    {
+        using var harness = new SceneHistoryHarness("beutl_scene_gaps");
+        Scene scene = harness.Scene;
+        // [0s..5s], gap 5s-10s, then [10s..30s] over the locked [20s..25s]. At 5s the clip would still
+        // overlap the locked one, so the gap stays.
+        harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(5));
+        Element clip = harness.AddElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(20));
+        Element locked = harness.AddElement(MediaTime.FromSeconds(20), MediaTime.FromSeconds(5));
+        locked.IsLocked.Value = true;
+
+        int closed = scene.CloseAllGaps();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(closed, Is.EqualTo(0));
+            Assert.That(clip.Start.Value, Is.EqualTo(MediaTime.FromSeconds(10)));
+        });
+    }
+
+    [Test]
+    public void CloseAllGaps_EmptyLockedElement_StopsTheShiftButCollidesWithNothing()
+    {
+        using var harness = new SceneHistoryHarness("beutl_scene_gaps");
+        Scene scene = harness.Scene;
+        // [0s..5s], gap 5s-10s, [10s..30s] over an empty locked element at 20s, then [40s..41s] past a gap.
+        harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(5));
+        Element clip = harness.AddElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(20));
+        Element locked = harness.AddElement(MediaTime.FromSeconds(20), MediaTime.Zero);
+        locked.IsLocked.Value = true;
+        Element last = harness.AddElement(MediaTime.FromSeconds(40), MediaTime.FromSeconds(1));
+
+        int closed = scene.CloseAllGaps();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(closed, Is.EqualTo(2));
+            Assert.That(clip.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(locked.Start.Value, Is.EqualTo(MediaTime.FromSeconds(20)));
+            // The shift stops at the locked element, so the last clip only closes the gap after [10s..30s].
+            Assert.That(last.Start.Value, Is.EqualTo(MediaTime.FromSeconds(30)));
+        });
+    }
+
+    [Test]
+    public void CloseAllGaps_LargerGapBeforeABlockedOne_ClearsTheLockedElement()
+    {
+        using var harness = new SceneHistoryHarness("beutl_scene_gaps");
+        Scene scene = harness.Scene;
+        // The 5s gap before the last clip cannot close on its own, as the clip would still overlap the locked
+        // [240s..260s]. The 100s gap before that takes the clip clear of it, and the 5s gap keeps its width.
+        harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(50));
+        Element middle = harness.AddElement(MediaTime.FromSeconds(150), MediaTime.FromSeconds(45));
+        Element last = harness.AddElement(MediaTime.FromSeconds(200), MediaTime.FromSeconds(50));
+        Element locked = harness.AddElement(MediaTime.FromSeconds(240), MediaTime.FromSeconds(20));
+        locked.IsLocked.Value = true;
+
+        int closed = scene.CloseAllGaps();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(closed, Is.EqualTo(1));
+            Assert.That(middle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(50)));
+            Assert.That(last.Start.Value, Is.EqualTo(MediaTime.FromSeconds(100)));
+            Assert.That(locked.Start.Value, Is.EqualTo(MediaTime.FromSeconds(240)));
+        });
+    }
+
+    [Test]
+    public void CloseAllGaps_NeverMovesAClipFurtherThanTheGaps()
+    {
+        using var harness = new SceneHistoryHarness("beutl_scene_gaps");
+        Scene scene = harness.Scene;
+        // Neither gap takes the last clip clear of the locked [107s..120s]. Fitting it before the locked clip would
+        // take 3s, and the short clip would jump over [100s..101s], so nothing moves.
+        harness.AddElement(MediaTime.FromSeconds(100), MediaTime.FromSeconds(1));
+        Element jumper = harness.AddElement(MediaTime.FromSeconds(102), MediaTime.FromSeconds(1));
+        Element last = harness.AddElement(MediaTime.FromSeconds(105), MediaTime.FromSeconds(5));
+        Element locked = harness.AddElement(MediaTime.FromSeconds(107), MediaTime.FromSeconds(13));
+        locked.IsLocked.Value = true;
+
+        int closed = scene.CloseAllGaps();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(closed, Is.EqualTo(0));
+            Assert.That(jumper.Start.Value, Is.EqualTo(MediaTime.FromSeconds(102)));
+            Assert.That(last.Start.Value, Is.EqualTo(MediaTime.FromSeconds(105)));
+        });
+    }
+
+    [TestCase(true, 3, 6)]
+    [TestCase(true, 10, 10)]
+    [TestCase(false, 3, 3)]
+    public void CloseAllGaps_ElementsPastTheScene_ExtendItOnlyToWhereTheyLand(bool adjust, int duration, int expected)
+    {
+        bool original = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value;
+        GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value = adjust;
+        try
+        {
+            using var harness = new SceneHistoryHarness("beutl_scene_gaps", duration: MediaTime.FromSeconds(duration));
+            Scene scene = harness.Scene;
+            harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
+            harness.AddElement(MediaTime.FromSeconds(20), MediaTime.FromSeconds(2));
+            harness.AddElement(MediaTime.FromSeconds(30), MediaTime.FromSeconds(2));
+
+            scene.CloseAllGaps();
+
+            Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(expected)));
+        }
+        finally
+        {
+            GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value = original;
+        }
     }
 
     [Test]
