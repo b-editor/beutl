@@ -292,10 +292,8 @@ public sealed class ElementStructureService : IElementStructureService
         }
     }
 
-    // Speed is what an expression gave at the cut. The back piece's position is read at that same speed, because its
-    // copy of the expression starts over from its own local time.
     private readonly record struct SplitSource(
-        ISplittable Source, MediaTime PositionAtCut, MediaTime ContextAtCut, float? Speed, bool Supported);
+        ISplittable Source, MediaTime PositionAtCut, MediaTime ContextAtCut, bool Supported);
 
     private static List<SplitSource> CaptureSplitSources(Element element, MediaTime forwardDuration, SplitBatch? batch)
     {
@@ -309,7 +307,7 @@ public sealed class ElementStructureService : IElementStructureService
             if (!targets.TryGetValue(splittable, out SlippableMedia.Target? target) || !target.IsMappingSupported
                 || !target.TryReadSpeed(forwardDuration, out float? speed))
             {
-                sources.Add(new(splittable, MediaTime.Zero, MediaTime.Zero, null, false));
+                sources.Add(new(splittable, MediaTime.Zero, MediaTime.Zero, false));
                 continue;
             }
 
@@ -317,7 +315,6 @@ public sealed class ElementStructureService : IElementStructureService
                 splittable,
                 target.SourcePosition(forwardDuration, speed),
                 target.ContextTime(forwardDuration),
-                speed,
                 true));
         }
 
@@ -387,13 +384,14 @@ public sealed class ElementStructureService : IElementStructureService
 
         for (int i = 0; i < copies.Count; i++)
         {
-            if (!supported[i] || !backTargets.TryGetValue(copies[i], out SlippableMedia.Target? backTarget))
+            if (!supported[i] || !backTargets.TryGetValue(copies[i], out SlippableMedia.Target? backTarget)
+                || !backTarget.TryReadSpeed(MediaTime.Zero, out float? speed))
             {
                 copies[i].NotifySplitted(true, forwardDuration, -forwardDuration);
                 continue;
             }
 
-            MediaTime delta = sources[i].PositionAtCut - backTarget.SourcePosition(MediaTime.Zero, sources[i].Speed);
+            MediaTime delta = sources[i].PositionAtCut - backTarget.SourcePosition(MediaTime.Zero, speed);
             copies[i].NotifySplitted(true, delta, -forwardDuration);
         }
     }

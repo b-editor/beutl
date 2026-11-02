@@ -156,6 +156,16 @@ public sealed class SoundExpressionEditTests(string soundType)
         Assert.That(SplitAndReadBackOffset(element), Is.EqualTo(MediaTime.FromSeconds(3)));
     }
 
+    // Playback multiplies the elapsed time by the value, so a value the back piece has no use for cannot undo the cut.
+    [Test]
+    public void Split_SpeedExpressionUndefinedWhereTheBackPieceStarts_ContinuesAtItsValueAtTheCut()
+    {
+        (Element element, Sound sound) = AddClip();
+        sound.Speed.Expression = Expression.Create<float>("Time == 0 ? float.NaN : 200");
+
+        Assert.That(SplitAndReadBackOffset(element), Is.EqualTo(MediaTime.FromSeconds(2)));
+    }
+
     [Test]
     public void Split_SpeedExpressionWithoutAFiniteValue_ShiftsByLocalTime()
     {

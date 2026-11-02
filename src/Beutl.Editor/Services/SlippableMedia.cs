@@ -31,10 +31,11 @@ internal static partial class SlippableMedia
         public MediaTime ContextTime(MediaTime localTime)
             => Mapping.MapControllerTime(localTime);
 
-        // What a speed expression gives at localTime, or null without one. False when that cannot place a position.
+        // What a speed expression gives at localTime, or null without one. Playback multiplies the elapsed time by it, so
+        // with none elapsed it is not read. False when the value cannot place a position.
         public bool TryReadSpeed(MediaTime localTime, out float? speed)
         {
-            speed = Mapping.EvaluateSpeed(localTime);
+            speed = ContextTime(localTime) == MediaTime.Zero ? null : Mapping.EvaluateSpeed(localTime);
             return speed is not { } percent || float.IsFinite(percent) && percent >= 0;
         }
 

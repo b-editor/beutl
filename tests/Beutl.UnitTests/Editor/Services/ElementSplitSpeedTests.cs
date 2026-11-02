@@ -405,6 +405,45 @@ public sealed class ElementSplitSpeedTests
         Assert.That(BackObject<SourceVideo>(back).OffsetPosition.Value.ToSeconds(), Is.EqualTo(atTheCut.ToSeconds()).Within(0.01));
     }
 
+    // A controller's offset starts the back piece partway into its own clock, where its expression gives another value
+    // than the original did at the cut.
+    [Test]
+    public void Split_ChangingVideoSpeedExpressionUnderAnOffsetController_ContinuesFromTheCut()
+    {
+        var video = new SourceVideo();
+        video.Speed.Expression = Expression.Create<float>("100 + 100 * Time");
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(4), video);
+        element.Objects.Add(new DrawableTimeController { OffsetPosition = { Value = MediaTime.FromSeconds(1) } });
+        MediaTime atTheCut = PlaybackPosition(video, MediaTime.FromSeconds(2));
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Element back = _harness.Scene.Children.Single(child => child != element);
+        Assert.That(PlaybackPosition(BackObject<SourceVideo>(back), MediaTime.FromSeconds(2)).ToSeconds(),
+            Is.EqualTo(atTheCut.ToSeconds()).Within(0.01));
+    }
+
+    // That read happens while the back piece is new, and a speed that reads another clip finds nothing outside the scene.
+    [Test]
+    public void SilenceSplit_SpeedReadingAnotherClipUnderAnOffsetController_PlaysOnAcrossTheCut()
+    {
+        var provider = new SourceSound { Speed = { Value = 200f } };
+        Element providerElement = AddElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(1), provider);
+        var video = new SourceVideo();
+        video.Speed.Expression = new ReferenceExpression<float>(provider.Id.Value, nameof(Sound.Speed));
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(4), video);
+        element.Objects.Add(new DrawableTimeController { OffsetPosition = { Value = MediaTime.FromSeconds(1) } });
+        // Half a second after the last cut, at 3 s, which the controller's offset moves on by a second.
+        MediaTime uncut = PlaybackPosition(video, MediaTime.FromSeconds(4.5));
+
+        new SilenceSplitService(_harness.History).Apply(_harness.Scene, element,
+            [new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1))], SilenceSplitMode.DeleteSilence, false);
+
+        Element back = _harness.Scene.Children.Single(child => child != element && child != providerElement);
+        Assert.That(PlaybackPosition(BackObject<SourceVideo>(back), MediaTime.FromSeconds(4.5)).ToSeconds(),
+            Is.EqualTo(uncut.ToSeconds()).Within(0.01));
+    }
+
     [Test]
     public void Split_LoopingVideoWithASpeedExpression_KeepsTheWrappedSourcePosition()
     {
