@@ -145,13 +145,14 @@ public sealed class SoundExpressionEditTests(string soundType)
         Assert.That(SplitAndReadBackOffset(element), Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
-    // Playback falls back to the stored speed when the script fails, so the split must too.
-    [Test]
-    public void Split_SpeedExpressionThatFails_ContinuesAtTheStoredSpeed()
+    // Playback falls back to the stored speed when the script fails or gives no finite value, so the split must too.
+    [TestCase("this does not compile")]
+    [TestCase("float.NaN")]
+    public void Split_SpeedExpressionThatFails_ContinuesAtTheStoredSpeed(string speed)
     {
         (Element element, Sound sound) = AddClip();
         sound.Speed.Value = 300;
-        sound.Speed.Expression = Expression.Create<float>("this does not compile");
+        sound.Speed.Expression = Expression.Create<float>(speed);
 
         Assert.That(SplitAndReadBackOffset(element), Is.EqualTo(MediaTime.FromSeconds(3)));
     }
@@ -166,10 +167,12 @@ public sealed class SoundExpressionEditTests(string soundType)
         Assert.That(SplitAndReadBackOffset(element), Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
+    // An expression with no finite value falls back to the stored speed, so that has to have none either.
     [Test]
-    public void Split_SpeedExpressionWithoutAFiniteValue_ShiftsByLocalTime()
+    public void Split_SpeedWithoutAFiniteValue_ShiftsByLocalTime()
     {
         (Element element, Sound sound) = AddClip();
+        sound.Speed.Value = float.NaN;
         sound.Speed.Expression = Expression.Create<float>("float.NaN");
 
         Assert.That(SplitAndReadBackOffset(element), Is.EqualTo(MediaTime.FromSeconds(1)));

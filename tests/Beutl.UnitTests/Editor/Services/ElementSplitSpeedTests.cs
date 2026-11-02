@@ -444,6 +444,164 @@ public sealed class ElementSplitSpeedTests
             Is.EqualTo(uncut.ToSeconds()).Within(0.01));
     }
 
+    // Where the compositor plays the video, through any time controllers.
+    private MediaTime ComposedPosition(MediaTime time)
+    {
+        using SceneCompositor compositor = TrimTestMedia.CreateCompositor(_harness.Scene);
+        EngineObject.Resource resource = compositor.EvaluateGraphics(time).Objects.Single();
+        while (resource is DrawableTimeController.Resource controller)
+            resource = controller.Target!;
+        var video = (SourceVideo.Resource)resource;
+        return video.RequestedPosition + video.OffsetPosition;
+    }
+
+    private Element AddVideoUnderASpeedExpression(
+        IExpression<float> speed, double offset = 0, SourceVideo? video = null, bool reverse = false)
+    {
+        video ??= new SourceVideo { Source = { Value = TrimTestMedia.CreateVideoSource(60) } };
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(4), video);
+        var controller = new DrawableTimeController
+        {
+            Speed = { Value = 300f },
+            OffsetPosition = { Value = MediaTime.FromSeconds(offset) },
+            Reverse = { Value = reverse },
+        };
+        controller.Speed.Expression = speed;
+        element.Objects.Add(controller);
+        return element;
+    }
+
+    // A controller multiplies the time it has played by what its expression gives, which continues from the cut (#3860).
+    // A script that fails or gives no finite value plays the stored speed.
+    [TestCase("200", 0, 2)]
+    [TestCase("100 + 100 * Time", 0, 2)]
+    [TestCase("100 + 100 * Time", 1, 4)]
+    [TestCase("this does not compile", 0, 3)]
+    [TestCase("float.NaN", 0, 3)]
+    public void Split_ControllerSpeedExpression_ContinuesFromTheCut(string speed, double offset, double position)
+    {
+        Element element = AddVideoUnderASpeedExpression(Expression.Create<float>(speed), offset);
+        MediaTime cut = MediaTime.FromSeconds(1);
+        Assert.That(ComposedPosition(cut).ToSeconds(), Is.EqualTo(position).Within(0.01), "Before the cut.");
+
+        _service.Split(_harness.Scene, [element], cut);
+
+        Assert.That(ComposedPosition(cut).ToSeconds(), Is.EqualTo(position).Within(0.01), "After the cut.");
+    }
+
+    [Test]
+    public void Split_ConstantControllerSpeedExpression_PlaysOnAsIfUncut()
+    {
+        Element element = AddVideoUnderASpeedExpression(Expression.Create<float>("200"));
+        MediaTime later = MediaTime.FromSeconds(3);
+        MediaTime uncut = ComposedPosition(later);
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Assert.That(ComposedPosition(later).ToSeconds(), Is.EqualTo(uncut.ToSeconds()).Within(0.01));
+    }
+
+    [Test]
+    public void Split_VideoAndControllerSpeedExpressions_ContinueFromTheCut()
+    {
+        var video = new SourceVideo { Source = { Value = TrimTestMedia.CreateVideoSource(60) } };
+        video.Speed.Expression = Expression.Create<float>("100 + 100 * Time");
+        Element element = AddVideoUnderASpeedExpression(Expression.Create<float>("200"), video: video);
+        MediaTime cut = MediaTime.FromSeconds(1);
+        // The controller plays the video's second 2, where its own expression gives 300%.
+        Assert.That(ComposedPosition(cut).ToSeconds(), Is.EqualTo(6).Within(0.01), "Before the cut.");
+
+        _service.Split(_harness.Scene, [element], cut);
+
+        Assert.That(ComposedPosition(cut).ToSeconds(), Is.EqualTo(6).Within(0.01), "After the cut.");
+    }
+
+    // The video's keyframes keep their place in what the controller plays, which the expression decides.
+    [Test]
+    public void Split_AnimatedSpeedUnderAControllerSpeedExpression_MatchesPlaybackAfterTheCut()
+    {
+        var video = new SourceVideo { Source = { Value = TrimTestMedia.CreateVideoSource(60) } };
+        video.Speed.SetKeyFrameAnimation(TrimTestMedia.CreateSpeedRamp(useGlobalClock: false));
+        Element element = AddVideoUnderASpeedExpression(Expression.Create<float>("200"), video: video);
+        MediaTime later = MediaTime.FromSeconds(3);
+        MediaTime uncut = ComposedPosition(later);
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Assert.That(ComposedPosition(later).ToSeconds(), Is.EqualTo(uncut.ToSeconds()).Within(0.01));
+    }
+
+    [Test]
+    public void Split_ReverseControllerSpeedExpression_ContinuesFromTheCut()
+    {
+        Element element = AddVideoUnderASpeedExpression(Expression.Create<float>("200"), reverse: true);
+        MediaTime cut = MediaTime.FromSeconds(1);
+        Assert.That(ComposedPosition(cut).ToSeconds(), Is.EqualTo(2).Within(0.01), "Before the cut.");
+
+        _service.Split(_harness.Scene, [element], cut);
+
+        Assert.That(ComposedPosition(cut).ToSeconds(), Is.EqualTo(2).Within(0.01), "After the cut.");
+    }
+
+    // The outer controller plays second 1 at 200%, and so the inner one reads its expression at second 2, not at second 1.
+    [Test]
+    public void Split_TwoControllerSpeedExpressions_ContinueFromTheCut()
+    {
+        Element element = AddVideoUnderASpeedExpression(Expression.Create<float>("100 + 50 * Time"));
+        var outer = new DrawableTimeController();
+        outer.Speed.Expression = Expression.Create<float>("100 + 100 * Time");
+        element.Objects.Add(outer);
+        MediaTime cut = MediaTime.FromSeconds(1);
+        Assert.That(ComposedPosition(cut).ToSeconds(), Is.EqualTo(4).Within(0.01), "Before the cut.");
+
+        _service.Split(_harness.Scene, [element], cut);
+
+        Assert.That(ComposedPosition(cut).ToSeconds(), Is.EqualTo(4).Within(0.01), "After the cut.");
+    }
+
+    // With no time played, the back piece's controller has no use for its value, which therefore cannot undo the cut.
+    [Test]
+    public void Split_ControllerSpeedExpressionUndefinedWhereTheBackPieceStarts_ContinuesAtItsValueAtTheCut()
+    {
+        Element element = AddVideoUnderASpeedExpression(Expression.Create<float>("Time == 0 ? float.NaN : 200"));
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Element back = _harness.Scene.Children.Single(child => child != element);
+        Assert.That(BackObject<SourceVideo>(back).OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+    }
+
+    // An expression with no finite value falls back to the stored speed, so that has to have none either.
+    [Test]
+    public void Split_ControllerSpeedWithoutAFiniteValue_ShiftsByLocalTime()
+    {
+        var video = new SourceVideo { Source = { Value = TrimTestMedia.CreateVideoSource(60) } };
+        Element element = AddVideoUnderASpeedExpression(Expression.Create<float>("float.NaN"), video: video);
+        element.Objects.OfType<DrawableTimeController>().Single().Speed.Value = float.NaN;
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Element back = _harness.Scene.Children.Single(child => child != element);
+        Assert.That(BackObject<SourceVideo>(back).OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+    }
+
+    // The offset starts the back piece partway into the controller's clock, where it reads the other clip.
+    [Test]
+    public void SilenceSplit_ControllerSpeedReadingAnotherClip_PlaysOnAcrossTheCut()
+    {
+        var provider = new SourceSound { Speed = { Value = 200f } };
+        AddElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(1), provider);
+        Element element = AddVideoUnderASpeedExpression(
+            new ReferenceExpression<float>(provider.Id.Value, nameof(Sound.Speed)), offset: 1);
+        MediaTime later = MediaTime.FromSeconds(3.5);
+        MediaTime uncut = ComposedPosition(later);
+
+        new SilenceSplitService(_harness.History).Apply(_harness.Scene, element,
+            [new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1))], SilenceSplitMode.DeleteSilence, false);
+
+        Assert.That(ComposedPosition(later).ToSeconds(), Is.EqualTo(uncut.ToSeconds()).Within(0.01));
+    }
+
     [Test]
     public void Split_LoopingVideoWithASpeedExpression_KeepsTheWrappedSourcePosition()
     {

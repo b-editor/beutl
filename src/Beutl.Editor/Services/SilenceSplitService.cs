@@ -51,7 +51,7 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
         List<Element> parts = [.. originals];
         // Portals, extension split callbacks and speed expressions may inspect other live scene elements while splitting.
         // Keep their normal Razor path; built-in media can be prepared without publishing intermediate clips.
-        SplitBatch? batch = originals.All(e => e.Objects.All(o => o is not PortalObject)
+        SplitBatch? batch = originals.All(e => e.Objects.All(o => o is not (PortalObject or DrawableTimeController { Speed.HasExpression: true }))
             && ElementStructureService.OwnedSplittables(e).All(o => (o is SourceSound or SceneSound or SceneDrawable || o.GetType() == typeof(SourceVideo))
                 && o is not ITimeMappedSource { Speed.HasExpression: true }))
             ? new SplitBatch(scene) : null;

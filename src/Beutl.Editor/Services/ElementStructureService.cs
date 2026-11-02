@@ -305,7 +305,7 @@ public sealed class ElementStructureService : IElementStructureService
         foreach (ISplittable splittable in splittables)
         {
             if (!targets.TryGetValue(splittable, out SlippableMedia.Target? target) || !target.IsMappingSupported
-                || !target.TryReadSpeed(forwardDuration, out float? speed))
+                || target.AtMoment(forwardDuration) is not { } atCut)
             {
                 sources.Add(new(splittable, MediaTime.Zero, MediaTime.Zero, false));
                 continue;
@@ -313,8 +313,8 @@ public sealed class ElementStructureService : IElementStructureService
 
             sources.Add(new(
                 splittable,
-                target.SourcePosition(forwardDuration, speed),
-                target.ContextTime(forwardDuration),
+                atCut.SourcePosition(forwardDuration),
+                atCut.ContextTime(forwardDuration),
                 true));
         }
 
@@ -370,10 +370,11 @@ public sealed class ElementStructureService : IElementStructureService
         for (int i = 0; i < copies.Count; i++)
         {
             SplitSource source = sources[i];
-            if (!source.Supported || !backTargets.TryGetValue(copies[i], out SlippableMedia.Target? backTarget))
+            if (!source.Supported || !backTargets.TryGetValue(copies[i], out SlippableMedia.Target? backTarget)
+                || backTarget.AtMoment(MediaTime.Zero) is not { } atStart)
                 continue;
 
-            MediaTime additional = backTarget.ContextTime(MediaTime.Zero) - source.ContextAtCut + forwardDuration;
+            MediaTime additional = atStart.ContextTime(MediaTime.Zero) - source.ContextAtCut + forwardDuration;
             if (additional != MediaTime.Zero)
                 shifted |= ShiftLocalKeyFrames(copies[i], additional);
             supported[i] = true;
@@ -385,13 +386,13 @@ public sealed class ElementStructureService : IElementStructureService
         for (int i = 0; i < copies.Count; i++)
         {
             if (!supported[i] || !backTargets.TryGetValue(copies[i], out SlippableMedia.Target? backTarget)
-                || !backTarget.TryReadSpeed(MediaTime.Zero, out float? speed))
+                || backTarget.AtMoment(MediaTime.Zero) is not { } atStart)
             {
                 copies[i].NotifySplitted(true, forwardDuration, -forwardDuration);
                 continue;
             }
 
-            MediaTime delta = sources[i].PositionAtCut - backTarget.SourcePosition(MediaTime.Zero, speed);
+            MediaTime delta = sources[i].PositionAtCut - atStart.SourcePosition(MediaTime.Zero);
             copies[i].NotifySplitted(true, delta, -forwardDuration);
         }
     }

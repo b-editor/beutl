@@ -16,11 +16,12 @@ internal sealed partial class MediaTimeMapping
         private readonly List<double> _negativeSeconds = [0];
         private readonly float _minimum;
         private readonly float _maximum;
+        // The expression that sets the speed, which only reading it at a given moment can tell.
+        private readonly IExpressionProperty<float>? _expression;
 
         public bool IsSupported { get; }
 
-        // The expression that sets the speed, which only reading it at a given moment can tell.
-        public IExpressionProperty<float>? Expression { get; }
+        public bool IsMappingSupported => IsSupported || _expression != null;
 
         // A broad range can bound resize safely without giving an accurate point
         // integral for an offset write. Custom audio interpolation has only that range.
@@ -36,10 +37,10 @@ internal sealed partial class MediaTimeMapping
             // Video/controller playback integrates only nonempty keyframe curves, and an expression over no
             // keyframes multiplies time by its evaluated value instead. Audio evaluates any expression for each
             // window, even over keyframes, so nothing stored says how far it has played.
-            Expression = speed is IExpressionProperty<float> { HasExpression: true } expression
+            _expression = speed is IExpressionProperty<float> { HasExpression: true } expression
                 && !(videoPlayback && _animation is { KeyFrames.Count: > 0 }) ? expression : null;
             IsSupported = known && float.IsFinite(_minimum) && float.IsFinite(_maximum) && _minimum >= 0 && _maximum >= _minimum
-                && Expression == null;
+                && _expression == null;
             _integrator = new SpeedIntegrator(sampleRate);
             if (sampleRate > 60 && _animation != null)
             {
@@ -52,6 +53,16 @@ internal sealed partial class MediaTimeMapping
             }
             // These caches live for one operation and never subscribe to the model.
             _integrator.EnsureCache(null);
+        }
+
+        // This speed at the given time, after elapsed has played, with an expression at the value it gives then. Null when
+        // that value cannot place a position.
+        public SpeedMap? AtMoment(MediaTime time, MediaTime elapsed)
+        {
+            // Playback multiplies the elapsed time by the value, so with none elapsed it is not read.
+            if (_expression == null || elapsed == MediaTime.Zero) return this;
+            float percent = _expression.Evaluate(new EvaluationContext(time));
+            return float.IsFinite(percent) && percent >= 0 ? new SpeedMap(Property.CreateValue(percent), 60) : null;
         }
 
         public Interval Map(Interval time, MediaTime ownerStart, bool extrapolate = false, bool conservative = false)

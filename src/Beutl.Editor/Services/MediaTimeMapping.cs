@@ -24,7 +24,7 @@ internal sealed partial class MediaTimeMapping
     private readonly TimeRange _elementRange;
     private readonly Clock _sourceClock;
     private SpeedMap _speed;
-    private readonly Controller[] _controllers;
+    private Controller[] _controllers;
     private readonly MediaTime? _videoDuration;
     private readonly bool _loopVideo;
     private readonly KeyFrameAnimation<bool>? _loopAnimation;
@@ -75,12 +75,11 @@ internal sealed partial class MediaTimeMapping
         _timelineKnown = source is not ITimeMappedSource { HasDynamicTimeline: true };
     }
 
-    public bool IsSupported => _timelineKnown && _speed.IsSupported && IsMappingSupported;
+    public bool IsSupported => _timelineKnown && _sourceSupported && _speed.IsSupported && _controllers.All(c => c.IsSupported);
 
-    // A split continues whichever timeline plays and reads a speed expression at the cut, so unlike other edits it
-    // needs neither a length nor a stored speed.
-    public bool IsMappingSupported => _sourceSupported && (_speed.IsSupported || _speed.Expression != null)
-        && _controllers.All(c => c.IsSupported);
+    // A split continues whichever timeline plays and reads speed expressions at the cut, so unlike other edits it needs
+    // neither a length nor the stored speeds.
+    public bool IsMappingSupported => _sourceSupported && _speed.IsMappingSupported && _controllers.All(c => c.IsMappingSupported);
 
     public bool CanWriteOffsets => !_sourceLocked && IsSupported && _speed.CanWriteOffsets;
 
@@ -120,17 +119,23 @@ internal sealed partial class MediaTimeMapping
         return time.Min - sourceRange.Start;
     }
 
-    // What an expression on the speed gives while the source plays localTime, or null without one.
-    public float? EvaluateSpeed(MediaTime localTime)
-        => _speed.Expression?.Evaluate(new EvaluationContext(_sourceClock.GetRange(_elementRange).Start + MapControllerTime(localTime)));
-
-    // This mapping at a fixed speed, which is how playback applies what an expression gives: the elapsed time times
-    // that value.
-    public MediaTimeMapping AtSpeed(float percent)
+    // This mapping as it plays localTime, with each speed expression at the value it gives then, which is how playback
+    // applies it: the elapsed time times that value. Null when a value cannot place a position.
+    public MediaTimeMapping? AtMoment(MediaTime localTime)
     {
-        var mapping = (MediaTimeMapping)MemberwiseClone();
-        mapping._speed = new SpeedMap(Property.CreateValue(percent), 60);
-        return mapping;
+        var moment = (MediaTimeMapping)MemberwiseClone();
+        moment._controllers = new Controller[_controllers.Length];
+        var time = new Interval(_elementRange.Start + localTime, _elementRange.Start + localTime);
+        for (int i = 0; i < _controllers.Length; i++)
+        {
+            if (_controllers[i].AtMoment(time.Min, _elementRange) is not { } controller) return null;
+            moment._controllers[i] = controller;
+            time = controller.Map(time, _elementRange);
+        }
+        MediaTime elapsed = time.Min - _sourceClock.GetRange(_elementRange).Start;
+        if (_speed.AtMoment(time.Min, elapsed) is not { } speed) return null;
+        moment._speed = speed;
+        return moment;
     }
 
     // The positions the source reads over the range with OffsetPosition at offset. With plainOnly, those it would
@@ -297,7 +302,7 @@ internal sealed partial class MediaTimeMapping
     {
         private readonly Clock _clock;
         private readonly Clock? _targetClock;
-        private readonly SpeedMap _speed;
+        private SpeedMap _speed;
         private readonly MediaTime _offset;
         private readonly bool _adjust;
         private readonly bool _reverse;
@@ -308,6 +313,8 @@ internal sealed partial class MediaTimeMapping
         private readonly bool _hasMappingExpression;
 
         public bool IsSupported => !_hasMappingExpression && _speed.IsSupported;
+
+        public bool IsMappingSupported => !_hasMappingExpression && _speed.IsMappingSupported;
 
         public bool HasVariableDuration => _targetClock?.ChangesWithElement == true && (_loop || _reverse || _holdLast);
 
@@ -339,6 +346,16 @@ internal sealed partial class MediaTimeMapping
             _hasMappingExpression = controller.OffsetPosition.HasExpression || controller.AdjustTimeRange.HasExpression
                 || controller.Reverse.HasExpression || controller.Loop.HasExpression || controller.HoldFirstFrame.HasExpression
                 || controller.HoldLastFrame.HasExpression || controller.FrameRate.HasExpression;
+        }
+
+        // This controller as it plays time, with an expression on its speed at the value it gives then.
+        public Controller? AtMoment(MediaTime time, TimeRange elementRange)
+        {
+            TimeRange origin = _adjust ? _targetClock!.GetRange(elementRange) : _clock.GetRange(elementRange);
+            if (_speed.AtMoment(time, Add(time, _offset - origin.Start)) is not { } speed) return null;
+            var moment = (Controller)MemberwiseClone();
+            moment._speed = speed;
+            return moment;
         }
 
         public Interval Map(Interval time, TimeRange elementRange)

@@ -31,18 +31,14 @@ internal static partial class SlippableMedia
         public MediaTime ContextTime(MediaTime localTime)
             => Mapping.MapControllerTime(localTime);
 
-        // What a speed expression gives at localTime, or null without one. Playback multiplies the elapsed time by it, so
-        // with none elapsed it is not read. False when the value cannot place a position.
-        public bool TryReadSpeed(MediaTime localTime, out float? speed)
-        {
-            speed = ContextTime(localTime) == MediaTime.Zero ? null : Mapping.EvaluateSpeed(localTime);
-            return speed is not { } percent || float.IsFinite(percent) && percent >= 0;
-        }
+        // This target as it plays localTime, with each speed expression at the value it gives then. Null when a value
+        // cannot place a position.
+        public Target? AtMoment(MediaTime localTime)
+            => Mapping.AtMoment(localTime) is { } moment ? new Target(Offset, Total, moment, Length) : null;
 
-        // The position playback shows, after any wrap the source applies, at the speed read from an expression if given.
-        public MediaTime SourcePosition(MediaTime localTime, float? speed = null)
-            => (speed is { } percent ? Mapping.AtSpeed(percent) : Mapping)
-                .Range(localTime, localTime, extrapolate: false, conservative: false).Min;
+        // The position playback shows, after any wrap the source applies.
+        public MediaTime SourcePosition(MediaTime localTime)
+            => Mapping.Range(localTime, localTime, extrapolate: false, conservative: false).Min;
 
         public bool CanSlip(MediaTime delta)
         {
