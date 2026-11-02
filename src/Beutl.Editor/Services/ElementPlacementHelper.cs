@@ -123,14 +123,10 @@ internal static class ElementPlacementHelper
     private static bool IsOverlapping(
         Scene scene, TimeRange range, int anchorZIndex, IReadOnlySet<int> rowOffsets)
     {
-        foreach (Element child in scene.Children)
+        SceneElementIndex index = scene.ElementIndex;
+        foreach (int offset in rowOffsets)
         {
-            if (!rowOffsets.Contains(child.ZIndex.Value - anchorZIndex)) continue;
-            TimeRange other = child.Range;
-            if (other == range || other.Intersects(range) || other.Contains(range) || range.Contains(other))
-            {
-                return true;
-            }
+            if (index.Overlaps(anchorZIndex + offset, range)) return true;
         }
 
         return false;
