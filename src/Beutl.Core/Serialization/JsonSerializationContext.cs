@@ -98,7 +98,7 @@ public partial class JsonSerializationContext(
 
     internal bool EmbedsCopy => options?.EmbedsCopy ?? (Parent as JsonSerializationContext)?.EmbedsCopy ?? false;
 
-    internal IReadOnlyDictionary<string, bool>? PendingFileChanges
+    internal IReadOnlySet<string>? PendingFileChanges
         => options?.PendingFileChanges ?? (Parent as JsonSerializationContext)?.PendingFileChanges;
 
     public Type OwnerType { get; } = ownerType;

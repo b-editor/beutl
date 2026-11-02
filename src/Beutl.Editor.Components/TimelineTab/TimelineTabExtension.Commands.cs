@@ -286,8 +286,7 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
 
         IEnumerable<Guid> selection = editorContext.GetService<IEditorSelection>()?.SelectedElements
             .Select(e => e.Id.Value) ?? [];
-        HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(selection.Append(element.Id.Value), scene.Groups);
-        return scene.Children.Where(e => ids.Contains(e.Id.Value)).ToArray();
+        return DuplicateHelper.FindWithGroupSiblings(scene, selection.Append(element.Id.Value));
     }
 
     private static async Task SaveAsTemplateAsync(

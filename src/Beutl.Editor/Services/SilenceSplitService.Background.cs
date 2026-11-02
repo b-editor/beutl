@@ -31,7 +31,7 @@ public sealed partial class SilenceSplitService
 
         Rational frameRate = SceneTimeRangeService.GetFrameRate(scene);
         int sampleRate = scene.FindHierarchicalParent<Project>().GetSampleRate();
-        SpeakerLayout channelLayout = scene.FindHierarchicalParent<Project>()?.ChannelLayout.Value ?? SpeakerLayout.Stereo;
+        SpeakerLayout channelLayout = scene.FindHierarchicalParent<Project>().GetSpeakerLayout();
         var project = new Project { FrameRate = { Value = frameRate }, SampleRate = { Value = sampleRate }, ChannelLayout = { Value = channelLayout } };
         var snapshot = new Scene { Uri = scene.Uri, Start = { Value = scene.Start.Value }, Duration = { Value = scene.Duration.Value } };
         project.Items.Add(snapshot);
@@ -96,7 +96,7 @@ public sealed partial class SilenceSplitService
             history.FlushPendingMutations();
             if (changed || history.ChangeVersion != changeVersion || frameRate != SceneTimeRangeService.GetFrameRate(scene)
                 || sampleRate != scene.FindHierarchicalParent<Project>().GetSampleRate()
-                || channelLayout != (scene.FindHierarchicalParent<Project>()?.ChannelLayout.Value ?? SpeakerLayout.Stereo)) return false;
+                || channelLayout != scene.FindHierarchicalParent<Project>().GetSpeakerLayout()) return false;
 
             HashSet<Element> retained = snapshot.Children.ToHashSet();
             Element[] removed = originals.Where(e => !retained.Contains(copies[e])).ToArray();

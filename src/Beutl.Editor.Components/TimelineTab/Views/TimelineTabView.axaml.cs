@@ -125,8 +125,14 @@ public sealed partial class TimelineTabView : UserControl
             AddElement(element);
         }
 
-        // A clip with no view model does not report that the view can now show it.
-        void OnSceneEdited(object? sender, EventArgs e) => InvalidateElementViewport();
+        // A clip with no view model does not report that the view can now show it. One with a view model reports
+        // through its ViewportElement, and an edit inside a clip moves none.
+        void OnSceneEdited(object? sender, EventArgs e)
+        {
+            if (sender is Scene or TimelineLayer || (sender is Element element && vm.FindViewModelFor(element) is null))
+                InvalidateElementViewport();
+        }
+
         vm.ElementRealized += AddElement;
         vm.ElementReleased += RemoveElement;
         vm.Scene.Edited += OnSceneEdited;

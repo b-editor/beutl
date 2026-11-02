@@ -3,7 +3,6 @@ using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Logging;
-using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
@@ -107,14 +106,12 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         if (preflightFailure is not null)
             return preflightFailure;
 
-        var preparedElements = new List<Element>(descriptions.Count);
         var itemResults = new List<ElementAddItemResult>(descriptions.Count);
         var groups = new List<ImmutableHashSet<Guid>>();
         var arrangements = new List<bool>(descriptions.Count);
         ElementAddResult? materializationFailure = await MaterializeAsync(
             scene,
             plans,
-            preparedElements,
             itemResults,
             groups,
             arrangements,
@@ -127,7 +124,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         ElementAddResult? result = null;
         await _context.HistoryManager.RunAfterEditAsync(
             () => result = CommitBatch(
-                scene, sceneId, plans, preparedElements, itemResults, groups, arrangements, cancellationToken),
+                scene, sceneId, plans, itemResults, groups, arrangements, cancellationToken),
             cancellationToken);
 
         return result!;
@@ -213,7 +210,6 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
     private async ValueTask<ElementAddResult?> MaterializeAsync(
         Scene scene,
         List<ElementCreationPlan> plans,
-        List<Element> preparedElements,
         List<ElementAddItemResult> itemResults,
         List<ImmutableHashSet<Guid>> groups,
         List<bool> arrangements,
@@ -279,7 +275,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
 
             try
             {
-                AssignElementUris(scene, materialization, preparedElements);
+                AssignElementUris(scene, materialization);
             }
             catch (Exception ex)
             {
@@ -300,8 +296,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
     }
 
     // The elements take only their URIs: the next save writes their files, as it does for duplicates.
-    private static void AssignElementUris(
-        Scene scene, ElementMaterialization materialization, List<Element> preparedElements)
+    private static void AssignElementUris(Scene scene, ElementMaterialization materialization)
     {
         Uri? sceneUri = scene.Uri;
         string elementDirectory = sceneUri is not null
@@ -314,7 +309,6 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 : RandomFileNameGenerator.GenerateUri(
                     elementDirectory,
                     EditorConstants.ElementFileExtension);
-            preparedElements.Add(element);
         }
     }
 
@@ -322,7 +316,6 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         Scene scene,
         Guid sceneId,
         List<ElementCreationPlan> plans,
-        List<Element> preparedElements,
         List<ElementAddItemResult> itemResults,
         List<ImmutableHashSet<Guid>> groups,
         List<bool> arrangements,
@@ -389,24 +382,18 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             return ElementAddResult.Failed(gatedCommitValidation.Failure);
         }
 
-        _logger.LogInformation("Added {Count} elements successfully.", preparedElements.Count);
-        return ElementAddResult.Succeeded(itemResults);
+        ElementAddResult result = ElementAddResult.Succeeded(itemResults);
+        _logger.LogInformation("Added {Count} elements successfully.", result.Elements.Count);
+        return result;
     }
 
     // Moves elements that keep their arrangement to the free place nearest where they are, clear of the scene as it
     // is now, earlier items of the batch included, so they can be added as they are. Throwing rolls the batch back.
     private static void PlaceTogether(Scene scene, IReadOnlyList<Element> elements)
     {
-        (TimeRange range, int minZIndex, _) = DuplicateHelper.ComputePlacementRange(elements);
-        HashSet<int> rowOffsets = elements.Select(element => element.ZIndex.Value - minZIndex).ToHashSet();
-        HashSet<int> lockedRows = scene.Layers
-            .Where(layer => layer.IsLocked.Value)
-            .Select(layer => layer.ZIndex.Value)
-            .ToHashSet();
-        (MediaTime start, int zIndex) = ElementPlacementHelper.FindFreeAnchor(
-                scene, range, rowOffsets, lockedRows, range.Start, minZIndex)
+        GroupPlacement placement = ElementPlacementHelper.FindFreePlacement(scene, elements)
             ?? throw new InvalidOperationException("No free place was found for elements that keep their arrangement.");
-        ElementPlacementHelper.MoveTogether(elements, start - range.Start, zIndex - minZIndex);
+        ElementPlacementHelper.MoveTogether(elements, placement.StartDelta, placement.LayerDelta);
     }
 
     private CommitValidationFailure? RevalidateBeforeCommit(

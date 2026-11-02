@@ -14,7 +14,7 @@ public static partial class CoreSerializer
 
     // Capture on the model's owning thread; invoke the returned writer on a worker. Auto-save
     // writes named objects only, so references keep their URIs rather than saving live objects.
-    internal static Action PrepareStoreToUri(CoreObject obj, IReadOnlyDictionary<string, bool> pendingFiles,
+    internal static Action PrepareStoreToUri(CoreObject obj, IReadOnlySet<string> pendingFiles,
         Action<JsonObject, Uri>? beforeWrite = null)
     {
         Uri uri = obj.Uri ?? throw new JsonException("The object has no storage URI.");

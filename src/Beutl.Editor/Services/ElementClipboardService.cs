@@ -316,10 +316,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         // Paste instead searches for a free slot like duplicate, keeping the clip length and using
         // the clicked start as the anchor.
         var rowOffsets = new HashSet<int> { 0 };
-        HashSet<int> lockedRows = scene.Layers
-            .Where(l => l.IsLocked.Value)
-            .Select(l => l.ZIndex.Value)
-            .ToHashSet();
+        HashSet<int> lockedRows = ElementPlacementHelper.GetLockedRows(scene);
         var anchor = ElementPlacementHelper.FindFreeAnchor(
             scene,
             newElement.Range,

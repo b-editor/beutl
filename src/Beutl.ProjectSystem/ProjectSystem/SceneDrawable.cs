@@ -25,9 +25,6 @@ public sealed partial class SceneDrawable : Drawable, ITimeMappedSource
 
     IExpressionProperty<float>? ITimeMappedSource.Speed => null;
 
-    // Rendering evaluates an expression on OffsetPosition.
-    bool ITimeMappedSource.HasDynamicMapping => OffsetPosition.HasExpression;
-
     bool ITimeMappedSource.HasDynamicTimeline => SceneReference.IsDynamic(ReferencedScene);
 
     MediaTime? ITimeMappedSource.GetSourceDuration() => SceneReference.GetDuration(this, ReferencedScene);

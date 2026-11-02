@@ -137,24 +137,28 @@ public partial class Scene
         return (element.Range, NearestLayerNumber(element));
     }
 
+    // Grows the scene to reach end, when the setting that adjusts its duration is on.
+    internal void ExtendDurationToCover(MediaTime end)
+    {
+        if (GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value && Duration.Value + Start.Value < end)
+        {
+            Duration.Value = end - Start.Value;
+        }
+    }
+
     private void AddChildCore(Element element, ElementOverlapHandling overlapHandling)
     {
-        bool adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value;
         (TimeRange range, int zIndex) = GetCorrectPosition(element, overlapHandling);
         element.Start.Value = range.Start;
         element.Length.Value = range.Duration;
         element.ZIndex.Value = zIndex;
         Children.Add(element);
 
-        if (adjustSceneDuration && Duration.Value + Start.Value < range.End)
-        {
-            Duration.Value = range.End - Start.Value;
-        }
+        ExtendDurationToCover(range.End);
     }
 
     private void MoveChildCore(int zIndex, MediaTime newStart, MediaTime newLength, Element element)
     {
-        bool adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value;
         MediaTime newEnd = newStart + newLength;
         (Element? before, Element? after, Element? cover) =
             element.GetBeforeAndAfterAndCover(zIndex, newStart, newEnd);
@@ -186,11 +190,7 @@ public partial class Scene
             element.ZIndex.Value = zIndex;
         }
 
-        TimeRange range = element.Range;
-        if (adjustSceneDuration && Duration.Value + Start.Value < range.End)
-        {
-            Duration.Value = range.End - Start.Value;
-        }
+        ExtendDurationToCover(element.Range.End);
     }
 
     // Returns whether the elements moved. A drag fits around what it hits, which can move them further than asked;

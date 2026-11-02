@@ -434,13 +434,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             return;
         }
 
-        HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(
-            SelectedElements.Select(s => s.Model.Id.Value),
-            Scene.Groups);
-
-        var sources = Scene.Children
-            .Where(x => ids.Contains(x.Id.Value))
-            .ToArray();
+        Element[] sources = _selection.GetTargetElements(Scene);
 
         try
         {

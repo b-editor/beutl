@@ -40,7 +40,7 @@ public class FileBrowserAutoSaveTests
             if (fail) throw new IOException("Injected background write failure");
         });
         element.Name.Value = "Snapshot";
-        Action write = CoreSerializer.PrepareStoreToUri(element, new Dictionary<string, bool>());
+        Action write = CoreSerializer.PrepareStoreToUri(element, new HashSet<string>());
         Task saving = Task.Run(write);
         try
         {

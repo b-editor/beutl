@@ -78,7 +78,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             if ((frameSize != _scene.FrameSize.Value
                     || start != _scene.Start.Value
                     || duration != _scene.Duration.Value
-                    || ChannelLayout.Value != (_scene.FindHierarchicalParent<Project>()?.ChannelLayout.Value ?? SpeakerLayout.Stereo))
+                    || ChannelLayout.Value != _scene.FindHierarchicalParent<Project>().GetSpeakerLayout())
                 && _editorContext.GetService<IPreviewPlayer>() is { } player)
             {
                 await player.Pause();
@@ -115,7 +115,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         StartInput.Value = TimeText.Format(_scene.Start.Value);
         DurationInput.Value = TimeText.Format(_scene.Duration.Value);
         LayerCount.Value = _optionsProvider.Options.Value.MaxLayerCount;
-        ChannelLayout.Value = _scene.FindHierarchicalParent<Project>()?.ChannelLayout.Value ?? SpeakerLayout.Stereo;
+        ChannelLayout.Value = _scene.FindHierarchicalParent<Project>().GetSpeakerLayout();
     }
 
     internal static string? DurationValidator(string str)

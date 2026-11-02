@@ -17,8 +17,7 @@ public sealed class SceneSettingsService : ISceneSettingsService
     }
 
     public bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration)
-        => Apply(scene, frameSize, start, duration,
-            scene.FindHierarchicalParent<Project>()?.ChannelLayout.Value ?? SpeakerLayout.Stereo);
+        => Apply(scene, frameSize, start, duration, scene.FindHierarchicalParent<Project>().GetSpeakerLayout());
 
     public bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration, SpeakerLayout channelLayout)
     {

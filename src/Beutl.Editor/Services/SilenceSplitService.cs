@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Audio;
-using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Language;
@@ -115,9 +114,7 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
                 scene.Groups.InsertRange(index, groups);
                 scene.Children.AddRange(pending);
                 // Match AddChild's duration adjustment even when a split tail was subsequently removed.
-                if (parts.Count > originals.Length && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value
-                    && maximumEnd > scene.Start.Value + scene.Duration.Value)
-                    scene.Duration.Value = maximumEnd - scene.Start.Value;
+                if (parts.Count > originals.Length) scene.ExtendDurationToCover(maximumEnd);
             }
         }
     }

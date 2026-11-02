@@ -347,23 +347,17 @@ internal sealed partial class ElementAdderImpl
                     new ElementSourcePreflightFailure("The element-set template holds no elements.")));
             }
 
-            (Beutl.Media.TimeRange range, int minZIndex, _) = DuplicateHelper.ComputePlacementRange([.. set.Elements]);
-            HashSet<int> rowOffsets = set.Elements.Select(element => element.ZIndex.Value - minZIndex).ToHashSet();
-            HashSet<int> lockedRows = context.Scene.Layers
-                .Where(layer => layer.IsLocked.Value)
-                .Select(layer => layer.ZIndex.Value)
-                .ToHashSet();
-            if (ElementPlacementHelper.FindFreeAnchor(
-                    context.Scene, range, rowOffsets, lockedRows, description.Start, description.Layer)
-                is not { } anchor)
+            if (ElementPlacementHelper.FindFreePlacement(
+                    context.Scene, [.. set.Elements], description.Start, description.Layer)
+                is not { } placement)
             {
                 return ValueTask.FromResult(ElementSourcePreflightResult.Rejected(
                     new ElementSourcePreflightFailure("No free place was found for the element-set template.")));
             }
 
             return ValueTask.FromResult(ElementSourcePreflightResult.Ready(
-                new ElementSetPreflight(set, anchor.Start - range.Start, anchor.ZIndex - minZIndex),
-                rowOffsets.Select(offset => anchor.ZIndex + offset)));
+                new ElementSetPreflight(set, placement.StartDelta, placement.LayerDelta),
+                placement.RowOffsets.Select(offset => placement.ZIndex + offset)));
         }
 
         public ValueTask<ElementSourceMaterializationResult> MaterializeAsync(
