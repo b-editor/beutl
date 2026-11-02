@@ -11,6 +11,9 @@ namespace Beutl.Services.StartupTasks;
 
 public sealed class CheckForPackageUpdatesTask : StartupTask
 {
+    // Longer than the check takes against a store that answers, even with many packages installed.
+    private static readonly TimeSpan s_mismatchDeadline = TimeSpan.FromSeconds(30);
+
     private readonly ILogger<CheckForPackageUpdatesTask> _logger = Log.CreateLogger<CheckForPackageUpdatesTask>();
 
     public CheckForPackageUpdatesTask(Startup startup, PackageManager packageManager, BeutlApiApplication beutlApiApplication)
@@ -18,7 +21,8 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
             startup.WaitLoadingExtensions,
             () => startup.GetTask<LoadInstalledExtensionTask>().Failures,
             packageManager.CheckUpdate,
-            () => beutlApiApplication.IsDisposed)
+            () => beutlApiApplication.IsDisposed,
+            s_mismatchDeadline)
     {
     }
 
@@ -26,20 +30,33 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
         Func<Task> waitLoadingExtensions,
         Func<IEnumerable<(LocalPackage, Exception)>> getLoadFailures,
         Func<CancellationToken, Task<IReadOnlyList<PackageUpdate>>> checkUpdate,
-        Func<bool> isShuttingDown)
+        Func<bool> isShuttingDown,
+        TimeSpan mismatchDeadline)
     {
+        PackageApiMismatchException[] GetMismatches()
+            => [.. getLoadFailures().Select(failure => failure.Item2).OfType<PackageApiMismatchException>()];
+
         Task = Task.Run(async () =>
         {
             using (Activity? activity = Telemetry.StartActivity("CheckForPackageUpdatesTask"))
             {
                 IReadOnlyList<PackageUpdate> updates = [];
+                bool mismatchesShown = false;
                 try
                 {
                     await waitLoadingExtensions();
 
                     activity?.AddEvent(new("Checking for package updates"));
 
-                    updates = await checkUpdate(CancellationToken.None);
+                    Task<IReadOnlyList<PackageUpdate>> check = checkUpdate(CancellationToken.None);
+                    if (await Task.WhenAny(check, Task.Delay(mismatchDeadline)) != check)
+                    {
+                        // A store that does not answer must not hold back which packages did not load.
+                        ShowResult([], GetMismatches());
+                        mismatchesShown = true;
+                    }
+
+                    updates = await check;
                     activity?.SetTag("UpdateCount", updates.Count);
 
                     if (updates.Count > 0)
@@ -64,7 +81,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
                     _logger.LogError(ex, "An error occurred while checking for package updates.");
                 }
 
-                ShowResult(updates, [.. getLoadFailures().Select(failure => failure.Item2).OfType<PackageApiMismatchException>()]);
+                ShowResult(updates, mismatchesShown ? [] : GetMismatches());
             }
         });
     }

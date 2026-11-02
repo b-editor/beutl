@@ -84,6 +84,28 @@ public sealed class CheckForPackageUpdatesTaskTests
     }
 
     [Test]
+    public async Task A_store_that_does_not_answer_does_not_hold_back_the_errors()
+    {
+        var check = new TaskCompletionSource<IReadOnlyList<PackageUpdate>>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Task task = Run([Mismatch("A")], _ => check.Task, mismatchDeadline: TimeSpan.FromMilliseconds(1));
+        await HeadlessTestHelpers.WaitUntilAsync(() => !_notifications.All.IsEmpty, pump: false);
+
+        AssertOnlyTheErrorOf("A");
+
+        check.SetResult([Update("A")]);
+        await task;
+
+        Notification[] shown = [.. _notifications.All];
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(shown, Has.Length.EqualTo(2));
+            Assert.That(shown[1].Type, Is.EqualTo(NotificationType.Information));
+            Assert.That(shown[1].Message, Is.EqualTo(string.Format(MessageStrings.PackagesCanBeUpdated, 1)));
+        }
+    }
+
+    [Test]
     public async Task Shutting_down_during_the_check_shows_nothing()
     {
         await Run([Mismatch("A")], _ => throw new OperationCanceledException(), shuttingDown: true);
@@ -168,9 +190,15 @@ public sealed class CheckForPackageUpdatesTaskTests
         (LocalPackage, Exception)[] failures,
         Func<CancellationToken, Task<IReadOnlyList<PackageUpdate>>> checkUpdate,
         bool shuttingDown = false,
-        Task? extensionsLoaded = null)
+        Task? extensionsLoaded = null,
+        TimeSpan? mismatchDeadline = null)
     {
-        return new CheckForPackageUpdatesTask(() => extensionsLoaded ?? Task.CompletedTask, () => failures, checkUpdate, () => shuttingDown)
+        return new CheckForPackageUpdatesTask(
+                () => extensionsLoaded ?? Task.CompletedTask,
+                () => failures,
+                checkUpdate,
+                () => shuttingDown,
+                mismatchDeadline ?? TimeSpan.FromMinutes(1))
             .Task.WaitAsync(TimeSpan.FromSeconds(10));
     }
 }
