@@ -46,6 +46,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     private readonly IEditorClock _editorClock;
     private readonly IEditorSelection _editorSelection;
     private IDisposable? _currentFrameSubscription;
+    private PlaybackTicker? _activeTicker;
     private readonly object _renderRequestLock = new();
     private CancellationTokenSource? _cts;
     private volatile bool _isDisposing;
@@ -433,6 +434,13 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
     public PathEditorViewModel PathEditor { get; }
 
+    public MediaTime? GetPlaybackTime()
+    {
+        if (Volatile.Read(ref _activeTicker) is { } ticker) return ticker.CurrentTime;
+
+        return IsPlaying.Value ? _editorClock.CurrentTime.Value : null;
+    }
+
     public void Play()
     {
         if (_isDisposing || _isPausing || IsPlaying.Value) return;
@@ -587,6 +595,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             ticker = new PlaybackTicker(
                 this, generation, playerImpl, clock, rate, range.StartFrame, range.EndFrame, startTime,
                 DateTime.UtcNow);
+            Volatile.Write(ref _activeTicker, ticker);
 
             await using var timer = new Timer(ticker.OnTick, null, tick, tick);
 
@@ -599,6 +608,10 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         }
         finally
         {
+            // A session that took over after a Pause() timeout has its own ticker.
+            if (ticker != null)
+                Interlocked.CompareExchange(ref _activeTicker, null, ticker);
+
             // Restore the stopped state only while this task owns the session; otherwise the new owner or
             // Pause()'s timeout path does. On the UI thread, after retiring the ticker, so nothing it posted
             // lands after the stopped state, the rewind or a restart.

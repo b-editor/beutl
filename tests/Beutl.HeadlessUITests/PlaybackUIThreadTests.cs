@@ -275,6 +275,43 @@ public class PlaybackUIThreadTests
         return rewinds;
     }
 
+    // The playhead moves when a frame is shown. Between two of those moments the playback time still runs on.
+    [AvaloniaTest]
+    public async Task PlaybackTime_RunsOnBetweenFrames_AndIsNullWhileStopped()
+    {
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await OpenEditor(MediaTime.FromSeconds(30));
+        IPreviewPlayer player = editor.Player;
+        IEditorClock clock = editor.GetRequiredService<IEditorClock>();
+        Assert.That(player.GetPlaybackTime(), Is.Null);
+
+        player.Play();
+        try
+        {
+            Assert.That(player.IsPlaying.Value, Is.True);
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => clock.CurrentTime.Value > MediaTime.Zero, TimeSpan.FromSeconds(120), pump: false);
+
+            bool ranOn = false;
+            for (int attempt = 0; attempt < 200 && !ranOn; attempt++)
+            {
+                MediaTime playhead = clock.CurrentTime.Value;
+                MediaTime before = player.GetPlaybackTime()!.Value;
+                Thread.Sleep(1);
+                ranOn = player.GetPlaybackTime()!.Value > before && clock.CurrentTime.Value == playhead;
+                await Task.Delay(1);
+            }
+
+            Assert.That(ranOn, Is.True);
+        }
+        finally
+        {
+            await player.Pause();
+        }
+
+        Assert.That(player.GetPlaybackTime(), Is.Null);
+    }
+
     private static async Task<EditViewModel> OpenEditor(MediaTime duration)
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("playback-ui-thread", 320, 240, duration: duration);
