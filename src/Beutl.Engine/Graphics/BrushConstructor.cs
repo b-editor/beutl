@@ -376,7 +376,7 @@ public readonly struct BrushConstructor(
     /// Resolves the image a tile brush tiles at density <paramref name="s"/>, which the caller disposes, with the
     /// logical size and the device pixels per logical unit of its content.
     /// </summary>
-    /// <returns><see langword="false"/> when a drawable brush produced no image; the fill degrades to transparent.</returns>
+    /// <returns><see langword="false"/> when the brush has no image to tile; the fill degrades to transparent.</returns>
     private bool TryResolveTileSource(
         TileBrush.Resource tileBrush,
         float s,
@@ -413,9 +413,18 @@ public readonly struct BrushConstructor(
             return true;
         }
 
-        if (tileBrush is ImageBrush.Resource imageBrush
-            && imageBrush.Source?.Bitmap is { } bitmap)
+        if (tileBrush is ImageBrush.Resource imageBrush)
         {
+            // An SVG too large to turn into pixels has none, and no source has none either.
+            if (imageBrush.Source?.Bitmap is not { } bitmap)
+            {
+                s_logger.LogWarning(
+                    "Image brush '{Brush}' has no pixels to tile; the fill degrades to transparent.",
+                    imageBrush);
+                ThrowIfDeliveryContentLoss($"Image brush '{imageBrush}' has no pixels to tile.");
+                return false;
+            }
+
             skImage = SKImage.FromBitmap(bitmap.SKBitmap);
             contentSize = new Size(bitmap.Width, bitmap.Height);
             contentDensity = 1f; // the bitmap's native pixels ARE the logical content (1:1)

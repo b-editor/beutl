@@ -11,6 +11,7 @@ using Beutl.Serialization;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Media.Source;
 
@@ -24,6 +25,8 @@ public sealed class SvgImageTests
           <rect width="10" height="10" fill="#ff0000"/>
         </svg>
         """;
+
+    private const string TooLargeForPixels = """<svg xmlns="http://www.w3.org/2000/svg" width="16384" height="16384"/>""";
 
     private static readonly Bgra8888 s_green = new(10, 200, 30, 255);
 
@@ -210,8 +213,7 @@ public sealed class SvgImageTests
     [Test]
     public void An_SVG_too_large_for_pixels_still_opens_as_a_drawing()
     {
-        using ImageSource.Resource resource = Open(
-            """<svg xmlns="http://www.w3.org/2000/svg" width="16384" height="16384"/>""");
+        using ImageSource.Resource resource = Open(TooLargeForPixels);
 
         Assert.Multiple(() =>
         {
@@ -219,6 +221,35 @@ public sealed class SvgImageTests
             Assert.That(resource.FrameSize, Is.EqualTo(new PixelSize(16384, 16384)));
             Assert.That(resource.Bitmap, Is.Null);
         });
+    }
+
+    [Test]
+    public void A_brush_of_an_SVG_too_large_for_pixels_fills_nothing_in_a_preview()
+    {
+        using ImageBrush.Resource brush = OpenBrush(TooLargeForPixels);
+        var constructor = new BrushConstructor(
+            new Rect(0, 0, 8, 8), brush, BlendMode.SrcOver, RenderIntent.Preview, drawableBrushMaterializer: null);
+        using var paint = new SKPaint();
+
+        constructor.ConfigurePaint(paint);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(paint.Shader, Is.Null);
+            Assert.That(paint.Color.Alpha, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void An_export_stops_at_a_brush_of_an_SVG_too_large_for_pixels()
+    {
+        using ImageBrush.Resource brush = OpenBrush(TooLargeForPixels);
+        var constructor = new BrushConstructor(
+            new Rect(0, 0, 8, 8), brush, BlendMode.SrcOver, RenderIntent.Delivery, drawableBrushMaterializer: null);
+
+        Assert.That(
+            () => constructor.CreateShader(),
+            Throws.InvalidOperationException.With.Message.Contain("no pixels"));
     }
 
     // Older Illustrator files declare their namespaces this way.
@@ -357,6 +388,13 @@ public sealed class SvgImageTests
         var source = new ImageSource();
         source.ReadFrom(new Uri(Write(content)));
         return source.ToResource(CompositionContext.Default);
+    }
+
+    private ImageBrush.Resource OpenBrush(string content)
+    {
+        var source = new ImageSource();
+        source.ReadFrom(new Uri(Write(content)));
+        return new ImageBrush(source).ToResource(CompositionContext.Default);
     }
 
     private string Write(string content)
