@@ -451,6 +451,58 @@ public class ElementAddEntryPointTests
         }
     }
 
+    // The clips in the scene push the dropped picture off its layer, and it must not land where the subtitles go.
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFile_KeepsItsTimesWhenWhatIsDroppedWithItIsPushedUp()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-displaced");
+        for (int layer = 0; layer < 3; layer++)
+        {
+            await timeline.AddElementWithResultAsync(new ElementDescription(
+                MediaTime.Zero, MediaTime.FromSeconds(10), layer, new ElementSource.EngineObject(() => new RectShape())));
+        }
+
+        string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "pushed.srt");
+        File.WriteAllText(path, "1\n00:00:05,000 --> 00:00:08,000\nsubtitle\n");
+        var picture = new ElementDescription(
+            MediaTime.FromSeconds(1), MediaTime.FromSeconds(5), 0, new ElementSource.EngineObject(() => new RectShape()));
+
+        await CaptionFileDrop.AddAsync(timeline, [path], [picture]);
+
+        Element text = editor.Scene.Children.Single(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any());
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(text.Range, Is.EqualTo(new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(3))));
+            Assert.That(text.ZIndex.Value, Is.GreaterThan(editor.Scene.Children.Where(child => child != text).Max(child => child.ZIndex.Value)),
+                "Subtitles stay above the picture they were dropped with.");
+        }
+    }
+
+    // One unreadable file is said to be so, and need not cost the user the others.
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFileThatCannotBeRead_LeavesTheRestOfTheDrop()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-mixed");
+        using var notifications = new NotificationCapture();
+        string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+        string broken = Path.Combine(directory, "broken.srt");
+        string good = Path.Combine(directory, "good.srt");
+        File.WriteAllText(broken, "this is not a subtitle file");
+        File.WriteAllText(good, "1\n00:00:01,000 --> 00:00:02,000\ngood\n");
+
+        await CaptionFileDrop.AddAsync(timeline, [broken, good], []);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(editor.Scene.Children.Single().Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Single().Text.Value, Is.EqualTo("good"));
+            Assert.That(notifications.All.Single().Message, Does.Contain("broken.srt"));
+        }
+    }
+
     [AvaloniaTest]
     public async Task TimelineView_DroppingSeveralFiles_TakesThemAllBackInOneUndo()
     {

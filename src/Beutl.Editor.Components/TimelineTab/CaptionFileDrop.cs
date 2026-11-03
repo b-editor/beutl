@@ -4,6 +4,7 @@ using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
+using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -28,10 +29,7 @@ internal static class CaptionFileDrop
     public static async Task AddAsync(
         TimelineTabViewModel viewModel, IReadOnlyList<string> files, IReadOnlyList<ElementDescription> others)
     {
-        // A video's own sound takes the layer below its picture.
-        int layer = Math.Max(
-            AiCaptionSceneImporter.GetFirstFreeLayer(viewModel.Scene),
-            others.Count > 0 ? others.Max(other => other.Layer) + 2 : 0);
+        int layer = GetFirstLayerAbove(viewModel.Scene, others);
         var descriptions = new List<ElementDescription>(others);
         var skippedSome = new List<string>();
         foreach (string file in files)
@@ -73,6 +71,18 @@ internal static class CaptionFileDrop
                 Strings.AddElement,
                 string.Format(CultureInfo.CurrentCulture, Strings.SubtitleFile_SomeSkipped, Path.GetFileName(file)));
         }
+    }
+
+    // Above the scene and above where the other files can end up, or their clips would move these. A video's own
+    // sound takes the layer below its picture, and clips already at or above them push each file up a layer or two.
+    private static int GetFirstLayerAbove(Scene scene, IReadOnlyList<ElementDescription> others)
+    {
+        int first = AiCaptionSceneImporter.GetFirstFreeLayer(scene);
+        if (others.Count == 0) return first;
+
+        int lowest = others.Min(other => other.Layer);
+        int displacement = scene.Children.Any(child => child.ZIndex.Value >= lowest) ? others.Count * 2 : 0;
+        return Math.Max(first, others.Max(other => other.Layer) + 2) + displacement;
     }
 
     // The serializer reads UTF-8, but subtitle tools also write UTF-16 and, on Windows, the system's legacy code page.
