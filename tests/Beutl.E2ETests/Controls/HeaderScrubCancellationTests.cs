@@ -51,6 +51,27 @@ public class HeaderScrubCancellationTests
         GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = _pointerLock;
     }
 
+    // A read-only editor disables its text box, but not its header. A drag wrote past that to a value nothing showed,
+    // such as one under an expression.
+    [AvaloniaTest]
+    [TestCaseSource(nameof(s_editors))]
+    public void A_read_only_editor_ignores_a_drag_of_its_header(EditorCase editorCase)
+    {
+        PropertyEditor editor = editorCase.Create();
+        editor.IsReadOnly = true;
+        using var host = new EditorTestHost<PropertyEditor>(editor);
+        object initial = editorCase.Read(editor);
+        int active = HeaderScrubGesture.ActiveCount;
+
+        host.PressAndDrag(host.Require<TextBlock>("PART_HeaderTextBlock"), 40);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(editorCase.Read(editor), Is.EqualTo(initial));
+            Assert.That(HeaderScrubGesture.ActiveCount, Is.EqualTo(active), "the cursor stays shown");
+        });
+    }
+
     [AvaloniaTest]
     [TestCaseSource(nameof(s_editors))]
     public void Another_element_taking_the_pointer_mid_drag_ends_the_scrub(EditorCase editorCase)
