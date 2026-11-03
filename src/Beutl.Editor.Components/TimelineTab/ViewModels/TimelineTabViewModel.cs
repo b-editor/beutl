@@ -221,15 +221,20 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             .Subscribe(_ => RefreshThumbnails()).AddTo(_disposables);
     }
 
-    public async Task<ElementAddResult> AddElementWithResultAsync(
+    public Task<ElementAddResult> AddElementWithResultAsync(
         ElementDescription description, CancellationToken cancellationToken = default)
+        => AddElementsWithResultAsync([description], cancellationToken);
+
+    // Adds them all or none in one undo step, and shows the first.
+    public async Task<ElementAddResult> AddElementsWithResultAsync(
+        IReadOnlyList<ElementDescription> descriptions, CancellationToken cancellationToken = default)
     {
         ElementAddResult result = await EditorContext
             .GetRequiredService<IElementAdder>()
-            .AddAsync([description], cancellationToken);
+            .AddAsync(descriptions, cancellationToken);
         if (result.IsSuccess)
         {
-            Element scrollTarget = result.Items[^1].PrimaryElement;
+            Element scrollTarget = result.Items[0].PrimaryElement;
             ScrollTo.Execute((scrollTarget.Range, scrollTarget.ZIndex.Value));
             return result;
         }

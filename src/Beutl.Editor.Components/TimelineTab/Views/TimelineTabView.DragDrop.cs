@@ -67,14 +67,35 @@ public sealed partial class TimelineTabView
 
             e.Handled = true;
         }
-        else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
+        else if (TryGetDroppedFiles(e) is { Length: > 0 } files)
         {
-            viewModel.AddElement.Execute(new ElementDescription(
-                viewModel.ClickedFrame, s_defaultElementLength, viewModel.CalculateClickedLayer(),
-                new ElementSource.File(fileName)));
-
             e.Handled = true;
+            await AddDroppedFilesAsync(viewModel, files);
         }
+    }
+
+    private static string[]? TryGetDroppedFiles(DragEventArgs e)
+        => e.DataTransfer.TryGetFiles()?
+            .OfType<IStorageFile>()
+            .Select(file => file.TryGetLocalPath())
+            .OfType<string>()
+            .ToArray();
+
+    private static async Task AddDroppedFilesAsync(TimelineTabViewModel viewModel, string[] files)
+    {
+        MediaTime frame = viewModel.ClickedFrame;
+        int layer = viewModel.CalculateClickedLayer();
+        ElementDescription[] descriptions = FileDropLayout.Create(files, frame, s_defaultElementLength, layer);
+        try
+        {
+            // With no media among them, adding the first says why it cannot be added.
+            await viewModel.AddElementsWithResultAsync(descriptions.Length > 0
+                ? descriptions
+                : [new ElementDescription(frame, s_defaultElementLength, layer, new ElementSource.File(files[0]))]);
+        }
+        catch (OperationCanceledException) { }
+        catch (ObjectDisposedException) { }
+        catch (Exception) { NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError); }
     }
 
     private static async Task ImportStorageDropAsync(TimelineTabViewModel viewModel, Scene scene, StorageDragData storage)
