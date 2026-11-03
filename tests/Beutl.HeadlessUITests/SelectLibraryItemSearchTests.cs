@@ -216,6 +216,175 @@ public sealed class SelectLibraryItemSearchTests
         }
     }
 
+    private static void Press(Window window, Key key, PhysicalKey physical, string? text)
+    {
+        window.KeyPress(key, RawInputModifiers.None, physical, text);
+        window.KeyRelease(key, RawInputModifiers.None, physical, text);
+    }
+
+    // The search applies after a 100 ms pause, so nothing here may wait between typing and the key that acts on it.
+    [AvaloniaTest]
+    public async Task Down_and_Enter_right_after_typing_pick_from_the_results_for_the_typed_text()
+    {
+        var host = new Button { Content = "Pick" };
+        var window = new Window { Content = host, Width = 320, Height = 480 };
+        var viewModel = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
+        using var showAll = viewModel.ShowAll;
+        using var searchText = viewModel.SearchText;
+        try
+        {
+            window.Show();
+            Task<object?> picked = LibraryItemPickerHelper.ShowAsync(host, viewModel, KnownLibraryItemFormats.FilterEffect);
+            await viewModel.SearchTask;
+            HeadlessTestHelpers.Render(3);
+            PinnableLibraryItem firstOfAll = viewModel.Items[0];
+            string word = viewModel.Items[^1].DisplayName;
+            window.KeyPress(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
+            window.KeyRelease(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
+            HeadlessTestHelpers.Render();
+
+            window.KeyTextInput(word);
+            Press(window, Key.Down, PhysicalKey.ArrowDown, null);
+            Press(window, Key.Enter, PhysicalKey.Enter, "\r");
+
+            object? result = await picked.WaitAsync(TimeSpan.FromSeconds(5));
+            await viewModel.SearchTask;
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.Items[0], Is.Not.SameAs(firstOfAll));
+                Assert.That(result, Is.EqualTo(((SingleTypeLibraryItem)viewModel.Items[0].UserData).ImplementationType));
+                Assert.That(viewModel.Items.Any(item => item.DisplayName == word), Is.True);
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Enter_right_after_typing_does_not_pick_what_the_old_list_had_selected()
+    {
+        var host = new Button { Content = "Pick" };
+        var window = new Window { Content = host, Width = 320, Height = 480 };
+        var viewModel = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
+        using var showAll = viewModel.ShowAll;
+        using var searchText = viewModel.SearchText;
+        try
+        {
+            window.Show();
+            Task<object?> picked = LibraryItemPickerHelper.ShowAsync(host, viewModel, KnownLibraryItemFormats.FilterEffect);
+            await viewModel.SearchTask;
+            HeadlessTestHelpers.Render(3);
+            string word = viewModel.Items[^1].DisplayName;
+            window.KeyPress(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
+            window.KeyRelease(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
+            HeadlessTestHelpers.Render();
+            Press(window, Key.Down, PhysicalKey.ArrowDown, null);
+            Assert.That(viewModel.SelectedItem.Value, Is.Not.Null);
+
+            window.KeyTextInput(word);
+            Press(window, Key.Enter, PhysicalKey.Enter, "\r");
+
+            Assert.That(await picked.WaitAsync(TimeSpan.FromSeconds(5)), Is.Null);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // The pause ending after a key already applied the text must not rebuild the list and drop the selection.
+    [AvaloniaTest]
+    public async Task The_pause_ending_after_Down_keeps_the_selection()
+    {
+        var host = new Button { Content = "Pick" };
+        var window = new Window { Content = host, Width = 320, Height = 480 };
+        var viewModel = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
+        using var showAll = viewModel.ShowAll;
+        using var searchText = viewModel.SearchText;
+        try
+        {
+            window.Show();
+            Task<object?> picked = LibraryItemPickerHelper.ShowAsync(host, viewModel, KnownLibraryItemFormats.FilterEffect);
+            await viewModel.SearchTask;
+            HeadlessTestHelpers.Render(3);
+            string word = viewModel.Items[^1].DisplayName;
+            window.KeyPress(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
+            window.KeyRelease(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
+            HeadlessTestHelpers.Render();
+
+            window.KeyTextInput(word);
+            Press(window, Key.Down, PhysicalKey.ArrowDown, null);
+            PinnableLibraryItem? selected = viewModel.SelectedItem.Value;
+            Assert.That(selected, Is.Not.Null);
+            await Task.Delay(300);
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(viewModel.SelectedItem.Value, Is.SameAs(selected));
+            Press(window, Key.Enter, PhysicalKey.Enter, "\r");
+            Assert.That(await picked.WaitAsync(TimeSpan.FromSeconds(5)),
+                Is.EqualTo(((SingleTypeLibraryItem)selected!.UserData).ImplementationType));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ShowAll searches right away, so the text it searched for is the one a later key compares with.
+    [AvaloniaTest]
+    public async Task Going_back_to_the_earlier_text_after_ShowAll_searched_for_another_finds_it_again()
+    {
+        PinnableLibraryItem[] items = [CreateItem(typeof(RectShape), "Rectangle"), CreateItem(typeof(EllipseShape), "Ellipse")];
+        var viewModel = CreateViewModel(Task.FromResult(items), Task.FromResult(items));
+        using var showAll = viewModel.ShowAll;
+        using var searchText = viewModel.SearchText;
+        await viewModel.SearchTask;
+        viewModel.SearchText.Value = "Rectangle";
+        viewModel.FlushSearch();
+        await viewModel.SearchTask;
+
+        viewModel.SearchText.Value = "Ellipse";
+        viewModel.ShowAll.Value = true;
+        await viewModel.SearchTask;
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(viewModel.Items.Select(i => i.DisplayName), Is.EqualTo(new[] { "Ellipse" }));
+
+        viewModel.SearchText.Value = "Rectangle";
+        viewModel.FlushSearch();
+        await viewModel.SearchTask;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(viewModel.Items.Select(i => i.DisplayName), Is.EqualTo(new[] { "Rectangle" }));
+    }
+
+    // The search reads the text once the catalog has loaded, which can be newer than the text that started it.
+    [AvaloniaTest]
+    public async Task Going_back_to_the_text_a_search_started_with_after_it_found_a_newer_one_finds_it_again()
+    {
+        var preferred = CreateCompletion();
+        var viewModel = CreateViewModel(preferred.Task, Task.FromResult<PinnableLibraryItem[]>([]));
+        using var showAll = viewModel.ShowAll;
+        using var searchText = viewModel.SearchText;
+        viewModel.SearchText.Value = "Rectangle";
+        viewModel.FlushSearch();
+        Task search = viewModel.SearchTask;
+        viewModel.SearchText.Value = "Ellipse";
+
+        preferred.SetResult([CreateItem(typeof(RectShape), "Rectangle"), CreateItem(typeof(EllipseShape), "Ellipse")]);
+        await search.WaitAsync(TimeSpan.FromSeconds(5));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(viewModel.Items.Select(i => i.DisplayName), Is.EqualTo(new[] { "Ellipse" }));
+
+        viewModel.SearchText.Value = "Rectangle";
+        viewModel.FlushSearch();
+        await viewModel.SearchTask;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(viewModel.Items.Select(i => i.DisplayName), Is.EqualTo(new[] { "Rectangle" }));
+    }
+
     private static SelectLibraryItemDialogViewModel CreateViewModel(
         Task<PinnableLibraryItem[]> preferred, Task<PinnableLibraryItem[]> all)
     {
