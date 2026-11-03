@@ -96,6 +96,45 @@ public class SceneTests
         Assert.That(File.Exists(elementPath), Is.True);
     }
 
+    // The glob reaches into every folder below the scene, where another scene can keep its own elements.
+    [Test]
+    public void A_scene_leaves_alone_the_elements_of_a_scene_in_a_folder_below_it()
+    {
+        var outer = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "outer.scene")) };
+        var outerElement = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "elements", "outer.belm")) };
+        outer.Children.Add(outerElement);
+        CoreSerializer.StoreToUri(outerElement, outerElement.Uri);
+        CoreSerializer.StoreToUri(outer, outer.Uri);
+        var inner = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "inner", "inner.scene")) };
+        var innerElement = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "inner", "elements", "inner.belm")) };
+        inner.Children.Add(innerElement);
+        CoreSerializer.StoreToUri(innerElement, innerElement.Uri);
+        CoreSerializer.StoreToUri(inner, inner.Uri);
+
+        Scene restoredOuter = CoreSerializer.RestoreFromUri<Scene>(outer.Uri);
+        Scene restoredInner = CoreSerializer.RestoreFromUri<Scene>(inner.Uri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restoredOuter.Children.Select(child => child.Id.Value), Is.EqualTo(new[] { outerElement.Id.Value }));
+            Assert.That(restoredInner.Children.Select(child => child.Id.Value), Is.EqualTo(new[] { innerElement.Id.Value }));
+        });
+    }
+
+    // The glob is also what brings back an element whose scene was not saved after it, as after a crash.
+    [Test]
+    public void A_scene_still_finds_an_element_it_did_not_list_in_a_folder_below_it()
+    {
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "main.scene")) };
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        var element = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "some", "folder", "child.belm")) };
+        CoreSerializer.StoreToUri(element, element.Uri);
+
+        Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+
+        Assert.That(restored.Children.Select(child => child.Id.Value), Is.EqualTo(new[] { element.Id.Value }));
+    }
+
     // A save matches the children without looking for their files: the glob covers one not written yet, and a name it
     // does not cover gets a single include of its own.
     [TestCase("child.belm", new[] { "**/*.belm" })]

@@ -333,10 +333,37 @@ public partial class Scene
         var directory = new FilteredDirectoryInfo(
             new DirectoryInfoWrapper(new DirectoryInfo(directoryName)), excludedDirectories);
         var exclusionsByName = literalExclusions.ToLookup(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase);
+        var holdsScene = new Dictionary<string, bool>(StringComparer.Ordinal);
         return matcher.Execute(directory).Files.Select(file => file.Path)
             .Where(path => !exclusionsByName[Path.GetFileName(path)]
                 .Any(pattern => AreSameElementPaths(directoryName, pattern, path)))
+            .Where(path => !IsBelowAnotherScene(directoryName, path, holdsScene))
             .ToArray();
+    }
+
+    // The elements in and below a folder with a scene file of its own are that scene's.
+    private static bool IsBelowAnotherScene(string directoryName, string path, Dictionary<string, bool> holdsScene)
+    {
+        for (string? folder = Path.GetDirectoryName(path); !string.IsNullOrEmpty(folder); folder = Path.GetDirectoryName(folder))
+        {
+            if (!holdsScene.TryGetValue(folder, out bool holds))
+            {
+                try
+                {
+                    holds = Directory.EnumerateFiles(Path.Combine(directoryName, folder), "*.scene").Any();
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    holds = false;
+                }
+
+                holdsScene[folder] = holds;
+            }
+
+            if (holds) return true;
+        }
+
+        return false;
     }
 
     // Runs on the writer's captured JSON, after element deletions. Never mutate the live exclusions:
