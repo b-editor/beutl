@@ -17,19 +17,54 @@
     <StackPanel Spacing="4">
         <Grid Margin="4" ColumnDefinitions="*,Auto">
             <StackPanel Spacing="6">
-                <TextBlock Margin="0,8,0,0" Text="{Binding ProgressText.Value}" />
+                <TextBlock Margin="0,8,0,0"
+                           Text="{Binding ProgressText.Value}"
+                           TextWrapping="Wrap" />
                 <ProgressBar Margin="0,0,8,0"
                              Maximum="{Binding ProgressMax.Value}"
                              Value="{Binding ProgressValue.Value}" />
-                <StackPanel IsVisible="{Binding IsEncoding.Value}"
-                            Orientation="Horizontal"
-                            Spacing="12">
-                    <TextBlock Opacity="0.7" Text="{Binding Elapsed.Value, StringFormat={}{0}}" />
-                    <TextBlock Opacity="0.5" Text="/" />
-                    <TextBlock Text="{Binding Eta.Value}" />
-                    <TextBlock Opacity="0.5" Text="|" />
-                    <TextBlock Text="{Binding FrameProgressText.Value}" />
-                </StackPanel>
+                <Grid ColumnDefinitions="Auto,*"
+                      ColumnSpacing="12"
+                      IsVisible="{Binding HasProgress.Value}"
+                      RowDefinitions="Auto,Auto,Auto,Auto"
+                      RowSpacing="2">
+                    <TextBlock Grid.Row="0"
+                               Grid.Column="0"
+                               Opacity="0.7"
+                               Text="{x:Static lang:Strings.ElapsedTime}" />
+                    <TextBlock Grid.Row="0"
+                               Grid.Column="1"
+                               Text="{Binding Elapsed.Value}" />
+
+                    <TextBlock Grid.Row="1"
+                               Grid.Column="0"
+                               Opacity="0.7"
+                               Text="{x:Static lang:Strings.RemainingTime}" />
+                    <TextBlock Grid.Row="1"
+                               Grid.Column="1"
+                               Text="{Binding Eta.Value}" />
+
+                    <TextBlock Grid.Row="2"
+                               Grid.Column="0"
+                               Opacity="0.7"
+                               Text="{x:Static lang:Strings.Frames}" />
+                    <TextBlock Grid.Row="2"
+                               Grid.Column="1"
+                               Text="{Binding FrameProgressText.Value}" />
+
+                    <TextBlock Grid.Row="3"
+                               Grid.Column="0"
+                               Opacity="0.7"
+                               Text="{x:Static lang:Strings.FileSize}" />
+                    <StackPanel Grid.Row="3"
+                                Grid.Column="1"
+                                Orientation="Horizontal"
+                                Spacing="6">
+                        <TextBlock Text="{Binding CurrentSize.Value}" />
+                        <TextBlock Opacity="0.5" Text="/" />
+                        <TextBlock Text="{Binding EstimatedSize.Value}" />
+                    </StackPanel>
+                </Grid>
             </StackPanel>
             <Button Grid.Column="1"
                     VerticalAlignment="Bottom"

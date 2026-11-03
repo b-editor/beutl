@@ -183,7 +183,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public ReactiveProperty<string> ProgressText { get; } = new();
 
-    public ReactiveProperty<string> ProgressMain { get; } = new(string.Empty);
+    // Stays on after a run, so that its figures can be read once it is over.
+    public ReactiveProperty<bool> HasProgress { get; } = new();
 
     public ReactiveProperty<string> Elapsed { get; } = new("00:00:00");
 
@@ -396,8 +397,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private void BeginProgress()
     {
         _isEncoding.Value = true;
-        ProgressText.Value = "";
-        ProgressMain.Value = Strings.Encoding;
+        HasProgress.Value = true;
+        ProgressText.Value = Strings.Encoding;
         Elapsed.Value = "00:00:00";
         Eta.Value = "--:--:--";
         CurrentSize.Value = "0 MB";
@@ -492,7 +493,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             ? $"{_totalFrames} / {_totalFrames}"
             : FrameProgressText.Value;
         ProgressText.Value = Strings.Completed;
-        ProgressMain.Value = Strings.Completed;
         Eta.Value = "00:00:00";
         _logger.LogInformation("Encoding process completed successfully.");
     }
@@ -584,7 +584,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     {
         WasCancelled.Value = true;
         ProgressText.Value = Strings.Cancel;
-        ProgressMain.Value = Strings.Cancel;
         _logger.LogInformation("Encoding cancelled.");
     }
 
