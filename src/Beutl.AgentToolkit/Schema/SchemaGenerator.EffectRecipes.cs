@@ -530,6 +530,10 @@ public sealed partial class SchemaGenerator
                 threshold.Smoothness.Value = 18;
                 threshold.Strength.Value = 70;
                 break;
+            case EdgeDetection edgeDetection:
+                edgeDetection.Thickness.Value = 1.5f;
+                edgeDetection.KeepSource.Value = true;
+                break;
             case Brightness brightness:
                 brightness.Amount.Value = 116;
                 break;

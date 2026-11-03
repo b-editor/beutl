@@ -455,6 +455,30 @@
   <data name="Erode_RadiusY" xml:space="preserve">
     <value>Radio Y</value>
   </data>
+  <data name="EdgeDetection" xml:space="preserve">
+    <value>Detección de bordes</value>
+  </data>
+  <data name="EdgeDetection_Target" xml:space="preserve">
+    <value>Detectar</value>
+  </data>
+  <data name="EdgeDetectionTarget_Luminance" xml:space="preserve">
+    <value>Luminancia</value>
+  </data>
+  <data name="EdgeDetectionTarget_Alpha" xml:space="preserve">
+    <value>Transparencia</value>
+  </data>
+  <data name="EdgeDetection_Thickness" xml:space="preserve">
+    <value>Grosor</value>
+  </data>
+  <data name="EdgeDetection_Threshold" xml:space="preserve">
+    <value>Umbral</value>
+  </data>
+  <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
+    <value>Los cambios menores que este valor no dibujan ninguna línea.</value>
+  </data>
+  <data name="EdgeDetection_KeepSource" xml:space="preserve">
+    <value>Conservar la imagen</value>
+  </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>Sombra plana</value>
   </data>

@@ -57,6 +57,7 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<LumaColor>>(GraphicsStrings.LumaColor)
             .Add<FilterEffectNode<Saturate>>(GraphicsStrings.Saturate)
             .Add<FilterEffectNode<Threshold>>(GraphicsStrings.Threshold)
+            .Add<FilterEffectNode<EdgeDetection>>(GraphicsStrings.EdgeDetection)
             .Add<FilterEffectNode<Brightness>>(GraphicsStrings.Brightness)
             .Add<FilterEffectNode<Gamma>>(GraphicsStrings.Gamma)
             .Add<FilterEffectNode<ColorGrading>>(GraphicsStrings.ColorGrading)

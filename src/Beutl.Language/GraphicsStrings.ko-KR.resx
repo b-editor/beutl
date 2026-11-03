@@ -455,6 +455,30 @@
   <data name="Erode_RadiusY" xml:space="preserve">
     <value>반경 Y</value>
   </data>
+  <data name="EdgeDetection" xml:space="preserve">
+    <value>가장자리 추출</value>
+  </data>
+  <data name="EdgeDetection_Target" xml:space="preserve">
+    <value>감지 대상</value>
+  </data>
+  <data name="EdgeDetectionTarget_Luminance" xml:space="preserve">
+    <value>휘도</value>
+  </data>
+  <data name="EdgeDetectionTarget_Alpha" xml:space="preserve">
+    <value>투명도</value>
+  </data>
+  <data name="EdgeDetection_Thickness" xml:space="preserve">
+    <value>두께</value>
+  </data>
+  <data name="EdgeDetection_Threshold" xml:space="preserve">
+    <value>임계값</value>
+  </data>
+  <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
+    <value>이보다 작은 변화에는 선을 그리지 않습니다.</value>
+  </data>
+  <data name="EdgeDetection_KeepSource" xml:space="preserve">
+    <value>원본 이미지 유지</value>
+  </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>평면 그림자</value>
   </data>

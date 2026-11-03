@@ -118,6 +118,9 @@ Beutl.Utilities
   keys: (no public parameterless constructor)
 [Beutl.Engine]Beutl.Animation:KeyFrame<T>
   sealed
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:EdgeDetectionTarget>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
@@ -192,6 +195,9 @@ Beutl.Utilities
   keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<T>
   unsealed
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:EdgeDetectionTarget>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
@@ -417,6 +423,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:DropShadow
   sealed
   keys: Animations, Color, Expressions, Id, IsEnabled, Name, Position, ShadowOnly, Sigma
+[Beutl.Engine]Beutl.Graphics.Effects:EdgeDetection
+  sealed
+  keys: Animations, Color, Expressions, Id, IsEnabled, KeepSource, Name, Target, Thickness, Threshold
 [Beutl.Engine]Beutl.Graphics.Effects:Erode
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, RadiusX, RadiusY
