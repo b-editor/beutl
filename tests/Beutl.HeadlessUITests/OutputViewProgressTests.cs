@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.Media.Encoding;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
@@ -85,6 +86,40 @@ public sealed class OutputViewProgressTests
             HeadlessCapture.SaveIfRequested(window, nameof(OutputViewProgressTests), "running");
 
             Assert.That(FiguresOf(view).IsVisible, Is.True);
+            Assert.That(ShownFigures(view), Is.SupersetOf(new[] { "00:00:12", "00:00:18", "720 / 1800", "24 MB", "60 MB" }));
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task The_figures_stay_after_a_run_has_finished()
+    {
+        await TestReset.ResetShellAsync();
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("output-figures-after");
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(TestShell.NewWorkspace("output-figures-after"), "out.mp4");
+        output.SelectedEncoder.Value = new OneFileEncoder();
+        var view = new OutputView(new PendingExecution()) { DataContext = output };
+        var window = new Window { Content = view, Width = 650, Height = 720 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            await output.RunAsync(CancellationToken.None);
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.Exists(output.DestinationFile.Value), Is.True);
+                Assert.That(FiguresOf(view).IsVisible, Is.True);
+                Assert.That(ShownFigures(view), Does.Contain(output.Elapsed.Value));
+            });
         }
         finally
         {
@@ -95,6 +130,30 @@ public sealed class OutputViewProgressTests
 
     private static Button ButtonWith(OutputView view, string text)
         => view.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, text));
+
+    private static IEnumerable<string?> ShownFigures(OutputView view)
+        => FiguresOf(view).GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text);
+
+    private sealed class OneFileEncoder : ControllableEncodingExtension
+    {
+        public override IEnumerable<string> SupportExtensions()
+        {
+            yield return ".mp4";
+        }
+
+        public override EncodingController CreateController(string file) => new OneFileController(file);
+    }
+
+    private sealed class OneFileController(string outputFile) : EncodingController(outputFile)
+    {
+        public override VideoEncoderSettings VideoSettings { get; } = new();
+
+        public override AudioEncoderSettings AudioSettings { get; } = new();
+
+        public override async ValueTask Encode(
+            IFrameProvider frameProvider, ISampleProvider sampleProvider, CancellationToken cancellationToken)
+            => await File.WriteAllBytesAsync(OutputFile, [], cancellationToken);
+    }
 
     private static Grid FiguresOf(OutputView view)
         => view.GetVisualDescendants().OfType<Grid>().Single(grid => grid.RowDefinitions.Count == 4 && grid.ColumnDefinitions.Count == 2);
