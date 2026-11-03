@@ -135,6 +135,23 @@ public class StagedOutputFileTests
         finally { Directory.Delete(root, true); }
     }
 
+    // Dispose runs on the UI thread, where deleting the frames a long sequence replaced would freeze the window.
+    [Test]
+    public void The_replaced_files_are_gone_once_the_commit_returns()
+    {
+        string root = Directory.CreateTempSubdirectory("beutl-staged-output-").FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "frame_0.png"), "old");
+            using var output = new StagedOutputFile(Path.Combine(root, "frame.png"));
+
+            output.Commit([StagedFile(output, "frame_0.png", "new")], CancellationToken.None);
+
+            Assert.That(Directory.GetFileSystemEntries(Path.GetDirectoryName(output.TemporaryPath)!), Is.Empty);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     // Another program holding a published file open is what stops the file underneath it from coming back.
     [Test]
     public void A_previous_file_that_cannot_be_put_back_survives_in_a_folder_the_failure_names()
@@ -146,9 +163,9 @@ public class StagedOutputFileTests
             Directory.CreateDirectory(Path.Combine(root, "frame_1.png"));
             IOException failure;
             using (var output = new StagedOutputFile(Path.Combine(root, "frame.png"))
-                   {
-                       RestoreFile = (_, _) => throw new IOException("in use")
-                   })
+            {
+                RestoreFile = (_, _) => throw new IOException("in use")
+            })
             {
                 string[] files = [StagedFile(output, "frame_0.png", "new 0"), StagedFile(output, "frame_1.png", "new 1")];
 

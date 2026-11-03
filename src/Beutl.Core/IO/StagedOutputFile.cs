@@ -107,6 +107,8 @@ internal sealed class StagedOutputFile : IDisposable
             throw new IOException($"The output could not be published, and some earlier files could not be put back. They are in '{backups}'.", ex);
         }
 
+        // Here and not in Dispose, which runs on the UI thread: a long sequence replaces many files.
+        DeleteDirectory(backups);
         return [.. moves.Select(move => move.Destination)];
     }
 
@@ -155,18 +157,21 @@ internal sealed class StagedOutputFile : IDisposable
 
     public void Dispose()
     {
-        if (_keepDirectory)
-            return;
+        if (!_keepDirectory)
+            DeleteDirectory(_directory);
+    }
 
+    private static void DeleteDirectory(string directory)
+    {
         try
         {
-            if (Directory.Exists(_directory))
-                Directory.Delete(_directory, recursive: true);
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // Cleanup must not mask the original failure or turn a published output into a failure.
-            Trace.TraceWarning("Failed to remove output staging directory {0}: {1}", _directory, ex.Message);
+            Trace.TraceWarning("Failed to remove output staging directory {0}: {1}", directory, ex.Message);
         }
     }
 }
