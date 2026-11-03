@@ -748,6 +748,45 @@ public sealed class EasingEditorTests
         }
     }
 
+    [AvaloniaTest]
+    public void Assistive_technology_hears_changes_that_do_not_come_from_the_keyboard()
+    {
+        var spline = new SplineEasing(0.25f, 0.1f, 0.75f, 0.9f);
+        var curve = new EasingCurveEditor { Easing = spline };
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(curve);
+            var announced = new List<string?>();
+            peer.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == AutomationElementIdentifiers.HelpTextProperty)
+                    announced.Add(e.NewValue as string);
+            };
+
+            spline.X1 = 0.5f;
+            Assert.That(announced, Has.Count.EqualTo(1), "the spline changed in place");
+            Assert.That(announced[^1], Is.EqualTo(peer.GetHelpText()));
+
+            curve.Easing = spline = new SplineEasing(0.3f, 0.2f, 0.6f, 0.8f);
+            Assert.That(announced, Has.Count.EqualTo(2), "another spline took its place");
+            Assert.That(announced[^1], Is.EqualTo(peer.GetHelpText()));
+
+            Point handle = ToWindow(window, curve, 0.6, 0.8);
+            TimelineTestHost.WaitForHitTest(window, curve, handle);
+            window.MouseMove(handle);
+            window.MouseDown(handle, MouseButton.Left);
+            window.MouseUp(handle, MouseButton.Left);
+            // The press focuses the curve first, which selects the first handle on the way.
+            Assert.That(announced[^1], Does.StartWith(Strings.EasingCurve_SecondSelected), "a press selected a handle");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static void Press(Window window, Key key, PhysicalKey physical, RawInputModifiers modifiers = RawInputModifiers.None)
     {
         window.KeyPress(key, modifiers, physical, null);

@@ -146,6 +146,8 @@ public sealed class EasingCurveEditor : Control
             {
                 CancelDrag();
             }
+
+            AnnounceToAutomation();
         }
         else if (change.Property == IsReadOnlyProperty && change.GetNewValue<bool>())
         {
@@ -215,6 +217,7 @@ public sealed class EasingCurveEditor : Control
 
         _dragging = hit;
         _selected = hit;
+        AnnounceToAutomation();
         _dragStart = spline;
         _pressPosition = e.GetPosition(this);
         _frozenRange = range;
@@ -451,6 +454,7 @@ public sealed class EasingCurveEditor : Control
 
     private void OnSplineChanged(object? sender, EventArgs e)
     {
+        AnnounceToAutomation();
         InvalidateVisual();
     }
 
