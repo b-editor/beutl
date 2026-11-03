@@ -347,17 +347,18 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         // Call the core directly; the outer operation is already admitted.
         var context = PrepareForInstallCore(
             package.Id, package.Version.ToString(), force: true, cancellationToken);
-        await ResolveDependenciesCoreAsync(context, logger, cancellationToken);
+        await ResolveDependenciesCoreAsync(context, useSavedSelection: true, logger, cancellationToken);
     }
 
     public Task ResolveDependencies(
         PackageInstallContext context,
         ILogger? logger,
         CancellationToken cancellationToken = default)
-        => TrackAsync(() => ResolveDependenciesCoreAsync(context, logger, cancellationToken));
+        => TrackAsync(() => ResolveDependenciesCoreAsync(context, useSavedSelection: false, logger, cancellationToken));
 
     private async Task ResolveDependenciesCoreAsync(
         PackageInstallContext context,
+        bool useSavedSelection,
         ILogger? logger,
         CancellationToken cancellationToken)
     {
@@ -379,6 +380,10 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 SourceRepository[] repositories = _sourceRepositoryProvider.GetRepositories()
                     .Select(GetRepositoryForCurrentHome).ToArray();
                 var availablePackages = new HashSet<SourcePackageDependencyInfo>(PackageIdentityComparer.Default);
+                Dictionary<string, PackageIdentity>? selectedPackages =
+                    useSavedSelection && ResolvedPackageDependencies.TryLoadSelection(package, nuGetFramework, out IReadOnlyList<PackageIdentity>? selection)
+                        ? selection.ToDictionary(item => item.Id, StringComparer.OrdinalIgnoreCase)
+                        : null;
                 await Helper.GetPackageDependencies(
                     package,
                     nuGetFramework,
@@ -389,6 +394,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                     // are not on nuget.org.
                     [CreateInstalledPackagesRepository(), .. repositories],
                     availablePackages,
+                    selectedPackages,
                     cancellationToken)
                     .ConfigureAwait(false);
 
