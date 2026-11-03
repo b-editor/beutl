@@ -19,6 +19,33 @@ namespace Beutl.HeadlessUITests;
 [TestFixture, NonParallelizable]
 public class ElementViewMoveSnappingTests
 {
+    // Zooming out without a limit overflowed the time under the pointer, on every move until the zoom was reset.
+    [AvaloniaTest]
+    public async Task Zooming_out_stops_before_the_time_under_the_pointer_overflows()
+    {
+        await TestReset.ResetShellAsync();
+        using var host = await TimelineTestHost.CreateAsync("zoom-lower-bound", MediaTime.FromSeconds(10),
+        [
+            new(MediaTime.Zero, MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(() => new RectShape())),
+        ]);
+        RawInputModifiers command = KeyGestureHelper.GetCommandModifier() == KeyModifiers.Meta
+            ? RawInputModifiers.Meta : RawInputModifiers.Control;
+        Point point = host.Content.TranslatePoint(
+            new Point(host.Content.Bounds.Width / 2, host.Content.Bounds.Height / 2), host.Window)!.Value;
+        TimelineTestHost.WaitForHitTest(host.Window, host.Content, point);
+
+        for (int i = 0; i < 300; i++)
+        {
+            host.Window.MouseWheel(point, new Vector(0, -1), command);
+        }
+
+        HeadlessTestHelpers.Render();
+        host.Window.MouseMove(point + new Vector(10, 0));
+        HeadlessTestHelpers.Render();
+
+        Assert.That(host.Model.Options.Value.Scale, Is.EqualTo(TimelineOptions.MinScale));
+    }
+
     [AvaloniaTest]
     public async Task Move_RealizesAnOffscreenGroupMemberDuringPreview()
     {

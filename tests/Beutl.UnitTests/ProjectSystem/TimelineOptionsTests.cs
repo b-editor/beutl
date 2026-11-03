@@ -35,6 +35,13 @@ public class TimelineOptionsTests
         Assert.That(options.MaxLayerCount, Is.EqualTo(200));
     }
 
+    [TestCase(1e-12f)]
+    [TestCase(0f)]
+    public void ScaleInit_ClampsValuesBelowTheLowestScale(float scale)
+    {
+        Assert.That(new TimelineOptions { Scale = scale }.Scale, Is.EqualTo(TimelineOptions.MinScale));
+    }
+
     [Test]
     public void ScaleInit_ClampsValuesAboveTwo()
     {
