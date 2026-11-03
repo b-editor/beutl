@@ -21,6 +21,7 @@ public class SelectLibraryItemDialogViewModel
     private PinnableLibraryItem[] _allReferenceItems = [];
     private int _searchVersion;
     private string? _appliedSearchText;
+    private string? _appliedReferenceSearchText;
 
     public SelectLibraryItemDialogViewModel(string format, Type baseType)
         : this(format, baseType, null, null)
@@ -114,11 +115,10 @@ public class SelectLibraryItemDialogViewModel
     // finishes, so there is nothing stale to act on.
     public void FlushSearch()
     {
-        if (string.Equals(SearchText.Value, _appliedSearchText, StringComparison.Ordinal)) return;
-
-        _appliedSearchText = SearchText.Value;
-        if (!ShowsOnlyReferences) ProcessSearchText();
-        ProcessReferenceSearchText();
+        if (!ShowsOnlyReferences && !string.Equals(SearchText.Value, _appliedSearchText, StringComparison.Ordinal))
+            ProcessSearchText();
+        if (!string.Equals(SearchText.Value, _appliedReferenceSearchText, StringComparison.Ordinal))
+            ProcessReferenceSearchText();
     }
 
     public async Task SelectTypeAsync(Type? type)
@@ -231,6 +231,8 @@ public class SelectLibraryItemDialogViewModel
         var items = ShowAll.Value ? await LoadAllItems() : await _itemsTask;
         if (searchVersion != Volatile.Read(ref _searchVersion)) return;
 
+        // Read after the wait, so this is the text the results are for, whichever path asked for them.
+        _appliedSearchText = SearchText.Value;
         items = items.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData, i.Description))
             .OrderByDescending(t => t.IsPinned)
             .ToArray();
@@ -258,6 +260,7 @@ public class SelectLibraryItemDialogViewModel
     private void ProcessReferenceSearchText()
     {
         ReferenceItems.ClearOnScheduler();
+        _appliedReferenceSearchText = SearchText.Value;
 
         if (string.IsNullOrWhiteSpace(SearchText.Value))
         {

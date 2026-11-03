@@ -332,6 +332,59 @@ public sealed class SelectLibraryItemSearchTests
         }
     }
 
+    // ShowAll searches right away, so the text it searched for is the one a later key compares with.
+    [AvaloniaTest]
+    public async Task Going_back_to_the_earlier_text_after_ShowAll_searched_for_another_finds_it_again()
+    {
+        PinnableLibraryItem[] items = [CreateItem(typeof(RectShape), "Rectangle"), CreateItem(typeof(EllipseShape), "Ellipse")];
+        var viewModel = CreateViewModel(Task.FromResult(items), Task.FromResult(items));
+        using var showAll = viewModel.ShowAll;
+        using var searchText = viewModel.SearchText;
+        await viewModel.SearchTask;
+        viewModel.SearchText.Value = "Rectangle";
+        viewModel.FlushSearch();
+        await viewModel.SearchTask;
+
+        viewModel.SearchText.Value = "Ellipse";
+        viewModel.ShowAll.Value = true;
+        await viewModel.SearchTask;
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(viewModel.Items.Select(i => i.DisplayName), Is.EqualTo(new[] { "Ellipse" }));
+
+        viewModel.SearchText.Value = "Rectangle";
+        viewModel.FlushSearch();
+        await viewModel.SearchTask;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(viewModel.Items.Select(i => i.DisplayName), Is.EqualTo(new[] { "Rectangle" }));
+    }
+
+    // The search reads the text once the catalog has loaded, which can be newer than the text that started it.
+    [AvaloniaTest]
+    public async Task Going_back_to_the_text_a_search_started_with_after_it_found_a_newer_one_finds_it_again()
+    {
+        var preferred = CreateCompletion();
+        var viewModel = CreateViewModel(preferred.Task, Task.FromResult<PinnableLibraryItem[]>([]));
+        using var showAll = viewModel.ShowAll;
+        using var searchText = viewModel.SearchText;
+        viewModel.SearchText.Value = "Rectangle";
+        viewModel.FlushSearch();
+        Task search = viewModel.SearchTask;
+        viewModel.SearchText.Value = "Ellipse";
+
+        preferred.SetResult([CreateItem(typeof(RectShape), "Rectangle"), CreateItem(typeof(EllipseShape), "Ellipse")]);
+        await search.WaitAsync(TimeSpan.FromSeconds(5));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(viewModel.Items.Select(i => i.DisplayName), Is.EqualTo(new[] { "Ellipse" }));
+
+        viewModel.SearchText.Value = "Rectangle";
+        viewModel.FlushSearch();
+        await viewModel.SearchTask;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(viewModel.Items.Select(i => i.DisplayName), Is.EqualTo(new[] { "Rectangle" }));
+    }
+
     private static SelectLibraryItemDialogViewModel CreateViewModel(
         Task<PinnableLibraryItem[]> preferred, Task<PinnableLibraryItem[]> all)
     {
