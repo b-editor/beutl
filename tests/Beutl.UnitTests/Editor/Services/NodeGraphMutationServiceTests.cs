@@ -208,6 +208,87 @@ public class NodeGraphMutationServiceTests
     }
 
     [Test]
+    public void TryConnect_SameNode_IsRefused()
+    {
+        var node = new SwitchNode();
+        _graph.Nodes.Add(node);
+        _history.Commit("Seed");
+        int beforeUndo = _history.UndoCount;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_service.CanConnect(_graph, node.Output, node.True), Is.False);
+            Assert.That(_service.TryConnect(_graph, node, node.Output, node, node.True),
+                Is.EqualTo(NodeConnectOutcome.None));
+            Assert.That(_graph.AllConnections, Is.Empty);
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
+        });
+    }
+
+    [Test]
+    public void TryConnect_ThatClosesACycle_IsRefused()
+    {
+        var first = new SwitchNode();
+        var second = new SwitchNode();
+        var third = new SwitchNode();
+        _graph.Nodes.AddRange([first, second, third]);
+        _graph.Connect(second.True, first.Output);
+        _graph.Connect(third.True, second.Output);
+        _history.Commit("Seed");
+        int beforeUndo = _history.UndoCount;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_service.CanConnect(_graph, first.True, third.Output), Is.False);
+            Assert.That(_service.TryConnect(_graph, third, third.Output, first, first.True),
+                Is.EqualTo(NodeConnectOutcome.None));
+            Assert.That(_graph.AllConnections, Has.Count.EqualTo(2));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
+        });
+    }
+
+    [Test]
+    public void TryConnect_BranchesThatMeetAgain_AreNotACycle()
+    {
+        var source = new SwitchNode();
+        var left = new SwitchNode();
+        var right = new SwitchNode();
+        var sink = new SwitchNode();
+        _graph.Nodes.AddRange([source, left, right, sink]);
+        _graph.Connect(left.True, source.Output);
+        _graph.Connect(right.True, source.Output);
+        _graph.Connect(sink.True, left.Output);
+        _history.Commit("Seed");
+
+        Assert.That(_service.TryConnect(_graph, right, right.Output, sink, sink.False),
+            Is.EqualTo(NodeConnectOutcome.Connected));
+    }
+
+    [Test]
+    public void RemoveNode_WithASavedSelfConnection_RemovesTheNode()
+    {
+        var node = new SwitchNode();
+        _graph.Nodes.Add(node);
+        // Earlier versions accepted this, so saved projects can still hold it.
+        _graph.Connect(node.True, node.Output);
+        _history.Commit("Seed");
+
+        _service.RemoveNode(_graph, node);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_graph.Nodes, Does.Not.Contain(node));
+            Assert.That(_graph.AllConnections, Is.Empty);
+        });
+        Assert.That(_history.Undo(), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(_graph.Nodes, Does.Contain(node));
+            Assert.That(_graph.AllConnections, Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
     public void TryConnect_DynamicOutputToOccupiedInput_DoesNotAddPartialPort()
     {
         var source = new FilterEffectInputNode();
