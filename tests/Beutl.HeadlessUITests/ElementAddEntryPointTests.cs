@@ -7,6 +7,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Platform.Storage;
+using Beutl.Audio;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
@@ -16,7 +17,9 @@ using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
+using Beutl.Media.Wave;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
@@ -211,6 +214,176 @@ public class ElementAddEntryPointTests
             window.Close();
             HeadlessTestHelpers.Settle();
         }
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineView_SeveralFilesDrop_LinesThemUpInNameOrderInOneUndoStep()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-several-files-drop");
+        var decoder = new WaveDecoderInfo();
+        DecoderRegistry.Register(decoder);
+        using var notifications = new NotificationCapture();
+        var scrolls = new List<(TimeRange Range, int ZIndex)>();
+        using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel timelinePanel = view.FindControl<Panel>("TimelinePanel")!;
+            string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+            string notes = Path.Combine(directory, "notes.beutl-unknown");
+            File.WriteAllText(notes, "not media");
+            // The shorter sound follows the longer one rather than fitting under it on another layer.
+            string longSound = Path.Combine(directory, "a.wav");
+            WriteSilentWave(longSound, 13230);
+            string shortSound = Path.Combine(directory, "b.wav");
+            WriteSilentWave(shortSound, 4410);
+            using IStorageFile ten = await GetStorageFile(window, CreatePngFile(editor, "10.png"));
+            using IStorageFile one = await GetStorageFile(window, CreatePngFile(editor, "1.png"));
+            using IStorageFile two = await GetStorageFile(window, CreatePngFile(editor, "2.png"));
+            using IStorageFile notesFile = await GetStorageFile(window, notes);
+            using IStorageFile longFile = await GetStorageFile(window, longSound);
+            using IStorageFile shortFile = await GetStorageFile(window, shortSound);
+            using var transfer = new DataTransfer();
+            foreach (IStorageFile file in new[] { ten, notesFile, shortFile, longFile, one, two })
+                transfer.Add(DataTransferItem.CreateFile(file));
+            var dropPoint = new AvaPoint(180, timeline.CalculateLayerTop(3) + 5);
+            int layer = timeline.ToLayerNumber(dropPoint.Y);
+            editor.HistoryManager.Commit();
+            int undoCount = editor.HistoryManager.UndoCount;
+            var args = new DragEventArgs(DragDrop.DropEvent, transfer, timelinePanel, dropPoint, KeyModifiers.None);
+
+            await RaiseDropAndWaitForElement(editor.Scene, timelinePanel, args);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.UndoCount > undoCount);
+            HeadlessTestHelpers.Settle();
+
+            MediaTime frame = timeline.ClickedFrame;
+            MediaTime length = MediaTime.FromSeconds(5);
+            Element[] pictures = [.. editor.Scene.Children.Where(child => child.Objects.OfType<SourceImage>().Any())
+                .OrderBy(child => child.Start.Value)];
+            Element[] sounds = [.. editor.Scene.Children.Where(child => child.Objects.OfType<SourceSound>().Any())
+                .OrderBy(child => child.Start.Value)];
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(args.Handled, Is.True);
+                Assert.That(editor.Scene.Children, Has.Count.EqualTo(5));
+                Assert.That(pictures.Select(p => Path.GetFileName(p.Objects.OfType<SourceImage>().Single().Source.Value!.Uri.LocalPath)),
+                    Is.EqualTo(new[] { "1.png", "2.png", "10.png" }));
+                Assert.That(pictures.Select(p => p.Start.Value),
+                    Is.EqualTo(new[] { frame, frame + length, frame + length + length }));
+                Assert.That(pictures.Select(p => p.ZIndex.Value), Is.All.EqualTo(layer));
+                Assert.That(sounds.Select(s => Path.GetFileName(s.Objects.OfType<SourceSound>().Single().Source.Value!.Uri.LocalPath)),
+                    Is.EqualTo(new[] { "a.wav", "b.wav" }));
+                Assert.That(sounds.Select(s => s.Start.Value), Is.EqualTo(new[] { frame, sounds[0].Range.End }));
+                Assert.That(sounds.Select(s => s.ZIndex.Value), Is.All.EqualTo(layer + 1));
+                Assert.That(scrolls.Single().Range, Is.EqualTo(pictures[0].Range));
+                Assert.That(notifications.All, Is.Empty);
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
+            }
+
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            Assert.That(editor.Scene.Children, Is.Empty);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    // Background music in a .webm or .mp4 runs under the pictures like any other sound.
+    [AvaloniaTest]
+    public async Task TimelineView_SeveralFilesDrop_TreatsAContainerHoldingOnlySoundAsSound()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-sound-in-video-container-drop");
+        var decoder = new SoundInVideoContainerDecoder();
+        DecoderRegistry.Register(decoder);
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel timelinePanel = view.FindControl<Panel>("TimelinePanel")!;
+            string music = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "2.wav");
+            WriteSilentWave(music, 4410);
+            using IStorageFile first = await GetStorageFile(window, CreatePngFile(editor, "1.png"));
+            using IStorageFile second = await GetStorageFile(window, music);
+            using IStorageFile third = await GetStorageFile(window, CreatePngFile(editor, "3.png"));
+            using var transfer = new DataTransfer();
+            foreach (IStorageFile file in new[] { first, second, third })
+                transfer.Add(DataTransferItem.CreateFile(file));
+            var dropPoint = new AvaPoint(180, timeline.CalculateLayerTop(3) + 5);
+            int layer = timeline.ToLayerNumber(dropPoint.Y);
+            editor.HistoryManager.Commit();
+            int undoCount = editor.HistoryManager.UndoCount;
+            var args = new DragEventArgs(DragDrop.DropEvent, transfer, timelinePanel, dropPoint, KeyModifiers.None);
+
+            await RaiseDropAndWaitForElement(editor.Scene, timelinePanel, args);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.UndoCount > undoCount);
+            HeadlessTestHelpers.Settle();
+
+            MediaTime frame = timeline.ClickedFrame;
+            Element[] pictures = [.. editor.Scene.Children.Where(child => child.Objects.OfType<SourceImage>().Any())
+                .OrderBy(child => child.Start.Value)];
+            Element sound = editor.Scene.Children.Single(child => child.Objects.OfType<SourceSound>().Any());
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(pictures.Select(p => p.Start.Value),
+                    Is.EqualTo(new[] { frame, frame + MediaTime.FromSeconds(5) }));
+                Assert.That(pictures.Select(p => p.ZIndex.Value), Is.All.EqualTo(layer));
+                Assert.That(sound.Start.Value, Is.EqualTo(frame));
+                Assert.That(sound.ZIndex.Value, Is.EqualTo(layer + 1));
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    // Lists sound files as videos as well, which is what FFmpeg does with the containers that can hold either.
+    private sealed class SoundInVideoContainerDecoder : IDecoderInfo
+    {
+        private readonly WaveDecoderInfo _wave = new();
+
+        public string Name => "Sound in a video container";
+
+        public MediaReader? Open(string file, MediaOptions options) => _wave.Open(file, options);
+
+        public IEnumerable<string> VideoExtensions() => _wave.AudioExtensions();
+
+        public IEnumerable<string> AudioExtensions() => _wave.AudioExtensions();
+    }
+
+    private static void WriteSilentWave(string path, int frames)
+    {
+        int bytes = frames * 2 * sizeof(short);
+        using var writer = new BinaryWriter(File.Create(path));
+        writer.Write("RIFF"u8);
+        writer.Write(36 + bytes);
+        writer.Write("WAVEfmt "u8);
+        writer.Write(16);
+        writer.Write((ushort)1);
+        writer.Write((ushort)2);
+        writer.Write(44100);
+        writer.Write(44100 * 2 * sizeof(short));
+        writer.Write((ushort)(2 * sizeof(short)));
+        writer.Write((ushort)16);
+        writer.Write("data"u8);
+        writer.Write(bytes);
+        writer.Write(new byte[bytes]);
     }
 
     [AvaloniaTest]
