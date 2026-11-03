@@ -261,4 +261,28 @@
   <data name="Panner_Help" xml:space="preserve">
     <value>Drag the puck to pan. Double-click to reset.</value>
   </data>
+  <data name="PitchShiftEffect" xml:space="preserve">
+    <value>Pitch Shift</value>
+  </data>
+  <data name="PitchShiftEffect_Semitones" xml:space="preserve">
+    <value>Semitones</value>
+  </data>
+  <data name="VibratoEffect" xml:space="preserve">
+    <value>Vibrato</value>
+  </data>
+  <data name="VibratoEffect_Rate" xml:space="preserve">
+    <value>Rate (Hz)</value>
+  </data>
+  <data name="VibratoEffect_Depth" xml:space="preserve">
+    <value>Depth (ms)</value>
+  </data>
+  <data name="RingModulatorEffect" xml:space="preserve">
+    <value>Ring Modulator</value>
+  </data>
+  <data name="RingModulatorEffect_Frequency" xml:space="preserve">
+    <value>Frequency (Hz)</value>
+  </data>
+  <data name="RingModulatorEffect_Mix" xml:space="preserve">
+    <value>Mix (%)</value>
+  </data>
 </root>

@@ -293,9 +293,18 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Audio.Effects:NoiseReductionEffect
   sealed
   keys: Adaptation, Animations, Expressions, Id, IsEnabled, Name, Reduction, Sensitivity, Smoothing
+[Beutl.Engine]Beutl.Audio.Effects:PitchShiftEffect
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Semitones
+[Beutl.Engine]Beutl.Audio.Effects:RingModulatorEffect
+  sealed
+  keys: Animations, Expressions, Frequency, Id, IsEnabled, Mix, Name
 [Beutl.Engine]Beutl.Audio.Effects:TimeStretchEffect
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Speed
+[Beutl.Engine]Beutl.Audio.Effects:VibratoEffect
+  sealed
+  keys: Animations, Depth, Expressions, Id, IsEnabled, Name, Rate
 [Beutl.Engine]Beutl.Audio:FallbackSound
   sealed
   keys: Animations, CenterLevel, Effect, Expressions, Gain, Id, IsEnabled, LfeLevel, Name, OffsetPosition, Pan, Speed, SurroundPan

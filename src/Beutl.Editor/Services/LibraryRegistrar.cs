@@ -263,6 +263,9 @@ internal static class LibraryRegistrar
                 .AddAudioEffect<GateEffect>(AudioStrings.GateEffect)
                 .AddAudioEffect<TimeStretchEffect>(AudioStrings.TimeStretchEffect)
                 .AddAudioEffect<NoiseReductionEffect>(AudioStrings.NoiseReductionEffect)
+                .AddAudioEffect<PitchShiftEffect>(AudioStrings.PitchShiftEffect)
+                .AddAudioEffect<VibratoEffect>(AudioStrings.VibratoEffect)
+                .AddAudioEffect<RingModulatorEffect>(AudioStrings.RingModulatorEffect)
             );
     }
 }
