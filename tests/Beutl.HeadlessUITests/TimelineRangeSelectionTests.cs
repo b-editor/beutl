@@ -199,6 +199,143 @@ public class TimelineRangeSelectionTests
         }
     }
 
+    // The bar can be taken where it is drawn, without a trip to the ruler or losing what is selected.
+    [AvaloniaTest]
+    public async Task With_seeking_on_click_off_dragging_the_bar_moves_the_playhead_and_keeps_the_selection()
+    {
+        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        setting.Value = false;
+        try
+        {
+            using TimelineSession session = await TimelineSession.CreateAsync();
+            TimelineTabViewModel model = session.Model;
+            model.SelectElement(model.AllElements().First());
+            MediaTime before = session.PutBarAtOneSecond();
+            Point press = session.NearBar(3, model.CalculateLayerTop(1) + 5);
+            Point to = session.ToWindow(new Point(MediaTime.FromSeconds(2).TimeToPixel(1), model.CalculateLayerTop(1) + 5));
+
+            session.Window.MouseMove(press);
+            session.Window.MouseDown(press, MouseButton.Left);
+            Assert.That(model.CurrentTime.Value, Is.EqualTo(before));
+            session.Window.MouseMove(to, RawInputModifiers.LeftMouseButton);
+            HeadlessTestHelpers.Render();
+            Assert.That(model.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            HeadlessCapture.SaveIfRequested(session.Window, nameof(TimelineRangeSelectionTests), "bar-dragged");
+            session.Window.MouseUp(to, MouseButton.Left);
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+                Assert.That(model.SelectedElements, Has.Count.EqualTo(1));
+            });
+        }
+        finally
+        {
+            setting.Value = true;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task With_seeking_on_click_off_a_click_on_the_bar_leaves_the_playhead()
+    {
+        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        setting.Value = false;
+        try
+        {
+            using TimelineSession session = await TimelineSession.CreateAsync();
+            MediaTime before = session.PutBarAtOneSecond();
+            Point point = session.NearBar(3, session.Model.CalculateLayerTop(1) + 5);
+
+            session.Window.MouseMove(point);
+            session.Window.MouseDown(point, MouseButton.Left);
+            session.Window.MouseUp(point, MouseButton.Left);
+            HeadlessTestHelpers.Render();
+
+            Assert.That(session.Model.CurrentTime.Value, Is.EqualTo(before));
+        }
+        finally
+        {
+            setting.Value = true;
+        }
+    }
+
+    // A locked clip leaves its press to the timeline, and the bar over it is still the clip's to click.
+    [AvaloniaTest]
+    public async Task With_seeking_on_click_off_a_clip_under_the_bar_keeps_the_press()
+    {
+        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        setting.Value = false;
+        try
+        {
+            using TimelineSession session = await TimelineSession.CreateAsync();
+            TimelineTabViewModel model = session.Model;
+            Element clip = model.Scene.Children.Single(child => child.ZIndex.Value == 3);
+            clip.IsLocked.Value = true;
+            MediaTime before = session.PutBarAtOneSecond();
+            double row = model.CalculateLayerTop(3) + 5;
+            Point press = session.NearBar(3, row);
+            Point to = session.NearBar(100, row);
+
+            session.Window.MouseMove(press);
+            session.Window.MouseDown(press, MouseButton.Left);
+            session.Window.MouseMove(to, RawInputModifiers.LeftMouseButton);
+            session.Window.MouseUp(to, MouseButton.Left);
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.SelectedElements.Select(element => element.Model), Is.EqualTo(new[] { clip }));
+                Assert.That(model.CurrentTime.Value, Is.EqualTo(before));
+            });
+        }
+        finally
+        {
+            setting.Value = true;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task With_seeking_on_click_off_the_cursor_shows_where_the_bar_can_be_dragged()
+    {
+        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        setting.Value = false;
+        try
+        {
+            using TimelineSession session = await TimelineSession.CreateAsync();
+            TimelineTabViewModel model = session.Model;
+            session.PutBarAtOneSecond();
+            double empty = model.CalculateLayerTop(1) + 5;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(CursorAt(session.NearBar(4, empty)), Is.EqualTo(Cursors.SizeWestEast));
+                Assert.That(CursorAt(session.NearBar(-4, empty)), Is.EqualTo(Cursors.SizeWestEast));
+                Assert.That(CursorAt(session.NearBar(5, empty)), Is.EqualTo(Cursors.Arrow));
+                Assert.That(CursorAt(session.NearBar(3, model.CalculateLayerTop(0) + 5)), Is.EqualTo(Cursors.Arrow));
+
+                model.IsRazorMode.Value = true;
+                HeadlessTestHelpers.Render();
+                Assert.That(CursorAt(session.NearBar(3, empty)), Is.EqualTo(Cursors.Cross));
+                model.IsRazorMode.Value = false;
+                HeadlessTestHelpers.Render();
+
+                setting.Value = true;
+                Assert.That(CursorAt(session.NearBar(3, empty)), Is.EqualTo(Cursors.Arrow));
+            });
+
+            Cursor? CursorAt(Point point)
+            {
+                session.Window.MouseMove(point);
+                return session.Timeline.Cursor;
+            }
+        }
+        finally
+        {
+            setting.Value = true;
+        }
+    }
+
     [AvaloniaTest]
     public async Task By_default_a_plain_click_on_the_timeline_moves_the_playhead()
     {
@@ -297,6 +434,16 @@ public class TimelineRangeSelectionTests
         }
 
         public Point ToWindow(Point point) => Timeline.TranslatePoint(point, Window)!.Value;
+
+        public MediaTime PutBarAtOneSecond()
+        {
+            Model.Seek(MediaTime.FromSeconds(1));
+            HeadlessTestHelpers.Render();
+            return Model.CurrentTime.Value;
+        }
+
+        public Point NearBar(double distance, double y)
+            => ToWindow(new Point(Model.SeekBarMargin.Value.Left + distance, y));
 
         public void Scroll(double y)
         {

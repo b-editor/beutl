@@ -757,6 +757,6 @@
     <value>タイムラインのクリックで再生位置を移動</value>
   </data>
   <data name="SeekOnTimelineClick_Description" xml:space="preserve">
-    <value>オフにすると、再生位置は目盛りでのみ移動し、タイムラインの何もない場所をドラッグすると修飾キーなしでクリップを範囲選択します。</value>
+    <value>オフにすると、再生位置は目盛りの操作かバーのドラッグでのみ移動し、タイムラインの何もない場所をドラッグすると修飾キーなしでクリップを範囲選択します。</value>
   </data>
 </root>

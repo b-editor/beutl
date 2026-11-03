@@ -761,6 +761,6 @@
     <value>Move the playhead with a click on the timeline</value>
   </data>
   <data name="SeekOnTimelineClick_Description" xml:space="preserve">
-    <value>When off, only the ruler moves the playhead, and dragging an empty part of the timeline selects clips without a modifier key.</value>
+    <value>When off, the playhead moves only from the ruler or by dragging its line, and dragging an empty part of the timeline selects clips without a modifier key.</value>
   </data>
 </root>

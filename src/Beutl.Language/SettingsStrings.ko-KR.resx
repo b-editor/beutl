@@ -742,6 +742,6 @@
     <value>타임라인을 클릭하면 재생 위치 이동</value>
   </data>
   <data name="SeekOnTimelineClick_Description" xml:space="preserve">
-    <value>끄면 눈금자에서만 재생 위치가 이동하고, 타임라인의 빈 곳을 드래그하면 보조 키 없이 클립을 범위 선택합니다.</value>
+    <value>끄면 눈금자를 사용하거나 재생 위치 막대를 드래그할 때만 재생 위치가 이동하고, 타임라인의 빈 곳을 드래그하면 보조 키 없이 클립을 범위 선택합니다.</value>
   </data>
 </root>

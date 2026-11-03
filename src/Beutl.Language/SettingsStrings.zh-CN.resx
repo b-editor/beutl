@@ -742,6 +742,6 @@
     <value>单击时间线时移动播放头</value>
   </data>
   <data name="SeekOnTimelineClick_Description" xml:space="preserve">
-    <value>关闭后，只有标尺可以移动播放头，在时间线的空白处拖动可直接框选剪辑，无需按修饰键。</value>
+    <value>关闭后，只能通过标尺或拖动播放头线条来移动播放头，在时间线的空白处拖动可直接框选剪辑，无需按修饰键。</value>
   </data>
 </root>
