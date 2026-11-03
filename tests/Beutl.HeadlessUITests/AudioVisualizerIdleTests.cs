@@ -132,6 +132,37 @@ public sealed class AudioVisualizerIdleTests
         Assert.That(meter.IsSettling, Is.False);
     }
 
+    // Nothing draws while the samples hold the light on, which must not use up the two seconds it stays on after them.
+    [AvaloniaTest]
+    public void A_clip_light_held_on_by_paused_samples_starts_its_hold_when_they_let_go()
+    {
+        AudioSampleRingBuffer ring = Ring(amplitude: 1f);
+        var meter = new LevelMeterControl { RingBuffer = ring, PlayheadTime = s_end };
+        using RenderTargetBitmap bitmap = Arrange(meter);
+        bitmap.Render(meter);
+        var limit = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        while (meter.IsSettling && DateTime.UtcNow < limit)
+        {
+            Thread.Sleep(30);
+            bitmap.Render(meter);
+        }
+        Assert.That(meter.IsSettling, Is.False);
+        Thread.Sleep(2100);
+
+        // Just under the threshold, so that only the light has anything left to do once the rest has settled.
+        ring.WriteInterleaved(Sine(0.98f), 2, SampleRate, s_end);
+        meter.PlayheadTime = s_end + s_end;
+        limit = DateTime.UtcNow + TimeSpan.FromSeconds(0.5);
+        while (DateTime.UtcNow < limit)
+        {
+            bitmap.Render(meter);
+            Thread.Sleep(30);
+        }
+        bitmap.Render(meter);
+
+        Assert.That(meter.IsSettling, Is.True, "the light waits two seconds to go out");
+    }
+
     // The heaviest smoothing takes the smallest steps, which must not pass for having arrived.
     [AvaloniaTest]
     [TestCase(80f)]
