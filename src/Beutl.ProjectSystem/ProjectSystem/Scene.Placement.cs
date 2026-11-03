@@ -229,7 +229,7 @@ public partial class Scene
         if (!conflict)
         {
             // A matte follows a source moved with it. Any other layer it names still holds its source.
-            List<(Element Matte, Element Source)> movedMattes = FindMatteSourcesAmong(elements);
+            List<(Element Matte, Element Source)> movedMattes = deltaZIndex != 0 ? FindMatteSourcesAmong(elements) : [];
             foreach (Element item in elements)
             {
                 item.Start.Value += deltaTime;
