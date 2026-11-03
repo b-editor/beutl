@@ -90,7 +90,7 @@ public sealed class MissingMediaViewModel : IToolContext
     private readonly IEditorContext _editor;
     private readonly IMediaRepairHost _host;
     private readonly Scene _scene;
-    private readonly MissingMediaService _service = new();
+    private readonly MissingMediaService _service;
     private readonly CancellationTokenSource _cancellation;
     private readonly CancellationToken _token;
     private readonly List<IDisposable> _subscriptions = [];
@@ -102,6 +102,7 @@ public sealed class MissingMediaViewModel : IToolContext
     {
         _editor = editor;
         _host = editor.GetRequiredService<IMediaRepairHost>();
+        _service = _host.MissingMediaDetector;
         _scene = editor.GetRequiredService<Scene>();
         _cancellation = CancellationTokenSource.CreateLinkedTokenSource(_host.RepairCancellationToken);
         _token = _cancellation.Token;
@@ -130,7 +131,7 @@ public sealed class MissingMediaViewModel : IToolContext
     internal Task WaitForCandidatesAsync() => _candidateScanTask;
 
     internal async Task RefreshRowsAsync()
-        => RefreshRows(await _service.FindMissingAsync(_scene, _token));
+        => RefreshRows(await _host.FindMissingMediaAsync(_token));
 
     internal async Task InitializeRowsAsync()
     {
@@ -214,6 +215,15 @@ public sealed class MissingMediaViewModel : IToolContext
             await SetReplacementCoreAsync(row, path);
             if (row.ReplacementPath.Value != null)
             {
+                // Another kind of the same file, such as the audio of a video, follows the choice. The search below
+                // would read the whole file again to identify it.
+                foreach (var other in Rows.Where(other => other != row && other.Media.ExpectedUri is { } uri
+                             && uri == row.Media.ExpectedUri && !other.IsOffline.Value && other.ReplacementPath.Value == null).ToArray())
+                {
+                    other.CandidatePath.Value = null;
+                    await SetReplacementCoreAsync(other, path, followsChoice: true);
+                }
+
                 string directory = Path.GetDirectoryName(Path.GetFullPath(path))!;
                 GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory.Value = directory;
                 _candidateCancellation?.Cancel();
@@ -243,7 +253,7 @@ public sealed class MissingMediaViewModel : IToolContext
     }
 
     private async Task SetReplacementCoreAsync(MissingMediaRowViewModel row, string path, IReadOnlyList<string>? matchedPaths = null,
-        bool asCandidate = false, CancellationToken? cancellationToken = null)
+        bool asCandidate = false, CancellationToken? cancellationToken = null, bool followsChoice = false)
     {
         CancellationToken token = cancellationToken ?? _token;
         try
@@ -268,6 +278,8 @@ public sealed class MissingMediaViewModel : IToolContext
             row.Status.Value = asCandidate ? MissingMediaStrings.Candidate : MissingMediaStrings.Ready;
         }
         catch (OperationCanceledException) { throw; }
+        // The chosen file need not hold this kind of media; the row waits for a file of its own.
+        catch (Exception) when (followsChoice) { }
         catch (Exception)
         {
             if (asCandidate && (!Rows.Contains(row) || row.IsOffline.Value
@@ -290,13 +302,15 @@ public sealed class MissingMediaViewModel : IToolContext
         if (_disposed || !CanApply.Value) return false;
         _candidateCancellation?.Cancel();
         SetBusy(true);
+        bool busy = true;
         IDisposable keepOpen = _editor.GetRequiredService<IToolDockHost>().KeepOpen(this);
+        IDisposable? suspension = null;
         Error.Value = null;
         try
         {
             HistoryManager history = _editor.GetRequiredService<HistoryManager>();
             using var write = await _editor.GetRequiredService<IProjectFileWriteAdmission>().BeginProjectFileWriteAsync(_token);
-            using var suspension = _host.SuspendEditor();
+            suspension = _host.SuspendEditor();
             await _editor.GetRequiredService<IPreviewPlayer>().Pause();
             _token.ThrowIfCancellationRequested();
             var rows = Rows.Where(row => !row.IsOffline.Value && row.ReplacementPath.Value != null).ToArray();
@@ -323,10 +337,7 @@ public sealed class MissingMediaViewModel : IToolContext
             _token.ThrowIfCancellationRequested();
             // The scene remains editable while this tab is open; resolve its current
             // source instances rather than the detection-time references.
-            var currentSources = new ObjectSearcher(_scene,
-                    value => value is Beutl.Media.Source.MediaSource { HasUri: true }
-                        or Beutl.Graphics3D.Models.ModelSource { HasUri: true })
-                .SearchAll().OfType<IFileSource>().Distinct<IFileSource>(ReferenceEqualityComparer.Instance)
+            var currentSources = _host.GetMediaSources()
                 .ToLookup(source => (MissingMediaService.GetKind(source), source.Uri));
             string projectDirectory = Path.GetDirectoryName((_scene.FindHierarchicalParent<Project>()?.Uri
                                       ?? _scene.Uri)!.LocalPath)!;
@@ -399,6 +410,14 @@ public sealed class MissingMediaViewModel : IToolContext
                 _host.ClearRenderCaches();
                 throw;
             }
+            _host.ClearRenderCaches();
+            await RefreshRowsAsync();
+            // The repair is on disk, and the snapshot of thousands of changed files can take a while. The write
+            // admission keeps other writers out meanwhile, so neither the editor nor this tab has to wait for Git.
+            suspension.Dispose();
+            suspension = null;
+            SetBusy(false);
+            busy = false;
             if (_editor.GetService(typeof(IProjectVersionControlCoordinator)) is IProjectVersionControlSession session)
             {
                 try
@@ -413,8 +432,6 @@ public sealed class MissingMediaViewModel : IToolContext
                     Error.Value = ex.Message;
                 }
             }
-            _host.ClearRenderCaches();
-            await RefreshRowsAsync();
             return true;
         }
         catch (OperationCanceledException) when (_cancellation.IsCancellationRequested) { return false; }
@@ -425,8 +442,9 @@ public sealed class MissingMediaViewModel : IToolContext
         }
         finally
         {
+            suspension?.Dispose();
             keepOpen.Dispose();
-            if (!_disposed)
+            if (busy && !_disposed)
             {
                 SetBusy(false);
             }

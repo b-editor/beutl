@@ -1,14 +1,20 @@
 ﻿using Avalonia.Headless.NUnit;
+using Beutl.Audio;
 using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.MissingMediaTab.ViewModels;
+using Beutl.Editor.VersionControl;
 using Beutl.Engine;
+using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics3D.Models;
 using Beutl.IO;
+using Beutl.Language;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Dock;
@@ -78,6 +84,272 @@ public partial class MissingMediaTests
             Is.EqualTo(new[] { "missing.png" }));
         Assert.That((await service.FindMissingAsync(scene)).Select(item => item.Name),
             Is.EquivalentTo(new[] { "image.png", "missing.png" }));
+    }
+
+    private static Element AddVideo(Scene scene, string path, MediaTime start = default)
+    {
+        var element = new Element { Start = { Value = start }, Length = { Value = MediaTime.FromSeconds(3) } };
+        if (scene.Uri != null) element.Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri.LocalPath)!, $"{element.Id.Value}.belm"));
+        element.Objects.Add(new SourceVideo { Source = { Value = VideoSource.Open(path) } });
+        scene.Children.Add(element);
+        return element;
+    }
+
+    [AvaloniaTest]
+    public async Task A_check_decodes_a_file_again_only_after_it_changes()
+    {
+        var decoder = new RestoredMediaDecoder();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            string path = Path.Combine(NewDirectory(), "clip.relink-video");
+            File.WriteAllText(path, "video");
+            var scene = new Scene(); AddVideo(scene, path);
+            var service = new MissingMediaService();
+            Assert.That(await service.FindMissingAsync(scene), Is.Empty);
+            Assert.That(await service.FindMissingAsync(scene), Is.Empty);
+            Assert.That(decoder.OpenCount, Is.EqualTo(1));
+            File.WriteAllText(path, "changed video");
+            Assert.That(await service.FindMissingAsync(scene), Is.Empty);
+            Assert.That(decoder.OpenCount, Is.EqualTo(2));
+            File.Delete(path);
+            Assert.That((await service.FindMissingAsync(scene)).Single().Name, Is.EqualTo("clip.relink-video"));
+        }
+        finally { DecoderRegistry.Unregister(decoder); }
+    }
+
+    [AvaloniaTest]
+    public async Task A_check_reports_a_file_that_became_unreadable_with_the_same_size_and_time()
+    {
+        string path = Path.Combine(NewDirectory(), "image.png"); File.WriteAllBytes(path, s_png);
+        var scene = new Scene(); AddImage(scene, path);
+        var service = new MissingMediaService();
+        Assert.That(await service.FindMissingAsync(scene), Is.Empty);
+        if (OperatingSystem.IsWindows())
+        {
+            using var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+            Assert.That((await service.FindMissingAsync(scene)).Single().Name, Is.EqualTo("image.png"));
+        }
+        else
+        {
+            UnixFileMode mode = File.GetUnixFileMode(path);
+            File.SetUnixFileMode(path, UnixFileMode.None);
+            try { Assert.That((await service.FindMissingAsync(scene)).Single().Name, Is.EqualTo("image.png")); }
+            finally { File.SetUnixFileMode(path, mode); }
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_repair_decodes_only_its_replacement_and_only_once()
+    {
+        await TestReset.ResetShellAsync();
+        var decoder = new RestoredMediaDecoder();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            var editor = await CreateEditorAsync();
+            string directory = NewDirectory();
+            string present = Path.Combine(directory, "present.relink-video"); File.WriteAllText(present, "present");
+            string replacement = Path.Combine(directory, "replacement.relink-video"); File.WriteAllText(replacement, "replacement");
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                // Away from the playhead, so that rendering the preview opens neither.
+                MediaTime start = MediaTime.FromSeconds(100);
+                AddVideo(editor.Scene, present, start);
+                AddVideo(editor.Scene, Path.Combine(directory, "missing.relink-video"), start);
+            }
+            await editor.OpenMissingMediaAsync();
+            var tool = editor.FindToolTab<MissingMediaViewModel>()!;
+            int opened = decoder.OpenCount;
+            await tool.SetReplacementAsync(tool.Rows.Single(), replacement);
+            await tool.WaitForCandidatesAsync();
+            Assert.That(await tool.ApplyAsync(), Is.True, tool.Error.Value);
+            Assert.That(tool.Rows, Is.Empty);
+            Assert.That(decoder.OpenCount - opened, Is.EqualTo(1));
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Choosing_a_file_for_one_kind_also_replaces_the_other_kinds_of_the_same_file(bool fileLacksTheOtherKind)
+    {
+        await TestReset.ResetShellAsync();
+        var decoder = new RestoredMediaDecoder { VideoOnly = fileLacksTheOtherKind };
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            var editor = await CreateEditorAsync();
+            string directory = NewDirectory();
+            string missing = Path.Combine(directory, "missing.relink-video");
+            string replacement = Path.Combine(directory, "replacement.relink-video"); File.WriteAllText(replacement, "replacement");
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                AddVideo(editor.Scene, missing, MediaTime.FromSeconds(100)).Objects
+                    .Add(new SourceSound { Source = { Value = SoundSource.Open(missing) } });
+            }
+            using var vm = new MissingMediaViewModel(editor);
+            var searched = new List<MissingMediaKind>();
+            vm.FindCandidateMatches = (items, _, _) =>
+            {
+                searched.AddRange(items.Select(item => item.Kind));
+                return Task.FromResult<IReadOnlyDictionary<MissingMedia, IReadOnlyList<string>>>(
+                    new Dictionary<MissingMedia, IReadOnlyList<string>>());
+            };
+            MissingMediaRowViewModel video = vm.Rows.Single(row => row.Media.Kind == MissingMediaKind.Video);
+            MissingMediaRowViewModel sound = vm.Rows.Single(row => row.Media.Kind == MissingMediaKind.Sound);
+
+            await vm.SetReplacementAsync(video, replacement);
+            await vm.WaitForCandidatesAsync();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(video.ReplacementPath.Value, Is.EqualTo(replacement));
+                Assert.That(sound.ReplacementPath.Value, Is.EqualTo(fileLacksTheOtherKind ? null : replacement));
+                // Only a row still without a file is left for the search, which reads whole files.
+                Assert.That(searched, fileLacksTheOtherKind ? Is.EqualTo(new[] { MissingMediaKind.Sound }) : Is.Empty);
+                Assert.That(sound.Status.Value, Is.EqualTo(fileLacksTheOtherKind ? MissingMediaStrings.Missing : MissingMediaStrings.Ready));
+                Assert.That(vm.Error.Value, Is.Null);
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_repair_leaves_the_editor_and_its_tab_free_during_the_snapshot()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            var editor = await CreateEditorAsync();
+            string directory = NewDirectory();
+            string replacement = Path.Combine(directory, "replacement.png"); File.WriteAllBytes(replacement, s_png);
+            using (editor.HistoryManager.SuppressRecording()) AddImage(editor.Scene, Path.Combine(directory, "missing.png"));
+            var snapshot = new TaskCompletionSource();
+            var session = new Moq.Mock<IProjectVersionControlSession>();
+            session.Setup(value => value.NotifySavedAsync(Moq.It.IsAny<IProjectFileWriteLease?>(), Moq.It.IsAny<CancellationToken>()))
+                .Returns(snapshot.Task);
+            var context = new Moq.Mock<IEditorContext>();
+            context.Setup(value => value.GetService(Moq.It.IsAny<Type>())).Returns((Type type)
+                => type == typeof(IProjectVersionControlCoordinator) ? session.Object : editor.GetService(type));
+            using var vm = new MissingMediaViewModel(context.Object);
+            await vm.SetReplacementAsync(vm.Rows.Single(), replacement);
+            await vm.WaitForCandidatesAsync();
+
+            Task<bool> apply = vm.ApplyAsync();
+            bool enabled, busy, rowsLeft, completed;
+            try
+            {
+                await HeadlessTestHelpers.WaitUntilAsync(() => session.Invocations.Count > 0);
+                (enabled, busy, rowsLeft, completed) = (editor.IsEnabled.Value, vm.IsBusy.Value, vm.Rows.Count > 0, apply.IsCompleted);
+            }
+            finally { snapshot.SetResult(); }
+
+            Assert.That(await apply, Is.True, vm.Error.Value);
+            Assert.Multiple(() =>
+            {
+                Assert.That(enabled, Is.True);
+                Assert.That(busy, Is.False);
+                Assert.That(rowsLeft, Is.False);
+                Assert.That(completed, Is.False);
+            });
+        }
+        finally { await TestReset.ResetShellAsync(); }
+    }
+
+    [AvaloniaTest]
+    public async Task Saving_replaces_changed_element_files_only_after_writing_them_all()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            var editor = await CreateEditorAsync();
+            string image = Path.Combine(NewDirectory(), "image.png"); File.WriteAllBytes(image, s_png);
+            var elements = new List<Element>();
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                for (int i = 0; i < 64; i++) elements.Add(AddImage(editor.Scene, image, $"Clip {i}"));
+            }
+            Assert.That(await editor.SaveAsync(), Is.True);
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                foreach (Element element in elements) element.Name.Value += " renamed";
+            }
+
+            string folder = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+            int? writtenAtFirstReplacement = null;
+            using (StorageWriteTransaction.InjectFaultsForTesting((step, target) =>
+                   {
+                       if (step == StorageWriteStep.Replace && target.EndsWith(".belm", StringComparison.Ordinal))
+                           writtenAtFirstReplacement ??= Directory.GetFiles(folder, "*.tmp").Length;
+                   }))
+            {
+                Assert.That(await editor.SaveAsync(), Is.True);
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(writtenAtFirstReplacement, Is.EqualTo(64));
+                Assert.That(Directory.GetFiles(folder, "*.tmp"), Is.Empty);
+                Assert.That(CoreSerializer.RestoreFromUri<Element>(elements[63].Uri!).Name.Value, Is.EqualTo("Clip 63 renamed"));
+            });
+        }
+        finally { await TestReset.ResetShellAsync(); }
+    }
+
+    [AvaloniaTest]
+    public async Task Refreshing_the_repair_tab_does_not_walk_the_scene_again()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            var editor = await CreateEditorAsync();
+            string path = Path.Combine(NewDirectory(), "image.png"); File.WriteAllBytes(path, s_png);
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                for (int i = 0; i < 1000; i++) AddImage(editor.Scene, path);
+            }
+            await editor.OpenMissingMediaAsync();
+            var tool = editor.FindToolTab<MissingMediaViewModel>()!;
+
+            // A walk of these elements allocates about 10 MiB on this thread.
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            await editor.OpenMissingMediaAsync(refresh: true);
+            long afterOpen = GC.GetAllocatedBytesForCurrentThread();
+            // The references are gathered before the first await.
+            Task rows = tool.RefreshRowsAsync();
+            long afterRows = GC.GetAllocatedBytesForCurrentThread();
+            await rows;
+            Assert.Multiple(() =>
+            {
+                Assert.That(afterOpen - before, Is.LessThan(5 * 1024 * 1024));
+                Assert.That(afterRows - afterOpen, Is.LessThan(5 * 1024 * 1024));
+            });
+        }
+        finally { await TestReset.ResetShellAsync(); }
+    }
+
+    [AvaloniaTest]
+    public void Saving_a_scene_with_no_temporary_storage_resolves_no_paths()
+    {
+        string directory = NewDirectory();
+        var scene = new Scene { Uri = new Uri(Path.Combine(directory, "main.scene")) };
+        for (int i = 0; i < 1000; i++) AddImage(scene, Path.Combine(directory, "image.png"));
+
+        // Resolving the paths of these elements and their sources allocates about 40 MiB.
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        _ = new UnsavedSceneStorage.SaveRelocation(scene, scene.Uri);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.That(allocated, Is.LessThan(5 * 1024 * 1024));
     }
 
     [AvaloniaTest]

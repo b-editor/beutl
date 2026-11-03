@@ -80,6 +80,8 @@ public static class JsonHelper
         bool isCompatibilityGate = false)
     {
         string tmp = $"{path}.{Guid.NewGuid():N}.tmp";
+        // The gate is written before the files it covers, so it never waits for the end of a batch.
+        StorageWriteTransaction? batch = journal && !isCompatibilityGate ? StorageWriteTransaction.CurrentBatch : null;
         try
         {
             using (var stream = StorageWriteTransaction.CreateTemporaryFile(
@@ -88,7 +90,14 @@ public static class JsonHelper
             {
                 write(writer);
                 writer.Flush();
-                stream.Flush(flushToDisk: true);
+                if (batch is null) stream.Flush(flushToDisk: true);
+                else StorageWriteTransaction.FlushAheadOfBatch(stream);
+            }
+
+            if (batch is not null)
+            {
+                batch.AddToBatch(tmp, path);
+                return;
             }
 
             if (journal)
