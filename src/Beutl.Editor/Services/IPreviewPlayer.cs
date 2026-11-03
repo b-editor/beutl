@@ -34,8 +34,8 @@ public interface IPreviewPlayer
     /// <remarks>
     /// This follows the audio the user hears, and the wall clock when nothing is playing audio. Unlike the
     /// editor clock's current time, which moves when a rendered frame is shown, it does not step from frame to
-    /// frame or fall behind a slow render. During fast or reverse playback, which plays no audio, it is the
-    /// playhead.
+    /// frame or fall behind a slow render. While playback is starting, and during fast or reverse playback,
+    /// which plays no audio, it is the playhead.
     /// </remarks>
     MediaTime? GetPlaybackTime() => null;
 
