@@ -216,7 +216,10 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
             && animatableProperty.Animation is not KeyFrameAnimation<TValue>)
         {
             var newAnimation = new KeyFrameAnimation<TValue>();
-            TValue initialValue = animatableProperty.GetValue()!;
+            // The keyframes take over from an expression, so they start at the value it shows.
+            TValue initialValue = PropertyAdapter.GetEngineProperty() is IExpressionProperty<TValue> { HasExpression: true } engineProperty
+                ? engineProperty.Evaluate(new EvaluationContext(CurrentTimeValue))
+                : animatableProperty.GetValue()!;
             newAnimation.KeyFrames.Add(new KeyFrame<TValue>
             {
                 Value = { Value = initialValue },
