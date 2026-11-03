@@ -8,6 +8,10 @@ namespace Beutl.Media;
 /// </summary>
 public sealed class SpeedIntegrator : IDisposable
 {
+    // Where recent queries stopped within a second, so that going on from one samples only what is new. There are a
+    // few because audio alternates between the playhead, the end of the clip and the start of the speed's owner.
+    private readonly (long Sample, double Sum, long LastUse)[] _prefixes = new (long, double, long)[4];
+    private long _prefixUses;
     private Dictionary<int, double>? _integralCache;
     private int _greatestCachedSecond = -1;
     private KeyFrameAnimation<float>? _trackedAnimation;
@@ -98,6 +102,7 @@ public sealed class SpeedIntegrator : IDisposable
         CacheVersion++;
         _integralCache?.Clear();
         _greatestCachedSecond = -1;
+        Array.Clear(_prefixes);
         _invalidateCallback?.Invoke();
     }
 
@@ -146,12 +151,11 @@ public sealed class SpeedIntegrator : IDisposable
                     continue;
                 }
             }
-            for (int i = 0; i < _sampleRate; i++)
-            {
-                double t = sec + (i / (double)_sampleRate);
-                float speed = SampleSpeed(animation, MediaTime.FromSeconds(t));
-                sum += (speed / 100.0) / _sampleRate;
-            }
+            long start = (long)sec * _sampleRate;
+            long end = start + _sampleRate;
+            int prefix = FindPrefix(start, end);
+            sum = SumSamples(animation, prefix < 0 ? start : _prefixes[prefix].Sample, end,
+                prefix < 0 ? sum : _prefixes[prefix].Sum);
             _integralCache![sec + 1] = sum;
             _greatestCachedSecond = Math.Max(_greatestCachedSecond, sec + 1);
         }
@@ -161,12 +165,10 @@ public sealed class SpeedIntegrator : IDisposable
         long targetInSamples = (long)(timeSpan.ToSeconds() * _sampleRate);
         long secStartInSamples = (long)targetSec * _sampleRate;
 
-        for (long i = secStartInSamples; i < targetInSamples; i++)
-        {
-            double t = i / (double)_sampleRate;
-            float speed = SampleSpeed(animation, MediaTime.FromSeconds(t));
-            sum += (speed / 100.0) / _sampleRate;
-        }
+        int nearest = FindPrefix(secStartInSamples, targetInSamples);
+        sum = SumSamples(animation, nearest < 0 ? secStartInSamples : _prefixes[nearest].Sample, targetInSamples,
+            nearest < 0 ? sum : _prefixes[nearest].Sum);
+        RememberPrefix(nearest, targetInSamples, sum);
 
         // Interpolate from the last sample to the exact time (fractional sample handling)
         double fractionalSamples = (timeSpan.ToSeconds() * _sampleRate) - targetInSamples;
@@ -177,6 +179,48 @@ public sealed class SpeedIntegrator : IDisposable
         }
 
         return MediaTime.FromSeconds(sum);
+    }
+
+    // Adds the samples in order from the start of the timeline, so a sum is the same however it was reached.
+    private double SumSamples(KeyFrameAnimation<float> animation, long start, long end, double sum)
+    {
+        for (long i = start; i < end; i++)
+        {
+            double t = i / (double)_sampleRate;
+            float speed = SampleSpeed(animation, MediaTime.FromSeconds(t));
+            sum += (speed / 100.0) / _sampleRate;
+        }
+
+        return sum;
+    }
+
+    // The latest prefix in the range, or -1. An unused slot stands for no time at all, which sums to zero.
+    private int FindPrefix(long first, long last)
+    {
+        int found = -1;
+        for (int i = 0; i < _prefixes.Length; i++)
+        {
+            long sample = _prefixes[i].Sample;
+            if (sample >= first && sample <= last && (found < 0 || sample > _prefixes[found].Sample))
+                found = i;
+        }
+
+        return found;
+    }
+
+    private void RememberPrefix(int slot, long sample, double sum)
+    {
+        if (slot < 0)
+        {
+            slot = 0;
+            for (int i = 1; i < _prefixes.Length; i++)
+            {
+                if (_prefixes[i].LastUse < _prefixes[slot].LastUse)
+                    slot = i;
+            }
+        }
+
+        _prefixes[slot] = (sample, sum, ++_prefixUses);
     }
 
     private float SampleSpeed(KeyFrameAnimation<float> animation, MediaTime time)
