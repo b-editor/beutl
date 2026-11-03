@@ -98,6 +98,11 @@ File.WriteAllLines(OutputFile, lines);
     <_NotABeutlHostPackage Include="Microsoft.NET.Test.Sdk;Microsoft.Windows.CsWin32;FFmpeg.AutoGen.Bindings.DynamicallyLoaded;FFmpeg4Sharp" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Beutl.Extensions.MediaFoundation ships these on Windows x64 alone, so an extension cannot count on them. -->
+    <_NotABeutlHostPackage Include="NAudio.Wasapi;Vortice.MediaFoundation" />
+  </ItemGroup>
+
   <Target Name="_GenerateHostPackages" BeforeTargets="GenerateNuspec;Pack">
     <ItemGroup>
       <_BeutlHostPackage Include="@(PackageVersion)" Exclude="@(_NotABeutlHostPackage)" />
