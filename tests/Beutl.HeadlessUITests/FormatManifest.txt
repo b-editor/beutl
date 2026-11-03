@@ -649,7 +649,7 @@ Beutl.Utilities
   keys: Animations, Color, ColorMap, Expressions, Id, IndexOfRefraction, IsEnabled, Name, Opacity, Roughness
 [Beutl.Engine]Beutl.Graphics3D.Materials:UnlitMaterial
   sealed
-  keys: Animations, Color, ColorMap, Expressions, Id, IsEnabled, Name, Opacity
+  keys: AlphaCutoff, AlphaMode, Animations, Color, ColorMap, Expressions, Id, IsEnabled, Name, Opacity
 [Beutl.Engine]Beutl.Graphics3D.Meshes:CubeMesh
   sealed
   keys: Animations, Depth, Expressions, Height, Id, IsEnabled, Name, Width
