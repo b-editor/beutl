@@ -228,10 +228,17 @@ public partial class Scene
 
         if (!conflict)
         {
+            // A matte follows a source moved with it. Any other layer it names still holds its source.
+            List<(Element Matte, Element Source)> movedMattes = FindMatteSourcesAmong(elements);
             foreach (Element item in elements)
             {
                 item.Start.Value += deltaTime;
                 item.ZIndex.Value += deltaZIndex;
+            }
+
+            foreach ((Element matte, Element source) in movedMattes)
+            {
+                matte.MatteSourceZIndex.Value = source.ZIndex.Value;
             }
 
             if (adjustSceneDuration)
@@ -241,6 +248,25 @@ public partial class Scene
         }
 
         return !conflict;
+    }
+
+    // The elements whose matte names a layer where another of them is at the same time, and that other element.
+    internal static List<(Element Matte, Element Source)> FindMatteSourcesAmong(IReadOnlyCollection<Element> elements)
+    {
+        var result = new List<(Element Matte, Element Source)>();
+        foreach (Element element in elements)
+        {
+            if (element.MatteSourceKind.Value == MatteSourceKind.Layer
+                && element.MatteSourceZIndex.Value is { } layer
+                && elements.FirstOrDefault(other => other != element
+                    && other.ZIndex.Value == layer
+                    && other.Range.Intersects(element.Range)) is { } source)
+            {
+                result.Add((element, source));
+            }
+        }
+
+        return result;
     }
 
     private static bool HasConflict(Element[] elements, SceneElementIndex obstacles, int deltaZIndex, MediaTime deltaTime)
