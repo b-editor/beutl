@@ -220,7 +220,6 @@ public sealed class MissingMediaViewModel : IToolContext
                 foreach (var other in Rows.Where(other => other != row && other.Media.ExpectedUri is { } uri
                              && uri == row.Media.ExpectedUri && !other.IsOffline.Value && other.ReplacementPath.Value == null).ToArray())
                 {
-                    other.CandidatePath.Value = null;
                     await SetReplacementCoreAsync(other, path, followsChoice: true);
                 }
 
@@ -303,7 +302,7 @@ public sealed class MissingMediaViewModel : IToolContext
         _candidateCancellation?.Cancel();
         SetBusy(true);
         bool busy = true;
-        IDisposable keepOpen = _editor.GetRequiredService<IToolDockHost>().KeepOpen(this);
+        IDisposable? keepOpen = _editor.GetRequiredService<IToolDockHost>().KeepOpen(this);
         IDisposable? suspension = null;
         Error.Value = null;
         try
@@ -416,20 +415,23 @@ public sealed class MissingMediaViewModel : IToolContext
             // admission keeps other writers out meanwhile, so neither the editor nor this tab has to wait for Git.
             suspension.Dispose();
             suspension = null;
+            keepOpen.Dispose();
+            keepOpen = null;
             SetBusy(false);
             busy = false;
             if (_editor.GetService(typeof(IProjectVersionControlCoordinator)) is IProjectVersionControlSession session)
             {
                 try
                 {
-                    await session.NotifySavedAsync(write, _token);
+                    // The tab can close from here on, which must not cancel the snapshot.
+                    await session.NotifySavedAsync(write, _host.RepairCancellationToken);
                     _host.ScheduleMediaFingerprints(finishSaveSnapshot: true);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     // The repair has reached disk; a snapshot failure cannot undo that save.
                     s_logger.LogWarning(ex, "Could not snapshot the saved media repair.");
-                    Error.Value = ex.Message;
+                    if (!_disposed) Error.Value = ex.Message;
                 }
             }
             return true;
@@ -443,7 +445,7 @@ public sealed class MissingMediaViewModel : IToolContext
         finally
         {
             suspension?.Dispose();
-            keepOpen.Dispose();
+            keepOpen?.Dispose();
             if (busy && !_disposed)
             {
                 SetBusy(false);

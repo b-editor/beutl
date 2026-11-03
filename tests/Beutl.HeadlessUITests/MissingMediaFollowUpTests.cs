@@ -134,7 +134,16 @@ public partial class MissingMediaTests
         {
             UnixFileMode mode = File.GetUnixFileMode(path);
             File.SetUnixFileMode(path, UnixFileMode.None);
-            try { Assert.That((await service.FindMissingAsync(scene)).Single().Name, Is.EqualTo("image.png")); }
+            try
+            {
+                try
+                {
+                    File.OpenRead(path).Dispose();
+                    Assert.Ignore("This account can read files without permission bits.");
+                }
+                catch (UnauthorizedAccessException) { }
+                Assert.That((await service.FindMissingAsync(scene)).Single().Name, Is.EqualTo("image.png"));
+            }
             finally { File.SetUnixFileMode(path, mode); }
         }
     }
@@ -203,6 +212,8 @@ public partial class MissingMediaTests
             };
             MissingMediaRowViewModel video = vm.Rows.Single(row => row.Media.Kind == MissingMediaKind.Video);
             MissingMediaRowViewModel sound = vm.Rows.Single(row => row.Media.Kind == MissingMediaKind.Sound);
+            string candidate = Path.Combine(directory, "candidate.relink-video");
+            sound.CandidatePath.Value = candidate;
 
             await vm.SetReplacementAsync(video, replacement);
             await vm.WaitForCandidatesAsync();
@@ -211,6 +222,7 @@ public partial class MissingMediaTests
             {
                 Assert.That(video.ReplacementPath.Value, Is.EqualTo(replacement));
                 Assert.That(sound.ReplacementPath.Value, Is.EqualTo(fileLacksTheOtherKind ? null : replacement));
+                Assert.That(sound.CandidatePath.Value, Is.EqualTo(fileLacksTheOtherKind ? candidate : null));
                 // Only a row still without a file is left for the search, which reads whole files.
                 Assert.That(searched, fileLacksTheOtherKind ? Is.EqualTo(new[] { MissingMediaKind.Sound }) : Is.Empty);
                 Assert.That(sound.Status.Value, Is.EqualTo(fileLacksTheOtherKind ? MissingMediaStrings.Missing : MissingMediaStrings.Ready));
@@ -235,32 +247,40 @@ public partial class MissingMediaTests
             string replacement = Path.Combine(directory, "replacement.png"); File.WriteAllBytes(replacement, s_png);
             using (editor.HistoryManager.SuppressRecording()) AddImage(editor.Scene, Path.Combine(directory, "missing.png"));
             var snapshot = new TaskCompletionSource();
+            CancellationToken snapshotToken = default;
             var session = new Moq.Mock<IProjectVersionControlSession>();
             session.Setup(value => value.NotifySavedAsync(Moq.It.IsAny<IProjectFileWriteLease?>(), Moq.It.IsAny<CancellationToken>()))
+                .Callback((IProjectFileWriteLease? _, CancellationToken token) => snapshotToken = token)
                 .Returns(snapshot.Task);
             var context = new Moq.Mock<IEditorContext>();
             context.Setup(value => value.GetService(Moq.It.IsAny<Type>())).Returns((Type type)
                 => type == typeof(IProjectVersionControlCoordinator) ? session.Object : editor.GetService(type));
             using var vm = new MissingMediaViewModel(context.Object);
+            Assert.That(editor.OpenToolTab(vm), Is.True);
             await vm.SetReplacementAsync(vm.Rows.Single(), replacement);
             await vm.WaitForCandidatesAsync();
 
             Task<bool> apply = vm.ApplyAsync();
-            bool enabled, busy, rowsLeft, completed;
+            bool enabled, busy, rowsLeft, completed, closable, canceledByClosing;
             try
             {
                 await HeadlessTestHelpers.WaitUntilAsync(() => session.Invocations.Count > 0);
                 (enabled, busy, rowsLeft, completed) = (editor.IsEnabled.Value, vm.IsBusy.Value, vm.Rows.Count > 0, apply.IsCompleted);
+                closable = editor.DockHost.Factory.EnumerateTools().Single(item => item.ToolContext == vm).CanClose;
+                editor.CloseToolTab(vm);
+                canceledByClosing = snapshotToken.IsCancellationRequested;
             }
             finally { snapshot.SetResult(); }
 
-            Assert.That(await apply, Is.True, vm.Error.Value);
+            Assert.That(await apply, Is.True);
             Assert.Multiple(() =>
             {
                 Assert.That(enabled, Is.True);
                 Assert.That(busy, Is.False);
                 Assert.That(rowsLeft, Is.False);
                 Assert.That(completed, Is.False);
+                Assert.That(closable, Is.True);
+                Assert.That(canceledByClosing, Is.False);
             });
         }
         finally { await TestReset.ResetShellAsync(); }
