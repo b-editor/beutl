@@ -1,5 +1,12 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using Avalonia.Controls;
+using Avalonia.Headless.NUnit;
+using Avalonia.Styling;
+using Avalonia.VisualTree;
 using Beutl.Configuration;
+using Beutl.Controls;
+using Beutl.Language;
+using Beutl.Pages.SettingsPages;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels.SettingsPages;
 
 namespace Beutl.HeadlessUITests;
@@ -37,6 +44,40 @@ public sealed class EditorSettingsPageViewModelTests
         finally
         {
             config.MaxTotalBytes.Value = priorBytes;
+            GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value = priorGpu;
+        }
+    }
+
+    [AvaloniaTest]
+    public void The_timeline_click_option_is_on_the_page_and_changes_the_setting()
+    {
+        TestGpu.RequireAnyDevice();
+
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        string? priorGpu = GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value;
+        using var viewModel = new EditorSettingsPageViewModel();
+        var page = new EditorSettingsPage { DataContext = viewModel };
+        var window = new Window { Content = page, Width = 900, Height = 700, RequestedThemeVariant = ThemeVariant.Dark };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            OptionsDisplayItem row = page.GetVisualDescendants().OfType<OptionsDisplayItem>()
+                .Single(x => Equals(x.Header, SettingsStrings.SeekOnTimelineClick));
+            row.BringIntoView();
+            HeadlessTestHelpers.Render(3);
+            var toggle = (ToggleSwitch)row.ActionButton!;
+            Assert.That(toggle.IsChecked, Is.True);
+            HeadlessCapture.SaveIfRequested(window, nameof(EditorSettingsPageViewModelTests), "seek-on-timeline-click");
+
+            toggle.IsChecked = false;
+
+            Assert.That(config.SeekOnTimelineClick.Value, Is.False);
+        }
+        finally
+        {
+            window.Close();
+            config.SeekOnTimelineClick.Value = true;
             GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value = priorGpu;
         }
     }

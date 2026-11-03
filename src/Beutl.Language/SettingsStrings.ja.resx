@@ -753,4 +753,10 @@
   <data name="PreviewGuideKinds" xml:space="preserve">
     <value>表示するガイド</value>
   </data>
+  <data name="SeekOnTimelineClick" xml:space="preserve">
+    <value>タイムラインのクリックで再生位置を移動</value>
+  </data>
+  <data name="SeekOnTimelineClick_Description" xml:space="preserve">
+    <value>オフにすると、再生位置は目盛りの操作かバーのドラッグでのみ移動し、タイムラインの何もない場所をドラッグすると修飾キーなしでクリップを範囲選択します。</value>
+  </data>
 </root>
