@@ -60,6 +60,10 @@
     <Copy SourceFiles="$(SwiftBuildOutputDir)/$(SwiftDylibName)"
           DestinationFolder="$(SwiftRuntimesRoot)/osx-x64/native"
           SkipUnchangedFiles="true" />
+
+    <!-- CI compares the sources and these copies with the record, so the record is written with them. -->
+    <Exec Command="python3 &quot;$(MSBuildThisFileDirectory)../../../build/avf_build_record.py&quot; --write"
+          ContinueOnError="true" />
   </Target>
 
   <!-- Post-build copy of the dylibs into this project's $(OutDir). The owning project needs it on macOS
