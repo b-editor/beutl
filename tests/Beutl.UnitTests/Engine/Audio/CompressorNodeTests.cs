@@ -875,8 +875,7 @@ public class CompressorNodeTests
     [Test]
     public void Process_LinkedSurround_AppliesLoudestChannelGainToAllChannels()
     {
-        // Peak detection links across ALL channels and MapChannels reallocates caches for >2
-        // channels (the channel-major fallback). A 4-channel buffer whose loudest is channel 2
+        // Peak detection links across ALL channels. A 4-channel buffer whose loudest is channel 2
         // (not 0) must attenuate every channel by channel 2's reduction — a loop scanning only
         // channels 0..1, or a channel-bound off-by-one, would fail here.
         const int sampleCount = SampleRate;
