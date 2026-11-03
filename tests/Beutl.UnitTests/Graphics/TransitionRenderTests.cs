@@ -388,6 +388,58 @@ public partial class TransitionRenderTests
         });
     }
 
+    // Halfway through each of these the incoming clip shows around the middle of the frame and to its left, not
+    // in the top-right corner, so a click there selects the outgoing clip it can see rather than the hidden square.
+    [Test]
+    public void HitTest_InsideARevealIgnoresWhatTheRevealHides(
+        [Values("Wipe", "BoxWipe", "Iris")] string name)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ClipTransition transition = name switch
+            {
+                "Wipe" => new WipeTransition(),
+                "BoxWipe" => new WipeTransition { Shape = { Value = WipeTransitionShape.Box } },
+                _ => new IrisTransition()
+            };
+            (Scene scene, RectShape outgoingShape, RectShape? leftHalf, _) =
+                CreateCornerScene(transition, withLeftHalf: true);
+
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+            var frame = renderer.Compositor.EvaluateGraphics(TimeAt(0.5));
+            renderer.Render(frame);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(renderer.HitTest(frame, new Point(Width - 3, 3)), Is.SameAs(outgoingShape));
+                Assert.That(renderer.HitTest(frame, new Point((Width / 2f) - 2, Height / 2f)), Is.SameAs(leftHalf));
+            });
+        });
+    }
+
+    // Closing, the iris shows the incoming clip outside a shrinking disc: its mask applies inverted.
+    [Test]
+    public void HitTest_InsideAClosingIrisSelectsTheIncomingClipOutsideTheDisc()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            (Scene scene, RectShape outgoingShape, _, RectShape corner) = CreateCornerScene(
+                new IrisTransition { Direction = { Value = IrisTransitionDirection.Out } }, withLeftHalf: true);
+
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+            var frame = renderer.Compositor.EvaluateGraphics(TimeAt(0.5));
+            renderer.Render(frame);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(renderer.HitTest(frame, new Point(Width - 3, 3)), Is.SameAs(corner));
+                Assert.That(renderer.HitTest(frame, new Point((Width / 2f) - 2, Height / 2f)), Is.SameAs(outgoingShape));
+            });
+        });
+    }
+
     // The preview's transform handles sit on the box a drawable draws in its own space, so inside a moving
     // transition that box has to be placed through the transition too.
     [Test]
