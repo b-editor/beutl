@@ -595,7 +595,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             ticker = new PlaybackTicker(
                 this, generation, playerImpl, clock, rate, range.StartFrame, range.EndFrame, startTime,
                 DateTime.UtcNow);
-            Volatile.Write(ref _activeTicker, ticker);
+            // A session a Pause() timeout abandoned during startup must not replace the clock of the one after it.
+            _sessionGuard.TryApply(generation, () => Volatile.Write(ref _activeTicker, ticker));
 
             await using var timer = new Timer(ticker.OnTick, null, tick, tick);
 
