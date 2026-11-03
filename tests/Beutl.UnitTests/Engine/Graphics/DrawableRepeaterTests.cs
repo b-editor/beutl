@@ -72,8 +72,8 @@ public sealed class DrawableRepeaterTests
         Assert.Multiple(() =>
         {
             foreach (int x in new[] { -Pitch, 0, Pitch })
-            foreach (int y in new[] { -Pitch / 2, Pitch / 2 })
-                Assert.That(LitAt(greens, x, y), Is.True, $"at {x}, {y}");
+                foreach (int y in new[] { -Pitch / 2, Pitch / 2 })
+                    Assert.That(LitAt(greens, x, y), Is.True, $"at {x}, {y}");
 
             Assert.That(LitAt(greens, 0, 0), Is.False, "between the rows");
             Assert.That(LitAt(greens, Pitch + Dot, Pitch / 2), Is.False, "past the last column");
