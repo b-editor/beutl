@@ -15,12 +15,12 @@ using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels.Dock;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
-using Beutl.Testing.Headless;
 
 namespace Beutl.HeadlessUITests;
 
