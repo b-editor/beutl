@@ -18,6 +18,7 @@ internal sealed partial class MacOSBrowserDownloadHandler
         private readonly CancellationTokenSource _lifetime = new();
         private readonly Action<string, IBrowserDownloadSource>? _offerGenerated;
         private readonly string? _charset;
+        private readonly Uri? _origin;
         private string? _fileName;
         private nint _download;
         private nint _delegate;
@@ -26,14 +27,19 @@ internal sealed partial class MacOSBrowserDownloadHandler
         private bool _saving;
 
         // A response, named from its headers before WebKit turns it into a download.
-        internal NativeDownload(string fileName, string? charset)
+        internal NativeDownload(string fileName, string? charset, Uri origin)
         {
             _fileName = fileName;
             _charset = charset;
+            _origin = origin;
         }
 
         // A file the page generated, which WebKit names only when it asks where to save it. It is offered then.
-        internal NativeDownload(Action<string, IBrowserDownloadSource> offerGenerated) => _offerGenerated = offerGenerated;
+        internal NativeDownload(Action<string, IBrowserDownloadSource> offerGenerated, Uri? origin)
+        {
+            _offerGenerated = offerGenerated;
+            _origin = origin;
+        }
 
         internal bool IsDisposed { get; private set; }
 
@@ -92,7 +98,7 @@ internal sealed partial class MacOSBrowserDownloadHandler
                 await _finished.Task.WaitAsync(cancellation.Token);
                 _progressTimer.Stop();
                 return await BrowserMediaDownload.PublishNativeFileAsync(temporaryPath, directory, _fileName!, IsGenerated, _charset,
-                    cancellation.Token);
+                    cancellation.Token, _origin);
             }
             finally
             {

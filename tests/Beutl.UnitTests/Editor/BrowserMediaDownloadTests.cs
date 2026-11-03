@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Diagnostics;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -28,6 +29,141 @@ public class BrowserMediaDownloadTests
         await Assert.ThrowsAsync<IOException>(async () =>
             await downloader.DownloadAsync(new Uri("https://files.example/Morning.mp3"), directory, null, null, default));
         Assert.That(Directory.Exists(directory), Is.False);
+    }
+
+    [Test]
+    public void TheZoneIdentifierNamesWhereAFileCameFrom()
+    {
+        string zone = BrowserDownloadProvenance.FormatZoneIdentifier(
+            new Uri("https://files.example/a b.zip?x=1#part"),
+            new Uri("https://page.example/list#top"));
+
+        Assert.That(zone, Is.EqualTo(
+            "[ZoneTransfer]\r\nZoneId=3\r\nReferrerUrl=https://page.example/list\r\nHostUrl=https://files.example/a%20b.zip?x=1\r\n"));
+    }
+
+    [Test]
+    public void AFileWithNoAddressOfItsOwnIsStillFromTheInternet()
+    {
+        const string Expected = "[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=about:internet\r\n";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(BrowserDownloadProvenance.FormatZoneIdentifier(null, null), Is.EqualTo(Expected));
+            Assert.That(BrowserDownloadProvenance.FormatZoneIdentifier(new Uri("blob:https://page.example/1"), null), Is.EqualTo(Expected));
+            Assert.That(BrowserDownloadProvenance.FormatZoneIdentifier(new Uri("https://user:secret@files.example/a.zip"), null), Is.EqualTo(Expected),
+                "A sign-in is not written down.");
+        });
+    }
+
+    [Test]
+    public void TheZoneIdentifierStaysAsciiForAnInternationalAddress()
+    {
+        string zone = BrowserDownloadProvenance.FormatZoneIdentifier(new Uri("https://例え.example/音.zip"), null);
+
+        Assert.That(zone, Does.Contain("HostUrl=https://xn--r8jz45g.example/%E9%9F%B3.zip"));
+    }
+
+    [Test]
+    public void TheQuarantineValueNamesTheTimeAndTheProgram()
+    {
+        Assert.That(BrowserDownloadProvenance.FormatQuarantine(DateTimeOffset.FromUnixTimeSeconds(0x6ae9b771)),
+            Is.EqualTo("0081;6ae9b771;Beutl;"));
+    }
+
+    [Test]
+    public async Task ADownloadCarriesTheOperatingSystemsMarkOfItsOrigin()
+    {
+        AssumeTheOperatingSystemHasAMark();
+        using var temporary = new TemporaryDirectory();
+        using var client = new HttpClient(new MediaHandler());
+        var downloader = new BrowserMediaDownload(client);
+
+        string saved = await downloader.DownloadAsync(new Uri("https://files.example/Morning.mp4"), temporary.Path, null, null,
+            CancellationToken.None, referrer: new Uri("https://page.example/list"));
+
+        string mark = ReadMark(saved);
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(mark, Does.Contain("ZoneId=3"));
+                Assert.That(mark, Does.Contain("HostUrl=https://files.example/Morning.mp4"));
+                Assert.That(mark, Does.Contain("ReferrerUrl=https://page.example/list"));
+            });
+        }
+        else
+        {
+            Assert.That(mark, Does.Contain(";Beutl;"));
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task AnEnginesTransferCarriesTheMarkOncePublished(bool generated)
+    {
+        AssumeTheOperatingSystemHasAMark();
+        using var temporary = new TemporaryDirectory();
+        Directory.CreateDirectory(temporary.Path);
+        string staged = Path.Combine(temporary.Path, "response");
+        await File.WriteAllBytesAsync(staged, [1, 2, 3, 4]);
+
+        string saved = await BrowserMediaDownload.PublishNativeFileAsync(staged, temporary.Path, "Morning.bin", generated, null,
+            CancellationToken.None, new Uri("https://files.example/Morning.bin"));
+
+        Assert.That(ReadMark(saved), Is.Not.Empty);
+    }
+
+    [Test]
+    public void AMarkTheEngineAlreadyWroteStays()
+    {
+        AssumeTheOperatingSystemHasAMark();
+        using var temporary = new TemporaryDirectory();
+        Directory.CreateDirectory(temporary.Path);
+        string path = Path.Combine(temporary.Path, "Morning.bin");
+        File.WriteAllBytes(path, [1]);
+        WriteMark(path, "engine");
+
+        BrowserDownloadProvenance.Mark(path, new Uri("https://files.example/Morning.bin"));
+
+        Assert.That(ReadMark(path).Trim(), Is.EqualTo("engine"));
+    }
+
+    [Test]
+    public void AFileThatCannotBeMarkedIsNoFailure()
+    {
+        using var temporary = new TemporaryDirectory();
+
+        Assert.DoesNotThrow(() => BrowserDownloadProvenance.Mark(Path.Combine(temporary.Path, "missing", "Morning.bin"), null));
+    }
+
+    private static void AssumeTheOperatingSystemHasAMark() =>
+        Assume.That(OperatingSystem.IsWindows() || OperatingSystem.IsMacOS(), "Linux has no mark for a download.");
+
+    private static void WriteMark(string path, string value)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            File.WriteAllText(path + ":Zone.Identifier", value);
+            return;
+        }
+
+        using var process = Process.Start("xattr", ["-w", "com.apple.quarantine", value, path]);
+        process.WaitForExit();
+    }
+
+    private static string ReadMark(string path)
+    {
+        if (OperatingSystem.IsWindows())
+            return File.ReadAllText(path + ":Zone.Identifier");
+
+        using var process = Process.Start(new ProcessStartInfo("xattr", ["-p", "com.apple.quarantine", path])
+        {
+            RedirectStandardOutput = true,
+        })!;
+        string value = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        return value;
     }
 
     [Test]

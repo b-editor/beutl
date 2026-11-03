@@ -133,12 +133,12 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         string name = CreateFileName(nameHint, finalUri, mediaType);
         await using Stream input = await response.Content.ReadAsStreamAsync(cancellationToken);
         return await SaveAsync(input, directory, name, progress, cancellationToken,
-            response.Content.Headers.ContentLength, response.Content.Headers.ContentType?.CharSet);
+            response.Content.Headers.ContentLength, response.Content.Headers.ContentType?.CharSet, finalUri, referrer);
     }
 
     internal static async Task<string> SaveAsync(Stream input, string directory, string name,
         IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken,
-        long? total = null, string? charset = null)
+        long? total = null, string? charset = null, Uri? source = null, Uri? referrer = null)
     {
         byte[] prefix = await ReadPrefixAsync(input, cancellationToken);
         var inspector = new BrowserMediaContentInspector(prefix, isFinal: prefix.Length < SniffLength,
@@ -182,7 +182,7 @@ internal sealed class BrowserMediaDownload(HttpClient client)
                 throw new IOException(Strings.WebDownloadIncomplete);
             }
 
-            return PublishCompletedFile(temporaryPath, directory, name, cancellationToken);
+            return PublishCompletedFile(temporaryPath, directory, name, cancellationToken, source, referrer);
         }
         finally
         {
@@ -194,7 +194,7 @@ internal sealed class BrowserMediaDownload(HttpClient client)
     }
 
     internal static async Task<string> ValidateAndPublishAsync(string completedPath, string directory, string name,
-        string? charset, CancellationToken cancellationToken)
+        string? charset, CancellationToken cancellationToken, Uri? source = null)
     {
         await using (var input = new FileStream(completedPath, FileMode.Open, FileAccess.Read, FileShare.Read,
                          CopyBufferSize, FileOptions.Asynchronous))
@@ -219,17 +219,17 @@ internal sealed class BrowserMediaDownload(HttpClient client)
 
         cancellationToken.ThrowIfCancellationRequested();
         Directory.CreateDirectory(directory);
-        return PublishCompletedFile(completedPath, directory, name, cancellationToken);
+        return PublishCompletedFile(completedPath, directory, name, cancellationToken, source);
     }
 
     // The HTML check keeps a server's sign-in page from passing for its file. A generated file is what its page
     // made, HTML or empty included, so it is published as it is.
     internal static string PublishGeneratedFile(string completedPath, string directory, string name,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, Uri? source = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         Directory.CreateDirectory(directory);
-        return PublishCompletedFile(completedPath, directory, name, cancellationToken);
+        return PublishCompletedFile(completedPath, directory, name, cancellationToken, source);
     }
 
     // A browser engine saves its own transfer into a fresh folder in the destination; its handler removes the folder
@@ -241,10 +241,10 @@ internal sealed class BrowserMediaDownload(HttpClient client)
     }
 
     internal static async Task<string> PublishNativeFileAsync(string staged, string directory, string name, bool generated,
-        string? charset, CancellationToken cancellationToken) =>
+        string? charset, CancellationToken cancellationToken, Uri? source = null) =>
         generated
-            ? PublishGeneratedFile(staged, directory, name, cancellationToken)
-            : await ValidateAndPublishAsync(staged, directory, name, charset, cancellationToken);
+            ? PublishGeneratedFile(staged, directory, name, cancellationToken, source)
+            : await ValidateAndPublishAsync(staged, directory, name, charset, cancellationToken, source);
 
     // Fills the prefix unless the stream ends first, in which case it is trimmed to the bytes that arrived.
     private static async Task<byte[]> ReadPrefixAsync(Stream input, CancellationToken cancellationToken)
@@ -266,9 +266,11 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
     }
 
-    private static string PublishCompletedFile(string path, string directory, string name, CancellationToken cancellationToken)
+    private static string PublishCompletedFile(string path, string directory, string name, CancellationToken cancellationToken,
+        Uri? source, Uri? referrer = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        BrowserDownloadProvenance.Mark(path, source, referrer);
         for (int suffix = 0; ; suffix++)
         {
             string candidate = suffix == 0 ? name
