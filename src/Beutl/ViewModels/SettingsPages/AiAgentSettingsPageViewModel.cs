@@ -358,6 +358,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
             ManualMcpSnippet.Value = result.ManualMcpEdit?.Snippet ?? "";
 
+            // The selection can change while the command runs, and this is the one it registers.
+            string cliTarget = $"{SelectedAgent.Value.DisplayName} ({SelectedScope.Value.Scope})";
             var cliErrors = new List<string>();
             bool cliRegistered = targets.UseCliForMcp
                                  && await RegisterMcpThroughCliAsync(cliErrors).ConfigureAwait(true);
@@ -365,7 +367,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             InstalledMcpTarget? mcpTarget = result.McpConfigPath is { } configPath
                 ? new InstalledMcpTarget(configPath, IsConfigFile: true, AgentToolkitInstallManifest.CurrentMcpLayout)
                 : cliRegistered
-                    ? new InstalledMcpTarget($"{SelectedAgent.Value.DisplayName} ({SelectedScope.Value.Scope})", IsConfigFile: false, AgentToolkitInstallManifest.CurrentMcpLayout)
+                    ? new InstalledMcpTarget(cliTarget, IsConfigFile: false, AgentToolkitInstallManifest.CurrentMcpLayout)
                     : null;
             (IReadOnlyList<string> removed, AgentToolkitInstallManifest manifest) =
                 UpdateInstallManifest(targets, result, assets, installSubagents, mcpTarget);
