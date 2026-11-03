@@ -20,6 +20,7 @@ public class SelectLibraryItemDialogViewModel
     private Task<PinnableLibraryItem[]>? _allItemsTask;
     private PinnableLibraryItem[] _allReferenceItems = [];
     private int _searchVersion;
+    private string? _appliedSearchText;
 
     public SelectLibraryItemDialogViewModel(string format, Type baseType)
         : this(format, baseType, null, null)
@@ -66,11 +67,7 @@ public class SelectLibraryItemDialogViewModel
             .Skip(1)
             .Throttle(TimeSpan.FromMilliseconds(100))
             .ObserveOnUIDispatcher()
-            .Subscribe(_ =>
-            {
-                ProcessSearchText();
-                ProcessReferenceSearchText();
-            });
+            .Subscribe(_ => FlushSearch());
 
         ProcessSearchText();
     }
@@ -88,7 +85,7 @@ public class SelectLibraryItemDialogViewModel
             .Skip(1)
             .Throttle(TimeSpan.FromMilliseconds(100))
             .ObserveOnUIDispatcher()
-            .Subscribe(_ => ProcessReferenceSearchText());
+            .Subscribe(_ => FlushSearch());
 
         InitializeReferences(targets);
     }
@@ -111,6 +108,18 @@ public class SelectLibraryItemDialogViewModel
     public bool ShowsOnlyReferences { get; }
 
     internal Task SearchTask { get; private set; } = Task.CompletedTask;
+
+    // Applies the search text right away instead of after the typing pause, so that a key acting on the results,
+    // such as Down or Enter, sees the results for what was typed. A catalog still loading shows no results until it
+    // finishes, so there is nothing stale to act on.
+    public void FlushSearch()
+    {
+        if (string.Equals(SearchText.Value, _appliedSearchText, StringComparison.Ordinal)) return;
+
+        _appliedSearchText = SearchText.Value;
+        if (!ShowsOnlyReferences) ProcessSearchText();
+        ProcessReferenceSearchText();
+    }
 
     public async Task SelectTypeAsync(Type? type)
     {
