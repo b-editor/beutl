@@ -85,6 +85,39 @@ public class GraphNodeRegistryTests
 
         Assert.That(GraphNodeRegistry.FindItem(typeof(RegistrySnapshotNode)), Is.Null);
     }
+
+    // Neither of the groups goes away, and the outer one has as many items as before.
+    [Test]
+    public void Unloading_a_node_says_so_from_inside_a_group_inside_a_group()
+    {
+        GraphNodeRegistry.RegisterNodes("Outer group")
+            .AddGroup("Inner group", inner => inner
+                .Add<RegistrySnapshotNode>("Snapshot node")
+                .Add<RegistrySecondSnapshotNode>("Second snapshot node")
+                .Register())
+            .Register();
+        int changes = 0;
+        EventHandler onChanged = (_, _) => changes++;
+        GraphNodeRegistry.Changed += onChanged;
+        try
+        {
+            TypeUnloadNotifier.NotifyUnloading([typeof(RegistrySnapshotNode)]);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(changes, Is.EqualTo(1));
+                Assert.That(GraphNodeRegistry.FindItem(typeof(RegistrySnapshotNode)), Is.Null);
+                Assert.That(GraphNodeRegistry.FindItem(typeof(RegistrySecondSnapshotNode)), Is.Not.Null);
+            }
+        }
+        finally
+        {
+            GraphNodeRegistry.Changed -= onChanged;
+            TypeUnloadNotifier.NotifyUnloading([typeof(RegistrySecondSnapshotNode)]);
+        }
+    }
 }
 
 internal sealed partial class RegistrySnapshotNode : GraphNode;
+
+internal sealed partial class RegistrySecondSnapshotNode : GraphNode;
