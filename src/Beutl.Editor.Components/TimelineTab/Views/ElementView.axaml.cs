@@ -424,7 +424,7 @@ public sealed partial class ElementView : UserControl
         if (DataContext is not ElementViewModel viewModel) return;
 
         // The clips Copy takes: the selection, each clip with its group.
-        Element[] elements = [.. viewModel.GetGroupOrSelectedElements().Select(item => item.Model)];
+        Element[] elements = viewModel.GetGroupOrSelectedModels();
         KeepRealizedWhileOpen(TemplateSaving.ShowSaveFlyout(
             this,
             TemplateSaving.CreateElementTemplate(viewModel.Scene, elements.Length > 0 ? elements : [viewModel.Model]),
@@ -519,9 +519,7 @@ public sealed partial class ElementView : UserControl
     // them, and the slip service drops them itself.
     private static Element[] CollectTrimMembers(ElementViewModel viewModel)
     {
-        var members = viewModel.GetGroupOrSelectedElements()
-            .Select(el => el.Model)
-            .ToList();
+        var members = viewModel.GetGroupOrSelectedModels().ToList();
         if (!members.Contains(viewModel.Model))
         {
             members.Add(viewModel.Model);

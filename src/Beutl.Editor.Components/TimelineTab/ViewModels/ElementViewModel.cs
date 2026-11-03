@@ -338,6 +338,15 @@ public sealed partial class ElementViewModel : IDisposable
 
     public IReadOnlyList<ElementViewModel> GetGroupOrSelectedElements()
     {
+        return GetGroupOrSelectedModels()
+            .Select(Timeline.GetViewModelFor)
+            .OfType<ElementViewModel>()
+            .ToArray();
+    }
+
+    // The same clips, for what only reads them: a clip that is not on screen has no view model until it needs one.
+    internal Element[] GetGroupOrSelectedModels()
+    {
         HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(
             Timeline.SelectedElements.Select(item => item.Model.Id.Value), Scene.Groups);
 
@@ -353,11 +362,7 @@ public sealed partial class ElementViewModel : IDisposable
             return [];
         }
 
-        return Scene.Children
-            .Where(x => ids.Contains(x.Id.Value))
-            .Select(Timeline.GetViewModelFor)
-            .OfType<ElementViewModel>()
-            .ToArray();
+        return [.. Scene.Children.Where(x => ids.Contains(x.Id.Value))];
     }
 
     public bool CanGroupSelectedElements()
@@ -506,7 +511,7 @@ public sealed partial class ElementViewModel : IDisposable
     }
 
     private Element[] EditableTargets()
-        => GetGroupOrSelectedElements().Where(e => e.IsEditable.Value).Select(e => e.Model).ToArray();
+        => GetGroupOrSelectedModels().Where(e => !Scene.IsElementLocked(e)).ToArray();
 
     // IElementStructureService skips the user-locked ones.
     private Element[] RemovableTargets()
@@ -572,7 +577,7 @@ public sealed partial class ElementViewModel : IDisposable
 
     private async Task OnCopy()
     {
-        Element[] models = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
+        Element[] models = GetGroupOrSelectedModels();
         await Timeline.EditorContext.GetRequiredService<IElementClipboardService>().CopyAsync(models);
     }
 
@@ -586,23 +591,18 @@ public sealed partial class ElementViewModel : IDisposable
 
     public void SplitAt(MediaTime timeSpan)
     {
-        SplitCore([this], timeSpan);
+        SplitCore([Model], timeSpan);
     }
 
     private void OnSplit(MediaTime timeSpan)
     {
-        IReadOnlyList<ElementViewModel> targets = GetGroupOrSelectedElements();
-        if (targets.Count == 0)
-        {
-            targets = [this];
-        }
-
-        SplitCore(targets, timeSpan);
+        Element[] targets = GetGroupOrSelectedModels();
+        SplitCore(targets.Length == 0 ? [Model] : targets, timeSpan);
     }
 
-    private void SplitCore(IReadOnlyList<ElementViewModel> targets, MediaTime timeSpan)
+    private void SplitCore(Element[] targets, MediaTime timeSpan)
     {
-        Element[] models = targets.Where(t => t.IsEditable.Value).Select(t => t.Model).ToArray();
+        Element[] models = targets.Where(t => !Scene.IsElementLocked(t)).ToArray();
         if (models.Length == 0) return;
         Rational rate = SceneTimeRangeService.GetFrameRate(Scene);
         MediaTime at = timeSpan.RoundToFrame(rate, MidpointRounding.AwayFromZero);
