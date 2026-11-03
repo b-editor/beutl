@@ -46,6 +46,8 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
         Brush.Resource? fill = Fill?.Resource;
         Pen.Resource? pen = Pen?.Resource;
         RenderResource<ImageSource.Resource> sourceResource = context.Borrow(source);
+        // An SVG is painted again at any density, and its shapes can overlap each other.
+        bool isDrawing = source.Picture != null;
 
         context.Publish(context.PaintedSource(
             state: source,
@@ -55,8 +57,9 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
             pen: pen,
             outputBounds: bounds,
             hitTest: RenderHitTestContract.Custom(HitTest),
-            scale: RenderScaleContract.Custom(static _ => 1f),
-            directReplayAtExactIntegerReduction: true,
+            scale: isDrawing ? RenderScaleContract.Vector : RenderScaleContract.Custom(static _ => 1f),
+            directReplayAtExactIntegerReduction: !isDrawing,
+            supportsDirectDstOut: !isDrawing,
             resources: [sourceResource]));
     }
 

@@ -2,6 +2,7 @@
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Serialization;
+using SkiaSharp;
 
 namespace Beutl.Media.Source;
 
@@ -9,7 +10,7 @@ namespace Beutl.Media.Source;
 [SuppressResourceClassGeneration]
 public sealed class ImageSource : MediaSource
 {
-    private WeakReference<Counter<Bitmap>>? _bitmapRef;
+    private WeakReference<Counter<LoadedImage>>? _imageRef;
 
     public override void ReadFrom(Uri uri)
     {
@@ -18,7 +19,7 @@ public sealed class ImageSource : MediaSource
             // 古い URI の Counter を別 Resource が保持していると
             // TryAddRef が成功して新 URI でも古いビットマップを返してしまうため、
             // URI が切り替わったタイミングで共有参照を破棄する。
-            Volatile.Write(ref _bitmapRef, null);
+            Volatile.Write(ref _imageRef, null);
         }
         Uri = uri;
     }
@@ -33,20 +34,23 @@ public sealed class ImageSource : MediaSource
 
     internal override void InvalidateResourceCache()
     {
-        Volatile.Write(ref _bitmapRef, null);
+        Volatile.Write(ref _imageRef, null);
         base.InvalidateResourceCache();
     }
 
     public new sealed class Resource : MediaSource.Resource
     {
-        private Counter<Bitmap>? _counter;
+        private Counter<LoadedImage>? _counter;
         private Uri? _loadedUri;
 
         public PixelSize FrameSize { get; private set; }
 
-        public Bitmap? Bitmap => _counter?.Value;
+        public Bitmap? Bitmap => _counter?.Value.Bitmap;
 
         public bool IsOffline { get; private set; }
+
+        // The drawing of an SVG; null for an image that is only pixels.
+        internal SKPicture? Picture => _counter?.Value.Picture;
 
         public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
@@ -60,10 +64,10 @@ public sealed class ImageSource : MediaSource
                 _counter = null;
                 IsOffline = false;
 
-                Counter<Bitmap>? shared = null;
+                Counter<LoadedImage>? shared = null;
                 if (!context.DisableResourceShare)
                 {
-                    var localRef = Volatile.Read(ref imageSource._bitmapRef);
+                    var localRef = Volatile.Read(ref imageSource._imageRef);
                     if (localRef?.TryGetTarget(out var counter) == true && counter.TryAddRef())
                         shared = counter;
                 }
@@ -76,20 +80,18 @@ public sealed class ImageSource : MediaSource
                 {
                     try
                     {
-                        using var stream = UriHelper.ResolveStream(imageSource.Uri);
-                        var bitmap = Media.Bitmap.FromStream(stream);
-                        _counter = new Counter<Bitmap>(bitmap, null);
+                        _counter = new Counter<LoadedImage>(LoadedImage.Open(imageSource.Uri), null);
                         // DisableResourceShare 時は WeakReference を書き換えない。
                         // 他 Renderer（プレビュー側）の共有カウンタを
                         // エンコード専用カウンタで汚染してしまうため。
                         if (!context.DisableResourceShare)
                         {
-                            Volatile.Write(ref imageSource._bitmapRef, new(_counter));
+                            Volatile.Write(ref imageSource._imageRef, new(_counter));
                         }
                     }
                     catch
                     {
-                        _counter = new Counter<Bitmap>(OfflineMediaPlaceholder.CreateBitmap(), null);
+                        _counter = new Counter<LoadedImage>(new LoadedImage(OfflineMediaPlaceholder.CreateBitmap()), null);
                         IsOffline = true;
                         FrameSize = OfflineMediaPlaceholder.Size;
                         _loadedUri = imageSource.Uri;
@@ -98,7 +100,7 @@ public sealed class ImageSource : MediaSource
                     }
                 }
 
-                FrameSize = new PixelSize(_counter.Value.Width, _counter.Value.Height);
+                FrameSize = _counter.Value.Size;
                 _loadedUri = imageSource.Uri;
 
                 if (!versionBumped)

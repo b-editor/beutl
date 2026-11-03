@@ -58,6 +58,30 @@ public class FileUriWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task Import_TakesAnSvgAsAnImage()
+    {
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("svg-import");
+        string path = Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "drawing.svg");
+        File.WriteAllText(path, """<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10"/>""");
+        try
+        {
+            var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+            ElementAddResult result = await adder.AddAsync([
+                new ElementDescription(MediaTime.Zero, MediaTime.FromSeconds(1), 0, new ElementSource.File(path))
+            ], CancellationToken.None);
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(result.IsSuccess, Is.True, result.Failure?.ToString());
+            var image = (SourceImage)result.Elements.Single().Objects.Single();
+            Assert.That(image.Source.Value!.Uri.LocalPath, Is.EqualTo(path));
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase("clip#1")]
     [TestCase("clip%41")]
     [TestCase("two words")]
