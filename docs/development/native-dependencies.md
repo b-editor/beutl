@@ -42,10 +42,10 @@ These are not ours to patch, so they have no exit condition: they move with thei
 
 ## How the committed binaries are checked
 
-Each binary we commit carries a record of what built it, and CI compares the two.
+Each binary we commit carries a record of what built it. CI compares libSkiaSharp and libBeutlAVF with theirs.
 
 - **libSkiaSharp:** `python3 native/SkiaSharp/verify.py` checks the source, patch and binary hashes against `build.json` in each runtime, and the architecture and exports of the binary. See `native/SkiaSharp/README.md`.
-- **libBeutlDataChannel:** the source pins and SHA-256 manifests sit next to each runtime. See `native/libdatachannel/README.md`.
+- **libBeutlDataChannel:** the source pins and SHA-256 manifests sit next to each runtime, but nothing compares them with the committed files: the native workflow builds and tests fresh ones. Review the manifest when replacing a runtime. See `native/libdatachannel/README.md`.
 - **libBeutlAVF:** `python3 build/avf_build_record.py` checks a hash of the Swift sources and of each dylib against `src/Beutl.Extensions.AVFoundation/runtimes/build.json`, which also names the toolchain. `build/test_avf_build_record.py` runs that check in CI, so a change to the Swift sources committed without new dylibs fails there.
 
 To change libBeutlAVF, edit the Swift sources and run `dotnet build src/Beutl.Extensions.AVFoundation` on macOS. The Swift build overwrites both dylibs and rewrites `build.json`; commit all three with the source change.
