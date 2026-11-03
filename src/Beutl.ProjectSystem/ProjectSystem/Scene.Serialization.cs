@@ -341,6 +341,9 @@ public partial class Scene
             .ToArray();
     }
 
+    // The editor opens a scene whatever the case of its extension, on any file system.
+    private static readonly EnumerationOptions s_sceneFileSearch = new() { MatchCasing = MatchCasing.CaseInsensitive, AttributesToSkip = 0 };
+
     // The elements in and below a folder with a scene file of its own are that scene's.
     private static bool IsBelowAnotherScene(string directoryName, string path, Dictionary<string, bool> holdsScene)
     {
@@ -350,7 +353,7 @@ public partial class Scene
             {
                 try
                 {
-                    holds = Directory.EnumerateFiles(Path.Combine(directoryName, folder), "*.scene").Any();
+                    holds = Directory.EnumerateFiles(Path.Combine(directoryName, folder), "*.scene", s_sceneFileSearch).Any();
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {

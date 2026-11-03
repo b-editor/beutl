@@ -97,15 +97,16 @@ public class SceneTests
     }
 
     // The glob reaches into every folder below the scene, where another scene can keep its own elements.
-    [Test]
-    public void A_scene_leaves_alone_the_elements_of_a_scene_in_a_folder_below_it()
+    [TestCase("inner.scene")]
+    [TestCase("inner.SCENE")]
+    public void A_scene_leaves_alone_the_elements_of_a_scene_in_a_folder_below_it(string innerFile)
     {
         var outer = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "outer.scene")) };
         var outerElement = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "elements", "outer.belm")) };
         outer.Children.Add(outerElement);
         CoreSerializer.StoreToUri(outerElement, outerElement.Uri);
         CoreSerializer.StoreToUri(outer, outer.Uri);
-        var inner = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "inner", "inner.scene")) };
+        var inner = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "inner", innerFile)) };
         var innerElement = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "inner", "elements", "inner.belm")) };
         inner.Children.Add(innerElement);
         CoreSerializer.StoreToUri(innerElement, innerElement.Uri);
