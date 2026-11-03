@@ -46,6 +46,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     private readonly IEditorClock _editorClock;
     private readonly IEditorSelection _editorSelection;
     private IDisposable? _currentFrameSubscription;
+    private PlaybackTicker? _activeTicker;
     private readonly object _renderRequestLock = new();
     private CancellationTokenSource? _cts;
     private volatile bool _isDisposing;
@@ -433,6 +434,13 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
     public PathEditorViewModel PathEditor { get; }
 
+    public MediaTime? GetPlaybackTime()
+    {
+        if (!IsPlaying.Value) return null;
+
+        return Volatile.Read(ref _activeTicker)?.CurrentTime ?? _editorClock.CurrentTime.Value;
+    }
+
     public void Play()
     {
         if (_isDisposing || _isPausing || IsPlaying.Value) return;
@@ -587,6 +595,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             ticker = new PlaybackTicker(
                 this, generation, playerImpl, clock, rate, range.StartFrame, range.EndFrame, startTime,
                 DateTime.UtcNow);
+            // A session a Pause() timeout abandoned during startup must not replace the clock of the one after it.
+            _sessionGuard.TryApply(generation, () => Volatile.Write(ref _activeTicker, ticker));
 
             await using var timer = new Timer(ticker.OnTick, null, tick, tick);
 
@@ -599,6 +609,10 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         }
         finally
         {
+            // A session that took over after a Pause() timeout has its own ticker.
+            if (ticker != null)
+                Interlocked.CompareExchange(ref _activeTicker, null, ticker);
+
             // Restore the stopped state only while this task owns the session; otherwise the new owner or
             // Pause()'s timeout path does. On the UI thread, after retiring the ticker, so nothing it posted
             // lands after the stopped state, the rewind or a restart.
@@ -709,6 +723,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             _isShuttling = false;
             // Retire before waiting, so late/queued callbacks cannot enter behind a drain barrier.
             _sessionGuard.Disown();
+            // A playback task this abandons on a timeout would otherwise answer for whatever plays next.
+            Volatile.Write(ref _activeTicker, null);
             renderCts?.Cancel();
             if (IsPlaying.Value)
                 _logger.LogInformation("Pause the playback. ({SceneId})", _editViewModel.SceneId);
