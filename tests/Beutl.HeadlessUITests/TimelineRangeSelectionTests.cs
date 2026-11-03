@@ -6,6 +6,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Beutl.Collections;
+using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.Views;
@@ -83,6 +84,73 @@ public class TimelineRangeSelectionTests
         session.Model.SelectElement(session.Model.AllElements().First());
         session.Drag(session.Ruler.TranslatePoint(new Point(15, 5), session.Window)!.Value,
             session.Ruler.TranslatePoint(new Point(225, 25), session.Window)!.Value, []);
+    }
+
+    // After Effects keeps the playhead on its ruler, so a click on the clips' area only selects (#1379).
+    [AvaloniaTest]
+    public async Task With_seeking_on_click_off_a_plain_drag_selects_and_leaves_the_playhead()
+    {
+        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        setting.Value = false;
+        try
+        {
+            using TimelineSession session = await TimelineSession.CreateAsync();
+            session.Model.Seek(MediaTime.FromSeconds(4));
+            HeadlessTestHelpers.Render();
+            MediaTime before = session.Model.CurrentTime.Value;
+
+            session.Drag(session.ToWindow(new Point(15, 5)),
+                session.ToWindow(new Point(225, session.Model.CalculateLayerTop(3) - 10)), [0, 2], RawInputModifiers.None);
+
+            Assert.That(session.Model.CurrentTime.Value, Is.EqualTo(before));
+        }
+        finally
+        {
+            setting.Value = true;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task With_seeking_on_click_off_the_ruler_still_moves_the_playhead()
+    {
+        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        setting.Value = false;
+        try
+        {
+            using TimelineSession session = await TimelineSession.CreateAsync();
+            session.Model.Seek(MediaTime.FromSeconds(4));
+            HeadlessTestHelpers.Render();
+            MediaTime before = session.Model.CurrentTime.Value;
+            Point ruler = session.Ruler.TranslatePoint(new Point(100, 15), session.Window)!.Value;
+
+            session.Window.MouseMove(ruler);
+            session.Window.MouseDown(ruler, MouseButton.Left);
+            session.Window.MouseUp(ruler, MouseButton.Left);
+            HeadlessTestHelpers.Render();
+
+            Assert.That(session.Model.CurrentTime.Value, Is.Not.EqualTo(before));
+        }
+        finally
+        {
+            setting.Value = true;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task By_default_a_plain_click_on_the_timeline_moves_the_playhead()
+    {
+        using TimelineSession session = await TimelineSession.CreateAsync();
+        session.Model.Seek(MediaTime.FromSeconds(4));
+        HeadlessTestHelpers.Render();
+        MediaTime before = session.Model.CurrentTime.Value;
+        Point point = session.ToWindow(new Point(100, session.Model.CalculateLayerTop(1) + 5));
+
+        session.Window.MouseMove(point);
+        session.Window.MouseDown(point, MouseButton.Left);
+        session.Window.MouseUp(point, MouseButton.Left);
+        HeadlessTestHelpers.Render();
+
+        Assert.That(session.Model.CurrentTime.Value, Is.Not.EqualTo(before));
     }
 
     [AvaloniaTest]
@@ -174,9 +242,9 @@ public class TimelineRangeSelectionTests
             Assert.That(Content.Offset, Is.EqualTo(new Vector(75, y)));
         }
 
-        public void Drag(Point from, Point to, int[] expectedLayers)
+        public void Drag(Point from, Point to, int[] expectedLayers, RawInputModifiers? modifiers = null)
         {
-            RawInputModifiers modifier = TimelineTestHost.CommandModifier;
+            RawInputModifiers modifier = modifiers ?? TimelineTestHost.CommandModifier;
             Window.MouseMove(from, modifier);
             Window.MouseDown(from, MouseButton.Left, modifier);
             Assert.That(_host.View._mouseFlag, Is.EqualTo(TimelineHelper.MouseFlags.RangeSelectionPressed));

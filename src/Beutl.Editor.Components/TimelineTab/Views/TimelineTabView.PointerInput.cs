@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Input;
+using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
@@ -206,7 +207,7 @@ public sealed partial class TimelineTabView
                 return;
             }
 
-            if (e.KeyModifiers == KeyGestureHelper.GetCommandModifier())
+            if (e.KeyModifiers == KeyGestureHelper.GetCommandModifier() || SelectsOnPress(e))
             {
                 _mouseFlag = MouseFlags.RangeSelectionPressed;
                 ViewModel.ClearSelected();
@@ -221,6 +222,11 @@ public sealed partial class TimelineTabView
 
         _rightButtonPressed = pointerPt.Properties.IsRightButtonPressed;
     }
+
+    // With seeking on a click turned off, only the ruler moves the playhead, which leaves the rest free to select.
+    private bool SelectsOnPress(PointerPressedEventArgs e)
+        => !GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick.Value
+           && !new Rect(Scale.Bounds.Size).Contains(e.GetPosition(Scale));
 
     // Returns true when a point marker was pressed; that press is then fully handled.
     private bool BeginScalePress(TimelineTabViewModel viewModel, PointerPressedEventArgs e, PointerPoint pointerPt)

@@ -738,4 +738,10 @@
   <data name="PreviewGuideKinds" xml:space="preserve">
     <value>Guías que se muestran</value>
   </data>
+  <data name="SeekOnTimelineClick" xml:space="preserve">
+    <value>Mover el cabezal de reproducción al hacer clic en la línea de tiempo</value>
+  </data>
+  <data name="SeekOnTimelineClick_Description" xml:space="preserve">
+    <value>Si se desactiva, solo la regla mueve el cabezal de reproducción, y arrastrar en una zona vacía de la línea de tiempo selecciona clips sin tecla modificadora.</value>
+  </data>
 </root>

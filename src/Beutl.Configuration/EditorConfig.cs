@@ -93,6 +93,8 @@ public sealed partial class EditorConfig : ConfigurationBase
 
     public IProperty<bool> SwapTimelineScrollDirection { get; } = Property.CreateValue(false);
 
+    public IProperty<bool> SeekOnTimelineClick { get; } = Property.CreateValue(true);
+
     public IProperty<bool> ClampResizeToOriginalLength { get; } = Property.CreateValue(true);
 
     public IProperty<bool> IsTimelineSnapEnabled { get; } = Property.CreateValue(true);
