@@ -7,6 +7,8 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
@@ -26,7 +28,7 @@ namespace Beutl.HeadlessUITests;
 public sealed class EasingEditorTests
 {
     // EasingCurveEditor insets its plot so handles on the corners stay inside the bounds.
-    private const double PlotInset = 8;
+    private const double PlotInset = 12;
 
     [AvaloniaTest]
     [TestCase(EditorSurface.Property)]
@@ -646,6 +648,56 @@ public sealed class EasingEditorTests
         {
             window.Close();
         }
+    }
+
+    // A handle at the end of the range sits on the corner of the plot, where its ring must neither be cut off
+    // nor run under the focus border, which takes the outer 3 pixels when the curve is reached with Tab.
+    [AvaloniaTest]
+    public void The_focus_ring_stays_whole_on_the_corners_of_the_plot()
+    {
+        var curve = new EasingCurveEditor
+        {
+            Easing = new SplineEasing(0, -0.5f, 1, 1.5f),
+            Background = Brushes.Black,
+            GridBrush = Brushes.Black,
+            CurveBrush = Brushes.Black,
+            HandleBrush = Brushes.White,
+            FocusAdorner = null
+        };
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            Assert.That(curve.Focus(NavigationMethod.Tab), Is.True);
+            HeadlessTestHelpers.Render();
+            Assert.That(PixelsDrawnNearTheEdge(window, curve), Is.Empty);
+
+            Press(window, Key.Tab, PhysicalKey.Tab);
+            HeadlessTestHelpers.Render();
+            Assert.That(PixelsDrawnNearTheEdge(window, curve), Is.Empty);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static PixelPoint[] PixelsDrawnNearTheEdge(Window window, EasingCurveEditor curve)
+    {
+        using WriteableBitmap frame = window.CaptureRenderedFrame()!;
+        int width = (int)curve.Bounds.Width;
+        int height = (int)curve.Bounds.Height;
+        return
+        [
+            .. from y in Enumerable.Range(0, height)
+               from x in Enumerable.Range(0, width)
+               where Math.Min(Math.Min(x, width - 1 - x), Math.Min(y, height - 1 - y)) < 3
+               let point = new PixelPoint(x, y)
+               where HeadlessTestHelpers.ReadPixel(frame, point) != (0, 0, 0)
+               select point
+        ];
     }
 
     [AvaloniaTest]

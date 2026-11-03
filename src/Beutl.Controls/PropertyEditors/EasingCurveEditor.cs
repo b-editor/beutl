@@ -40,8 +40,8 @@ public sealed class EasingCurveEditor : Control
     public static readonly StyledProperty<IBrush?> HandleBrushProperty =
         AvaloniaProperty.Register<EasingCurveEditor, IBrush?>(nameof(HandleBrush), Brushes.DodgerBlue);
 
-    // Keeps handles placed on the plot corners fully inside the bounds.
-    private const double Inset = 8;
+    // Keeps handles placed on the plot corners and their focus ring fully inside the bounds, clear of the focus border.
+    private const double Inset = 12;
     private const double HandleRadius = 4;
     private const double ActiveHandleRadius = 5.5;
     private const double HitRadius = 8;
