@@ -685,7 +685,7 @@ public class ExportTests
         {
             Assert.That(output.WasCancelled.Value, Is.True);
             Assert.That(output.IsEncoding.Value, Is.False);
-            Assert.That(output.ProgressText.Value, Is.EqualTo(Strings.Cancel));
+            Assert.That(output.ProgressText.Value, Is.EqualTo(MessageStrings.Canceled));
         });
     }
 
