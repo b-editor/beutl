@@ -464,6 +464,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:LumaColor
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:LumaKey
+  sealed
+  keys: Animations, Expressions, Id, Invert, IsEnabled, Lower, Name, Softness, Upper
 [Beutl.Engine]Beutl.Graphics.Effects:LutEffect
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Source, Strength

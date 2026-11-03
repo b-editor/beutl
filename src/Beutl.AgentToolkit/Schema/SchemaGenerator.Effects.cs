@@ -192,6 +192,7 @@ public sealed partial class SchemaGenerator
             [typeof(Negaposi)] = Metadata(["color", "negative", "graphic"], []),
             [typeof(ChromaKey)] = Metadata(["keying", "transparent", "video"], []),
             [typeof(ColorKey)] = Metadata(["keying", "transparent", "graphic"], []),
+            [typeof(LumaKey)] = Metadata(["keying", "transparent", "brightness"], []),
             [typeof(SplitEffect)] = Metadata(["glitch", "split", "stylize"], []),
             [typeof(PartsSplitEffect)] = Metadata(["glitch", "split", "stylize"], []),
             [typeof(TransformEffect)] = Metadata(["motion", "distort", "transform"], []),

@@ -1757,4 +1757,16 @@
   <data name="MotionBlur_End" xml:space="preserve">
     <value>结束</value>
   </data>
+  <data name="LumaKey" xml:space="preserve">
+    <value>亮度键</value>
+  </data>
+  <data name="LumaKey_Lower" xml:space="preserve">
+    <value>下限 (%)</value>
+  </data>
+  <data name="LumaKey_Upper" xml:space="preserve">
+    <value>上限 (%)</value>
+  </data>
+  <data name="LumaKey_Softness" xml:space="preserve">
+    <value>边界柔和度 (%)</value>
+  </data>
 </root>

@@ -568,6 +568,10 @@ public sealed partial class SchemaGenerator
                 colorKey.Range.Value = 18;
                 colorKey.Boundary.Value = 3;
                 break;
+            case LumaKey lumaKey:
+                lumaKey.Lower.Value = 30;
+                lumaKey.Softness.Value = 10;
+                break;
             case SplitEffect split:
                 split.HorizontalDivisions.Value = 3;
                 split.VerticalDivisions.Value = 2;
