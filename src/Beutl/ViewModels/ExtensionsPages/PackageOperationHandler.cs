@@ -216,6 +216,10 @@ internal class PackageOperationHandler
     {
         foreach (LocalPackage old in unloaded)
         {
+            // An unload that was not safe keeps the package registered until the next launch, and a copy loaded
+            // beside it would share what it still holds.
+            if (_packageManager.FindLoadedPackage(old.Name).Contains(old)) continue;
+
             try
             {
                 using PackageFolderReader reader = new(old.InstalledPath!);
