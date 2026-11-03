@@ -82,6 +82,32 @@ public class SceneSettingsTabViewModelTests
         });
     }
 
+    [Test]
+    [NonParallelizable]
+    public async Task Apply_WhenTheMasterVolumeTurnsNegativeWhilePausing_DoesNotCommitAndNotifies()
+    {
+        using SceneSettingsTabViewModel viewModel = CreateViewModel(
+            out CaptureSceneSettingsService sceneSettingsService,
+            out BlockingPreviewPlayer previewPlayer);
+        using var notifications = NotificationCapture.Install();
+
+        Task applyTask = viewModel.Apply.ExecuteAsync();
+        await previewPlayer.PauseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        viewModel.MasterVolume.Value = -1f;
+
+        previewPlayer.CompletePause();
+        await applyTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sceneSettingsService.CallCount, Is.EqualTo(0));
+            Assert.That(
+                notifications.All.Any(n => n.Message == Beutl.Language.MessageStrings.SceneSettings_ApplyCanceledInputsInvalid),
+                Is.True);
+        });
+    }
+
     // A pause still draining the last frame no longer shows in IsPlaying, so applying waits for Pause anyway.
     [Test]
     public async Task Apply_WaitsForAPauseThatIsPlayingNoLongerShows()

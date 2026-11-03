@@ -88,7 +88,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             {
                 await player.Pause();
 
-                if (!TryReadSceneSettings(out frameSize, out start, out duration))
+                if (!TryReadSceneSettings(out frameSize, out start, out duration) || MasterVolume.Value < 0)
                 {
                     // Pausing yielded to the UI thread, so the user may have invalidated an
                     // input meanwhile. Warn instead of returning silently.

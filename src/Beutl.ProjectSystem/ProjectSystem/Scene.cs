@@ -153,6 +153,9 @@ public partial class Scene : ProjectItem, INotifyEdited
     [Display(Name = nameof(Strings.MasterVolume), ResourceType = typeof(Strings))]
     public IProperty<float> MasterVolume { get; } = new ValueOnlyProperty<float>(100f) { Coerce = static (_, value) => value > 0 ? value : 0 };
 
+    // What the mix is multiplied by.
+    internal float MasterGain => MasterVolume.Value / 100f;
+
     [NotAutoSerialized]
     public IListProperty<ImmutableHashSet<Guid>> Groups { get; } = new ListProperty<ImmutableHashSet<Guid>> { AffectsRender = false };
 

@@ -1,7 +1,9 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Animation;
 using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
+using Beutl.Composition;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
@@ -56,6 +58,32 @@ public class SceneMasterVolumeTests
         using AudioBuffer buffer = composer.Compose(s_window)!;
 
         Assert.That(buffer.GetChannelData(0)[100], Is.EqualTo(0.125f).Within(0.0001f));
+    }
+
+    // A change after the clip has ended still reaches what is left of it.
+    [Test]
+    public void The_tail_of_an_embedded_scene_follows_the_master_volume()
+    {
+        var project = new Project();
+        _ = new BeutlApplication { Project = { Value = project } };
+        Scene inner = CreateScene();
+        project.Items.Add(inner);
+        var sound = new SceneSound
+        {
+            ReferencedScene = { Value = inner },
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(5)) },
+        };
+        using var resource = sound.ToResource(CompositionContext.Default);
+        using var context = new AudioContext(44100, AudioChannelLayout.Stereo);
+        sound.Compose(context, resource);
+        AudioNode node = context.Nodes.Single(n => n.GetType().Name == "SceneNode");
+        using (context.GetOutputNodes().Single().Process(new AudioProcessContext(s_window, 44100, new AnimationSampler(), null))) { }
+
+        inner.MasterVolume.Value = 50f;
+
+        var after = new TimeRange(s_window.End, MediaTime.FromSeconds(0.001));
+        using AudioBuffer tail = node.Flush(new AudioProcessContext(after, 44100, new AnimationSampler(), null));
+        Assert.That(tail.GetChannelData(0)[10], Is.EqualTo(0.125f).Within(0.0001f));
     }
 
     [TestCase(-1f)]
@@ -117,7 +145,14 @@ public sealed partial class QuarterLevelSound : Sound
 
     private sealed class QuarterLevelNode : AudioNode
     {
-        public override AudioBuffer Process(AudioProcessContext context)
+        // Lets the compose retain the sound's output node, so a flush reaches it.
+        public override int GetLatencySamples(int sampleRate) => 240;
+
+        public override AudioBuffer Process(AudioProcessContext context) => Create(context);
+
+        public override AudioBuffer Flush(AudioProcessContext context) => Create(context);
+
+        private static AudioBuffer Create(AudioProcessContext context)
         {
             var buffer = new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
             for (int ch = 0; ch < buffer.ChannelCount; ch++)
