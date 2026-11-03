@@ -11,6 +11,7 @@ using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Graphics;
 
@@ -41,6 +42,69 @@ public class ProxyVideoLogicalSizeTests
     {
         DecoderRegistry.ProxyResolver = _oldResolver;
         GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = _originalPreviewSourceMode;
+    }
+
+    [Test]
+    public void SymlinkedVideo_FindsTheProxyRegisteredAfterItsTargetCameBack()
+    {
+        var size = new PixelSize(100, 80);
+        using var scope = ProxyTestScope.CreateWithoutProxy(size);
+        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        // The test decoder reads the video's size from the file name.
+        string name = Path.GetFileName(scope.OriginalPath);
+        string link = Path.Combine(scope.RootPath, name);
+        string target = Path.Combine(scope.RootPath, "drive", name);
+        SymbolicLinks.CreateOrIgnore(link, target);
+
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(link));
+        var context = new CompositionContext(MediaTime.Zero) { PreferProxy = true };
+        using var resource = source.ToResource(context);
+        Assert.That(resource.ProxyResolution, Is.Null);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        File.Copy(scope.OriginalPath, target);
+        ProxyTestScope.RegisterTestVideoProxy(scope.Store, target, size, new PixelSize(50, 40), ProxyPreset.Half);
+
+        bool versionBumped = false;
+        resource.Reconcile(source, context, ref versionBumped);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resource.ProxyResolution, Is.Not.Null);
+            Assert.That(versionBumped, Is.True);
+        });
+    }
+
+    [Test]
+    public void SymlinkedVideo_KeepsItsReaderWhenAnotherSourceGainsAProxy()
+    {
+        var size = new PixelSize(100, 80);
+        using var scope = ProxyTestScope.CreateWithoutProxy(size);
+        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        string name = Path.GetFileName(scope.OriginalPath);
+        string link = Path.Combine(scope.RootPath, name);
+        SymbolicLinks.CreateOrIgnore(link, scope.OriginalPath);
+
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(link));
+        var context = new CompositionContext(MediaTime.Zero) { PreferProxy = true };
+        using var resource = source.ToResource(context);
+        MediaReader? reader = resource.MediaReader;
+        Assert.That(reader, Is.Not.Null);
+
+        string other = Path.Combine(scope.RootPath, "other-" + name);
+        File.Copy(scope.OriginalPath, other);
+        ProxyTestScope.RegisterTestVideoProxy(scope.Store, other, size, new PixelSize(50, 40), ProxyPreset.Half);
+
+        bool versionBumped = false;
+        resource.Reconcile(source, context, ref versionBumped);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resource.MediaReader, Is.SameAs(reader));
+            Assert.That(versionBumped, Is.False);
+        });
     }
 
     [Test]
