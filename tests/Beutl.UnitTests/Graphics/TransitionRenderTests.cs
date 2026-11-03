@@ -168,6 +168,59 @@ public partial class TransitionRenderTests
         });
     }
 
+    // The adjustment clip processes the red layer beneath the boundary, so halfway through it shows cyan at half
+    // weight over no red at all. Processing the blue it is blending with as well would bring red back.
+    [Test]
+    public void AnAdjustmentElement_ProcessesTheLayersBeneathAndNotTheOutgoingClip()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        Bgra8888 Render(double progress) => VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var scene = new Scene(Width, Height, string.Empty);
+            var background = new Element { Start = { Value = MediaTime.Zero }, Length = { Value = MediaTime.FromSeconds(4) } };
+            background.Objects.Add(CreateRect(s_red));
+            scene.Children.Add(background);
+
+            var outgoing = new Element
+            {
+                Start = { Value = MediaTime.Zero },
+                Length = { Value = MediaTime.FromSeconds(1) },
+                ZIndex = { Value = 1 }
+            };
+            outgoing.Objects.Add(CreateRect(s_blue));
+            scene.Children.Add(outgoing);
+
+            var backdrop = new SourceBackdrop { Clear = { Value = true } };
+            backdrop.FilterEffect.Value = new Invert();
+            var adjustment = new Element
+            {
+                Start = { Value = MediaTime.FromSeconds(1) },
+                Length = { Value = MediaTime.FromSeconds(2) },
+                ZIndex = { Value = 1 }
+            };
+            adjustment.Objects.Add(backdrop);
+            adjustment.EnterTransition.Value = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
+            scene.Children.Add(adjustment);
+
+            using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
+            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(progress)));
+            using Bitmap snapshot = renderer.Snapshot();
+            using Bitmap srgb = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            return srgb.GetRow<Bgra8888>(Height / 2)[Width / 2];
+        });
+
+        Bgra8888 middle = Render(0.5);
+        Bgra8888 done = Render(1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((done.R, done.G, done.B), Is.EqualTo((0, 255, 255)), "past the transition the red is inverted");
+            Assert.That(middle.R, Is.LessThan(8), "neither side has any red");
+            Assert.That(middle.G, Is.InRange(170, 205), "half the cyan, in linear light");
+            Assert.That(middle.B, Is.GreaterThan(250), "both sides are full blue");
+        });
+    }
+
     [Test]
     public void HitTest_InsideATransitionSelectsTheIncomingClip()
     {
