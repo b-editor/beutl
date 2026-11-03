@@ -21,6 +21,8 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
         AvaloniaProperty.Register<SpectrumControl, SpectrumDisplayShape>(nameof(Shape), SpectrumDisplayShape.Bar);
 
     private const double FrequencyLabelFontSize = 12.0;
+    // In parts of the plot's height, which leaves less than a pixel to a plot under 500 pixels tall.
+    private const float SettledBarDelta = 0.002f;
     private static readonly double[] s_frequencyTicks = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
 
     private float[] _samplesL = [];
@@ -29,6 +31,7 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     private float[] _imag = [];
     private float[] _magnitudes = [];
     private float[] _smoothed = [];
+    private bool _isSettling;
 
     public int FftSize
     {
@@ -54,8 +57,12 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
         set => SetValue(ShapeProperty, value);
     }
 
+    // The smoothed bars are still moving toward the input.
+    protected internal override bool IsSettling => _isSettling;
+
     public override void Render(DrawingContext context)
     {
+        _isSettling = false;
         Rect bounds = new(Bounds.Size);
         context.FillRectangle(Brushes.Transparent, bounds);
 
@@ -91,7 +98,9 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
             float db = MathF.Max(Fft.MagnitudeToDb(mags[i], referenceMag), minDb);
             float norm = (db - minDb) / rangeDb;
             if (norm < 0) norm = 0;
-            _smoothed[i] = _smoothed[i] * smoothFactor + norm * newWeight;
+            float previous = _smoothed[i];
+            _smoothed[i] = previous * smoothFactor + norm * newWeight;
+            _isSettling |= MathF.Abs(_smoothed[i] - previous) > SettledBarDelta;
         }
 
         var f = new FormattedText(

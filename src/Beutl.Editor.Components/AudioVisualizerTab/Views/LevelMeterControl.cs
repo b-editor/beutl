@@ -31,6 +31,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
     private DateTime? _clipLAt;
     private DateTime? _clipRAt;
     private float _displayLufs = -160f;
+    private bool _isSettling;
 
     private readonly LoudnessMeter _loudness = new();
     private float[] _loudnessLeft = [];
@@ -48,8 +49,12 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
 
     private readonly record struct BarMetrics(double ScaleWidth, double ClipLedHeight, double ClipLedY, double TopInset, double BarHeight);
 
+    // A hold is still falling, the loudness digit easing or a clip light lit.
+    protected internal override bool IsSettling => _isSettling;
+
     public override void Render(DrawingContext context)
     {
+        _isSettling = false;
         Rect bounds = new(Bounds.Size);
         context.FillRectangle(Brushes.Transparent, bounds);
 
@@ -73,6 +78,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         if (peakR >= ClipThreshold) _clipRAt = now;
         bool clipL = _clipLAt is { } cl && now - cl < s_clipHold;
         bool clipR = _clipRAt is { } cr && now - cr < s_clipHold;
+        _isSettling |= clipL || clipR;
 
         UpdateLoudnessAndTruePeak(buffer, elapsed);
 
@@ -131,6 +137,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         {
             double x = BarPadding + ch * (barWidth + gap);
             bool clip = _clipAts[ch] is { } at && now - at < s_clipHold;
+            _isSettling |= clip;
             DrawChannelLabel(context, AudioChannelMap.GetChannelName(_surroundLayout, ch), x + barWidth / 2, 0);
             DrawClipLed(context, x, clipLedY, barWidth, clipLedHeight, clip);
             DrawChannel(context, x, topInset, barWidth, barHeight, _channelRms[ch], _peakHolds[ch]);
@@ -278,6 +285,8 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         {
             float alpha = (float)Math.Clamp(elapsed / 0.2, 0.05, 1.0);
             _displayLufs = _displayLufs * (1f - alpha) + lufs * alpha;
+            // The digit shows one decimal place.
+            _isSettling |= MathF.Abs(_displayLufs - lufs) > 0.05f;
         }
     }
 
@@ -362,13 +371,16 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         }
     }
 
-    private static float DecayHold(float current, float instant, double elapsed)
+    private float DecayHold(float current, float instant, double elapsed)
     {
         if (instant > current) return instant;
         // Lowers the amplitude linearly by 0.5 per second.
         float decay = (float)(0.5 * elapsed);
         float v = current - decay;
-        return v < instant ? instant : v;
+        if (v < instant) return instant;
+
+        _isSettling = true;
+        return v;
     }
 
     private static float AmplitudeToDb(float amp)
