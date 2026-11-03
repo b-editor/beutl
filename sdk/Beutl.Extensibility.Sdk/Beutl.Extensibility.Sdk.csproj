@@ -65,9 +65,50 @@ File.WriteAllLines(OutputFile, lines);
     <WriteBeutlAutoReferences Libraries="@(_BeutlLibrary)" OutputFile="$(IntermediateOutputPath)Sdk/AutoReferences.targets" />
   </Target>
 
+  <!-- Writes what BeutlHostPackageReference can name, each at the version Beutl ships (#2733). -->
+  <UsingTask TaskName="WriteBeutlHostPackages" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Packages ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <OutputFile Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+ITaskItem[] packages = Packages.OrderBy(package => package.ItemSpec, StringComparer.Ordinal).ToArray();
+// Built from "@" and "(" because MSBuild would expand an item reference written in this code.
+string Requested(ITaskItem package) => "@" + $"(BeutlHostPackageReference->AnyHaveMetadataValue('Identity', '{package.ItemSpec}'))";
+var lines = new List<string> { "<Project>", "  <ItemGroup>" };
+lines.AddRange(packages.Select(package => $"    <_BeutlHostPackage Include=\"{package.ItemSpec}\" />"));
+lines.Add("  </ItemGroup>");
+lines.Add("  <ItemGroup>");
+// The extension compiles against the library and runs on Beutl's copy, so nothing of it goes into its output or package.
+lines.AddRange(packages.Select(package => $"    <PackageReference Include=\"{package.ItemSpec}\" Version=\"{package.GetMetadata("Version")}\" ExcludeAssets=\"runtime;native\" PrivateAssets=\"all\" Condition=\"'{Requested(package)}' == 'true'\" />"));
+lines.Add("  </ItemGroup>");
+lines.Add("</Project>");
+Directory.CreateDirectory(Path.GetDirectoryName(OutputFile));
+File.WriteAllLines(OutputFile, lines);
+]]></Code>
+    </Task>
+  </UsingTask>
+
+  <ItemGroup>
+    <!-- Build and test tools, and what only the FFmpeg worker loads: an extension's load context finds none of them in Beutl. -->
+    <_NotABeutlHostPackage Include="Aigamo.ResXGenerator;AvaloniaUI.DiagnosticsSupport;Avalonia.Headless;Avalonia.Headless.NUnit" />
+    <_NotABeutlHostPackage Include="BenchmarkDotNet;coverlet.collector;Dotnet.Bundle;Moq;NUnit;NUnit3TestAdapter;Nuke.Common;Roslynator.Analyzers" />
+    <_NotABeutlHostPackage Include="Microsoft.CodeAnalysis.Analyzers;Microsoft.CodeAnalysis.BannedApiAnalyzers;Microsoft.Extensions.TimeProvider.Testing" />
+    <_NotABeutlHostPackage Include="Microsoft.NET.Test.Sdk;Microsoft.Windows.CsWin32;FFmpeg.AutoGen.Bindings.DynamicallyLoaded;FFmpeg4Sharp" />
+  </ItemGroup>
+
+  <Target Name="_GenerateHostPackages" BeforeTargets="GenerateNuspec;Pack">
+    <ItemGroup>
+      <_BeutlHostPackage Include="@(PackageVersion)" Exclude="@(_NotABeutlHostPackage)" />
+    </ItemGroup>
+    <WriteBeutlHostPackages Packages="@(_BeutlHostPackage)" OutputFile="$(IntermediateOutputPath)Sdk/HostPackages.targets" />
+  </Target>
+
   <ItemGroup>
     <None Include="$(IntermediateOutputPath)Sdk/Version.props" Pack="true" PackagePath="Sdk/" />
     <None Include="$(IntermediateOutputPath)Sdk/AutoReferences.targets" Pack="true" PackagePath="Sdk/" />
+    <None Include="$(IntermediateOutputPath)Sdk/HostPackages.targets" Pack="true" PackagePath="Sdk/" />
   </ItemGroup>
   
   <ItemGroup>
