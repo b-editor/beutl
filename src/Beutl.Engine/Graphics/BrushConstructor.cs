@@ -139,8 +139,11 @@ public readonly struct BrushConstructor(
     private SKShader? CreateGradientShader(GradientBrush.Resource gradientBrush)
     {
         var tileMode = gradientBrush.SpreadMethod.ToSKShaderTileMode();
-        SKColor[] stopColors = gradientBrush.GradientStops.Select(s => s.Color.ToSKColor()).ToArray();
-        float[] stopOffsets = gradientBrush.GradientStops.Select(s => s.Offset).ToArray();
+        (SKColor[] stopColors, float[] stopOffsets) = GradientStopInterpolation.Expand(
+            gradientBrush.GradientStops.Select(s => s.Color.ToSKColor()).ToArray(),
+            gradientBrush.GradientStops.Select(s => s.Offset).ToArray(),
+            gradientBrush.InterpolationSpace,
+            gradientBrush.InterpolatePremultiplied);
 
         switch (gradientBrush)
         {
