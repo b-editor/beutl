@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -207,14 +208,17 @@ public sealed partial class TimelineTabView
                 return;
             }
 
-            if (e.KeyModifiers == KeyGestureHelper.GetCommandModifier() || SelectsOnPress(e))
+            // With seeking on a click turned off, only the ruler moves the playhead, which leaves the rest free to select.
+            bool seeks = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick.Value
+                         || new Rect(RulerBar.Bounds.Size).Contains(e.GetPosition(RulerBar));
+            if (e.KeyModifiers == KeyGestureHelper.GetCommandModifier() || (!seeks && !IsOnClip(e)))
             {
                 _mouseFlag = MouseFlags.RangeSelectionPressed;
                 ViewModel.ClearSelected();
 
                 overlay.SelectionRange = new(pointerPt.Position, default(Size));
             }
-            else if (BeginScalePress(viewModel, e, pointerPt))
+            else if (seeks && BeginScalePress(viewModel, e, pointerPt))
             {
                 return;
             }
@@ -223,10 +227,9 @@ public sealed partial class TimelineTabView
         _rightButtonPressed = pointerPt.Properties.IsRightButtonPressed;
     }
 
-    // With seeking on a click turned off, only the ruler moves the playhead, which leaves the rest free to select.
-    private bool SelectsOnPress(PointerPressedEventArgs e)
-        => !GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick.Value
-           && !new Rect(Scale.Bounds.Size).Contains(e.GetPosition(Scale));
+    // A clip that takes no drag, such as a locked one, was selected on the way and leaves its press to the timeline.
+    private static bool IsOnClip(PointerPressedEventArgs e)
+        => (e.Source as Visual)?.FindAncestorOfType<ElementView>(includeSelf: true) is not null;
 
     // Returns true when a point marker was pressed; that press is then fully handled.
     private bool BeginScalePress(TimelineTabViewModel viewModel, PointerPressedEventArgs e, PointerPoint pointerPt)

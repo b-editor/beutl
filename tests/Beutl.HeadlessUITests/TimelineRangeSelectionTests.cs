@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
@@ -129,6 +130,68 @@ public class TimelineRangeSelectionTests
             HeadlessTestHelpers.Render();
 
             Assert.That(session.Model.CurrentTime.Value, Is.Not.EqualTo(before));
+        }
+        finally
+        {
+            setting.Value = true;
+        }
+    }
+
+    // The ruler bar is taller than the scale drawn in it.
+    [AvaloniaTest]
+    public async Task With_seeking_on_click_off_the_strip_above_the_scale_moves_the_playhead_too()
+    {
+        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        setting.Value = false;
+        try
+        {
+            using TimelineSession session = await TimelineSession.CreateAsync();
+            session.Model.Seek(MediaTime.FromSeconds(4));
+            HeadlessTestHelpers.Render();
+            MediaTime before = session.Model.CurrentTime.Value;
+            Point strip = session.Ruler.TranslatePoint(new Point(100, -2), session.Window)!.Value;
+            Assert.That(session.Ruler.GetVisualParent()!.Bounds.Height, Is.GreaterThan(session.Ruler.Bounds.Height));
+
+            session.Window.MouseMove(strip);
+            session.Window.MouseDown(strip, MouseButton.Left);
+            session.Window.MouseUp(strip, MouseButton.Left);
+            HeadlessTestHelpers.Render();
+
+            Assert.That(session.Model.CurrentTime.Value, Is.Not.EqualTo(before));
+        }
+        finally
+        {
+            setting.Value = true;
+        }
+    }
+
+    // A locked clip takes no drag, so its press carries on to the timeline after selecting it.
+    [AvaloniaTest]
+    public async Task With_seeking_on_click_off_a_click_on_a_locked_clip_selects_it_and_leaves_the_playhead()
+    {
+        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        setting.Value = false;
+        try
+        {
+            using TimelineSession session = await TimelineSession.CreateAsync();
+            TimelineTabViewModel model = session.Model;
+            Element clip = model.Scene.Children.Single(child => child.ZIndex.Value == 3);
+            clip.IsLocked.Value = true;
+            model.Seek(MediaTime.FromSeconds(4));
+            HeadlessTestHelpers.Render();
+            MediaTime before = model.CurrentTime.Value;
+            Point point = session.ToWindow(new Point(100, model.CalculateLayerTop(3) + 5));
+
+            session.Window.MouseMove(point);
+            session.Window.MouseDown(point, MouseButton.Left);
+            session.Window.MouseUp(point, MouseButton.Left);
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.SelectedElements.Select(element => element.Model), Is.EqualTo(new[] { clip }));
+                Assert.That(model.CurrentTime.Value, Is.EqualTo(before));
+            });
         }
         finally
         {
