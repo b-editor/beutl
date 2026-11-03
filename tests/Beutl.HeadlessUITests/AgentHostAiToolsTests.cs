@@ -228,7 +228,9 @@ public sealed class AgentHostAiToolsTests
         ToolResult<AgentAiJobSnapshot> fallbackDuration = await tools.GenerateVideo("a cat", durationSeconds: 7);
         ToolResult<AgentAiJobSnapshot> editDuration = await tools.EditVideo(WriteFile("e.mp4"), "rain", mode: "edit", durationSeconds: 6);
         ToolResult<AgentAiJobSnapshot> corruptReference = await tools.GenerateImage("a cat", referenceImagePaths: [WriteFile("bad.png")]);
-        backend.ReferenceBudget = 10;
+        backend.Catalog = new AiModelCatalog(
+            [],
+            imageReferenceLimits: [KeyValuePair.Create(AiOperations.ImageGeneration, new AiImageReferenceLimits(10))]);
         ToolResult<AgentAiJobSnapshot> overBudget = await tools.GenerateImage("a cat", referenceImagePaths: [WritePng("budget.png")]);
 
         Assert.Multiple(() =>
@@ -245,7 +247,8 @@ public sealed class AgentHostAiToolsTests
             Assert.That(wideOutpaint.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(outpaintPrompt.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(badLanguage.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(noisyOutpaint.Error?.Code, Is.EqualTo(ErrorCode.MediaUnsupported), "measured on the widened canvas the executor would send");
+            Assert.That(noisyOutpaint.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected), "measured on the widened canvas the executor would send");
+            Assert.That(noisyOutpaint.Error?.Target, Is.EqualTo("outpaintExpansionPercent"));
             Assert.That(backend.TranscribedPaths, Is.Empty);
             Assert.That(typo.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(blank.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
@@ -338,27 +341,88 @@ public sealed class AgentHostAiToolsTests
         backend.Models["audio.transcribe"] = [new GenerativeModelInfo("whisper", "Whisper", IsDefault: true, IsAvailable: true, Image: null)];
         using var jobs = new AgentAiJobManager();
         var tools = CreateTools(TestShell.Editor, jobs, backend);
+        var decoder = new StubVideoDecoder();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            ToolResult<AgentAiJobSnapshot>[] refused =
+            [
+                await tools.GenerateImage("a cat", aspectRatio: "16:9"),
+                await tools.GenerateImage("a cat", background: "transparent"),
+                await tools.GenerateVideo("a cat", resolution: "1080p"),
+                await tools.GenerateVideo("a cat", durationSeconds: 6),
+                await tools.GenerateVideo("a cat", aspectRatio: "16:9"),
+                await tools.EditVideo(WriteFile("clip.mp4"), "more", mode: "extend", durationSeconds: 6),
+                await tools.TranscribeAudio(WriteFile("voice.wav"), model: "nope"),
+                await tools.GenerateImage("a cat", seed: 7),
+                await tools.GenerateVideo("a cat", seed: 7),
+                await tools.GenerateImage(new string('a', 4_001)),
+            ];
 
-        ToolResult<AgentAiJobSnapshot>[] refused =
-        [
-            await tools.GenerateImage("a cat", aspectRatio: "16:9"),
-            await tools.GenerateImage("a cat", background: "transparent"),
-            await tools.GenerateVideo("a cat", resolution: "1080p"),
-            await tools.GenerateVideo("a cat", durationSeconds: 6),
-            await tools.GenerateVideo("a cat", aspectRatio: "16:9"),
-            await tools.EditVideo(WriteFile("clip.mp4"), "more", mode: "extend", durationSeconds: 6),
-            await tools.TranscribeAudio(WriteFile("voice.wav"), model: "nope"),
-            await tools.GenerateImage("a cat", seed: 7),
-            await tools.GenerateVideo("a cat", seed: 7),
-            await tools.GenerateImage(new string('a', 4_001)),
-        ];
+            Assert.Multiple(() =>
+            {
+                foreach (ToolResult<AgentAiJobSnapshot> result in refused)
+                    Assert.That(result.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected), result.Error?.Message);
+                Assert.That(backend.Requests, Is.Empty);
+                Assert.That(backend.TranscribedPaths, Is.Empty);
+            });
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ARefusalNamesTheArgumentAndWhereToLookUpWhatTheModelTakes()
+    {
+        await TestShell.OpenNewSceneAsync("agent-ai-refusal-target");
+        var backend = new FakeBackend();
+        backend.Models["image.generate"] = [SquareModel];
+        backend.Models["video.generate"] = [PortraitModel];
+        using var jobs = new AgentAiJobManager();
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
+
+        ToolError? ratio = (await tools.GenerateImage("a cat", aspectRatio: "16:9")).Error;
+        ToolError? background = (await tools.GenerateImage("a cat", background: "transparent")).Error;
+        ToolError? prompt = (await tools.GenerateImage(new string('a', 4_001))).Error;
+        ToolError? resolution = (await tools.GenerateVideo("a cat", resolution: "1080p")).Error;
+        ToolError? duration = (await tools.GenerateVideo("a cat", durationSeconds: 6)).Error;
 
         Assert.Multiple(() =>
         {
-            foreach (ToolResult<AgentAiJobSnapshot> result in refused)
-                Assert.That(result.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected), result.Error?.Message);
+            Assert.That(ratio?.Target, Is.EqualTo("aspectRatio"));
+            Assert.That(ratio?.Hint, Does.Contain("list_ai_models(\"image.generate\")"));
+            Assert.That(background?.Target, Is.EqualTo("background"));
+            Assert.That(prompt?.Target, Is.EqualTo("prompt"));
+            Assert.That(resolution?.Target, Is.EqualTo("resolution"));
+            Assert.That(resolution?.Hint, Does.Contain("list_ai_models(\"video.generate\")"));
+            Assert.That(duration?.Target, Is.EqualTo("durationSeconds"));
+        });
+    }
+
+    // The tools hold no copy of the executor's rules, so one they have never heard of reaches the call too.
+    [AvaloniaTest]
+    public async Task WhatTheExecutorWouldRefuseIsTheCallsErrorAndStartsNoJob()
+    {
+        await TestShell.OpenNewSceneAsync("agent-ai-executor-refusal");
+        var backend = new FakeBackend
+        {
+            Result = WritePng("result.png"),
+            Refusal = new GenerativeRefusal("Not this one.", nameof(AiImageGenerationNodeRequest.Background)),
+        };
+        using var jobs = new AgentAiJobManager();
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
+
+        ToolResult<AgentAiJobSnapshot> refused = await tools.GenerateImage("a cat", waitSeconds: 10);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(refused.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(refused.Error?.Message, Is.EqualTo("Not this one."));
+            Assert.That(refused.Error?.Target, Is.EqualTo("background"));
             Assert.That(backend.Requests, Is.Empty);
-            Assert.That(backend.TranscribedPaths, Is.Empty);
+            Assert.That(tools.ListAiJobs().Value!.Jobs, Is.Empty);
         });
     }
 
@@ -728,12 +792,17 @@ public sealed class AgentHostAiToolsTests
 
         public bool KnowsModelAvailability { get; set; } = true;
 
-        public long ReferenceBudget { get; set; } = AiRequestLimits.MaxImageReferencesTotalBytes;
-
         public AiModelCatalog? Catalog { get; set; }
 
-        public Task<long> GetImageReferenceBudgetAsync(CancellationToken cancellationToken)
-            => Task.FromResult(ReferenceBudget);
+        public GenerativeRefusal? Refusal { get; set; }
+
+        // The real executor's checks, against this backend's models. The stub clip lasts six seconds.
+        public Task<GenerativeRefusal?> ValidateAsync(GenerativeRequest request, CancellationToken cancellationToken)
+            => Task.FromResult(Refusal ?? AiGenerativeNodeExecutor.Validate(
+                request,
+                Catalog ?? AiModelCatalog.Empty,
+                Models.GetValueOrDefault(request.CatalogOperationId) ?? [],
+                _ => 6));
 
         public Task<bool> RequiresPromptAsync(string imageEditTask, CancellationToken cancellationToken)
             => Task.FromResult(AiRequestRules.RequiresPrompt(Catalog, imageEditTask));

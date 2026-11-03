@@ -54,20 +54,6 @@ internal sealed class AgentHostAiBackend(
 
     public IGenerativeNodeExecutor CreateExecutor(Scene scene) => executor(scene);
 
-    public async Task<long> GetImageReferenceBudgetAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            AiModelCatalog loaded = await modelCatalog.GetAsync(cancellationToken).ConfigureAwait(false);
-            return loaded.GetImageReferenceLimits(AiOperations.ImageGeneration).MaxTotalBytes;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // Unreachable: the executor checks again against whatever catalog it loads.
-            return AiRequestLimits.MaxImageReferencesTotalBytes;
-        }
-    }
-
     public async Task<bool> RequiresPromptAsync(string imageEditTask, CancellationToken cancellationToken)
     {
         AiModelCatalog? loaded = null;
