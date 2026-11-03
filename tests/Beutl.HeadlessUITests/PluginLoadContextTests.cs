@@ -96,6 +96,74 @@ public class PluginLoadContextTests
             Throws.TypeOf<FileNotFoundException>());
     }
 
+    // The default context holds one copy of a name and cannot replace it.
+    [Test]
+    public void A_newer_version_than_the_default_context_holds_is_still_reported_as_missing()
+    {
+        CreateContext("[assembly: System.Reflection.AssemblyVersion(\"1.0.0.0\")]");
+        AssemblyLoadContext.Default.LoadFromAssemblyName(new AssemblyName(_dependency));
+        CreateContext("[assembly: System.Reflection.AssemblyVersion(\"2.0.0.0\")]");
+
+        Assert.That(
+            () => AssemblyLoadContext.Default.LoadFromAssemblyName(
+                new AssemblyName(_dependency) { Version = new Version(2, 0, 0, 0) }),
+            Throws.TypeOf<FileNotFoundException>());
+    }
+
+    // Extensions load in parallel, and each context looks for a copy in the other before it loads its own. The default
+    // context takes longer to get there, so the plugin starts later and later to pass through where the two overlap.
+    [Test]
+    public void An_assembly_asked_for_in_both_contexts_at_once_keeps_one_identity()
+    {
+        const int Rounds = 60;
+        int secondCopies = 0;
+        for (int round = 0; round < Rounds; round++)
+        {
+            string name = $"{_dependency}.{round}";
+            string directory = CreateDirectory();
+            TestPackages.Compile(directory, name, "public class Marker { }");
+            var context = new PluginLoadContext(directory);
+            int delay = round * 1250;
+            int waiting = 2;
+
+            // Spins, as a blocking wait wakes the threads too far apart.
+            void WaitForTheOther()
+            {
+                Interlocked.Decrement(ref waiting);
+                while (Volatile.Read(ref waiting) > 0)
+                {
+                }
+            }
+
+            Task<Assembly?> inDefault = Task.Factory.StartNew(() =>
+            {
+                WaitForTheOther();
+                try
+                {
+                    return AssemblyLoadContext.Default.LoadFromAssemblyName(new AssemblyName(name));
+                }
+                catch (FileNotFoundException)
+                {
+                    return null;
+                }
+            }, TaskCreationOptions.LongRunning);
+            Task<Assembly> inPlugin = Task.Factory.StartNew(() =>
+            {
+                WaitForTheOther();
+                Thread.SpinWait(delay);
+                return context.LoadFromAssemblyName(new AssemblyName(name));
+            }, TaskCreationOptions.LongRunning);
+
+            if (inDefault.Result is { } assembly && !ReferenceEquals(assembly, inPlugin.Result))
+                secondCopies++;
+
+            // More contexts would move where the two overlap.
+            context.Unload();
+        }
+
+        Assert.That(secondCopies, Is.Zero);
+    }
+
     [Test]
     public void An_unloaded_plugin_no_longer_answers_the_default_context()
     {

@@ -15,6 +15,10 @@ public class PluginLoadContext(string mainDirectory, PackageFolderReader? reader
     // The plugin each assembly in the default context came from, which knows where its native libraries are.
     private static readonly ConcurrentDictionary<Assembly, PluginDependencyResolver> s_defaultContextAssemblies = new();
 
+    // Each context looks for a copy in the other before it loads its own. Two threads that looked at once would both
+    // find nothing, and the assembly's types would have two identities.
+    private static readonly Lock s_loadGate = new();
+
     static PluginLoadContext()
     {
         // A plugin or a library it uses can load an assembly through AssemblyLoadContext.Default,
@@ -33,9 +37,15 @@ public class PluginLoadContext(string mainDirectory, PackageFolderReader? reader
 
         // A copy that went to the default context takes the place of this plugin's, so that its types keep one identity.
         assemblyPath = ResolvePluginAssemblyToPath(name);
-        if (assemblyPath != null && !Default.Assemblies.Any(assembly => Satisfies(assembly.GetName(), name)))
+        if (assemblyPath != null)
         {
-            return LoadFromAssemblyPath(assemblyPath);
+            lock (s_loadGate)
+            {
+                if (!Default.Assemblies.Any(assembly => Satisfies(assembly.GetName(), name)))
+                {
+                    return LoadFromAssemblyPath(assemblyPath);
+                }
+            }
         }
 
         return base.Load(name);
@@ -71,24 +81,36 @@ public class PluginLoadContext(string mainDirectory, PackageFolderReader? reader
     // that plugin's types a second identity.
     private static Assembly? ResolveForDefaultContext(AssemblyName name)
     {
-        PluginLoadContext[] contexts = [.. All.OfType<PluginLoadContext>()];
-        if (contexts.Any(context => context.Assemblies.Any(assembly => Satisfies(assembly.GetName(), name))))
+        lock (s_loadGate)
         {
+            PluginLoadContext[] contexts = [.. All.OfType<PluginLoadContext>()];
+            if (contexts.Any(context => context.Assemblies.Any(assembly => Satisfies(assembly.GetName(), name))))
+            {
+                return null;
+            }
+
+            foreach (PluginLoadContext context in contexts)
+            {
+                string? assemblyPath = context.ResolvePluginAssemblyToPath(name);
+                if (assemblyPath != null && Satisfies(AssemblyName.GetAssemblyName(assemblyPath), name))
+                {
+                    try
+                    {
+                        Assembly assembly = Default.LoadFromAssemblyPath(assemblyPath);
+                        s_defaultContextAssemblies[assembly] = context._pluginResolver;
+                        return assembly;
+                    }
+                    catch (FileLoadException)
+                    {
+                        // It already holds an older copy of this name, which it cannot replace. The name stays missing,
+                        // which is what code that probes for an optional assembly expects to hear.
+                        return null;
+                    }
+                }
+            }
+
             return null;
         }
-
-        foreach (PluginLoadContext context in contexts)
-        {
-            string? assemblyPath = context.ResolvePluginAssemblyToPath(name);
-            if (assemblyPath != null && Satisfies(AssemblyName.GetAssemblyName(assemblyPath), name))
-            {
-                Assembly assembly = Default.LoadFromAssemblyPath(assemblyPath);
-                s_defaultContextAssemblies[assembly] = context._pluginResolver;
-                return assembly;
-            }
-        }
-
-        return null;
     }
 
     private static IntPtr ResolveNativeForDefaultContext(Assembly assembly, string name)
