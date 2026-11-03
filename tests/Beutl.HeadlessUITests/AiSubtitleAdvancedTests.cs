@@ -429,6 +429,22 @@ public sealed class AiSubtitleAdvancedTests
         Assert.That(viewModel.Cues[0].Text, Does.Contain("\n"));
     }
 
+    // The file picker offers every format that can be read, and AviUtl writes Shift-JIS.
+    [Test]
+    public async Task CaptionBytes_ReadAShiftJisExoFile()
+    {
+        using var httpClient = new HttpClient();
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        using var viewModel = CreateViewModel(clients);
+        string hex = Convert.ToHexStringLower(Encoding.Unicode.GetBytes("こんにちは")).PadRight(4096, '0');
+        byte[] exo = CodePagesEncodingProvider.Instance.GetEncoding(932)!.GetBytes(
+            $"[exedit]\r\nrate=30\r\nscale=1\r\n[0]\r\nstart=1\r\nend=30\r\n[0.0]\r\n_name=テキスト\r\nfont=ＭＳ ゴシック\r\ntext={hex}\r\n");
+
+        Assert.That(viewModel.ImportCaptionBytes(exo, CaptionFormats.Exo), Is.True, viewModel.Error.Value);
+
+        Assert.That(viewModel.Cues.Single().Text, Is.EqualTo("こんにちは"));
+    }
+
     [Test]
     public async Task CaptionBytes_ImportExportAndMalformedInputAreHandled()
     {

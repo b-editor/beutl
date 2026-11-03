@@ -42,4 +42,6 @@ public static class CaptionFormats
     public static CaptionFormatId WebVtt { get; } = new("webvtt");
 
     public static CaptionFormatId Ass { get; } = new("ass");
+
+    public static CaptionFormatId Exo { get; } = new("exo");
 }

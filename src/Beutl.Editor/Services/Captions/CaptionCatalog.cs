@@ -59,12 +59,14 @@ public sealed class CaptionCatalog
                 new CaptionCodecDescriptor(CaptionFormats.Srt, [".srt"]),
                 new CaptionCodecDescriptor(CaptionFormats.WebVtt, [".vtt"]),
                 new CaptionCodecDescriptor(CaptionFormats.Ass, [".ass", ".ssa"]),
+                new CaptionCodecDescriptor(CaptionFormats.Exo, [".exo"]),
             ],
             new Dictionary<CaptionFormatId, ICaptionDecoder>
             {
                 [CaptionFormats.Srt] = srt,
                 [CaptionFormats.WebVtt] = webVtt,
                 [CaptionFormats.Ass] = ass,
+                [CaptionFormats.Exo] = new ExoCaptionDecoder(),
             },
             new Dictionary<CaptionFormatId, ICaptionEncoder>
             {

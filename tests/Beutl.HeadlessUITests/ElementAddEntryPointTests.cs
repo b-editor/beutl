@@ -456,6 +456,63 @@ public class ElementAddEntryPointTests
         }
     }
 
+    // Shift-JIS as AviUtl writes it, whatever the system's code page: an image object is passed over.
+    [AvaloniaTest]
+    public async Task TimelineView_ExoFile_AddsItsTextObjectsAtTheirTimes()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-exo");
+        using var notifications = new NotificationCapture();
+        string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "captions.exo");
+        File.WriteAllBytes(path, ExoFile("こんにちは"));
+        Assert.That(CaptionFileDrop.IsCaptionFile(path), Is.True);
+
+        await CaptionFileDrop.AddAsync(timeline, path);
+
+        Element clip = editor.Scene.Children.Single();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(clip.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Single().Text.Value, Is.EqualTo("こんにちは"));
+            Assert.That(clip.Range, Is.EqualTo(new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1))));
+            Assert.That(notifications.All, Is.Empty);
+        }
+    }
+
+    private static byte[] ExoFile(string text)
+    {
+        string hex = Convert.ToHexStringLower(Encoding.Unicode.GetBytes(text)).PadRight(4096, '0');
+        string file = $"""
+            [exedit]
+            width=1920
+            height=1080
+            rate=30
+            scale=1
+            length=90
+            [0]
+            start=31
+            end=60
+            layer=1
+            [0.0]
+            _name=テキスト
+            サイズ=34
+            font=ＭＳ ゴシック
+            text={hex}
+            [0.1]
+            _name=標準描画
+            X=0.0
+            [1]
+            start=1
+            end=30
+            layer=2
+            [1.0]
+            _name=画像ファイル
+            file=C:\\素材\\a.png
+
+            """;
+        return CodePagesEncodingProvider.Instance.GetEncoding(932)!.GetBytes(file.ReplaceLineEndings("\r\n"));
+    }
+
     [Test]
     public void Subtitle_files_are_read_in_UTF16_and_the_systems_legacy_code_page()
     {

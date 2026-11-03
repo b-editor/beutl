@@ -3,7 +3,7 @@
 namespace Beutl.Editor.Services.Captions;
 
 /// <summary>
-/// Imports and exports provider-independent caption documents as strict UTF-8.
+/// Imports and exports provider-independent caption documents as strict UTF-8, except that an EXO file is Shift-JIS.
 /// </summary>
 public sealed class CaptionDocumentSerializer
 {
@@ -18,6 +18,10 @@ public sealed class CaptionDocumentSerializer
 
     public CaptionImportResult Import(ReadOnlySpan<byte> utf8, CaptionFormatId format)
     {
+        // All that is read from one is ASCII, which Latin-1 keeps whatever the other bytes are.
+        if (format == CaptionFormats.Exo)
+            return _codecs.Decode(format, Encoding.Latin1.GetString(utf8));
+
         string content;
         try
         {
