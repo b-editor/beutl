@@ -650,6 +650,30 @@ public sealed class EasingEditorTests
         }
     }
 
+    // A value column alone leaves too little plot to place a handle with any precision.
+    [AvaloniaTest]
+    [TestCase(PropertyEditorStyle.Normal)]
+    [TestCase(PropertyEditorStyle.Compact)]
+    public void The_curve_takes_the_whole_width_of_its_row(PropertyEditorStyle style)
+    {
+        var holder = new EasingHolder();
+        holder.Curve.Value = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
+        using var scope = new CurveEditorScope(holder, holder.Curve, height: 400);
+        scope.Editor.EditorStyle = style;
+        try
+        {
+            scope.Window.Show();
+            HeadlessTestHelpers.Render();
+
+            EasingCurveEditor curve = scope.Editor.GetVisualDescendants().OfType<EasingCurveEditor>().Single();
+            Assert.That(curve.Bounds.Width, Is.GreaterThanOrEqualTo(scope.Editor.Bounds.Width - 8));
+        }
+        finally
+        {
+            scope.Window.Close();
+        }
+    }
+
     // A handle at the end of the range sits on the corner of the plot, where its ring must neither be cut off
     // nor run under the focus border, which takes the outer 3 pixels when the curve is reached with Tab.
     [AvaloniaTest]

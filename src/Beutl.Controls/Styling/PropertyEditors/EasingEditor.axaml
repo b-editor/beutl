@@ -118,7 +118,7 @@
 
                         <local:EasingCurveEditor Name="PART_CurveEditor"
                                                  Grid.Row="1"
-                                                 Grid.Column="2"
+                                                 Grid.ColumnSpan="4"
                                                  Margin="4,0,4,4"
                                                  HorizontalAlignment="Stretch"
                                                  Easing="{TemplateBinding Value}"
@@ -172,6 +172,7 @@
 
                             <local:EasingCurveEditor Name="PART_CurveEditor"
                                                      Grid.Row="2"
+                                                     Grid.ColumnSpan="2"
                                                      Margin="4,0,4,4"
                                                      HorizontalAlignment="Stretch"
                                                      Easing="{TemplateBinding Value}"
