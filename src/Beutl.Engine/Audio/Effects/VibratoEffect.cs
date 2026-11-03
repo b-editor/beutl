@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Animation;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
@@ -34,5 +35,23 @@ public sealed partial class VibratoEffect : AudioEffect
         var node = context.AddNode(new VibratoNode { Rate = Rate, Depth = Depth });
         context.Connect(inputNode, node);
         return node;
+    }
+
+    public override int GetLatencySamples(int sampleRate, int inputLatency = 0)
+    {
+        base.GetLatencySamples(sampleRate, inputLatency);
+        if (!IsEnabled.Value)
+            return inputLatency;
+
+        return AudioLatency.SaturatingAdd(inputLatency, GetHeldSamples(Depth, sampleRate));
+    }
+
+    // The delay swings up to twice the depth, and an animated depth can reach the most the delay line holds.
+    internal static int GetHeldSamples(IProperty<float> depth, int sampleRate)
+    {
+        float milliseconds = AnimationSampler.IsAnimated(depth) ? DepthMax : depth.Value;
+        return float.IsFinite(milliseconds)
+            ? (int)Math.Ceiling(Math.Clamp(milliseconds, DepthMin, DepthMax) * 2 * sampleRate / 1000)
+            : 0;
     }
 }

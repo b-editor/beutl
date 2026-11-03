@@ -25,6 +25,12 @@ public sealed class VibratoNode : AudioNode
         return RecordProcessedOutput(ProcessTail(Inputs[0].Process(context), context, draining: false));
     }
 
+    public override int GetLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+        return VibratoEffect.GetHeldSamples(Depth, sampleRate);
+    }
+
     protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context, bool draining)
     {
         using AudioBuffer owned = input;
@@ -51,6 +57,7 @@ public sealed class VibratoNode : AudioNode
             Span<float> delays = stackalloc float[rates.Length];
             double step = Tau / context.SampleRate;
             double samplesPerMillisecond = context.SampleRate / 1000d;
+            double maxDelay = VibratoEffect.DepthMax * 2 * samplesPerMillisecond;
 
             int processed = 0;
             while (processed < input.SampleCount)
@@ -69,8 +76,10 @@ public sealed class VibratoNode : AudioNode
 
                 for (int i = 0; i < chunkSize; i++)
                 {
-                    // No delay at the start of the swing, so a clip starts on time.
-                    delays[i] = (float)(depths[i] * samplesPerMillisecond * (1 - Math.Cos(_phase)));
+                    // No delay at the start of the swing, so a clip starts on time. Easing can carry an animated
+                    // depth past its range, while the delay line only reaches over the range.
+                    double delay = depths[i] * samplesPerMillisecond * (1 - Math.Cos(_phase));
+                    delays[i] = (float)(delay > 0 ? Math.Min(delay, maxDelay) : 0);
                     _phase = (_phase + step * rates[i]) % Tau;
                 }
 

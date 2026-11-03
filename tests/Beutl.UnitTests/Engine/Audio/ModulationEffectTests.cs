@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
@@ -96,6 +97,67 @@ public class ModulationEffectTests
             Assert.That(pitches.Max(), Is.InRange(1040, 1085));
             Assert.That(pitches.Min(), Is.InRange(915, 960));
             Assert.That(Pitch(output), Is.EqualTo(1000).Within(10));
+        });
+    }
+
+    // Easing leaves the range between the keyframes, to below zero on the way in and above the top on the way out.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Vibrato_keeps_playing_while_easing_carries_the_depth_out_of_its_range(bool easeOut)
+    {
+        var effect = new VibratoEffect();
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0 } });
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(1) },
+            Value = { Value = VibratoEffect.DepthMax },
+            Easing = { Value = easeOut ? new BackEaseOut() : new BackEaseIn() },
+        });
+        effect.Depth.SetKeyFrameAnimation(animation);
+
+        float[] output = Run(effect, _ => 0.5f, SampleRate);
+
+        // Any delay gives back a constant input, unless the reading point has left the delay line.
+        Assert.That(output, Has.All.EqualTo(0.5f).Within(0.0001f));
+    }
+
+    // At the end of 0.1 s a 5 Hz swing is at its longest delay, twice the depth.
+    [Test]
+    public void Vibrato_reports_the_tail_it_holds_and_lets_it_out_after_the_input_ends()
+    {
+        var effect = new VibratoEffect { Rate = { Value = 5 }, Depth = { Value = VibratoEffect.DepthMax } };
+        using var context = new AudioContext(SampleRate, 2);
+        AudioNode node = effect.CreateNode(context, context.AddNode(new FunctionSource(sample => sample < Window ? 0.5f : 0f)));
+        int latency = node.GetTotalLatencySamples(SampleRate);
+
+        using (node.Process(AudioTestContexts.AtSample(0, Window, SampleRate))) { }
+        using AudioBuffer tail = node.Flush(AudioTestContexts.AtSample(Window, latency, SampleRate));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(latency, Is.EqualTo(1920));
+            Assert.That(effect.GetLatencySamples(SampleRate), Is.EqualTo(latency));
+            Assert.That(tail.GetChannelData(0)[0], Is.EqualTo(0.5f).Within(0.0001f));
+            Assert.That(tail.GetChannelData(0)[latency - 1], Is.Zero);
+        });
+    }
+
+    [Test]
+    public void An_animated_Vibrato_reserves_the_longest_tail_and_a_still_one_its_own()
+    {
+        var still = new VibratoEffect { Depth = { Value = 2 } };
+        var animated = new VibratoEffect();
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 2 } });
+        animated.Depth.SetKeyFrameAnimation(animation);
+        var disabled = new VibratoEffect { IsEnabled = { Value = false } };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(still.GetLatencySamples(SampleRate), Is.EqualTo(192));
+            Assert.That(animated.GetLatencySamples(SampleRate), Is.EqualTo(1920));
+            Assert.That(disabled.GetLatencySamples(SampleRate, 7), Is.EqualTo(7));
         });
     }
 
