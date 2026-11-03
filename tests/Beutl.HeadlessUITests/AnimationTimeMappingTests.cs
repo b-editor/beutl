@@ -227,7 +227,7 @@ public class AnimationTimeMappingTests
         {
             window.Show();
             property.KeyFrameIndex.Value = 1;
-            Assert.That(animation.HierarchicalParent, Is.Null);
+            Assert.That(animation.HierarchicalParent, Is.SameAs(node.Items.Single()));
             Assert.That(clock.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(global ? 1 : 6)));
             Assert.That(property.IsAtKeyFrame.Value, Is.True);
             AssertGraphClock(global ? 0 : 5);
