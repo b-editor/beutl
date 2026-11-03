@@ -68,7 +68,9 @@ public sealed partial class SchemaGenerator
         "Keep both Elements on the same ZIndex with the incoming Start at the outgoing end. They need no overlap: each holds its edge frame where the transition runs past its range.";
 
     private const string ClipTransitionSidesNote =
-        "The incoming EnterTransition decides the blend, and the outgoing ExitTransition adds its Duration before the cut. Set one side alone to keep the whole transition on that side, or set a side to null to clear it. A side with no adjacent Element fades over the layers beneath.";
+        "The incoming EnterTransition decides the blend, and the outgoing ExitTransition adds its Duration before the cut. Set one side alone to keep the whole transition on that side, or set a side to null to clear it.";
+
+    private const string ClipTransitionFadeNote = "A side with no adjacent Element fades over the layers beneath.";
 
     private static EffectRecipeSpec[] CreateEffectRecipeSpecs()
     {
@@ -194,7 +196,8 @@ public sealed partial class SchemaGenerator
                 [nameof(CrossDissolveTransition)],
                 CreateClipTransitionPatch(new CrossDissolveTransition()),
                 ClipTransitionPlacementNote,
-                ClipTransitionSidesNote),
+                ClipTransitionSidesNote,
+                ClipTransitionFadeNote),
             CreateTransitionRecipe(
                 "transition-overlap-dissolve-transform-continuation",
                 "Overlap dissolve template with outgoing/incoming opacity ramps plus a shared slow transform continuation across the boundary. Use transition-cross-dissolve when nothing has to keep moving through the blend.",
@@ -213,6 +216,7 @@ public sealed partial class SchemaGenerator
                 CreateClipTransitionPatch(new WipeTransition { Direction = { Value = ClipTransitionDirection.RightToLeft } }),
                 ClipTransitionPlacementNote,
                 ClipTransitionSidesNote,
+                "A side with no adjacent Element wipes over the layers beneath.",
                 "Use one direction consistently for a sequence unless the brief records a deliberate directional grammar.",
                 "For a decorative plate that crosses the cut, place a shape over both Elements and animate its TranslateTransform along the same direction."),
             CreateTransitionRecipe(
@@ -234,6 +238,7 @@ public sealed partial class SchemaGenerator
                 CreateClipTransitionPatch(new DipToColorTransition { Color = { Value = Color.Parse("#ff101418") } }),
                 ClipTransitionPlacementNote,
                 ClipTransitionSidesNote,
+                "A side with no adjacent Element still passes through the Color, which covers the layers beneath at the middle of the transition.",
                 "Use a neutral, brand, or palette-derived Color.",
                 "Best for chapter breaks, section dividers, or intentional breath points; avoid mixing it randomly with dissolves and wipes."),
             CreateTransitionRecipe(

@@ -617,6 +617,9 @@ public sealed class SchemaGenerationTests
             Assert.That(wipe[nameof(WipeTransition.Direction)]?.GetValue<int>(), Is.EqualTo((int)ClipTransitionDirection.RightToLeft));
             Assert.That(wipe[nameof(ClipTransition.Duration)]?.GetValue<string>(), Is.EqualTo("00:00:00.2500000"));
             Assert.That(dip[nameof(DipToColorTransition.Color)], Is.Not.Null);
+            // A dip covers the layers beneath at its middle, so it must not promise that they show through.
+            Assert.That(generator.GetEffectRecipe("transition-dip-to-color").Notes, Has.None.Contain("fades over"));
+            Assert.That(generator.GetEffectRecipe("transition-dip-to-color").Notes, Has.Some.Contain("covers the layers beneath"));
         });
     }
 
