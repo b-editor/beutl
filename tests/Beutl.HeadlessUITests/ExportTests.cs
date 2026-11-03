@@ -446,6 +446,99 @@ public class ExportTests
         }
     }
 
+    private sealed class SequenceEncoderExtension(bool fail = false) : ControllableEncodingExtension
+    {
+        public override IEnumerable<string> SupportExtensions()
+        {
+            yield return ".png";
+        }
+
+        public override EncodingController CreateController(string file) => new SequenceController(file, fail);
+    }
+
+    private sealed class SequenceController(string outputFile, bool fail) : EncodingController(outputFile)
+    {
+        private string Frame(int index) => Path.Combine(
+            Path.GetDirectoryName(OutputFile)!, $"{Path.GetFileNameWithoutExtension(OutputFile)}_{index}.png");
+
+        public override VideoEncoderSettings VideoSettings { get; } = new();
+
+        public override AudioEncoderSettings AudioSettings { get; } = new();
+
+        public override IReadOnlyList<string> OutputFiles => [Frame(0), Frame(1)];
+
+        public override async ValueTask Encode(
+            IFrameProvider frameProvider,
+            ISampleProvider sampleProvider,
+            CancellationToken cancellationToken)
+        {
+            await File.WriteAllTextAsync(Frame(0), "new", cancellationToken);
+            if (fail)
+                throw new IOException("The disk is full.");
+
+            await File.WriteAllTextAsync(Frame(1), "new", cancellationToken);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task An_encoder_that_writes_several_files_publishes_them_together()
+    {
+        await TestReset.ResetShellAsync();
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await OpenEditorWithRectangle("export-sequence");
+        string folder = TestShell.NewWorkspace("export-sequence");
+        await File.WriteAllTextAsync(Path.Combine(folder, "frame_0.png"), "old");
+
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(folder, "frame.png");
+        output.SelectedEncoder.Value = new SequenceEncoderExtension();
+        HeadlessTestHelpers.Settle();
+
+        using var notifications = new NotificationCapture();
+        await output.RunAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(Path.Combine(folder, "frame_0.png")), Is.EqualTo("new"));
+            Assert.That(File.ReadAllText(Path.Combine(folder, "frame_1.png")), Is.EqualTo("new"));
+            Assert.That(File.Exists(Path.Combine(folder, "frame.png")), Is.False, "No extra file for the name the user chose.");
+            Assert.That(Directory.GetDirectories(folder).Where(path => Path.GetFileName(path).StartsWith(".beutl-output-", StringComparison.Ordinal)), Is.Empty);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task A_failed_encoder_that_writes_several_files_changes_nothing()
+    {
+        await TestReset.ResetShellAsync();
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await OpenEditorWithRectangle("export-sequence-failure");
+        string folder = TestShell.NewWorkspace("export-sequence-failure");
+        await File.WriteAllTextAsync(Path.Combine(folder, "frame_0.png"), "old");
+
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(folder, "frame.png");
+        output.SelectedEncoder.Value = new SequenceEncoderExtension(fail: true);
+        HeadlessTestHelpers.Settle();
+
+        using var notifications = new NotificationCapture();
+        Exception? failure = null;
+        try
+        {
+            await output.RunAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.TypeOf<IOException>());
+            Assert.That(File.ReadAllText(Path.Combine(folder, "frame_0.png")), Is.EqualTo("old"));
+            Assert.That(File.Exists(Path.Combine(folder, "frame_1.png")), Is.False);
+        });
+    }
+
     private sealed class ThrowingMp4EncoderExtension : ControllableEncodingExtension
     {
         public static ThrowingMp4EncoderExtension Instance { get; } = new();

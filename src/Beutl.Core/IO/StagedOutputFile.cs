@@ -46,6 +46,90 @@ internal sealed class StagedOutputFile : IDisposable
         File.Move(TemporaryPath, DestinationPath, overwrite: true);
     }
 
+    /// <summary>
+    /// Publishes files written directly in the staging directory, each beside the destination under its own
+    /// name, and returns where they went. <see cref="TemporaryPath"/> goes to <see cref="DestinationPath"/>.
+    /// </summary>
+    /// <remarks>
+    /// Every file is checked before the first one moves, and a failure part way puts back what was already
+    /// replaced, so the destination folder ends up with all of the files or none.
+    /// </remarks>
+    public IReadOnlyList<string> Commit(IReadOnlyList<string> files, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        (string Source, string Destination)[] moves = [.. files.Select(GetMove)];
+        if (moves is [{ Source: var only }] && only == TemporaryPath)
+        {
+            Commit(cancellationToken);
+            return [DestinationPath];
+        }
+
+        string backups = Path.Combine(_directory, $".previous-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(backups);
+        var started = new Stack<(string Destination, string? Backup)>();
+        try
+        {
+            foreach ((string source, string destination) in moves)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                string? backup = null;
+                var existing = new FileInfo(destination);
+                if (existing.Exists || existing.LinkTarget != null)
+                {
+                    if (!OperatingSystem.IsWindows() && existing.LinkTarget == null)
+                        File.SetUnixFileMode(source, File.GetUnixFileMode(destination));
+
+                    backup = Path.Combine(backups, Path.GetFileName(source));
+                    File.Move(destination, backup);
+                }
+
+                started.Push((destination, backup));
+                File.Move(source, destination);
+            }
+        }
+        catch
+        {
+            foreach ((string destination, string? backup) in started)
+                Restore(destination, backup);
+
+            throw;
+        }
+
+        return [.. moves.Select(move => move.Destination)];
+    }
+
+    private (string Source, string Destination) GetMove(string file)
+    {
+        string source = Path.GetFullPath(file);
+        if (Path.GetDirectoryName(source) != _directory)
+            throw new InvalidOperationException($"'{file}' is not in the output's staging directory, so it cannot be published.");
+        if (!File.Exists(source))
+            throw new FileNotFoundException("An output file was not written.", source);
+
+        // Only the path the user chose follows a link. The others are names an encoder made up, so one that
+        // happens to be a link is replaced rather than written through to wherever it points.
+        return (source, source == TemporaryPath
+            ? DestinationPath
+            : Path.Combine(Path.GetDirectoryName(DestinationPath)!, Path.GetFileName(source)));
+    }
+
+    private static void Restore(string destination, string? backup)
+    {
+        try
+        {
+            var published = new FileInfo(destination);
+            if (published.Exists || published.LinkTarget != null)
+                published.Delete();
+            if (backup != null)
+                File.Move(backup, destination);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The publication failure is what the caller has to hear about.
+            Trace.TraceWarning("Failed to restore output {0}: {1}", destination, ex.Message);
+        }
+    }
+
     public void Dispose()
     {
         try

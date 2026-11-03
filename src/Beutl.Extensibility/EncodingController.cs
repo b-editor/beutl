@@ -6,6 +6,17 @@ public abstract class EncodingController(string outputFile)
 {
     public string OutputFile { get; } = outputFile;
 
+    /// <summary>
+    /// Gets the files <see cref="Encode"/> wrote, which Beutl publishes together after it returns.
+    /// By default this is only <see cref="OutputFile"/>.
+    /// </summary>
+    /// <remarks>
+    /// To write several files, such as an image sequence, write them next to <see cref="OutputFile"/> and return
+    /// their paths here. That folder may be a temporary one: each file reaches the folder the user chose under
+    /// its own name, and a failed or cancelled export changes nothing there. Files in other folders are refused.
+    /// </remarks>
+    public virtual IReadOnlyList<string> OutputFiles => [OutputFile];
+
     public abstract VideoEncoderSettings VideoSettings { get; }
 
     public abstract AudioEncoderSettings AudioSettings { get; }
