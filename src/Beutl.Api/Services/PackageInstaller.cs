@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Headers;
+﻿using System.Collections.Concurrent;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
@@ -33,7 +34,8 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     private readonly SourceCacheContext _cacheContext;
     private readonly PackageResolver _resolver;
 
-    private readonly Dictionary<PackageIdentity, PackageInstallContext> _installingContexts = [];
+    // Operations on different packages run at the same time.
+    private readonly ConcurrentDictionary<PackageIdentity, PackageInstallContext> _installingContexts = [];
     private readonly object _gate = new();
     private readonly HashSet<Task> _operations = [];
     private readonly Dictionary<Task, ShutdownFallback> _shutdownFallbacks = [];
@@ -170,8 +172,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         {
             Asset = asset
         };
-        _installingContexts.Add(packageId, context);
-        return context;
+        return _installingContexts.GetOrAdd(packageId, context);
     }
 
     public PackageInstallContext PrepareForInstall(
@@ -202,8 +203,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         {
             Phase = PackageInstallPhase.Downloaded
         };
-        _installingContexts.Add(packageId, context);
-        return context;
+        return _installingContexts.GetOrAdd(packageId, context);
     }
 
     // Refuses an installed package unless forced, and hands back the context an earlier preparation left.
@@ -327,9 +327,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         stream.Dispose();
         File.Delete(packageFile);
         var identity = new PackageIdentity(context.PackageName, NuGetVersion.Parse(context.Version));
-        if (_installingContexts.TryGetValue(identity, out PackageInstallContext? cached)
-            && ReferenceEquals(cached, context))
-            _installingContexts.Remove(identity);
+        _installingContexts.TryRemove(KeyValuePair.Create(identity, context));
         return new InvalidDataException("The downloaded package does not match its advertised hash.");
     }
 
@@ -442,7 +440,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         {
             if (package is { })
             {
-                _installingContexts.Remove(package);
+                _installingContexts.TryRemove(package, out _);
             }
         }
     }
