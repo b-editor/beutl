@@ -16,7 +16,8 @@ internal static class AiCaptionSceneImporter
         IElementAdder adder,
         CaptionDocument document,
         CaptionTemplate template,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? elementName = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(adder);
@@ -30,7 +31,7 @@ internal static class AiCaptionSceneImporter
         Point defaultPosition = new(0, scene.FrameSize.Value.Height * 0.35f);
         var context = new CaptionElementContext(
             layer,
-            Beutl.Language.Strings.AiSubtitle,
+            elementName ?? Beutl.Language.Strings.AiSubtitle,
             defaultPosition);
         var descriptions = new List<ElementDescription>(document.Count);
         foreach (CaptionCue cue in document.Cues)

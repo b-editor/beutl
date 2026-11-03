@@ -3687,4 +3687,7 @@ when history recording is enabled.</value>
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>Project audio channels</value>
   </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>Could not read any subtitles from {0}.</value>
+  </data>
 </root>

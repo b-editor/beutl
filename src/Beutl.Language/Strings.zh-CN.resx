@@ -3687,4 +3687,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>项目音频声道</value>
   </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>无法从 {0} 读取字幕。</value>
+  </data>
 </root>

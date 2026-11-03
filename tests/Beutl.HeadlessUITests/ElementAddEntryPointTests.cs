@@ -1,4 +1,6 @@
 ﻿using System.Collections.Specialized;
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
@@ -9,9 +11,11 @@ using Avalonia.Input.Raw;
 using Avalonia.Platform.Storage;
 using Beutl.Audio;
 using Beutl.Editor.Components.FileBrowserTab;
+using Beutl.Editor.Components.TimelineTab;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Services;
+using Beutl.Editor.Services.Captions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
@@ -346,6 +350,109 @@ public class ElementAddEntryPointTests
         public IEnumerable<string> VideoExtensions() => _wave.AudioExtensions();
 
         public IEnumerable<string> AudioExtensions() => _wave.AudioExtensions();
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFileDrop_AddsOneTextClipPerCueAboveTheScene()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-drop");
+        using var notifications = new NotificationCapture();
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel timelinePanel = view.FindControl<Panel>("TimelinePanel")!;
+            string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+            await timeline.AddElementWithResultAsync(new ElementDescription(
+                MediaTime.Zero, MediaTime.FromSeconds(1), 2, new ElementSource.EngineObject(() => new RectShape())));
+            HeadlessTestHelpers.Settle();
+            string path = Path.Combine(directory, "movie.srt");
+            File.WriteAllText(path, "1\n00:00:01,000 --> 00:00:02,500\nHello\n\n2\n00:00:03,000 --> 00:00:04,000\nWorld\n");
+            using IStorageFile file = await GetStorageFile(window, path);
+            using var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.CreateFile(file));
+            editor.HistoryManager.Commit();
+            int undoCount = editor.HistoryManager.UndoCount;
+            var args = new DragEventArgs(
+                DragDrop.DropEvent, transfer, timelinePanel, new AvaPoint(500, 5), KeyModifiers.None);
+
+            timelinePanel.RaiseEvent(args);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.UndoCount > undoCount);
+            HeadlessTestHelpers.Settle();
+            HeadlessCapture.SaveIfRequested(window, nameof(ElementAddEntryPointTests), "subtitle-drop");
+
+            Element[] captions = [.. editor.Scene.Children.Where(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any())
+                .OrderBy(child => child.Start.Value)];
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(args.Handled, Is.True);
+                Assert.That(captions.Select(c => c.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Single().Text.Value),
+                    Is.EqualTo(new[] { "Hello", "World" }));
+                Assert.That(captions.Select(c => c.Range), Is.EqualTo(new[]
+                {
+                    new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1.5)),
+                    new TimeRange(MediaTime.FromSeconds(3), MediaTime.FromSeconds(1)),
+                }));
+                Assert.That(captions.Select(c => c.ZIndex.Value), Is.All.EqualTo(3));
+                Assert.That(captions.Select(c => c.Name.Value), Is.All.EqualTo("movie"));
+                Assert.That(notifications.All, Is.Empty);
+            }
+
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            Assert.That(editor.Scene.Children.Where(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any()), Is.Empty);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFileWithoutCues_SaysSoAndAddsNothing()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-empty");
+        using var notifications = new NotificationCapture();
+        string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "broken.srt");
+        File.WriteAllText(path, "this is not a subtitle file");
+
+        await CaptionFileDrop.AddAsync(timeline, path);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(editor.Scene.Children, Is.Empty);
+            Assert.That(notifications.All.Single().Message, Does.Contain("broken.srt"));
+        }
+    }
+
+    [Test]
+    public void Subtitle_files_are_read_in_UTF16_and_the_systems_legacy_code_page()
+    {
+        const string Srt = "1\n00:00:01,000 --> 00:00:02,000\nこんにちは\n";
+        CultureInfo previous = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ja-JP");
+        try
+        {
+            byte[] utf16 = [.. Encoding.Unicode.GetPreamble(), .. Encoding.Unicode.GetBytes(Srt)];
+            byte[] shiftJis = CodePagesEncodingProvider.Instance.GetEncoding(932)!.GetBytes(Srt);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(CaptionFileDrop.Import(utf16, CaptionFormats.Srt).Document![0].Text, Is.EqualTo("こんにちは"));
+                Assert.That(CaptionFileDrop.Import(shiftJis, CaptionFormats.Srt).Document![0].Text, Is.EqualTo("こんにちは"));
+            });
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
     }
 
     private static void WriteSilentWave(string path, int frames)

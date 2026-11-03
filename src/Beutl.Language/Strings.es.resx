@@ -3687,4 +3687,7 @@ cuando el registro del historial está activado.</value>
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>Canales de audio del proyecto</value>
   </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>No se pudo leer ningún subtítulo de {0}.</value>
+  </data>
 </root>

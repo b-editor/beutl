@@ -87,13 +87,25 @@ public sealed partial class TimelineTabView
         int layer = viewModel.CalculateClickedLayer();
         try
         {
+            string[] captions = [.. files.Where(CaptionFileDrop.IsCaptionFile)];
             // The layout can have to open the files.
             ElementDescription[] descriptions = await Task.Run(
-                () => FileDropLayout.Create(files, frame, s_defaultElementLength, layer));
-            // With no media among them, adding the first says why it cannot be added.
-            await viewModel.AddElementsWithResultAsync(descriptions.Length > 0
-                ? descriptions
-                : [new ElementDescription(frame, s_defaultElementLength, layer, new ElementSource.File(files[0]))]);
+                () => FileDropLayout.Create(files.Except(captions), frame, s_defaultElementLength, layer));
+            if (descriptions.Length > 0)
+            {
+                await viewModel.AddElementsWithResultAsync(descriptions);
+            }
+            else if (captions.Length == 0)
+            {
+                // With no media among them, adding the first says why it cannot be added.
+                await viewModel.AddElementWithResultAsync(
+                    new ElementDescription(frame, s_defaultElementLength, layer, new ElementSource.File(files[0])));
+            }
+
+            foreach (string caption in captions)
+            {
+                await CaptionFileDrop.AddAsync(viewModel, caption);
+            }
         }
         catch (OperationCanceledException) { }
         catch (ObjectDisposedException) { }
