@@ -68,6 +68,7 @@ public sealed class SoundPanner : Control
             vm.SurroundPan.Subscribe(_ => InvalidateVisual()).AddTo(_subscriptions);
             vm.Layout.Subscribe(_ => InvalidateVisual()).AddTo(_subscriptions);
             vm.IsHorizontalOnly.Subscribe(_ => InvalidateVisual()).AddTo(_subscriptions);
+            vm.CanPan.Subscribe(_ => InvalidateVisual()).AddTo(_subscriptions);
             vm.CanDrag.Subscribe(_ => InvalidateVisual()).AddTo(_subscriptions);
         }
         InvalidateVisual();
