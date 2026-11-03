@@ -578,6 +578,7 @@ public partial class MissingMediaTests
     {
         public string Name => "Restored media test decoder";
         public int OpenCount { get; private set; }
+        public bool VideoOnly { get; init; }
         public IEnumerable<string> VideoExtensions() => [".relink-video"];
         public IEnumerable<string> AudioExtensions() => [".relink-audio"];
 
@@ -586,7 +587,7 @@ public partial class MissingMediaTests
             OpenCount++;
             var reader = new Moq.Mock<MediaReader>();
             reader.SetupGet(value => value.HasVideo).Returns(options.StreamsToLoad == MediaMode.Video);
-            reader.SetupGet(value => value.HasAudio).Returns(options.StreamsToLoad == MediaMode.Audio);
+            reader.SetupGet(value => value.HasAudio).Returns(options.StreamsToLoad == MediaMode.Audio && !VideoOnly);
             reader.SetupGet(value => value.VideoInfo).Returns(new VideoStreamInfo("test", new Rational(2, 1),
                 new Beutl.Media.PixelSize(2, 2), new Rational(30, 1)));
             reader.SetupGet(value => value.AudioInfo).Returns(new AudioStreamInfo("test", new Rational(2, 1), 44100, 2));
