@@ -156,7 +156,9 @@ public sealed class CurveVisualizationRenderer
             while (_pending is var (bitmap, categories))
             {
                 _pending = null;
-                HistogramCounts counts = await Task.Run(() => Count(bitmap, categories));
+                // Yielding even when the count is already done, so Updated never fires inside the caller's own call.
+                HistogramCounts counts = await Task.Run(() => Count(bitmap, categories)).ConfigureAwait(
+                    ConfigureAwaitOptions.ContinueOnCapturedContext | ConfigureAwaitOptions.ForceYielding);
                 // The await resumed on the thread that owns the histograms.
                 Apply(counts);
                 Updated?.Invoke(this, EventArgs.Empty);
