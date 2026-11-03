@@ -117,6 +117,51 @@ public class ElementViewMoveSnappingTests
         }
     }
 
+    // Alt starts a duplicate and, held, turns snapping off, so this is a duplicate with Alt let go on the way.
+    [AvaloniaTest]
+    public async Task Duplicate_SnapsToTheEdgesOfTheClipsItCopies()
+    {
+        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
+        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = true;
+        Window? window = null;
+        TimelineTabView? view = null;
+        try
+        {
+            ElementDescription Clip(double start, double length, int layer) => new(
+                MediaTime.FromSeconds(start), MediaTime.FromSeconds(length), layer,
+                new ElementSource.EngineObject(() => new RectShape()));
+            (EditViewModel editor, TimelineTabViewModel timeline) = await TimelineTestHost.OpenTimelineAsync(
+                "duplicate-snapping-own-group", [Clip(2, 2, 0), Clip(6, 1, 1)]);
+            ElementViewModel clip = timeline.GetViewModelFor(editor.Scene.Children.Single(e => e.ZIndex.Value == 0))!;
+            Element companion = editor.Scene.Children.Single(e => e.ZIndex.Value == 1);
+            editor.Scene.Groups.Add([clip.Model.Id.Value, companion.Id.Value]);
+            view = new TimelineTabView { DataContext = timeline };
+            window = new Window { Content = view, Width = 1600, Height = 420 };
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            Border border = view.GetVisualDescendants().OfType<ElementView>()
+                .Single(v => ReferenceEquals(v.DataContext, clip)).FindControl<Border>("border")!;
+            Point press = border.TranslatePoint(new Point(40, border.Bounds.Height / 2), window)!.Value;
+            TimelineTestHost.WaitForHitTest(window, border, press);
+            window.MouseMove(press, RawInputModifiers.Alt);
+            window.MouseDown(press, MouseButton.Left, RawInputModifiers.Alt);
+
+            window.MouseMove(
+                press + new Vector(MediaTime.FromSeconds(4.02).TimeToPixel(1), 0), RawInputModifiers.LeftMouseButton);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(clip.BorderMargin.Value.Left, Is.EqualTo(MediaTime.FromSeconds(6).TimeToPixel(1)).Within(0.001));
+                Assert.That(timeline.SnapBarPosition.Value, Is.Not.Null, "the start of a clip that stays");
+            });
+        }
+        finally
+        {
+            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
+            TimelineTestHost.Close(view, window);
+        }
+    }
+
     [AvaloniaTest]
     [TestCase(150, 1f, false)]
     [TestCase(151, 1f, false)]

@@ -127,7 +127,8 @@ public sealed partial class ElementView
                     .RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
                 if (newStart < MediaTime.Zero) newStart = MediaTime.Zero;
-                SnapResult snap = view.SnapTime(newStart, scale, _lastAlt, moving: _relatedElements);
+                // A duplicate leaves the originals where they are, so their edges still count.
+                SnapResult snap = view.SnapTime(newStart, scale, _lastAlt, moving: _duplicateMode ? null : _relatedElements);
                 newStart = snap.Time;
 
                 var newTop = Math.Max(e.GetPosition(timeline.TimelinePanel).Y - _start.Y, 0);
