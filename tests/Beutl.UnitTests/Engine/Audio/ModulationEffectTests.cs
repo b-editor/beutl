@@ -397,6 +397,18 @@ public class ModulationEffectTests
         return output!.GetChannelData(0).ToArray();
     }
 
+    [TestCase(1e6f)]
+    [TestCase(float.PositiveInfinity)]
+    [TestCase(float.NaN)]
+    public void PitchShift_survives_a_value_outside_its_range(float semitones)
+    {
+        var effect = new PitchShiftEffect { Semitones = { Value = semitones } };
+
+        float[] output = Run(effect, sample => Sine(sample), Window);
+
+        Assert.That(output, Has.Length.EqualTo(Window));
+    }
+
     [Test]
     public void PitchShift_starts_over_at_a_seek()
     {

@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using Beutl.Animation;
+using Beutl.Audio.Effects;
 using Beutl.Engine;
 
 namespace Beutl.Audio.Graph.Nodes;
@@ -222,7 +223,9 @@ public sealed class PitchShiftNode : AudioNode
     {
         for (int i = 0; i < semitones.Length; i++)
         {
-            double rate = Math.Pow(2, semitones[i] / 12);
+            // An expression or a hand-edited file can give any value, and playback reads this many frames per sample.
+            float shift = float.IsNaN(semitones[i]) ? 0 : Math.Clamp(semitones[i], PitchShiftEffect.SemitonesMin, PitchShiftEffect.SemitonesMax);
+            double rate = Math.Pow(2, shift / 12);
             // Stretched by the inverse of the playback rate, the source passes one sample for each one played.
             _stretcher!.Tempo = 1 / rate;
             if (!_started)
