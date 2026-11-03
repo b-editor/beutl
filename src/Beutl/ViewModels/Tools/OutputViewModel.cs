@@ -345,7 +345,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
             output.Commit(cancellationToken);
             succeeded = true;
-            ShowCompletedProgress();
+            ShowCompletedProgress(output.DestinationPath);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -385,6 +385,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 missingSources[0],
                 missingSources.Count);
             ProgressText.Value = message;
+            // This attempt wrote nothing, so the figures of the last run must not read as its own.
+            HasProgress.Value = false;
             NotificationService.ShowError(MessageStrings.OutputException, message);
             _logger.LogWarning(
                 "Encoding blocked because {MissingSourceCount} referenced source file(s) are missing. First missing source: {MissingSource}",
@@ -486,7 +488,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         public void Dispose() { }
     }
 
-    private void ShowCompletedProgress()
+    private void ShowCompletedProgress(string destinationPath)
     {
         ProgressValue.Value = ProgressMax.Value;
         FrameProgressText.Value = _totalFrames > 0
@@ -494,6 +496,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             : FrameProgressText.Value;
         ProgressText.Value = Strings.Completed;
         Eta.Value = "00:00:00";
+        // An encoder goes on writing after its last sample, such as the container's index.
+        string size = FormatBytes(GetFileSize(destinationPath));
+        CurrentSize.Value = size;
+        EstimatedSize.Value = size;
         _logger.LogInformation("Encoding process completed successfully.");
     }
 
@@ -600,19 +606,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     {
         Elapsed.Value = FormatDuration(elapsed);
 
-        long currentBytes = 0;
-        if (destinationPath != null)
-        {
-            try
-            {
-                var info = new FileInfo(destinationPath);
-                if (info.Exists) currentBytes = info.Length;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Failed to read partial file size during encoding.");
-            }
-        }
+        long currentBytes = destinationPath != null ? GetFileSize(destinationPath) : 0;
 
         CurrentSize.Value = FormatBytes(currentBytes);
 
@@ -637,6 +631,20 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 long estimatedTotal = (long)(currentBytes / ratio);
                 EstimatedSize.Value = FormatBytes(estimatedTotal);
             }
+        }
+    }
+
+    private long GetFileSize(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? info.Length : 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to read the size of the output file.");
+            return 0;
         }
     }
 

@@ -7,6 +7,7 @@ using Avalonia.VisualTree;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Media.Encoding;
+using Beutl.Media.Source;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
@@ -255,6 +256,72 @@ public sealed class OutputViewProgressTests
         });
     }
 
+    // An encoder goes on writing after its last sample, so the last sample's sizes are not the file's.
+    [AvaloniaTest]
+    public async Task A_finished_run_shows_the_size_of_its_file()
+    {
+        await TestReset.ResetShellAsync();
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("output-finished");
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(TestShell.NewWorkspace("output-finished"), "out.mp4");
+        output.SelectedEncoder.Value = new OneFileEncoder(() =>
+        {
+            output.CurrentSize.Value = "1.0 MB";
+            output.EstimatedSize.Value = "2.0 MB";
+        });
+
+        await output.RunAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(output.CurrentSize.Value, Is.EqualTo($"{OneFileController.FileLength / 1024.0:0.0} KB"));
+            Assert.That(output.EstimatedSize.Value, Is.EqualTo(output.CurrentSize.Value));
+        });
+    }
+
+    // A run stopped before it starts wrote nothing, so the figures of the one before must not read as its own.
+    [AvaloniaTest]
+    public async Task A_run_stopped_by_a_missing_file_hides_the_figures_of_the_last_one()
+    {
+        await TestReset.ResetShellAsync();
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("output-missing");
+        string workspace = TestShell.NewWorkspace("output-missing");
+        await TestShell.AddElementAsync(
+            editor,
+            () =>
+            {
+                var source = new VideoSource();
+                source.ReadFrom(new Uri(Path.Combine(workspace, "missing.mov")));
+                var video = new Graphics.SourceVideo();
+                video.Source.Value = source;
+                return video;
+            },
+            MediaTime.Zero,
+            MediaTime.FromSeconds(1));
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(workspace, "out.mp4");
+        output.SelectedEncoder.Value = new OneFileEncoder();
+        output.HasProgress.Value = true;
+
+        Exception? stopped = null;
+        try
+        {
+            await output.RunAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            stopped = ex;
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stopped, Is.Not.Null);
+            Assert.That(output.HasProgress.Value, Is.False);
+        });
+    }
+
     private static ProgressBar BarOf(OutputView view)
         => view.GetVisualDescendants().OfType<ProgressBar>().Single();
 
@@ -276,6 +343,8 @@ public sealed class OutputViewProgressTests
 
     private sealed class OneFileController(string outputFile, Action? encoding) : EncodingController(outputFile)
     {
+        public const int FileLength = 2048;
+
         public override VideoEncoderSettings VideoSettings { get; } = new();
 
         public override AudioEncoderSettings AudioSettings { get; } = new();
@@ -284,7 +353,7 @@ public sealed class OutputViewProgressTests
             IFrameProvider frameProvider, ISampleProvider sampleProvider, CancellationToken cancellationToken)
         {
             encoding?.Invoke();
-            await File.WriteAllBytesAsync(OutputFile, [], cancellationToken);
+            await File.WriteAllBytesAsync(OutputFile, new byte[FileLength], cancellationToken);
         }
     }
 
