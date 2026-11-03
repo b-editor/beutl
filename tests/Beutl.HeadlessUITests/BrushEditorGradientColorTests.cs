@@ -25,6 +25,24 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class BrushEditorGradientColorTests
 {
+    [Test]
+    public void Changing_the_type_of_a_gradient_keeps_how_it_mixes()
+    {
+        var linear = new LinearGradientBrush
+        {
+            InterpolationSpace = { Value = GradientInterpolationSpace.Oklab },
+            InterpolatePremultiplied = { Value = true },
+        };
+
+        GradientBrush radial = BrushEditor.CreateGradientBrush(BrushType.RadialGradientBrush, linear);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(radial.InterpolationSpace.Value, Is.EqualTo(GradientInterpolationSpace.Oklab));
+            Assert.That(radial.InterpolatePremultiplied.Value, Is.True);
+        });
+    }
+
     [AvaloniaTest]
     public void Switching_from_solid_to_gradient_shows_the_first_stops_opacity()
     {

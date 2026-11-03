@@ -50,6 +50,60 @@ public sealed class GradientInterpolationTests
         Assert.That(ReadMiddle(brush, space, Size * 3 / 4, Size / 2), Is.EqualTo(Expected(space)).Within(0.01f));
     }
 
+    // Halfway from the origin at a quarter of the width to the rim at the right edge.
+    [TestCase(GradientInterpolationSpace.LinearSrgb)]
+    [TestCase(GradientInterpolationSpace.Srgb)]
+    [TestCase(GradientInterpolationSpace.Oklab)]
+    public void A_radial_gradient_off_its_center_mixes_in_its_space(GradientInterpolationSpace space)
+    {
+        var brush = new RadialGradientBrush
+        {
+            Center = { Value = new RelativePoint(0.5f, 0.5f, RelativeUnit.Relative) },
+            GradientOrigin = { Value = new RelativePoint(0.25f, 0.5f, RelativeUnit.Relative) },
+            Radius = { Value = 50 },
+        };
+
+        Assert.That(ReadMiddle(brush, space, Size * 5 / 8, Size / 2), Is.EqualTo(Expected(space)).Within(0.01f));
+    }
+
+    [Test]
+    public void A_radial_gradient_off_its_center_keeps_the_order_of_many_stops()
+    {
+        var brush = new RadialGradientBrush
+        {
+            Center = { Value = new RelativePoint(0.5f, 0.5f, RelativeUnit.Relative) },
+            GradientOrigin = { Value = new RelativePoint(0.25f, 0.5f, RelativeUnit.Relative) },
+            Radius = { Value = 50 },
+        };
+        brush.GradientStops.Add(new GradientStop(Colors.Black, 0));
+        brush.GradientStops.Add(new GradientStop(Colors.Black, 0.25f));
+        brush.GradientStops.Add(new GradientStop(Colors.White, 0.75f));
+        brush.GradientStops.Add(new GradientStop(Colors.White, 1));
+        using Brush.Resource resource = brush.ToResource(CompositionContext.Default);
+        var constructor = new BrushConstructor(
+            new Rect(0, 0, Size, Size), resource, BlendMode.Src, RenderIntent.Preview, drawableBrushMaterializer: null);
+        using SKShader? shader = constructor.CreateShader();
+        using var colorSpace = SKColorSpace.CreateSrgbLinear();
+        using var bitmap = new SKBitmap(new SKImageInfo(Size, Size, SKColorType.RgbaF16, SKAlphaType.Premul, colorSpace));
+        using (var canvas = new SKCanvas(bitmap))
+        using (var paint = new SKPaint { Shader = shader, BlendMode = SKBlendMode.Src })
+        {
+            canvas.DrawRect(SKRect.Create(Size, Size), paint);
+        }
+
+        using SKPixmap pixels = bitmap.PeekPixels();
+        ReadOnlySpan<Half> values = MemoryMarshal.Cast<byte, Half>(pixels.GetPixelSpan());
+        float black = (float)values[(Size / 2 * Size + Size / 4 + Size / 16) * 4];
+        float middle = (float)values[(Size / 2 * Size + Size * 5 / 8) * 4];
+        float white = (float)values[(Size / 2 * Size + Size * 15 / 16) * 4];
+        Assert.Multiple(() =>
+        {
+            Assert.That(black, Is.EqualTo(0).Within(0.01f), "near the origin, in the black part");
+            Assert.That(middle, Is.EqualTo(0.5f).Within(0.02f), "halfway");
+            Assert.That(white, Is.EqualTo(1).Within(0.01f), "near the rim, in the white part");
+        });
+    }
+
     // A conic gradient starts straight above its center and goes around, so its middle is straight below.
     [TestCase(GradientInterpolationSpace.LinearSrgb)]
     [TestCase(GradientInterpolationSpace.Srgb)]

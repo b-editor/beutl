@@ -266,8 +266,8 @@ public sealed partial class BrushEditor : UserControl
         }
     }
 
-    // Keeps the stops of the current gradient, or starts from white to black.
-    private static GradientBrush CreateGradientBrush(BrushType e, Media.Brush? current)
+    // Keeps the stops of the current gradient and how they mix, or starts from white to black.
+    internal static GradientBrush CreateGradientBrush(BrushType e, Media.Brush? current)
     {
         var gradStops = new List<GradientStop>();
         if (current is GradientBrush oldBrush)
@@ -288,6 +288,12 @@ public sealed partial class BrushEditor : UserControl
             _ => throw new ArgumentOutOfRangeException(nameof(e), e, null)
         };
         brush.GradientStops.Replace(gradStops);
+        if (current is GradientBrush mixing)
+        {
+            brush.InterpolationSpace.Value = mixing.InterpolationSpace.Value;
+            brush.InterpolatePremultiplied.Value = mixing.InterpolatePremultiplied.Value;
+        }
+
         return brush;
     }
 
