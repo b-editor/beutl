@@ -61,6 +61,7 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<Gamma>>(GraphicsStrings.Gamma)
             .Add<FilterEffectNode<ColorGrading>>(GraphicsStrings.ColorGrading)
             .Add<FilterEffectNode<Curves>>(GraphicsStrings.Curves)
+            .Add<FilterEffectNode<GradientMap>>(GraphicsStrings.GradientMap)
             .Add<FilterEffectNode<Invert>>(GraphicsStrings.Invert)
             .Add<FilterEffectNode<LutEffect>>(GraphicsStrings.LutEffect)
             .Add<FilterEffectNode<BlendEffect>>(GraphicsStrings.BlendEffect)

@@ -323,6 +323,24 @@
   <data name="Curves" xml:space="preserve">
     <value>곡선</value>
   </data>
+  <data name="GradientMap" xml:space="preserve">
+    <value>그라디언트 맵</value>
+  </data>
+  <data name="GradientMap_InputBlack" xml:space="preserve">
+    <value>입력 검정</value>
+  </data>
+  <data name="GradientMap_InputBlack_Description" xml:space="preserve">
+    <value>이 밝기 이하인 부분은 그라디언트 시작 색이 됩니다.</value>
+  </data>
+  <data name="GradientMap_InputWhite" xml:space="preserve">
+    <value>입력 흰색</value>
+  </data>
+  <data name="GradientMap_InputWhite_Description" xml:space="preserve">
+    <value>이 밝기 이상인 부분은 그라디언트 끝 색이 됩니다.</value>
+  </data>
+  <data name="GradientMap_Strength" xml:space="preserve">
+    <value>강도</value>
+  </data>
   <data name="Curves_BlueCurve" xml:space="preserve">
     <value>파란색 곡선</value>
   </data>

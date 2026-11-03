@@ -323,6 +323,24 @@
   <data name="Curves" xml:space="preserve">
     <value>Curvas</value>
   </data>
+  <data name="GradientMap" xml:space="preserve">
+    <value>Mapa de degradado</value>
+  </data>
+  <data name="GradientMap_InputBlack" xml:space="preserve">
+    <value>Negro de entrada</value>
+  </data>
+  <data name="GradientMap_InputBlack_Description" xml:space="preserve">
+    <value>Todo lo que tenga este brillo o sea más oscuro toma el color del inicio del degradado.</value>
+  </data>
+  <data name="GradientMap_InputWhite" xml:space="preserve">
+    <value>Blanco de entrada</value>
+  </data>
+  <data name="GradientMap_InputWhite_Description" xml:space="preserve">
+    <value>Todo lo que tenga este brillo o sea más claro toma el color del final del degradado.</value>
+  </data>
+  <data name="GradientMap_Strength" xml:space="preserve">
+    <value>Intensidad</value>
+  </data>
   <data name="Curves_BlueCurve" xml:space="preserve">
     <value>Curva azul</value>
   </data>

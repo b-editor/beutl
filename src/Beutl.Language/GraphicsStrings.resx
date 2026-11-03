@@ -324,6 +324,24 @@
   <data name="Curves" xml:space="preserve">
     <value>Curves</value>
   </data>
+  <data name="GradientMap" xml:space="preserve">
+    <value>Gradient Map</value>
+  </data>
+  <data name="GradientMap_InputBlack" xml:space="preserve">
+    <value>Input black</value>
+  </data>
+  <data name="GradientMap_InputBlack_Description" xml:space="preserve">
+    <value>Anything this light or darker takes the color at the start of the gradient.</value>
+  </data>
+  <data name="GradientMap_InputWhite" xml:space="preserve">
+    <value>Input white</value>
+  </data>
+  <data name="GradientMap_InputWhite_Description" xml:space="preserve">
+    <value>Anything this light or lighter takes the color at the end of the gradient.</value>
+  </data>
+  <data name="GradientMap_Strength" xml:space="preserve">
+    <value>Strength</value>
+  </data>
   <data name="Curves_BlueCurve" xml:space="preserve">
     <value>Blue curve</value>
   </data>

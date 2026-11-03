@@ -323,6 +323,24 @@
   <data name="Curves" xml:space="preserve">
     <value>曲线</value>
   </data>
+  <data name="GradientMap" xml:space="preserve">
+    <value>渐变映射</value>
+  </data>
+  <data name="GradientMap_InputBlack" xml:space="preserve">
+    <value>输入黑场</value>
+  </data>
+  <data name="GradientMap_InputBlack_Description" xml:space="preserve">
+    <value>此亮度及更暗的部分会变为渐变起点的颜色。</value>
+  </data>
+  <data name="GradientMap_InputWhite" xml:space="preserve">
+    <value>输入白场</value>
+  </data>
+  <data name="GradientMap_InputWhite_Description" xml:space="preserve">
+    <value>此亮度及更亮的部分会变为渐变终点的颜色。</value>
+  </data>
+  <data name="GradientMap_Strength" xml:space="preserve">
+    <value>强度</value>
+  </data>
   <data name="Curves_BlueCurve" xml:space="preserve">
     <value>蓝色曲线</value>
   </data>

@@ -440,6 +440,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:Gamma
   sealed
   keys: Amount, Animations, Expressions, Id, IsEnabled, Name, Strength
+[Beutl.Engine]Beutl.Graphics.Effects:GradientMap
+  sealed
+  keys: Animations, Expressions, GradientStops, Id, InputBlack, InputWhite, InterpolatePremultiplied, InterpolationSpace, IsEnabled, Name, Strength
 [Beutl.Engine]Beutl.Graphics.Effects:HighContrast
   sealed
   keys: Animations, Contrast, Expressions, Grayscale, Id, InvertStyle, IsEnabled, Name

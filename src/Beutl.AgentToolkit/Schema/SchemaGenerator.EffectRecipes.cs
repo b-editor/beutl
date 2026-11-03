@@ -522,6 +522,12 @@ public sealed partial class SchemaGenerator
                 lighting.Multiply.Value = Color.Parse("#ffffffff");
                 lighting.Add.Value = Color.Parse("#221ad8ff");
                 break;
+            case GradientMap gradientMap:
+                gradientMap.GradientStops.Clear();
+                gradientMap.GradientStops.Add(new GradientStop(Color.Parse("#ff1a1040"), 0));
+                gradientMap.GradientStops.Add(new GradientStop(Color.Parse("#ffe0563b"), 0.55f));
+                gradientMap.GradientStops.Add(new GradientStop(Color.Parse("#fff8e6b0"), 1));
+                break;
             case Saturate saturate:
                 saturate.Amount.Value = 136;
                 break;

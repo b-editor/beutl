@@ -319,6 +319,24 @@
   <data name="Curves" xml:space="preserve">
     <value>カーブ</value>
   </data>
+  <data name="GradientMap" xml:space="preserve">
+    <value>グラデーションマップ</value>
+  </data>
+  <data name="GradientMap_InputBlack" xml:space="preserve">
+    <value>入力の黒</value>
+  </data>
+  <data name="GradientMap_InputBlack_Description" xml:space="preserve">
+    <value>この明るさ以下の部分はグラデーションの先頭の色になります。</value>
+  </data>
+  <data name="GradientMap_InputWhite" xml:space="preserve">
+    <value>入力の白</value>
+  </data>
+  <data name="GradientMap_InputWhite_Description" xml:space="preserve">
+    <value>この明るさ以上の部分はグラデーションの末尾の色になります。</value>
+  </data>
+  <data name="GradientMap_Strength" xml:space="preserve">
+    <value>強さ</value>
+  </data>
   <data name="Curves_BlueCurve" xml:space="preserve">
     <value>ブルーカーブ</value>
   </data>
