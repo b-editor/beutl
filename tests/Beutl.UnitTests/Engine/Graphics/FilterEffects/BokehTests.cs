@@ -3,6 +3,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.Media.Pixel;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
@@ -36,6 +37,28 @@ public sealed class BokehTests
     }
 
     private static int GreenAt(byte[] pixels, int x, int y, int size = Size) => pixels[(y * size + x) * 4 + 1];
+
+    // The green of each pixel as linear light, which is what a shape spread thin has to be measured in.
+    private static float[,] RenderLinear(FilterEffect? effect, float scale = 1f, float dotSize = DotSize)
+    {
+        var values = new float[(int)(Size * scale), (int)(Size * scale)];
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var dot = new RectShape { Width = { Value = dotSize }, Height = { Value = dotSize } };
+            dot.Fill.Value = new SolidColorBrush(Colors.White);
+            dot.FilterEffect.Value = effect;
+            using var resource = (Drawable.Resource)dot.ToResource(CompositionContext.Default);
+            using Bitmap rendered = GoldenImageHarness.RenderAtScale(resource, new PixelSize(Size, Size), scale, null);
+            using Bitmap linear = rendered.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+            for (int y = 0; y < linear.Height; y++)
+            {
+                Span<RgbaF16> row = linear.GetRow<RgbaF16>(y);
+                for (int x = 0; x < linear.Width; x++)
+                    values[y, x] = (float)row[x].G;
+            }
+        });
+        return values;
+    }
 
     // The distance from the middle at which the disc falls under half of what it is around the middle.
     private static float Reach(byte[] pixels, float directionX, float directionY, int size = Size)
@@ -74,11 +97,11 @@ public sealed class BokehTests
             int level = GreenAt(pixels, Size / 2, Size / 2);
             int inner = (int)(radius * 0.6f);
             for (int y = -inner; y <= inner; y += 3)
-            for (int x = -inner; x <= inner; x += 3)
-            {
-                if (x * x + y * y <= inner * inner)
-                    Assert.That(GreenAt(pixels, Size / 2 + x, Size / 2 + y), Is.EqualTo(level).Within(level / 3), $"at {x}, {y}");
-            }
+                for (int x = -inner; x <= inner; x += 3)
+                {
+                    if (x * x + y * y <= inner * inner)
+                        Assert.That(GreenAt(pixels, Size / 2 + x, Size / 2 + y), Is.EqualTo(level).Within(level / 3), $"at {x}, {y}");
+                }
         });
     }
 
@@ -102,6 +125,60 @@ public sealed class BokehTests
             Assert.That(Reach(upright, 1, 0) / Reach(upright, 1, 1), Is.EqualTo(MathF.Sqrt(2)).Within(0.3f));
             Assert.That(Reach(turned, 1, -1) / Reach(turned, 0, -1), Is.EqualTo(MathF.Sqrt(2)).Within(0.3f));
         });
+    }
+
+    [Test]
+    public void A_triangle_points_its_corner_up_when_it_is_not_rotated()
+    {
+        byte[] pixels = RenderDot(new Bokeh
+        {
+            Radius = { Value = 40 },
+            Shape = { Value = BokehShape.Polygon },
+            Sides = { Value = 3 },
+        });
+
+        Assert.That(Reach(pixels, 0, -1) / Reach(pixels, 0, 1), Is.EqualTo(2).Within(0.5f));
+    }
+
+    // Each reduction reads past the edge of what it reduces, which must not take light from a picture this small.
+    [TestCase(20f)]
+    [TestCase(48f)]
+    [TestCase(70f)]
+    public void A_small_picture_keeps_its_light_at_any_radius(float radius)
+    {
+        float[,] before = RenderLinear(null);
+        float[,] after = RenderLinear(new Bokeh { Radius = { Value = radius } });
+
+        double Total(float[,] values) => values.Cast<float>().Sum(value => (double)value);
+
+        Assert.That(Total(after) / Total(before), Is.EqualTo(1).Within(0.03));
+    }
+
+    // At four pixels to a unit this shape's rings are about five pixels apart, with no gap a pixel wide left to fill
+    // only if the rounds that fill them count those pixels and not units.
+    [Test]
+    public void A_one_pixel_highlight_fills_the_shape_at_a_higher_output_scale()
+    {
+        const float Scale = 4;
+        const float Radius = 6;
+        float[,] values = RenderLinear(new Bokeh { Radius = { Value = Radius } }, Scale, dotSize: 1 / Scale);
+
+        int middle = values.GetLength(0) / 2;
+        int inner = (int)(Radius * Scale * 0.6f);
+        float lowest = float.MaxValue, highest = 0;
+        for (int y = -inner; y <= inner; y++)
+        {
+            for (int x = -inner; x <= inner; x++)
+            {
+                if (x * x + y * y > inner * inner) continue;
+
+                lowest = MathF.Min(lowest, values[middle + y, middle + x]);
+                highest = MathF.Max(highest, values[middle + y, middle + x]);
+            }
+        }
+
+        Assert.That(highest, Is.GreaterThan(0));
+        Assert.That(lowest / highest, Is.GreaterThan(0.4f), "the shape has gaps");
     }
 
     [Test]

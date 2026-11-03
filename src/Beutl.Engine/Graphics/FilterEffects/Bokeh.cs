@@ -45,7 +45,8 @@ public sealed partial class Bokeh : FilterEffect
         ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<BokehQuality> Quality { get; } = Property.CreateExpression(BokehQuality.Medium);
 
-    private readonly record struct EffectData(float Radius, BokehShape Shape, int Sides, float Rotation, float Highlight, BokehQuality Quality)
+    private readonly record struct EffectData(
+        float Radius, BokehShape Shape, int Sides, float Rotation, float Highlight, BokehQuality Quality, float Density)
     {
         public int Rings => Quality switch { BokehQuality.Low => 3, BokehQuality.High => 8, _ => 5 };
 
@@ -93,7 +94,9 @@ public sealed partial class Bokeh : FilterEffect
             if (!float.IsFinite(Radius) || Radius <= 0 || !float.IsFinite(Rotation) || !float.IsFinite(Highlight))
                 return;
 
-            var data = new EffectData(Radius, Shape, Math.Clamp(Sides, 3, 12), Rotation, Math.Max(Highlight, 0) / 100, Quality);
+            // How many samples it takes depends on the pixels they land on. Without one density, count logical units.
+            float density = context.TryGetWorkingScale(out float workingScale) ? workingScale : 1;
+            var data = new EffectData(Radius, Shape, Math.Clamp(Sides, 3, 12), Rotation, Math.Max(Highlight, 0) / 100, Quality, density);
             context.ShaderGraph(data, static (graph, values) =>
             {
                 ShaderBuffer shapeSamples = graph.Buffer<Vector4>("shape-samples", values.CreateSamples(values.Rings));
@@ -115,10 +118,12 @@ public sealed partial class Bokeh : FilterEffect
                 }
 
                 // A large shape loses nothing to a coarser grid, and the cost stops growing with the size.
-                for (int level = 1; values.Radius * current.ResolutionScale > 32; level++)
+                for (int level = 1; values.Radius * values.Density * current.ResolutionScale > 32; level++)
                 {
                     ShaderImage source = current;
-                    current = graph.Image2D($"downsample-{level}", source, resolutionScale: source.ResolutionScale / 2);
+                    // The filter reaches two source texels past what it reduces; cut off there, a small picture loses light.
+                    current = graph.Image2D(
+                        $"downsample-{level}", source, padding: 2 / source.ResolutionScale, resolutionScale: source.ResolutionScale / 2);
                     LightEffectPasses.Downsample(graph, source, current);
                 }
 
@@ -129,7 +134,7 @@ public sealed partial class Bokeh : FilterEffect
                 float ringDistance = values.Radius / values.Rings;
                 current = Round("shape", shapeSamples, values.Radius, ringDistance + values.Radius);
                 int round = 1;
-                for (float fill = ringDistance * FillRatio; fill * current.ResolutionScale >= 1; fill *= FillRatio / FillRings)
+                for (float fill = ringDistance * FillRatio; fill * values.Density * current.ResolutionScale >= 1; fill *= FillRatio / FillRings)
                     current = Round($"fill-{round++}", fillSamples, fill, 0);
 
                 if (current.ResolutionScale == 1)
@@ -196,7 +201,8 @@ public sealed partial class Bokeh : FilterEffect
             float total = 0;
             for (int i = 0; i < samples.values.length(); i++) {
                 vec4 s = samples.values[i];
-                color += texture(image, (position + s.xy * pc.radius - src.raster.xy) / src.raster.zw) * s.z;
+                // A point shows at the sample's offset from it, so a pixel reads the point the opposite way.
+                color += texture(image, (position - s.xy * pc.radius - src.raster.xy) / src.raster.zw) * s.z;
                 total += s.z;
             }
             color /= total;
