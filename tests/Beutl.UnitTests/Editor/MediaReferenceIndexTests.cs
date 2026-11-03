@@ -42,13 +42,10 @@ public class MediaReferenceIndexTests
         Uri linked = MediaUri(place is Place.Property or Place.Transition ? "linked.png" : "linked.mp4");
         link(linked);
 
-        // A node port holds its animation outside the hierarchy, so an edit of its key frames names no element
-        // and every element is walked again.
-        int walks = place == Place.NodePortKeyFrame ? 6 : 4;
         Assert.Multiple(() =>
         {
             Assert.That(Files(index), Is.EqualTo(new[] { MediaUri("first.mp4"), linked, MediaUri("last.mp4") }));
-            Assert.That(index.ScannedElements, Is.EqualTo(walks));
+            Assert.That(index.ScannedElements, Is.EqualTo(4));
         });
     }
 
