@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Collections.Immutable;
+using System.Text.Json.Nodes;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Language;
@@ -54,9 +55,58 @@ public sealed class ElementClipboardService : IElementClipboardService
             JsonNode multiNode = new JsonArray(
                 elements.Select(JsonNode (e) => CoreSerializer.SerializeToJsonObject(e)).ToArray());
             entries.Add(new ClipboardEntry(BeutlClipboardFormats.Elements, multiNode.ToJsonString()));
+            // A cut takes the clips out of their groups in the scene, and another scene never had them.
+            entries.Add(new ClipboardEntry(BeutlClipboardFormats.ElementGroups, SerializeGroups(elements)));
         }
 
         return await _clipboard.SetAsync(entries);
+    }
+
+    // The groups as far as the copied clips reach.
+    private static string SerializeGroups(IReadOnlyList<Element> elements)
+    {
+        var groups = new JsonArray();
+        if (elements[0].FindHierarchicalParent<Scene>() is { } scene)
+        {
+            var ids = new HashSet<Guid>(elements.Select(element => element.Id.Value));
+            foreach (ImmutableHashSet<Guid> group in scene.Groups)
+            {
+                string[] members = [.. group.Where(ids.Contains).Select(id => id.ToString())];
+                if (members.Length >= 2)
+                    groups.Add(new JsonArray([.. members.Select(id => (JsonNode)JsonValue.Create(id))]));
+            }
+        }
+
+        return groups.ToJsonString();
+    }
+
+    // Null when the clipboard has no groups that can be read, which leaves the groups of the scene to go by.
+    private static List<ImmutableHashSet<Guid>>? ParseGroups(string? json)
+    {
+        if (json is null || ClipboardJson.TryParse(json) is not JsonArray array) return null;
+
+        var groups = new List<ImmutableHashSet<Guid>>(array.Count);
+        foreach (JsonNode? node in array)
+        {
+            if (node is not JsonArray members) return null;
+
+            var group = ImmutableHashSet.CreateBuilder<Guid>();
+            foreach (JsonNode? member in members)
+            {
+                if (member is not JsonValue value
+                    || !value.TryGetValue(out string? text)
+                    || !Guid.TryParse(text, out Guid id))
+                {
+                    return null;
+                }
+
+                group.Add(id);
+            }
+
+            groups.Add(group.ToImmutable());
+        }
+
+        return groups;
     }
 
     public async Task<bool> CutAsync(Scene scene, IReadOnlyList<Element> elements, bool ripple = false)
@@ -133,6 +183,9 @@ public sealed class ElementClipboardService : IElementClipboardService
             return ElementPasteOutcome.Empty;
         }
 
+        List<ImmutableHashSet<Guid>>? groups =
+            ParseGroups(await _clipboard.TryGetStringAsync(BeutlClipboardFormats.ElementGroups));
+
         // Re-check after the awaited clipboard read: the layer may have been locked during the await.
         if (scene.IsLayerLocked(clickedLayer))
         {
@@ -148,8 +201,9 @@ public sealed class ElementClipboardService : IElementClipboardService
             oldElements[i] = element;
         }
 
-        DuplicateOutcome outcome = _duplicateService.DuplicateAtClickedPosition(
-            scene, oldElements, clickedFrame, clickedLayer);
+        DuplicateOutcome outcome = groups is null
+            ? _duplicateService.DuplicateAtClickedPosition(scene, oldElements, clickedFrame, clickedLayer)
+            : _duplicateService.DuplicateAtClickedPosition(scene, oldElements, clickedFrame, clickedLayer, groups);
 
         if (!outcome.Success)
         {

@@ -1,4 +1,5 @@
-﻿using Beutl.Editor;
+﻿using System.Text.Json.Nodes;
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Media;
@@ -117,6 +118,123 @@ public class ElementClipboardServiceTests
         {
             Assert.That(_scene.Children, Does.Contain(element));
             Assert.That(element.ZIndex.Value, Is.EqualTo(2));
+        });
+    }
+
+    // A cut takes the clips out of their groups in the scene, so only the clipboard still knows them.
+    [Test]
+    public async Task CutThenPaste_KeepsTheGroupsOfTheClips()
+    {
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
+        _scene.Groups.Add([e1.Id.Value, e2.Id.Value]);
+
+        await _service.CutAsync(_scene, [e1, e2]);
+        Assert.That(_scene.Groups, Is.Empty);
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(20), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.True);
+            Assert.That(_scene.Groups, Has.Count.EqualTo(1));
+            Assert.That(_scene.Groups[0], Is.EquivalentTo(_scene.Children.Select(child => child.Id.Value)));
+        });
+    }
+
+    [Test]
+    public async Task CutThenPaste_GivesAPartOfAGroupItsOwnGroup()
+    {
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
+        Element stays = AddElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(2));
+        _scene.Groups.Add([e1.Id.Value, e2.Id.Value, stays.Id.Value]);
+
+        await _service.CutAsync(_scene, [e1, e2]);
+        await _service.PasteAsync(_scene, MediaTime.FromSeconds(20), 0);
+
+        // What stayed is left alone in its group, so that group disbands.
+        Guid[] pasted = [.. _scene.Children.Where(child => child != stays).Select(child => child.Id.Value)];
+        Assert.That(_scene.Groups.Single(), Is.EquivalentTo(pasted));
+    }
+
+    [Test]
+    public async Task CopyThenPaste_MakesOneGroupForTheCopies()
+    {
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
+        _scene.Groups.Add([e1.Id.Value, e2.Id.Value]);
+
+        await _service.CopyAsync([e1, e2]);
+        await _service.PasteAsync(_scene, MediaTime.FromSeconds(20), 0);
+
+        Guid[] copies = [.. _scene.Children.Where(child => child != e1 && child != e2).Select(child => child.Id.Value)];
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Groups, Has.Count.EqualTo(2));
+            Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { e1.Id.Value, e2.Id.Value }));
+            Assert.That(_scene.Groups[1], Is.EquivalentTo(copies));
+        });
+    }
+
+    [Test]
+    public async Task CopyThenPaste_InAnotherScene_KeepsTheGroups()
+    {
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
+        _scene.Groups.Add([e1.Id.Value, e2.Id.Value]);
+        await _service.CopyAsync([e1, e2]);
+        using var other = new SceneHistoryHarness("beutl_clip_other", start: MediaTime.Zero, duration: MediaTime.FromSeconds(60));
+        var service = new ElementClipboardService(
+            other.History, _clipboard, new ElementDuplicateService(other.History), imageAccentColorFactory: () => Colors.Magenta);
+
+        await service.PasteAsync(other.Scene, MediaTime.FromSeconds(20), 0);
+
+        Assert.That(other.Scene.Groups.Single(), Is.EquivalentTo(other.Scene.Children.Select(child => child.Id.Value)));
+    }
+
+    // What the scene grouped after the copy was not grouped when it was copied.
+    [Test]
+    public async Task CopyThenPaste_TakesTheGroupsFromTheTimeOfTheCopy()
+    {
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
+
+        await _service.CopyAsync([e1, e2]);
+        _scene.Groups.Add([e1.Id.Value, e2.Id.Value]);
+        await _service.PasteAsync(_scene, MediaTime.FromSeconds(20), 0);
+
+        Assert.That(_scene.Groups, Has.Count.EqualTo(1));
+    }
+
+    // The clipboard of an earlier version has only the clips, and the scene is all there is to go by.
+    [Test]
+    public async Task Paste_WithoutGroupsOnTheClipboard_UsesTheGroupsOfTheScene()
+    {
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
+        _scene.Groups.Add([e1.Id.Value, e2.Id.Value]);
+        _clipboard.SetSingle(BeutlClipboardFormats.Elements, new JsonArray(
+            CoreSerializer.SerializeToJsonObject(e1), CoreSerializer.SerializeToJsonObject(e2)).ToJsonString());
+
+        await _service.PasteAsync(_scene, MediaTime.FromSeconds(20), 0);
+
+        Assert.That(_scene.Groups, Has.Count.EqualTo(2));
+    }
+
+    [Test]
+    public async Task Paste_WithUnreadableGroups_StillPastesTheClips()
+    {
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
+        await _service.CopyAsync([e1, e2]);
+        _clipboard.SetSingle(BeutlClipboardFormats.ElementGroups, "[[\"not a guid\"], 3, {");
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(20), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.True);
+            Assert.That(_scene.Children, Has.Count.EqualTo(4));
         });
     }
 

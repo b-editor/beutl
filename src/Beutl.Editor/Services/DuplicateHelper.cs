@@ -161,7 +161,8 @@ public static class DuplicateHelper
         Element[] sourceElements,
         MediaTime anchorStart,
         int anchorZIndex,
-        ElementOverlapHandling overlapHandling)
+        ElementOverlapHandling overlapHandling,
+        IEnumerable<ImmutableHashSet<Guid>>? sourceGroups = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(newElements);
@@ -191,7 +192,7 @@ public static class DuplicateHelper
             newElement.Uri = ElementFileNaming.GetUri(scene.Uri, newElement.Id.Value);
         }
 
-        List<ImmutableHashSet<Guid>> newGroups = MapGroups(scene.Groups, sourceElements, newElements);
+        List<ImmutableHashSet<Guid>> newGroups = MapGroups(sourceGroups ?? scene.Groups, sourceElements, newElements);
         if (newGroups.Count > 0)
         {
             scene.Groups.AddRange(newGroups);
