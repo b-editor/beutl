@@ -56,6 +56,7 @@ internal static class Helper
         ILogger logger,
         IEnumerable<SourceRepository> repositories,
         ISet<SourcePackageDependencyInfo> availablePackages,
+        IReadOnlyDictionary<string, PackageIdentity>? selectedPackages = null,
         CancellationToken cancellationToken = default)
     {
         if (availablePackages.Contains(package) || IncludedInPackageDependencies(package.Id, package.Version)) return;
@@ -97,13 +98,19 @@ internal static class Helper
             availablePackages.Add(dependencyInfo);
             foreach (PackageDependency? dependency in dependencyInfo.Dependencies)
             {
+                // The selected version is the one installed, in its installed spelling; the edge's minimum may not be.
+                PackageIdentity next = selectedPackages?.GetValueOrDefault(dependency.Id) is { } selected
+                                       && dependency.VersionRange.Satisfies(selected.Version)
+                    ? selected
+                    : new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion);
                 await GetPackageDependencies(
-                    new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion),
+                    next,
                     framework,
                     cacheContext,
                     logger,
                     repositories,
                     availablePackages,
+                    selectedPackages,
                     cancellationToken)
                     .ConfigureAwait(false);
             }
