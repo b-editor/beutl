@@ -207,9 +207,11 @@ public class PluginDependencyResolutionTests
     public async Task Re_resolution_goes_to_the_sources_for_what_the_saved_selection_does_not_cover()
     {
         CreatePackage("Common", "1.0.0");
-        CreatePackage("New", "1.0.0");
+        string added = CreatePackage("New", "1.0.0");
         string root = CreatePackage("Root", "1.0.0", ("Common", "1.0.0"), ("New", "1.0.0"));
         SaveSelection(root, ("Common", "1.0.0"));
+        // Installed, it would be found without going to a source.
+        Directory.Delete(added, true);
         using var client = new HttpClient();
         await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
 
