@@ -53,7 +53,8 @@ public sealed class RingModulatorNode : AudioNode
 
                 for (int i = 0; i < chunkSize; i++)
                 {
-                    float mix = mixes[i] / 100f;
+                    // Easing can carry an animated mix past its range, where the carrier would amplify.
+                    float mix = Math.Clamp(mixes[i], 0, 100) / 100f;
                     carrier[i] = 1f - mix + mix * (float)Math.Sin(_phase);
                     _phase = (_phase + step * frequencies[i]) % Tau;
                 }

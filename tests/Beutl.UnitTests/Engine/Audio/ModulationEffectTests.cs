@@ -69,6 +69,26 @@ public class ModulationEffectTests
             Assert.That(data[i], Is.EqualTo(continuous[Window + i]).Within(0.001f), $"sample {i}");
     }
 
+    // This easing carries the mix past the top of its range before it settles.
+    [Test]
+    public void RingModulator_does_not_amplify_while_easing_carries_the_mix_out_of_its_range()
+    {
+        var effect = new RingModulatorEffect { Frequency = { Value = 100 } };
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0 } });
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(1) },
+            Value = { Value = 100 },
+            Easing = { Value = new BackEaseOut() },
+        });
+        effect.Mix.SetKeyFrameAnimation(animation);
+
+        float[] output = Run(effect, _ => 0.5f, SampleRate);
+
+        Assert.That(output, Has.All.InRange(-0.5001f, 0.5001f));
+    }
+
     [Test]
     public void Vibrato_with_no_depth_leaves_the_input_alone()
     {
