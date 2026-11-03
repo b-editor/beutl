@@ -241,6 +241,14 @@ public class AnimationTimeMappingTests
             graphTab.ToggleKeyFrame(treeItem);
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
 
+            // The keyframe commands of the property's own menu go by the same clock.
+            clock.Seek(MediaTime.FromSeconds(global ? 0.2 : 5.2));
+            property.InsertKeyFrame(clock.CurrentTime.Value);
+            Assert.That(animation.KeyFrames.Select(key => key.KeyTime.Value), Does.Contain(MediaTime.FromSeconds(0.2)));
+            Assert.That(property.IsAtKeyFrame.Value, Is.True);
+            property.RemoveKeyFrame(clock.CurrentTime.Value);
+            Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
+
             clock.Seek(MediaTime.FromSeconds(global ? 1 : 6));
             element.Start.Value = MediaTime.FromSeconds(6);
             Assert.That(property.IsAtKeyFrame.Value, Is.True);
