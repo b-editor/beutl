@@ -7,6 +7,7 @@ namespace Beutl.IO;
 internal sealed class StagedOutputFile : IDisposable
 {
     private readonly string _directory;
+    private bool _keepDirectory;
 
     public StagedOutputFile(string destinationPath)
     {
@@ -69,8 +70,7 @@ internal sealed class StagedOutputFile : IDisposable
             return [DestinationPath];
         }
 
-        // Beside the staging directory and not in it: what cannot be put back has to outlive Dispose.
-        string backups = _directory + "-previous";
+        string backups = Path.Combine(_directory, $".previous-{Guid.NewGuid():N}");
         Directory.CreateDirectory(backups);
         var started = new Stack<(string Destination, string? Backup)>();
         try
@@ -99,14 +99,14 @@ internal sealed class StagedOutputFile : IDisposable
             foreach ((string destination, string? backup) in started)
                 restored &= TryRestore(destination, backup);
 
-            if (!restored)
-                throw new IOException($"The output could not be published, and some earlier files could not be put back. They are in '{backups}'.", ex);
+            if (restored)
+                throw;
 
-            DeleteDirectory(backups);
-            throw;
+            // The staging directory now holds the only copy of what could not be put back.
+            _keepDirectory = true;
+            throw new IOException($"The output could not be published, and some earlier files could not be put back. They are in '{backups}'.", ex);
         }
 
-        DeleteDirectory(backups);
         return [.. moves.Select(move => move.Destination)];
     }
 
@@ -153,19 +153,20 @@ internal sealed class StagedOutputFile : IDisposable
         }
     }
 
-    public void Dispose() => DeleteDirectory(_directory);
-
-    private static void DeleteDirectory(string directory)
+    public void Dispose()
     {
+        if (_keepDirectory)
+            return;
+
         try
         {
-            if (Directory.Exists(directory))
-                Directory.Delete(directory, recursive: true);
+            if (Directory.Exists(_directory))
+                Directory.Delete(_directory, recursive: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // Cleanup must not mask the original failure or turn a published output into a failure.
-            Trace.TraceWarning("Failed to remove output staging directory {0}: {1}", directory, ex.Message);
+            Trace.TraceWarning("Failed to remove output staging directory {0}: {1}", _directory, ex.Message);
         }
     }
 }

@@ -155,12 +155,9 @@ public class StagedOutputFileTests
                 failure = Assert.Throws<IOException>(() => output.Commit(files, CancellationToken.None))!;
             }
 
-            string kept = Directory.GetDirectories(root).Single(path => path.EndsWith("-previous", StringComparison.Ordinal));
-            Assert.Multiple(() =>
-            {
-                Assert.That(failure.Message, Does.Contain(kept));
-                Assert.That(File.ReadAllText(Path.Combine(kept, "frame_0.png")), Is.EqualTo("old"));
-            });
+            string kept = Directory.GetFiles(root, "frame_0.png", SearchOption.AllDirectories)
+                .Single(path => File.ReadAllText(path) == "old");
+            Assert.That(failure.Message, Does.Contain(Path.GetDirectoryName(kept)));
         }
         finally { Directory.Delete(root, true); }
     }
