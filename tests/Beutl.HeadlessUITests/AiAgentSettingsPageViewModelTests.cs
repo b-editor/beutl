@@ -598,6 +598,103 @@ public sealed class AiAgentSettingsPageViewModelTests
     }
 
     [AvaloniaTest]
+    public async Task The_mcp_layout_waits_for_every_target_the_manifest_knows_of()
+    {
+        // Canonical, as the installer records a path.
+        string root = FilePathComparison.ResolveCanonicalPath(
+            Directory.CreateDirectory(Path.Combine(BeutlHomeIsolation.CurrentHome!, "agent-targets-" + Guid.NewGuid().ToString("N"))).FullName);
+        string otherRoot = Directory.CreateDirectory(Path.Combine(root, "other")).FullName;
+        string selected = Path.Combine(root, ".mcp.json");
+        string other = Path.Combine(otherRoot, ".mcp.json");
+        File.WriteAllText(other, "{}");
+        string manifestPath = AgentToolkitInstallManifestStore.GetDefaultPath();
+        // An install from an earlier layout, into a target this reinstall does not select.
+        AgentToolkitInstallManifestStore.Save(manifestPath, new AgentToolkitInstallManifest(
+            "stale", [], 0, [new InstalledMcpTarget(other, IsConfigFile: true, 0)]));
+        using var viewModel = new AiAgentSettingsPageViewModel(new AiAgentConfig());
+        viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
+        viewModel.ProjectRoot.Value = root;
+        viewModel.McpCommand.Value = "beutl-mcp";
+
+        await viewModel.InstallAsync();
+        AgentToolkitInstallManifest first = AgentToolkitInstallManifestStore.Load(manifestPath)!;
+        string firstStatus = viewModel.Status.Value;
+        string firstNotice = AiAgentSettingsPageViewModel.BuildUpdateNotice(first);
+
+        viewModel.ProjectRoot.Value = otherRoot;
+        await viewModel.InstallAsync();
+        AgentToolkitInstallManifest second = AgentToolkitInstallManifestStore.Load(manifestPath)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.McpLayout, Is.EqualTo(0), "The other target still holds its old entry.");
+            Assert.That(first.McpTargets, Is.EquivalentTo(new[]
+            {
+                new InstalledMcpTarget(selected, IsConfigFile: true, AgentToolkitInstallManifest.CurrentMcpLayout),
+                new InstalledMcpTarget(other, IsConfigFile: true, 0),
+            }));
+            Assert.That(AgentToolkitInstallManifestStore.IsMcpLayoutOutdated(first), Is.True);
+            Assert.That(firstStatus, Does.Contain(other), "The reinstall says which target it did not reach.");
+            Assert.That(firstNotice, Does.Contain(other), "So does the notice at the next start.");
+            Assert.That(firstNotice, Does.Not.Contain(selected));
+            Assert.That(second.McpLayout, Is.EqualTo(AgentToolkitInstallManifest.CurrentMcpLayout));
+            Assert.That(second.McpTargets!.Select(target => target.Layout),
+                Is.All.EqualTo(AgentToolkitInstallManifest.CurrentMcpLayout));
+            Assert.That(viewModel.Status.Value, Does.Not.Contain(other));
+            Assert.That(AiAgentSettingsPageViewModel.BuildUpdateNotice(second), Does.Not.Contain(other));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task A_target_whose_configuration_is_gone_does_not_hold_the_layout_back()
+    {
+        string root = FilePathComparison.ResolveCanonicalPath(
+            Directory.CreateDirectory(Path.Combine(BeutlHomeIsolation.CurrentHome!, "agent-gone-" + Guid.NewGuid().ToString("N"))).FullName);
+        string manifestPath = AgentToolkitInstallManifestStore.GetDefaultPath();
+        string gone = Path.Combine(root, "gone", ".mcp.json");
+        AgentToolkitInstallManifestStore.Save(manifestPath, new AgentToolkitInstallManifest(
+            "stale", [], 0, [new InstalledMcpTarget(gone, IsConfigFile: true, 0)]));
+        using var viewModel = new AiAgentSettingsPageViewModel(new AiAgentConfig());
+        viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
+        viewModel.ProjectRoot.Value = root;
+        viewModel.McpCommand.Value = "beutl-mcp";
+
+        await viewModel.InstallAsync();
+        AgentToolkitInstallManifest manifest = AgentToolkitInstallManifestStore.Load(manifestPath)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manifest.McpLayout, Is.EqualTo(AgentToolkitInstallManifest.CurrentMcpLayout));
+            Assert.That(manifest.McpTargets!.Select(target => target.Location), Is.EqualTo(new[] { Path.Combine(root, ".mcp.json") }));
+            Assert.That(viewModel.Status.Value, Does.Not.Contain(gone));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task A_reinstall_without_mcp_keeps_the_targets_and_their_layout()
+    {
+        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "agent-no-mcp-keep-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string manifestPath = AgentToolkitInstallManifestStore.GetDefaultPath();
+        var recorded = new InstalledMcpTarget("Claude Code (Global)", IsConfigFile: false, 0);
+        AgentToolkitInstallManifestStore.Save(manifestPath, new AgentToolkitInstallManifest("stale", [], 0, [recorded]));
+        using var viewModel = new AiAgentSettingsPageViewModel(new AiAgentConfig());
+        viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
+        viewModel.ProjectRoot.Value = root;
+        viewModel.InstallMcp.Value = false;
+
+        await viewModel.InstallAsync();
+        AgentToolkitInstallManifest manifest = AgentToolkitInstallManifestStore.Load(manifestPath)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manifest.McpLayout, Is.EqualTo(0));
+            Assert.That(manifest.McpTargets, Is.EqualTo(new[] { recorded }));
+            Assert.That(viewModel.Status.Value, Does.Contain(recorded.Location));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task Manifest_settles_the_mcp_layout_for_an_agent_that_cannot_take_an_mcp_entry()
     {
         string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "agent-no-mcp-" + Guid.NewGuid().ToString("N"));

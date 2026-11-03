@@ -126,6 +126,78 @@ public sealed class AgentToolkitInstallManifestTests
     }
 
     [Test]
+    public void Manifests_written_before_targets_were_recorded_have_none()
+    {
+        string path = Path.Combine(_tempRoot, "manifest.json");
+        File.WriteAllText(path, """{ "AssetsHash": "a", "Files": [], "McpLayout": 1 }""");
+
+        AgentToolkitInstallManifest? manifest = AgentToolkitInstallManifestStore.Load(path);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manifest!.McpTargets, Is.Null);
+            Assert.That(AgentToolkitInstallManifestStore.GetOutdatedMcpTargets(manifest), Is.Empty);
+            Assert.That(AgentToolkitInstallManifestStore.UpdateMcpTargets(manifest.McpTargets, null), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Recorded_targets_survive_a_save_and_load()
+    {
+        string path = Path.Combine(_tempRoot, "manifest.json");
+        InstalledMcpTarget[] targets =
+        [
+            new(Path.Combine(_tempRoot, ".mcp.json"), IsConfigFile: true, 1),
+            new("Claude Code (Global)", IsConfigFile: false, 1),
+        ];
+
+        AgentToolkitInstallManifestStore.Save(path, new AgentToolkitInstallManifest("a", [], 1, targets));
+
+        Assert.That(AgentToolkitInstallManifestStore.Load(path)!.McpTargets, Is.EqualTo(targets));
+    }
+
+    [Test]
+    public void Outdated_targets_are_the_earlier_layouts_that_can_still_be_reinstalled()
+    {
+        string file = Path.Combine(_tempRoot, ".mcp.json");
+        File.WriteAllText(file, "{}");
+        var oldFile = new InstalledMcpTarget(file, IsConfigFile: true, 0);
+        var oldCli = new InstalledMcpTarget("Claude Code (Global)", IsConfigFile: false, 0);
+        var goneFile = new InstalledMcpTarget(Path.Combine(_tempRoot, "gone.json"), IsConfigFile: true, 0);
+        var current = new InstalledMcpTarget(Path.Combine(_tempRoot, "current.json"), IsConfigFile: true, AgentToolkitInstallManifest.CurrentMcpLayout);
+        File.WriteAllText(current.Location, "{}");
+
+        IReadOnlyList<InstalledMcpTarget> outdated = AgentToolkitInstallManifestStore.GetOutdatedMcpTargets(
+            new AgentToolkitInstallManifest("a", [], 0, [oldFile, oldCli, goneFile, current]));
+
+        Assert.That(outdated, Is.EqualTo(new[] { oldFile, oldCli }));
+    }
+
+    [Test]
+    public void An_install_replaces_its_own_record_and_keeps_the_others()
+    {
+        string file = Path.Combine(_tempRoot, ".mcp.json");
+        string other = Path.Combine(_tempRoot, "other.json");
+        File.WriteAllText(file, "{}");
+        File.WriteAllText(other, "{}");
+        var old = new InstalledMcpTarget(file, IsConfigFile: true, 0);
+        var otherOld = new InstalledMcpTarget(other, IsConfigFile: true, 0);
+        var goneFile = new InstalledMcpTarget(Path.Combine(_tempRoot, "gone.json"), IsConfigFile: true, 0);
+        var cli = new InstalledMcpTarget("Claude Code (Global)", IsConfigFile: false, 0);
+        var installed = old with { Layout = AgentToolkitInstallManifest.CurrentMcpLayout };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                AgentToolkitInstallManifestStore.UpdateMcpTargets([old, otherOld, goneFile, cli], installed),
+                Is.EquivalentTo(new[] { installed, otherOld, cli }));
+            Assert.That(
+                AgentToolkitInstallManifestStore.UpdateMcpTargets([old, otherOld, goneFile, cli], null),
+                Is.EquivalentTo(new[] { old, otherOld, cli }), "An install that wrote no entry changes no record.");
+        });
+    }
+
+    [Test]
     public void Stale_files_are_deleted_only_when_unmodified_and_no_longer_current()
     {
         string staleDir = Path.Combine(_tempRoot, "old-skill");
