@@ -529,6 +529,83 @@ public class ElementClipboardServiceTests
         });
     }
 
+    private void SetClipboard(string format)
+    {
+        Element original = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 5);
+        if (format == BeutlClipboardFormats.Elements)
+        {
+            _clipboard.SetSingle(format, new System.Text.Json.Nodes.JsonArray(CoreSerializer.SerializeToJsonObject(original)).ToJsonString());
+        }
+        else if (format == BeutlClipboardFormats.Element)
+        {
+            _clipboard.SetSingle(format, CoreSerializer.SerializeToJsonString(original));
+        }
+        else
+        {
+            _clipboard.SetBitmap([1, 2, 3, 4]);
+        }
+    }
+
+    [TestCase(BeutlClipboardFormats.Elements)]
+    [TestCase(BeutlClipboardFormats.Element)]
+    [TestCase(BeutlClipboardFormats.Bitmap)]
+    public async Task PasteAsync_LockedTargetLayer_ReportsTheLock(string format)
+    {
+        SetClipboard(format);
+        _scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 1 }, IsLocked = { Value = true } });
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(10), 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.False);
+            Assert.That(outcome.AddFailure, Is.TypeOf<LockedElementLayerFailure>());
+        });
+    }
+
+    [TestCase(BeutlClipboardFormats.Elements)]
+    [TestCase(BeutlClipboardFormats.Element)]
+    [TestCase(BeutlClipboardFormats.Bitmap)]
+    public async Task PasteAsync_UnsavedScene_ReportsThatItIsNotSaved(string format)
+    {
+        SetClipboard(format);
+        _scene.Uri = null;
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(10), 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.False);
+            Assert.That(outcome.AddFailure, Is.TypeOf<ElementSceneNotSavedFailure>());
+        });
+    }
+
+    [TestCase(BeutlClipboardFormats.Elements)]
+    [TestCase(BeutlClipboardFormats.Element)]
+    [TestCase(BeutlClipboardFormats.Bitmap)]
+    public async Task PasteAsync_NoFreeSlot_ReportsTheFailure(string format)
+    {
+        SetClipboard(format);
+        AddElement(MediaTime.Zero, MediaTime.FromSeconds(60));
+        LockRowsAbove(0);
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.Zero, 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.False);
+            Assert.That(outcome.AddFailure, Is.TypeOf<InvalidElementMaterializationFailure>());
+        });
+    }
+
+    [Test]
+    public async Task PasteAsync_EmptyClipboard_ReportsNothing()
+    {
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(10), 1);
+
+        Assert.That(outcome.AddFailure, Is.Null);
+    }
+
     [Test]
     public async Task PasteAsync_SingleElementFormat_LockedTargetLayer_IsRefused()
     {
