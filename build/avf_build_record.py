@@ -51,7 +51,7 @@ def write_record(root, toolchain_version):
         "toolchain": toolchain_version,
         "dylibs": {rid: hashlib.sha256(dylib_path(root, rid).read_bytes()).hexdigest() for rid in RIDS},
     }
-    (root / RECORD).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8", newline="\n")
+    (root / RECORD).write_bytes((json.dumps(record, indent=2) + "\n").encode())
 
 
 def verify(root):
