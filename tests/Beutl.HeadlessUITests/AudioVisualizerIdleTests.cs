@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Reflection;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media;
@@ -113,18 +114,46 @@ public sealed class AudioVisualizerIdleTests
         Assert.That(meter.IsSettling, Is.False);
     }
 
+    // Mastered music peaks at full scale all the time, so a pause often lands on samples that keep the clip light on.
     [AvaloniaTest]
-    public void The_spectrum_keeps_drawing_until_its_bars_have_settled()
+    public void The_meter_rests_on_samples_that_keep_a_clip_light_on()
     {
-        var spectrum = new SpectrumControl { RingBuffer = Ring(), PlayheadTime = s_end, Smoothing = 80 };
+        var meter = new LevelMeterControl { RingBuffer = Ring(amplitude: 1f), PlayheadTime = s_end };
+        using RenderTargetBitmap bitmap = Arrange(meter);
+        bitmap.Render(meter);
+
+        var limit = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        while (meter.IsSettling && DateTime.UtcNow < limit)
+        {
+            Thread.Sleep(30);
+            bitmap.Render(meter);
+        }
+
+        Assert.That(meter.IsSettling, Is.False);
+    }
+
+    // The heaviest smoothing takes the smallest steps, which must not pass for having arrived.
+    [AvaloniaTest]
+    [TestCase(80f)]
+    [TestCase(95f)]
+    public void The_spectrum_keeps_drawing_until_its_bars_have_settled(float smoothing)
+    {
+        var spectrum = new SpectrumControl { RingBuffer = Ring(), PlayheadTime = s_end, Smoothing = smoothing };
         using RenderTargetBitmap bitmap = Arrange(spectrum);
         bitmap.Render(spectrum);
         Assert.That(spectrum.IsSettling, Is.True, "the bars start from nothing");
 
-        for (int i = 0; i < 100 && spectrum.IsSettling; i++)
+        for (int i = 0; i < 500 && spectrum.IsSettling; i++)
             bitmap.Render(spectrum);
 
         Assert.That(spectrum.IsSettling, Is.False);
+        float[] settled = [.. Bars(spectrum)];
+        for (int i = 0; i < 500; i++)
+            bitmap.Render(spectrum);
+        Assert.That(settled, Is.EqualTo(Bars(spectrum)).Within(0.01f), "where the bars stop is where they were going");
+
+        static float[] Bars(SpectrumControl control) => (float[])typeof(SpectrumControl)
+            .GetField("_smoothed", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(control)!;
     }
 
     private static RenderTargetBitmap Arrange(Control control)

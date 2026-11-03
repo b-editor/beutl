@@ -78,7 +78,8 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         if (peakR >= ClipThreshold) _clipRAt = now;
         bool clipL = _clipLAt is { } cl && now - cl < s_clipHold;
         bool clipR = _clipRAt is { } cr && now - cr < s_clipHold;
-        _isSettling |= clipL || clipR;
+        // A light the samples on screen hold on changes nothing until they do. One they have let go of is waiting to go out.
+        _isSettling |= (clipL && peakL < ClipThreshold) || (clipR && peakR < ClipThreshold);
 
         UpdateLoudnessAndTruePeak(buffer, elapsed);
 
@@ -137,7 +138,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         {
             double x = BarPadding + ch * (barWidth + gap);
             bool clip = _clipAts[ch] is { } at && now - at < s_clipHold;
-            _isSettling |= clip;
+            _isSettling |= clip && _channelPeaks[ch] < ClipThreshold;
             DrawChannelLabel(context, AudioChannelMap.GetChannelName(_surroundLayout, ch), x + barWidth / 2, 0);
             DrawClipLed(context, x, clipLedY, barWidth, clipLedHeight, clip);
             DrawChannel(context, x, topInset, barWidth, barHeight, _channelRms[ch], _peakHolds[ch]);

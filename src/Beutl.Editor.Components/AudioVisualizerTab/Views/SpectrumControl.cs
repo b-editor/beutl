@@ -98,9 +98,9 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
             float db = MathF.Max(Fft.MagnitudeToDb(mags[i], referenceMag), minDb);
             float norm = (db - minDb) / rangeDb;
             if (norm < 0) norm = 0;
-            float previous = _smoothed[i];
-            _smoothed[i] = previous * smoothFactor + norm * newWeight;
-            _isSettling |= MathF.Abs(_smoothed[i] - previous) > SettledBarDelta;
+            _smoothed[i] = _smoothed[i] * smoothFactor + norm * newWeight;
+            // How far the bar still has to go: with heavy smoothing its last step is much smaller than that.
+            _isSettling |= MathF.Abs(_smoothed[i] - norm) > SettledBarDelta;
         }
 
         var f = new FormattedText(
