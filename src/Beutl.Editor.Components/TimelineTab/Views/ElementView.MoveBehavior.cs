@@ -127,7 +127,7 @@ public sealed partial class ElementView
                     .RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
                 if (newStart < MediaTime.Zero) newStart = MediaTime.Zero;
-                SnapResult snap = view.SnapTime(newStart, scale, _lastAlt);
+                SnapResult snap = view.SnapTime(newStart, scale, _lastAlt, moving: _relatedElements);
                 newStart = snap.Time;
 
                 var newTop = Math.Max(e.GetPosition(timeline.TimelinePanel).Y - _start.Y, 0);

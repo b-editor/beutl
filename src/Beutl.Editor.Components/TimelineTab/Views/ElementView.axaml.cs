@@ -473,7 +473,9 @@ public sealed partial class ElementView : UserControl
         }
     }
 
-    private SnapResult SnapTime(MediaTime time, float scale, bool disabled, int? sameZIndex = null)
+    // The clips moving along with this one leave where they are, so their edges do not count.
+    private SnapResult SnapTime(
+        MediaTime time, float scale, bool disabled, int? sameZIndex = null, IEnumerable<ElementViewModel>? moving = null)
     {
         Element model = ViewModel.Model;
         TimelineTabViewModel timeline = ViewModel.Timeline;
@@ -484,8 +486,11 @@ public sealed partial class ElementView : UserControl
         }
 
         IEditorClock clock = timeline.EditorContext.GetRequiredService<IEditorClock>();
+        IEnumerable<Element> others = moving is null
+            ? timeline.Scene.Children
+            : timeline.Scene.Children.Except(moving.Select(item => item.Model));
         IEnumerable<MediaTime> candidates = SnapHelper
-            .CollectElementCandidates(timeline.Scene.Children, model, sameZIndex)
+            .CollectElementCandidates(others, model, sameZIndex)
             .Concat(SnapHelper.CollectSceneCandidates(timeline.Scene, clock.CurrentTime.Value));
 
         return SnapHelper.Snap(time, candidates, scale);

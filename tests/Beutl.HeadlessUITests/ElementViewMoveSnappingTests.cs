@@ -64,6 +64,59 @@ public class ElementViewMoveSnappingTests
             => host.View.GetVisualDescendants().OfType<ElementView>().SingleOrDefault(v => v.DataContext == model);
     }
 
+    // The rest of a group leaves where it was along with the clip, so that is no place to stop.
+    [AvaloniaTest]
+    public async Task Move_DoesNotSnapToTheOldEdgesOfTheClipsMovingWithIt()
+    {
+        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
+        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = true;
+        Window? window = null;
+        TimelineTabView? view = null;
+        try
+        {
+            ElementDescription Clip(double start, double length, int layer) => new(
+                MediaTime.FromSeconds(start), MediaTime.FromSeconds(length), layer,
+                new ElementSource.EngineObject(() => new RectShape()));
+            (EditViewModel editor, TimelineTabViewModel timeline) = await TimelineTestHost.OpenTimelineAsync(
+                "move-snapping-own-group", [Clip(2, 2, 0), Clip(6, 1, 1), Clip(8, 1, 2)]);
+            ElementViewModel clip = timeline.GetViewModelFor(editor.Scene.Children.Single(e => e.ZIndex.Value == 0))!;
+            Element companion = editor.Scene.Children.Single(e => e.ZIndex.Value == 1);
+            editor.Scene.Groups.Add([clip.Model.Id.Value, companion.Id.Value]);
+            view = new TimelineTabView { DataContext = timeline };
+            window = new Window { Content = view, Width = 1600, Height = 420 };
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            Border border = view.GetVisualDescendants().OfType<ElementView>()
+                .Single(v => ReferenceEquals(v.DataContext, clip)).FindControl<Border>("border")!;
+            Point press = border.TranslatePoint(new Point(40, border.Bounds.Height / 2), window)!.Value;
+            TimelineTestHost.WaitForHitTest(window, border, press);
+            window.MouseMove(press);
+            window.MouseDown(press, MouseButton.Left);
+
+            Move(6.02);
+            Assert.Multiple(() =>
+            {
+                Assert.That(clip.BorderMargin.Value.Left, Is.EqualTo(MediaTime.FromSeconds(181.0 / 30).TimeToPixel(1)).Within(0.001));
+                Assert.That(timeline.SnapBarPosition.Value, Is.Null, "the start of the clip moving along with it");
+            });
+
+            Move(8.02);
+            Assert.Multiple(() =>
+            {
+                Assert.That(clip.BorderMargin.Value.Left, Is.EqualTo(MediaTime.FromSeconds(8).TimeToPixel(1)).Within(0.001));
+                Assert.That(timeline.SnapBarPosition.Value, Is.Not.Null, "the start of a clip that stays");
+            });
+
+            void Move(double start) => window.MouseMove(
+                press + new Vector(MediaTime.FromSeconds(start - 2).TimeToPixel(1), 0), RawInputModifiers.LeftMouseButton);
+        }
+        finally
+        {
+            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
+            TimelineTestHost.Close(view, window);
+        }
+    }
+
     [AvaloniaTest]
     [TestCase(150, 1f, false)]
     [TestCase(151, 1f, false)]
