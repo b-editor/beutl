@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -292,6 +293,7 @@ public sealed class EasingCurveEditor : Control
             _selected = FirstMovable(backwards ? ControlPoint.Second : ControlPoint.First);
         }
 
+        AnnounceToAutomation();
         InvalidateVisual();
     }
 
@@ -316,6 +318,7 @@ public sealed class EasingCurveEditor : Control
                 {
                     _selected = target;
                     e.Handled = true;
+                    AnnounceToAutomation();
                     InvalidateVisual();
                 }
 
@@ -353,6 +356,7 @@ public sealed class EasingCurveEditor : Control
         if (Easing is SplineEasing end && !ReferenceEquals(spline, end))
         {
             Edited?.Invoke(this, new EasingCurveEditedEventArgs(spline, end));
+            AnnounceToAutomation();
         }
 
         return true;
@@ -612,8 +616,22 @@ public sealed class EasingCurveEditor : Control
         }
     }
 
+    private void AnnounceToAutomation() => (ControlAutomationPeer.FromElement(this) as CurveAutomationPeer)?.AnnounceChanges();
+
     private sealed class CurveAutomationPeer(EasingCurveEditor owner) : ControlAutomationPeer(owner)
     {
+        private string? _announced;
+
+        // Focus stays on the curve when its selected handle or the values change, so nothing else would say so.
+        public void AnnounceChanges()
+        {
+            string? helpText = GetHelpText();
+            if (helpText == _announced) return;
+
+            RaisePropertyChangedEvent(AutomationElementIdentifiers.HelpTextProperty, _announced, helpText);
+            _announced = helpText;
+        }
+
         protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Custom;
 
         protected override string GetNameCore() => base.GetNameCore() is { Length: > 0 } name ? name : Strings.Easing;

@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -715,6 +716,7 @@ public sealed class EasingEditorTests
     public void Assistive_technology_hears_which_control_point_the_arrow_keys_move()
     {
         var curve = new EasingCurveEditor { Easing = new SplineEasing(0.25f, 0.1f, 0.75f, 0.9f) };
+        curve.Editing += (_, e) => curve.Easing = e.NewValue;
         var window = new Window { Content = curve, Width = 300, Height = 200 };
         try
         {
@@ -723,9 +725,22 @@ public sealed class EasingEditorTests
             Assert.That(curve.Focus(NavigationMethod.Tab), Is.True);
             Assert.That(peer.GetHelpText(), Does.StartWith(Strings.EasingCurve_FirstSelected));
 
+            var announced = new List<string?>();
+            peer.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == AutomationElementIdentifiers.HelpTextProperty)
+                    announced.Add(e.NewValue as string);
+            };
+
             Press(window, Key.Tab, PhysicalKey.Tab);
 
             Assert.That(peer.GetHelpText(), Does.StartWith(Strings.EasingCurve_SecondSelected));
+            Assert.That(announced, Is.EqualTo(new[] { peer.GetHelpText() }));
+
+            Press(window, Key.Up, PhysicalKey.ArrowUp);
+
+            Assert.That(announced, Has.Count.EqualTo(2), "the values changed");
+            Assert.That(announced[1], Is.EqualTo(peer.GetHelpText()));
         }
         finally
         {
