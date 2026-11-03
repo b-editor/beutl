@@ -63,6 +63,7 @@ public sealed partial class SchemaGenerator
         ("gradient", "Brush", true),
         ("stroke", "Pen", true),
         ("ease", "Easing", true),
+        ("transition", "ClipTransition", true),
         ("audio", "AudioEffect", false),
         ("soundEffect", "AudioEffect", false),
         ("shape", "Drawable", false),
@@ -91,7 +92,8 @@ public sealed partial class SchemaGenerator
         KnownLibraryItemFormats.Pen,
         KnownLibraryItemFormats.Easing,
         KnownLibraryItemFormats.GraphNode,
-        KnownLibraryItemFormats.EngineObject
+        KnownLibraryItemFormats.EngineObject,
+        KnownLibraryItemFormats.ClipTransition
     ];
 
     private static readonly Lazy<ExampleSpec[]> s_exampleSpecs = new(CreateExampleSpecs);

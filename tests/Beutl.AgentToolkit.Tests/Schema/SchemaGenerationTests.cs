@@ -7,6 +7,7 @@ using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.Animation.Easings;
 using Beutl.Audio.Effects;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -539,6 +540,7 @@ public sealed class SchemaGenerationTests
         IReadOnlyList<EffectRecipeSummary> recipes = generator.ListEffectRecipes("transition");
         string[] names =
         [
+            "transition-cross-dissolve",
             "transition-overlap-dissolve-transform-continuation",
             "transition-directional-sweep-wipe",
             "transition-mask-reveal",
@@ -557,12 +559,71 @@ public sealed class SchemaGenerationTests
                 Assert.That(recipe.Patch["Elements"], Is.Not.Null);
             }
 
+            Assert.That(generator.GetEffectRecipe("transition-cross-dissolve").Semantic, Is.EqualTo("time passage / soft topic shift"));
             Assert.That(generator.GetEffectRecipe("transition-overlap-dissolve-transform-continuation").Semantic, Is.EqualTo("time passage / soft topic shift"));
             Assert.That(generator.GetEffectRecipe("transition-directional-sweep-wipe").Semantic, Is.EqualTo("location or topic change"));
             Assert.That(generator.GetEffectRecipe("transition-mask-reveal").Semantic, Is.EqualTo("introduction / unveiling"));
             Assert.That(generator.GetEffectRecipe("transition-dip-to-color").Semantic, Is.EqualTo("chapter break"));
             Assert.That(generator.GetEffectRecipe("transition-match-move-cut").Semantic, Is.EqualTo("conceptual rhyme"));
         });
+    }
+
+    [TestCase("transition-cross-dissolve", typeof(CrossDissolveTransition))]
+    [TestCase("transition-directional-sweep-wipe", typeof(WipeTransition))]
+    [TestCase("transition-dip-to-color", typeof(DipToColorTransition))]
+    public void A_built_in_transition_recipe_applies_to_both_sides_of_a_cut(string name, Type transitionType)
+    {
+        Scene scene = TestWorkspace.CreateScene("transition-recipe");
+        scene.Duration.Value = MediaTime.FromSeconds(4);
+        Element outgoing = CreateClip(MediaTime.Zero);
+        Element incoming = CreateClip(MediaTime.FromSeconds(2));
+        scene.Children.Add(outgoing);
+        scene.Children.Add(incoming);
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject patch = new SchemaGenerator().GetEffectRecipe(name).Patch;
+        patch["Elements"]![0]![nameof(CoreObject.Id)] = outgoing.Id.Value.ToString();
+        patch["Elements"]![1]![nameof(CoreObject.Id)] = incoming.Id.Value.ToString();
+
+        new Reconciler().Apply(session, (JsonObject)MergePatchApplier.Apply(session.Documents.Read(scene), patch)!);
+
+        ClipTransition? exit = outgoing.ExitTransition.Value;
+        ClipTransition? enter = incoming.EnterTransition.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(exit, Is.InstanceOf(transitionType));
+            Assert.That(enter, Is.InstanceOf(transitionType));
+            Assert.That(exit?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
+            Assert.That(enter?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
+            Assert.That(ElementTransitionEdits.GetDecidingTransition(outgoing, ElementEdge.End), Is.SameAs(enter));
+        });
+
+        static Element CreateClip(MediaTime start)
+        {
+            var element = new Element { Start = { Value = start }, Length = { Value = MediaTime.FromSeconds(2) } };
+            element.AddObject(new RectShape());
+            return element;
+        }
+    }
+
+    [Test]
+    public void The_recipes_keep_the_values_a_transition_recipe_sets()
+    {
+        var generator = new SchemaGenerator();
+        JsonNode wipe = generator.GetEffectRecipe("transition-directional-sweep-wipe").Patch["Elements"]![1]![nameof(Element.EnterTransition)]!;
+        JsonNode dip = generator.GetEffectRecipe("transition-dip-to-color").Patch["Elements"]![1]![nameof(Element.EnterTransition)]!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(wipe[nameof(WipeTransition.Direction)]?.GetValue<int>(), Is.EqualTo((int)ClipTransitionDirection.RightToLeft));
+            Assert.That(wipe[nameof(ClipTransition.Duration)]?.GetValue<string>(), Is.EqualTo("00:00:00.2500000"));
+            Assert.That(dip[nameof(DipToColorTransition.Color)], Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public void A_dissolve_intent_finds_the_built_in_transition_first()
+    {
+        Assert.That(new SchemaGenerator().GetEffectRecipe(intent: "dissolve").Name, Is.EqualTo("transition-cross-dissolve"));
     }
 
     [Test]
@@ -701,6 +762,38 @@ public sealed class SchemaGenerationTests
         {
             Assert.That(listedTypes, Does.Contain(typeof(GateEffect).FullName));
             Assert.That(listedTypes, Is.SupersetOf(builtinEffectTypes));
+        });
+    }
+
+    [TestCase("transition")]
+    [TestCase("ClipTransition")]
+    public void Clip_transition_schema_exposes_every_builtin_transition(string category)
+    {
+        // Reflect over the engine, so a transition that no registration lists fails too.
+        string[] builtinTransitionTypes = typeof(ClipTransition).Assembly
+            .GetExportedTypes()
+            .Where(type => type.IsSubclassOf(typeof(ClipTransition))
+                           && !type.IsAbstract
+                           && !typeof(IFallback).IsAssignableFrom(type))
+            .Select(type => type.FullName!)
+            .ToArray();
+        CapabilitySchema schema = new SchemaGenerator().Generate(categoryFilter: category);
+        string[] PropertiesOf<T>() => schema.Types
+            .Single(type => type.Type == typeof(T).FullName)
+            .Properties.Select(property => property.Name)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(builtinTransitionTypes, Does.Contain(typeof(WipeTransition).FullName));
+            Assert.That(schema.Types.Select(type => type.Type), Is.EquivalentTo(builtinTransitionTypes));
+            Assert.That(PropertiesOf<WipeTransition>(), Is.SupersetOf(new[]
+            {
+                nameof(ClipTransition.Duration),
+                nameof(ClipTransition.Easing),
+                nameof(WipeTransition.Direction)
+            }));
+            Assert.That(PropertiesOf<DipToColorTransition>(), Does.Contain(nameof(DipToColorTransition.Color)));
         });
     }
 
