@@ -20,6 +20,7 @@ using Dock.Model.Controls;
 using Dock.Model.Core;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
+using Beutl.Testing.Headless;
 
 namespace Beutl.HeadlessUITests;
 
@@ -228,12 +229,14 @@ public class WebBrowserTabLifecycleTests
         try
         {
             window.Show();
+            HeadlessTestHelpers.Render(3);
+            HeadlessCapture.SaveIfRequested(window, nameof(WebBrowserTabLifecycleTests), "start-page");
             var menu = (FAMenuFlyout)view.FindControl<Button>("BrowserMenuButton")!.Flyout!;
             Assert.That(menu.Items.OfType<FAMenuFlyoutItem>().Any(item => item.Text == Strings.BrowserBookmarks
                 || item.Text == Strings.BrowserAddBookmark), Is.False);
             Assert.That(view.FindControl<Button>("BookmarkButton"), Is.Null);
-            Assert.That(view.FindControl<Border>("BrowserEmptyState")!.IsVisible, Is.True);
-            var intro = view.FindControl<Border>("BrowserEmptyState")!;
+            Assert.That(view.FindControl<Beutl.Controls.EmptyState>("BrowserEmptyState")!.IsVisible, Is.True);
+            var intro = view.FindControl<Beutl.Controls.EmptyState>("BrowserEmptyState")!;
             Assert.That(intro.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text),
                 Does.Contain(Strings.WebBrowser).And.Contain(Strings.BrowserStartDescription)
                     .And.Not.Contain(Strings.BrowserBookmarksEmpty).And.Not.Contain(Strings.BrowserBookmarksHint));
@@ -243,7 +246,7 @@ public class WebBrowserTabLifecycleTests
             Dispatcher.UIThread.RunJobs();
             view.FindControl<Button>("AddBookmarkButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(view.FindControl<Border>("BookmarkEditor")!.IsVisible, Is.True);
-            Assert.That(view.FindControl<Border>("BrowserEmptyState")!.IsVisible, Is.False);
+            Assert.That(view.FindControl<Beutl.Controls.EmptyState>("BrowserEmptyState")!.IsVisible, Is.False);
             view.FindControl<TextBox>("BookmarkUrlInput")!.Text = "javascript:alert(1)";
             view.FindControl<Button>("SaveBookmarkButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(profile.Bookmarks, Is.Empty);
@@ -253,7 +256,7 @@ public class WebBrowserTabLifecycleTests
             view.FindControl<TextBox>("BookmarkNameInput")!.Text = "Example";
             view.FindControl<Button>("SaveBookmarkButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(view.FindControl<Border>("BookmarkEditor")!.IsVisible, Is.False);
-            Assert.That(view.FindControl<Border>("BrowserEmptyState")!.IsVisible, Is.False);
+            Assert.That(view.FindControl<Beutl.Controls.EmptyState>("BrowserEmptyState")!.IsVisible, Is.False);
             Dispatcher.UIThread.RunJobs();
             Assert.That(view.GetVisualDescendants().OfType<TextBlock>()
                 .Where(text => text.IsEffectivelyVisible)
@@ -273,7 +276,7 @@ public class WebBrowserTabLifecycleTests
             items.GetVisualDescendants().OfType<Button>().Single(button => button.Classes.Contains("removeBookmark"))
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(profile.Bookmarks, Is.Empty);
-            Assert.That(view.FindControl<Border>("BrowserEmptyState")!.IsVisible, Is.True);
+            Assert.That(view.FindControl<Beutl.Controls.EmptyState>("BrowserEmptyState")!.IsVisible, Is.True);
             Assert.That(view.FindControl<StackPanel>("BookmarkListPanel")!.IsVisible, Is.False);
             profile.AddBookmark(uri, "Example");
             Dispatcher.UIThread.RunJobs();
@@ -314,7 +317,7 @@ public class WebBrowserTabLifecycleTests
             window.Show();
             Dispatcher.UIThread.RunJobs();
             var blank = view.FindControl<ScrollViewer>("BlankPagePanel")!;
-            var empty = view.FindControl<Border>("BrowserEmptyState")!;
+            var empty = view.FindControl<Beutl.Controls.EmptyState>("BrowserEmptyState")!;
             var list = view.FindControl<StackPanel>("BookmarkListPanel")!;
             var editor = view.FindControl<Border>("BookmarkEditor")!;
             Assert.That(empty.IsVisible, Is.False);

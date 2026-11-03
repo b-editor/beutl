@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
@@ -28,6 +29,13 @@ public sealed class MissingMediaRowViewModel : IDisposable
         HasIssue = Status.Select(status => status == MissingMediaStrings.NoUniqueMatch || status == MissingMediaStrings.Unrecognized)
             .ToReadOnlyReactivePropertySlim();
         HasCandidate = CandidatePath.CombineLatest(IsOffline, (path, offline) => path != null && !offline)
+            .ToReadOnlyReactivePropertySlim();
+        StateKind = IsOffline.CombineLatest(HasIssue, HasCandidate, IsReady, (offline, issue, candidate, ready) =>
+                offline ? StatusLabelKind.Neutral
+                : issue ? StatusLabelKind.Critical
+                : candidate ? StatusLabelKind.Accent
+                : ready ? StatusLabelKind.Success
+                : StatusLabelKind.Caution)
             .ToReadOnlyReactivePropertySlim();
         StateText = Status.CombineLatest(IsOffline, (status, offline) => (offline ? MissingMediaStrings.Offline
                 : status == MissingMediaStrings.Missing || status == MissingMediaStrings.Ready || status == MissingMediaStrings.Candidate
@@ -67,6 +75,7 @@ public sealed class MissingMediaRowViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<bool> HasIssue { get; }
     public ReadOnlyReactivePropertySlim<bool> HasCandidate { get; }
     public ReadOnlyReactivePropertySlim<string?> StateText { get; }
+    public ReadOnlyReactivePropertySlim<StatusLabelKind> StateKind { get; }
     internal IFileSource? ValidatedSource { get; set; }
     internal IReadOnlyList<string> FontReplacementFiles { get; set; } = [];
 
@@ -76,6 +85,7 @@ public sealed class MissingMediaRowViewModel : IDisposable
         HasIssue.Dispose();
         HasCandidate.Dispose();
         StateText.Dispose();
+        StateKind.Dispose();
         IsExpanded.Dispose();
         ReplacementPath.Dispose();
         CandidatePath.Dispose();

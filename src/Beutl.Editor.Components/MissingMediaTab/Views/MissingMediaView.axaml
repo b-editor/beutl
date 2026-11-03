@@ -23,38 +23,6 @@
         <Style Selector="Border.mediaRow.offline">
             <Setter Property="Opacity" Value="0.65" />
         </Style>
-        <Style Selector="Border.statePill">
-            <Setter Property="Padding" Value="6,2" />
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
-        </Style>
-        <Style Selector="Border.statePill TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
-        </Style>
-        <Style Selector="Border.statePill.ready">
-            <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
-        </Style>
-        <Style Selector="Border.statePill.ready TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
-        </Style>
-        <Style Selector="Border.statePill.candidate">
-            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-        </Style>
-        <Style Selector="Border.statePill.candidate TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
-        </Style>
-        <Style Selector="Border.statePill.issue">
-            <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
-        </Style>
-        <Style Selector="Border.statePill.issue TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
-        </Style>
-        <Style Selector="Border.statePill.offline">
-            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-        </Style>
-        <Style Selector="Border.statePill.offline TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-        </Style>
     </UserControl.Styles>
 
     <Grid ColumnDefinitions="8,*,8" RowDefinitions="Auto,Auto,*,Auto,Auto">
@@ -100,12 +68,10 @@
                                                        TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
                                             <TextBlock Name="MediaKindText" Classes="secondary" Text="{Binding Kind}" />
                                         </StackPanel>
-                                        <Border Grid.Column="2" VerticalAlignment="Top" Classes="statePill"
-                                                Classes.ready="{Binding IsReady.Value}" Classes.issue="{Binding HasIssue.Value}"
-                                                Classes.candidate="{Binding HasCandidate.Value}"
-                                                Classes.offline="{Binding IsOffline.Value}" ToolTip.Tip="{Binding Status.Value}">
-                                            <TextBlock FontSize="10" Text="{Binding StateText.Value}" />
-                                        </Border>
+                                        <controls:StatusLabel Grid.Column="2" VerticalAlignment="Top"
+                                                              Kind="{Binding StateKind.Value}"
+                                                              Text="{Binding StateText.Value}"
+                                                              ToolTip.Tip="{Binding Status.Value}" />
                                     </Grid>
                                     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
                                         <Button Name="ReplaceButton" HorizontalAlignment="Left" FontSize="12" Padding="8,4" Click="ReplaceClick">
@@ -172,18 +138,13 @@
         </ScrollViewer>
 
         <ScrollViewer Grid.Row="2" Grid.ColumnSpan="3" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsEmpty.Value}">
-            <Border Name="EmptyState" Margin="24" VerticalAlignment="Center">
-                <StackPanel MaxWidth="320" Spacing="12">
-                    <Border Width="56" Height="56" CornerRadius="16" HorizontalAlignment="Center"
-                            Background="{DynamicResource SubtleFillColorSecondaryBrush}">
-                        <icons:FluentIcon FontSize="24" Icon="Link" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
-                    </Border>
-                    <TextBlock Name="EmptyText" Text="{x:Static lang:MissingMediaStrings.NoMissingMedia}"
-                               FontSize="16" TextAlignment="Center" TextWrapping="Wrap" />
-                    <TextBlock Name="EmptyDescription" Classes="secondary" FontSize="12"
-                               Text="{x:Static lang:MissingMediaStrings.EmptyDescription}" TextAlignment="Center" TextWrapping="Wrap" />
-                </StackPanel>
-            </Border>
+            <controls:EmptyState Name="EmptyState"
+                                 Title="{x:Static lang:MissingMediaStrings.NoMissingMedia}"
+                                 Description="{x:Static lang:MissingMediaStrings.EmptyDescription}">
+                <controls:EmptyState.Icon>
+                    <icons:FluentIcon Icon="Link" />
+                </controls:EmptyState.Icon>
+            </controls:EmptyState>
         </ScrollViewer>
 
         <Border Name="ErrorBanner" Grid.Row="3" Grid.Column="1" Margin="0,4" Padding="8" CornerRadius="6"
