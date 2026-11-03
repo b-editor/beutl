@@ -11,6 +11,8 @@ public sealed class VibratoNode : AudioNode
     private DelayLines? _delayLines;
     private int _lastSampleRate;
     private double _phase;
+    private float _lastRate;
+    private float _lastDepth;
     private MediaTime? _lastTimeRangeEnd;
 
     public required IProperty<float> Rate { get; init; }
@@ -64,8 +66,19 @@ public sealed class VibratoNode : AudioNode
             {
                 int chunkSize = Math.Min(rates.Length, input.SampleCount - processed);
                 TimeRange chunkRange = context.GetChunkRange(processed, chunkSize);
-                context.AnimationSampler.SampleBuffer(Rate, chunkRange, context.SampleRate, rates[..chunkSize]);
-                context.AnimationSampler.SampleBuffer(Depth, chunkRange, context.SampleRate, depths[..chunkSize]);
+                // The tail comes after the clip, where the keyframes are for a part that was trimmed away.
+                if (draining)
+                {
+                    rates[..chunkSize].Fill(_lastRate);
+                    depths[..chunkSize].Fill(_lastDepth);
+                }
+                else
+                {
+                    context.AnimationSampler.SampleBuffer(Rate, chunkRange, context.SampleRate, rates[..chunkSize]);
+                    context.AnimationSampler.SampleBuffer(Depth, chunkRange, context.SampleRate, depths[..chunkSize]);
+                    _lastRate = rates[chunkSize - 1];
+                    _lastDepth = depths[chunkSize - 1];
+                }
 
                 // From the time alone, so that a rate that stays the same gives the same result after a seek.
                 if (!continues)

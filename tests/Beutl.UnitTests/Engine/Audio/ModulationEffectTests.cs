@@ -143,6 +143,26 @@ public class ModulationEffectTests
         });
     }
 
+    // Keyframes past the end of the clip are for a part of it that was trimmed away. Falling to no depth would read
+    // what comes after the input instead of the tail.
+    [Test]
+    public void Vibrato_holds_its_last_values_while_the_tail_comes_out()
+    {
+        var effect = new VibratoEffect { Rate = { Value = 5 } };
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = VibratoEffect.DepthMax } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(0.1) }, Value = { Value = VibratoEffect.DepthMax } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(0.11) }, Value = { Value = 0 } });
+        effect.Depth.SetKeyFrameAnimation(animation);
+        using var context = new AudioContext(SampleRate, 2);
+        AudioNode node = effect.CreateNode(context, context.AddNode(new FunctionSource(sample => sample < Window ? 0.5f : 0f)));
+
+        using (node.Process(AudioTestContexts.AtSample(0, Window, SampleRate))) { }
+        using AudioBuffer tail = node.Flush(AudioTestContexts.AtSample(Window, 960, SampleRate));
+
+        Assert.That(tail.GetChannelData(0)[480], Is.EqualTo(0.5f).Within(0.0001f));
+    }
+
     [Test]
     public void An_animated_Vibrato_reserves_the_longest_tail_and_a_still_one_its_own()
     {
