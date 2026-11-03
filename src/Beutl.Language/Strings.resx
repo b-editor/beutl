@@ -3687,4 +3687,7 @@ when history recording is enabled.</value>
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>Project audio channels</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>First control point {0}, {1}. Second control point {2}, {3}.</value>
+  </data>
 </root>

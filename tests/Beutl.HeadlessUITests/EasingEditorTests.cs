@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using Avalonia;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -11,6 +13,7 @@ using Beutl.Editor;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Engine;
+using Beutl.Language;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
 using Beutl.Testing.Headless;
@@ -568,6 +571,150 @@ public sealed class EasingEditorTests
         {
             window.Close();
         }
+    }
+
+    [AvaloniaTest]
+    public void The_arrow_keys_move_the_selected_control_point_as_one_history_entry_each()
+    {
+        var holder = new EasingHolder();
+        var original = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
+        holder.Curve.Value = original;
+        using var scope = new CurveEditorScope(holder, holder.Curve, height: 400);
+        Window window = scope.Window;
+        try
+        {
+            window.Show();
+            EasingCurveEditor curve = scope.Editor.GetVisualDescendants().OfType<EasingCurveEditor>().Single();
+            HeadlessTestHelpers.Render();
+
+            Assert.That(curve.Focus(NavigationMethod.Tab), Is.True);
+            Press(window, Key.Right, PhysicalKey.ArrowRight);
+            Press(window, Key.Up, PhysicalKey.ArrowUp, RawInputModifiers.Shift);
+            HeadlessTestHelpers.Settle();
+
+            var edited = (SplineEasing)holder.Curve.Value;
+            Assert.Multiple(() =>
+            {
+                Assert.That(edited.X1, Is.EqualTo(0.26f).Within(0.0001f));
+                Assert.That(edited.Y1, Is.EqualTo(0.2f).Within(0.0001f));
+                Assert.That(edited.X2, Is.EqualTo(0.25f));
+                Assert.That(edited.Y2, Is.EqualTo(1f));
+                Assert.That(original.X1, Is.EqualTo(0.25f), "The displayed spline must not be mutated.");
+                Assert.That(scope.History.UndoCount, Is.EqualTo(2));
+            });
+
+            Assert.That(scope.History.Undo(), Is.True);
+            Assert.That(scope.History.Undo(), Is.True);
+            HeadlessTestHelpers.Settle();
+            Assert.That(holder.Curve.Value, Is.SameAs(original));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void Tab_reaches_the_second_control_point_and_then_leaves_the_curve()
+    {
+        var spline = new SplineEasing(0.25f, 0.1f, 0.75f, 0.9f);
+        var curve = new EasingCurveEditor { Easing = spline };
+        var after = new Button { Content = "after" };
+        var window = new Window { Content = new StackPanel { Children = { curve, after } }, Width = 300, Height = 300 };
+        var edits = new List<SplineEasing>();
+        curve.Edited += (_, e) => edits.Add((SplineEasing)e.NewValue!);
+        curve.Editing += (_, e) => curve.Easing = e.NewValue;
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Assert.That(curve.Focus(NavigationMethod.Tab), Is.True);
+
+            Press(window, Key.Tab, PhysicalKey.Tab);
+            Assert.That(curve.IsFocused, Is.True);
+            HeadlessTestHelpers.Render();
+            HeadlessCapture.SaveIfRequested(window, nameof(EasingEditorTests), "keyboard-focus");
+            Press(window, Key.Left, PhysicalKey.ArrowLeft);
+            Assert.That(edits.Single().X2, Is.EqualTo(0.74f).Within(0.0001f));
+            Assert.That(edits.Single().X1, Is.EqualTo(0.25f));
+
+            Press(window, Key.Tab, PhysicalKey.Tab);
+            Assert.That(after.IsFocused, Is.True);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void The_arrow_keys_keep_X_inside_the_curve_and_let_Y_overshoot()
+    {
+        var curve = new EasingCurveEditor { Easing = new SplineEasing(0.05f, 0.95f, 0.75f, 0.9f) };
+        curve.Editing += (_, e) => curve.Easing = e.NewValue;
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Assert.That(curve.Focus(NavigationMethod.Tab), Is.True);
+
+            Press(window, Key.Left, PhysicalKey.ArrowLeft, RawInputModifiers.Shift);
+            Press(window, Key.Up, PhysicalKey.ArrowUp, RawInputModifiers.Shift);
+
+            var spline = (SplineEasing)curve.Easing!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(spline.X1, Is.Zero);
+                Assert.That(spline.Y1, Is.EqualTo(1.05f).Within(0.0001f));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Test]
+    public void Only_a_curve_with_handles_to_move_takes_focus()
+    {
+        var curve = new EasingCurveEditor();
+        Assert.That(curve.Focusable, Is.False);
+
+        curve.Easing = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
+        Assert.That(curve.Focusable, Is.True);
+
+        curve.IsReadOnly = true;
+        Assert.That(curve.Focusable, Is.False);
+    }
+
+    [AvaloniaTest]
+    public void Assistive_technology_hears_the_values_of_the_control_points()
+    {
+        var curve = new EasingCurveEditor { Easing = new SplineEasing(0.25f, 0.1f, 0.75f, 0.9f) };
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(curve);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(peer.GetName(), Is.EqualTo(Strings.Easing));
+                Assert.That(peer.GetHelpText(), Does.Contain(0.25f.ToString(CultureInfo.CurrentCulture)));
+                Assert.That(peer.GetHelpText(), Does.Contain(0.9f.ToString(CultureInfo.CurrentCulture)));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static void Press(Window window, Key key, PhysicalKey physical, RawInputModifiers modifiers = RawInputModifiers.None)
+    {
+        window.KeyPress(key, modifiers, physical, null);
+        window.KeyRelease(key, modifiers, physical, null);
     }
 
     [AvaloniaTest]

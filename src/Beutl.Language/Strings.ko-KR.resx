@@ -3687,4 +3687,7 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>프로젝트 오디오 채널</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>첫 번째 제어점 {0}, {1}. 두 번째 제어점 {2}, {3}.</value>
+  </data>
 </root>

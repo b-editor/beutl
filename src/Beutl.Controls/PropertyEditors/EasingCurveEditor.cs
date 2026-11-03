@@ -1,8 +1,11 @@
-﻿using Avalonia;
+﻿using System.Globalization;
+using Avalonia;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Beutl.Animation.Easings;
+using Beutl.Language;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -42,9 +45,12 @@ public sealed class EasingCurveEditor : Control
     private const double ActiveHandleRadius = 5.5;
     private const double HitRadius = 8;
     private const int SampleCount = 128;
+    private const float KeyStep = 0.01f;
+    private const float LargeKeyStep = 0.1f;
 
     private ControlPoint _hovered;
     private ControlPoint _dragging;
+    private ControlPoint _selected;
     private SplineEasing? _dragStart;
     private Point _pressPosition;
     private IPointer? _capturedPointer;
@@ -117,9 +123,17 @@ public sealed class EasingCurveEditor : Control
 
     public bool IsDragging => _dragging != ControlPoint.None;
 
+    protected override AutomationPeer OnCreateAutomationPeer() => new CurveAutomationPeer(this);
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
+        if (change.Property == EasingProperty || change.Property == IsReadOnlyProperty)
+        {
+            // Only a curve with handles to move is worth stopping at.
+            Focusable = GetEditableSpline() != null;
+        }
+
         if (change.Property == EasingProperty)
         {
             if (_isAttached)
@@ -199,6 +213,7 @@ public sealed class EasingCurveEditor : Control
         if (hit == ControlPoint.None) return;
 
         _dragging = hit;
+        _selected = hit;
         _dragStart = spline;
         _pressPosition = e.GetPosition(this);
         _frozenRange = range;
@@ -265,6 +280,97 @@ public sealed class EasingCurveEditor : Control
         {
             UpdateHover(ControlPoint.None);
         }
+    }
+
+    protected override void OnGotFocus(FocusChangedEventArgs e)
+    {
+        base.OnGotFocus(e);
+        // Going backwards through the controls arrives at the last handle, as it would at the last item of a list.
+        if (_selected == ControlPoint.None || e.NavigationMethod == NavigationMethod.Tab)
+        {
+            bool backwards = e.NavigationMethod == NavigationMethod.Tab && e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+            _selected = FirstMovable(backwards ? ControlPoint.Second : ControlPoint.First);
+        }
+
+        InvalidateVisual();
+    }
+
+    protected override void OnLostFocus(FocusChangedEventArgs e)
+    {
+        base.OnLostFocus(e);
+        InvalidateVisual();
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Handled || IsDragging || GetEditableSpline() is not { } spline) return;
+
+        bool large = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+        switch (e.Key)
+        {
+            case Key.Tab:
+                // Tab reaches the other handle before it leaves the control.
+                ControlPoint target = large ? ControlPoint.First : ControlPoint.Second;
+                if (_selected != target && IsMovable(spline, target))
+                {
+                    _selected = target;
+                    e.Handled = true;
+                    InvalidateVisual();
+                }
+
+                break;
+            case Key.Left:
+                e.Handled = MoveSelected(spline, large ? -LargeKeyStep : -KeyStep, 0);
+                break;
+            case Key.Right:
+                e.Handled = MoveSelected(spline, large ? LargeKeyStep : KeyStep, 0);
+                break;
+            case Key.Up:
+                e.Handled = MoveSelected(spline, 0, large ? LargeKeyStep : KeyStep);
+                break;
+            case Key.Down:
+                e.Handled = MoveSelected(spline, 0, large ? -LargeKeyStep : -KeyStep);
+                break;
+        }
+    }
+
+    // One key press is one edit, the way one drag is.
+    private bool MoveSelected(SplineEasing spline, float deltaX, float deltaY)
+    {
+        if (!IsMovable(spline, _selected)) return false;
+
+        (float x, float y) = _selected == ControlPoint.First ? (spline.X1, spline.Y1) : (spline.X2, spline.Y2);
+        // KeySpline rejects X outside [0, 1]; Y may overshoot to describe anticipation and overshoot.
+        float newX = Math.Clamp(x + deltaX, 0f, 1f);
+        float newY = y + deltaY;
+        if (newX == x && newY == y) return true;
+
+        SplineEasing next = _selected == ControlPoint.First
+            ? new SplineEasing(newX, newY, spline.X2, spline.Y2)
+            : new SplineEasing(spline.X1, spline.Y1, newX, newY);
+        Editing?.Invoke(this, new EasingCurveEditedEventArgs(spline, next));
+        if (Easing is SplineEasing end && !ReferenceEquals(spline, end))
+        {
+            Edited?.Invoke(this, new EasingCurveEditedEventArgs(spline, end));
+        }
+
+        return true;
+    }
+
+    private static bool IsMovable(SplineEasing spline, ControlPoint point) => point switch
+    {
+        ControlPoint.First => float.IsFinite(spline.X1) && float.IsFinite(spline.Y1),
+        ControlPoint.Second => float.IsFinite(spline.X2) && float.IsFinite(spline.Y2),
+        _ => false,
+    };
+
+    private ControlPoint FirstMovable(ControlPoint preferred)
+    {
+        if (Easing is not SplineEasing spline) return ControlPoint.None;
+
+        ControlPoint other = preferred == ControlPoint.First ? ControlPoint.Second : ControlPoint.First;
+        return IsMovable(spline, preferred) ? preferred : IsMovable(spline, other) ? other : ControlPoint.None;
     }
 
     private void CompleteDrag()
@@ -497,7 +603,23 @@ public sealed class EasingCurveEditor : Control
 
         Point center = ToScreen(x, y, range);
         context.DrawLine(linePen, anchor, center);
-        double radius = _dragging == point || (!IsDragging && _hovered == point) ? ActiveHandleRadius : HandleRadius;
+        bool isKeyTarget = IsFocused && !IsDragging && _selected == point;
+        double radius = _dragging == point || (!IsDragging && _hovered == point) || isKeyTarget ? ActiveHandleRadius : HandleRadius;
         context.DrawEllipse(HandleBrush, null, center, radius, radius);
+        if (isKeyTarget)
+        {
+            context.DrawEllipse(null, linePen, center, radius + 3, radius + 3);
+        }
+    }
+
+    private sealed class CurveAutomationPeer(EasingCurveEditor owner) : ControlAutomationPeer(owner)
+    {
+        protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Custom;
+
+        protected override string GetNameCore() => base.GetNameCore() is { Length: > 0 } name ? name : Strings.Easing;
+
+        protected override string? GetHelpTextCore() => owner.Easing is SplineEasing spline
+            ? string.Format(CultureInfo.CurrentCulture, Strings.EasingCurve_ControlPoints, spline.X1, spline.Y1, spline.X2, spline.Y2)
+            : base.GetHelpTextCore();
     }
 }
