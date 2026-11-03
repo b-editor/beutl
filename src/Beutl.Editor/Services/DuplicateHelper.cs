@@ -182,7 +182,7 @@ public static class DuplicateHelper
         }
 
         (MediaTime minStart, int minZIndex) = ComputeMinOrigin(newElements);
-        List<(Element Matte, Element Source)> copiedMattes = FindCopiedMatteSources(newElements);
+        List<(Element Matte, Element Source)> copiedMattes = Scene.FindMatteSourcesAmong(newElements);
 
         foreach (Element newElement in newElements)
         {
@@ -208,24 +208,5 @@ public static class DuplicateHelper
         {
             matte.MatteSourceZIndex.Value = source.ZIndex.Value;
         }
-    }
-
-    // The copies whose matte names a layer where another copy is at the same time, and that other copy.
-    private static List<(Element Matte, Element Source)> FindCopiedMatteSources(Element[] copies)
-    {
-        var result = new List<(Element Matte, Element Source)>();
-        foreach (Element copy in copies)
-        {
-            if (copy.MatteSourceKind.Value == MatteSourceKind.Layer
-                && copy.MatteSourceZIndex.Value is { } layer
-                && copies.FirstOrDefault(other => other != copy
-                    && other.ZIndex.Value == layer
-                    && other.Range.Intersects(copy.Range)) is { } source)
-            {
-                result.Add((copy, source));
-            }
-        }
-
-        return result;
     }
 }
