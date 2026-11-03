@@ -135,8 +135,7 @@ public sealed partial class EdgeDetection : FilterEffect
             vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
             vec4 center = read(position);
             float own = pc.alpha != 0 ? center.a : lightness(center);
-            // Closer than one pixel, filtering would flatten the change, and a small preview would lose its lines.
-            float d = pc.offset > 0 ? max(pc.offset, 1 / src.size.z) : 0;
+            float d = pc.offset;
             float tl = value(position + vec2(-d, -d), own);
             float t = value(position + vec2(0, -d), own);
             float tr = value(position + vec2(d, -d), own);
@@ -148,8 +147,10 @@ public sealed partial class EdgeDetection : FilterEffect
             float gx = tr + 2 * r + br - tl - 2 * l - bl;
             float gy = bl + 2 * b + br - tl - 2 * t - tr;
 
-            // A short ramp above the threshold keeps the lines smooth.
-            coverage = clamp((length(vec2(gx, gy)) / 4 - pc.threshold) / 0.1, 0, 1);
+            // Filtering takes a share of a change as small as the fraction of a pixel measured over, which would lose
+            // the lines in a small preview. A short ramp above the threshold keeps them smooth.
+            float strength = length(vec2(gx, gy)) / 4 / clamp(d * src.size.z, 0.001, 1);
+            coverage = clamp((strength - pc.threshold) / 0.1, 0, 1);
             if (pc.alpha == 0) coverage *= center.a;
         }
         """));
