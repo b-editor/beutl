@@ -10,6 +10,7 @@ public static class BeutlDataFormats
     // layers can't drift apart.
     public static readonly DataFormat<string> Element = DataFormat.CreateStringApplicationFormat(BeutlClipboardFormats.Element);
     public static readonly DataFormat<string> Elements = DataFormat.CreateStringApplicationFormat(BeutlClipboardFormats.Elements);
+    public static readonly DataFormat<string> ElementGroups = DataFormat.CreateStringApplicationFormat(BeutlClipboardFormats.ElementGroups);
     public static readonly DataFormat<string> KeyFrame = DataFormat.CreateStringApplicationFormat(nameof(Animation.KeyFrame));
     public static readonly DataFormat<string> KeyFrameAnimation = DataFormat.CreateStringApplicationFormat(nameof(Animation.KeyFrameAnimation<object>));
     public static readonly DataFormat<string> KeyFrameSelection = DataFormat.CreateStringApplicationFormat("Beutl.KeyFrameSelection");
