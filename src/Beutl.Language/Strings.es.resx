@@ -3687,4 +3687,7 @@ cuando el registro del historial está activado.</value>
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>Canales de audio del proyecto</value>
   </data>
+  <data name="Paste_ProjectNotSaved" xml:space="preserve">
+    <value>Guarda el proyecto antes de pegar clips.</value>
+  </data>
 </root>
