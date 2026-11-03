@@ -307,6 +307,10 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
             return false;
         }
 
+        // This runs on every pointer move over a candidate port during a wire drag.
+        ILookup<GraphNode?, GraphNode?> consumers = graph.AllConnections.ToLookup(
+            connection => connection.Output.Value.Value?.FindHierarchicalParent<GraphNode>(),
+            connection => connection.Input.Value.Value?.FindHierarchicalParent<GraphNode>());
         var visited = new HashSet<GraphNode>();
         var pending = new Stack<GraphNode>([consumer]);
         while (pending.TryPop(out GraphNode? node))
@@ -314,13 +318,9 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
             if (node == producer) return true;
             if (!visited.Add(node)) continue;
 
-            foreach (Connection connection in graph.AllConnections)
+            foreach (GraphNode? next in consumers[node])
             {
-                if (connection.Output.Value.Value?.FindHierarchicalParent<GraphNode>() == node
-                    && connection.Input.Value.Value?.FindHierarchicalParent<GraphNode>() is { } next)
-                {
-                    pending.Push(next);
-                }
+                if (next is not null) pending.Push(next);
             }
         }
 
