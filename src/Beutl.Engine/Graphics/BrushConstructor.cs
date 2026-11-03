@@ -237,7 +237,7 @@ public readonly struct BrushConstructor(
 
     /// <summary>
     /// Reverses the stops for the two-point conical gradient that stands in for a radial gradient whose origin
-    /// left its centre: their order, and each inner offset measured from the other end.
+    /// left its centre: their order, and each offset measured from the other end.
     /// </summary>
     private static void ReverseStopsForConical(
         SKColor[] stopColors,
@@ -254,11 +254,7 @@ public readonly struct BrushConstructor(
         reversedStops = new float[stopOffsets.Length];
         for (int i = 0; i < stopOffsets.Length; i++)
         {
-            reversedStops[i] = stopOffsets[i];
-            if (reversedStops[i] > 0 && reversedStops[i] < 1)
-            {
-                reversedStops[i] = Math.Abs(1 - stopOffsets[i]);
-            }
+            reversedStops[i] = 1 - stopOffsets[stopOffsets.Length - 1 - i];
         }
     }
 
