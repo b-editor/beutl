@@ -165,8 +165,12 @@ public sealed class VideoSource : MediaSource
             if (proxyResolver is null || proxyResolver.StoreVersion == _observedProxyStoreVersion) return;
 
             _observedProxyStoreVersion = proxyResolver.StoreVersion;
-            if (_proxyVersionSource != null && videoSource.HasUri)
-                _proxyVersionSource = ResolveProxyVersionSource(videoSource, context);
+            // A target that cannot be read says nothing about the key, and its proxies stay indexed under the known one.
+            if (_proxyVersionSource != null && videoSource.HasUri && videoSource.Uri.IsFile
+                && ProxyFingerprint.TryFromFile(videoSource.Uri.LocalPath, out ProxyFingerprint fingerprint))
+            {
+                _proxyVersionSource = fingerprint.AbsolutePath;
+            }
         }
 
         private static long GetSourceVersion(IProxyResolver? proxyResolver, string? proxyVersionSource)

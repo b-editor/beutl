@@ -108,6 +108,43 @@ public class ProxyVideoLogicalSizeTests
     }
 
     [Test]
+    public void SymlinkedVideo_KeepsItsProxyWhenItsTargetIsGoneAndAnotherSourceGainsOne()
+    {
+        var size = new PixelSize(100, 80);
+        using var scope = ProxyTestScope.CreateWithoutProxy(size);
+        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        string name = Path.GetFileName(scope.OriginalPath);
+        string link = Path.Combine(scope.RootPath, name);
+        string target = Path.Combine(scope.RootPath, "drive", name);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        File.Copy(scope.OriginalPath, target);
+        SymbolicLinks.CreateOrIgnore(link, target);
+        ProxyTestScope.RegisterTestVideoProxy(scope.Store, target, size, new PixelSize(50, 40), ProxyPreset.Half);
+
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(link));
+        var context = new CompositionContext(MediaTime.Zero) { PreferProxy = true };
+        using var resource = source.ToResource(context);
+        MediaReader? reader = resource.MediaReader;
+        Assert.That(resource.ProxyResolution, Is.Not.Null);
+
+        File.Delete(target);
+        string other = Path.Combine(scope.RootPath, "other-" + name);
+        File.Copy(scope.OriginalPath, other);
+        ProxyTestScope.RegisterTestVideoProxy(scope.Store, other, size, new PixelSize(50, 40), ProxyPreset.Half);
+
+        bool versionBumped = false;
+        resource.Reconcile(source, context, ref versionBumped);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resource.MediaReader, Is.SameAs(reader));
+            Assert.That(resource.ProxyResolution, Is.Not.Null);
+            Assert.That(versionBumped, Is.False);
+        });
+    }
+
+    [Test]
     public void ProxiedVideo_UsesOriginalLogicalBoundsAndProxySupplyDensity()
     {
         using var scope = ProxyTestScope.Create(new PixelSize(100, 80), new PixelSize(50, 40), ProxyPreset.Half);
