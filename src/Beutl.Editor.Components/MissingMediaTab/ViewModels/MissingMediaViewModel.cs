@@ -328,6 +328,15 @@ public sealed class MissingMediaViewModel : IToolContext
                         or Beutl.Graphics3D.Models.ModelSource { HasUri: true })
                 .SearchAll().OfType<IFileSource>().Distinct<IFileSource>(ReferenceEqualityComparer.Instance)
                 .ToLookup(source => (MissingMediaService.GetKind(source), source.Uri));
+            // Nothing is applied when a listed file is no longer used, or the save would report a repair that did not
+            // happen. Listing the rows again keeps the replacements chosen for the others.
+            if (rows.Any(row => row.Media.Kind != MissingMediaKind.Font && !currentSources[(row.Media.Kind, row.Media.ExpectedUri!)].Any()))
+            {
+                await RefreshRowsAsync();
+                Error.Value = MissingMediaStrings.SceneChanged;
+                return false;
+            }
+
             string projectDirectory = Path.GetDirectoryName((_scene.FindHierarchicalParent<Project>()?.Uri
                                       ?? _scene.Uri)!.LocalPath)!;
             string fontsDirectory = Path.Combine(projectDirectory, "resources", "fonts");

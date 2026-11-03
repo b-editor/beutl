@@ -17,6 +17,52 @@ namespace Beutl.HeadlessUITests;
 public partial class MissingMediaTests
 {
     [AvaloniaTest]
+    public async Task Apply_does_not_report_a_repair_when_the_scene_stopped_using_a_listed_file()
+    {
+        await TestReset.ResetShellAsync();
+        var editor = await CreateEditorAsync();
+        string directory = NewDirectory();
+        string replacement = Path.Combine(directory, "replacement.png");
+        string elsewhere = Path.Combine(directory, "elsewhere.png");
+        File.WriteAllBytes(replacement, s_png);
+        File.WriteAllBytes(elsewhere, s_png);
+        Element gone;
+        Element kept;
+        using (editor.HistoryManager.SuppressRecording())
+        {
+            gone = AddImage(editor.Scene, Path.Combine(directory, "gone.png"), "Gone");
+            kept = AddImage(editor.Scene, Path.Combine(directory, "kept.png"), "Kept");
+        }
+        try
+        {
+            using var vm = new MissingMediaViewModel(editor);
+            MissingMediaRowViewModel goneRow = vm.Rows.Single(row => row.Name == "gone.png");
+            MissingMediaRowViewModel keptRow = vm.Rows.Single(row => row.Name == "kept.png");
+            await vm.SetReplacementAsync(goneRow, replacement);
+            await vm.SetReplacementAsync(keptRow, replacement);
+            await vm.WaitForCandidatesAsync();
+
+            // Relinked from somewhere else while the row is still listed.
+            using (editor.HistoryManager.SuppressRecording())
+                ((Beutl.Graphics.SourceImage)gone.Objects.Single()).Source.Value!.ReadFrom(new Uri(elsewhere));
+
+            Assert.That(await vm.ApplyAsync(), Is.False);
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(vm.Error.Value, Is.EqualTo(Beutl.Language.MissingMediaStrings.SceneChanged));
+                Assert.That(editor.HasMediaRepairs.Value, Is.False);
+                Assert.That(((Beutl.Graphics.SourceImage)kept.Objects.Single()).Source.Value!.Uri.LocalPath, Does.EndWith("kept.png"));
+                Assert.That(vm.Rows, Is.EqualTo(new[] { keptRow }));
+                Assert.That(keptRow.ReplacementPath.Value, Is.EqualTo(replacement));
+            }
+
+            Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
+            Assert.That(((Beutl.Graphics.SourceImage)kept.Objects.Single()).Source.Value!.Uri.LocalPath, Is.EqualTo(replacement));
+        }
+        finally { await TestReset.ResetShellAsync(); }
+    }
+
+    [AvaloniaTest]
     public async Task Selected_fonts_exclude_conflicting_and_unreadable_folder_matches()
     {
         await TestReset.ResetShellAsync();
