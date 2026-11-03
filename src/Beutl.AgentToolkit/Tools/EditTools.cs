@@ -74,10 +74,12 @@ public sealed record DuplicateObjectResponse(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     string? GroupId = null);
 
+// GroupPath goes from the group in the element's objects down to ParentGroup.
 internal sealed record DuplicateObjectLocation(
     Element Element,
     EngineObject Source,
-    DrawableGroup? ParentGroup);
+    DrawableGroup? ParentGroup,
+    IReadOnlyList<DrawableGroup> GroupPath);
 
 internal sealed record ResolvedEdit(JsonObject Document, HashSet<Guid> KnownNewIds);
 

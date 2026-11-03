@@ -186,6 +186,37 @@ public sealed class DuplicateObjectTests
         });
     }
 
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(2)]
+    public void Duplicate_object_wrap_in_group_gives_the_path_through_every_group(int nesting)
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        var rect = new RectShape { Name = { Value = "Original rect" } };
+        var innermost = new DrawableGroup();
+        innermost.Children.Add(rect);
+        var groups = new List<DrawableGroup> { innermost };
+        for (int i = 0; i < nesting; i++)
+        {
+            var outer = new DrawableGroup();
+            outer.Children.Add(groups[0]);
+            groups.Insert(0, outer);
+        }
+
+        element.AddObject(groups[0]);
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = session.CreateEditTools();
+
+        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.Value.ToString(), wrapInGroup: true);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        string expected = $"$/Elements[Id={element.Id.Value}]/Objects"
+                          + string.Join("/Children", groups.Select(group => $"[Id={group.Id.Value}]"))
+                          + $"/Children[Id={result.Value!.ObjectId}]";
+        Assert.That(result.Value.CreatedIds.Single(item => item.Id == result.Value.ObjectId).Path, Is.EqualTo(expected));
+    }
+
     [Test]
     public void Duplicate_object_wrap_in_group_is_undoable()
     {

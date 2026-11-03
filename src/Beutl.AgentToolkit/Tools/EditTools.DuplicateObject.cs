@@ -203,9 +203,11 @@ public sealed partial class EditTools
                 $"$/Elements[Id={location.Element.Id.Value}]/Objects[Id={group.Id.Value}]"));
         }
 
+        IEnumerable<DrawableGroup> groups = location.GroupPath.Count > 0 ? location.GroupPath : [group];
+        string groupPath = string.Join("/Children", groups.Select(item => $"[Id={item.Id.Value}]"));
         createdIds.Add(CreateAppliedEntityId(
             clone,
-            $"$/Elements[Id={location.Element.Id.Value}]/Objects[Id={group.Id.Value}]/Children[Id={clone.Id.Value}]"));
+            $"$/Elements[Id={location.Element.Id.Value}]/Objects{groupPath}/Children[Id={clone.Id.Value}]"));
         return createdIds;
     }
 
@@ -247,11 +249,11 @@ public sealed partial class EditTools
             {
                 if (obj.Id.Value == objectId)
                 {
-                    return new DuplicateObjectLocation(element, obj, null);
+                    return new DuplicateObjectLocation(element, obj, null, []);
                 }
 
                 if (obj is DrawableGroup group
-                    && TryFindObjectInDrawableGroup(element, group, objectId, out DuplicateObjectLocation? location))
+                    && TryFindObjectInDrawableGroup(element, group, [], objectId, out DuplicateObjectLocation? location))
                 {
                     return location;
                 }
@@ -264,19 +266,21 @@ public sealed partial class EditTools
     private static bool TryFindObjectInDrawableGroup(
         Element element,
         DrawableGroup group,
+        IReadOnlyList<DrawableGroup> ancestors,
         Guid objectId,
         [NotNullWhen(true)] out DuplicateObjectLocation? location)
     {
+        DrawableGroup[] path = [.. ancestors, group];
         foreach (Drawable child in group.Children)
         {
             if (child.Id.Value == objectId)
             {
-                location = new DuplicateObjectLocation(element, child, group);
+                location = new DuplicateObjectLocation(element, child, group, path);
                 return true;
             }
 
             if (child is DrawableGroup childGroup
-                && TryFindObjectInDrawableGroup(element, childGroup, objectId, out location))
+                && TryFindObjectInDrawableGroup(element, childGroup, path, objectId, out location))
             {
                 return true;
             }
