@@ -7,6 +7,7 @@ namespace Beutl;
 
 public sealed class SceneComposer : Composer
 {
+    private readonly Scene _scene;
     private readonly SceneCompositor _compositor;
 
     public SceneComposer(Scene scene, bool disableResourceShare = false)
@@ -16,6 +17,7 @@ public sealed class SceneComposer : Composer
 
     public SceneComposer(Scene scene, bool disableResourceShare, bool forceOriginalSource)
     {
+        _scene = scene;
         _compositor = new SceneCompositor(scene)
         {
             DisableResourceShare = disableResourceShare,
@@ -27,6 +29,7 @@ public sealed class SceneComposer : Composer
 
     public AudioBuffer? Compose(TimeRange timeRange)
     {
+        MasterGain = _scene.MasterVolume.Value / 100f;
         var frame = _compositor.EvaluateAudio(timeRange);
         return base.Compose(timeRange, frame);
     }

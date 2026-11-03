@@ -3687,4 +3687,7 @@ when history recording is enabled.</value>
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>Project audio channels</value>
   </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>Master volume (%)</value>
+  </data>
 </root>

@@ -48,15 +48,20 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                 ?? Observable.Return(SpeakerLayout.Stereo))
             .ToReactiveProperty().DisposeWith(_disposable);
 
+        MasterVolume = _scene.MasterVolume.GetObservable()
+            .ToReactiveProperty()
+            .DisposeWith(_disposable);
+
         Width.SetValidateNotifyError(ValidateSize);
         Height.SetValidateNotifyError(ValidateSize);
         LayerCount.SetValidateNotifyError(ValidateSize);
+        MasterVolume.SetValidateNotifyError(volume => volume >= 0 ? null : MessageStrings.ValueLessThanZero);
 
         StartInput.SetValidateNotifyError(StartValidator);
         DurationInput.SetValidateNotifyError(DurationValidator);
 
-        CanApply = Width.CombineLatest(Height, StartInput, DurationInput, LayerCount)
-            .Select(_ => TryReadSceneSettings(out var _, out var _, out var _) && LayerCount.Value > 0)
+        CanApply = Width.CombineLatest(Height, StartInput, DurationInput, LayerCount, MasterVolume)
+            .Select(_ => TryReadSceneSettings(out var _, out var _, out var _) && LayerCount.Value > 0 && MasterVolume.Value >= 0)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
@@ -99,7 +104,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                 frameSize,
                 start,
                 duration,
-                ChannelLayout.Value);
+                ChannelLayout.Value,
+                MasterVolume.Value);
 
             _optionsProvider.Options.Value = _optionsProvider.Options.Value with
             {
@@ -116,6 +122,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         DurationInput.Value = TimeText.Format(_scene.Duration.Value);
         LayerCount.Value = _optionsProvider.Options.Value.MaxLayerCount;
         ChannelLayout.Value = _scene.FindHierarchicalParent<Project>().GetSpeakerLayout();
+        MasterVolume.Value = _scene.MasterVolume.Value;
     }
 
     internal static string? DurationValidator(string str)
@@ -171,6 +178,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     public ReactiveProperty<int> LayerCount { get; }
 
     public ReactiveProperty<SpeakerLayout> ChannelLayout { get; }
+
+    public ReactiveProperty<float> MasterVolume { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanApply { get; }
 

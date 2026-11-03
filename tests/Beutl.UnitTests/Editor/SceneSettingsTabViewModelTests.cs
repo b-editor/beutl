@@ -136,6 +136,46 @@ public class SceneSettingsTabViewModelTests
         static string Truncated(MediaTime time) => TimeSpan.FromTicks(time.ToTicks(MidpointRounding.ToNegativeInfinity)).ToString();
     }
 
+    // The player reads the volume with each buffer, so changing it alone does not stop playback.
+    [Test]
+    public async Task Apply_WithOnlyTheMasterVolumeChanged_SendsItWithoutPausing()
+    {
+        var scene = new Scene(640, 480, string.Empty) { Duration = { Value = MediaTime.FromSeconds(5) } };
+        using SceneSettingsTabViewModel viewModel = CreateViewModel(
+            scene, out CaptureSceneSettingsService sceneSettingsService, out BlockingPreviewPlayer previewPlayer);
+        viewModel.MasterVolume.Value = 40f;
+
+        await viewModel.Apply.ExecuteAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sceneSettingsService.MasterVolume, Is.EqualTo(40f));
+            Assert.That(previewPlayer.PauseStarted.Task.IsCompleted, Is.False);
+        });
+    }
+
+    [Test]
+    public void A_negative_MasterVolume_cannot_be_applied_and_Revert_restores_it()
+    {
+        var scene = new Scene(640, 480, string.Empty)
+        {
+            Duration = { Value = MediaTime.FromSeconds(5) },
+            MasterVolume = { Value = 60f },
+        };
+        using SceneSettingsTabViewModel viewModel = CreateViewModel(scene, out _, out _);
+        Assert.That(viewModel.MasterVolume.Value, Is.EqualTo(60f));
+
+        viewModel.MasterVolume.Value = -1f;
+        Assert.That(viewModel.CanApply.Value, Is.False);
+
+        viewModel.Revert.Execute();
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.MasterVolume.Value, Is.EqualTo(60f));
+            Assert.That(viewModel.CanApply.Value, Is.True);
+        });
+    }
+
     private static SceneSettingsTabViewModel CreateViewModel(
         out CaptureSceneSettingsService sceneSettingsService,
         out BlockingPreviewPlayer previewPlayer,
@@ -216,6 +256,15 @@ public class SceneSettingsTabViewModelTests
         public MediaTime Start { get; private set; }
 
         public MediaTime Duration { get; private set; }
+
+        public float MasterVolume { get; private set; }
+
+        public bool Apply(
+            Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration, SpeakerLayout channelLayout, float masterVolume)
+        {
+            MasterVolume = masterVolume;
+            return Apply(scene, frameSize, start, duration, channelLayout);
+        }
 
         public bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration, SpeakerLayout channelLayout)
             => Apply(scene, frameSize, start, duration);

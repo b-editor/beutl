@@ -115,6 +115,7 @@ public sealed partial class SceneSound : Sound, ITimeMappedSource
                 // The embed composes the referenced scene's own window from the clip-local request.
                 TimeRange window = context.TimeRange.AddStart(scene.Start.Value);
                 var frame = compositor.EvaluateAudio(window);
+                _composer.MasterGain = scene.MasterVolume.Value / 100f;
                 var buffer = _composer.Compose(window, frame);
                 if (buffer == null)
                 {

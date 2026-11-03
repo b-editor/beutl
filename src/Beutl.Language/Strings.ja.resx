@@ -3682,4 +3682,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>プロジェクトの音声チャンネル</value>
   </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>マスター音量 (%)</value>
+  </data>
 </root>
