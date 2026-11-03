@@ -367,6 +367,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:Blur
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Sigma
+[Beutl.Engine]Beutl.Graphics.Effects:Bokeh
+  sealed
+  keys: Animations, Expressions, Highlight, Id, IsEnabled, Name, Quality, Radius, Rotation, Shape, Sides
 [Beutl.Engine]Beutl.Graphics.Effects:Brightness
   sealed
   keys: Amount, Animations, Expressions, Id, IsEnabled, Name

@@ -477,6 +477,11 @@ public sealed partial class SchemaGenerator
                 group.Children.Add(CreateBlur(4));
                 group.Children.Add(CreateBrightness(108));
                 break;
+            case Bokeh bokeh:
+                bokeh.Radius.Value = 10;
+                bokeh.Shape.Value = BokehShape.Polygon;
+                bokeh.Highlight.Value = 200;
+                break;
             case Blur blur:
                 blur.Sigma.Value = new Size(8, 8);
                 break;

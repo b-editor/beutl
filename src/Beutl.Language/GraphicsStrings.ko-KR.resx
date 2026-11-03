@@ -1646,6 +1646,45 @@
   <data name="RadialBlur_Samples" xml:space="preserve">
     <value>샘플 수</value>
   </data>
+  <data name="Bokeh" xml:space="preserve">
+    <value>보케</value>
+  </data>
+  <data name="Bokeh_Shape" xml:space="preserve">
+    <value>조리개 모양</value>
+  </data>
+  <data name="BokehShape_Circle" xml:space="preserve">
+    <value>원형</value>
+  </data>
+  <data name="BokehShape_Polygon" xml:space="preserve">
+    <value>다각형</value>
+  </data>
+  <data name="Bokeh_Sides" xml:space="preserve">
+    <value>변의 수</value>
+  </data>
+  <data name="Bokeh_Rotation" xml:space="preserve">
+    <value>회전</value>
+  </data>
+  <data name="Bokeh_Highlight" xml:space="preserve">
+    <value>하이라이트 강조</value>
+  </data>
+  <data name="Bokeh_Highlight_Description" xml:space="preserve">
+    <value>밝은 부분을 번지기 전에 더 밝게 하여 모양이 돋보이게 합니다. 100%는 두 배 밝기입니다.</value>
+  </data>
+  <data name="Bokeh_Quality" xml:space="preserve">
+    <value>품질</value>
+  </data>
+  <data name="Bokeh_Quality_Description" xml:space="preserve">
+    <value>샘플이 많을수록 모양이 깔끔해지고 시간이 더 걸립니다. 높음은 낮음보다 약 3배 오래 걸립니다.</value>
+  </data>
+  <data name="BokehQuality_Low" xml:space="preserve">
+    <value>낮음</value>
+  </data>
+  <data name="BokehQuality_Medium" xml:space="preserve">
+    <value>보통</value>
+  </data>
+  <data name="BokehQuality_High" xml:space="preserve">
+    <value>높음</value>
+  </data>
   <data name="RadialBlurMode_Zoom" xml:space="preserve">
     <value>줌</value>
   </data>

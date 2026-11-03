@@ -1642,6 +1642,45 @@
   <data name="RadialBlur_Samples" xml:space="preserve">
     <value>サンプル数</value>
   </data>
+  <data name="Bokeh" xml:space="preserve">
+    <value>ボケ</value>
+  </data>
+  <data name="Bokeh_Shape" xml:space="preserve">
+    <value>絞りの形</value>
+  </data>
+  <data name="BokehShape_Circle" xml:space="preserve">
+    <value>円形</value>
+  </data>
+  <data name="BokehShape_Polygon" xml:space="preserve">
+    <value>多角形</value>
+  </data>
+  <data name="Bokeh_Sides" xml:space="preserve">
+    <value>辺の数</value>
+  </data>
+  <data name="Bokeh_Rotation" xml:space="preserve">
+    <value>回転</value>
+  </data>
+  <data name="Bokeh_Highlight" xml:space="preserve">
+    <value>ハイライトの強調</value>
+  </data>
+  <data name="Bokeh_Highlight_Description" xml:space="preserve">
+    <value>明るい部分を広げる前に明るくして、形として目立たせます。100% で 2 倍の明るさになります。</value>
+  </data>
+  <data name="Bokeh_Quality" xml:space="preserve">
+    <value>品質</value>
+  </data>
+  <data name="Bokeh_Quality_Description" xml:space="preserve">
+    <value>サンプルを増やすほど形がきれいになり、時間がかかります。高は低の約 3 倍かかります。</value>
+  </data>
+  <data name="BokehQuality_Low" xml:space="preserve">
+    <value>低</value>
+  </data>
+  <data name="BokehQuality_Medium" xml:space="preserve">
+    <value>標準</value>
+  </data>
+  <data name="BokehQuality_High" xml:space="preserve">
+    <value>高</value>
+  </data>
   <data name="RadialBlurMode_Zoom" xml:space="preserve">
     <value>ズーム</value>
   </data>
