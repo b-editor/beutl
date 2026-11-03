@@ -618,8 +618,19 @@ public sealed class EasingCurveEditor : Control
 
         protected override string GetNameCore() => base.GetNameCore() is { Length: > 0 } name ? name : Strings.Easing;
 
-        protected override string? GetHelpTextCore() => owner.Easing is SplineEasing spline
-            ? string.Format(CultureInfo.CurrentCulture, Strings.EasingCurve_ControlPoints, spline.X1, spline.Y1, spline.X2, spline.Y2)
-            : base.GetHelpTextCore();
+        protected override string? GetHelpTextCore()
+        {
+            if (owner.Easing is not SplineEasing spline) return base.GetHelpTextCore();
+
+            string points = string.Format(
+                CultureInfo.CurrentCulture, Strings.EasingCurve_ControlPoints, spline.X1, spline.Y1, spline.X2, spline.Y2);
+            // Focus stays on the curve when Tab moves between its handles, so this is what tells them apart.
+            return owner._selected switch
+            {
+                ControlPoint.First => $"{Strings.EasingCurve_FirstSelected} {points}",
+                ControlPoint.Second => $"{Strings.EasingCurve_SecondSelected} {points}",
+                _ => points,
+            };
+        }
     }
 }

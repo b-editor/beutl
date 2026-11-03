@@ -3685,4 +3685,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="EasingCurve_ControlPoints" xml:space="preserve">
     <value>1 番目の制御点 {0}, {1}。2 番目の制御点 {2}, {3}。</value>
   </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>1 番目の制御点を選択中です。</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>2 番目の制御点を選択中です。</value>
+  </data>
 </root>

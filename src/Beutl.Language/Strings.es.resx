@@ -3690,4 +3690,10 @@ cuando el registro del historial está activado.</value>
   <data name="EasingCurve_ControlPoints" xml:space="preserve">
     <value>Primer punto de control {0}, {1}. Segundo punto de control {2}, {3}.</value>
   </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>Está seleccionado el primer punto de control.</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>Está seleccionado el segundo punto de control.</value>
+  </data>
 </root>

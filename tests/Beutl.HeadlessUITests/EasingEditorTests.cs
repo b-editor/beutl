@@ -711,6 +711,28 @@ public sealed class EasingEditorTests
         }
     }
 
+    [AvaloniaTest]
+    public void Assistive_technology_hears_which_control_point_the_arrow_keys_move()
+    {
+        var curve = new EasingCurveEditor { Easing = new SplineEasing(0.25f, 0.1f, 0.75f, 0.9f) };
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(curve);
+            Assert.That(curve.Focus(NavigationMethod.Tab), Is.True);
+            Assert.That(peer.GetHelpText(), Does.StartWith(Strings.EasingCurve_FirstSelected));
+
+            Press(window, Key.Tab, PhysicalKey.Tab);
+
+            Assert.That(peer.GetHelpText(), Does.StartWith(Strings.EasingCurve_SecondSelected));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static void Press(Window window, Key key, PhysicalKey physical, RawInputModifiers modifiers = RawInputModifiers.None)
     {
         window.KeyPress(key, modifiers, physical, null);
