@@ -220,6 +220,7 @@ public sealed class SvgImageTests
             Assert.That(resource.IsOffline, Is.False);
             Assert.That(resource.FrameSize, Is.EqualTo(new PixelSize(16384, 16384)));
             Assert.That(resource.Bitmap, Is.Null);
+            Assert.That(Measure(resource).EffectiveScale.IsUnbounded, Is.True);
         });
     }
 
