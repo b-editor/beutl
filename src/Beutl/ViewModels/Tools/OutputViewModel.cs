@@ -177,7 +177,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public ReadOnlyReactivePropertySlim<EncoderSettingsViewModel?> AudioSettings { get; }
 
-    public ReactiveProperty<double> ProgressMax { get; } = new();
+    public ReactiveProperty<double> ProgressMax { get; } = new(1);
 
     public ReactiveProperty<double> ProgressValue { get; } = new();
 
@@ -399,10 +399,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         _isEncoding.Value = true;
         HasProgress.Value = true;
         ProgressText.Value = Strings.Encoding;
+        ProgressValue.Value = 0;
         Elapsed.Value = "00:00:00";
-        Eta.Value = "--:--:--";
         CurrentSize.Value = "0 MB";
-        EstimatedSize.Value = "-- MB";
+        ClearEstimates();
         _totalFrames = 0;
         FrameProgressText.Value = "0 / 0";
     }
@@ -502,6 +502,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         string userMessage = TranslateEncodingFailure(ex);
 
         ProgressText.Value = userMessage;
+        ClearEstimates();
         NotificationService.ShowError(MessageStrings.OutputException, userMessage);
         MarkFailureAsReported(ex);
         if (ex is FFmpegWorkerException { FFmpegErrorCode: { } ffmpegErrorCode })
@@ -583,8 +584,16 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private void HandleCancellation()
     {
         WasCancelled.Value = true;
-        ProgressText.Value = Strings.Cancel;
+        ProgressText.Value = MessageStrings.Canceled;
+        ClearEstimates();
         _logger.LogInformation("Encoding cancelled.");
+    }
+
+    // A run's figures stay on show after it, and one that stopped has no end left to estimate.
+    private void ClearEstimates()
+    {
+        Eta.Value = "--:--:--";
+        EstimatedSize.Value = "-- MB";
     }
 
     private void UpdateProgressIndicators(TimeSpan elapsed, double value, double max, string? destinationPath)

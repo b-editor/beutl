@@ -15,25 +15,41 @@
              x:DataType="viewModel:OutputViewModel"
              mc:Ignorable="d">
     <StackPanel Spacing="4">
-        <Grid Margin="4" ColumnDefinitions="*,Auto">
-            <StackPanel Spacing="6">
-                <TextBlock Margin="0,8,0,0"
+        <StackPanel Margin="8,4" Spacing="6">
+            <!-- The buttons stay on top, so that Cancel takes the place of the Encode just pressed. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBlock VerticalAlignment="Center"
                            Text="{Binding ProgressText.Value}"
                            TextWrapping="Wrap" />
-                <ProgressBar Margin="0,0,8,0"
-                             Maximum="{Binding ProgressMax.Value}"
+                <Button Grid.Column="1"
+                        VerticalAlignment="Top"
+                        usage:UsageTracking.Feature="Output.StartOutput"
+                        Classes="accent"
+                        Click="StartOutputClick"
+                        Content="{x:Static lang:Strings.Encode}"
+                        IsEnabled="{Binding CanEncode.Value}"
+                        IsVisible="{Binding !IsRunning.Value, ElementName=Root}" />
+                <Button Grid.Column="1"
+                        VerticalAlignment="Top"
+                        usage:UsageTracking.Feature="Output.CancelOutput"
+                        Click="CancelOutputClick"
+                        Content="{x:Static lang:Strings.Cancel}"
+                        IsVisible="{Binding IsRunning.Value, ElementName=Root}" />
+            </Grid>
+
+            <StackPanel IsVisible="{Binding HasProgress.Value}" Spacing="6">
+                <ProgressBar Maximum="{Binding ProgressMax.Value}"
                              Value="{Binding ProgressValue.Value}" />
-                <Grid ColumnDefinitions="Auto,*"
-                      ColumnSpacing="12"
-                      IsVisible="{Binding HasProgress.Value}"
+                <!-- The same columns as the rows below, so that the figures read as part of the form. -->
+                <Grid ColumnDefinitions="2*,Auto,3*"
                       RowDefinitions="Auto,Auto,Auto,Auto"
-                      RowSpacing="2">
+                      RowSpacing="4">
                     <TextBlock Grid.Row="0"
                                Grid.Column="0"
                                Opacity="0.7"
                                Text="{x:Static lang:Strings.ElapsedTime}" />
                     <TextBlock Grid.Row="0"
-                               Grid.Column="1"
+                               Grid.Column="2"
                                Text="{Binding Elapsed.Value}" />
 
                     <TextBlock Grid.Row="1"
@@ -41,7 +57,7 @@
                                Opacity="0.7"
                                Text="{x:Static lang:Strings.RemainingTime}" />
                     <TextBlock Grid.Row="1"
-                               Grid.Column="1"
+                               Grid.Column="2"
                                Text="{Binding Eta.Value}" />
 
                     <TextBlock Grid.Row="2"
@@ -49,7 +65,7 @@
                                Opacity="0.7"
                                Text="{x:Static lang:Strings.Frames}" />
                     <TextBlock Grid.Row="2"
-                               Grid.Column="1"
+                               Grid.Column="2"
                                Text="{Binding FrameProgressText.Value}" />
 
                     <TextBlock Grid.Row="3"
@@ -57,30 +73,20 @@
                                Opacity="0.7"
                                Text="{x:Static lang:Strings.FileSize}" />
                     <StackPanel Grid.Row="3"
-                                Grid.Column="1"
+                                Grid.Column="2"
                                 Orientation="Horizontal"
                                 Spacing="6">
                         <TextBlock Text="{Binding CurrentSize.Value}" />
                         <TextBlock Opacity="0.5" Text="/" />
                         <TextBlock Text="{Binding EstimatedSize.Value}" />
                     </StackPanel>
+
+                    <GridSplitter Grid.RowSpan="4"
+                                  Grid.Column="1"
+                                  Background="Transparent" />
                 </Grid>
             </StackPanel>
-            <Button Grid.Column="1"
-                    VerticalAlignment="Bottom"
-                    usage:UsageTracking.Feature="Output.StartOutput"
-                    Classes="accent"
-                    Click="StartOutputClick"
-                    Content="{x:Static lang:Strings.Encode}"
-                    IsEnabled="{Binding CanEncode.Value}"
-                    IsVisible="{Binding !IsRunning.Value, ElementName=Root}" />
-            <Button Grid.Column="1"
-                    VerticalAlignment="Bottom"
-                    usage:UsageTracking.Feature="Output.CancelOutput"
-                    Click="CancelOutputClick"
-                    Content="{x:Static lang:Strings.Cancel}"
-                    IsVisible="{Binding IsRunning.Value, ElementName=Root}" />
-        </Grid>
+        </StackPanel>
 
         <Grid Margin="8,0" ToolTip.Tip="{x:Static lang:Strings.DestinationToSaveTo_Tip}">
             <Grid.ColumnDefinitions>
