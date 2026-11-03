@@ -342,8 +342,9 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 stopwatch,
                 cancellationToken));
 
+            // On a worker: a long image sequence takes many file operations, and Cancel has to stay clickable.
+            IReadOnlyList<string> published = await Task.Run(() => output.Commit(controller.OutputFiles, cancellationToken));
             // An encoder that writes several files may not write the file the user named.
-            IReadOnlyList<string> published = output.Commit(controller.OutputFiles, cancellationToken);
             _activeDestination = published.Count > 0 ? published[0] : output.DestinationPath;
             succeeded = true;
             ShowCompletedProgress();

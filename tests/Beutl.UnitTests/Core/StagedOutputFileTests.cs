@@ -135,6 +135,65 @@ public class StagedOutputFileTests
         finally { Directory.Delete(root, true); }
     }
 
+    // Another program holding a published file open is what stops the file underneath it from coming back.
+    [Test]
+    public void A_previous_file_that_cannot_be_put_back_survives_in_a_folder_the_failure_names()
+    {
+        string root = Directory.CreateTempSubdirectory("beutl-staged-output-").FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "frame_0.png"), "old");
+            Directory.CreateDirectory(Path.Combine(root, "frame_1.png"));
+            IOException failure;
+            using (var output = new StagedOutputFile(Path.Combine(root, "frame.png"))
+                   {
+                       RestoreFile = (_, _) => throw new IOException("in use")
+                   })
+            {
+                string[] files = [StagedFile(output, "frame_0.png", "new 0"), StagedFile(output, "frame_1.png", "new 1")];
+
+                failure = Assert.Throws<IOException>(() => output.Commit(files, CancellationToken.None))!;
+            }
+
+            string kept = Directory.GetDirectories(root).Single(path => path.EndsWith("-previous", StringComparison.Ordinal));
+            Assert.Multiple(() =>
+            {
+                Assert.That(failure.Message, Does.Contain(kept));
+                Assert.That(File.ReadAllText(Path.Combine(kept, "frame_0.png")), Is.EqualTo("old"));
+            });
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Test]
+    public void Two_files_that_would_reach_the_same_path_are_refused()
+    {
+        string root = Directory.CreateTempSubdirectory("beutl-staged-output-").FullName;
+        try
+        {
+            string target = Path.Combine(root, "frame_0.png");
+            string link = Path.Combine(root, "selected.png");
+            File.WriteAllText(target, "old");
+            try { File.CreateSymbolicLink(link, target); }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or PlatformNotSupportedException
+                                       || ex is IOException && OperatingSystem.IsWindows())
+            {
+                Assert.Ignore("Symlink creation is not available.");
+            }
+
+            using (var output = new StagedOutputFile(link))
+            {
+                File.WriteAllText(output.TemporaryPath, "chosen");
+                string[] files = [output.TemporaryPath, StagedFile(output, "frame_0.png", "frame")];
+
+                Assert.Throws<InvalidOperationException>(() => output.Commit(files, CancellationToken.None));
+            }
+
+            Assert.That(File.ReadAllText(target), Is.EqualTo("old"));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     [Test]
     public void A_file_that_was_not_written_stops_the_others_from_moving()
     {

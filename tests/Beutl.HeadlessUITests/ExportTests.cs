@@ -7,6 +7,7 @@ using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Beutl.Editor.Components.OutputTab;
 using Beutl.Editor.Components.OutputTab.ViewModels;
 using Beutl.Editor.Components.OutputTab.Views;
@@ -448,15 +449,17 @@ public class ExportTests
 
     private sealed class SequenceEncoderExtension(bool fail = false) : ControllableEncodingExtension
     {
+        public bool PublishedOnUiThread { get; set; }
+
         public override IEnumerable<string> SupportExtensions()
         {
             yield return ".png";
         }
 
-        public override EncodingController CreateController(string file) => new SequenceController(file, fail);
+        public override EncodingController CreateController(string file) => new SequenceController(file, fail, this);
     }
 
-    private sealed class SequenceController(string outputFile, bool fail) : EncodingController(outputFile)
+    private sealed class SequenceController(string outputFile, bool fail, SequenceEncoderExtension owner) : EncodingController(outputFile)
     {
         private string Frame(int index) => Path.Combine(
             Path.GetDirectoryName(OutputFile)!, $"{Path.GetFileNameWithoutExtension(OutputFile)}_{index}.png");
@@ -465,7 +468,14 @@ public class ExportTests
 
         public override AudioEncoderSettings AudioSettings { get; } = new();
 
-        public override IReadOnlyList<string> OutputFiles => [Frame(0), Frame(1)];
+        public override IReadOnlyList<string> OutputFiles
+        {
+            get
+            {
+                owner.PublishedOnUiThread = Dispatcher.UIThread.CheckAccess();
+                return [Frame(0), Frame(1)];
+            }
+        }
 
         public override async ValueTask Encode(
             IFrameProvider frameProvider,
@@ -491,7 +501,8 @@ public class ExportTests
 
         using var output = new OutputViewModel(editor);
         output.DestinationFile.Value = Path.Combine(folder, "frame.png");
-        output.SelectedEncoder.Value = new SequenceEncoderExtension();
+        var encoder = new SequenceEncoderExtension();
+        output.SelectedEncoder.Value = encoder;
         HeadlessTestHelpers.Settle();
 
         using var notifications = new NotificationCapture();
@@ -499,6 +510,7 @@ public class ExportTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(encoder.PublishedOnUiThread, Is.False, "A long sequence would freeze the window, Cancel included.");
             Assert.That(File.ReadAllText(Path.Combine(folder, "frame_0.png")), Is.EqualTo("new"));
             Assert.That(File.ReadAllText(Path.Combine(folder, "frame_1.png")), Is.EqualTo("new"));
             Assert.That(File.Exists(Path.Combine(folder, "frame.png")), Is.False, "No extra file for the name the user chose.");

@@ -52,19 +52,25 @@ internal sealed class StagedOutputFile : IDisposable
     /// </summary>
     /// <remarks>
     /// Every file is checked before the first one moves, and a failure part way puts back what was already
-    /// replaced, so the destination folder ends up with all of the files or none.
+    /// replaced, so the destination folder ends up with all of the files or none. A previous file that cannot be
+    /// put back stays in a folder the exception names.
     /// </remarks>
     public IReadOnlyList<string> Commit(IReadOnlyList<string> files, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         (string Source, string Destination)[] moves = [.. files.Select(GetMove)];
+        // A chosen path that links to a name the encoder also wrote would lose one of the two.
+        if (moves.DistinctBy(move => move.Destination).Count() != moves.Length)
+            throw new InvalidOperationException("Several output files would be published to the same path.");
+
         if (moves is [{ Source: var only }] && only == TemporaryPath)
         {
             Commit(cancellationToken);
             return [DestinationPath];
         }
 
-        string backups = Path.Combine(_directory, $".previous-{Guid.NewGuid():N}");
+        // Beside the staging directory and not in it: what cannot be put back has to outlive Dispose.
+        string backups = _directory + "-previous";
         Directory.CreateDirectory(backups);
         var started = new Stack<(string Destination, string? Backup)>();
         try
@@ -87,14 +93,20 @@ internal sealed class StagedOutputFile : IDisposable
                 File.Move(source, destination);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            bool restored = true;
             foreach ((string destination, string? backup) in started)
-                Restore(destination, backup);
+                restored &= TryRestore(destination, backup);
 
+            if (!restored)
+                throw new IOException($"The output could not be published, and some earlier files could not be put back. They are in '{backups}'.", ex);
+
+            DeleteDirectory(backups);
             throw;
         }
 
+        DeleteDirectory(backups);
         return [.. moves.Select(move => move.Destination)];
     }
 
@@ -113,34 +125,47 @@ internal sealed class StagedOutputFile : IDisposable
             : Path.Combine(Path.GetDirectoryName(DestinationPath)!, Path.GetFileName(source)));
     }
 
-    private static void Restore(string destination, string? backup)
+    // Another program holding a published file open is what makes this fail in practice, which a test cannot arrange.
+    internal Action<string, string?> RestoreFile { private get; init; } = static (destination, backup) =>
+    {
+        if (backup != null)
+        {
+            File.Move(backup, destination, overwrite: true);
+            return;
+        }
+
+        var published = new FileInfo(destination);
+        if (published.Exists || published.LinkTarget != null)
+            published.Delete();
+    };
+
+    private bool TryRestore(string destination, string? backup)
     {
         try
         {
-            var published = new FileInfo(destination);
-            if (published.Exists || published.LinkTarget != null)
-                published.Delete();
-            if (backup != null)
-                File.Move(backup, destination);
+            RestoreFile(destination, backup);
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // The publication failure is what the caller has to hear about.
             Trace.TraceWarning("Failed to restore output {0}: {1}", destination, ex.Message);
+            return false;
         }
     }
 
-    public void Dispose()
+    public void Dispose() => DeleteDirectory(_directory);
+
+    private static void DeleteDirectory(string directory)
     {
         try
         {
-            if (Directory.Exists(_directory))
-                Directory.Delete(_directory, recursive: true);
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // Cleanup must not mask the original failure or turn a published output into a failure.
-            Trace.TraceWarning("Failed to remove output staging directory {0}: {1}", _directory, ex.Message);
+            Trace.TraceWarning("Failed to remove output staging directory {0}: {1}", directory, ex.Message);
         }
     }
 }
