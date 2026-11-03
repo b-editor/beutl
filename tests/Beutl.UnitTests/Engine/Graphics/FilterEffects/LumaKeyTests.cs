@@ -60,6 +60,15 @@ public sealed class LumaKeyTests
     }
 
     [Test]
+    public void Softness_fades_above_the_upper_limit()
+    {
+        // 188 is 50 % in linear light, in the middle of a band from 40 % to 60 %.
+        var key = new LumaKey { Lower = { Value = 0 }, Upper = { Value = 40 }, Softness = { Value = 20 } };
+
+        Assert.That(AlphaOf(key, s_bright), Is.EqualTo(0.5f).Within(0.05f));
+    }
+
+    [Test]
     public void What_it_keeps_keeps_its_color()
     {
         var key = new LumaKey { Lower = { Value = 60 }, Softness = { Value = 20 } };
