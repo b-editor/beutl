@@ -136,7 +136,7 @@ public class ExoCaptionDecoderTests
     [Test]
     public void Control_tags_are_left_out_and_reported()
     {
-        CaptionImportResult result = _decoder.Decode(File(TextObject(0, 1, 30, "<s60,MS ゴシック,B><#ff0000>赤<#><p10,-5><r5><w*2>字<?mes(\"x\")?> <b>")));
+        CaptionImportResult result = _decoder.Decode(File(TextObject(0, 1, 30, "<s60,MS ゴシック,B><#ff0000>赤<#><p10,-5><r5><w*2>字<c2><c><?mes(\"x\")?> <b>")));
 
         Assert.Multiple(() =>
         {
@@ -169,6 +169,35 @@ public class ExoCaptionDecoderTests
                 CaptionDiagnosticKinds.InvalidStructure,
                 CaptionDiagnosticKinds.InvalidTiming,
             }));
+        });
+    }
+
+    [Test]
+    public void A_mid_point_that_cannot_be_read_is_reported_and_the_cue_kept()
+    {
+        string split = TextObject(0, 1, 30, "字幕") + TextObject(1, 60, 31, "字幕", "chain=1");
+
+        CaptionImportResult result = _decoder.Decode(File(split));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Document!.Cues.Single().End, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(result.Diagnostics.Select(item => item.Kind), Is.EqualTo(new[] { CaptionDiagnosticKinds.InvalidTiming }));
+        });
+    }
+
+    // Searching for the end of a script tag is quadratic in the text, which exedit never makes longer than this.
+    [Test]
+    public void Text_longer_than_exedit_writes_is_reported_and_not_searched()
+    {
+        string longer = TextObject(0, 1, 30, "a").Replace(Hex("a"), Convert.ToHexStringLower(Encoding.Unicode.GetBytes(string.Concat(Enumerable.Repeat("<?", 2049)))), StringComparison.Ordinal);
+
+        CaptionImportResult result = _decoder.Decode(File(longer + TextObject(1, 31, 60, "字幕")));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Document!.Cues.Select(cue => cue.Text), Is.EqualTo(new[] { "字幕" }));
+            Assert.That(result.Diagnostics.Select(item => item.Kind), Is.EqualTo(new[] { CaptionDiagnosticKinds.InvalidStructure }));
         });
     }
 

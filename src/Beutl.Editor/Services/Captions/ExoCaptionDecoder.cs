@@ -11,6 +11,9 @@ namespace Beutl.Editor.Services.Captions;
 /// </summary>
 public sealed partial class ExoCaptionDecoder : ICaptionDecoder
 {
+    // The fixed length exedit writes, which also bounds what the control tags are searched in.
+    private const int MaxTextDigits = 4096;
+
     public CaptionImportResult Decode(string content)
     {
         ArgumentNullException.ThrowIfNull(content);
@@ -42,6 +45,10 @@ public sealed partial class ExoCaptionDecoder : ICaptionDecoder
                     cues[^1] = extended;
                     previous = extended;
                 }
+                else
+                {
+                    diagnostics.Add(new CaptionDiagnostic(CaptionDiagnosticKinds.InvalidTiming, $"Object {name} has no valid start and end frames."));
+                }
 
                 continue;
             }
@@ -56,7 +63,7 @@ public sealed partial class ExoCaptionDecoder : ICaptionDecoder
 
             if (!TryReadText(hex, out string text))
             {
-                diagnostics.Add(new CaptionDiagnostic(CaptionDiagnosticKinds.InvalidStructure, $"Object {name} holds text that is not hexadecimal UTF-16."));
+                diagnostics.Add(new CaptionDiagnostic(CaptionDiagnosticKinds.InvalidStructure, $"Object {name} holds text that is not hexadecimal UTF-16 of at most {MaxTextDigits} digits."));
                 continue;
             }
 
@@ -127,6 +134,8 @@ public sealed partial class ExoCaptionDecoder : ICaptionDecoder
     private static bool TryReadText(string hex, out string text)
     {
         text = string.Empty;
+        if (hex.Length > MaxTextDigits) return false;
+
         try
         {
             string decoded = Encoding.Unicode.GetString(Convert.FromHexString(hex));
@@ -140,7 +149,7 @@ public sealed partial class ExoCaptionDecoder : ICaptionDecoder
         }
     }
 
-    // The control text of exedit: size and font, color, position, speed, and a script in <? ?>.
-    [GeneratedRegex(@"<(?:s[0-9.]*(?:,[^<>]*)?|#[0-9a-fA-F]*(?:,[0-9a-fA-F]*)?|p[-+0-9.,]*|r[0-9.]*|w\*?[0-9.]*|\?.*?\?)>", RegexOptions.Singleline)]
+    // The control text of exedit: size and font, color, position, speed, wait, clear, and a script in <? ?>.
+    [GeneratedRegex(@"<(?:s[0-9.]*(?:,[^<>]*)?|#[0-9a-fA-F]*(?:,[0-9a-fA-F]*)?|p[-+0-9.,]*|r[0-9.]*|w\*?[0-9.]*|c[0-9.]*|\?.*?\?)>", RegexOptions.Singleline)]
     private static partial Regex ControlTags();
 }
