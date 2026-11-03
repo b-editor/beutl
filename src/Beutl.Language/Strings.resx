@@ -3690,4 +3690,7 @@ when history recording is enabled.</value>
   <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
     <value>Could not read any subtitles from {0}.</value>
   </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>Some of the subtitles in {0} could not be read and were skipped.</value>
+  </data>
 </root>

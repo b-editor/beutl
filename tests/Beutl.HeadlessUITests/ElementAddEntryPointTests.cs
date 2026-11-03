@@ -432,6 +432,30 @@ public class ElementAddEntryPointTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFile_KeepsShortCuesShowsTheFirstAndWarnsOfSkippedOnes()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-short");
+        using var notifications = new NotificationCapture();
+        string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "short.srt");
+        File.WriteAllText(path, "1\n00:00:03,000 --> 00:00:03,200\nshort\n\n2\nnot a time\nskipped\n");
+        (TimeRange Range, int ZIndex)? shown = null;
+        using IDisposable subscription = timeline.ScrollTo.Subscribe(value => shown = value);
+
+        await CaptionFileDrop.AddAsync(timeline, path);
+
+        Element clip = editor.Scene.Children.Single();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(clip.Start.Value.ToSeconds(), Is.EqualTo(3).Within(0.001));
+            Assert.That(clip.Length.Value.ToSeconds(), Is.EqualTo(0.2).Within(0.001));
+            Assert.That(shown, Is.EqualTo((clip.Range, clip.ZIndex.Value)));
+            Assert.That(notifications.All.Single().Message, Does.Contain("short.srt"));
+        }
+    }
+
     [Test]
     public void Subtitle_files_are_read_in_UTF16_and_the_systems_legacy_code_page()
     {

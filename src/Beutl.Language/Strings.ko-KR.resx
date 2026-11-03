@@ -3690,4 +3690,7 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
     <value>{0}에서 자막을 읽지 못했습니다.</value>
   </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>{0}의 자막 중 일부를 읽을 수 없어 건너뛰었습니다.</value>
+  </data>
 </root>

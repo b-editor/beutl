@@ -3690,4 +3690,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
     <value>无法从 {0} 读取字幕。</value>
   </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>无法读取 {0} 中的部分字幕，已跳过。</value>
+  </data>
 </root>

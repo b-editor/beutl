@@ -15,6 +15,9 @@ internal static class CaptionFileDrop
     private static readonly Lazy<CaptionCatalog> s_catalog = new(() => CaptionCatalog.ComposeWithDefaultElementFactory(
         Strings.AiSubtitle_DefaultTemplate, [], CaptionPresentationDefaults.ElementFactory));
 
+    // A file's cues keep the length it gives them, however short.
+    private static readonly MediaTime s_shortestCue = MediaTime.FromSeconds(0.001);
+
     public static bool IsCaptionFile(string file) => s_catalog.Value.Codecs.TryGetByFileName(file, out _);
 
     public static async Task AddAsync(TimelineTabViewModel viewModel, string file)
@@ -22,7 +25,8 @@ internal static class CaptionFileDrop
         if (!s_catalog.Value.Codecs.TryGetByFileName(file, out CaptionCodecInfo? codec)) return;
 
         byte[] bytes = await File.ReadAllBytesAsync(file);
-        if (Import(bytes, codec.Format).Document is not { Count: > 0 } document)
+        CaptionImportResult import = Import(bytes, codec.Format);
+        if (import.Document is not { Count: > 0 } document)
         {
             NotificationService.ShowError(
                 Strings.AddElement,
@@ -35,8 +39,24 @@ internal static class CaptionFileDrop
             viewModel.EditorContext.GetRequiredService<IElementAdder>(),
             document,
             CaptionPresentationDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate),
-            elementName: Path.GetFileNameWithoutExtension(file));
-        if (result.IsSuccess) return;
+            elementName: Path.GetFileNameWithoutExtension(file),
+            minimumLength: s_shortestCue);
+        if (result.IsSuccess)
+        {
+            // The file decides where the clips go, which can be far from where the timeline is looking.
+            if (result.FirstElement is { } first)
+                viewModel.ScrollTo.Execute((first.Range, first.ZIndex.Value));
+
+            // Everything but markup means a cue was left out.
+            if (import.Diagnostics.Any(item => item.Kind != CaptionDiagnosticKinds.UnsupportedMarkup))
+            {
+                NotificationService.ShowWarning(
+                    Strings.AddElement,
+                    string.Format(CultureInfo.CurrentCulture, Strings.SubtitleFile_SomeSkipped, Path.GetFileName(file)));
+            }
+
+            return;
+        }
 
         if (result.FailureId == ElementAddFailureIds.LockedLayer)
         {
