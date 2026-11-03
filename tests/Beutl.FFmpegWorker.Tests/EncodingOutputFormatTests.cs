@@ -2,6 +2,8 @@
 using Beutl.Extensibility;
 using Beutl.FFmpegWorker.Encoding;
 using Beutl.Media;
+using FFmpeg.AutoGen.Abstractions;
+using FFmpegSharp;
 
 namespace Beutl.FFmpegWorker.Tests;
 
@@ -60,6 +62,28 @@ public sealed class EncodingOutputFormatTests
                 Assert.That(File.ReadAllBytes(outputPath), Is.EqualTo(originalContents));
             }
         });
+    }
+
+    [TestCase("audio.mp3", AVCodecID.AV_CODEC_ID_MP3)]
+    [TestCase("audio.wav", AVCodecID.AV_CODEC_ID_PCM_S16LE)]
+    public async Task Encode_WithoutFrames_WritesOnlyAudio(string fileName, AVCodecID audioCodec)
+    {
+        if (MediaCodec.FindEncoder(audioCodec) == null)
+            Assert.Ignore($"This FFmpeg build cannot encode {audioCodec}.");
+
+        string outputPath = Path.Combine(_workDir, fileName);
+        var controller = new FFmpegEncodingController(outputPath, new FFmpegEncodingSettings());
+        // Setting up a video stream fails at this size, so the export only succeeds without one.
+        controller.VideoSettings.DestinationSize.Value = default;
+        controller.AudioSettings.Format.Value = FFmpegAudioEncoderSettings.AudioFormat.Default;
+        using var frames = new GradientFrameProvider(0, new Rational(30), 32, 32);
+        using var samples = new SineSampleProvider(44100, 44100);
+
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        using var demuxer = MediaDemuxer.Open(outputPath);
+        Assert.That(demuxer.Select(stream => stream.CodecparRef.codec_type),
+            Is.EqualTo(new[] { AVMediaType.AVMEDIA_TYPE_AUDIO }));
     }
 
     private sealed class UnusedFrameProvider : IFrameProvider
