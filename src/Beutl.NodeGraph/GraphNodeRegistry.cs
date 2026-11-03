@@ -94,14 +94,9 @@ public class GraphNodeRegistry
                 var item = s_nodes[i];
                 if (item is GroupableRegistryItem groupable)
                 {
-                    int count = groupable.Items.Count;
-                    if (groupable.Unregister(types))
+                    if (groupable.Unregister(types, ref changed))
                     {
                         s_nodes.RemoveAt(i);
-                        changed = true;
-                    }
-                    else if (groupable.Items.Count != count)
-                    {
                         changed = true;
                     }
                 }
@@ -183,7 +178,7 @@ public class GraphNodeRegistry
             }
         }
 
-        internal bool Unregister(Type[] types)
+        internal bool Unregister(Type[] types, ref bool changed)
         {
             for (int i = Items.Count - 1; i >= 0; i--)
             {
@@ -191,14 +186,16 @@ public class GraphNodeRegistry
 
                 if (item is GroupableRegistryItem groupable)
                 {
-                    if (groupable.Unregister(types))
+                    if (groupable.Unregister(types, ref changed))
                     {
                         Items.RemoveAt(i);
+                        changed = true;
                     }
                 }
                 else if (item is RegistryItem registryItem && types.Any(t => TypeUnloadNotifier.ContainsTypeRecursive(registryItem.Type, t)))
                 {
                     Items.RemoveAt(i);
+                    changed = true;
                 }
             }
 
