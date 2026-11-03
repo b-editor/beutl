@@ -674,6 +674,34 @@ public sealed class EasingEditorTests
         }
     }
 
+    // A wide row's value column has room for the curve, which then lines up with the box that chooses the easing.
+    [AvaloniaTest]
+    public void The_curve_sits_under_its_box_in_a_wide_row()
+    {
+        var holder = new EasingHolder();
+        holder.Curve.Value = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
+        using var scope = new CurveEditorScope(holder, holder.Curve, height: 400);
+        scope.Window.Width = 700;
+        try
+        {
+            scope.Window.Show();
+            HeadlessTestHelpers.Render();
+
+            EasingCurveEditor curve = scope.Editor.GetVisualDescendants().OfType<EasingCurveEditor>().Single();
+            ComboBox box = scope.Editor.GetVisualDescendants().OfType<ComboBox>().Single();
+            double Left(Control control) => control.TranslatePoint(default, scope.Window)!.Value.X;
+            Assert.Multiple(() =>
+            {
+                Assert.That(Left(curve), Is.EqualTo(Left(box)).Within(0.5));
+                Assert.That(Left(curve) + curve.Bounds.Width, Is.EqualTo(Left(box) + box.Bounds.Width).Within(0.5));
+            });
+        }
+        finally
+        {
+            scope.Window.Close();
+        }
+    }
+
     // A handle at the end of the range sits on the corner of the plot, where its ring must neither be cut off
     // nor run under the focus border, which takes the outer 3 pixels when the curve is reached with Tab.
     [AvaloniaTest]
