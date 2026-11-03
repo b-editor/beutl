@@ -436,9 +436,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
     public MediaTime? GetPlaybackTime()
     {
-        if (Volatile.Read(ref _activeTicker) is { } ticker) return ticker.CurrentTime;
+        if (!IsPlaying.Value) return null;
 
-        return IsPlaying.Value ? _editorClock.CurrentTime.Value : null;
+        return Volatile.Read(ref _activeTicker)?.CurrentTime ?? _editorClock.CurrentTime.Value;
     }
 
     public void Play()
@@ -722,6 +722,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             _isShuttling = false;
             // Retire before waiting, so late/queued callbacks cannot enter behind a drain barrier.
             _sessionGuard.Disown();
+            // A playback task this abandons on a timeout would otherwise answer for whatever plays next.
+            Volatile.Write(ref _activeTicker, null);
             renderCts?.Cancel();
             if (IsPlaying.Value)
                 _logger.LogInformation("Pause the playback. ({SceneId})", _editViewModel.SceneId);

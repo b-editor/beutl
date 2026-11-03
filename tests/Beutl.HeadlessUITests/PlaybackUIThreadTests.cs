@@ -312,6 +312,31 @@ public class PlaybackUIThreadTests
         Assert.That(player.GetPlaybackTime(), Is.Null);
     }
 
+    // A native audio call that hangs leaves the playback task and its clock running behind a pause that timed out.
+    [AvaloniaTest]
+    public async Task PlaybackTime_IsNullOnceStopped_WhateverThePlaybackTaskIsStillDoing()
+    {
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await OpenEditor(MediaTime.FromSeconds(30));
+        IEditorClock clock = editor.GetRequiredService<IEditorClock>();
+
+        editor.Player.Play();
+        try
+        {
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => clock.CurrentTime.Value > MediaTime.Zero, TimeSpan.FromSeconds(120), pump: false);
+            Assert.That(editor.Player.GetPlaybackTime(), Is.Not.Null);
+
+            editor.Player.IsPlaying.Value = false;
+
+            Assert.That(editor.Player.GetPlaybackTime(), Is.Null);
+        }
+        finally
+        {
+            await editor.Player.Pause();
+        }
+    }
+
     private static async Task<EditViewModel> OpenEditor(MediaTime duration)
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("playback-ui-thread", 320, 240, duration: duration);
