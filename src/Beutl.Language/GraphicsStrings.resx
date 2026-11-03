@@ -408,6 +408,36 @@
   <data name="DrawableDecorator" xml:space="preserve">
     <value>Decorator</value>
   </data>
+  <data name="DrawableRepeater" xml:space="preserve">
+    <value>Repeat</value>
+  </data>
+  <data name="DrawableRepeater_Columns" xml:space="preserve">
+    <value>Columns</value>
+  </data>
+  <data name="DrawableRepeater_Rows" xml:space="preserve">
+    <value>Rows</value>
+  </data>
+  <data name="DrawableRepeater_Spacing" xml:space="preserve">
+    <value>Spacing</value>
+  </data>
+  <data name="DrawableRepeater_Offset_Description" xml:space="preserve">
+    <value>Moves the copies inside the grid. One that leaves at one end comes back at the other, so animating this scrolls without end.</value>
+  </data>
+  <data name="DrawableRepeater_Mirror" xml:space="preserve">
+    <value>Mirror</value>
+  </data>
+  <data name="DrawableRepeaterMirror_None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="DrawableRepeaterMirror_Columns" xml:space="preserve">
+    <value>Every other column</value>
+  </data>
+  <data name="DrawableRepeaterMirror_Rows" xml:space="preserve">
+    <value>Every other row</value>
+  </data>
+  <data name="DrawableRepeaterMirror_Both" xml:space="preserve">
+    <value>Both</value>
+  </data>
   <data name="DrawableTimeController" xml:space="preserve">
     <value>Time Controller (Video)</value>
   </data>

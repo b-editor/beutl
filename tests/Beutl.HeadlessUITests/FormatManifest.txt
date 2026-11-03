@@ -124,6 +124,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:BlendMode>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:DrawableRepeaterMirror>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:Matrix>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
@@ -196,6 +199,9 @@ Beutl.Utilities
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:BlendMode>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:DrawableRepeaterMirror>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:Matrix>
@@ -712,6 +718,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics:DrawablePresenter
   sealed
   keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Target, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics:DrawableRepeater
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Children, Columns, Expressions, FilterEffect, Id, IsEnabled, Mirror, Name, Offset, Opacity, Rows, Spacing, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Graphics:DrawableTimeController
   sealed
   keys: AdjustTimeRange, AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, FrameRate, HoldFirstFrame, HoldLastFrame, Id, IsEnabled, Loop, Name, OffsetPosition, Opacity, Reverse, Speed, Target, Transform, TransformOrigin

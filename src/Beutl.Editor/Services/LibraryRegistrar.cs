@@ -153,6 +153,11 @@ internal static class LibraryRegistrar
             );
 
         LibraryService.Current
+            .AddMultiple(GraphicsStrings.DrawableRepeater, m => m
+                .BindDrawable<DrawableRepeater>()
+            );
+
+        LibraryService.Current
             .AddMultiple(AudioStrings.SoundGroup, m => m
                 .BindSound<SoundGroup>()
             );

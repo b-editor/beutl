@@ -8,7 +8,7 @@ namespace Beutl.Graphics;
 
 // Drawable継承しているが、Drawableのメソッドは使っていない
 [Display(Name = nameof(GraphicsStrings.DrawableDecorator), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class DrawableDecorator : Drawable, IFlowOperator
+public sealed partial class DrawableDecorator : Drawable, IFlowOperator, IDrawableContainer
 {
     public DrawableDecorator()
     {

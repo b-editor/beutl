@@ -407,6 +407,36 @@
   <data name="DrawableDecorator" xml:space="preserve">
     <value>装饰器</value>
   </data>
+  <data name="DrawableRepeater" xml:space="preserve">
+    <value>重复排列</value>
+  </data>
+  <data name="DrawableRepeater_Columns" xml:space="preserve">
+    <value>列数</value>
+  </data>
+  <data name="DrawableRepeater_Rows" xml:space="preserve">
+    <value>行数</value>
+  </data>
+  <data name="DrawableRepeater_Spacing" xml:space="preserve">
+    <value>间距</value>
+  </data>
+  <data name="DrawableRepeater_Offset_Description" xml:space="preserve">
+    <value>在网格内移动副本。从一端移出的副本会从另一端返回，因此为其添加动画可实现无缝滚动。</value>
+  </data>
+  <data name="DrawableRepeater_Mirror" xml:space="preserve">
+    <value>交替翻转</value>
+  </data>
+  <data name="DrawableRepeaterMirror_None" xml:space="preserve">
+    <value>无</value>
+  </data>
+  <data name="DrawableRepeaterMirror_Columns" xml:space="preserve">
+    <value>隔列</value>
+  </data>
+  <data name="DrawableRepeaterMirror_Rows" xml:space="preserve">
+    <value>隔行</value>
+  </data>
+  <data name="DrawableRepeaterMirror_Both" xml:space="preserve">
+    <value>两者</value>
+  </data>
   <data name="DrawableTimeController" xml:space="preserve">
     <value>时间控制器（视频）</value>
   </data>

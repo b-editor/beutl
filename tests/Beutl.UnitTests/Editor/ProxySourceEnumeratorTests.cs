@@ -111,6 +111,18 @@ public class ProxySourceEnumeratorTests
         Assert.That(FileNames(element), Does.Contain("decorated.mov"));
     }
 
+    [Test]
+    public void EnumerateVideoSources_RecursesIntoDrawableRepeaterChildren()
+    {
+        var nested = new SourceVideo();
+        nested.Source.Value = CreateVideoSource("repeated.mov");
+        var repeater = new DrawableRepeater();
+        repeater.Children.Add(nested);
+        Element element = ElementWith(repeater);
+
+        Assert.That(FileNames(element), Does.Contain("repeated.mov"));
+    }
+
     // A DrawableTextureSource on a 3D material (Object3D.Material.DiffuseMap) renders its nested Drawable
     // via GetTexture, opening that drawable's files; the media walk must reach a SourceVideo inside it.
     [Test]

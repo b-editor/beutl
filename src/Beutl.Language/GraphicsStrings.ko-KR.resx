@@ -407,6 +407,36 @@
   <data name="DrawableDecorator" xml:space="preserve">
     <value>데코레이터</value>
   </data>
+  <data name="DrawableRepeater" xml:space="preserve">
+    <value>반복 배치</value>
+  </data>
+  <data name="DrawableRepeater_Columns" xml:space="preserve">
+    <value>열 수</value>
+  </data>
+  <data name="DrawableRepeater_Rows" xml:space="preserve">
+    <value>행 수</value>
+  </data>
+  <data name="DrawableRepeater_Spacing" xml:space="preserve">
+    <value>간격</value>
+  </data>
+  <data name="DrawableRepeater_Offset_Description" xml:space="preserve">
+    <value>격자 안에서 복사본을 움직입니다. 한쪽 끝으로 나간 복사본은 반대쪽에서 돌아오므로 애니메이션하면 끊김 없이 스크롤됩니다.</value>
+  </data>
+  <data name="DrawableRepeater_Mirror" xml:space="preserve">
+    <value>번갈아 반전</value>
+  </data>
+  <data name="DrawableRepeaterMirror_None" xml:space="preserve">
+    <value>없음</value>
+  </data>
+  <data name="DrawableRepeaterMirror_Columns" xml:space="preserve">
+    <value>한 열 걸러</value>
+  </data>
+  <data name="DrawableRepeaterMirror_Rows" xml:space="preserve">
+    <value>한 행 걸러</value>
+  </data>
+  <data name="DrawableRepeaterMirror_Both" xml:space="preserve">
+    <value>둘 다</value>
+  </data>
   <data name="DrawableTimeController" xml:space="preserve">
     <value>시간 컨트롤러 (비디오)</value>
   </data>

@@ -253,7 +253,7 @@ public sealed partial class StillRenderer
         return result;
     }
 
-    // Flow operators (DrawableGroup / DrawableDecorator) render their children, so text nested under
+    // Flow operators that hold drawables render them, so text nested under
     // a group (e.g. after duplicate_object(wrapInGroup:true)) must still be measured — otherwise
     // rendered contrast / eye-trace checks ignore grouped text that is actually on screen.
     private static void CollectRenderedTextBounds(
@@ -276,8 +276,7 @@ public sealed partial class StillRenderer
 
         IEnumerable<EngineObject> children = obj switch
         {
-            DrawableGroup group => group.Children,
-            DrawableDecorator decorator => decorator.Children,
+            IDrawableContainer container => container.Children,
             _ => []
         };
 

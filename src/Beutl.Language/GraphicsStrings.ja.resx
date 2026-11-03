@@ -403,6 +403,36 @@
   <data name="DrawableDecorator" xml:space="preserve">
     <value>デコレーター</value>
   </data>
+  <data name="DrawableRepeater" xml:space="preserve">
+    <value>繰り返し配置</value>
+  </data>
+  <data name="DrawableRepeater_Columns" xml:space="preserve">
+    <value>列数</value>
+  </data>
+  <data name="DrawableRepeater_Rows" xml:space="preserve">
+    <value>行数</value>
+  </data>
+  <data name="DrawableRepeater_Spacing" xml:space="preserve">
+    <value>間隔</value>
+  </data>
+  <data name="DrawableRepeater_Offset_Description" xml:space="preserve">
+    <value>グリッドの中でコピーを動かします。端から出たコピーは反対側から戻るので、アニメーションさせると途切れずにスクロールします。</value>
+  </data>
+  <data name="DrawableRepeater_Mirror" xml:space="preserve">
+    <value>交互に反転</value>
+  </data>
+  <data name="DrawableRepeaterMirror_None" xml:space="preserve">
+    <value>なし</value>
+  </data>
+  <data name="DrawableRepeaterMirror_Columns" xml:space="preserve">
+    <value>1 列おき</value>
+  </data>
+  <data name="DrawableRepeaterMirror_Rows" xml:space="preserve">
+    <value>1 行おき</value>
+  </data>
+  <data name="DrawableRepeaterMirror_Both" xml:space="preserve">
+    <value>両方</value>
+  </data>
   <data name="DrawableTimeController" xml:space="preserve">
     <value>タイムコントローラー（動画）</value>
   </data>

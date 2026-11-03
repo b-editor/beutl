@@ -226,24 +226,15 @@ public static partial class ProxySourceEnumerator
 
                     break;
 
-                case DrawableGroup group:
-                    // The nested render path (DrawableGroup.OnDraw -> DrawDrawable -> Drawable.Render)
-                    // skips a disabled child, so preflight must not demand its file either.
-                    foreach (IFileSource source in EnumerateChildDrawableSources(
-                        group.Children, walkContext, skipDisabledElements, localRange))
-                        yield return source;
-
-                    break;
-
-                // Decorators, time controllers and presenters render nested drawables the property walk
+                // Containers, time controllers and presenters render nested drawables the property walk
                 // cannot reach. Targets are references and can form cycles, so the visited sets stop
                 // the recursion; disabled ones are skipped as the render path skips them.
-                case DrawableDecorator decorator:
-                    // A decorator renders its children at the same composition time (it pushes only
+                case IDrawableContainer container:
+                    // A container renders its children at the same composition time (it pushes only
                     // transform/opacity/effect, never remaps time), so the render window still maps
                     // directly — thread localRange through, unlike the time-remapping cases below.
                     foreach (IFileSource source in EnumerateChildDrawableSources(
-                        decorator.Children, walkContext, skipDisabledElements, localRange))
+                        container.Children, walkContext, skipDisabledElements, localRange))
                         yield return source;
 
                     break;

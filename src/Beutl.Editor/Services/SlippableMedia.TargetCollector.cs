@@ -163,7 +163,7 @@ internal static partial class SlippableMedia
                         }
                     }
                 }
-                else if (obj.IsEnabled.Value && obj is SoundGroup or DrawableGroup or DrawableDecorator)
+                else if (obj.IsEnabled.Value && obj is SoundGroup or IDrawableContainer)
                 {
                     // A sound group leaves possible imported drawables in Flow.
                     bool Consumes(Node node) => obj is SoundGroup
@@ -252,7 +252,7 @@ internal static partial class SlippableMedia
         {
             if (_forResize && !referenced && !obj.IsEnabled.Value) return;
             if (!_path.Add(obj)) return;
-            if (inputs != null && obj is SoundGroup or DrawableGroup or DrawableDecorator)
+            if (inputs != null && obj is SoundGroup or IDrawableContainer)
             {
                 foreach (Node child in inputs) CollectNode(child);
             }
@@ -271,11 +271,8 @@ internal static partial class SlippableMedia
                 case SoundGroup group:
                     foreach (Sound child in group.Children) CollectFrom(child);
                     break;
-                case DrawableGroup group:
-                    foreach (Drawable child in group.Children) CollectFrom(child);
-                    break;
-                case DrawableDecorator decorator:
-                    foreach (Drawable child in decorator.Children) CollectFrom(child);
+                case IDrawableContainer container:
+                    foreach (Drawable child in container.Children) CollectFrom(child);
                     break;
                 case DrawableTimeController controller:
                     Node? input = inputs?.FirstOrDefault();
