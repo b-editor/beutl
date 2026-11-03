@@ -356,6 +356,12 @@ Podrás seguir editando cuando termine.</value>
   <data name="PackagesCanBeUpdated" xml:space="preserve">
     <value>Se pueden actualizar {0} paquete(s).</value>
   </data>
+  <data name="PackageUpdatesRequired" xml:space="preserve">
+    <value>Es necesario actualizar paquetes.</value>
+  </data>
+  <data name="PackagesNotLoadedOnThisVersion" xml:space="preserve">
+    <value>No se pudieron cargar {0} paquete(s) en esta versión de Beutl.</value>
+  </data>
   <data name="IsNotValid" xml:space="preserve">
     <value>{0} no es válido.</value>
   </data>

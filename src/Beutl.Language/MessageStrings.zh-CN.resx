@@ -356,6 +356,12 @@
   <data name="PackagesCanBeUpdated" xml:space="preserve">
     <value>有 {0} 个包可以更新。</value>
   </data>
+  <data name="PackageUpdatesRequired" xml:space="preserve">
+    <value>需要更新包。</value>
+  </data>
+  <data name="PackagesNotLoadedOnThisVersion" xml:space="preserve">
+    <value>有 {0} 个包无法在此版本的 Beutl 中加载。</value>
+  </data>
   <data name="IsNotValid" xml:space="preserve">
     <value>{0} 无效。</value>
   </data>
