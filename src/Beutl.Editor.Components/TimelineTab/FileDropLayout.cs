@@ -19,7 +19,9 @@ internal static class FileDropLayout
 
         // The order the element adder checks them in, since containers such as .webm and images can be on several lists.
         string[] images = [.. ordered.Where(IsImage)];
-        string[] videos = [.. ordered.Except(images).Where(file => Matches(file, video))];
+        // Where a file goes only matters among several, and it costs an open that the element adder then repeats.
+        string[] videos = [.. ordered.Except(images).Where(file => Matches(file, video)
+            && (ordered.Length == 1 || !Matches(file, audio) || HoldsVideo(file)))];
         string[] pictures = [.. ordered.Where(file => images.Contains(file) || videos.Contains(file))];
         string[] sounds = [.. ordered.Except(pictures).Where(file => Matches(file, audio))];
 
@@ -37,6 +39,21 @@ internal static class FileDropLayout
 
     private static string[] Extensions(Func<IDecoderInfo, IEnumerable<string>> select)
         => [.. DecoderRegistry.EnumerateDecoder().SelectMany(select)];
+
+    // Sound alone can come in a container that is on both lists, such as .webm, which only opening it tells.
+    private static bool HoldsVideo(string file)
+    {
+        try
+        {
+            using var reader = MediaReader.Open(file, new MediaOptions(MediaMode.AudioVideo));
+            return reader.HasVideo;
+        }
+        catch (Exception)
+        {
+            // The element adder says what it makes of a file that does not open.
+            return true;
+        }
+    }
 
     private static bool IsImage(string file) => Matches(file, SharedFilePickerOptions.ImagePatterns);
 

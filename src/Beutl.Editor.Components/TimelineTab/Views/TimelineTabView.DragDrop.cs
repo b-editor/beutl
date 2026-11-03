@@ -85,9 +85,11 @@ public sealed partial class TimelineTabView
     {
         MediaTime frame = viewModel.ClickedFrame;
         int layer = viewModel.CalculateClickedLayer();
-        ElementDescription[] descriptions = FileDropLayout.Create(files, frame, s_defaultElementLength, layer);
         try
         {
+            // The layout can have to open the files.
+            ElementDescription[] descriptions = await Task.Run(
+                () => FileDropLayout.Create(files, frame, s_defaultElementLength, layer));
             // With no media among them, adding the first says why it cannot be added.
             await viewModel.AddElementsWithResultAsync(descriptions.Length > 0
                 ? descriptions

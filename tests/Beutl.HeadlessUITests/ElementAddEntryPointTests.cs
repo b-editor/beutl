@@ -278,6 +278,76 @@ public class ElementAddEntryPointTests
         }
     }
 
+    // Background music in a .webm or .mp4 runs under the pictures like any other sound.
+    [AvaloniaTest]
+    public async Task TimelineView_SeveralFilesDrop_TreatsAContainerHoldingOnlySoundAsSound()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-sound-in-video-container-drop");
+        var decoder = new SoundInVideoContainerDecoder();
+        DecoderRegistry.Register(decoder);
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel timelinePanel = view.FindControl<Panel>("TimelinePanel")!;
+            string music = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "2.wav");
+            WriteSilentWave(music, 4410);
+            using IStorageFile first = await GetStorageFile(window, CreatePngFile(editor, "1.png"));
+            using IStorageFile second = await GetStorageFile(window, music);
+            using IStorageFile third = await GetStorageFile(window, CreatePngFile(editor, "3.png"));
+            using var transfer = new DataTransfer();
+            foreach (IStorageFile file in new[] { first, second, third })
+                transfer.Add(DataTransferItem.CreateFile(file));
+            var dropPoint = new AvaPoint(180, timeline.CalculateLayerTop(3) + 5);
+            int layer = timeline.ToLayerNumber(dropPoint.Y);
+            editor.HistoryManager.Commit();
+            int undoCount = editor.HistoryManager.UndoCount;
+            var args = new DragEventArgs(DragDrop.DropEvent, transfer, timelinePanel, dropPoint, KeyModifiers.None);
+
+            await RaiseDropAndWaitForElement(editor.Scene, timelinePanel, args);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.UndoCount > undoCount);
+            HeadlessTestHelpers.Settle();
+
+            MediaTime frame = timeline.ClickedFrame;
+            Element[] pictures = [.. editor.Scene.Children.Where(child => child.Objects.OfType<SourceImage>().Any())
+                .OrderBy(child => child.Start.Value)];
+            Element sound = editor.Scene.Children.Single(child => child.Objects.OfType<SourceSound>().Any());
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(pictures.Select(p => p.Start.Value),
+                    Is.EqualTo(new[] { frame, frame + MediaTime.FromSeconds(5) }));
+                Assert.That(pictures.Select(p => p.ZIndex.Value), Is.All.EqualTo(layer));
+                Assert.That(sound.Start.Value, Is.EqualTo(frame));
+                Assert.That(sound.ZIndex.Value, Is.EqualTo(layer + 1));
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    // Lists sound files as videos as well, which is what FFmpeg does with the containers that can hold either.
+    private sealed class SoundInVideoContainerDecoder : IDecoderInfo
+    {
+        private readonly WaveDecoderInfo _wave = new();
+
+        public string Name => "Sound in a video container";
+
+        public MediaReader? Open(string file, MediaOptions options) => _wave.Open(file, options);
+
+        public IEnumerable<string> VideoExtensions() => _wave.AudioExtensions();
+
+        public IEnumerable<string> AudioExtensions() => _wave.AudioExtensions();
+    }
+
     private static void WriteSilentWave(string path, int frames)
     {
         int bytes = frames * 2 * sizeof(short);
