@@ -24,6 +24,8 @@ public class PackageUpdateOrderTests
 
     private string Templates => Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), _name);
 
+    private readonly List<string> _cleanup = [];
+
     [SetUp]
     public void SetUp()
     {
@@ -42,6 +44,7 @@ public class PackageUpdateOrderTests
         foreach (string directory in _directories.Where(Directory.Exists))
             Directory.Delete(directory, true);
         _directories.Clear();
+        TestPackages.Delete(_cleanup);
         _registration.Dispose();
         _queue.Dispose();
     }
@@ -97,6 +100,48 @@ public class PackageUpdateOrderTests
         });
     }
 
+    // The update unloads the old version first, and it stays installed, so a failed update must not leave it unloaded.
+    [AvaloniaTest]
+    public async Task FailedDownload_LoadsTheOldVersionAgain()
+    {
+        await TestReset.ResetShellAsync();
+        using var http = new HttpClient();
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider()), new ProjectService());
+        PackageManager manager = LoadOldExtension(app);
+
+        await operation.UpdateOrQueueAsync(_name, _newId,
+            _ => throw new HttpRequestException("The download failed."), NullLogger.Instance, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.FindLoadedPackage(_name).Select(package => package.Version), Is.EqualTo(new[] { "1.0.0" }));
+            Assert.That(app.GetResource<PackageChangesQueue>().GetInstalls(), Does.Contain(_newId));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task CanceledDownload_LoadsTheOldVersionAgain()
+    {
+        await TestReset.ResetShellAsync();
+        using var http = new HttpClient();
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider()), new ProjectService());
+        PackageManager manager = LoadOldExtension(app);
+        using var cancellation = new CancellationTokenSource();
+
+        await Assert.CatchAsync<OperationCanceledException>(() => operation.UpdateOrQueueAsync(_name, _newId,
+            token =>
+            {
+                cancellation.Cancel();
+                token.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            },
+            NullLogger.Instance, cancellation.Token));
+
+        Assert.That(manager.FindLoadedPackage(_name).Select(package => package.Version), Is.EqualTo(new[] { "1.0.0" }));
+    }
+
     [AvaloniaTest]
     public async Task SuccessfulUpdate_RemovesTheOldVersionAfterTheNewOneIsInPlace()
     {
@@ -128,6 +173,15 @@ public class PackageUpdateOrderTests
             Assert.That(Directory.Exists(oldDirectory), Is.False);
             Assert.That(app.GetResource<PackageChangesQueue>().GetInstalls(), Does.Not.Contain(_newId));
         });
+    }
+
+    private PackageManager LoadOldExtension(BeutlApiApplication app)
+    {
+        LocalPackage old = TestPackages.CreateExtracted(_oldId, data: false, loadable: true, cleanup: _cleanup);
+        app.GetResource<InstalledPackageRepository>().UpgradePackagesAndDeferNotifications(_oldId)();
+        var manager = app.GetResource<PackageManager>();
+        manager.Load(old);
+        return manager;
     }
 
     // Registers version 1.0.0 and publishes its materials and templates.
