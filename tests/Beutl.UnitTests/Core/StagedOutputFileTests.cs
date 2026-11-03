@@ -152,6 +152,28 @@ public class StagedOutputFileTests
         finally { Directory.Delete(root, true); }
     }
 
+    // What stopped the move may be another program's file, which rolling back must leave alone.
+    [Test]
+    public void A_file_that_was_not_moved_is_not_rolled_back()
+    {
+        string root = Directory.CreateTempSubdirectory("beutl-staged-output-").FullName;
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, "frame_1.png"));
+            var rolledBack = new List<string>();
+            using var output = new StagedOutputFile(Path.Combine(root, "frame.png"))
+            {
+                RestoreFile = (destination, _) => rolledBack.Add(Path.GetFileName(destination))
+            };
+            string[] files = [StagedFile(output, "frame_0.png", "new 0"), StagedFile(output, "frame_1.png", "new 1")];
+
+            Assert.Catch(() => output.Commit(files, CancellationToken.None));
+
+            Assert.That(rolledBack, Is.EqualTo(new[] { "frame_0.png" }));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     // Another program holding a published file open is what stops the file underneath it from coming back.
     [Test]
     public void A_previous_file_that_cannot_be_put_back_survives_in_a_folder_the_failure_names()
@@ -174,7 +196,11 @@ public class StagedOutputFileTests
 
             string kept = Directory.GetFiles(root, "frame_0.png", SearchOption.AllDirectories)
                 .Single(path => File.ReadAllText(path) == "old");
-            Assert.That(failure.Message, Does.Contain(Path.GetDirectoryName(kept)));
+            Assert.Multiple(() =>
+            {
+                Assert.That(failure.Message, Does.Contain(Path.Combine(root, "frame_0.png")));
+                Assert.That(failure.Message, Does.Contain(Path.GetDirectoryName(kept)));
+            });
         }
         finally { Directory.Delete(root, true); }
     }

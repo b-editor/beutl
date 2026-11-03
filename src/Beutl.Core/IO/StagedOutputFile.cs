@@ -78,33 +78,38 @@ internal sealed class StagedOutputFile : IDisposable
             foreach ((string source, string destination) in moves)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                string? backup = null;
                 var existing = new FileInfo(destination);
                 if (existing.Exists || existing.LinkTarget != null)
                 {
                     if (!OperatingSystem.IsWindows() && existing.LinkTarget == null)
                         File.SetUnixFileMode(source, File.GetUnixFileMode(destination));
 
-                    backup = Path.Combine(backups, Path.GetFileName(source));
+                    string backup = Path.Combine(backups, Path.GetFileName(source));
                     File.Move(destination, backup);
+                    started.Push((destination, backup));
+                    File.Move(source, destination);
                 }
-
-                started.Push((destination, backup));
-                File.Move(source, destination);
+                else
+                {
+                    File.Move(source, destination);
+                    // Only now is the file there this one: a file that appeared since the check is not ours to delete.
+                    started.Push((destination, null));
+                }
             }
         }
         catch (Exception ex)
         {
-            bool restored = true;
-            foreach ((string destination, string? backup) in started)
-                restored &= TryRestore(destination, backup);
-
-            if (restored)
+            string[] stuck = [.. started
+                .Where(item => !TryRestore(item.Destination, item.Backup))
+                .Select(item => item.Destination)];
+            if (stuck.Length == 0)
                 throw;
 
             // The staging directory now holds the only copy of what could not be put back.
             _keepDirectory = true;
-            throw new IOException($"The output could not be published, and some earlier files could not be put back. They are in '{backups}'.", ex);
+            throw new IOException(
+                $"The output could not be published, and these files could not be put back: {string.Join(", ", stuck)}. Any earlier versions are in '{backups}'.",
+                ex);
         }
 
         // Here and not in Dispose, which runs on the UI thread: a long sequence replaces many files.

@@ -13,7 +13,8 @@ public abstract class EncodingController(string outputFile)
     /// <remarks>
     /// To write several files, such as an image sequence, write them next to <see cref="OutputFile"/> and return
     /// their paths here. That folder may be a temporary one: each file reaches the folder the user chose under
-    /// its own name, and a failed or cancelled export changes nothing there. Files in other folders are refused.
+    /// its own name, and a failed or cancelled export changes nothing there, unless an earlier file cannot be put
+    /// back, which the export's error then names. Files in other folders are refused.
     /// This is read after <see cref="Encode"/> returns, on any thread.
     /// </remarks>
     public virtual IReadOnlyList<string> OutputFiles => [OutputFile];
