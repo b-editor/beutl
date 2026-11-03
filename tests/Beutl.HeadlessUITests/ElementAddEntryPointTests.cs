@@ -414,6 +414,100 @@ public class ElementAddEntryPointTests
     }
 
     [AvaloniaTest]
+    public async Task TimelineView_SubtitleFile_KeepsTheTimesOfCuesThatOverlap()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-overlap");
+        string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "overlap.srt");
+        File.WriteAllText(path, """
+            1
+            00:00:01,000 --> 00:00:03,000
+            first
+
+            2
+            00:00:02,000 --> 00:00:04,000
+            second
+
+            3
+            00:00:03,500 --> 00:00:05,000
+            third
+
+            """);
+
+        await CaptionFileDrop.AddAsync(timeline, path);
+
+        Element[] clips = [.. editor.Scene.Children.OrderBy(child => child.Start.Value)];
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(clips.Select(clip => clip.Range), Is.EqualTo(new[]
+            {
+                new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2)),
+                new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2)),
+                new TimeRange(MediaTime.FromSeconds(3.5), MediaTime.FromSeconds(1.5)),
+            }));
+            Assert.That(clips.Select(clip => clip.ZIndex.Value), Is.EqualTo(new[] { 0, 1, 0 }),
+                "The third starts after the first ends, so it can share its layer.");
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineView_DroppingSeveralFiles_TakesThemAllBackInOneUndo()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-undo");
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel timelinePanel = view.FindControl<Panel>("TimelinePanel")!;
+            string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+            string first = Path.Combine(directory, "first.srt");
+            string second = Path.Combine(directory, "second.srt");
+            File.WriteAllText(first, "1\n00:00:01,000 --> 00:00:02,000\nfirst\n");
+            File.WriteAllText(second, "1\n00:00:01,000 --> 00:00:02,000\nsecond\n");
+            string sound = Path.Combine(directory, "sound.wav");
+            WriteSilentWave(sound, 48000);
+            using IStorageFile firstFile = await GetStorageFile(window, first);
+            using IStorageFile secondFile = await GetStorageFile(window, second);
+            using IStorageFile soundFile = await GetStorageFile(window, sound);
+            using var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.CreateFile(firstFile));
+            transfer.Add(DataTransferItem.CreateFile(secondFile));
+            transfer.Add(DataTransferItem.CreateFile(soundFile));
+            editor.HistoryManager.Commit();
+            int undoCount = editor.HistoryManager.UndoCount;
+
+            timelinePanel.RaiseEvent(new DragEventArgs(
+                DragDrop.DropEvent, transfer, timelinePanel, new AvaPoint(500, 5), KeyModifiers.None));
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.UndoCount > undoCount);
+            HeadlessTestHelpers.Settle();
+
+            Element[] texts = [.. editor.Scene.Children.Where(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any())];
+            Element[] sounds = [.. editor.Scene.Children.Where(child => !child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any())];
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
+                Assert.That(texts, Has.Length.EqualTo(2));
+                Assert.That(sounds, Is.Not.Empty);
+                Assert.That(texts.Select(text => text.ZIndex.Value).Distinct().Count(), Is.EqualTo(2));
+                Assert.That(texts.Min(text => text.ZIndex.Value), Is.GreaterThan(sounds.Max(item => item.ZIndex.Value)));
+            }
+
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            Assert.That(editor.Scene.Children, Is.Empty);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task TimelineView_SubtitleFileWithoutCues_SaysSoAndAddsNothing()
     {
         await TestReset.ResetShellAsync();

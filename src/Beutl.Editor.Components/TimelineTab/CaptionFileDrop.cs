@@ -20,51 +20,58 @@ internal static class CaptionFileDrop
 
     public static bool IsCaptionFile(string file) => s_catalog.Value.Codecs.TryGetByFileName(file, out _);
 
-    public static async Task AddAsync(TimelineTabViewModel viewModel, string file)
+    public static Task AddAsync(TimelineTabViewModel viewModel, string file) => AddAsync(viewModel, [file], []);
+
+    // Adds the files' clips with whatever else was dropped, so that one undo takes back the whole drop. Each file goes
+    // on layers of its own above the rest. The view model scrolls to the first clip, since the file decides where the
+    // clips go, which can be far from where the timeline is looking.
+    public static async Task AddAsync(
+        TimelineTabViewModel viewModel, IReadOnlyList<string> files, IReadOnlyList<ElementDescription> others)
     {
-        if (!s_catalog.Value.Codecs.TryGetByFileName(file, out CaptionCodecInfo? codec)) return;
-
-        byte[] bytes = await File.ReadAllBytesAsync(file);
-        CaptionImportResult import = Import(bytes, codec.Format);
-        if (import.Document is not { Count: > 0 } document)
+        // A video's own sound takes the layer below its picture.
+        int layer = Math.Max(
+            AiCaptionSceneImporter.GetFirstFreeLayer(viewModel.Scene),
+            others.Count > 0 ? others.Max(other => other.Layer) + 2 : 0);
+        var descriptions = new List<ElementDescription>(others);
+        var skippedSome = new List<string>();
+        foreach (string file in files)
         {
-            NotificationService.ShowError(
-                Strings.AddElement,
-                string.Format(CultureInfo.CurrentCulture, Strings.SubtitleFile_CouldNotRead, Path.GetFileName(file)));
-            return;
-        }
+            if (!s_catalog.Value.Codecs.TryGetByFileName(file, out CaptionCodecInfo? codec)) continue;
 
-        CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
-            viewModel.Scene,
-            viewModel.EditorContext.GetRequiredService<IElementAdder>(),
-            document,
-            CaptionPresentationDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate),
-            elementName: Path.GetFileNameWithoutExtension(file),
-            minimumLength: s_shortestCue);
-        if (result.IsSuccess)
-        {
-            // The file decides where the clips go, which can be far from where the timeline is looking.
-            if (result.FirstElement is { } first)
-                viewModel.ScrollTo.Execute((first.Range, first.ZIndex.Value));
-
-            // Everything but markup means a cue was left out.
-            if (import.Diagnostics.Any(item => item.Kind != CaptionDiagnosticKinds.UnsupportedMarkup))
+            byte[] bytes = await File.ReadAllBytesAsync(file);
+            CaptionImportResult import = Import(bytes, codec.Format);
+            if (import.Document is not { Count: > 0 } document)
             {
-                NotificationService.ShowWarning(
+                NotificationService.ShowError(
                     Strings.AddElement,
-                    string.Format(CultureInfo.CurrentCulture, Strings.SubtitleFile_SomeSkipped, Path.GetFileName(file)));
+                    string.Format(CultureInfo.CurrentCulture, Strings.SubtitleFile_CouldNotRead, Path.GetFileName(file)));
+                continue;
             }
 
-            return;
+            List<ElementDescription> clips = AiCaptionSceneImporter.CreateDescriptions(
+                viewModel.Scene,
+                layer,
+                document,
+                CaptionPresentationDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate),
+                elementName: Path.GetFileNameWithoutExtension(file),
+                minimumLength: s_shortestCue);
+            descriptions.AddRange(clips);
+            layer = clips.Max(clip => clip.Layer) + 1;
+            // Everything but markup means a cue was left out.
+            if (import.Diagnostics.Any(item => item.Kind != CaptionDiagnosticKinds.UnsupportedMarkup))
+                skippedSome.Add(file);
         }
 
-        if (result.FailureId == ElementAddFailureIds.LockedLayer)
+        if (descriptions.Count == 0) return;
+
+        ElementAddResult result = await viewModel.AddElementsWithResultAsync(descriptions);
+        if (!result.IsSuccess) return;
+
+        foreach (string file in skippedSome)
         {
-            NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
-        }
-        else
-        {
-            NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+            NotificationService.ShowWarning(
+                Strings.AddElement,
+                string.Format(CultureInfo.CurrentCulture, Strings.SubtitleFile_SomeSkipped, Path.GetFileName(file)));
         }
     }
 
