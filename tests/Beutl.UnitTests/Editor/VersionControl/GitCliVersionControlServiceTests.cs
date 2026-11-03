@@ -69,6 +69,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         ".dng",
         ".heif",
         ".avif",
+        ".svg",
     ];
 
     private static string CreateTestCaseInsensitiveGlob(string extension)

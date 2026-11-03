@@ -207,6 +207,20 @@ public sealed class SvgImageTests
         Assert.That(resource.FrameSize, Is.EqualTo(new PixelSize(16384, 1)));
     }
 
+    [Test]
+    public void An_SVG_too_large_for_pixels_still_opens_as_a_drawing()
+    {
+        using ImageSource.Resource resource = Open(
+            """<svg xmlns="http://www.w3.org/2000/svg" width="16384" height="16384"/>""");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resource.IsOffline, Is.False);
+            Assert.That(resource.FrameSize, Is.EqualTo(new PixelSize(16384, 16384)));
+            Assert.That(resource.Bitmap, Is.Null);
+        });
+    }
+
     // Older Illustrator files declare their namespaces this way.
     [Test]
     public void An_SVG_that_declares_entities_opens()

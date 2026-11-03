@@ -10,15 +10,16 @@ namespace Beutl.Media.Source;
 // only for what cannot take a drawing, such as an image brush.
 internal sealed class LoadedImage : IDisposable
 {
-    // A few bytes of SVG can declare any size, and its pixels are made at that size.
+    // A few bytes of SVG can declare any size. A drawing costs the same at any of them, but pixels do not.
     private const int MaxSvgSide = 16384;
+    private const long MaxSvgPixels = 64L * 1024 * 1024;
 
     private readonly SKSvg? _svg;
-    private readonly Lazy<Bitmap> _bitmap;
+    private readonly Lazy<Bitmap?> _bitmap;
 
     public LoadedImage(Bitmap bitmap)
     {
-        _bitmap = new Lazy<Bitmap>(bitmap);
+        _bitmap = new Lazy<Bitmap?>(bitmap);
         Size = new PixelSize(bitmap.Width, bitmap.Height);
     }
 
@@ -27,10 +28,11 @@ internal sealed class LoadedImage : IDisposable
         _svg = svg;
         Picture = picture;
         Size = size;
-        _bitmap = new Lazy<Bitmap>(Rasterize);
+        _bitmap = new Lazy<Bitmap?>(Rasterize);
     }
 
-    public Bitmap Bitmap => _bitmap.Value;
+    // Null for an SVG too large to turn into pixels.
+    public Bitmap? Bitmap => _bitmap.Value;
 
     public SKPicture? Picture { get; }
 
@@ -45,7 +47,7 @@ internal sealed class LoadedImage : IDisposable
     public void Dispose()
     {
         if (_bitmap.IsValueCreated)
-            _bitmap.Value.Dispose();
+            _bitmap.Value?.Dispose();
         _svg?.Dispose();
     }
 
@@ -87,8 +89,11 @@ internal sealed class LoadedImage : IDisposable
         }
     }
 
-    private Bitmap Rasterize()
+    private Bitmap? Rasterize()
     {
+        if ((long)Size.Width * Size.Height > MaxSvgPixels)
+            return null;
+
         var bitmap = new Bitmap(Size.Width, Size.Height, BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
         using var canvas = new SKCanvas(bitmap.SKBitmap);
         canvas.DrawPicture(Picture);
