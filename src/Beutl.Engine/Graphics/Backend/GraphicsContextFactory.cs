@@ -210,6 +210,16 @@ public class GraphicsContextFactory
                     firstFailure = ExceptionDispatchInfo.Capture(ex);
                 }
 
+                // Compiled programs and shader graph images wait for a later request in the same way.
+                try
+                {
+                    RenderProgramCaches.RetireRetainedBeforeContextTeardown();
+                }
+                catch (Exception ex)
+                {
+                    firstFailure ??= ExceptionDispatchInfo.Capture(ex);
+                }
+
                 // The flush speaks for a device that may already be abandoned or lost, so its failure has
                 // to reach the caller. What it must not decide is whether the queue is discharged.
                 try
