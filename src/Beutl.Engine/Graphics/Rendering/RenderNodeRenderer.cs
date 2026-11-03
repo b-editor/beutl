@@ -73,9 +73,13 @@ public sealed class RenderNodeRenderer : IDisposable
 
     internal RenderTargetPoolStatistics TargetPoolStatistics => _targetPool.Statistics;
 
+    internal long RetainedShaderGraphImageBytes => _programCaches.ShaderGraphImages?.RetainedBytes ?? 0;
+
+    /// <returns>The bytes released to Skia, which its purge can reclaim; shader graph images are Vulkan's own.</returns>
     internal long ReleaseRetainedTargets()
     {
         ThrowIfDisposed();
+        _programCaches.ShaderGraphImages?.Clear();
         return _targetPool.ReleaseRetainedTargets();
     }
 
