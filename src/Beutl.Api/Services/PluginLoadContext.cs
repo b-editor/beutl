@@ -1,4 +1,6 @@
-﻿using System.Reflection;
+﻿using System.Collections.Concurrent;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 
 using NuGet.Packaging;
@@ -10,11 +12,15 @@ public class PluginLoadContext(string mainDirectory, PackageFolderReader? reader
     private readonly AssemblyDependencyResolver _resolver = new AssemblyDependencyResolver(AppContext.BaseDirectory);
     private readonly PluginDependencyResolver _pluginResolver = new PluginDependencyResolver(mainDirectory, reader);
 
+    // The plugin each assembly in the default context came from, which knows where its native libraries are.
+    private static readonly ConcurrentDictionary<Assembly, PluginDependencyResolver> s_defaultContextAssemblies = new();
+
     static PluginLoadContext()
     {
         // A plugin or a library it uses can load an assembly through AssemblyLoadContext.Default,
         // which looks next to Beutl and not in the plugin's packages.
         Default.Resolving += static (_, name) => ResolveForDefaultContext(name);
+        Default.ResolvingUnmanagedDll += static (assembly, name) => ResolveNativeForDefaultContext(assembly, name);
     }
 
     protected override Assembly? Load(AssemblyName name)
@@ -76,11 +82,21 @@ public class PluginLoadContext(string mainDirectory, PackageFolderReader? reader
             string? assemblyPath = context.ResolvePluginAssemblyToPath(name);
             if (assemblyPath != null && Satisfies(AssemblyName.GetAssemblyName(assemblyPath), name))
             {
-                return Default.LoadFromAssemblyPath(assemblyPath);
+                Assembly assembly = Default.LoadFromAssemblyPath(assemblyPath);
+                s_defaultContextAssemblies[assembly] = context._pluginResolver;
+                return assembly;
             }
         }
 
         return null;
+    }
+
+    private static IntPtr ResolveNativeForDefaultContext(Assembly assembly, string name)
+    {
+        return s_defaultContextAssemblies.TryGetValue(assembly, out PluginDependencyResolver? resolver)
+               && resolver.ResolveUnmanagedDllToPath(name) is { } path
+            ? NativeLibrary.Load(path)
+            : IntPtr.Zero;
     }
 
     private static bool Satisfies(AssemblyName definition, AssemblyName reference)

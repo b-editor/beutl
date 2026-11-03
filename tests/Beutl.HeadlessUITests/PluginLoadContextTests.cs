@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 using Beutl.Api.Services;
 
@@ -119,6 +120,40 @@ public class PluginLoadContextTests
         }
 
         Assert.That(context.IsAlive, Is.False);
+    }
+
+    [Test]
+    public void A_dependency_in_the_default_context_finds_the_native_library_its_package_ships()
+    {
+        string fileName = OperatingSystem.IsWindows() ? ".dll" : OperatingSystem.IsMacOS() ? ".dylib" : ".so";
+        string runtimes = Path.Combine(AppContext.BaseDirectory, "runtimes");
+        string? library = new[] { RuntimeInformation.RuntimeIdentifier, "osx" }
+            .Select(runtime => Path.Combine(runtimes, runtime, "native", "libHarfBuzzSharp" + fileName))
+            .FirstOrDefault(File.Exists);
+        if (library is null)
+            Assert.Ignore("The test output has no native library for this runtime.");
+
+        string directory = CreateDirectory();
+        string native = Path.Combine(directory, "runtimes", RuntimeInformation.RuntimeIdentifier, "native");
+        Directory.CreateDirectory(native);
+        File.Copy(library, Path.Combine(native, (OperatingSystem.IsWindows() ? "" : "lib") + "beutl-plugin-native" + fileName));
+        TestPackages.Compile(directory, _dependency, """
+            using System;
+            using System.Runtime.InteropServices;
+
+            public static class NativeProbe
+            {
+                [DllImport("beutl-plugin-native", EntryPoint = "hb_version_string")]
+                private static extern IntPtr Version();
+
+                public static bool Call() => Version() != IntPtr.Zero;
+            }
+            """);
+        _contexts.Add(new PluginLoadContext(directory));
+
+        Assembly loaded = AssemblyLoadContext.Default.LoadFromAssemblyName(new AssemblyName(_dependency));
+
+        Assert.That(loaded.GetType("NativeProbe")!.GetMethod("Call")!.Invoke(null, null), Is.True);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
