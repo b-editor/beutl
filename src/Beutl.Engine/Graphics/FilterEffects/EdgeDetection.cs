@@ -135,7 +135,8 @@ public sealed partial class EdgeDetection : FilterEffect
             vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
             vec4 center = read(position);
             float own = pc.alpha != 0 ? center.a : lightness(center);
-            float d = pc.offset;
+            // Closer than one pixel, filtering would flatten the change, and a small preview would lose its lines.
+            float d = pc.offset > 0 ? max(pc.offset, 1 / src.size.z) : 0;
             float tl = value(position + vec2(-d, -d), own);
             float t = value(position + vec2(0, -d), own);
             float tr = value(position + vec2(d, -d), own);

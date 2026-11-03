@@ -139,6 +139,17 @@ public sealed class EdgeDetectionTests
         });
     }
 
+    // A pixel of a small preview is several composition units wide, and the change stays as strong across it.
+    [Test]
+    public void The_lines_stay_in_a_small_preview()
+    {
+        var effect = new EdgeDetection { Target = { Value = EdgeDetectionTarget.Alpha }, Threshold = { Value = 50 } };
+
+        byte[] row = Render(Box(), effect, scale: 0.2f);
+
+        Assert.That(Covered(row), Is.Not.Empty);
+    }
+
     [Test]
     public void No_thickness_draws_nothing()
     {
