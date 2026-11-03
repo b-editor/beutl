@@ -92,20 +92,21 @@ public class PluginLoadContext(string mainDirectory, PackageFolderReader? reader
             foreach (PluginLoadContext context in contexts)
             {
                 string? assemblyPath = context.ResolvePluginAssemblyToPath(name);
-                if (assemblyPath != null && Satisfies(AssemblyName.GetAssemblyName(assemblyPath), name))
+                if (assemblyPath == null) continue;
+
+                try
                 {
-                    try
+                    if (Satisfies(AssemblyName.GetAssemblyName(assemblyPath), name))
                     {
                         Assembly assembly = Default.LoadFromAssemblyPath(assemblyPath);
                         s_defaultContextAssemblies[assembly] = context._pluginResolver;
                         return assembly;
                     }
-                    catch (FileLoadException)
-                    {
-                        // It already holds an older copy of this name, which it cannot replace. The name stays missing,
-                        // which is what code that probes for an optional assembly expects to hear.
-                        return null;
-                    }
+                }
+                catch (Exception ex) when (ex is IOException or BadImageFormatException)
+                {
+                    // A damaged file, or a version newer than a copy the default context cannot replace. The name stays
+                    // missing, which is what code that probes for an optional assembly expects to hear.
                 }
             }
 

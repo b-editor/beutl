@@ -110,6 +110,31 @@ public class PluginLoadContextTests
             Throws.TypeOf<FileNotFoundException>());
     }
 
+    [Test]
+    public void A_damaged_file_in_one_plugin_does_not_hide_the_copy_in_another()
+    {
+        string damaged = CreateDirectory();
+        File.WriteAllText(Path.Combine(damaged, _dependency + ".dll"), "This is not an assembly.");
+        _contexts.Add(new PluginLoadContext(damaged));
+        CreateContext("public class Marker { }");
+
+        Assembly loaded = AssemblyLoadContext.Default.LoadFromAssemblyName(new AssemblyName(_dependency));
+
+        Assert.That(loaded.GetType("Marker"), Is.Not.Null);
+    }
+
+    [Test]
+    public void An_assembly_only_a_damaged_file_stands_for_is_still_reported_as_missing()
+    {
+        string damaged = CreateDirectory();
+        File.WriteAllText(Path.Combine(damaged, _dependency + ".dll"), "This is not an assembly.");
+        _contexts.Add(new PluginLoadContext(damaged));
+
+        Assert.That(
+            () => AssemblyLoadContext.Default.LoadFromAssemblyName(new AssemblyName(_dependency)),
+            Throws.TypeOf<FileNotFoundException>());
+    }
+
     // Extensions load in parallel, and each context looks for a copy in the other before it loads its own. The default
     // context takes longer to get there, so the plugin starts later and later to pass through where the two overlap.
     [Test]
