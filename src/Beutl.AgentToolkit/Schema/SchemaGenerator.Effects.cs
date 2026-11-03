@@ -183,6 +183,7 @@ public sealed partial class SchemaGenerator
             [typeof(Saturate)] = Metadata(["color", "grade", "palette"], []),
             [typeof(Threshold)] = Metadata(["color", "graphic", "poster"], []),
             [typeof(Brightness)] = Metadata(["color", "grade", "glow"], []),
+            [typeof(Sharpen)] = Metadata(["detail", "clarity", "edge"], []),
             [typeof(Gamma)] = Metadata(["color", "grade"], []),
             [typeof(ColorGrading)] = Metadata(["color", "grade", "cinematic"], []),
             [typeof(Curves)] = Metadata(["color", "grade", "cinematic"], []),

@@ -497,6 +497,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:ShakeEffect
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Speed, StrengthX, StrengthY
+[Beutl.Engine]Beutl.Graphics.Effects:Sharpen
+  sealed
+  keys: Amount, Animations, Expressions, Id, IsEnabled, Name, Radius, Threshold
 [Beutl.Engine]Beutl.Graphics.Effects:SplitEffect
   unsealed
   keys: Animations, Expressions, HorizontalDivisions, HorizontalSpacing, Id, IsEnabled, Name, VerticalDivisions, VerticalSpacing

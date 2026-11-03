@@ -42,6 +42,7 @@ public static class NodesRegistrar
 
         GraphNodeRegistry.RegisterNodes(GraphicsStrings.FilterEffect, Colors.DodgerBlue)
             .Add<FilterEffectNode<Blur>>(GraphicsStrings.Blur)
+            .Add<FilterEffectNode<Sharpen>>(GraphicsStrings.Sharpen)
             .Add<FilterEffectNode<RadialBlur>>(GraphicsStrings.RadialBlur)
             .Add<FilterEffectNode<DropShadow>>(GraphicsStrings.DropShadow)
             .Add<FilterEffectNode<InnerShadow>>(GraphicsStrings.InnerShadow)

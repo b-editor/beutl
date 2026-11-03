@@ -200,6 +200,15 @@
   <data name="Blur" xml:space="preserve">
     <value>Desenfoque</value>
   </data>
+  <data name="Sharpen" xml:space="preserve">
+    <value>Enfoque</value>
+  </data>
+  <data name="Sharpen_Threshold" xml:space="preserve">
+    <value>Umbral</value>
+  </data>
+  <data name="Sharpen_Threshold_Description" xml:space="preserve">
+    <value>Las diferencias menores que este valor no se realzan, lo que evita que el ruido destaque.</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>Brillo</value>
   </data>

@@ -201,6 +201,15 @@
   <data name="Blur" xml:space="preserve">
     <value>Blur</value>
   </data>
+  <data name="Sharpen" xml:space="preserve">
+    <value>Sharpen</value>
+  </data>
+  <data name="Sharpen_Threshold" xml:space="preserve">
+    <value>Threshold</value>
+  </data>
+  <data name="Sharpen_Threshold_Description" xml:space="preserve">
+    <value>Differences smaller than this are left alone, which keeps noise from standing out.</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>Brightness</value>
   </data>
