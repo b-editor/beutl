@@ -6,6 +6,7 @@ using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
+using Beutl.Editor.Services.Captions;
 using Beutl.Editor.VersionControl;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -14,6 +15,12 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class TimelineTabView
 {
+    private CaptionTemplateId? _captionTemplateId;
+
+    // Replaced by tests, where a dialog has no host.
+    internal Func<IReadOnlyList<CaptionTemplate>, CaptionTemplate, IReadOnlyList<string>, Task<CaptionTemplate?>> ChooseCaptionTemplateAsync { get; set; }
+        = CaptionTemplateChooser.ShowAsync;
+
     private async void TimelinePanel_Drop(object? sender, DragEventArgs e)
     {
         var storage = e.DataTransfer.TryGetValue(StorageDragData.Format);
@@ -74,6 +81,19 @@ public sealed partial class TimelineTabView
         }
     }
 
+    // With only the default look there is nothing to ask.
+    private async Task<CaptionTemplate?> ChooseDroppedCaptionTemplateAsync(string[] captions)
+    {
+        IReadOnlyList<CaptionTemplate> templates = CaptionFileDrop.GetTemplates();
+        CaptionTemplate selected = templates.FirstOrDefault(item => item.Descriptor.Id == _captionTemplateId)
+            ?? templates.First(item => item.Descriptor.Id == CaptionTemplateIds.DefaultText);
+        if (templates.Count == 1) return selected;
+
+        CaptionTemplate? chosen = await ChooseCaptionTemplateAsync(templates, selected, captions);
+        if (chosen is not null) _captionTemplateId = chosen.Descriptor.Id;
+        return chosen;
+    }
+
     private static string[]? TryGetDroppedFiles(DragEventArgs e)
         => e.DataTransfer.TryGetFiles()?
             .OfType<IStorageFile>()
@@ -81,13 +101,21 @@ public sealed partial class TimelineTabView
             .OfType<string>()
             .ToArray();
 
-    private static async Task AddDroppedFilesAsync(TimelineTabViewModel viewModel, string[] files)
+    private async Task AddDroppedFilesAsync(TimelineTabViewModel viewModel, string[] files)
     {
         MediaTime frame = viewModel.ClickedFrame;
         int layer = viewModel.CalculateClickedLayer();
         try
         {
             string[] captions = [.. files.Where(CaptionFileDrop.IsCaptionFile)];
+            CaptionTemplate? template = null;
+            if (captions.Length > 0)
+            {
+                template = await ChooseDroppedCaptionTemplateAsync(captions);
+                // Cancelling gives up the whole drop, along with any files dropped beside the subtitles.
+                if (template is null) return;
+            }
+
             // The layout can have to open the files.
             ElementDescription[] descriptions = await Task.Run(
                 () => FileDropLayout.Create(files.Except(captions), frame, s_defaultElementLength, layer));
@@ -104,7 +132,7 @@ public sealed partial class TimelineTabView
 
             foreach (string caption in captions)
             {
-                await CaptionFileDrop.AddAsync(viewModel, caption);
+                await CaptionFileDrop.AddAsync(viewModel, caption, template);
             }
         }
         catch (OperationCanceledException) { }

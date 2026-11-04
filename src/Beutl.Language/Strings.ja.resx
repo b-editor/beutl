@@ -2699,6 +2699,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
     <value>{0} の字幕の一部を読み取れなかったため、読み飛ばしました。</value>
   </data>
+  <data name="SubtitleFile_Add" xml:space="preserve">
+    <value>字幕を追加</value>
+  </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>「{0}」を削除しますか？</value>
   </data>
