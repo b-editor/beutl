@@ -1178,6 +1178,90 @@ public class ElementAddEntryPointTests
         finally { window.Close(); HeadlessTestHelpers.Settle(); }
     }
 
+    // From cloud storage as from the disk: one clip per cue, above what came with it. The text is in the clips by then,
+    // so no copy of the file stays beside the scene.
+    [AvaloniaTest]
+    public async Task TimelineStorageDrop_SubtitleFile_AddsOneTextClipPerCueAndKeepsNoCopy()
+    {
+        await TestReset.ResetShellAsync();
+        Assume.That(CaptionFileDrop.GetTemplates(), Has.Count.EqualTo(1));
+        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene("storage-drop-subtitle");
+        string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+        string subtitle = Path.Combine(directory, "movie.srt");
+        File.WriteAllText(subtitle, "1\n00:00:01,000 --> 00:00:02,000\nfirst\n\n2\n00:00:03,000 --> 00:00:04,000\nsecond\n");
+        string picture = CreatePngFile(editor, "beside.png");
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel panel = view.FindControl<Panel>("TimelinePanel")!;
+            using var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("test", new object(), [], [subtitle, picture], () => true, _ => Task.FromResult(false))));
+            panel.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, transfer, panel, new AvaPoint(10, 5), KeyModifiers.None));
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Scene.Children.Count == 3);
+            string storage = Path.Combine(directory, "resources", "storage");
+            await HeadlessTestHelpers.WaitUntilAsync(() => Directory.GetFiles(storage, "*.srt", SearchOption.AllDirectories).Length == 0);
+
+            Element[] texts = [.. editor.Scene.Children
+                .Where(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any())
+                .OrderBy(child => child.Start.Value)];
+            Element image = editor.Scene.Children.Except(texts).Single();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(texts.Select(text => text.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Single().Text.Value),
+                    Is.EqualTo(new[] { "first", "second" }));
+                Assert.That(texts.Select(text => text.Start.Value), Is.EqualTo(new[] { MediaTime.FromSeconds(1), MediaTime.FromSeconds(3) }));
+                Assert.That(texts.Min(text => text.ZIndex.Value), Is.GreaterThan(image.ZIndex.Value));
+                Assert.That(Directory.GetFiles(storage, "*", SearchOption.AllDirectories).Select(Path.GetFileName), Is.EqualTo(new[] { "beside.png" }));
+                Assert.That(File.Exists(subtitle), Is.True, "The original drag download remains untouched.");
+            }
+        }
+        finally { window.Close(); HeadlessTestHelpers.Settle(); }
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineStorageDrop_SubtitleFile_DismissingTheMenuAddsNothingAndKeepsNoCopies()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene("storage-drop-subtitle-dismiss");
+        ObjectTemplateItem saved = await SaveTextTemplateAsync();
+        string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+        string subtitle = Path.Combine(directory, "movie.srt");
+        File.WriteAllText(subtitle, "1\n00:00:01,000 --> 00:00:02,000\nHello\n");
+        string picture = CreatePngFile(editor, "beside.png");
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+        bool overlayPopups = TestAppBuilder.HeadlessOptions.OverlayPopups;
+        try
+        {
+            TestAppBuilder.HeadlessOptions.OverlayPopups = false;
+            window.Show();
+            HeadlessTestHelpers.Render();
+            using var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("test", new object(), [], [subtitle, picture], () => true, _ => Task.FromResult(false))));
+            AvaPoint point = HeadlessTestHelpers.Center(view.FindControl<ScrollViewer>("ContentScroll")!, window);
+            window.DragDrop(point, RawDragEventType.DragEnter, transfer, DragDropEffects.Copy);
+            window.DragDrop(point, RawDragEventType.DragOver, transfer, DragDropEffects.Copy);
+            window.DragDrop(point, RawDragEventType.Drop, transfer, DragDropEffects.Copy);
+
+            await WaitForTemplateMenuAsync(window);
+            window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            string storage = Path.Combine(directory, "resources", "storage");
+            await HeadlessTestHelpers.WaitUntilAsync(() => !Directory.Exists(storage) || Directory.GetFiles(storage, "*", SearchOption.AllDirectories).Length == 0);
+
+            Assert.That(editor.Scene.Children, Is.Empty);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            TestAppBuilder.HeadlessOptions.OverlayPopups = overlayPopups;
+            RemoveTemplate(saved);
+        }
+    }
+
     [AvaloniaTest]
     [TestCase(false, "success", false)]
     [TestCase(true, "success", false)]
