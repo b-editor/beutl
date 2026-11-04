@@ -34,7 +34,8 @@ internal static class CaptionTextUtilities
 
             // Tags inside an existing <noparse> are already words, and one more around them would be drawn too.
             if (token.Type == FormattedTextTokenizer.TokenType.TagStart)
-                noParse |= FormattedTextParser.GetTagType(token.Text) == FormattedTextParser.TagType.NoParse;
+                noParse |= FormattedTextParser.TryParseTag(token.Text, out FormattedTextParser.TagInfo tag)
+                           && tag.Type == FormattedTextParser.TagType.NoParse;
             else if (token.Type == FormattedTextTokenizer.TokenType.TagClose)
                 noParse &= FormattedTextParser.GetCloseTagType(token.Text) != FormattedTextParser.TagType.NoParse;
         }

@@ -126,6 +126,7 @@ public class CaptionTemplateTests
     [TestCase("<c.yellow>one</c> <v Bob>two</v>", "one two")]
     [TestCase("<#ff0000>one</#> <size=20>two</size>", "one two")]
     [TestCase("<noparse><name></noparse>", "<name>")]
+    [TestCase("<noparse=x><name></noparse>", "<name>")]
     public void Cue_text_that_is_markup_stays_as_it_was(string cueText, string drawn)
     {
         foreach (TextBlock text in CreateCaptionObjects(cueText))
