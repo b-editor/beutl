@@ -130,7 +130,7 @@ public sealed partial class TimelineTabView
         catch (Exception) { NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError); }
     }
 
-    private static async Task ImportStorageDropAsync(TimelineTabViewModel viewModel, Scene scene, StorageDragData storage)
+    private async Task ImportStorageDropAsync(TimelineTabViewModel viewModel, Scene scene, StorageDragData storage)
     {
         MediaTime dropFrame = viewModel.ClickedFrame;
         int dropLayer = viewModel.CalculateClickedLayer();
@@ -143,7 +143,16 @@ public sealed partial class TimelineTabView
         try
         {
             using var import = await storage.ImportToSceneAsync(scene);
-            foreach (string path in import.Paths)
+            string[] captions = [.. import.Paths.Where(CaptionFileDrop.IsCaptionFile)];
+            CaptionTemplate? template = null;
+            if (captions.Length > 0)
+            {
+                template = await ChooseDroppedCaptionTemplateAsync();
+                // Dismissing the menu gives up the whole drop, as it does for files from the disk.
+                if (template is null) return;
+            }
+
+            foreach (string path in import.Paths.Except(captions))
             {
                 ElementAddResult result;
                 if (string.Equals(Path.GetExtension(path), ".json", StringComparison.OrdinalIgnoreCase)
@@ -160,6 +169,10 @@ public sealed partial class TimelineTabView
                 }
                 if (result.IsSuccess) dropLayer = checked(result.Elements.Max(element => element.ZIndex.Value) + 1);
             }
+
+            // Their text is copied into the clips, so nothing here needs the files once they are read.
+            if (captions.Length > 0)
+                await CaptionFileDrop.AddAsync(viewModel, captions, [], template);
         }
         catch (OperationCanceledException) { }
         catch (ObjectDisposedException) { }
