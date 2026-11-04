@@ -472,6 +472,39 @@
   <data name="Erode_RadiusY" xml:space="preserve">
     <value>半径Y</value>
   </data>
+  <data name="EdgeDetection" xml:space="preserve">
+    <value>エッジ抽出</value>
+  </data>
+  <data name="EdgeDetection_Target" xml:space="preserve">
+    <value>検出対象</value>
+  </data>
+  <data name="EdgeDetectionTarget_Luminance" xml:space="preserve">
+    <value>輝度</value>
+  </data>
+  <data name="EdgeDetectionTarget_Alpha" xml:space="preserve">
+    <value>透明度</value>
+  </data>
+  <data name="EdgeDetection_Thickness" xml:space="preserve">
+    <value>太さ</value>
+  </data>
+  <data name="EdgeDetection_Threshold" xml:space="preserve">
+    <value>しきい値</value>
+  </data>
+  <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
+    <value>これより小さな変化には線を引きません。</value>
+  </data>
+  <data name="EdgeDetection_Original" xml:space="preserve">
+    <value>元画像</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Hidden" xml:space="preserve">
+    <value>表示しない</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Behind" xml:space="preserve">
+    <value>裏に表示</value>
+  </data>
+  <data name="EdgeDetectionOriginal_InFront" xml:space="preserve">
+    <value>表に表示</value>
+  </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>フラットシャドウ</value>
   </data>

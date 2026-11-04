@@ -476,6 +476,39 @@
   <data name="Erode_RadiusY" xml:space="preserve">
     <value>半径 Y</value>
   </data>
+  <data name="EdgeDetection" xml:space="preserve">
+    <value>边缘提取</value>
+  </data>
+  <data name="EdgeDetection_Target" xml:space="preserve">
+    <value>检测对象</value>
+  </data>
+  <data name="EdgeDetectionTarget_Luminance" xml:space="preserve">
+    <value>亮度</value>
+  </data>
+  <data name="EdgeDetectionTarget_Alpha" xml:space="preserve">
+    <value>透明度</value>
+  </data>
+  <data name="EdgeDetection_Thickness" xml:space="preserve">
+    <value>粗细</value>
+  </data>
+  <data name="EdgeDetection_Threshold" xml:space="preserve">
+    <value>阈值</value>
+  </data>
+  <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
+    <value>小于此值的变化不会绘制线条。</value>
+  </data>
+  <data name="EdgeDetection_Original" xml:space="preserve">
+    <value>原图</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Hidden" xml:space="preserve">
+    <value>不显示</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Behind" xml:space="preserve">
+    <value>显示在后面</value>
+  </data>
+  <data name="EdgeDetectionOriginal_InFront" xml:space="preserve">
+    <value>显示在前面</value>
+  </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>平面阴影</value>
   </data>
