@@ -36,4 +36,5 @@
   <data name="Model" xml:space="preserve"><value>3D 모델</value></data>
   <data name="Cube" xml:space="preserve"><value>LUT</value></data>
   <data name="Font" xml:space="preserve"><value>글꼴</value></data>
+  <data name="SceneChanged" xml:space="preserve"><value>장면이 변경되어 적용하지 않았습니다. 목록을 확인하고 다시 시도해 주세요.</value></data>
 </root>

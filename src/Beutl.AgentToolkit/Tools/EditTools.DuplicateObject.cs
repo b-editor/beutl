@@ -196,16 +196,14 @@ public sealed partial class EditTools
                 $"$/Elements[Id={location.Element.Id.Value}]/Objects[Id={portal.Id.Value}]"));
         }
 
+        string groupPath = location.ParentGroupPath
+            ?? $"$/Elements[Id={location.Element.Id.Value}]/Objects[Id={group.Id.Value}]";
         if (location.ParentGroup is null)
         {
-            createdIds.Add(CreateAppliedEntityId(
-                group,
-                $"$/Elements[Id={location.Element.Id.Value}]/Objects[Id={group.Id.Value}]"));
+            createdIds.Add(CreateAppliedEntityId(group, groupPath));
         }
 
-        createdIds.Add(CreateAppliedEntityId(
-            clone,
-            $"$/Elements[Id={location.Element.Id.Value}]/Objects[Id={group.Id.Value}]/Children[Id={clone.Id.Value}]"));
+        createdIds.Add(CreateAppliedEntityId(clone, $"{groupPath}/Children[Id={clone.Id.Value}]"));
         return createdIds;
     }
 
@@ -251,7 +249,12 @@ public sealed partial class EditTools
                 }
 
                 if (obj is DrawableGroup group
-                    && TryFindObjectInDrawableGroup(element, group, objectId, out DuplicateObjectLocation? location))
+                    && TryFindObjectInDrawableGroup(
+                        element,
+                        group,
+                        $"$/Elements[Id={element.Id.Value}]/Objects[Id={group.Id.Value}]",
+                        objectId,
+                        out DuplicateObjectLocation? location))
                 {
                     return location;
                 }
@@ -264,6 +267,7 @@ public sealed partial class EditTools
     private static bool TryFindObjectInDrawableGroup(
         Element element,
         DrawableGroup group,
+        string groupPath,
         Guid objectId,
         [NotNullWhen(true)] out DuplicateObjectLocation? location)
     {
@@ -271,12 +275,13 @@ public sealed partial class EditTools
         {
             if (child.Id.Value == objectId)
             {
-                location = new DuplicateObjectLocation(element, child, group);
+                location = new DuplicateObjectLocation(element, child, group, groupPath);
                 return true;
             }
 
             if (child is DrawableGroup childGroup
-                && TryFindObjectInDrawableGroup(element, childGroup, objectId, out location))
+                && TryFindObjectInDrawableGroup(
+                    element, childGroup, $"{groupPath}/Children[Id={childGroup.Id.Value}]", objectId, out location))
             {
                 return true;
             }

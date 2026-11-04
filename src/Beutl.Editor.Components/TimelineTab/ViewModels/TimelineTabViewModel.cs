@@ -476,6 +476,22 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         }
     }
 
+    internal static void ShowPasteFailure(ElementAddFailure failure)
+    {
+        switch (failure)
+        {
+            case LockedElementLayerFailure:
+                NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+                break;
+            case ElementSceneNotSavedFailure:
+                NotificationService.ShowWarning(Strings.Paste, Strings.Paste_ProjectNotSaved);
+                break;
+            default:
+                NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+                break;
+        }
+    }
+
     private async Task PasteCore()
     {
         try
@@ -487,13 +503,9 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             {
                 ScrollTo.Execute((outcome.ScrollTo, outcome.ScrollToZIndex));
             }
-            else if (outcome.AddFailure is LockedElementLayerFailure)
+            else if (outcome.AddFailure is { } failure)
             {
-                NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
-            }
-            else if (outcome.AddFailure is not null)
-            {
-                NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+                ShowPasteFailure(failure);
             }
         }
         catch (Exception ex)

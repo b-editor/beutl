@@ -1,4 +1,10 @@
-﻿using Beutl.Controls.PropertyEditors;
+﻿using System.Globalization;
+using Avalonia.Controls;
+using Avalonia.Headless.NUnit;
+using Avalonia.Media;
+using Avalonia.VisualTree;
+using Beutl.Controls.PropertyEditors;
+using Beutl.Testing.Headless;
 
 namespace Beutl.HeadlessUITests;
 
@@ -32,6 +38,34 @@ public sealed class NumberEditorCultureTests
     public void A_period_decimal_culture_reads_as_before(string text, float expected)
     {
         AssertReads(text, expected);
+    }
+
+    [AvaloniaTest]
+    [TestCase("50.5")]
+    [TestCase("50,5")]
+    [TestCase("50,5%")]
+    public void The_color_pickers_opacity_reads_either_decimal_point(string text)
+    {
+        CultureInfo previous = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+        var picker = new SimpleColorPicker { Color = Colors.Red };
+        var window = new Window { Content = picker };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            TextBox box = picker.GetVisualDescendants().OfType<TextBox>().Single(item => item.Name == "OpacityBox");
+
+            box.Text = text;
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(picker.Color.A, Is.EqualTo(0.505 * 255).Within(1));
+        }
+        finally
+        {
+            window.Close();
+            CultureInfo.CurrentCulture = previous;
+        }
     }
 
     private static void AssertReads(string text, float expected)

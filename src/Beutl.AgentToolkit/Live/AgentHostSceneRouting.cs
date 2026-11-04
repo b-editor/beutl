@@ -12,6 +12,10 @@ public static class AgentHostSceneRouting
 {
     public const string SceneIdArgument = "sceneId";
 
+    // What the editor and the installed server answer a call that does not name a valid scene.
+    public const string InvalidSceneMessage = "Pass a valid sceneId on every scene tool call.";
+    public const string InvalidSceneHint = "Call list_scenes on the target instance to discover scene IDs.";
+
     // Scene-bound tools: the editor requires sceneId on them.
     public static readonly FrozenSet<string> SceneRequired = FrozenSet.ToFrozenSet(
     [

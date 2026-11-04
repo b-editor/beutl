@@ -1,4 +1,5 @@
-﻿using Beutl.Language;
+﻿using System.Collections.Immutable;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -22,6 +23,27 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         IReadOnlyList<Element> sources,
         MediaTime clickedFrame,
         int clickedLayer)
+    {
+        return DuplicateAtClickedPositionCore(scene, sources, clickedFrame, clickedLayer, null);
+    }
+
+    public DuplicateOutcome DuplicateAtClickedPosition(
+        Scene scene,
+        IReadOnlyList<Element> sources,
+        MediaTime clickedFrame,
+        int clickedLayer,
+        IReadOnlyCollection<ImmutableHashSet<Guid>> sourceGroups)
+    {
+        ArgumentNullException.ThrowIfNull(sourceGroups);
+        return DuplicateAtClickedPositionCore(scene, sources, clickedFrame, clickedLayer, sourceGroups);
+    }
+
+    private DuplicateOutcome DuplicateAtClickedPositionCore(
+        Scene scene,
+        IReadOnlyList<Element> sources,
+        MediaTime clickedFrame,
+        int clickedLayer,
+        IReadOnlyCollection<ImmutableHashSet<Guid>>? sourceGroups)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(sources);
@@ -62,7 +84,7 @@ public sealed class ElementDuplicateService : IElementDuplicateService
 
             // The anchor is free for the whole set, so the duplicates go in as they are.
             DuplicateHelper.PlaceDuplicates(
-                scene, regenerated, sourceArray, placement.Start, placement.ZIndex, ElementOverlapHandling.Allow);
+                scene, regenerated, sourceArray, placement.Start, placement.ZIndex, ElementOverlapHandling.Allow, sourceGroups);
         }
         catch (Exception ex)
         {

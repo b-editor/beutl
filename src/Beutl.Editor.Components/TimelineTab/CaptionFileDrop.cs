@@ -21,13 +21,25 @@ internal static class CaptionFileDrop
 
     public static bool IsCaptionFile(string file) => s_catalog.Value.Codecs.TryGetByFileName(file, out _);
 
-    public static Task AddAsync(TimelineTabViewModel viewModel, string file) => AddAsync(viewModel, [file], []);
+    // The default look and the text templates saved so far, which change while Beutl runs.
+    public static IReadOnlyList<CaptionTemplate> GetTemplates()
+    {
+        CaptionCatalog catalog = s_catalog.Value;
+        catalog.RefreshObjectTemplates(ObjectTemplateService.Instance.FindByBaseType(typeof(Beutl.Graphics.Drawable)));
+        return [.. catalog.Templates.Templates.Select(item => catalog.Templates.GetTemplate(item.Id))];
+    }
+
+    public static Task AddAsync(TimelineTabViewModel viewModel, string file, CaptionTemplate? template = null)
+        => AddAsync(viewModel, [file], [], template);
 
     // Adds the files' clips with whatever else was dropped, so that one undo takes back the whole drop. Each file goes
     // on layers of its own above the rest. The view model scrolls to the first clip, since the file decides where the
     // clips go, which can be far from where the timeline is looking.
     public static async Task AddAsync(
-        TimelineTabViewModel viewModel, IReadOnlyList<string> files, IReadOnlyList<ElementDescription> others)
+        TimelineTabViewModel viewModel,
+        IReadOnlyList<string> files,
+        IReadOnlyList<ElementDescription> others,
+        CaptionTemplate? template = null)
     {
         int layer = GetFirstLayerAbove(viewModel.Scene, others);
         var descriptions = new List<ElementDescription>(others);
@@ -50,7 +62,7 @@ internal static class CaptionFileDrop
                 viewModel.Scene,
                 layer,
                 document,
-                CaptionPresentationDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate),
+                template ?? CaptionPresentationDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate),
                 elementName: Path.GetFileNameWithoutExtension(file),
                 minimumLength: s_shortestCue);
             descriptions.AddRange(clips);

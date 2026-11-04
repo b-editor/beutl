@@ -78,6 +78,46 @@ public sealed class StartupNotificationServiceTests
         }
     }
 
+    [TestCase("2.0.0-preview.9", "2.0.0-preview.10", "https://github.com/b-editor/beutl/releases/tag/v2.0.0-preview.10")]
+    [TestCase("2.0.0-preview.10", "2.0.0", "https://github.com/b-editor/beutl/releases/tag/v2.0.0")]
+    [TestCase("2.0.0-preview.10", "2.0.0-preview.10", null)]
+    [TestCase("2.0.0-preview.10", "2.0.0-preview.9", null)]
+    [TestCase("2.0.0-preview.9", "2.0.0-preview.10.g0123abcdef", null)]
+    [TestCase("2.0.0-preview.9", "2.0.0-preview.10+0123abcdef", null)]
+    [TestCase("not a version", "2.0.0", null)]
+    [TestCase(null, "2.0.0", null)]
+    public void GetReleaseNotesUrl_NamesThePageOfAnUpdateToAPublishedVersion(string? last, string current, string? expected)
+    {
+        Assert.That(StartupNotificationService.GetReleaseNotesUrl(last, current), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void ShowReleaseNotes_AfterAnUpdate_OffersTheReleaseNotes()
+    {
+        using var notifications = new NotificationCapture();
+
+        StartupNotificationService.ShowReleaseNotes("2.0.0-preview.9", "2.0.0-preview.10");
+
+        Notification notification = notifications.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(notification.Title, Is.EqualTo(string.Format(MessageStrings.UpdatedToVersion_Title, "2.0.0-preview.10")));
+            Assert.That(notification.Message, Is.EqualTo(MessageStrings.UpdatedToVersion_Content));
+            Assert.That(notification.Actions, Has.Count.EqualTo(1));
+            Assert.That(notification.Actions![0].Text, Is.EqualTo(MessageStrings.ReleaseNotes));
+        });
+    }
+
+    [Test]
+    public void ShowReleaseNotes_WithoutAnUpdate_ShowsNothing()
+    {
+        using var notifications = new NotificationCapture();
+
+        StartupNotificationService.ShowReleaseNotes("2.0.0-preview.10", "2.0.0-preview.10");
+
+        Assert.That(notifications.All, Is.Empty);
+    }
+
     [Test]
     public void ShowTelemetryConsent_WhenUnset_ShowsPersistentNotificationAndAccepts()
     {

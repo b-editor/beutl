@@ -114,6 +114,25 @@ public class ElementAddEntryPointTests
         }
     }
 
+    [Test]
+    public void A_refused_paste_says_why()
+    {
+        using var notifications = new NotificationCapture();
+
+        TimelineTabViewModel.ShowPasteFailure(new LockedElementLayerFailure(1));
+        TimelineTabViewModel.ShowPasteFailure(new ElementSceneNotSavedFailure());
+        TimelineTabViewModel.ShowPasteFailure(new InvalidElementMaterializationFailure("failed"));
+
+        Assert.That(
+            notifications.All.Select(notification => (notification.Type, notification.Title, notification.Message)),
+            Is.EqualTo(new[]
+            {
+                (NotificationType.Warning, Strings.Lock, Strings.LayerIsLocked),
+                (NotificationType.Warning, Strings.Paste, Strings.Paste_ProjectNotSaved),
+                (NotificationType.Error, Strings.AddElement, MessageStrings.UnexpectedError),
+            }));
+    }
+
     [AvaloniaTest]
     public async Task TimelineAddElement_GeneralFailure_ShowsErrorWithoutAddingOrScrolling()
     {
@@ -623,6 +642,198 @@ public class ElementAddEntryPointTests
         {
             CultureInfo.CurrentCulture = previous;
         }
+    }
+
+    // A saved text template is on offer beside the default look, and the choice is there for the next drop.
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFileDrop_UsesTheChosenTemplateAndRemembersIt()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-template");
+        ObjectTemplateItem saved = await SaveTextTemplateAsync();
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+        var asked = new List<(string[] Offered, CaptionTemplateId Selected, IReadOnlyList<string> Files)>();
+        view.ChooseCaptionTemplateAsync = (templates, selected, files) =>
+        {
+            asked.Add(([.. templates.Select(template => template.Descriptor.Name)], selected.Descriptor.Id, files));
+            return Task.FromResult<CaptionTemplate?>(
+                templates.Single(template => template.Descriptor.Name == saved.Name.Value));
+        };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel panel = view.FindControl<Panel>("TimelinePanel")!;
+            string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+            string first = Path.Combine(directory, "first.srt");
+            File.WriteAllText(first, "1\n00:00:01,000 --> 00:00:02,000\nHello\n\n2\n00:00:03,000 --> 00:00:04,000\nWorld\n");
+            string second = Path.Combine(directory, "second.srt");
+            File.WriteAllText(second, "1\n00:00:06,000 --> 00:00:07,000\nAgain\n");
+
+            await DropFilesAsync(window, panel, editor, first);
+            await DropFilesAsync(window, panel, editor, second);
+
+            Beutl.Graphics.Shapes.TextBlock[] texts = [.. editor.Scene.Children
+                .OrderBy(child => child.Start.Value)
+                .SelectMany(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>())];
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(texts.Select(text => text.Text.Value), Is.EqualTo(new[] { "Hello", "World", "Again" }));
+                Assert.That(texts.Select(text => text.Size.Value), Is.All.EqualTo(123f));
+                Assert.That(asked, Has.Count.EqualTo(2));
+                Assert.That(asked[0].Offered, Does.Contain(Strings.AiSubtitle_DefaultTemplate).And.Contain(saved.Name.Value));
+                Assert.That(asked[0].Selected, Is.EqualTo(CaptionTemplateIds.DefaultText));
+                Assert.That(asked[0].Files, Is.EqualTo(new[] { first }));
+                Assert.That(asked[1].Selected.Value, Does.Contain(saved.Id.ToString("N")));
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            RemoveTemplate(saved);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFileDrop_CancellingTheChoiceAddsNothing()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-cancel");
+        ObjectTemplateItem saved = await SaveTextTemplateAsync();
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+        var answered = new TaskCompletionSource();
+        view.ChooseCaptionTemplateAsync = (_, _, _) =>
+        {
+            answered.TrySetResult();
+            return Task.FromResult<CaptionTemplate?>(null);
+        };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+            string captions = Path.Combine(directory, "movie.srt");
+            File.WriteAllText(captions, "1\n00:00:01,000 --> 00:00:02,000\nHello\n");
+            string image = CreatePngFile(editor, "beside.png");
+
+            await RaiseFileDropAsync(window, view.FindControl<Panel>("TimelinePanel")!, captions, image);
+            await answered.Task;
+            // Long enough for a drop that carried on to reach the scene.
+            for (int attempt = 0; attempt < 20 && editor.Scene.Children.Count == 0; attempt++)
+            {
+                await Task.Delay(50);
+                HeadlessTestHelpers.Settle();
+            }
+
+            Assert.That(editor.Scene.Children, Is.Empty);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            RemoveTemplate(saved);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFileDrop_AsksNothingWithOnlyTheDefaultLook()
+    {
+        await TestReset.ResetShellAsync();
+        Assume.That(CaptionFileDrop.GetTemplates(), Has.Count.EqualTo(1));
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-default");
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+        bool asked = false;
+        view.ChooseCaptionTemplateAsync = (_, _, _) =>
+        {
+            asked = true;
+            return Task.FromResult<CaptionTemplate?>(null);
+        };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "movie.srt");
+            File.WriteAllText(path, "1\n00:00:01,000 --> 00:00:02,000\nHello\n");
+
+            await DropFilesAsync(window, view.FindControl<Panel>("TimelinePanel")!, editor, path);
+
+            Assert.That(asked, Is.False);
+            Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task CaptionTemplateChooser_OffersEveryTemplateAndStartsOnTheSelectedOne()
+    {
+        await TestReset.ResetShellAsync();
+        ObjectTemplateItem saved = await SaveTextTemplateAsync();
+        try
+        {
+            IReadOnlyList<CaptionTemplate> templates = CaptionFileDrop.GetTemplates();
+            CaptionTemplate selected = templates.Single(template => template.Descriptor.Name == saved.Name.Value);
+
+            ComboBox picker = CaptionTemplateChooser.CreatePicker(templates, selected);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(picker.ItemsSource, Is.EqualTo(templates.Select(template => template.Descriptor.Name)));
+                Assert.That(templates[picker.SelectedIndex], Is.SameAs(selected));
+            }
+        }
+        finally
+        {
+            RemoveTemplate(saved);
+        }
+    }
+
+    private static async Task<ObjectTemplateItem> SaveTextTemplateAsync()
+    {
+        var text = new Beutl.Graphics.Shapes.TextBlock();
+        text.Size.Value = 123f;
+        ObjectTemplateItem? saved = await ObjectTemplateService.Instance.AddFromInstanceAsync(text, $"subtitle-look-{Guid.NewGuid():N}");
+        Assert.That(saved, Is.Not.Null);
+        return saved!;
+    }
+
+    private static void RemoveTemplate(ObjectTemplateItem template)
+    {
+        File.Delete(template.FilePath!);
+        ObjectTemplateService.Instance.RefreshFromFileSystem();
+    }
+
+    private static async Task RaiseFileDropAsync(Window window, Panel panel, params string[] paths)
+    {
+        var transfer = new DataTransfer();
+        foreach (string path in paths)
+        {
+            transfer.Add(DataTransferItem.CreateFile(await GetStorageFile(window, path)));
+        }
+
+        panel.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, transfer, panel, new AvaPoint(500, 5), KeyModifiers.None));
+    }
+
+    private static async Task DropFilesAsync(Window window, Panel panel, EditViewModel editor, params string[] paths)
+    {
+        editor.HistoryManager.Commit();
+        int undoCount = editor.HistoryManager.UndoCount;
+        await RaiseFileDropAsync(window, panel, paths);
+        await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.UndoCount > undoCount);
+        HeadlessTestHelpers.Settle();
     }
 
     private static void WriteSilentWave(string path, int frames)

@@ -77,6 +77,14 @@
                             </ctrls:OptionsDisplayItem.ActionButton>
                         </ctrls:OptionsDisplayItem>
 
+                        <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.SeekOnTimelineClick_Description}" Header="{x:Static lang:SettingsStrings.SeekOnTimelineClick}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ToggleSwitch Classes="left"
+                                              IsChecked="{CompiledBinding SeekOnTimelineClick.Value}"
+                                              Theme="{StaticResource CompactToggleSwitchStyle}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+
                         <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.TimelineAutoScrollMode_Description}" Header="{x:Static lang:SettingsStrings.TimelineAutoScrollMode}">
                             <ctrls:OptionsDisplayItem.ActionButton>
                                 <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding TimelineAutoScrollMode.Value}">
