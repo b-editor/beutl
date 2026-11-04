@@ -103,6 +103,13 @@ public class ListItemExpansionTests
             var transformRows = view.GetVisualDescendants().OfType<TransformListItemEditor>().ToArray();
             Assert.That(filterRows, Has.Length.EqualTo(2));
             Assert.That(transformRows, Has.Length.EqualTo(2));
+            foreach (var row in transformRows)
+            {
+                // A transform row opens by default, unlike an effect row.
+                Assert.That(((TransformEditorViewModel)row.DataContext!).IsExpanded.Value, Is.True);
+                ((TransformEditorViewModel)row.DataContext!).IsExpanded.Value = false;
+            }
+            await Settle();
             var filterHeader = (ToggleButton)filterRows[0].ReorderHandle!;
             var transformHeader = (ToggleButton)transformRows[0].ReorderHandle!;
             foreach (var header in filterRows.Select(r => (ToggleButton)r.ReorderHandle!)

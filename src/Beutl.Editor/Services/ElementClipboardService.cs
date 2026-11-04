@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Extensibility;
 using Beutl.Graphics;
+using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
@@ -313,6 +314,7 @@ public sealed class ElementClipboardService : IElementClipboardService
 
         var sourceImage = new SourceImage();
         sourceImage.Source.Value = ImageSource.Open(imageFile);
+        CanonicalTransformLayout.SeedEmptyGroup(sourceImage);
         var newElement = new Element
         {
             Start = { Value = clickedFrame },

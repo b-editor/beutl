@@ -56,13 +56,10 @@ public sealed class FilterEffectEditorViewModel : GroupableEditorViewModel<Filte
     public void AddTarget(Type presenterType, FilterEffect target)
     {
         if (!IsElementEditable) return;
-        if (Value.Value is FilterEffectGroup group
-            && Activator.CreateInstance(presenterType) is IPresenter<FilterEffect> presenter)
+        if (Activator.CreateInstance(presenterType) is IPresenter<FilterEffect> presenter)
         {
-            IsExpanded.Value = true;
             PresenterEditorHelper.AssignTarget(presenter, target);
-            group.Children.Add((FilterEffect)presenter);
-            Commit();
+            AddItem((FilterEffect)presenter);
         }
     }
 

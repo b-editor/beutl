@@ -20,6 +20,7 @@ using Beutl.Editor.Services.Captions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -79,6 +80,60 @@ public class ElementAddEntryPointTests
             Assert.That(scrolls[0].Range, Is.EqualTo(created.Range));
             Assert.That(scrolls[0].ZIndex, Is.EqualTo(created.ZIndex.Value));
             Assert.That(notifications.All, Is.Empty);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineAddElement_NewDrawable_StartsWithItsTransformsAndTakesThePosition()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-add-entry-transforms");
+
+        await timeline.AddElement.ExecuteAsync(new ElementDescription(
+            MediaTime.Zero,
+            MediaTime.FromSeconds(2),
+            0,
+            new ElementSource.EngineObject(() => new RectShape()),
+            Position: new Beutl.Graphics.Point(30, 40)));
+        HeadlessTestHelpers.Settle();
+
+        RectShape shape = editor.Scene.Children.Single().Objects.OfType<RectShape>().Single();
+        var group = (TransformGroup)shape.Transform.Value!;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                group.Children.Select(child => child.GetType()),
+                Is.EqualTo(new[] { typeof(TranslateTransform), typeof(RotationTransform), typeof(ScaleTransform) }));
+            Assert.That(((TranslateTransform)group.Children[0]).X.Value, Is.EqualTo(30));
+            Assert.That(((TranslateTransform)group.Children[0]).Y.Value, Is.EqualTo(40));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineAddElement_DrawableWithItsOwnTransform_KeepsItAndAddsThePosition()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-add-entry-own-transform");
+        var rotation = new RotationTransform(30);
+        var own = new RectShape();
+        ((TransformGroup)own.Transform.Value!).Children.Add(rotation);
+
+        await timeline.AddElement.ExecuteAsync(new ElementDescription(
+            MediaTime.Zero,
+            MediaTime.FromSeconds(2),
+            0,
+            new ElementSource.EngineObject(() => own),
+            Position: new Beutl.Graphics.Point(30, 40)));
+        HeadlessTestHelpers.Settle();
+
+        var group = (TransformGroup)own.Transform.Value!;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(group.Children, Has.Count.EqualTo(2));
+            Assert.That(((TranslateTransform)group.Children[0]).X.Value, Is.EqualTo(30));
+            Assert.That(group.Children[1], Is.SameAs(rotation));
         }
     }
 

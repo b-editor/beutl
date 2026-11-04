@@ -22,7 +22,10 @@ public partial class AudioEffectEditor : UserControl
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
 
-        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)expandToggle.ContextFlyout!);
+        EditorMenuHelper.AttachRepairMenus(
+            this,
+            (FAMenuFlyout)expandToggle.ContextFlyout!,
+            () => DataContext is AudioEffectEditorViewModel { NeedsRepair: true });
     }
 
     private void Drop(object? sender, DragEventArgs e)
@@ -33,19 +36,10 @@ public partial class AudioEffectEditor : UserControl
                 e,
                 BeutlDataFormats.AudioEffect,
                 tryPasteJson: viewModel.TryPasteJson,
-                onTemplateInstance: instance =>
-                {
-                    if (viewModel.IsGroup.Value)
-                        viewModel.AddItem(instance);
-                    else
-                        viewModel.ChangeAudioEffect(instance);
-                },
+                onTemplateInstance: instance => viewModel.AddItem(instance),
                 onTypePayload: type =>
                 {
-                    if (viewModel.IsGroup.Value)
-                        viewModel.AddItem(type);
-                    else
-                        viewModel.ChangeFilterType(type);
+                    viewModel.AddItem(type);
                     return true;
                 }))
         {
@@ -62,24 +56,17 @@ public partial class AudioEffectEditor : UserControl
     {
         if (DataContext is not AudioEffectEditorViewModel { IsDisposed: false } viewModel) return;
 
-        if (viewModel.IsGroup.Value)
+        Type? type = await SelectType(sender as Control);
+        if (type != null)
         {
-            Type? type = await SelectType(sender as Control);
-            if (type != null)
+            try
             {
-                try
-                {
-                    viewModel.AddItem(type);
-                }
-                catch (Exception ex)
-                {
-                    NotificationService.ShowError(Strings.Error, ex.Message);
-                }
+                viewModel.AddItem(type);
             }
-        }
-        else
-        {
-            expandToggle.ContextFlyout?.ShowAt(expandToggle);
+            catch (Exception ex)
+            {
+                NotificationService.ShowError(Strings.Error, ex.Message);
+            }
         }
     }
 

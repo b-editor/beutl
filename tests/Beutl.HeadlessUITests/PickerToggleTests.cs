@@ -23,6 +23,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
+using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
@@ -248,6 +249,66 @@ public sealed class PickerToggleTests
         }
     }
 
+    // A single effect takes the add button too: it goes into a group with what is added.
+    [AvaloniaTest]
+    public async Task The_add_button_of_a_single_filter_opens_its_picker_and_adds_beside_it()
+    {
+        var brightness = new Brightness();
+        var shape = new RectShape { FilterEffect = { Value = brightness } };
+        using var history = new HistoryScope(shape);
+        using var viewModel = new FilterEffectEditorViewModel(
+            new SimplePropertyAdapter<FilterEffect?>((SimpleProperty<FilterEffect?>)shape.FilterEffect, shape));
+        viewModel.Accept(WithExtensions(history));
+        var editor = new FilterEffectEditor { DataContext = viewModel };
+        Window window = Show(editor);
+        try
+        {
+            EffectEditorHeaderButtons header = editor.GetVisualDescendants().OfType<EffectEditorHeaderButtons>().First();
+            Button add = header.GetVisualDescendants().OfType<Button>().Single(button => button is not ToggleButton);
+            AssertToggles<LibraryItemPickerFlyoutPresenter>(window, add);
+
+            await Pick(window, add, typeof(Blur));
+
+            var group = (FilterEffectGroup)shape.FilterEffect.Value!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(group.Children[0], Is.SameAs(brightness));
+                Assert.That(group.Children[1], Is.TypeOf<Blur>());
+                Assert.That(brightness.HierarchicalParent, Is.SameAs(group));
+                Assert.That(((FilterEffectEditorViewModel)viewModel.Group.Value!.Items[1].Context!).IsExpanded.Value, Is.True);
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task The_add_button_of_an_unset_audio_effect_opens_its_picker_and_adds_to_a_new_group()
+    {
+        var sound = new SourceSound { Effect = { Value = null } };
+        using var history = new HistoryScope(sound);
+        using var viewModel = new AudioEffectEditorViewModel(new EnginePropertyAdapter<AudioEffect?>(sound.Effect, sound));
+        viewModel.Accept(WithExtensions(history));
+        var editor = new AudioEffectEditor { DataContext = viewModel };
+        Window window = Show(editor);
+        try
+        {
+            EffectEditorHeaderButtons header = editor.GetVisualDescendants().OfType<EffectEditorHeaderButtons>().First();
+            Button add = header.GetVisualDescendants().OfType<Button>().Single(button => button is not ToggleButton);
+            AssertToggles<LibraryItemPickerFlyoutPresenter>(window, add);
+
+            await Pick(window, add, typeof(DelayEffect));
+
+            Assert.That(((AudioEffectGroup)sound.Effect.Value!).Children.Single(), Is.TypeOf<DelayEffect>());
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTest]
     public void The_add_button_of_an_audio_group_closes_its_picker()
     {
@@ -345,6 +406,21 @@ public sealed class PickerToggleTests
     {
         TimelineTestHost.WaitForHitTest(window, button, HeadlessTestHelpers.Center(button, window));
         HeadlessTestHelpers.Click(button, ticks: 3);
+    }
+
+    // Opens the picker with the button and confirms the given type in it, once the picker has loaded its choices.
+    private static async Task Pick(Window window, Control button, Type type)
+    {
+        bool IsRequested(PinnableLibraryItem item)
+            => item.UserData is SingleTypeLibraryItem single && single.ImplementationType == type;
+
+        Click(window, button);
+        HeadlessTestHelpers.Render(3);
+        LibraryItemPickerFlyoutPresenter picker = Single<LibraryItemPickerFlyoutPresenter>(window);
+        await HeadlessTestHelpers.WaitUntilAsync(() => picker.Items?.Any(IsRequested) == true);
+        picker.SelectedItem = picker.Items!.Single(IsRequested);
+        picker.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+        HeadlessTestHelpers.Settle();
     }
 
     private static void AssertToggles<TPresenter>(Window window, Control button) where TPresenter : Control
