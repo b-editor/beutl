@@ -7,22 +7,16 @@ namespace Beutl.Editor.Components.AiWorkspaceTab.Services;
 
 internal readonly record struct CaptionSceneImportResult(
     bool IsSuccess,
-    ElementAddFailureId? FailureId,
-    Element? FirstElement = null);
+    ElementAddFailureId? FailureId);
 
 internal static class AiCaptionSceneImporter
 {
-    public static int GetFirstFreeLayer(Scene scene)
-        => scene.Children.Select(item => item.ZIndex.Value).DefaultIfEmpty(-1).Max() + 1;
-
     public static async Task<CaptionSceneImportResult> AddAsync(
         Scene scene,
         IElementAdder adder,
         CaptionDocument document,
         CaptionTemplate template,
-        CancellationToken cancellationToken = default,
-        string? elementName = null,
-        MediaTime? minimumLength = null)
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(adder);
@@ -30,9 +24,9 @@ internal static class AiCaptionSceneImporter
         ArgumentNullException.ThrowIfNull(template);
 
         List<ElementDescription> descriptions = CreateDescriptions(
-            scene, GetFirstFreeLayer(scene), document, template, cancellationToken, elementName, minimumLength);
+            scene, scene.GetFirstFreeLayer(), document, template, cancellationToken);
         ElementAddResult result = await adder.AddAsync(descriptions, cancellationToken);
-        return new CaptionSceneImportResult(result.IsSuccess, result.Failure?.Id, result.Items.FirstOrDefault()?.PrimaryElement);
+        return new CaptionSceneImportResult(result.IsSuccess, result.Failure?.Id);
     }
 
     // Cues that overlap in time go on separate layers from firstLayer up: on one layer, adding them would move

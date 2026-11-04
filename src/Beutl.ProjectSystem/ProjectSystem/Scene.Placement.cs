@@ -5,6 +5,10 @@ namespace Beutl.ProjectSystem;
 
 public partial class Scene
 {
+    // The layer above every clip in the scene.
+    internal int GetFirstFreeLayer()
+        => Children.Select(item => item.ZIndex.Value).DefaultIfEmpty(-1).Max() + 1;
+
     private int NearestLayerNumber(Element element)
     {
         if (IsOverlapping(element.Range, element.ZIndex.Value))

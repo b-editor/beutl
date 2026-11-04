@@ -376,17 +376,9 @@ public sealed partial class ElementView
                     return;
             }
 
-            try
-            {
-                // Must await: a fire-and-forget AnimationRequest swallows exceptions
-                // and leaves the visual stuck at the dragged position.
-                await Task.WhenAll(animations.Select(a => a.ViewModel.AnimationRequest(a.Context)));
-            }
-            catch (Exception ex)
-            {
-                s_logger.LogWarning(ex, "Animation failed after duplicate/move; snapping visuals to model.");
-                ForceRestoreVisualToModel(relatedElements);
-            }
+            await AnimateToModelAsync(
+                animations,
+                ex => s_logger.LogWarning(ex, "Animation failed after duplicate/move; snapping visuals to model."));
         }
 
         private void SpawnGhostsForRelatedElements(

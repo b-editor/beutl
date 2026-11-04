@@ -80,10 +80,9 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
     {
         foreach (GraphModelNodeMemberViewModel nodeMember in NodeMembers)
         {
-            var visitor = new ChildVisitor(nodeMember);
             foreach (IPropertyEditorContext? prop in nodeMember.Properties)
             {
-                prop?.Accept(visitor);
+                prop?.Accept(nodeMember);
             }
         }
     }

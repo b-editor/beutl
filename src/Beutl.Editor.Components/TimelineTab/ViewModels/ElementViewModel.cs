@@ -365,6 +365,12 @@ public sealed partial class ElementViewModel : IDisposable
         return [.. Scene.Children.Where(x => ids.Contains(x.Id.Value))];
     }
 
+    internal Element[] GetGroupOrSelectedModelsOrSelf()
+    {
+        Element[] models = GetGroupOrSelectedModels();
+        return models.Length == 0 ? [Model] : models;
+    }
+
     public bool CanGroupSelectedElements()
     {
         HashSet<Guid> ids = GetEditableSelectedIdsOrSelf();
@@ -510,7 +516,7 @@ public sealed partial class ElementViewModel : IDisposable
             .Delete(Scene, targets, Timeline.IsRippleEnabled.Value);
     }
 
-    private Element[] EditableTargets()
+    internal Element[] EditableTargets()
         => GetGroupOrSelectedModels().Where(e => !Scene.IsElementLocked(e)).ToArray();
 
     // IElementStructureService skips the user-locked ones.
@@ -596,18 +602,15 @@ public sealed partial class ElementViewModel : IDisposable
 
     private void OnSplit(MediaTime timeSpan)
     {
-        Element[] targets = GetGroupOrSelectedModels();
-        SplitCore(targets.Length == 0 ? [Model] : targets, timeSpan);
+        SplitCore(GetGroupOrSelectedModelsOrSelf(), timeSpan);
     }
 
     private void SplitCore(Element[] targets, MediaTime timeSpan)
     {
-        Element[] models = targets.Where(t => !Scene.IsElementLocked(t)).ToArray();
-        if (models.Length == 0) return;
         Rational rate = SceneTimeRangeService.GetFrameRate(Scene);
         MediaTime at = timeSpan.RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
-        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Split(Scene, models, at);
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Split(Scene, targets, at);
     }
 
     private async void OnChangeToOriginalDuration()

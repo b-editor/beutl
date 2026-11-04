@@ -82,6 +82,23 @@ public sealed partial class ElementView
         }
     }
 
+    // Must await: a fire-and-forget AnimationRequest swallows exceptions
+    // and leaves the visual stuck where the drag took it.
+    private static async Task AnimateToModelAsync(
+        (ElementViewModel ViewModel, ElementViewModel.PrepareAnimationContext Context)[] animations,
+        Action<Exception> logFailure)
+    {
+        try
+        {
+            await Task.WhenAll(animations.Select(a => a.ViewModel.AnimationRequest(a.Context)));
+        }
+        catch (Exception ex)
+        {
+            logFailure(ex);
+            ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
+        }
+    }
+
     private sealed class _ResizeBehavior : Behavior<ElementView>
     {
         private record struct ElementResizeContext(
@@ -649,22 +666,9 @@ public sealed partial class ElementView
                 .GetRequiredService<IElementResizeService>()
                 .Resize(viewModel.Scene, requests, ripple);
 
-            _ = AnimateToModelAsync(animations);
-        }
-
-        // Must await, as a move does: a failed animation would leave a clip at the width of the drag.
-        private static async Task AnimateToModelAsync(
-            (ElementViewModel ViewModel, ElementViewModel.PrepareAnimationContext Context)[] animations)
-        {
-            try
-            {
-                await Task.WhenAll(animations.Select(a => a.ViewModel.AnimationRequest(a.Context)));
-            }
-            catch (Exception ex)
-            {
-                s_logger.LogWarning(ex, "Animation failed after a group resize; snapping visuals to model.");
-                ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
-            }
+            _ = AnimateToModelAsync(
+                animations,
+                ex => s_logger.LogWarning(ex, "Animation failed after a group resize; snapping visuals to model."));
         }
 
         private static void RestoreTrimDragVisuals(TrimDragContext ctx)

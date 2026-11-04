@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -13,20 +14,35 @@ internal static class FileDropLayout
     public static ElementDescription[] Create(IEnumerable<string> files, MediaTime start, MediaTime length, int layer)
     {
         var byName = StringComparer.Create(CultureInfo.CurrentCulture, CompareOptions.NumericOrdering);
-        string[] video = Extensions(decoder => decoder.VideoExtensions());
-        string[] audio = Extensions(decoder => decoder.AudioExtensions());
+        string[] video = [.. MediaFileMatcher.VideoExtensions()];
+        string[] audio = [.. MediaFileMatcher.AudioExtensions()];
         string[] ordered = [.. files.OrderBy(Path.GetFileName, byName)];
 
-        // The order the element adder checks them in, since containers such as .webm and images can be on several lists.
-        string[] images = [.. ordered.Where(IsImage)];
-        // Where a file goes only matters among several, and it costs an open that the element adder then repeats.
-        string[] videos = [.. ordered.Except(images).Where(file => Matches(file, video)
-            && (ordered.Length == 1 || !Matches(file, audio) || HoldsVideo(file)))];
-        string[] pictures = [.. ordered.Where(file => images.Contains(file) || videos.Contains(file))];
-        string[] sounds = [.. ordered.Except(pictures).Where(file => Matches(file, audio))];
+        var pictures = new List<string>();
+        var sounds = new List<string>();
+        bool anyVideo = false;
+        foreach (string file in ordered)
+        {
+            // The order the element adder checks them in, since containers such as .webm and images can be on several lists.
+            if (MediaFileMatcher.IsImage(file))
+            {
+                pictures.Add(file);
+            }
+            // Where a file goes only matters among several, and it costs an open that the element adder then repeats.
+            else if (MediaFileMatcher.Matches(file, video)
+                     && (ordered.Length == 1 || !MediaFileMatcher.Matches(file, audio) || HoldsVideo(file)))
+            {
+                pictures.Add(file);
+                anyVideo = true;
+            }
+            else if (MediaFileMatcher.Matches(file, audio))
+            {
+                sounds.Add(file);
+            }
+        }
 
         // A video's own sound takes the layer below it.
-        int soundLayer = layer + (videos.Length > 0 ? 2 : pictures.Length > 0 ? 1 : 0);
+        int soundLayer = layer + (anyVideo ? 2 : pictures.Count > 0 ? 1 : 0);
         return
         [
             .. pictures.Select(file => Describe(file, layer)),
@@ -36,9 +52,6 @@ internal static class FileDropLayout
         ElementDescription Describe(string file, int target)
             => new(start, length, target, new ElementSource.File(file)) { FollowsPrevious = true };
     }
-
-    private static string[] Extensions(Func<IDecoderInfo, IEnumerable<string>> select)
-        => [.. DecoderRegistry.EnumerateDecoder().SelectMany(select)];
 
     // Sound alone can come in a container that is on both lists, such as .webm, which only opening it tells.
     private static bool HoldsVideo(string file)
@@ -53,13 +66,5 @@ internal static class FileDropLayout
             // The element adder says what it makes of a file that does not open.
             return true;
         }
-    }
-
-    private static bool IsImage(string file) => Matches(file, SharedFilePickerOptions.ImagePatterns);
-
-    private static bool Matches(string file, IEnumerable<string> patterns)
-    {
-        string extension = Path.GetExtension(file);
-        return patterns.Any(pattern => string.Equals(Path.GetExtension(pattern), extension, StringComparison.OrdinalIgnoreCase));
     }
 }

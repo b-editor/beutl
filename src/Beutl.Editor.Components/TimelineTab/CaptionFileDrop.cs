@@ -6,7 +6,6 @@ using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
 using Beutl.ProjectSystem;
 using Beutl.Services;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.TimelineTab;
 
@@ -108,7 +107,7 @@ internal static class CaptionFileDrop
     // sound takes the layer below its picture, and clips already at or above them push each file up a layer or two.
     private static int GetFirstLayerAbove(Scene scene, IReadOnlyList<ElementDescription> others)
     {
-        int first = AiCaptionSceneImporter.GetFirstFreeLayer(scene);
+        int first = scene.GetFirstFreeLayer();
         if (others.Count == 0) return first;
 
         int lowest = others.Min(other => other.Layer);
