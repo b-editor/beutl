@@ -701,21 +701,35 @@ public class ElementAddEntryPointTests
     }
 
     [Test]
-    public void Subtitle_files_are_read_in_UTF16_and_the_systems_legacy_code_page()
+    public void Subtitle_files_are_read_in_UTF16()
     {
         const string Srt = "1\n00:00:01,000 --> 00:00:02,000\nこんにちは\n";
+        byte[] utf16 = [.. Encoding.Unicode.GetPreamble(), .. Encoding.Unicode.GetBytes(Srt)];
+
+        Assert.That(CaptionFileDrop.Import(utf16, CaptionFormats.Srt).Document![0].Text, Is.EqualTo("こんにちは"));
+    }
+
+    // Windows' code page wins over a regional format that disagrees with it. Other systems have only the locale.
+    [Test]
+    public void Subtitle_files_are_read_in_the_systems_legacy_code_page()
+    {
+        Encoding? system = CodePagesEncodingProvider.Instance.GetEncoding(0);
+        (string culture, string text) = system?.CodePage switch
+        {
+            null => ("ja-JP", "こんにちは"),
+            932 => ("en-US", "こんにちは"),
+            1252 => ("ja-JP", "café"),
+            _ => (string.Empty, string.Empty),
+        };
+        Assume.That(culture, Is.Not.Empty, "Needs a text that only the system's code page reads back.");
+        Encoding legacy = system ?? CodePagesEncodingProvider.Instance.GetEncoding(932)!;
         CultureInfo previous = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ja-JP");
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(culture);
         try
         {
-            byte[] utf16 = [.. Encoding.Unicode.GetPreamble(), .. Encoding.Unicode.GetBytes(Srt)];
-            byte[] shiftJis = CodePagesEncodingProvider.Instance.GetEncoding(932)!.GetBytes(Srt);
+            byte[] bytes = legacy.GetBytes($"1\n00:00:01,000 --> 00:00:02,000\n{text}\n");
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(CaptionFileDrop.Import(utf16, CaptionFormats.Srt).Document![0].Text, Is.EqualTo("こんにちは"));
-                Assert.That(CaptionFileDrop.Import(shiftJis, CaptionFormats.Srt).Document![0].Text, Is.EqualTo("こんにちは"));
-            });
+            Assert.That(CaptionFileDrop.Import(bytes, CaptionFormats.Srt).Document![0].Text, Is.EqualTo(text));
         }
         finally
         {
