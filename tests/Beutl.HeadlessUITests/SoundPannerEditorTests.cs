@@ -519,6 +519,56 @@ public class SoundPannerEditorTests
     }
 
     [AvaloniaTest]
+    public void SeekingFollowsAChannelMapExpressionAcrossItsChange()
+    {
+        using var host = new PannerHost(SpeakerLayout.Surround51, 6);
+        using (host.History.SuppressRecording())
+        {
+            host.Sound.ChannelMap.Expression = new StringExpression<AudioChannelMap>(
+                "Time < 2 ? Beutl.Audio.AudioChannelMap.Auto : Beutl.Audio.AudioChannelMap.CreateDefault(Beutl.Audio.AudioChannelFormat.Stereo, Beutl.Audio.AudioChannelLayout.Surround51)");
+        }
+        HeadlessTestHelpers.Render();
+        Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.True);
+
+        host.Time.Value = MediaTime.FromSeconds(5);
+        HeadlessTestHelpers.Render();
+        Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.False);
+
+        host.Time.Value = MediaTime.FromSeconds(3);
+        HeadlessTestHelpers.Render();
+        Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.True);
+    }
+
+    // An expression keeps CanDrag false, so locking changes only CanPan, which picks the opacity.
+    [AvaloniaTest]
+    public async Task LockingRedrawsThePannerWhenOnlyItsOpacityChanges()
+    {
+        using var host = new PannerHost(SpeakerLayout.Surround51, 2,
+            sound => sound.Pan.Expression = new StringExpression<float>("0f"));
+        Assert.That(host.ViewModel.CanDrag.Value, Is.False);
+        await WaitForExpansionState(host.Editor);
+        byte[] before = CapturePanner(host);
+
+        host.Sound.FindHierarchicalParent<Element>()!.IsLocked.Value = true;
+        HeadlessTestHelpers.Render();
+
+        Assert.That(host.ViewModel.CanPan.Value, Is.False);
+        Assert.That(CapturePanner(host), Is.Not.EqualTo(before));
+    }
+
+    private static byte[] CapturePanner(PannerHost host)
+    {
+        (byte[] pixels, int rowBytes, _) = HeadlessTestHelpers.CaptureFramePixels(host.Window);
+        Point origin = host.Panner.TranslatePoint(default, host.Window)!.Value;
+        int left = (int)origin.X, top = (int)origin.Y;
+        int width = (int)host.Panner.Bounds.Width, height = (int)host.Panner.Bounds.Height;
+        var region = new byte[width * height * 4];
+        for (int y = 0; y < height; y++)
+            Array.Copy(pixels, (top + y) * rowBytes + left * 4, region, y * width * 4, width * 4);
+        return region;
+    }
+
+    [AvaloniaTest]
     [TestCase("element")]
     [TestCase("layer")]
     [TestCase("recovery")]

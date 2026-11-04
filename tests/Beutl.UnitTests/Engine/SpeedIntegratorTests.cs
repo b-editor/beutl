@@ -24,6 +24,88 @@ public class SpeedIntegratorTests
         Assert.That(samples, Is.LessThan(10));
     }
 
+    // Audio asks again for each chunk, and a chunk is a small part of a second.
+    [TestCase(128)]
+    [TestCase(256)]
+    [TestCase(960)]
+    public void Queries_in_order_sample_each_sample_once(int chunk)
+    {
+        const int Rate = 48000;
+        const int Total = Rate * 3;
+        KeyFrameAnimation<float> animation = TestAnimations.Linear(100f, 200f, MediaTime.FromSeconds(10));
+        int samples = 0;
+        using var integrator = new SpeedIntegrator(Rate) { SpeedTransform = value => { samples++; return value; } };
+        integrator.EnsureCache(animation);
+
+        for (int sample = 0; sample <= Total; sample += chunk)
+        {
+            integrator.Integrate(MediaTime.FromSamples(sample, Rate), animation);
+        }
+
+        // A query can also sample the part of a sample at its end.
+        Assert.That(samples, Is.LessThanOrEqualTo(Total + Total / chunk + 1));
+    }
+
+    [Test]
+    public void Queries_that_alternate_between_two_times_sample_each_sample_once()
+    {
+        const int Rate = 48000;
+        const int Chunk = 256;
+        KeyFrameAnimation<float> animation = TestAnimations.Linear(100f, 200f, MediaTime.FromSeconds(10));
+        int samples = 0;
+        using var integrator = new SpeedIntegrator(Rate) { SpeedTransform = value => { samples++; return value; } };
+        integrator.EnsureCache(animation);
+        MediaTime origin = MediaTime.FromSeconds(1.5);
+        integrator.Integrate(origin, animation);
+        samples = 0;
+
+        for (int sample = 0; sample < Rate; sample += Chunk)
+        {
+            integrator.Integrate(origin + MediaTime.FromSamples(sample, Rate), animation);
+            integrator.Integrate(origin, animation);
+        }
+
+        Assert.That(samples, Is.LessThanOrEqualTo(Rate + 2 * (Rate / Chunk + 1) + (Rate * 3 / 2)));
+    }
+
+    [Test]
+    public void A_result_does_not_depend_on_what_was_asked_before()
+    {
+        const int Rate = 48000;
+        KeyFrameAnimation<float> animation = TestAnimations.Linear(100f, 200f, MediaTime.FromSeconds(10));
+        using var integrator = new SpeedIntegrator(Rate);
+        integrator.EnsureCache(animation);
+        for (int sample = 0; sample < Rate * 2; sample += 256)
+        {
+            integrator.Integrate(MediaTime.FromSamples(sample, Rate), animation);
+        }
+
+        // Forward, within a second, back within one, to an earlier second, and a fraction of a sample.
+        foreach (double seconds in new[] { 2.25, 2.5, 2.1, 0.75, 1.0, 3.0, 2.123456789 })
+        {
+            using var fresh = new SpeedIntegrator(Rate);
+            fresh.EnsureCache(animation);
+            MediaTime time = MediaTime.FromSeconds(seconds);
+
+            Assert.That(integrator.Integrate(time, animation), Is.EqualTo(fresh.Integrate(time, animation)), $"{seconds} s");
+        }
+    }
+
+    [Test]
+    public void An_edit_of_the_animation_forgets_where_the_last_query_stopped()
+    {
+        const int Rate = 48000;
+        KeyFrameAnimation<float> animation = TestAnimations.Linear(100f, 100f, MediaTime.FromSeconds(10));
+        using var integrator = new SpeedIntegrator(Rate);
+        integrator.EnsureCache(animation);
+        Assert.That(integrator.Integrate(MediaTime.FromSeconds(0.5), animation).ToSeconds(), Is.EqualTo(0.5).Within(1e-6));
+
+        ((KeyFrame<float>)animation.KeyFrames[0]).Value.Value = 200f;
+        ((KeyFrame<float>)animation.KeyFrames[1]).Value.Value = 200f;
+
+        Assert.That(integrator.Integrate(MediaTime.FromSeconds(0.75), animation).ToSeconds(), Is.EqualTo(1.5).Within(1e-6));
+    }
+
     private static KeyFrameAnimation<float> ConstantSpeed(float value)
         => TestAnimations.Linear(value, value, MediaTime.FromSeconds(10));
 

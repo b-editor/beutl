@@ -30,6 +30,16 @@ public sealed class AudioSampleRingBuffer
     private bool _hasAnchor;
     private MediaTime _lastWriteEndTime;
     private long _lastWriteEndIndex;
+    private long _version;
+
+    // Changes with every write and clear, so a view can tell when there is nothing new to read.
+    public long Version
+    {
+        get
+        {
+            lock (_gate) return _version;
+        }
+    }
 
     public int SampleRate
     {
@@ -110,6 +120,7 @@ public sealed class AudioSampleRingBuffer
             _hasAnchor = true;
             _lastWriteEndIndex = _totalWritten;
             _lastWriteEndTime = startTime + MediaTime.FromSamples(frames, sampleRate);
+            _version++;
         }
     }
 
@@ -125,6 +136,7 @@ public sealed class AudioSampleRingBuffer
             _hasAnchor = false;
             _lastWriteEndIndex = 0;
             _lastWriteEndTime = MediaTime.Zero;
+            _version++;
         }
     }
 

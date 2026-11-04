@@ -147,6 +147,81 @@ public class PluginDependencyResolutionTests
     }
 
     [Test]
+    public async Task Re_resolution_uses_the_saved_selection_when_a_diamond_selected_above_an_edges_minimum()
+    {
+        CreatePackage("Common", "2.0.0");
+        CreatePackage("Left", "1.0.0", ("Common", "1.0.0"));
+        CreatePackage("Right", "1.0.0", ("Common", "2.0.0"));
+        string root = CreatePackage("Root", "1.0.0", ("Left", "1.0.0"), ("Right", "1.0.0"));
+        SaveSelection(root, ("Left", "1.0.0"), ("Right", "1.0.0"), ("Common", "2.0.0"));
+        DeleteDownloads();
+        AddUnreachableSource();
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
+
+        await installer.ReResolveDependencies(Identity("Root", "1.0.0"), NuGet.Common.NullLogger.Instance);
+
+        using var reader = new PackageFolderReader(root);
+        Assert.That(ResolvedPackageDependencies.Load(reader, Helper.GetFrameworkName()), Does.Contain(Identity("Common", "2.0.0")));
+    }
+
+    // An interrupted install can leave a version that nothing selected, with dependencies that are not there.
+    [Test]
+    public async Task Re_resolution_does_not_walk_an_installed_version_outside_the_saved_selection()
+    {
+        CreatePackage("Common", "1.0.0", ("Missing", "1.0.0"));
+        CreatePackage("Common", "2.0.0");
+        string root = CreatePackage("Root", "1.0.0", ("Common", "1.0.0"));
+        SaveSelection(root, ("Common", "2.0.0"));
+        DeleteDownloads();
+        AddUnreachableSource();
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
+
+        await installer.ReResolveDependencies(Identity("Root", "1.0.0"), NuGet.Common.NullLogger.Instance);
+
+        using var reader = new PackageFolderReader(root);
+        Assert.That(ResolvedPackageDependencies.Load(reader, Helper.GetFrameworkName()), Does.Contain(Identity("Common", "2.0.0")));
+    }
+
+    // On a case-sensitive file system the installed folder must be looked up with its own spelling.
+    [Test]
+    public async Task Re_resolution_keeps_the_saved_spelling_of_a_package_id()
+    {
+        CreatePackage("Common", "1.0.0");
+        string root = CreatePackageDependingOn("Root", "1.0.0", ((_prefix + "Common").ToLowerInvariant(), "1.0.0"));
+        SaveSelection(root, ("Common", "1.0.0"));
+        DeleteDownloads();
+        AddUnreachableSource();
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
+
+        await installer.ReResolveDependencies(Identity("Root", "1.0.0"), NuGet.Common.NullLogger.Instance);
+
+        using var reader = new PackageFolderReader(root);
+        Assert.That(ResolvedPackageDependencies.Load(reader, Helper.GetFrameworkName()), Does.Contain(Identity("Common", "1.0.0")));
+    }
+
+    // A dependency the package gained since the selection was saved still comes from a source.
+    [Test]
+    public async Task Re_resolution_goes_to_the_sources_for_what_the_saved_selection_does_not_cover()
+    {
+        CreatePackage("Common", "1.0.0");
+        string added = CreatePackage("New", "1.0.0");
+        string root = CreatePackage("Root", "1.0.0", ("Common", "1.0.0"), ("New", "1.0.0"));
+        SaveSelection(root, ("Common", "1.0.0"));
+        // Installed, it would be found without going to a source.
+        Directory.Delete(added, true);
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
+
+        await installer.ReResolveDependencies(Identity("Root", "1.0.0"), NuGet.Common.NullLogger.Instance);
+
+        using var reader = new PackageFolderReader(root);
+        Assert.That(ResolvedPackageDependencies.Load(reader, Helper.GetFrameworkName()), Does.Contain(Identity("New", "1.0.0")));
+    }
+
+    [Test]
     public async Task Re_resolution_reads_another_source_when_the_installed_archive_is_unreadable()
     {
         string root = CreatePackage("Root", "1.0.0");
@@ -289,6 +364,13 @@ public class PluginDependencyResolutionTests
     }
 
     private PackageIdentity Identity(string name, string version) => new(_prefix + name, NuGetVersion.Parse(version));
+
+    private void SaveSelection(string root, params (string Name, string Version)[] packages)
+    {
+        using var reader = new PackageFolderReader(root);
+        ResolvedPackageDependencies.Save(root, Helper.GetFrameworkName(),
+            [reader.GetIdentity(), .. packages.Select(package => Identity(package.Name, package.Version))]);
+    }
 
     // Removes the nupkgs these tests put in the local source; the installed package folders keep their copies.
     private void DeleteDownloads()

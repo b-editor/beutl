@@ -150,6 +150,12 @@ internal sealed class ProgramCache<TProgram> : IDisposable
     }
 
     /// <summary>
+    /// Invalidates every program, as when the device goes away with this cache still alive. Leased programs are
+    /// detached immediately and disposed only when their outer lease is returned.
+    /// </summary>
+    public int EvictAll() => EvictWhere(static _ => true);
+
+    /// <summary>
     /// Sets the active context for one cache-owned device domain and evicts entries from its preceding context.
     /// Leased entries are detached immediately and disposed after their last lease returns.
     /// </summary>

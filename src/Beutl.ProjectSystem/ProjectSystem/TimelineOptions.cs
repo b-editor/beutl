@@ -22,6 +22,10 @@ public readonly record struct BpmGridOptions
 
 public readonly record struct TimelineOptions
 {
+    // A scene of 1000 hours still fits on a screen at the lowest scale, where pixels still convert to a valid time.
+    public const float MinScale = 1e-6f;
+    public const float MaxScale = 2;
+
     private readonly float _scale;
     private readonly Vector2 _offset;
 
@@ -35,7 +39,7 @@ public readonly record struct TimelineOptions
     public float Scale
     {
         get => _scale;
-        init => _scale = Math.Min(value, 2);
+        init => _scale = Math.Clamp(value, MinScale, MaxScale);
     }
 
     public Vector2 Offset

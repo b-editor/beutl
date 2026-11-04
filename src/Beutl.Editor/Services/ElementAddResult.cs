@@ -21,6 +21,8 @@ public static class ElementAddFailureIds
     public static ElementAddFailureId SceneChanged { get; } = new("element.scene-changed");
 
     public static ElementAddFailureId SceneMutation { get; } = new("element.scene-mutation");
+
+    public static ElementAddFailureId SceneNotSaved { get; } = new("element.scene-not-saved");
 }
 
 public sealed record EmptyElementAddRequestFailure : ElementAddFailure
@@ -80,6 +82,14 @@ public sealed record ElementSceneChangedFailure : ElementAddFailure
         : base(
             ElementAddFailureIds.SceneChanged,
             $"The target scene changed from '{expectedSceneId}' to '{actualSceneId}' while elements were materialized.")
+    {
+    }
+}
+
+public sealed record ElementSceneNotSavedFailure : ElementAddFailure
+{
+    public ElementSceneNotSavedFailure()
+        : base(ElementAddFailureIds.SceneNotSaved, "The scene has no file for the element to be saved beside.")
     {
     }
 }

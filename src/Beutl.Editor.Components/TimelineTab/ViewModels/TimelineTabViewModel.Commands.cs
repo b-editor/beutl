@@ -93,8 +93,8 @@ public sealed partial class TimelineTabViewModel
             .FirstOrDefault();
         if (first is null) return;
 
-        ElementViewModel[] targets = first.GetGroupOrSelectedElements()
-            .Where(x => x.IsEditable.Value)
+        Element[] targets = first.GetGroupOrSelectedModels()
+            .Where(x => !Scene.IsElementLocked(x))
             .ToArray();
         if (targets.Length == 0) return;
 
@@ -108,7 +108,7 @@ public sealed partial class TimelineTabViewModel
         };
 
         EditorContext.GetRequiredService<IElementNudgeService>()
-            .Nudge(Scene, targets.Select(x => x.Model).ToArray(), frames);
+            .Nudge(Scene, targets, frames);
     }
 
     internal void FlushPendingNudgeCommit()

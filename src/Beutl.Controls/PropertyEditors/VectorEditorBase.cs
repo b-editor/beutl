@@ -261,6 +261,7 @@ public abstract class VectorEditorBase : PropertyEditor
         {
             PointerPoint pointerPoint = e.GetCurrentPoint(header);
             if (pointerPoint.Properties.IsLeftButtonPressed
+                && !IsReadOnly
                 && !DataValidationErrors.GetHasErrors(this))
             {
                 Values!.Snapshot();

@@ -13,6 +13,7 @@ public sealed class ProxyResolver : IProxyResolver
     private readonly long _versionBaseOffset;
     private readonly ConcurrentDictionary<string, int> _pins = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, long> _sourceVersions = new(StringComparer.Ordinal);
+    private long _storeVersion;
     private readonly ConcurrentDictionary<string, (DateTime Time, ProxyFingerprint Fingerprint)> _stalenessLastChecked = new(StringComparer.Ordinal);
 
     public ProxyResolver(IProxyStore store)
@@ -40,6 +41,8 @@ public sealed class ProxyResolver : IProxyResolver
             : 0;
         return _versionBaseOffset + version;
     }
+
+    public long StoreVersion => _versionBaseOffset + Interlocked.Read(ref _storeVersion);
 
     public ProxyResolution? Resolve(Uri sourceUri, ProxyPreset preferredPreset)
     {
@@ -259,6 +262,7 @@ public sealed class ProxyResolver : IProxyResolver
             // Bump only the changed source's version (e.Source is already normalized)
             // so unrelated proxied sources are not invalidated.
             _sourceVersions.AddOrUpdate(e.Source.AbsolutePath, 1, static (_, version) => version + 1);
+            Interlocked.Increment(ref _storeVersion);
         }
     }
 

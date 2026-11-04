@@ -111,6 +111,16 @@ public sealed partial class EditViewModel : IMediaRepairHost
         set => HasMediaRepairs.Value = value;
     }
 
+    MissingMediaService IMediaRepairHost.MissingMediaDetector => _missingMediaDetector;
+
+    Task<IReadOnlyList<MissingMedia>> IMediaRepairHost.FindMissingMediaAsync(CancellationToken token)
+        => _missingMediaDetector.FindMissingAsync(Scene, _mediaReferences, token);
+
+    IReadOnlyList<IFileSource> IMediaRepairHost.GetMediaSources() => GetMediaSources();
+
+    private IFileSource[] GetMediaSources()
+        => [.. _mediaReferences.GetReferences().Select(reference => reference.Value).OfType<IFileSource>()];
+
     Task IMediaRepairHost.RefreshMissingMediaAsync() => OpenMissingMediaAsync(refresh: true);
 
     void IMediaRepairHost.DismissMissingMediaNotification() => DismissMissingMediaNotification();
@@ -147,13 +157,10 @@ public sealed partial class EditViewModel : IMediaRepairHost
             await Player.Pause();
             cancellationToken.ThrowIfCancellationRequested();
             if (_disposed) return;
-            foreach (IFileSource source in new Beutl.Editor.Services.ObjectSearcher(Scene,
-                         value => value is MediaSource { HasUri: true } or ModelSource { HasUri: true, MeshCount: 0 })
-                         .SearchAll().OfType<IFileSource>())
+            foreach (IFileSource source in GetMediaSources())
             {
-                if (!source.Uri.IsFile) continue;
                 if (source is MediaSource media) media.InvalidateResourceCache();
-                else if (source is ModelSource)
+                else if (source is ModelSource { MeshCount: 0 })
                 {
                     try
                     {

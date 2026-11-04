@@ -52,6 +52,7 @@ public sealed class EqualizerNode : AudioNode
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
         bool hasAnimation = Bands.Any(band =>
+            AnimationSampler.IsAnimated(band.FilterType) ||
             AnimationSampler.IsAnimated(band.Frequency) ||
             AnimationSampler.IsAnimated(band.Gain) ||
             AnimationSampler.IsAnimated(band.Q));
@@ -146,7 +147,8 @@ public sealed class EqualizerNode : AudioNode
                 for (int bandIndex = 0; bandIndex < Bands.Count; bandIndex++)
                 {
                     var band = Bands[bandIndex];
-                    var filterType = band.FilterType.Value;
+                    // A type has nothing to interpolate, so it holds for the chunk and the filter keeps its state.
+                    var filterType = context.AnimationSampler.SampleAt(band.FilterType, chunkRange.Start, context.SampleRate);
 
                     // Sampled once for all channels, as an expression runs a script for each evaluation.
                     context.AnimationSampler.SampleBuffer(band.Frequency, chunkRange, context.SampleRate, frequencies[..chunkSize]);
