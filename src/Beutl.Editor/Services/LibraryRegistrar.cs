@@ -186,6 +186,7 @@ internal static class LibraryRegistrar
         LibraryService.Current
             .RegisterGroup(GraphicsStrings.FilterEffect, g => g
                 .AddFilterEffect<Blur>(GraphicsStrings.Blur)
+                .AddFilterEffect<Sharpen>(GraphicsStrings.Sharpen)
                 .AddFilterEffect<RadialBlur>(GraphicsStrings.RadialBlur)
                 .AddFilterEffect<MotionBlur>(GraphicsStrings.MotionBlur)
                 .AddFilterEffect<Bloom>(GraphicsStrings.Bloom)

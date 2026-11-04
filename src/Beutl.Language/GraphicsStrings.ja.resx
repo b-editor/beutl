@@ -196,6 +196,15 @@
   <data name="Blur" xml:space="preserve">
     <value>ぼかし</value>
   </data>
+  <data name="Sharpen" xml:space="preserve">
+    <value>シャープ</value>
+  </data>
+  <data name="Sharpen_Threshold" xml:space="preserve">
+    <value>しきい値</value>
+  </data>
+  <data name="Sharpen_Threshold_Description" xml:space="preserve">
+    <value>これより小さな差は強調しません。ノイズを目立たせたくないときに上げます。</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>輝度</value>
   </data>

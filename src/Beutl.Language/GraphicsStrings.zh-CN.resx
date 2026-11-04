@@ -200,6 +200,15 @@
   <data name="Blur" xml:space="preserve">
     <value>模糊</value>
   </data>
+  <data name="Sharpen" xml:space="preserve">
+    <value>锐化</value>
+  </data>
+  <data name="Sharpen_Threshold" xml:space="preserve">
+    <value>阈值</value>
+  </data>
+  <data name="Sharpen_Threshold_Description" xml:space="preserve">
+    <value>小于此值的差异不会被增强，可避免噪点变得明显。</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>亮度</value>
   </data>

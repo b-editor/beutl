@@ -480,6 +480,10 @@ public sealed partial class SchemaGenerator
             case Blur blur:
                 blur.Sigma.Value = new Size(8, 8);
                 break;
+            case Sharpen sharpen:
+                sharpen.Amount.Value = 150;
+                sharpen.Radius.Value = 3;
+                break;
             case DropShadow dropShadow:
                 dropShadow.Position.Value = new Point(8, 10);
                 dropShadow.Sigma.Value = new Size(18, 18);

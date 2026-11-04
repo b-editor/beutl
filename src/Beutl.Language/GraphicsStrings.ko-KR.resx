@@ -200,6 +200,15 @@
   <data name="Blur" xml:space="preserve">
     <value>흐림</value>
   </data>
+  <data name="Sharpen" xml:space="preserve">
+    <value>선명하게</value>
+  </data>
+  <data name="Sharpen_Threshold" xml:space="preserve">
+    <value>임계값</value>
+  </data>
+  <data name="Sharpen_Threshold_Description" xml:space="preserve">
+    <value>이보다 작은 차이는 강조하지 않아 노이즈가 두드러지지 않습니다.</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>밝기</value>
   </data>
