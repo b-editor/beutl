@@ -335,10 +335,11 @@ public class ModulationEffectTests
     }
 
     // Reading ahead in a file reads at positions plain playback never asks for, where an index error would show.
+    // The tone does not repeat within the file, or reading a whole second off would give the same samples.
     [Test]
     public void PitchShift_reads_a_real_file_at_the_positions_it_should()
     {
-        WithTemporaryWave(SampleRate, SampleRate * 4, i => (Sine(i), Sine(i)), source =>
+        WithTemporaryWave(SampleRate, SampleRate * 4, i => (Sine(i, 440.25), Sine(i, 440.25)), source =>
         {
             float[] original = Compose(source, null);
             float[] unshifted = Compose(source, new PitchShiftEffect());
