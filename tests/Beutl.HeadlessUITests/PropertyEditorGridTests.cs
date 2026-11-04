@@ -126,6 +126,49 @@ public class PropertyEditorGridTests
         finally { window.Close(); }
     }
 
+    public static IEnumerable<TestCaseData> EditorsWithButtonsBesideTheValue()
+    {
+        yield return new TestCaseData(new Func<PropertyEditor>(() => new Vector2Editor<float>())).SetArgDisplayNames("Vector2");
+        yield return new TestCaseData(new Func<PropertyEditor>(() => new Vector3Editor<float>())).SetArgDisplayNames("Vector3");
+        yield return new TestCaseData(new Func<PropertyEditor>(() => new Vector4Editor<float>())).SetArgDisplayNames("Vector4");
+    }
+
+    // Too narrow for the shared position, each row splits its own width. The buttons then split with the header's half
+    // too, which moved the value's edge away from the rows that hold their buttons inside the value.
+    [AvaloniaTest]
+    [TestCaseSource(nameof(EditorsWithButtonsBesideTheValue))]
+    public void Keyframe_buttons_narrow_the_value_without_moving_its_edge(Func<PropertyEditor> create)
+    {
+        PropertyEditor editor = create();
+        editor.Header = "Size";
+        editor.MenuContent = new Border { Width = 24, Height = 24 };
+        var scope = new StackPanel { Children = { editor } };
+        PropertyEditorGrid.SetIsAlignmentScope(scope, true);
+        var window = new Window { Content = scope, Width = 600, Height = 200 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            Control box = GetBox(editor);
+            double left = box.TranslatePoint(default, scope)!.Value.X;
+            double width = box.Bounds.Width;
+
+            editor.KeyFrameCount = 3;
+            HeadlessTestHelpers.Render(3);
+            Control buttons = editor.GetVisualDescendants().OfType<StackPanel>().Single(panel => panel.Name == "LeftRightButtons");
+            Assert.That(buttons.IsEffectivelyVisible, Is.True);
+            Assert.That(box.TranslatePoint(default, scope)!.Value.X, Is.EqualTo(left).Within(1));
+            Assert.That(box.Bounds.Width, Is.EqualTo(width - buttons.Bounds.Width - buttons.Margin.Right).Within(1));
+
+            editor.KeyFrameCount = 0;
+            HeadlessTestHelpers.Render(3);
+            Assert.That(GetGrid(editor).ColumnDefinitions[0].Width.IsStar, Is.True);
+            Assert.That(box.TranslatePoint(default, scope)!.Value.X, Is.EqualTo(left).Within(1));
+            Assert.That(box.Bounds.Width, Is.EqualTo(width).Within(1));
+        }
+        finally { window.Close(); }
+    }
+
     private static void MoveSplitter(Window window, PropertyEditor editor, Key key, PhysicalKey physicalKey, double increment)
     {
         var splitter = editor.GetVisualDescendants().OfType<GridSplitter>().Single();

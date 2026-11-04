@@ -127,19 +127,13 @@ public sealed class PropertyEditorGrid : Grid
             double labelWidth = availableSize.Width - bandWidth - _precedingWidth - InputInset;
             if (labelWidth >= MinimumHeaderWidth - LayoutTolerance && bandWidth >= _minimumValueSpace - LayoutTolerance)
             {
-                if (_alignedHeader != ColumnDefinitions[0])
-                {
-                    RestoreHeaderWidth();
-                    _alignedHeader = ColumnDefinitions[0];
-                    _originalHeaderWidth = _alignedHeader.Width;
-                    _alignedHeader.PropertyChanged += OnHeaderPropertyChanged;
-                }
+                HoldHeaderWidth();
                 SetHeaderWidth(new GridLength(Math.Max(labelWidth, MinimumHeaderWidth)));
                 PseudoClasses.Set(":aligned", true);
             }
             else
             {
-                RestoreHeaderWidth();
+                SplitOwnWidth(availableSize);
                 // Bounds still describe the previous layout during measure/arrange.
                 // Clamp once the new row position and scope width are both final.
                 _reclampPending = true;
@@ -148,10 +142,59 @@ public sealed class PropertyEditorGrid : Grid
         }
         else
         {
-            RestoreHeaderWidth();
+            SplitOwnWidth(availableSize);
         }
 
         return base.MeasureOverride(availableSize);
+    }
+
+    // Without a shared position the row splits its own width. Columns between the value and the last one, the keyframe
+    // buttons, come out of a value that fills its column alone, as they do where the value's column holds them, so that
+    // showing them does not move the value's edge.
+    private void SplitOwnWidth(Size availableSize)
+    {
+        if (double.IsFinite(availableSize.Width) && HasInlineValue()
+            && Children.Any(child => GetColumn(child) == ValueColumn && child.HorizontalAlignment == HorizontalAlignment.Stretch)
+            && (_alignedHeader == null ? ColumnDefinitions[0].Width : _originalHeaderWidth) is { IsStar: true } header
+            && ColumnDefinitions[ValueColumn].Width is { IsStar: true } value)
+        {
+            double buttons = 0;
+            for (int column = ValueColumn + 1; column < ColumnDefinitions.Count - 1; column++)
+                buttons += MeasureColumn(column, availableSize.Height);
+
+            if (buttons > 0)
+            {
+                PseudoClasses.Set(":aligned", false);
+                HoldHeaderWidth();
+                double width = availableSize.Width - MeasureColumn(ColumnDefinitions.Count - 1, availableSize.Height);
+                SetHeaderWidth(new GridLength(width * header.Value / (header.Value + value.Value)));
+                return;
+            }
+        }
+
+        RestoreHeaderWidth();
+    }
+
+    private double MeasureColumn(int column, double availableHeight)
+    {
+        double width = 0;
+        foreach (Control child in Children.Where(child => child.IsVisible && GetRow(child) == 0
+                     && GetColumn(child) == column && GetColumnSpan(child) == 1))
+        {
+            child.Measure(new Size(double.PositiveInfinity, availableHeight));
+            width = Math.Max(width, child.DesiredSize.Width);
+        }
+        return width;
+    }
+
+    private void HoldHeaderWidth()
+    {
+        if (_alignedHeader == ColumnDefinitions[0]) return;
+
+        RestoreHeaderWidth();
+        _alignedHeader = ColumnDefinitions[0];
+        _originalHeaderWidth = _alignedHeader.Width;
+        _alignedHeader.PropertyChanged += OnHeaderPropertyChanged;
     }
 
     private bool HasInlineValue()
