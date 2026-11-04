@@ -781,6 +781,89 @@ public partial class MissingMediaTests
         Assert.That(matches.Values.SelectMany(paths => paths), Is.EquivalentTo(new[] { partial, first, second }));
     }
 
+    // A library can hold links to media kept elsewhere. A linked folder stays out, as it could lead back up the tree.
+    [AvaloniaTest]
+    public async Task Linked_files_are_candidates_and_linked_folders_are_not_entered()
+    {
+        string library = NewDirectory();
+        string elsewhere = NewDirectory();
+        string real = Path.Combine(elsewhere, "clip.png");
+        File.WriteAllBytes(real, s_png);
+        string linked = Path.Combine(elsewhere, "folder");
+        Directory.CreateDirectory(linked);
+        File.WriteAllBytes(Path.Combine(linked, "hidden.png"), s_png);
+        string link = Path.Combine(library, "clip.png");
+        CreateFileLink(link, real);
+        CreateFileLink(Path.Combine(library, "broken.png"), Path.Combine(elsewhere, "gone.png"));
+        Directory.CreateSymbolicLink(Path.Combine(library, "folder"), linked);
+        Directory.CreateSymbolicLink(Path.Combine(library, "loop"), library);
+        var scene = new Scene();
+        foreach (string name in new[] { "clip.png", "broken.png", "hidden.png" })
+            AddImage(scene, Path.Combine(NewDirectory(), name));
+        var service = new MissingMediaService();
+
+        var matches = await service.FindMatchesAsync(service.FindMissing(scene), library);
+
+        Assert.That(matches.Values.SelectMany(paths => paths), Is.EqualTo(new[] { link }));
+    }
+
+    // The fingerprint describes the file, so it finds the file again however it was reached when it was taken.
+    [AvaloniaTest]
+    public async Task Fingerprints_of_a_linked_file_describe_the_file_it_leads_to()
+    {
+        string directory = NewDirectory();
+        string real = Path.Combine(directory, "real.png");
+        File.WriteAllBytes(real, s_png);
+        string link = Path.Combine(directory, "link.png");
+        CreateFileLink(link, real);
+        var scene = new Scene(); AddImage(scene, link);
+        var service = new MissingMediaService();
+
+        await service.UpdateFingerprintsAsync(scene);
+
+        Assert.That(scene.MediaFingerprints.Values.Single().Length, Is.EqualTo(s_png.Length));
+        string moved = NewDirectory();
+        string renamed = Path.Combine(moved, "renamed.png");
+        File.Move(real, renamed);
+        File.Delete(link);
+        var missing = service.FindMissing(scene).Single();
+        Assert.That((await service.FindMatchesAsync([missing], moved))[missing].Single(), Is.EqualTo(renamed));
+    }
+
+    // A linked candidate is measured by the file it leads to, not by the link, which is what its fingerprint saved.
+    [AvaloniaTest]
+    public async Task A_linked_candidate_matches_the_fingerprint_of_the_file_it_leads_to()
+    {
+        string directory = NewDirectory();
+        string original = Path.Combine(directory, "original.png");
+        File.WriteAllBytes(original, s_png);
+        var scene = new Scene(); AddImage(scene, original);
+        var service = new MissingMediaService();
+        await service.UpdateFingerprintsAsync(scene);
+        string elsewhere = NewDirectory();
+        string real = Path.Combine(elsewhere, "real.png");
+        File.Move(original, real);
+        string library = NewDirectory();
+        string link = Path.Combine(library, "renamed.png");
+        CreateFileLink(link, real);
+
+        var missing = service.FindMissing(scene).Single();
+
+        Assert.That((await service.FindMatchesAsync([missing], library))[missing].Single(), Is.EqualTo(link));
+    }
+
+    private static void CreateFileLink(string path, string target)
+    {
+        try
+        {
+            File.CreateSymbolicLink(path, target);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Assert.Ignore($"This account cannot create symbolic links: {ex.Message}");
+        }
+    }
+
     [AvaloniaTest]
     public async Task Fingerprinted_files_match_after_their_extension_is_changed()
     {

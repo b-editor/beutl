@@ -45,7 +45,7 @@ public sealed class MissingMediaService
         _enumerateEntries = enumerateEntries ?? (directory => Directory.EnumerateFileSystemEntries(directory, "*", new EnumerationOptions
         {
             IgnoreInaccessible = true,
-            AttributesToSkip = FileAttributes.ReparsePoint
+            AttributesToSkip = 0
         }));
     }
 
@@ -183,8 +183,9 @@ public sealed class MissingMediaService
                 token.ThrowIfCancellationRequested();
                 try
                 {
+                    long length = ResolveLinkedFile(path).Length;
                     Add(byName, Path.GetFileName(path), path);
-                    Add(bySize, new FileInfo(path).Length, path);
+                    Add(bySize, length, path);
                     if (findFonts && IsFontFile(path))
                     {
                         foreach (var face in FontManager.OpenFontFaces(path))
@@ -281,7 +282,7 @@ public sealed class MissingMediaService
         if (item.Fingerprint is not { } expected) return false;
         async Task<bool> MatchesFileAsync(string file, MediaFileFingerprint fingerprint)
         {
-            if (new FileInfo(file).Length != fingerprint.Length) return false;
+            if (ResolveLinkedFile(file).Length != fingerprint.Length) return false;
             string hash;
             if (hashes is null || !hashes.TryGetValue(file, out hash!))
             {
@@ -317,11 +318,18 @@ public sealed class MissingMediaService
                 FileAttributes attributes;
                 try { attributes = File.GetAttributes(entry); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
-                if ((attributes & FileAttributes.ReparsePoint) != 0) continue;
-                if ((attributes & FileAttributes.Directory) != 0) pending.Push(entry);
-                else yield return entry;
+                if ((attributes & FileAttributes.Directory) == 0) yield return entry;
+                // A linked folder could lead back up the tree. A linked file is only a file.
+                else if ((attributes & FileAttributes.ReparsePoint) == 0) pending.Push(entry);
             }
         }
+    }
+
+    // The file a link leads to, which has the length and the time. Those of the link itself say nothing about it.
+    private static FileInfo ResolveLinkedFile(string path)
+    {
+        var file = new FileInfo(path);
+        return file.ResolveLinkTarget(returnFinalTarget: true) as FileInfo ?? file;
     }
 
     private IEnumerable<string> EnumerateReadableEntries(string directory, CancellationToken token)
@@ -500,7 +508,7 @@ public sealed class MissingMediaService
     private static async Task<MediaFileFingerprint> CaptureFileFingerprintAsync(string path, MediaFileFingerprint? previous,
         MediaHashCache? cache, CancellationToken token)
     {
-        var file = new FileInfo(path);
+        FileInfo file = ResolveLinkedFile(path);
         // A file without a fingerprint, for example one the repair tool relinked, is always read.
         string hash = (previous is null ? null : cache?.Find(file)) ?? await HashFileAsync(file.FullName, token);
         cache?.Add(file, hash);
