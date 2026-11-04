@@ -162,6 +162,66 @@ public class ShaderPassNodeTests
     }
 
     [Test]
+    public void ReorderedDeclarationsMoveTheirPortsAndKeepTheirConnections()
+    {
+        static string Declaring(string first, string second) => $$"""
+            #version 450
+            layout(location = 0) in vec2 uv;
+            layout(location = 0) out vec4 color;
+            layout(set = 0, binding = 0) uniform sampler2D {{first}};
+            layout(set = 0, binding = 1) uniform sampler2D {{second}};
+            void main() { color = texture(a, uv) + texture(b, uv); }
+            """;
+        var node = new ShaderFullscreenPassNode();
+        var graph = new GraphModel();
+        graph.Nodes.Add(node);
+        node.Code.Value = Declaring("a", "b");
+        IInputPort a = node.In("a");
+        IInputPort b = node.In("b");
+        Assert.That(node.Items.IndexOf(a), Is.LessThan(node.Items.IndexOf(b)));
+        Connection connection = graph.Connect(a, graph.Add(new ShaderFullscreenPassNode()).Out("color"));
+
+        node.Code.Value = Declaring("b", "a");
+
+        Assert.That(node.Error.Value, Is.Null);
+        Assert.That(node.In("a"), Is.SameAs(a));
+        Assert.That(node.In("b"), Is.SameAs(b));
+        Assert.That(node.Items.IndexOf(b), Is.LessThan(node.Items.IndexOf(a)));
+        Assert.That(a.Connection.Value.Value, Is.SameAs(connection));
+    }
+
+    [Test]
+    public void EachScalarTypeGetsAPortOfThatTypeHoldingItsDefault()
+    {
+        var node = new ShaderFullscreenPassNode();
+        node.Code.Value = """
+            #version 450
+            #extension GL_EXT_shader_explicit_arithmetic_types : require
+            layout(location = 0) out vec4 color;
+            layout(constant_id = 0) const bool flag = true;
+            layout(constant_id = 1) const int whole = -2;
+            layout(constant_id = 2) const uint count = 3u;
+            layout(constant_id = 3) const float gain = 0.5;
+            layout(constant_id = 4) const int64_t wide = -4l;
+            layout(constant_id = 5) const uint64_t wider = 5ul;
+            layout(constant_id = 6) const double exact = 0.25;
+            void main() { color = vec4(flag ? gain : float(whole + int(count)), float(wide), float(wider), float(exact)); }
+            """;
+
+        Assert.That(node.Error.Value, Is.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.In("flag").Property!.GetValue(), Is.EqualTo(true));
+            Assert.That(node.In("whole").Property!.GetValue(), Is.EqualTo(-2));
+            Assert.That(node.In("count").Property!.GetValue(), Is.EqualTo(3u));
+            Assert.That(node.In("gain").Property!.GetValue(), Is.EqualTo(0.5f));
+            Assert.That(node.In("wide").Property!.GetValue(), Is.EqualTo(-4L));
+            Assert.That(node.In("wider").Property!.GetValue(), Is.EqualTo(5UL));
+            Assert.That(node.In("exact").Property!.GetValue(), Is.EqualTo(0.25d));
+        });
+    }
+
+    [Test]
     public void ADeclarationThatGoesAwayTakesItsPortAndConnection()
     {
         var node = new ShaderFullscreenPassNode();

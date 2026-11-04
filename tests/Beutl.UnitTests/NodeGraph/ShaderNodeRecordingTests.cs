@@ -1,4 +1,5 @@
-﻿using Beutl.Composition;
+﻿using System.Numerics;
+using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
@@ -523,6 +524,104 @@ public class ShaderNodeRecordingTests
         replay.StepsPerSecond.Property!.SetValue(-1d);
         Evaluate(graph, snapshot);
         Assert.That(replay.Error.Value, Is.Not.Null.And.Not.Empty);
+    }
+
+    [Test]
+    public void StepsTooShortForTheClockToTellApartReportOnTheReplay()
+    {
+        var (graph, output) = NewGraph();
+        var replay = graph.Add(new ShaderReplayNode());
+        replay.StepsPerSecond.Property!.SetValue(1e9d);
+        graph.Connect(output.InputPort, replay.Items.OfType<IOutputPort>().First());
+        using var snapshot = new GraphSnapshot();
+
+        Evaluate(graph, snapshot);
+
+        Assert.That(replay.Error.Value, Is.Not.Null.And.Not.Empty);
+    }
+
+    [Test]
+    public void ARepeatTooLongToRunReportsOnItsNodeUntilItIsShorter()
+    {
+        var (graph, output) = NewGraph();
+        var repeat = graph.Add(new ShaderRepeatNode());
+        repeat.Count.Property!.SetValue(100_001);
+        graph.Connect(output.InputPort, repeat.Items.OfType<IOutputPort>().First());
+        using var snapshot = new GraphSnapshot();
+
+        Evaluate(graph, snapshot);
+        Assert.That(repeat.Error.Value, Is.Not.Null.And.Not.Empty);
+
+        repeat.Count.Property!.SetValue(1);
+        Evaluate(graph, snapshot);
+        Assert.That(repeat.Error.Value, Is.Null);
+    }
+
+    private static object? OutputOf(GraphModel graph, GraphNode node, IOutputPort port)
+    {
+        using var snapshot = new GraphSnapshot();
+        snapshot.Build(graph, CompositionContext.Default);
+        snapshot.Evaluate(CompositionContext.Default);
+        return snapshot.GetItemValue(snapshot.FindSlotIndex(node), node.Items.IndexOf(port))!.GetBoxed();
+    }
+
+    [TestCase(ShaderDataType.Int32, "-2", new byte[] { 0xFE, 0xFF, 0xFF, 0xFF })]
+    [TestCase(ShaderDataType.UInt32, "4294967295", new byte[] { 0xFF, 0xFF, 0xFF, 0xFF })]
+    [TestCase(ShaderDataType.Int64, "-2", new byte[] { 0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF })]
+    [TestCase(ShaderDataType.UInt64, "18446744073709551615", new byte[] { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF })]
+    [TestCase(ShaderDataType.Float64, "0.5", new byte[] { 0, 0, 0, 0, 0, 0, 0xE0, 0x3F })]
+    public void DataIsWrittenAsItsTypeSays(ShaderDataType type, string text, byte[] expected)
+    {
+        var graph = new GraphModel();
+        var data = graph.Add(new ShaderDataNode());
+        data.DataType.Property!.SetValue(type);
+        data.Text.Property!.SetValue(text);
+
+        Assert.That(OutputOf(graph, data, data.Output), Is.EqualTo(expected));
+        Assert.That(data.Error.Value, Is.Null);
+    }
+
+    [Test]
+    public void DataThatDoesNotParseSaysSoOnItsNode()
+    {
+        var graph = new GraphModel();
+        var data = graph.Add(new ShaderDataNode());
+        data.Text.Property!.SetValue("one 2");
+
+        Assert.That(OutputOf(graph, data, data.Output), Is.Empty);
+        Assert.That(data.Error.Value, Is.Not.Null.And.Not.Empty);
+
+        data.Text.Property!.SetValue("1 2");
+        Assert.That(OutputOf(graph, data, data.Output), Has.Length.EqualTo(8));
+        Assert.That(data.Error.Value, Is.Null);
+    }
+
+    [Test]
+    public void PackWritesEachValueAtItsOwnSize()
+    {
+        var graph = new GraphModel();
+        var pack = graph.Add(new ShaderPackNode());
+        graph.Connect(pack.Values, NodeGraphTestHelpers.Source(graph, true));
+        graph.Connect(pack.Values, NodeGraphTestHelpers.Source(graph, -2));
+        graph.Connect(pack.Values, NodeGraphTestHelpers.Source(graph, 3u));
+        graph.Connect(pack.Values, NodeGraphTestHelpers.Source(graph, -4L));
+        graph.Connect(pack.Values, NodeGraphTestHelpers.Source(graph, 5UL));
+        graph.Connect(pack.Values, NodeGraphTestHelpers.Source(graph, 0.5d));
+        graph.Connect(pack.Values, NodeGraphTestHelpers.Source(graph, new Vector3(1, 2, 3)));
+        graph.Connect(pack.Values, NodeGraphTestHelpers.Source(graph, new Vector4(4, 5, 6, 7)));
+        using var expected = new MemoryStream();
+        using (var writer = new BinaryWriter(expected, System.Text.Encoding.UTF8, leaveOpen: true))
+        {
+            writer.Write(1);
+            writer.Write(-2);
+            writer.Write(3u);
+            writer.Write(-4L);
+            writer.Write(5UL);
+            writer.Write(0.5d);
+            foreach (float value in new float[] { 1, 2, 3, 4, 5, 6, 7 }) writer.Write(value);
+        }
+
+        Assert.That(OutputOf(graph, pack, pack.Output), Is.EqualTo(expected.ToArray()));
     }
 
     [Test]
