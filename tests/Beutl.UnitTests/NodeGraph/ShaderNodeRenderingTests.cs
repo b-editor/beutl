@@ -868,7 +868,11 @@ public partial class ShaderNodeRenderingTests
         ushort[] aligned = RenderScene(renderer, MediaTime.Zero, 1);
 
         Assert.That(merge.Error.Value, Is.Null);
-        Assert.That(aligned, Is.EqualTo(plain), "Space around a picture must not move or shrink it.");
+        // Read at another size, the coordinates round differently on a software device, which leaves traces of about
+        // 1e-6 across the picture's edge. A move or a shrink shows at full strength.
+        for (int index = 0; index < plain.Length; index++)
+            Assert.That(Channel(aligned, index), Is.EqualTo(Channel(plain, index)).Within(1f / 65536),
+                $"Space around a picture must not move or shrink it, at {index}.");
     }
 
     private static void Populate(SceneHistoryHarness files, FilterEffect effect, MediaTime? start = null)

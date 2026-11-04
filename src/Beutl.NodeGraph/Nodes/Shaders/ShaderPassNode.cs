@@ -519,21 +519,6 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
 /// position to keep, and its coordinates stay its own.</remarks>
 internal static class ShaderImageAlignment
 {
-    private static readonly ShaderProgram s_resample = ShaderProgram.Fullscreen(new ShaderSource("""
-        #version 450
-        layout(location = 0) in vec2 uv;
-        layout(location = 0) out vec4 color;
-        layout(set = 0, binding = 0) uniform sampler2D image;
-        layout(set = 0, binding = 1) uniform To { vec4 bounds; vec4 raster; vec4 size; } to;
-        layout(set = 0, binding = 2) uniform From { vec4 bounds; vec4 raster; vec4 size; } from_;
-
-        void main() {
-            color = texture(image, (to.raster.xy - from_.raster.xy + uv * to.raster.zw) / from_.raster.zw);
-        }
-        """));
-
-    // At one density the grids coincide, so each texel comes over whole. Filtering would let rounding in these
-    // coordinates draw a trace of the picture across its edge.
     private static readonly ShaderProgram s_align = ShaderProgram.Fullscreen(new ShaderSource("""
         #version 450
         layout(location = 0) in vec2 uv;
@@ -543,15 +528,7 @@ internal static class ShaderImageAlignment
         layout(set = 0, binding = 2) uniform From { vec4 bounds; vec4 raster; vec4 size; } from_;
 
         void main() {
-            vec2 position = to.raster.xy - from_.raster.xy + uv * to.raster.zw;
-            if (abs(to.size.z - from_.size.z) > 0.0001) {
-                color = texture(image, position / from_.raster.zw);
-                return;
-            }
-
-            ivec2 texel = ivec2(floor(position * from_.size.z));
-            bool inside = all(greaterThanEqual(texel, ivec2(0))) && all(lessThan(texel, textureSize(image, 0)));
-            color = inside ? texelFetch(image, texel, 0) : vec4(0);
+            color = texture(image, (to.raster.xy - from_.raster.xy + uv * to.raster.zw) / from_.raster.zw);
         }
         """));
 
@@ -571,9 +548,7 @@ internal static class ShaderImageAlignment
             resolutionScale: frame.ResolutionScale);
         // The copy lines up with the output texel for texel, whatever density the output has.
         aligned.RasterSource = frame;
-        // A sampler that repeats or clamps says what lies outside the picture, which the exact copy takes to be nothing.
-        bool transparentOutside = sampler is null or { AddressU: SamplerAddressMode.ClampToBorder, AddressV: SamplerAddressMode.ClampToBorder };
-        recording.Builder.Fullscreen(recording.UniqueName($"{name}.align"), transparentOutside ? s_align : s_resample, pass =>
+        recording.Builder.Fullscreen(recording.UniqueName($"{name}.align"), s_align, pass =>
         {
             pass.SampledImage(0, image, sampler);
             pass.ImageParameters(1, aligned);
