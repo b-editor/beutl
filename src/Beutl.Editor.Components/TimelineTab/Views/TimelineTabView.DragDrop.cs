@@ -17,10 +17,6 @@ public sealed partial class TimelineTabView
 {
     private CaptionTemplateId? _captionTemplateId;
 
-    // Replaced by tests, where a dialog has no host.
-    internal Func<IReadOnlyList<CaptionTemplate>, CaptionTemplate, IReadOnlyList<string>, Task<CaptionTemplate?>> ChooseCaptionTemplateAsync { get; set; }
-        = CaptionTemplateChooser.ShowAsync;
-
     private async void TimelinePanel_Drop(object? sender, DragEventArgs e)
     {
         var storage = e.DataTransfer.TryGetValue(StorageDragData.Format);
@@ -81,15 +77,14 @@ public sealed partial class TimelineTabView
         }
     }
 
-    // With only the default look there is nothing to ask.
-    private async Task<CaptionTemplate?> ChooseDroppedCaptionTemplateAsync(string[] captions)
+    // With only the default look there is nothing to ask. The last choice comes first.
+    private async Task<CaptionTemplate?> ChooseDroppedCaptionTemplateAsync()
     {
         IReadOnlyList<CaptionTemplate> templates = CaptionFileDrop.GetTemplates();
-        CaptionTemplate selected = templates.FirstOrDefault(item => item.Descriptor.Id == _captionTemplateId)
-            ?? templates.First(item => item.Descriptor.Id == CaptionTemplateIds.DefaultText);
-        if (templates.Count == 1) return selected;
+        if (templates.Count == 1) return templates[0];
 
-        CaptionTemplate? chosen = await ChooseCaptionTemplateAsync(templates, selected, captions);
+        CaptionTemplate? chosen = await CaptionTemplateChooser.ShowAsync(
+            TimelinePanel, templates.OrderByDescending(item => item.Descriptor.Id == _captionTemplateId));
         if (chosen is not null) _captionTemplateId = chosen.Descriptor.Id;
         return chosen;
     }
@@ -111,8 +106,8 @@ public sealed partial class TimelineTabView
             CaptionTemplate? template = null;
             if (captions.Length > 0)
             {
-                template = await ChooseDroppedCaptionTemplateAsync(captions);
-                // Cancelling gives up the whole drop, along with any files dropped beside the subtitles.
+                template = await ChooseDroppedCaptionTemplateAsync();
+                // Dismissing the menu gives up the whole drop, along with any files dropped beside the subtitles.
                 if (template is null) return;
             }
 

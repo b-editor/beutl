@@ -1615,9 +1615,6 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
     <value>{0}의 자막 중 일부를 읽을 수 없어 건너뛰었습니다.</value>
   </data>
-  <data name="SubtitleFile_Add" xml:space="preserve">
-    <value>자막 추가</value>
-  </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>“{0}”을(를) 삭제할까요?</value>
   </data>
