@@ -591,6 +591,70 @@ public class AiSubtitleTemplateTests
     }
 
     [AvaloniaTest]
+    public async Task Overlapping_sets_with_a_gap_between_their_layers_do_not_mix()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("caption-set-layer-gap");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        var set = new ElementSet();
+        set.Elements.AddRange(
+        [
+            CreateTextElement("Band", 10, 4, 3, new RectShape()),
+            CreateTextElement("Text", 10, 4, 5, new TextBlock { Text = { Value = "Placeholder" } }),
+        ]);
+
+        CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+            editor.Scene,
+            adder,
+            CreateCues((1, 3, "First"), (2, 4, "Second")),
+            ElementCaptionTemplateAdapter.TryCreate(ObjectTemplateItem.CreateFromInstance(set, "Gap"))!);
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(
+            editor.Scene.Children.Select(element => (element.Name.Value, element.Start.Value, element.ZIndex.Value)),
+            Is.EquivalentTo(new[]
+            {
+                ("Band", MediaTime.FromSeconds(1), 0),
+                ("Text", MediaTime.FromSeconds(1), 2),
+                ("Band", MediaTime.FromSeconds(2), 3),
+                ("Text", MediaTime.FromSeconds(2), 5),
+            }));
+    }
+
+    // A short cue still shows its words, and nothing of the set outlasts it.
+    [AvaloniaTest]
+    public async Task A_text_that_starts_too_late_for_its_cue_ends_with_the_cue()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("caption-set-late-text");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        var set = new ElementSet();
+        set.Elements.AddRange(
+        [
+            CreateTextElement("Ornament", 10, 0.25f, 3, new EllipseShape()),
+            CreateTextElement("Text", 12, 2, 4, new TextBlock { Text = { Value = "Placeholder" } }),
+            CreateTextElement("Band", 12, 2, 5, new RectShape()),
+            CreateTextElement("Late", 12, 1, 6, new EllipseShape()),
+        ]);
+
+        CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+            editor.Scene,
+            adder,
+            CreateCues((1, 2, "Short")),
+            ElementCaptionTemplateAdapter.TryCreate(ObjectTemplateItem.CreateFromInstance(set, "Late"))!);
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(
+            editor.Scene.Children.Select(element => (element.Name.Value, element.Start.Value, element.Length.Value)),
+            Is.EquivalentTo(new[]
+            {
+                ("Ornament", MediaTime.FromSeconds(1), MediaTime.FromSeconds(0.25)),
+                ("Text", MediaTime.FromSeconds(1.5), MediaTime.FromSeconds(0.5)),
+                ("Band", MediaTime.FromSeconds(1.5), MediaTime.FromSeconds(0.5)),
+            }));
+    }
+
+    [AvaloniaTest]
     public async Task A_saved_set_goes_above_the_scene_and_around_locked_layers()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("caption-set-locked");

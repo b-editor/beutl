@@ -61,8 +61,9 @@ internal static class ElementCaptionTemplateAdapter
         }
     }
 
-    // What lasts as long as a text object fits the cue with it, like a band behind the text. What does not, such as a
-    // short flourish, keeps its length, and loses only what would outlast the cue.
+    // What lasts as long as a text object fits the cue with it, like a band behind the text, and if it starts too late to
+    // be read in the cue, moves back to end with it, as the cue's words have to show. What does not, such as a short
+    // flourish, keeps its length, and loses only what would outlast the cue.
     private static void FitToCue(ElementSet set, MediaTime cueLength, MediaTime minimumLength)
     {
         MediaTime origin = set.Elements.Min(element => element.Start.Value);
@@ -72,7 +73,15 @@ internal static class ElementCaptionTemplateAdapter
         {
             MediaTime available = cueLength - (element.Start.Value - origin);
             if (textLengths.Contains(element.Length.Value))
-                element.Length.Value = available > minimumLength ? available : minimumLength;
+            {
+                if (available < minimumLength)
+                {
+                    element.Start.Value = origin + cueLength - minimumLength;
+                    available = minimumLength;
+                }
+
+                element.Length.Value = available;
+            }
             else if (available <= MediaTime.Zero)
                 Remove(set, element);
             else if (element.Length.Value > available)

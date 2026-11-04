@@ -75,8 +75,8 @@ internal static class AiCaptionSceneImporter
         return descriptions;
     }
 
-    // Where a request lands: one layer, or for several elements kept together, the layers they take from its layer up.
-    // Those are placed by their whole time range on each of those layers, gaps between the elements included.
+    // Where a request lands: one layer, or for several elements kept together, the layers they span from its layer up.
+    // Those are placed by their whole time range, and another set goes above them all rather than between them.
     internal static IEnumerable<(int Layer, MediaTime Start, MediaTime End)> GetExtents(ElementDescription description)
     {
         if (description.Source is not ElementSource.ElementSetTemplate source)
@@ -84,10 +84,8 @@ internal static class AiCaptionSceneImporter
 
         IList<Element> elements = source.Factory().Elements;
         MediaTime length = elements.Max(element => element.Range.End) - elements.Min(element => element.Start.Value);
-        int lowest = elements.Min(element => element.ZIndex.Value);
-        return elements.Select(element => (
-            description.Layer + element.ZIndex.Value - lowest,
-            description.Start,
-            description.Start + length));
+        int span = elements.Max(element => element.ZIndex.Value) - elements.Min(element => element.ZIndex.Value) + 1;
+        return Enumerable.Range(description.Layer, span)
+            .Select(layer => (layer, description.Start, description.Start + length));
     }
 }
