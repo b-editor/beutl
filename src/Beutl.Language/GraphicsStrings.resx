@@ -1716,6 +1716,45 @@
   <data name="RadialBlur_Samples" xml:space="preserve">
     <value>Samples</value>
   </data>
+  <data name="Bokeh" xml:space="preserve">
+    <value>Bokeh</value>
+  </data>
+  <data name="Bokeh_Shape" xml:space="preserve">
+    <value>Aperture shape</value>
+  </data>
+  <data name="BokehShape_Circle" xml:space="preserve">
+    <value>Circle</value>
+  </data>
+  <data name="BokehShape_Polygon" xml:space="preserve">
+    <value>Polygon</value>
+  </data>
+  <data name="Bokeh_Sides" xml:space="preserve">
+    <value>Sides</value>
+  </data>
+  <data name="Bokeh_Rotation" xml:space="preserve">
+    <value>Rotation</value>
+  </data>
+  <data name="Bokeh_Highlight" xml:space="preserve">
+    <value>Highlight boost</value>
+  </data>
+  <data name="Bokeh_Highlight_Description" xml:space="preserve">
+    <value>Makes the bright parts brighter before they spread, so they stand out as shapes. 100% is twice as bright.</value>
+  </data>
+  <data name="Bokeh_Quality" xml:space="preserve">
+    <value>Quality</value>
+  </data>
+  <data name="Bokeh_Quality_Description" xml:space="preserve">
+    <value>More samples draw the shape more cleanly and take longer. High takes about three times as long as Low.</value>
+  </data>
+  <data name="BokehQuality_Low" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="BokehQuality_Medium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="BokehQuality_High" xml:space="preserve">
+    <value>High</value>
+  </data>
   <data name="RadialBlurMode_Zoom" xml:space="preserve">
     <value>Zoom</value>
   </data>

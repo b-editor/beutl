@@ -44,6 +44,7 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<Blur>>(GraphicsStrings.Blur)
             .Add<FilterEffectNode<Sharpen>>(GraphicsStrings.Sharpen)
             .Add<FilterEffectNode<RadialBlur>>(GraphicsStrings.RadialBlur)
+            .Add<FilterEffectNode<Bokeh>>(GraphicsStrings.Bokeh)
             .Add<FilterEffectNode<DropShadow>>(GraphicsStrings.DropShadow)
             .Add<FilterEffectNode<InnerShadow>>(GraphicsStrings.InnerShadow)
             .Add<FilterEffectNode<FlatShadow>>(GraphicsStrings.FlatShadow)
