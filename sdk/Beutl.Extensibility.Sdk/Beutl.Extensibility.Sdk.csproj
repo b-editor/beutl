@@ -102,7 +102,7 @@ File.WriteAllLines(OutputFile, lines);
     <!-- Beutl.Extensions.MediaFoundation ships these on Windows x64 alone, so an extension cannot count on them. -->
     <_NotABeutlHostPackage Include="NAudio.Wasapi;Vortice.MediaFoundation" />
     <!-- Only the build and the package tools use these, so the app does not bring them. -->
-    <_NotABeutlHostPackage Include="NuGet.Packaging;System.CommandLine;System.Security.Cryptography.Xml" />
+    <_NotABeutlHostPackage Include="System.CommandLine;System.Security.Cryptography.Xml" />
   </ItemGroup>
 
   <Target Name="_GenerateHostPackages" BeforeTargets="GenerateNuspec;Pack">
