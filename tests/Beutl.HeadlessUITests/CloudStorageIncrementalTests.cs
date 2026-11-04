@@ -394,12 +394,12 @@ public sealed class CloudStorageIncrementalTests
             Assert.That(skeleton.IsHitTestVisible, Is.False);
             Assert.That(skeleton.Items, Has.Count.EqualTo(24));
             Assert.That(view.FindControl<ListBox>("StorageItems")!.GetRealizedContainers(), Is.Empty);
-            Assert.That(view.FindControl<TextBlock>("EmptyState")!.IsEffectivelyVisible, Is.False);
+            Assert.That(view.FindControl<Beutl.Controls.EmptyState>("EmptyState")!.IsEffectivelyVisible, Is.False);
             scope.Handler.Requests[0].Complete(Response(empty: true));
             await WaitFor(() => !vm.IsLoading.Value);
             HeadlessTestHelpers.Render();
             Assert.That(skeleton.IsEffectivelyVisible, Is.False);
-            Assert.That(view.FindControl<TextBlock>("EmptyState")!.IsEffectivelyVisible, Is.True);
+            Assert.That(view.FindControl<Beutl.Controls.EmptyState>("EmptyState")!.IsEffectivelyVisible, Is.True);
         }
         finally { window.Close(); }
     }

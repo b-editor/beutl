@@ -710,6 +710,7 @@ public partial class MissingMediaTests
             offlineItem.IsChecked = true;
             Assert.That(row.IsOffline.Value, Is.True);
             Assert.That(row.StateText.Value, Is.EqualTo(Beutl.Language.MissingMediaStrings.Offline));
+            Assert.That(row.StateKind.Value, Is.EqualTo(Beutl.Controls.StatusLabelKind.Neutral));
             offlineItem.IsChecked = false;
             flyout.Hide();
             await vm.SetReplacementAsync(row, replacement);
@@ -717,11 +718,11 @@ public partial class MissingMediaTests
             HeadlessTestHelpers.Render(3);
             Assert.That(row.IsReady.Value, Is.True);
             Assert.That(row.StateText.Value, Is.EqualTo(Beutl.Language.MissingMediaStrings.Ready));
+            Assert.That(row.StateKind.Value, Is.EqualTo(Beutl.Controls.StatusLabelKind.Success));
             Assert.That(view.FindControl<Button>("ApplyButton")!.IsEnabled, Is.True);
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             HeadlessTestHelpers.Render(3);
-            Assert.That(view.FindControl<Avalonia.Controls.TextBlock>("EmptyText")!.IsEffectivelyVisible, Is.True);
-            Assert.That(view.FindControl<Avalonia.Controls.TextBlock>("EmptyDescription")!.IsEffectivelyVisible, Is.True);
+            Assert.That(view.FindControl<Beutl.Controls.EmptyState>("EmptyState")!.IsEffectivelyVisible, Is.True);
             Assert.That(view.FindControl<Button>("ApplyButton")!.IsEffectivelyVisible, Is.False);
         }
         finally
