@@ -107,6 +107,20 @@ public sealed partial class TimelineTabView
         }, DispatcherPriority.Render);
     }
 
+    // A clip in view needs a view model to follow a drag, however narrow it is.
+    internal void RealizeClipsInView(IEnumerable<Element> elements)
+    {
+        if (ViewModel is not { } timeline) return;
+
+        var viewport = new Rect(ContentScroll.Offset.X, ContentScroll.Offset.Y,
+            ContentScroll.Viewport.Width, ContentScroll.Viewport.Height);
+        foreach (Element element in elements)
+        {
+            if (timeline.FindViewModelFor(element) is null && timeline.GetElementBounds(element).Intersects(viewport))
+                timeline.GetViewModelFor(element);
+        }
+    }
+
     private ElementView? RealizeCompactElement(ICompactClip clip)
     {
         if (ViewModel is null) return null;
@@ -156,6 +170,11 @@ public sealed partial class TimelineTabView
         UpdateViewportOrder(ViewModel.Scene);
         _showsUnrealizedClips = leftOutClips;
         IReadOnlyList<ICompactClip> clips = leftOutClips ? CollectClips(ViewModel.Scene, viewport) : _viewportElements;
+        if (!leftOutClips)
+        {
+            _viewportClips.Clear();
+            _unrealizedClips.Clear();
+        }
 
         foreach (ViewportElement entry in _viewportElements)
         {
@@ -256,6 +275,8 @@ public sealed partial class TimelineTabView
             _viewportClips.Add(clip);
         }
 
+        // The rest would keep their elements alive.
+        _unrealizedClips.RemoveRange(used, _unrealizedClips.Count - used);
         return _viewportClips;
     }
 

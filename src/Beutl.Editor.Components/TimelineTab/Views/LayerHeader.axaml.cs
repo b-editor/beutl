@@ -95,6 +95,7 @@ public sealed partial class LayerHeader : UserControl
                 vm.PosY.Value = position.Y - _start.Y;
             }
             // Only the clips on screen follow the drag. Scrolling can bring more of them in along the way.
+            timeline.RealizeClipsInView(_elements);
             foreach (Element item in _elements)
             {
                 if (vm.Timeline.FindViewModelFor(item) is { } realized)
