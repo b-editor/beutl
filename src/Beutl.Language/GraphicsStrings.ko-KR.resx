@@ -806,6 +806,39 @@
   <data name="SplitEffect_VerticalSpacing" xml:space="preserve">
     <value>세로 간격</value>
   </data>
+  <data name="RepeatEffect" xml:space="preserve">
+    <value>반복 배치</value>
+  </data>
+  <data name="RepeatEffect_Columns" xml:space="preserve">
+    <value>열 수</value>
+  </data>
+  <data name="RepeatEffect_Rows" xml:space="preserve">
+    <value>행 수</value>
+  </data>
+  <data name="RepeatEffect_Spacing" xml:space="preserve">
+    <value>간격</value>
+  </data>
+  <data name="RepeatEffect_Spacing_Description" xml:space="preserve">
+    <value>복사본 사이의 간격입니다. 0이면 빈틈없이 붙습니다.</value>
+  </data>
+  <data name="RepeatEffect_Offset_Description" xml:space="preserve">
+    <value>격자 안에서 복사본을 움직입니다. 한쪽 끝으로 나간 복사본은 반대쪽에서 돌아오므로 애니메이션하면 끊김 없이 스크롤됩니다.</value>
+  </data>
+  <data name="RepeatEffect_Mirror" xml:space="preserve">
+    <value>번갈아 반전</value>
+  </data>
+  <data name="RepeatEffectMirror_None" xml:space="preserve">
+    <value>없음</value>
+  </data>
+  <data name="RepeatEffectMirror_Columns" xml:space="preserve">
+    <value>한 열 걸러</value>
+  </data>
+  <data name="RepeatEffectMirror_Rows" xml:space="preserve">
+    <value>한 행 걸러</value>
+  </data>
+  <data name="RepeatEffectMirror_Both" xml:space="preserve">
+    <value>둘 다</value>
+  </data>
   <data name="TextAlignment_Center" xml:space="preserve">
     <value>가운데 정렬</value>
   </data>

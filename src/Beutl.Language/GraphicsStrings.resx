@@ -807,6 +807,39 @@
   <data name="SplitEffect_VerticalSpacing" xml:space="preserve">
     <value>Vertical spacing</value>
   </data>
+  <data name="RepeatEffect" xml:space="preserve">
+    <value>Repeat</value>
+  </data>
+  <data name="RepeatEffect_Columns" xml:space="preserve">
+    <value>Columns</value>
+  </data>
+  <data name="RepeatEffect_Rows" xml:space="preserve">
+    <value>Rows</value>
+  </data>
+  <data name="RepeatEffect_Spacing" xml:space="preserve">
+    <value>Spacing</value>
+  </data>
+  <data name="RepeatEffect_Spacing_Description" xml:space="preserve">
+    <value>The gap between the copies. At 0 they touch.</value>
+  </data>
+  <data name="RepeatEffect_Offset_Description" xml:space="preserve">
+    <value>Moves the copies inside the grid. One that leaves at one end comes back at the other, so animating this scrolls without end.</value>
+  </data>
+  <data name="RepeatEffect_Mirror" xml:space="preserve">
+    <value>Mirror</value>
+  </data>
+  <data name="RepeatEffectMirror_None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="RepeatEffectMirror_Columns" xml:space="preserve">
+    <value>Every other column</value>
+  </data>
+  <data name="RepeatEffectMirror_Rows" xml:space="preserve">
+    <value>Every other row</value>
+  </data>
+  <data name="RepeatEffectMirror_Both" xml:space="preserve">
+    <value>Both</value>
+  </data>
   <data name="TextAlignment_Center" xml:space="preserve">
     <value>Align center</value>
   </data>

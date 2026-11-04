@@ -253,6 +253,7 @@ public sealed class ShaderGraphDescription
                 writer.Write(image.Like?.Id ?? -1);
                 writer.Write(image.RasterSource?.Id ?? -1);
                 writer.Write(image.ExplicitBounds.HasValue);
+                writer.Write(image.BoundsFromGroup);
                 writer.Write(image.BoundsTransforms.Length);
                 if (includeValues)
                 {

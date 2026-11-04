@@ -221,6 +221,7 @@ internal static class LibraryRegistrar
                 .AddFilterEffect<LumaKey>(GraphicsStrings.LumaKey)
                 .AddFilterEffect<SplitEffect>(GraphicsStrings.SplitEffect)
                 .AddFilterEffect<PartsSplitEffect>(GraphicsStrings.PartsSplitEffect)
+                .AddFilterEffect<RepeatEffect>(GraphicsStrings.RepeatEffect)
                 .AddFilterEffect<TransformEffect>(GraphicsStrings.Transform)
                 .AddFilterEffect<MosaicEffect>(GraphicsStrings.MosaicEffect)
                 .AddFilterEffect<ColorShift>(GraphicsStrings.ColorShift)
