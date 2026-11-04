@@ -1621,6 +1621,12 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>字幕文件</value>
   </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>无法从 {0} 读取字幕。</value>
+  </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>无法读取 {0} 中的部分字幕，已跳过。</value>
+  </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>要删除“{0}”吗？</value>
   </data>

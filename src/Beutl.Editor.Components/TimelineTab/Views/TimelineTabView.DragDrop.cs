@@ -6,6 +6,7 @@ using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
+using Beutl.Editor.Services.Captions;
 using Beutl.Editor.VersionControl;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -14,6 +15,8 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class TimelineTabView
 {
+    private CaptionTemplateId? _captionTemplateId;
+
     private async void TimelinePanel_Drop(object? sender, DragEventArgs e)
     {
         var storage = e.DataTransfer.TryGetValue(StorageDragData.Format);
@@ -74,6 +77,18 @@ public sealed partial class TimelineTabView
         }
     }
 
+    // With only the default look there is nothing to ask. The last choice comes first.
+    private async Task<CaptionTemplate?> ChooseDroppedCaptionTemplateAsync()
+    {
+        IReadOnlyList<CaptionTemplate> templates = CaptionFileDrop.GetTemplates();
+        if (templates.Count == 1) return templates[0];
+
+        CaptionTemplate? chosen = await CaptionTemplateChooser.ShowAsync(
+            TimelinePanel, templates.OrderByDescending(item => item.Descriptor.Id == _captionTemplateId));
+        if (chosen is not null) _captionTemplateId = chosen.Descriptor.Id;
+        return chosen;
+    }
+
     private static string[]? TryGetDroppedFiles(DragEventArgs e)
         => e.DataTransfer.TryGetFiles()?
             .OfType<IStorageFile>()
@@ -81,19 +96,39 @@ public sealed partial class TimelineTabView
             .OfType<string>()
             .ToArray();
 
-    private static async Task AddDroppedFilesAsync(TimelineTabViewModel viewModel, string[] files)
+    private async Task AddDroppedFilesAsync(TimelineTabViewModel viewModel, string[] files)
     {
         MediaTime frame = viewModel.ClickedFrame;
         int layer = viewModel.CalculateClickedLayer();
         try
         {
+            string[] captions = [.. files.Where(CaptionFileDrop.IsCaptionFile)];
+            CaptionTemplate? template = null;
+            if (captions.Length > 0)
+            {
+                template = await ChooseDroppedCaptionTemplateAsync();
+                // Dismissing the menu gives up the whole drop, along with any files dropped beside the subtitles.
+                if (template is null) return;
+            }
+
             // The layout can have to open the files.
             ElementDescription[] descriptions = await Task.Run(
-                () => FileDropLayout.Create(files, frame, s_defaultElementLength, layer));
-            // With no media among them, adding the first says why it cannot be added.
-            await viewModel.AddElementsWithResultAsync(descriptions.Length > 0
-                ? descriptions
-                : [new ElementDescription(frame, s_defaultElementLength, layer, new ElementSource.File(files[0]))]);
+                () => FileDropLayout.Create(files.Except(captions), frame, s_defaultElementLength, layer));
+            if (descriptions.Length > 0)
+            {
+                await viewModel.AddElementsWithResultAsync(descriptions);
+            }
+            else if (captions.Length == 0)
+            {
+                // With no media among them, adding the first says why it cannot be added.
+                await viewModel.AddElementWithResultAsync(
+                    new ElementDescription(frame, s_defaultElementLength, layer, new ElementSource.File(files[0])));
+            }
+
+            foreach (string caption in captions)
+            {
+                await CaptionFileDrop.AddAsync(viewModel, caption, template);
+            }
         }
         catch (OperationCanceledException) { }
         catch (ObjectDisposedException) { }

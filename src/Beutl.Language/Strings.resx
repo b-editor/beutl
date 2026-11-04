@@ -2711,6 +2711,12 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>Captions file</value>
   </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>Could not read any subtitles from {0}.</value>
+  </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>Some of the subtitles in {0} could not be read and were skipped.</value>
+  </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>Delete “{0}”?</value>
   </data>
