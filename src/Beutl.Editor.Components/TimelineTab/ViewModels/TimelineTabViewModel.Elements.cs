@@ -35,8 +35,10 @@ public sealed partial class TimelineTabViewModel
     // For what only concerns an element that already has a view model, such as animating it on screen.
     internal ElementViewModel? FindViewModelFor(Element element) => _elementsByModel.GetValueOrDefault(element);
 
-    // Gives the elements in area, in timeline pixels, their view models.
-    internal void RealizeElements(Rect area)
+    // Gives the elements in area, in timeline pixels, that are wide enough to show their details their view models, and
+    // returns whether it left out any narrower ones. Those are painted from their elements, as a view model holds dozens
+    // of subscriptions: at 20,000 clips, making them all for a zoom out to the whole scene stopped the UI for over a second.
+    internal bool RealizeElements(Rect area)
     {
         float scale = Options.Value.Scale;
         MediaTime start = area.Left.PixelToTime(scale);
@@ -49,10 +51,29 @@ public sealed partial class TimelineTabViewModel
             index.Query(start, end, found, layer);
         }
 
+        bool leftOut = false;
         foreach (Element element in found)
         {
-            GetViewModelFor(element);
+            if (_elementsByModel.ContainsKey(element)) continue;
+
+            if (element.Length.Value.TimeToPixel(scale) >= ElementViewModel.MinimumThumbnailWidth)
+                GetViewModelFor(element);
+            else
+                leftOut = true;
         }
+
+        return leftOut;
+    }
+
+    // Where an element without a view model is on the timeline, in pixels.
+    internal Rect GetElementBounds(Element element)
+    {
+        float scale = Options.Value.Scale;
+        return new Rect(
+            element.Start.Value.TimeToPixel(scale),
+            CalculateLayerTop(element.ZIndex.Value),
+            Math.Max(0, element.Length.Value.TimeToPixel(scale)),
+            FrameNumberHelper.LayerHeight);
     }
 
     // Looping over this tolerates a view model being created along the way.
