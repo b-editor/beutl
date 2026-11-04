@@ -43,24 +43,15 @@ public sealed partial class EdgeDetection : FilterEffect
             if (!float.IsFinite(Thickness) || !float.IsFinite(Threshold))
                 return;
 
-            Vector4 line = Color.ToLinear();
             context.ShaderGraph(
-                (Target, Thickness: Math.Clamp(Thickness, 0, MaxThickness), Threshold: Math.Clamp(Threshold, 0, 100) / 100,
-                    Line: new Vector4(line.X * line.W, line.Y * line.W, line.Z * line.W, line.W), Original),
+                (Target, Thickness, Threshold: Threshold / 100, Line: Color.ToLinearPremultiplied(), Original),
                 static (graph, values) =>
                 {
                     float offset = Math.Min(values.Thickness, 1);
                     // The line reaches past the picture on an outline. One more for filtering.
                     ShaderImage edges = graph.Image2D("edges", graph.Source, TextureFormat.R16Float, padding: values.Thickness + 1);
-                    graph.Fullscreen("edges", s_edges, pass =>
-                    {
-                        pass.SampledImage(0, graph.Source);
-                        pass.ImageParameters(1, graph.Source);
-                        pass.ImageParameters(2, edges);
-                        pass.PushConstants(new Vector3(offset, values.Threshold, values.Target == EdgeDetectionTarget.Alpha ? 1 : 0));
-                        pass.InputRegion(0, new(Matrix.Identity, offset));
-                        pass.ColorAttachment(0, edges);
-                    });
+                    LightEffectPasses.ImagePass(graph, "edges", s_edges, graph.Source, edges, offset,
+                        pass => pass.PushConstants(new Vector3(offset, values.Threshold, values.Target == EdgeDetectionTarget.Alpha ? 1 : 0)));
 
                     // Doubling the steps keeps a thick line cheap, and each stays within how wide the line already is,
                     // which leaves no gaps.
@@ -72,16 +63,8 @@ public sealed partial class EdgeDetection : FilterEffect
                         left -= distance;
                         ShaderImage source = thick;
                         thick = graph.Image2D($"thicken-{++level}", source, TextureFormat.R16Float);
-                        ShaderImage destination = thick;
-                        graph.Fullscreen(destination.Name, s_thicken, pass =>
-                        {
-                            pass.SampledImage(0, source);
-                            pass.ImageParameters(1, source);
-                            pass.ImageParameters(2, destination);
-                            pass.PushConstants(distance);
-                            pass.InputRegion(0, new(Matrix.Identity, distance));
-                            pass.ColorAttachment(0, destination);
-                        });
+                        LightEffectPasses.ImagePass(graph, thick.Name, s_thicken, source, thick, distance,
+                            pass => pass.PushConstants(distance));
                     }
 
                     ShaderImage output = graph.Image2D("output", thick);
@@ -108,7 +91,7 @@ public sealed partial class EdgeDetection : FilterEffect
     // Sobel filter, scaled so that a full step gives 1. Lightness is gamma encoded, so that a threshold means the same
     // in the shadows and the highlights. A transparent neighbour has no lightness to differ from, which keeps the frame
     // of a picture from drawing a line around it.
-    private static readonly ShaderProgram s_edges = ShaderProgram.Fullscreen(new ShaderSource("""
+    private static readonly ShaderProgram s_edges = ShaderProgram.Fullscreen(new ShaderSource($$"""
         #version 450
         layout(binding = 0) uniform sampler2D image;
         layout(binding = 1, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
@@ -116,10 +99,7 @@ public sealed partial class EdgeDetection : FilterEffect
         layout(push_constant) uniform Values { float offset; float threshold; float alpha; } pc;
         layout(location = 0) out float coverage;
 
-        float lightness(vec4 color) {
-            float luminance = color.a > 0 ? dot(color.rgb / color.a, vec3(0.2126, 0.7152, 0.0722)) : 0;
-            return pow(max(luminance, 0), 1.0 / 2.2);
-        }
+        {{GlslSnippets.Luminance}}
 
         vec4 read(vec2 position) {
             return texture(image, (position - src.raster.xy) / src.raster.zw);
@@ -127,13 +107,13 @@ public sealed partial class EdgeDetection : FilterEffect
 
         float value(vec2 position, float own) {
             vec4 color = read(position);
-            return pc.alpha != 0 ? color.a : mix(own, lightness(color), color.a);
+            return pc.alpha != 0 ? color.a : mix(own, gammaLightness(color), color.a);
         }
 
         void main() {
             vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
             vec4 center = read(position);
-            float own = pc.alpha != 0 ? center.a : lightness(center);
+            float own = pc.alpha != 0 ? center.a : gammaLightness(center);
             float d = pc.offset;
             float tl = value(position + vec2(-d, -d), own);
             float t = value(position + vec2(0, -d), own);

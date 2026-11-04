@@ -5,6 +5,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using Beutl.Controls;
 using Beutl.Services;
+using FluentIcons.Avalonia.Fluent;
 
 namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
@@ -166,9 +167,15 @@ internal partial class WebBrowserTabView
 
     private void OnDownloadHistoryClick(object? sender, RoutedEventArgs e)
     {
-        if (_viewModel is not { } vm) return;
+        if (_viewModel == null) return;
         var items = new ItemsControl { ItemTemplate = (IDataTemplate)Resources["DownloadHistoryItemTemplate"]! };
-        var empty = (EmptyState)((IDataTemplate)Resources["DownloadHistoryEmptyTemplate"]!).Build(vm)!;
+        var empty = new EmptyState
+        {
+            Title = Strings.BrowserHistoryEmpty,
+            Description = Strings.BrowserHistoryEmptyHint,
+            Margin = new Avalonia.Thickness(12, 16),
+            Icon = new FluentIcon { Icon = FluentIcons.Common.Icon.ArrowDownload }
+        };
         var feedback = new TextBlock
         {
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,

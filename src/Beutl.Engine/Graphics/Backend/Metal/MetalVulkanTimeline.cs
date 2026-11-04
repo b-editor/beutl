@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Backend.Vulkan;
+﻿using Beutl.Graphics.Backend.Composite;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
@@ -36,11 +37,10 @@ internal sealed unsafe class MetalVulkanTimeline : IDisposable
     /// <remarks>The timeline is an optimization: without it every hand-off keeps its CPU completion wait.</remarks>
     public static MetalVulkanTimeline? TryCreate(MetalContext metal, VulkanContext vulkan)
     {
-        if (!vulkan.SupportsTimelineSemaphores
-            || !vulkan.Vk.TryGetDeviceExtension(vulkan.Instance, vulkan.Device, out ExtMetalObjects metalObjects))
-        {
+        if (!vulkan.SupportsTimelineSemaphores)
             return null;
-        }
+
+        ExtMetalObjects metalObjects = CompositeContext.GetMetalObjects(vulkan);
 
         var exportInfo = new ExportMetalObjectCreateInfoEXT
         {

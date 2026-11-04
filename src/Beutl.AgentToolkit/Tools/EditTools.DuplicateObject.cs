@@ -191,13 +191,10 @@ public sealed partial class EditTools
         var createdIds = new List<AppliedEntityId>();
         if (portal is not null)
         {
-            createdIds.Add(CreateAppliedEntityId(
-                portal,
-                $"$/Elements[Id={location.Element.Id.Value}]/Objects[Id={portal.Id.Value}]"));
+            createdIds.Add(CreateAppliedEntityId(portal, DirectObjectPath(location.Element, portal)));
         }
 
-        string groupPath = location.ParentGroupPath
-            ?? $"$/Elements[Id={location.Element.Id.Value}]/Objects[Id={group.Id.Value}]";
+        string groupPath = location.ParentGroupPath ?? DirectObjectPath(location.Element, group);
         if (location.ParentGroup is null)
         {
             createdIds.Add(CreateAppliedEntityId(group, groupPath));
@@ -228,6 +225,9 @@ public sealed partial class EditTools
             string.IsNullOrWhiteSpace(obj.Name.Value) ? null : obj.Name.Value);
     }
 
+    private static string DirectObjectPath(Element element, CoreObject obj)
+        => $"$/Elements[Id={element.Id.Value}]/Objects[Id={obj.Id.Value}]";
+
     private static DuplicateObjectLocation FindObjectLocation(
         Scene scene,
         Guid objectId,
@@ -252,7 +252,7 @@ public sealed partial class EditTools
                     && TryFindObjectInDrawableGroup(
                         element,
                         group,
-                        $"$/Elements[Id={element.Id.Value}]/Objects[Id={group.Id.Value}]",
+                        DirectObjectPath(element, group),
                         objectId,
                         out DuplicateObjectLocation? location))
                 {

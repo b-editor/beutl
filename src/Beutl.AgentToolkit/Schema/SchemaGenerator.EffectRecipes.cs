@@ -70,8 +70,6 @@ public sealed partial class SchemaGenerator
     private const string ClipTransitionSidesNote =
         "The incoming EnterTransition decides the blend, and the outgoing ExitTransition adds its Duration before the cut. Set one side alone to keep the whole transition on that side, or set a side to null to clear it.";
 
-    private const string ClipTransitionFadeNote = "A side with no adjacent Element fades over the layers beneath.";
-
     private static EffectRecipeSpec[] CreateEffectRecipeSpecs()
     {
         const string duplicateInputHint = "Apply to a COPY, never the original. Inspect the source location: for a direct Element.Objects drawable, call duplicate_object with wrapInGroup=false and arrange [original, copy, PortalObject(Count=0, Clear=false), DrawableGroup] with empty group Children, or use captured timeline layers. Keep unrelated content in separate Elements outside the portal span, preserving timing and draw order. For a drawable already nested in DrawableGroup.Children, use wrapInGroup=true to copy inside the existing group; the false path searches only direct objects. Apply this recipe's drawable patch to the returned copy ID at its actual path from read_document, preserving all parent groups when the copy is nested.";
@@ -188,16 +186,13 @@ public sealed partial class SchemaGenerator
                 CreateFilterEffectGroup(
                     CreatePixelSort(),
                     CreateColorShift(8, 0, -8, 0))),
-            CreateTransitionRecipe(
+            CreateClipTransitionRecipe(
                 "transition-cross-dissolve",
                 "Built-in dissolve at a cut: both clips blend through the boundary with no overlap or keyframes.",
                 "time passage / soft topic shift",
                 ["transition", "dissolve", "crossfade", "cross-dissolve", "time-passage", "soft-topic-shift"],
-                [nameof(CrossDissolveTransition)],
-                CreateClipTransitionPatch(new CrossDissolveTransition()),
-                ClipTransitionPlacementNote,
-                ClipTransitionSidesNote,
-                ClipTransitionFadeNote),
+                new CrossDissolveTransition(),
+                "A side with no adjacent Element fades over the layers beneath."),
             CreateTransitionRecipe(
                 "transition-overlap-dissolve-transform-continuation",
                 "Overlap dissolve template with outgoing/incoming opacity ramps plus a shared slow transform continuation across the boundary. Use transition-cross-dissolve when nothing has to keep moving through the blend.",
@@ -207,15 +202,12 @@ public sealed partial class SchemaGenerator
                 CreateOverlapDissolveTransitionPatch(),
                 "Overlap outgoing and incoming Elements by about 8-16 frames; fade one down while the other fades up.",
                 "Keep one background or subject transform drifting through the overlap so the dissolve reads as continuity instead of a simple crossfade."),
-            CreateTransitionRecipe(
+            CreateClipTransitionRecipe(
                 "transition-directional-sweep-wipe",
                 "Built-in wipe at a cut: a straight edge reveals the incoming clip along the chosen Direction.",
                 "location or topic change",
                 ["transition", "sweep", "wipe", "directional", "topic-change", "location-change"],
-                [nameof(WipeTransition)],
-                CreateClipTransitionPatch(new WipeTransition { Direction = { Value = ClipTransitionDirection.RightToLeft } }),
-                ClipTransitionPlacementNote,
-                ClipTransitionSidesNote,
+                new WipeTransition { Direction = { Value = ClipTransitionDirection.RightToLeft } },
                 "A side with no adjacent Element wipes over the layers beneath.",
                 "Use one direction consistently for a sequence unless the brief records a deliberate directional grammar.",
                 "For a decorative plate that crosses the cut, place a shape over both Elements and animate its TranslateTransform along the same direction."),
@@ -229,15 +221,12 @@ public sealed partial class SchemaGenerator
                 "Use this when the incoming subject should feel discovered, introduced, or unveiled rather than simply cut in.",
                 "When no moving plate is wanted, an EnterTransition with IrisTransition or WipeTransition reveals the subject without one.",
                 "Pair the reveal with a named mask/reveal Element and align its Start/Length to the incoming shot."),
-            CreateTransitionRecipe(
+            CreateClipTransitionRecipe(
                 "transition-dip-to-color",
                 "Built-in dip at a cut: the outgoing clip fades to a color over the first half and the incoming clip fades in from it over the second.",
                 "chapter break",
                 ["transition", "dip", "dip-to-color", "chapter-break"],
-                [nameof(DipToColorTransition)],
-                CreateClipTransitionPatch(new DipToColorTransition { Color = { Value = Color.Parse("#ff101418") } }),
-                ClipTransitionPlacementNote,
-                ClipTransitionSidesNote,
+                new DipToColorTransition { Color = { Value = Color.Parse("#ff101418") } },
                 "A side with no adjacent Element still passes through the Color, which covers the layers beneath at the middle of the transition.",
                 "Use a neutral, brand, or palette-derived Color.",
                 "Best for chapter breaks, section dividers, or intentional breath points; avoid mixing it randomly with dissolves and wipes."),
@@ -316,6 +305,24 @@ public sealed partial class SchemaGenerator
                 notes.Distinct(StringComparer.Ordinal).ToArray(),
                 semantic),
             patch);
+    }
+
+    private static EffectRecipeSpec CreateClipTransitionRecipe(
+        string name,
+        string description,
+        string semantic,
+        IReadOnlyList<string> tags,
+        ClipTransition transition,
+        params string[] notes)
+    {
+        return CreateTransitionRecipe(
+            name,
+            description,
+            semantic,
+            tags,
+            [transition.GetType().Name],
+            CreateClipTransitionPatch(transition),
+            [ClipTransitionPlacementNote, ClipTransitionSidesNote, .. notes]);
     }
 
     private static JsonObject CreateOverlapDissolveTransitionPatch()

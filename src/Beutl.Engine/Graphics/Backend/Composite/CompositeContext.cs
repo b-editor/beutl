@@ -43,11 +43,7 @@ internal sealed class CompositeContext : IGraphicsContext
     // on a Mac with two GPUs need not be the system default. A device that cannot say which it is gets refused.
     internal static unsafe IntPtr ExportMetalDevice(VulkanContext vulkan)
     {
-        if (!vulkan.Vk.TryGetDeviceExtension(vulkan.Instance, vulkan.Device, out ExtMetalObjects metalObjects))
-        {
-            throw new NotSupportedException(
-                "VK_EXT_metal_objects is not available, so the Metal device behind the Vulkan device is not known.");
-        }
+        ExtMetalObjects metalObjects = GetMetalObjects(vulkan);
 
         var deviceInfo = new ExportMetalDeviceInfoEXT
         {
@@ -63,6 +59,18 @@ internal sealed class CompositeContext : IGraphicsContext
         return deviceInfo.MtlDevice != IntPtr.Zero
             ? deviceInfo.MtlDevice
             : throw new NotSupportedException("The Vulkan device did not report the Metal device behind it.");
+    }
+
+    // The constructor refuses a device without the extension, so everything built on a context can count on it.
+    internal static ExtMetalObjects GetMetalObjects(VulkanContext vulkan)
+    {
+        if (!vulkan.Vk.TryGetDeviceExtension(vulkan.Instance, vulkan.Device, out ExtMetalObjects metalObjects))
+        {
+            throw new NotSupportedException(
+                "VK_EXT_metal_objects is not available, so the Metal device behind the Vulkan device is not known.");
+        }
+
+        return metalObjects;
     }
 
     public GraphicsBackend Backend => GraphicsBackend.Metal;

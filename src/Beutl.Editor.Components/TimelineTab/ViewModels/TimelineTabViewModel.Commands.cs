@@ -85,17 +85,9 @@ public sealed partial class TimelineTabViewModel
 
     internal void NudgeSelectedElements(int direction, NudgeUnit unit)
     {
-        // Anchor on the leftmost selected element so the resulting delta lands
-        // on the frame grid regardless of HashSet iteration order.
-        ElementViewModel? first = SelectedElements
-            .OrderBy(e => e.Model.Start.Value)
-            .ThenBy(e => e.Model.ZIndex.Value)
-            .FirstOrDefault();
-        if (first is null) return;
+        if (SelectedElements.FirstOrDefault() is not { } first) return;
 
-        Element[] targets = first.GetGroupOrSelectedModels()
-            .Where(x => !Scene.IsElementLocked(x))
-            .ToArray();
+        Element[] targets = first.EditableTargets();
         if (targets.Length == 0) return;
 
         Rational rate = SceneTimeRangeService.GetFrameRate(Scene);

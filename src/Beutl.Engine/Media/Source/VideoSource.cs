@@ -106,7 +106,7 @@ public sealed class VideoSource : MediaSource
             base.Reconcile(obj, context, ref versionBumped);
             var videoSource = (VideoSource)obj;
             IProxyResolver? proxyResolver = context.PreferProxy ? DecoderRegistry.ProxyResolver : null;
-            RefreshProxyVersionSource(videoSource, context, proxyResolver);
+            RefreshProxyVersionSource(videoSource, proxyResolver);
             // Compare only THIS source's proxy version so a proxy change to another
             // source does not force this reader to reopen.
             long proxyResolverVersion = GetSourceVersion(proxyResolver, _proxyVersionSource);
@@ -159,8 +159,7 @@ public sealed class VideoSource : MediaSource
 
         // A symlink that cannot be followed is keyed by its own path, but the store bumps its target's once the target
         // is back. Reading the key touches the file system, so it waits until the store has something new to report.
-        private void RefreshProxyVersionSource(
-            VideoSource videoSource, CompositionContext context, IProxyResolver? proxyResolver)
+        private void RefreshProxyVersionSource(VideoSource videoSource, IProxyResolver? proxyResolver)
         {
             if (proxyResolver is null || proxyResolver.StoreVersion == _observedProxyStoreVersion) return;
 

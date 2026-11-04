@@ -51,9 +51,7 @@ public sealed partial class FileBrowserTabViewModel
         }
     }
 
-    private bool CanMutateItem(FileSystemItemViewModel item) => CanMutate(item.FullPath, item.IsDirectory);
-
-    private bool CanMutate(string fullPath, bool isDirectory) => CanMutateAll([(fullPath, isDirectory)]);
+    private bool CanMutateItem(FileSystemItemViewModel item) => CanMutateAll([(item.FullPath, item.IsDirectory)]);
 
     private bool CanMutateAll(IReadOnlyList<FileSystemItemViewModel> items)
     {

@@ -47,16 +47,18 @@ public partial class OutputView : UserControl
 
     private async void StartOutputClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not OutputViewModel) return;
-
+        Task? execution = null;
         try
         {
             IOutputExecutionController outputExecution = _execution
                 ?? throw new InvalidOperationException("The output execution controller was not provided.");
-            if (outputExecution.TryStart(out Task? execution))
+            if (outputExecution.TryStart(out execution))
             {
-                await AwaitExecutionAsync(execution);
+                await execution;
             }
+        }
+        catch (OperationCanceledException) when (execution?.IsCanceled == true)
+        {
         }
         catch (Exception ex)
         {
@@ -64,17 +66,6 @@ public partial class OutputView : UserControl
             {
                 await ex.Handle();
             }
-        }
-    }
-
-    private static async Task AwaitExecutionAsync(Task execution)
-    {
-        try
-        {
-            await execution;
-        }
-        catch (OperationCanceledException) when (execution.IsCanceled)
-        {
         }
     }
 

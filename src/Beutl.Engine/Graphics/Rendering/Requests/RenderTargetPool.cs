@@ -185,30 +185,7 @@ internal sealed partial class RenderTargetPool : IDisposable
     /// reach the live device. Leased targets are left to their holders.
     /// </summary>
     internal static void RetireRetainedTargetsBeforeContextTeardown()
-    {
-        RenderTargetPool[] pools;
-        lock (s_livePools)
-            pools = [.. s_livePools];
-
-        List<Exception> failures = [];
-        foreach (RenderTargetPool pool in pools)
-        {
-            try
-            {
-                pool.RetireCurrentContext();
-            }
-            catch (ObjectDisposedException)
-            {
-                // Disposed after the snapshot was taken; it released what it held on the way out.
-            }
-            catch (Exception ex)
-            {
-                CleanupFailures.Append(failures, ex);
-            }
-        }
-
-        ThrowCleanupFailures(failures);
-    }
+        => CleanupFailures.RetireLive(s_livePools, static pool => pool.RetireCurrentContext(), CleanupFailureMessage);
 
     /// <summary>Evicts every unleased retained target and reports the released byte count.</summary>
     /// <remarks>Disposes backend resources, so it must run on the renderer's thread.</remarks>
@@ -634,8 +611,10 @@ internal sealed partial class RenderTargetPool : IDisposable
         return RenderTarget.Create(deviceSize.Width, deviceSize.Height);
     }
 
+    private const string CleanupFailureMessage = "One or more pooled render targets failed to dispose.";
+
     private static void ThrowCleanupFailures(List<Exception> failures)
-        => CleanupFailures.ThrowIfAny(failures, "One or more pooled render targets failed to dispose.");
+        => CleanupFailures.ThrowIfAny(failures, CleanupFailureMessage);
 
     private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
         : RenderTarget(surface, size.Width, size.Height);

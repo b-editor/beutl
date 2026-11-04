@@ -47,33 +47,13 @@ internal sealed class RenderProgramCaches(
     /// renderer that outlives the teardown compiles its programs again.
     /// </summary>
     internal static void RetireRetainedBeforeContextTeardown()
-    {
-        RenderProgramCaches[] families;
-        lock (s_owning)
-            families = [.. s_owning];
-
-        List<Exception> failures = [];
-        foreach (RenderProgramCaches family in families)
+        => CleanupFailures.RetireLive(s_owning, static family =>
         {
-            try
-            {
-                family.Sksl.EvictAll();
-                family.Spirv.EvictAll();
-                family.ShaderGraph.EvictAll();
-                family.ShaderGraphImages?.Clear();
-            }
-            catch (ObjectDisposedException)
-            {
-                // Disposed after the snapshot was taken; it released what it held on the way out.
-            }
-            catch (Exception ex)
-            {
-                CleanupFailures.Append(failures, ex);
-            }
-        }
-
-        CleanupFailures.ThrowIfAny(failures, "One or more program caches failed to release what they retain.");
-    }
+            family.Sksl.EvictAll();
+            family.Spirv.EvictAll();
+            family.ShaderGraph.EvictAll();
+            family.ShaderGraphImages?.Clear();
+        }, "One or more program caches failed to release what they retain.");
 
     /// <summary>Invalidates every program compiled for one device context, and the images allocated on it.</summary>
     public void EvictContext(object deviceIdentity, object contextIdentity)

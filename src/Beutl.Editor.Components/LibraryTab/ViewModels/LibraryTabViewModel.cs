@@ -132,44 +132,25 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         if (Volatile.Read(ref _disposed) != 0)
             return;
 
-        SyncLibraryItems(LibraryItems, LibraryService.Current.Items, null);
+        SyncItems(LibraryItems, LibraryService.Current.Items, null,
+            item => item,
+            LibraryItemViewModel.CreateFromLibraryItem,
+            item => (item as GroupLibraryItem)?.Items);
         // The registry hands out copies of its groups, so a group is known by its name.
-        SyncNodes(Nodes, [.. GraphNodeRegistry.GetRegistered()], null);
+        SyncItems<GraphNodeRegistry.BaseRegistryItem>(Nodes, [.. GraphNodeRegistry.GetRegistered()], null,
+            item => item is GraphNodeRegistry.GroupableRegistryItem ? item.DisplayName : item,
+            LibraryItemViewModel.CreateFromGraphNodeRegistryItem,
+            item => (item as GraphNodeRegistry.GroupableRegistryItem)?.Items);
         AllItems.Replace(CreateAllItems(AllItems.Count));
         if (_query is { } query)
             _ = SearchCore(query, CancellationToken.None, recordUsage: false);
     }
 
-    private static void SyncLibraryItems(CoreList<LibraryItemViewModel> viewModels, IReadOnlyList<LibraryItem> items,
-        string? parentFullName)
-    {
-        SyncItems(viewModels, items,
-            item => item,
-            item => LibraryItemViewModel.CreateFromLibraryItem(item, parentFullName),
-            (item, viewModel) =>
-            {
-                if (item is GroupLibraryItem group)
-                    SyncLibraryItems(viewModel.Children, group.Items, viewModel.FullDisplayName);
-            });
-    }
-
-    private static void SyncNodes(CoreList<LibraryItemViewModel> viewModels,
-        IReadOnlyList<GraphNodeRegistry.BaseRegistryItem> items, string? parentFullName)
-    {
-        SyncItems(viewModels, items,
-            item => item is GraphNodeRegistry.GroupableRegistryItem ? item.DisplayName : item,
-            item => LibraryItemViewModel.CreateFromGraphNodeRegistryItem(item, parentFullName),
-            (item, viewModel) =>
-            {
-                if (item is GraphNodeRegistry.GroupableRegistryItem group)
-                    SyncNodes(viewModel.Children, group.Items, viewModel.FullDisplayName);
-            });
-    }
-
     // Brings `viewModels` in line with `items`. The view models of the items that stay are kept, with their
     // children brought in line the same way, so that their nodes in the tree stay expanded.
     private static void SyncItems<T>(CoreList<LibraryItemViewModel> viewModels, IReadOnlyList<T> items,
-        Func<T, object> getKey, Func<T, LibraryItemViewModel> create, Action<T, LibraryItemViewModel> syncChildren)
+        string? parentFullName, Func<T, object> getKey, Func<T, string?, LibraryItemViewModel> create,
+        Func<T, IReadOnlyList<T>?> getChildren)
     {
         var existing = new Dictionary<object, LibraryItemViewModel>();
         foreach (LibraryItemViewModel viewModel in viewModels)
@@ -183,11 +164,12 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
             T item = items[i];
             if (existing.TryGetValue(getKey(item), out LibraryItemViewModel? viewModel))
             {
-                syncChildren(item, viewModel);
+                if (getChildren(item) is { } children)
+                    SyncItems(viewModel.Children, children, viewModel.FullDisplayName, getKey, create, getChildren);
             }
             else
             {
-                viewModel = create(item);
+                viewModel = create(item, parentFullName);
             }
 
             next[i] = viewModel;

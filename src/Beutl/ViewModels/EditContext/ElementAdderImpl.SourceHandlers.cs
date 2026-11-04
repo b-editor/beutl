@@ -120,32 +120,6 @@ internal sealed partial class ElementAdderImpl
         }
     }
 
-    private static bool MatchFileExtensions(string filePath, IEnumerable<string> extensions)
-    {
-        string ext = Path.GetExtension(filePath);
-        return extensions
-            .Select(value =>
-            {
-                int index = value.LastIndexOf('.');
-                return index >= 0 ? value[index..] : value;
-            })
-            .Contains(ext, StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static bool MatchFileAudioOnly(string filePath)
-        => MatchFileExtensions(
-            filePath,
-            DecoderRegistry.EnumerateDecoder()
-                .SelectMany(decoder => decoder.AudioExtensions())
-                .Distinct());
-
-    private static bool MatchFileVideoOnly(string filePath)
-        => MatchFileExtensions(
-            filePath,
-            DecoderRegistry.EnumerateDecoder()
-                .SelectMany(decoder => decoder.VideoExtensions())
-                .Distinct());
-
     private MediaProbe ProbeMediaFile(string filePath)
     {
         try
@@ -193,9 +167,6 @@ internal sealed partial class ElementAdderImpl
             return false;
         }
     }
-
-    private static bool MatchFileImage(string filePath)
-        => MatchFileExtensions(filePath, SharedFilePickerOptions.ImagePatterns);
 
     private sealed class EngineObjectSourceHandler(ElementAdderImpl owner) : IElementSourceHandler
     {
@@ -410,11 +381,11 @@ internal sealed partial class ElementAdderImpl
             }
 
             string fileName = ((ElementSource.File)context.Description.Source).FileName;
-            FileSourceKind kind = MatchFileImage(fileName)
+            FileSourceKind kind = MediaFileMatcher.IsImage(fileName)
                 ? FileSourceKind.Image
-                : MatchFileVideoOnly(fileName)
+                : MediaFileMatcher.Matches(fileName, MediaFileMatcher.VideoExtensions())
                     ? FileSourceKind.Video
-                    : MatchFileAudioOnly(fileName)
+                    : MediaFileMatcher.Matches(fileName, MediaFileMatcher.AudioExtensions())
                         ? FileSourceKind.Audio
                         : FileSourceKind.Unsupported;
             if (kind == FileSourceKind.Unsupported)

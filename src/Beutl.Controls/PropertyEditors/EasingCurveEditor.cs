@@ -246,15 +246,13 @@ public sealed class EasingCurveEditor : Control
         // make it jump, and returning to the press position restores the exact starting values.
         (double x, double y) = FromScreen(e.GetPosition(this), range);
         (double pressX, double pressY) = FromScreen(_pressPosition, range);
-        (float startX, float startY) = _dragging == ControlPoint.First ? (start.X1, start.Y1) : (start.X2, start.Y2);
+        (float startX, float startY) = GetPoint(start, _dragging);
         // KeySpline rejects X outside [0, 1]; Y may overshoot to describe anticipation and overshoot.
         float newX = (float)Math.Clamp(startX + (x - pressX), 0, 1);
         float newY = (float)(startY + (y - pressY));
         if (!float.IsFinite(newY)) return;
 
-        SplineEasing next = _dragging == ControlPoint.First
-            ? new SplineEasing(newX, newY, current.X2, current.Y2)
-            : new SplineEasing(current.X1, current.Y1, newX, newY);
+        SplineEasing next = WithPoint(current, _dragging, newX, newY);
         e.Handled = true;
         Editing?.Invoke(this, new EasingCurveEditedEventArgs(current, next));
     }
@@ -309,7 +307,7 @@ public sealed class EasingCurveEditor : Control
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.Handled || IsDragging || GetEditableSpline() is not { } spline) return;
+        if (IsDragging || GetEditableSpline() is not { } spline) return;
 
         bool large = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         switch (e.Key)
@@ -346,20 +344,17 @@ public sealed class EasingCurveEditor : Control
     {
         if (!IsMovable(spline, _selected)) return false;
 
-        (float x, float y) = _selected == ControlPoint.First ? (spline.X1, spline.Y1) : (spline.X2, spline.Y2);
+        (float x, float y) = GetPoint(spline, _selected);
         // KeySpline rejects X outside [0, 1]; Y may overshoot to describe anticipation and overshoot.
         float newX = Math.Clamp(x + deltaX, 0f, 1f);
         float newY = y + deltaY;
         if (newX == x && newY == y) return true;
 
-        SplineEasing next = _selected == ControlPoint.First
-            ? new SplineEasing(newX, newY, spline.X2, spline.Y2)
-            : new SplineEasing(spline.X1, spline.Y1, newX, newY);
+        SplineEasing next = WithPoint(spline, _selected, newX, newY);
         Editing?.Invoke(this, new EasingCurveEditedEventArgs(spline, next));
         if (Easing is SplineEasing end && !ReferenceEquals(spline, end))
         {
             Edited?.Invoke(this, new EasingCurveEditedEventArgs(spline, end));
-            AnnounceToAutomation();
         }
 
         return true;
@@ -371,6 +366,14 @@ public sealed class EasingCurveEditor : Control
         ControlPoint.Second => float.IsFinite(spline.X2) && float.IsFinite(spline.Y2),
         _ => false,
     };
+
+    private static (float X, float Y) GetPoint(SplineEasing spline, ControlPoint point)
+        => point == ControlPoint.First ? (spline.X1, spline.Y1) : (spline.X2, spline.Y2);
+
+    private static SplineEasing WithPoint(SplineEasing spline, ControlPoint point, float x, float y)
+        => point == ControlPoint.First
+            ? new SplineEasing(x, y, spline.X2, spline.Y2)
+            : new SplineEasing(spline.X1, spline.Y1, x, y);
 
     private ControlPoint FirstMovable(ControlPoint preferred)
     {

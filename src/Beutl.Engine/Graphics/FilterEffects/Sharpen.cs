@@ -36,18 +36,11 @@ public sealed partial class Sharpen : FilterEffect
             if (!float.IsFinite(Amount) || Amount <= 0 || !float.IsFinite(Radius) || Radius <= 0 || !float.IsFinite(Threshold))
                 return;
 
-            context.ShaderGraph((Radius, Amount: Amount / 100, Threshold: Math.Clamp(Threshold, 0, 100) / 100),
+            context.ShaderGraph((Radius, Amount: Amount / 100, Threshold: Threshold / 100),
                 static (graph, values) =>
                 {
                     ShaderImage lightness = graph.Image2D("lightness", graph.Source);
-                    graph.Fullscreen("lightness", s_lightness, pass =>
-                    {
-                        pass.SampledImage(0, graph.Source);
-                        pass.ImageParameters(1, graph.Source);
-                        pass.ImageParameters(2, lightness);
-                        pass.InputRegion(0, ShaderInputRegion.Identity);
-                        pass.ColorAttachment(0, lightness);
-                    });
+                    LightEffectPasses.ImagePass(graph, "lightness", s_lightness, graph.Source, lightness);
                     ShaderImage blurred = LightEffectPasses.GaussianBlur(graph, lightness, values.Radius);
                     ShaderImage output = graph.Image2D("output", graph.Source);
                     graph.Fullscreen("sharpen", s_sharpen, pass =>
@@ -72,17 +65,17 @@ public sealed partial class Sharpen : FilterEffect
 
     // Gamma encoded, so that the two sides of an edge move about equally to the eye and a threshold means the same in
     // the shadows and the highlights. It is premultiplied like a color, so what cannot be seen weighs nothing in the blur.
-    private static readonly ShaderProgram s_lightness = ShaderProgram.Fullscreen(new ShaderSource("""
+    private static readonly ShaderProgram s_lightness = ShaderProgram.Fullscreen(new ShaderSource($$"""
         #version 450
         layout(binding = 0) uniform sampler2D image;
         layout(binding = 1, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
         layout(binding = 2, std140) uniform Destination { vec4 logical; vec4 raster; vec4 size; } dst;
         layout(location = 0) out vec4 lightness;
+        {{GlslSnippets.Luminance}}
         void main() {
             vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
             vec4 color = texture(image, (position - src.raster.xy) / src.raster.zw);
-            float luminance = color.a > 0 ? dot(color.rgb / color.a, vec3(0.2126, 0.7152, 0.0722)) : 0;
-            lightness = vec4(pow(max(luminance, 0), 1.0 / 2.2) * color.a, color.a, 0, 0);
+            lightness = vec4(gammaLightness(color) * color.a, color.a, 0, 0);
         }
         """));
 

@@ -146,11 +146,10 @@ public sealed partial class MainView : UserControl
                 return;
             }
 
+            (string title, string content) = AiAgentSettingsPageViewModel.BuildUpdateNotice(manifest);
             NotificationService.ShowInformation(
-                AgentToolkitInstallManifestStore.IsMcpLayoutOutdated(manifest)
-                    ? SettingsStrings.AiAgents_McpChanged_Title
-                    : SettingsStrings.AiAgents_UpdateAvailable_Title,
-                AiAgentSettingsPageViewModel.BuildUpdateNotice(manifest),
+                title,
+                content,
                 expiration: TimeSpan.FromSeconds(30),
                 actions:
                 [

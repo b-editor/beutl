@@ -75,7 +75,6 @@ public sealed record AgentToolkitInstallOptions
 
 public sealed record AgentToolkitInstallResult(
     IReadOnlyList<string> InstalledFiles,
-    bool InstalledMcp,
     IReadOnlyList<InstalledFileRecord> AssetFileRecords)
 {
     // Set when the JSON MCP configuration has comments and needed a change: writing it would drop the

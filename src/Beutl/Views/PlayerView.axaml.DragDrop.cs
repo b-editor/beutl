@@ -72,7 +72,7 @@ public partial class PlayerView
             using var import = await storage.ImportToSceneAsync(scene);
             foreach (string path in import.Paths)
             {
-                int layer = scene.Children.Select(element => element.ZIndex.Value).DefaultIfEmpty(-1).Max() + 1;
+                int layer = scene.GetFirstFreeLayer();
                 ElementAddResult? result = await AddElement(editViewModel, new ElementDescription(frame, MediaTime.FromSeconds(5), layer,
                     new ElementSource.File(path), Position: centeredPosition));
                 if (result is { IsSuccess: true }) import.Retain(path);

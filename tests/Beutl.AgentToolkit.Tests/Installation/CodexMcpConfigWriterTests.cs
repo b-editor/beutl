@@ -491,7 +491,7 @@ public sealed class CodexMcpConfigWriterTests
         Assert.Multiple(() =>
         {
             Assert.That(result.InstalledFiles, Is.EqualTo(new[] { ConfigPath }));
-            Assert.That(result.InstalledMcp, Is.True);
+            Assert.That(result.McpConfigPath, Is.EqualTo(ConfigPath));
             Assert.That(server["command"], Is.EqualTo(ServerCommand));
             Assert.That(Home(server), Is.EqualTo(OtherHome));
             Assert.That(((TomlTable)server["env"]).ContainsKey("OLD"), Is.False);

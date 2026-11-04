@@ -298,7 +298,7 @@ internal sealed class AiGenerativeNodeExecutor(
             ? AiUploadSource.FromBytes(last.Name, last.EncodedPng)
             : null;
 
-        string?[] parts = BuildVideoGenerationParts(request, prompt, generateAudio, seed, model, references);
+        string?[] parts = BuildVideoGenerationParts(request, generateAudio, seed, model, references);
         return await DispatchAsync(
             request.RequestKeySeed,
             "video.generate",
@@ -341,7 +341,7 @@ internal sealed class AiGenerativeNodeExecutor(
         return (
             limits,
             chosen is not null ? new AiModelId(chosen.Id) : null,
-            ValidateVideoGeneration(request, request.Prompt, limits));
+            ValidateVideoGeneration(request, limits));
     }
 
     /// <summary>
@@ -350,10 +350,9 @@ internal sealed class AiGenerativeNodeExecutor(
     /// </summary>
     private static List<(string Role, AiUploadSource Upload, byte[] Bytes)> ValidateVideoGeneration(
         AiVideoGenerationNodeRequest request,
-        string prompt,
         GenerativeVideoCapabilities limits)
     {
-        RequirePromptWithin(prompt, Math.Min(limits.MaxPromptLength, AiRequestLimits.MaxPromptLength));
+        RequirePromptWithin(request.Prompt, Math.Min(limits.MaxPromptLength, AiRequestLimits.MaxPromptLength));
         if (!limits.DurationChoices.Contains(request.DurationSeconds))
             throw Unsupported(nameof(request.DurationSeconds));
         if (!limits.ResolutionChoices.Contains(request.Resolution, StringComparer.Ordinal))
@@ -396,7 +395,7 @@ internal sealed class AiGenerativeNodeExecutor(
 
         if (request.FirstFrame is null && references.Count == 0 && !limits.SupportsPromptToVideo)
             throw new GenerativeExecutionException(Strings.AiChooseVideoInput) { Input = nameof(request.FirstFrame) };
-        if (prompt.Length == 0)
+        if (request.Prompt.Length == 0)
             throw new GenerativeExecutionException(Strings.AiPromptRequired) { Input = nameof(request.Prompt) };
         try
         {
@@ -416,7 +415,6 @@ internal sealed class AiGenerativeNodeExecutor(
 
     private static string?[] BuildVideoGenerationParts(
         AiVideoGenerationNodeRequest request,
-        string prompt,
         bool generateAudio,
         int? seed,
         AiModelId? model,
@@ -425,7 +423,7 @@ internal sealed class AiGenerativeNodeExecutor(
         // Laid out as the dialog lays out its key.
         string?[] parts =
         [
-            prompt,
+            request.Prompt,
             request.DurationSeconds.ToString(CultureInfo.InvariantCulture),
             request.Resolution,
             request.AspectRatio,

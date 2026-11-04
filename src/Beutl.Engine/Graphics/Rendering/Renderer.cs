@@ -8,7 +8,6 @@ using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Threading;
 using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -696,32 +695,12 @@ public class Renderer : IRenderer
                 case GeometryClipRenderNode { Clip: { } geometry } clip
                     when geometry.Resource.FillContains(point) != (clip.Operation == ClipOperation.Intersect):
                     return null;
-                case OpacityMaskRenderNode mask when IsHiddenByMask(mask, point):
+                case OpacityMaskRenderNode mask when mask.HidesPoint(point):
                     return null;
             }
         }
 
         return point;
-    }
-
-    // Whether a mask leaves less than half the opacity at a point, so that along a transition's soft edge the
-    // side mostly shown answers. A brush that draws something needs a render pass, so it hides nothing here.
-    private static bool IsHiddenByMask(OpacityMaskRenderNode node, Point point)
-    {
-        if (node.Mask is not { Resource: GradientBrush.Resource or SolidColorBrush.Resource } mask) return false;
-
-        using var surface = SKSurface.Create(new SKImageInfo(1, 1, SKColorType.Bgra8888, SKAlphaType.Premul));
-        surface.Canvas.Translate(0.5f - point.X, 0.5f - point.Y);
-        using (var paint = new SKPaint())
-        {
-            new BrushConstructor(node.MaskBounds, mask.Resource, BlendMode.SrcOver, RenderIntent.Preview, null)
-                .ConfigurePaint(paint);
-            surface.Canvas.DrawPaint(paint);
-        }
-
-        using SKPixmap pixels = surface.PeekPixels();
-        float opacity = pixels.GetPixelColor(0, 0).Alpha / 255f;
-        return (node.Invert ? 1 - opacity : opacity) < 0.5f;
     }
 
     public Rect[] GetBoundaries(int zIndex) => GetBoundariesCore(zIndex, recalculate: false);

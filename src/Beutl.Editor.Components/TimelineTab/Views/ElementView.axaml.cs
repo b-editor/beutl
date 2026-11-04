@@ -424,10 +424,9 @@ public sealed partial class ElementView : UserControl
         if (DataContext is not ElementViewModel viewModel) return;
 
         // The clips Copy takes: the selection, each clip with its group.
-        Element[] elements = viewModel.GetGroupOrSelectedModels();
         KeepRealizedWhileOpen(TemplateSaving.ShowSaveFlyout(
             this,
-            TemplateSaving.CreateElementTemplate(viewModel.Scene, elements.Length > 0 ? elements : [viewModel.Model]),
+            TemplateSaving.CreateElementTemplate(viewModel.Scene, viewModel.GetGroupOrSelectedModelsOrSelf()),
             TimelineTabExtension.GetDefaultTemplateName(viewModel.Model),
             showAtPointer: true));
     }
@@ -475,7 +474,7 @@ public sealed partial class ElementView : UserControl
 
     // The clips moving along with this one leave where they are, so their edges do not count.
     private SnapResult SnapTime(
-        MediaTime time, float scale, bool disabled, int? sameZIndex = null, IEnumerable<ElementViewModel>? moving = null)
+        MediaTime time, float scale, bool disabled, IEnumerable<ElementViewModel>? moving = null)
     {
         Element model = ViewModel.Model;
         TimelineTabViewModel timeline = ViewModel.Timeline;
@@ -486,11 +485,12 @@ public sealed partial class ElementView : UserControl
         }
 
         IEditorClock clock = timeline.EditorContext.GetRequiredService<IEditorClock>();
-        IEnumerable<Element> others = moving is null
+        HashSet<Element>? leaving = moving?.Select(item => item.Model).ToHashSet();
+        IEnumerable<Element> others = leaving is null
             ? timeline.Scene.Children
-            : timeline.Scene.Children.Except(moving.Select(item => item.Model));
+            : timeline.Scene.Children.Where(element => !leaving.Contains(element));
         IEnumerable<MediaTime> candidates = SnapHelper
-            .CollectElementCandidates(others, model, sameZIndex)
+            .CollectElementCandidates(others, model)
             .Concat(SnapHelper.CollectSceneCandidates(timeline.Scene, clock.CurrentTime.Value));
 
         return SnapHelper.Snap(time, candidates, scale);

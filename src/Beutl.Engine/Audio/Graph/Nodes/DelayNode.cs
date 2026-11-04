@@ -1,5 +1,4 @@
 ﻿using Beutl.Animation;
-using Beutl.Audio.Effects;
 using Beutl.Engine;
 using static Beutl.Audio.Effects.DelayParameters;
 
@@ -7,7 +6,7 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class DelayNode : AudioNode
 {
-    private CircularBuffer<float>[]? _delayLines;
+    private DelayLines? _delayLines;
     private int _maxDelaySamples;
     private int _lastSampleRate;
     private MediaTime? _lastTimeRangeEnd;
@@ -41,7 +40,7 @@ public sealed class DelayNode : AudioNode
         // would leave the extra channels unprocessed (silent).
         if (_delayLines == null
             || _lastSampleRate != context.SampleRate
-            || _delayLines.Length != input.ChannelCount)
+            || _delayLines.ChannelCount != input.ChannelCount)
         {
             InitializeDelayLines(context.SampleRate, input.ChannelCount);
             _lastSampleRate = context.SampleRate;
@@ -72,20 +71,9 @@ public sealed class DelayNode : AudioNode
 
     private void InitializeDelayLines(int sampleRate, int channelCount)
     {
-        if (_delayLines != null)
-        {
-            foreach (var line in _delayLines)
-            {
-                line.Dispose();
-            }
-        }
-
         _maxDelaySamples = (int)(DelayTimeMax / 1000f * sampleRate);
-        _delayLines = new CircularBuffer<float>[channelCount];
-        for (int i = 0; i < _delayLines.Length; i++)
-        {
-            _delayLines[i] = new CircularBuffer<float>(_maxDelaySamples);
-        }
+        _delayLines?.Dispose();
+        _delayLines = new DelayLines(channelCount, _maxDelaySamples);
     }
 
     private AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
@@ -177,24 +165,14 @@ public sealed class DelayNode : AudioNode
 
     public void Reset()
     {
-        if (_delayLines != null)
-        {
-            foreach (var line in _delayLines)
-            {
-                line.Clear();
-            }
-        }
+        _delayLines?.Clear();
     }
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing && _delayLines != null)
+        if (disposing)
         {
-            foreach (var line in _delayLines)
-            {
-                line.Dispose();
-            }
-
+            _delayLines?.Dispose();
             _delayLines = null;
         }
 

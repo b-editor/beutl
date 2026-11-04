@@ -5,8 +5,6 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class RingModulatorNode : AudioNode
 {
-    private const double Tau = Math.PI * 2;
-
     private double _phase;
     private MediaTime? _lastTimeRangeEnd;
 
@@ -34,7 +32,7 @@ public sealed class RingModulatorNode : AudioNode
             Span<float> frequencies = stackalloc float[Math.Min(input.SampleCount, 1024)];
             Span<float> mixes = stackalloc float[frequencies.Length];
             Span<float> carrier = stackalloc float[frequencies.Length];
-            double step = Tau / context.SampleRate;
+            double step = Math.Tau / context.SampleRate;
 
             int processed = 0;
             while (processed < input.SampleCount)
@@ -47,7 +45,7 @@ public sealed class RingModulatorNode : AudioNode
                 // From the time alone, so that a frequency that stays the same gives the same result after a seek.
                 if (!continues)
                 {
-                    _phase = Tau * frequencies[0] * context.TimeRange.Start.ToSeconds() % Tau;
+                    _phase = Math.Tau * frequencies[0] * context.TimeRange.Start.ToSeconds() % Math.Tau;
                     continues = true;
                 }
 
@@ -56,7 +54,7 @@ public sealed class RingModulatorNode : AudioNode
                     // Easing can carry an animated mix past its range, where the carrier would amplify.
                     float mix = Math.Clamp(mixes[i], 0, 100) / 100f;
                     carrier[i] = 1f - mix + mix * (float)Math.Sin(_phase);
-                    _phase = (_phase + step * frequencies[i]) % Tau;
+                    _phase = (_phase + step * frequencies[i]) % Math.Tau;
                 }
 
                 for (int ch = 0; ch < input.ChannelCount; ch++)

@@ -31,7 +31,11 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     private float[] _imag = [];
     private float[] _magnitudes = [];
     private float[] _smoothed = [];
-    private bool _isSettling;
+
+    static SpectrumControl()
+    {
+        AffectsRender<SpectrumControl>(FftSizeProperty, MinDecibelsProperty, SmoothingProperty, ShapeProperty);
+    }
 
     public int FftSize
     {
@@ -57,12 +61,10 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
         set => SetValue(ShapeProperty, value);
     }
 
-    // The smoothed bars are still moving toward the input.
-    protected internal override bool IsSettling => _isSettling;
-
     public override void Render(DrawingContext context)
     {
-        _isSettling = false;
+        // Until the smoothed bars are found still moving toward the input.
+        IsSettling = false;
         Rect bounds = new(Bounds.Size);
         context.FillRectangle(Brushes.Transparent, bounds);
 
@@ -100,7 +102,7 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
             if (norm < 0) norm = 0;
             _smoothed[i] = _smoothed[i] * smoothFactor + norm * newWeight;
             // How far the bar still has to go: with heavy smoothing its last step is much smaller than that.
-            _isSettling |= MathF.Abs(_smoothed[i] - norm) > SettledBarDelta;
+            IsSettling |= MathF.Abs(_smoothed[i] - norm) > SettledBarDelta;
         }
 
         var f = new FormattedText(

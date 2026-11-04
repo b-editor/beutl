@@ -29,13 +29,11 @@ public static class SnapHelper
 
     public static IEnumerable<MediaTime> CollectElementCandidates(
         IEnumerable<Element> elements,
-        Element? exclude,
-        int? sameZIndex = null)
+        Element? exclude)
     {
         foreach (Element item in elements)
         {
             if (item == exclude) continue;
-            if (sameZIndex is { } z && item.ZIndex.Value != z) continue;
 
             yield return item.Start.Value;
             yield return item.Start.Value + item.Length.Value;

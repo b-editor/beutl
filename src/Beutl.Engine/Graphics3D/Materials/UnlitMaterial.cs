@@ -82,7 +82,7 @@ public sealed partial class UnlitMaterial : Material3D
         protected internal override bool IsInvisible => AlphaMode switch
         {
             Materials.AlphaMode.Opaque => false,
-            Materials.AlphaMode.Mask => Math.Clamp(Opacity, 0f, 1f) * Color.A / 255f < AlphaCutoff,
+            Materials.AlphaMode.Mask => Opacity * Color.A / 255f < AlphaCutoff,
             _ => Opacity <= 0 || Color.A == 0,
         };
 
@@ -158,7 +158,7 @@ public sealed partial class UnlitMaterial : Material3D
                 // Alpha means nothing to an opaque material, whose map's alpha is ignored in the shader as well.
                 BaseColor = AlphaMode == Materials.AlphaMode.Opaque
                     ? new Color(255, Color.R, Color.G, Color.B).ToLinearPremultiplied()
-                    : Color.ToLinearPremultiplied() * Math.Clamp(Opacity, 0f, 1f),
+                    : Color.ToLinearPremultiplied() * Opacity,
                 Alpha = AlphaMode switch
                 {
                     Materials.AlphaMode.Opaque => new Vector4(0f, 1f, 0f, 0f),

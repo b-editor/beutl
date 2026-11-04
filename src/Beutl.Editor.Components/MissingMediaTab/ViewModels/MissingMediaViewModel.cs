@@ -311,7 +311,6 @@ public sealed class MissingMediaViewModel : IToolContext
         if (_disposed || !CanApply.Value) return false;
         _candidateCancellation?.Cancel();
         SetBusy(true);
-        bool busy = true;
         IDisposable? keepOpen = _editor.GetRequiredService<IToolDockHost>().KeepOpen(this);
         IDisposable? suspension = null;
         Error.Value = null;
@@ -437,7 +436,6 @@ public sealed class MissingMediaViewModel : IToolContext
             keepOpen.Dispose();
             keepOpen = null;
             SetBusy(false);
-            busy = false;
             if (_editor.GetService(typeof(IProjectVersionControlCoordinator)) is IProjectVersionControlSession session)
             {
                 try
@@ -464,9 +462,10 @@ public sealed class MissingMediaViewModel : IToolContext
         finally
         {
             suspension?.Dispose();
-            keepOpen?.Dispose();
-            if (busy && !_disposed)
+            // Already let go of, along with the busy state, if the repair got as far as its snapshot.
+            if (keepOpen != null)
             {
+                keepOpen.Dispose();
                 SetBusy(false);
             }
         }

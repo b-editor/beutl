@@ -37,10 +37,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private static readonly object s_reportedFailureKey = new();
     private readonly EditViewModel _editViewModel;
     private readonly ILogger _logger = Log.CreateLogger<OutputViewModel>();
-    private readonly ReactiveProperty<bool> _isEncoding = new();
     private readonly ReadOnlyObservableCollection<ControllableEncodingExtension> _encoders;
     private readonly CompositeDisposable _disposable = [];
-    private string? _activeDestination;
     private long _totalFrames;
 
     public OutputViewModel(EditViewModel editViewModel)
@@ -196,10 +194,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public ReactiveProperty<string> FrameProgressText { get; } = new("0 / 0");
 
-    public ReactiveProperty<bool> WasCancelled { get; } = new();
-
-    public IReadOnlyReactiveProperty<bool> IsEncoding => _isEncoding;
-
     public FilePickerFileType[] GetFilePickerFileTypes()
     {
         static string[] ToPatterns(ControllableEncodingExtension encoder)
@@ -308,10 +302,9 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         EnsureNoSourceIsMissing(missingSources);
 
         var stopwatch = new Stopwatch();
-        bool succeeded = false;
+        string? publishedPath = null;
         try
         {
-            WasCancelled.Value = false;
             string destination = destinationFile
                 ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
             ControllableEncodingExtension encoder = selectedEncoder
@@ -328,7 +321,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             _logger.LogInformation("Starting encoding process.");
             LogEncodingSettings();
             BeginProgress();
-            _activeDestination = output.DestinationPath;
             stopwatch.Start();
 
             await Task.Run(() => EncodeOnWorkerAsync(
@@ -346,8 +338,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             // On a worker: a long image sequence takes many file operations, and Cancel has to stay clickable.
             IReadOnlyList<string> published = await Task.Run(() => output.Commit(controller.OutputFiles, cancellationToken));
             // An encoder that writes several files may not write the file the user named.
-            _activeDestination = published.Count > 0 ? published[0] : output.DestinationPath;
-            succeeded = true;
+            publishedPath = published.Count > 0 ? published[0] : output.DestinationPath;
             ShowCompletedProgress(output.DestinationPath);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -362,7 +353,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
         finally
         {
-            FinishEncoding(stopwatch, succeeded);
+            FinishEncoding(stopwatch, publishedPath);
         }
     }
 
@@ -401,7 +392,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     private void BeginProgress()
     {
-        _isEncoding.Value = true;
         HasProgress.Value = true;
         ProgressText.Value = Strings.Encoding;
         ProgressValue.Value = 0;
@@ -546,18 +536,15 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         return userMessage;
     }
 
-    private void FinishEncoding(Stopwatch stopwatch, bool succeeded)
+    private void FinishEncoding(Stopwatch stopwatch, string? publishedPath)
     {
         stopwatch.Stop();
         Elapsed.Value = FormatDuration(stopwatch.Elapsed);
-        _isEncoding.Value = false;
-        string? completedPath = _activeDestination;
-        _activeDestination = null;
         _logger.LogInformation("Encoding process finished.");
 
-        if (succeeded && completedPath != null)
+        if (publishedPath != null)
         {
-            ShowCompletionNotification(completedPath);
+            ShowCompletionNotification(publishedPath);
         }
     }
 
@@ -592,7 +579,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     private void HandleCancellation()
     {
-        WasCancelled.Value = true;
         ProgressText.Value = MessageStrings.Canceled;
         ClearEstimates();
         _logger.LogInformation("Encoding cancelled.");
@@ -605,11 +591,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         EstimatedSize.Value = "-- MB";
     }
 
-    private void UpdateProgressIndicators(TimeSpan elapsed, double value, double max, string? destinationPath)
+    private void UpdateProgressIndicators(TimeSpan elapsed, double value, double max, string destinationPath)
     {
         Elapsed.Value = FormatDuration(elapsed);
 
-        long currentBytes = destinationPath != null ? GetFileSize(destinationPath) : 0;
+        long currentBytes = GetFileSize(destinationPath);
 
         CurrentSize.Value = FormatBytes(currentBytes);
 
