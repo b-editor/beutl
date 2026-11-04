@@ -17,6 +17,7 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObjectViewModel, IObjectEditorCommands, ITargetPickerViewModel
 {
     private IDisposable? _revoker;
+    private IDisposable? _displayStopsRevoker;
     private Action? _update;
 
     public BrushEditorViewModel(IPropertyAdapter<Brush?> property)
@@ -32,6 +33,7 @@ public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObj
             _revoker?.Dispose();
             _revoker = null;
             (AvaloniaBrush.Value, _revoker, _update) = v.ToAvaBrushSync(CurrentTime);
+            ShowInSwatch(v);
         });
 
         ChildContext = Value.Select(v => v as ICoreObject)
@@ -75,6 +77,32 @@ public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObj
         (IsPresenter, CurrentTargetName) = PresenterEditorHelper.ObservePresenter<Brush>(Value, Disposables);
     }
 
+    // Everything but a gradient looks the same as what it edits.
+    private void ShowInSwatch(Brush? brush)
+    {
+        _displayStopsRevoker?.Dispose();
+        _displayStopsRevoker = null;
+        DisplayStops.Value = null;
+        if (brush is not GradientBrush gradient)
+        {
+            SwatchBrush.Value = AvaloniaBrush.Value;
+            return;
+        }
+
+        Avalonia.Media.GradientBrush swatch = gradient switch
+        {
+            ConicGradientBrush => new Avalonia.Media.ConicGradientBrush(),
+            RadialGradientBrush => new Avalonia.Media.RadialGradientBrush(),
+            _ => new Avalonia.Media.LinearGradientBrush(),
+        };
+        SwatchBrush.Value = swatch;
+        _displayStopsRevoker = gradient.ObserveDisplayStops(CurrentTime, stops =>
+        {
+            swatch.GradientStops = stops;
+            DisplayStops.Value = stops;
+        });
+    }
+
     private void AcceptChildren(PropertiesEditorViewModel? obj)
     {
         NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), null, obj);
@@ -83,6 +111,10 @@ public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObj
     public ReadOnlyReactiveProperty<Brush?> Value { get; }
 
     public ReactiveProperty<Avalonia.Media.Brush?> AvaloniaBrush { get; }
+
+    public ReactiveProperty<Avalonia.Media.Brush?> SwatchBrush { get; } = new();
+
+    public ReactiveProperty<Avalonia.Media.GradientStops?> DisplayStops { get; } = new();
 
     public ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> ChildContext { get; }
 
@@ -304,5 +336,6 @@ public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObj
         base.Dispose(disposing);
         ChildContext.Value?.Dispose();
         _revoker?.Dispose();
+        _displayStopsRevoker?.Dispose();
     }
 }

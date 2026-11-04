@@ -46,6 +46,44 @@ public class GradientStopsSliderTests
         Assert.That(stop.Color, Is.EqualTo(Color.FromRgb(188, 188, 188)));
     }
 
+    [AvaloniaTest]
+    public void Clicking_the_bar_adds_a_stop_of_the_color_the_bar_shows_there()
+    {
+        var stops = new GradientStops
+        {
+            new GradientStop(Colors.Black, 0.5),
+            new GradientStop(Colors.White, 1.0),
+        };
+        var slider = new GradientStopsSlider
+        {
+            Stops = stops,
+            BackgroundStops =
+            [
+                new GradientStop(Colors.Black, 0.5),
+                new GradientStop(Color.FromRgb(99, 99, 99), 0.75),
+                new GradientStop(Colors.White, 1.0),
+            ],
+        };
+        var added = new List<GradientStop>();
+        slider.Added += (_, e) =>
+        {
+            added.Add(e.Object);
+            stops.Insert(e.Index, e.Object);
+        };
+        using var host = new ControlHost(slider, 420, 120);
+        Window window = host.Window;
+        ItemsControl items = slider.GetVisualDescendants().OfType<ItemsControl>().Single(c => c.Name == "ItemsControl");
+        double dragWidth = items.Bounds.Width - 18;
+        Point click = items.TranslatePoint(new Point(dragWidth * 0.75, items.Bounds.Height / 2), window)!.Value;
+
+        window.MouseDown(click, MouseButton.Left);
+        window.MouseUp(click, MouseButton.Left);
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(added.Single().Color, Is.EqualTo(Color.FromRgb(99, 99, 99)));
+        Assert.That(stops.IndexOf(added.Single()), Is.EqualTo(1));
+    }
+
     // A click there lands on the stops' thumbs, so the color is resolved directly.
     [AvaloniaTest]
     public void A_stop_added_where_two_stops_overlap_takes_the_earlier_stops_color()

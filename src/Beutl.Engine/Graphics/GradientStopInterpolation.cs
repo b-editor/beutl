@@ -13,7 +13,16 @@ internal static class GradientStopInterpolation
     public static (SKColor[] Colors, float[] Offsets) Expand(
         SKColor[] colors, float[] offsets, GradientInterpolationSpace space, bool premultiplied)
     {
-        if ((space == GradientInterpolationSpace.LinearSrgb && !premultiplied) || colors.Length < 2)
+        return space == GradientInterpolationSpace.LinearSrgb && !premultiplied
+            ? (colors, offsets)
+            : ExpandForSrgbSurface(colors, offsets, space, premultiplied);
+    }
+
+    // For a surface that mixes in sRGB, such as the editor's, where linear sRGB needs the stops as well.
+    public static (SKColor[] Colors, float[] Offsets) ExpandForSrgbSurface(
+        SKColor[] colors, float[] offsets, GradientInterpolationSpace space, bool premultiplied)
+    {
+        if (colors.Length < 2)
             return (colors, offsets);
 
         int count = (colors.Length - 1) * StepsPerSegment + 1;

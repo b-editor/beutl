@@ -11,11 +11,15 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
 public class GradientStopsEditorViewModel : PropertyEditorViewModel<ICoreList<GradientStop>>
 {
+    private readonly IDisposable? _displayStopsRevoker;
     private IDisposable? _disposable;
 
     public GradientStopsEditorViewModel(IPropertyAdapter<ICoreList<GradientStop>> property)
         : base(property)
     {
+        if (property.GetEngineProperty()?.GetOwnerObject() is GradientBrush brush)
+            _displayStopsRevoker = brush.ObserveDisplayStops(CurrentTime, stops => DisplayStops.Value = stops);
+
         Value = property.GetObservable()!
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables)!;
@@ -33,6 +37,9 @@ public class GradientStopsEditorViewModel : PropertyEditorViewModel<ICoreList<Gr
     public ReadOnlyReactivePropertySlim<ICoreList<GradientStop>> Value { get; }
 
     public ReactivePropertySlim<AM.GradientStops> Stops { get; } = new();
+
+    // How the stops mix. Stops in a list no brush owns show as they are.
+    public ReactivePropertySlim<AM.GradientStops?> DisplayStops { get; } = new();
 
     public ReactivePropertySlim<AM.GradientStop?> SelectedItem { get; } = new();
 
@@ -53,6 +60,7 @@ public class GradientStopsEditorViewModel : PropertyEditorViewModel<ICoreList<Gr
     {
         base.Dispose(disposing);
         _disposable?.Dispose();
+        _displayStopsRevoker?.Dispose();
         NodeItems.Value?.Dispose();
         NodeItems.Dispose();
     }
