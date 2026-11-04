@@ -67,6 +67,7 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<Negaposi>>(GraphicsStrings.Negaposi)
             .Add<FilterEffectNode<ChromaKey>>(GraphicsStrings.ChromaKey)
             .Add<FilterEffectNode<ColorKey>>(GraphicsStrings.ColorKey)
+            .Add<FilterEffectNode<LumaKey>>(GraphicsStrings.LumaKey)
             .Add<FilterEffectNode<SplitEffect>>(GraphicsStrings.SplitEffect)
             .Add<FilterEffectNode<PartsSplitEffect>>(GraphicsStrings.PartsSplitEffect)
             .Add<FilterEffectNode<TransformEffect>>(GraphicsStrings.Transform)

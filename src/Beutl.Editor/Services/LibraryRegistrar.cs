@@ -215,6 +215,7 @@ internal static class LibraryRegistrar
                 .AddFilterEffect<Negaposi>(GraphicsStrings.Negaposi)
                 .AddFilterEffect<ChromaKey>(GraphicsStrings.ChromaKey)
                 .AddFilterEffect<ColorKey>(GraphicsStrings.ColorKey)
+                .AddFilterEffect<LumaKey>(GraphicsStrings.LumaKey)
                 .AddFilterEffect<SplitEffect>(GraphicsStrings.SplitEffect)
                 .AddFilterEffect<PartsSplitEffect>(GraphicsStrings.PartsSplitEffect)
                 .AddFilterEffect<TransformEffect>(GraphicsStrings.Transform)

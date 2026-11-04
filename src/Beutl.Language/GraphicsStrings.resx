@@ -216,6 +216,18 @@
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>Saturation Range</value>
   </data>
+  <data name="LumaKey" xml:space="preserve">
+    <value>Luma key</value>
+  </data>
+  <data name="LumaKey_Lower" xml:space="preserve">
+    <value>Lower Limit (%)</value>
+  </data>
+  <data name="LumaKey_Upper" xml:space="preserve">
+    <value>Upper Limit (%)</value>
+  </data>
+  <data name="LumaKey_Softness" xml:space="preserve">
+    <value>Softness (%)</value>
+  </data>
   <data name="Clipping" xml:space="preserve">
     <value>Clipping</value>
   </data>

@@ -211,6 +211,18 @@
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>彩度範囲</value>
   </data>
+  <data name="LumaKey" xml:space="preserve">
+    <value>輝度キー</value>
+  </data>
+  <data name="LumaKey_Lower" xml:space="preserve">
+    <value>下限 (%)</value>
+  </data>
+  <data name="LumaKey_Upper" xml:space="preserve">
+    <value>上限 (%)</value>
+  </data>
+  <data name="LumaKey_Softness" xml:space="preserve">
+    <value>境界の滑らかさ (%)</value>
+  </data>
   <data name="Clipping" xml:space="preserve">
     <value>クリッピング</value>
   </data>
