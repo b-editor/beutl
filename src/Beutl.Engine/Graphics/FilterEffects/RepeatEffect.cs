@@ -105,16 +105,19 @@ public sealed partial class RepeatEffect : FilterEffect
             vec2 index = floor(grid / pitch);
             vec2 local = grid - index * pitch - pc.spacing / 2;
             local = mix(local, picture - local, mod(index, 2) * pc.mirror);
-            vec2 uv = (pc.center - picture / 2 + local - src.raster.xy) / src.raster.zw;
+            vec2 origin = pc.center - picture / 2;
             vec2 touching = step(pc.spacing, vec2(0));
-            // A piece of a split picture covers only part of its copy.
-            vec2 outside = max(-uv, uv - 1) * src.size.xy * touching;
+            // A piece of a split picture covers only part of its copy, and one piece takes each pixel where two meet.
+            // A flipped copy, or rounding, can put a pixel right at the far end, which still belongs to the copy.
+            vec2 nearest = origin + clamp(local, vec2(0), max(picture - 0.02, vec2(0)));
+            vec2 piece = floor((nearest - src.logical.xy + 0.01) / src.logical.zw) * touching;
             // Copies that touch must not fade where they meet, so they stay on the texels the picture fills completely.
             vec2 first = ceil((src.logical.xy - src.raster.xy) * src.size.z - 0.01) + 0.5;
             vec2 last = floor((src.logical.xy + src.logical.zw - src.raster.xy) * src.size.z + 0.01) - 0.5;
-            uv = mix(uv, clamp(uv, first / src.size.xy, last / src.size.xy), touching);
+            vec2 uv = (origin + local - src.raster.xy) / src.raster.zw;
+            uv = mix(uv, clamp(uv, first / src.size.xy, max(first, last) / src.size.xy), touching * step(first, last));
             // The image rounds the bounds out to whole pixels, where the next copy along must not show.
-            color = floor(position / dst.logical.zw) == vec2(0) && all(lessThan(outside, vec2(0.01))) ? texture(image, uv) : vec4(0);
+            color = piece == vec2(0) && floor(position / dst.logical.zw) == vec2(0) ? texture(image, uv) : vec4(0);
         }
         """));
 }

@@ -162,8 +162,9 @@ public sealed class RepeatEffectTests
     }
 
     // An animated offset spends most of its time between pixels. The gap between rows must not change that.
-    [Test]
-    public void Copies_that_touch_show_no_seam_between_pixels()
+    [TestCase(RepeatEffectMirror.None)]
+    [TestCase(RepeatEffectMirror.Columns)]
+    public void Copies_that_touch_show_no_seam_between_pixels(RepeatEffectMirror mirror)
     {
         byte[][] rows = Render(Picture(), new RepeatEffect
         {
@@ -171,10 +172,29 @@ public sealed class RepeatEffectTests
             Rows = { Value = 1 },
             Spacing = { Value = new Size(0, 10) },
             Offset = { Value = new Point(0.5f, 0) },
+            Mirror = { Value = mirror },
         });
 
         int[] alphas = [.. Enumerable.Range(40, 120).Select(x => (int)rows[50][x * 4 + 3])];
         Assert.That(alphas, Is.All.EqualTo(255));
+    }
+
+    // 99.25 to 100.75 fills most of a red texel and most of a blue one, so no texel is filled completely to stay on.
+    [Test]
+    public void A_picture_with_no_filled_texel_still_reads_all_of_itself()
+    {
+        RectShape picture = Picture();
+        picture.Width.Value = 1.5f;
+
+        byte[][] rows = Render(picture, new RepeatEffect { Columns = { Value = 3 }, Rows = { Value = 1 }, Offset = { Value = new Point(0.25f, 0) } });
+
+        byte[] pixel = rows[50][(98 * 4)..(99 * 4)];
+        Assert.Multiple(() =>
+        {
+            Assert.That((int)pixel[2], Is.GreaterThan(100), "red");
+            Assert.That((int)pixel[0], Is.GreaterThan(100), "blue");
+            Assert.That((int)pixel[3], Is.InRange(180, 200), "alpha");
+        });
     }
 
     // The texels at the ends of such a picture are only partly filled, so reading them would show a line at every join.
@@ -298,6 +318,30 @@ public sealed class RepeatEffectTests
 
         int[] alphas = [.. Enumerable.Range(40, 120).Select(x => (int)rows[50][x * 4 + 3])];
         Assert.That(alphas, Is.All.EqualTo(255));
+    }
+
+    // Where two pieces meet, each pixel belongs to one of them. Both drawing it would darken a line through a see-through picture.
+    [TestCase(2, 0.5f)]
+    [TestCase(3, 0f)]
+    public void A_split_see_through_picture_stays_even(int divisions, float offset)
+    {
+        var gradient = new LinearGradientBrush
+        {
+            StartPoint = { Value = new RelativePoint(0, 0.5f, RelativeUnit.Relative) },
+            EndPoint = { Value = new RelativePoint(1, 0.5f, RelativeUnit.Relative) },
+        };
+        gradient.GradientStops.Add(new GradientStop(Color.FromArgb(128, 255, 0, 0), 0));
+        gradient.GradientStops.Add(new GradientStop(Color.FromArgb(128, 255, 0, 0), 1));
+        RectShape picture = Picture();
+        picture.Fill.Value = gradient;
+        var group = new FilterEffectGroup();
+        group.Children.Add(new SplitEffect { HorizontalDivisions = { Value = divisions }, VerticalDivisions = { Value = 1 } });
+        group.Children.Add(new RepeatEffect { Columns = { Value = 3 }, Rows = { Value = 1 }, Offset = { Value = new Point(offset, 0) } });
+
+        byte[][] rows = Render(picture, group);
+
+        int[] alphas = [.. Enumerable.Range(40, 120).Select(x => (int)rows[50][x * 4 + 3])];
+        Assert.That(alphas, Is.All.InRange(118, 138));
     }
 
     [Test]
