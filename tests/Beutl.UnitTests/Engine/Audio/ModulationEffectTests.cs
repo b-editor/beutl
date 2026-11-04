@@ -1,11 +1,17 @@
-﻿using Beutl.Animation;
+﻿using System.Collections.Immutable;
+using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Audio;
+using Beutl.Audio.Composing;
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
+using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Media.Source;
 
 using static Beutl.UnitTests.Engine.Audio.AudioEffectAssertions;
+using static Beutl.UnitTests.Engine.Audio.AudioTestWaves;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
@@ -216,15 +222,45 @@ public class ModulationEffectTests
     }
 
     [Test]
-    public void PitchShift_at_no_shift_is_the_input_half_a_window_later()
+    public void PitchShift_at_no_shift_is_the_input_itself()
     {
         var effect = new PitchShiftEffect();
-        int delay = effect.GetLatencySamples(SampleRate) / 2;
 
         float[] output = Run(effect, sample => Sine(sample), Window * 2);
 
-        for (int i = delay; i < output.Length; i++)
-            Assert.That(output[i], Is.EqualTo(Sine(i - delay)).Within(0.0001f), $"sample {i}");
+        for (int i = 0; i < output.Length; i++)
+            Assert.That(output[i], Is.EqualTo(Sine(i)), $"sample {i}");
+    }
+
+    // Two reading points that are not in step cancel each other and the level swells at the rate they swap.
+    [TestCase(12f, 220d)]
+    [TestCase(12f, 440d)]
+    [TestCase(7f, 440d)]
+    [TestCase(-12f, 440d)]
+    [TestCase(-5f, 261.63d)]
+    [TestCase(1f, 987.77d)]
+    public void PitchShift_keeps_a_held_tone_at_one_level(float semitones, double frequency)
+    {
+        var effect = new PitchShiftEffect { Semitones = { Value = semitones } };
+
+        float[] output = Run(effect, sample => Sine(sample, frequency), SampleRate * 2);
+
+        // Past the start, over windows long enough for a period of the lowest tone.
+        const int Frame = SampleRate / 40;
+        var levels = new List<double>();
+        for (int start = SampleRate / 2; start + Frame <= output.Length; start += Frame)
+        {
+            double sum = 0;
+            for (int i = start; i < start + Frame; i++)
+                sum += output[i] * output[i];
+            levels.Add(Math.Sqrt(sum / Frame));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((levels.Max() - levels.Min()) / levels.Average(), Is.LessThan(0.03));
+            Assert.That(levels.Average(), Is.EqualTo(0.5 / Math.Sqrt(2)).Within(0.01));
+        });
     }
 
     [Test]
@@ -242,25 +278,150 @@ public class ModulationEffectTests
         Assert.That(Pitch(output.AsSpan(SampleRate * 3 / 4)), Is.EqualTo(880).Within(880 * 0.06));
     }
 
-    [Test]
-    public void PitchShift_reports_the_tail_it_holds_and_lets_it_out_after_the_input_ends()
+    // The input is read ahead instead, so a shifted sound starts where the original does and nothing is left over.
+    [TestCase(12f)]
+    [TestCase(-12f)]
+    [TestCase(7f)]
+    public void PitchShift_stays_in_time_with_the_input_and_holds_no_tail(float semitones)
     {
-        var effect = new PitchShiftEffect();
+        const int Onset = SampleRate / 2;
+        var effect = new PitchShiftEffect { Semitones = { Value = semitones } };
+        Func<long, float> source = sample => sample < Onset ? 0f : Sine(sample);
         using var context = new AudioContext(SampleRate, 2);
-        AudioNode node = effect.CreateNode(context, context.AddNode(new FunctionSource(sample => sample < Window ? 0.5f : 0f)));
-        int latency = node.GetTotalLatencySamples(SampleRate);
-        Assert.That(effect.GetLatencySamples(SampleRate), Is.EqualTo(latency));
+        AudioNode node = effect.CreateNode(context, context.AddNode(new FunctionSource(source)));
 
-        using (node.Process(AudioTestContexts.AtSample(0, Window, SampleRate))) { }
-        using AudioBuffer tail = node.Flush(AudioTestContexts.AtSample(Window, latency, SampleRate));
+        float[] output = Run(effect, source, SampleRate);
+        int first = Array.FindIndex(output, sample => Math.Abs(sample) > 0.01f);
 
-        float first = tail.GetChannelData(0)[0];
-        float last = tail.GetChannelData(0)[latency - 1];
         Assert.Multiple(() =>
         {
-            Assert.That(first, Is.EqualTo(0.5f).Within(0.0001f));
-            Assert.That(last, Is.Zero);
+            Assert.That(effect.GetLatencySamples(SampleRate), Is.Zero);
+            Assert.That(node.GetTotalLatencySamples(SampleRate), Is.Zero);
+            // Less than a video frame at 60 fps, and neither of WSOLA's search windows.
+            Assert.That(Math.Abs(first - Onset), Is.LessThan(SampleRate / 60), $"The sound starts at {first}.");
         });
+    }
+
+    [Test]
+    public void PitchShift_stops_reading_at_the_end_it_is_told_of()
+    {
+        const int End = Window * 2;
+        var reads = new List<long>();
+        var effect = new PitchShiftEffect { Semitones = { Value = 12 } };
+        using var context = new AudioContext(SampleRate, 2);
+        AudioNode node = effect.CreateNode(context, context.AddNode(new FunctionSource(sample =>
+        {
+            reads.Add(sample);
+            return Sine(sample);
+        })));
+
+        var blocks = new List<float>();
+        for (int start = 0; start < End + Window; start += Window)
+        {
+            var range = new TimeRange(MediaTime.FromSamples(start, SampleRate), MediaTime.FromSamples(Window, SampleRate));
+            using AudioBuffer buffer = node.Process(new AudioProcessContext(range, SampleRate, new Beutl.Animation.AnimationSampler(), range)
+            {
+                ProcessEndTime = MediaTime.FromSamples(End, SampleRate),
+            });
+            blocks.AddRange(buffer.GetChannelData(0).ToArray());
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reads.Max(), Is.LessThan(End), "The upstream's tail starts at the end, so nothing past it is read.");
+            Assert.That(blocks.Skip(End + SampleRate / 100), Is.All.EqualTo(0f));
+            Assert.That(blocks.Take(End - SampleRate / 10).Max(Math.Abs), Is.GreaterThan(0.3f));
+        });
+    }
+
+    // Reading ahead in a file reads at positions plain playback never asks for, where an index error would show.
+    [Test]
+    public void PitchShift_reads_a_real_file_at_the_positions_it_should()
+    {
+        WithTemporaryWave(SampleRate, SampleRate * 4, i => (Sine(i), Sine(i)), source =>
+        {
+            float[] original = Compose(source, null);
+            float[] unshifted = Compose(source, new PitchShiftEffect());
+            // A keyframe that stays at no shift keeps the stretcher running without changing the sound.
+            var held = new PitchShiftEffect();
+            var animation = new KeyFrameAnimation<float>();
+            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0 } });
+            held.Semitones.SetKeyFrameAnimation(animation);
+            float[] stretched = Compose(source, held);
+            float[] shifted = Compose(source, new PitchShiftEffect { Semitones = { Value = 12 } });
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(unshifted, Is.EqualTo(original));
+                Assert.That(stretched, Is.EqualTo(original).Within(0.001f));
+                Assert.That(Pitch(shifted), Is.EqualTo(880).Within(880 * 0.06));
+            });
+        });
+    }
+
+    [Test]
+    public void PitchShift_lets_the_tail_of_what_comes_before_it_through()
+    {
+        const int End = Window;
+        // A 0 dB ceiling leaves the limiter transparent, so its tail is exactly the samples it holds.
+        var limiter = new LimiterEffect { Lookahead = { Value = 10 }, Threshold = { Value = 0 } };
+        var effect = new PitchShiftEffect { Semitones = { Value = 12 } };
+        using var context = new AudioContext(SampleRate, 2);
+        AudioNode node = effect.CreateNode(context, limiter.CreateNode(context, context.AddNode(new FunctionSource(sample => Sine(sample)))));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSamples(End, SampleRate));
+        using (node.Process(new AudioProcessContext(range, SampleRate, new AnimationSampler(), range) { ProcessEndTime = range.End })) { }
+        int latency = node.GetTotalLatencySamples(SampleRate);
+        Assert.That(latency, Is.GreaterThan(0));
+
+        using AudioBuffer tail = node.Flush(AudioTestContexts.AtSample(End, latency, SampleRate));
+
+        Assert.That(tail.GetChannelData(0).ToArray().Max(Math.Abs), Is.GreaterThan(0.1f));
+    }
+
+    private static float[] Compose(SoundSource source, AudioEffect? effect)
+    {
+        var sound = new SourceSound
+        {
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(4)) },
+            Source = { Value = source },
+        };
+        if (effect != null)
+            sound.Effect.Value = effect;
+
+        using var resource = sound.ToResource(CompositionContext.Default);
+        using var composer = new Composer { SampleRate = SampleRate };
+        var range = new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        var frame = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource),
+            range, default, new CompositionEligibility([sound]));
+        using AudioBuffer? output = composer.Compose(range, frame);
+        return output!.GetChannelData(0).ToArray();
+    }
+
+    [TestCase(1e6f)]
+    [TestCase(float.PositiveInfinity)]
+    [TestCase(float.NaN)]
+    public void PitchShift_survives_a_value_outside_its_range(float semitones)
+    {
+        var effect = new PitchShiftEffect { Semitones = { Value = semitones } };
+
+        float[] output = Run(effect, sample => Sine(sample), Window);
+
+        Assert.That(output, Has.Length.EqualTo(Window));
+    }
+
+    [Test]
+    public void PitchShift_starts_over_at_a_seek()
+    {
+        const int Target = SampleRate;
+        var effect = new PitchShiftEffect { Semitones = { Value = 12 } };
+        Func<long, float> source = sample => sample >= Target ? Sine(sample) : 0f;
+        using var context = new AudioContext(SampleRate, 2);
+        AudioNode node = effect.CreateNode(context, context.AddNode(new FunctionSource(source)));
+        using (node.Process(AudioTestContexts.AtSample(0, Window, SampleRate))) { }
+
+        using AudioBuffer after = node.Process(AudioTestContexts.AtSample(Target, Window, SampleRate));
+
+        Assert.That(Pitch(after.GetChannelData(0)[(Window / 2)..]), Is.EqualTo(880).Within(880 * 0.06));
     }
 
     [Test]

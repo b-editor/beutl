@@ -24,17 +24,8 @@ public sealed partial class PitchShiftEffect : AudioEffect
 
     public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
     {
-        var node = context.AddNode(new PitchShiftNode { Semitones = Semitones });
+        var node = context.AddNode(new PitchShiftNode { Semitones = Semitones, ChannelCount = context.ChannelCount });
         context.Connect(inputNode, node);
         return node;
-    }
-
-    public override int GetLatencySamples(int sampleRate, int inputLatency = 0)
-    {
-        base.GetLatencySamples(sampleRate, inputLatency);
-        if (!IsEnabled.Value)
-            return inputLatency;
-
-        return AudioLatency.SaturatingAdd(inputLatency, PitchShiftNode.GetWindowSamples(sampleRate));
     }
 }
