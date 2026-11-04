@@ -102,40 +102,7 @@ public class Renderer3DTests
     [TestCase("Point")]
     public void AlphaMode_Mask_CastsNoShadowWhereTheColorMapIsCutOut(string lightType)
     {
-        void Configure(List<Light3D> lights)
-        {
-            switch (lightType)
-            {
-                case "Directional":
-                    var directional = new DirectionalLight3D();
-                    directional.Direction.Value = Vector3.Normalize(new Vector3(-0.5f, -2, -0.5f));
-                    directional.Intensity.Value = 2;
-                    directional.CastsShadow.Value = true;
-                    directional.ShadowDistance.Value = 30;
-                    directional.ShadowMapSize.Value = 15;
-                    lights.Add(directional);
-                    break;
-                case "Spot":
-                    var spot = new SpotLight3D();
-                    spot.Position.Value = new Vector3(0, 8, 0);
-                    spot.Direction.Value = new Vector3(0, -1, 0);
-                    spot.Intensity.Value = 60;
-                    spot.Range.Value = 30;
-                    spot.InnerConeAngle.Value = 40;
-                    spot.OuterConeAngle.Value = 50;
-                    spot.CastsShadow.Value = true;
-                    lights.Add(spot);
-                    break;
-                default:
-                    var point = new PointLight3D();
-                    point.Position.Value = new Vector3(0, 8, 0);
-                    point.Intensity.Value = 60;
-                    point.Range.Value = 30;
-                    point.CastsShadow.Value = true;
-                    lights.Add(point);
-                    break;
-            }
-        }
+        void Configure(List<Light3D> lights) => lights.Add(CreateShadowLight(lightType));
 
         int Shadow(byte[] mapPixels, int mapWidth)
         {
@@ -158,6 +125,56 @@ public class Renderer3DTests
         Assert.That(whole, Is.GreaterThan(1000), "A map with nothing cut out still casts its whole shadow.");
         Assert.That(none, Is.LessThan(whole / 100), "A map that cuts out everything casts none.");
         Assert.That(half, Is.InRange(whole / 4, whole * 9 / 10), "A map that cuts out half casts part of it.");
+    }
+
+    // The bindings of a caster with holes stay bound, and the ordinary caster drawn after it has no use for them.
+    [TestCase("Directional")]
+    [TestCase("Spot")]
+    [TestCase("Point")]
+    public void AlphaMode_Mask_AnOrdinaryCasterCanFollowOneWithHoles(string lightType)
+    {
+        WithMapFile([255, 255, 255, 255], 1, 1, map =>
+        {
+            void Configure(List<Light3D> lights) => lights.Add(CreateShadowLight(lightType));
+            var material = new UnlitMaterial { AlphaMode = { Value = AlphaMode.Mask }, ColorMap = { Value = map } };
+
+            byte[] shadowed = RenderCutoutCaster(Configure, material, castShadows: true, casterFirst: true);
+            byte[] lit = RenderCutoutCaster(Configure, material, castShadows: false, casterFirst: true);
+
+            Assert.That(CountDarkenedPixels(shadowed, lit), Is.GreaterThan(1000));
+        });
+    }
+
+    private static Light3D CreateShadowLight(string lightType)
+    {
+        switch (lightType)
+        {
+            case "Directional":
+                var directional = new DirectionalLight3D();
+                directional.Direction.Value = Vector3.Normalize(new Vector3(-0.5f, -2, -0.5f));
+                directional.Intensity.Value = 2;
+                directional.CastsShadow.Value = true;
+                directional.ShadowDistance.Value = 30;
+                directional.ShadowMapSize.Value = 15;
+                return directional;
+            case "Spot":
+                var spot = new SpotLight3D();
+                spot.Position.Value = new Vector3(0, 8, 0);
+                spot.Direction.Value = new Vector3(0, -1, 0);
+                spot.Intensity.Value = 60;
+                spot.Range.Value = 30;
+                spot.InnerConeAngle.Value = 40;
+                spot.OuterConeAngle.Value = 50;
+                spot.CastsShadow.Value = true;
+                return spot;
+            default:
+                var point = new PointLight3D();
+                point.Position.Value = new Vector3(0, 8, 0);
+                point.Intensity.Value = 60;
+                point.Range.Value = 30;
+                point.CastsShadow.Value = true;
+                return point;
+        }
     }
 
     private static void WithMapFile(byte[] rgba, int width, int height, Action<ImageTextureSource> use)
@@ -187,7 +204,8 @@ public class Renderer3DTests
     }
 
     // A flat box over a ground that receives its shadow.
-    private byte[] RenderCutoutCaster(Action<List<Light3D>> configureLights, UnlitMaterial material, bool castShadows)
+    private byte[] RenderCutoutCaster(
+        Action<List<Light3D>> configureLights, UnlitMaterial material, bool castShadows, bool casterFirst = false)
     {
         return GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
@@ -225,7 +243,7 @@ public class Renderer3DTests
                 caster.Position.Value = new Vector3(0, 3, 0);
                 caster.CastShadows.Value = true;
                 caster.Material.Value = material;
-                objects.Add((Object3D.Resource)caster.ToResource(renderContext));
+                objects.Insert(casterFirst ? 0 : objects.Count, (Object3D.Resource)caster.ToResource(renderContext));
 
                 var lightModels = new List<Light3D>();
                 configureLights(lightModels);

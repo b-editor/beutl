@@ -81,6 +81,50 @@ public class ImageTextureSourceUploadTests
     }
 
     [Test]
+    public void StraightColors_AreGivenUpOnWhenTheFileNowHoldsAnotherSize()
+    {
+        string name = nameof(StraightColors_AreGivenUpOnWhenTheFileNowHoldsAnotherSize);
+        var (definition, context, created) = CreateSource(name);
+        using var resource = (ImageTextureSource.Resource)definition.ToResource(CompositionContext.Default);
+        Assert.That(resource.Source!.Bitmap, Is.Not.Null);
+        using (var smaller = new SKBitmap(1, 1))
+        {
+            using SKData encoded = smaller.Encode(SKEncodedImageFormat.Png, 100);
+            File.WriteAllBytes(ImagePath(name), encoded.ToArray());
+        }
+
+        Assert.That(resource.GetStraightColorTexture(context.Object), Is.Null);
+        Assert.That(created, Is.Empty);
+    }
+
+    // Halfway between the centers of the texels at 0.5, and clamped outside them.
+    [TestCase(0f, 102f)]
+    [TestCase(0.25f, 102f)]
+    [TestCase(0.4f, 147.9f)]
+    [TestCase(0.5f, 178.5f)]
+    [TestCase(0.75f, 255f)]
+    [TestCase(1f, 255f)]
+    public void Alpha_IsFilteredAsTheMaterialsSampleIt(float u, float expected)
+    {
+        string name = $"{nameof(Alpha_IsFilteredAsTheMaterialsSampleIt)}-{u}";
+        using (var bitmap = new SKBitmap(new SKImageInfo(2, 1, SKColorType.Rgba8888, SKAlphaType.Unpremul)))
+        {
+            bitmap.SetPixel(0, 0, new SKColor(255, 255, 255, 102));
+            bitmap.SetPixel(1, 0, new SKColor(255, 255, 255, 255));
+            using SKData encoded = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+            File.WriteAllBytes(ImagePath(name), encoded.ToArray());
+        }
+
+        var image = new ImageSource();
+        image.ReadFrom(new Uri(ImagePath(name)));
+        var definition = new ImageTextureSource { Source = { Value = image } };
+        using var resource = (ImageTextureSource.Resource)definition.ToResource(CompositionContext.Default);
+
+        Assert.That(resource.TryGetAlpha(new System.Numerics.Vector2(u, 0.5f), out float alpha), Is.True);
+        Assert.That(alpha * 255, Is.EqualTo(expected).Within(0.5f));
+    }
+
+    [Test]
     public void DataUpload_KeepsTheStoredValues()
     {
         using var source = Gradient();
@@ -240,9 +284,12 @@ public class ImageTextureSourceUploadTests
         return (definition, context, created);
     }
 
+    private static string ImagePath(string name)
+        => Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{nameof(ImageTextureSourceUploadTests)}-{name}.png");
+
     private static ImageSource Image(string name)
     {
-        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{nameof(ImageTextureSourceUploadTests)}-{name}.png");
+        string path = ImagePath(name);
         using (var bitmap = new SKBitmap(2, 2))
         {
             bitmap.Erase(new SKColor(128, 128, 255));

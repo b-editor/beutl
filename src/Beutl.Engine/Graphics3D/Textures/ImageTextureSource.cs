@@ -45,10 +45,13 @@ public sealed partial class ImageTextureSource : TextureSource
             if (_versionWithoutStraightColors == Version)
                 return null;
 
-            ITexture2D? texture = GetCachedTexture(graphicsContext, StraightColorSlot, _ =>
+            ITexture2D? texture = GetCachedTexture(graphicsContext, StraightColorSlot, bitmap =>
             {
                 using Bitmap? decoded = Source?.DecodeUnpremultiplied();
-                return decoded == null ? null : CreateStraightColorUploadBitmap(decoded);
+                // A file replaced since it was loaded can hold another size than the texture is made for.
+                return decoded?.Width == bitmap.Width && decoded.Height == bitmap.Height
+                    ? CreateStraightColorUploadBitmap(decoded)
+                    : null;
             });
             if (texture == null)
                 _versionWithoutStraightColors = Version;
@@ -61,12 +64,20 @@ public sealed partial class ImageTextureSource : TextureSource
             if (Source?.Bitmap is not { } bitmap)
                 return base.TryGetAlpha(texCoord, out alpha);
 
-            // Clamped to the edge, as the materials sample their maps.
-            int x = Math.Clamp((int)MathF.Floor(texCoord.X * bitmap.Width), 0, bitmap.Width - 1);
-            int y = Math.Clamp((int)MathF.Floor(texCoord.Y * bitmap.Height), 0, bitmap.Height - 1);
-            alpha = bitmap.SKBitmap.GetPixel(x, y).Alpha / 255f;
+            // Filtered and clamped to the edge, as the materials sample their maps.
+            float x = texCoord.X * bitmap.Width - 0.5f;
+            float y = texCoord.Y * bitmap.Height - 0.5f;
+            int left = (int)MathF.Floor(x);
+            int top = (int)MathF.Floor(y);
+            alpha = float.Lerp(
+                float.Lerp(ReadAlpha(bitmap, left, top), ReadAlpha(bitmap, left + 1, top), x - left),
+                float.Lerp(ReadAlpha(bitmap, left, top + 1), ReadAlpha(bitmap, left + 1, top + 1), x - left),
+                y - top);
             return true;
         }
+
+        private static float ReadAlpha(Bitmap bitmap, int x, int y)
+            => bitmap.SKBitmap.GetPixel(Math.Clamp(x, 0, bitmap.Width - 1), Math.Clamp(y, 0, bitmap.Height - 1)).Alpha / 255f;
 
         private ITexture2D? GetCachedTexture(IGraphicsContext graphicsContext, int slot, Func<Bitmap, Bitmap?> createUpload)
         {
