@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using Beutl.Audio;
 using Beutl.Extensibility;
@@ -24,6 +25,8 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
     private const int AudioBlockSize = 1024;
     private const EnumFlag SoftwareEncoders = EnumFlag.EnumFlagSyncmft | EnumFlag.EnumFlagAsyncmft
         | EnumFlag.EnumFlagLocalmft | EnumFlag.EnumFlagTranscodeOnly | EnumFlag.EnumFlagSortandfilter;
+    private static readonly TimeSpan s_finalizePollInterval = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan s_cancelledFinalizeLimit = TimeSpan.FromSeconds(5);
 
     public override MFVideoEncoderSettings VideoSettings { get; } = new();
 
@@ -34,6 +37,12 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
 
     public override bool IsAudioEnabled
         => MFEncodingFormat.FromFile(OutputFile).ResolveAudioCodec(AudioSettings.Codec.Value) != MFAudioCodec.None;
+
+    // A test cannot make Windows stall, so it takes the place of the call.
+    internal Action<IMFSinkWriter> FinalizeWriter { private get; init; } = static writer => writer.Finalize();
+
+    // How long a finishing file may go without growing. Finishing takes seconds, even for a long video.
+    internal TimeSpan FinalizeStallLimit { private get; init; } = TimeSpan.FromSeconds(90);
 
     public override async ValueTask Encode(
         IFrameProvider frameProvider, ISampleProvider sampleProvider, CancellationToken cancellationToken)
@@ -117,7 +126,64 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
 
         cancellationToken.ThrowIfCancellationRequested();
         // Finalize writes container indexes/headers. A cancelled or failed encode must never report success.
-        writer.Finalize();
+        await FinalizeAsync(writer, outputFile, cancellationToken);
+    }
+
+    // Finalize cannot be interrupted, and on rare occasions Windows never returns from it (#4006). So it stays off the MF
+    // thread, which every reader waits for, and has its own reference: a writer given up on keeps its file open until the
+    // call returns, and is not released under it.
+    private Task FinalizeAsync(IMFSinkWriter writer, string outputFile, CancellationToken cancellationToken)
+    {
+        IMFSinkWriter reference = writer.QueryInterface<IMFSinkWriter>();
+        Task finalizing = Task.Factory.StartNew(() =>
+        {
+            using (reference)
+                FinalizeWriter(reference);
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+        return WaitForFinalize(finalizing, () => GetLength(outputFile), FinalizeStallLimit, cancellationToken);
+    }
+
+    private static long GetLength(string file)
+    {
+        var info = new FileInfo(file);
+        return info.Exists ? info.Length : 0;
+    }
+
+    // Cancelling waits briefly too: a Finalize about to return should release the file before the caller deletes it.
+    internal static async Task WaitForFinalize(
+        Task finalizing, Func<long> outputLength, TimeSpan stallLimit, CancellationToken cancellationToken)
+    {
+        // A failure of a call given up on has nobody left to report to.
+        _ = finalizing.ContinueWith(
+            static task => { _ = task.Exception; },
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+
+        long length = outputLength();
+        long lastGrowth = Stopwatch.GetTimestamp();
+        while (!finalizing.IsCompleted)
+        {
+            await Task.WhenAny(finalizing, Task.Delay(s_finalizePollInterval)).ConfigureAwait(false);
+
+            long current = outputLength();
+            if (current != length)
+            {
+                length = current;
+                lastGrowth = Stopwatch.GetTimestamp();
+            }
+
+            TimeSpan limit = cancellationToken.IsCancellationRequested ? s_cancelledFinalizeLimit : stallLimit;
+            if (!finalizing.IsCompleted && Stopwatch.GetElapsedTime(lastGrowth) >= limit)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                throw new TimeoutException("Media Foundation stopped responding while finishing the output file.");
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await finalizing.ConfigureAwait(false);
     }
 
     internal static bool IsVideoEncoderAvailable(MFVideoCodec codec, bool hardware)
