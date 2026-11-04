@@ -20,6 +20,7 @@ public sealed partial class EditViewModel : IMediaRepairHost
     private readonly MissingMediaService _missingMediaDetector = new();
     // Fed every change operation of the scene, so a query walks only the elements edited since the last one.
     private readonly MediaReferenceIndex _mediaReferences;
+    private readonly EditedElements _unsavedElements;
     private HashSet<(object Source, Uri? Uri)>? _mediaReferenceKeys;
 
     // In-place URI repairs do not produce property-history entries. Retain this
@@ -173,6 +174,7 @@ public sealed partial class EditViewModel : IMediaRepairHost
                         if (_disposed) return;
                         using (HistoryManager.SuppressRecording())
                             ResourceRelocationService.RelinkFileSource(source, uri, loaded);
+                        _unsavedElements.AddAll();
                     }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
                     {

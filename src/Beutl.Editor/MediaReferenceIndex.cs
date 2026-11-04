@@ -17,52 +17,15 @@ internal readonly record struct MediaReference(object Value, Element? Element);
 internal sealed class MediaReferenceIndex(Scene scene)
 {
     private readonly Dictionary<Element, MediaReference[]> _elements = new(ReferenceEqualityComparer.Instance);
-    private readonly HashSet<Element> _stale = new(ReferenceEqualityComparer.Instance);
-    private bool _allStale = true;
+    private readonly EditedElements _stale = new(scene);
 
     // Element walks so far, for tests.
     internal int ScannedElements { get; private set; }
 
     public void Invalidate(ChangeOperation operation)
     {
-        switch (operation)
-        {
-            case IUpdatePropertyValueOperation update:
-                Invalidate(update.Object);
-                break;
-            case ICollectionChangeOperation collection:
-                Invalidate(collection.Object);
-                // Elements that joined or left the scene. Any other item belongs to the collection's element.
-                foreach (Element element in collection.Items.OfType<Element>()) _stale.Add(element);
-                break;
-            case UpdateNodeMemberOperation member:
-                Invalidate(member.NodeMember);
-                break;
-            case UpdateSplineEasingOperation:
-                // An easing curve holds no media.
-                break;
-            default:
-                _allStale = true;
-                break;
-        }
-    }
-
-    // Only elements hold media, so an edit of the scene outside them changes none. An object whose parents do not
-    // lead to the scene, such as the animation of a node port, cannot be placed, so every element is walked again.
-    private void Invalidate(object target)
-    {
-        for (object? current = target; current != null; current = (current as IHierarchical)?.HierarchicalParent)
-        {
-            if (current is Element element)
-            {
-                _stale.Add(element);
-                return;
-            }
-
-            if (ReferenceEquals(current, scene)) return;
-        }
-
-        _allStale = true;
+        // An easing curve holds no media.
+        if (operation is not UpdateSplineEasingOperation) _stale.Add(operation);
     }
 
     // The values a walk of the whole scene reports, in its order: a font family, or a source with a file URI. One
@@ -89,15 +52,12 @@ internal sealed class MediaReferenceIndex(Scene scene)
 
     private void Refresh()
     {
-        if (_allStale) _elements.Clear();
-        foreach (Element element in _stale) _elements.Remove(element);
-        _allStale = false;
-        _stale.Clear();
-
         foreach (Element element in scene.Children)
         {
-            if (!_elements.ContainsKey(element)) _elements.Add(element, Scan(element));
+            if (_stale.Contains(element) || !_elements.ContainsKey(element)) _elements[element] = Scan(element);
         }
+
+        _stale.Clear();
 
         // Every element of the scene has an entry now, so any extra one is an element that left it.
         if (_elements.Count > scene.Children.Count)
