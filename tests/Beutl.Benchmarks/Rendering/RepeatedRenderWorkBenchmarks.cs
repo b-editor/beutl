@@ -110,7 +110,10 @@ public class AlternatingRequestBenchmarks : RepeatedRenderBenchmark
 {
     private const int Depth = 32;
 
-    private protected override string CaseName => "AlternatingRequests";
+    [Params("Frame", "HitTest", "FrameThenHitTest")]
+    public string Request { get; set; } = "Frame";
+
+    private protected override string CaseName => $"AlternatingRequests-{Request}";
 
     private protected override RepeatedRenderSession CreateSession()
     {
@@ -125,18 +128,13 @@ public class AlternatingRequestBenchmarks : RepeatedRenderBenchmark
     }
 
     [Benchmark]
-    public long Frame() => RenderThread.Dispatcher.Invoke(Session.Rasterize);
-
-    [Benchmark]
-    public bool HitTest() => RenderThread.Dispatcher.Invoke(Session.HitTestCenter);
-
-    [Benchmark]
-    public long FrameThenHitTest()
+    public long Run()
     {
-        return RenderThread.Dispatcher.Invoke(() =>
+        return RenderThread.Dispatcher.Invoke(() => Request switch
         {
-            long result = Session.Rasterize();
-            return Session.HitTestCenter() ? result : -result;
+            "Frame" => Session.Rasterize(),
+            "HitTest" => Session.HitTestCenter() ? 1 : -1,
+            _ => Session.Rasterize() + (Session.HitTestCenter() ? 1 : -1),
         });
     }
 }
