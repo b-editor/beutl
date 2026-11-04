@@ -1609,6 +1609,12 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>Archivo de subtítulos</value>
   </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>No se pudo leer ningún subtítulo de {0}.</value>
+  </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>Algunos de los subtítulos de {0} no se pudieron leer y se omitieron.</value>
+  </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>¿Eliminar «{0}»?</value>
   </data>
@@ -3689,11 +3695,5 @@ cuando el registro del historial está activado.</value>
   </data>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>Guarda el proyecto antes de pegar clips.</value>
-  </data>
-  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
-    <value>No se pudo leer ningún subtítulo de {0}.</value>
-  </data>
-  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
-    <value>Algunos de los subtítulos de {0} no se pudieron leer y se omitieron.</value>
   </data>
 </root>
