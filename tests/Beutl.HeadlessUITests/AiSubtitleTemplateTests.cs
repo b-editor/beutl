@@ -558,6 +558,38 @@ public class AiSubtitleTemplateTests
         Assert.That(editor.Scene.Children, Is.Empty);
     }
 
+    // Going in, a set looks for room for its whole time range, so it must be given that, or it moves off its cue.
+    [AvaloniaTest]
+    public async Task Sets_that_overlap_only_in_the_gaps_between_their_elements_keep_their_cues()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("caption-set-gap");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        var set = new ElementSet();
+        set.Elements.AddRange(
+        [
+            CreateTextElement("Ornament", 10, 0.5f, 3, new EllipseShape()),
+            CreateTextElement("Text", 12, 2, 4, new TextBlock { Text = { Value = "Placeholder" } }),
+        ]);
+
+        CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+            editor.Scene,
+            adder,
+            CreateCues((0, 4, "First"), (2, 6, "Second")),
+            ElementCaptionTemplateAdapter.TryCreate(ObjectTemplateItem.CreateFromInstance(set, "Gap"))!);
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(
+            editor.Scene.Children.Select(element => (element.Name.Value, element.Start.Value, element.ZIndex.Value)),
+            Is.EquivalentTo(new[]
+            {
+                ("Ornament", MediaTime.FromSeconds(0), 0),
+                ("Text", MediaTime.FromSeconds(2), 1),
+                ("Ornament", MediaTime.FromSeconds(2), 2),
+                ("Text", MediaTime.FromSeconds(4), 3),
+            }));
+    }
+
     [AvaloniaTest]
     public async Task A_saved_set_goes_above_the_scene_and_around_locked_layers()
     {
