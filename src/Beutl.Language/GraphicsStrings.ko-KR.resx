@@ -215,6 +215,18 @@
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>채도 범위</value>
   </data>
+  <data name="LumaKey" xml:space="preserve">
+    <value>루마 키</value>
+  </data>
+  <data name="LumaKey_Lower" xml:space="preserve">
+    <value>하한 (%)</value>
+  </data>
+  <data name="LumaKey_Upper" xml:space="preserve">
+    <value>상한 (%)</value>
+  </data>
+  <data name="LumaKey_Softness" xml:space="preserve">
+    <value>경계 부드러움 (%)</value>
+  </data>
   <data name="Clipping" xml:space="preserve">
     <value>클리핑</value>
   </data>
@@ -1774,17 +1786,5 @@
   </data>
   <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
     <value>알파 임계값</value>
-  </data>
-  <data name="LumaKey" xml:space="preserve">
-    <value>루마 키</value>
-  </data>
-  <data name="LumaKey_Lower" xml:space="preserve">
-    <value>하한 (%)</value>
-  </data>
-  <data name="LumaKey_Upper" xml:space="preserve">
-    <value>상한 (%)</value>
-  </data>
-  <data name="LumaKey_Softness" xml:space="preserve">
-    <value>경계 부드러움 (%)</value>
   </data>
 </root>
