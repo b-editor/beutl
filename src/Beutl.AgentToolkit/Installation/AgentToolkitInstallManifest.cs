@@ -7,15 +7,25 @@ namespace Beutl.AgentToolkit.Installation;
 public sealed record InstalledFileRecord(string Path, string Sha256);
 
 /// <summary>
+/// One place an install put the Beutl MCP entry, with the layout it wrote there: a configuration
+/// file (<see cref="Location"/> is its path) or an agent's own registry (the agent's name and scope).
+/// </summary>
+public sealed record InstalledMcpTarget(string Location, bool IsConfigFile, int Layout);
+
+/// <summary>
 /// Snapshot of the last settings-page install: the combined hash of the
 /// bundled assets that were installed, every asset file written and its
-/// content hash, and the layout of the MCP entries. Enables update detection
-/// after an app update and safe cleanup of files a newer bundle no longer ships.
+/// content hash, the layout of the MCP entries, and the targets known to hold one.
+/// Enables update detection after an app update and safe cleanup of files a newer
+/// bundle no longer ships. <paramref name="McpLayout"/> advances only once every
+/// target in <paramref name="McpTargets"/> is current; manifests from before targets
+/// were recorded have none, so their layout can only be tracked as a whole.
 /// </summary>
 public sealed record AgentToolkitInstallManifest(
     string AssetsHash,
     IReadOnlyList<InstalledFileRecord> Files,
-    int McpLayout = 0)
+    int McpLayout = 0,
+    IReadOnlyList<InstalledMcpTarget>? McpTargets = null)
 {
     /// <summary>
     /// The MCP entries the current installer writes. Manifests from earlier versions carry no
@@ -78,6 +88,37 @@ public static class AgentToolkitInstallManifestStore
     public static bool IsMcpLayoutOutdated(AgentToolkitInstallManifest? manifest)
     {
         return manifest is not null && manifest.McpLayout < AgentToolkitInstallManifest.CurrentMcpLayout;
+    }
+
+    /// <summary>
+    /// The recorded targets an install of the current layout has not reached. A configuration
+    /// file that is gone has no entry left to replace.
+    /// </summary>
+    public static IReadOnlyList<InstalledMcpTarget> GetOutdatedMcpTargets(AgentToolkitInstallManifest? manifest)
+    {
+        return manifest?.McpTargets is { } targets
+            ? [.. targets.Where(target => target.Layout < AgentToolkitInstallManifest.CurrentMcpLayout && StillExists(target))]
+            : [];
+    }
+
+    /// <summary>
+    /// The targets to record after an install: the earlier ones with <paramref name="installed"/> in
+    /// place of its old record, without configuration files that are gone.
+    /// </summary>
+    public static IReadOnlyList<InstalledMcpTarget> UpdateMcpTargets(
+        IReadOnlyList<InstalledMcpTarget>? previous,
+        InstalledMcpTarget? installed)
+    {
+        InstalledMcpTarget[] kept = previous is null
+            ? []
+            : [.. previous.Where(target => StillExists(target)
+                                           && (installed is null || !PathComparer.Equals(target.Location, installed.Location)))];
+        return installed is null ? kept : [installed, .. kept];
+    }
+
+    private static bool StillExists(InstalledMcpTarget target)
+    {
+        return !target.IsConfigFile || File.Exists(target.Location);
     }
 
     public static string ComputeAssetsHash(IEnumerable<AgentToolkitAsset> assets)

@@ -626,6 +626,9 @@
     <value>Beutl 现在只安装一个 "beutl-agent" MCP 服务器：当代理传入 instanceId 时编辑正在运行的 Beutl，否则以无界面方式编辑项目文件。是否立即使用已保存的设置重新安装？单独的 "beutl-live" 条目及其令牌将从代理配置中移除，目标位置中手动编辑的文件会在替换前备份。</value>
     <comment />
   </data>
+  <data name="AiAgents_McpTargetsNeedReinstall" xml:space="preserve">
+    <value>重新安装只会更新在“设置 &gt; AI 代理”中选中的代理。以下目标仍保留旧条目，请逐个选择并重新安装：{0}</value>
+  </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">
     <value>重新安装</value>
     <comment />

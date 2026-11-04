@@ -626,6 +626,9 @@
     <value>Beutl ahora instala un único servidor MCP "beutl-agent": edita un Beutl en ejecución cuando el agente indica un instanceId y, en caso contrario, edita los archivos del proyecto sin interfaz. ¿Reinstalar ahora con la configuración guardada? La entrada "beutl-live" separada y su token se eliminan de la configuración del agente, y los archivos editados a mano en el destino se guardan como copia de seguridad antes de reemplazarse.</value>
     <comment />
   </data>
+  <data name="AiAgents_McpTargetsNeedReinstall" xml:space="preserve">
+    <value>Al reinstalar solo se actualiza el agente seleccionado en Configuración &gt; Agentes de IA. Estos destinos aún conservan una entrada anterior; selecciona cada uno allí y reinstala: {0}</value>
+  </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">
     <value>Reinstalar</value>
     <comment />
