@@ -37,6 +37,9 @@ internal sealed class EditedElements(Scene scene)
         }
     }
 
+    // For what an element saves that changes without an operation.
+    public void AddOwnerOf(object target) => Add(target);
+
     public void AddAll() => All = true;
 
     public void Clear()

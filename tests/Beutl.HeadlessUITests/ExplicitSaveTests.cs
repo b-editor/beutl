@@ -2,11 +2,15 @@
 using Avalonia.Headless.NUnit;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Generative;
+using Beutl.NodeGraph.Nodes.Generative;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Testing.Headless;
@@ -95,6 +99,42 @@ public sealed class ExplicitSaveTests
         Assert.That(await editor.SaveAsync(), Is.True);
 
         AssertFileHolds(edited.Element);
+    }
+
+    // A settled request changes its key outside history. Reopening with the old key would get the old failure back.
+    [AvaloniaTest]
+    public async Task A_save_writes_the_request_key_a_settled_failure_renewed()
+    {
+        (Scene scene, EditViewModel editor, Clip edited, Element untouched) = await OpenAsync();
+        var node = new AiImageGenerationNode();
+        node.Prompt.Property!.SetValue("a cat");
+        var graph = new NodeGraphDrawable();
+        graph.Model.Value!.Nodes.Add(node);
+        edited.Element.Objects.Add(graph);
+        HeadlessTestHelpers.Settle();
+        await SaveAsync(editor);
+        MarkFile(untouched);
+        string before = node.RequestKeySeed.Value;
+
+        await new GenerativeGraphRunner(new SettledFailureExecutor(), new EditorGenerativeRunHost(editor, null))
+            .RunAsync(graph.Model.Value!, null, force: false, CancellationToken.None);
+        Assert.That(node.RequestKeySeed.Value, Is.Not.EqualTo(before));
+        await SaveAsync(editor);
+
+        using (Assert.EnterMultipleScope())
+        {
+            AssertFileHolds(edited.Element);
+            Assert.That(File.ReadAllText(untouched.Uri!.LocalPath), Does.EndWith(Mark));
+        }
+    }
+
+    private sealed class SettledFailureExecutor : IGenerativeNodeExecutor
+    {
+        public Task<GenerativeExecutionResult> ExecuteAsync(
+            GenerativeRequest request,
+            IProgress<GenerativeProgress> progress,
+            CancellationToken cancellationToken)
+            => throw new GenerativeExecutionException("refused") { SettledRequest = true };
     }
 
     [AvaloniaTest]
