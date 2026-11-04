@@ -56,7 +56,15 @@ internal sealed partial class ElementAdderImpl
         Type type = value.GetType();
         element.AccentColor.Value = ElementAccentColorGenerator.GenerateColor(type.FullName ?? type.Name);
         element.AddObject(value);
-        if (value is Drawable drawable)
+        if (CanonicalTransformLayout.SeedEmptyGroup(value) is { } translate)
+        {
+            if (description.Position is { } position)
+            {
+                translate.X.Value = position.X;
+                translate.Y.Value = position.Y;
+            }
+        }
+        else if (value is Drawable drawable)
         {
             SetTransform(drawable, description);
         }
@@ -69,9 +77,7 @@ internal sealed partial class ElementAdderImpl
         if (description.Position is not { } position)
             return;
 
-        Transform? transform = drawable.Transform.Value;
-        AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(position));
-        drawable.Transform.Value = transform;
+        AddToGroupHelper.Add(drawable.Transform, new TranslateTransform(position));
     }
 
     private static T? TrySetDuration<T>(Element element, Func<T> initialize, Func<T, MediaTime?> getDuration)

@@ -101,9 +101,12 @@ public static class AnimationEditTutorial
                         if (drawable == null) return;
 
                         // Already has TranslateTransform?
-                        if (TutorialHelpers.GetTranslateTransform(drawable) != null)
+                        if (TutorialHelpers.GetTranslateTransform(drawable) is { } translate)
                         {
-                            Dispatcher.UIThread.Post(() => TutorialService.Current.AdvanceStep());
+                            // A new drawable holds it in a closed section. The next step points at the X editor,
+                            // which appears with the layout after the section and the row open.
+                            TutorialHelpers.OpenTransformRow(editVm, drawable, translate);
+                            Dispatcher.UIThread.Post(() => TutorialService.Current.AdvanceStep(), DispatcherPriority.Loaded);
                             return;
                         }
 

@@ -3,6 +3,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
@@ -245,6 +246,28 @@ public static class TutorialHelpers
 
         return drawable?.Transform.Value as TranslateTransform;
     }
+
+    // Opens the drawable's transform section and one of its rows, so that a step can point at the row's editors.
+    public static void OpenTransformRow(EditViewModel editVm, Drawable drawable, Transform row)
+    {
+        Element? element = drawable.FindHierarchicalParent<Element>();
+        TransformEditorViewModel? section = editVm.FindToolTab<ElementPropertyTabViewModel>(t => t.Element.Value == element)
+            ?.Items.FirstOrDefault(item => item.Model == drawable)
+            ?.Properties.SelectMany(Flatten)
+            .OfType<TransformEditorViewModel>()
+            .FirstOrDefault(editor => ReferenceEquals(editor.PropertyAdapter.GetEngineProperty(), drawable.Transform));
+        if (section == null) return;
+
+        section.IsExpanded.Value = true;
+        section.Group.Value?.Items
+            .Select(item => item.Context)
+            .OfType<TransformEditorViewModel>()
+            .FirstOrDefault(editor => ReferenceEquals(editor.Value.Value, row))
+            ?.IsExpanded.Value = true;
+    }
+
+    private static IEnumerable<IPropertyEditorContext?> Flatten(IPropertyEditorContext? context)
+        => context is PropertyEditorGroupContext group ? group.Properties.SelectMany(Flatten) : [context];
 
     public static Drawable? GetDrawable(EditViewModel? editVm)
     {

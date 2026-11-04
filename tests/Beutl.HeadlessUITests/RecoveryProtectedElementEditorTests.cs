@@ -178,6 +178,7 @@ public sealed class RecoveryProtectedElementEditorTests
             Assert.That(width.CanEdit.Value, Is.False);
             Assert.That(shape.Width.Value, Is.EqualTo(oldWidth));
             Assert.That(shape.Transform.Value!.IsEnabled.Value, Is.True, "Toggling the transform would not be saved.");
+            Assert.That(transform.NeedsRepair, Is.True, "Its right-click menu offers replacing it.");
             Assert.That(tab.Items[0].CanReplace.Value, Is.True, "The shape holds the transform with the unreadable easing.");
             Assert.That(tab.Items[1].CanReplace.Value, Is.False);
             Assert.That(element.Objects, Does.Contain(healthy));

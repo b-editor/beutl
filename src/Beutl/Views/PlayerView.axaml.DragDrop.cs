@@ -117,18 +117,14 @@ public partial class PlayerView
                 && TypeFormat.ToType(feTypeName) is { } feType
                 && Activator.CreateInstance(feType) is FilterEffect newFe)
             {
-                FilterEffect? fe = drawable.FilterEffect.Value;
-                AddOrSetHelper.AddOrSet(ref fe, newFe);
-                drawable.FilterEffect.Value = fe;
+                AddToGroupHelper.Add(drawable.FilterEffect, newFe);
             }
             else if (containsTra
                      && e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is { } traTypeName
                      && TypeFormat.ToType(traTypeName) is { } traType
                      && Activator.CreateInstance(traType) is Transform newTra)
             {
-                Transform? tra = drawable.Transform.Value;
-                AddOrSetHelper.AddOrSet(ref tra, newTra);
-                drawable.Transform.Value = tra;
+                AddToGroupHelper.Add(drawable.Transform, newTra);
             }
 
             e.Handled = true;

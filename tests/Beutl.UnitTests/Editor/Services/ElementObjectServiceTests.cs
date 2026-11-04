@@ -2,6 +2,8 @@
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
@@ -93,6 +95,26 @@ public class ElementObjectServiceTests
             Assert.That(_element.Objects[^1], Is.SameAs(obj));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
+    }
+
+    [Test]
+    public void Add_ANewDrawable_StartsWithItsTransforms()
+    {
+        var shape = new RectShape();
+
+        _service.Add(_element, shape);
+
+        Assert.That(((TransformGroup)shape.Transform.Value!).Children, Has.Count.EqualTo(3));
+    }
+
+    [Test]
+    public void InsertAt_ANewDrawable_StartsWithItsTransforms()
+    {
+        var shape = new RectShape();
+
+        _service.InsertAt(_element, 0, shape);
+
+        Assert.That(((TransformGroup)shape.Transform.Value!).Children, Has.Count.EqualTo(3));
     }
 
     [Test]

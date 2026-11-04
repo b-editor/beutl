@@ -731,7 +731,10 @@ public class NestedNodePortTests
             transform.IsExpanded.Value = true;
             await FinishTransition();
             foreach (var item in transform.Group.Value!.Items)
+            {
+                Assert.That(((TransformEditorViewModel)item.Context!).IsExpanded.Value, Is.False, "A node stays compact.");
                 ((TransformEditorViewModel)item.Context!).IsExpanded.Value = true;
+            }
             await FinishTransition();
             var firstView = FindPortView(view, first.X);
             var firstPort = ((InputPortViewModel)firstView.DataContext!).Model;
