@@ -18,6 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Controls.ColorPicker" />
+    <PackageReference Include="Avalonia.Skia" />
     <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" />
     <PackageReference Include="FFmpeg4Sharp" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" />

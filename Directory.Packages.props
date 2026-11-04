@@ -5,17 +5,17 @@
   <ItemGroup>
     <PackageVersion Include="Aigamo.ResXGenerator" Version="4.4.0" />
     <PackageVersion Include="AsyncImageLoader.Avalonia" Version="4.0.0" />
-    <PackageVersion Include="Avalonia" Version="12.1.4" />
-    <PackageVersion Include="Avalonia.Controls.ColorPicker" Version="12.1.4" />
+    <PackageVersion Include="Avalonia" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.Controls.ColorPicker" Version="12.1.5" />
     <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
     <PackageVersion Include="Avalonia.Controls.ItemsRepeater" Version="12.0.0" />
     <PackageVersion Include="Avalonia.Controls.WebView" Version="12.1.1" />
     <PackageVersion Include="PanAndZoom" Version="12.1.1" />
     <PackageVersion Include="Avalonia.Desktop" Version="12.1.4" />
     <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
-    <PackageVersion Include="Avalonia.Headless" Version="12.1.4" />
-    <PackageVersion Include="Avalonia.Headless.NUnit" Version="12.1.4" />
-    <PackageVersion Include="Avalonia.Skia" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Headless" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.Headless.NUnit" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.Skia" Version="12.1.5" />
     <!-- The Reactive variant preserves the System.Reactive scheduler used by ReactiveProperty. -->
     <PackageVersion Include="ReactiveUI.Avalonia.Reactive" Version="12.1.6" />
     <PackageVersion Include="Silk.NET.MoltenVK.Native" Version="2.23.0" />
@@ -63,8 +63,8 @@
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="10.0.14" />
-    <PackageVersion Include="ModelContextProtocol" Version="2.3.0" />
-    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.3.0" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.3.1" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.3.1" />
     <PackageVersion Include="NAudio.Core" Version="3.3.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
