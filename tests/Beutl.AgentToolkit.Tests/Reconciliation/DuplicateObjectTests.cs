@@ -186,6 +186,38 @@ public sealed class DuplicateObjectTests
         });
     }
 
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(2)]
+    public void Duplicate_object_wrap_in_group_reports_the_full_path_of_a_nested_copy(int ancestors)
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        var rect = new RectShape();
+        var parent = new DrawableGroup();
+        parent.Children.Add(rect);
+        DrawableGroup root = parent;
+        string expected = $"Children[Id={parent.Id.Value}]";
+        for (int i = 0; i < ancestors; i++)
+        {
+            var ancestor = new DrawableGroup();
+            ancestor.Children.Add(root);
+            root = ancestor;
+            expected = $"Children[Id={root.Id.Value}]/{expected}";
+        }
+
+        element.AddObject(root);
+        expected = $"$/Elements[Id={element.Id.Value}]/Objects{expected["Children".Length..]}";
+
+        using var session = new AgentToolkitTestSession(scene);
+        ToolResult<DuplicateObjectResponse> result =
+            session.CreateEditTools().DuplicateObject(rect.Id.Value.ToString(), wrapInGroup: true);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.That(result.Value!.CreatedIds.Select(item => item.Path),
+            Is.EqualTo(new[] { $"{expected}/Children[Id={result.Value.ObjectId}]" }));
+    }
+
     [Test]
     public void Duplicate_object_wrap_in_group_is_undoable()
     {

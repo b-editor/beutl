@@ -47,6 +47,7 @@ public sealed class VideoSource : MediaSource
         // this source. Kept as the path key, not a live fingerprint, so a missing original still tracks
         // versions and reopens when a proxy is registered for its path.
         private string? _proxyVersionSource;
+        private long _observedProxyStoreVersion;
 
         public MediaTime Duration { get; private set; }
 
@@ -105,6 +106,7 @@ public sealed class VideoSource : MediaSource
             base.Reconcile(obj, context, ref versionBumped);
             var videoSource = (VideoSource)obj;
             IProxyResolver? proxyResolver = context.PreferProxy ? DecoderRegistry.ProxyResolver : null;
+            RefreshProxyVersionSource(videoSource, context, proxyResolver);
             // Compare only THIS source's proxy version so a proxy change to another
             // source does not force this reader to reopen.
             long proxyResolverVersion = GetSourceVersion(proxyResolver, _proxyVersionSource);
@@ -152,6 +154,22 @@ public sealed class VideoSource : MediaSource
                     Version++;
                     versionBumped = true;
                 }
+            }
+        }
+
+        // A symlink that cannot be followed is keyed by its own path, but the store bumps its target's once the target
+        // is back. Reading the key touches the file system, so it waits until the store has something new to report.
+        private void RefreshProxyVersionSource(
+            VideoSource videoSource, CompositionContext context, IProxyResolver? proxyResolver)
+        {
+            if (proxyResolver is null || proxyResolver.StoreVersion == _observedProxyStoreVersion) return;
+
+            _observedProxyStoreVersion = proxyResolver.StoreVersion;
+            // A target that cannot be read says nothing about the key, and its proxies stay indexed under the known one.
+            if (_proxyVersionSource != null && videoSource.HasUri && videoSource.Uri.IsFile
+                && ProxyFingerprint.TryFromFile(videoSource.Uri.LocalPath, out ProxyFingerprint fingerprint))
+            {
+                _proxyVersionSource = fingerprint.AbsolutePath;
             }
         }
 

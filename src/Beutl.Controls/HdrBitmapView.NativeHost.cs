@@ -50,7 +50,7 @@ public partial class HdrBitmapView
         var initWithFrameSel = sel_getUid("initWithFrame:");
 
         var nsView = objc_msgSend_IntPtr(nsViewClass, allocSel);
-        nsView = objc_msgSend_NSRect(nsView, initWithFrameSel, 0, 0, 1, 1);
+        nsView = objc_msgSend_NSRect(nsView, initWithFrameSel, new NSRect(0, 0, 1, 1));
 
         if (nsView == IntPtr.Zero)
             throw new InvalidOperationException("Failed to create NSView");
@@ -220,11 +220,12 @@ public partial class HdrBitmapView
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     private static extern IntPtr objc_msgSend_float3(IntPtr receiver, IntPtr selector, float arg1, float arg2, float arg3);
 
-    // initWithFrame: takes an NSRect (CGRect) which is { x, y, width, height } as doubles
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct NSRect(double X, double Y, double Width, double Height);
+
+    // By value, because x86-64 passes a struct this large on the stack rather than in floating-point registers.
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
-    private static extern IntPtr objc_msgSend_NSRect(
-        IntPtr receiver, IntPtr selector,
-        double x, double y, double width, double height);
+    private static extern IntPtr objc_msgSend_NSRect(IntPtr receiver, IntPtr selector, NSRect frame);
 
     // Linux
     private static IPlatformHandle CreateLinuxControl(IPlatformHandle parent)

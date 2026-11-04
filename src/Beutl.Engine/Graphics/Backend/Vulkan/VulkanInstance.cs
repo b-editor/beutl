@@ -292,6 +292,12 @@ internal sealed unsafe class VulkanInstance : IDisposable
                 SType = StructureType.InstanceCreateInfo,
                 PApplicationInfo = &appInfo
             };
+            // Exporting the Metal device behind a Vulkan device has to be declared when the instance is created.
+            var metalDeviceExport = new ExportMetalObjectCreateInfoEXT
+            {
+                SType = StructureType.ExportMetalObjectCreateInfoExt,
+                ExportObjectType = ExportMetalObjectTypeFlagsEXT.DeviceBitExt,
+            };
 
             fixed (byte** ppExtensions = extensionNames.Pointers)
             fixed (byte** ppLayers = layerNames.Pointers)
@@ -304,6 +310,7 @@ internal sealed unsafe class VulkanInstance : IDisposable
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
                     createInfo.Flags |= InstanceCreateFlags.EnumeratePortabilityBitKhr;
+                    createInfo.PNext = &metalDeviceExport;
                 }
 
                 Instance instance;

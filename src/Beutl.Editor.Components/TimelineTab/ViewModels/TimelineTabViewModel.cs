@@ -221,15 +221,20 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             .Subscribe(_ => RefreshThumbnails()).AddTo(_disposables);
     }
 
-    public async Task<ElementAddResult> AddElementWithResultAsync(
+    public Task<ElementAddResult> AddElementWithResultAsync(
         ElementDescription description, CancellationToken cancellationToken = default)
+        => AddElementsWithResultAsync([description], cancellationToken);
+
+    // Adds them all or none in one undo step, and shows the first.
+    public async Task<ElementAddResult> AddElementsWithResultAsync(
+        IReadOnlyList<ElementDescription> descriptions, CancellationToken cancellationToken = default)
     {
         ElementAddResult result = await EditorContext
             .GetRequiredService<IElementAdder>()
-            .AddAsync([description], cancellationToken);
+            .AddAsync(descriptions, cancellationToken);
         if (result.IsSuccess)
         {
-            Element scrollTarget = result.Items[^1].PrimaryElement;
+            Element scrollTarget = result.Items[0].PrimaryElement;
             ScrollTo.Execute((scrollTarget.Range, scrollTarget.ZIndex.Value));
             return result;
         }
@@ -471,6 +476,22 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         }
     }
 
+    internal static void ShowPasteFailure(ElementAddFailure failure)
+    {
+        switch (failure)
+        {
+            case LockedElementLayerFailure:
+                NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+                break;
+            case ElementSceneNotSavedFailure:
+                NotificationService.ShowWarning(Strings.Paste, Strings.Paste_ProjectNotSaved);
+                break;
+            default:
+                NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+                break;
+        }
+    }
+
     private async Task PasteCore()
     {
         try
@@ -482,13 +503,9 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             {
                 ScrollTo.Execute((outcome.ScrollTo, outcome.ScrollToZIndex));
             }
-            else if (outcome.AddFailure is LockedElementLayerFailure)
+            else if (outcome.AddFailure is { } failure)
             {
-                NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
-            }
-            else if (outcome.AddFailure is not null)
-            {
-                NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+                ShowPasteFailure(failure);
             }
         }
         catch (Exception ex)

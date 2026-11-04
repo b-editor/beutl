@@ -459,7 +459,9 @@ public sealed class GraphSnapshot : IDisposable
             {
                 if (!animation.UseGlobalClock.Value)
                 {
-                    resource.ItemValues[i].TryLoadFromAnimation(animation, time - node.Start);
+                    // The animation takes a scene time and counts from where it is attached, which a graph
+                    // outside the hierarchy does not have, so the node's own start decides the local time.
+                    resource.ItemValues[i].TryLoadFromAnimation(animation, animation.ToScene(time - node.Start));
                 }
                 else
                 {

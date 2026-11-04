@@ -98,7 +98,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                 warnings.Add(bitrateWarning);
             }
 
-            output.Commit(cancellationToken);
+            output.Commit(controller.OutputFiles, cancellationToken);
             onFrameProgress?.Invoke(frameProvider.FrameCount, frameProvider.FrameCount);
             return new ExportVideoResponse(
                 outputPath,

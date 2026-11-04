@@ -180,7 +180,8 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
             animation: kfAnimation,
             easing: null,
             keyTime: keyTime,
-            logger: Logger);
+            logger: Logger,
+            fallbackOwner: AnimationOwner);
         Commit();
 
         if (keyframe == null) return;
@@ -197,7 +198,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         if (IsDisposed || GetAnimation() is not KeyFrameAnimation<TValue> kfAnimation) return;
         // Check the keyframe itself: removing another one while it holds an easing that could not be
         // read leaves the element protected, so that removal would not be saved.
-        if (AnimationOperations.FindKeyFrame(kfAnimation, keyTime, Logger) is not { } keyframe
+        if (AnimationOperations.FindKeyFrame(kfAnimation, keyTime, Logger, AnimationOwner) is not { } keyframe
             || !CanReplace(keyframe)) return;
 
         AnimationOperations.RemoveKeyFrame(
@@ -216,7 +217,10 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
             && animatableProperty.Animation is not KeyFrameAnimation<TValue>)
         {
             var newAnimation = new KeyFrameAnimation<TValue>();
-            TValue initialValue = animatableProperty.GetValue()!;
+            // The keyframes take over from an expression, so they start at the value it shows.
+            TValue initialValue = PropertyAdapter.GetEngineProperty() is IExpressionProperty<TValue> { HasExpression: true } engineProperty
+                ? engineProperty.Evaluate(new EvaluationContext(CurrentTimeValue))
+                : animatableProperty.GetValue()!;
             newAnimation.KeyFrames.Add(new KeyFrame<TValue>
             {
                 Value = { Value = initialValue },

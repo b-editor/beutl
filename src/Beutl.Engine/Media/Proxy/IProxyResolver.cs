@@ -15,6 +15,12 @@ public interface IProxyResolver
     /// </param>
     long GetSourceVersion(string absolutePath);
 
+    /// <summary>
+    /// A version that increases when the proxy entries of any source change. The path key of a symlink changes when
+    /// its target comes back, so a change is when a reader asks the file system for its key again.
+    /// </summary>
+    long StoreVersion => 0;
+
     IDisposable Pin(ProxyResolution resolution);
 
     /// <summary>

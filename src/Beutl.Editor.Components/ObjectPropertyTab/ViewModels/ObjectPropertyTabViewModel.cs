@@ -221,6 +221,12 @@ public sealed class ObjectPropertyTabViewModel : IPinnableToolContext
     {
         _disposables.Dispose();
         WatchTarget(null);
+        ChildContext.Value = null;
+        foreach (IPropertiesEditorViewModel editor in _cache)
+        {
+            editor.Dispose();
+        }
+        _cache.Clear();
     }
 
     public void ReadFromJson(JsonObject json)

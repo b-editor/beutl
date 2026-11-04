@@ -3682,6 +3682,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>プロジェクトの音声チャンネル</value>
   </data>
+  <data name="Paste_ProjectNotSaved" xml:space="preserve">
+    <value>クリップを貼り付ける前にプロジェクトを保存してください。</value>
+  </data>
   <data name="MasterVolume" xml:space="preserve">
     <value>マスター音量 (%)</value>
   </data>
