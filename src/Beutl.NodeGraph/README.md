@@ -39,6 +39,7 @@ value; read that one to see the write.
   reaches and runs it. Where a picture meets an image input, the recording reads it into an image. Each output that
   ends in a picture is one recording of its own, and a picture between two passes splits them into two recordings.
   Both show as a conversion on the wire. The boundary is linear premultiplied; **Convert color** handles anything else.
+  Nothing can draw on a picture, so **Render targets** takes image wires only.
 - **The first picture read is the source.** It decides what the output covers, and a picture in several pieces is run
   piece by piece. In an effect, its input takes that place whenever it is read. Any other picture lines up with the
   source and is cut to what the source covers. A sampler left unconnected reads the source.

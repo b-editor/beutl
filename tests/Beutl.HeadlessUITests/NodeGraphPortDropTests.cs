@@ -11,15 +11,18 @@ using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
+using Beutl.NodeGraph.Nodes.Shaders;
 using Beutl.NodeGraph.Nodes.Utilities;
 using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
 using Moq;
+using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
@@ -107,6 +110,60 @@ public class NodeGraphPortDropTests
             HeadlessTestHelpers.Render(3);
             Assert.That(view.PortDropMenu?.IsOpen, Is.Not.True,
                 "Dropping on a node body should cancel the wire without opening suggestions.");
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void ShaderOutputDroppedOnEmptyGraph_OffersGraphOutputAndConnectsIt()
+    {
+        var graph = new GraphModel();
+        var source = new ShaderFullscreenPassNode { Position = { Value = (20, 40) } };
+        graph.Nodes.Add(source);
+        IOutputPort color = source.Items.OfType<IOutputPort>().Single(port => port.Name.Value == "Out.color");
+        var sequence = new OperationSequenceGenerator();
+        using var history = new HistoryManager(sequence);
+        using var observer = new CoreObjectOperationObserver(null, graph, sequence);
+        history.Subscribe(observer);
+        // A pass shows its errors through a monitor, which stops while the preview plays.
+        Mock<IEditorContext> editor = NodeGraphTestContext.Create(new NodeGraphMutationService(history));
+        using var playing = new ReactivePropertySlim<bool>();
+        var player = new Mock<IPreviewPlayer>();
+        player.SetupGet(x => x.IsPlaying).Returns(playing);
+        editor.Setup(x => x.GetService(typeof(IPreviewPlayer))).Returns(player.Object);
+        using var vm = new NodeGraphViewModel(graph, editor.Object);
+        var view = new NodeGraphView { DataContext = vm };
+        var window = new Window { Content = view, Width = 800, Height = 550 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            var socket = view.GetVisualDescendants().OfType<NodePortPoint>()
+                .Single(p => p.DataContext is OutputPortViewModel output && output.Model == color);
+            Point from = socket.TranslatePoint(new Point(5, 5), window)!.Value;
+            Point to = new(700, 300);
+
+            window.MouseMove(from);
+            window.MouseDown(from, MouseButton.Left);
+            window.MouseMove(to, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(to, MouseButton.Left);
+            HeadlessTestHelpers.Render(3);
+
+            FAMenuFlyout menu = view.PortDropMenu!;
+            Assert.That(menu, Is.Not.Null);
+            Assert.That(menu.IsOpen, Is.True);
+            FAMenuFlyoutItem outputItem = menu.Items.OfType<FAMenuFlyoutItem>()
+                .Single(item => Equals(item.Text, GraphNodeRegistry.FindItem(typeof(OutputNode))!.DisplayName));
+            HeadlessTestHelpers.Click(outputItem, move: true, ticks: 3);
+
+            OutputNode added = graph.Nodes.OfType<OutputNode>().Single();
+            Assert.That(graph.AllConnections, Has.Count.EqualTo(1));
+            Assert.That(graph.AllConnections[0].Output.Value.Value, Is.SameAs(color));
+            Assert.That(graph.AllConnections[0].Input.Value.Value, Is.SameAs(added.InputPort));
         }
         finally
         {

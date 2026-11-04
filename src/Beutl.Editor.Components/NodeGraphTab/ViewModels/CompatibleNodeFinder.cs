@@ -25,6 +25,7 @@ internal static class CompatibleNodeFinder
         bool IsInput,
         bool IsOutput,
         bool CanConnectInput,
+        bool IsList,
         DisplayAttribute? Display,
         string? RootName,
         DisplayAttribute? RootDisplay)
@@ -112,11 +113,11 @@ internal static class CompatibleNodeFinder
                 || typeof(GroupOutput).IsAssignableFrom(registry.Type) && existingGroup.Nodes.Any(n => n is GroupOutput)))
             return true;
 
-        // OutputNode declares object but the graph renderers consume RenderNode values only.
+        // OutputNode declares object but the graph renderers consume only what can become a RenderNode.
         if (typeof(OutputNode).IsAssignableFrom(registry.Type)
             && (graph is GraphGroup || source is not IOutputPort output
                 || output.AssociatedType is not { } type
-                || (type != typeof(object) && !typeof(RenderNode).IsAssignableFrom(type))))
+                || !CanPropagate(type, typeof(RenderNode))))
             return true;
 
         return false;
@@ -137,7 +138,7 @@ internal static class CompatibleNodeFinder
                         && (input is IListInputPort || input.Connection.Value.IsNull)
                         && node.CanConnectInput(input);
                     return new PortChoice(index, port.Name.Value, port.AssociatedType,
-                        port is IInputPort, port is IOutputPort, canConnectInput,
+                        port is IInputPort, port is IOutputPort, canConnectInput, port is IListInputPort,
                         port.Display.Value, root?.Name.Value, root?.Display.Value);
                 }).ToArray();
             return new NodeDescriptor(ports, (node as IDynamicPortNode)?.PossibleLocation);
@@ -197,9 +198,9 @@ internal static class CompatibleNodeFinder
         if (source.AssociatedType is not { } sourceType
             || candidate.AssociatedType is not { } candidateType) return false;
         if (source is IOutputPort && candidate.IsInput && candidate.CanConnectInput)
-            return CanPropagate(sourceType, candidateType);
+            return CanPropagate(sourceType, candidateType, candidate.IsList);
         if (source is IInputPort && candidate.IsOutput)
-            return CanPropagate(candidateType, sourceType);
+            return CanPropagate(candidateType, sourceType, source is IListInputPort);
         return false;
     }
 
@@ -227,8 +228,13 @@ internal static class CompatibleNodeFinder
             return false;
         if (output.AssociatedType is not { } outputType || input.AssociatedType is not { } inputType)
             return false;
-        return CanPropagate(outputType, inputType);
+        return CanPropagate(outputType, inputType, input is IListInputPort);
     }
+
+    // The list of images is a pass's render targets, and nothing can draw on a picture.
+    private static bool CanPropagate(Type outputType, Type inputType, bool isList)
+        => CanPropagate(outputType, inputType)
+           && !(isList && inputType == typeof(ShaderGraphValue<ShaderImage>) && typeof(RenderNode).IsAssignableFrom(outputType));
 
     // Keep the known conversions in step with ItemValueHelper's receivers. Value-dependent
     // conversions such as string parsing are omitted; explicit object outputs remain dynamic.

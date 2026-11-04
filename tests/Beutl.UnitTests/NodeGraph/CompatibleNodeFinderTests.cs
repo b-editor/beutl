@@ -105,6 +105,57 @@ public class CompatibleNodeFinderTests
     }
 
     [Test]
+    public void Find_ShaderImage_OffersGraphOutputAtRootButNotInsideGroup()
+    {
+        var outputItem = Item<OutputNode>("Graph output");
+        var root = new GraphModel();
+        var rootPass = new ShaderFullscreenPassNode();
+        var buffer = new ShaderBufferNode();
+        root.Nodes.Add(rootPass);
+        root.Nodes.Add(buffer);
+        var group = new GraphGroup();
+        var groupPass = new ShaderFullscreenPassNode();
+        group.Nodes.Add(groupPass);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CompatibleNodeFinder.Find(root, rootPass.Out("color"), [outputItem]).ContainsKey(outputItem),
+                Is.True);
+            Assert.That(CompatibleNodeFinder.Find(group, groupPass.Out("color"), [outputItem]).ContainsKey(outputItem),
+                Is.False);
+            Assert.That(CompatibleNodeFinder.Find(root, buffer.Output, [outputItem]).ContainsKey(outputItem),
+                Is.False);
+        });
+    }
+
+    [Test]
+    public void APictureCanBeReadByAPassButNotDrawnOn()
+    {
+        var passItem = Item<ShaderFullscreenPassNode>("Fullscreen pass");
+        var graph = new GraphModel();
+        var picture = new FilterEffectInputNode();
+        var earlier = new ShaderFullscreenPassNode();
+        var pass = new ShaderFullscreenPassNode();
+        graph.Nodes.Add(picture);
+        graph.Nodes.Add(earlier);
+        graph.Nodes.Add(pass);
+
+        IEnumerable<string?> Offered(IOutputPort source)
+            => CompatibleNodeFinder.Find(graph, source, [passItem])[passItem].Ports.Select(port => port?.Name);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Offered(picture.Output), Does.Contain("In.source").And.Not.Contain("Targets"));
+            Assert.That(Offered(earlier.Out("color")), Does.Contain("In.source").And.Contain("Targets"));
+            Assert.That(CompatibleNodeFinder.CanConnect(picture.Output, pass.In("source")), Is.True);
+            Assert.That(CompatibleNodeFinder.CanConnect(picture.Output, pass.Targets), Is.False);
+            Assert.That(CompatibleNodeFinder.CanConnect(pass.Targets, picture.Output), Is.False);
+            Assert.That(CompatibleNodeFinder.CanConnect(earlier.Out("color"), pass.Targets), Is.True);
+            Assert.That(CompatibleNodeFinder.Find(graph, pass.Targets, [Item<FilterEffectInputNode>("Effect input")]), Is.Empty);
+        });
+    }
+
+    [Test]
     public void Find_RootGraph_DoesNotOfferGroupBoundaryPorts()
     {
         var root = new GraphModel();
