@@ -3557,7 +3557,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>現在時刻の値を保持し、成分のキーフレームと式を削除します。</value>
   </data>
   <data name="UnseparateComponents_SameTiming" xml:space="preserve">
-    <value>両方の値のキーフレーム時刻が同じで、式が共通か式がないときに使用できます。</value>
+    <value>両方の値のキーフレーム時刻とイージングが同じで、式が共通か式がないときに使用できます。</value>
   </data>
   <data name="RelativeUnit_Relative" xml:space="preserve">
     <value>相対 (1 = 100%)</value>

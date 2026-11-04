@@ -766,12 +766,20 @@ public sealed class CombinedEditorTests
 
         var json = new JsonObject();
         combined.WriteToJson(json);
-        using CombinedEditorViewModel<float> restored = CreateCombined(transform);
+        using CombinedEditorViewModel<float> restored = CreateCombined(new TranslateTransform(1, 2));
         Assert.That(IsSeparated(restored), Is.False);
         restored.ReadFromJson(json);
         Assert.That(IsSeparated(restored), Is.True);
 
+        using (CombinedEditorViewModel<float> later = CreateCombined(transform))
+        {
+            Assert.That(IsSeparated(later), Is.True, "Every editor of the two shares the choice.");
+            later.ReadFromJson(new JsonObject { ["KeepsSeparated"] = false });
+            Assert.That(IsSeparated(later), Is.True, "A state saved earlier does not undo it.");
+        }
+
         transform.X.SetKeyFrameAnimation(Animation(0, 1));
+        HeadlessTestHelpers.Settle();
         Assert.That(combined.CanUnseparateComponents.Value, Is.False);
         combined.UnseparateComponents();
         Assert.That(IsSeparated(combined), Is.True, "It cannot rejoin while they differ.");
@@ -852,7 +860,7 @@ public sealed class CombinedEditorTests
     }
 
     [AvaloniaTest]
-    public async Task The_inline_view_shows_both_properties()
+    public async Task The_inline_view_shows_the_two_as_one_layer()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync($"combined-inline-{Guid.NewGuid():N}");
@@ -879,10 +887,11 @@ public sealed class CombinedEditorTests
             flyout.Hide();
             HeadlessTestHelpers.Render(3);
 
-            Assert.That(timeline.Inlines.Select(inline => inline.Property.GetEngineProperty()),
-                Is.EqualTo(new IProperty[] { shape.Width, shape.Height }));
-            Assert.That(timeline.Inlines.Select(inline => inline.Property.Animation),
-                Is.EqualTo(new[] { shape.Width.GetKeyFrameAnimation(), shape.Height.GetKeyFrameAnimation() }));
+            Assert.That(shape.Width.GetKeyFrameAnimation(), Is.Not.Null);
+            Assert.That(shape.Height.GetKeyFrameAnimation(), Is.Not.Null);
+            InlineAnimationLayerViewModel inline = timeline.Inlines.Single();
+            Assert.That(inline.Header, Is.EqualTo(Strings.Size));
+            Assert.That(inline.Property.Animation, Is.SameAs(combined.GetAnimation()));
         }
         finally { window.Close(); }
     }

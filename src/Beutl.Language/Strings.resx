@@ -3562,7 +3562,7 @@ when history recording is enabled.</value>
     <value>Keep the value at the current time and remove component keyframes and expressions.</value>
   </data>
   <data name="UnseparateComponents_SameTiming" xml:space="preserve">
-    <value>Available while both values have the same keyframe times and share one expression or have none.</value>
+    <value>Available while both values have the same keyframe times and easings and share one expression or have none.</value>
   </data>
   <data name="RelativeUnit_Relative" xml:space="preserve">
     <value>Relative (1 = 100%)</value>

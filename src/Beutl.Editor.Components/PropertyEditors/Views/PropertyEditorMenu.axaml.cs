@@ -171,10 +171,10 @@ public sealed partial class PropertyEditorMenu : UserControl
             viewModel.PrepareToEditAnimation();
 
             if (animatableProperty.Animation is IKeyFrameAnimation
+                && viewModel.InlineProperty is { } inlineProperty
                 && FindOrOpenTimeline(editorContext) is { } timeline)
             {
-                foreach (IAnimatablePropertyAdapter property in viewModel.EditedProperties.OfType<IAnimatablePropertyAdapter>())
-                    timeline.AttachInline(property, element);
+                timeline.AttachInline(inlineProperty, element);
             }
         }
     }

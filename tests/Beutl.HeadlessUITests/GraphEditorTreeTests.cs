@@ -11,6 +11,7 @@ using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
@@ -50,8 +51,8 @@ public class GraphEditorTreeTests
         var heightItem = scope.Find(scope.Shape.Height);
         var fill = scope.Find(scope.Shape.Fill);
         var color = scope.Find(scope.Brush.Color);
-        Assert.That(widthItem.Parent, Is.SameAs(root));
-        Assert.That(heightItem.Parent, Is.SameAs(root));
+        Assert.That(widthItem.Parent, Is.SameAs(heightItem.Parent));
+        Assert.That(widthItem.Parent!.Parent, Is.SameAs(root));
         Assert.That(fill.Parent, Is.SameAs(root));
         Assert.That(color.Parent, Is.SameAs(fill));
         Assert.That(color.Children.Select(x => x.ChannelName), Is.EqualTo(new[] { "Red", "Green", "Blue", "Alpha" }));
@@ -626,7 +627,7 @@ public class GraphEditorTreeTests
         HeadlessTestHelpers.Render(3);
         var transformRow = scope.Find(scope.Shape.Transform);
         var effectRow = scope.Find(scope.Shape.FilterEffect);
-        var moveRow = scope.Find(move.X).Parent!;
+        var moveRow = scope.FindPair(move.X).Parent!;
         var scaleRow = scope.Find(scale.Scale).Parent!;
         var blurRow = scope.Find(blur.Sigma).Parent!;
         var nestedBlurRow = scope.Find(nestedBlur.Sigma).Parent!;
@@ -659,9 +660,9 @@ public class GraphEditorTreeTests
         transforms.Children.Add(move);
         transforms.Children.Add(scale);
         HeadlessTestHelpers.Render(3);
-        var property = scope.Find(move.X);
-        var moveRow = property.Parent!;
-        var scaleRow = scope.Find(scale.Scale).Parent!;
+        var property = scope.Find(scale.Scale);
+        var moveRow = scope.FindPair(move.X).Parent!;
+        var scaleRow = property.Parent!;
         Assert.That(group.Children, Is.EqualTo(new[] { moveRow, scaleRow }));
         scope.Model.EnableAnimation(property);
         var graph = scope.Model.SelectedAnimation.Value;
@@ -674,11 +675,11 @@ public class GraphEditorTreeTests
         Assert.That(scope.Model.SelectedAnimation.Value, Is.SameAs(graph));
         using var restored = new GraphEditorTabViewModel(scope.Base.Model.EditorContext);
         restored.ReadFromJson(saved);
-        Assert.That(restored.SelectedAnimation.Value!.Animation, Is.SameAs(move.X.GetKeyFrameAnimation()));
+        Assert.That(restored.SelectedAnimation.Value!.Animation, Is.SameAs(scale.Scale.GetKeyFrameAnimation()));
         Assert.That(restored.SelectedTreeItem.Value!.Parent!.Parent!.Property, Is.SameAs(scope.Shape.Transform));
-        transforms.Children.Remove(scale);
+        transforms.Children.Remove(move);
         HeadlessTestHelpers.Render(3);
-        Assert.That(group.Children, Is.EqualTo(new[] { moveRow }));
+        Assert.That(group.Children, Is.EqualTo(new[] { scaleRow }));
         Assert.That(scope.Model.SelectedTreeItem.Value, Is.SameAs(property));
     }
 
@@ -692,7 +693,7 @@ public class GraphEditorTreeTests
         scope.Base.Model.Element!.Objects.Add(group);
         HeadlessTestHelpers.Render(3);
         var groupRow = scope.Model.TreeItems.Last();
-        Assert.That(scope.Find(child.Width).Parent!.Parent, Is.SameAs(groupRow));
+        Assert.That(scope.FindPair(child.Width).Parent!.Parent, Is.SameAs(groupRow));
         Assert.That(scope.Find(group.Opacity).Parent, Is.SameAs(groupRow));
         Assert.That(Flatten(scope.Model.TreeItems).Any(x => ReferenceEquals(x.Property, group.Children)), Is.False);
     }
@@ -760,10 +761,19 @@ public class GraphEditorTreeTests
             graph.Window.Width = width;
             graph.Window.Height = 680;
             HeadlessTestHelpers.Render(3);
-            return new TreeScope { Base = graph, Model = model, View = view, Shape = shape, Brush = brush };
+            var scope = new TreeScope { Base = graph, Model = model, View = view, Shape = shape, Brush = brush };
+            // These tests are about a row of one property; PropertyPairAnimationTests has the row of the two as one.
+            PropertyPair.Find(shape.Width)!.SetKeepsSeparated(true);
+            model.Refresh();
+            scope.FindPair(shape.Width).IsExpanded.Value = true;
+            HeadlessTestHelpers.Render(3);
+            return scope;
         }
 
         public GraphEditorTreeItemViewModel Find(IProperty property) => Flatten(Model.TreeItems).Single(x => ReferenceEquals(x.Property, property));
+
+        public GraphEditorTreeItemViewModel FindPair(IProperty property)
+            => Flatten(Model.TreeItems).Single(x => ReferenceEquals(x.Adapter, PropertyPair.Find(property)));
 
         public Button AnimationButton(GraphEditorTreeItemViewModel item) => View.GetVisualDescendants().OfType<Button>()
             .Single(x => ReferenceEquals(x.DataContext, item) && x.Classes.Contains("graph-animation"));

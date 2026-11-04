@@ -174,6 +174,9 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
     // An expression to show the expression editor with, where what it returns is not the plain type of a property.
     internal virtual string? ExpressionExample => null;
 
+    // What the timeline's inline view shows for this editor.
+    internal virtual IAnimatablePropertyAdapter? InlineProperty => PropertyAdapter as IAnimatablePropertyAdapter;
+
     public virtual bool CanSeparateComponents => ComponentSeparation.CanSeparate(PropertyAdapter.GetEngineProperty());
 
     public virtual IReadOnlyReactiveProperty<bool> CanUnseparateComponents => CanEditProperty;

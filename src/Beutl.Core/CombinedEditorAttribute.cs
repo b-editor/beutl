@@ -2,9 +2,9 @@
 
 namespace Beutl;
 
-// Edits this property and the one named Second in one row of the property panel, where a vector editor shows the two
-// values side by side. Each keeps its own value, keyframes and expression. Name and ResourceType give the row's name,
-// as they do a property's in DisplayAttribute.
+// Shows this property and the one named Second as one value: one row of the property panel, where a vector editor shows
+// the two side by side, one layer of the inline view and one row of the graph editor. Each keeps its own value, keyframes
+// and expression. Name and ResourceType give the row's name, as they do a property's in DisplayAttribute.
 [AttributeUsage(AttributeTargets.Property)]
 public sealed class CombinedEditorAttribute(string second) : Attribute
 {
