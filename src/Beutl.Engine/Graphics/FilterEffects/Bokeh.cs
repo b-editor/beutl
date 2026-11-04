@@ -90,13 +90,12 @@ public sealed partial class Bokeh : FilterEffect
     {
         protected override void ApplyTo(FilterEffectContext context)
         {
-            // Interpolation and detached resources can bypass the editor's ranges.
             if (!float.IsFinite(Radius) || Radius <= 0 || !float.IsFinite(Rotation) || !float.IsFinite(Highlight))
                 return;
 
             // How many samples it takes depends on the pixels they land on. Without one density, count logical units.
             float density = context.TryGetWorkingScale(out float workingScale) ? workingScale : 1;
-            var data = new EffectData(Radius, Shape, Math.Clamp(Sides, 3, 12), Rotation, Math.Max(Highlight, 0) / 100, Quality, density);
+            var data = new EffectData(Radius, Shape, Sides, Rotation, Highlight / 100, Quality, density);
             context.ShaderGraph(data, static (graph, values) =>
             {
                 ShaderBuffer shapeSamples = graph.Buffer<Vector4>("shape-samples", values.CreateSamples(values.Rings));
@@ -105,26 +104,16 @@ public sealed partial class Bokeh : FilterEffect
                 if (values.Highlight > 0)
                 {
                     ShaderImage highlights = graph.Image2D("highlights", graph.Source);
-                    graph.Fullscreen("highlights", s_highlights, pass =>
-                    {
-                        pass.SampledImage(0, graph.Source);
-                        pass.ImageParameters(1, graph.Source);
-                        pass.ImageParameters(2, highlights);
-                        pass.PushConstants(values.Highlight);
-                        pass.InputRegion(0, ShaderInputRegion.Identity);
-                        pass.ColorAttachment(0, highlights);
-                    });
+                    LightEffectPasses.ImagePass(graph, "highlights", s_highlights, graph.Source, highlights,
+                        configure: pass => pass.PushConstants(values.Highlight));
                     current = highlights;
                 }
 
                 // A large shape loses nothing to a coarser grid, and the cost stops growing with the size.
                 for (int level = 1; values.Radius * values.Density * current.ResolutionScale > 32; level++)
                 {
-                    ShaderImage source = current;
                     // The filter reaches two source texels past what it reduces; cut off there, a small picture loses light.
-                    current = graph.Image2D(
-                        $"downsample-{level}", source, padding: 2 / source.ResolutionScale, resolutionScale: source.ResolutionScale / 2);
-                    LightEffectPasses.Downsample(graph, source, current);
+                    current = LightEffectPasses.Downsample(graph, $"downsample-{level}", current, padding: 2 / current.ResolutionScale);
                 }
 
                 // The first round draws the shape, as points as far apart as its rings. Two thirds of that distance fills
@@ -140,31 +129,17 @@ public sealed partial class Bokeh : FilterEffect
                 if (current.ResolutionScale == 1)
                     return graph.Output(current);
 
-                ShaderImage reduced = current;
-                ShaderImage output = graph.Image2D("output", reduced);
-                graph.Fullscreen("output", s_output, pass =>
-                {
-                    pass.SampledImage(0, reduced);
-                    pass.ImageParameters(1, reduced);
-                    pass.ImageParameters(2, output);
-                    pass.InputRegion(0, ShaderInputRegion.Identity);
-                    pass.ColorAttachment(0, output);
-                });
+                ShaderImage output = graph.Image2D("output", current);
+                LightEffectPasses.ImagePass(graph, "output", s_output, current, output);
                 return graph.Output(output);
 
                 ShaderImage Round(string name, ShaderBuffer samples, float radius, float padding)
                 {
-                    ShaderImage source = current;
-                    ShaderImage destination = graph.Image2D(name, source, padding: padding, resolutionScale: source.ResolutionScale);
-                    graph.Fullscreen(name, s_round, pass =>
+                    ShaderImage destination = graph.Image2D(name, current, padding: padding, resolutionScale: current.ResolutionScale);
+                    LightEffectPasses.ImagePass(graph, name, s_round, current, destination, radius, pass =>
                     {
-                        pass.SampledImage(0, source);
-                        pass.ImageParameters(1, source);
-                        pass.ImageParameters(2, destination);
                         pass.StorageBuffer(3, samples, ResourceAccess.Read);
                         pass.PushConstants(radius);
-                        pass.InputRegion(0, new(Matrix.Identity, radius));
-                        pass.ColorAttachment(0, destination);
                     });
                     return destination;
                 }
@@ -172,17 +147,18 @@ public sealed partial class Bokeh : FilterEffect
         }
     }
 
-    private static readonly ShaderProgram s_highlights = ShaderProgram.Fullscreen(new ShaderSource("""
+    private static readonly ShaderProgram s_highlights = ShaderProgram.Fullscreen(new ShaderSource($$"""
         #version 450
         layout(binding = 0) uniform sampler2D image;
         layout(binding = 1, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
         layout(binding = 2, std140) uniform Destination { vec4 logical; vec4 raster; vec4 size; } dst;
         layout(push_constant) uniform Values { float amount; } pc;
         layout(location = 0) out vec4 color;
+        {{GlslSnippets.Luminance}}
         void main() {
             vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
             color = texture(image, (position - src.raster.xy) / src.raster.zw);
-            float luminance = color.a > 0 ? dot(color.rgb / color.a, vec3(0.2126, 0.7152, 0.0722)) : 0;
+            float luminance = straightLuminance(color);
             color.rgb *= 1 + pc.amount * smoothstep(0.5, 1.0, luminance);
         }
         """));

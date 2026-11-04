@@ -45,11 +45,7 @@ internal static class LightEffectPasses
         // The final blur radius stays at most 16 texels per unit of working scale.
         ShaderImage reduced = image;
         for (int level = 1; radius * reduced.ResolutionScale > 16; level++)
-        {
-            ShaderImage source = reduced;
-            reduced = graph.Image2D($"downsample-{level}", source, resolutionScale: source.ResolutionScale / 2);
-            Downsample(graph, source, reduced);
-        }
+            reduced = Downsample(graph, $"downsample-{level}", reduced);
         ShaderImage horizontal = graph.Image2D("horizontal", reduced, resolutionScale: reduced.ResolutionScale);
         ShaderImage blurred = graph.Image2D("blurred", reduced, resolutionScale: reduced.ResolutionScale);
         Blur(graph, "blur-horizontal", reduced, horizontal, new(radius, 1, 0, 0));
@@ -58,24 +54,28 @@ internal static class LightEffectPasses
     }
 
     private static void Blur(ShaderGraphBuilder graph, string name, ShaderImage source, ShaderImage output, Vector4 values)
-        => graph.Fullscreen(name, s_blur, pass =>
-        {
-            pass.SampledImage(0, source);
-            pass.ImageParameters(1, source);
-            pass.ImageParameters(2, output);
-            pass.PushConstants(values);
-            pass.InputRegion(0, new(Matrix.Identity, values.X));
-            pass.ColorAttachment(0, output);
-        });
+        => ImagePass(graph, name, s_blur, source, output, values.X, pass => pass.PushConstants(values));
 
-    public static void Downsample(ShaderGraphBuilder graph, ShaderImage source, ShaderImage destination)
-        => graph.Fullscreen(destination.Name, s_downsample, pass =>
+    /// <summary>Reduces <paramref name="source"/> into a new image of half its raster density, and returns that image.</summary>
+    public static ShaderImage Downsample(ShaderGraphBuilder graph, string name, ShaderImage source, float padding = 0)
+    {
+        ShaderImage destination = graph.Image2D(name, source, padding: padding, resolutionScale: source.ResolutionScale / 2);
+        ImagePass(graph, name, s_downsample, source, destination);
+        return destination;
+    }
+
+    /// <summary>A fullscreen pass that reads one image, for a shader that binds it at 0 and the two frames at 1 and 2.</summary>
+    /// <param name="reach">How far from an output point the shader reads, in composition units.</param>
+    public static void ImagePass(ShaderGraphBuilder graph, string name, ShaderProgram program, ShaderImage source,
+        ShaderImage destination, float reach = 0, Action<ShaderPassBuilder>? configure = null)
+        => graph.Fullscreen(name, program, pass =>
         {
             pass.SampledImage(0, source);
             pass.ImageParameters(1, source);
             pass.ImageParameters(2, destination);
-            pass.InputRegion(0, ShaderInputRegion.Identity);
+            pass.InputRegion(0, new(Matrix.Identity, reach));
             pass.ColorAttachment(0, destination);
+            configure?.Invoke(pass);
         });
 
     // Sample count depends on working scale, but no longer grows with the logical radius.
@@ -120,7 +120,7 @@ internal static class LightEffectPasses
         }
         """));
 
-    private static readonly ShaderProgram s_extract = ShaderProgram.Fullscreen(new ShaderSource("""
+    private static readonly ShaderProgram s_extract = ShaderProgram.Fullscreen(new ShaderSource($$"""
         #version 450
         layout(binding = 0) uniform sampler2D image;
         layout(binding = 1, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
@@ -128,11 +128,12 @@ internal static class LightEffectPasses
         layout(push_constant) uniform Values { float threshold; float softKnee; } pc;
         layout(location = 0) out vec4 bright;
         layout(location = 1) out float mask;
+        {{GlslSnippets.Luminance}}
         void main() {
             vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
             vec4 color = texture(image, (position - src.raster.xy) / src.raster.zw);
             // Select by straight luminance, then scale premultiplied RGBA so translucent edges fade naturally.
-            float luminance = color.a > 0 ? dot(color.rgb / color.a, vec3(0.2126, 0.7152, 0.0722)) : 0;
+            float luminance = straightLuminance(color);
             float excess = luminance - pc.threshold;
             float contribution = max(excess, 0);
             float knee = pc.threshold * pc.softKnee;

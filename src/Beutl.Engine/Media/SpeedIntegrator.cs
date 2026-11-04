@@ -152,10 +152,7 @@ public sealed class SpeedIntegrator : IDisposable
                 }
             }
             long start = (long)sec * _sampleRate;
-            long end = start + _sampleRate;
-            int prefix = FindPrefix(start, end);
-            sum = SumSamples(animation, prefix < 0 ? start : _prefixes[prefix].Sample, end,
-                prefix < 0 ? sum : _prefixes[prefix].Sum);
+            sum = SumSamples(animation, start, start + _sampleRate, sum, out _);
             _integralCache![sec + 1] = sum;
             _greatestCachedSecond = Math.Max(_greatestCachedSecond, sec + 1);
         }
@@ -165,9 +162,7 @@ public sealed class SpeedIntegrator : IDisposable
         long targetInSamples = (long)(timeSpan.ToSeconds() * _sampleRate);
         long secStartInSamples = (long)targetSec * _sampleRate;
 
-        int nearest = FindPrefix(secStartInSamples, targetInSamples);
-        sum = SumSamples(animation, nearest < 0 ? secStartInSamples : _prefixes[nearest].Sample, targetInSamples,
-            nearest < 0 ? sum : _prefixes[nearest].Sum);
+        sum = SumSamples(animation, secStartInSamples, targetInSamples, sum, out int nearest);
         RememberPrefix(nearest, targetInSamples, sum);
 
         // Interpolate from the last sample to the exact time (fractional sample handling)
@@ -181,9 +176,17 @@ public sealed class SpeedIntegrator : IDisposable
         return MediaTime.FromSeconds(sum);
     }
 
-    // Adds the samples in order from the start of the timeline, so a sum is the same however it was reached.
-    private double SumSamples(KeyFrameAnimation<float> animation, long start, long end, double sum)
+    // Adds the samples in order from the start of the timeline, so a sum is the same however it was reached. It goes on
+    // from the latest prefix in the range when there is one, and reports that prefix's slot, or -1.
+    private double SumSamples(KeyFrameAnimation<float> animation, long start, long end, double sum, out int prefix)
     {
+        prefix = FindPrefix(start, end);
+        if (prefix >= 0)
+        {
+            start = _prefixes[prefix].Sample;
+            sum = _prefixes[prefix].Sum;
+        }
+
         for (long i = start; i < end; i++)
         {
             double t = i / (double)_sampleRate;
