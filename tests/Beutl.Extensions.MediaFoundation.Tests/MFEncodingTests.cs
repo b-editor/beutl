@@ -750,6 +750,18 @@ public class MFFinalizeWaitTests
     }
 
     [Test]
+    public async Task Cancelling_gives_up_on_a_call_that_keeps_writing()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        long length = 0;
+
+        await Assert.CatchAsync<OperationCanceledException>(() => MFEncodingController.WaitForFinalize(
+                new TaskCompletionSource().Task, () => ++length, TimeSpan.FromHours(1), cancellation.Token)
+            .WaitAsync(TimeSpan.FromSeconds(30)));
+    }
+
+    [Test]
     public async Task Cancelling_lets_a_call_about_to_return_release_the_file()
     {
         var finalizing = new TaskCompletionSource();

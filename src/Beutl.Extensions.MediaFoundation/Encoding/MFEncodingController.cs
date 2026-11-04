@@ -171,7 +171,9 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
             if (current != length)
             {
                 length = current;
-                lastGrowth = Stopwatch.GetTimestamp();
+                // The caller is waiting to delete the file, so writing on does not put off giving up.
+                if (!cancellationToken.IsCancellationRequested)
+                    lastGrowth = Stopwatch.GetTimestamp();
             }
 
             TimeSpan limit = cancellationToken.IsCancellationRequested ? s_cancelledFinalizeLimit : stallLimit;
