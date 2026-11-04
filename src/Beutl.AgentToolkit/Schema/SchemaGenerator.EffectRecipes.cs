@@ -603,6 +603,11 @@ public sealed partial class SchemaGenerator
                 split.HorizontalSpacing.Value = 12;
                 split.VerticalSpacing.Value = 8;
                 break;
+            case RepeatEffect repeat:
+                repeat.Columns.Value = 4;
+                repeat.Rows.Value = 3;
+                repeat.Spacing.Value = new Size(16, 16);
+                break;
             case TransformEffect transform:
                 transform.Transform.Value = new RotationTransform(8);
                 transform.TransformOrigin.Value = RelativePoint.Center;

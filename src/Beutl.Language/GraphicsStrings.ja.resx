@@ -784,6 +784,39 @@
   <data name="SplitEffect_VerticalSpacing" xml:space="preserve">
     <value>垂直方向の間隔</value>
   </data>
+  <data name="RepeatEffect" xml:space="preserve">
+    <value>繰り返し配置</value>
+  </data>
+  <data name="RepeatEffect_Columns" xml:space="preserve">
+    <value>列数</value>
+  </data>
+  <data name="RepeatEffect_Rows" xml:space="preserve">
+    <value>行数</value>
+  </data>
+  <data name="RepeatEffect_Spacing" xml:space="preserve">
+    <value>間隔</value>
+  </data>
+  <data name="RepeatEffect_Spacing_Description" xml:space="preserve">
+    <value>コピーどうしの隙間です。0 で隙間なく並びます。</value>
+  </data>
+  <data name="RepeatEffect_Offset_Description" xml:space="preserve">
+    <value>グリッドの中でコピーを動かします。端から出たコピーは反対側から戻るので、アニメーションさせると途切れずにスクロールします。</value>
+  </data>
+  <data name="RepeatEffect_Mirror" xml:space="preserve">
+    <value>交互に反転</value>
+  </data>
+  <data name="RepeatEffectMirror_None" xml:space="preserve">
+    <value>なし</value>
+  </data>
+  <data name="RepeatEffectMirror_Columns" xml:space="preserve">
+    <value>1 列おき</value>
+  </data>
+  <data name="RepeatEffectMirror_Rows" xml:space="preserve">
+    <value>1 行おき</value>
+  </data>
+  <data name="RepeatEffectMirror_Both" xml:space="preserve">
+    <value>両方</value>
+  </data>
   <data name="TextAlignment_Center" xml:space="preserve">
     <value>中央揃え</value>
   </data>

@@ -166,9 +166,14 @@ public sealed class ShaderImage : ShaderResource
     internal ImmutableArray<Matrix> BoundsTransforms { get; set; } = [];
     internal RelativePoint BoundsOrigin { get; set; } = RelativePoint.Center;
 
+    // For an output that every piece of a split input can reach all of. It needs a pass that asks for the group.
+    internal bool BoundsFromGroup { get; set; }
+
     internal Rect ResolveBounds(Rect sourceBounds, Rect? referenceBounds = null)
     {
-        Rect bounds = Id == 0 ? sourceBounds : (ExplicitBounds ?? Like!.ResolveBounds(sourceBounds, referenceBounds)).Inflate(Padding);
+        Rect bounds = Id == 0 ? sourceBounds
+            : BoundsFromGroup ? referenceBounds ?? sourceBounds
+            : (ExplicitBounds ?? Like!.ResolveBounds(sourceBounds, referenceBounds)).Inflate(Padding);
         if (BoundsTransforms.IsEmpty || bounds.IsEmpty)
             return bounds;
         Rect reference = referenceBounds ?? sourceBounds;

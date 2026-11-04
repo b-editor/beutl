@@ -73,6 +73,7 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<LumaKey>>(GraphicsStrings.LumaKey)
             .Add<FilterEffectNode<SplitEffect>>(GraphicsStrings.SplitEffect)
             .Add<FilterEffectNode<PartsSplitEffect>>(GraphicsStrings.PartsSplitEffect)
+            .Add<FilterEffectNode<RepeatEffect>>(GraphicsStrings.RepeatEffect)
             .Add<FilterEffectNode<TransformEffect>>(GraphicsStrings.Transform)
             .Add<FilterEffectNode<MosaicEffect>>(GraphicsStrings.MosaicEffect)
             .Add<FilterEffectNode<ColorShift>>(GraphicsStrings.ColorShift)

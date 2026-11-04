@@ -806,6 +806,39 @@
   <data name="SplitEffect_VerticalSpacing" xml:space="preserve">
     <value>垂直间距</value>
   </data>
+  <data name="RepeatEffect" xml:space="preserve">
+    <value>重复排列</value>
+  </data>
+  <data name="RepeatEffect_Columns" xml:space="preserve">
+    <value>列数</value>
+  </data>
+  <data name="RepeatEffect_Rows" xml:space="preserve">
+    <value>行数</value>
+  </data>
+  <data name="RepeatEffect_Spacing" xml:space="preserve">
+    <value>间距</value>
+  </data>
+  <data name="RepeatEffect_Spacing_Description" xml:space="preserve">
+    <value>副本之间的间隙。为 0 时紧密相接。</value>
+  </data>
+  <data name="RepeatEffect_Offset_Description" xml:space="preserve">
+    <value>在网格内移动副本。从一端移出的副本会从另一端返回，因此为其添加动画可实现无缝滚动。</value>
+  </data>
+  <data name="RepeatEffect_Mirror" xml:space="preserve">
+    <value>交替翻转</value>
+  </data>
+  <data name="RepeatEffectMirror_None" xml:space="preserve">
+    <value>无</value>
+  </data>
+  <data name="RepeatEffectMirror_Columns" xml:space="preserve">
+    <value>隔列</value>
+  </data>
+  <data name="RepeatEffectMirror_Rows" xml:space="preserve">
+    <value>隔行</value>
+  </data>
+  <data name="RepeatEffectMirror_Both" xml:space="preserve">
+    <value>两者</value>
+  </data>
   <data name="TextAlignment_Center" xml:space="preserve">
     <value>居中对齐</value>
   </data>

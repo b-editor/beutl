@@ -198,6 +198,7 @@ public sealed partial class SchemaGenerator
             [typeof(LumaKey)] = Metadata(["keying", "transparent", "brightness"], []),
             [typeof(SplitEffect)] = Metadata(["glitch", "split", "stylize"], []),
             [typeof(PartsSplitEffect)] = Metadata(["glitch", "split", "stylize"], []),
+            [typeof(RepeatEffect)] = Metadata(["tile", "pattern", "scroll"], []),
             [typeof(TransformEffect)] = Metadata(["motion", "distort", "transform"], []),
             [typeof(MosaicEffect)] = Metadata(["glitch", "pixel", "stylize"], []),
             [typeof(ColorShift)] = Metadata(["glitch", "chromatic", "stylize"], []),

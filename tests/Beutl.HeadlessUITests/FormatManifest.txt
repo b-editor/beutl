@@ -127,6 +127,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:RepeatEffectMirror>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:BlendMode>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
@@ -205,6 +208,9 @@ Beutl.Utilities
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:RepeatEffectMirror>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:BlendMode>
@@ -518,6 +524,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:RadialBlur
   sealed
   keys: Amount, Animations, Center, Expressions, Id, IsEnabled, Mode, Name, Samples
+[Beutl.Engine]Beutl.Graphics.Effects:RepeatEffect
+  sealed
+  keys: Animations, Columns, Expressions, Id, IsEnabled, Mirror, Name, Offset, Rows, Spacing
 [Beutl.Engine]Beutl.Graphics.Effects:SKSLScriptEffect
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Script

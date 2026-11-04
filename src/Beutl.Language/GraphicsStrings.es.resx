@@ -806,6 +806,39 @@
   <data name="SplitEffect_VerticalSpacing" xml:space="preserve">
     <value>Espaciado vertical</value>
   </data>
+  <data name="RepeatEffect" xml:space="preserve">
+    <value>Repetición</value>
+  </data>
+  <data name="RepeatEffect_Columns" xml:space="preserve">
+    <value>Columnas</value>
+  </data>
+  <data name="RepeatEffect_Rows" xml:space="preserve">
+    <value>Filas</value>
+  </data>
+  <data name="RepeatEffect_Spacing" xml:space="preserve">
+    <value>Espaciado</value>
+  </data>
+  <data name="RepeatEffect_Spacing_Description" xml:space="preserve">
+    <value>El espacio entre las copias. Con 0 quedan juntas.</value>
+  </data>
+  <data name="RepeatEffect_Offset_Description" xml:space="preserve">
+    <value>Mueve las copias dentro de la cuadrícula. La que sale por un extremo vuelve por el otro, así que al animarlo se desplaza sin fin.</value>
+  </data>
+  <data name="RepeatEffect_Mirror" xml:space="preserve">
+    <value>Reflejar</value>
+  </data>
+  <data name="RepeatEffectMirror_None" xml:space="preserve">
+    <value>Ninguno</value>
+  </data>
+  <data name="RepeatEffectMirror_Columns" xml:space="preserve">
+    <value>Columnas alternas</value>
+  </data>
+  <data name="RepeatEffectMirror_Rows" xml:space="preserve">
+    <value>Filas alternas</value>
+  </data>
+  <data name="RepeatEffectMirror_Both" xml:space="preserve">
+    <value>Ambos</value>
+  </data>
   <data name="TextAlignment_Center" xml:space="preserve">
     <value>Alinear al centro</value>
   </data>
