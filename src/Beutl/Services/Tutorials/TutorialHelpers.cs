@@ -251,7 +251,15 @@ public static class TutorialHelpers
     public static void OpenTransformRow(EditViewModel editVm, Drawable drawable, Transform row)
     {
         Element? element = drawable.FindHierarchicalParent<Element>();
-        TransformEditorViewModel? section = editVm.FindToolTab<ElementPropertyTabViewModel>(t => t.Element.Value == element)
+        ElementPropertyTabViewModel? FindTab() => editVm.FindToolTab<ElementPropertyTabViewModel>(t => t.Element.Value == element);
+
+        // The tab opened with the selection, but it may have been closed since.
+        if (FindTab() == null)
+        {
+            editVm.OpenSelectionInPropertyTabs();
+        }
+
+        TransformEditorViewModel? section = FindTab()
             ?.Items.FirstOrDefault(item => item.Model == drawable)
             ?.Properties.SelectMany(Flatten)
             .OfType<TransformEditorViewModel>()

@@ -11,6 +11,7 @@ using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
@@ -236,6 +237,27 @@ public sealed class TransformEditorAddMenuTests
         {
             window.Close();
         }
+    }
+
+    [AvaloniaTest]
+    public void Adding_leaves_a_value_that_an_expression_decides_alone()
+    {
+        var target = new TranslateTransform(30, 40);
+        var owner = new RectShape { Transform = { Value = target } };
+        var shape = new RectShape();
+        var stored = (TransformGroup)shape.Transform.Value!;
+        shape.Transform.Expression = new ReferenceExpression<Transform?>(target.Id.Value);
+        using var history = new HistoryScope(shape);
+        using TransformEditorViewModel viewModel = CreateViewModel(shape, history);
+
+        viewModel.AddItem(KnownTransformType.Rotation);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shape.Transform.Value, Is.SameAs(stored));
+            Assert.That(stored.Children, Is.Empty);
+            Assert.That(target.HierarchicalParent, Is.SameAs(owner));
+        });
     }
 
     [AvaloniaTest]

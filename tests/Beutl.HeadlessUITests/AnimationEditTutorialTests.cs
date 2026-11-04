@@ -16,9 +16,12 @@ namespace Beutl.HeadlessUITests;
 [NonParallelizable]
 public sealed class AnimationEditTutorialTests
 {
-    // A new drawable's transform section starts closed, and the tutorial's next step points at the X editor in it.
+    // A new drawable's transform section starts closed, and the tutorial's next step points at the X editor in it. The
+    // element property tab opens with the selection, but it may have been closed since.
     [AvaloniaTest]
-    public async Task The_step_after_the_selection_opens_the_section_down_to_the_translate()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task The_step_after_the_selection_opens_the_section_down_to_the_translate(bool tabClosed)
     {
         await TestReset.ResetShellAsync();
         try
@@ -30,16 +33,23 @@ public sealed class AnimationEditTutorialTests
             editor.GetRequiredService<IEditorSelection>().Select(element);
             HeadlessTestHelpers.Settle();
 
-            TransformEditorViewModel section = PropertyEditorTestHost.Flatten(
+            TransformEditorViewModel FindSection() => PropertyEditorTestHost.Flatten(
                     editor.FindToolTab<ElementPropertyTabViewModel>(tab => tab.Element.Value == element)!.Items.Single().Properties,
                     includeGroups: false)
                 .OfType<TransformEditorViewModel>()
                 .Single();
-            Assert.That(section.IsExpanded.Value, Is.False);
+            Assert.That(FindSection().IsExpanded.Value, Is.False);
+            if (tabClosed)
+            {
+                editor.CloseToolTab(editor.FindToolTab<ElementPropertyTabViewModel>()!);
+                HeadlessTestHelpers.Render(5);
+                Assert.That(editor.FindToolTab<ElementPropertyTabViewModel>(), Is.Null);
+            }
 
             tutorial.Steps.Single(step => step.Id == "animation-add-translate").OnShown!();
             HeadlessTestHelpers.Settle();
 
+            TransformEditorViewModel section = FindSection();
             var group = (TransformGroup)element.Objects.OfType<EllipseShape>().Single().Transform.Value!;
             Assert.Multiple(() =>
             {

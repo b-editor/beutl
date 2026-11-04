@@ -161,6 +161,9 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
 
     public void AddItem(T instance, string? commandName = null)
     {
+        // An expression decides the value: what is added would not show, and the value it gives belongs elsewhere.
+        if (HasExpression.Value) return;
+
         if (!IsElementEditable)
         {
             // Nothing can be added while the element is under repair, but a value that is no group can be replaced.

@@ -2,6 +2,8 @@
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
+using Beutl.Graphics;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -486,6 +488,10 @@ public class ElementClipboardServiceTests
             Assert.That(pasted.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)),
                 "a pasted bitmap keeps its 5s length instead of being shortened to the gap");
             Assert.That(OverlapsAnotherChild(_scene, pasted), Is.False);
+            Assert.That(
+                ((TransformGroup)pasted.Objects.OfType<SourceImage>().Single().Transform.Value!).Children.Select(child => child.GetType()),
+                Is.EqualTo(new[] { typeof(TranslateTransform), typeof(RotationTransform), typeof(ScaleTransform) }),
+                "a pasted bitmap starts with its transforms like any new object");
         });
     }
 
