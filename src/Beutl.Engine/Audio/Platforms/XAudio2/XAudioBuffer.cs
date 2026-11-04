@@ -24,7 +24,13 @@ public sealed unsafe class XAudioBuffer : IDisposable
     public WaveFormat? Format { get; private set; }
 
     public void BufferData(AudioBuffer audio)
-        => BufferData(audio, new WaveFormat(audio.SampleRate, 32, 2));
+    {
+        // The format says stereo, so any other count would send too few samples or a rented array's old contents.
+        if (audio.ChannelCount != 2)
+            throw new ArgumentException("A buffer without a layout must be stereo.", nameof(audio));
+
+        BufferData(audio, new WaveFormat(audio.SampleRate, 32, 2));
+    }
 
     public void BufferData(AudioBuffer audio, AudioChannelLayout layout)
     {

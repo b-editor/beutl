@@ -77,7 +77,8 @@ public sealed record DuplicateObjectResponse(
 internal sealed record DuplicateObjectLocation(
     Element Element,
     EngineObject Source,
-    DrawableGroup? ParentGroup);
+    DrawableGroup? ParentGroup,
+    string? ParentGroupPath = null);
 
 internal sealed record ResolvedEdit(JsonObject Document, HashSet<Guid> KnownNewIds);
 

@@ -54,7 +54,7 @@ public interface INodeGraphMutationService
     /// → add a new port (commits <c>AddPort</c>).</item>
     /// <item>Both ports set with compatible direction (one input + one output)
     /// → connect (commits <c>ConnectPort</c>).</item>
-    /// <item>Otherwise → no-op.</item>
+    /// <item>Otherwise, or when the connection would close a cycle → no-op.</item>
     /// </list>
     /// </summary>
     NodeConnectOutcome TryConnect(GraphModel graph,

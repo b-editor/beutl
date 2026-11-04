@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using System.Collections.Immutable;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -14,6 +15,20 @@ public interface IElementDuplicateService
         IReadOnlyList<Element> sources,
         MediaTime clickedFrame,
         int clickedLayer);
+
+    /// <summary>
+    /// Duplicates sources whose groups are not those of the scene, such as clips from the clipboard.
+    /// </summary>
+    /// <param name="sourceGroups">The groups of the sources, which take the place of the scene's.</param>
+    DuplicateOutcome DuplicateAtClickedPosition(
+        Scene scene,
+        IReadOnlyList<Element> sources,
+        MediaTime clickedFrame,
+        int clickedLayer,
+        IReadOnlyCollection<ImmutableHashSet<Guid>> sourceGroups)
+    {
+        return DuplicateAtClickedPosition(scene, sources, clickedFrame, clickedLayer);
+    }
 
     bool DuplicateAtPosition(
         Scene scene,

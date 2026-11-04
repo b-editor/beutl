@@ -35,29 +35,28 @@ public sealed partial class UnlitMaterial : Material3D
     [Range(0f, 1f), NumberStep(0.1, 0.01)]
     public IExpressionProperty<float> Opacity { get; } = Property.CreateAnimatable(1f);
 
+    [Display(Name = nameof(GraphicsStrings.AlphaMode), ResourceType = typeof(GraphicsStrings))]
+    public IExpressionProperty<AlphaMode> AlphaMode { get; } = Property.CreateExpression(Materials.AlphaMode.Auto);
+
+    [Display(Name = nameof(GraphicsStrings.UnlitMaterial_AlphaCutoff), ResourceType = typeof(GraphicsStrings))]
+    [Range(0f, 1f), NumberStep(0.1, 0.01)]
+    public IExpressionProperty<float> AlphaCutoff { get; } = Property.CreateAnimatable(0.5f);
+
     public partial class Resource
     {
-        // A card shows its 2D content from both sides and, being see-through, writes no depth. A mesh keeps its
-        // back faces culled so it cannot draw its far side over its near one, and writes depth when opaque so
-        // its own nearer surfaces hide the rest.
-        private const int CardVariant = 0;
-        private const int TranslucentMeshVariant = 1;
-        private const int OpaqueMeshVariant = 2;
+        // The pipelines differ in whether they cull back faces and write depth, so each combination has one.
+        private const int DoubleSidedVariantBit = 1;
+        private const int WritesDepthVariantBit = 2;
 
-        private readonly IPipeline3D?[] _pipelines = new IPipeline3D?[3];
-        private readonly MaterialDrawBindingPool?[] _drawBindings = new MaterialDrawBindingPool?[3];
+        private readonly IPipeline3D?[] _pipelines = new IPipeline3D?[4];
+        private readonly MaterialDrawBindingPool?[] _drawBindings = new MaterialDrawBindingPool?[4];
         private IRenderPass3D? _pipelineRenderPass;
         private ISampler? _sampler;
         private ITexture2D? _defaultWhiteTexture;
 
         protected internal override IPipeline3D? Pipeline => _pipelines[Variant];
 
-        // A mesh with an opaque tint writes depth even when textured, so a concave model hides its own far side;
-        // texels with no alpha are discarded and write nothing. Translucent texels of a self-overlapping mesh
-        // then depend on triangle order, the usual cost of not sorting within a mesh.
-        private int Variant => ContentMap != null
-            ? CardVariant
-            : Opacity >= 1 && Color.A == 255 ? OpaqueMeshVariant : TranslucentMeshVariant;
+        private int Variant => (IsDoubleSided ? DoubleSidedVariantBit : 0) | (WritesDepth ? WritesDepthVariantBit : 0);
 
         /// <summary>A color map supplied by the owning object in place of <see cref="ColorMap"/>.</summary>
         internal TextureSource.Resource? ContentMap { get; set; }
@@ -68,10 +67,24 @@ public sealed partial class UnlitMaterial : Material3D
 
         protected internal override bool IsDoubleSided => ContentMap != null;
 
-        protected internal override bool WritesDepth => Variant == OpaqueMeshVariant;
+        protected internal override bool WritesDepth => AlphaMode switch
+        {
+            Materials.AlphaMode.Opaque or Materials.AlphaMode.Mask => true,
+            Materials.AlphaMode.Blend => false,
+            // A card shows see-through 2D content, so it writes no depth. A mesh with an opaque tint does even when
+            // textured, so a concave model hides its own far side; texels with no alpha are discarded and write
+            // nothing. Translucent texels of a self-overlapping mesh then depend on triangle order, the usual cost
+            // of not sorting within a mesh.
+            _ => ContentMap == null && Opacity >= 1 && Color.A == 255,
+        };
 
-        // The fragment shader discards every pixel once the color's alpha or the opacity reaches zero.
-        protected internal override bool IsInvisible => Opacity <= 0 || Color.A == 0;
+        // The fragment shader discards every pixel once the color's alpha or the opacity falls below what it keeps.
+        protected internal override bool IsInvisible => AlphaMode switch
+        {
+            Materials.AlphaMode.Opaque => false,
+            Materials.AlphaMode.Mask => Math.Clamp(Opacity, 0f, 1f) * Color.A / 255f < AlphaCutoff,
+            _ => Opacity <= 0 || Color.A == 0,
+        };
 
         protected internal override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
         {
@@ -105,8 +118,8 @@ public sealed partial class UnlitMaterial : Material3D
             for (int variant = 0; variant < _pipelines.Length; variant++)
             {
                 PipelineOptions options = PipelineOptions.Transparent;
-                options.CullMode = variant == CardVariant ? CullMode.None : CullMode.Back;
-                options.DepthWriteEnabled = variant == OpaqueMeshVariant;
+                options.CullMode = (variant & DoubleSidedVariantBit) != 0 ? CullMode.None : CullMode.Back;
+                options.DepthWriteEnabled = (variant & WritesDepthVariantBit) != 0;
 
                 IPipeline3D pipeline = graphicsContext.CreatePipeline3D(
                     context.RenderPass,
@@ -142,7 +155,16 @@ public sealed partial class UnlitMaterial : Material3D
                 Model = worldMatrix,
                 View = context.ViewMatrix,
                 Projection = context.ProjectionMatrix,
-                BaseColor = Color.ToLinearPremultiplied() * Math.Clamp(Opacity, 0f, 1f),
+                // Alpha means nothing to an opaque material, whose map's alpha is ignored in the shader as well.
+                BaseColor = AlphaMode == Materials.AlphaMode.Opaque
+                    ? new Color(255, Color.R, Color.G, Color.B).ToLinearPremultiplied()
+                    : Color.ToLinearPremultiplied() * Math.Clamp(Opacity, 0f, 1f),
+                Alpha = AlphaMode switch
+                {
+                    Materials.AlphaMode.Opaque => new Vector4(0f, 1f, 0f, 0f),
+                    Materials.AlphaMode.Mask => new Vector4(AlphaCutoff, 1f, 0f, 0f),
+                    _ => new Vector4(1f / 255f, 0f, 0f, 0f),
+                },
             };
 
             drawBindings.UploadAndBind(bindings, in ubo, context.RenderPass, pipeline);
@@ -173,6 +195,7 @@ public sealed partial class UnlitMaterial : Material3D
             public Matrix4x4 View;
             public Matrix4x4 Projection;
             public Vector4 BaseColor;
+            public Vector4 Alpha;
         }
 
         // Both stages bind this block at descriptor binding 0, so they must declare the same fields in
@@ -183,6 +206,7 @@ public sealed partial class UnlitMaterial : Material3D
                 mat4 view;
                 mat4 projection;
                 vec4 baseColor;
+                vec4 alpha; // x: the alpha a pixel needs to be kept, y: 1 when kept pixels are opaque.
             } material;
             """;
 
@@ -218,11 +242,11 @@ public sealed partial class UnlitMaterial : Material3D
 
             void main() {
                 vec4 color = material.baseColor * texture(colorMap, fragTexCoord);
-                if (color.a < 1.0 / 255.0) {
+                if (color.a < material.alpha.x) {
                     discard;
                 }
 
-                outColor = color;
+                outColor = material.alpha.y != 0.0 ? vec4(color.rgb / max(color.a, 1.0 / 255.0), 1.0) : color;
             }
             """;
     }

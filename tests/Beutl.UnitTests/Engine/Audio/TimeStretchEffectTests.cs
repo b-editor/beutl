@@ -613,6 +613,152 @@ public class TimeStretchEffectTests
         Assert.That(restoredEffect.Speed.GetKeyFrameAnimation()!.Interpolate(MediaTime.FromSeconds(1)), Is.EqualTo(200f));
     }
 
+    // Mapping each chunk to the source used to integrate the current second again, millions of evaluations for one
+    // second of audio in small chunks (#2734).
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Process_AnimatedSpeedEvaluatesItAboutTwiceForEachSample(bool useGlobalClock)
+    {
+        var easing = new CountingEasing();
+        TimeStretchEffect effect = AnimatedEffect(easing, useGlobalClock, 50f, 200f);
+        using var node = new TimeStretchNode { Speed = effect.Speed };
+        node.AddInput(ToneSource());
+
+        for (int start = 0; start < SampleRate; start += 256)
+        {
+            using AudioBuffer output = node.Process(Context(start, 256));
+        }
+
+        // Once to map to the source and once for the speed of the sample, with a few for the ends of the queries.
+        Assert.That(easing.Count, Is.LessThan(SampleRate * 3));
+    }
+
+    [TestCase(100f, 100f, 100f, false)]
+    [TestCase(50f, 50f, 50f, false)]
+    [TestCase(125f, 125f, 125f, false)]
+    [TestCase(125f, 125f, 125f, true)]
+    // Both are above what the effect allows.
+    [TestCase(500f, 800f, 400f, false)]
+    public void Process_ConstantAnimationPlaysAsItsFixedSpeed(float from, float to, float expected, bool useGlobalClock)
+    {
+        var easing = new CountingEasing();
+        TimeStretchEffect effect = AnimatedEffect(easing, useGlobalClock, from, to);
+        using var animated = new TimeStretchNode { Speed = effect.Speed };
+        animated.AddInput(ToneSource());
+        using TimeStretchNode fixedSpeed = CreateNode(expected, ToneSource());
+
+        for (int start = 0; start < SampleRate; start += 256)
+        {
+            using AudioBuffer actual = animated.Process(Context(start, 256));
+            using AudioBuffer wanted = fixedSpeed.Process(Context(start, 256));
+            Assert.That(actual.GetChannelData(0).ToArray(), Is.EqualTo(wanted.GetChannelData(0).ToArray()), $"at {start}");
+        }
+
+        Assert.That(easing.Count, Is.Zero);
+    }
+
+    [Test]
+    public void Process_ConstantAnimationAt100PercentPassesTheInputThrough()
+    {
+        TimeStretchEffect effect = AnimatedEffect(new CountingEasing(), false, 100f, 100f);
+        SignalNode source = ToneSource();
+        using var node = new TimeStretchNode { Speed = effect.Speed };
+        node.AddInput(source);
+
+        using AudioBuffer output = node.Process(Context(SampleRate, 256));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(source.Requests, Is.EqualTo(new[] { ((long)SampleRate, 256) }));
+            Assert.That(output.GetChannelData(0)[10], Is.EqualTo(Sine(SampleRate + 10, SampleRate, 440)));
+        });
+    }
+
+    // Both keyframes are over the limit, but this easing can dip from 500% to under it on the way.
+    [Test]
+    public void Process_KeyFramesClampedToOneSpeedStayAnimatedIfAnEasingCanLeaveTheClamp()
+    {
+        var easing = new CountingEasing(minimum: -0.5f);
+        TimeStretchEffect effect = AnimatedEffect(easing, false, 500f, 1000f);
+        using var node = new TimeStretchNode { Speed = effect.Speed };
+        node.AddInput(ToneSource());
+
+        using AudioBuffer output = node.Process(Context(0, 256));
+
+        Assert.That(easing.Count, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void Process_EditingAConstantAnimationToVaryMapsTheSourceAgain()
+    {
+        TimeStretchEffect effect = AnimatedEffect(new CountingEasing(), false, 50f, 50f);
+        KeyFrameAnimation<float> animation = effect.Speed.GetKeyFrameAnimation()!;
+        SignalNode source = ToneSource();
+        using var node = new TimeStretchNode { Speed = effect.Speed };
+        node.AddInput(source);
+        using (AudioBuffer before = node.Process(Context(0, SampleRate)))
+        {
+            Assert.That(source.Requests[0].Start, Is.Zero);
+        }
+
+        source.Requests.Clear();
+        ((KeyFrame<float>)animation.KeyFrames[1]).Value.Value = 200f;
+
+        using AudioBuffer after = node.Process(Context(SampleRate, SampleRate));
+
+        // The integral of 0.5 + 0.15 * t over [0, 1] is 0.575 source seconds.
+        Assert.That(source.Requests[0].Start, Is.EqualTo((long)(0.575 * SampleRate)).Within(1));
+    }
+
+    [Test]
+    public void Process_EditingAVaryingAnimationToAConstantMapsTheSourceAgain()
+    {
+        TimeStretchEffect effect = AnimatedEffect(new CountingEasing(), false, 50f, 200f);
+        KeyFrameAnimation<float> animation = effect.Speed.GetKeyFrameAnimation()!;
+        SignalNode source = ToneSource();
+        using var node = new TimeStretchNode { Speed = effect.Speed };
+        node.AddInput(source);
+        using (AudioBuffer before = node.Process(Context(0, SampleRate)))
+        {
+        }
+
+        source.Requests.Clear();
+        ((KeyFrame<float>)animation.KeyFrames[0]).Value.Value = 200f;
+
+        using AudioBuffer after = node.Process(Context(SampleRate, SampleRate));
+
+        Assert.That(source.Requests[0].Start, Is.EqualTo(2L * SampleRate).Within(1));
+    }
+
+    private static TimeStretchEffect AnimatedEffect(Easing easing, bool useGlobalClock, float from, float to)
+    {
+        var effect = new TimeStretchEffect { TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(3), MediaTime.FromSeconds(60)) } };
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = { Value = useGlobalClock } };
+        MediaTime offset = useGlobalClock ? effect.TimeRange.Value.Start : MediaTime.Zero;
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = offset }, Value = { Value = from }, Easing = { Value = easing } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = offset + MediaTime.FromSeconds(10) }, Value = { Value = to }, Easing = { Value = easing } });
+        effect.Speed.SetKeyFrameAnimation(animation);
+        return effect;
+    }
+
+    private sealed class CountingEasing(float minimum = 0) : Easing
+    {
+        public long Count { get; private set; }
+
+        public override float Ease(float progress)
+        {
+            Count++;
+            return progress;
+        }
+
+        public override bool TryGetOutputRange(out float outputMinimum, out float outputMaximum)
+        {
+            outputMinimum = minimum;
+            outputMaximum = 1;
+            return true;
+        }
+    }
+
     private static TimeStretchNode CreateNode(float speed, AudioNode source)
     {
         var effect = new TimeStretchEffect();

@@ -25,18 +25,14 @@ internal sealed class MetalContext : IDisposable
     private const nuint CompletedStatus = 4;
     private const nuint ErrorStatus = 5;
 
-    public MetalContext()
+    public MetalContext(IntPtr metalDevice)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
             throw new PlatformNotSupportedException("Metal is only supported on macOS/iOS");
         }
 
-        _metalDevice = MTLCreateSystemDefaultDevice();
-        if (_metalDevice == IntPtr.Zero)
-        {
-            throw new InvalidOperationException("Failed to create Metal device");
-        }
+        _metalDevice = objc_msgSend_IntPtr(metalDevice, s_retainSelector);
 
         try
         {
@@ -74,6 +70,8 @@ internal sealed class MetalContext : IDisposable
     }
 
     public GRContext SkiaContext => _grContext;
+
+    internal IntPtr MetalDevice => _metalDevice;
 
     /// <summary>Holds every command buffer Skia commits after this call until <paramref name="sharedEvent"/> reaches <paramref name="value"/>.</summary>
     /// <remarks>A wait blocks its queue, not only its own command buffer, so later Skia submissions stay behind it.</remarks>
@@ -177,9 +175,6 @@ internal sealed class MetalContext : IDisposable
             objc_msgSend_void(obj, s_releaseSelector);
         }
     }
-
-    [DllImport("/System/Library/Frameworks/Metal.framework/Metal")]
-    private static extern IntPtr MTLCreateSystemDefaultDevice();
 
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "sel_getUid")]
     private static extern IntPtr sel_getUid(string selector);

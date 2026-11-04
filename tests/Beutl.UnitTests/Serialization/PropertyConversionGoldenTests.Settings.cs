@@ -42,6 +42,7 @@ public partial class PropertyConversionGoldenTests
             {
                 LastMediaDirectory = { Value = "/golden/media" },
                 AutoAdjustSceneDuration = { Value = false },
+                SeekOnTimelineClick = { Value = false },
                 FrameCacheMaxSize = { Value = 512 },
                 FrameCacheScale = { Value = FrameCacheConfigScale.Original },
                 TimelineAutoScrollMode = { Value = TimelineAutoScrollMode.AlwaysFollow },

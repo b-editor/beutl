@@ -114,6 +114,25 @@ public class ElementAddEntryPointTests
         }
     }
 
+    [Test]
+    public void A_refused_paste_says_why()
+    {
+        using var notifications = new NotificationCapture();
+
+        TimelineTabViewModel.ShowPasteFailure(new LockedElementLayerFailure(1));
+        TimelineTabViewModel.ShowPasteFailure(new ElementSceneNotSavedFailure());
+        TimelineTabViewModel.ShowPasteFailure(new InvalidElementMaterializationFailure("failed"));
+
+        Assert.That(
+            notifications.All.Select(notification => (notification.Type, notification.Title, notification.Message)),
+            Is.EqualTo(new[]
+            {
+                (NotificationType.Warning, Strings.Lock, Strings.LayerIsLocked),
+                (NotificationType.Warning, Strings.Paste, Strings.Paste_ProjectNotSaved),
+                (NotificationType.Error, Strings.AddElement, MessageStrings.UnexpectedError),
+            }));
+    }
+
     [AvaloniaTest]
     public async Task TimelineAddElement_GeneralFailure_ShowsErrorWithoutAddingOrScrolling()
     {

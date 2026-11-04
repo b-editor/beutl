@@ -356,6 +356,12 @@
   <data name="PackagesCanBeUpdated" xml:space="preserve">
     <value>有 {0} 个包可以更新。</value>
   </data>
+  <data name="PackageUpdatesRequired" xml:space="preserve">
+    <value>需要更新包。</value>
+  </data>
+  <data name="PackagesNotLoadedOnThisVersion" xml:space="preserve">
+    <value>有 {0} 个包无法在此版本的 Beutl 中加载。</value>
+  </data>
   <data name="IsNotValid" xml:space="preserve">
     <value>{0} 无效。</value>
   </data>
@@ -506,5 +512,14 @@
   </data>
   <data name="KeptUnknownDataSavedByMessage" xml:space="preserve">
     <value>此项目最后由 Beutl {0} 保存，包含来自较新版本的 Beutl 或未安装的扩展的数据。Beutl 在保存项目时会保留这些数据，但不会显示或使用它们。</value>
+  </data>
+  <data name="UpdatedToVersion_Title" xml:space="preserve">
+    <value>已更新到 Beutl {0}</value>
+  </data>
+  <data name="UpdatedToVersion_Content" xml:space="preserve">
+    <value>可在发行说明中查看变更内容。</value>
+  </data>
+  <data name="ReleaseNotes" xml:space="preserve">
+    <value>发行说明</value>
   </data>
 </root>

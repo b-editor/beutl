@@ -48,6 +48,45 @@ public class PropertyExpressionTests
         Assert.That(shown, Is.EqualTo(20f));
     }
 
+    // The animation takes over from the expression, so it starts at the value on screen and not at one from before it.
+    [AvaloniaTest]
+    public void Editing_the_animation_of_an_expression_starts_at_the_value_it_shows()
+    {
+        var shape = new RectShape();
+        var property = (AnimatableProperty<float>)shape.Opacity;
+        property.Value = 75;
+        property.Expression = new StringExpression<float>("(float)Time * 10");
+        var clock = new Mock<IEditorClock>();
+        clock.SetupGet(x => x.CurrentTime).Returns(new ReactivePropertySlim<MediaTime>(MediaTime.FromSeconds(2)));
+        using var history = new PropertyEditorTestHost.HistoryScope(shape);
+        using var model = new FloatEditorViewModel((IPropertyAdapter<float>)PropertyAdapterFactory.CreateAdapter(property, shape));
+        model.Accept(new PropertyEditorTestHost.ServiceVisitor(
+            (typeof(IEditorClock), clock.Object), (typeof(Beutl.Editor.HistoryManager), history.History)));
+
+        model.PrepareToEditAnimation();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(property.HasExpression, Is.False);
+            Assert.That(((KeyFrame<float>)property.GetKeyFrameAnimation()!.KeyFrames.Single()).Value.Value, Is.EqualTo(20f));
+        });
+    }
+
+    [AvaloniaTest]
+    public void Editing_the_animation_of_a_fixed_value_starts_at_that_value()
+    {
+        var shape = new RectShape();
+        var property = (AnimatableProperty<float>)shape.Opacity;
+        property.Value = 75;
+        using var history = new PropertyEditorTestHost.HistoryScope(shape);
+        using var model = new FloatEditorViewModel((IPropertyAdapter<float>)PropertyAdapterFactory.CreateAdapter(property, shape));
+        model.Accept(PropertyEditorTestHost.ServiceVisitor.For(history.History));
+
+        model.PrepareToEditAnimation();
+
+        Assert.That(((KeyFrame<float>)property.GetKeyFrameAnimation()!.KeyFrames.Single()).Value.Value, Is.EqualTo(75f));
+    }
+
     [AvaloniaTest]
     [TestCase(false, false)]
     [TestCase(true, false)]

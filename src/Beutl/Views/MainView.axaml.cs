@@ -122,6 +122,7 @@ public sealed partial class MainView : UserControl
 
         StartupNotificationService.ShowTelemetryConsent(GlobalConfiguration.Instance.TelemetryConfig);
         await CheckDifferentVersion();
+        StartupNotificationService.ShowReleaseNotes(GlobalConfiguration.Instance.LastStartedVersion, BeutlApplication.Version);
         await CheckAgentToolkitUpdateAsync();
 
         _logger.LogInformation("Window opened.");

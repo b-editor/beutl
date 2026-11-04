@@ -12,6 +12,11 @@ public static class BeutlClipboardFormats
 
     public const string Elements = "BeutlElementsJson";
 
+    /// <summary>
+    /// The groups of the clips in <see cref="Elements"/> at the time of the copy, as lists of their IDs.
+    /// </summary>
+    public const string ElementGroups = "BeutlElementGroupsJson";
+
     public const string Files = "Files";
 
     public const string Bitmap = "Bitmap";

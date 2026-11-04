@@ -417,7 +417,7 @@ public class SimpleColorPicker : TemplatedControl
             text = text.TrimEnd('%');
         }
 
-        return float.TryParse(text, out r);
+        return NumberEditorHelper.TryParse(text, out r);
     }
 
     private void OnOpacityBoxTextChanged(AvaloniaPropertyChangedEventArgs args)

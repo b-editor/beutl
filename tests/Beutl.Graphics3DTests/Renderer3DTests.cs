@@ -6,7 +6,10 @@ using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Primitives;
+using Beutl.Graphics3D.Textures;
 using Beutl.Media;
+using Beutl.Media.Source;
+using SkiaSharp;
 
 namespace Beutl.Graphics3DTests;
 
@@ -70,6 +73,82 @@ public class Renderer3DTests
         FramesRendered own = RenderFrames(static () => new BasicMaterial(), meshes: 4, frames: 6);
 
         Assert.That(shared.LastFrame, Is.EqualTo(own.LastFrame), "A draw must not take another draw's transform from reused bindings.");
+    }
+
+    // A white unlit sphere in front of a red one, with the green channel telling how much white reaches the pixel.
+    [TestCase(AlphaMode.Auto, 0.5f, 0.5f)]
+    [TestCase(AlphaMode.Blend, 0.5f, 0.5f)]
+    [TestCase(AlphaMode.Blend, 1f, 1f)]
+    [TestCase(AlphaMode.Opaque, 0.5f, 1f)]
+    [TestCase(AlphaMode.Opaque, 0f, 1f)]
+    [TestCase(AlphaMode.Mask, 0.6f, 1f)]
+    [TestCase(AlphaMode.Mask, 0.4f, 0f)]
+    public void AlphaMode_DecidesHowAnUnlitSphereCoversWhatIsBehindIt(AlphaMode mode, float opacity, float green)
+    {
+        AssertWhatReachesTheMiddle(new UnlitMaterial { AlphaMode = { Value = mode }, Opacity = { Value = opacity } }, green);
+    }
+
+    // What a cut-out is for: the alpha of the color map decides, pixel by pixel.
+    [TestCase(153, 1f)]
+    [TestCase(102, 0f)]
+    public void AlphaMode_Mask_CutsOutWhereTheColorMapIsTransparent(int alpha, float green)
+    {
+        DirectoryInfo directory = Directory.CreateTempSubdirectory("beutl-unlit-mask-");
+        try
+        {
+            string path = Path.Combine(directory.FullName, "map.png");
+            using (var bitmap = new SKBitmap(new SKImageInfo(4, 4, SKColorType.Rgba8888, SKAlphaType.Unpremul)))
+            {
+                bitmap.Erase(new SKColor(255, 255, 255, (byte)alpha));
+                using SKData data = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+                using FileStream stream = File.Create(path);
+                data.SaveTo(stream);
+            }
+
+            var image = new ImageSource();
+            image.ReadFrom(new Uri(path));
+            var map = new ImageTextureSource();
+            map.Source.Value = image;
+
+            AssertWhatReachesTheMiddle(new UnlitMaterial { AlphaMode = { Value = AlphaMode.Mask }, ColorMap = { Value = map } }, green);
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
+
+    private void AssertWhatReachesTheMiddle(UnlitMaterial material, float green)
+    {
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var renderer = new Renderer3D(_context);
+            renderer.Initialize(64, 64);
+            var composition = new CompositionContext(MediaTime.Zero);
+            using PerspectiveCamera.Resource camera = CreateCamera(composition);
+            var near = new Sphere3D();
+            near.Radius.Value = 1f;
+            near.Material.Value = material;
+            var far = new Sphere3D();
+            far.Radius.Value = 1f;
+            far.Position.Value = new Vector3(0, 0, -2);
+            far.Material.Value = new UnlitMaterial { Color = { Value = Colors.Red } };
+            using var nearResource = (Object3D.Resource)near.ToResource(composition);
+            using var farResource = (Object3D.Resource)far.ToResource(composition);
+
+            renderer.Render(composition, camera, [nearResource, farResource], [], Colors.Black, Colors.White, 1f);
+
+            ReadOnlySpan<Half> values = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, Half>(renderer.DownloadPixels());
+            int center = (32 * 64 + 32) * 4;
+            float red = (float)values[center];
+            float centerGreen = (float)values[center + 1];
+            Assert.Multiple(() =>
+            {
+                Assert.That(red, Is.EqualTo(1f).Within(0.01f));
+                Assert.That(centerGreen, Is.EqualTo(green).Within(0.01f));
+            });
+            return 0;
+        });
     }
 
     private FramesRendered RenderFrames(Func<Material3D?> createMaterial, int meshes, int frames)

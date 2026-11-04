@@ -319,7 +319,8 @@ public readonly struct ClipTransitionContext
     /// </summary>
     public void DrawClip(IReadOnlyList<Drawable.Resource> drawables)
     {
-        using (PushIsolation())
+        // Unlike the two sides, the drawables of one side do make up each other's backdrop.
+        using (ContentIsolationRenderNode.Push(graphics))
         {
             foreach (Drawable.Resource drawable in drawables)
             {
@@ -332,5 +333,9 @@ public readonly struct ClipTransitionContext
     /// Composites everything drawn inside it into its own layer first, so a <see cref="BlendMode.Plus"/>
     /// blend combines the two sides with each other and not with the layers beneath.
     /// </summary>
-    public PushedState PushIsolation() => ContentIsolationRenderNode.Push(graphics);
+    /// <remarks>
+    /// What is drawn inside it stays out of the backdrop of what is drawn after it there, so an adjustment
+    /// clip on one side processes the layers beneath the boundary rather than the other side.
+    /// </remarks>
+    public PushedState PushIsolation() => ContentIsolationRenderNode.Push(graphics, contributesToBackdrop: false);
 }

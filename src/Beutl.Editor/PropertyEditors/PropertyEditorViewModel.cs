@@ -239,6 +239,9 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     protected MediaTime CurrentTimeValue => _currentTime.Value;
 
+    // A node member's animation has no parent to find its clock through.
+    private protected GraphNode? AnimationOwner => _node;
+
     [AllowNull] public PropertyEditorExtension Extension { get; set; }
 
     protected void CompleteElementRepair()

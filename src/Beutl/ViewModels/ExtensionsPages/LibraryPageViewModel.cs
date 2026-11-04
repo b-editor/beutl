@@ -23,6 +23,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
     private readonly LibraryService _service;
     private readonly EditorService _editorService;
     private readonly ProjectService _projectService;
+    private readonly Task _initialRefresh;
 
     public LibraryPageViewModel(AuthenticatedUser? user, BeutlApiApplication clients, EditorService editorService, ProjectService projectService)
     {
@@ -59,7 +60,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 }))
             .DisposeWith(_disposables);
 
-        Refresh.Execute();
+        _initialRefresh = Refresh.ExecuteAsync();
 
         CheckUpdate = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(() => StorePageCommand.RunAsync(
@@ -113,6 +114,13 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
             _disposables.Dispose();
             _lifetimeCts.Dispose();
         }
+    }
+
+    // The refresh that the constructor starts blocks CheckUpdate until it has finished.
+    public async Task CheckUpdateAfterRefreshAsync()
+    {
+        await _initialRefresh;
+        await CheckUpdate.ExecuteAsync();
     }
 
     public async Task<Package?> TryFindPackage(LocalPackage localPackage)
