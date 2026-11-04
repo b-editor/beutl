@@ -338,6 +338,15 @@
   <data name="Easing" xml:space="preserve">
     <value>缓动</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>第一个控制点 {0}, {1}。第二个控制点 {2}, {3}。</value>
+  </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>已选择第一个控制点。</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>已选择第二个控制点。</value>
+  </data>
   <data name="Hold" xml:space="preserve">
     <value>保持</value>
   </data>
@@ -445,6 +454,9 @@
   </data>
   <data name="Audio" xml:space="preserve">
     <value>音频</value>
+  </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>主音量 (%)</value>
   </data>
   <data name="Off" xml:space="preserve">
     <value>关</value>

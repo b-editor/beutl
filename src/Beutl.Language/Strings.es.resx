@@ -338,6 +338,15 @@
   <data name="Easing" xml:space="preserve">
     <value>Suavizado</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>Primer punto de control {0}, {1}. Segundo punto de control {2}, {3}.</value>
+  </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>Está seleccionado el primer punto de control.</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>Está seleccionado el segundo punto de control.</value>
+  </data>
   <data name="Hold" xml:space="preserve">
     <value>Mantener</value>
   </data>
@@ -445,6 +454,9 @@
   </data>
   <data name="Audio" xml:space="preserve">
     <value>Audio</value>
+  </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>Volumen maestro (%)</value>
   </data>
   <data name="Off" xml:space="preserve">
     <value>Desactivado</value>

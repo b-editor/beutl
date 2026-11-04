@@ -65,10 +65,24 @@
         <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
         <Setter Property="Template">
             <ControlTemplate>
-                <Border Padding="{TemplateBinding Padding}"
+                <Border Container.Name="EasingEditor"
+                        Container.Sizing="Width"
+                        Padding="{TemplateBinding Padding}"
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
+                    <Border.Styles>
+                        <!-- The value column alone leaves too little plot to place a handle until the row is wide. -->
+                        <Style Selector="local|EasingCurveEditor#PART_CurveEditor">
+                            <Setter Property="Grid.ColumnSpan" Value="4" />
+                        </Style>
+                        <ContainerQuery Name="EasingEditor" Query="min-width:520">
+                            <Style Selector="local|EasingCurveEditor#PART_CurveEditor">
+                                <Setter Property="Grid.Column" Value="2" />
+                                <Setter Property="Grid.ColumnSpan" Value="1" />
+                            </Style>
+                        </ContainerQuery>
+                    </Border.Styles>
                     <local:PropertyEditorGrid RowDefinitions="Auto,Auto">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -118,7 +132,6 @@
 
                         <local:EasingCurveEditor Name="PART_CurveEditor"
                                                  Grid.Row="1"
-                                                 Grid.Column="2"
                                                  Margin="4,0,4,4"
                                                  HorizontalAlignment="Stretch"
                                                  Easing="{TemplateBinding Value}"
@@ -172,6 +185,7 @@
 
                             <local:EasingCurveEditor Name="PART_CurveEditor"
                                                      Grid.Row="2"
+                                                     Grid.ColumnSpan="2"
                                                      Margin="4,0,4,4"
                                                      HorizontalAlignment="Stretch"
                                                      Easing="{TemplateBinding Value}"

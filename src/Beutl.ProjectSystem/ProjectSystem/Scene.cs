@@ -149,6 +149,13 @@ public partial class Scene : ProjectItem, INotifyEdited
     [Display(Name = nameof(Strings.DurationTime), ResourceType = typeof(Strings))]
     public IProperty<MediaTime> Duration { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero) { Coerce = static (_, value) => NotNegative(value) };
 
+    // The volume of everything in the scene together, in percent.
+    [Display(Name = nameof(Strings.MasterVolume), ResourceType = typeof(Strings))]
+    public IProperty<float> MasterVolume { get; } = new ValueOnlyProperty<float>(100f) { Coerce = static (_, value) => value > 0 ? value : 0 };
+
+    // What the mix is multiplied by.
+    internal float MasterGain => MasterVolume.Value / 100f;
+
     [NotAutoSerialized]
     public IListProperty<ImmutableHashSet<Guid>> Groups { get; } = new ListProperty<ImmutableHashSet<Guid>> { AffectsRender = false };
 
