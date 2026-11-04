@@ -1,68 +1,32 @@
-﻿using Avalonia.Automation;
-using Avalonia.Controls;
-using Avalonia.Layout;
-using Avalonia.Media;
+﻿using Avalonia.Controls;
 using Beutl.Editor.Services.Captions;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
-// Asks which look the clips of dropped subtitle files take.
+// Asks which look the clips of dropped subtitle files take, with a menu where they were dropped.
 internal static class CaptionTemplateChooser
 {
-    public static async Task<CaptionTemplate?> ShowAsync(
-        IReadOnlyList<CaptionTemplate> templates, CaptionTemplate selected, IReadOnlyList<string> files)
+    public static Task<CaptionTemplate?> ShowAsync(Control target, IEnumerable<CaptionTemplate> templates)
     {
-        ComboBox picker = CreatePicker(templates, selected);
-        var dialog = new FAContentDialog
+        var closed = new TaskCompletionSource<CaptionTemplate?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        CaptionTemplate? chosen = null;
+        // The pointer rests on the first template, so taking it needs one click and no move.
+        var menu = new FAMenuFlyout { HorizontalOffset = -12, VerticalOffset = -48 };
+        menu.Items.Add(new FAMenuFlyoutItem { Text = Strings.AiSubtitle_Template, IsEnabled = false });
+        foreach (CaptionTemplate template in templates)
         {
-            Title = Strings.SubtitleFile_Add,
-            Content = CreateContent(picker, files),
-            PrimaryButtonText = Strings.Add,
-            CloseButtonText = Strings.Cancel,
-            DefaultButton = FAContentDialogButton.Primary
-        };
+            var item = new FAMenuFlyoutItem { Text = template.Descriptor.Name };
+            item.Click += (_, _) => chosen = template;
+            menu.Items.Add(item);
+        }
 
-        return await dialog.ShowAsync() == FAContentDialogResult.Primary ? templates[picker.SelectedIndex] : null;
-    }
+        // An item reports its click before the menu closes.
+        menu.Closed += (_, _) => closed.TrySetResult(chosen);
 
-    internal static ComboBox CreatePicker(IReadOnlyList<CaptionTemplate> templates, CaptionTemplate selected)
-    {
-        var picker = new ComboBox
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = templates.Select(template => template.Descriptor.Name).ToArray(),
-            SelectedIndex = templates.ToList().FindIndex(template => template.Descriptor.Id == selected.Descriptor.Id)
-        };
-        AutomationProperties.SetName(picker, Strings.AiSubtitle_Template);
-        return picker;
-    }
-
-    internal static Control CreateContent(ComboBox picker, IReadOnlyList<string> files)
-    {
-        var description = new TextBlock
-        {
-            FontSize = 12,
-            Text = Strings.AiSubtitle_TemplateDescription,
-            TextWrapping = TextWrapping.Wrap
-        };
-        description.Bind(TextBlock.ForegroundProperty, description.GetResourceObservable("TextFillColorSecondaryBrush"));
-
-        return new StackPanel
-        {
-            Spacing = 4,
-            Children =
-            {
-                new TextBlock
-                {
-                    Margin = new Avalonia.Thickness(0, 0, 0, 12),
-                    Text = string.Join(", ", files.Select(Path.GetFileName)),
-                    TextWrapping = TextWrapping.Wrap
-                },
-                new TextBlock { Text = Strings.AiSubtitle_Template },
-                picker,
-                description
-            }
-        };
+        // A file dragged from another app leaves that app in front, where a click would only bring Beutl back.
+        (TopLevel.GetTopLevel(target) as Window)?.Activate();
+        menu.ShowAt(target, true);
+        return closed.Task;
     }
 }

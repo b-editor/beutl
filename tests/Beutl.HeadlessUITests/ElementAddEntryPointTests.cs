@@ -9,6 +9,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using Beutl.Audio;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.TimelineTab;
@@ -30,6 +31,7 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
 using Beutl.Views.Tools;
+using FluentAvalonia.UI.Controls;
 using AvaPoint = Avalonia.Point;
 
 namespace Beutl.HeadlessUITests;
@@ -498,9 +500,9 @@ public class ElementAddEntryPointTests
         }
     }
 
-    // A saved text template is on offer beside the default look, and the choice is there for the next drop.
+    // One click on a template is all a drop needs, and the next drop offers that template under the pointer.
     [AvaloniaTest]
-    public async Task TimelineView_SubtitleFileDrop_UsesTheChosenTemplateAndRemembersIt()
+    public async Task TimelineView_SubtitleFileDrop_OneClickOnATemplateAddsTheClipsAndItComesFirstNextTime()
     {
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
@@ -508,68 +510,79 @@ public class ElementAddEntryPointTests
         ObjectTemplateItem saved = await SaveTextTemplateAsync();
         var view = new TimelineTabView { DataContext = timeline };
         var window = new Window { Content = view, Width = 900, Height = 600 };
-        var asked = new List<(string[] Offered, CaptionTemplateId Selected, IReadOnlyList<string> Files)>();
-        view.ChooseCaptionTemplateAsync = (templates, selected, files) =>
-        {
-            asked.Add(([.. templates.Select(template => template.Descriptor.Name)], selected.Descriptor.Id, files));
-            return Task.FromResult<CaptionTemplate?>(
-                templates.Single(template => template.Descriptor.Name == saved.Name.Value));
-        };
+        bool overlayPopups = TestAppBuilder.HeadlessOptions.OverlayPopups;
+        bool activated = false;
 
         try
         {
+            // The desktop app opens a menu as a window of its own, which a small window does not push aside.
+            TestAppBuilder.HeadlessOptions.OverlayPopups = false;
             window.Show();
             HeadlessTestHelpers.Render();
-            Panel panel = view.FindControl<Panel>("TimelinePanel")!;
             string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
             string first = Path.Combine(directory, "first.srt");
             File.WriteAllText(first, "1\n00:00:01,000 --> 00:00:02,000\nHello\n\n2\n00:00:03,000 --> 00:00:04,000\nWorld\n");
             string second = Path.Combine(directory, "second.srt");
             File.WriteAllText(second, "1\n00:00:06,000 --> 00:00:07,000\nAgain\n");
-
-            await DropFilesAsync(window, panel, editor, first);
-            await DropFilesAsync(window, panel, editor, second);
-
-            Beutl.Graphics.Shapes.TextBlock[] texts = [.. editor.Scene.Children
+            string third = Path.Combine(directory, "third.srt");
+            File.WriteAllText(third, "1\n00:00:09,000 --> 00:00:10,000\nOnce more\n");
+            Beutl.Graphics.Shapes.TextBlock[] Texts() => [.. editor.Scene.Children
                 .OrderBy(child => child.Start.Value)
                 .SelectMany(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>())];
+            window.Activated += (_, _) => activated = true;
+
+            await RaiseFileDropAsync(window, view, first);
+            FAMenuFlyoutItem[] firstOffer = await WaitForTemplateMenuAsync(window);
+            string?[] firstNames = [.. firstOffer.Select(item => item.Text)];
+            HeadlessTestHelpers.Click(firstOffer.Single(item => item.Text == saved.Name.Value));
+            await HeadlessTestHelpers.WaitUntilAsync(() => Texts().Length == 2);
+
+            // The click lands where the file was dropped, without the pointer moving.
+            AvaPoint point = await RaiseFileDropAsync(window, view, second);
+            FAMenuFlyoutItem[] secondOffer = await WaitForTemplateMenuAsync(window);
+            string?[] secondNames = [.. secondOffer.Select(item => item.Text)];
+            HeadlessTestHelpers.Click(secondOffer[0], secondOffer[0].PointToClient(window.PointToScreen(point)));
+            await HeadlessTestHelpers.WaitUntilAsync(() => Texts().Length == 3);
+
+            await RaiseFileDropAsync(window, view, third);
+            await WaitForTemplateMenuAsync(window);
+            window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+            await HeadlessTestHelpers.WaitUntilAsync(() => Texts().Length == 4);
+
             using (Assert.EnterMultipleScope())
             {
-                Assert.That(texts.Select(text => text.Text.Value), Is.EqualTo(new[] { "Hello", "World", "Again" }));
-                Assert.That(texts.Select(text => text.Size.Value), Is.All.EqualTo(123f));
-                Assert.That(asked, Has.Count.EqualTo(2));
-                Assert.That(asked[0].Offered, Does.Contain(Strings.AiSubtitle_DefaultTemplate).And.Contain(saved.Name.Value));
-                Assert.That(asked[0].Selected, Is.EqualTo(CaptionTemplateIds.DefaultText));
-                Assert.That(asked[0].Files, Is.EqualTo(new[] { first }));
-                Assert.That(asked[1].Selected.Value, Does.Contain(saved.Id.ToString("N")));
+                Assert.That(Texts().Select(text => text.Text.Value), Is.EqualTo(new[] { "Hello", "World", "Again", "Once more" }));
+                Assert.That(Texts().Select(text => text.Size.Value), Is.All.EqualTo(123f));
+                Assert.That(firstNames, Is.EqualTo(new[] { Strings.AiSubtitle_Template, Strings.AiSubtitle_DefaultTemplate, saved.Name.Value }));
+                Assert.That(secondNames, Is.EqualTo(new[] { Strings.AiSubtitle_Template, saved.Name.Value, Strings.AiSubtitle_DefaultTemplate }));
+                Assert.That(firstOffer[0].IsEffectivelyEnabled, Is.False);
+                Assert.That(window.OpenedPopups, Is.Empty);
+                Assert.That(activated, Is.True);
             }
         }
         finally
         {
             window.Close();
             HeadlessTestHelpers.Settle();
+            TestAppBuilder.HeadlessOptions.OverlayPopups = overlayPopups;
             RemoveTemplate(saved);
         }
     }
 
     [AvaloniaTest]
-    public async Task TimelineView_SubtitleFileDrop_CancellingTheChoiceAddsNothing()
+    public async Task TimelineView_SubtitleFileDrop_DismissingTheMenuAddsNothing()
     {
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
-            await OpenEditorForNewScene("timeline-subtitle-cancel");
+            await OpenEditorForNewScene("timeline-subtitle-dismiss");
         ObjectTemplateItem saved = await SaveTextTemplateAsync();
         var view = new TimelineTabView { DataContext = timeline };
         var window = new Window { Content = view, Width = 900, Height = 600 };
-        var answered = new TaskCompletionSource();
-        view.ChooseCaptionTemplateAsync = (_, _, _) =>
-        {
-            answered.TrySetResult();
-            return Task.FromResult<CaptionTemplate?>(null);
-        };
+        bool overlayPopups = TestAppBuilder.HeadlessOptions.OverlayPopups;
 
         try
         {
+            TestAppBuilder.HeadlessOptions.OverlayPopups = false;
             window.Show();
             HeadlessTestHelpers.Render();
             string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
@@ -577,8 +590,9 @@ public class ElementAddEntryPointTests
             File.WriteAllText(captions, "1\n00:00:01,000 --> 00:00:02,000\nHello\n");
             string image = CreatePngFile(editor, "beside.png");
 
-            await RaiseFileDropAsync(window, view.FindControl<Panel>("TimelinePanel")!, captions, image);
-            await answered.Task;
+            await RaiseFileDropAsync(window, view, captions, image);
+            await WaitForTemplateMenuAsync(window);
+            window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
             // Long enough for a drop that carried on to reach the scene.
             for (int attempt = 0; attempt < 20 && editor.Scene.Children.Count == 0; attempt++)
             {
@@ -586,12 +600,14 @@ public class ElementAddEntryPointTests
                 HeadlessTestHelpers.Settle();
             }
 
+            Assert.That(window.OpenedPopups, Is.Empty);
             Assert.That(editor.Scene.Children, Is.Empty);
         }
         finally
         {
             window.Close();
             HeadlessTestHelpers.Settle();
+            TestAppBuilder.HeadlessOptions.OverlayPopups = overlayPopups;
             RemoveTemplate(saved);
         }
     }
@@ -605,12 +621,6 @@ public class ElementAddEntryPointTests
             await OpenEditorForNewScene("timeline-subtitle-default");
         var view = new TimelineTabView { DataContext = timeline };
         var window = new Window { Content = view, Width = 900, Height = 600 };
-        bool asked = false;
-        view.ChooseCaptionTemplateAsync = (_, _, _) =>
-        {
-            asked = true;
-            return Task.FromResult<CaptionTemplate?>(null);
-        };
 
         try
         {
@@ -619,39 +629,15 @@ public class ElementAddEntryPointTests
             string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "movie.srt");
             File.WriteAllText(path, "1\n00:00:01,000 --> 00:00:02,000\nHello\n");
 
-            await DropFilesAsync(window, view.FindControl<Panel>("TimelinePanel")!, editor, path);
+            await RaiseFileDropAsync(window, view, path);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Scene.Children.Count == 1);
 
-            Assert.That(asked, Is.False);
-            Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
+            Assert.That(window.OpenedPopups, Is.Empty);
         }
         finally
         {
             window.Close();
             HeadlessTestHelpers.Settle();
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task CaptionTemplateChooser_OffersEveryTemplateAndStartsOnTheSelectedOne()
-    {
-        await TestReset.ResetShellAsync();
-        ObjectTemplateItem saved = await SaveTextTemplateAsync();
-        try
-        {
-            IReadOnlyList<CaptionTemplate> templates = CaptionFileDrop.GetTemplates();
-            CaptionTemplate selected = templates.Single(template => template.Descriptor.Name == saved.Name.Value);
-
-            ComboBox picker = CaptionTemplateChooser.CreatePicker(templates, selected);
-
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(picker.ItemsSource, Is.EqualTo(templates.Select(template => template.Descriptor.Name)));
-                Assert.That(templates[picker.SelectedIndex], Is.SameAs(selected));
-            }
-        }
-        finally
-        {
-            RemoveTemplate(saved);
         }
     }
 
@@ -670,7 +656,8 @@ public class ElementAddEntryPointTests
         ObjectTemplateService.Instance.RefreshFromFileSystem();
     }
 
-    private static async Task RaiseFileDropAsync(Window window, Panel panel, params string[] paths)
+    // Drops at the middle of the timeline through the window, as the platform does.
+    private static async Task<AvaPoint> RaiseFileDropAsync(Window window, TimelineTabView view, params string[] paths)
     {
         var transfer = new DataTransfer();
         foreach (string path in paths)
@@ -678,16 +665,19 @@ public class ElementAddEntryPointTests
             transfer.Add(DataTransferItem.CreateFile(await GetStorageFile(window, path)));
         }
 
-        panel.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, transfer, panel, new AvaPoint(500, 5), KeyModifiers.None));
+        AvaPoint point = HeadlessTestHelpers.Center(view.FindControl<ScrollViewer>("ContentScroll")!, window);
+        window.DragDrop(point, RawDragEventType.DragEnter, transfer, DragDropEffects.Copy);
+        window.DragDrop(point, RawDragEventType.DragOver, transfer, DragDropEffects.Copy);
+        window.DragDrop(point, RawDragEventType.Drop, transfer, DragDropEffects.Copy);
+        return point;
     }
 
-    private static async Task DropFilesAsync(Window window, Panel panel, EditViewModel editor, params string[] paths)
+    private static async Task<FAMenuFlyoutItem[]> WaitForTemplateMenuAsync(Window window)
     {
-        editor.HistoryManager.Commit();
-        int undoCount = editor.HistoryManager.UndoCount;
-        await RaiseFileDropAsync(window, panel, paths);
-        await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.UndoCount > undoCount);
-        HeadlessTestHelpers.Settle();
+        await HeadlessTestHelpers.WaitUntilAsync(() => window.OpenedPopups.Any(popup => popup.Child is FAMenuFlyoutPresenter));
+        HeadlessTestHelpers.Render(3);
+        Control presenter = window.OpenedPopups.Single(popup => popup.Child is FAMenuFlyoutPresenter).Child!;
+        return [.. presenter.GetVisualDescendants().OfType<FAMenuFlyoutItem>()];
     }
 
     private static void WriteSilentWave(string path, int frames)

@@ -1615,9 +1615,6 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
     <value>Algunos de los subtítulos de {0} no se pudieron leer y se omitieron.</value>
   </data>
-  <data name="SubtitleFile_Add" xml:space="preserve">
-    <value>Agregar subtítulos</value>
-  </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>¿Eliminar «{0}»?</value>
   </data>
