@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls.Primitives;
 
@@ -21,6 +22,11 @@ public abstract class ConfirmablePickerFlyout<TSelf, TPresenter> : FAPickerFlyou
 
     protected abstract TPresenter CreatePickerPresenter();
 
+    // A flyout whose search waits for a typing pause applies what was typed so far here.
+    protected virtual void FlushPendingSearch()
+    {
+    }
+
     protected sealed override Control CreatePresenter()
     {
         TPresenter presenter = CreatePickerPresenter();
@@ -39,6 +45,12 @@ public abstract class ConfirmablePickerFlyout<TSelf, TPresenter> : FAPickerFlyou
                     break;
             }
         };
+        presenter.AddHandler(InputElement.KeyDownEvent, (_, e) =>
+        {
+            // These move through the results, so show the results for everything typed so far first.
+            if (e.Key is Key.Up or Key.Down)
+                FlushPendingSearch();
+        }, RoutingStrategies.Tunnel);
         return presenter;
     }
 
@@ -53,6 +65,8 @@ public abstract class ConfirmablePickerFlyout<TSelf, TPresenter> : FAPickerFlyou
 
     protected override void OnConfirmed()
     {
+        // Enter, the checkmark and any other way of confirming pick from the results for everything typed.
+        FlushPendingSearch();
         _confirmed = true;
         Confirmed?.Invoke((TSelf)this, EventArgs.Empty);
         Hide();

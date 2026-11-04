@@ -63,12 +63,7 @@ public class SelectLibraryItemDialogViewModel
         });
         ShowAll.Skip(1).Subscribe(_ => ProcessSearchText());
 
-        // SearchBoxが並列で変更された場合、最後の一つを処理する
-        SearchText
-            .Skip(1)
-            .Throttle(TimeSpan.FromMilliseconds(100))
-            .ObserveOnUIDispatcher()
-            .Subscribe(_ => FlushSearch());
+        FlushSearchAfterTypingPause();
 
         ProcessSearchText();
     }
@@ -82,11 +77,7 @@ public class SelectLibraryItemDialogViewModel
         _pinnedItems = [];
         ShowsOnlyReferences = true;
 
-        SearchText
-            .Skip(1)
-            .Throttle(TimeSpan.FromMilliseconds(100))
-            .ObserveOnUIDispatcher()
-            .Subscribe(_ => FlushSearch());
+        FlushSearchAfterTypingPause();
 
         InitializeReferences(targets);
     }
@@ -119,6 +110,16 @@ public class SelectLibraryItemDialogViewModel
             ProcessSearchText();
         if (!string.Equals(SearchText.Value, _appliedReferenceSearchText, StringComparison.Ordinal))
             ProcessReferenceSearchText();
+    }
+
+    private void FlushSearchAfterTypingPause()
+    {
+        // SearchBoxが並列で変更された場合、最後の一つを処理する
+        SearchText
+            .Skip(1)
+            .Throttle(TimeSpan.FromMilliseconds(100))
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ => FlushSearch());
     }
 
     public async Task SelectTypeAsync(Type? type)

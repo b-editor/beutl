@@ -148,15 +148,6 @@
                 </StackPanel>
             </Border>
         </DataTemplate>
-        <DataTemplate x:Key="DownloadHistoryEmptyTemplate" x:DataType="viewModel:WebBrowserTabViewModel">
-            <controls:EmptyState Title="{x:Static lang:Strings.BrowserHistoryEmpty}"
-                                 Margin="12,16"
-                                 Description="{x:Static lang:Strings.BrowserHistoryEmptyHint}">
-                <controls:EmptyState.Icon>
-                    <icons:FluentIcon Icon="ArrowDownload" />
-                </controls:EmptyState.Icon>
-            </controls:EmptyState>
-        </DataTemplate>
     </UserControl.Resources>
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
         <controls:ToolTabBar x:Name="AddressBar">

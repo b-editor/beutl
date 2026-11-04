@@ -48,29 +48,18 @@ public sealed class SearchablePickerFlyout(ISearchablePickerViewModel viewModel)
             });
         pfp.AddHandler(InputElement.KeyDownEvent, (_, e) =>
         {
-            switch (e.Key)
+            // Escape cancels the picker even from the search box, which would otherwise only close the box.
+            if (e.Key == Key.Escape)
             {
-                // Escape cancels the picker even from the search box, which would otherwise only close the box.
-                case Key.Escape:
-                    e.Handled = true;
-                    Hide();
-                    break;
-                // These move through the results, so show the results for everything typed so far first.
-                case Key.Up or Key.Down:
-                    viewModel.FlushSearch();
-                    break;
+                e.Handled = true;
+                Hide();
             }
         }, RoutingStrategies.Tunnel);
 
         return pfp;
     }
 
-    protected override void OnConfirmed()
-    {
-        // Enter, the checkmark and any other way of confirming pick from the results for everything typed.
-        viewModel.FlushSearch();
-        base.OnConfirmed();
-    }
+    protected override void FlushPendingSearch() => viewModel.FlushSearch();
 
     protected override void OnOpening(CancelEventArgs args)
     {

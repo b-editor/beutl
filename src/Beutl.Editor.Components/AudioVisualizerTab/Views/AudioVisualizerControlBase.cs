@@ -26,6 +26,12 @@ public abstract class AudioVisualizerControlBase : Control
     private long? _renderedVersion;
     private MediaTime _renderedPlayhead;
 
+    static AudioVisualizerControlBase()
+    {
+        // The timer covers the playhead, at its own rate.
+        AffectsRender<AudioVisualizerControlBase>(RingBufferProperty, PrimaryBrushProperty, SecondaryBrushProperty);
+    }
+
     public AudioSampleRingBuffer? RingBuffer
     {
         get => GetValue(RingBufferProperty);
@@ -51,7 +57,7 @@ public abstract class AudioVisualizerControlBase : Control
     }
 
     // Whether the last render left something changing on its own, such as a falling peak hold.
-    protected internal virtual bool IsSettling => false;
+    internal bool IsSettling { get; private protected set; }
 
     // Analysis is the expensive part of a render, and with the same input and nothing settling it gives the same picture.
     internal bool RequestRenderIfChanged()
@@ -84,12 +90,6 @@ public abstract class AudioVisualizerControlBase : Control
         if (change.Property == IsVisibleProperty)
         {
             UpdateTimerState();
-        }
-        // The view's settings, such as its FFT size. The timer covers the playhead, at its own rate.
-        else if (change.Property != PlayheadTimeProperty
-                 && typeof(AudioVisualizerControlBase).IsAssignableFrom(change.Property.OwnerType))
-        {
-            InvalidateVisual();
         }
     }
 

@@ -29,6 +29,11 @@ public sealed class SpectrogramControl : AudioVisualizerControlBase
     private readonly ImmutableSolidColorBrush?[] _brushCache = new ImmutableSolidColorBrush?[256];
     private Color _brushCacheBaseColor;
 
+    static SpectrogramControl()
+    {
+        AffectsRender<SpectrogramControl>(FftSizeProperty, MinDecibelsProperty);
+    }
+
     public int FftSize
     {
         get => GetValue(FftSizeProperty);

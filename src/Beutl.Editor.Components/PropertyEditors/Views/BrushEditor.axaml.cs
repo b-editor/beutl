@@ -269,17 +269,6 @@ public sealed partial class BrushEditor : UserControl
     // Keeps the stops of the current gradient and how they mix, or starts from white to black.
     internal static GradientBrush CreateGradientBrush(BrushType e, Media.Brush? current)
     {
-        var gradStops = new List<GradientStop>();
-        if (current is GradientBrush oldBrush)
-        {
-            gradStops.AddRange(oldBrush.GradientStops.Select(v => new GradientStop(v.Color.Value, v.Offset.Value)));
-        }
-        else
-        {
-            gradStops.Add(new GradientStop(Colors.White, 0));
-            gradStops.Add(new GradientStop(Colors.Black, 1));
-        }
-
         GradientBrush brush = e switch
         {
             BrushType.LinearGradientBrush => new LinearGradientBrush(),
@@ -287,11 +276,15 @@ public sealed partial class BrushEditor : UserControl
             BrushType.RadialGradientBrush => new RadialGradientBrush(),
             _ => throw new ArgumentOutOfRangeException(nameof(e), e, null)
         };
-        brush.GradientStops.Replace(gradStops);
-        if (current is GradientBrush mixing)
+        if (current is GradientBrush oldBrush)
         {
-            brush.InterpolationSpace.Value = mixing.InterpolationSpace.Value;
-            brush.InterpolatePremultiplied.Value = mixing.InterpolatePremultiplied.Value;
+            brush.GradientStops.Replace([.. oldBrush.GradientStops.Select(v => new GradientStop(v.Color.Value, v.Offset.Value))]);
+            brush.InterpolationSpace.Value = oldBrush.InterpolationSpace.Value;
+            brush.InterpolatePremultiplied.Value = oldBrush.InterpolatePremultiplied.Value;
+        }
+        else
+        {
+            brush.GradientStops.Replace([new GradientStop(Colors.White, 0), new GradientStop(Colors.Black, 1)]);
         }
 
         return brush;

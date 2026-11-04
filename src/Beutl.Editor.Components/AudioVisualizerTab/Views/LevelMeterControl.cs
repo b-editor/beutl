@@ -28,12 +28,9 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
     private float _truePeakLHold;
     private float _truePeakRHold;
     private DateTime _lastRenderTime = DateTime.UtcNow;
-    private DateTime? _clipLAt;
-    private DateTime? _clipRAt;
-    private bool _clipLHeld;
-    private bool _clipRHeld;
+    private ClipLight _clipL;
+    private ClipLight _clipR;
     private float _displayLufs = -160f;
-    private bool _isSettling;
 
     private readonly LoudnessMeter _loudness = new();
     private float[] _loudnessLeft = [];
@@ -47,17 +44,33 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
     private float[] _channelPeaks = [];
     private float[] _peakHolds = [];
     private float[] _truePeakHolds = [];
-    private DateTime?[] _clipAts = [];
-    private bool[] _clipsHeld = [];
+    private ClipLight[] _clips = [];
 
     private readonly record struct BarMetrics(double ScaleWidth, double ClipLedHeight, double ClipLedY, double TopInset, double BarHeight);
 
-    // A hold is still falling, the loudness digit easing or a clip light lit.
-    protected internal override bool IsSettling => _isSettling;
+    // Samples holding a light on can stop the drawing for any length of time, so its hold starts when they let go.
+    private struct ClipLight
+    {
+        private DateTime? _at;
+        private bool _held;
+
+        public void Update(float peak, DateTime now)
+        {
+            bool over = peak >= ClipThreshold;
+            if (over || _held) _at = now;
+            _held = over;
+        }
+
+        public readonly bool IsOn(DateTime now) => _at is { } at && now - at < s_clipHold;
+
+        // A light the samples on screen hold on changes nothing until they do. One they have let go of is waiting to go out.
+        public readonly bool IsGoingOut(DateTime now) => !_held && IsOn(now);
+    }
 
     public override void Render(DrawingContext context)
     {
-        _isSettling = false;
+        // Until a hold is found still falling, the loudness digit easing or a clip light lit.
+        IsSettling = false;
         Rect bounds = new(Bounds.Size);
         context.FillRectangle(Brushes.Transparent, bounds);
 
@@ -77,15 +90,11 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         _peakLHold = DecayHold(_peakLHold, peakL, elapsed);
         _peakRHold = DecayHold(_peakRHold, peakR, elapsed);
 
-        // Samples holding a light on can stop the drawing for any length of time, so its hold starts when they let go.
-        if (peakL >= ClipThreshold || _clipLHeld) _clipLAt = now;
-        if (peakR >= ClipThreshold || _clipRHeld) _clipRAt = now;
-        _clipLHeld = peakL >= ClipThreshold;
-        _clipRHeld = peakR >= ClipThreshold;
-        bool clipL = _clipLAt is { } cl && now - cl < s_clipHold;
-        bool clipR = _clipRAt is { } cr && now - cr < s_clipHold;
-        // A light the samples on screen hold on changes nothing until they do. One they have let go of is waiting to go out.
-        _isSettling |= (clipL && !_clipLHeld) || (clipR && !_clipRHeld);
+        _clipL.Update(peakL, now);
+        _clipR.Update(peakR, now);
+        bool clipL = _clipL.IsOn(now);
+        bool clipR = _clipR.IsOn(now);
+        IsSettling |= _clipL.IsGoingOut(now) || _clipR.IsGoingOut(now);
 
         UpdateLoudnessAndTruePeak(buffer, elapsed);
 
@@ -130,8 +139,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         for (int ch = 0; ch < channelCount; ch++)
         {
             _peakHolds[ch] = DecayHold(_peakHolds[ch], _channelPeaks[ch], elapsed);
-            if (_channelPeaks[ch] >= ClipThreshold || _clipsHeld[ch]) _clipAts[ch] = now;
-            _clipsHeld[ch] = _channelPeaks[ch] >= ClipThreshold;
+            _clips[ch].Update(_channelPeaks[ch], now);
         }
 
         UpdateSurroundLoudnessAndTruePeak(buffer, channelCount, elapsed);
@@ -144,8 +152,8 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         for (int ch = 0; ch < channelCount; ch++)
         {
             double x = BarPadding + ch * (barWidth + gap);
-            bool clip = _clipAts[ch] is { } at && now - at < s_clipHold;
-            _isSettling |= clip && !_clipsHeld[ch];
+            bool clip = _clips[ch].IsOn(now);
+            IsSettling |= _clips[ch].IsGoingOut(now);
             DrawChannelLabel(context, AudioChannelMap.GetChannelName(_surroundLayout, ch), x + barWidth / 2, 0);
             DrawClipLed(context, x, clipLedY, barWidth, clipLedHeight, clip);
             DrawChannel(context, x, topInset, barWidth, barHeight, _channelRms[ch], _peakHolds[ch]);
@@ -196,8 +204,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         _channelPeaks = new float[channelCount];
         _peakHolds = new float[channelCount];
         _truePeakHolds = new float[channelCount];
-        _clipAts = new DateTime?[channelCount];
-        _clipsHeld = new bool[channelCount];
+        _clips = new ClipLight[channelCount];
     }
 
     private void UpdateSurroundLoudnessAndTruePeak(AudioSampleRingBuffer buffer, int channelCount, double elapsed)
@@ -295,7 +302,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
             float alpha = (float)Math.Clamp(elapsed / 0.2, 0.05, 1.0);
             _displayLufs = _displayLufs * (1f - alpha) + lufs * alpha;
             // The digit shows one decimal place.
-            _isSettling |= MathF.Abs(_displayLufs - lufs) > 0.05f;
+            IsSettling |= MathF.Abs(_displayLufs - lufs) > 0.05f;
         }
     }
 
@@ -388,7 +395,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         float v = current - decay;
         if (v < instant) return instant;
 
-        _isSettling = true;
+        IsSettling = true;
         return v;
     }
 
