@@ -256,4 +256,28 @@
   <data name="Panner_Help" xml:space="preserve">
     <value>パックをドラッグして定位を調整します。ダブルクリックでリセットします。</value>
   </data>
+  <data name="PitchShiftEffect" xml:space="preserve">
+    <value>ピッチシフト</value>
+  </data>
+  <data name="PitchShiftEffect_Semitones" xml:space="preserve">
+    <value>半音</value>
+  </data>
+  <data name="VibratoEffect" xml:space="preserve">
+    <value>ビブラート</value>
+  </data>
+  <data name="VibratoEffect_Rate" xml:space="preserve">
+    <value>速さ (Hz)</value>
+  </data>
+  <data name="VibratoEffect_Depth" xml:space="preserve">
+    <value>深さ (ms)</value>
+  </data>
+  <data name="RingModulatorEffect" xml:space="preserve">
+    <value>リングモジュレーター</value>
+  </data>
+  <data name="RingModulatorEffect_Frequency" xml:space="preserve">
+    <value>周波数 (Hz)</value>
+  </data>
+  <data name="RingModulatorEffect_Mix" xml:space="preserve">
+    <value>ミックス (%)</value>
+  </data>
 </root>

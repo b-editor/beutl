@@ -260,4 +260,28 @@
   <data name="Panner_Help" xml:space="preserve">
     <value>拖动圆点调整声像。双击重置。</value>
   </data>
+  <data name="PitchShiftEffect" xml:space="preserve">
+    <value>变调</value>
+  </data>
+  <data name="PitchShiftEffect_Semitones" xml:space="preserve">
+    <value>半音</value>
+  </data>
+  <data name="VibratoEffect" xml:space="preserve">
+    <value>颤音</value>
+  </data>
+  <data name="VibratoEffect_Rate" xml:space="preserve">
+    <value>速率 (Hz)</value>
+  </data>
+  <data name="VibratoEffect_Depth" xml:space="preserve">
+    <value>深度 (ms)</value>
+  </data>
+  <data name="RingModulatorEffect" xml:space="preserve">
+    <value>环形调制器</value>
+  </data>
+  <data name="RingModulatorEffect_Frequency" xml:space="preserve">
+    <value>频率 (Hz)</value>
+  </data>
+  <data name="RingModulatorEffect_Mix" xml:space="preserve">
+    <value>混合 (%)</value>
+  </data>
 </root>
