@@ -704,6 +704,27 @@ public class AiSubtitleTemplateTests
     }
 
     [AvaloniaTest]
+    public async Task AddToScene_GoesAroundLockedEmptyLayers()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-locked-layers");
+        editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsLocked = { Value = true } });
+        using AiSubtitleDialogViewModel viewModel =
+            TestShell.MainViewModel.CreateAiSubtitleToolViewModel(editor);
+        viewModel.ResultSegments.Value =
+        [
+            new AiTranscriptionSegment { Start = 0, End = 2, Text = "First" },
+            new AiTranscriptionSegment { Start = 1, End = 3, Text = "Second" },
+        ];
+        HeadlessTestHelpers.Settle();
+
+        await viewModel.AddToScene.ExecuteAsync();
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(editor.Scene.Children.OrderBy(element => element.Start.Value).Select(element => element.ZIndex.Value),
+            Is.EqualTo(new[] { 1, 2 }));
+    }
+
+    [AvaloniaTest]
     public async Task AddToScene_WithSavedTemplate_PreservesTemplateStyleAndPlacement()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-saved-template");

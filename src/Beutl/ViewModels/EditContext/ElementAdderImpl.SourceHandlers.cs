@@ -300,7 +300,7 @@ internal sealed partial class ElementAdderImpl
             }
 
             // Refused as a paste onto a locked layer is, rather than moved off it by the search.
-            if (context.Scene.IsLayerLocked(description.Layer))
+            if (!description.StacksAboveScene && context.Scene.IsLayerLocked(description.Layer))
             {
                 return ValueTask.FromResult(ElementSourcePreflightResult.Rejected(
                     new LockedElementLayerFailure(description.Layer)));

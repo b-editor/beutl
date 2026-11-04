@@ -130,6 +130,12 @@ public sealed record ElementDescription
     public bool FollowsPrevious { get; init; }
 
     /// <summary>
+    /// Goes above everything in the scene once the requests before it in the batch are in, which only then have their
+    /// final layers. <see cref="Layer"/> counts up from there, leaving out locked layers, so none of them refuses it.
+    /// </summary>
+    public bool StacksAboveScene { get; init; }
+
+    /// <summary>
     /// Resolves the element name: the explicit <see cref="Name"/> when set, otherwise the
     /// localized display name of <paramref name="fallbackType"/>.
     /// </summary>

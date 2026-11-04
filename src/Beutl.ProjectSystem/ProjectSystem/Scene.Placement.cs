@@ -9,6 +9,17 @@ public partial class Scene
     internal int GetFirstFreeLayer()
         => Children.Select(item => item.ZIndex.Value).DefaultIfEmpty(-1).Max() + 1;
 
+    // The layer reached by counting up from first, leaving out locked layers.
+    internal int CountUnlockedLayers(int first, int count)
+    {
+        int layer = first;
+        for (int remaining = Math.Max(count, 0); ; layer++)
+        {
+            if (IsLayerLocked(layer)) continue;
+            if (remaining-- == 0) return layer;
+        }
+    }
+
     private int NearestLayerNumber(Element element)
     {
         if (IsOverlapping(element.Range, element.ZIndex.Value))
