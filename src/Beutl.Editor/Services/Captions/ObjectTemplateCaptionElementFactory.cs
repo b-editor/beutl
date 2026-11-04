@@ -79,6 +79,6 @@ public static class TextBlockCaptionTemplateAdapter
     private static void ApplyCue(TextBlock textBlock, CaptionCue cue)
     {
         textBlock.Text.Expression = null;
-        textBlock.Text.Value = cue.Text;
+        textBlock.Text.Value = CaptionTextUtilities.ToTextObjectText(cue.Text);
     }
 }
