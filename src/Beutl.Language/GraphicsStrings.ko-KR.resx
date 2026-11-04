@@ -629,6 +629,9 @@
   <data name="ParticleEmitter_EmitterWidth" xml:space="preserve">
     <value>방출기 너비</value>
   </data>
+  <data name="ParticleEmitter_EmitterSize" xml:space="preserve">
+    <value>방출기 크기</value>
+  </data>
   <data name="ParticleEmitter_EndColor" xml:space="preserve">
     <value>끝 색상</value>
   </data>
@@ -751,6 +754,9 @@
   </data>
   <data name="ScaleTransform_ScaleY" xml:space="preserve">
     <value>배율 Y</value>
+  </data>
+  <data name="ScaleTransform_ScaleXY" xml:space="preserve">
+    <value>배율 XY</value>
   </data>
   <data name="ShakeEffect" xml:space="preserve">
     <value>흔들기</value>
@@ -980,6 +986,9 @@
   <data name="DrawableTextureSource_TextureWidth" xml:space="preserve">
     <value>텍스처 너비</value>
   </data>
+  <data name="DrawableTextureSource_TextureSize" xml:space="preserve">
+    <value>텍스처 크기</value>
+  </data>
   <data name="EllipseGeometry" xml:space="preserve">
     <value>타원</value>
   </data>
@@ -1166,6 +1175,9 @@
   <data name="PerlinNoiseBrush_BaseFrequencyY" xml:space="preserve">
     <value>기본 주파수 Y</value>
   </data>
+  <data name="PerlinNoiseBrush_BaseFrequency" xml:space="preserve">
+    <value>기본 주파수</value>
+  </data>
   <data name="PerlinNoiseBrush_Octaves" xml:space="preserve">
     <value>옥타브</value>
   </data>
@@ -1264,6 +1276,9 @@
   </data>
   <data name="Scene3D_RenderWidth" xml:space="preserve">
     <value>렌더 너비</value>
+  </data>
+  <data name="Scene3D_RenderSize" xml:space="preserve">
+    <value>렌더 크기</value>
   </data>
   <data name="SolidColorBrush" xml:space="preserve">
     <value>단색</value>
@@ -1396,6 +1411,9 @@
   </data>
   <data name="CenterY" xml:space="preserve">
     <value>중심 Y</value>
+  </data>
+  <data name="Center" xml:space="preserve">
+    <value>중심</value>
   </data>
   <data name="Color" xml:space="preserve">
     <value>색상</value>

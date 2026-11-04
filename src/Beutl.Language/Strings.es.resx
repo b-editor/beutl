@@ -3558,6 +3558,9 @@ cuando el registro del historial está activado.</value>
   <data name="UnseparateComponents_Description" xml:space="preserve">
     <value>Conservar el valor del momento actual y eliminar los fotogramas clave y las expresiones de los componentes.</value>
   </data>
+  <data name="UnseparateComponents_SameTiming" xml:space="preserve">
+    <value>Disponible cuando ambos valores tienen los mismos tiempos de fotogramas clave y no tienen expresiones.</value>
+  </data>
   <data name="RelativeUnit_Relative" xml:space="preserve">
     <value>Relativa (1 = 100%)</value>
   </data>

@@ -46,13 +46,13 @@ public sealed partial class PropertyEditorMenu : UserControl
         _componentSubscription = null;
         if (DataContext is PropertyEditorViewModel model)
         {
-            _componentSubscription = model.SeparatedComponents.CombineLatest(model.HasExpression)
-                .Subscribe(state => UpdateActionVisibility(model, state.First));
+            _componentSubscription = model.SeparatedProperties.CombineLatest(model.HasExpression)
+                .Subscribe(state => UpdateActionVisibility(model, state.First != null));
             model.Own(_componentSubscription);
         }
         else
         {
-            UpdateActionVisibility(null, null);
+            UpdateActionVisibility(null, false);
         }
 
         bool isEngineProperty = (DataContext as PropertyEditorViewModel)?.PropertyAdapter.GetEngineProperty() != null;
@@ -61,20 +61,20 @@ public sealed partial class PropertyEditorMenu : UserControl
         copyGetPropertyCodeItem.IsVisible = isEngineProperty;
     }
 
-    private void UpdateActionVisibility(PropertyEditorViewModel? model, IComponentAnimation? components)
+    private void UpdateActionVisibility(PropertyEditorViewModel? model, bool separated)
     {
-        bool supportsAnimation = model?.PropertyAdapter is IAnimatablePropertyAdapter && components == null;
+        bool supportsAnimation = model?.PropertyAdapter is IAnimatablePropertyAdapter && !separated;
         editAnimationItem.IsVisible = supportsAnimation;
         editInlineAnimationItem.IsVisible = supportsAnimation;
         removeAnimationItem.IsVisible = supportsAnimation;
-        separateComponentsItem.IsVisible = model?.CanSeparateComponents == true && components == null;
-        unseparateComponentsItem.IsVisible = components != null;
-        uniformEditorToggle.IsVisible = model is IConfigureUniformEditor && components == null;
+        separateComponentsItem.IsVisible = model?.CanSeparateComponents == true && !separated;
+        unseparateComponentsItem.IsVisible = separated;
+        uniformEditorToggle.IsVisible = model is IConfigureUniformEditor && !separated;
 
         bool supportsExpression = model != null && SupportsTextExpression(model);
         editExpressionItem.IsVisible = supportsExpression;
         // Separation keeps an existing aggregate expression; let users remove it without discarding the tracks.
-        removeExpressionItem.IsVisible = supportsExpression || components != null && model?.HasExpression.Value == true;
+        removeExpressionItem.IsVisible = supportsExpression || separated && model?.HasExpression.Value == true;
         expressionSeparator.IsVisible = editExpressionItem.IsVisible || removeExpressionItem.IsVisible;
     }
 
@@ -173,7 +173,8 @@ public sealed partial class PropertyEditorMenu : UserControl
             if (animatableProperty.Animation is IKeyFrameAnimation
                 && FindOrOpenTimeline(editorContext) is { } timeline)
             {
-                timeline.AttachInline(animatableProperty, element);
+                foreach (IAnimatablePropertyAdapter property in viewModel.EditedProperties.OfType<IAnimatablePropertyAdapter>())
+                    timeline.AttachInline(property, element);
             }
         }
     }

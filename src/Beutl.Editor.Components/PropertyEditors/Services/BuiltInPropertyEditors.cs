@@ -38,6 +38,9 @@ internal static class BuiltInPropertyEditors
             Owner = registry.Owner,
         });
 
+        Combined<float>(registry);
+        Combined<int>(registry);
+
         Number<byte>(registry);
         Number<decimal>(registry);
         Number<double>(registry);
@@ -126,6 +129,43 @@ internal static class BuiltInPropertyEditors
         AddListItem<Transform?>(registry, p => new TransformEditorViewModel(p), () => new TransformListItemEditor());
         Add(registry, typeof(IFileSource), CreateFileSourceEditor, _ => new StorageFileEditor(), listItemOnly: true);
         Add(registry, typeof(CoreObject), p => Create(typeof(CoreObjectEditorViewModel<>), p.PropertyType, p), _ => new CoreObjectListItemEditor(), listItemOnly: true);
+    }
+
+    private static void Combined<T>(PropertyEditorRegistry registry)
+        where T : struct, INumber<T>
+    {
+        registry.Add(new PropertyEditorRegistration
+        {
+            Tier = PropertyEditorTier.Match,
+            Match = MatchCombined<T>,
+            CreateContext = properties => new CombinedEditorViewModel<T>(
+                (IAnimatablePropertyAdapter<T>)properties[0],
+                (IAnimatablePropertyAdapter<T>)properties[1],
+                properties[0].GetAttributes().OfType<CombinedEditorAttribute>().First().GetName() ?? properties[0].DisplayName),
+            CreateControl = (_, _) => new Vector2Editor<T>(),
+            Connect = Connect,
+            IsStandard = true,
+            ShowsOn = surface => surface == PropertyEditorSurface.Panel,
+            Owner = registry.Owner,
+        });
+    }
+
+    // Waits until the panel reaches the first property, so that the row takes its place.
+    private static IReadOnlyList<IPropertyAdapter> MatchCombined<T>(IReadOnlyList<IPropertyAdapter> properties)
+    {
+        if (properties.FirstOrDefault() is not IAnimatablePropertyAdapter<T> first
+            || first.GetAttributes().OfType<CombinedEditorAttribute>().FirstOrDefault() is not { } attribute)
+        {
+            return [];
+        }
+
+        object? owner = first.GetEngineProperty()?.GetOwnerObject();
+        return properties.FirstOrDefault(p => p is IAnimatablePropertyAdapter<T>
+                && p.GetEngineProperty() is { } property
+                && property.Name == attribute.Second
+                && ReferenceEquals(property.GetOwnerObject(), owner)) is { } second
+            ? [first, second]
+            : [];
     }
 
     private static void Number<T>(PropertyEditorRegistry registry)

@@ -14,6 +14,7 @@ public sealed partial class PerlinNoiseBrush : Brush
 
     [Range(0, 100)]
     [Display(Name = nameof(GraphicsStrings.PerlinNoiseBrush_BaseFrequencyX), ResourceType = typeof(GraphicsStrings))]
+    [CombinedEditor(nameof(BaseFrequencyY), Name = nameof(GraphicsStrings.PerlinNoiseBrush_BaseFrequency), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> BaseFrequencyX { get; } = Property.CreateAnimatable(0f);
 
     [Range(0, 100)]

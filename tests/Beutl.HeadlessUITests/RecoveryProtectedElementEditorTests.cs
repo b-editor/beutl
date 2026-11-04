@@ -163,9 +163,7 @@ public sealed class RecoveryProtectedElementEditorTests
         editor.HistoryManager.Commit("test setup");
         int before = editor.HistoryManager.UndoCount;
 
-        NumberEditorViewModel<float> width = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
-            .OfType<NumberEditorViewModel<float>>()
-            .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shape.Width));
+        NumberEditorViewModel<float> width = PropertyEditorTestHost.FindNumberEditor(tab.Items[0].Properties, shape.Width);
         TransformEditorViewModel transform = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
             .OfType<TransformEditorViewModel>().Single();
         float oldWidth = shape.Width.Value;
@@ -256,9 +254,7 @@ public sealed class RecoveryProtectedElementEditorTests
         HeadlessTestHelpers.Settle();
         EngineObjectPropertyViewModel unavailableItem = tab.Items.Single(item => item.Model == unavailable);
 
-        NumberEditorViewModel<float> width = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
-            .OfType<NumberEditorViewModel<float>>()
-            .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shape.Width));
+        NumberEditorViewModel<float> width = PropertyEditorTestHost.FindNumberEditor(tab.Items[0].Properties, shape.Width);
         FilterEffectEditorViewModel filter = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
             .OfType<FilterEffectEditorViewModel>().Single();
         float oldWidth = shape.Width.Value;
@@ -425,6 +421,28 @@ public sealed class RecoveryProtectedElementEditorTests
     // Saves a project with one clip holding a rectangle whose width and height are animated, then
     // rewrites the easing of one width keyframe in the clip's file to a type from an assembly that is
     // not loaded, as when the plugin that provides it is not installed.
+    [AvaloniaTest]
+    public async Task An_unreadable_easing_gives_each_property_a_row_with_its_own_menu()
+    {
+        (string projectPath, _) = await CreateProjectWithUnreadableEasing("recovery-rows");
+        EditViewModel editor = await OpenProjectAsync(projectPath);
+        Element element = editor.Scene.Children.Single();
+        var shape = (RectShape)element.Objects.Single();
+        Assert.That(shape.Width.GetKeyFrameAnimation()!.KeyFrames.Select(key => key.KeyTime.Value),
+            Is.EqualTo(shape.Height.GetKeyFrameAnimation()!.KeyFrames.Select(key => key.KeyTime.Value)),
+            "Only the easing keeps the two from sharing a row.");
+        using var tab = new ElementPropertyTabViewModel(editor);
+        tab.Element.Value = element;
+        HeadlessTestHelpers.Settle();
+        var combined = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
+            .OfType<CombinedEditorViewModel<float>>().Single();
+
+        bool separated = false;
+        using IDisposable subscription = combined.SeparatedProperties.Subscribe(properties => separated = properties != null);
+
+        Assert.That(separated, Is.True);
+    }
+
     private static async Task<(string ProjectPath, string ElementPath)> CreateProjectWithUnreadableEasing(string name)
     {
         var unreadable = new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 200 } };
@@ -469,9 +487,7 @@ public sealed class RecoveryProtectedElementEditorTests
     }
 
     private static NumberEditorViewModel<float> NumberEditor(ElementPropertyTabViewModel tab, IProperty property)
-        => PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
-            .OfType<NumberEditorViewModel<float>>()
-            .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), property));
+        => PropertyEditorTestHost.FindNumberEditor(tab.Items[0].Properties, property);
 
     private static FAMenuFlyoutItem MenuItem(Button button, string name)
         => ((FAMenuFlyout)button.ContextFlyout!).Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == name);

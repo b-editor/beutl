@@ -212,9 +212,7 @@ public class TimelineClosedElementActionsTests
     }
 
     private static NumberEditorViewModel<float> WidthEditor(ElementPropertyTabViewModel tab, RectShape shape)
-        => PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
-            .OfType<NumberEditorViewModel<float>>()
-            .Single(x => ReferenceEquals(x.PropertyAdapter.GetEngineProperty(), shape.Width));
+        => PropertyEditorTestHost.FindNumberEditor(tab.Items[0].Properties, shape.Width);
 
     // The services a property editor gets from the property tab it is shown in.
     private sealed class EditorServices(EditViewModel editor, Element element) : IPropertyEditorContextVisitor, IServiceProvider

@@ -40,10 +40,11 @@
                                    Text="{x:Static lang:Strings.SeparateComponents}" />
                 <ui:FAMenuFlyoutItem x:Name="unseparateComponentsItem"
                                    IsVisible="False"
-                                   IsEnabled="{Binding CanEditProperty.Value}"
+                                   IsEnabled="{Binding CanUnseparateComponents.Value}"
                                    Click="UnseparateComponents_Click"
                                    Text="{x:Static lang:Strings.UnseparateComponents}"
-                                   ToolTip.Tip="{x:Static lang:Strings.UnseparateComponents_Description}" />
+                                   ToolTip.ShowOnDisabled="True"
+                                   ToolTip.Tip="{Binding UnseparateComponentsDescription}" />
                 <ui:FAMenuFlyoutItem x:Name="editAnimationItem"
                                    IsEnabled="{Binding CanEditProperty.Value}"
                                    Click="EditAnimation_Click"

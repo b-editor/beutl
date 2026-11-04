@@ -11,6 +11,7 @@ using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
@@ -394,8 +395,8 @@ public sealed class AgentEditFollowerTests
     // Whether the control is the row of an element property tab that edits `property`.
     private static bool IsRowOf(Control target, IProperty property)
         => target.FindAncestorOfType<EngineObjectPropertyView>() is not null
-           && (target.DataContext as IServiceProvider)?.GetService(typeof(IPropertyAdapter)) is IPropertyAdapter adapter
-           && ReferenceEquals(adapter.GetEngineProperty(), property);
+           && target.DataContext is PropertyEditorViewModel row
+           && row.EditedProperties.Any(adapter => ReferenceEquals(adapter.GetEngineProperty(), property));
 
     private static Dictionary<string, object?> Target(Guid sceneId)
         => new() { ["sceneId"] = sceneId.ToString() };

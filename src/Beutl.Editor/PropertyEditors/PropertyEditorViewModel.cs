@@ -157,16 +157,32 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     public ReadOnlyReactivePropertySlim<IComponentAnimation?> SeparatedComponents { get; }
 
-    public bool CanSeparateComponents => ComponentSeparation.CanSeparate(PropertyAdapter.GetEngineProperty());
+    // The properties this editor edits, for those that look a row up by its property.
+    internal virtual IReadOnlyList<IPropertyAdapter> EditedProperties => [PropertyAdapter];
 
-    public void SeparateComponents()
+    // The properties nested editors show in place of the combined control, or null while that control shows.
+    internal virtual IObservable<IReadOnlyList<IPropertyAdapter>?> SeparatedProperties => SeparatedComponents
+        .Select(IReadOnlyList<IPropertyAdapter>? (animation) => animation is CoreObject obj
+            ? [.. animation.Components.Select(property => PropertyAdapterFactory.CreateAdapter(property, obj))]
+            : null);
+
+    // Whether the nested editors have the property's name and menu above them.
+    internal virtual bool ShowsSeparatedHeader => true;
+
+    public virtual bool CanSeparateComponents => ComponentSeparation.CanSeparate(PropertyAdapter.GetEngineProperty());
+
+    public virtual IReadOnlyReactiveProperty<bool> CanUnseparateComponents => CanEditProperty;
+
+    public virtual string UnseparateComponentsDescription => Strings.UnseparateComponents_Description;
+
+    public virtual void SeparateComponents()
     {
         if (!IsElementEditable || PropertyAdapter.IsReadOnly || !CanSeparateComponents || SeparatedComponents.Value != null) return;
         ComponentAnimations.Separate(PropertyAdapter.GetEngineProperty()!);
         Commit();
     }
 
-    public void UnseparateComponents()
+    public virtual void UnseparateComponents()
     {
         if (!IsElementEditable || PropertyAdapter.IsReadOnly || SeparatedComponents.Value == null) return;
         ComponentAnimations.Unseparate(PropertyAdapter.GetEngineProperty()!, CurrentTimeValue);
@@ -329,6 +345,10 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
                 KeyFrameIndex.Value = kfIndex;
             }
         }
+        else
+        {
+            IsAtKeyFrame.Value = false;
+        }
     }
 
     public virtual void Accept(IPropertyEditorContextVisitor visitor)
@@ -383,9 +403,13 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
         }
     }
 
+    // Set while another editor runs this one's edit as part of its own, which it commits as one history entry.
+    internal bool DefersCommit { get; set; }
+
     public void Commit(string? name = null)
     {
-        this.GetRequiredService<HistoryManager>().Commit(name ?? CommandNames.EditProperty);
+        if (!DefersCommit)
+            this.GetRequiredService<HistoryManager>().Commit(name ?? CommandNames.EditProperty);
     }
 
     protected object? GetDefaultValue()

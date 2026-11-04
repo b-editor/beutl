@@ -24,6 +24,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
     [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     [Range(1, float.MaxValue)]
+    [CombinedEditor(nameof(Height), Name = nameof(Strings.Size), ResourceType = typeof(Strings))]
     public IExpressionProperty<float> Width { get; } = Property.CreateAnimatable(640f);
 
     [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
