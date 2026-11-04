@@ -1757,6 +1757,24 @@
   <data name="MotionBlur_End" xml:space="preserve">
     <value>끝</value>
   </data>
+  <data name="AlphaMode" xml:space="preserve">
+    <value>알파 모드</value>
+  </data>
+  <data name="AlphaMode_Auto" xml:space="preserve">
+    <value>자동</value>
+  </data>
+  <data name="AlphaMode_Opaque" xml:space="preserve">
+    <value>불투명</value>
+  </data>
+  <data name="AlphaMode_Mask" xml:space="preserve">
+    <value>마스크</value>
+  </data>
+  <data name="AlphaMode_Blend" xml:space="preserve">
+    <value>블렌드</value>
+  </data>
+  <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
+    <value>알파 임계값</value>
+  </data>
   <data name="LumaKey" xml:space="preserve">
     <value>루마 키</value>
   </data>

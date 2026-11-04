@@ -1758,6 +1758,24 @@
   <data name="MotionBlur_End" xml:space="preserve">
     <value>End</value>
   </data>
+  <data name="AlphaMode" xml:space="preserve">
+    <value>Alpha Mode</value>
+  </data>
+  <data name="AlphaMode_Auto" xml:space="preserve">
+    <value>Auto</value>
+  </data>
+  <data name="AlphaMode_Opaque" xml:space="preserve">
+    <value>Opaque</value>
+  </data>
+  <data name="AlphaMode_Mask" xml:space="preserve">
+    <value>Mask</value>
+  </data>
+  <data name="AlphaMode_Blend" xml:space="preserve">
+    <value>Blend</value>
+  </data>
+  <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
+    <value>Alpha Cutoff</value>
+  </data>
   <data name="LumaKey" xml:space="preserve">
     <value>Luma key</value>
   </data>

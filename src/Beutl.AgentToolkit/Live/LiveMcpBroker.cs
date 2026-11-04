@@ -205,12 +205,21 @@ public sealed class LiveMcpBroker
                 return SceneWithoutInstance();
             if (!IsLocalTool(context.Server, request.Name))
                 return LiveOnly(request.Name);
+            // The advertised schema stops requiring a session so that live calls validate.
+            if (RequiresSession(context.Server, request.Name) && arguments?.ContainsKey(SessionArgument) != true)
+                return NoTarget(request.Name);
             // Headless: the server's own file-backed tools.
             return await next(context, cancellationToken).ConfigureAwait(false);
         }
 
         if (!LiveToolRouting.TryGetInstanceId(request.Name, id, out string? instanceId))
             return LiveToolResults.InvalidInstanceId();
+
+        if (AgentHostSceneRouting.SceneRequired.Contains(request.Name)
+            && !arguments!.ContainsKey(AgentHostSceneRouting.SceneIdArgument))
+        {
+            return InstanceWithoutScene();
+        }
 
         if (!TryGetPeers(out AgentHostPeerClient? peers, out ToolError? unavailable))
             return LiveToolResults.Error(unavailable);
@@ -273,6 +282,12 @@ public sealed class LiveMcpBroker
     private static bool IsLocalTool(McpServer server, string name)
         => server.ServerOptions.ToolCollection is { } collection && collection.TryGetPrimitive(name, out _);
 
+    private static bool RequiresSession(McpServer server, string name)
+        => server.ServerOptions.ToolCollection is { } collection
+           && collection.TryGetPrimitive(name, out McpServerTool? tool)
+           && tool.ProtocolTool.InputSchema.TryGetProperty("required", out JsonElement required)
+           && required.EnumerateArray().Any(item => item.ValueEquals(SessionArgument));
+
     // The headless schema plus the live target: instanceId selects a running editor, sceneId its
     // scene, and the file session stops being required because live calls never carry one.
     private static Tool WithLiveTarget(Tool tool)
@@ -327,6 +342,16 @@ public sealed class LiveMcpBroker
         => LiveToolResults.Error(ErrorCode.ValidationRejected,
             "sceneId targets a scene in a running Beutl instance; pass instanceId as well.", InstanceIdArgument,
             "Call list_instances for the instanceId, or omit sceneId and use a headless session from open_project/create_project.");
+
+    private static CallToolResult InstanceWithoutScene()
+        => LiveToolResults.Error(ErrorCode.ValidationRejected,
+            AgentHostSceneRouting.InvalidSceneMessage, AgentHostSceneRouting.SceneIdArgument,
+            AgentHostSceneRouting.InvalidSceneHint);
+
+    private static CallToolResult NoTarget(string toolName)
+        => LiveToolResults.Error(ErrorCode.ValidationRejected,
+            $"'{toolName}' needs a session, or an instanceId and sceneId for a running Beutl instance.", SessionArgument,
+            "Use the session from open_project/create_project, or call list_instances for the instanceId.");
 
     private static CallToolResult LiveOnly(string toolName)
         => LiveToolResults.Error(ErrorCode.ValidationRejected,

@@ -54,7 +54,7 @@ Beutl.Utilities
   abstract
 [Beutl.Configuration]:EditorConfig
   sealed
-  keys: AutoAdjustSceneDuration, ClampResizeToOriginalLength, DisplayPeakLuminance, EnablePointerLockInProperty, FrameCacheColorType, FrameCacheMaxSize, FrameCacheScale, IsFrameCacheEnabled, IsNodeCacheEnabled, IsOnionSkinEnabled, IsPreviewGuideEnabled, IsRippleEnabled, IsTimelineSnapEnabled, LastMediaDirectory, LibraryTabDisplayModes, NodeCacheMaxPixels, NodeCacheMinPixels, OnionSkinNextCount, OnionSkinNextOpacity, OnionSkinPrevCount, OnionSkinPrevOpacity, PreviewGuideAspectRatios, PreviewGuideColor, PreviewGuideGridColumns, PreviewGuideGridRows, PreviewGuideKinds, PreviewGuideOpacity, PreviewSourceMode, SwapTimelineScrollDirection, TimelineAutoScrollMode, ToneMappingExposure, ToneMappingMode, UseHdrPreview
+  keys: AutoAdjustSceneDuration, ClampResizeToOriginalLength, DisplayPeakLuminance, EnablePointerLockInProperty, FrameCacheColorType, FrameCacheMaxSize, FrameCacheScale, IsFrameCacheEnabled, IsNodeCacheEnabled, IsOnionSkinEnabled, IsPreviewGuideEnabled, IsRippleEnabled, IsTimelineSnapEnabled, LastMediaDirectory, LibraryTabDisplayModes, NodeCacheMaxPixels, NodeCacheMinPixels, OnionSkinNextCount, OnionSkinNextOpacity, OnionSkinPrevCount, OnionSkinPrevOpacity, PreviewGuideAspectRatios, PreviewGuideColor, PreviewGuideGridColumns, PreviewGuideGridRows, PreviewGuideKinds, PreviewGuideOpacity, PreviewSourceMode, SeekOnTimelineClick, SwapTimelineScrollDirection, TimelineAutoScrollMode, ToneMappingExposure, ToneMappingMode, UseHdrPreview
 [Beutl.Configuration]:ExtensionConfig
   sealed
   keys: DecoderPriority, EditorExtensions
@@ -652,7 +652,7 @@ Beutl.Utilities
   keys: Animations, Color, ColorMap, Expressions, Id, IndexOfRefraction, IsEnabled, Name, Opacity, Roughness
 [Beutl.Engine]Beutl.Graphics3D.Materials:UnlitMaterial
   sealed
-  keys: Animations, Color, ColorMap, Expressions, Id, IsEnabled, Name, Opacity
+  keys: AlphaCutoff, AlphaMode, Animations, Color, ColorMap, Expressions, Id, IsEnabled, Name, Opacity
 [Beutl.Engine]Beutl.Graphics3D.Meshes:CubeMesh
   sealed
   keys: Animations, Depth, Expressions, Height, Id, IsEnabled, Name, Width

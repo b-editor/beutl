@@ -112,10 +112,12 @@ internal static class AnimationOperations
     }
 
     // The keyframe at keyTime, or null when there is none.
-    internal static IKeyFrame? FindKeyFrame(IKeyFrameAnimation animation, MediaTime keyTime, ILogger logger)
+    internal static IKeyFrame? FindKeyFrame(IKeyFrameAnimation animation, MediaTime keyTime, ILogger logger,
+        EngineObject? fallbackOwner = null)
     {
-        keyTime = ConvertKeyTime(animation, keyTime, logger);
-        return FindKeyFrameOnFrame(animation.KeyFrames, keyTime, GetFrameRate(animation.FindHierarchicalParent<Scene>()));
+        keyTime = ConvertKeyTime(animation, keyTime, logger, fallbackOwner);
+        Scene? scene = animation.FindHierarchicalParent<Scene>() ?? fallbackOwner?.FindHierarchicalParent<Scene>();
+        return FindKeyFrameOnFrame(animation.KeyFrames, keyTime, GetFrameRate(scene));
     }
 
     public static void RemoveKeyFrame(IKeyFrameAnimation animation, IKeyFrame keyframe, ILogger logger)

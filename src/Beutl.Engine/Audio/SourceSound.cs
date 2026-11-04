@@ -30,6 +30,8 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ITim
             : projectLayout;
     }
 
+    public override bool HasTimeDependentClipLayout => Source.HasExpression || ChannelMap.HasExpression;
+
     public bool HasOriginalDuration()
     {
         return Source.Value != null;

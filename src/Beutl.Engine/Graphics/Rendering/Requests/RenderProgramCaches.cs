@@ -16,6 +16,10 @@ internal sealed class RenderProgramCaches(
     ProgramCache<ShaderGraphPipeline> shaderGraph,
     ShaderGraphImagePool? shaderGraphImages = null) : IDisposable
 {
+    /// <summary>Every family from <see cref="Create"/> not yet disposed, so context teardown can reach what they retain.</summary>
+    /// <remarks>Nothing enumerates the live renderers, and a borrowing family owns nothing to reach.</remarks>
+    private static readonly HashSet<RenderProgramCaches> s_owning = new(ReferenceEqualityComparer.Instance);
+
     public ProgramCache<CachedSkRuntimeEffect> Sksl { get; } = sksl;
 
     public ProgramCache<GLSLFilterPipeline> Spirv { get; } = spirv;
@@ -29,8 +33,47 @@ internal sealed class RenderProgramCaches(
         => Combine(Combine(Sksl.Statistics, Spirv.Statistics), ShaderGraph.Statistics);
 
     public static RenderProgramCaches Create()
-        => new(SkRuntimeEffectProgramCache.Create(), SpirvShaderProgramCache.Create(), ShaderGraphPipeline.CreateCache(),
+    {
+        var caches = new RenderProgramCaches(
+            SkRuntimeEffectProgramCache.Create(), SpirvShaderProgramCache.Create(), ShaderGraphPipeline.CreateCache(),
             new ShaderGraphImagePool());
+        lock (s_owning)
+            s_owning.Add(caches);
+        return caches;
+    }
+
+    /// <summary>
+    /// Disposes what every live family retains while the device is still installed, so the releases reach it. A
+    /// renderer that outlives the teardown compiles its programs again.
+    /// </summary>
+    internal static void RetireRetainedBeforeContextTeardown()
+    {
+        RenderProgramCaches[] families;
+        lock (s_owning)
+            families = [.. s_owning];
+
+        List<Exception> failures = [];
+        foreach (RenderProgramCaches family in families)
+        {
+            try
+            {
+                family.Sksl.EvictAll();
+                family.Spirv.EvictAll();
+                family.ShaderGraph.EvictAll();
+                family.ShaderGraphImages?.Clear();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Disposed after the snapshot was taken; it released what it held on the way out.
+            }
+            catch (Exception ex)
+            {
+                CleanupFailures.Append(failures, ex);
+            }
+        }
+
+        CleanupFailures.ThrowIfAny(failures, "One or more program caches failed to release what they retain.");
+    }
 
     /// <summary>Invalidates every program compiled for one device context, and the images allocated on it.</summary>
     public void EvictContext(object deviceIdentity, object contextIdentity)
@@ -44,6 +87,8 @@ internal sealed class RenderProgramCaches(
 
     public void Dispose()
     {
+        lock (s_owning)
+            s_owning.Remove(this);
         Sksl.Dispose();
         Spirv.Dispose();
         ShaderGraph.Dispose();

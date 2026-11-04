@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Animation;
 using Beutl.Audio.Effects;
+using Beutl.Audio.Effects.Equalizer;
 using Beutl.Media;
 using static Beutl.UnitTests.Engine.Audio.SoundExpressionTests;
 
@@ -88,6 +89,33 @@ public class AudioEffectExpressionTests
         });
 
         Assert.That(actual, Is.EqualTo(expected).Within(1e-3f));
+    }
+
+    [Test]
+    public void Equalizer_FilterType_PlaysTheExpressionValue()
+    {
+        var expression = new CountingExpression<BiQuadFilterType>(BiQuadFilterType.HighPass);
+        float[] stored = Compose(sound => sound.Effect.Value = new EqualizerEffect());
+        float[] expected = Compose(sound =>
+        {
+            var equalizer = new EqualizerEffect();
+            equalizer.Bands[4].FilterType.Value = BiQuadFilterType.HighPass;
+            sound.Effect.Value = equalizer;
+        });
+        float[] actual = Compose(sound =>
+        {
+            var equalizer = new EqualizerEffect();
+            equalizer.Bands[4].FilterType.Expression = expression;
+            sound.Effect.Value = equalizer;
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(expected, Is.Not.EqualTo(stored).Within(1e-3f), "The type must change the output for this to test anything.");
+            Assert.That(actual, Is.EqualTo(expected).Within(1e-3f));
+            // Once a chunk, not once a sample.
+            Assert.That(expression.Evaluations, Is.InRange(1, 250));
+        });
     }
 
     // A chunk's last sample can be alone in its span, and must not jump off the line its neighbours are on.

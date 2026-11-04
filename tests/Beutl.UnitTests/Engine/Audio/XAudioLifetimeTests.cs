@@ -43,6 +43,20 @@ public class XAudioLifetimeTests
         });
     }
 
+    [TestCase(1)]
+    [TestCase(6)]
+    public void Buffer_BufferDataWithoutALayout_RejectsAnythingButStereo(int channels)
+    {
+        using var audio = new Beutl.Audio.AudioBuffer(48000, channels, 16);
+        using var buffer = new XAudioBuffer();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => buffer.BufferData(audio), Throws.ArgumentException);
+            Assert.That(buffer.SizeInBytes, Is.Zero, "Nothing may be sent to the voice.");
+        });
+    }
+
     [Test]
     public unsafe void Buffer_BufferDataFromAnAudioBuffer_HoldsInterleavedFloats()
     {

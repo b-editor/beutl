@@ -105,6 +105,7 @@ public sealed class AvaloniaClipboardGateway : IClipboardGateway
         if (format == DataFormat.Bitmap) return BeutlClipboardFormats.Bitmap;
         if (format == BeutlDataFormats.Element) return BeutlClipboardFormats.Element;
         if (format == BeutlDataFormats.Elements) return BeutlClipboardFormats.Elements;
+        if (format == BeutlDataFormats.ElementGroups) return BeutlClipboardFormats.ElementGroups;
         return format.ToString() ?? string.Empty;
     }
 
@@ -114,6 +115,7 @@ public sealed class AvaloniaClipboardGateway : IClipboardGateway
         {
             BeutlClipboardFormats.Element => BeutlDataFormats.Element,
             BeutlClipboardFormats.Elements => BeutlDataFormats.Elements,
+            BeutlClipboardFormats.ElementGroups => BeutlDataFormats.ElementGroups,
             _ => null,
         };
     }

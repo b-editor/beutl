@@ -1,4 +1,5 @@
 ﻿using Avalonia.Headless.NUnit;
+using Beutl.Animation;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -7,6 +8,8 @@ using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Models;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
@@ -56,6 +59,46 @@ public sealed class FrameCacheInvalidatorTests
 
             await HeadlessTestHelpers.WaitUntilAsync(() => !Contains(cache, fiveSeconds), TimeSpan.FromSeconds(60));
             Assert.That(Contains(cache, tenSeconds), Is.True);
+        }
+        finally
+        {
+            cache.Clear();
+            cache.IsEnabled = enabled;
+        }
+    }
+
+    // A port's key frames hang below its node in the hierarchy, which is how the edit finds its element.
+    [AvaloniaTest]
+    public async Task Editing_a_key_frame_of_a_node_port_drops_the_cached_frames_of_its_element()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("frame-cache-node-port");
+        FrameCacheManager cache = editor.FrameCacheManager.Value;
+        bool enabled = cache.IsEnabled;
+        int frame = (int)MediaTime.FromSeconds(1).ToFrame(editor.Player.GetFrameRate(), MidpointRounding.AwayFromZero);
+        var keyFrame = new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(1) } };
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(keyFrame);
+        var node = new VideoSourceNode();
+        ((IAnimatablePropertyAdapter)node.Source.Property!).Animation = animation;
+        var graph = new NodeGraphDrawable();
+        graph.Model.Value!.Nodes.Add(node);
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(2) } };
+        element.Objects.Add(graph);
+        editor.Scene.Children.Add(element);
+        editor.HistoryManager.Commit();
+        // Adding the element drops its frames too, so that has to be over before a frame goes in.
+        await Task.Delay(500);
+        cache.IsEnabled = true;
+        try
+        {
+            Add(cache, frame);
+            Assert.That(Contains(cache, frame), Is.True);
+
+            keyFrame.KeyTime.Value = MediaTime.FromSeconds(1.5);
+            editor.HistoryManager.Commit();
+
+            await HeadlessTestHelpers.WaitUntilAsync(() => !Contains(cache, frame), TimeSpan.FromSeconds(10));
         }
         finally
         {

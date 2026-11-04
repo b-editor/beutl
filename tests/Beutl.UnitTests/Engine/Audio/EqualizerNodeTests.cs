@@ -1,4 +1,6 @@
-﻿using Beutl.Audio;
+﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Audio.Effects.Equalizer;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
@@ -48,6 +50,40 @@ public class EqualizerNodeTests
         node.AddInput(new BufferReplayNode(input));
         using var output = node.Process(CreateContext(MediaTime.Zero));
         return output.GetChannelData(0)[0];
+    }
+
+    [Test]
+    public void Process_FilterTypeThatChangesOverTime_FollowsTheNewType()
+    {
+        var band = new EqualizerBand();
+        band.FilterType.Expression = new FilterTypeStep(MediaTime.FromSeconds(0.05));
+        using var node = new EqualizerNode { Bands = [band] };
+        using var input = CreateConstantBuffer(0.9f, ChunkSamples);
+        node.AddInput(new BufferReplayNode(input));
+
+        using AudioBuffer output = node.Process(CreateContext(MediaTime.Zero));
+
+        float[] samples = output.GetChannelData(0).ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(samples[SampleRate / 25], Is.EqualTo(0.9f).Within(0.01f), "A low-pass keeps a constant input.");
+            Assert.That(samples[^1], Is.EqualTo(0f).Within(0.01f), "A high-pass removes it.");
+            Assert.That(samples, Has.All.Matches<float>(float.IsFinite));
+        });
+    }
+
+    private sealed class FilterTypeStep(MediaTime step) : IExpression<BiQuadFilterType>
+    {
+        public string ExpressionString => string.Empty;
+
+        public BiQuadFilterType Evaluate(ExpressionContext context)
+            => context.Time < step ? BiQuadFilterType.LowPass : BiQuadFilterType.HighPass;
+
+        public bool Validate([NotNullWhen(false)] out string? error)
+        {
+            error = null;
+            return true;
+        }
     }
 
     // One-tick rounding must preserve IIR state to avoid restarting the biquad.

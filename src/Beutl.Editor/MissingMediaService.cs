@@ -34,6 +34,8 @@ public sealed class MissingMediaService
     private readonly Func<string, IEnumerable<string>> _enumerateEntries;
     private readonly ConcurrentDictionary<(MissingMediaKind Kind, Uri Uri),
         (HashSet<IFileSource> Sources, MediaFileFingerprint? Fingerprint)> _validated = new();
+    // Each file as it last decoded, so that a check of a file that has not changed since does not decode it again.
+    private readonly ConcurrentDictionary<(MissingMediaKind Kind, string Path), (long Length, long LastWriteTicks)> _decoded = new();
 
     public MissingMediaService() : this(font => FontManager.Instance.IsRegistered(font)) { }
 
@@ -349,12 +351,18 @@ public sealed class MissingMediaService
 
     private static bool IsFontFile(string path) => Path.GetExtension(path).ToLowerInvariant() is ".ttf" or ".ttc" or ".otf";
 
-    /// <summary>Decodes a candidate before any live source is changed.</summary>
+    /// <summary>
+    /// Decodes a candidate before any live source is changed, unless it decoded as this kind and has not changed since.
+    /// </summary>
     public Task<IFileSource?> ValidateAsync(MissingMedia item, string path, CancellationToken token = default)
         => Task.Run<IFileSource?>(() =>
         {
             token.ThrowIfCancellationRequested();
             if (!File.Exists(path)) throw new FileNotFoundException("Media file not found.", path);
+            // A model also depends on the files beside it, and a font on the family the row names, so those are always read.
+            var stamp = item.Kind is MissingMediaKind.Model or MissingMediaKind.Font ? null : ReadFileStamp(path);
+            if (stamp is { } unchanged && _decoded.TryGetValue((item.Kind, path), out var decoded) && decoded == unchanged)
+                return null;
             switch (item.Kind)
             {
                 case MissingMediaKind.Image:
@@ -394,8 +402,21 @@ public sealed class MissingMediaService
                     if (!found) throw new InvalidDataException("Choose a font file belonging to the missing font family.");
                     break;
             }
+            if (stamp is { } read) _decoded[(item.Kind, path)] = read;
             return null;
         }, token);
+
+    // Null for a file that cannot be opened, so that a decoder reports why. Opening it still notices a file that became
+    // unreadable, which its size and time do not show.
+    private static (long Length, long LastWriteTicks)? ReadFileStamp(string path)
+    {
+        try
+        {
+            using var handle = File.OpenHandle(path, share: FileShare.ReadWrite | FileShare.Delete);
+            return (RandomAccess.GetLength(handle), File.GetLastWriteTimeUtc(handle).Ticks);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
+    }
 
     // Caches hashes in the scene folder's .beutl/ only when asked, so a staged package copy gets none.
     public Task UpdateFingerprintsAsync(Scene scene, CancellationToken token = default, bool force = true,

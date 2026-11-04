@@ -187,6 +187,7 @@ internal class PackageOperationHandler
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // The old version is still installed, so there is nothing to queue.
+            await LoadAgainAsync(loaded, logger);
             throw;
         }
         catch (PackageApiMismatchException mismatch)
@@ -199,6 +200,8 @@ internal class PackageOperationHandler
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Immediate update failed, falling back to queue.");
+            // The update only happens at the next launch, so the old version serves until then.
+            await LoadAgainAsync(loaded, logger);
             _queue.InstallQueue(packageId);
             PackageNotifications.ScheduledUpdate(packageId.Id);
             return;
@@ -213,6 +216,10 @@ internal class PackageOperationHandler
     {
         foreach (LocalPackage old in unloaded)
         {
+            // An unload that was not safe keeps the package registered until the next launch, and a copy loaded
+            // beside it would share what it still holds.
+            if (_packageManager.FindLoadedPackage(old.Name).Contains(old)) continue;
+
             try
             {
                 using PackageFolderReader reader = new(old.InstalledPath!);

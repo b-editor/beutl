@@ -149,6 +149,8 @@ internal sealed class StableProxyResolverFacade(IProxyResolver initial) : IProxy
 
     public long GetSourceVersion(string absolutePath) => _inner.GetSourceVersion(absolutePath);
 
+    public long StoreVersion => _inner.StoreVersion;
+
     public IDisposable Pin(ProxyResolution resolution) => _inner.Pin(resolution);
 
     public bool IsPinned(string absoluteProxyFilePath) => _inner.IsPinned(absoluteProxyFilePath);
