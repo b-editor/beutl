@@ -1,13 +1,17 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
 using Beutl.Editor;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
@@ -63,6 +67,38 @@ public class EditViewStateRestoreTests
         finally
         {
             await editor.DisposeAsync();
+        }
+    }
+
+    // The scroll viewer reports its first offset on its first layout, which must not replace the saved one.
+    [AvaloniaTest]
+    public async Task A_reopened_scene_shows_the_timeline_where_it_was_scrolled()
+    {
+        (Project project, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("view-state-scroll");
+        var saved = new Vector2(1200, 300);
+        TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
+        timeline.Options.Value = timeline.Options.Value with { Offset = saved };
+        await editor.SaveAsync();
+
+        editor = await TestShell.ReopenAsync(project.Uri!.LocalPath);
+        timeline = editor.FindToolTab<TimelineTabViewModel>()!;
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(timeline.Options.Value.Offset, Is.EqualTo(saved));
+                Assert.That(view.FindControl<ScrollViewer>("ContentScroll")!.Offset, Is.EqualTo(new Avalonia.Vector(saved.X, saved.Y)));
+            });
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
         }
     }
 
