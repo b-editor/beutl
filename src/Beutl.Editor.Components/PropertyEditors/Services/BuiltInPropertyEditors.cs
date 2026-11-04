@@ -8,6 +8,7 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.PropertyEditors;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
@@ -38,8 +39,8 @@ internal static class BuiltInPropertyEditors
             Owner = registry.Owner,
         });
 
-        Combined<float>(registry);
-        Combined<int>(registry);
+        Combined<float, Graphics.Point, Graphics.Size>(registry, "new Point(Sin(Time) * 100, 0)", "new Size(Sin(Time) * 100, 100)");
+        Combined<int, Media.PixelPoint, Media.PixelSize>(registry, "new PixelPoint(100, 0)", "new PixelSize(100, 100)");
 
         Number<byte>(registry);
         Number<decimal>(registry);
@@ -131,7 +132,7 @@ internal static class BuiltInPropertyEditors
         Add(registry, typeof(CoreObject), p => Create(typeof(CoreObjectEditorViewModel<>), p.PropertyType, p), _ => new CoreObjectListItemEditor(), listItemOnly: true);
     }
 
-    private static void Combined<T>(PropertyEditorRegistry registry)
+    private static void Combined<T, TPoint, TSize>(PropertyEditorRegistry registry, string pointExample, string sizeExample)
         where T : struct, INumber<T>
     {
         registry.Add(new PropertyEditorRegistration
@@ -141,7 +142,11 @@ internal static class BuiltInPropertyEditors
             CreateContext = properties => new CombinedEditorViewModel<T>(
                 (IAnimatablePropertyAdapter<T>)properties[0],
                 (IAnimatablePropertyAdapter<T>)properties[1],
-                properties[0].GetAttributes().OfType<CombinedEditorAttribute>().First().GetName() ?? properties[0].DisplayName),
+                properties[0].GetAttributes().OfType<CombinedEditorAttribute>().First().GetName() ?? properties[0].DisplayName,
+                // A width and a height are a size; anything else has an axis, which a point has.
+                properties[0].GetEngineProperty()!.Name.EndsWith("Width", StringComparison.Ordinal)
+                    ? new CombinedExpressionFormat<T>(sizeExample, ComponentExpression<TSize, T>.TryParse)
+                    : new CombinedExpressionFormat<T>(pointExample, ComponentExpression<TPoint, T>.TryParse)),
             CreateControl = (_, _) => new Vector2Editor<T>(),
             Connect = Connect,
             IsStandard = true,

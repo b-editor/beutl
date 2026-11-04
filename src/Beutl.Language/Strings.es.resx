@@ -584,6 +584,9 @@
   <data name="RemoveExpression" xml:space="preserve">
     <value>Quitar expresión</value>
   </data>
+  <data name="Expression_ReturnsBothValues" xml:space="preserve">
+    <value>Introduce una expresión que devuelva ambos valores, por ejemplo {0}.</value>
+  </data>
   <data name="ExpressionHelp" xml:space="preserve">
     <value>Introduce una expresión matemática. Variables disponibles: Time, Start, Duration, Progress. Usa GetProperty&lt;T&gt;("{GUID}.Property") para hacer referencia a otras propiedades.</value>
   </data>
@@ -3559,7 +3562,7 @@ cuando el registro del historial está activado.</value>
     <value>Conservar el valor del momento actual y eliminar los fotogramas clave y las expresiones de los componentes.</value>
   </data>
   <data name="UnseparateComponents_SameTiming" xml:space="preserve">
-    <value>Disponible cuando ambos valores tienen los mismos tiempos de fotogramas clave y no tienen expresiones.</value>
+    <value>Disponible cuando ambos valores tienen los mismos tiempos de fotogramas clave y comparten una expresión o no tienen ninguna.</value>
   </data>
   <data name="RelativeUnit_Relative" xml:space="preserve">
     <value>Relativa (1 = 100%)</value>

@@ -611,6 +611,9 @@
   <data name="RemoveExpression" xml:space="preserve">
     <value>Remove expression</value>
   </data>
+  <data name="Expression_ReturnsBothValues" xml:space="preserve">
+    <value>Enter one expression that returns both values, such as {0}.</value>
+  </data>
   <data name="ExpressionHelp" xml:space="preserve">
     <value>Enter a mathematical expression. Available variables: Time, Start, Duration, Progress. Use GetProperty&lt;T&gt;("{GUID}.Property") to reference other properties.</value>
   </data>
@@ -3559,7 +3562,7 @@ when history recording is enabled.</value>
     <value>Keep the value at the current time and remove component keyframes and expressions.</value>
   </data>
   <data name="UnseparateComponents_SameTiming" xml:space="preserve">
-    <value>Available while both values have the same keyframe times and no expressions.</value>
+    <value>Available while both values have the same keyframe times and share one expression or have none.</value>
   </data>
   <data name="RelativeUnit_Relative" xml:space="preserve">
     <value>Relative (1 = 100%)</value>

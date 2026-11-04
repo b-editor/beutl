@@ -169,6 +169,11 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
     // Whether the nested editors have the property's name and menu above them.
     internal virtual bool ShowsSeparatedHeader => true;
 
+    internal virtual string? ExpressionError => (PropertyAdapter.GetEngineProperty() as IExpressionProperty)?.ExpressionError;
+
+    // An expression to show the expression editor with, where what it returns is not the plain type of a property.
+    internal virtual string? ExpressionExample => null;
+
     public virtual bool CanSeparateComponents => ComponentSeparation.CanSeparate(PropertyAdapter.GetEngineProperty());
 
     public virtual IReadOnlyReactiveProperty<bool> CanUnseparateComponents => CanEditProperty;

@@ -1,9 +1,11 @@
-﻿using System.Numerics;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Text.Json.Nodes;
 using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.PropertyEditors;
+using Beutl.Engine.Expressions;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -13,25 +15,28 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
 // The row of two properties that CombinedEditorAttribute joins. Each property keeps its own value and keyframes: an
 // editor of each reads and writes the values, and the row's keyframe commands run on both. While the two differ in
-// their keyframe times or hold an expression the row cannot stand for both, so each takes a row of its own.
+// their keyframe times or do not share one expression the row cannot stand for both, so each takes a row of its own.
 public sealed class CombinedEditorViewModel<T> : VectorEditorViewModel<(T, T), T, (T, T)>
     where T : struct, INumber<T>
 {
     private const string KeepsSeparatedKey = "KeepsSeparated";
 
     private readonly CombinedPropertyAdapter<T> _adapter;
+    private readonly CombinedExpressionFormat<T> _expressionFormat;
     private readonly ReactivePropertySlim<IReadOnlyList<IPropertyAdapter>?> _separatedProperties = new();
     private IServiceProvider? _services;
 
-    public CombinedEditorViewModel(IAnimatablePropertyAdapter<T> first, IAnimatablePropertyAdapter<T> second, string displayName)
-        : this(new CombinedPropertyAdapter<T>(first, second, displayName))
+    internal CombinedEditorViewModel(IAnimatablePropertyAdapter<T> first, IAnimatablePropertyAdapter<T> second, string displayName,
+        CombinedExpressionFormat<T> expressionFormat)
+        : this(new CombinedPropertyAdapter<T>(first, second, displayName), expressionFormat)
     {
     }
 
-    private CombinedEditorViewModel(CombinedPropertyAdapter<T> adapter)
+    private CombinedEditorViewModel(CombinedPropertyAdapter<T> adapter, CombinedExpressionFormat<T> expressionFormat)
         : base(adapter, value => value, edit => edit, ValueHeader(adapter.Properties[0]), ValueHeader(adapter.Properties[1]))
     {
         _adapter = adapter;
+        _expressionFormat = expressionFormat;
         Disposables.Add(adapter);
         CanUnseparateComponents = CanEditProperty
             .CombineLatest(adapter.CanShareRow, (canEdit, canShareRow) => canEdit && canShareRow)
@@ -54,6 +59,10 @@ public sealed class CombinedEditorViewModel<T> : VectorEditorViewModel<(T, T), T
     internal override IObservable<IReadOnlyList<IPropertyAdapter>?> SeparatedProperties => _separatedProperties;
 
     internal override bool ShowsSeparatedHeader => !_adapter.IsInNode.Value;
+
+    internal override string? ExpressionError => First.ExpressionError ?? Second.ExpressionError;
+
+    internal override string ExpressionExample => _expressionFormat.Example;
 
     public override bool CanSeparateComponents => true;
 
@@ -83,6 +92,27 @@ public sealed class CombinedEditorViewModel<T> : VectorEditorViewModel<(T, T), T
     public override void PrepareToEditAnimation() => EditBoth(editor => editor.PrepareToEditAnimation());
 
     public override void RemoveAnimation() => EditBoth(editor => editor.RemoveAnimation());
+
+    public override string? GetExpressionString() => (_adapter.Expression as IComponentExpression)?.Source;
+
+    // One expression, which returns a value with a component for each property.
+    public override bool SetExpression(string expressionString, [NotNullWhen(false)] out string? error)
+    {
+        if (!_expressionFormat.Parse(expressionString, out IExpression<T>[]? expressions, out error))
+            return false;
+
+        string? failure = null;
+        _adapter.EditBoth(() =>
+        {
+            if (First.SetExpression(expressions[0], out failure))
+                Second.SetExpression(expressions[1], out failure);
+        });
+        Commit();
+        error = failure;
+        return failure == null;
+    }
+
+    public override void RemoveExpression() => EditBoth(editor => editor.RemoveExpression());
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -127,7 +157,11 @@ public sealed class CombinedEditorViewModel<T> : VectorEditorViewModel<(T, T), T
     {
         if (IsDisposed) return;
 
-        _adapter.EditBoth(edit);
+        _adapter.EditBoth(() =>
+        {
+            edit(First);
+            edit(Second);
+        });
         Commit();
     }
 
@@ -143,9 +177,15 @@ public sealed class CombinedEditorViewModel<T> : VectorEditorViewModel<(T, T), T
     }
 }
 
+// The expression a row's two properties share, which returns a value with a component for each of them.
+internal sealed record CombinedExpressionFormat<T>(string Example, CombinedExpressionFormat<T>.Parser Parse)
+{
+    public delegate bool Parser(string source, [NotNullWhen(true)] out IExpression<T>[]? expressions, [NotNullWhen(false)] out string? error);
+}
+
 // The two properties as the one value of the row. While the row shows, the first property's keyframes stand for both's,
 // since the two have the same keyframe times then.
-internal sealed class CombinedPropertyAdapter<T> : IPropertyAdapter<(T, T)>, IAnimatablePropertyAdapter, IDisposable
+internal sealed class CombinedPropertyAdapter<T> : IPropertyAdapter<(T, T)>, IAnimatablePropertyAdapter, IExpressionPropertyAdapter, IDisposable
     where T : struct, INumber<T>
 {
     private readonly IAnimatablePropertyAdapter<T> _first;
@@ -210,6 +250,22 @@ internal sealed class CombinedPropertyAdapter<T> : IPropertyAdapter<(T, T)>, IAn
         .Switch()
         .DistinctUntilChanged();
 
+    // The row's commands replace each property's expression through its editor.
+    public IExpression? Expression
+    {
+        get => _isSeparated.Value ? null : _first.Expression;
+        set => throw new NotSupportedException();
+    }
+
+    public bool HasExpression => Expression != null;
+
+    public IObservable<IExpression?> ObserveExpression => _isSeparated
+        .Select(separated => separated
+            ? Observable.ReturnThenNever<IExpression?>(null)
+            : ((IExpressionPropertyAdapter)_first).ObserveExpression)
+        .Switch()
+        .DistinctUntilChanged();
+
     Attribute[] IPropertyAdapter.GetAttributes() => _first.GetAttributes();
 
     public object? GetDefaultValue()
@@ -229,13 +285,12 @@ internal sealed class CombinedPropertyAdapter<T> : IPropertyAdapter<(T, T)>, IAn
         => First.EditValue.CombineLatest(Second.EditValue, (first, second) => (first, second));
 
     // Between the two edits the properties differ, which must not split the row.
-    public void EditBoth(Action<PropertyEditorViewModel> edit)
+    public void EditBoth(Action edit)
     {
         _isEditingBoth = First.DefersCommit = Second.DefersCommit = true;
         try
         {
-            edit(First);
-            edit(Second);
+            edit();
         }
         finally
         {
@@ -276,9 +331,15 @@ internal sealed class CombinedPropertyAdapter<T> : IPropertyAdapter<(T, T)>, IAn
         _isSeparated.Value = KeepsSeparated.Value || IsInNode.Value || !_canShareRow.Value;
     }
 
+    private bool ShareOneExpression()
+        => _first.Expression is IComponentExpression { ComponentIndex: 0 } first
+           && _second.Expression is IComponentExpression { ComponentIndex: 1 } second
+           && first.GetType() == second.GetType()
+           && first.Source == second.Source;
+
     private bool CanStandForBoth()
     {
-        if (_first.HasExpression || _second.HasExpression) return false;
+        if ((_first.HasExpression || _second.HasExpression) && !ShareOneExpression()) return false;
 
         KeyFrameAnimation<T>? first = _first.Animation;
         KeyFrameAnimation<T>? second = _second.Animation;

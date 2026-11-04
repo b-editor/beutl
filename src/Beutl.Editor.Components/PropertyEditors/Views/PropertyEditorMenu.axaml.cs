@@ -71,7 +71,7 @@ public sealed partial class PropertyEditorMenu : UserControl
         unseparateComponentsItem.IsVisible = separated;
         uniformEditorToggle.IsVisible = model is IConfigureUniformEditor && !separated;
 
-        bool supportsExpression = model != null && SupportsTextExpression(model);
+        bool supportsExpression = model != null && !separated && SupportsTextExpression(model);
         editExpressionItem.IsVisible = supportsExpression;
         // Separation keeps an existing aggregate expression; let users remove it without discarding the tracks.
         removeExpressionItem.IsVisible = supportsExpression || separated && model?.HasExpression.Value == true;
@@ -207,7 +207,12 @@ public sealed partial class PropertyEditorMenu : UserControl
             var flyout = new ExpressionEditorFlyout();
             flyout.Placement = PlacementMode.BottomEdgeAlignedRight;
             flyout.ExpressionText = currentExpression ?? "";
-            flyout.ErrorMessage = (viewModel.PropertyAdapter.GetEngineProperty() as IExpressionProperty)?.ExpressionError;
+            flyout.ErrorMessage = viewModel.ExpressionError;
+            if (viewModel.ExpressionExample is { } example)
+            {
+                flyout.ExpressionHint = string.Format(Strings.Expression_ReturnsBothValues, example);
+                flyout.ExpressionPlaceholder = example;
+            }
             flyout.Confirmed += (_, args) =>
             {
                 bool isValid = viewModel.SetExpression(args.ExpressionText, out var error);

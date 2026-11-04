@@ -37,6 +37,10 @@ public sealed class ExpressionEditorFlyout : FAPickerFlyoutBase
         }
     }
 
+    public string? ExpressionHint { get; set; }
+
+    public string? ExpressionPlaceholder { get; set; }
+
     public event TypedEventHandler<ExpressionEditorFlyout, ExpressionConfirmedEventArgs>? Confirmed;
 
     protected override Control CreatePresenter()
@@ -44,6 +48,11 @@ public sealed class ExpressionEditorFlyout : FAPickerFlyoutBase
         _presenter = new ExpressionEditorFlyoutPresenter();
         _presenter.ExpressionText = ExpressionText;
         _presenter.ErrorMessage = ErrorMessage;
+        _presenter.ExpressionHint = ExpressionHint;
+        if (ExpressionPlaceholder != null)
+        {
+            _presenter.ExpressionPlaceholder = ExpressionPlaceholder;
+        }
         _presenter.Confirmed += OnFlyoutConfirmed;
         _presenter.Dismissed += OnFlyoutDismissed;
         _presenter.CloseClicked += OnFlyoutDismissed;

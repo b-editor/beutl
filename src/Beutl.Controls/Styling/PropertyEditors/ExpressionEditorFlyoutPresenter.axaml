@@ -56,12 +56,18 @@
                                            TextWrapping="Wrap"
                                            FontSize="12"
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Name="ExpressionHintTextBlock"
+                                           Text="{TemplateBinding ExpressionHint}"
+                                           TextWrapping="Wrap"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           IsVisible="{TemplateBinding ExpressionHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                                 <TextBox Name="ExpressionTextBox"
                                          AcceptsReturn="True"
                                          MinHeight="100"
                                          MaxHeight="200"
                                          TextWrapping="Wrap"
-                                         PlaceholderText="Sin(Time * 2 * PI) * 100"
+                                         PlaceholderText="{TemplateBinding ExpressionPlaceholder}"
                                          Text="{TemplateBinding ExpressionText, Mode=TwoWay}"
                                          VerticalContentAlignment="Top" />
                                 <TextBlock Name="ErrorTextBlock"

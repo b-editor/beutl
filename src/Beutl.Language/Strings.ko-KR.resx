@@ -584,6 +584,9 @@
   <data name="RemoveExpression" xml:space="preserve">
     <value>식 제거</value>
   </data>
+  <data name="Expression_ReturnsBothValues" xml:space="preserve">
+    <value>두 값을 함께 반환하는 표현식 하나를 입력합니다. 예: {0}</value>
+  </data>
   <data name="ExpressionHelp" xml:space="preserve">
     <value>수학 식을 입력하세요. 사용 가능한 변수: Time, Start, Duration, Progress. GetProperty&lt;T&gt;("{GUID}.Property")를 사용하여 다른 속성을 참조하세요.</value>
   </data>
@@ -3559,7 +3562,7 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>현재 시점의 값을 유지하고 구성 요소의 키프레임과 표현식을 제거합니다.</value>
   </data>
   <data name="UnseparateComponents_SameTiming" xml:space="preserve">
-    <value>두 값의 키프레임 시간이 같고 표현식이 없을 때 사용할 수 있습니다.</value>
+    <value>두 값의 키프레임 시간이 같고 표현식을 공유하거나 표현식이 없을 때 사용할 수 있습니다.</value>
   </data>
   <data name="RelativeUnit_Relative" xml:space="preserve">
     <value>상대 (1 = 100%)</value>

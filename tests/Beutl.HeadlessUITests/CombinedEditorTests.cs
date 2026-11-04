@@ -1,11 +1,13 @@
 ﻿using System.Reflection;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
@@ -24,6 +26,7 @@ using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
+using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
@@ -502,6 +505,213 @@ public sealed class CombinedEditorTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTest]
+    public void One_expression_reaches_both_as_one_history_entry()
+    {
+        var transform = new TranslateTransform();
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        combined.Accept(Services(history.History));
+        history.History.Commit();
+        int before = history.History.UndoCount;
+
+        Assert.That(combined.SetExpression("new Point(Time + 10, 20)", out string? error), Is.True, error);
+
+        var context = new EvaluationContext(MediaTime.FromSeconds(2));
+        Assert.Multiple(() =>
+        {
+            Assert.That(transform.X.Evaluate(context), Is.EqualTo(12f));
+            Assert.That(transform.Y.Evaluate(context), Is.EqualTo(20f));
+            Assert.That(history.History.UndoCount, Is.EqualTo(before + 1));
+            Assert.That(IsSeparated(combined), Is.False);
+            Assert.That(combined.HasExpression.Value, Is.True);
+            Assert.That(combined.CanEdit.Value, Is.False);
+            Assert.That(combined.GetExpressionString(), Is.EqualTo("new Point(Time + 10, 20)"));
+        });
+
+        history.History.Undo();
+        Assert.Multiple(() =>
+        {
+            Assert.That(transform.X.HasExpression, Is.False);
+            Assert.That(transform.Y.HasExpression, Is.False);
+            Assert.That(combined.HasExpression.Value, Is.False);
+            Assert.That(combined.CanEdit.Value, Is.True);
+        });
+    }
+
+    [AvaloniaTest]
+    public void A_width_and_a_height_take_a_size_and_nothing_else()
+    {
+        var shape = new RectShape();
+        using PropertyEditorTestHost.HistoryScope history = new(shape);
+        using CombinedEditorViewModel<float> combined = CreateCombined(shape);
+        combined.Accept(Services(history.History));
+        history.History.Commit();
+        int before = history.History.UndoCount;
+
+        foreach (string wrong in new[] { "new Point(1, 2)", "1f", "not an expression" })
+        {
+            Assert.That(combined.SetExpression(wrong, out string? problem), Is.False, wrong);
+            Assert.That(problem, Is.Not.Empty);
+        }
+        Assert.That(shape.Width.HasExpression, Is.False);
+        Assert.That(history.History.UndoCount, Is.EqualTo(before));
+
+        Assert.That(combined.SetExpression("new Size(Sin(Time) * 100, 50)", out string? error), Is.True, error);
+        var context = new EvaluationContext(MediaTime.Zero);
+        Assert.That(shape.Width.Evaluate(context), Is.EqualTo(0f));
+        Assert.That(shape.Height.Evaluate(context), Is.EqualTo(50f));
+    }
+
+    [AvaloniaTest]
+    public void Removing_the_expression_removes_it_from_both_as_one_history_entry()
+    {
+        var transform = new TranslateTransform();
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        combined.Accept(Services(history.History));
+        Assert.That(combined.SetExpression("new Point(1, 2)", out string? error), Is.True, error);
+        int before = history.History.UndoCount;
+
+        combined.RemoveExpression();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(transform.X.HasExpression, Is.False);
+            Assert.That(transform.Y.HasExpression, Is.False);
+            Assert.That(history.History.UndoCount, Is.EqualTo(before + 1));
+            Assert.That(IsSeparated(combined), Is.False);
+        });
+    }
+
+    [AvaloniaTest]
+    public void An_expression_takes_the_place_of_both_animations_until_undone()
+    {
+        var transform = new TranslateTransform();
+        transform.X.SetKeyFrameAnimation(Animation(0, 1));
+        transform.Y.SetKeyFrameAnimation(Animation(0, 1));
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        combined.Accept(Services(history.History));
+        history.History.Commit();
+
+        Assert.That(combined.SetExpression("new Point(1, 2)", out string? error), Is.True, error);
+        Assert.That(transform.X.GetKeyFrameAnimation(), Is.Null);
+        Assert.That(transform.Y.GetKeyFrameAnimation(), Is.Null);
+        Assert.That(IsSeparated(combined), Is.False);
+
+        history.History.Undo();
+        Assert.That(transform.X.GetKeyFrameAnimation(), Is.Not.Null);
+        Assert.That(transform.Y.GetKeyFrameAnimation(), Is.Not.Null);
+        Assert.That(transform.X.HasExpression, Is.False);
+        Assert.That(IsSeparated(combined), Is.False);
+    }
+
+    [AvaloniaTest]
+    public void The_shared_expression_is_still_shared_after_saving()
+    {
+        var transform = new TranslateTransform();
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using (CombinedEditorViewModel<float> combined = CreateCombined(transform))
+        {
+            combined.Accept(Services(history.History));
+            Assert.That(combined.SetExpression("var size = 30; new Point(size, size * 2)", out string? error), Is.True, error);
+        }
+
+        var copy = (TranslateTransform)CoreSerializer.DeserializeFromJsonObject(
+            CoreSerializer.SerializeToJsonObject(transform), typeof(TranslateTransform));
+
+        var context = new EvaluationContext(MediaTime.Zero);
+        Assert.That(copy.X.Evaluate(context), Is.EqualTo(30f));
+        Assert.That(copy.Y.Evaluate(context), Is.EqualTo(60f));
+        using PropertyEditorTestHost.HistoryScope copyHistory = new(copy);
+        using CombinedEditorViewModel<float> restored = CreateCombined(copy);
+        restored.Accept(Services(copyHistory.History));
+        Assert.That(IsSeparated(restored), Is.False);
+        Assert.That(restored.GetExpressionString(), Is.EqualTo("var size = 30; new Point(size, size * 2)"));
+    }
+
+    // The two rows show the expression of their own type, which stays an edit of that row alone.
+    [AvaloniaTest]
+    public void A_row_of_its_own_edits_its_value_with_a_plain_expression()
+    {
+        var transform = new TranslateTransform();
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        combined.Accept(Services(history.History));
+        Assert.That(combined.SetExpression("new Point(1, 2)", out string? error), Is.True, error);
+        var window = new Window { Width = 480, Height = 300, Content = CreateControl(combined) };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            combined.SeparateComponents();
+            HeadlessTestHelpers.Render(3);
+            Assert.That(combined.HasExpression.Value, Is.False, "The header's menu does not edit an expression.");
+            Assert.That(combined.CanUnseparateComponents.Value, Is.True);
+
+            var row = (PropertyEditorViewModel)window.GetVisualDescendants().OfType<NumberEditor<float>>().First().DataContext!;
+            Assert.That(row.GetExpressionString(), Is.EqualTo("(new Point(1, 2)).X"));
+            Assert.That(row.SetExpression(row.GetExpressionString()!, out error), Is.True, error);
+            HeadlessTestHelpers.Render(3);
+
+            Assert.That(transform.X.Evaluate(new EvaluationContext(MediaTime.Zero)), Is.EqualTo(1f));
+            Assert.That(combined.CanUnseparateComponents.Value, Is.False, "The two no longer share an expression.");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    public void The_expression_editor_says_what_to_return_and_writes_both()
+    {
+        var shape = new RectShape();
+        using PropertyEditorTestHost.HistoryScope history = new(shape);
+        using CombinedEditorViewModel<float> combined = CreateCombined(shape);
+        combined.Accept(Services(history.History));
+        var window = new Window { Width = 640, Height = 480, Content = CreateControl(combined) };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            var editor = window.GetVisualDescendants().OfType<Vector2Editor<float>>().Single();
+            Button button = ((Control)editor.MenuContent!).GetVisualDescendants().OfType<Button>().First();
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render(3);
+            var menu = (FAMenuFlyout)button.ContextFlyout!;
+            menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == "editExpressionItem")
+                .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            menu.Hide();
+            HeadlessTestHelpers.Render(3);
+
+            var popup = window.OpenedPopups.Single(popup => popup.Child is ExpressionEditorFlyoutPresenter);
+            var presenter = (ExpressionEditorFlyoutPresenter)popup.Child!;
+            Assert.That(presenter.ExpressionHint, Does.Contain("new Size("));
+            Assert.That(presenter.ExpressionPlaceholder, Does.StartWith("new Size("));
+            presenter.GetVisualDescendants().OfType<TextBox>().Single(text => text.Name == "ExpressionTextBox").Text = "new Size(30, 40)";
+            presenter.GetVisualDescendants().OfType<Button>().Single(accept => accept.Name == "AcceptButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render(3);
+
+            var context = new EvaluationContext(MediaTime.Zero);
+            Assert.Multiple(() =>
+            {
+                Assert.That(popup.IsOpen, Is.False);
+                Assert.That(shape.Width.Evaluate(context), Is.EqualTo(30f));
+                Assert.That(shape.Height.Evaluate(context), Is.EqualTo(40f));
+                Assert.That(editor.IsEffectivelyVisible, Is.True);
+                Assert.That(editor.IsReadOnly, Is.True);
+                Assert.That(editor.FirstValue, Is.EqualTo(30f));
+                Assert.That(editor.SecondValue, Is.EqualTo(40f));
+            });
+        }
+        finally
+        {
+            foreach (var popup in window.OpenedPopups.ToArray())
+                popup.Close();
+            window.Close();
+        }
+    }
+
     // The menu fills its icon on a keyframe, but the header above the two rows has no keyframes to mark.
     [AvaloniaTest]
     public void The_menu_marks_a_keyframe_only_while_the_row_stands_for_both()
@@ -595,7 +805,7 @@ public sealed class CombinedEditorTests
                 Assert.That(Item(menu, "editAnimationItem").IsVisible, Is.True);
                 Assert.That(Item(menu, "editInlineAnimationItem").IsVisible, Is.True);
                 Assert.That(Item(menu, "removeAnimationItem").IsVisible, Is.True);
-                Assert.That(Item(menu, "editExpressionItem").IsVisible, Is.False, "An expression belongs to one property.");
+                Assert.That(Item(menu, "editExpressionItem").IsVisible, Is.True);
                 Assert.That(Item(menu, "copyPropertyPathItem").IsVisible, Is.False, "A path names one property.");
                 Assert.That(menu.Items.OfType<FAToggleMenuFlyoutItem>().Single(i => i.Name == "uniformEditorToggle").IsVisible, Is.True);
             });
@@ -613,6 +823,7 @@ public sealed class CombinedEditorTests
             {
                 Assert.That(Item(headerMenu, "separateComponentsItem").IsVisible, Is.False);
                 Assert.That(Item(headerMenu, "editAnimationItem").IsVisible, Is.False);
+                Assert.That(Item(headerMenu, "editExpressionItem").IsVisible, Is.False, "Each row has its own expression.");
                 Assert.That(unseparate.IsVisible, Is.True);
                 Assert.That(unseparate.IsEnabled, Is.True);
                 Assert.That(ToolTip.GetTip(unseparate), Is.EqualTo(Strings.UnseparateComponents_SameTiming));
