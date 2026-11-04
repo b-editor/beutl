@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
-using System.Reactive.Linq;
 using Beutl.Extensibility;
 
 namespace Beutl.PropertyAdapters;
@@ -53,12 +52,7 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>, IChildObjectSource
 
     public IObservable<T?> GetObservable()
     {
-        return _observable ??= Observable.FromEventPattern<PropertyValueChangedEventArgs<T>>(
-                handler => Property.ValueChanged += handler,
-                handler => Property.ValueChanged -= handler)
-            .Select(e => e.EventArgs.NewValue)
-            .Publish(Property.Value)
-            .RefCount();
+        return _observable ??= Property.GetObservable();
     }
 
     public T? GetValue()

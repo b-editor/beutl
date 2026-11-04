@@ -70,10 +70,20 @@ public partial class GroupNode : GraphNode
     {
         int outputCount = Group.Value.Output.Value?.Items.Count ?? 0;
         int inputCount = Group.Value.Input.Value?.Items.Count ?? 0;
-        if (Items.Count != outputCount + inputCount) return null;
+        if (Items.Count - FixedPortCount != outputCount + inputCount) return null;
 
         int index = (outputSide ? Group.Value.Output.Value?.Items : Group.Value.Input.Value?.Items)?.IndexOf(source) ?? -1;
         return index < 0 ? null : Items[(outputSide ? 0 : outputCount) + index];
+    }
+
+    /// <summary>Ports a subclass adds of its own, after the ones mirroring the group's boundary.</summary>
+    private protected virtual int FixedPortCount => 0;
+
+    /// <summary>Mirrors the boundary nodes of a group that a constructor filled.</summary>
+    private protected void MirrorBoundaryPorts()
+    {
+        OnOutputChanged(Group.Value.Output.Value, null);
+        OnInputChanged(Group.Value.Input.Value, null);
     }
 
     private void OnGroupEdited(object? sender, EventArgs e)
@@ -117,6 +127,7 @@ public partial class GroupNode : GraphNode
 
         if (newObj != null)
         {
+            newObj.Items.CollectionChanged -= OutputItemsCollectionChanged;
             newObj.Items.CollectionChanged += OutputItemsCollectionChanged;
 
             if (!HistoryReplay.IsActive)
@@ -182,6 +193,7 @@ public partial class GroupNode : GraphNode
 
         if (newObj != null)
         {
+            newObj.Items.CollectionChanged -= InputItemsCollectionChanged;
             newObj.Items.CollectionChanged += InputItemsCollectionChanged;
 
             if (!HistoryReplay.IsActive)
@@ -221,7 +233,8 @@ public partial class GroupNode : GraphNode
 
         void Remove(int index, IList items)
         {
-            var outputNodePortCount = Group.Value.Output.Value?.Items.Count ?? 0;
+            // What is mirrored right now: removing an output can be what removed this input.
+            int outputNodePortCount = _outputPortSubscriptions.Count;
             Items.RemoveRange(outputNodePortCount + index, items.Count);
         }
 

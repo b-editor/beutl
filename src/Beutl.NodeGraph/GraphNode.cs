@@ -71,6 +71,9 @@ public abstract partial class GraphNode : EngineObject
     [SuppressResourceClassGeneration]
     public IProperty<bool> IsExpanded { get; } = new ValueOnlyProperty<bool>(true) { AffectsRender = false };
 
+    /// <summary>The width the editor gives this node, for one whose contents need more room than a value does.</summary>
+    public virtual double EditorWidth => 215;
+
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
     public IProperty<(double X, double Y)> Position { get; } = new ValueOnlyProperty<(double X, double Y)>((0, 0)) { AffectsRender = false };
@@ -251,7 +254,7 @@ public abstract partial class GraphNode : EngineObject
 
     protected InputPort<T> CreateInput<T>(string name, DisplayAttribute? display = null)
     {
-        var adapter = new NodePropertyAdapter<T>(name);
+        var adapter = new NodePropertyAdapter<T>(name, display);
         var port = new DefaultInputPort<T>();
         port.SetPropertyAdapter(adapter);
         port.Name.Value = name;
@@ -261,7 +264,7 @@ public abstract partial class GraphNode : EngineObject
 
     protected IInputPort CreateInput(string name, Type type, DisplayAttribute? display = null)
     {
-        var adapter = Activator.CreateInstance(typeof(NodePropertyAdapter<>).MakeGenericType(type), name)!;
+        var adapter = Activator.CreateInstance(typeof(NodePropertyAdapter<>).MakeGenericType(type), name, display)!;
         var port = (IDefaultInputPort)Activator.CreateInstance(typeof(DefaultInputPort<>).MakeGenericType(type))!;
         port.SetPropertyAdapter(adapter);
         port.Name.Value = name;

@@ -4,6 +4,7 @@ using Beutl.Language;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.NodeGraph.Nodes.Shaders;
 using Beutl.NodeGraph.Nodes.Utilities;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -148,6 +149,9 @@ public class NodePortLocalizationTests
             .SelectMany(Leaves)
             .Where(item => item.Type.Assembly == typeof(NodesRegistrar).Assembly)
             .SelectMany(item => ((GraphNode)Activator.CreateInstance(item.Type)!).EnumerateMembers()
+                // A shader's ports show the names in its code, which no translation applies to.
+                .Where(member => !(item.Type.IsAssignableTo(typeof(ShaderPassNode))
+                    && (member.Name.Value.StartsWith("In.") || member.Name.Value.StartsWith("Out."))))
                 .Where(member => member.Display.Value is not { ResourceType: not null } display
                     || string.IsNullOrWhiteSpace(display.GetName()))
                 .Select(member => $"{item.Type.Name}.{member.Name.Value}"))

@@ -36,6 +36,489 @@
   <data name="Group" xml:space="preserve">
     <value>グループ</value>
   </data>
+  <data name="Shaders" xml:space="preserve">
+    <value>シェーダー</value>
+  </data>
+  <data name="ShaderCategory_Resources" xml:space="preserve">
+    <value>リソース</value>
+  </data>
+  <data name="ShaderCategory_Operations" xml:space="preserve">
+    <value>操作</value>
+  </data>
+  <data name="ShaderCategory_Loops" xml:space="preserve">
+    <value>反復</value>
+  </data>
+  <data name="ShaderCategory_Inputs" xml:space="preserve">
+    <value>パスへの入力</value>
+  </data>
+  <data name="ShaderCategory_PassSettings" xml:space="preserve">
+    <value>パスの設定</value>
+  </data>
+  <data name="ShaderFullscreenPassNode" xml:space="preserve">
+    <value>全画面パス (GLSL)</value>
+  </data>
+  <data name="ShaderComputePassNode" xml:space="preserve">
+    <value>コンピュートパス (GLSL)</value>
+  </data>
+  <data name="ShaderRenderPassNode" xml:space="preserve">
+    <value>描画パス (GLSL)</value>
+  </data>
+  <data name="ShaderExtendedRenderPassNode" xml:space="preserve">
+    <value>ジオメトリ・テッセレーション付き描画パス (GLSL)</value>
+  </data>
+  <data name="ShaderSourceNode" xml:space="preserve">
+    <value>入力画像</value>
+  </data>
+  <data name="ShaderPictureNode" xml:space="preserve">
+    <value>描画を画像に</value>
+  </data>
+  <data name="ShaderApplyNode" xml:space="preserve">
+    <value>シェーダーを適用</value>
+  </data>
+  <data name="ShaderImageNode" xml:space="preserve">
+    <value>画像</value>
+  </data>
+  <data name="ShaderFixedImageNode" xml:space="preserve">
+    <value>固定サイズの画像</value>
+  </data>
+  <data name="ShaderImageViewNode" xml:space="preserve">
+    <value>画像ビュー</value>
+  </data>
+  <data name="ShaderBufferNode" xml:space="preserve">
+    <value>バッファ</value>
+  </data>
+  <data name="ShaderDataNode" xml:space="preserve">
+    <value>テキストからデータ</value>
+  </data>
+  <data name="ShaderPackNode" xml:space="preserve">
+    <value>値をまとめる</value>
+  </data>
+  <data name="ShaderClearImageNode" xml:space="preserve">
+    <value>画像をクリア</value>
+  </data>
+  <data name="ShaderClearBufferNode" xml:space="preserve">
+    <value>バッファをクリア</value>
+  </data>
+  <data name="ShaderCopyImageNode" xml:space="preserve">
+    <value>画像をコピー</value>
+  </data>
+  <data name="ShaderCopyBufferNode" xml:space="preserve">
+    <value>バッファをコピー</value>
+  </data>
+  <data name="ShaderGenerateMipmapsNode" xml:space="preserve">
+    <value>ミップマップを生成</value>
+  </data>
+  <data name="ShaderConvertColorNode" xml:space="preserve">
+    <value>色の解釈を変換</value>
+  </data>
+  <data name="ShaderRepeatNode" xml:space="preserve">
+    <value>繰り返し</value>
+  </data>
+  <data name="ShaderReplayNode" xml:space="preserve">
+    <value>シミュレーションを再生</value>
+  </data>
+  <data name="ShaderLoopInfoNode" xml:space="preserve">
+    <value>反復の情報</value>
+  </data>
+  <data name="ShaderSamplerNode" xml:space="preserve">
+    <value>サンプリング</value>
+  </data>
+  <data name="ShaderInputRegionNode" xml:space="preserve">
+    <value>入力領域</value>
+  </data>
+  <data name="ShaderImageParametersNode" xml:space="preserve">
+    <value>画像の情報</value>
+  </data>
+  <data name="ShaderVectorNode" xml:space="preserve">
+    <value>ベクトル</value>
+  </data>
+  <data name="ShaderColorNode" xml:space="preserve">
+    <value>色をvec4に</value>
+  </data>
+  <data name="ShaderBlendNode" xml:space="preserve">
+    <value>ブレンド</value>
+  </data>
+  <data name="ShaderDrawNode" xml:space="preserve">
+    <value>描画数</value>
+  </data>
+  <data name="ShaderDispatchNode" xml:space="preserve">
+    <value>ディスパッチ</value>
+  </data>
+  <data name="ShaderRasterizerNode" xml:space="preserve">
+    <value>ラスタライザー</value>
+  </data>
+  <data name="ShaderDepthNode" xml:space="preserve">
+    <value>深度・ステンシル</value>
+  </data>
+  <data name="ShaderStencilNode" xml:space="preserve">
+    <value>ステンシル面</value>
+  </data>
+  <data name="ShaderVertexBufferNode" xml:space="preserve">
+    <value>頂点バッファ</value>
+  </data>
+  <data name="ShaderVertexAttributeNode" xml:space="preserve">
+    <value>頂点属性</value>
+  </data>
+  <data name="ShaderIndexBufferNode" xml:space="preserve">
+    <value>インデックスバッファ</value>
+  </data>
+  <data name="ShaderLoadNode" xml:space="preserve">
+    <value>出力の初期内容</value>
+  </data>
+  <data name="ShaderLoopInput" xml:space="preserve">
+    <value>反復の入力</value>
+  </data>
+  <data name="ShaderLoopOutput" xml:space="preserve">
+    <value>反復の出力</value>
+  </data>
+  <data name="ShaderPartialRenderingNode" xml:space="preserve">
+    <value>部分描画</value>
+  </data>
+  <data name="ShaderDrawMode_Vertices" xml:space="preserve">
+    <value>頂点</value>
+  </data>
+  <data name="ShaderDrawMode_Indexed" xml:space="preserve">
+    <value>インデックス</value>
+  </data>
+  <data name="ShaderDrawMode_Indirect" xml:space="preserve">
+    <value>間接</value>
+  </data>
+  <data name="ShaderDrawMode_IndexedIndirect" xml:space="preserve">
+    <value>インデックス間接</value>
+  </data>
+  <data name="ShaderDispatchMode_Image" xml:space="preserve">
+    <value>画像の全ピクセル</value>
+  </data>
+  <data name="ShaderDispatchMode_Workgroups" xml:space="preserve">
+    <value>ワークグループ数</value>
+  </data>
+  <data name="ShaderDispatchMode_Invocations" xml:space="preserve">
+    <value>実行回数</value>
+  </data>
+  <data name="ShaderDispatchMode_Indirect" xml:space="preserve">
+    <value>間接</value>
+  </data>
+  <data name="ShaderDataType_HexBytes" xml:space="preserve">
+    <value>16進数のバイト列</value>
+  </data>
+  <data name="ShaderPort_AddressU" xml:space="preserve">
+    <value>アドレスU</value>
+  </data>
+  <data name="ShaderPort_AddressV" xml:space="preserve">
+    <value>アドレスV</value>
+  </data>
+  <data name="ShaderPort_AddressW" xml:space="preserve">
+    <value>アドレスW</value>
+  </data>
+  <data name="ShaderPort_AlphaOperation" xml:space="preserve">
+    <value>アルファの演算</value>
+  </data>
+  <data name="ShaderPort_ArrayLayers" xml:space="preserve">
+    <value>配列レイヤー数</value>
+  </data>
+  <data name="ShaderPort_Attributes" xml:space="preserve">
+    <value>属性</value>
+  </data>
+  <data name="ShaderPort_BaseLayer" xml:space="preserve">
+    <value>先頭レイヤー</value>
+  </data>
+  <data name="ShaderPort_BaseMip" xml:space="preserve">
+    <value>先頭ミップ</value>
+  </data>
+  <data name="ShaderPort_Binding" xml:space="preserve">
+    <value>バインディング</value>
+  </data>
+  <data name="ShaderPort_Bounds" xml:space="preserve">
+    <value>範囲</value>
+  </data>
+  <data name="ShaderPort_Buffer" xml:space="preserve">
+    <value>バッファ</value>
+  </data>
+  <data name="ShaderPort_ClearDepth" xml:space="preserve">
+    <value>クリア深度</value>
+  </data>
+  <data name="ShaderPort_ClearStencil" xml:space="preserve">
+    <value>クリアステンシル</value>
+  </data>
+  <data name="ShaderPort_Code" xml:space="preserve">
+    <value>コード</value>
+  </data>
+  <data name="ShaderPort_Color" xml:space="preserve">
+    <value>色</value>
+  </data>
+  <data name="ShaderPort_ColorEncoding" xml:space="preserve">
+    <value>色の解釈</value>
+  </data>
+  <data name="ShaderPort_ColorOperation" xml:space="preserve">
+    <value>色の演算</value>
+  </data>
+  <data name="ShaderPort_Commands" xml:space="preserve">
+    <value>コマンド</value>
+  </data>
+  <data name="ShaderPort_Compare" xml:space="preserve">
+    <value>比較</value>
+  </data>
+  <data name="ShaderPort_CompareMask" xml:space="preserve">
+    <value>比較マスク</value>
+  </data>
+  <data name="ShaderPort_Count" xml:space="preserve">
+    <value>回数</value>
+  </data>
+  <data name="ShaderPort_Cull" xml:space="preserve">
+    <value>カリング</value>
+  </data>
+  <data name="ShaderPort_Data" xml:space="preserve">
+    <value>データ</value>
+  </data>
+  <data name="ShaderPort_DataType" xml:space="preserve">
+    <value>データ型</value>
+  </data>
+  <data name="ShaderPort_Delta" xml:space="preserve">
+    <value>経過時間</value>
+  </data>
+  <data name="ShaderPort_DepthOutput" xml:space="preserve">
+    <value>深度</value>
+  </data>
+  <data name="ShaderPort_DepthTest" xml:space="preserve">
+    <value>深度テスト</value>
+  </data>
+  <data name="ShaderPort_DepthWrite" xml:space="preserve">
+    <value>深度書き込み</value>
+  </data>
+  <data name="ShaderPort_Destination" xml:space="preserve">
+    <value>コピー先</value>
+  </data>
+  <data name="ShaderPort_DestinationAlpha" xml:space="preserve">
+    <value>描画先アルファ係数</value>
+  </data>
+  <data name="ShaderPort_DestinationColor" xml:space="preserve">
+    <value>描画先色係数</value>
+  </data>
+  <data name="ShaderPort_DrawCount" xml:space="preserve">
+    <value>描画回数</value>
+  </data>
+  <data name="ShaderPort_ElementCount" xml:space="preserve">
+    <value>要素数</value>
+  </data>
+  <data name="ShaderPort_Filter" xml:space="preserve">
+    <value>フィルター</value>
+  </data>
+  <data name="ShaderPort_FirstIndex" xml:space="preserve">
+    <value>先頭インデックス</value>
+  </data>
+  <data name="ShaderPort_FirstInstance" xml:space="preserve">
+    <value>先頭インスタンス</value>
+  </data>
+  <data name="ShaderPort_FirstVertex" xml:space="preserve">
+    <value>先頭頂点</value>
+  </data>
+  <data name="ShaderPort_Format" xml:space="preserve">
+    <value>形式</value>
+  </data>
+  <data name="ShaderPort_FragmentCode" xml:space="preserve">
+    <value>フラグメントシェーダー</value>
+  </data>
+  <data name="ShaderPort_From" xml:space="preserve">
+    <value>変換元</value>
+  </data>
+  <data name="ShaderPort_Front" xml:space="preserve">
+    <value>表面の向き</value>
+  </data>
+  <data name="ShaderPort_GeometryCode" xml:space="preserve">
+    <value>ジオメトリシェーダー</value>
+  </data>
+  <data name="ShaderPort_Image" xml:space="preserve">
+    <value>画像</value>
+  </data>
+  <data name="ShaderPort_Index" xml:space="preserve">
+    <value>反復番号</value>
+  </data>
+  <data name="ShaderPort_IndexCount" xml:space="preserve">
+    <value>インデックス数</value>
+  </data>
+  <data name="ShaderPort_InstanceCount" xml:space="preserve">
+    <value>インスタンス数</value>
+  </data>
+  <data name="ShaderPort_Kind" xml:space="preserve">
+    <value>種類</value>
+  </data>
+  <data name="ShaderPort_Like" xml:space="preserve">
+    <value>サイズの基準</value>
+  </data>
+  <data name="ShaderPort_Load" xml:space="preserve">
+    <value>初期内容</value>
+  </data>
+  <data name="ShaderPort_Location" xml:space="preserve">
+    <value>ロケーション</value>
+  </data>
+  <data name="ShaderPort_MagFilter" xml:space="preserve">
+    <value>拡大フィルター</value>
+  </data>
+  <data name="ShaderPort_MaxLod" xml:space="preserve">
+    <value>最大LOD</value>
+  </data>
+  <data name="ShaderPort_MinFilter" xml:space="preserve">
+    <value>縮小フィルター</value>
+  </data>
+  <data name="ShaderPort_MinLod" xml:space="preserve">
+    <value>最小LOD</value>
+  </data>
+  <data name="ShaderPort_MipLevels" xml:space="preserve">
+    <value>ミップレベル数</value>
+  </data>
+  <data name="ShaderPort_MipmapFilter" xml:space="preserve">
+    <value>ミップマップフィルター</value>
+  </data>
+  <data name="ShaderPort_Mode" xml:space="preserve">
+    <value>モード</value>
+  </data>
+  <data name="ShaderPort_Offset" xml:space="preserve">
+    <value>オフセット</value>
+  </data>
+  <data name="ShaderPort_Padding" xml:space="preserve">
+    <value>余白</value>
+  </data>
+  <data name="ShaderPort_PatchControlPoints" xml:space="preserve">
+    <value>パッチ制御点数</value>
+  </data>
+  <data name="ShaderPort_Rate" xml:space="preserve">
+    <value>読み進める単位</value>
+  </data>
+  <data name="ShaderPort_Reference" xml:space="preserve">
+    <value>参照値</value>
+  </data>
+  <data name="ShaderPort_ResetTime" xml:space="preserve">
+    <value>開始時刻 (秒)</value>
+  </data>
+  <data name="ShaderPort_ResolutionScale" xml:space="preserve">
+    <value>解像度倍率</value>
+  </data>
+  <data name="ShaderPort_Settings" xml:space="preserve">
+    <value>設定</value>
+  </data>
+  <data name="ShaderPort_Source" xml:space="preserve">
+    <value>コピー元</value>
+  </data>
+  <data name="ShaderPort_SourceAlpha" xml:space="preserve">
+    <value>描画元アルファ係数</value>
+  </data>
+  <data name="ShaderPort_SourceColor" xml:space="preserve">
+    <value>描画元色係数</value>
+  </data>
+  <data name="ShaderPort_Stencil" xml:space="preserve">
+    <value>ステンシル</value>
+  </data>
+  <data name="ShaderPort_StencilBack" xml:space="preserve">
+    <value>ステンシル (裏面)</value>
+  </data>
+  <data name="ShaderPort_StencilDepthFail" xml:space="preserve">
+    <value>深度テスト失敗時</value>
+  </data>
+  <data name="ShaderPort_StencilFail" xml:space="preserve">
+    <value>ステンシル失敗時</value>
+  </data>
+  <data name="ShaderPort_StencilFront" xml:space="preserve">
+    <value>ステンシル (表面)</value>
+  </data>
+  <data name="ShaderPort_StencilPass" xml:space="preserve">
+    <value>成功時</value>
+  </data>
+  <data name="ShaderPort_StepsPerSecond" xml:space="preserve">
+    <value>毎秒の更新回数</value>
+  </data>
+  <data name="ShaderPort_Stride" xml:space="preserve">
+    <value>ストライド</value>
+  </data>
+  <data name="ShaderPort_Targets" xml:space="preserve">
+    <value>描画先</value>
+  </data>
+  <data name="ShaderPort_TessellationControlCode" xml:space="preserve">
+    <value>テッセレーション制御シェーダー</value>
+  </data>
+  <data name="ShaderPort_TessellationEvaluationCode" xml:space="preserve">
+    <value>テッセレーション評価シェーダー</value>
+  </data>
+  <data name="ShaderPort_Text" xml:space="preserve">
+    <value>値</value>
+  </data>
+  <data name="ShaderPort_To" xml:space="preserve">
+    <value>変換先</value>
+  </data>
+  <data name="ShaderPort_Topology" xml:space="preserve">
+    <value>トポロジ</value>
+  </data>
+  <data name="ShaderPort_Transform" xml:space="preserve">
+    <value>変換</value>
+  </data>
+  <data name="ShaderPort_UseCompare" xml:space="preserve">
+    <value>深度と比較</value>
+  </data>
+  <data name="ShaderPort_Value" xml:space="preserve">
+    <value>値</value>
+  </data>
+  <data name="ShaderPort_Values" xml:space="preserve">
+    <value>値</value>
+  </data>
+  <data name="ShaderPort_VertexCode" xml:space="preserve">
+    <value>頂点シェーダー</value>
+  </data>
+  <data name="ShaderPort_VertexCount" xml:space="preserve">
+    <value>頂点数</value>
+  </data>
+  <data name="ShaderPort_VertexOffset" xml:space="preserve">
+    <value>頂点オフセット</value>
+  </data>
+  <data name="ShaderPort_Vec2" xml:space="preserve">
+    <value>vec2</value>
+  </data>
+  <data name="ShaderPort_Vec3" xml:space="preserve">
+    <value>vec3</value>
+  </data>
+  <data name="ShaderPort_Vec4" xml:space="preserve">
+    <value>vec4</value>
+  </data>
+  <data name="ShaderPort_W" xml:space="preserve">
+    <value>W</value>
+  </data>
+  <data name="ShaderPort_WriteMask" xml:space="preserve">
+    <value>書き込みマスク</value>
+  </data>
+  <data name="ShaderPort_X" xml:space="preserve">
+    <value>X</value>
+  </data>
+  <data name="ShaderPort_Y" xml:space="preserve">
+    <value>Y</value>
+  </data>
+  <data name="ShaderPort_Z" xml:space="preserve">
+    <value>Z</value>
+  </data>
+  <data name="ShaderError_Cycle" xml:space="preserve">
+    <value>シェーダーの接続が循環しています。</value>
+  </data>
+  <data name="ShaderError_DataSize" xml:space="preserve">
+    <value>「{0}」には{1}バイト必要ですが、{2}バイト渡されました。</value>
+  </data>
+  <data name="ShaderError_EmptyCode" xml:space="preserve">
+    <value>シェーダーのコードが空です。</value>
+  </data>
+  <data name="ShaderError_ImageParametersNeedUniformBlock" xml:space="preserve">
+    <value>画像の情報はuniformブロックにだけ接続できます。</value>
+  </data>
+  <data name="ShaderError_InvalidReplayTime" xml:space="preserve">
+    <value>毎秒の更新回数は正の値、時刻は範囲内の値にしてください。</value>
+  </data>
+  <data name="ShaderError_NoDepthAttachment" xml:space="preserve">
+    <value>このパスには深度画像がありません。</value>
+  </data>
+  <data name="ShaderError_NotConnected" xml:space="preserve">
+    <value>「{0}」を接続してください。</value>
+  </data>
+  <data name="ShaderError_TooManySteps" xml:space="preserve">
+    <value>{0}回の反復が必要ですが、上限は{1}回です。</value>
+  </data>
+  <data name="ShaderError_ValueType" xml:space="preserve">
+    <value>「{0}」に渡された値の型が違います。</value>
+  </data>
   <data name="ToolsAndValues" xml:space="preserve">
     <value>ツールと値</value>
   </data>

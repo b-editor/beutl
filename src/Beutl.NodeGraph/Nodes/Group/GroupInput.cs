@@ -28,7 +28,7 @@ public partial class GroupInput : GraphNode, IDynamicPortNode
         }
     }
 
-    public bool AddNodePort(INodePort port, [NotNullWhen(true)] out Connection? connection)
+    public virtual bool AddNodePort(INodePort port, [NotNullWhen(true)] out Connection? connection)
     {
         var graphModel = this.FindRequiredHierarchicalParent<GraphModel>();
         connection = null;

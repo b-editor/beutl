@@ -1,0 +1,628 @@
+﻿using Beutl.Composition;
+using Beutl.Graphics;
+using Beutl.Graphics.Backend;
+using Beutl.Graphics.Shaders;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Composition;
+using Beutl.NodeGraph.Nodes.Shaders;
+
+namespace Beutl.UnitTests.NodeGraph;
+
+/// <summary>What the wires record. None of this needs a GPU.</summary>
+public class ShaderNodeRecordingTests
+{
+    private static (GraphModel Graph, ShaderApplyNode Apply) NewGraph()
+    {
+        var graph = new GraphModel();
+        return (graph, graph.Add(new ShaderApplyNode()));
+    }
+
+    private static ShaderApplyNode.Resource? Evaluate(GraphModel graph, GraphSnapshot snapshot)
+    {
+        snapshot.Build(graph, CompositionContext.Default);
+        snapshot.Evaluate(CompositionContext.Default);
+        return snapshot.GetResource(snapshot.FindSlotIndex(graph.Nodes.OfType<ShaderApplyNode>().Single())) as ShaderApplyNode.Resource;
+    }
+
+    [Test]
+    public void OnePassIsAllAFilterNeeds()
+    {
+        var (graph, apply) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        graph.Connect(apply.Image, pass.Out("color"));
+
+        ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
+
+        ShaderPassDescription recorded = description.Passes.Single();
+        Assert.That(recorded.Bindings.Single().Resource, Is.SameAs(description.Resources[0]),
+            "A sampler nothing connects to reads the source image.");
+        Assert.That(description.Output.Image, Is.SameAs(recorded.Attachments.Single().Image));
+    }
+
+    [Test]
+    public void TheWiresDecideWhatRunsAndInWhichOrder()
+    {
+        var (graph, apply) = NewGraph();
+        var last = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "last" } });
+        var first = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "first" } });
+        var unused = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "unused" } });
+        var mask = graph.Add(new ShaderComputePassNode { Name = { Value = "mask" } });
+        last.Code.Value = """
+            #version 450
+            layout(location = 0) in vec2 uv;
+            layout(location = 0) out vec4 color;
+            layout(set = 0, binding = 0) uniform sampler2D source;
+            layout(set = 0, binding = 1) uniform sampler2D mask;
+            void main() { color = texture(source, uv) * texture(mask, uv); }
+            """;
+        graph.Connect(last.In("source"), first.Out("color"));
+        graph.Connect(last.In("mask"), mask.Out("result"));
+        graph.Connect(apply.Image, last.Out("color"));
+
+        ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
+
+        Assert.That(description.PassNames, Is.EqualTo(new[] { "first", "mask", "last" }));
+        Assert.That(description.PassNames, Does.Not.Contain(unused.Name.Value));
+    }
+
+    [Test]
+    public void ABranchReadByTwoPassesRunsOnce()
+    {
+        var (graph, apply) = NewGraph();
+        var shared = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "shared" } });
+        var left = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "left" } });
+        var right = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "right" } });
+        var merge = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "merge" } });
+        merge.Code.Value = """
+            #version 450
+            layout(location = 0) in vec2 uv;
+            layout(location = 0) out vec4 color;
+            layout(set = 0, binding = 0) uniform sampler2D a;
+            layout(set = 0, binding = 1) uniform sampler2D b;
+            void main() { color = texture(a, uv) + texture(b, uv); }
+            """;
+        graph.Connect(left.In("source"), shared.Out("color"));
+        graph.Connect(right.In("source"), shared.Out("color"));
+        graph.Connect(merge.In("a"), left.Out("color"));
+        graph.Connect(merge.In("b"), right.Out("color"));
+        graph.Connect(apply.Image, merge.Out("color"));
+
+        Assert.That(ShaderNodeTestHelpers.Record(graph).PassNames, Is.EqualTo(new[] { "shared", "left", "right", "merge" }));
+    }
+
+    [Test]
+    public void AWriteToAConnectedImageComesOutAsTheSameImage()
+    {
+        var (graph, apply) = NewGraph();
+        var image = graph.Add(new ShaderImageNode());
+        var first = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "first" } });
+        graph.Connect(first.Targets, image.Output);
+        var second = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "second" } });
+        graph.Connect(second.Targets, first.Out("color"));
+        var blend = graph.Add(new ShaderBlendNode());
+        graph.Connect(second.Settings, blend.Output);
+        graph.Connect(apply.Image, second.Out("color"));
+
+        ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
+
+        Assert.That(description.Passes[^1].Attachments.Single().Image, Is.SameAs(description.Passes[^2].Attachments.Single().Image));
+        Assert.That(description.Passes[^1].Blend.Enabled, Is.True);
+        Assert.That(description.Passes[^1].Attachments.Single().Load, Is.EqualTo(AttachmentLoadOp.Load), "Drawing onto a target keeps it.");
+    }
+
+    [Test]
+    public void ANewOutputStartsClearAndAFreshTargetIsKnownToBeEmpty()
+    {
+        var (graph, apply) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        graph.Connect(apply.Image, pass.Out("color"));
+        Assert.That(ShaderNodeTestHelpers.Record(graph).Passes.Single().Attachments.Single().Load, Is.EqualTo(AttachmentLoadOp.Clear));
+
+        var image = graph.Add(new ShaderImageNode());
+        graph.Connect(pass.Targets, image.Output);
+        ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
+        Assert.That(description.Passes[0].Transfer!.Kind, Is.EqualTo(ShaderTransferKind.ClearImage));
+        Assert.That(description.Passes[^1].Attachments.Single().Load, Is.EqualTo(AttachmentLoadOp.Load));
+
+        var load = graph.Add(new ShaderLoadNode());
+        load.Load.Property!.SetValue(AttachmentLoadOp.DontCare);
+        graph.Connect(pass.Settings, load.Output);
+        Assert.That(ShaderNodeTestHelpers.Record(graph).Passes[^1].Attachments.Single().Load, Is.EqualTo(AttachmentLoadOp.DontCare));
+    }
+
+    [Test]
+    public void AnOutputWithoutATargetIsClearedWhenItsPartnerKeepsOne()
+    {
+        var (graph, apply) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        pass.Code.Value = """
+            #version 450
+            layout(location = 0) out vec4 first;
+            layout(location = 1) out vec4 second;
+            void main() { first = vec4(1); second = vec4(1); }
+            """;
+        var image = graph.Add(new ShaderImageNode());
+        graph.Connect(pass.Targets, image.Output);
+        graph.Connect(apply.Image, pass.Out("second"));
+
+        ShaderPassDescription recorded = ShaderNodeTestHelpers.Record(graph).Passes[^1];
+
+        Assert.That(recorded.Attachments.Select(a => a.Load), Is.All.EqualTo(AttachmentLoadOp.Load), "A pass's attachments share one load.");
+    }
+
+    [Test]
+    public void AGraphWithNoInputConnectedStillRecordsForTheFrame()
+    {
+        var (graph, apply) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        pass.Code.Value = """
+            #version 450
+            layout(location = 0) in vec2 uv;
+            layout(location = 0) out vec4 color;
+            void main() { color = vec4(uv, 0, 1); }
+            """;
+        graph.Connect(apply.Image, pass.Out("color"));
+        using var snapshot = new GraphSnapshot();
+
+        ShaderApplyNode.Resource resource = Evaluate(graph, snapshot)!;
+
+        Assert.That(apply.Error.Value, Is.Null);
+        Assert.That(resource.Effect.Description.Value!.PassNames, Has.Length.EqualTo(1));
+    }
+
+    [Test]
+    public void AnImageConnectedToAWriteOnlyBindingIsOnlyWritten()
+    {
+        var (graph, apply) = NewGraph();
+        var compute = graph.Add(new ShaderComputePassNode());
+        var image = graph.Add(new ShaderImageNode());
+        graph.Connect(compute.In("result"), image.Output);
+        graph.Connect(apply.Image, compute.Out("result"));
+
+        ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
+
+        ShaderPassDescription pass = description.Passes[^1];
+        Assert.That(pass.Bindings.Single(b => b.Binding == 1).Access, Is.EqualTo(ResourceAccess.Write));
+        Assert.That(pass.WorkImage, Is.SameAs(pass.Bindings.Single(b => b.Binding == 1).Resource),
+            "With no dispatch set, a compute pass covers what it writes.");
+    }
+
+    [Test]
+    public void AnOutputWithIntegerComponentsGetsAnIntegerImage()
+    {
+        var (graph, apply) = NewGraph();
+        var data = graph.Add(new ShaderFullscreenPassNode());
+        data.Code.Value = """
+            #version 450
+            layout(location = 0) out uvec4 ids;
+            void main() { ids = uvec4(1); }
+            """;
+        var view = graph.Add(new ShaderFullscreenPassNode());
+        view.Code.Value = """
+            #version 450
+            layout(location = 0) in vec2 uv;
+            layout(location = 0) out vec4 color;
+            layout(set = 0, binding = 0) uniform usampler2D ids;
+            void main() { color = vec4(texture(ids, uv)); }
+            """;
+        var nearest = graph.Add(new ShaderSamplerNode());
+        nearest.MinFilter.Property!.SetValue(SamplerFilter.Nearest);
+        nearest.MagFilter.Property!.SetValue(SamplerFilter.Nearest);
+        nearest.MipmapFilter.Property!.SetValue(SamplerFilter.Nearest);
+        graph.Connect(nearest.Image, data.Out("ids"));
+        graph.Connect(view.In("ids"), nearest.Output);
+        graph.Connect(apply.Image, view.Out("color"));
+
+        ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
+
+        Assert.That(((ShaderImage)description.Passes[0].Attachments[0].Image).Format, Is.EqualTo(TextureFormat.RGBA32UInt));
+        Assert.That(description.Passes[1].Bindings.Single().Sampler.MinFilter, Is.EqualTo(SamplerFilter.Nearest));
+    }
+
+    [Test]
+    public void AnOutputFollowsWhatThePassReadsUnlessPaddedOrScaled()
+    {
+        var (graph, apply) = NewGraph();
+        var same = graph.Add(new ShaderFullscreenPassNode());
+        var half = graph.Add(new ShaderFullscreenPassNode());
+        half.ResolutionScale.Property!.SetValue(0.5f);
+        graph.Connect(half.In("source"), same.Out("color"));
+        var wide = graph.Add(new ShaderFullscreenPassNode());
+        wide.Padding.Property!.SetValue(8f);
+        graph.Connect(wide.In("source"), half.Out("color"));
+        graph.Connect(apply.Image, wide.Out("color"));
+
+        ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
+
+        ShaderImage[] images = [.. description.Passes.Select(pass => pass.Attachments[0].Image)];
+        Rect source = new(10, 20, 100, 50);
+        Assert.That(images[0].RasterSource, Is.SameAs(description.Resources[0]));
+        Assert.That(images[1].ResolutionScale, Is.EqualTo(0.5f));
+        Assert.That(images[2].ResolveBounds(source), Is.EqualTo(source.Inflate(8)));
+        Assert.That(description.TransformBounds(source), Is.EqualTo(source.Inflate(8)));
+    }
+
+    [Test]
+    public void OnlyAnInputThatCoversSomethingElseIsCopiedToLineUp()
+    {
+        var (graph, apply) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "pass" } });
+        graph.Connect(apply.Image, pass.Out("color"));
+        Assert.That(ShaderNodeTestHelpers.Record(graph).PassNames, Is.EqualTo(new[] { "pass" }));
+
+        pass.Padding.Property!.SetValue(4f);
+        Assert.That(ShaderNodeTestHelpers.Record(graph).PassNames, Is.EqualTo(new[] { "pass.source.align", "pass" }));
+
+        // A different density is the same place.
+        pass.Padding.Property!.SetValue(0f);
+        pass.ResolutionScale.Property!.SetValue(0.5f);
+        Assert.That(ShaderNodeTestHelpers.Record(graph).PassNames, Is.EqualTo(new[] { "pass" }));
+
+        // A fixed-size image has no place to keep.
+        var image = graph.Add(new ShaderFixedImageNode());
+        graph.Connect(pass.In("source"), image.Output);
+        Assert.That(ShaderNodeTestHelpers.Record(graph).PassNames.Where(name => name.EndsWith(".align")), Is.Empty);
+    }
+
+    [Test]
+    public void PartialRenderingAndAnInputRegionReachThePass()
+    {
+        var (graph, apply) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        var partial = graph.Add(new ShaderPartialRenderingNode());
+        var region = graph.Add(new ShaderInputRegionNode());
+        region.Padding.Property!.SetValue(3f);
+        graph.Connect(pass.In("source"), region.Output);
+        graph.Connect(pass.Settings, partial.Output);
+        graph.Connect(apply.Image, pass.Out("color"));
+
+        ShaderPassDescription recorded = ShaderNodeTestHelpers.Record(graph).Passes.Single();
+
+        Assert.That(recorded.PartialRendering, Is.True);
+        Assert.That(recorded.InputRegions[0].Map(new Rect(10, 10, 4, 4)), Is.EqualTo(new Rect(7, 7, 10, 10)));
+    }
+
+    [Test]
+    public void HalfATessellationPairReportsOnItsNode()
+    {
+        var (graph, apply) = NewGraph();
+        var pass = graph.Add(new ShaderExtendedRenderPassNode());
+        graph.Connect(apply.Image, pass.Out("color"));
+
+        pass.TessellationControl.Value = """
+            #version 450
+            layout(vertices = 3) out;
+            void main() { gl_TessLevelOuter[0] = 1; }
+            """;
+
+        Assert.That(pass.Error.Value, Does.Contain("together"));
+        using var snapshot = new GraphSnapshot();
+        Evaluate(graph, snapshot);
+        Assert.That(pass.Error.Value, Does.Contain("together"));
+        Assert.That(apply.Error.Value, Does.Contain("together"));
+    }
+
+    [Test]
+    public void AFixedSizeInputDoesNotDecideWhatAPassCovers()
+    {
+        var (graph, apply) = NewGraph();
+        var lookup = graph.Add(new ShaderFixedImageNode());
+        var pass = graph.Add(new ShaderFullscreenPassNode
+        {
+            Code =
+            {
+                Value = """
+                    #version 450
+                    layout(location = 0) in vec2 uv;
+                    layout(location = 0) out vec4 color;
+                    layout(set = 0, binding = 0) uniform sampler2D lookup;
+                    layout(set = 0, binding = 1) uniform sampler2D source;
+                    void main() { color = texture(lookup, texture(source, uv).rg); }
+                    """
+            }
+        });
+        graph.Connect(pass.In("lookup"), lookup.Output);
+        graph.Connect(apply.Image, pass.Out("color"));
+
+        var bounds = new Rect(10, 20, 640, 360);
+        Assert.That(ShaderNodeTestHelpers.Record(graph).TransformBounds(bounds), Is.EqualTo(bounds));
+    }
+
+    [Test]
+    public void APaddingNoRectangleCanHoldReportsOnTheApplyNode()
+    {
+        var (graph, apply) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        pass.Padding.Property!.SetValue(float.MaxValue);
+        graph.Connect(apply.Image, pass.Out("color"));
+
+        using var snapshot = new GraphSnapshot();
+        Evaluate(graph, snapshot);
+
+        Assert.That(apply.Error.Value, Is.Not.Null.And.Not.Empty);
+    }
+
+    [Test]
+    public void AnUnconnectedArrayBlockKeepsItsElementStride()
+    {
+        var (graph, apply) = NewGraph();
+        var compute = graph.Add(new ShaderComputePassNode
+        {
+            Code =
+            {
+                Value = """
+                    #version 450
+                    layout(local_size_x = 1) in;
+                    layout(set = 0, binding = 0, std430) writeonly buffer Bins { uint bins[256]; } histogram;
+                    layout(set = 0, binding = 1, rgba16f) uniform writeonly image2D picture;
+                    void main() { histogram.bins[0] = 1u; imageStore(picture, ivec2(0), vec4(1)); }
+                    """
+            }
+        });
+        graph.Connect(apply.Image, compute.Out("picture"));
+
+        using var snapshot = new GraphSnapshot();
+        Evaluate(graph, snapshot);
+        Assert.That(apply.Error.Value, Is.Null);
+
+        ShaderBuffer bins = ShaderNodeTestHelpers.Record(graph).Resources.OfType<ShaderBuffer>().Single();
+        Assert.That((bins.Count, bins.Stride), Is.EqualTo((256, 4)));
+    }
+
+    [Test]
+    public void AMeshKeepsItsOwnTextureCoordinatesThroughPadding()
+    {
+        var (graph, apply) = NewGraph();
+        var pass = graph.Add(new ShaderRenderPassNode
+        {
+            Name = { Value = "mesh" },
+            Fragment =
+            {
+                Value = """
+                    #version 450
+                    layout(location = 0) out vec4 color;
+                    layout(set = 0, binding = 0) uniform sampler2D source;
+                    void main() { color = texture(source, gl_FragCoord.xy); }
+                    """
+            }
+        });
+        pass.Padding.Property!.SetValue(4f);
+        graph.Connect(apply.Image, pass.Out("color"));
+
+        Assert.That(ShaderNodeTestHelpers.Record(graph).PassNames, Is.EqualTo(new[] { "mesh" }));
+    }
+
+    [Test]
+    public void APassToldWhereItsImagesLieDoesItsOwnArithmetic()
+    {
+        var (graph, apply) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode
+        {
+            Name = { Value = "manual" },
+            Code =
+            {
+                Value = """
+                    #version 450
+                    layout(location = 0) out vec4 color;
+                    layout(set = 0, binding = 0) uniform sampler2D source;
+                    layout(set = 0, binding = 1) uniform Frame { vec4 logical; vec4 raster; vec4 size; } frame;
+                    void main() { color = texture(source, gl_FragCoord.xy / frame.size.xy); }
+                    """
+            }
+        });
+        pass.Padding.Property!.SetValue(4f);
+        graph.Connect(apply.Image, pass.Out("color"));
+        Assert.That(ShaderNodeTestHelpers.Record(graph).PassNames, Is.EqualTo(new[] { "manual.source.align", "manual" }));
+
+        var parameters = graph.Add(new ShaderImageParametersNode());
+        var source = graph.Add(new ShaderSourceNode());
+        graph.Connect(parameters.Image, source.Image);
+        graph.Connect(pass.In("frame"), parameters.Output);
+
+        Assert.That(ShaderNodeTestHelpers.Record(graph).PassNames, Is.EqualTo(new[] { "manual" }));
+    }
+
+    [Test]
+    public void ImagesThatEachTakeAfterTheLastStayOneStepFromWhatTheyShare()
+    {
+        ShaderGraphDescription description = ShaderGraphBuilder.Build(0, static (builder, _) =>
+        {
+            ShaderImage padded = builder.Image2D("padded", builder.Source, padding: 2);
+            ShaderImage first = builder.Image2D("first", padded, padding: 3);
+            ShaderImage second = builder.Image2D("second", first);
+            first.RasterSource = padded;
+            second.RasterSource = first;
+            Assert.That(second.Like, Is.SameAs(builder.Source));
+            Assert.That(second.Padding, Is.EqualTo(5));
+            Assert.That(second.RasterSource, Is.SameAs(padded));
+            Assert.That(second.RasterRoot, Is.SameAs(padded));
+            var bounds = new Rect(0, 0, 10, 10);
+            Assert.That(second.ResolveBounds(bounds), Is.EqualTo(bounds.Inflate(5)));
+
+            // What changes the bounds on its own account stays in the way.
+            ShaderImage moved = builder.Image2D("moved", builder.Source);
+            moved.BoundsTransforms = [Matrix.CreateScale(2, 2)];
+            ShaderImage beyond = builder.Image2D("beyond", moved);
+            Assert.That(beyond.Like, Is.SameAs(moved));
+            ShaderImage placed = builder.Image2D("placed", new Rect(1, 2, 3, 4));
+            Assert.That(builder.Image2D("after", placed, padding: 1).ResolveBounds(bounds), Is.EqualTo(new Rect(0, 1, 5, 6)));
+            return builder.Output(builder.Source);
+        });
+        Assert.That(description, Is.Not.Null);
+    }
+
+    [Test]
+    public void ARepeatRecordsItsBodyOncePerIterationUnderNamesThatDoNotCollide()
+    {
+        var (graph, apply) = NewGraph();
+        var repeat = graph.Add(new ShaderRepeatNode());
+        repeat.Count.Property!.SetValue(3);
+        var body = repeat.Group.Value;
+        var pass = body.Add(new ShaderFullscreenPassNode { Name = { Value = "step" } });
+        body.Connect(pass.In("source"), (IOutputPort)body.Input.Value!.Items[0]);
+        body.Connect((IInputPort)body.Output.Value!.Items[0], pass.Out("color"));
+        graph.Connect(apply.Image, repeat.Items.OfType<IOutputPort>().First(port => port != apply.Items[0]));
+
+        ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
+
+        Assert.That(description.PassNames, Is.EqualTo(new[] { "step", "step#1", "step#2" }));
+        Assert.That(description.Passes[1].Bindings.Single().Resource, Is.SameAs(description.Passes[0].Attachments[0].Image));
+        Assert.That(description.Passes[2].Bindings.Single().Resource, Is.SameAs(description.Passes[1].Attachments[0].Image));
+    }
+
+    [Test]
+    public void AReplayDeepEnoughToOverflowARecursiveRecordingStillRecords()
+    {
+        var (graph, apply) = NewGraph();
+        var replay = graph.Add(new ShaderReplayNode());
+        replay.StepsPerSecond.Property!.SetValue(50d);
+        var body = replay.Group.Value;
+        var pass = body.Add(new ShaderFullscreenPassNode());
+        body.Connect(pass.In("source"), (IOutputPort)body.Input.Value!.Items[0]);
+        body.Connect((IInputPort)body.Output.Value!.Items[0], pass.Out("color"));
+        graph.Connect(apply.Image, replay.Items.OfType<IOutputPort>().First());
+        graph.Connect(replay.Time, NodeGraphTestHelpers.Source(graph, 1000f));
+
+        ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
+
+        Assert.That(description.PassNames.Length, Is.EqualTo(50000));
+
+        // What a render asks before anything runs: every image takes after the one before it.
+        var bounds = new Rect(0, 0, 32, 24);
+        Assert.That(description.TransformBounds(bounds), Is.EqualTo(bounds));
+        Assert.That(description.ClampWorkingScale(bounds, 1, default), Is.EqualTo(1f));
+    }
+
+    [Test]
+    public void AStateNothingWritesKeepsItsValueThroughTheLoop()
+    {
+        var (graph, apply) = NewGraph();
+        var repeat = graph.Add(new ShaderRepeatNode());
+        repeat.Count.Property!.SetValue(5);
+        var first = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "before" } });
+        graph.Connect(repeat.Items.OfType<IInputPort>().First(), first.Out("color"));
+        graph.Connect(apply.Image, repeat.Items.OfType<IOutputPort>().First());
+
+        Assert.That(ShaderNodeTestHelpers.Record(graph).PassNames, Is.EqualTo(new[] { "before" }));
+    }
+
+    [Test]
+    public void AnImpossibleReplayReportsOnItsNodeAndLeavesTheState()
+    {
+        var (graph, apply) = NewGraph();
+        var replay = graph.Add(new ShaderReplayNode());
+        replay.StepsPerSecond.Property!.SetValue(1000000d);
+        graph.Connect(replay.Time, NodeGraphTestHelpers.Source(graph, 100000f));
+        var source = graph.Add(new ShaderSourceNode());
+        graph.Connect(replay.Items.OfType<IInputPort>().First(), source.Image);
+        graph.Connect(apply.Image, replay.Items.OfType<IOutputPort>().First());
+        using var snapshot = new GraphSnapshot();
+
+        Evaluate(graph, snapshot);
+
+        Assert.That(replay.Error.Value, Is.Not.Null.And.Not.Empty);
+        Assert.That(apply.Error.Value, Is.Null);
+
+        replay.StepsPerSecond.Property!.SetValue(-1d);
+        Evaluate(graph, snapshot);
+        Assert.That(replay.Error.Value, Is.Not.Null.And.Not.Empty);
+    }
+
+    [Test]
+    public void AnUnsizedStorageBufferWithNothingConnectedSaysSo()
+    {
+        var (graph, apply) = NewGraph();
+        var pass = graph.Add(new ShaderComputePassNode());
+        pass.Code.Value = """
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(set = 0, binding = 0, rgba16f) uniform writeonly image2D result;
+            layout(set = 0, binding = 1, std430) buffer Data { float values[]; } data;
+            void main() { }
+            """;
+        graph.Connect(apply.Image, pass.Out("result"));
+        using var snapshot = new GraphSnapshot();
+
+        Evaluate(graph, snapshot);
+
+        Assert.That(apply.Error.Value, Does.Contain("data"));
+        Assert.That(pass.Error.Value, Does.Contain("data"), "The node at fault says so too.");
+    }
+
+    [Test]
+    public void CodeThatDoesNotCompileReportsWithoutBreakingTheEvaluationAndThenRecovers()
+    {
+        var (graph, apply) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        graph.Connect(apply.Image, pass.Out("color"));
+        using var snapshot = new GraphSnapshot();
+        Evaluate(graph, snapshot);
+        Assert.That(apply.Error.Value, Is.Null);
+
+        pass.Code.Value = "broken";
+        Assert.DoesNotThrow(() => Evaluate(graph, snapshot));
+        Assert.That(pass.Error.Value, Is.Not.Null.And.Not.Empty);
+        Assert.That(apply.Error.Value, Is.Not.Null.And.Not.Empty);
+
+        pass.Code.Value = ShaderFullscreenPassNode.DefaultCode;
+        Evaluate(graph, snapshot);
+        Assert.That(pass.Error.Value, Is.Null);
+        Assert.That(apply.Error.Value, Is.Null);
+    }
+
+    [Test]
+    public void AMistakeOnlyTheRendererWouldFindIsCaughtBeforeItGetsThere()
+    {
+        var (graph, apply) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        var image = graph.Add(new ShaderFixedImageNode());
+        image.Kind.Property!.SetValue(ImageKind.Image3D);
+        graph.Connect(pass.In("source"), image.Output);
+        graph.Connect(apply.Image, pass.Out("color"));
+        using var snapshot = new GraphSnapshot();
+
+        Evaluate(graph, snapshot);
+
+        Assert.That(apply.Error.Value, Does.Contain("binding 0"));
+    }
+
+    [Test]
+    public void TheSameGraphAgainKeepsTheRecordedDescription()
+    {
+        var (graph, apply) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        pass.Code.Value = """
+            #version 450
+            layout(location = 0) in vec2 uv;
+            layout(location = 0) out vec4 color;
+            layout(set = 0, binding = 0) uniform sampler2D source;
+            layout(set = 0, binding = 1) uniform Parameters { float amount; } parameters;
+            void main() { color = texture(source, uv) * parameters.amount; }
+            """;
+        graph.Connect(apply.Image, pass.Out("color"));
+        using var snapshot = new GraphSnapshot();
+
+        ShaderApplyNode.Resource resource = Evaluate(graph, snapshot)!;
+        ShaderApplyEffect effect = resource.Effect;
+        ShaderGraphDescription? first = effect.Description.Value;
+        Assert.That(first, Is.Not.Null);
+        Evaluate(graph, snapshot);
+        Assert.That(effect.Description.Value, Is.SameAs(first), "Recording anew each frame must not look like a change.");
+
+        pass.Set("parameters.amount", 0.5f);
+        Evaluate(graph, snapshot);
+        Assert.That(effect.Description.Value, Is.Not.SameAs(first));
+    }
+
+    [Test]
+    public void NoImageLeavesThePicturePassingThrough()
+    {
+        var (graph, apply) = NewGraph();
+        using var snapshot = new GraphSnapshot();
+
+        ShaderApplyNode.Resource resource = Evaluate(graph, snapshot)!;
+
+        Assert.That(resource.Effect.Description.Value, Is.Null);
+        Assert.That(apply.Error.Value, Is.Null);
+    }
+}

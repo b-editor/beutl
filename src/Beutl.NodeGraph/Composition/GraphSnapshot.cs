@@ -353,6 +353,7 @@ public sealed class GraphSnapshot : IDisposable
             ctx.Time = context.Time;
             ctx.DisableResourceShare = context.DisableResourceShare;
             ctx.Conditions = context.Conditions;
+            ctx.LoopStep = (context as GraphCompositionContext)?.LoopStep;
 
             LoadAnimatedValues(ctx.Resource, ctx.Time);
 

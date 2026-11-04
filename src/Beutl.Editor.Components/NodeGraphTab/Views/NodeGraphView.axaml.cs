@@ -16,7 +16,7 @@ namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
 public partial class NodeGraphView : UserControl
 {
-    // GraphNodeView's Width in GraphNodeView.axaml.
+    // The width of most nodes, which a new node is centered under the pointer by.
     private const int GraphNodeWidth = 215;
     private readonly CompositeDisposable _disposables = [];
     private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;
