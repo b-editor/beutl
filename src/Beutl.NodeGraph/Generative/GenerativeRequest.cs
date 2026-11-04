@@ -352,7 +352,16 @@ public sealed class GenerativeExecutionException(string message, Exception? inne
     /// new one. False when the key is still the way back to a paid result.
     /// </summary>
     public bool SettledRequest { get; init; }
+
+    /// <summary>The property of the request this is about, when it is about one.</summary>
+    public string? Input { get; init; }
 }
+
+/// <summary>
+/// Why a request would be refused before anything is reserved. The message is already localized
+/// by the executor; <paramref name="Input"/> names the property of the request it is about, if any.
+/// </summary>
+public sealed record GenerativeRefusal(string Message, string? Input = null);
 
 public static class GenerativeFingerprint
 {

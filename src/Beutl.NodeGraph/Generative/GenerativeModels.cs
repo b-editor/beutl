@@ -45,6 +45,9 @@ public sealed record GenerativeImageCapabilities(
     /// <summary>What the AI dialog offers for a model that publishes no backgrounds.</summary>
     public static IReadOnlyList<string> DefaultBackgrounds { get; } = ["auto", "opaque", "transparent"];
 
+    /// <summary>What a request is held to when there is no model to check it against.</summary>
+    public static GenerativeImageCapabilities Unrestricted { get; } = new(null, null, true, int.MaxValue);
+
     public IReadOnlyList<string> AspectRatioChoices => AspectRatios ?? DefaultAspectRatios;
 
     public IReadOnlyList<string> BackgroundChoices => Backgrounds ?? DefaultBackgrounds;

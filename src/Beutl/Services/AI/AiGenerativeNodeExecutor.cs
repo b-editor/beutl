@@ -48,41 +48,113 @@ internal sealed class AiGenerativeNodeExecutor(
         };
     }
 
-    private async Task<GenerativeExecutionResult> GenerateImageAsync(
-        AiImageGenerationNodeRequest request,
-        IProgress<GenerativeProgress> progress,
-        CancellationToken cancellationToken)
+    public async Task<GenerativeRefusal?> ValidateAsync(GenerativeRequest request, CancellationToken cancellationToken)
     {
-        // Already written out by a prompt node (or typed directly); only the limit is checked.
-        string prompt = request.Prompt;
-        if (prompt.Length > AiRequestLimits.MaxPromptLength)
-            throw new GenerativeExecutionException(AiPromptComposer.PromptTooLongMessage);
-        // Checked against the catalog before anything is reserved, as the dialog's controls
-        // are: a request the model would refuse is refused here, for free.
+        ArgumentNullException.ThrowIfNull(request);
         (AiModelCatalog catalog, IReadOnlyList<GenerativeModelInfo> offered) =
             await models.LoadAsync(request.CatalogOperationId, cancellationToken);
-        GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
-        GenerativeImageCapabilities? capabilities = chosen?.Image;
-        if (capabilities is not null)
-        {
-            if (!capabilities.AspectRatioChoices.Contains(request.AspectRatio, StringComparer.Ordinal)
-                || !capabilities.BackgroundChoices.Contains(request.Background, StringComparer.Ordinal)
-                || request.References.Count > capabilities.MaxReferenceImages)
-            {
-                throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
-            }
-        }
+        return Validate(request, catalog, offered, VideoDurationReader);
+    }
 
-        int? seed = capabilities is { SupportsSeed: false } ? null : request.Seed;
-        AiModelId? model = chosen is not null ? new AiModelId(chosen.Id) : null;
+    /// <summary>
+    /// Runs the checks <see cref="ExecuteAsync"/> runs, so the two cannot disagree about a request.
+    /// </summary>
+    internal static GenerativeRefusal? Validate(
+        GenerativeRequest request,
+        AiModelCatalog catalog,
+        IReadOnlyList<GenerativeModelInfo> offered,
+        Func<string, double> videoDurationReader)
+    {
+        try
+        {
+            switch (request)
+            {
+                case AiImageGenerationNodeRequest image:
+                    PrepareImageGeneration(image, catalog, offered);
+                    break;
+                case AiImageEditNodeRequest edit:
+                    PrepareImageEdit(edit, catalog, offered);
+                    break;
+                case AiVideoGenerationNodeRequest video:
+                    PrepareVideoGeneration(video, offered);
+                    break;
+                case AiVideoEditNodeRequest edit:
+                    PrepareVideoEdit(edit, offered, videoDurationReader);
+                    break;
+            }
+
+            return null;
+        }
+        catch (GenerativeExecutionException ex)
+        {
+            return new GenerativeRefusal(ex.Message, ex.Input);
+        }
+    }
+
+    private static GenerativeExecutionException Unsupported(string input)
+        => new(Strings.AiModelDoesNotSupportRequest) { Input = input };
+
+    private static GenerativeExecutionException TooLarge(string input)
+        => new(Strings.AiFileTooLarge) { Input = input };
+
+    private static void RequirePromptWithin(string? prompt, int limit)
+    {
+        if (prompt?.Length > limit)
+        {
+            throw new GenerativeExecutionException(string.Format(Strings.AiPromptTooLongFormat, limit))
+            {
+                Input = nameof(AiImageEditNodeRequest.Prompt),
+            };
+        }
+    }
+
+    /// <summary>
+    /// Checked against the catalog before anything is reserved, as the dialog's controls are: a
+    /// request the model would refuse is refused here, for free. With no model to check against,
+    /// the lists the dialog offers stand in.
+    /// </summary>
+    private static (AiModelId? Model, int? Seed, AiImageReferenceLimits ReferenceLimits) PrepareImageGeneration(
+        AiImageGenerationNodeRequest request,
+        AiModelCatalog catalog,
+        IReadOnlyList<GenerativeModelInfo> offered)
+    {
+        // Already written out by a prompt node (or typed directly); only the limit is checked.
+        RequirePromptWithin(request.Prompt, AiRequestLimits.MaxPromptLength);
+        GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
+        GenerativeImageCapabilities capabilities = chosen?.Image ?? GenerativeImageCapabilities.Unrestricted;
+        if (!capabilities.AspectRatioChoices.Contains(request.AspectRatio, StringComparer.Ordinal))
+            throw Unsupported(nameof(request.AspectRatio));
+        if (!capabilities.BackgroundChoices.Contains(request.Background, StringComparer.Ordinal))
+            throw Unsupported(nameof(request.Background));
+        if (request.References.Count > Math.Min(capabilities.MaxReferenceImages, AiRequestLimits.MaxImageReferences))
+            throw Unsupported(nameof(request.References));
+
+        // What a model does not take is left out, as the dialog switches the control off.
+        int? seed = capabilities.SupportsSeed ? request.Seed : null;
+        if (seed < AiRequestLimits.MinSeed)
+            throw Unsupported(nameof(request.Seed));
+
         AiImageReferenceLimits referenceLimits = catalog.GetImageReferenceLimits(AiOperations.ImageGeneration);
         // Checked here so an oversized input reads as one, not as a failure inside the dispatch.
         if (request.References.Any(reference => reference.EncodedPng.LongLength > AiRequestLimits.MaxImageUploadBytes)
             || request.References.Sum(reference => reference.EncodedPng.LongLength) > referenceLimits.MaxTotalBytes)
         {
-            throw new GenerativeExecutionException(Strings.AiFileTooLarge);
+            throw TooLarge(nameof(request.References));
         }
 
+        return (chosen is not null ? new AiModelId(chosen.Id) : null, seed, referenceLimits);
+    }
+
+    private async Task<GenerativeExecutionResult> GenerateImageAsync(
+        AiImageGenerationNodeRequest request,
+        IProgress<GenerativeProgress> progress,
+        CancellationToken cancellationToken)
+    {
+        (AiModelCatalog catalog, IReadOnlyList<GenerativeModelInfo> offered) =
+            await models.LoadAsync(request.CatalogOperationId, cancellationToken);
+        (AiModelId? model, int? seed, AiImageReferenceLimits referenceLimits) =
+            PrepareImageGeneration(request, catalog, offered);
+        string prompt = request.Prompt;
         AiUploadSource[] references = request.References
             .Select(reference => AiUploadSource.FromBytes(reference.Name, reference.EncodedPng))
             .ToArray();
@@ -124,6 +196,48 @@ internal sealed class AiGenerativeNodeExecutor(
         return new GenerativeExecutionResult(UriHelper.CreateFromPath(path), model?.Value, seed);
     }
 
+    private static (AiModelId? Model, bool RequiresPrompt, string UploadName, byte[] UploadBytes, string? Prompt) PrepareImageEdit(
+        AiImageEditNodeRequest request,
+        AiModelCatalog catalog,
+        IReadOnlyList<GenerativeModelInfo> offered)
+    {
+        GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
+        bool requiresPrompt = AiRequestRules.RequiresPrompt(catalog, request.Task.ToId());
+        if (requiresPrompt && string.IsNullOrWhiteSpace(request.Prompt))
+            throw new GenerativeExecutionException(Strings.AiPromptRequired) { Input = nameof(request.Prompt) };
+
+        // Prepared as the AI tab prepares it: an outpaint sends the canvas already widened,
+        // under a name derived from the source, with the instruction in front of the prompt.
+        string uploadName = request.Image.Name;
+        byte[] uploadBytes = request.Image.EncodedPng;
+        string? prompt = requiresPrompt ? request.Prompt : null;
+        bool outpaint = request.Task == AiImageEditTask.Outpaint;
+        if (outpaint)
+        {
+            try
+            {
+                uploadBytes = ExpandCanvas(uploadBytes, request.OutpaintExpansionPercent ?? 25);
+            }
+            catch (InvalidDataException ex)
+            {
+                // Wider than the service takes a picture.
+                throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest, ex)
+                {
+                    Input = nameof(request.OutpaintExpansionPercent),
+                };
+            }
+
+            uploadName = $"{Path.GetFileNameWithoutExtension(uploadName)}-outpaint.png";
+            prompt = AiRequestRules.ToOutpaintPrompt(prompt);
+        }
+
+        if (uploadBytes.Length > AiRequestLimits.MaxImageUploadBytes)
+            throw TooLarge(outpaint ? nameof(request.OutpaintExpansionPercent) : nameof(request.Image));
+        RequirePromptWithin(prompt, AiRequestLimits.MaxPromptLength);
+
+        return (chosen is not null ? new AiModelId(chosen.Id) : null, requiresPrompt, uploadName, uploadBytes, prompt);
+    }
+
     private async Task<GenerativeExecutionResult> EditImageAsync(
         AiImageEditNodeRequest request,
         IProgress<GenerativeProgress> progress,
@@ -132,28 +246,8 @@ internal sealed class AiGenerativeNodeExecutor(
         string task = request.Task.ToId();
         (AiModelCatalog catalog, IReadOnlyList<GenerativeModelInfo> offered) =
             await models.LoadAsync(request.CatalogOperationId, cancellationToken);
-        GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
-        AiModelId? model = chosen is not null ? new AiModelId(chosen.Id) : null;
-        bool requiresPrompt = AiRequestRules.RequiresPrompt(catalog, task);
-        if (requiresPrompt && string.IsNullOrWhiteSpace(request.Prompt))
-            throw new GenerativeExecutionException(Strings.AiPromptRequired);
-
-        // Prepared as the AI tab prepares it: an outpaint sends the canvas already widened,
-        // under a name derived from the source, with the instruction in front of the prompt.
-        string uploadName = request.Image.Name;
-        byte[] uploadBytes = request.Image.EncodedPng;
-        string? prompt = requiresPrompt ? request.Prompt : null;
-        if (request.Task == AiImageEditTask.Outpaint)
-        {
-            uploadBytes = ExpandCanvas(uploadBytes, request.OutpaintExpansionPercent ?? 25);
-            uploadName = $"{Path.GetFileNameWithoutExtension(uploadName)}-outpaint.png";
-            prompt = AiRequestRules.ToOutpaintPrompt(prompt);
-        }
-
-        if (uploadBytes.Length > AiRequestLimits.MaxImageUploadBytes)
-            throw new GenerativeExecutionException(Strings.AiFileTooLarge);
-        if (prompt is not null && prompt.Length > AiRequestLimits.MaxPromptLength)
-            throw new GenerativeExecutionException(AiPromptComposer.PromptTooLongMessage);
+        (AiModelId? model, bool requiresPrompt, string uploadName, byte[] uploadBytes, string? prompt) =
+            PrepareImageEdit(request, catalog, offered);
 
         // Laid out as the dialog lays out its key.
         string?[] parts = [task, prompt, model?.Value, AiRequestKey.FileStamp(uploadName, uploadBytes)];
@@ -190,14 +284,9 @@ internal sealed class AiGenerativeNodeExecutor(
     {
         (_, IReadOnlyList<GenerativeModelInfo> offered) =
             await models.LoadAsync(request.CatalogOperationId, cancellationToken);
-        GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
-        GenerativeVideoCapabilities limits = chosen?.Video ?? GenerativeVideoCapabilities.Unrestricted;
-        AiModelId? model = chosen is not null ? new AiModelId(chosen.Id) : null;
-
-        // Checked as the AI tab's controls check it, before anything is reserved.
+        (GenerativeVideoCapabilities limits, AiModelId? model, List<(string Role, AiUploadSource Upload, byte[] Bytes)> references) =
+            PrepareVideoGeneration(request, offered);
         string prompt = request.Prompt;
-        List<(string Role, AiUploadSource Upload, byte[] Bytes)> references =
-            ValidateVideoGeneration(request, prompt, limits);
 
         // What a model does not take is left out, as the AI tab switches the control off.
         bool generateAudio = limits.SupportsAudio && request.GenerateAudio;
@@ -243,30 +332,44 @@ internal sealed class AiGenerativeNodeExecutor(
             cancellationToken);
     }
 
+    private static (GenerativeVideoCapabilities Limits, AiModelId? Model, List<(string Role, AiUploadSource Upload, byte[] Bytes)> References) PrepareVideoGeneration(
+        AiVideoGenerationNodeRequest request,
+        IReadOnlyList<GenerativeModelInfo> offered)
+    {
+        GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
+        GenerativeVideoCapabilities limits = chosen?.Video ?? GenerativeVideoCapabilities.Unrestricted;
+        return (
+            limits,
+            chosen is not null ? new AiModelId(chosen.Id) : null,
+            ValidateVideoGeneration(request, request.Prompt, limits));
+    }
+
     /// <summary>
-    /// Refuses a clip request the model would refuse and collects the files it refers to.
+    /// Refuses a clip request the model would refuse, as the AI tab's controls do before anything
+    /// is reserved, and collects the files it refers to.
     /// </summary>
     private static List<(string Role, AiUploadSource Upload, byte[] Bytes)> ValidateVideoGeneration(
         AiVideoGenerationNodeRequest request,
         string prompt,
         GenerativeVideoCapabilities limits)
     {
-        if (prompt.Length > Math.Min(limits.MaxPromptLength, AiRequestLimits.MaxPromptLength))
-            throw new GenerativeExecutionException(AiPromptComposer.PromptTooLongMessage);
-        if (!limits.DurationChoices.Contains(request.DurationSeconds)
-            || !limits.ResolutionChoices.Contains(request.Resolution, StringComparer.Ordinal)
-            || !limits.AspectRatioChoices.Contains(request.AspectRatio, StringComparer.Ordinal)
-            || (request.FirstFrame is not null && !limits.SupportsFirstFrame)
-            || (request.LastFrame is not null && !limits.SupportsLastFrame))
-        {
-            throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
-        }
-
-        if (request.FirstFrame?.EncodedPng.LongLength > AiRequestLimits.MaxFrameUploadBytes
-            || request.LastFrame?.EncodedPng.LongLength > AiRequestLimits.MaxFrameUploadBytes)
-        {
-            throw new GenerativeExecutionException(Strings.AiFileTooLarge);
-        }
+        RequirePromptWithin(prompt, Math.Min(limits.MaxPromptLength, AiRequestLimits.MaxPromptLength));
+        if (!limits.DurationChoices.Contains(request.DurationSeconds))
+            throw Unsupported(nameof(request.DurationSeconds));
+        if (!limits.ResolutionChoices.Contains(request.Resolution, StringComparer.Ordinal))
+            throw Unsupported(nameof(request.Resolution));
+        if (!limits.AspectRatioChoices.Contains(request.AspectRatio, StringComparer.Ordinal))
+            throw Unsupported(nameof(request.AspectRatio));
+        if (request.FirstFrame is not null && !limits.SupportsFirstFrame)
+            throw Unsupported(nameof(request.FirstFrame));
+        if (request.LastFrame is not null && !limits.SupportsLastFrame)
+            throw Unsupported(nameof(request.LastFrame));
+        if (limits.SupportsSeed && request.Seed < AiRequestLimits.MinSeed)
+            throw Unsupported(nameof(request.Seed));
+        if (request.FirstFrame?.EncodedPng.LongLength > AiRequestLimits.MaxFrameUploadBytes)
+            throw TooLarge(nameof(request.FirstFrame));
+        if (request.LastFrame?.EncodedPng.LongLength > AiRequestLimits.MaxFrameUploadBytes)
+            throw TooLarge(nameof(request.LastFrame));
 
         var references = new List<(string Role, AiUploadSource Upload, byte[] Bytes)>();
         for (int i = 0; i < request.ImageReferences.Count; i++)
@@ -288,24 +391,24 @@ internal sealed class AiGenerativeNodeExecutor(
                 || request.ImageReferences.Any(image => image.EncodedPng.LongLength > limits.MaxImageReferenceBytes)
                 || request.VideoReferences.Any(video => video.Content.LongLength > limits.MaxVideoReferenceBytes)))
         {
-            throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
+            throw Unsupported(nameof(request.ImageReferences));
         }
 
         if (request.FirstFrame is null && references.Count == 0 && !limits.SupportsPromptToVideo)
-            throw new GenerativeExecutionException(Strings.AiChooseVideoInput);
+            throw new GenerativeExecutionException(Strings.AiChooseVideoInput) { Input = nameof(request.FirstFrame) };
         if (prompt.Length == 0)
-            throw new GenerativeExecutionException(Strings.AiPromptRequired);
+            throw new GenerativeExecutionException(Strings.AiPromptRequired) { Input = nameof(request.Prompt) };
         try
         {
             AiVideoInputLimits.ValidateReferences(references.Select(reference => reference.Upload).ToArray());
         }
         catch (AiFileTooLargeException)
         {
-            throw new GenerativeExecutionException(Strings.AiFileTooLarge);
+            throw TooLarge(nameof(request.ImageReferences));
         }
         catch (ArgumentException)
         {
-            throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
+            throw Unsupported(nameof(request.ImageReferences));
         }
 
         return references;
@@ -360,6 +463,35 @@ internal sealed class AiGenerativeNodeExecutor(
         return reader.VideoInfo.Duration.ToDouble();
     };
 
+    private static (AiModelId? Model, AiUploadSource SourceUpload, AiUploadSource? CharacterUpload, int DurationSeconds) PrepareVideoEdit(
+        AiVideoEditNodeRequest request,
+        IReadOnlyList<GenerativeModelInfo> offered,
+        Func<string, double> videoDurationReader)
+    {
+        GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
+        GenerativeVideoCapabilities limits = chosen?.Video ?? GenerativeVideoCapabilities.Unrestricted;
+        RequirePromptWithin(request.Prompt, Math.Min(limits.MaxPromptLength, AiRequestLimits.MaxPromptLength));
+
+        GenerativeFileInput source = request.SourceVideo;
+        var sourceUpload = AiUploadSource.FromBytes(source.Name, source.MediaType, source.Content);
+        AiUploadSource? characterUpload = request.CharacterImage is { } character
+            ? AiUploadSource.FromBytes(character.Name, "image/png", character.EncodedPng)
+            : null;
+        double seconds = ReadDuration(source, videoDurationReader);
+        // Checked as the AI tab checks the chosen files, before anything is reserved.
+        ValidateSourceVideo(request, sourceUpload, characterUpload, seconds, limits);
+
+        // An edit keeps the clip's own length; the others take the chosen one.
+        bool keepsLength = request.Mode is not (AiVideoEditMode.Extend or AiVideoEditMode.Motion);
+        int durationSeconds = keepsLength
+            ? (int)Math.Clamp(Math.Ceiling(seconds), 1, AiRequestLimits.MaxVideoDurationSeconds)
+            : request.DurationSeconds;
+        if (!keepsLength && !limits.DurationChoices.Contains(durationSeconds))
+            throw Unsupported(nameof(request.DurationSeconds));
+
+        return (chosen is not null ? new AiModelId(chosen.Id) : null, sourceUpload, characterUpload, durationSeconds);
+    }
+
     private async Task<GenerativeExecutionResult> EditVideoAsync(
         AiVideoEditNodeRequest request,
         IProgress<GenerativeProgress> progress,
@@ -367,9 +499,8 @@ internal sealed class AiGenerativeNodeExecutor(
     {
         (_, IReadOnlyList<GenerativeModelInfo> offered) =
             await models.LoadAsync(request.CatalogOperationId, cancellationToken);
-        GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
-        GenerativeVideoCapabilities limits = chosen?.Video ?? GenerativeVideoCapabilities.Unrestricted;
-        AiModelId? model = chosen is not null ? new AiModelId(chosen.Id) : null;
+        (AiModelId? model, AiUploadSource sourceUpload, AiUploadSource? characterUpload, int durationSeconds) =
+            PrepareVideoEdit(request, offered, VideoDurationReader);
         (AiSourceVideoMode mode, AiOperationId operation) = request.Mode switch
         {
             AiVideoEditMode.Extend => (AiSourceVideoMode.Extend, AiOperations.VideoExtension),
@@ -379,25 +510,7 @@ internal sealed class AiGenerativeNodeExecutor(
         bool motion = mode == AiSourceVideoMode.Motion;
 
         string prompt = request.Prompt;
-        if (prompt.Length > Math.Min(limits.MaxPromptLength, AiRequestLimits.MaxPromptLength))
-            throw new GenerativeExecutionException(AiPromptComposer.PromptTooLongMessage);
-
         GenerativeFileInput source = request.SourceVideo;
-        var sourceUpload = AiUploadSource.FromBytes(source.Name, source.MediaType, source.Content);
-        AiUploadSource? characterUpload = request.CharacterImage is { } character
-            ? AiUploadSource.FromBytes(character.Name, "image/png", character.EncodedPng)
-            : null;
-        double seconds = ReadDuration(source);
-        // Checked as the AI tab checks the chosen files, before anything is reserved.
-        ValidateSourceVideo(sourceUpload, characterUpload, motion, seconds, limits);
-
-        // An edit keeps the clip's own length; the others take the chosen one.
-        int durationSeconds = mode == AiSourceVideoMode.Edit
-            ? (int)Math.Clamp(Math.Ceiling(seconds), 1, AiRequestLimits.MaxVideoDurationSeconds)
-            : request.DurationSeconds;
-        if (mode != AiSourceVideoMode.Edit && !limits.DurationChoices.Contains(durationSeconds))
-            throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
-
         string orientation = request.Orientation == AiMotionOrientation.Image ? "image" : "video";
         string quality = request.Quality == AiMotionQuality.Pro ? "pro" : "standard";
         var inputs = new List<(string Role, AiUploadSource Upload, byte[] Bytes)>
@@ -462,42 +575,47 @@ internal sealed class AiGenerativeNodeExecutor(
     }
 
     private static void ValidateSourceVideo(
+        AiVideoEditNodeRequest request,
         AiUploadSource sourceUpload,
         AiUploadSource? characterUpload,
-        bool motion,
         double seconds,
         GenerativeVideoCapabilities limits)
     {
-        try
+        ValidateInput(sourceUpload, "video", Math.Min(limits.MaxSourceVideoBytes, AiVideoInputLimits.MaxSourceBytes), nameof(request.SourceVideo));
+        if (request.Mode == AiVideoEditMode.Motion)
         {
-            AiVideoInputLimits.Validate(sourceUpload, "video", Math.Min(limits.MaxSourceVideoBytes, AiVideoInputLimits.MaxSourceBytes));
-            if (motion)
-            {
-                if (characterUpload is null)
-                    throw new GenerativeExecutionException(Strings.AiChooseCharacterImage);
-                AiVideoInputLimits.Validate(characterUpload, "image", AiRequestLimits.MaxFrameUploadBytes);
-            }
-        }
-        catch (AiFileTooLargeException)
-        {
-            throw new GenerativeExecutionException(Strings.AiFileTooLarge);
-        }
-        catch (ArgumentException)
-        {
-            throw new GenerativeExecutionException(Strings.AiVideoInputUnavailable);
+            if (characterUpload is null)
+                throw new GenerativeExecutionException(Strings.AiChooseCharacterImage) { Input = nameof(request.CharacterImage) };
+            ValidateInput(characterUpload, "image", AiRequestLimits.MaxFrameUploadBytes, nameof(request.CharacterImage));
         }
 
         if (!double.IsFinite(seconds) || seconds <= 0 || seconds > 60
             || seconds < (limits.MinSourceVideoSeconds ?? 0)
             || seconds > (limits.MaxSourceVideoSeconds ?? 60))
         {
-            throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
+            throw Unsupported(nameof(request.SourceVideo));
+        }
+
+        static void ValidateInput(AiUploadSource upload, string kind, long maxBytes, string input)
+        {
+            try
+            {
+                AiVideoInputLimits.Validate(upload, kind, maxBytes);
+            }
+            catch (AiFileTooLargeException)
+            {
+                throw TooLarge(input);
+            }
+            catch (ArgumentException)
+            {
+                throw new GenerativeExecutionException(Strings.AiVideoInputUnavailable) { Input = input };
+            }
         }
     }
 
     // Probed from the bytes that will be uploaded, as the AI tab does: the file on disk
     // may change while the request is prepared.
-    private double ReadDuration(GenerativeFileInput source)
+    private static double ReadDuration(GenerativeFileInput source, Func<string, double> videoDurationReader)
     {
         (string path, FileStream stream) = AiTemporaryFileStore.Create(
             "inputs", "source-video", Path.GetExtension(source.Name));
@@ -505,12 +623,12 @@ internal sealed class AiGenerativeNodeExecutor(
         {
             using (stream)
                 stream.Write(source.Content);
-            return VideoDurationReader(path);
+            return videoDurationReader(path);
         }
         catch (Exception ex) when (ex is not GenerativeExecutionException)
         {
             s_logger.LogWarning(ex, "Failed to read the length of a source clip.");
-            throw new GenerativeExecutionException(Strings.AiVideoInputUnavailable, ex);
+            throw new GenerativeExecutionException(Strings.AiVideoInputUnavailable, ex) { Input = nameof(AiVideoEditNodeRequest.SourceVideo) };
         }
         finally
         {
@@ -584,7 +702,7 @@ internal sealed class AiGenerativeNodeExecutor(
         throw new GenerativeExecutionException(Strings.AiResultUnavailable);
     }
 
-    internal static byte[] ExpandCanvas(byte[] encodedPng, int expansionPercent)
+    private static byte[] ExpandCanvas(byte[] encodedPng, int expansionPercent)
     {
         using var input = new MemoryStream(encodedPng, writable: false);
         using Bitmap source = Bitmap.FromStream(input);
@@ -697,10 +815,10 @@ internal sealed class AiGenerativeNodeExecutor(
         {
             // A request sent without the model would run, and be charged, on the service default.
             if (offered.Count == 0)
-                throw new GenerativeExecutionException(Strings.AiModelUnconfirmed);
+                throw new GenerativeExecutionException(Strings.AiModelUnconfirmed) { Input = nameof(GenerativeRequest.ModelId) };
             GenerativeModelInfo? named = offered.FirstOrDefault(model => model.Id == modelId);
             if (named is not { IsAvailable: true })
-                throw new GenerativeExecutionException(Strings.AiModelUnavailable);
+                throw new GenerativeExecutionException(Strings.AiModelUnavailable) { Input = nameof(GenerativeRequest.ModelId) };
             return named;
         }
 
