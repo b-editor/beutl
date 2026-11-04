@@ -21,6 +21,7 @@ public sealed class ComponentExpression<TValue, TComponent> : IReplacingExpressi
     private static readonly ComponentSet<TValue, TComponent> s_set = ComponentAnimations.GetComponentSet<TValue, TComponent>();
 
     private readonly StringExpression<TValue> _source;
+    private string? _expressionString;
 
     [JsonConstructor]
     public ComponentExpression(string source, string component)
@@ -48,7 +49,7 @@ public sealed class ComponentExpression<TValue, TComponent> : IReplacingExpressi
 
     // An expression of the component's own type, which the property's own editor can show and edit.
     [JsonIgnore]
-    public string ExpressionString => $"({Source}).{Component}";
+    public string ExpressionString => _expressionString ??= _source.WithMemberOfResult(Component);
 
     // One expression for each component of the value, which share the source and so compile it once.
     public static bool TryParse(string source, [NotNullWhen(true)] out IExpression<TComponent>[]? expressions,

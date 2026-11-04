@@ -573,11 +573,22 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         }
 
         foreach (InlineAnimationLayerViewModel layer in layers)
-            DetachInline(layer);
+            RemoveInline(layer);
         AttachInline(pair, element);
     }
 
     public void DetachInline(InlineAnimationLayerViewModel item)
+    {
+        RemoveInline(item);
+        // This holds on to the two and to the object they belong to, which nothing shows any more.
+        if (PropertyPair.Find(item.Property) is { } pair && !Inlines.Any(x => pair.Contains(x.Property))
+            && _inlinePairs.Remove(pair, out IDisposable? subscription))
+        {
+            subscription.Dispose();
+        }
+    }
+
+    private void RemoveInline(InlineAnimationLayerViewModel item)
     {
         _logger.LogInformation("Detaching inline animation for element {ElementId}.", item.Element.Model.Id.Value);
         if (item.LayerHeader.Value is { } layerHeader)

@@ -44,6 +44,27 @@ public class ExpressionTests
         });
     }
 
+    // What the source returns may come after statements, and only that takes the component.
+    [TestCase("new Point(1, 2)", 1f, 2f)]
+    [TestCase("var size = 30; new Point(size, size * 2)", 30f, 60f)]
+    [TestCase("var size = 30; return new Point(size, size * 2);", 30f, 60f)]
+    [TestCase("if (Time < 0) return new Point(1, 2); new Point(3, 4)", 3f, 4f)]
+    [TestCase("if (Time >= 0) return new Point(1, 2); new Point(3, 4)", 1f, 2f)]
+    [TestCase("Func<int, int> twice = x => { return x * 2; }; new Point(twice(1), 3)", 2f, 3f)]
+    [TestCase("new Point(1, 2) // the position", 1f, 2f)]
+    public void ComponentExpression_ExpressionStringIsAScriptOfTheComponent(string source, float x, float y)
+    {
+        Assert.That(ComponentExpression<Point, float>.TryParse(source, out var expressions, out string? error), Is.True, error);
+
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
+        var values = expressions!.Select(expression =>
+        {
+            Assert.That(Expression.TryParse<float>(expression.ExpressionString, out var scalar, out string? scalarError), Is.True, scalarError);
+            return scalar!.Evaluate(context);
+        });
+        Assert.That(values, Is.EqualTo(new[] { x, y }));
+    }
+
     [Test]
     public void ComponentExpression_RejectsWhatDoesNotReturnTheValue()
     {

@@ -661,6 +661,22 @@ public sealed class CombinedEditorTests
         finally { window.Close(); }
     }
 
+    // A script can have statements before what it returns, which a row of its own keeps.
+    [AvaloniaTest]
+    public void A_row_of_its_own_can_save_a_script_with_statements()
+    {
+        var transform = new TranslateTransform();
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        combined.Accept(Services(history.History));
+        Assert.That(combined.SetExpression("var size = 30; new Point(size, size * 2)", out string? error), Is.True, error);
+        combined.SeparateComponents();
+
+        Assert.That(combined.First.SetExpression(combined.First.GetExpressionString()!, out error), Is.True, error);
+
+        Assert.That(transform.X.Evaluate(new EvaluationContext(MediaTime.Zero)), Is.EqualTo(30f));
+    }
+
     [AvaloniaTest]
     public void The_expression_editor_says_what_to_return_and_writes_both()
     {

@@ -20,6 +20,7 @@ public sealed partial class GraphEditorTabViewModel
 {
     private readonly Dictionary<string, GraphEditorTreeItemViewModel> _treeCache = [];
     private readonly HashSet<PropertyPair> _observedPairs = [];
+    private readonly CompositeDisposable _pairDisposables = [];
     private bool _synchronizingTree;
     private bool _refreshPending;
 
@@ -82,6 +83,8 @@ public sealed partial class GraphEditorTabViewModel
                 }
             }
 
+            ObservePairs(used);
+
             GraphEditorTreeItemViewModel? selected = selectedKey != null && used.Contains(selectedKey) ? _treeCache[selectedKey] : null;
             // The rows below two properties change when the two join or part, and the selection stays with the two.
             if (selected == null && previous?.Parent is { Adapter: PropertyPair } pairRow && used.Contains(pairRow.Key))
@@ -101,6 +104,23 @@ public sealed partial class GraphEditorTabViewModel
         }
         SelectTreeItem(SelectedTreeItem.Value);
         UpdateKeyFrameStates();
+    }
+
+    // A pair says when it changes, which can be after the edit that a refresh follows. Only the pairs in the tree are
+    // listened to, because this holds on to them and to the objects they belong to.
+    private void ObservePairs(HashSet<string> used)
+    {
+        HashSet<PropertyPair> pairs = [.. used.Select(key => _treeCache[key].Adapter).OfType<PropertyPair>()];
+        if (_observedPairs.SetEquals(pairs)) return;
+
+        _pairDisposables.Clear();
+        _observedPairs.Clear();
+        _observedPairs.UnionWith(pairs);
+        foreach (PropertyPair pair in pairs)
+        {
+            pair.IsSeparated.Skip(1).Subscribe(_ => ScheduleRefresh()).DisposeWith(_pairDisposables);
+            pair.ObserveAnimation.Skip(1).Subscribe(_ => ScheduleRefresh()).DisposeWith(_pairDisposables);
+        }
     }
 
     private GraphEditorTreeItemViewModel GetTreeItem(string key, string name, GraphEditorTreeItemViewModel? parent, HashSet<string> used)
@@ -169,12 +189,6 @@ public sealed partial class GraphEditorTabViewModel
 
                 var pairItem = GetTreeItem(path, pair.DisplayName, parent, used);
                 pairItem.Adapter = pair;
-                // The pair says when it changes, which can be after the edit that this refresh follows.
-                if (_observedPairs.Add(pair))
-                {
-                    pair.IsSeparated.Skip(1).Subscribe(_ => ScheduleRefresh()).DisposeWith(_disposables);
-                    pair.ObserveAnimation.Skip(1).Subscribe(_ => ScheduleRefresh()).DisposeWith(_disposables);
-                }
                 UpdatePropertyItem(pairItem, !pair.IsReadOnly, used, ancestors);
                 children.Add(pairItem);
                 continue;

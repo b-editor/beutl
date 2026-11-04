@@ -1,4 +1,5 @@
 ﻿using System.Reactive.Linq;
+using System.Reflection;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
@@ -66,6 +67,9 @@ public sealed class PropertyPairAnimationTests
 
     private static IEnumerable<GraphEditorTreeItemViewModel> Flatten(IEnumerable<GraphEditorTreeItemViewModel> items)
         => items.SelectMany(item => Flatten(item.Children).Prepend(item));
+
+    private static T PrivateField<T>(object target, string name)
+        => (T)target.GetType().GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(target)!;
 
     private static GraphEditorTreeItemViewModel Row(GraphEditorTabViewModel tab, RectShape shape)
         => Flatten(tab.TreeItems).Single(item => ReferenceEquals(item.Adapter, PropertyPair.Find(shape.Width)));
@@ -241,6 +245,44 @@ public sealed class PropertyPairAnimationTests
         Assert.That(pair.Animation, Is.Not.Null);
     }
 
+    // Moving a control point edits neither its key nor the property, so only the easing can tell.
+    [AvaloniaTest]
+    public async Task Moving_a_curve_until_the_two_match_joins_them_again()
+    {
+        (_, RectShape shape, _) = await CreateAsync();
+        PropertyPair pair = PropertyPair.Find(shape.Width)!;
+        var curve = (SplineEasing)shape.Height.GetKeyFrameAnimation()!.KeyFrames[0].Easing.Value;
+        float x1 = curve.X1;
+
+        curve.X1 = x1 / 2;
+        HeadlessTestHelpers.Settle();
+        Assert.That(pair.IsSeparated.Value, Is.True);
+        Assert.That(pair.CanStandForBoth.Value, Is.False);
+
+        curve.X1 = x1;
+        HeadlessTestHelpers.Settle();
+        Assert.That(pair.IsSeparated.Value, Is.False);
+        Assert.That(pair.CanStandForBoth.Value, Is.True);
+        Assert.That(pair.Animation, Is.Not.Null);
+    }
+
+    [AvaloniaTest]
+    public async Task A_curve_moved_while_the_two_stand_apart_stays_its_own()
+    {
+        (_, RectShape shape, _) = await CreateAsync();
+        PropertyPair pair = PropertyPair.Find(shape.Width)!;
+        pair.SetKeepsSeparated(true);
+        var first = (SplineEasing)shape.Width.GetKeyFrameAnimation()!.KeyFrames[0].Easing.Value;
+        var second = (SplineEasing)shape.Height.GetKeyFrameAnimation()!.KeyFrames[0].Easing.Value;
+        float x1 = second.X1;
+
+        first.X1 = x1 / 2;
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(second.X1, Is.EqualTo(x1));
+        Assert.That(pair.CanStandForBoth.Value, Is.False);
+    }
+
     [AvaloniaTest]
     public async Task The_joined_keyframes_have_the_time_origin_of_the_properties()
     {
@@ -342,6 +384,29 @@ public sealed class PropertyPairAnimationTests
         timeline.ReadFromJson(json);
 
         Assert.That(timeline.Inlines.Single().Property, Is.SameAs(pair));
+    }
+
+    [AvaloniaTest]
+    public async Task The_timeline_lets_go_of_the_two_when_their_last_layer_closes()
+    {
+        (EditViewModel editor, RectShape shape, Element element) = await CreateAsync();
+        TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
+        PropertyPair pair = PropertyPair.Find(shape.Width)!;
+        var listened = PrivateField<Dictionary<PropertyPair, IDisposable>>(timeline, "_inlinePairs");
+        timeline.AttachInline(pair, element);
+        pair.SetKeepsSeparated(true);
+        HeadlessTestHelpers.Settle();
+
+        timeline.DetachInline(timeline.Inlines[0]);
+        Assert.That(listened, Does.ContainKey(pair), "One layer is still open.");
+
+        timeline.DetachInline(timeline.Inlines.Single());
+        Assert.That(listened, Is.Empty);
+
+        timeline.AttachInline(pair, element);
+        pair.SetKeepsSeparated(false);
+        HeadlessTestHelpers.Settle();
+        Assert.That(timeline.Inlines.Single().Property, Is.SameAs(pair), "A layer opened again follows the two again.");
     }
 
     [AvaloniaTest]
@@ -473,6 +538,25 @@ public sealed class PropertyPairAnimationTests
         Assert.That(tab.SelectedTreeItem.Value, Is.SameAs(Row(tab, shape)));
         Assert.That(tab.SelectedAnimation.Value!.Animation, Is.SameAs(pair.Animation));
         window.Close();
+    }
+
+    [AvaloniaTest]
+    public async Task The_graph_editor_lets_go_of_the_two_when_they_leave_its_tree()
+    {
+        (EditViewModel editor, RectShape shape, Element element) = await CreateAsync();
+        using var tab = new GraphEditorTabViewModel(editor);
+        tab.Element.Value = element;
+        HeadlessTestHelpers.Settle();
+        PropertyPair pair = PropertyPair.Find(shape.Width)!;
+        var listened = PrivateField<HashSet<PropertyPair>>(tab, "_observedPairs");
+        Assert.That(listened, Does.Contain(pair));
+
+        tab.Element.Value = null;
+        HeadlessTestHelpers.Settle();
+        Assert.That(listened, Is.Empty);
+
+        pair.SetKeepsSeparated(true);
+        Assert.That(PrivateField<bool>(tab, "_refreshPending"), Is.False);
     }
 
     [AvaloniaTest]

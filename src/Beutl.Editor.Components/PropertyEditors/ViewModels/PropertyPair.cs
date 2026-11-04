@@ -317,7 +317,12 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
         if (Dispatcher.UIThread.CheckAccess() && _animation.Value != null && CanStand())
             ReadFromProperties(_first.Animation!, _second.Animation!);
 
-        // Undo restores the two one after the other, so whether they stand as one waits until it has finished.
+        ScheduleUpdate();
+    }
+
+    // Undo restores the two one after the other, so whether they stand as one waits until it has finished.
+    private void ScheduleUpdate()
+    {
         if (_updatePending) return;
         _updatePending = true;
         Dispatcher.UIThread.Post(() =>
@@ -336,6 +341,8 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
         _canStandForBoth.Value = canStand;
         if (!separated && _first.Animation is { } first && _second.Animation is { } second)
             ReadFromProperties(first, second);
+        else
+            WatchEasings();
 
         // Whoever shows the joined keyframes hears of the two rows first, and of the joined keyframes before the one row.
         if (separated) _isSeparated.Value = true;
@@ -501,9 +508,10 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
         }
     }
 
+    // Moving a control point of an easing edits neither its key nor the property.
     private void WatchEasings()
     {
-        HashSet<SplineEasing> easings = [.. _links.Values.Select(link => link.First.Easing.Value).OfType<SplineEasing>()];
+        HashSet<SplineEasing> easings = [.. Easings(_first.Animation), .. Easings(_second.Animation)];
         foreach (SplineEasing easing in _watchedEasings.Except(easings).ToArray())
         {
             easing.Changed -= OnEasingChanged;
@@ -517,20 +525,28 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
         }
     }
 
-    // The graph editor moves a control point of the easing it has, which is the first property's.
+    private static IEnumerable<SplineEasing> Easings(KeyFrameAnimation<T>? animation)
+        => animation?.KeyFrames.Select(key => key.Easing.Value).OfType<SplineEasing>() ?? [];
+
     private void OnEasingChanged(object? sender, EventArgs e)
     {
-        if (_syncing || _animation.Value == null || sender is not SplineEasing source) return;
+        if (_syncing || sender is not SplineEasing source) return;
 
-        foreach ((KeyFrame<T> first, KeyFrame<T> second) in _links.Values)
+        // The graph editor moves a control point of the easing a joined key has, which is the first property's.
+        if (_animation.Value != null)
         {
-            if (ReferenceEquals(first.Easing.Value, source) && second.Easing.Value is SplineEasing target)
+            foreach ((KeyFrame<T> first, KeyFrame<T> second) in _links.Values)
             {
-                if (target.X1 != source.X1) target.X1 = source.X1;
-                if (target.Y1 != source.Y1) target.Y1 = source.Y1;
-                if (target.X2 != source.X2) target.X2 = source.X2;
-                if (target.Y2 != source.Y2) target.Y2 = source.Y2;
+                if (ReferenceEquals(first.Easing.Value, source) && second.Easing.Value is SplineEasing target)
+                {
+                    if (target.X1 != source.X1) target.X1 = source.X1;
+                    if (target.Y1 != source.Y1) target.Y1 = source.Y1;
+                    if (target.X2 != source.X2) target.X2 = source.X2;
+                    if (target.Y2 != source.Y2) target.Y2 = source.Y2;
+                }
             }
         }
+
+        ScheduleUpdate();
     }
 }
