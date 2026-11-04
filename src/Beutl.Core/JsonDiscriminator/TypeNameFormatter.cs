@@ -28,6 +28,8 @@ internal class TypeNameFormatter(Type type)
 
     public string Format()
     {
+        if (type.IsSZArray)
+            return new TypeNameFormatter(type.GetElementType()!).Format() + "[]";
         var sb = new StringBuilder();
         string? asmName = type.Assembly.GetName().Name;
         if (asmName != null)

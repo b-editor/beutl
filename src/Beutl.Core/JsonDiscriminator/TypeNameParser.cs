@@ -234,6 +234,12 @@ internal class TypeNameParser
     // definitionName is the written type definition in Type.FullName form, by which the alias table is keyed.
     private Type? ParseNestedType(Span<Token> tokens, out string definitionName)
     {
+        if (tokens is [.. var elementTokens, { Type: TokenType.BeginAssembly }, { Type: TokenType.EndAssembly }])
+        {
+            Type? element = ParseNestedType(elementTokens, out definitionName);
+            definitionName += "[]";
+            return element?.MakeArrayType();
+        }
         string typeName = TakeTypeNameTokens(tokens, out Span<Token> genericTokens, out Span<Token> parents);
         Type[] genericArgs = ParseGenericTypes(genericTokens);
         string suffix = genericArgs.Length > 0 ? $"`{genericArgs.Length}" : "";

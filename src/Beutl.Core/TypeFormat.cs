@@ -194,6 +194,9 @@ internal static class TypeFormat
             return true;
         }
 
+        if (type.HasElementType && ContainsType(type.GetElementType()!, match))
+            return true;
+
         if (type.IsGenericType && !type.IsGenericTypeDefinition)
         {
             if (match(type.GetGenericTypeDefinition()))

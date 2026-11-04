@@ -18,6 +18,12 @@ public class TypeFormatTests
     [TestCase(typeof(Tuple<int, string, double>))]
     public void RoundTrip_MultipleGenericArguments(Type type) => AssertRoundTrip(type);
 
+    [TestCase(typeof(byte[]))]
+    [TestCase(typeof(List<byte[]>))]
+    [TestCase(typeof(List<int>[]))]
+    [TestCase(typeof(byte[][]))]
+    public void RoundTrip_ArrayPorts(Type type) => AssertRoundTrip(type);
+
     [Test]
     public void RoundTrip_BeutlOptional()
     {

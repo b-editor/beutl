@@ -55,6 +55,16 @@ public class JsonConvertersTests
     }
 
     [Test]
+    [SetCulture("es-ES")]
+    public void ShaderVectorsPreserveEveryComponentAcrossSaving()
+    {
+        var pair = new Vector2(1.5f, -2.5f);
+        var quadruple = new Vector4(0.1f, -2.5f, 3.5f, 4.5f);
+        Assert.That(JsonSerializer.Deserialize<Vector2>(JsonSerializer.Serialize(pair, s_options), s_options), Is.EqualTo(pair));
+        Assert.That(JsonSerializer.Deserialize<Vector4>(JsonSerializer.Serialize(quadruple, s_options), s_options), Is.EqualTo(quadruple));
+    }
+
+    [Test]
     public void Quaternion_RoundTrip()
     {
         var q = new Quaternion(0.1f, 0.2f, 0.3f, 1f);
