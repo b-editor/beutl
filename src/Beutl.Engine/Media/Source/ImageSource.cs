@@ -52,6 +52,8 @@ public sealed class ImageSource : MediaSource
         // The drawing of an SVG; null for an image that is only pixels.
         internal SKPicture? Picture => _counter?.Value.Picture;
 
+        internal Bitmap? DecodeUnpremultiplied() => _counter?.Value.DecodeUnpremultiplied();
+
         public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
             base.Reconcile(obj, context, ref versionBumped);

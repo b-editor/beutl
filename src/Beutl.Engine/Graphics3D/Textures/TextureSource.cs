@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using System.Numerics;
+using Beutl.Engine;
 using Beutl.Graphics.Backend;
 
 namespace Beutl.Graphics3D.Textures;
@@ -21,6 +22,19 @@ public abstract partial class TextureSource : EngineObject
         public virtual ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity, TextureContentKind contentKind)
         {
             return GetTexture(graphicsContext, surfaceDensity);
+        }
+
+        /// <summary>
+        /// Resolves a texture of the colors as stored, not multiplied by alpha, for a slot that ignores alpha. Null when
+        /// the source has none to offer, and the slot takes the color texture instead.
+        /// </summary>
+        internal virtual ITexture2D? GetStraightColorTexture(IGraphicsContext graphicsContext) => null;
+
+        /// <summary>Reads the alpha at a texture coordinate, for a source with its pixels at hand.</summary>
+        internal virtual bool TryGetAlpha(Vector2 texCoord, out float alpha)
+        {
+            alpha = 1;
+            return false;
         }
     }
 }

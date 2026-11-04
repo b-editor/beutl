@@ -32,6 +32,55 @@ public class ImageTextureSourceUploadTests
     }
 
     [Test]
+    public void StraightColorUpload_KeepsTheColorsUnderAlphaZero()
+    {
+        using var source = new Bitmap(new SKBitmap(
+            new SKImageInfo(2, 1, SKColorType.Rgba8888, SKAlphaType.Unpremul)));
+        new byte[] { 255, 128, 0, 0, 255, 128, 0, 255 }.CopyTo(source.GetPixelSpan<byte>());
+
+        using Bitmap upload = ImageTextureSource.Resource.CreateStraightColorUploadBitmap(source);
+
+        Assert.That(upload.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
+        Assert.That(upload.AlphaType, Is.EqualTo(BitmapAlphaType.Unpremul));
+        Half[] pixels = upload.GetPixelSpan<Half>().ToArray();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That((float)pixels[0], Is.EqualTo(1f).Within(0.002f));
+            Assert.That((float)pixels[1], Is.EqualTo(0.216f).Within(0.002f));
+            Assert.That((float)pixels[3], Is.Zero);
+            Assert.That((float)pixels[5], Is.EqualTo(0.216f).Within(0.002f));
+            Assert.That((float)pixels[7], Is.EqualTo(1f));
+        }
+    }
+
+    [Test]
+    public void ReadingAFileAgain_RecoversTheColorsThatDecodingLoses()
+    {
+        DirectoryInfo directory = Directory.CreateTempSubdirectory("beutl-straight-colors-");
+        try
+        {
+            string path = Path.Combine(directory.FullName, "map.png");
+            using (var bitmap = new SKBitmap(new SKImageInfo(1, 1, SKColorType.Rgba8888, SKAlphaType.Unpremul)))
+            {
+                new byte[] { 255, 128, 0, 0 }.CopyTo(bitmap.GetPixelSpan());
+                using SKData data = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+                using FileStream stream = File.Create(path);
+                data.SaveTo(stream);
+            }
+
+            using LoadedImage image = LoadedImage.Open(new Uri(path));
+            using Bitmap? straight = image.DecodeUnpremultiplied();
+
+            Assert.That(image.Bitmap!.SKBitmap.GetPixel(0, 0).Red, Is.Zero, "Decoding multiplies by alpha.");
+            Assert.That(straight!.SKBitmap.GetPixel(0, 0), Is.EqualTo(new SKColor(255, 128, 0, 0)));
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
+
+    [Test]
     public void DataUpload_KeepsTheStoredValues()
     {
         using var source = Gradient();

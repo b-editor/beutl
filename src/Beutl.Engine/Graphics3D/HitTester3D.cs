@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using Beutl.Graphics;
 using Beutl.Graphics3D.Camera;
+using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Meshes;
 
 namespace Beutl.Graphics3D;
@@ -270,6 +271,7 @@ public static class HitTester3D
                 mesh,
                 cullBackFaces: obj.Material?.IsDoubleSided != true,
                 mirrored: worldMatrix.GetDeterminant() < 0,
+                obj.Material?.Cutout,
                 out float localDistance))
         {
             return false;
@@ -343,7 +345,7 @@ public static class HitTester3D
     /// <param name="distance">The distance to the closest intersection point.</param>
     /// <returns>True if the ray intersects the mesh.</returns>
     public static bool RayIntersectsMesh(Ray3D ray, Mesh.Resource mesh, out float distance)
-        => RayIntersectsMesh(ray, mesh, cullBackFaces: false, mirrored: false, out distance);
+        => RayIntersectsMesh(ray, mesh, cullBackFaces: false, mirrored: false, cutout: null, out distance);
 
     /// <summary>
     /// Tests if a ray intersects with a mesh, skipping triangles that face away from the ray when
@@ -353,11 +355,13 @@ public static class HitTester3D
     /// Whether the mesh is drawn through a mirroring transform, which reverses its winding and so swaps which
     /// side rendering culls.
     /// </param>
+    /// <param name="cutout">What cuts holes in the mesh, which the ray goes through to what is behind them.</param>
     internal static bool RayIntersectsMesh(
         Ray3D ray,
         Mesh.Resource mesh,
         bool cullBackFaces,
         bool mirrored,
+        AlphaCutout? cutout,
         out float distance)
     {
         distance = float.MaxValue;
@@ -381,10 +385,19 @@ public static class HitTester3D
                 continue;
             }
 
-            if (RayIntersectsTriangle(ray, v0, v1, v2, out float t))
+            if (RayIntersectsTriangle(ray, v0, v1, v2, out float t, out float u, out float v))
             {
                 if (t > 0 && t < distance)
                 {
+                    if (cutout is { } holes)
+                    {
+                        Vector2 texCoord = vertices[(int)indices[i]].TexCoord * (1 - u - v)
+                            + vertices[(int)indices[i + 1]].TexCoord * u
+                            + vertices[(int)indices[i + 2]].TexCoord * v;
+                        if (holes.IsCutOutAt(texCoord))
+                            continue;
+                    }
+
                     distance = t;
                     hit = true;
                 }
@@ -404,9 +417,16 @@ public static class HitTester3D
     /// <param name="t">The distance along the ray to the intersection point.</param>
     /// <returns>True if the ray intersects the triangle.</returns>
     public static bool RayIntersectsTriangle(Ray3D ray, Vector3 v0, Vector3 v1, Vector3 v2, out float t)
+        => RayIntersectsTriangle(ray, v0, v1, v2, out t, out _, out _);
+
+    // u and v are the weights of v1 and v2 at the intersection.
+    private static bool RayIntersectsTriangle(
+        Ray3D ray, Vector3 v0, Vector3 v1, Vector3 v2, out float t, out float u, out float v)
     {
         const float epsilon = 1e-8f;
         t = 0;
+        u = 0;
+        v = 0;
 
         var edge1 = v1 - v0;
         var edge2 = v2 - v0;
@@ -419,13 +439,13 @@ public static class HitTester3D
 
         float f = 1.0f / a;
         var s = ray.Origin - v0;
-        float u = f * Vector3.Dot(s, h);
+        u = f * Vector3.Dot(s, h);
 
         if (u < 0 || u > 1)
             return false;
 
         var q = Vector3.Cross(s, edge1);
-        float v = f * Vector3.Dot(ray.Direction, q);
+        v = f * Vector3.Dot(ray.Direction, q);
 
         if (v < 0 || u + v > 1)
             return false;

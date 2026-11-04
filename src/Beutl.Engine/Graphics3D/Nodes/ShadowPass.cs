@@ -1,6 +1,8 @@
 ﻿using System.Numerics;
+using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Lighting;
+using Beutl.Graphics3D.Materials;
 using Beutl.Media;
 
 namespace Beutl.Graphics3D.Nodes;
@@ -44,6 +46,54 @@ void main() {
 }
 ";
 
+    private const string CutoutVertexShader = @"
+#version 450
+
+layout(location = 0) in vec3 inPosition;
+layout(location = 1) in vec3 inNormal;
+layout(location = 2) in vec2 inTexCoord;
+
+layout(location = 0) out vec2 fragTexCoord;
+
+layout(push_constant) uniform PushConstants {
+    mat4 model;
+    mat4 lightViewProjection;
+} pc;
+
+void main() {
+    fragTexCoord = inTexCoord;
+    gl_Position = pc.lightViewProjection * pc.model * vec4(inPosition, 1.0);
+}
+";
+
+    private const string CutoutFragmentShader = @"
+#version 450
+
+layout(location = 0) in vec2 fragTexCoord;
+
+layout(location = 0) out float outDummy;
+
+layout(binding = 0) uniform CutoutData {
+    vec4 cutout; // x: what the map's alpha is multiplied by, y: the alpha a pixel needs to cast a shadow.
+} data;
+
+layout(binding = 1) uniform sampler2D colorMap;
+
+void main() {
+    if (data.cutout.x * texture(colorMap, fragTexCoord).a < data.cutout.y) {
+        discard;
+    }
+
+    outDummy = 1.0;
+}
+";
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CutoutUBO
+    {
+        public Vector4 Cutout;
+    }
+
     private readonly ShadowCasterPipelines _pipelines = new();
     private byte[]? _vertexShaderSpirv;
     private byte[]? _fragmentShaderSpirv;
@@ -55,6 +105,9 @@ void main() {
         : base(context, shaderCompiler)
     {
     }
+
+    /// <summary>The density of the surface being rendered, which decides the size of a drawable color map.</summary>
+    internal float SurfaceDensity { get; set; } = 1f;
 
     /// <summary>
     /// Gets the shadow depth texture.
@@ -221,7 +274,20 @@ void main() {
         if (meshResource == null)
             return;
 
-        _pipelines.Bind(RenderPass!, obj.Material?.IsDoubleSided == true, out _);
+        bool doubleSided = obj.Material?.IsDoubleSided == true;
+        if (obj.Material?.Cutout is { } cutout
+            && cutout.Map.GetTexture(Context, SurfaceDensity) is { } map)
+        {
+            _pipelines.EnsureCutoutPipelines<CutoutUBO>(
+                Context, RenderPass!, ShaderCompiler, CutoutVertexShader, CutoutFragmentShader);
+            var ubo = new CutoutUBO { Cutout = new Vector4(cutout.AlphaScale, cutout.Cutoff, 0, 0) };
+            _pipelines.BindCutout(RenderPass!, doubleSided, map, in ubo);
+        }
+        else
+        {
+            _pipelines.Bind(RenderPass!, doubleSided, out _);
+        }
+
         ShadowCasterPipelines.SetPushConstants(RenderPass!, worldMatrix, lightVP);
 
         MeshDrawHelper.Draw(RenderPass!, meshResource);
@@ -234,7 +300,7 @@ void main() {
 
     protected override void OnDispose()
     {
-        DisposeResources([_pipelines.OneSided, _pipelines.DoubleSided, Framebuffer,
-            RenderPass, ShadowDepthTexture, DummyColorTexture]);
+        _pipelines.Dispose();
+        DisposeResources([Framebuffer, RenderPass, ShadowDepthTexture, DummyColorTexture]);
     }
 }
