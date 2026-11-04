@@ -8,6 +8,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -62,6 +63,14 @@ public sealed partial class SchemaGenerator
             (JsonObject)spec.Patch.DeepClone(),
             spec.Summary.Semantic);
     }
+
+    private const string ClipTransitionPlacementNote =
+        "Keep both Elements on the same ZIndex with the incoming Start at the outgoing end. They need no overlap: each holds its edge frame where the transition runs past its range.";
+
+    private const string ClipTransitionSidesNote =
+        "The incoming EnterTransition decides the blend, and the outgoing ExitTransition adds its Duration before the cut. Set one side alone to keep the whole transition on that side, or set a side to null to clear it.";
+
+    private const string ClipTransitionFadeNote = "A side with no adjacent Element fades over the layers beneath.";
 
     private static EffectRecipeSpec[] CreateEffectRecipeSpecs()
     {
@@ -180,8 +189,18 @@ public sealed partial class SchemaGenerator
                     CreatePixelSort(),
                     CreateColorShift(8, 0, -8, 0))),
             CreateTransitionRecipe(
+                "transition-cross-dissolve",
+                "Built-in dissolve at a cut: both clips blend through the boundary with no overlap or keyframes.",
+                "time passage / soft topic shift",
+                ["transition", "dissolve", "crossfade", "cross-dissolve", "time-passage", "soft-topic-shift"],
+                [nameof(CrossDissolveTransition)],
+                CreateClipTransitionPatch(new CrossDissolveTransition()),
+                ClipTransitionPlacementNote,
+                ClipTransitionSidesNote,
+                ClipTransitionFadeNote),
+            CreateTransitionRecipe(
                 "transition-overlap-dissolve-transform-continuation",
-                "Overlap dissolve template with outgoing/incoming opacity ramps plus a shared slow transform continuation across the boundary.",
+                "Overlap dissolve template with outgoing/incoming opacity ramps plus a shared slow transform continuation across the boundary. Use transition-cross-dissolve when nothing has to keep moving through the blend.",
                 "time passage / soft topic shift",
                 ["transition", "dissolve", "opacity", "continuity", "time-passage", "soft-topic-shift"],
                 ["OpacityKeyframes", nameof(TranslateTransform)],
@@ -190,13 +209,16 @@ public sealed partial class SchemaGenerator
                 "Keep one background or subject transform drifting through the overlap so the dissolve reads as continuity instead of a simple crossfade."),
             CreateTransitionRecipe(
                 "transition-directional-sweep-wipe",
-                "Directional sweep or wipe template using a transform-animated bridge plate that crosses the cut boundary.",
+                "Built-in wipe at a cut: a straight edge reveals the incoming clip along the chosen Direction.",
                 "location or topic change",
                 ["transition", "sweep", "wipe", "directional", "topic-change", "location-change"],
-                [nameof(RectShape), nameof(TranslateTransform), "OpacityKeyframes"],
-                CreateDirectionalSweepTransitionPatch(),
-                "Place the sweep Element over both adjacent shots and animate its TranslateTransform along the chosen screen direction.",
-                "Use one direction consistently for a sequence unless the brief records a deliberate directional grammar."),
+                [nameof(WipeTransition)],
+                CreateClipTransitionPatch(new WipeTransition { Direction = { Value = ClipTransitionDirection.RightToLeft } }),
+                ClipTransitionPlacementNote,
+                ClipTransitionSidesNote,
+                "A side with no adjacent Element wipes over the layers beneath.",
+                "Use one direction consistently for a sequence unless the brief records a deliberate directional grammar.",
+                "For a decorative plate that crosses the cut, place a shape over both Elements and animate its TranslateTransform along the same direction."),
             CreateTransitionRecipe(
                 "transition-mask-reveal",
                 "Mask-reveal template for introducing or unveiling a new subject with a moving reveal plate or clipping edge.",
@@ -205,15 +227,19 @@ public sealed partial class SchemaGenerator
                 [nameof(RectShape), nameof(TranslateTransform), "OpacityKeyframes"],
                 CreateMaskRevealTransitionPatch(),
                 "Use this when the incoming subject should feel discovered, introduced, or unveiled rather than simply cut in.",
+                "When no moving plate is wanted, an EnterTransition with IrisTransition or WipeTransition reveals the subject without one.",
                 "Pair the reveal with a named mask/reveal Element and align its Start/Length to the incoming shot."),
             CreateTransitionRecipe(
                 "transition-dip-to-color",
-                "Dip-to-color template using a full-frame plate whose opacity peaks at the cut boundary.",
+                "Built-in dip at a cut: the outgoing clip fades to a color over the first half and the incoming clip fades in from it over the second.",
                 "chapter break",
-                ["transition", "dip", "dip-to-color", "chapter-break", "full-frame-plate"],
-                [nameof(RectShape), "OpacityKeyframes"],
-                CreateDipToColorTransitionPatch(),
-                "Use a neutral, brand, or palette-derived color plate and keep the peak brief: usually 2-6 frames at full opacity.",
+                ["transition", "dip", "dip-to-color", "chapter-break"],
+                [nameof(DipToColorTransition)],
+                CreateClipTransitionPatch(new DipToColorTransition { Color = { Value = Color.Parse("#ff101418") } }),
+                ClipTransitionPlacementNote,
+                ClipTransitionSidesNote,
+                "A side with no adjacent Element still passes through the Color, which covers the layers beneath at the middle of the transition.",
+                "Use a neutral, brand, or palette-derived Color.",
                 "Best for chapter breaks, section dividers, or intentional breath points; avoid mixing it randomly with dissolves and wipes."),
             CreateTransitionRecipe(
                 "transition-match-move-cut",
@@ -317,22 +343,25 @@ public sealed partial class SchemaGenerator
             });
     }
 
-    private static JsonObject CreateDirectionalSweepTransitionPatch()
+    private static JsonObject CreateClipTransitionPatch(ClipTransition transition)
     {
-        return CreateTransitionPatch(new JsonObject
+        // A quarter second on each side centers half a second on the cut.
+        transition.Duration.Value = MediaTime.FromSeconds(0.25);
+        JsonObject side = SerializeWithoutIds(transition);
+        return new JsonObject
         {
-            [nameof(CoreObject.Id)] = "<sweep-plate-or-mask-id>",
-            ["Name"] = "[role:decorative] [role:motion] directional transition sweep",
-            ["Animations"] = new JsonObject
-            {
-                [nameof(Drawable.Opacity)] = CreateFloatAnimationWithLocalClock(
-                    (0, 0, typeof(CubicEaseOut)),
-                    (0.10, 100, typeof(CubicEaseOut)),
-                    (0.34, 100, typeof(SineEaseInOut)),
-                    (0.44, 0, typeof(SineEaseInOut)))
-            },
-            ["PlacementGuidance"] = "Animate the object's TranslateTransform from just outside the outgoing frame to just outside the incoming frame across the cut."
-        });
+            ["Elements"] = new JsonArray(
+                new JsonObject
+                {
+                    [nameof(CoreObject.Id)] = "<outgoing-element-id>",
+                    [nameof(Element.ExitTransition)] = side
+                },
+                new JsonObject
+                {
+                    [nameof(CoreObject.Id)] = "<incoming-element-id>",
+                    [nameof(Element.EnterTransition)] = side.DeepClone()
+                })
+        };
     }
 
     private static JsonObject CreateMaskRevealTransitionPatch()
@@ -349,23 +378,6 @@ public sealed partial class SchemaGenerator
                     (0.44, 100, typeof(SineEaseInOut)))
             },
             ["PlacementGuidance"] = "Move a clipping edge, mask plate, or reveal shape across the incoming subject while the incoming Element begins."
-        });
-    }
-
-    private static JsonObject CreateDipToColorTransitionPatch()
-    {
-        return CreateTransitionPatch(new JsonObject
-        {
-            [nameof(CoreObject.Id)] = "<full-frame-dip-plate-id>",
-            ["Name"] = "[role:background] dip-to-color transition plate",
-            ["Animations"] = new JsonObject
-            {
-                [nameof(Drawable.Opacity)] = CreateFloatAnimationWithLocalClock(
-                    (0, 0, typeof(SineEaseInOut)),
-                    (0.16, 100, typeof(SineEaseInOut)),
-                    (0.32, 0, typeof(SineEaseInOut)))
-            },
-            ["PlacementGuidance"] = "Make this a full-frame RectShape spanning both adjacent shots, centered so opacity peaks exactly on the boundary."
         });
     }
 
