@@ -344,6 +344,15 @@
   <data name="Easing" xml:space="preserve">
     <value>Easing</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>First control point {0}, {1}. Second control point {2}, {3}.</value>
+  </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>The first control point is selected.</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>The second control point is selected.</value>
+  </data>
   <data name="Hold" xml:space="preserve">
     <value>Hold</value>
   </data>
