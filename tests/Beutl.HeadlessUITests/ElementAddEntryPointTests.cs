@@ -511,17 +511,39 @@ public class ElementAddEntryPointTests
         using var notifications = new NotificationCapture();
         string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
         string broken = Path.Combine(directory, "broken.srt");
+        string missing = Path.Combine(directory, "missing.srt");
         string good = Path.Combine(directory, "good.srt");
         File.WriteAllText(broken, "this is not a subtitle file");
         File.WriteAllText(good, "1\n00:00:01,000 --> 00:00:02,000\ngood\n");
 
-        await CaptionFileDrop.AddAsync(timeline, [broken, good], []);
+        await CaptionFileDrop.AddAsync(timeline, [broken, missing, good], []);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(editor.Scene.Children.Single().Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Single().Text.Value, Is.EqualTo("good"));
-            Assert.That(notifications.All.Single().Message, Does.Contain("broken.srt"));
+            Assert.That(notifications.All.Select(item => item.Message), Has.Exactly(1).Contain("broken.srt"));
+            Assert.That(notifications.All.Select(item => item.Message), Has.Exactly(1).Contain("missing.srt"));
         }
+    }
+
+    // The picture is where it was dropped, and the file decides where its subtitles go.
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFileDroppedWithAPicture_ShowsTheFirstSubtitle()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-shown");
+        string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "late.srt");
+        File.WriteAllText(path, "1\n00:00:30,000 --> 00:00:31,000\nlate\n");
+        var picture = new ElementDescription(
+            MediaTime.Zero, MediaTime.FromSeconds(5), 0, new ElementSource.EngineObject(() => new RectShape()));
+        (TimeRange Range, int ZIndex)? shown = null;
+        using IDisposable subscription = timeline.ScrollTo.Subscribe(value => shown = value);
+
+        await CaptionFileDrop.AddAsync(timeline, [path], [picture]);
+
+        Element text = editor.Scene.Children.Single(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any());
+        Assert.That(shown, Is.EqualTo((text.Range, text.ZIndex.Value)));
     }
 
     [AvaloniaTest]

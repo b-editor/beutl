@@ -33,8 +33,7 @@ internal static class CaptionFileDrop
         => AddAsync(viewModel, [file], [], template);
 
     // Adds the files' clips with whatever else was dropped, so that one undo takes back the whole drop. Each file goes
-    // on layers of its own above the rest. The view model scrolls to the first clip, since the file decides where the
-    // clips go, which can be far from where the timeline is looking.
+    // on layers of its own above the rest.
     public static async Task AddAsync(
         TimelineTabViewModel viewModel,
         IReadOnlyList<string> files,
@@ -48,9 +47,9 @@ internal static class CaptionFileDrop
         {
             if (!s_catalog.Value.Codecs.TryGetByFileName(file, out CaptionCodecInfo? codec)) continue;
 
-            byte[] bytes = await File.ReadAllBytesAsync(file);
-            CaptionImportResult import = Import(bytes, codec.Format);
-            if (import.Document is not { Count: > 0 } document)
+            byte[]? bytes = await TryReadAsync(file);
+            CaptionImportResult? import = bytes is null ? null : Import(bytes, codec.Format);
+            if (import?.Document is not { Count: > 0 } document)
             {
                 NotificationService.ShowError(
                     Strings.AddElement,
@@ -77,11 +76,31 @@ internal static class CaptionFileDrop
         ElementAddResult result = await viewModel.AddElementsWithResultAsync(descriptions);
         if (!result.IsSuccess) return;
 
+        // The file decides where its clips go, which can be far from where the timeline is looking.
+        if (result.Items.Count > others.Count)
+        {
+            Element first = result.Items[others.Count].PrimaryElement;
+            viewModel.ScrollTo.Execute((first.Range, first.ZIndex.Value));
+        }
+
         foreach (string file in skippedSome)
         {
             NotificationService.ShowWarning(
                 Strings.AddElement,
                 string.Format(CultureInfo.CurrentCulture, Strings.SubtitleFile_SomeSkipped, Path.GetFileName(file)));
+        }
+    }
+
+    // A file can be locked, or gone by now.
+    private static async Task<byte[]?> TryReadAsync(string file)
+    {
+        try
+        {
+            return await File.ReadAllBytesAsync(file);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return null;
         }
     }
 
