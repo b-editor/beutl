@@ -113,6 +113,7 @@ internal sealed partial class GitCliVersionControlService :
         ".dng",
         ".heif",
         ".avif",
+        ".svg",
     ];
 
     private static readonly string[] s_lfsAttributeLines =
