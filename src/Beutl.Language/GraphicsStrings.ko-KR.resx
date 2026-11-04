@@ -476,8 +476,17 @@
   <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
     <value>이보다 작은 변화에는 선을 그리지 않습니다.</value>
   </data>
-  <data name="EdgeDetection_KeepSource" xml:space="preserve">
-    <value>원본 이미지 유지</value>
+  <data name="EdgeDetection_Original" xml:space="preserve">
+    <value>원본 이미지</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Hidden" xml:space="preserve">
+    <value>표시 안 함</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Behind" xml:space="preserve">
+    <value>뒤에 표시</value>
+  </data>
+  <data name="EdgeDetectionOriginal_InFront" xml:space="preserve">
+    <value>앞에 표시</value>
   </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>평면 그림자</value>

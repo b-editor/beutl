@@ -13,7 +13,7 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.EdgeDetection), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class EdgeDetection : FilterEffect
 {
-    private const float MaxThickness = 100;
+    private const float MaxThickness = 1000;
 
     public EdgeDetection() => ScanProperties<EdgeDetection>();
 
@@ -33,9 +33,8 @@ public sealed partial class EdgeDetection : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.White);
 
-    /// <summary>Draws the lines over the picture instead of on nothing.</summary>
-    [Display(Name = nameof(GraphicsStrings.EdgeDetection_KeepSource), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<bool> KeepSource { get; } = Property.CreateAnimatable(false);
+    [Display(Name = nameof(GraphicsStrings.EdgeDetection_Original), ResourceType = typeof(GraphicsStrings))]
+    public IExpressionProperty<EdgeDetectionOriginal> Original { get; } = Property.CreateAnimatable(EdgeDetectionOriginal.Hidden);
 
     public new partial class Resource
     {
@@ -47,7 +46,7 @@ public sealed partial class EdgeDetection : FilterEffect
             Vector4 line = Color.ToLinear();
             context.ShaderGraph(
                 (Target, Thickness: Math.Clamp(Thickness, 0, MaxThickness), Threshold: Math.Clamp(Threshold, 0, 100) / 100,
-                    Line: new Vector4(line.X * line.W, line.Y * line.W, line.Z * line.W, line.W), KeepSource),
+                    Line: new Vector4(line.X * line.W, line.Y * line.W, line.Z * line.W, line.W), Original),
                 static (graph, values) =>
                 {
                     float offset = Math.Min(values.Thickness, 1);
@@ -93,7 +92,7 @@ public sealed partial class EdgeDetection : FilterEffect
                         pass.ImageParameters(2, graph.Source);
                         pass.ImageParameters(3, thick);
                         pass.ImageParameters(4, output);
-                        pass.PushConstants(new CompositeValues(values.Line, values.KeepSource ? 1 : 0));
+                        pass.PushConstants(new CompositeValues(values.Line, (float)values.Original));
                         pass.InputRegion(0, ShaderInputRegion.Identity);
                         pass.InputRegion(1, ShaderInputRegion.Identity);
                         pass.ColorAttachment(0, output);
@@ -104,7 +103,7 @@ public sealed partial class EdgeDetection : FilterEffect
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private readonly record struct CompositeValues(Vector4 Line, float KeepSource);
+    private readonly record struct CompositeValues(Vector4 Line, float Original);
 
     // Sobel filter, scaled so that a full step gives 1. Lightness is gamma encoded, so that a threshold means the same
     // in the shadows and the highlights. A transparent neighbour has no lightness to differ from, which keeps the frame
@@ -162,15 +161,20 @@ public sealed partial class EdgeDetection : FilterEffect
         layout(binding = 2, std140) uniform Destination { vec4 logical; vec4 raster; vec4 size; } dst;
         layout(push_constant) uniform Values { float distance; } pc;
         layout(location = 0) out float coverage;
-        const vec2 directions[9] = vec2[](
-            vec2(0, 0), vec2(1, 0), vec2(-1, 0), vec2(0, 1), vec2(0, -1),
-            vec2(0.7071, 0.7071), vec2(0.7071, -0.7071), vec2(-0.7071, 0.7071), vec2(-0.7071, -0.7071));
         void main() {
             vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
-            coverage = 0;
-            for (int i = 0; i < 9; i++) {
-                vec2 samplePosition = position + directions[i] * pc.distance;
+            coverage = texture(image, (position - src.raster.xy) / src.raster.zw).r;
+
+            // Enough directions for a thick line to stay round to within about a pixel: a step reaches furthest along
+            // one and falls short between two, which fixed directions would turn into corners.
+            float pixels = pc.distance * dst.size.z;
+            int count = pixels < 8 ? 8 : pixels < 32 ? 16 : pixels < 128 ? 32 : 64;
+            float angle = 6.2831853 / count;
+            vec2 direction = vec2(1, 0);
+            for (int i = 0; i < count; i++) {
+                vec2 samplePosition = position + direction * pc.distance;
                 coverage = max(coverage, texture(image, (samplePosition - src.raster.xy) / src.raster.zw).r);
+                direction = vec2(direction.x * cos(angle) - direction.y * sin(angle), direction.x * sin(angle) + direction.y * cos(angle));
             }
         }
         """));
@@ -182,13 +186,13 @@ public sealed partial class EdgeDetection : FilterEffect
         layout(binding = 2, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
         layout(binding = 3, std140) uniform Edges { vec4 logical; vec4 raster; vec4 size; } lines;
         layout(binding = 4, std140) uniform Destination { vec4 logical; vec4 raster; vec4 size; } dst;
-        layout(push_constant) uniform Values { vec4 line; float keepSource; } pc;
+        layout(push_constant) uniform Values { vec4 line; float original; } pc;
         layout(location = 0) out vec4 color;
         void main() {
             vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
             vec4 line = pc.line * texture(edges, (position - lines.raster.xy) / lines.raster.zw).r;
-            vec4 below = pc.keepSource != 0 ? texture(image, (position - src.raster.xy) / src.raster.zw) : vec4(0);
-            color = line + below * (1 - line.a);
+            vec4 picture = pc.original != 0 ? texture(image, (position - src.raster.xy) / src.raster.zw) : vec4(0);
+            color = pc.original == 2 ? picture + line * (1 - picture.a) : line + picture * (1 - line.a);
         }
         """));
 }

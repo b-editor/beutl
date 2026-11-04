@@ -532,7 +532,7 @@ public sealed partial class SchemaGenerator
                 break;
             case EdgeDetection edgeDetection:
                 edgeDetection.Thickness.Value = 1.5f;
-                edgeDetection.KeepSource.Value = true;
+                edgeDetection.Original.Value = EdgeDetectionOriginal.Behind;
                 break;
             case Brightness brightness:
                 brightness.Amount.Value = 116;

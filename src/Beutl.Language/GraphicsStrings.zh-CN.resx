@@ -476,8 +476,17 @@
   <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
     <value>小于此值的变化不会绘制线条。</value>
   </data>
-  <data name="EdgeDetection_KeepSource" xml:space="preserve">
-    <value>保留原图</value>
+  <data name="EdgeDetection_Original" xml:space="preserve">
+    <value>原图</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Hidden" xml:space="preserve">
+    <value>不显示</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Behind" xml:space="preserve">
+    <value>显示在后面</value>
+  </data>
+  <data name="EdgeDetectionOriginal_InFront" xml:space="preserve">
+    <value>显示在前面</value>
   </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>平面阴影</value>

@@ -139,6 +139,39 @@ public sealed class EdgeDetectionTests
         });
     }
 
+    // A line this thick around a dot is a disc, as far from the dot in every direction.
+    [Test]
+    public void A_thick_line_stays_round()
+    {
+        const int Size = 320;
+        const float Thickness = 120;
+        var dot = new EllipseShape { Width = { Value = 16 }, Height = { Value = 16 } };
+        dot.Fill.Value = new SolidColorBrush(s_bright);
+        dot.FilterEffect.Value = new EdgeDetection { Target = { Value = EdgeDetectionTarget.Alpha }, Thickness = { Value = Thickness } };
+        double[] reach = [];
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var resource = (Drawable.Resource)dot.ToResource(CompositionContext.Default);
+            using Bitmap rendered = GoldenImageHarness.RenderAtScale(resource, new PixelSize(Size, Size), 1f, null, Colors.Transparent);
+            using Bitmap bytes = rendered.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            reach = [.. Enumerable.Range(0, 64).Select(step =>
+            {
+                double angle = step * Math.PI / 32;
+                double radius = Size / 2.0 - 1;
+                while (radius > 0
+                    && bytes.GetRow((int)(Size / 2.0 + radius * Math.Sin(angle)))[(int)(Size / 2.0 + radius * Math.Cos(angle)) * 4 + 3] <= 127)
+                {
+                    radius -= 0.25;
+                }
+
+                return radius;
+            })];
+        });
+
+        // The dot's own radius, and the line's reach to each side of its outline.
+        Assert.That(reach, Is.All.EqualTo(8 + Thickness).Within(2));
+    }
+
     // A pixel of a small preview is several composition units wide, and the change stays as strong across it.
     [Test]
     public void The_lines_stay_in_a_small_preview()
@@ -163,7 +196,7 @@ public sealed class EdgeDetectionTests
     {
         byte[] before = Render(Edge(s_dark, s_bright), null);
 
-        byte[] row = Render(Edge(s_dark, s_bright), new EdgeDetection { Color = { Value = Colors.Red }, KeepSource = { Value = true } });
+        byte[] row = Render(Edge(s_dark, s_bright), new EdgeDetection { Color = { Value = Colors.Red }, Original = { Value = EdgeDetectionOriginal.Behind } });
 
         int line = Width / 2 * 4;
         int picture = (Width / 2 + 8) * 4;
@@ -171,6 +204,29 @@ public sealed class EdgeDetectionTests
         {
             Assert.That(row[line..(line + 4)], Is.EqualTo(new byte[] { 0, 0, 255, 255 }));
             Assert.That(row[picture..(picture + 4)], Is.EqualTo(before[picture..(picture + 4)]));
+        });
+    }
+
+    // The picture covers the part of the line that falls on it, which leaves an outline around it.
+    [Test]
+    public void The_picture_can_go_in_front_of_the_line()
+    {
+        byte[] before = Render(Box(), null);
+        int first = Enumerable.Range(0, Width).First(x => AlphaAt(before, x) == 255);
+
+        byte[] row = Render(Box(), new EdgeDetection
+        {
+            Target = { Value = EdgeDetectionTarget.Alpha },
+            Color = { Value = Colors.Red },
+            Original = { Value = EdgeDetectionOriginal.InFront },
+        });
+
+        int outside = (first - 1) * 4;
+        int inside = first * 4;
+        Assert.Multiple(() =>
+        {
+            Assert.That(row[outside..(outside + 4)], Is.EqualTo(new byte[] { 0, 0, 255, 255 }), "outside the outline");
+            Assert.That(row[inside..(inside + 4)], Is.EqualTo(before[inside..(inside + 4)]), "inside the outline");
         });
     }
 

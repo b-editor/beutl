@@ -476,8 +476,17 @@
   <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
     <value>Los cambios menores que este valor no dibujan ninguna línea.</value>
   </data>
-  <data name="EdgeDetection_KeepSource" xml:space="preserve">
-    <value>Conservar la imagen</value>
+  <data name="EdgeDetection_Original" xml:space="preserve">
+    <value>Imagen original</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Hidden" xml:space="preserve">
+    <value>No mostrar</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Behind" xml:space="preserve">
+    <value>Detrás</value>
+  </data>
+  <data name="EdgeDetectionOriginal_InFront" xml:space="preserve">
+    <value>Delante</value>
   </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>Sombra plana</value>
