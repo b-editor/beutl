@@ -300,7 +300,6 @@ void main() {
 
     protected override void OnDispose()
     {
-        _pipelines.Dispose();
-        DisposeResources([Framebuffer, RenderPass, ShadowDepthTexture, DummyColorTexture]);
+        DisposeResources([_pipelines, Framebuffer, RenderPass, ShadowDepthTexture, DummyColorTexture]);
     }
 }

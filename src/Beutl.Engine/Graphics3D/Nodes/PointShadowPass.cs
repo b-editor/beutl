@@ -413,8 +413,7 @@ void main() {
 
     protected override void OnDispose()
     {
-        _pipelines.Dispose();
-        DisposeResources([_descriptorSet,
+        DisposeResources([_pipelines, _descriptorSet,
             _doubleSidedDescriptorSet, _lightDataBuffer, .. _faceFramebuffers,
             .. _faceDummyTextures, .. _faceDepthTextures, RenderPass]);
     }
