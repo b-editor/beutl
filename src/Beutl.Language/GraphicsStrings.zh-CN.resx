@@ -1757,6 +1757,24 @@
   <data name="MotionBlur_End" xml:space="preserve">
     <value>结束</value>
   </data>
+  <data name="AlphaMode" xml:space="preserve">
+    <value>透明度模式</value>
+  </data>
+  <data name="AlphaMode_Auto" xml:space="preserve">
+    <value>自动</value>
+  </data>
+  <data name="AlphaMode_Opaque" xml:space="preserve">
+    <value>不透明</value>
+  </data>
+  <data name="AlphaMode_Mask" xml:space="preserve">
+    <value>遮罩</value>
+  </data>
+  <data name="AlphaMode_Blend" xml:space="preserve">
+    <value>混合</value>
+  </data>
+  <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
+    <value>透明度阈值</value>
+  </data>
   <data name="GradientBrush_InterpolationSpace" xml:space="preserve">
     <value>插值色彩空间</value>
   </data>

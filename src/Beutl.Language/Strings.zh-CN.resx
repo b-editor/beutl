@@ -3687,4 +3687,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>项目音频声道</value>
   </data>
+  <data name="Paste_ProjectNotSaved" xml:space="preserve">
+    <value>粘贴剪辑之前请先保存项目。</value>
+  </data>
 </root>

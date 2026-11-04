@@ -22,6 +22,9 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
 
     public override FFmpegAudioEncoderSettings AudioSettings { get; } = new() { OutputFile = outputFile };
 
+    public override bool IsVideoEnabled
+        => Path.GetExtension(OutputFile).ToLowerInvariant() is not (".wav" or ".mp3");
+
     public override async ValueTask Encode(
         IFrameProvider frameProvider, ISampleProvider sampleProvider, CancellationToken cancellationToken)
     {

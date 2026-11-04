@@ -42,7 +42,11 @@ public class NodeMember<T> : NodeMember, INodeMember, IChildObjectSource
 
     private protected void SetPropertyAdapterCore(NodePropertyAdapter<T> property)
     {
+        if (PropertyAdapter is { } previous)
+            previous.Owner = null;
+
         Property = property;
+        property.Owner = this;
         property.Edited += OnPropertyAdapterEdited;
     }
 

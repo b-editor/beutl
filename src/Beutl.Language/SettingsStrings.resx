@@ -757,4 +757,10 @@
   <data name="PreviewGuideKinds" xml:space="preserve">
     <value>Guides to show</value>
   </data>
+  <data name="SeekOnTimelineClick" xml:space="preserve">
+    <value>Move the playhead with a click on the timeline</value>
+  </data>
+  <data name="SeekOnTimelineClick_Description" xml:space="preserve">
+    <value>When off, the playhead moves only from the ruler or by dragging its line, and dragging an empty part of the timeline selects clips without a modifier key.</value>
+  </data>
 </root>

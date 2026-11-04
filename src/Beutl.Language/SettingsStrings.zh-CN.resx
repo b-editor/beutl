@@ -738,4 +738,10 @@
   <data name="PreviewGuideKinds" xml:space="preserve">
     <value>要显示的参考线</value>
   </data>
+  <data name="SeekOnTimelineClick" xml:space="preserve">
+    <value>单击时间线时移动播放头</value>
+  </data>
+  <data name="SeekOnTimelineClick_Description" xml:space="preserve">
+    <value>关闭后，只能通过标尺或拖动播放头线条来移动播放头，在时间线的空白处拖动可直接框选剪辑，无需按修饰键。</value>
+  </data>
 </root>

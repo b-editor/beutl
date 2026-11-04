@@ -141,6 +141,7 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
         if (_headerText is not { } headerText) return;
         PointerPoint pointerPoint = e.GetCurrentPoint(headerText);
         if (pointerPoint.Properties.IsLeftButtonPressed
+            && !IsReadOnly
             && !DataValidationErrors.GetHasErrors(InnerTextBox))
         {
             _oldValue = Value;

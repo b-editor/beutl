@@ -40,6 +40,61 @@ public class SceneMoveChildrenTests
         Assert.That(elements.Select((element, i) => element.Start.Value == MediaTime.FromSeconds(i / layers * 4)), Has.All.True);
     }
 
+    private static Element AddMatte(SceneHistoryHarness harness, MatteSourceKind kind, int sourceLayer)
+    {
+        Element matte = harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
+        matte.MatteSourceKind.Value = kind;
+        matte.MatteSourceZIndex.Value = sourceLayer;
+        return matte;
+    }
+
+    [Test]
+    public void MatteMovedWithItsSource_NamesTheSourcesNewLayerAndUndoesInOneStep()
+    {
+        using var harness = new SceneHistoryHarness("beutl_matte_moved");
+        Element source = harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), 1);
+        Element matte = AddMatte(harness, MatteSourceKind.Layer, 1);
+        harness.History.Commit("Seed");
+
+        harness.Scene.MoveChildren(4, MediaTime.Zero, [source, matte]);
+        harness.History.Commit("Move");
+
+        Assert.That(matte.MatteSourceZIndex.Value, Is.EqualTo(5));
+        Assert.That(harness.History.Undo(), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(matte.ZIndex.Value, Is.Zero);
+            Assert.That(source.ZIndex.Value, Is.EqualTo(1));
+            Assert.That(matte.MatteSourceZIndex.Value, Is.EqualTo(1));
+        });
+    }
+
+    // The clip moved with it is on that layer at another time, so the source stays where the matte names it.
+    [Test]
+    public void MatteMovedWithoutItsSource_KeepsNamingItsLayer()
+    {
+        using var harness = new SceneHistoryHarness("beutl_matte_alone");
+        harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), 1);
+        Element otherTime = harness.AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2), 1);
+        Element matte = AddMatte(harness, MatteSourceKind.Layer, 1);
+
+        harness.Scene.MoveChildren(4, MediaTime.Zero, [otherTime, matte]);
+
+        Assert.That(matte.MatteSourceZIndex.Value, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void RelativeMatte_KeepsItsStoredLayer()
+    {
+        using var harness = new SceneHistoryHarness("beutl_matte_relative");
+        Element source = harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), 1);
+        Element matte = AddMatte(harness, MatteSourceKind.Above, 1);
+
+        harness.Scene.MoveChildren(4, MediaTime.Zero, [source, matte]);
+
+        Assert.That(matte.MatteSourceZIndex.Value, Is.EqualTo(1));
+    }
+
     [Test]
     public void BulkConflictCorrectionPreservesOffsetsAndRefusesAnImpossibleDestination()
     {

@@ -179,6 +179,9 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
 
     public object? GetService(Type serviceType)
     {
+        // A node member's animation has no parent, so its editors find their clock through the node.
+        if (serviceType == typeof(GraphNode)) return GraphNode;
+
         return _parent.GetService(serviceType);
     }
 

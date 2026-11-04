@@ -45,6 +45,7 @@
     "NodeCacheMaxPixels": 1000000,
     "NodeCacheMinPixels": 1,
     "SwapTimelineScrollDirection": false,
+    "SeekOnTimelineClick": false,
     "ClampResizeToOriginalLength": true,
     "IsTimelineSnapEnabled": true,
     "IsRippleEnabled": false,

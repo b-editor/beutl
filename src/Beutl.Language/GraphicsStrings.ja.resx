@@ -1753,6 +1753,24 @@
   <data name="MotionBlur_End" xml:space="preserve">
     <value>終了</value>
   </data>
+  <data name="AlphaMode" xml:space="preserve">
+    <value>アルファモード</value>
+  </data>
+  <data name="AlphaMode_Auto" xml:space="preserve">
+    <value>自動</value>
+  </data>
+  <data name="AlphaMode_Opaque" xml:space="preserve">
+    <value>不透明</value>
+  </data>
+  <data name="AlphaMode_Mask" xml:space="preserve">
+    <value>マスク</value>
+  </data>
+  <data name="AlphaMode_Blend" xml:space="preserve">
+    <value>ブレンド</value>
+  </data>
+  <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
+    <value>切り抜きのしきい値</value>
+  </data>
   <data name="GradientBrush_InterpolationSpace" xml:space="preserve">
     <value>補間の色空間</value>
   </data>

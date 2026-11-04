@@ -649,9 +649,21 @@ public sealed partial class ElementView
                 .GetRequiredService<IElementResizeService>()
                 .Resize(viewModel.Scene, requests, ripple);
 
-            foreach (var (item, context) in animations)
+            _ = AnimateToModelAsync(animations);
+        }
+
+        // Must await, as a move does: a failed animation would leave a clip at the width of the drag.
+        private static async Task AnimateToModelAsync(
+            (ElementViewModel ViewModel, ElementViewModel.PrepareAnimationContext Context)[] animations)
+        {
+            try
             {
-                _ = item.AnimationRequest(context);
+                await Task.WhenAll(animations.Select(a => a.ViewModel.AnimationRequest(a.Context)));
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogWarning(ex, "Animation failed after a group resize; snapping visuals to model.");
+                ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
             }
         }
 

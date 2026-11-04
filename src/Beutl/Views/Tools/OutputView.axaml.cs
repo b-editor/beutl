@@ -4,7 +4,6 @@ using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Extensibility;
 using Beutl.ViewModels.Tools;
-using Beutl.Views.Dialogs;
 using Reactive.Bindings;
 
 namespace Beutl.Views.Tools;
@@ -48,29 +47,15 @@ public partial class OutputView : UserControl
 
     private async void StartOutputClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not OutputViewModel viewModel) return;
+        if (DataContext is not OutputViewModel) return;
 
         try
         {
             IOutputExecutionController outputExecution = _execution
                 ?? throw new InvalidOperationException("The output execution controller was not provided.");
-            if (!outputExecution.TryStart(out Task? execution))
-            {
-                return;
-            }
-
-            if (!outputExecution.IsRunning.Value)
+            if (outputExecution.TryStart(out Task? execution))
             {
                 await AwaitExecutionAsync(execution);
-                return;
-            }
-
-            var dialog = new OutputProgressDialog(outputExecution) { DataContext = viewModel };
-            _ = dialog.ShowAsync();
-            await AwaitExecutionAsync(execution);
-            if (viewModel.WasCancelled.Value || execution.IsCanceled)
-            {
-                dialog.Hide();
             }
         }
         catch (Exception ex)

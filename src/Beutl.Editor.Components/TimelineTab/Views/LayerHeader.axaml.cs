@@ -23,7 +23,7 @@ public sealed partial class LayerHeader : UserControl
     private TimelineTabView? _timeline;
     private Point _startRel;
     private Point _start;
-    private ElementViewModel[] _elements = [];
+    private Element[] _elements = [];
     private int _newLayer;
     private double _positionY;
     private DragSession? _drag;
@@ -79,12 +79,9 @@ public sealed partial class LayerHeader : UserControl
                     return;
                 }
 
-                // Only a drag moves the row's clips, so a click on the header gives them no view models.
                 Scene scene = vm.Timeline.Scene;
                 _elements = scene.Children
                     .Where(i => i.ZIndex.Value == vm.Number && !scene.IsElementLocked(i))
-                    .Select(vm.Timeline.GetViewModelFor)
-                    .OfType<ElementViewModel>()
                     .ToArray();
             }
 
@@ -97,9 +94,11 @@ public sealed partial class LayerHeader : UserControl
             {
                 vm.PosY.Value = position.Y - _start.Y;
             }
-            foreach (ElementViewModel item in _elements)
+            // Only the clips on screen follow the drag. Scrolling can bring more of them in along the way.
+            foreach (Element item in _elements)
             {
-                item.Margin.Value = newMargin;
+                if (vm.Timeline.FindViewModelFor(item) is { } realized)
+                    realized.Margin.Value = newMargin;
             }
 
             e.Handled = true;
@@ -130,7 +129,7 @@ public sealed partial class LayerHeader : UserControl
     {
         _drag = null;
         _pressed = false;
-        ElementViewModel[] directElements = _elements;
+        Element[] directElements = _elements;
         _elements = [];
         if (DataContext is LayerHeaderViewModel vm)
             RestoreDraggedRows(vm, directElements);
@@ -142,7 +141,7 @@ public sealed partial class LayerHeader : UserControl
         _drag = null;
         _pressed = false;
         int newLayerNum = _newLayer;
-        ElementViewModel[] directElements = _elements;
+        Element[] directElements = _elements;
         _elements = [];
         if (DataContext is not LayerHeaderViewModel vm)
             return;
@@ -153,7 +152,7 @@ public sealed partial class LayerHeader : UserControl
             return;
         }
 
-        LayerMovePlan plan = vm.MoveTo(newLayerNum, directElements.Select(x => x.Model).ToArray());
+        LayerMovePlan plan = vm.MoveTo(newLayerNum, directElements);
 
         // A lock-blocked move returns IsNoop without writing the model; snap the
         // dragged header back rather than syncing the UI to an unmoved drop row.
@@ -167,9 +166,9 @@ public sealed partial class LayerHeader : UserControl
 
         // The headers stay on their rows and follow the TimelineLayer models the service moved, as they do on undo
         // and redo; only the clip views animate to their new rows.
-        foreach (ElementViewModel item in directElements)
+        foreach (Element item in directElements)
         {
-            item.AnimationRequest(newLayerNum);
+            vm.Timeline.FindViewModelFor(item)?.AnimationRequest(newLayerNum);
         }
 
         foreach (Element shifted in plan.ShiftedElements)
@@ -179,12 +178,13 @@ public sealed partial class LayerHeader : UserControl
         }
     }
 
-    private static void RestoreDraggedRows(LayerHeaderViewModel vm, ElementViewModel[] directElements)
+    private static void RestoreDraggedRows(LayerHeaderViewModel vm, Element[] directElements)
     {
         vm.PosY.Value = 0;
-        foreach (ElementViewModel item in directElements)
+        foreach (Element item in directElements)
         {
-            item.Margin.Value = new Thickness(0, vm.Timeline.CalculateLayerTop(item.Model.ZIndex.Value), 0, 0);
+            if (vm.Timeline.FindViewModelFor(item) is { } realized)
+                realized.Margin.Value = new Thickness(0, vm.Timeline.CalculateLayerTop(item.ZIndex.Value), 0, 0);
         }
     }
 
