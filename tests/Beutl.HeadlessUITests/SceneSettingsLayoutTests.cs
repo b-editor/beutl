@@ -54,10 +54,44 @@ public class SceneSettingsLayoutTests
     }
 
     [AvaloniaTest]
+    public async Task The_master_volume_is_edited_like_the_other_settings_and_can_be_undone()
+    {
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("scene-settings-volume");
+        using var model = new SceneSettingsTabViewModel(editor);
+        var view = new SceneSettingsTabView { DataContext = model };
+        var window = new Window { Content = view, Width = 420, Height = 480 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            NumberEditor<float> volume = view.FindControl<NumberEditor<float>>("masterVolumeEditor")!;
+            Assert.That(volume.Value, Is.EqualTo(100f));
+
+            volume.Value = 40f;
+            HeadlessTestHelpers.Render();
+            Capture(window, "master-volume");
+            await model.Apply.ExecuteAsync();
+
+            Assert.That(scene.MasterVolume.Value, Is.EqualTo(40f));
+            editor.HistoryManager.Undo();
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(scene.MasterVolume.Value, Is.EqualTo(100f));
+                Assert.That(volume.Value, Is.EqualTo(100f));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(320, 160, false)]
     [TestCase(320, 160, true)]
-    [TestCase(640, 420, false)]
-    [TestCase(640, 420, true)]
+    [TestCase(640, 480, false)]
+    [TestCase(640, 480, true)]
     public async Task Inputs_and_actions_remain_reachable_in_short_docks(int width, int height, bool light)
     {
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("scene-settings");

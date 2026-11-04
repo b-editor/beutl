@@ -446,6 +446,9 @@
   <data name="Audio" xml:space="preserve">
     <value>오디오</value>
   </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>마스터 볼륨 (%)</value>
+  </data>
   <data name="Off" xml:space="preserve">
     <value>끄기</value>
   </data>

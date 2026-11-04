@@ -101,6 +101,7 @@ public sealed partial class SceneCompositor
             {
                 composer = owner._audioQueries.Rent(null, start);
                 CompositionFrame frame = composer.Compositor.EvaluateAudio(range, conditions);
+                composer.MasterGain = owner.Scene.MasterGain;
                 AudioBuffer? buffer = composer.Compose(range, frame);
                 owner._audioQueries.Return(composer, null, range.End);
                 composer = null;

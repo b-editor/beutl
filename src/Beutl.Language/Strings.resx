@@ -452,6 +452,9 @@
   <data name="Audio" xml:space="preserve">
     <value>Audio</value>
   </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>Master volume (%)</value>
+  </data>
   <data name="Off" xml:space="preserve">
     <value>Off</value>
   </data>

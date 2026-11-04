@@ -446,6 +446,9 @@
   <data name="Audio" xml:space="preserve">
     <value>音频</value>
   </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>主音量 (%)</value>
+  </data>
   <data name="Off" xml:space="preserve">
     <value>关</value>
   </data>
