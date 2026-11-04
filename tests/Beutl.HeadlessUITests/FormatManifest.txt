@@ -762,7 +762,7 @@ Beutl.Utilities
   keys: Animations, Expressions, Id, IsEnabled, Name, Opacity, Target, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media:ConicGradientBrush
   sealed
-  keys: Angle, Animations, Center, Expressions, GradientStops, Id, IsEnabled, Name, Opacity, SpreadMethod, Transform, TransformOrigin
+  keys: Angle, Animations, Center, Expressions, GradientStops, Id, InterpolatePremultiplied, InterpolationSpace, IsEnabled, Name, Opacity, SpreadMethod, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media:ConicSegment
   sealed
   keys: Animations, ControlPoint, EndPoint, Expressions, Id, IsEnabled, Name, Weight
@@ -799,7 +799,7 @@ Beutl.Utilities
   keys: Animations, Expressions, Id, IsEnabled, Name, Point
 [Beutl.Engine]Beutl.Media:LinearGradientBrush
   sealed
-  keys: Animations, EndPoint, Expressions, GradientStops, Id, IsEnabled, Name, Opacity, SpreadMethod, StartPoint, Transform, TransformOrigin
+  keys: Animations, EndPoint, Expressions, GradientStops, Id, InterpolatePremultiplied, InterpolationSpace, IsEnabled, Name, Opacity, SpreadMethod, StartPoint, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media:PathFigure
   sealed
   keys: Animations, Expressions, Id, IsClosed, IsEnabled, Name, Segments, StartPoint
@@ -819,7 +819,7 @@ Beutl.Utilities
   keys: Animations, ControlPoint, EndPoint, Expressions, Id, IsEnabled, Name
 [Beutl.Engine]Beutl.Media:RadialGradientBrush
   sealed
-  keys: Animations, Center, Expressions, GradientOrigin, GradientStops, Id, IsEnabled, Name, Opacity, Radius, SpreadMethod, Transform, TransformOrigin
+  keys: Animations, Center, Expressions, GradientOrigin, GradientStops, Id, InterpolatePremultiplied, InterpolationSpace, IsEnabled, Name, Opacity, Radius, SpreadMethod, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media:RectGeometry
   sealed
   keys: Animations, Expressions, FillType, Height, Id, IsEnabled, Name, Transform, Width
