@@ -144,9 +144,11 @@ public sealed class RecoveryProtectedElementEditorTests
     }
 
     [AvaloniaTest]
-    public async Task Property_editors_refuse_edits_but_allow_removing_and_replacing_what_could_not_be_loaded()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Property_editors_refuse_edits_but_allow_removing_and_replacing_what_could_not_be_loaded(bool replaceByAdding)
     {
-        (string projectPath, string elementPath) = await CreateProjectWithUnreadableEasings("recovery-properties");
+        (string projectPath, string elementPath) = await CreateProjectWithUnreadableEasings($"recovery-properties-{replaceByAdding}");
         EditViewModel editor = await OpenProjectAsync(projectPath);
         Element element = editor.Scene.Children.Single();
         var shape = (RectShape)element.Objects[0];
@@ -186,15 +188,24 @@ public sealed class RecoveryProtectedElementEditorTests
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
         });
 
-        // Replacing the transform is a repair. Another unreadable easing remains, so the element stays
-        // protected until the object that holds it is removed too.
-        transform.SetNull();
+        // Replacing the transform is a repair, whether it is cleared or something is added in its place. Another
+        // unreadable easing remains, so the element stays protected until the object that holds it is removed too.
+        if (replaceByAdding)
+        {
+            transform.AddItem(new ScaleTransform(150, 150));
+        }
+        else
+        {
+            transform.SetNull();
+        }
+
+        Type? replacement = replaceByAdding ? typeof(ScaleTransform) : null;
         HeadlessTestHelpers.Settle();
         objectView.DataContext = tab.Items[0];
         objectView.Remove_Click(null, new RoutedEventArgs());
         Assert.Multiple(() =>
         {
-            Assert.That(shape.Transform.Value, Is.Null);
+            Assert.That(shape.Transform.Value?.GetType(), Is.EqualTo(replacement));
             Assert.That(element.SuppressedStorageSource, Is.Not.Null);
             Assert.That(tab.CanEdit.Value, Is.False);
             Assert.That(element.Objects, Does.Contain(shape), "The shape no longer holds anything to repair.");
@@ -217,7 +228,7 @@ public sealed class RecoveryProtectedElementEditorTests
         Assert.Multiple(() =>
         {
             Assert.That(((RectShape)saved.Objects[0]).Width.Value, Is.EqualTo(oldWidth + 10));
-            Assert.That(((RectShape)saved.Objects[0]).Transform.Value, Is.Null);
+            Assert.That(((RectShape)saved.Objects[0]).Transform.Value?.GetType(), Is.EqualTo(replacement));
             Assert.That(saved.Objects, Has.Count.EqualTo(2));
             Assert.That(saved.SuppressedStorageSource, Is.Null);
         });

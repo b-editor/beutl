@@ -23,6 +23,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
+using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
@@ -263,10 +264,10 @@ public sealed class PickerToggleTests
         try
         {
             EffectEditorHeaderButtons header = editor.GetVisualDescendants().OfType<EffectEditorHeaderButtons>().First();
-            AssertToggles<LibraryItemPickerFlyoutPresenter>(
-                window, header.GetVisualDescendants().OfType<Button>().Single(button => button is not ToggleButton));
+            Button add = header.GetVisualDescendants().OfType<Button>().Single(button => button is not ToggleButton);
+            AssertToggles<LibraryItemPickerFlyoutPresenter>(window, add);
 
-            viewModel.AddItem(typeof(Blur));
+            Pick(window, add, typeof(Blur));
 
             var group = (FilterEffectGroup)shape.FilterEffect.Value!;
             Assert.Multiple(() =>
@@ -295,12 +296,12 @@ public sealed class PickerToggleTests
         try
         {
             EffectEditorHeaderButtons header = editor.GetVisualDescendants().OfType<EffectEditorHeaderButtons>().First();
-            AssertToggles<LibraryItemPickerFlyoutPresenter>(
-                window, header.GetVisualDescendants().OfType<Button>().Single(button => button is not ToggleButton));
+            Button add = header.GetVisualDescendants().OfType<Button>().Single(button => button is not ToggleButton);
+            AssertToggles<LibraryItemPickerFlyoutPresenter>(window, add);
 
-            viewModel.AddItem(new AudioEffectGroup());
+            Pick(window, add, typeof(DelayEffect));
 
-            Assert.That(((AudioEffectGroup)sound.Effect.Value!).Children.Single(), Is.TypeOf<AudioEffectGroup>());
+            Assert.That(((AudioEffectGroup)sound.Effect.Value!).Children.Single(), Is.TypeOf<DelayEffect>());
         }
         finally
         {
@@ -405,6 +406,18 @@ public sealed class PickerToggleTests
     {
         TimelineTestHost.WaitForHitTest(window, button, HeadlessTestHelpers.Center(button, window));
         HeadlessTestHelpers.Click(button, ticks: 3);
+    }
+
+    // Opens the picker with the button and confirms the given type in it.
+    private static void Pick(Window window, Control button, Type type)
+    {
+        Click(window, button);
+        HeadlessTestHelpers.Render(3);
+        LibraryItemPickerFlyoutPresenter picker = Single<LibraryItemPickerFlyoutPresenter>(window);
+        picker.SelectedItem = picker.Items!.Single(item => item.UserData is SingleTypeLibraryItem single
+            && single.ImplementationType == type);
+        picker.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+        HeadlessTestHelpers.Settle();
     }
 
     private static void AssertToggles<TPresenter>(Window window, Control button) where TPresenter : Control
