@@ -338,6 +338,15 @@
   <data name="Easing" xml:space="preserve">
     <value>缓动</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>第一个控制点 {0}, {1}。第二个控制点 {2}, {3}。</value>
+  </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>已选择第一个控制点。</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>已选择第二个控制点。</value>
+  </data>
   <data name="Hold" xml:space="preserve">
     <value>保持</value>
   </data>
@@ -3689,14 +3698,5 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>粘贴剪辑之前请先保存项目。</value>
-  </data>
-  <data name="EasingCurve_ControlPoints" xml:space="preserve">
-    <value>第一个控制点 {0}, {1}。第二个控制点 {2}, {3}。</value>
-  </data>
-  <data name="EasingCurve_FirstSelected" xml:space="preserve">
-    <value>已选择第一个控制点。</value>
-  </data>
-  <data name="EasingCurve_SecondSelected" xml:space="preserve">
-    <value>已选择第二个控制点。</value>
   </data>
 </root>

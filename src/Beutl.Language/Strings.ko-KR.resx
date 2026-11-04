@@ -338,6 +338,15 @@
   <data name="Easing" xml:space="preserve">
     <value>이징</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>첫 번째 제어점 {0}, {1}. 두 번째 제어점 {2}, {3}.</value>
+  </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>첫 번째 제어점이 선택되어 있습니다.</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>두 번째 제어점이 선택되어 있습니다.</value>
+  </data>
   <data name="Hold" xml:space="preserve">
     <value>유지</value>
   </data>
@@ -3689,14 +3698,5 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>클립을 붙여넣기 전에 프로젝트를 저장하세요.</value>
-  </data>
-  <data name="EasingCurve_ControlPoints" xml:space="preserve">
-    <value>첫 번째 제어점 {0}, {1}. 두 번째 제어점 {2}, {3}.</value>
-  </data>
-  <data name="EasingCurve_FirstSelected" xml:space="preserve">
-    <value>첫 번째 제어점이 선택되어 있습니다.</value>
-  </data>
-  <data name="EasingCurve_SecondSelected" xml:space="preserve">
-    <value>두 번째 제어점이 선택되어 있습니다.</value>
   </data>
 </root>
