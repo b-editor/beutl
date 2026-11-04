@@ -26,6 +26,9 @@ public sealed partial class BrushEditor : UserControl
     public static readonly StyledProperty<Media.Brush?> OriginalBrushProperty =
         AvaloniaProperty.Register<BrushEditor, Media.Brush?>(nameof(OriginalBrush));
 
+    public static readonly StyledProperty<Avalonia.Media.GradientStops?> BackgroundStopsProperty =
+        AvaloniaProperty.Register<BrushEditor, Avalonia.Media.GradientStops?>(nameof(BackgroundStops));
+
     private BrushEditorFlyout? _flyout;
     private readonly LiveEditDrag _drag = new();
     private Media.DrawableBrush? _followedBrush;
@@ -102,6 +105,12 @@ public sealed partial class BrushEditor : UserControl
         set => SetValue(OriginalBrushProperty, value);
     }
 
+    public Avalonia.Media.GradientStops? BackgroundStops
+    {
+        get => GetValue(BackgroundStopsProperty);
+        set => SetValue(BackgroundStopsProperty, value);
+    }
+
     protected override void OnPointerEntered(PointerEventArgs e)
     {
         base.OnPointerEntered(e);
@@ -116,6 +125,11 @@ public sealed partial class BrushEditor : UserControl
         if (change.Property == BrushProperty)
         {
             _flyout.Brush = Brush;
+        }
+
+        if (change.Property == BackgroundStopsProperty)
+        {
+            _flyout.BackgroundStops = BackgroundStops;
         }
 
         if (change.Property == OriginalBrushProperty)
@@ -202,6 +216,7 @@ public sealed partial class BrushEditor : UserControl
 
         _flyout.Brush = Brush;
         _flyout.OriginalBrush = OriginalBrush;
+        _flyout.BackgroundStops = BackgroundStops;
         _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable.Value);
         _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable.Value is not null;
 

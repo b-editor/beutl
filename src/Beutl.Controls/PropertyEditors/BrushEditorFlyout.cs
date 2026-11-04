@@ -34,6 +34,9 @@ public sealed class BrushEditorFlyout : FAPickerFlyoutBase
     public static readonly StyledProperty<Media.Brush?> OriginalBrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyout, Media.Brush?>(nameof(OriginalBrush));
 
+    public static readonly StyledProperty<GradientStops?> BackgroundStopsProperty =
+        AvaloniaProperty.Register<BrushEditorFlyout, GradientStops?>(nameof(BackgroundStops));
+
     public static readonly StyledProperty<string?> DrawableNameProperty =
         AvaloniaProperty.Register<BrushEditorFlyout, string?>(nameof(DrawableName));
 
@@ -50,6 +53,12 @@ public sealed class BrushEditorFlyout : FAPickerFlyoutBase
     {
         get => GetValue(OriginalBrushProperty);
         set => SetValue(OriginalBrushProperty, value);
+    }
+
+    public GradientStops? BackgroundStops
+    {
+        get => GetValue(BackgroundStopsProperty);
+        set => SetValue(BackgroundStopsProperty, value);
     }
 
     public string? DrawableName
@@ -136,6 +145,7 @@ public sealed class BrushEditorFlyout : FAPickerFlyoutBase
     {
         presenter.Brush = Brush;
         presenter.OriginalBrush = OriginalBrush;
+        presenter.BackgroundStops = BackgroundStops;
         presenter.DrawableName = DrawableName;
         presenter.CanEditDrawable = CanEditDrawable;
     }
@@ -155,6 +165,11 @@ public sealed class BrushEditorFlyout : FAPickerFlyoutBase
             if (change.Property == OriginalBrushProperty)
             {
                 pfp.OriginalBrush = OriginalBrush;
+            }
+
+            if (change.Property == BackgroundStopsProperty)
+            {
+                pfp.BackgroundStops = BackgroundStops;
             }
 
             if (change.Property == DrawableNameProperty)
