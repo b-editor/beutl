@@ -15,7 +15,7 @@ internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
     private readonly CompileOptions* _options;
     private bool _disposed;
 
-    public VulkanShaderCompiler()
+    public VulkanShaderCompiler(bool preserveInterface = false)
     {
         Compiler* compiler = null;
         CompileOptions* options = null;
@@ -29,7 +29,10 @@ internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
             if (options == null)
                 throw new InvalidOperationException("Failed to initialize shaderc compile options.");
 
-            s_shaderc.CompileOptionsSetOptimizationLevel(options, OptimizationLevel.Performance);
+            s_shaderc.CompileOptionsSetOptimizationLevel(options,
+                preserveInterface ? OptimizationLevel.Zero : OptimizationLevel.Performance);
+            if (preserveInterface)
+                s_shaderc.CompileOptionsSetGenerateDebugInfo(options);
             s_shaderc.CompileOptionsSetTargetEnv(options, TargetEnv.Vulkan, (uint)EnvVersion.Vulkan12);
             s_shaderc.CompileOptionsSetTargetSpirv(options, SpirvVersion.Shaderc15);
 

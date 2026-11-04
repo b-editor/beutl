@@ -123,7 +123,7 @@ public sealed partial class ShaderGraphBuilder
     private void AddTransfer(string name, ShaderTransfer transfer)
     {
         EnsureRecording();
-        if (transfer.Destination is ShaderImage image && ReferenceEquals(image.Root, Source))
+        if (transfer.Destination is ShaderImage { Root.IsInput: true })
             throw new ArgumentException("The source image is read-only.");
         AddName(_passNames, name);
         _passes.Add(new(name, null, [], [], [], BlendState.Replace, default, false) { Transfer = transfer });

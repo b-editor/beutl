@@ -32,18 +32,31 @@ public sealed partial class ShaderGraphBuilder
         EnsureRecording();
         ArgumentNullException.ThrowIfNull(initialize);
         ArgumentNullException.ThrowIfNull(update);
+        IEnumerable<ShaderTimeStep> steps = ReplaySteps(time, step, resetTime);
+        T state = initialize(this);
+        foreach (ShaderTimeStep current in steps)
+            state = update(this, state, current);
+        return state;
+    }
+
+    /// <summary>The updates <see cref="Replay"/> records: fixed steps from resetTime, and, if needed, a shorter final one.</summary>
+    public static IEnumerable<ShaderTimeStep> ReplaySteps(TimeSpan time, TimeSpan step, TimeSpan resetTime = default)
+    {
         if (step.Ticks <= 0) throw new ArgumentOutOfRangeException(nameof(step));
         long ticks = time > resetTime ? checked(time.Ticks - resetTime.Ticks) : 0;
         long count = ticks / step.Ticks + (ticks % step.Ticks == 0 ? 0 : 1);
         if (count > int.MaxValue) throw new ArgumentOutOfRangeException(nameof(time));
-        T state = initialize(this);
-        long elapsed = 0;
-        for (int index = 0; index < count; index++)
+        return Enumerate();
+
+        IEnumerable<ShaderTimeStep> Enumerate()
         {
-            long delta = Math.Min(step.Ticks, ticks - elapsed);
-            elapsed += delta;
-            state = update(this, state, new(index, TimeSpan.FromTicks(checked(resetTime.Ticks + elapsed)), TimeSpan.FromTicks(delta)));
+            long elapsed = 0;
+            for (int index = 0; index < count; index++)
+            {
+                long delta = Math.Min(step.Ticks, ticks - elapsed);
+                elapsed += delta;
+                yield return new(index, TimeSpan.FromTicks(checked(resetTime.Ticks + elapsed)), TimeSpan.FromTicks(delta));
+            }
         }
-        return state;
     }
 }

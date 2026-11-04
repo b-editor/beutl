@@ -83,9 +83,15 @@ internal static class FilterEffectStageFallbackExecutor
                     new(input.Bounds, input.RasterBounds, input.DeviceBounds.Size, input.Scale.Value, referenceBounds),
                     outputTarget.Texture ?? throw new NotSupportedException("The shader graph output requires a backend texture."),
                     output.Scale.Value, input.DeviceGridOffset, acquireProgram, retainedImages: settings.ShaderGraphImages);
+                description.ExecutionObserver?.Invoke(null);
                 EffectTarget result = output;
                 output = null;
                 return result;
+            }
+            catch (Exception ex) when (description.ExecutionObserver is { } observer)
+            {
+                observer(ex);
+                return null;
             }
             finally
             {

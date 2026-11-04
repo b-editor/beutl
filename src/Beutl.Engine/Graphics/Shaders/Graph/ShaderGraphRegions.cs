@@ -11,13 +11,19 @@ internal sealed class ShaderGraphRegions
     public Rect?[] PassRegions { get; }
     public Rect SourceRegion { get; }
 
+    /// <param name="externalFrames">Where a render's other pictures were rasterized; left out, as the source was.</param>
     public ShaderGraphRegions(ShaderGraphDescription graph, ShaderImageFrame source, float scale,
-        Vector gridOffset, Rect requiredOutput)
+        Vector gridOffset, Rect requiredOutput, IReadOnlyList<ShaderImageFrame>? externalFrames = null)
     {
         Frames.Add(0, source);
         foreach (ShaderImage image in graph.Resources.OfType<ShaderImage>())
         {
             if (image.Id == 0 || graph.LastUses[image.Id] < 0) continue;
+            if (image.ExternalIndex >= 0)
+            {
+                Frames.Add(image.Id, externalFrames?[image.ExternalIndex] ?? source);
+                continue;
+            }
             if (image.RasterSource is { } rasterSource)
             {
                 Frames.Add(image.Id, Frames[rasterSource.Id]);
