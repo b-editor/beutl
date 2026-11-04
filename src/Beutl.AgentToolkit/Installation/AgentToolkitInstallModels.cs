@@ -82,6 +82,9 @@ public sealed record AgentToolkitInstallResult(
     // comments, so it was left unchanged and the user has to make the edit.
     public ManualMcpEdit? ManualMcpEdit { get; init; }
 
+    // The configuration file that now holds the Beutl entry; null when none was written.
+    public string? McpConfigPath { get; init; }
+
     // Skill and subagent files the user had edited, copied aside before the bundled version replaced them.
     public IReadOnlyList<BackedUpFile> BackedUpFiles { get; init; } = [];
 }

@@ -200,6 +200,15 @@
   <data name="Blur" xml:space="preserve">
     <value>흐림</value>
   </data>
+  <data name="Sharpen" xml:space="preserve">
+    <value>선명하게</value>
+  </data>
+  <data name="Sharpen_Threshold" xml:space="preserve">
+    <value>임계값</value>
+  </data>
+  <data name="Sharpen_Threshold_Description" xml:space="preserve">
+    <value>이보다 작은 차이는 강조하지 않아 노이즈가 두드러지지 않습니다.</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>밝기</value>
   </data>
@@ -214,6 +223,18 @@
   </data>
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>채도 범위</value>
+  </data>
+  <data name="LumaKey" xml:space="preserve">
+    <value>루마 키</value>
+  </data>
+  <data name="LumaKey_Lower" xml:space="preserve">
+    <value>하한 (%)</value>
+  </data>
+  <data name="LumaKey_Upper" xml:space="preserve">
+    <value>상한 (%)</value>
+  </data>
+  <data name="LumaKey_Softness" xml:space="preserve">
+    <value>경계 부드러움 (%)</value>
   </data>
   <data name="Clipping" xml:space="preserve">
     <value>클리핑</value>
@@ -454,6 +475,39 @@
   </data>
   <data name="Erode_RadiusY" xml:space="preserve">
     <value>반경 Y</value>
+  </data>
+  <data name="EdgeDetection" xml:space="preserve">
+    <value>가장자리 추출</value>
+  </data>
+  <data name="EdgeDetection_Target" xml:space="preserve">
+    <value>감지 대상</value>
+  </data>
+  <data name="EdgeDetectionTarget_Luminance" xml:space="preserve">
+    <value>휘도</value>
+  </data>
+  <data name="EdgeDetectionTarget_Alpha" xml:space="preserve">
+    <value>투명도</value>
+  </data>
+  <data name="EdgeDetection_Thickness" xml:space="preserve">
+    <value>두께</value>
+  </data>
+  <data name="EdgeDetection_Threshold" xml:space="preserve">
+    <value>임계값</value>
+  </data>
+  <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
+    <value>이보다 작은 변화에는 선을 그리지 않습니다.</value>
+  </data>
+  <data name="EdgeDetection_Original" xml:space="preserve">
+    <value>원본 이미지</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Hidden" xml:space="preserve">
+    <value>표시 안 함</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Behind" xml:space="preserve">
+    <value>뒤에 표시</value>
+  </data>
+  <data name="EdgeDetectionOriginal_InFront" xml:space="preserve">
+    <value>앞에 표시</value>
   </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>평면 그림자</value>
@@ -1660,6 +1714,45 @@
   </data>
   <data name="RadialBlur_Samples" xml:space="preserve">
     <value>샘플 수</value>
+  </data>
+  <data name="Bokeh" xml:space="preserve">
+    <value>보케</value>
+  </data>
+  <data name="Bokeh_Shape" xml:space="preserve">
+    <value>조리개 모양</value>
+  </data>
+  <data name="BokehShape_Circle" xml:space="preserve">
+    <value>원형</value>
+  </data>
+  <data name="BokehShape_Polygon" xml:space="preserve">
+    <value>다각형</value>
+  </data>
+  <data name="Bokeh_Sides" xml:space="preserve">
+    <value>변의 수</value>
+  </data>
+  <data name="Bokeh_Rotation" xml:space="preserve">
+    <value>회전</value>
+  </data>
+  <data name="Bokeh_Highlight" xml:space="preserve">
+    <value>하이라이트 강조</value>
+  </data>
+  <data name="Bokeh_Highlight_Description" xml:space="preserve">
+    <value>밝은 부분을 번지기 전에 더 밝게 하여 모양이 돋보이게 합니다. 100%는 두 배 밝기입니다.</value>
+  </data>
+  <data name="Bokeh_Quality" xml:space="preserve">
+    <value>품질</value>
+  </data>
+  <data name="Bokeh_Quality_Description" xml:space="preserve">
+    <value>샘플이 많을수록 모양이 깔끔해지고 시간이 더 걸립니다. 높음은 낮음보다 약 3배 오래 걸립니다.</value>
+  </data>
+  <data name="BokehQuality_Low" xml:space="preserve">
+    <value>낮음</value>
+  </data>
+  <data name="BokehQuality_Medium" xml:space="preserve">
+    <value>보통</value>
+  </data>
+  <data name="BokehQuality_High" xml:space="preserve">
+    <value>높음</value>
   </data>
   <data name="RadialBlurMode_Zoom" xml:space="preserve">
     <value>줌</value>

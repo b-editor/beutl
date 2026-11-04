@@ -20,6 +20,8 @@
                 <ResourceInclude Source="/Styling/ToggleSwitchStyles.axaml" />
                 <ResourceInclude Source="/Styling/ToggleButtonStyles.axaml" />
                 <ResourceInclude Source="/Styling/ToolTabBar.axaml" />
+                <ResourceInclude Source="/Styling/EmptyState.axaml" />
+                <ResourceInclude Source="/Styling/StatusLabel.axaml" />
                 <ResourceInclude Source="/Styling/SimpleBreadcrumbBar.axaml" />
 
                 <ResourceInclude Source="/Styling/ProgressRing.axaml" />

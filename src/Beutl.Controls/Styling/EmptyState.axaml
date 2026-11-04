@@ -1,0 +1,47 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="using:Beutl.Controls">
+    <ControlTheme x:Key="{x:Type local:EmptyState}" TargetType="local:EmptyState">
+        <Setter Property="Margin" Value="24" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <StackPanel MaxWidth="320" Spacing="12">
+                    <Border Name="PART_IconBackground"
+                            Width="56"
+                            Height="56"
+                            HorizontalAlignment="Center"
+                            Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                            CornerRadius="16"
+                            IsVisible="{TemplateBinding Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <!-- An icon keeps its own font size inside a presenter, so the box sizes it instead. -->
+                        <Viewbox Width="24" Height="24">
+                            <ContentPresenter Content="{TemplateBinding Icon}"
+                                              Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                        </Viewbox>
+                    </Border>
+                    <local:SafeLiveRegionTextBlock Name="PART_Title"
+                                                   AutomationProperties.LiveSetting="{TemplateBinding (AutomationProperties.LiveSetting)}"
+                                                   FontSize="16"
+                                                   IsVisible="{TemplateBinding Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                   Text="{TemplateBinding Title}"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap" />
+                    <TextBlock Name="PART_Description"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               Text="{TemplateBinding Description}"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap" />
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      HorizontalAlignment="Center"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      IsVisible="{TemplateBinding Content, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </StackPanel>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+</ResourceDictionary>

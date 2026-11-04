@@ -622,6 +622,9 @@
     <value>Beutl がインストールする MCP サーバーは "beutl-agent" の 1 つになりました。エージェントが instanceId を指定すれば起動中の Beutl を、指定しなければプロジェクトファイルをヘッドレスで編集します。保存済みの設定で今すぐ再インストールしますか？エージェント設定から旧 "beutl-live" エントリとそのトークンが削除され、配布先で手動編集したファイルは、置き換える前にバックアップされます。</value>
     <comment/>
   </data>
+  <data name="AiAgents_McpTargetsNeedReinstall" xml:space="preserve">
+    <value>再インストールで更新されるのは、設定の「AI エージェント」で選択中のエージェントだけです。次の導入先には古いエントリーが残っているので、それぞれ選択して再インストールしてください: {0}</value>
+  </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">
     <value>再インストール</value>
     <comment/>

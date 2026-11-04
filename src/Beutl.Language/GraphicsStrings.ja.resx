@@ -196,6 +196,15 @@
   <data name="Blur" xml:space="preserve">
     <value>ぼかし</value>
   </data>
+  <data name="Sharpen" xml:space="preserve">
+    <value>シャープ</value>
+  </data>
+  <data name="Sharpen_Threshold" xml:space="preserve">
+    <value>しきい値</value>
+  </data>
+  <data name="Sharpen_Threshold_Description" xml:space="preserve">
+    <value>これより小さな差は強調しません。ノイズを目立たせたくないときに上げます。</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>輝度</value>
   </data>
@@ -210,6 +219,18 @@
   </data>
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>彩度範囲</value>
+  </data>
+  <data name="LumaKey" xml:space="preserve">
+    <value>輝度キー</value>
+  </data>
+  <data name="LumaKey_Lower" xml:space="preserve">
+    <value>下限 (%)</value>
+  </data>
+  <data name="LumaKey_Upper" xml:space="preserve">
+    <value>上限 (%)</value>
+  </data>
+  <data name="LumaKey_Softness" xml:space="preserve">
+    <value>境界の滑らかさ (%)</value>
   </data>
   <data name="Clipping" xml:space="preserve">
     <value>クリッピング</value>
@@ -450,6 +471,39 @@
   </data>
   <data name="Erode_RadiusY" xml:space="preserve">
     <value>半径Y</value>
+  </data>
+  <data name="EdgeDetection" xml:space="preserve">
+    <value>エッジ抽出</value>
+  </data>
+  <data name="EdgeDetection_Target" xml:space="preserve">
+    <value>検出対象</value>
+  </data>
+  <data name="EdgeDetectionTarget_Luminance" xml:space="preserve">
+    <value>輝度</value>
+  </data>
+  <data name="EdgeDetectionTarget_Alpha" xml:space="preserve">
+    <value>透明度</value>
+  </data>
+  <data name="EdgeDetection_Thickness" xml:space="preserve">
+    <value>太さ</value>
+  </data>
+  <data name="EdgeDetection_Threshold" xml:space="preserve">
+    <value>しきい値</value>
+  </data>
+  <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
+    <value>これより小さな変化には線を引きません。</value>
+  </data>
+  <data name="EdgeDetection_Original" xml:space="preserve">
+    <value>元画像</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Hidden" xml:space="preserve">
+    <value>表示しない</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Behind" xml:space="preserve">
+    <value>裏に表示</value>
+  </data>
+  <data name="EdgeDetectionOriginal_InFront" xml:space="preserve">
+    <value>表に表示</value>
   </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>フラットシャドウ</value>
@@ -1656,6 +1710,45 @@
   </data>
   <data name="RadialBlur_Samples" xml:space="preserve">
     <value>サンプル数</value>
+  </data>
+  <data name="Bokeh" xml:space="preserve">
+    <value>ボケ</value>
+  </data>
+  <data name="Bokeh_Shape" xml:space="preserve">
+    <value>絞りの形</value>
+  </data>
+  <data name="BokehShape_Circle" xml:space="preserve">
+    <value>円形</value>
+  </data>
+  <data name="BokehShape_Polygon" xml:space="preserve">
+    <value>多角形</value>
+  </data>
+  <data name="Bokeh_Sides" xml:space="preserve">
+    <value>辺の数</value>
+  </data>
+  <data name="Bokeh_Rotation" xml:space="preserve">
+    <value>回転</value>
+  </data>
+  <data name="Bokeh_Highlight" xml:space="preserve">
+    <value>ハイライトの強調</value>
+  </data>
+  <data name="Bokeh_Highlight_Description" xml:space="preserve">
+    <value>明るい部分を広げる前に明るくして、形として目立たせます。100% で 2 倍の明るさになります。</value>
+  </data>
+  <data name="Bokeh_Quality" xml:space="preserve">
+    <value>品質</value>
+  </data>
+  <data name="Bokeh_Quality_Description" xml:space="preserve">
+    <value>サンプルを増やすほど形がきれいになり、時間がかかります。高は低の約 3 倍かかります。</value>
+  </data>
+  <data name="BokehQuality_Low" xml:space="preserve">
+    <value>低</value>
+  </data>
+  <data name="BokehQuality_Medium" xml:space="preserve">
+    <value>標準</value>
+  </data>
+  <data name="BokehQuality_High" xml:space="preserve">
+    <value>高</value>
   </data>
   <data name="RadialBlurMode_Zoom" xml:space="preserve">
     <value>ズーム</value>

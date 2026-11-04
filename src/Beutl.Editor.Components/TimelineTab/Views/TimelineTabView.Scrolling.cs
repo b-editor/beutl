@@ -23,7 +23,8 @@ public sealed partial class TimelineTabView
     private void ContentScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         InvalidateElementViewport();
-        if (ViewModel == null) return;
+        // The first layout reports the offset the viewer starts at. OnLoaded has yet to apply the saved one.
+        if (ViewModel == null || !IsLoaded) return;
         TimelineTabViewModel viewModel = ViewModel;
         Avalonia.Vector aOffset = ContentScroll.Offset;
         var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);

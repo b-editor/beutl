@@ -16,4 +16,11 @@ public interface IGenerativeNodeExecutor
         GenerativeRequest request,
         IProgress<GenerativeProgress> progress,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Checks a request as <see cref="ExecuteAsync"/> checks it before anything is reserved, and
+    /// returns why it would be refused, or null when it would not. Nothing is sent or charged.
+    /// </summary>
+    Task<GenerativeRefusal?> ValidateAsync(GenerativeRequest request, CancellationToken cancellationToken)
+        => Task.FromResult<GenerativeRefusal?>(null);
 }

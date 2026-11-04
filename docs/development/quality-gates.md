@@ -10,6 +10,7 @@ These requirements apply to all Beutl changes regardless of the editor, automati
 - Every new Avalonia `UserControl` must enable compiled bindings with `x:CompileBindings="True"` and declare `x:DataType`.
 - Treat `.editorconfig`, `xamlstyler.json`, and `dotnet format` as the source of truth for formatting.
 - Keep `Beutl.Engine.SourceGenerators` and `tests/SourceGeneratorTest` green when generator inputs, outputs, or public generated contracts change.
+- List a new fork or prebuilt native binary in [native-dependencies.md](native-dependencies.md), with its upstream and exit condition.
 - Do not change existing `.github/workflows/*` files without explicit maintainer approval.
 - Never force-push `main` or `master`; push rewritten history only to a feature branch.
 

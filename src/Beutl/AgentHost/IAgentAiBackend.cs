@@ -34,9 +34,6 @@ internal interface IAgentAiBackend
     /// <summary>An executor that keeps its results with <paramref name="scene"/>.</summary>
     IGenerativeNodeExecutor CreateExecutor(Scene scene);
 
-    /// <summary>How many bytes of reference pictures one image generation may carry in all.</summary>
-    Task<long> GetImageReferenceBudgetAsync(CancellationToken cancellationToken);
-
     Task<bool> RequiresPromptAsync(string imageEditTask, CancellationToken cancellationToken);
 
     Task<AgentTranscript> TranscribeAsync(

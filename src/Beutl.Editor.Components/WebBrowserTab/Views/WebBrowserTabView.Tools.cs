@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
+using Beutl.Controls;
 using Beutl.Services;
 
 namespace Beutl.Editor.Components.WebBrowserTab.Views;
@@ -147,7 +148,7 @@ internal partial class WebBrowserTabView
     }
 
     private ItemsControl? _historyItems;
-    private Border? _historyEmpty;
+    private EmptyState? _historyEmpty;
     private TextBlock? _historyFeedback;
     private StackPanel? _historyContent;
 
@@ -167,7 +168,7 @@ internal partial class WebBrowserTabView
     {
         if (_viewModel is not { } vm) return;
         var items = new ItemsControl { ItemTemplate = (IDataTemplate)Resources["DownloadHistoryItemTemplate"]! };
-        var empty = (Border)((IDataTemplate)Resources["DownloadHistoryEmptyTemplate"]!).Build(vm)!;
+        var empty = (EmptyState)((IDataTemplate)Resources["DownloadHistoryEmptyTemplate"]!).Build(vm)!;
         var feedback = new TextBlock
         {
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,

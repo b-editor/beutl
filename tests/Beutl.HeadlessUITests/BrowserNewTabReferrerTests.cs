@@ -1,16 +1,19 @@
 ﻿using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Reflection;
 
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
+using Avalonia.Platform;
 using Avalonia.Threading;
 
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
 using Beutl.Extensibility;
+using Beutl.Testing.Headless;
 
 using Moq;
 
@@ -24,6 +27,7 @@ public class BrowserNewTabReferrerTests
     private static readonly Uri s_page = new("https://materials.example/sounds/detail/123?from=list");
     private static readonly Uri s_origin = new("https://materials.example/");
     private static readonly Uri s_downloadPage = new("https://downloads.example/sounds/123");
+    private static readonly PlatformHandle s_unknownWebView = new(0, "test");
 
     // Opens a tab for the request from a tab that shows the page, and returns the new tab.
     private static WebBrowserTabViewModel OpenFrom(BrowserProfile profile, Uri page, Uri request,
@@ -294,6 +298,91 @@ public class BrowserNewTabReferrerTests
         Assert.That(native!.Source, Is.EqualTo(WebBrowserTabViewModel.BlankPage));
     }
 
+    // A handle of no known web view ends the rules' preparation as their being in place does, so the session resumes.
+    // The error it reports along the way is the tab's to show.
+    [AvaloniaTest]
+    public async Task TheHeldFirstNavigationGoesOutWithTheOpenersOriginOnceTheRulesAreSettled()
+    {
+        using var temporary = new TemporaryDirectory();
+        using var filters = new HttpClient(new BrowserAdBlockTestRules.FilterResponseHandler());
+        BrowserProfile profile = await CreateAdBlockingProfileAsync(temporary.Path, filters);
+        using WebBrowserTabViewModel opened = OpenFrom(profile, s_page, s_downloadPage);
+        var navigations = new List<(Uri Uri, Uri Referrer)>();
+        NativeWebView? native = null;
+        using var view = new WebBrowserTabView(uri => native = new NativeWebView { Source = uri }, () => (true, null, false),
+            navigateWithReferrer: (_, uri, referrer) =>
+            {
+                navigations.Add((uri, referrer));
+                return true;
+            })
+        { DataContext = opened };
+        view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
+        Assert.That(navigations, Is.Empty);
+
+        AdBlockSessionOf(view).Attach(s_unknownWebView);
+        await HeadlessTestHelpers.WaitUntilAsync(() => navigations.Count > 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(navigations, Is.EqualTo(new[] { (s_downloadPage, s_origin) }));
+            Assert.That(native!.Source, Is.EqualTo(WebBrowserTabViewModel.BlankPage), "A Source would drop the referrer.");
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task AnotherHeldNavigationGoesOutThroughTheSource()
+    {
+        using var temporary = new TemporaryDirectory();
+        using var filters = new HttpClient(new BrowserAdBlockTestRules.FilterResponseHandler());
+        BrowserProfile profile = await CreateAdBlockingProfileAsync(temporary.Path, filters);
+        using WebBrowserTabViewModel opened = OpenFrom(profile, s_page, s_downloadPage);
+        var other = new Uri("https://other.example/page");
+        NativeWebView? native = null;
+        using var view = new WebBrowserTabView(uri => native = new NativeWebView { Source = uri }, () => (true, null, false),
+            navigateWithReferrer: (_, _, _) => throw new AssertionException("This page is not the one the opener asked for."))
+        { DataContext = opened };
+        view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
+
+        var started = new WebViewNavigationStartingEventArgs { Request = other };
+        BrowserAdBlockSession session = AdBlockSessionOf(view);
+        session.OnNavigationStarted(native, started);
+        session.Attach(s_unknownWebView);
+        await HeadlessTestHelpers.WaitUntilAsync(() => native!.Source == other);
+
+        Assert.That(started.Cancel, Is.True, "It waits for the rules.");
+    }
+
+    // Going back, forward or reloading leaves the page this tab was opened for, so a new adapter must not return to it.
+    [AvaloniaTest]
+    [TestCase(true, 1)]
+    [TestCase(false, 2)]
+    public void ANativeNavigationBeforeThePageLoadsEndsTheOpenersNavigation(bool started, int expectedNavigations)
+    {
+        using var temporary = new TemporaryDirectory();
+        var profile = new BrowserProfile(Path.Combine(temporary.Path, "profile.json"));
+        using WebBrowserTabViewModel opened = OpenFrom(profile, s_page, s_downloadPage);
+        NativeWebView? native = null;
+        int navigations = 0;
+        using var view = new WebBrowserTabView(uri => native = new NativeWebView { Source = uri }, () => (true, null, false),
+            navigateWithReferrer: (_, _, _) =>
+            {
+                navigations++;
+                return true;
+            })
+        { DataContext = opened };
+        var adapter = new WebViewAdapterEventArgs(null);
+        view.OnAdapterCreated(native, adapter);
+        Assert.That(navigations, Is.EqualTo(1));
+
+        // What the Back, Forward and Refresh buttons call; without an adapter NativeWebView reports that nothing started.
+        typeof(WebBrowserTabView).GetMethod("StartNativePageNavigation", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(view, [new Func<bool>(() => started)]);
+        view.OnAdapterDestroyed(native, adapter);
+        view.OnAdapterCreated(native, adapter);
+
+        Assert.That(navigations, Is.EqualTo(expectedNavigations));
+    }
+
     // WebView2's ad blocking matches the page's requests against the page, which NativeWebView names only once it has
     // loaded. The tab was opened for that page, so the view names it first.
     [AvaloniaTest]
@@ -315,6 +404,20 @@ public class BrowserNewTabReferrerTests
         view.OnNavigationCompleted(native, new WebViewNavigationCompletedEventArgs { Request = s_downloadPage, IsSuccess = true });
         Assert.That(view.AdBlockPage(native), Is.EqualTo(native.Source));
     }
+
+    private static async Task<BrowserProfile> CreateAdBlockingProfileAsync(string directory, HttpClient filters)
+    {
+        var store = new BrowserAdBlockFilterStore(Path.Combine(directory, "filters.json"), filters);
+        await store.UpdateAsync([BrowserAdBlockFilterStore.EasyListUrl], CancellationToken.None);
+        var profile = new BrowserProfile(Path.Combine(directory, "profile.json"), adBlockFilters: store);
+        profile.UpdateSettings(BrowserSearchEngine.Google, true, true, true);
+        return profile;
+    }
+
+    // A headless test has no adapter to raise AdapterCreated, which is what hands the session its handle.
+    private static BrowserAdBlockSession AdBlockSessionOf(WebBrowserTabView view) =>
+        (BrowserAdBlockSession)typeof(WebBrowserTabView)
+            .GetField("_adBlockSession", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(view)!;
 
     // An editor that opens every tab a browser tab asks for and keeps the latest one.
     private sealed class TabOpeningEditor

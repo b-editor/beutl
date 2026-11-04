@@ -15,8 +15,10 @@ internal static class FilePickerFileTypeMatcher
     private static readonly string[] s_anyUniformTypeIdentifiers = ["public.item", "public.data"];
 
     // Conformance follows macOS's UTType database; the MIME types add the shared-mime-info names and
-    // aliases Linux pickers use, but not its subclass graph, which shifts between releases.
-    // Types macOS does not declare have no UTI.
+    // aliases Linux pickers use, and the supertypes its releases since 2.4 agree on. The whole subclass
+    // graph is left out because it shifts between releases and reaches too far: on master,
+    // application/json runs through application/x-executable.
+    // Types macOS does not declare have no UTI, and neither do extensions it puts under another type.
     private static readonly FileType[] s_types =
     [
         new("public.image", "public.data public.content"),
@@ -32,6 +34,8 @@ internal static class FilePickerFileTypeMatcher
         new("public.avif", "public.heif-standard", "avif", "image/avif image/avif-sequence"),
         new("com.microsoft.ico", "public.image", "ico", "image/vnd.microsoft.icon image/x-icon application/ico image/ico image/icon image/x-ico text/ico"),
         new("public.svg-image", "public.image public.xml", "svg svgz", "image/svg+xml"),
+        new(null, "", "jfif", "image/jpeg image/jpg image/pjpeg"),
+        new(null, "", "avifs", "image/avif image/avif-sequence"),
 
         new("public.audiovisual-content", "public.data public.content"),
         new("public.movie", "public.audiovisual-content"),
@@ -41,39 +45,48 @@ internal static class FilePickerFileTypeMatcher
         new("org.webmproject.webm", "public.movie", "webm", "video/webm audio/webm"),
         new("public.avi", "public.movie", "avi", "video/avi video/msvideo video/x-msvideo video/vnd.avi video/x-avi video/divx video/vnd.divx"),
         new("public.mpeg", "public.movie", "mpg mpeg mpe", "video/mpeg video/mpg video/x-mpeg video/mpeg-system video/x-mpeg-system video/x-mpeg2"),
-        new("com.microsoft.windows-media-wmv", "com.microsoft.advanced-systems-format public.movie", "wmv", "video/x-ms-wmv"),
-        new(null, "", "mkv", "video/matroska video/x-matroska"),
+        new("com.microsoft.windows-media-wmv", "com.microsoft.advanced-systems-format public.movie", "wmv", "video/x-ms-wmv application/vnd.ms-asf"),
+        new(null, "", "mkv", "video/matroska video/x-matroska application/x-matroska"),
+        new(null, "", "f4v lrv", "video/mp4 video/mp4v-es video/x-m4v"),
+        new(null, "", "moov qtvr", "video/quicktime"),
+        new(null, "", "avf divx", "video/avi video/msvideo video/x-msvideo video/vnd.avi video/x-avi video/divx video/vnd.divx"),
+        new(null, "", "vob", "video/mpeg video/mpg video/x-mpeg video/mpeg-system video/x-mpeg-system video/x-mpeg2"),
 
         new("public.audio", "public.audiovisual-content"),
-        new("public.mp3", "public.audio", "mp3", "audio/mpeg audio/mp3 audio/x-mp3 audio/x-mpeg audio/x-mpg"),
-        new("com.microsoft.waveform-audio", "public.audio", "wav wave", "audio/wav audio/wave audio/vnd.wave audio/x-wav"),
-        new("public.aifc-audio", "public.audio", "aifc", "audio/x-aifc audio/x-aiffc"),
+        new("public.mp3", "public.audio", "mp3 mpga", "audio/mpeg audio/mp3 audio/x-mp3 audio/x-mpeg audio/x-mpg"),
+        new("com.microsoft.waveform-audio", "public.audio", "wav wave", "audio/wav audio/wave audio/vnd.wave audio/x-wav application/x-riff"),
+        new("public.aifc-audio", "public.audio", "aifc", "audio/x-aifc audio/x-aiffc application/x-iff"),
         new("public.aiff-audio", "public.aifc-audio", "aif aiff", "audio/aiff audio/x-aiff"),
         new("public.mpeg-4-audio", "public.audio", "", "audio/mp4"),
         new("com.apple.m4a-audio", "public.mpeg-4-audio", "m4a", "audio/x-m4a audio/m4a"),
-        new("public.aac-audio", "public.audio", "aac", "audio/aac audio/x-aac"),
+        new("public.aac-audio", "public.audio", "aac adts", "audio/aac audio/x-aac"),
         new("org.xiph.flac", "public.audio", "flac", "audio/flac audio/x-flac"),
-        new("org.xiph.ogg-audio", "public.audio", "ogg oga opus", "audio/ogg audio/opus audio/x-ogg"),
+        new("org.xiph.ogg-audio", "public.audio", "ogg oga opus", "audio/ogg audio/opus audio/x-ogg application/ogg"),
+        new(null, "", "f4a", "audio/mp4 audio/x-m4a audio/m4a"),
+        new(null, "", "mp2", "audio/mp2 audio/x-mp2 video/mpeg"),
+        new(null, "", "aiffc", "audio/x-aifc audio/x-aiffc application/x-iff"),
 
         new("public.text", "public.data public.content"),
         new("public.plain-text", "public.text", "txt text", "text/plain"),
         new("public.comma-separated-values-text", "public.delimited-values-text public.plain-text", "csv", "text/csv text/comma-separated-values text/x-comma-separated-values text/x-csv"),
-        new("public.json", "public.text", "json", "application/json"),
-        new("public.xml", "public.text", "xml", "application/xml text/xml"),
-        new("org.w3.webvtt", "public.text", "vtt", "text/vtt"),
-        new(null, "", "srt", "application/x-subrip application/x-srt"),
-        new(null, "", "ass ssa", "text/x-ssa"),
+        new("public.json", "public.text", "json", "application/json text/plain"),
+        new("public.xml", "public.text", "xml", "application/xml text/xml text/plain"),
+        new("org.w3.webvtt", "public.text", "vtt", "text/vtt text/plain"),
+        new(null, "", "srt", "application/x-subrip application/x-srt text/plain"),
+        new(null, "", "ass ssa", "text/x-ssa text/plain"),
+        new(null, "", "asc", "text/plain"),
+        new(null, "", "xbl xsd rng", "application/xml text/xml text/plain"),
 
         new("public.3d-content", "public.content"),
         new("org.khronos.gltf", "public.3d-content public.json", "gltf", "model/gltf+json"),
         new("org.khronos.glb", "public.3d-content public.data", "glb", "model/gltf-binary"),
-        new("public.geometry-definition-format", "public.3d-content public.text", "obj", "model/obj application/prs.wavefront-obj"),
+        new("public.geometry-definition-format", "public.3d-content public.text", "obj", "model/obj application/prs.wavefront-obj text/plain"),
         new("public.standard-tesselated-geometry-format", "public.3d-content public.data", "stl", "model/stl model/x.stl-ascii model/x.stl-binary"),
 
         new("public.font", "public.data"),
         new("public.truetype-font", "public.font"),
         new("public.truetype-ttf-font", "public.truetype-font", "ttf", "font/ttf application/x-font-ttf"),
-        new("public.opentype-font", "public.font", "otf", "font/otf application/x-font-otf"),
+        new("public.opentype-font", "public.font", "otf", "font/otf application/x-font-otf font/ttf"),
         new(null, "", "woff", "font/woff application/font-woff"),
         new(null, "", "woff2", "font/woff2"),
     ];

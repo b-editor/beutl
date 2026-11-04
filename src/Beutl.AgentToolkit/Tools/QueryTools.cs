@@ -65,6 +65,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Read read_document_summary for scene and element handles; read_document returns the editable data. Use get_schema(type=...) for the specific types and properties needed by the edit.",
                 "Use apply_edit with schemaVersion=1 and an Id-based merge patch. Unmentioned siblings are preserved; full desired documents are authoritative. undo/redo operate on the session history.",
                 "Use natural, content-based element names in the user's language and compact ZIndex values. PortalObject.Count is a relative inclusive layer span and must remain consistent when layers move.",
+                "For a dissolve, wipe, push or dip at a clip boundary, set Element.EnterTransition or ExitTransition to a ClipTransition from get_schema(category=transition); null clears a side. Adjacent Elements on a layer blend through the boundary without overlapping.",
                 "Use measure_object_bounds for actual bounds and transforms. Start with Drawable AlignmentX/AlignmentY at Center, then choose Left/Right and Top/Bottom independently when they better suit the object, layout, or motion. TranslateTransform.X/Y offsets the chosen alignment; check animation for unintended anchor shifts. ScaleTransform uses percentages. Beutl source code is not required.",
                 "Call validate_shader to check compilation. A successful compilation does not verify rendered output; render_still and render_storyboard return rendered evidence.",
                 "measure_frame_differences reports numerical changes between frames; analyze_audio_rhythm reports estimated beats and onsets. Measurements are data, not quality or completion verdicts.",
@@ -76,7 +77,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
             RawHttpNote));
 
     [McpServerTool(Name = "get_schema")]
-    [Description("Returns the capability schema for registered editable building blocks. After deciding the intended result, prefer type to check an unfamiliar type; use category when the type is unknown. A full catalog is optional, and the listed types can be composed into expressions with no named recipe. Category aliases such as visualEffect, effect, filter, videoEffect, text, typography, label, fill, stroke, and ease are accepted. Examples are opt-in; set includeExamples=true when snippets are needed.")]
+    [Description("Returns the capability schema for registered editable building blocks. After deciding the intended result, prefer type to check an unfamiliar type; use category when the type is unknown. A full catalog is optional, and the listed types can be composed into expressions with no named recipe. Category aliases such as visualEffect, effect, filter, videoEffect, text, typography, label, fill, stroke, ease, and transition are accepted. Examples are opt-in; set includeExamples=true when snippets are needed.")]
     public ToolResult<CapabilitySchema> GetSchema(
         string? type = null,
         string? category = null,
@@ -89,7 +90,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
             if ((type is not null || category is not null) && schema.Types.Count == 0)
             {
                 string? hint = IsElementSchemaRequest(type, category)
-                    ? "Timeline Element is a project-system container, not a capability-schema EngineObject. Use '$type': '[Beutl.ProjectSystem]:Element' only for new entries in Elements; put concrete drawable/effect/brush/transform objects under Objects using discriminators returned by get_schema. For structure, call get_examples(name: 'insert-new-element-skeleton')."
+                    ? "Timeline Element is a project-system container, not a capability-schema EngineObject. Use '$type': '[Beutl.ProjectSystem]:Element' only for new entries in Elements; put concrete drawable/effect/brush/transform objects under Objects using discriminators returned by get_schema. EnterTransition and ExitTransition take a ClipTransition from get_schema(category=transition). For structure, call get_examples(name: 'insert-new-element-skeleton')."
                     : null;
                 throw new ReconcileException(new ToolError(
                     ErrorCode.UnknownType,

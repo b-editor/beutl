@@ -79,6 +79,7 @@ public static class AgentToolkitInstaller
             assetFileRecords)
         {
             ManualMcpEdit = manualMcpEdit,
+            McpConfigPath = manualMcpEdit is null ? mcpConfigPath : null,
             BackedUpFiles = backedUpFiles,
         };
     }

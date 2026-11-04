@@ -146,12 +146,11 @@ public sealed partial class MainView : UserControl
                 return;
             }
 
-            // An older MCP layout means the agent config still carries the separate live entry and
-            // its token; say so instead of announcing newer skills.
-            bool mcpChanged = AgentToolkitInstallManifestStore.IsMcpLayoutOutdated(manifest);
             NotificationService.ShowInformation(
-                mcpChanged ? SettingsStrings.AiAgents_McpChanged_Title : SettingsStrings.AiAgents_UpdateAvailable_Title,
-                mcpChanged ? SettingsStrings.AiAgents_McpChanged_Content : SettingsStrings.AiAgents_UpdateAvailable_Content,
+                AgentToolkitInstallManifestStore.IsMcpLayoutOutdated(manifest)
+                    ? SettingsStrings.AiAgents_McpChanged_Title
+                    : SettingsStrings.AiAgents_UpdateAvailable_Title,
+                AiAgentSettingsPageViewModel.BuildUpdateNotice(manifest),
                 expiration: TimeSpan.FromSeconds(30),
                 actions:
                 [

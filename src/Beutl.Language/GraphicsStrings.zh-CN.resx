@@ -200,6 +200,15 @@
   <data name="Blur" xml:space="preserve">
     <value>模糊</value>
   </data>
+  <data name="Sharpen" xml:space="preserve">
+    <value>锐化</value>
+  </data>
+  <data name="Sharpen_Threshold" xml:space="preserve">
+    <value>阈值</value>
+  </data>
+  <data name="Sharpen_Threshold_Description" xml:space="preserve">
+    <value>小于此值的差异不会被增强，可避免噪点变得明显。</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>亮度</value>
   </data>
@@ -214,6 +223,18 @@
   </data>
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>饱和度范围</value>
+  </data>
+  <data name="LumaKey" xml:space="preserve">
+    <value>亮度键</value>
+  </data>
+  <data name="LumaKey_Lower" xml:space="preserve">
+    <value>下限 (%)</value>
+  </data>
+  <data name="LumaKey_Upper" xml:space="preserve">
+    <value>上限 (%)</value>
+  </data>
+  <data name="LumaKey_Softness" xml:space="preserve">
+    <value>边界柔和度 (%)</value>
   </data>
   <data name="Clipping" xml:space="preserve">
     <value>裁剪</value>
@@ -454,6 +475,39 @@
   </data>
   <data name="Erode_RadiusY" xml:space="preserve">
     <value>半径 Y</value>
+  </data>
+  <data name="EdgeDetection" xml:space="preserve">
+    <value>边缘提取</value>
+  </data>
+  <data name="EdgeDetection_Target" xml:space="preserve">
+    <value>检测对象</value>
+  </data>
+  <data name="EdgeDetectionTarget_Luminance" xml:space="preserve">
+    <value>亮度</value>
+  </data>
+  <data name="EdgeDetectionTarget_Alpha" xml:space="preserve">
+    <value>透明度</value>
+  </data>
+  <data name="EdgeDetection_Thickness" xml:space="preserve">
+    <value>粗细</value>
+  </data>
+  <data name="EdgeDetection_Threshold" xml:space="preserve">
+    <value>阈值</value>
+  </data>
+  <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
+    <value>小于此值的变化不会绘制线条。</value>
+  </data>
+  <data name="EdgeDetection_Original" xml:space="preserve">
+    <value>原图</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Hidden" xml:space="preserve">
+    <value>不显示</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Behind" xml:space="preserve">
+    <value>显示在后面</value>
+  </data>
+  <data name="EdgeDetectionOriginal_InFront" xml:space="preserve">
+    <value>显示在前面</value>
   </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>平面阴影</value>
@@ -1660,6 +1714,45 @@
   </data>
   <data name="RadialBlur_Samples" xml:space="preserve">
     <value>采样数</value>
+  </data>
+  <data name="Bokeh" xml:space="preserve">
+    <value>散景</value>
+  </data>
+  <data name="Bokeh_Shape" xml:space="preserve">
+    <value>光圈形状</value>
+  </data>
+  <data name="BokehShape_Circle" xml:space="preserve">
+    <value>圆形</value>
+  </data>
+  <data name="BokehShape_Polygon" xml:space="preserve">
+    <value>多边形</value>
+  </data>
+  <data name="Bokeh_Sides" xml:space="preserve">
+    <value>边数</value>
+  </data>
+  <data name="Bokeh_Rotation" xml:space="preserve">
+    <value>旋转</value>
+  </data>
+  <data name="Bokeh_Highlight" xml:space="preserve">
+    <value>高光增强</value>
+  </data>
+  <data name="Bokeh_Highlight_Description" xml:space="preserve">
+    <value>在扩散前提亮明亮部分，使其以形状突出显示。100% 时亮度加倍。</value>
+  </data>
+  <data name="Bokeh_Quality" xml:space="preserve">
+    <value>质量</value>
+  </data>
+  <data name="Bokeh_Quality_Description" xml:space="preserve">
+    <value>采样越多，形状越干净，耗时也越长。高的耗时约为低的三倍。</value>
+  </data>
+  <data name="BokehQuality_Low" xml:space="preserve">
+    <value>低</value>
+  </data>
+  <data name="BokehQuality_Medium" xml:space="preserve">
+    <value>中</value>
+  </data>
+  <data name="BokehQuality_High" xml:space="preserve">
+    <value>高</value>
   </data>
   <data name="RadialBlurMode_Zoom" xml:space="preserve">
     <value>缩放</value>

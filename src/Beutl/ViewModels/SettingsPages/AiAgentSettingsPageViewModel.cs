@@ -358,17 +358,26 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
             ManualMcpSnippet.Value = result.ManualMcpEdit?.Snippet ?? "";
 
+            // The selection can change while the command runs, and this is the one it registers.
+            string cliTarget = $"{SelectedAgent.Value.DisplayName} ({SelectedScope.Value.Scope})";
             var cliErrors = new List<string>();
             bool cliRegistered = targets.UseCliForMcp
                                  && await RegisterMcpThroughCliAsync(cliErrors).ConfigureAwait(true);
 
-            foreach (string file in UpdateInstallManifest(targets, result, assets, installSubagents, result.InstalledMcp || cliRegistered))
+            InstalledMcpTarget? mcpTarget = result.McpConfigPath is { } configPath
+                ? new InstalledMcpTarget(configPath, IsConfigFile: true, AgentToolkitInstallManifest.CurrentMcpLayout)
+                : cliRegistered
+                    ? new InstalledMcpTarget(cliTarget, IsConfigFile: false, AgentToolkitInstallManifest.CurrentMcpLayout)
+                    : null;
+            (IReadOnlyList<string> removed, AgentToolkitInstallManifest manifest) =
+                UpdateInstallManifest(targets, result, assets, installSubagents, mcpTarget);
+            foreach (string file in removed)
             {
                 InstalledFiles.Add("removed: " + file);
             }
 
             HasInstalledFiles.Value = InstalledFiles.Count > 0;
-            PublishInstallStatus(mcpError, cliErrors, result);
+            PublishInstallStatus(mcpError, cliErrors, result, manifest);
         }
         catch (Exception ex)
         {
@@ -405,7 +414,11 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         };
     }
 
-    private void PublishInstallStatus(string? mcpError, List<string> cliErrors, AgentToolkitInstallResult result)
+    private void PublishInstallStatus(
+        string? mcpError,
+        List<string> cliErrors,
+        AgentToolkitInstallResult result,
+        AgentToolkitInstallManifest manifest)
     {
         Status.Value = string.Format(SettingsStrings.AiAgents_InstallCompleted, InstalledFiles.Count);
         if (result.BackedUpFiles.Count > 0)
@@ -429,16 +442,40 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                 SettingsStrings.AiAgents_CliFailed,
                 string.Join(Environment.NewLine, cliErrors));
         }
+
+        if (DescribeOutdatedMcpTargets(manifest) is { } outdated)
+            Status.Value += Environment.NewLine + outdated;
+    }
+
+    // What the startup notice says. An older MCP layout means the agent config still carries the
+    // separate live entry and its token; say so instead of announcing newer skills.
+    internal static string BuildUpdateNotice(AgentToolkitInstallManifest? manifest)
+    {
+        string content = AgentToolkitInstallManifestStore.IsMcpLayoutOutdated(manifest)
+            ? SettingsStrings.AiAgents_McpChanged_Content
+            : SettingsStrings.AiAgents_UpdateAvailable_Content;
+        return DescribeOutdatedMcpTargets(manifest) is { } outdated
+            ? content + Environment.NewLine + outdated
+            : content;
+    }
+
+    // A reinstall reaches the selected agent only, so the others have to be named.
+    private static string? DescribeOutdatedMcpTargets(AgentToolkitInstallManifest? manifest)
+    {
+        IReadOnlyList<InstalledMcpTarget> outdated = AgentToolkitInstallManifestStore.GetOutdatedMcpTargets(manifest);
+        return outdated.Count > 0
+            ? string.Format(SettingsStrings.AiAgents_McpTargetsNeedReinstall, string.Join(", ", outdated.Select(target => target.Location)))
+            : null;
     }
 
     // Remove stale files from the previous install, but only under the components installed this run;
     // carry other records over for a later reinstall.
-    private IReadOnlyList<string> UpdateInstallManifest(
+    private (IReadOnlyList<string> Removed, AgentToolkitInstallManifest Manifest) UpdateInstallManifest(
         ResolvedTargets targets,
         AgentToolkitInstallResult result,
         IReadOnlyList<AgentToolkitAsset> assets,
         bool installedSubagents,
-        bool installedMcp)
+        InstalledMcpTarget? installedMcp)
     {
         string manifestPath = AgentToolkitInstallManifestStore.GetDefaultPath();
         AgentToolkitInstallManifest? previous = AgentToolkitInstallManifestStore.Load(manifestPath);
@@ -475,20 +512,24 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                 && File.Exists(f.Path)));
         }
 
-        // Advance the MCP layout only when this install replaced the entry or there is nothing to migrate;
-        // otherwise keep the old layout so the notice returns.
-        bool mcpSettled = installedMcp
+        // Advance the MCP layout only when this install replaced the entry or there is nothing to migrate,
+        // and no other target is left behind; otherwise keep the old layout so the notice returns.
+        IReadOnlyList<InstalledMcpTarget> mcpTargets =
+            AgentToolkitInstallManifestStore.UpdateMcpTargets(previous?.McpTargets, installedMcp);
+        bool mcpSettled = installedMcp is not null
                           || !InstallMcp.Value
                           || (targets.McpConfigurationError is null
                               && targets.McpConfigFileName is null && !targets.UseCliForMcp);
-        int mcpLayout = mcpSettled
+        int mcpLayout = mcpSettled && mcpTargets.All(target => target.Layout >= AgentToolkitInstallManifest.CurrentMcpLayout)
             ? AgentToolkitInstallManifest.CurrentMcpLayout
             : previous?.McpLayout ?? 0;
-        AgentToolkitInstallManifestStore.Save(manifestPath, new AgentToolkitInstallManifest(
+        var manifest = new AgentToolkitInstallManifest(
             AgentToolkitInstallManifestStore.ComputeAssetsHash(assets),
             [.. result.AssetFileRecords, .. carriedOver],
-            mcpLayout));
-        return removed;
+            mcpLayout,
+            mcpTargets);
+        AgentToolkitInstallManifestStore.Save(manifestPath, manifest);
+        return (removed, manifest);
     }
 
     private static bool IsUnder(string path, string root)

@@ -3,7 +3,7 @@ using Beutl.Graphics.Shaders;
 
 namespace Beutl.Graphics.Effects;
 
-/// <summary>Shared linear-light extraction and composition for bloom and light-ray effects.</summary>
+/// <summary>Shared linear-light extraction and composition for bloom and light-ray effects, and a blur for any effect.</summary>
 internal static class LightEffectPasses
 {
     // softKnee is the transition half-width relative to threshold, in [0, 1].
@@ -38,6 +38,36 @@ internal static class LightEffectPasses
             pass.ColorAttachment(0, output);
         });
 
+    /// <summary>Blurs in two directions over <paramref name="radius"/>, which is three standard deviations.</summary>
+    public static ShaderImage GaussianBlur(ShaderGraphBuilder graph, ShaderImage image, float radius)
+    {
+        // Reduce in 2x steps so even a one-pixel highlight survives the filtering.
+        // The final blur radius stays at most 16 texels per unit of working scale.
+        ShaderImage reduced = image;
+        for (int level = 1; radius * reduced.ResolutionScale > 16; level++)
+        {
+            ShaderImage source = reduced;
+            reduced = graph.Image2D($"downsample-{level}", source, resolutionScale: source.ResolutionScale / 2);
+            Downsample(graph, source, reduced);
+        }
+        ShaderImage horizontal = graph.Image2D("horizontal", reduced, resolutionScale: reduced.ResolutionScale);
+        ShaderImage blurred = graph.Image2D("blurred", reduced, resolutionScale: reduced.ResolutionScale);
+        Blur(graph, "blur-horizontal", reduced, horizontal, new(radius, 1, 0, 0));
+        Blur(graph, "blur-vertical", horizontal, blurred, new(radius, 0, 1, 0));
+        return blurred;
+    }
+
+    private static void Blur(ShaderGraphBuilder graph, string name, ShaderImage source, ShaderImage output, Vector4 values)
+        => graph.Fullscreen(name, s_blur, pass =>
+        {
+            pass.SampledImage(0, source);
+            pass.ImageParameters(1, source);
+            pass.ImageParameters(2, output);
+            pass.PushConstants(values);
+            pass.InputRegion(0, new(Matrix.Identity, values.X));
+            pass.ColorAttachment(0, output);
+        });
+
     public static void Downsample(ShaderGraphBuilder graph, ShaderImage source, ShaderImage destination)
         => graph.Fullscreen(destination.Name, s_downsample, pass =>
         {
@@ -47,6 +77,30 @@ internal static class LightEffectPasses
             pass.InputRegion(0, ShaderInputRegion.Identity);
             pass.ColorAttachment(0, destination);
         });
+
+    // Sample count depends on working scale, but no longer grows with the logical radius.
+    private static readonly ShaderProgram s_blur = ShaderProgram.Fullscreen(new ShaderSource("""
+        #version 450
+        layout(binding = 0) uniform sampler2D image;
+        layout(binding = 1, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
+        layout(binding = 2, std140) uniform Destination { vec4 logical; vec4 raster; vec4 size; } dst;
+        layout(push_constant) uniform Values { vec4 value; } pc;
+        layout(location = 0) out vec4 color;
+        void main() {
+            vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
+            color = vec4(0);
+            float total = 0;
+            int steps = max(16, int(ceil(pc.value.x * src.size.z)));
+            for (int i = -steps; i <= steps; i++) {
+                float x = float(i) / float(steps);
+                float weight = exp(-4.5 * x * x);
+                vec2 samplePosition = position + pc.value.yz * (x * pc.value.x);
+                color += texture(image, (samplePosition - src.raster.xy) / src.raster.zw) * weight;
+                total += weight;
+            }
+            color /= total;
+        }
+        """));
 
     // The separable [1, 3, 3, 1] / 8 filter preserves small highlights and their center
     // as the grid gets coarser. Four bilinear samples cover its 4x4 source footprint.

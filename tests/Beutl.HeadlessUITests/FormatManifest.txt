@@ -118,6 +118,12 @@ Beutl.Utilities
   keys: (no public parameterless constructor)
 [Beutl.Engine]Beutl.Animation:KeyFrame<T>
   sealed
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:EdgeDetectionOriginal>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:EdgeDetectionTarget>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
@@ -192,6 +198,12 @@ Beutl.Utilities
   keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<T>
   unsealed
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:EdgeDetectionOriginal>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:EdgeDetectionTarget>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
@@ -376,6 +388,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:Blur
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Sigma
+[Beutl.Engine]Beutl.Graphics.Effects:Bokeh
+  sealed
+  keys: Animations, Expressions, Highlight, Id, IsEnabled, Name, Quality, Radius, Rotation, Shape, Sides
 [Beutl.Engine]Beutl.Graphics.Effects:Brightness
   sealed
   keys: Amount, Animations, Expressions, Id, IsEnabled, Name
@@ -426,6 +441,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:DropShadow
   sealed
   keys: Animations, Color, Expressions, Id, IsEnabled, Name, Position, ShadowOnly, Sigma
+[Beutl.Engine]Beutl.Graphics.Effects:EdgeDetection
+  sealed
+  keys: Animations, Color, Expressions, Id, IsEnabled, Name, Original, Target, Thickness, Threshold
 [Beutl.Engine]Beutl.Graphics.Effects:Erode
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, RadiusX, RadiusY
@@ -473,6 +491,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:LumaColor
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:LumaKey
+  sealed
+  keys: Animations, Expressions, Id, Invert, IsEnabled, Lower, Name, Softness, Upper
 [Beutl.Engine]Beutl.Graphics.Effects:LutEffect
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Source, Strength
@@ -506,6 +527,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:ShakeEffect
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Speed, StrengthX, StrengthY
+[Beutl.Engine]Beutl.Graphics.Effects:Sharpen
+  sealed
+  keys: Amount, Animations, Expressions, Id, IsEnabled, Name, Radius, Threshold
 [Beutl.Engine]Beutl.Graphics.Effects:SplitEffect
   unsealed
   keys: Animations, Expressions, HorizontalDivisions, HorizontalSpacing, Id, IsEnabled, Name, VerticalDivisions, VerticalSpacing

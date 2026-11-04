@@ -4,6 +4,7 @@ using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
+using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -28,52 +29,91 @@ internal static class CaptionFileDrop
         return [.. catalog.Templates.Templates.Select(item => catalog.Templates.GetTemplate(item.Id))];
     }
 
-    public static async Task AddAsync(TimelineTabViewModel viewModel, string file, CaptionTemplate? template = null)
+    public static Task AddAsync(TimelineTabViewModel viewModel, string file, CaptionTemplate? template = null)
+        => AddAsync(viewModel, [file], [], template);
+
+    // Adds the files' clips with whatever else was dropped, so that one undo takes back the whole drop. Each file goes
+    // on layers of its own above the rest.
+    public static async Task AddAsync(
+        TimelineTabViewModel viewModel,
+        IReadOnlyList<string> files,
+        IReadOnlyList<ElementDescription> others,
+        CaptionTemplate? template = null)
     {
-        if (!s_catalog.Value.Codecs.TryGetByFileName(file, out CaptionCodecInfo? codec)) return;
-
-        byte[] bytes = await File.ReadAllBytesAsync(file);
-        CaptionImportResult import = Import(bytes, codec.Format);
-        if (import.Document is not { Count: > 0 } document)
+        int layer = GetFirstLayerAbove(viewModel.Scene, others);
+        var descriptions = new List<ElementDescription>(others);
+        var skippedSome = new List<string>();
+        foreach (string file in files)
         {
-            NotificationService.ShowError(
-                Strings.AddElement,
-                string.Format(CultureInfo.CurrentCulture, Strings.SubtitleFile_CouldNotRead, Path.GetFileName(file)));
-            return;
-        }
+            if (!s_catalog.Value.Codecs.TryGetByFileName(file, out CaptionCodecInfo? codec)) continue;
 
-        CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
-            viewModel.Scene,
-            viewModel.EditorContext.GetRequiredService<IElementAdder>(),
-            document,
-            template ?? CaptionPresentationDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate),
-            elementName: Path.GetFileNameWithoutExtension(file),
-            minimumLength: s_shortestCue);
-        if (result.IsSuccess)
-        {
-            // The file decides where the clips go, which can be far from where the timeline is looking.
-            if (result.FirstElement is { } first)
-                viewModel.ScrollTo.Execute((first.Range, first.ZIndex.Value));
-
-            // Everything but markup means a cue was left out.
-            if (import.Diagnostics.Any(item => item.Kind != CaptionDiagnosticKinds.UnsupportedMarkup))
+            byte[]? bytes = await TryReadAsync(file);
+            CaptionImportResult? import = bytes is null ? null : Import(bytes, codec.Format);
+            if (import?.Document is not { Count: > 0 } document)
             {
-                NotificationService.ShowWarning(
+                NotificationService.ShowError(
                     Strings.AddElement,
-                    string.Format(CultureInfo.CurrentCulture, Strings.SubtitleFile_SomeSkipped, Path.GetFileName(file)));
+                    string.Format(CultureInfo.CurrentCulture, Strings.SubtitleFile_CouldNotRead, Path.GetFileName(file)));
+                continue;
             }
 
-            return;
+            List<ElementDescription> clips = AiCaptionSceneImporter.CreateDescriptions(
+                viewModel.Scene,
+                layer,
+                document,
+                template ?? CaptionPresentationDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate),
+                elementName: Path.GetFileNameWithoutExtension(file),
+                minimumLength: s_shortestCue);
+            descriptions.AddRange(clips);
+            layer = clips.Max(clip => clip.Layer) + 1;
+            // Everything but markup means a cue was left out.
+            if (import.Diagnostics.Any(item => item.Kind != CaptionDiagnosticKinds.UnsupportedMarkup))
+                skippedSome.Add(file);
         }
 
-        if (result.FailureId == ElementAddFailureIds.LockedLayer)
+        if (descriptions.Count == 0) return;
+
+        ElementAddResult result = await viewModel.AddElementsWithResultAsync(descriptions);
+        if (!result.IsSuccess) return;
+
+        // The file decides where its clips go, which can be far from where the timeline is looking.
+        if (result.Items.Count > others.Count)
         {
-            NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+            Element first = result.Items[others.Count].PrimaryElement;
+            viewModel.ScrollTo.Execute((first.Range, first.ZIndex.Value));
         }
-        else
+
+        foreach (string file in skippedSome)
         {
-            NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+            NotificationService.ShowWarning(
+                Strings.AddElement,
+                string.Format(CultureInfo.CurrentCulture, Strings.SubtitleFile_SomeSkipped, Path.GetFileName(file)));
         }
+    }
+
+    // A file can be locked, or gone by now.
+    private static async Task<byte[]?> TryReadAsync(string file)
+    {
+        try
+        {
+            return await File.ReadAllBytesAsync(file);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    // Above the scene and above where the other files can end up, or their clips would move these. A video's own
+    // sound takes the layer below its picture, and clips already at or above them push each file up a layer or two.
+    private static int GetFirstLayerAbove(Scene scene, IReadOnlyList<ElementDescription> others)
+    {
+        int first = AiCaptionSceneImporter.GetFirstFreeLayer(scene);
+        if (others.Count == 0) return first;
+
+        int lowest = others.Min(other => other.Layer);
+        int displacement = scene.Children.Any(child => child.ZIndex.Value >= lowest) ? others.Count * 2 : 0;
+        return Math.Max(first, others.Max(other => other.Layer) + 2) + displacement;
     }
 
     // The serializer reads UTF-8, but subtitle tools also write UTF-16 and, on Windows, the system's legacy code page.
