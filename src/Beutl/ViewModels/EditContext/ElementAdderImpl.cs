@@ -366,6 +366,13 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                         foreach (Element element in elements)
                         {
                             element.ZIndex.Value = scene.CountUnlockedLayers(firstFreeLayer.Value, element.ZIndex.Value);
+                            // A matte in a set names a layer of the set, which has just moved.
+                            if (arrangements[index]
+                                && element.MatteSourceKind.Value == MatteSourceKind.Layer
+                                && element.MatteSourceZIndex.Value is { } source)
+                            {
+                                element.MatteSourceZIndex.Value = scene.CountUnlockedLayers(firstFreeLayer.Value, source);
+                            }
                         }
                     }
 
