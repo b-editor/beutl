@@ -446,6 +446,9 @@
   <data name="Audio" xml:space="preserve">
     <value>音频</value>
   </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>主音量 (%)</value>
+  </data>
   <data name="Off" xml:space="preserve">
     <value>关</value>
   </data>
@@ -3689,8 +3692,5 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>粘贴剪辑之前请先保存项目。</value>
-  </data>
-  <data name="MasterVolume" xml:space="preserve">
-    <value>主音量 (%)</value>
   </data>
 </root>

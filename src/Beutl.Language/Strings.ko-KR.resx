@@ -446,6 +446,9 @@
   <data name="Audio" xml:space="preserve">
     <value>오디오</value>
   </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>마스터 볼륨 (%)</value>
+  </data>
   <data name="Off" xml:space="preserve">
     <value>끄기</value>
   </data>
@@ -3689,8 +3692,5 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>클립을 붙여넣기 전에 프로젝트를 저장하세요.</value>
-  </data>
-  <data name="MasterVolume" xml:space="preserve">
-    <value>마스터 볼륨 (%)</value>
   </data>
 </root>

@@ -447,6 +447,9 @@
   <data name="Audio" xml:space="preserve">
     <value>音声</value>
   </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>マスター音量 (%)</value>
+  </data>
   <data name="Off" xml:space="preserve">
     <value>オフ</value>
   </data>
@@ -3684,8 +3687,5 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>クリップを貼り付ける前にプロジェクトを保存してください。</value>
-  </data>
-  <data name="MasterVolume" xml:space="preserve">
-    <value>マスター音量 (%)</value>
   </data>
 </root>

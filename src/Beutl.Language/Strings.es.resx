@@ -446,6 +446,9 @@
   <data name="Audio" xml:space="preserve">
     <value>Audio</value>
   </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>Volumen maestro (%)</value>
+  </data>
   <data name="Off" xml:space="preserve">
     <value>Desactivado</value>
   </data>
@@ -3689,8 +3692,5 @@ cuando el registro del historial está activado.</value>
   </data>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>Guarda el proyecto antes de pegar clips.</value>
-  </data>
-  <data name="MasterVolume" xml:space="preserve">
-    <value>Volumen maestro (%)</value>
   </data>
 </root>
