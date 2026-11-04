@@ -52,8 +52,7 @@ public sealed class CompressorNode : DynamicsNode
                 p,
                 1f - 1f / p.Ratio);
 
-            var (inputChannels, outputChannels) = MapChannels(input, output);
-            ApplyLinkedGain(inputChannels, outputChannels, input.ChannelCount, 0, input.SampleCount, ref gain);
+            ApplyLinkedGain(input, output, 0, input.SampleCount, ref gain);
 
             return output;
         }
@@ -99,7 +98,6 @@ public sealed class CompressorNode : DynamicsNode
             };
 
             int sampleCount = input.SampleCount;
-            var (inputChannels, outputChannels) = MapChannels(input, output);
 
             int processed = 0;
             while (processed < sampleCount)
@@ -116,7 +114,7 @@ public sealed class CompressorNode : DynamicsNode
                 context.AnimationSampler.SampleBuffer(MakeupGain, chunkRange, context.SampleRate, makeups[..chunkSize]);
 
                 gain.ChunkStart = processed;
-                ApplyLinkedGain(inputChannels, outputChannels, input.ChannelCount, processed, chunkSize, ref gain);
+                ApplyLinkedGain(input, output, processed, chunkSize, ref gain);
 
                 processed += chunkSize;
             }

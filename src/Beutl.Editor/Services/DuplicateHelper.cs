@@ -161,7 +161,8 @@ public static class DuplicateHelper
         Element[] sourceElements,
         MediaTime anchorStart,
         int anchorZIndex,
-        ElementOverlapHandling overlapHandling)
+        ElementOverlapHandling overlapHandling,
+        IEnumerable<ImmutableHashSet<Guid>>? sourceGroups = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(newElements);
@@ -182,7 +183,7 @@ public static class DuplicateHelper
         }
 
         (MediaTime minStart, int minZIndex) = ComputeMinOrigin(newElements);
-        List<(Element Matte, Element Source)> copiedMattes = FindCopiedMatteSources(newElements);
+        List<(Element Matte, Element Source)> copiedMattes = Scene.FindMatteSourcesAmong(newElements);
 
         foreach (Element newElement in newElements)
         {
@@ -191,7 +192,7 @@ public static class DuplicateHelper
             newElement.Uri = ElementFileNaming.GetUri(scene.Uri, newElement.Id.Value);
         }
 
-        List<ImmutableHashSet<Guid>> newGroups = MapGroups(scene.Groups, sourceElements, newElements);
+        List<ImmutableHashSet<Guid>> newGroups = MapGroups(sourceGroups ?? scene.Groups, sourceElements, newElements);
         if (newGroups.Count > 0)
         {
             scene.Groups.AddRange(newGroups);
@@ -208,24 +209,5 @@ public static class DuplicateHelper
         {
             matte.MatteSourceZIndex.Value = source.ZIndex.Value;
         }
-    }
-
-    // The copies whose matte names a layer where another copy is at the same time, and that other copy.
-    private static List<(Element Matte, Element Source)> FindCopiedMatteSources(Element[] copies)
-    {
-        var result = new List<(Element Matte, Element Source)>();
-        foreach (Element copy in copies)
-        {
-            if (copy.MatteSourceKind.Value == MatteSourceKind.Layer
-                && copy.MatteSourceZIndex.Value is { } layer
-                && copies.FirstOrDefault(other => other != copy
-                    && other.ZIndex.Value == layer
-                    && other.Range.Intersects(copy.Range)) is { } source)
-            {
-                result.Add((copy, source));
-            }
-        }
-
-        return result;
     }
 }

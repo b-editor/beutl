@@ -905,6 +905,21 @@
   <data name="GradientBrush_SpreadMethod" xml:space="preserve">
     <value>Método de extensión</value>
   </data>
+  <data name="GradientBrush_InterpolationSpace" xml:space="preserve">
+    <value>Interpolación</value>
+  </data>
+  <data name="GradientBrush_InterpolatePremultiplied" xml:space="preserve">
+    <value>Interpolar con alfa premultiplicado</value>
+  </data>
+  <data name="GradientInterpolationSpace_LinearSrgb" xml:space="preserve">
+    <value>sRGB lineal</value>
+  </data>
+  <data name="GradientInterpolationSpace_Srgb" xml:space="preserve">
+    <value>sRGB</value>
+  </data>
+  <data name="GradientInterpolationSpace_Oklab" xml:space="preserve">
+    <value>OKLab</value>
+  </data>
   <data name="Children" xml:space="preserve">
     <value>Elementos secundarios</value>
   </data>
@@ -1756,5 +1771,23 @@
   </data>
   <data name="MotionBlur_End" xml:space="preserve">
     <value>Final</value>
+  </data>
+  <data name="AlphaMode" xml:space="preserve">
+    <value>Modo alfa</value>
+  </data>
+  <data name="AlphaMode_Auto" xml:space="preserve">
+    <value>Automático</value>
+  </data>
+  <data name="AlphaMode_Opaque" xml:space="preserve">
+    <value>Opaco</value>
+  </data>
+  <data name="AlphaMode_Mask" xml:space="preserve">
+    <value>Máscara</value>
+  </data>
+  <data name="AlphaMode_Blend" xml:space="preserve">
+    <value>Mezcla</value>
+  </data>
+  <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
+    <value>Umbral alfa</value>
   </data>
 </root>

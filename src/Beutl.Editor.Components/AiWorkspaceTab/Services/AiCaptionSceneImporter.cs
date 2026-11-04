@@ -7,7 +7,8 @@ namespace Beutl.Editor.Components.AiWorkspaceTab.Services;
 
 internal readonly record struct CaptionSceneImportResult(
     bool IsSuccess,
-    ElementAddFailureId? FailureId);
+    ElementAddFailureId? FailureId,
+    Element? FirstElement = null);
 
 internal static class AiCaptionSceneImporter
 {
@@ -16,7 +17,9 @@ internal static class AiCaptionSceneImporter
         IElementAdder adder,
         CaptionDocument document,
         CaptionTemplate template,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? elementName = null,
+        MediaTime? minimumLength = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(adder);
@@ -30,8 +33,9 @@ internal static class AiCaptionSceneImporter
         Point defaultPosition = new(0, scene.FrameSize.Value.Height * 0.35f);
         var context = new CaptionElementContext(
             layer,
-            Beutl.Language.Strings.AiSubtitle,
-            defaultPosition);
+            elementName ?? Beutl.Language.Strings.AiSubtitle,
+            defaultPosition,
+            minimumLength);
         var descriptions = new List<ElementDescription>(document.Count);
         foreach (CaptionCue cue in document.Cues)
         {
@@ -39,6 +43,6 @@ internal static class AiCaptionSceneImporter
             descriptions.AddRange(template.CreateElements(cue, context));
         }
         ElementAddResult result = await adder.AddAsync(descriptions, cancellationToken);
-        return new CaptionSceneImportResult(result.IsSuccess, result.Failure?.Id);
+        return new CaptionSceneImportResult(result.IsSuccess, result.Failure?.Id, result.Items.FirstOrDefault()?.PrimaryElement);
     }
 }

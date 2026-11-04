@@ -346,9 +346,19 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 if (gatedCommitValidation is not null)
                     return;
 
+                var layerEnds = new Dictionary<int, MediaTime>();
                 for (int index = 0; index < itemResults.Count; index++)
                 {
                     IReadOnlyList<Element> elements = itemResults[index].Elements;
+                    ElementDescription description = plans[index].Description;
+                    if (description.FollowsPrevious && layerEnds.TryGetValue(description.Layer, out MediaTime end))
+                    {
+                        foreach (Element element in elements)
+                        {
+                            element.Start.Value += end - description.Start;
+                        }
+                    }
+
                     if (arrangements[index])
                     {
                         PlaceTogether(scene, elements);
@@ -360,6 +370,8 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                             element,
                             arrangements[index] ? ElementOverlapHandling.Allow : ElementOverlapHandling.Auto);
                     }
+
+                    layerEnds[description.Layer] = elements.Max(element => element.Range.End);
                 }
 
                 if (groups.Count > 0)

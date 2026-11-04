@@ -23,6 +23,8 @@ public abstract class AudioVisualizerControlBase : Control
             nameof(PrimaryBrush), new SolidColorBrush(Color.FromArgb(220, 90, 255, 160)));
 
     private DispatcherTimer? _timer;
+    private long? _renderedVersion;
+    private MediaTime _renderedPlayhead;
 
     public AudioSampleRingBuffer? RingBuffer
     {
@@ -48,10 +50,25 @@ public abstract class AudioVisualizerControlBase : Control
         set => SetValue(SecondaryBrushProperty, value);
     }
 
+    // Whether the last render left something changing on its own, such as a falling peak hold.
+    protected internal virtual bool IsSettling => false;
+
+    // Analysis is the expensive part of a render, and with the same input and nothing settling it gives the same picture.
+    internal bool RequestRenderIfChanged()
+    {
+        long? version = RingBuffer?.Version;
+        if (version == _renderedVersion && PlayheadTime == _renderedPlayhead && !IsSettling) return false;
+
+        _renderedVersion = version;
+        _renderedPlayhead = PlayheadTime;
+        InvalidateVisual();
+        return true;
+    }
+
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _timer ??= new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, Dispatcher, (_, _) => InvalidateVisual());
+        _timer ??= new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, Dispatcher, (_, _) => RequestRenderIfChanged());
         UpdateTimerState();
     }
 
@@ -67,6 +84,12 @@ public abstract class AudioVisualizerControlBase : Control
         if (change.Property == IsVisibleProperty)
         {
             UpdateTimerState();
+        }
+        // The view's settings, such as its FFT size. The timer covers the playhead, at its own rate.
+        else if (change.Property != PlayheadTimeProperty
+                 && typeof(AudioVisualizerControlBase).IsAssignableFrom(change.Property.OwnerType))
+        {
+            InvalidateVisual();
         }
     }
 

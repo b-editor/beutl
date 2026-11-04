@@ -8,6 +8,37 @@ namespace Beutl.UnitTests.Api;
 [NonParallelizable]
 public sealed class PackageInstallerVerificationTests
 {
+    // Operations on different packages run at the same time, as when a store's packages are installed one after another.
+    [Test]
+    public async Task Concurrent_preparation_keeps_the_context_of_each_package()
+    {
+        const int Count = 5000;
+        using var http = new HttpClient();
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var installer = new PackageInstaller(http, false, new InstalledPackageRepository(), app);
+        var contexts = new PackageInstallContext[Count];
+
+        Parallel.For(0, Count, i => contexts[i] = installer.PrepareForInstall($"Concurrent.{i}", "1.0.0", force: true));
+
+        for (int i = 0; i < Count; i++)
+        {
+            Assert.That(installer.PrepareForInstall($"Concurrent.{i}", "1.0.0", force: true), Is.SameAs(contexts[i]));
+        }
+    }
+
+    [Test]
+    public async Task Concurrent_preparation_of_one_package_gives_one_context()
+    {
+        using var http = new HttpClient();
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var installer = new PackageInstaller(http, false, new InstalledPackageRepository(), app);
+        var contexts = new PackageInstallContext[64];
+
+        Parallel.For(0, contexts.Length, i => contexts[i] = installer.PrepareForInstall("Concurrent", "1.0.0", force: true));
+
+        Assert.That(contexts, Is.All.SameAs(contexts[0]));
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task RejectedHash_RemovesTheDownloadFromTheLocalPackageSource(bool empty)

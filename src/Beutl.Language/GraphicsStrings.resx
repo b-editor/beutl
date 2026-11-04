@@ -906,6 +906,21 @@
   <data name="GradientBrush_SpreadMethod" xml:space="preserve">
     <value>Spread Method</value>
   </data>
+  <data name="GradientBrush_InterpolationSpace" xml:space="preserve">
+    <value>Interpolation</value>
+  </data>
+  <data name="GradientBrush_InterpolatePremultiplied" xml:space="preserve">
+    <value>Interpolate Premultiplied</value>
+  </data>
+  <data name="GradientInterpolationSpace_LinearSrgb" xml:space="preserve">
+    <value>Linear sRGB</value>
+  </data>
+  <data name="GradientInterpolationSpace_Srgb" xml:space="preserve">
+    <value>sRGB</value>
+  </data>
+  <data name="GradientInterpolationSpace_Oklab" xml:space="preserve">
+    <value>OKLab</value>
+  </data>
   <data name="Children" xml:space="preserve">
     <value>Children</value>
   </data>
@@ -1757,5 +1772,23 @@
   </data>
   <data name="MotionBlur_End" xml:space="preserve">
     <value>End</value>
+  </data>
+  <data name="AlphaMode" xml:space="preserve">
+    <value>Alpha Mode</value>
+  </data>
+  <data name="AlphaMode_Auto" xml:space="preserve">
+    <value>Auto</value>
+  </data>
+  <data name="AlphaMode_Opaque" xml:space="preserve">
+    <value>Opaque</value>
+  </data>
+  <data name="AlphaMode_Mask" xml:space="preserve">
+    <value>Mask</value>
+  </data>
+  <data name="AlphaMode_Blend" xml:space="preserve">
+    <value>Blend</value>
+  </data>
+  <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
+    <value>Alpha Cutoff</value>
   </data>
 </root>

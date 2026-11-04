@@ -89,8 +89,8 @@ internal static class AgentHostSceneRouter
             {
                 Text = JsonSerializer.Serialize(ToolResult<object?>.Failure(
                     ErrorCode.ValidationRejected,
-                    message ?? "Pass a valid sceneId on every scene tool call.",
-                    AgentHostSceneRouting.SceneIdArgument, "Call list_scenes on the target instance to discover scene IDs."), s_jsonOptions)
+                    message ?? AgentHostSceneRouting.InvalidSceneMessage,
+                    AgentHostSceneRouting.SceneIdArgument, AgentHostSceneRouting.InvalidSceneHint), s_jsonOptions)
             }]
         };
 }

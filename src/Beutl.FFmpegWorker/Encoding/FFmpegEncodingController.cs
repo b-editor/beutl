@@ -414,7 +414,8 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                     encodeAudio = true;
                 }
 
-                if (outFormat.VideoCodec != AVCodecID.AV_CODEC_ID_NONE)
+                // MP3 names PNG as its video codec for cover art, so the container alone does not decide this.
+                if (outFormat.VideoCodec != AVCodecID.AV_CODEC_ID_NONE && frameProvider.FrameCount > 0)
                 {
                     ConfigureVideoStream(outFormat, muxer, videoFrame, out var encoder, out var stream);
                     encoders.Add((encoder, stream));

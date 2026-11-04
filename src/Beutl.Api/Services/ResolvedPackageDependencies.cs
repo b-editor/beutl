@@ -38,6 +38,23 @@ internal static class ResolvedPackageDependencies
         return ResolveInstalledGraph(reader, framework, root, preserveCandidates);
     }
 
+    // What the last resolution of the package selected, when all of it is still installed.
+    public static bool TryLoadSelection(
+        PackageIdentity package,
+        NuGetFramework framework,
+        [NotNullWhen(true)] out IReadOnlyList<PackageIdentity>? packages)
+    {
+        string directory = Helper.ResolveInstalledDirectory(package);
+        if (File.Exists(Path.Combine(directory, FileName)))
+        {
+            using var reader = new PackageFolderReader(directory);
+            return TryLoadSnapshot(reader, framework, reader.GetIdentity(), out packages);
+        }
+
+        packages = null;
+        return false;
+    }
+
     private static bool TryLoadSnapshot(
         PackageFolderReader reader,
         NuGetFramework framework,

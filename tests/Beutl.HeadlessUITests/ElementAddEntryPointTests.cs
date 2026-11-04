@@ -1,4 +1,6 @@
 ﻿using System.Collections.Specialized;
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
@@ -7,22 +9,29 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
+using Beutl.Audio;
 using Beutl.Editor.Components.FileBrowserTab;
+using Beutl.Editor.Components.TimelineTab;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Services;
+using Beutl.Editor.Services.Captions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
+using Beutl.Media.Wave;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
 using Beutl.Views.Tools;
+using FluentAvalonia.UI.Controls;
 using AvaPoint = Avalonia.Point;
 
 namespace Beutl.HeadlessUITests;
@@ -105,6 +114,25 @@ public class ElementAddEntryPointTests
             Assert.That(notification.Title, Is.EqualTo(Strings.Lock));
             Assert.That(notification.Message, Is.EqualTo(Strings.LayerIsLocked));
         }
+    }
+
+    [Test]
+    public void A_refused_paste_says_why()
+    {
+        using var notifications = new NotificationCapture();
+
+        TimelineTabViewModel.ShowPasteFailure(new LockedElementLayerFailure(1));
+        TimelineTabViewModel.ShowPasteFailure(new ElementSceneNotSavedFailure());
+        TimelineTabViewModel.ShowPasteFailure(new InvalidElementMaterializationFailure("failed"));
+
+        Assert.That(
+            notifications.All.Select(notification => (notification.Type, notification.Title, notification.Message)),
+            Is.EqualTo(new[]
+            {
+                (NotificationType.Warning, Strings.Lock, Strings.LayerIsLocked),
+                (NotificationType.Warning, Strings.Paste, Strings.Paste_ProjectNotSaved),
+                (NotificationType.Error, Strings.AddElement, MessageStrings.UnexpectedError),
+            }));
     }
 
     [AvaloniaTest]
@@ -192,6 +220,483 @@ public class ElementAddEntryPointTests
             window.Close();
             HeadlessTestHelpers.Settle();
         }
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineView_SeveralFilesDrop_LinesThemUpInNameOrderInOneUndoStep()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-several-files-drop");
+        var decoder = new WaveDecoderInfo();
+        DecoderRegistry.Register(decoder);
+        using var notifications = new NotificationCapture();
+        var scrolls = new List<(TimeRange Range, int ZIndex)>();
+        using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel timelinePanel = view.FindControl<Panel>("TimelinePanel")!;
+            string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+            string notes = Path.Combine(directory, "notes.beutl-unknown");
+            File.WriteAllText(notes, "not media");
+            // The shorter sound follows the longer one rather than fitting under it on another layer.
+            string longSound = Path.Combine(directory, "a.wav");
+            WriteSilentWave(longSound, 13230);
+            string shortSound = Path.Combine(directory, "b.wav");
+            WriteSilentWave(shortSound, 4410);
+            using IStorageFile ten = await GetStorageFile(window, CreatePngFile(editor, "10.png"));
+            using IStorageFile one = await GetStorageFile(window, CreatePngFile(editor, "1.png"));
+            using IStorageFile two = await GetStorageFile(window, CreatePngFile(editor, "2.png"));
+            using IStorageFile notesFile = await GetStorageFile(window, notes);
+            using IStorageFile longFile = await GetStorageFile(window, longSound);
+            using IStorageFile shortFile = await GetStorageFile(window, shortSound);
+            using var transfer = new DataTransfer();
+            foreach (IStorageFile file in new[] { ten, notesFile, shortFile, longFile, one, two })
+                transfer.Add(DataTransferItem.CreateFile(file));
+            var dropPoint = new AvaPoint(180, timeline.CalculateLayerTop(3) + 5);
+            int layer = timeline.ToLayerNumber(dropPoint.Y);
+            editor.HistoryManager.Commit();
+            int undoCount = editor.HistoryManager.UndoCount;
+            var args = new DragEventArgs(DragDrop.DropEvent, transfer, timelinePanel, dropPoint, KeyModifiers.None);
+
+            await RaiseDropAndWaitForElement(editor.Scene, timelinePanel, args);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.UndoCount > undoCount);
+            HeadlessTestHelpers.Settle();
+
+            MediaTime frame = timeline.ClickedFrame;
+            MediaTime length = MediaTime.FromSeconds(5);
+            Element[] pictures = [.. editor.Scene.Children.Where(child => child.Objects.OfType<SourceImage>().Any())
+                .OrderBy(child => child.Start.Value)];
+            Element[] sounds = [.. editor.Scene.Children.Where(child => child.Objects.OfType<SourceSound>().Any())
+                .OrderBy(child => child.Start.Value)];
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(args.Handled, Is.True);
+                Assert.That(editor.Scene.Children, Has.Count.EqualTo(5));
+                Assert.That(pictures.Select(p => Path.GetFileName(p.Objects.OfType<SourceImage>().Single().Source.Value!.Uri.LocalPath)),
+                    Is.EqualTo(new[] { "1.png", "2.png", "10.png" }));
+                Assert.That(pictures.Select(p => p.Start.Value),
+                    Is.EqualTo(new[] { frame, frame + length, frame + length + length }));
+                Assert.That(pictures.Select(p => p.ZIndex.Value), Is.All.EqualTo(layer));
+                Assert.That(sounds.Select(s => Path.GetFileName(s.Objects.OfType<SourceSound>().Single().Source.Value!.Uri.LocalPath)),
+                    Is.EqualTo(new[] { "a.wav", "b.wav" }));
+                Assert.That(sounds.Select(s => s.Start.Value), Is.EqualTo(new[] { frame, sounds[0].Range.End }));
+                Assert.That(sounds.Select(s => s.ZIndex.Value), Is.All.EqualTo(layer + 1));
+                Assert.That(scrolls.Single().Range, Is.EqualTo(pictures[0].Range));
+                Assert.That(notifications.All, Is.Empty);
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
+            }
+
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            Assert.That(editor.Scene.Children, Is.Empty);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    // Background music in a .webm or .mp4 runs under the pictures like any other sound.
+    [AvaloniaTest]
+    public async Task TimelineView_SeveralFilesDrop_TreatsAContainerHoldingOnlySoundAsSound()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-sound-in-video-container-drop");
+        var decoder = new SoundInVideoContainerDecoder();
+        DecoderRegistry.Register(decoder);
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel timelinePanel = view.FindControl<Panel>("TimelinePanel")!;
+            string music = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "2.wav");
+            WriteSilentWave(music, 4410);
+            using IStorageFile first = await GetStorageFile(window, CreatePngFile(editor, "1.png"));
+            using IStorageFile second = await GetStorageFile(window, music);
+            using IStorageFile third = await GetStorageFile(window, CreatePngFile(editor, "3.png"));
+            using var transfer = new DataTransfer();
+            foreach (IStorageFile file in new[] { first, second, third })
+                transfer.Add(DataTransferItem.CreateFile(file));
+            var dropPoint = new AvaPoint(180, timeline.CalculateLayerTop(3) + 5);
+            int layer = timeline.ToLayerNumber(dropPoint.Y);
+            editor.HistoryManager.Commit();
+            int undoCount = editor.HistoryManager.UndoCount;
+            var args = new DragEventArgs(DragDrop.DropEvent, transfer, timelinePanel, dropPoint, KeyModifiers.None);
+
+            await RaiseDropAndWaitForElement(editor.Scene, timelinePanel, args);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.UndoCount > undoCount);
+            HeadlessTestHelpers.Settle();
+
+            MediaTime frame = timeline.ClickedFrame;
+            Element[] pictures = [.. editor.Scene.Children.Where(child => child.Objects.OfType<SourceImage>().Any())
+                .OrderBy(child => child.Start.Value)];
+            Element sound = editor.Scene.Children.Single(child => child.Objects.OfType<SourceSound>().Any());
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(pictures.Select(p => p.Start.Value),
+                    Is.EqualTo(new[] { frame, frame + MediaTime.FromSeconds(5) }));
+                Assert.That(pictures.Select(p => p.ZIndex.Value), Is.All.EqualTo(layer));
+                Assert.That(sound.Start.Value, Is.EqualTo(frame));
+                Assert.That(sound.ZIndex.Value, Is.EqualTo(layer + 1));
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    // Lists sound files as videos as well, which is what FFmpeg does with the containers that can hold either.
+    private sealed class SoundInVideoContainerDecoder : IDecoderInfo
+    {
+        private readonly WaveDecoderInfo _wave = new();
+
+        public string Name => "Sound in a video container";
+
+        public MediaReader? Open(string file, MediaOptions options) => _wave.Open(file, options);
+
+        public IEnumerable<string> VideoExtensions() => _wave.AudioExtensions();
+
+        public IEnumerable<string> AudioExtensions() => _wave.AudioExtensions();
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFileDrop_AddsOneTextClipPerCueAboveTheScene()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-drop");
+        using var notifications = new NotificationCapture();
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel timelinePanel = view.FindControl<Panel>("TimelinePanel")!;
+            string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+            await timeline.AddElementWithResultAsync(new ElementDescription(
+                MediaTime.Zero, MediaTime.FromSeconds(1), 2, new ElementSource.EngineObject(() => new RectShape())));
+            HeadlessTestHelpers.Settle();
+            string path = Path.Combine(directory, "movie.srt");
+            File.WriteAllText(path, "1\n00:00:01,000 --> 00:00:02,500\nHello\n\n2\n00:00:03,000 --> 00:00:04,000\nWorld\n");
+            using IStorageFile file = await GetStorageFile(window, path);
+            using var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.CreateFile(file));
+            editor.HistoryManager.Commit();
+            int undoCount = editor.HistoryManager.UndoCount;
+            var args = new DragEventArgs(
+                DragDrop.DropEvent, transfer, timelinePanel, new AvaPoint(500, 5), KeyModifiers.None);
+
+            timelinePanel.RaiseEvent(args);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.UndoCount > undoCount);
+            HeadlessTestHelpers.Settle();
+            HeadlessCapture.SaveIfRequested(window, nameof(ElementAddEntryPointTests), "subtitle-drop");
+
+            Element[] captions = [.. editor.Scene.Children.Where(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any())
+                .OrderBy(child => child.Start.Value)];
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(args.Handled, Is.True);
+                Assert.That(captions.Select(c => c.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Single().Text.Value),
+                    Is.EqualTo(new[] { "Hello", "World" }));
+                Assert.That(captions.Select(c => c.Range), Is.EqualTo(new[]
+                {
+                    new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1.5)),
+                    new TimeRange(MediaTime.FromSeconds(3), MediaTime.FromSeconds(1)),
+                }));
+                Assert.That(captions.Select(c => c.ZIndex.Value), Is.All.EqualTo(3));
+                Assert.That(captions.Select(c => c.Name.Value), Is.All.EqualTo("movie"));
+                Assert.That(notifications.All, Is.Empty);
+            }
+
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            Assert.That(editor.Scene.Children.Where(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any()), Is.Empty);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFileWithoutCues_SaysSoAndAddsNothing()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-empty");
+        using var notifications = new NotificationCapture();
+        string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "broken.srt");
+        File.WriteAllText(path, "this is not a subtitle file");
+
+        await CaptionFileDrop.AddAsync(timeline, path);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(editor.Scene.Children, Is.Empty);
+            Assert.That(notifications.All.Single().Message, Does.Contain("broken.srt"));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFile_KeepsShortCuesShowsTheFirstAndWarnsOfSkippedOnes()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-short");
+        using var notifications = new NotificationCapture();
+        string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "short.srt");
+        File.WriteAllText(path, "1\n00:00:03,000 --> 00:00:03,200\nshort\n\n2\nnot a time\nskipped\n");
+        (TimeRange Range, int ZIndex)? shown = null;
+        using IDisposable subscription = timeline.ScrollTo.Subscribe(value => shown = value);
+
+        await CaptionFileDrop.AddAsync(timeline, path);
+
+        Element clip = editor.Scene.Children.Single();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(clip.Start.Value.ToSeconds(), Is.EqualTo(3).Within(0.001));
+            Assert.That(clip.Length.Value.ToSeconds(), Is.EqualTo(0.2).Within(0.001));
+            Assert.That(shown, Is.EqualTo((clip.Range, clip.ZIndex.Value)));
+            Assert.That(notifications.All.Single().Message, Does.Contain("short.srt"));
+        }
+    }
+
+    [Test]
+    public void Subtitle_files_are_read_in_UTF16_and_the_systems_legacy_code_page()
+    {
+        const string Srt = "1\n00:00:01,000 --> 00:00:02,000\nこんにちは\n";
+        CultureInfo previous = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ja-JP");
+        try
+        {
+            byte[] utf16 = [.. Encoding.Unicode.GetPreamble(), .. Encoding.Unicode.GetBytes(Srt)];
+            byte[] shiftJis = CodePagesEncodingProvider.Instance.GetEncoding(932)!.GetBytes(Srt);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(CaptionFileDrop.Import(utf16, CaptionFormats.Srt).Document![0].Text, Is.EqualTo("こんにちは"));
+                Assert.That(CaptionFileDrop.Import(shiftJis, CaptionFormats.Srt).Document![0].Text, Is.EqualTo("こんにちは"));
+            });
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
+    }
+
+    // One click on a template is all a drop needs, and the next drop offers that template under the pointer.
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFileDrop_OneClickOnATemplateAddsTheClipsAndItComesFirstNextTime()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-template");
+        ObjectTemplateItem saved = await SaveTextTemplateAsync();
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+        bool overlayPopups = TestAppBuilder.HeadlessOptions.OverlayPopups;
+        bool activated = false;
+
+        try
+        {
+            // The desktop app opens a menu as a window of its own, which a small window does not push aside.
+            TestAppBuilder.HeadlessOptions.OverlayPopups = false;
+            window.Show();
+            HeadlessTestHelpers.Render();
+            string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+            string first = Path.Combine(directory, "first.srt");
+            File.WriteAllText(first, "1\n00:00:01,000 --> 00:00:02,000\nHello\n\n2\n00:00:03,000 --> 00:00:04,000\nWorld\n");
+            string second = Path.Combine(directory, "second.srt");
+            File.WriteAllText(second, "1\n00:00:06,000 --> 00:00:07,000\nAgain\n");
+            string third = Path.Combine(directory, "third.srt");
+            File.WriteAllText(third, "1\n00:00:09,000 --> 00:00:10,000\nOnce more\n");
+            Beutl.Graphics.Shapes.TextBlock[] Texts() => [.. editor.Scene.Children
+                .OrderBy(child => child.Start.Value)
+                .SelectMany(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>())];
+            window.Activated += (_, _) => activated = true;
+
+            await RaiseFileDropAsync(window, view, first);
+            FAMenuFlyoutItem[] firstOffer = await WaitForTemplateMenuAsync(window);
+            string?[] firstNames = [.. firstOffer.Select(item => item.Text)];
+            HeadlessTestHelpers.Click(firstOffer.Single(item => item.Text == saved.Name.Value));
+            await HeadlessTestHelpers.WaitUntilAsync(() => Texts().Length == 2);
+
+            // The click lands where the file was dropped, without the pointer moving.
+            AvaPoint point = await RaiseFileDropAsync(window, view, second);
+            FAMenuFlyoutItem[] secondOffer = await WaitForTemplateMenuAsync(window);
+            string?[] secondNames = [.. secondOffer.Select(item => item.Text)];
+            HeadlessTestHelpers.Click(secondOffer[0], secondOffer[0].PointToClient(window.PointToScreen(point)));
+            await HeadlessTestHelpers.WaitUntilAsync(() => Texts().Length == 3);
+
+            await RaiseFileDropAsync(window, view, third);
+            await WaitForTemplateMenuAsync(window);
+            window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+            await HeadlessTestHelpers.WaitUntilAsync(() => Texts().Length == 4);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(Texts().Select(text => text.Text.Value), Is.EqualTo(new[] { "Hello", "World", "Again", "Once more" }));
+                Assert.That(Texts().Select(text => text.Size.Value), Is.All.EqualTo(123f));
+                Assert.That(firstNames, Is.EqualTo(new[] { Strings.AiSubtitle_Template, Strings.AiSubtitle_DefaultTemplate, saved.Name.Value }));
+                Assert.That(secondNames, Is.EqualTo(new[] { Strings.AiSubtitle_Template, saved.Name.Value, Strings.AiSubtitle_DefaultTemplate }));
+                Assert.That(firstOffer[0].IsEffectivelyEnabled, Is.False);
+                Assert.That(window.OpenedPopups, Is.Empty);
+                Assert.That(activated, Is.True);
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            TestAppBuilder.HeadlessOptions.OverlayPopups = overlayPopups;
+            RemoveTemplate(saved);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFileDrop_DismissingTheMenuAddsNothing()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-dismiss");
+        ObjectTemplateItem saved = await SaveTextTemplateAsync();
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+        bool overlayPopups = TestAppBuilder.HeadlessOptions.OverlayPopups;
+
+        try
+        {
+            TestAppBuilder.HeadlessOptions.OverlayPopups = false;
+            window.Show();
+            HeadlessTestHelpers.Render();
+            string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+            string captions = Path.Combine(directory, "movie.srt");
+            File.WriteAllText(captions, "1\n00:00:01,000 --> 00:00:02,000\nHello\n");
+            string image = CreatePngFile(editor, "beside.png");
+
+            await RaiseFileDropAsync(window, view, captions, image);
+            await WaitForTemplateMenuAsync(window);
+            window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            // Long enough for a drop that carried on to reach the scene.
+            for (int attempt = 0; attempt < 20 && editor.Scene.Children.Count == 0; attempt++)
+            {
+                await Task.Delay(50);
+                HeadlessTestHelpers.Settle();
+            }
+
+            Assert.That(window.OpenedPopups, Is.Empty);
+            Assert.That(editor.Scene.Children, Is.Empty);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            TestAppBuilder.HeadlessOptions.OverlayPopups = overlayPopups;
+            RemoveTemplate(saved);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFileDrop_AsksNothingWithOnlyTheDefaultLook()
+    {
+        await TestReset.ResetShellAsync();
+        Assume.That(CaptionFileDrop.GetTemplates(), Has.Count.EqualTo(1));
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-default");
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "movie.srt");
+            File.WriteAllText(path, "1\n00:00:01,000 --> 00:00:02,000\nHello\n");
+
+            await RaiseFileDropAsync(window, view, path);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Scene.Children.Count == 1);
+
+            Assert.That(window.OpenedPopups, Is.Empty);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    private static async Task<ObjectTemplateItem> SaveTextTemplateAsync()
+    {
+        var text = new Beutl.Graphics.Shapes.TextBlock();
+        text.Size.Value = 123f;
+        ObjectTemplateItem? saved = await ObjectTemplateService.Instance.AddFromInstanceAsync(text, $"subtitle-look-{Guid.NewGuid():N}");
+        Assert.That(saved, Is.Not.Null);
+        return saved!;
+    }
+
+    private static void RemoveTemplate(ObjectTemplateItem template)
+    {
+        File.Delete(template.FilePath!);
+        ObjectTemplateService.Instance.RefreshFromFileSystem();
+    }
+
+    // Drops at the middle of the timeline through the window, as the platform does.
+    private static async Task<AvaPoint> RaiseFileDropAsync(Window window, TimelineTabView view, params string[] paths)
+    {
+        var transfer = new DataTransfer();
+        foreach (string path in paths)
+        {
+            transfer.Add(DataTransferItem.CreateFile(await GetStorageFile(window, path)));
+        }
+
+        AvaPoint point = HeadlessTestHelpers.Center(view.FindControl<ScrollViewer>("ContentScroll")!, window);
+        window.DragDrop(point, RawDragEventType.DragEnter, transfer, DragDropEffects.Copy);
+        window.DragDrop(point, RawDragEventType.DragOver, transfer, DragDropEffects.Copy);
+        window.DragDrop(point, RawDragEventType.Drop, transfer, DragDropEffects.Copy);
+        return point;
+    }
+
+    private static async Task<FAMenuFlyoutItem[]> WaitForTemplateMenuAsync(Window window)
+    {
+        await HeadlessTestHelpers.WaitUntilAsync(() => window.OpenedPopups.Any(popup => popup.Child is FAMenuFlyoutPresenter));
+        HeadlessTestHelpers.Render(3);
+        Control presenter = window.OpenedPopups.Single(popup => popup.Child is FAMenuFlyoutPresenter).Child!;
+        return [.. presenter.GetVisualDescendants().OfType<FAMenuFlyoutItem>()];
+    }
+
+    private static void WriteSilentWave(string path, int frames)
+    {
+        int bytes = frames * 2 * sizeof(short);
+        using var writer = new BinaryWriter(File.Create(path));
+        writer.Write("RIFF"u8);
+        writer.Write(36 + bytes);
+        writer.Write("WAVEfmt "u8);
+        writer.Write(16);
+        writer.Write((ushort)1);
+        writer.Write((ushort)2);
+        writer.Write(44100);
+        writer.Write(44100 * 2 * sizeof(short));
+        writer.Write((ushort)(2 * sizeof(short)));
+        writer.Write((ushort)16);
+        writer.Write("data"u8);
+        writer.Write(bytes);
+        writer.Write(new byte[bytes]);
     }
 
     [AvaloniaTest]

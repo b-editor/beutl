@@ -338,6 +338,15 @@
   <data name="Easing" xml:space="preserve">
     <value>Suavizado</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>Primer punto de control {0}, {1}. Segundo punto de control {2}, {3}.</value>
+  </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>Está seleccionado el primer punto de control.</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>Está seleccionado el segundo punto de control.</value>
+  </data>
   <data name="Hold" xml:space="preserve">
     <value>Mantener</value>
   </data>
@@ -445,6 +454,9 @@
   </data>
   <data name="Audio" xml:space="preserve">
     <value>Audio</value>
+  </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>Volumen maestro (%)</value>
   </data>
   <data name="Off" xml:space="preserve">
     <value>Desactivado</value>
@@ -1608,6 +1620,12 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>Archivo de subtítulos</value>
+  </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>No se pudo leer ningún subtítulo de {0}.</value>
+  </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>Algunos de los subtítulos de {0} no se pudieron leer y se omitieron.</value>
   </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>¿Eliminar «{0}»?</value>
@@ -3686,5 +3704,8 @@ cuando el registro del historial está activado.</value>
   </data>
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>Canales de audio del proyecto</value>
+  </data>
+  <data name="Paste_ProjectNotSaved" xml:space="preserve">
+    <value>Guarda el proyecto antes de pegar clips.</value>
   </data>
 </root>

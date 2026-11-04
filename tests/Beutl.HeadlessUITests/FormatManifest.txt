@@ -54,7 +54,7 @@ Beutl.Utilities
   abstract
 [Beutl.Configuration]:EditorConfig
   sealed
-  keys: AutoAdjustSceneDuration, ClampResizeToOriginalLength, DisplayPeakLuminance, EnablePointerLockInProperty, FrameCacheColorType, FrameCacheMaxSize, FrameCacheScale, IsFrameCacheEnabled, IsNodeCacheEnabled, IsOnionSkinEnabled, IsPreviewGuideEnabled, IsRippleEnabled, IsTimelineSnapEnabled, LastMediaDirectory, LibraryTabDisplayModes, NodeCacheMaxPixels, NodeCacheMinPixels, OnionSkinNextCount, OnionSkinNextOpacity, OnionSkinPrevCount, OnionSkinPrevOpacity, PreviewGuideAspectRatios, PreviewGuideColor, PreviewGuideGridColumns, PreviewGuideGridRows, PreviewGuideKinds, PreviewGuideOpacity, PreviewSourceMode, SwapTimelineScrollDirection, TimelineAutoScrollMode, ToneMappingExposure, ToneMappingMode, UseHdrPreview
+  keys: AutoAdjustSceneDuration, ClampResizeToOriginalLength, DisplayPeakLuminance, EnablePointerLockInProperty, FrameCacheColorType, FrameCacheMaxSize, FrameCacheScale, IsFrameCacheEnabled, IsNodeCacheEnabled, IsOnionSkinEnabled, IsPreviewGuideEnabled, IsRippleEnabled, IsTimelineSnapEnabled, LastMediaDirectory, LibraryTabDisplayModes, NodeCacheMaxPixels, NodeCacheMinPixels, OnionSkinNextCount, OnionSkinNextOpacity, OnionSkinPrevCount, OnionSkinPrevOpacity, PreviewGuideAspectRatios, PreviewGuideColor, PreviewGuideGridColumns, PreviewGuideGridRows, PreviewGuideKinds, PreviewGuideOpacity, PreviewSourceMode, SeekOnTimelineClick, SwapTimelineScrollDirection, TimelineAutoScrollMode, ToneMappingExposure, ToneMappingMode, UseHdrPreview
 [Beutl.Configuration]:ExtensionConfig
   sealed
   keys: DecoderPriority, EditorExtensions
@@ -658,7 +658,7 @@ Beutl.Utilities
   keys: Animations, Color, ColorMap, Expressions, Id, IndexOfRefraction, IsEnabled, Name, Opacity, Roughness
 [Beutl.Engine]Beutl.Graphics3D.Materials:UnlitMaterial
   sealed
-  keys: Animations, Color, ColorMap, Expressions, Id, IsEnabled, Name, Opacity
+  keys: AlphaCutoff, AlphaMode, Animations, Color, ColorMap, Expressions, Id, IsEnabled, Name, Opacity
 [Beutl.Engine]Beutl.Graphics3D.Meshes:CubeMesh
   sealed
   keys: Animations, Depth, Expressions, Height, Id, IsEnabled, Name, Width
@@ -771,7 +771,7 @@ Beutl.Utilities
   keys: Animations, Expressions, Id, IsEnabled, Name, Opacity, Target, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media:ConicGradientBrush
   sealed
-  keys: Angle, Animations, Center, Expressions, GradientStops, Id, IsEnabled, Name, Opacity, SpreadMethod, Transform, TransformOrigin
+  keys: Angle, Animations, Center, Expressions, GradientStops, Id, InterpolatePremultiplied, InterpolationSpace, IsEnabled, Name, Opacity, SpreadMethod, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media:ConicSegment
   sealed
   keys: Animations, ControlPoint, EndPoint, Expressions, Id, IsEnabled, Name, Weight
@@ -808,7 +808,7 @@ Beutl.Utilities
   keys: Animations, Expressions, Id, IsEnabled, Name, Point
 [Beutl.Engine]Beutl.Media:LinearGradientBrush
   sealed
-  keys: Animations, EndPoint, Expressions, GradientStops, Id, IsEnabled, Name, Opacity, SpreadMethod, StartPoint, Transform, TransformOrigin
+  keys: Animations, EndPoint, Expressions, GradientStops, Id, InterpolatePremultiplied, InterpolationSpace, IsEnabled, Name, Opacity, SpreadMethod, StartPoint, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media:PathFigure
   sealed
   keys: Animations, Expressions, Id, IsClosed, IsEnabled, Name, Segments, StartPoint
@@ -828,7 +828,7 @@ Beutl.Utilities
   keys: Animations, ControlPoint, EndPoint, Expressions, Id, IsEnabled, Name
 [Beutl.Engine]Beutl.Media:RadialGradientBrush
   sealed
-  keys: Animations, Center, Expressions, GradientOrigin, GradientStops, Id, IsEnabled, Name, Opacity, Radius, SpreadMethod, Transform, TransformOrigin
+  keys: Animations, Center, Expressions, GradientOrigin, GradientStops, Id, InterpolatePremultiplied, InterpolationSpace, IsEnabled, Name, Opacity, Radius, SpreadMethod, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media:RectGeometry
   sealed
   keys: Animations, Expressions, FillType, Height, Id, IsEnabled, Name, Transform, Width
@@ -1302,7 +1302,7 @@ Beutl.Utilities
   keys: Animations, Clear, Count, Expressions, Id, IsEnabled, Name
 [Beutl.ProjectSystem]:Scene
   unsealed
-  keys: Duration, Elements, FrameSize, Groups, Height, Id, Layers, Markers, Name, Start, Width
+  keys: Duration, Elements, FrameSize, Groups, Height, Id, Layers, Markers, MasterVolume, Name, Start, Width
 [Beutl.ProjectSystem]:SceneDrawable
   sealed
   keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, OffsetPosition, Opacity, ReferencedScene, Transform, TransformOrigin

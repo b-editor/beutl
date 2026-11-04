@@ -13,6 +13,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>, IChi
 {
     private readonly ReactivePropertySlim<T?> _rxProperty = new();
     private KeyFrameAnimation<T>? _animation;
+    private CoreObject? _owner;
 
     // For tests, which start an adapter with a value or an animation.
     internal NodePropertyAdapter(string name, T? value, KeyFrameAnimation<T>? animation)
@@ -31,6 +32,23 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>, IChi
 
     IEnumerable<object?> IChildObjectSource.GetChildObjects()
         => ChildObjects.MayHoldObjects(typeof(T)) ? [_rxProperty.Value, _animation] : [_animation];
+
+    // The port the value and the animation belong to, as what an engine property holds belongs to its owner.
+    // An edit inside them finds its element through that.
+    internal CoreObject? Owner
+    {
+        get => _owner;
+        set
+        {
+            if (ReferenceEquals(_owner, value)) return;
+
+            PropertyValueOwnership.Reparent(_owner, _rxProperty.Value, default(T));
+            PropertyValueOwnership.Reparent(_owner, _animation, default(KeyFrameAnimation<T>));
+            _owner = value;
+            PropertyValueOwnership.Reparent(_owner, default(T), _rxProperty.Value);
+            PropertyValueOwnership.Reparent(_owner, default(KeyFrameAnimation<T>), _animation);
+        }
+    }
 
     private sealed class AnimationObservable(NodePropertyAdapter<T> adapter) : LightweightObservableBase<KeyFrameAnimation<T>?>
     {
@@ -74,6 +92,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>, IChi
                     _animation.Edited -= OnAnimationEdited;
                 }
 
+                PropertyValueOwnership.Reparent(_owner, _animation, value);
                 _animation = value;
 
                 if (value != null)
@@ -155,6 +174,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>, IChi
                 oldValue.Edited -= OnValueEdited;
             }
 
+            PropertyValueOwnership.Reparent(_owner, _rxProperty.Value, value);
             _rxProperty.Value = value;
 
             Edited?.Invoke(this, EventArgs.Empty);

@@ -57,6 +57,10 @@ public partial class PlayerViewModel
 
         public Task Completion => _tcs.Task;
 
+        // Where playback is now: from the audio once it has started, and otherwise from the wall clock.
+        public MediaTime CurrentTime
+            => _clock.GetTime() ?? _startTime + MediaTime.FromTimeSpan(DateTime.UtcNow - _startDateTime);
+
         // Set when the run stopped at the end of the scene with looping enabled.
         public bool ReachedNaturalEnd { get; private set; }
 
@@ -70,9 +74,7 @@ public partial class PlayerViewModel
 
         private int ComputeExpectFrame()
         {
-            MediaTime elapsed = _clock.GetTime() is { } audioTime
-                ? audioTime - _startTime
-                : MediaTime.FromTimeSpan(DateTime.UtcNow - _startDateTime);
+            MediaTime elapsed = CurrentTime - _startTime;
             if (elapsed < MediaTime.Zero) elapsed = MediaTime.Zero;
             return (int)elapsed.ToFrame(_rate, MidpointRounding.ToNegativeInfinity) + _startFrame;
         }

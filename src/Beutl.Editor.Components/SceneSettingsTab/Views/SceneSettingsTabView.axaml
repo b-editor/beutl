@@ -43,6 +43,12 @@
                       ItemsSource="{x:Static converters:EnumIndexConverters.SpeakerLayoutNames}"
                       SelectedIndex="{Binding ChannelLayout.Value, Mode=TwoWay, Converter={x:Static converters:EnumIndexConverters.SpeakerLayouts}}" />
 
+            <pe:NumberEditor x:Name="masterVolumeEditor"
+                             x:TypeArguments="x:Single"
+                             Margin="4,8,4,0"
+                             EditorStyle="Compact"
+                             Header="{x:Static lang:Strings.MasterVolume}" />
+
             <WrapPanel x:Name="ActionButtons" Margin="8" ItemSpacing="4" LineSpacing="4">
                 <Button x:Name="ApplyButton"
                         usage:UsageTracking.Feature="SceneSettings.Apply"

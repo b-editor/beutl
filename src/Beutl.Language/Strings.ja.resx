@@ -339,6 +339,15 @@
   <data name="Easing" xml:space="preserve">
     <value>イージング</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>1 番目の制御点 {0}, {1}。2 番目の制御点 {2}, {3}。</value>
+  </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>1 番目の制御点を選択中です。</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>2 番目の制御点を選択中です。</value>
+  </data>
   <data name="Hold" xml:space="preserve">
     <value>ホールド</value>
   </data>
@@ -446,6 +455,9 @@
   </data>
   <data name="Audio" xml:space="preserve">
     <value>音声</value>
+  </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>マスター音量 (%)</value>
   </data>
   <data name="Off" xml:space="preserve">
     <value>オフ</value>
@@ -2693,6 +2705,12 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>字幕ファイル</value>
   </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>{0} から字幕を読み取れませんでした。</value>
+  </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>{0} の字幕の一部を読み取れなかったため、読み飛ばしました。</value>
+  </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>「{0}」を削除しますか？</value>
   </data>
@@ -3681,5 +3699,8 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>プロジェクトの音声チャンネル</value>
+  </data>
+  <data name="Paste_ProjectNotSaved" xml:space="preserve">
+    <value>クリップを貼り付ける前にプロジェクトを保存してください。</value>
   </data>
 </root>

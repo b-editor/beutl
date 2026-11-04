@@ -113,6 +113,8 @@ public sealed partial class EqualizerEffect : AudioEffect
 
     private static bool IsNeutral(EqualizerBand band)
     {
+        if (AnimationSampler.IsAnimated(band.FilterType)) return false;
+
         // Only gain-dependent filter types collapse to pass-through at 0 dB.
         // LowPass/HighPass/BandPass/Notch still shape the signal regardless of gain.
         var type = band.FilterType.Value;

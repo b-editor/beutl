@@ -17,4 +17,11 @@ public interface ISceneSettingsService
     bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration);
 
     bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration, SpeakerLayout channelLayout);
+
+    bool Apply(
+        Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration, SpeakerLayout channelLayout, float masterVolume)
+    {
+        scene.MasterVolume.Value = masterVolume;
+        return Apply(scene, frameSize, start, duration, channelLayout);
+    }
 }

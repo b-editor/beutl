@@ -338,6 +338,15 @@
   <data name="Easing" xml:space="preserve">
     <value>이징</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>첫 번째 제어점 {0}, {1}. 두 번째 제어점 {2}, {3}.</value>
+  </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>첫 번째 제어점이 선택되어 있습니다.</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>두 번째 제어점이 선택되어 있습니다.</value>
+  </data>
   <data name="Hold" xml:space="preserve">
     <value>유지</value>
   </data>
@@ -445,6 +454,9 @@
   </data>
   <data name="Audio" xml:space="preserve">
     <value>오디오</value>
+  </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>마스터 볼륨 (%)</value>
   </data>
   <data name="Off" xml:space="preserve">
     <value>끄기</value>
@@ -1608,6 +1620,12 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>자막 파일</value>
+  </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>{0}에서 자막을 읽지 못했습니다.</value>
+  </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>{0}의 자막 중 일부를 읽을 수 없어 건너뛰었습니다.</value>
   </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>“{0}”을(를) 삭제할까요?</value>
@@ -3686,5 +3704,8 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>프로젝트 오디오 채널</value>
+  </data>
+  <data name="Paste_ProjectNotSaved" xml:space="preserve">
+    <value>클립을 붙여넣기 전에 프로젝트를 저장하세요.</value>
   </data>
 </root>

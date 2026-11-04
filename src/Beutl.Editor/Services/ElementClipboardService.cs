@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Collections.Immutable;
+using System.Text.Json.Nodes;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Language;
@@ -54,9 +55,58 @@ public sealed class ElementClipboardService : IElementClipboardService
             JsonNode multiNode = new JsonArray(
                 elements.Select(JsonNode (e) => CoreSerializer.SerializeToJsonObject(e)).ToArray());
             entries.Add(new ClipboardEntry(BeutlClipboardFormats.Elements, multiNode.ToJsonString()));
+            // A cut takes the clips out of their groups in the scene, and another scene never had them.
+            entries.Add(new ClipboardEntry(BeutlClipboardFormats.ElementGroups, SerializeGroups(elements)));
         }
 
         return await _clipboard.SetAsync(entries);
+    }
+
+    // The groups as far as the copied clips reach.
+    private static string SerializeGroups(IReadOnlyList<Element> elements)
+    {
+        var groups = new JsonArray();
+        if (elements[0].FindHierarchicalParent<Scene>() is { } scene)
+        {
+            var ids = new HashSet<Guid>(elements.Select(element => element.Id.Value));
+            foreach (ImmutableHashSet<Guid> group in scene.Groups)
+            {
+                string[] members = [.. group.Where(ids.Contains).Select(id => id.ToString())];
+                if (members.Length >= 2)
+                    groups.Add(new JsonArray([.. members.Select(id => (JsonNode)JsonValue.Create(id))]));
+            }
+        }
+
+        return groups.ToJsonString();
+    }
+
+    // Null when the clipboard has no groups that can be read, which leaves the groups of the scene to go by.
+    private static List<ImmutableHashSet<Guid>>? ParseGroups(string? json)
+    {
+        if (json is null || ClipboardJson.TryParse(json) is not JsonArray array) return null;
+
+        var groups = new List<ImmutableHashSet<Guid>>(array.Count);
+        foreach (JsonNode? node in array)
+        {
+            if (node is not JsonArray members) return null;
+
+            var group = ImmutableHashSet.CreateBuilder<Guid>();
+            foreach (JsonNode? member in members)
+            {
+                if (member is not JsonValue value
+                    || !value.TryGetValue(out string? text)
+                    || !Guid.TryParse(text, out Guid id))
+                {
+                    return null;
+                }
+
+                group.Add(id);
+            }
+
+            groups.Add(group.ToImmutable());
+        }
+
+        return groups;
     }
 
     public async Task<bool> CutAsync(Scene scene, IReadOnlyList<Element> elements, bool ripple = false)
@@ -118,12 +168,20 @@ public sealed class ElementClipboardService : IElementClipboardService
         return ElementPasteOutcome.Empty;
     }
 
+    private static ElementPasteOutcome Refused(ElementAddFailure failure) => new(false, default, 0, failure);
+
     private async Task<ElementPasteOutcome> PasteElementsAsync(Scene scene, MediaTime clickedFrame, int clickedLayer)
     {
+        if (scene.Uri is null)
+        {
+            s_logger.LogWarning("PasteElementsAsync skipped: scene has no Uri.");
+            return Refused(new ElementSceneNotSavedFailure());
+        }
+
         if (scene.IsLayerLocked(clickedLayer))
         {
             s_logger.LogWarning("PasteElementsAsync skipped: layer {Layer} is locked.", clickedLayer);
-            return ElementPasteOutcome.Empty;
+            return Refused(new LockedElementLayerFailure(clickedLayer));
         }
 
         string? json = await _clipboard.TryGetStringAsync(BeutlClipboardFormats.Elements);
@@ -133,11 +191,14 @@ public sealed class ElementClipboardService : IElementClipboardService
             return ElementPasteOutcome.Empty;
         }
 
+        List<ImmutableHashSet<Guid>>? groups =
+            ParseGroups(await _clipboard.TryGetStringAsync(BeutlClipboardFormats.ElementGroups));
+
         // Re-check after the awaited clipboard read: the layer may have been locked during the await.
         if (scene.IsLayerLocked(clickedLayer))
         {
             s_logger.LogWarning("PasteElementsAsync skipped: layer {Layer} was locked during paste.", clickedLayer);
-            return ElementPasteOutcome.Empty;
+            return Refused(new LockedElementLayerFailure(clickedLayer));
         }
 
         var oldElements = new Element[array.Count];
@@ -148,17 +209,18 @@ public sealed class ElementClipboardService : IElementClipboardService
             oldElements[i] = element;
         }
 
-        DuplicateOutcome outcome = _duplicateService.DuplicateAtClickedPosition(
-            scene, oldElements, clickedFrame, clickedLayer);
+        DuplicateOutcome outcome = groups is null
+            ? _duplicateService.DuplicateAtClickedPosition(scene, oldElements, clickedFrame, clickedLayer)
+            : _duplicateService.DuplicateAtClickedPosition(scene, oldElements, clickedFrame, clickedLayer, groups);
 
         if (!outcome.Success)
         {
-            // Log like the single-element / bitmap paths so a no-op
-            // multi-element paste is diagnosable (unsaved scene, staging I/O).
+            // Log like the single-element / bitmap paths so a refused
+            // multi-element paste is diagnosable (no free slot, staging I/O).
             s_logger.LogWarning(
                 "PasteElementsAsync skipped: DuplicateAtClickedPosition failed for {Count} element(s) at ({Frame}, layer {Layer}).",
                 oldElements.Length, clickedFrame, clickedLayer);
-            return ElementPasteOutcome.Empty;
+            return Refused(new InvalidElementMaterializationFailure("The pasted elements could not be duplicated."));
         }
 
         return new ElementPasteOutcome(
@@ -173,13 +235,13 @@ public sealed class ElementClipboardService : IElementClipboardService
         if (scene.Uri is null)
         {
             s_logger.LogWarning("PasteSingleElementAsync skipped: scene has no Uri.");
-            return ElementPasteOutcome.Empty;
+            return Refused(new ElementSceneNotSavedFailure());
         }
 
         if (scene.IsLayerLocked(clickedLayer))
         {
             s_logger.LogWarning("PasteSingleElementAsync skipped: layer {Layer} is locked.", clickedLayer);
-            return ElementPasteOutcome.Empty;
+            return Refused(new LockedElementLayerFailure(clickedLayer));
         }
 
         string? json = await _clipboard.TryGetStringAsync(BeutlClipboardFormats.Element);
@@ -190,7 +252,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         if (scene.IsLayerLocked(clickedLayer))
         {
             s_logger.LogWarning("PasteSingleElementAsync skipped: layer {Layer} was locked during paste.", clickedLayer);
-            return ElementPasteOutcome.Empty;
+            return Refused(new LockedElementLayerFailure(clickedLayer));
         }
 
         var oldElement = new Element();
@@ -239,13 +301,13 @@ public sealed class ElementClipboardService : IElementClipboardService
         if (scene.Uri is null)
         {
             s_logger.LogWarning("PasteBitmapAsync skipped: scene has no Uri.");
-            return ElementPasteOutcome.Empty;
+            return Refused(new ElementSceneNotSavedFailure());
         }
 
         if (scene.IsLayerLocked(clickedLayer))
         {
             s_logger.LogWarning("PasteBitmapAsync skipped: layer {Layer} is locked.", clickedLayer);
-            return ElementPasteOutcome.Empty;
+            return Refused(new LockedElementLayerFailure(clickedLayer));
         }
 
         ReadOnlyMemory<byte>? png = await _clipboard.TryGetBitmapPngAsync();
@@ -255,7 +317,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         if (scene.IsLayerLocked(clickedLayer))
         {
             s_logger.LogWarning("PasteBitmapAsync skipped: layer {Layer} was locked during paste.", clickedLayer);
-            return ElementPasteOutcome.Empty;
+            return Refused(new LockedElementLayerFailure(clickedLayer));
         }
 
         string dir = Path.GetDirectoryName(scene.Uri.LocalPath)!;
@@ -271,7 +333,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         {
             s_logger.LogWarning("PasteBitmapAsync skipped: layer {Layer} was locked during paste.", clickedLayer);
             DeleteOrphanResource(imageFile);
-            return ElementPasteOutcome.Empty;
+            return Refused(new LockedElementLayerFailure(clickedLayer));
         }
 
         var sourceImage = new SourceImage();
@@ -327,7 +389,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         if (anchor is null)
         {
             s_logger.LogWarning("AddPastedElement skipped: free-slot search was exhausted.");
-            return ElementPasteOutcome.Empty;
+            return Refused(new InvalidElementMaterializationFailure("No free slot was found for the pasted element."));
         }
 
         (MediaTime start, int zIndex) = anchor.Value;
@@ -338,7 +400,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         {
             s_logger.LogWarning(
                 "AddPastedElement skipped: free-slot search returned a locked layer {Layer}.", zIndex);
-            return ElementPasteOutcome.Empty;
+            return Refused(new LockedElementLayerFailure(zIndex));
         }
 
         newElement.Start.Value = start;

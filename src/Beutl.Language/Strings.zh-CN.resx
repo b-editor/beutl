@@ -338,6 +338,15 @@
   <data name="Easing" xml:space="preserve">
     <value>缓动</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>第一个控制点 {0}, {1}。第二个控制点 {2}, {3}。</value>
+  </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>已选择第一个控制点。</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>已选择第二个控制点。</value>
+  </data>
   <data name="Hold" xml:space="preserve">
     <value>保持</value>
   </data>
@@ -445,6 +454,9 @@
   </data>
   <data name="Audio" xml:space="preserve">
     <value>音频</value>
+  </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>主音量 (%)</value>
   </data>
   <data name="Off" xml:space="preserve">
     <value>关</value>
@@ -1608,6 +1620,12 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>字幕文件</value>
+  </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>无法从 {0} 读取字幕。</value>
+  </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>无法读取 {0} 中的部分字幕，已跳过。</value>
   </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>要删除“{0}”吗？</value>
@@ -3686,5 +3704,8 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>项目音频声道</value>
+  </data>
+  <data name="Paste_ProjectNotSaved" xml:space="preserve">
+    <value>粘贴剪辑之前请先保存项目。</value>
   </data>
 </root>
