@@ -57,6 +57,11 @@ public partial class Composer : IComposer
     // peaks that the parent gain could have brought back under full scale.
     internal bool ClampsToFullScale { get; init; } = true;
 
+    /// <summary>
+    /// The gain of the whole mix, applied before the master limiter. 1 leaves the mix as it is.
+    /// </summary>
+    public float MasterGain { get; set; } = 1f;
+
     public void Dispose()
     {
         if (!IsDisposed)
@@ -435,10 +440,17 @@ public partial class Composer : IComposer
 
     private void ApplyMasterEffects(AudioBuffer buffer)
     {
+        float gain = MasterGain;
         // Apply master limiter to prevent clipping
         for (int ch = 0; ch < buffer.ChannelCount; ch++)
         {
             var channelData = buffer.GetChannelData(ch);
+            if (gain != 1f)
+            {
+                foreach (ref float sample in channelData)
+                    sample *= gain;
+            }
+
             AudioMath.ApplyLimiter(channelData, 1.0f, 10.0f);
             // The limiter's soft ratio still lets a loud mix, such as a large gain or a delay fed back at
             // 100%, far past full scale, and it lets NaN through.

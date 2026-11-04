@@ -31,6 +31,9 @@ public partial class SceneSettingsTabView : UserControl
 
             countEditor.Bind(NumberEditor<int>.ValueProperty, viewModel.LayerCount.ToPropertyBinding(BindingMode.TwoWay))
                 .DisposeWith(_disposables);
+
+            masterVolumeEditor.Bind(NumberEditor<float>.ValueProperty, viewModel.MasterVolume.ToPropertyBinding(BindingMode.TwoWay))
+                .DisposeWith(_disposables);
         }
         else
         {

@@ -318,6 +318,20 @@ public class CompositionEvaluationServicesTests
     }
 
     [Test]
+    public void AudioQueriesFollowTheMasterVolume()
+    {
+        (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
+        Add(scene, new QuarterLevelSound(), 1);
+        scene.MasterVolume.Value = 50f;
+        using var compositor = new SceneCompositor(scene);
+        compositor.EvaluateGraphics(MediaTime.Zero);
+
+        using var audio = capture.Services!.ReadAudio(MediaTime.Zero, MediaTime.FromSeconds(0.01));
+
+        Assert.That(audio!.GetChannelData(0)[10], Is.EqualTo(0.125f).Within(0.0001f));
+    }
+
+    [Test]
     public void AudioQueriesReevaluateTheirSoundsInPlace()
     {
         (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();

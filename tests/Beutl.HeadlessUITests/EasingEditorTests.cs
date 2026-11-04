@@ -1,9 +1,14 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
@@ -11,6 +16,7 @@ using Beutl.Editor;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Engine;
+using Beutl.Language;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
 using Beutl.Testing.Headless;
@@ -22,7 +28,7 @@ namespace Beutl.HeadlessUITests;
 public sealed class EasingEditorTests
 {
     // EasingCurveEditor insets its plot so handles on the corners stay inside the bounds.
-    private const double PlotInset = 8;
+    private const double PlotInset = 12;
 
     [AvaloniaTest]
     [TestCase(EditorSurface.Property)]
@@ -568,6 +574,327 @@ public sealed class EasingEditorTests
         {
             window.Close();
         }
+    }
+
+    [AvaloniaTest]
+    public void The_arrow_keys_move_the_selected_control_point_as_one_history_entry_each()
+    {
+        var holder = new EasingHolder();
+        var original = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
+        holder.Curve.Value = original;
+        using var scope = new CurveEditorScope(holder, holder.Curve, height: 400);
+        Window window = scope.Window;
+        try
+        {
+            window.Show();
+            EasingCurveEditor curve = scope.Editor.GetVisualDescendants().OfType<EasingCurveEditor>().Single();
+            HeadlessTestHelpers.Render();
+
+            Assert.That(curve.Focus(NavigationMethod.Tab), Is.True);
+            Press(window, Key.Right, PhysicalKey.ArrowRight);
+            Press(window, Key.Up, PhysicalKey.ArrowUp, RawInputModifiers.Shift);
+            HeadlessTestHelpers.Settle();
+
+            var edited = (SplineEasing)holder.Curve.Value;
+            Assert.Multiple(() =>
+            {
+                Assert.That(edited.X1, Is.EqualTo(0.26f).Within(0.0001f));
+                Assert.That(edited.Y1, Is.EqualTo(0.2f).Within(0.0001f));
+                Assert.That(edited.X2, Is.EqualTo(0.25f));
+                Assert.That(edited.Y2, Is.EqualTo(1f));
+                Assert.That(original.X1, Is.EqualTo(0.25f), "The displayed spline must not be mutated.");
+                Assert.That(scope.History.UndoCount, Is.EqualTo(2));
+            });
+
+            Assert.That(scope.History.Undo(), Is.True);
+            Assert.That(scope.History.Undo(), Is.True);
+            HeadlessTestHelpers.Settle();
+            Assert.That(holder.Curve.Value, Is.SameAs(original));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void Tab_reaches_the_second_control_point_and_then_leaves_the_curve()
+    {
+        var spline = new SplineEasing(0.25f, 0.1f, 0.75f, 0.9f);
+        var curve = new EasingCurveEditor { Easing = spline };
+        var after = new Button { Content = "after" };
+        var window = new Window { Content = new StackPanel { Children = { curve, after } }, Width = 300, Height = 300 };
+        var edits = new List<SplineEasing>();
+        curve.Edited += (_, e) => edits.Add((SplineEasing)e.NewValue!);
+        curve.Editing += (_, e) => curve.Easing = e.NewValue;
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Assert.That(curve.Focus(NavigationMethod.Tab), Is.True);
+
+            Press(window, Key.Tab, PhysicalKey.Tab);
+            Assert.That(curve.IsFocused, Is.True);
+            HeadlessTestHelpers.Render();
+            HeadlessCapture.SaveIfRequested(window, nameof(EasingEditorTests), "keyboard-focus");
+            Press(window, Key.Left, PhysicalKey.ArrowLeft);
+            Assert.That(edits.Single().X2, Is.EqualTo(0.74f).Within(0.0001f));
+            Assert.That(edits.Single().X1, Is.EqualTo(0.25f));
+
+            Press(window, Key.Tab, PhysicalKey.Tab);
+            Assert.That(after.IsFocused, Is.True);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // A value column alone leaves too little plot to place a handle with any precision.
+    [AvaloniaTest]
+    [TestCase(PropertyEditorStyle.Normal)]
+    [TestCase(PropertyEditorStyle.Compact)]
+    public void The_curve_takes_the_whole_width_of_its_row(PropertyEditorStyle style)
+    {
+        var holder = new EasingHolder();
+        holder.Curve.Value = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
+        using var scope = new CurveEditorScope(holder, holder.Curve, height: 400);
+        scope.Editor.EditorStyle = style;
+        try
+        {
+            scope.Window.Show();
+            HeadlessTestHelpers.Render();
+
+            EasingCurveEditor curve = scope.Editor.GetVisualDescendants().OfType<EasingCurveEditor>().Single();
+            Assert.That(curve.Bounds.Width, Is.GreaterThanOrEqualTo(scope.Editor.Bounds.Width - 8));
+        }
+        finally
+        {
+            scope.Window.Close();
+        }
+    }
+
+    // A wide row's value column has room for the curve, which then lines up with the box that chooses the easing.
+    [AvaloniaTest]
+    public void The_curve_sits_under_its_box_in_a_wide_row()
+    {
+        var holder = new EasingHolder();
+        holder.Curve.Value = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
+        using var scope = new CurveEditorScope(holder, holder.Curve, height: 400);
+        scope.Window.Width = 700;
+        try
+        {
+            scope.Window.Show();
+            HeadlessTestHelpers.Render();
+
+            EasingCurveEditor curve = scope.Editor.GetVisualDescendants().OfType<EasingCurveEditor>().Single();
+            ComboBox box = scope.Editor.GetVisualDescendants().OfType<ComboBox>().Single();
+            double Left(Control control) => control.TranslatePoint(default, scope.Window)!.Value.X;
+            Assert.Multiple(() =>
+            {
+                Assert.That(Left(curve), Is.EqualTo(Left(box)).Within(0.5));
+                Assert.That(Left(curve) + curve.Bounds.Width, Is.EqualTo(Left(box) + box.Bounds.Width).Within(0.5));
+            });
+        }
+        finally
+        {
+            scope.Window.Close();
+        }
+    }
+
+    // A handle at the end of the range sits on the corner of the plot, where its ring must neither be cut off
+    // nor run under the focus border, which takes the outer 3 pixels when the curve is reached with Tab.
+    [AvaloniaTest]
+    public void The_focus_ring_stays_whole_on_the_corners_of_the_plot()
+    {
+        var curve = new EasingCurveEditor
+        {
+            Easing = new SplineEasing(0, -0.5f, 1, 1.5f),
+            Background = Brushes.Black,
+            GridBrush = Brushes.Black,
+            CurveBrush = Brushes.Black,
+            HandleBrush = Brushes.White,
+            FocusAdorner = null
+        };
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            Assert.That(curve.Focus(NavigationMethod.Tab), Is.True);
+            HeadlessTestHelpers.Render();
+            Assert.That(PixelsDrawnNearTheEdge(window, curve), Is.Empty);
+
+            Press(window, Key.Tab, PhysicalKey.Tab);
+            HeadlessTestHelpers.Render();
+            Assert.That(PixelsDrawnNearTheEdge(window, curve), Is.Empty);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static PixelPoint[] PixelsDrawnNearTheEdge(Window window, EasingCurveEditor curve)
+    {
+        using WriteableBitmap frame = window.CaptureRenderedFrame()!;
+        int width = (int)curve.Bounds.Width;
+        int height = (int)curve.Bounds.Height;
+        return
+        [
+            .. from y in Enumerable.Range(0, height)
+               from x in Enumerable.Range(0, width)
+               where Math.Min(Math.Min(x, width - 1 - x), Math.Min(y, height - 1 - y)) < 3
+               let point = new PixelPoint(x, y)
+               where HeadlessTestHelpers.ReadPixel(frame, point) != (0, 0, 0)
+               select point
+        ];
+    }
+
+    [AvaloniaTest]
+    public void The_arrow_keys_keep_X_inside_the_curve_and_let_Y_overshoot()
+    {
+        var curve = new EasingCurveEditor { Easing = new SplineEasing(0.05f, 0.95f, 0.75f, 0.9f) };
+        curve.Editing += (_, e) => curve.Easing = e.NewValue;
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Assert.That(curve.Focus(NavigationMethod.Tab), Is.True);
+
+            Press(window, Key.Left, PhysicalKey.ArrowLeft, RawInputModifiers.Shift);
+            Press(window, Key.Up, PhysicalKey.ArrowUp, RawInputModifiers.Shift);
+
+            var spline = (SplineEasing)curve.Easing!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(spline.X1, Is.Zero);
+                Assert.That(spline.Y1, Is.EqualTo(1.05f).Within(0.0001f));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Test]
+    public void Only_a_curve_with_handles_to_move_takes_focus()
+    {
+        var curve = new EasingCurveEditor();
+        Assert.That(curve.Focusable, Is.False);
+
+        curve.Easing = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
+        Assert.That(curve.Focusable, Is.True);
+
+        curve.IsReadOnly = true;
+        Assert.That(curve.Focusable, Is.False);
+    }
+
+    [AvaloniaTest]
+    public void Assistive_technology_hears_the_values_of_the_control_points()
+    {
+        var curve = new EasingCurveEditor { Easing = new SplineEasing(0.25f, 0.1f, 0.75f, 0.9f) };
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(curve);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(peer.GetName(), Is.EqualTo(Strings.Easing));
+                Assert.That(peer.GetHelpText(), Does.Contain(0.25f.ToString(CultureInfo.CurrentCulture)));
+                Assert.That(peer.GetHelpText(), Does.Contain(0.9f.ToString(CultureInfo.CurrentCulture)));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void Assistive_technology_hears_which_control_point_the_arrow_keys_move()
+    {
+        var curve = new EasingCurveEditor { Easing = new SplineEasing(0.25f, 0.1f, 0.75f, 0.9f) };
+        curve.Editing += (_, e) => curve.Easing = e.NewValue;
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(curve);
+            Assert.That(curve.Focus(NavigationMethod.Tab), Is.True);
+            Assert.That(peer.GetHelpText(), Does.StartWith(Strings.EasingCurve_FirstSelected));
+
+            var announced = new List<string?>();
+            peer.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == AutomationElementIdentifiers.HelpTextProperty)
+                    announced.Add(e.NewValue as string);
+            };
+
+            Press(window, Key.Tab, PhysicalKey.Tab);
+
+            Assert.That(peer.GetHelpText(), Does.StartWith(Strings.EasingCurve_SecondSelected));
+            Assert.That(announced, Is.EqualTo(new[] { peer.GetHelpText() }));
+
+            Press(window, Key.Up, PhysicalKey.ArrowUp);
+
+            Assert.That(announced, Has.Count.EqualTo(2), "the values changed");
+            Assert.That(announced[1], Is.EqualTo(peer.GetHelpText()));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void Assistive_technology_hears_changes_that_do_not_come_from_the_keyboard()
+    {
+        var spline = new SplineEasing(0.25f, 0.1f, 0.75f, 0.9f);
+        var curve = new EasingCurveEditor { Easing = spline };
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(curve);
+            var announced = new List<string?>();
+            peer.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == AutomationElementIdentifiers.HelpTextProperty)
+                    announced.Add(e.NewValue as string);
+            };
+
+            spline.X1 = 0.5f;
+            Assert.That(announced, Has.Count.EqualTo(1), "the spline changed in place");
+            Assert.That(announced[^1], Is.EqualTo(peer.GetHelpText()));
+
+            curve.Easing = spline = new SplineEasing(0.3f, 0.2f, 0.6f, 0.8f);
+            Assert.That(announced, Has.Count.EqualTo(2), "another spline took its place");
+            Assert.That(announced[^1], Is.EqualTo(peer.GetHelpText()));
+
+            Point handle = ToWindow(window, curve, 0.6, 0.8);
+            TimelineTestHost.WaitForHitTest(window, curve, handle);
+            window.MouseMove(handle);
+            window.MouseDown(handle, MouseButton.Left);
+            window.MouseUp(handle, MouseButton.Left);
+            // The press focuses the curve first, which selects the first handle on the way.
+            Assert.That(announced[^1], Does.StartWith(Strings.EasingCurve_SecondSelected), "a press selected a handle");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static void Press(Window window, Key key, PhysicalKey physical, RawInputModifiers modifiers = RawInputModifiers.None)
+    {
+        window.KeyPress(key, modifiers, physical, null);
+        window.KeyRelease(key, modifiers, physical, null);
     }
 
     [AvaloniaTest]
