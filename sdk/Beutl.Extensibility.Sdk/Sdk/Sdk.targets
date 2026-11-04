@@ -35,6 +35,17 @@
 
   <Import Project="$(MSBuildThisFileDirectory)AutoReferences.targets" />
 
+  <!-- HostPackages.targets, generated when the SDK is packed, turns a BeutlHostPackageReference into a compile-only reference at the version Beutl ships. -->
+  <Import Project="$(MSBuildThisFileDirectory)HostPackages.targets" />
+
+  <Target Name="_CheckBeutlHostPackageReferences" BeforeTargets="CollectPackageReferences" Condition="'@(BeutlHostPackageReference)' != ''">
+    <ItemGroup>
+      <_UnknownBeutlHostPackage Include="@(BeutlHostPackageReference)" Exclude="@(_BeutlHostPackage)" />
+    </ItemGroup>
+    <Error Condition="'@(_UnknownBeutlHostPackage)' != ''"
+           Text="BeutlHostPackageReference names a library this Beutl does not ship: @(_UnknownBeutlHostPackage, ', '). Use PackageReference for a library of the extension's own." />
+  </Target>
+
   <PropertyGroup>
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
   </PropertyGroup>
