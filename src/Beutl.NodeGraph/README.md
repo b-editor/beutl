@@ -30,10 +30,18 @@ the original type is restored. Bulk list edits publish port changes together; co
 ## Shader nodes
 
 `Nodes/Shaders` exposes `ShaderGraphBuilder` as a graph. A wire carries a `ShaderGraphValue<T>`: a recipe that
-declares a resource and the passes writing it, evaluated when a `ShaderApplyNode` records. Evaluating a value
-evaluates what it reads, so connections alone decide what runs and in which order, and a node nothing reaches
-records nothing. A write in place comes out as a new value; read that one to see the write.
+declares a resource and the passes writing it. Evaluating a value evaluates what it reads, so connections alone
+decide what runs and in which order, and a node nothing reaches records nothing. A write in place comes out as a new
+value; read that one to see the write.
 
+- **Pictures and image wires become each other at the connection.** Where an image output meets an input of pictures,
+  such as **Graph output**, `GraphSnapshot` keeps a `ShaderGraphPicture` for that output, which records what the wire
+  reaches and runs it. Where a picture meets an image input, the recording reads it into an image. Each output that
+  ends in a picture is one recording of its own, and a picture between two passes splits them into two recordings.
+  Both show as a conversion on the wire. The boundary is linear premultiplied; **Convert color** handles anything else.
+- **The first picture read is the source.** It decides what the output covers, and a picture in several pieces is run
+  piece by piece. In an effect, its input takes that place whenever it is read. Any other picture lines up with the
+  source and is cut to what the source covers. A sampler left unconnected reads the source.
 - **One pass is one node.** A pass compiles its GLSL with `ShaderAuthoringInterface` and shows the declarations as
   ports: samplers, images and buffers as wires, block members and specialization constants as values, what it writes
   as outputs. Saved ports come back without compiling; code that fails to compile keeps its ports and connections.
@@ -48,8 +56,9 @@ records nothing. A write in place comes out as a new value; read that one to see
   body builds wire values, so recording visits iterations in order and a long replay cannot overflow the stack.
   A pass's padding adds to what it reads, so padding inside a loop grows with every iteration; pad before the loop.
 - **Failures stay on the node.** Recording and validation run during evaluation, so the message appears on the pass
-  and on the apply node. What only the device can refuse, such as a stage it lacks or an image too large, reaches the
-  apply node when the graph runs. Either way that graph draws nothing while the rest of the frame renders.
+  that failed and on the node whose output became the picture. What only the device can refuse, such as a stage it
+  lacks or an image too large, reaches that node when the graph runs. Either way the wire turns red, that graph draws
+  nothing, and the rest of the frame renders.
 
 ## Mandatory rules
 

@@ -58,20 +58,16 @@ public class ShaderGraphEditorTests
             GraphModel graph = ((NodeGraphDrawable)scene.Children.Single().Objects.Single()).Model.Value!;
             var pass = new ShaderFullscreenPassNode();
             var second = new ShaderFullscreenPassNode();
-            var apply = new ShaderApplyNode();
             var output = new OutputNode();
             graph.Nodes.Add(pass);
             graph.Nodes.Add(second);
-            graph.Nodes.Add(apply);
             graph.Nodes.Add(output);
             pass.Code.Value = BlurCode;
             pass.Position.Value = (20, 20);
             second.Position.Value = (440, 20);
-            apply.Position.Value = (860, 20);
-            output.Position.Value = (1120, 20);
+            output.Position.Value = (860, 20);
             graph.Connect(In(second, "source"), Out(pass, "color"));
-            graph.Connect(apply.Image, Out(second, "color"));
-            graph.Connect(output.InputPort, apply.Items.OfType<IOutputPort>().Single());
+            graph.Connect(output.InputPort, Out(second, "color"));
             editor.HistoryManager.Commit("Create shader graph");
             using var model = new NodeGraphTabViewModel(editor);
             model.Model.Value = graph;
@@ -146,7 +142,8 @@ public class ShaderGraphEditorTests
             HeadlessTestHelpers.Render(3);
             await WaitForNodes(view);
             string?[] inner = [.. view.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text)];
-            Assert.That(inner, Does.Contain("反復番号").And.Contain("経過時間").And.Contain("反復の入力").And.Contain("反復の出力"));
+            // Port labels only: a node's title keeps the language the app started in.
+            Assert.That(inner, Does.Contain("反復番号").And.Contain("経過時間").And.Contain("画像"));
             HeadlessCapture.SaveIfRequested(view, "shader-graph", "replay-inside-ja");
         }
         finally

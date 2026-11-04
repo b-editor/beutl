@@ -6,6 +6,7 @@ using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
+using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Shaders;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using SkiaSharp;
@@ -32,7 +33,7 @@ internal static class ShaderNodeTestHelpers
     public static IInputPort NamedInput(this GraphNode node, string name)
         => (IInputPort)node.Items.Single(item => item is IInputPort && item.Name.Value == name);
 
-    /// <summary>Records what the only apply node of <paramref name="graph"/> would hand to the renderer.</summary>
+    /// <summary>Records what the only graph output of <paramref name="graph"/> would hand to the renderer.</summary>
     public static ShaderGraphDescription Record(GraphModel graph)
     {
         using var snapshot = new GraphSnapshot();
@@ -43,12 +44,17 @@ internal static class ShaderNodeTestHelpers
 
     public static ShaderGraphDescription Record(GraphModel graph, GraphSnapshot snapshot)
     {
-        ShaderApplyNode apply = graph.Nodes.OfType<ShaderApplyNode>().Single();
-        Assert.That(apply.Error.Value, Is.Null);
-        int slot = snapshot.FindSlotIndex(apply);
-        var image = (ShaderGraphValue<ShaderImage>)snapshot.GetItemValue(slot, apply.Items.IndexOf(apply.Image))!.GetBoxed()!;
-        var color = (ColorEncoding)snapshot.GetItemValue(slot, apply.Items.IndexOf(apply.Color))!.GetBoxed()!;
-        return ShaderGraphRecordingContext.Build(image, color);
+        ShaderGraphDescription? description = Picture(graph, snapshot)?.Description;
+        Assert.That(description, Is.Not.Null, "Recording failed.");
+        return description!;
+    }
+
+    /// <summary>What the only graph output of <paramref name="graph"/> received.</summary>
+    public static ShaderGraphRenderNode? Picture(GraphModel graph, GraphSnapshot snapshot)
+    {
+        OutputNode output = graph.Nodes.OfType<OutputNode>().Single();
+        return snapshot.GetItemValue(snapshot.FindSlotIndex(output), output.Items.IndexOf(output.InputPort))!.GetBoxed()
+            as ShaderGraphRenderNode;
     }
 
     public static ushort[] Render(ShaderGraphDescription graph, float scale)

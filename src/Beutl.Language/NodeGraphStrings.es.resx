@@ -66,15 +66,6 @@
   <data name="ShaderExtendedRenderPassNode" xml:space="preserve">
     <value>Pasada de renderizado con geometría y teselación (GLSL)</value>
   </data>
-  <data name="ShaderSourceNode" xml:space="preserve">
-    <value>Imagen de origen</value>
-  </data>
-  <data name="ShaderPictureNode" xml:space="preserve">
-    <value>Imagen desde dibujo</value>
-  </data>
-  <data name="ShaderApplyNode" xml:space="preserve">
-    <value>Aplicar sombreador</value>
-  </data>
   <data name="ShaderImageNode" xml:space="preserve">
     <value>Imagen</value>
   </data>
@@ -245,9 +236,6 @@
   </data>
   <data name="ShaderPort_Color" xml:space="preserve">
     <value>Color</value>
-  </data>
-  <data name="ShaderPort_ColorEncoding" xml:space="preserve">
-    <value>Codificación de color</value>
   </data>
   <data name="ShaderPort_ColorOperation" xml:space="preserve">
     <value>Operación de color</value>

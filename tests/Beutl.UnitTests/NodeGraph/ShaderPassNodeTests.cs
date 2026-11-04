@@ -218,10 +218,10 @@ public class ShaderPassNodeTests
     public void ACopiedGraphKeepsTheConnectionsOfGeneratedPorts()
     {
         var graph = new GraphModel();
-        var source = graph.Add(new ShaderSourceNode());
+        var source = graph.Add(new ShaderImageNode());
         var first = graph.Add(new ShaderFullscreenPassNode());
         var second = graph.Add(new ShaderFullscreenPassNode());
-        graph.Connect(first.In("source"), source.Image);
+        graph.Connect(first.In("source"), source.Output);
         graph.Connect(second.In("source"), first.Out("color"));
 
         var restored = new GraphModel();

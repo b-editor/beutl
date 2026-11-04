@@ -11,7 +11,7 @@ public sealed partial class RenderNodeContext
 
     /// <summary>Records a graph over the input, with the pictures it declared besides the source.</summary>
     /// <param name="externalImages">One value-eligible fragment per <see cref="ShaderGraphBuilder.ExternalImage"/>, in that order.</param>
-    public RenderFragmentHandle ShaderGraph(RenderFragmentHandle input, ShaderGraphDescription description,
+    internal RenderFragmentHandle ShaderGraph(RenderFragmentHandle input, ShaderGraphDescription description,
         IReadOnlyList<RenderFragmentHandle> externalImages)
     {
         ArgumentNullException.ThrowIfNull(externalImages);

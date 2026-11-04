@@ -66,15 +66,6 @@
   <data name="ShaderExtendedRenderPassNode" xml:space="preserve">
     <value>ジオメトリ・テッセレーション付き描画パス (GLSL)</value>
   </data>
-  <data name="ShaderSourceNode" xml:space="preserve">
-    <value>入力画像</value>
-  </data>
-  <data name="ShaderPictureNode" xml:space="preserve">
-    <value>描画を画像に</value>
-  </data>
-  <data name="ShaderApplyNode" xml:space="preserve">
-    <value>シェーダーを適用</value>
-  </data>
   <data name="ShaderImageNode" xml:space="preserve">
     <value>画像</value>
   </data>
@@ -245,9 +236,6 @@
   </data>
   <data name="ShaderPort_Color" xml:space="preserve">
     <value>色</value>
-  </data>
-  <data name="ShaderPort_ColorEncoding" xml:space="preserve">
-    <value>色の解釈</value>
   </data>
   <data name="ShaderPort_ColorOperation" xml:space="preserve">
     <value>色の演算</value>

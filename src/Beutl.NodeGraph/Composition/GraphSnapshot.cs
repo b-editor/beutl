@@ -22,6 +22,7 @@ public sealed class GraphSnapshot : IDisposable
     private readonly Dictionary<(int, int), List<int>> _outputConnectionMap = new();
     private readonly Dictionary<(int, int), List<int>> _inputConnectionMap = new();
     private readonly HashSet<(int, int)> _connectedInputs = [];
+    private readonly Dictionary<(int, int), OutputPicture> _outputPictures = new();
     private bool _isDirty = true;
     private int _resourceCount;
     private int _initializedResourceCount;
@@ -433,6 +434,12 @@ public sealed class GraphSnapshot : IDisposable
                     result.Add(typed.GetValue());
                     _statuses[connIdx] = ConnectionStatus.Success;
                 }
+                else if (typeof(T).IsAssignableFrom(typeof(RenderNode))
+                         && GetOutputPicture(conn.OutputSlotIndex, conn.OutputItemIndex) is { } picture)
+                {
+                    result.Add((T?)(object?)picture.Value.Value);
+                    _statuses[connIdx] = picture.Status;
+                }
                 else if (outputValue.GetBoxed() is T unboxed)
                 {
                     result.Add(unboxed);
@@ -490,13 +497,22 @@ public sealed class GraphSnapshot : IDisposable
                 ref var conn = ref _connections[ci];
                 IItemValue inputValue = _resources[conn.InputSlotIndex].ItemValues[conn.InputItemIndex];
 
-                var propagateResult = inputValue.PropagateFrom(outputValue);
-                _statuses[ci] = propagateResult switch
+                if (TakesPictures(conn.InputSlotIndex, inputValue)
+                    && GetOutputPicture(resource.SlotIndex, itemIdx) is { } picture)
                 {
-                    PropagateResult.Success => ConnectionStatus.Success,
-                    PropagateResult.Converted => ConnectionStatus.Convert,
-                    _ => ConnectionStatus.Error
-                };
+                    inputValue.PropagateFrom(picture.Value);
+                    _statuses[ci] = picture.Status;
+                }
+                else
+                {
+                    var propagateResult = inputValue.PropagateFrom(outputValue);
+                    _statuses[ci] = propagateResult switch
+                    {
+                        PropagateResult.Success => ConnectionStatus.Success,
+                        PropagateResult.Converted => ConnectionStatus.Convert,
+                        _ => ConnectionStatus.Error
+                    };
+                }
 
                 if (conn is { OriginalConnection.Input.Value.Value: IEnginePropertyBackedInputPort inputNodePort })
                 {
@@ -504,6 +520,49 @@ public sealed class GraphSnapshot : IDisposable
                 }
             }
         }
+    }
+
+    // A graph's output takes any object, and only ever keeps a picture.
+    private bool TakesPictures(int inputSlot, IItemValue input)
+        => input is IReadOnlyItemValue<RenderNode> || _resources[inputSlot].RequireOriginal() is OutputNode;
+
+    // The picture form of an output, shared by all that read it, or null when its value has none.
+    private OutputPicture? GetOutputPicture(int slot, int item)
+    {
+        object? wire = _resources[slot].ItemValues[item].GetBoxed();
+        if (wire is not (null or IPictureWire)) return null;
+
+        if (wire is not IPictureWire pictureWire)
+        {
+            // An output that made a picture and now carries nothing takes it away again.
+            if (!_outputPictures.TryGetValue((slot, item), out OutputPicture? previous)) return null;
+            previous.Wire = null;
+            previous.Value.Value = null;
+            return previous;
+        }
+
+        if (!_outputPictures.TryGetValue((slot, item), out OutputPicture? picture))
+            _outputPictures.Add((slot, item), picture = new OutputPicture());
+
+        if (!ReferenceEquals(picture.Wire, wire))
+        {
+            if (!pictureWire.UpdatePicture(ref picture.Form, _resources[slot].RequireOriginal(), _contexts[slot]))
+                return null;
+
+            picture.Wire = wire;
+            picture.Value.Value = picture.Form?.RenderNode;
+        }
+
+        return picture;
+    }
+
+    private sealed class OutputPicture
+    {
+        public IWirePicture? Form;
+        public object? Wire;
+        public readonly ItemValue<RenderNode?> Value = new();
+
+        public ConnectionStatus Status => Form?.HasFailed == true ? ConnectionStatus.Error : ConnectionStatus.Convert;
     }
 
     private void PostChangedStatuses()
@@ -575,6 +634,8 @@ public sealed class GraphSnapshot : IDisposable
         _outputConnectionMap.Clear();
         _connectedInputs.Clear();
         _inputConnectionMap.Clear();
+        OutputPicture[] outputPictures = [.. _outputPictures.Values];
+        _outputPictures.Clear();
 
         for (int i = 0; i < resourceCount; i++)
         {
@@ -601,6 +662,18 @@ public sealed class GraphSnapshot : IDisposable
             }
 
             DisposeItemValues(resource.ItemValues, resource.ItemValues.Length, ref failure);
+        }
+
+        foreach (OutputPicture picture in outputPictures)
+        {
+            try
+            {
+                picture.Form?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ExceptionDispatchInfo.Capture(ex);
+            }
         }
 
         failure?.Throw();

@@ -2,6 +2,8 @@
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using Beutl.Language;
+using Beutl.NodeGraph.Composition;
+using Beutl.NodeGraph.Nodes;
 
 namespace Beutl.NodeGraph.Nodes.Shaders;
 
@@ -18,7 +20,7 @@ internal interface IShaderGraphValue
 /// <remarks>Evaluating a value evaluates the wires it depends on first, so the connections decide what is
 /// recorded and in which order, and a value nothing reaches records nothing. A resource written in place
 /// comes out of the writing node as a new value; read that one to see the write.</remarks>
-public class ShaderGraphValue<T> : IShaderGraphValue
+public class ShaderGraphValue<T> : IShaderGraphValue, IPictureWire
 {
     private readonly Func<ShaderGraphRecordingContext, T> _record;
 
@@ -41,6 +43,16 @@ public class ShaderGraphValue<T> : IShaderGraphValue
                 prerequisite.Record(context);
             return context.Evaluate(this);
         });
+
+    bool IPictureWire.UpdatePicture(ref IWirePicture? picture, GraphNode owner, GraphCompositionContext context)
+    {
+        if (this is not ShaderGraphValue<ShaderImage> image) return false;
+
+        var form = picture as ShaderGraphPicture ?? new ShaderGraphPicture();
+        picture = form;
+        form.Update(image, owner, context);
+        return true;
+    }
 }
 
 /// <summary>An image wire that also says how the pass reading it samples it.</summary>
@@ -71,32 +83,50 @@ public sealed class ShaderImageParametersValue(ShaderGraphValue<ShaderImage> ima
     public ShaderGraphValue<ShaderImage> Image { get; } = image;
 }
 
-/// <summary>One recording of the wires reaching a <see cref="ShaderApplyNode"/>.</summary>
+/// <summary>One recording of the wires reaching a picture.</summary>
 public sealed class ShaderGraphRecordingContext
 {
     private readonly Dictionary<object, object?> _values = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<object> _recording = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, int> _names = new(StringComparer.Ordinal);
-    private readonly Dictionary<RenderNode, ShaderImage> _externalImages = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<RenderNode, ShaderImage> _pictures = new(ReferenceEqualityComparer.Instance);
+    private readonly List<RenderNode> _externals = [];
+    private readonly RenderNode? _preferredSource;
+    private RenderNode? _source;
 
     public ShaderGraphRecordingContext(ShaderGraphBuilder builder)
+        : this(builder, null)
+    {
+    }
+
+    private ShaderGraphRecordingContext(ShaderGraphBuilder builder, RenderNode? preferredSource)
     {
         ArgumentNullException.ThrowIfNull(builder);
         Builder = builder;
+        _preferredSource = preferredSource;
     }
 
     public ShaderGraphBuilder Builder { get; }
 
-    /// <summary>The pictures the graph reads besides the source, in the order it declared them.</summary>
-    internal IReadOnlyCollection<RenderNode> ExternalImages => _externalImages.Keys;
-
     /// <summary>The image holding what <paramref name="node"/> renders, one however often it is read.</summary>
-    internal ShaderImage ExternalImage(RenderNode node)
+    /// <remarks>The first picture read is the graph's source, which decides what it covers and is run over piece by
+    /// piece. Any other lines up with it, and is cut to what it covers.</remarks>
+    internal ShaderImage Picture(RenderNode node)
     {
-        if (!_externalImages.TryGetValue(node, out ShaderImage? image))
+        if (!_pictures.TryGetValue(node, out ShaderImage? image))
         {
-            image = Builder.ExternalImage(UniqueName("External"));
-            _externalImages.Add(node, image);
+            if (_source == null && (_preferredSource == null || ReferenceEquals(node, _preferredSource)))
+            {
+                _source = node;
+                image = Builder.Source;
+            }
+            else
+            {
+                image = Builder.ExternalImage(UniqueName("Picture"));
+                _externals.Add(node);
+            }
+
+            _pictures.Add(node, image);
         }
 
         return image;
@@ -134,20 +164,31 @@ public sealed class ShaderGraphRecordingContext
             ? throw new InvalidOperationException(string.Format(NodeGraphStrings.ShaderError_NotConnected, portName))
             : Evaluate(value);
 
-    internal static ShaderGraphDescription Build(ShaderGraphValue<ShaderImage> image, ColorEncoding color)
-        => Build(image, color, out _);
+    internal static ShaderGraphDescription Build(ShaderGraphValue<ShaderImage> image)
+        => Build(image, out _, out _);
 
-    internal static ShaderGraphDescription Build(ShaderGraphValue<ShaderImage> image, ColorEncoding color,
-        out IReadOnlyList<RenderNode> externalImages)
+    internal static ShaderGraphDescription Build(ShaderGraphValue<ShaderImage> image, out RenderNode? source,
+        out IReadOnlyList<RenderNode> externals)
+    {
+        ShaderGraphDescription description = Record(image, null, out source, out externals);
+        // An effect covers what it was given, whichever picture its code happens to read first.
+        return externals.OfType<FilterEffectInputRenderNode>().FirstOrDefault() is { } input
+            ? Record(image, input, out source, out externals)
+            : description;
+    }
+
+    private static ShaderGraphDescription Record(ShaderGraphValue<ShaderImage> image, RenderNode? preferredSource,
+        out RenderNode? source, out IReadOnlyList<RenderNode> externals)
     {
         ArgumentNullException.ThrowIfNull(image);
         ShaderGraphRecordingContext? recording = null;
-        ShaderGraphDescription description = ShaderGraphBuilder.Build((Image: image, Color: color), (builder, state) =>
+        ShaderGraphDescription description = ShaderGraphBuilder.Build((Image: image, Source: preferredSource), (builder, state) =>
         {
-            recording = new ShaderGraphRecordingContext(builder);
-            return builder.Output(recording.Evaluate(state.Image), state.Color);
+            recording = new ShaderGraphRecordingContext(builder, state.Source);
+            return builder.Output(recording.Evaluate(state.Image));
         });
-        externalImages = [.. recording!.ExternalImages];
+        source = recording!._source;
+        externals = recording._externals;
         return description;
     }
 }

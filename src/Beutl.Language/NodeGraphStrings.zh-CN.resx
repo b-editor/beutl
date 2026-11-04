@@ -66,15 +66,6 @@
   <data name="ShaderExtendedRenderPassNode" xml:space="preserve">
     <value>带几何与曲面细分的渲染通道 (GLSL)</value>
   </data>
-  <data name="ShaderSourceNode" xml:space="preserve">
-    <value>输入图像</value>
-  </data>
-  <data name="ShaderPictureNode" xml:space="preserve">
-    <value>画面转图像</value>
-  </data>
-  <data name="ShaderApplyNode" xml:space="preserve">
-    <value>应用着色器</value>
-  </data>
   <data name="ShaderImageNode" xml:space="preserve">
     <value>图像</value>
   </data>
@@ -245,9 +236,6 @@
   </data>
   <data name="ShaderPort_Color" xml:space="preserve">
     <value>颜色</value>
-  </data>
-  <data name="ShaderPort_ColorEncoding" xml:space="preserve">
-    <value>颜色编码</value>
   </data>
   <data name="ShaderPort_ColorOperation" xml:space="preserve">
     <value>颜色运算</value>

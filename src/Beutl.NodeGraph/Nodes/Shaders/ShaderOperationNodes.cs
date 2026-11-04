@@ -7,7 +7,7 @@ using Beutl.NodeGraph.Composition;
 namespace Beutl.NodeGraph.Nodes.Shaders;
 
 /// <summary>Fills an image with a color, or a depth image with a depth and stencil value.</summary>
-public partial class ShaderClearImageNode : GraphNode
+public partial class ShaderClearImageNode : ShaderImageProducerNode
 {
     public ShaderClearImageNode()
     {
@@ -17,6 +17,7 @@ public partial class ShaderClearImageNode : GraphNode
         Depth = AddInput<float>("Depth", NodePortDisplays.Depth);
         Depth.Property?.SetValue(1f);
         Stencil = AddInput<uint>("Stencil", ShaderPortDisplays.Get("Stencil"));
+        AddErrorMonitor();
     }
 
     public OutputPort<ShaderGraphValue<ShaderImage>> Output { get; }
@@ -80,13 +81,14 @@ public partial class ShaderClearBufferNode : GraphNode
 }
 
 /// <summary>Copies an image into another of the same size and format.</summary>
-public partial class ShaderCopyImageNode : GraphNode
+public partial class ShaderCopyImageNode : ShaderImageProducerNode
 {
     public ShaderCopyImageNode()
     {
         Output = AddOutput<ShaderGraphValue<ShaderImage>>("Output", NodePortDisplays.Output);
         Source = AddInput<ShaderGraphValue<ShaderImage>>("Source", ShaderPortDisplays.Get("Source"));
         Destination = AddInput<ShaderGraphValue<ShaderImage>>("Destination", ShaderPortDisplays.Get("Destination"));
+        AddErrorMonitor();
     }
 
     public OutputPort<ShaderGraphValue<ShaderImage>> Output { get; }
@@ -144,7 +146,7 @@ public partial class ShaderCopyBufferNode : GraphNode
 }
 
 /// <summary>Builds an image's remaining mip levels from its first.</summary>
-public partial class ShaderGenerateMipmapsNode : GraphNode
+public partial class ShaderGenerateMipmapsNode : ShaderImageProducerNode
 {
     public ShaderGenerateMipmapsNode()
     {
@@ -152,6 +154,7 @@ public partial class ShaderGenerateMipmapsNode : GraphNode
         Image = AddInput<ShaderGraphValue<ShaderImage>>("Image", ShaderPortDisplays.Get("Image"));
         Filter = AddInput<SamplerFilter>("Filter", ShaderPortDisplays.Get("Filter"));
         Filter.Property?.SetValue(SamplerFilter.Linear);
+        AddErrorMonitor();
     }
 
     public OutputPort<ShaderGraphValue<ShaderImage>> Output { get; }
@@ -176,7 +179,7 @@ public partial class ShaderGenerateMipmapsNode : GraphNode
 }
 
 /// <summary>Converts an image between color encodings; with nothing connected, the source image.</summary>
-public partial class ShaderConvertColorNode : GraphNode
+public partial class ShaderConvertColorNode : ShaderImageProducerNode
 {
     public ShaderConvertColorNode()
     {
@@ -185,6 +188,7 @@ public partial class ShaderConvertColorNode : GraphNode
         From = AddInput<ColorEncoding>("From", ShaderPortDisplays.Get("From"));
         To = AddInput<ColorEncoding>("To", ShaderPortDisplays.Get("To"));
         To.Property?.SetValue(ColorEncoding.SrgbStraight);
+        AddErrorMonitor();
     }
 
     public OutputPort<ShaderGraphValue<ShaderImage>> Output { get; }

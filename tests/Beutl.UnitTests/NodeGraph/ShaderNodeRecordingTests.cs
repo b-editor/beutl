@@ -3,7 +3,9 @@ using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Shaders;
 using Beutl.NodeGraph;
+using Beutl.Graphics.Rendering;
 using Beutl.NodeGraph.Composition;
+using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Shaders;
 
 namespace Beutl.UnitTests.NodeGraph;
@@ -11,25 +13,25 @@ namespace Beutl.UnitTests.NodeGraph;
 /// <summary>What the wires record. None of this needs a GPU.</summary>
 public class ShaderNodeRecordingTests
 {
-    private static (GraphModel Graph, ShaderApplyNode Apply) NewGraph()
+    private static (GraphModel Graph, OutputNode Output) NewGraph()
     {
         var graph = new GraphModel();
-        return (graph, graph.Add(new ShaderApplyNode()));
+        return (graph, graph.Add(new OutputNode()));
     }
 
-    private static ShaderApplyNode.Resource? Evaluate(GraphModel graph, GraphSnapshot snapshot)
+    private static ShaderGraphRenderNode Evaluate(GraphModel graph, GraphSnapshot snapshot)
     {
         snapshot.Build(graph, CompositionContext.Default);
         snapshot.Evaluate(CompositionContext.Default);
-        return snapshot.GetResource(snapshot.FindSlotIndex(graph.Nodes.OfType<ShaderApplyNode>().Single())) as ShaderApplyNode.Resource;
+        return ShaderNodeTestHelpers.Picture(graph, snapshot)!;
     }
 
     [Test]
     public void OnePassIsAllAFilterNeeds()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var pass = graph.Add(new ShaderFullscreenPassNode());
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(output.InputPort, pass.Out("color"));
 
         ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
 
@@ -42,7 +44,7 @@ public class ShaderNodeRecordingTests
     [Test]
     public void TheWiresDecideWhatRunsAndInWhichOrder()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var last = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "last" } });
         var first = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "first" } });
         var unused = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "unused" } });
@@ -57,7 +59,7 @@ public class ShaderNodeRecordingTests
             """;
         graph.Connect(last.In("source"), first.Out("color"));
         graph.Connect(last.In("mask"), mask.Out("result"));
-        graph.Connect(apply.Image, last.Out("color"));
+        graph.Connect(output.InputPort, last.Out("color"));
 
         ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
 
@@ -68,7 +70,7 @@ public class ShaderNodeRecordingTests
     [Test]
     public void ABranchReadByTwoPassesRunsOnce()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var shared = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "shared" } });
         var left = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "left" } });
         var right = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "right" } });
@@ -85,7 +87,7 @@ public class ShaderNodeRecordingTests
         graph.Connect(right.In("source"), shared.Out("color"));
         graph.Connect(merge.In("a"), left.Out("color"));
         graph.Connect(merge.In("b"), right.Out("color"));
-        graph.Connect(apply.Image, merge.Out("color"));
+        graph.Connect(output.InputPort, merge.Out("color"));
 
         Assert.That(ShaderNodeTestHelpers.Record(graph).PassNames, Is.EqualTo(new[] { "shared", "left", "right", "merge" }));
     }
@@ -93,7 +95,7 @@ public class ShaderNodeRecordingTests
     [Test]
     public void AWriteToAConnectedImageComesOutAsTheSameImage()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var image = graph.Add(new ShaderImageNode());
         var first = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "first" } });
         graph.Connect(first.Targets, image.Output);
@@ -101,7 +103,7 @@ public class ShaderNodeRecordingTests
         graph.Connect(second.Targets, first.Out("color"));
         var blend = graph.Add(new ShaderBlendNode());
         graph.Connect(second.Settings, blend.Output);
-        graph.Connect(apply.Image, second.Out("color"));
+        graph.Connect(output.InputPort, second.Out("color"));
 
         ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
 
@@ -113,9 +115,9 @@ public class ShaderNodeRecordingTests
     [Test]
     public void ANewOutputStartsClearAndAFreshTargetIsKnownToBeEmpty()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var pass = graph.Add(new ShaderFullscreenPassNode());
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(output.InputPort, pass.Out("color"));
         Assert.That(ShaderNodeTestHelpers.Record(graph).Passes.Single().Attachments.Single().Load, Is.EqualTo(AttachmentLoadOp.Clear));
 
         var image = graph.Add(new ShaderImageNode());
@@ -133,7 +135,7 @@ public class ShaderNodeRecordingTests
     [Test]
     public void AnOutputWithoutATargetIsClearedWhenItsPartnerKeepsOne()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var pass = graph.Add(new ShaderFullscreenPassNode());
         pass.Code.Value = """
             #version 450
@@ -143,7 +145,7 @@ public class ShaderNodeRecordingTests
             """;
         var image = graph.Add(new ShaderImageNode());
         graph.Connect(pass.Targets, image.Output);
-        graph.Connect(apply.Image, pass.Out("second"));
+        graph.Connect(output.InputPort, pass.Out("second"));
 
         ShaderPassDescription recorded = ShaderNodeTestHelpers.Record(graph).Passes[^1];
 
@@ -153,7 +155,7 @@ public class ShaderNodeRecordingTests
     [Test]
     public void AGraphWithNoInputConnectedStillRecordsForTheFrame()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var pass = graph.Add(new ShaderFullscreenPassNode());
         pass.Code.Value = """
             #version 450
@@ -161,23 +163,23 @@ public class ShaderNodeRecordingTests
             layout(location = 0) out vec4 color;
             void main() { color = vec4(uv, 0, 1); }
             """;
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(output.InputPort, pass.Out("color"));
         using var snapshot = new GraphSnapshot();
 
-        ShaderApplyNode.Resource resource = Evaluate(graph, snapshot)!;
+        ShaderGraphRenderNode picture = Evaluate(graph, snapshot);
 
-        Assert.That(apply.Error.Value, Is.Null);
-        Assert.That(resource.Effect.Description.Value!.PassNames, Has.Length.EqualTo(1));
+        Assert.That(pass.Error.Value, Is.Null);
+        Assert.That(picture.Description!.PassNames, Has.Length.EqualTo(1));
     }
 
     [Test]
     public void AnImageConnectedToAWriteOnlyBindingIsOnlyWritten()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var compute = graph.Add(new ShaderComputePassNode());
         var image = graph.Add(new ShaderImageNode());
         graph.Connect(compute.In("result"), image.Output);
-        graph.Connect(apply.Image, compute.Out("result"));
+        graph.Connect(output.InputPort, compute.Out("result"));
 
         ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
 
@@ -190,7 +192,7 @@ public class ShaderNodeRecordingTests
     [Test]
     public void AnOutputWithIntegerComponentsGetsAnIntegerImage()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var data = graph.Add(new ShaderFullscreenPassNode());
         data.Code.Value = """
             #version 450
@@ -211,7 +213,7 @@ public class ShaderNodeRecordingTests
         nearest.MipmapFilter.Property!.SetValue(SamplerFilter.Nearest);
         graph.Connect(nearest.Image, data.Out("ids"));
         graph.Connect(view.In("ids"), nearest.Output);
-        graph.Connect(apply.Image, view.Out("color"));
+        graph.Connect(output.InputPort, view.Out("color"));
 
         ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
 
@@ -222,7 +224,7 @@ public class ShaderNodeRecordingTests
     [Test]
     public void AnOutputFollowsWhatThePassReadsUnlessPaddedOrScaled()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var same = graph.Add(new ShaderFullscreenPassNode());
         var half = graph.Add(new ShaderFullscreenPassNode());
         half.ResolutionScale.Property!.SetValue(0.5f);
@@ -230,7 +232,7 @@ public class ShaderNodeRecordingTests
         var wide = graph.Add(new ShaderFullscreenPassNode());
         wide.Padding.Property!.SetValue(8f);
         graph.Connect(wide.In("source"), half.Out("color"));
-        graph.Connect(apply.Image, wide.Out("color"));
+        graph.Connect(output.InputPort, wide.Out("color"));
 
         ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
 
@@ -245,9 +247,9 @@ public class ShaderNodeRecordingTests
     [Test]
     public void OnlyAnInputThatCoversSomethingElseIsCopiedToLineUp()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var pass = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "pass" } });
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(output.InputPort, pass.Out("color"));
         Assert.That(ShaderNodeTestHelpers.Record(graph).PassNames, Is.EqualTo(new[] { "pass" }));
 
         pass.Padding.Property!.SetValue(4f);
@@ -267,14 +269,14 @@ public class ShaderNodeRecordingTests
     [Test]
     public void PartialRenderingAndAnInputRegionReachThePass()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var pass = graph.Add(new ShaderFullscreenPassNode());
         var partial = graph.Add(new ShaderPartialRenderingNode());
         var region = graph.Add(new ShaderInputRegionNode());
         region.Padding.Property!.SetValue(3f);
         graph.Connect(pass.In("source"), region.Output);
         graph.Connect(pass.Settings, partial.Output);
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(output.InputPort, pass.Out("color"));
 
         ShaderPassDescription recorded = ShaderNodeTestHelpers.Record(graph).Passes.Single();
 
@@ -285,9 +287,9 @@ public class ShaderNodeRecordingTests
     [Test]
     public void HalfATessellationPairReportsOnItsNode()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var pass = graph.Add(new ShaderExtendedRenderPassNode());
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(output.InputPort, pass.Out("color"));
 
         pass.TessellationControl.Value = """
             #version 450
@@ -299,13 +301,13 @@ public class ShaderNodeRecordingTests
         using var snapshot = new GraphSnapshot();
         Evaluate(graph, snapshot);
         Assert.That(pass.Error.Value, Does.Contain("together"));
-        Assert.That(apply.Error.Value, Does.Contain("together"));
+        Assert.That(ShaderNodeTestHelpers.Picture(graph, snapshot)!.Description, Is.Null);
     }
 
     [Test]
     public void AFixedSizeInputDoesNotDecideWhatAPassCovers()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var lookup = graph.Add(new ShaderFixedImageNode());
         var pass = graph.Add(new ShaderFullscreenPassNode
         {
@@ -322,7 +324,7 @@ public class ShaderNodeRecordingTests
             }
         });
         graph.Connect(pass.In("lookup"), lookup.Output);
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(output.InputPort, pass.Out("color"));
 
         var bounds = new Rect(10, 20, 640, 360);
         Assert.That(ShaderNodeTestHelpers.Record(graph).TransformBounds(bounds), Is.EqualTo(bounds));
@@ -331,21 +333,21 @@ public class ShaderNodeRecordingTests
     [Test]
     public void APaddingNoRectangleCanHoldReportsOnTheApplyNode()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var pass = graph.Add(new ShaderFullscreenPassNode());
         pass.Padding.Property!.SetValue(float.MaxValue);
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(output.InputPort, pass.Out("color"));
 
         using var snapshot = new GraphSnapshot();
         Evaluate(graph, snapshot);
 
-        Assert.That(apply.Error.Value, Is.Not.Null.And.Not.Empty);
+        Assert.That(pass.Error.Value, Is.Not.Null.And.Not.Empty);
     }
 
     [Test]
     public void AnUnconnectedArrayBlockKeepsItsElementStride()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var compute = graph.Add(new ShaderComputePassNode
         {
             Code =
@@ -359,11 +361,11 @@ public class ShaderNodeRecordingTests
                     """
             }
         });
-        graph.Connect(apply.Image, compute.Out("picture"));
+        graph.Connect(output.InputPort, compute.Out("picture"));
 
         using var snapshot = new GraphSnapshot();
         Evaluate(graph, snapshot);
-        Assert.That(apply.Error.Value, Is.Null);
+        Assert.That(compute.Error.Value, Is.Null);
 
         ShaderBuffer bins = ShaderNodeTestHelpers.Record(graph).Resources.OfType<ShaderBuffer>().Single();
         Assert.That((bins.Count, bins.Stride), Is.EqualTo((256, 4)));
@@ -372,7 +374,7 @@ public class ShaderNodeRecordingTests
     [Test]
     public void AMeshKeepsItsOwnTextureCoordinatesThroughPadding()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var pass = graph.Add(new ShaderRenderPassNode
         {
             Name = { Value = "mesh" },
@@ -387,7 +389,7 @@ public class ShaderNodeRecordingTests
             }
         });
         pass.Padding.Property!.SetValue(4f);
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(output.InputPort, pass.Out("color"));
 
         Assert.That(ShaderNodeTestHelpers.Record(graph).PassNames, Is.EqualTo(new[] { "mesh" }));
     }
@@ -395,7 +397,7 @@ public class ShaderNodeRecordingTests
     [Test]
     public void APassToldWhereItsImagesLieDoesItsOwnArithmetic()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var pass = graph.Add(new ShaderFullscreenPassNode
         {
             Name = { Value = "manual" },
@@ -411,12 +413,10 @@ public class ShaderNodeRecordingTests
             }
         });
         pass.Padding.Property!.SetValue(4f);
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(output.InputPort, pass.Out("color"));
         Assert.That(ShaderNodeTestHelpers.Record(graph).PassNames, Is.EqualTo(new[] { "manual.source.align", "manual" }));
 
         var parameters = graph.Add(new ShaderImageParametersNode());
-        var source = graph.Add(new ShaderSourceNode());
-        graph.Connect(parameters.Image, source.Image);
         graph.Connect(pass.In("frame"), parameters.Output);
 
         Assert.That(ShaderNodeTestHelpers.Record(graph).PassNames, Is.EqualTo(new[] { "manual" }));
@@ -454,14 +454,14 @@ public class ShaderNodeRecordingTests
     [Test]
     public void ARepeatRecordsItsBodyOncePerIterationUnderNamesThatDoNotCollide()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var repeat = graph.Add(new ShaderRepeatNode());
         repeat.Count.Property!.SetValue(3);
         var body = repeat.Group.Value;
         var pass = body.Add(new ShaderFullscreenPassNode { Name = { Value = "step" } });
         body.Connect(pass.In("source"), (IOutputPort)body.Input.Value!.Items[0]);
         body.Connect((IInputPort)body.Output.Value!.Items[0], pass.Out("color"));
-        graph.Connect(apply.Image, repeat.Items.OfType<IOutputPort>().First(port => port != apply.Items[0]));
+        graph.Connect(output.InputPort, repeat.Items.OfType<IOutputPort>().First());
 
         ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
 
@@ -473,14 +473,14 @@ public class ShaderNodeRecordingTests
     [Test]
     public void AReplayDeepEnoughToOverflowARecursiveRecordingStillRecords()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var replay = graph.Add(new ShaderReplayNode());
         replay.StepsPerSecond.Property!.SetValue(50d);
         var body = replay.Group.Value;
         var pass = body.Add(new ShaderFullscreenPassNode());
         body.Connect(pass.In("source"), (IOutputPort)body.Input.Value!.Items[0]);
         body.Connect((IInputPort)body.Output.Value!.Items[0], pass.Out("color"));
-        graph.Connect(apply.Image, replay.Items.OfType<IOutputPort>().First());
+        graph.Connect(output.InputPort, replay.Items.OfType<IOutputPort>().First());
         graph.Connect(replay.Time, NodeGraphTestHelpers.Source(graph, 1000f));
 
         ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
@@ -496,12 +496,12 @@ public class ShaderNodeRecordingTests
     [Test]
     public void AStateNothingWritesKeepsItsValueThroughTheLoop()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var repeat = graph.Add(new ShaderRepeatNode());
         repeat.Count.Property!.SetValue(5);
         var first = graph.Add(new ShaderFullscreenPassNode { Name = { Value = "before" } });
         graph.Connect(repeat.Items.OfType<IInputPort>().First(), first.Out("color"));
-        graph.Connect(apply.Image, repeat.Items.OfType<IOutputPort>().First());
+        graph.Connect(output.InputPort, repeat.Items.OfType<IOutputPort>().First());
 
         Assert.That(ShaderNodeTestHelpers.Record(graph).PassNames, Is.EqualTo(new[] { "before" }));
     }
@@ -509,19 +509,16 @@ public class ShaderNodeRecordingTests
     [Test]
     public void AnImpossibleReplayReportsOnItsNodeAndLeavesTheState()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var replay = graph.Add(new ShaderReplayNode());
         replay.StepsPerSecond.Property!.SetValue(1000000d);
         graph.Connect(replay.Time, NodeGraphTestHelpers.Source(graph, 100000f));
-        var source = graph.Add(new ShaderSourceNode());
-        graph.Connect(replay.Items.OfType<IInputPort>().First(), source.Image);
-        graph.Connect(apply.Image, replay.Items.OfType<IOutputPort>().First());
+        graph.Connect(output.InputPort, replay.Items.OfType<IOutputPort>().First());
         using var snapshot = new GraphSnapshot();
 
         Evaluate(graph, snapshot);
 
         Assert.That(replay.Error.Value, Is.Not.Null.And.Not.Empty);
-        Assert.That(apply.Error.Value, Is.Null);
 
         replay.StepsPerSecond.Property!.SetValue(-1d);
         Evaluate(graph, snapshot);
@@ -531,7 +528,7 @@ public class ShaderNodeRecordingTests
     [Test]
     public void AnUnsizedStorageBufferWithNothingConnectedSaysSo()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var pass = graph.Add(new ShaderComputePassNode());
         pass.Code.Value = """
             #version 450
@@ -540,56 +537,52 @@ public class ShaderNodeRecordingTests
             layout(set = 0, binding = 1, std430) buffer Data { float values[]; } data;
             void main() { }
             """;
-        graph.Connect(apply.Image, pass.Out("result"));
+        graph.Connect(output.InputPort, pass.Out("result"));
         using var snapshot = new GraphSnapshot();
 
         Evaluate(graph, snapshot);
 
-        Assert.That(apply.Error.Value, Does.Contain("data"));
-        Assert.That(pass.Error.Value, Does.Contain("data"), "The node at fault says so too.");
+        Assert.That(pass.Error.Value, Does.Contain("data"));
     }
 
     [Test]
     public void CodeThatDoesNotCompileReportsWithoutBreakingTheEvaluationAndThenRecovers()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var pass = graph.Add(new ShaderFullscreenPassNode());
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(output.InputPort, pass.Out("color"));
         using var snapshot = new GraphSnapshot();
-        Evaluate(graph, snapshot);
-        Assert.That(apply.Error.Value, Is.Null);
+        Assert.That(Evaluate(graph, snapshot).Description, Is.Not.Null);
 
         pass.Code.Value = "broken";
-        Assert.DoesNotThrow(() => Evaluate(graph, snapshot));
+        Assert.That(Evaluate(graph, snapshot).Description, Is.Null);
         Assert.That(pass.Error.Value, Is.Not.Null.And.Not.Empty);
-        Assert.That(apply.Error.Value, Is.Not.Null.And.Not.Empty);
 
         pass.Code.Value = ShaderFullscreenPassNode.DefaultCode;
-        Evaluate(graph, snapshot);
+        Assert.That(Evaluate(graph, snapshot).Description, Is.Not.Null);
         Assert.That(pass.Error.Value, Is.Null);
-        Assert.That(apply.Error.Value, Is.Null);
     }
 
     [Test]
     public void AMistakeOnlyTheRendererWouldFindIsCaughtBeforeItGetsThere()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var pass = graph.Add(new ShaderFullscreenPassNode());
         var image = graph.Add(new ShaderFixedImageNode());
         image.Kind.Property!.SetValue(ImageKind.Image3D);
         graph.Connect(pass.In("source"), image.Output);
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(output.InputPort, pass.Out("color"));
         using var snapshot = new GraphSnapshot();
 
         Evaluate(graph, snapshot);
 
-        Assert.That(apply.Error.Value, Does.Contain("binding 0"));
+        Assert.That(pass.Error.Value, Does.Contain("binding 0"));
     }
 
     [Test]
     public void TheSameGraphAgainKeepsTheRecordedDescription()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
         var pass = graph.Add(new ShaderFullscreenPassNode());
         pass.Code.Value = """
             #version 450
@@ -599,30 +592,101 @@ public class ShaderNodeRecordingTests
             layout(set = 0, binding = 1) uniform Parameters { float amount; } parameters;
             void main() { color = texture(source, uv) * parameters.amount; }
             """;
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(output.InputPort, pass.Out("color"));
         using var snapshot = new GraphSnapshot();
 
-        ShaderApplyNode.Resource resource = Evaluate(graph, snapshot)!;
-        ShaderApplyEffect effect = resource.Effect;
-        ShaderGraphDescription? first = effect.Description.Value;
+        ShaderGraphRenderNode picture = Evaluate(graph, snapshot);
+        ShaderGraphDescription? first = picture.Description;
         Assert.That(first, Is.Not.Null);
-        Evaluate(graph, snapshot);
-        Assert.That(effect.Description.Value, Is.SameAs(first), "Recording anew each frame must not look like a change.");
+        Assert.That(Evaluate(graph, snapshot), Is.SameAs(picture), "A picture stays the same render node.");
+        Assert.That(picture.Description, Is.SameAs(first), "Recording anew each frame must not look like a change.");
 
         pass.Set("parameters.amount", 0.5f);
         Evaluate(graph, snapshot);
-        Assert.That(effect.Description.Value, Is.Not.SameAs(first));
+        Assert.That(picture.Description, Is.Not.SameAs(first));
     }
 
     [Test]
-    public void NoImageLeavesThePicturePassingThrough()
+    public void AnOutputReadByTwoPicturesIsOnePictureAndBothWiresShowTheConversion()
     {
-        var (graph, apply) = NewGraph();
+        var (graph, output) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        var transform = graph.Add(new TransformNode());
+        Connection direct = graph.Connect(output.InputPort, pass.Out("color"));
+        Connection listed = graph.Connect((IInputPort)transform.NamedInput("Input"), pass.Out("color"));
         using var snapshot = new GraphSnapshot();
 
-        ShaderApplyNode.Resource resource = Evaluate(graph, snapshot)!;
+        ShaderGraphRenderNode picture = Evaluate(graph, snapshot);
 
-        Assert.That(resource.Effect.Description.Value, Is.Null);
-        Assert.That(apply.Error.Value, Is.Null);
+        Assert.That(direct.Status.Value, Is.EqualTo(ConnectionStatus.Convert));
+        Assert.That(listed.Status.Value, Is.EqualTo(ConnectionStatus.Convert));
+        var transformed = (ContainerRenderNode)snapshot.GetItemValue(snapshot.FindSlotIndex(transform),
+            transform.Items.IndexOf(transform.Items.OfType<IOutputPort>().Single()))!.GetBoxed()!;
+        Assert.That(((ReferencesChildRenderNode)transformed.Children.Single()).Child, Is.SameAs(picture));
+    }
+
+    [Test]
+    public void AFailureTurnsTheWireRedAndAFixTurnsItBack()
+    {
+        var (graph, output) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        Connection wire = graph.Connect(output.InputPort, pass.Out("color"));
+        using var snapshot = new GraphSnapshot();
+
+        pass.Code.Value = "broken";
+        Evaluate(graph, snapshot);
+        Assert.That(wire.Status.Value, Is.EqualTo(ConnectionStatus.Error));
+
+        pass.Code.Value = ShaderFullscreenPassNode.DefaultCode;
+        Evaluate(graph, snapshot);
+        Assert.That(wire.Status.Value, Is.EqualTo(ConnectionStatus.Convert));
+    }
+
+    [Test]
+    public void APictureOnAnImageInputIsRecordedAsWhatItsPassReads()
+    {
+        var (graph, output) = NewGraph();
+        var input = graph.Add(new FilterEffectInputNode());
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        Connection wire = graph.Connect(pass.In("source"), input.Output);
+        graph.Connect(output.InputPort, pass.Out("color"));
+        using var snapshot = new GraphSnapshot();
+
+        ShaderGraphRenderNode picture = Evaluate(graph, snapshot);
+
+        Assert.That(wire.Status.Value, Is.EqualTo(ConnectionStatus.Convert));
+        Assert.That(picture.Description!.ExternalImageCount, Is.Zero, "The only picture is the source.");
+        Assert.That(picture.Children, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void AnEffectsInputIsTheSourceWhicheverPictureItsCodeReadsFirst()
+    {
+        var (graph, output) = NewGraph();
+        var input = graph.Add(new FilterEffectInputNode());
+        var pass = graph.Add(new ShaderFullscreenPassNode
+        {
+            Code =
+            {
+                Value = """
+                    #version 450
+                    layout(location = 0) in vec2 uv;
+                    layout(location = 0) out vec4 color;
+                    layout(set = 0, binding = 0) uniform sampler2D first;
+                    layout(set = 0, binding = 1) uniform sampler2D second;
+                    void main() { color = texture(first, uv) + texture(second, uv); }
+                    """
+            }
+        });
+        graph.Connect(pass.In("first"), graph.Add(new TransformNode()).Items.OfType<IOutputPort>().Single());
+        graph.Connect(pass.In("second"), input.Output);
+        graph.Connect(output.InputPort, pass.Out("color"));
+        using var snapshot = new GraphSnapshot();
+
+        ShaderGraphRenderNode picture = Evaluate(graph, snapshot);
+
+        Assert.That(picture.Description!.ExternalImageCount, Is.EqualTo(1));
+        Assert.That(((ReferencesChildRenderNode)((ContainerRenderNode)picture.Children[0]).Children[0]).Child,
+            Is.TypeOf<FilterEffectInputRenderNode>());
     }
 }

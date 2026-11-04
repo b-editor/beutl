@@ -943,12 +943,6 @@ Beutl.Utilities
 [Beutl.NodeGraph].Nodes.Group:GroupOutput:GroupOutputPort<[Beutl.NodeGraph].Nodes.Shaders:ShaderGraphValue<[Beutl.Engine]Beutl.Graphics.Shaders:ShaderImage>>
   unsealed
   keys: Animations, Connection, Expressions, Id, IsEnabled, Name
-[Beutl.NodeGraph].Nodes.Shaders:ShaderApplyEffect
-  sealed
-  keys: Animations, Expressions, Id, IsEnabled, Name
-[Beutl.NodeGraph].Nodes.Shaders:ShaderApplyNode
-  unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderBlendNode
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
@@ -1002,6 +996,9 @@ Beutl.Utilities
 [Beutl.NodeGraph].Nodes.Shaders:ShaderGenerateMipmapsNode
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderGraphEffect
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph].Nodes.Shaders:ShaderGraphicsPassNode
   abstract
 [Beutl.NodeGraph].Nodes.Shaders:ShaderImageNode
@@ -1010,6 +1007,8 @@ Beutl.Utilities
 [Beutl.NodeGraph].Nodes.Shaders:ShaderImageParametersNode
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderImageProducerNode
+  abstract
 [Beutl.NodeGraph].Nodes.Shaders:ShaderImageViewNode
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
@@ -1041,9 +1040,6 @@ Beutl.Utilities
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderPassNode
   abstract
-[Beutl.NodeGraph].Nodes.Shaders:ShaderPictureNode
-  unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderRasterizerNode
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
@@ -1057,9 +1053,6 @@ Beutl.Utilities
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, node-tree
 [Beutl.NodeGraph].Nodes.Shaders:ShaderSamplerNode
-  unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
-[Beutl.NodeGraph].Nodes.Shaders:ShaderSourceNode
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderStencilNode

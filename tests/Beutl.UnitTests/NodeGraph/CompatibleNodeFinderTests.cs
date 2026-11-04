@@ -1,11 +1,13 @@
 ﻿using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.NodeGraph.Nodes.Shaders;
 using Beutl.NodeGraph.Nodes.Utilities;
 
 namespace Beutl.UnitTests.NodeGraph;
@@ -18,6 +20,12 @@ public class CompatibleNodeFinderTests
     [TestCase(typeof(float), typeof(MediaTime), true)]
     [TestCase(typeof(RenderNode), typeof(Drawable), true)]
     [TestCase(typeof(Matrix), typeof(Transform), true)]
+    [TestCase(typeof(RenderNode), typeof(ShaderGraphValue<ShaderImage>), true)]
+    [TestCase(typeof(ContainerRenderNode), typeof(ShaderGraphValue<ShaderImage>), true)]
+    [TestCase(typeof(ShaderGraphValue<ShaderImage>), typeof(RenderNode), true)]
+    [TestCase(typeof(ShaderGraphValue<ShaderImage>), typeof(object), true)]
+    [TestCase(typeof(ShaderGraphValue<ShaderBuffer>), typeof(RenderNode), false)]
+    [TestCase(typeof(RenderNode), typeof(ShaderGraphValue<ShaderBuffer>), false)]
     [TestCase(typeof(object), typeof(float), true)]
     [TestCase(typeof(float), typeof(RenderNode), false)]
     [TestCase(typeof(string), typeof(Point), false)]

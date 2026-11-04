@@ -66,15 +66,6 @@
   <data name="ShaderExtendedRenderPassNode" xml:space="preserve">
     <value>지오메트리·테셀레이션 렌더 패스 (GLSL)</value>
   </data>
-  <data name="ShaderSourceNode" xml:space="preserve">
-    <value>입력 이미지</value>
-  </data>
-  <data name="ShaderPictureNode" xml:space="preserve">
-    <value>그림을 이미지로</value>
-  </data>
-  <data name="ShaderApplyNode" xml:space="preserve">
-    <value>셰이더 적용</value>
-  </data>
   <data name="ShaderImageNode" xml:space="preserve">
     <value>이미지</value>
   </data>
@@ -245,9 +236,6 @@
   </data>
   <data name="ShaderPort_Color" xml:space="preserve">
     <value>색</value>
-  </data>
-  <data name="ShaderPort_ColorEncoding" xml:space="preserve">
-    <value>색 인코딩</value>
   </data>
   <data name="ShaderPort_ColorOperation" xml:space="preserve">
     <value>색 연산</value>

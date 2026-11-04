@@ -150,7 +150,7 @@ public sealed class ShaderGraphDescription
     public ImmutableArray<string> PassNames => Passes.Select(p => p.Name).ToImmutableArray();
 
     /// <summary>How many pictures a render has to supply besides the source.</summary>
-    public int ExternalImageCount { get; }
+    internal int ExternalImageCount { get; }
 
     /// <summary>Told how each execution went, with the failure if there was one. With an observer, a graph that
     /// fails contributes nothing to the frame instead of failing all of it.</summary>

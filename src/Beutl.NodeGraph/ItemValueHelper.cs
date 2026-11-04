@@ -1,10 +1,12 @@
 ﻿using System.Numerics;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
+using Beutl.NodeGraph.Nodes.Shaders;
 using Vector = Beutl.Graphics.Vector;
 
 namespace Beutl.NodeGraph;
@@ -20,6 +22,9 @@ public static class ItemValueHelper
                 break;
             case ItemValue<Transform?> ts:
                 ts.AcceptMatrix(hierarchical);
+                break;
+            case ItemValue<ShaderGraphValue<ShaderImage>?> images:
+                images.AcceptPicture();
                 break;
             case ItemValue<Thickness> thicknessNodePort:
                 thicknessNodePort.AcceptNumber();

@@ -57,7 +57,7 @@ public sealed partial class ShaderGraphBuilder
     /// <summary>Declares a picture besides the source, which a render supplies in the order these are declared.</summary>
     /// <remarks>It covers what the source covers: the same coordinates read the same place in both, and what the
     /// picture leaves uncovered is transparent. Like the source, it is read-only.</remarks>
-    public ShaderImage ExternalImage(string name)
+    internal ShaderImage ExternalImage(string name)
     {
         EnsureRecording();
         AddName(_resourceNames, name);

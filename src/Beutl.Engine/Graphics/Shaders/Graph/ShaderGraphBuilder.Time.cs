@@ -40,7 +40,7 @@ public sealed partial class ShaderGraphBuilder
     }
 
     /// <summary>The updates <see cref="Replay"/> records: fixed steps from resetTime, and, if needed, a shorter final one.</summary>
-    public static IEnumerable<ShaderTimeStep> ReplaySteps(TimeSpan time, TimeSpan step, TimeSpan resetTime = default)
+    internal static IEnumerable<ShaderTimeStep> ReplaySteps(TimeSpan time, TimeSpan step, TimeSpan resetTime = default)
     {
         if (step.Ticks <= 0) throw new ArgumentOutOfRangeException(nameof(step));
         long ticks = time > resetTime ? checked(time.Ticks - resetTime.Ticks) : 0;

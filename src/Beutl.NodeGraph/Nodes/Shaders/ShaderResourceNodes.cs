@@ -7,50 +7,21 @@ using Beutl.NodeGraph.Composition;
 
 namespace Beutl.NodeGraph.Nodes.Shaders;
 
-/// <summary>The image the graph is applied to.</summary>
-public partial class ShaderSourceNode : GraphNode
+/// <summary>A node whose image output can end in a picture, so it has to be able to say why that failed.</summary>
+public abstract partial class ShaderImageProducerNode : GraphNode, IShaderPictureOwner
 {
-    public ShaderSourceNode()
+    public NodeMonitor<string?> Error { get; private set; } = null!;
+
+    private protected void AddErrorMonitor() => Error = AddTextMonitor("Error", NodePortDisplays.Error);
+
+    void IShaderPictureOwner.ReportPictureFailure(string? message)
     {
-        Image = AddOutput<ShaderGraphValue<ShaderImage>>("Image", ShaderPortDisplays.Get("Image"));
-    }
-
-    public OutputPort<ShaderGraphValue<ShaderImage>> Image { get; }
-
-    public partial class Resource
-    {
-        public override void Update(GraphCompositionContext context)
-        {
-            Image = new(recording => recording.Builder.Source);
-        }
-    }
-}
-
-/// <summary>Brings anything the graph renders to the shader wires, read at the same place as the source image.</summary>
-public partial class ShaderPictureNode : GraphNode
-{
-    public ShaderPictureNode()
-    {
-        Image = AddOutput<ShaderGraphValue<ShaderImage>>("Image", ShaderPortDisplays.Get("Image"));
-        Input = AddInput<RenderNode?>("Input", NodePortDisplays.Input);
-    }
-
-    public OutputPort<ShaderGraphValue<ShaderImage>> Image { get; }
-
-    public InputPort<RenderNode?> Input { get; }
-
-    public partial class Resource
-    {
-        public override void Update(GraphCompositionContext context)
-        {
-            RenderNode? picture = Input;
-            Image = new(recording => picture == null ? recording.Builder.Source : recording.ExternalImage(picture));
-        }
+        if (Error.Value != message) Error.Value = message;
     }
 }
 
 /// <summary>A new image that follows another image's position and size, or an explicit rectangle.</summary>
-public partial class ShaderImageNode : GraphNode
+public partial class ShaderImageNode : ShaderImageProducerNode
 {
     public ShaderImageNode()
     {
@@ -62,6 +33,7 @@ public partial class ShaderImageNode : GraphNode
         Padding = AddInput<float>("Padding", ShaderPortDisplays.Get("Padding"));
         ResolutionScale = AddInput<float>("ResolutionScale", ShaderPortDisplays.Get("ResolutionScale"));
         ResolutionScale.Property?.SetValue(1f);
+        AddErrorMonitor();
     }
 
     public OutputPort<ShaderGraphValue<ShaderImage>> Output { get; }
@@ -95,7 +67,7 @@ public partial class ShaderImageNode : GraphNode
 }
 
 /// <summary>An image with a fixed number of texels, which may also have layers, depth or mip levels.</summary>
-public partial class ShaderFixedImageNode : GraphNode
+public partial class ShaderFixedImageNode : ShaderImageProducerNode
 {
     public ShaderFixedImageNode()
     {
@@ -113,6 +85,7 @@ public partial class ShaderFixedImageNode : GraphNode
         MipLevels.Property?.SetValue(1);
         Format = AddInput<TextureFormat>("Format", ShaderPortDisplays.Get("Format"));
         Format.Property?.SetValue(TextureFormat.RGBA16Float);
+        AddErrorMonitor();
     }
 
     public OutputPort<ShaderGraphValue<ShaderImage>> Output { get; }
@@ -143,7 +116,7 @@ public partial class ShaderFixedImageNode : GraphNode
 }
 
 /// <summary>Selects mip levels and layers of an image, without copying them.</summary>
-public partial class ShaderImageViewNode : GraphNode
+public partial class ShaderImageViewNode : ShaderImageProducerNode
 {
     public ShaderImageViewNode()
     {
@@ -156,6 +129,7 @@ public partial class ShaderImageViewNode : GraphNode
         BaseLayer = AddInput<int>("BaseLayer", ShaderPortDisplays.Get("BaseLayer"));
         ArrayLayers = AddInput<int>("ArrayLayers", ShaderPortDisplays.Get("ArrayLayers"));
         ArrayLayers.Property?.SetValue(1);
+        AddErrorMonitor();
     }
 
     public OutputPort<ShaderGraphValue<ShaderImage>> Output { get; }
@@ -257,4 +231,18 @@ internal static class ShaderImageContents
         NumericType.UInt => ImageClearValue.UInt((uint)value.X, (uint)value.Y, (uint)value.Z, (uint)value.W),
         _ => ImageClearValue.Float(value)
     };
+}
+
+internal static class ShaderPictureWires
+{
+    /// <summary>Takes a picture as an image the recording reads it into.</summary>
+    public static void AcceptPicture(this ItemValue<ShaderGraphValue<ShaderImage>> itemValue)
+    {
+        itemValue.RegisterReceiver((source, out value) =>
+        {
+            object? boxed = source.GetBoxed();
+            value = boxed is RenderNode picture ? new(recording => recording.Picture(picture)) : null;
+            return boxed is null or RenderNode;
+        });
+    }
 }

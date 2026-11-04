@@ -2,12 +2,14 @@
 using System.Runtime.CompilerServices;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Transformation;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.NodeGraph.Nodes.Shaders;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
@@ -240,6 +242,10 @@ internal static class CompatibleNodeFinder
             return true;
         if ((inputType == typeof(Drawable) && typeof(RenderNode).IsAssignableFrom(outputType))
             || (inputType == typeof(Transform) && outputType == typeof(Matrix)))
+            return true;
+        // A picture and an image wire each become the other at the connection.
+        if ((inputType == typeof(ShaderGraphValue<ShaderImage>) && typeof(RenderNode).IsAssignableFrom(outputType))
+            || (inputType == typeof(RenderNode) && outputType == typeof(ShaderGraphValue<ShaderImage>)))
             return true;
 
         if (s_numericTypes.Contains(outputType))

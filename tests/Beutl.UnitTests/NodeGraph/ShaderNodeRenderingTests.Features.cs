@@ -8,6 +8,7 @@ using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Shaders;
+using Beutl.NodeGraph.Nodes.Utilities;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.TestInfrastructure;
 
@@ -74,11 +75,11 @@ public partial class ShaderNodeRenderingTests
 
     private static float Channel(ushort[] pixels, int index) => (float)BitConverter.UInt16BitsToHalf(pixels[index]);
 
-    private static GraphModel WithApply(Func<GraphModel, IOutputPort> image, out ShaderApplyNode apply)
+    private static GraphModel WithOutput(Func<GraphModel, IOutputPort> image)
     {
         var graph = new GraphModel();
-        apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.Image, image(graph));
+        var output = graph.Add(new OutputNode());
+        graph.Connect(output.InputPort, image(graph));
         return graph;
     }
 
@@ -92,7 +93,7 @@ public partial class ShaderNodeRenderingTests
         if (geometry && !capabilities.GeometryShaders || tessellation && !capabilities.TessellationShaders)
             Assert.Ignore("This device does not run these stages.");
 
-        GraphModel graph = WithApply(graph =>
+        GraphModel graph = WithOutput(graph =>
         {
             var pass = graph.Add(new ShaderExtendedRenderPassNode
             {
@@ -111,7 +112,7 @@ public partial class ShaderNodeRenderingTests
             }
 
             return pass.Out("color");
-        }, out _);
+        });
 
         AssertMatches(graph, ShaderGraphBuilder.Build((geometry, tessellation), static (builder, stages) =>
         {
@@ -135,7 +136,7 @@ public partial class ShaderNodeRenderingTests
     {
         VulkanTestEnvironment.EnsureAvailable();
         var value = new Vector4(0.25f, 0.5f, 0.75f, 1);
-        GraphModel graph = WithApply(graph =>
+        GraphModel graph = WithOutput(graph =>
         {
             var image = graph.Add(new ShaderFixedImageNode());
             image.Width.Property!.SetValue(8);
@@ -152,7 +153,7 @@ public partial class ShaderNodeRenderingTests
             var pass = graph.Add(new ShaderFullscreenPassNode());
             graph.Connect(pass.In("source"), view.Output);
             return pass.Out("color");
-        }, out _);
+        });
 
         ShaderGraphDescription reference = ShaderGraphBuilder.Build(value, static (builder, value) =>
         {
@@ -178,22 +179,24 @@ public partial class ShaderNodeRenderingTests
     }
 
     [Test]
-    public void ACopyConvertsToWhatTheApplyNodeDeclares()
+    public void ACopyConvertsToAnEncodingAndBack()
     {
         VulkanTestEnvironment.EnsureAvailable();
-        GraphModel graph = WithApply(graph =>
+        GraphModel graph = WithOutput(graph =>
         {
             var pass = graph.Add(new ShaderFullscreenPassNode());
             var destination = graph.Add(new ShaderImageNode());
             var copy = graph.Add(new ShaderCopyImageNode());
             graph.Connect(copy.Source, pass.Out("color"));
             graph.Connect(copy.Destination, destination.Output);
-            var convert = graph.Add(new ShaderConvertColorNode());
-            convert.To.Property!.SetValue(ColorEncoding.SrgbStraight);
-            graph.Connect(convert.Image, copy.Output);
-            return convert.Output;
-        }, out ShaderApplyNode apply);
-        apply.Color.Property!.SetValue(ColorEncoding.SrgbStraight);
+            var encode = graph.Add(new ShaderConvertColorNode());
+            graph.Connect(encode.Image, copy.Output);
+            var decode = graph.Add(new ShaderConvertColorNode());
+            decode.From.Property!.SetValue(ColorEncoding.SrgbStraight);
+            decode.To.Property!.SetValue(ColorEncoding.LinearPremultiplied);
+            graph.Connect(decode.Image, encode.Output);
+            return decode.Output;
+        });
 
         AssertMatches(graph, ShaderGraphBuilder.Build(0, static (builder, _) =>
         {
@@ -207,8 +210,8 @@ public partial class ShaderNodeRenderingTests
             ShaderImage destination = builder.Image2D("destination", builder.Source);
             destination.RasterSource = builder.Source;
             builder.Copy("copy", first, destination);
-            ShaderImage converted = builder.ConvertColor("convert", destination, ColorEncoding.LinearPremultiplied, ColorEncoding.SrgbStraight);
-            return builder.Output(converted, ColorEncoding.SrgbStraight);
+            ShaderImage encoded = builder.ConvertColor("encode", destination, ColorEncoding.LinearPremultiplied, ColorEncoding.SrgbStraight);
+            return builder.Output(builder.ConvertColor("decode", encoded, ColorEncoding.SrgbStraight, ColorEncoding.LinearPremultiplied));
         }));
     }
 
@@ -236,7 +239,7 @@ public partial class ShaderNodeRenderingTests
                 new ImageDescription(ImageKind.Image2D, 4, 4, TextureFormat.Depth24Stencil8), ImageUsage.DepthStencilAttachment)
                 ? TextureFormat.Depth24Stencil8 : TextureFormat.Depth32FloatStencil8);
 
-        GraphModel graph = WithApply(graph =>
+        GraphModel graph = WithOutput(graph =>
         {
             var background = graph.Add(new ShaderFullscreenPassNode());
             var depthImage = graph.Add(new ShaderImageNode());
@@ -276,7 +279,7 @@ public partial class ShaderNodeRenderingTests
             graph.Connect(paint.Settings, readMask.Output);
             graph.Connect(paint.Settings, graph.Add(new ShaderBlendNode()).Output);
             return paint.Out("color");
-        }, out _);
+        });
 
         ShaderGraphDescription reference = ShaderGraphBuilder.Build((format, front), static (builder, state) =>
         {
@@ -316,20 +319,17 @@ public partial class ShaderNodeRenderingTests
     public void ImageParametersGiveAPassWhatAlignedInputsGiveTheRest()
     {
         VulkanTestEnvironment.EnsureAvailable();
-        GraphModel aligned = WithApply(graph =>
+        GraphModel aligned = WithOutput(graph =>
         {
             var pass = graph.Add(new ShaderFullscreenPassNode());
             pass.Padding.Property!.SetValue(6f);
             return pass.Out("color");
-        }, out _);
-        GraphModel manual = WithApply(graph =>
+        });
+        GraphModel manual = WithOutput(graph =>
         {
-            var source = graph.Add(new ShaderSourceNode());
             var target = graph.Add(new ShaderImageNode());
             target.Padding.Property!.SetValue(6f);
-            graph.Connect(target.Like, source.Image);
             var from = graph.Add(new ShaderImageParametersNode());
-            graph.Connect(from.Image, source.Image);
             var to = graph.Add(new ShaderImageParametersNode());
             graph.Connect(to.Image, target.Output);
             var pass = graph.Add(new ShaderFullscreenPassNode
@@ -350,12 +350,11 @@ public partial class ShaderNodeRenderingTests
                         """
                 }
             });
-            graph.Connect(pass.In("source"), source.Image);
             graph.Connect(pass.In("from_"), from.Output);
             graph.Connect(pass.In("to"), to.Output);
             graph.Connect(pass.Targets, target.Output);
             return pass.Out("color");
-        }, out _);
+        });
 
         ushort[] expected = ShaderNodeTestHelpers.Render(ShaderNodeTestHelpers.Record(aligned), 1);
         Assert.That(expected, Has.Length.EqualTo(44 * 36 * 4));
@@ -371,7 +370,7 @@ public partial class ShaderNodeRenderingTests
     public void AnImageCanTakeItsShapeFromAnImageNothingReads()
     {
         VulkanTestEnvironment.EnsureAvailable();
-        GraphModel graph = WithApply(graph =>
+        GraphModel graph = WithOutput(graph =>
         {
             var shape = graph.Add(new ShaderFixedImageNode());
             shape.Width.Property!.SetValue(8);
@@ -384,7 +383,7 @@ public partial class ShaderNodeRenderingTests
             clear.Value.Property!.SetValue(new Vector4(0.25f, 0, 0, 1));
             graph.Connect(clear.Image, target.Output);
             return clear.Output;
-        }, out _);
+        });
 
         ushort[] pixels = ShaderNodeTestHelpers.Render(ShaderNodeTestHelpers.Record(graph), 1);
 
@@ -402,7 +401,7 @@ public partial class ShaderNodeRenderingTests
     public void PackedNumbersFillABlockInOrder()
     {
         VulkanTestEnvironment.EnsureAvailable();
-        GraphModel graph = WithApply(graph =>
+        GraphModel graph = WithOutput(graph =>
         {
             var vector = graph.Add(new ShaderVectorNode());
             vector.X.Property!.SetValue(0.125f);
@@ -419,7 +418,7 @@ public partial class ShaderNodeRenderingTests
             Assert.That(pass.Error.Value, Is.Null);
             graph.Connect(pass.In("packed_"), buffer.Output);
             return pass.Out("color");
-        }, out _);
+        });
 
         ushort[] pixels = ShaderNodeTestHelpers.Render(ShaderNodeTestHelpers.Record(graph), 1);
 
@@ -430,7 +429,7 @@ public partial class ShaderNodeRenderingTests
     public void AColorAndAVectorArriveAsTheShaderWorksInThem()
     {
         VulkanTestEnvironment.EnsureAvailable();
-        GraphModel graph = WithApply(graph =>
+        GraphModel graph = WithOutput(graph =>
         {
             var tint = graph.Add(new ShaderColorNode());
             tint.Color.Property!.SetValue(Color.FromArgb(128, 255, 128, 0));
@@ -451,7 +450,7 @@ public partial class ShaderNodeRenderingTests
             graph.Connect(pass.In("parameters.tint"), tint.Output);
             graph.Connect(pass.In("parameters.offset"), offset.Vector2);
             return pass.Out("color");
-        }, out _);
+        });
 
         ushort[] pixels = ShaderNodeTestHelpers.Render(ShaderNodeTestHelpers.Record(graph), 1);
 
@@ -464,7 +463,7 @@ public partial class ShaderNodeRenderingTests
     public void StorageNothingConnectsStartsEmpty()
     {
         VulkanTestEnvironment.EnsureAvailable();
-        GraphModel graph = WithApply(graph =>
+        GraphModel graph = WithOutput(graph =>
         {
             var once = graph.Add(new ShaderDispatchNode { Mode = { Value = ShaderDispatchMode.Workgroups } });
             var compute = graph.Add(new ShaderComputePassNode
@@ -502,7 +501,7 @@ public partial class ShaderNodeRenderingTests
             graph.Connect(show.In("histogram"), compute.Out("histogram"));
             graph.Connect(show.In("picture"), compute.Out("picture"));
             return show.Out("color");
-        }, out _);
+        });
 
         ushort[] pixels = ShaderNodeTestHelpers.Render(ShaderNodeTestHelpers.Record(graph), 1);
 
@@ -510,10 +509,19 @@ public partial class ShaderNodeRenderingTests
         Assert.That(Channel(pixels, 1), Is.EqualTo(0.25f).Within(1e-3f));
     }
 
+    private const string TableCode = """
+        #version 450
+        layout(location=0) in vec2 uv;
+        layout(location=0) out vec4 color;
+        layout(set=0,binding=0) uniform sampler2D source;
+        layout(set=0,binding=1) uniform sampler2D table;
+        void main() { color=texture(source,uv)+texture(table,uv)*0.0; }
+        """;
+
     [TestCase("image")]
     [TestCase("copy")]
     [TestCase("geometry")]
-    public void WhatOnlyARenderCanRefuseStaysOnTheApplyNode(string refused)
+    public void WhatOnlyARenderCanRefuseStaysOnTheNodeThatMadeThePicture(string refused)
     {
         VulkanTestEnvironment.EnsureAvailable();
         if (refused == "geometry" && VulkanTestEnvironment.InvokeOnRenderThread(
@@ -524,12 +532,10 @@ public partial class ShaderNodeRenderingTests
         var effect = new NodeGraphFilterEffect();
         GraphModel graph = effect.Model.Value!;
         var input = graph.Add(new FilterEffectInputNode());
-        var pass = graph.Add(new ShaderFullscreenPassNode());
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.NamedInput("Input"), input.Output);
-        Connection result = graph.Connect(apply.Image, pass.Out("color"));
+        var pass = graph.Add(new ShaderFullscreenPassNode { Code = { Value = TableCode } });
+        graph.Connect(pass.In("source"), input.Output);
         var output = graph.Add(new OutputNode());
-        graph.Connect(output.InputPort, apply.Items.OfType<IOutputPort>().Single());
+        Connection result = graph.Connect(output.InputPort, pass.Out("color"));
         Populate(files, effect);
         files.AddElement(MediaTime.Zero, files.Scene.Duration.Value).AddObject(new RectShape
         {
@@ -541,14 +547,15 @@ public partial class ShaderNodeRenderingTests
         ushort[] working = RenderScene(renderer, MediaTime.Zero, 1);
 
         Action restore;
+        NodeMonitor<string?> error;
         void Replace(IOutputPort image)
         {
             graph.Disconnect(result);
-            Connection replaced = graph.Connect(apply.Image, image);
+            Connection replaced = graph.Connect(output.InputPort, image);
             restore = () =>
             {
                 graph.Disconnect(replaced);
-                graph.Connect(apply.Image, pass.Out("color"));
+                graph.Connect(output.InputPort, pass.Out("color"));
             };
         }
 
@@ -557,8 +564,9 @@ public partial class ShaderNodeRenderingTests
             case "image":
                 var huge = graph.Add(new ShaderFixedImageNode());
                 huge.Width.Property!.SetValue(1_000_000);
-                Connection read = graph.Connect(pass.In("source"), huge.Output);
+                Connection read = graph.Connect(pass.In("table"), huge.Output);
                 restore = () => graph.Disconnect(read);
+                error = pass.Error;
                 break;
             case "copy":
                 var destination = graph.Add(new ShaderImageNode());
@@ -568,6 +576,7 @@ public partial class ShaderNodeRenderingTests
                 graph.Connect(copy.Destination, destination.Output);
                 restore = null!;
                 Replace(copy.Output);
+                error = copy.Error;
                 break;
             default:
                 var stages = graph.Add(new ShaderExtendedRenderPassNode
@@ -578,17 +587,100 @@ public partial class ShaderNodeRenderingTests
                 });
                 restore = null!;
                 Replace(stages.Out("color"));
+                error = stages.Error;
                 break;
         }
 
         ushort[] failed = RenderScene(renderer, MediaTime.Zero, 1);
-        Assert.That(apply.Error.Value, Is.Not.Null.And.Not.Empty);
+        Assert.That(error.Value, Is.Not.Null.And.Not.Empty);
         Assert.That(failed, Has.Some.Not.EqualTo((ushort)0), "The rest of the frame still renders.");
         Assert.That(failed, Is.Not.EqualTo(working), "A failure must not pass for a working result.");
 
         restore();
         Assert.That(RenderScene(renderer, MediaTime.Zero, 1), Is.EqualTo(working));
-        Assert.That(apply.Error.Value, Is.Null);
+        Assert.That(pass.Error.Value, Is.Null);
+    }
+
+    private const string CutCode = """
+        #version 450
+        layout(location=0) in vec2 uv;
+        layout(location=0) out vec4 color;
+        layout(set=0,binding=0) uniform sampler2D source;
+        layout(set=0,binding=1) uniform sampler2D matte;
+        void main() { color=texture(source,uv)*texture(matte,uv).a; }
+        """;
+
+    [Test]
+    public void APictureMadeFromAnEffectsInputCanBeReadBesideIt()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        using var files = new SceneHistoryHarness("shader-picture-of-input", duration: MediaTime.FromSeconds(1));
+        var effect = new NodeGraphFilterEffect();
+        GraphModel graph = effect.Model.Value!;
+        var input = graph.Add(new FilterEffectInputNode());
+        var matrix = graph.Add(new TranslateMatrixNode());
+        matrix.X.Property!.SetValue(6f);
+        var moved = graph.Add(new TransformNode());
+        graph.Connect(moved.NamedInput("Input"), input.Output);
+        graph.Connect(moved.Matrix, matrix.Items.OfType<IOutputPort>().Single());
+        var pass = graph.Add(new ShaderFullscreenPassNode { Code = { Value = CutCode } });
+        graph.Connect(pass.In("source"), input.Output);
+        graph.Connect(pass.In("matte"), moved.Items.OfType<IOutputPort>().Single());
+        var output = graph.Add(new OutputNode());
+        graph.Connect(output.InputPort, pass.Out("color"));
+        Populate(files, effect);
+        using var renderer = new SceneRenderer(files.Scene, RenderIntent.Preview, 1);
+
+        ushort[] pixels = RenderScene(renderer, MediaTime.Zero, 1);
+
+        Assert.That(pass.Error.Value, Is.Null);
+        const int FrameWidth = 48;
+        const int Row = 20;
+        float Alpha(int x) => Channel(pixels, (Row * FrameWidth + x) * 4 + 3);
+        int[] covered = [.. Enumerable.Range(0, FrameWidth).Where(x => Alpha(x) > 0.5f)];
+        Assert.That(covered, Has.Length.EqualTo(18), "A copy moved by 6 leaves 18 of the picture's 24 columns under both.");
+    }
+
+    [Test]
+    public void AnEffectCoversWhatItWasGivenWhenItsCodeReadsAnotherPictureFirst()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        using var files = new SceneHistoryHarness("shader-effect-covers", duration: MediaTime.FromSeconds(1));
+        var effect = new NodeGraphFilterEffect();
+        GraphModel graph = effect.Model.Value!;
+        var input = graph.Add(new FilterEffectInputNode());
+        var geometry = graph.Add(new RectGeometryNode());
+        ((IInputPort)geometry.Items.Single(item => item.Name.Value == "Width")).Property!.SetValue(4f);
+        ((IInputPort)geometry.Items.Single(item => item.Name.Value == "Height")).Property!.SetValue(4f);
+        var shape = graph.Add(new GeometryShapeNode());
+        shape.Fill.Property!.SetValue(new SolidColorBrush(Colors.White));
+        graph.Connect(shape.Geometry, geometry.OutputPort);
+        var pass = graph.Add(new ShaderFullscreenPassNode
+        {
+            Code =
+            {
+                Value = """
+                    #version 450
+                    layout(location=0) in vec2 uv;
+                    layout(location=0) out vec4 color;
+                    layout(set=0,binding=0) uniform sampler2D small;
+                    layout(set=0,binding=1) uniform sampler2D given;
+                    void main() { color=texture(given,uv)+texture(small,uv)*0.0; }
+                    """
+            }
+        });
+        graph.Connect(pass.In("small"), shape.Output);
+        graph.Connect(pass.In("given"), input.Output);
+        var output = graph.Add(new OutputNode());
+        graph.Connect(output.InputPort, pass.Out("color"));
+        Populate(files, effect);
+        using var renderer = new SceneRenderer(files.Scene, RenderIntent.Preview, 1);
+
+        ushort[] pixels = RenderScene(renderer, MediaTime.Zero, 1);
+
+        Assert.That(pass.Error.Value, Is.Null);
+        int covered = Enumerable.Range(0, 48 * 40).Count(i => Channel(pixels, i * 4 + 3) > 0.5f);
+        Assert.That(covered, Is.EqualTo(24 * 16), "The whole of what the effect was given.");
     }
 
     [Test]
@@ -630,8 +722,8 @@ public partial class ShaderNodeRenderingTests
         var after = graph.Add(new ShaderFullscreenPassNode { Code = { Value = ShowCode } });
         graph.Connect(after.In("source"), outputs[0]);
         graph.Connect(after.In("parameters.amount"), outputs[1]);
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.Image, after.Out("color"));
+        var output = graph.Add(new OutputNode());
+        graph.Connect(output.InputPort, after.Out("color"));
 
         foreach (GraphModel candidate in new[] { graph, Restored(graph) })
         {

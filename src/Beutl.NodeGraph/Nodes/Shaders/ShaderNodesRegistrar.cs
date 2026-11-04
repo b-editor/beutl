@@ -12,9 +12,6 @@ internal static class ShaderNodesRegistrar
             .Add<ShaderComputePassNode>(NodeGraphStrings.ShaderComputePassNode)
             .Add<ShaderRenderPassNode>(NodeGraphStrings.ShaderRenderPassNode)
             .Add<ShaderExtendedRenderPassNode>(NodeGraphStrings.ShaderExtendedRenderPassNode)
-            .Add<ShaderSourceNode>(NodeGraphStrings.ShaderSourceNode)
-            .Add<ShaderPictureNode>(NodeGraphStrings.ShaderPictureNode)
-            .Add<ShaderApplyNode>(NodeGraphStrings.ShaderApplyNode)
             .AddGroup(NodeGraphStrings.ShaderCategory_Resources, group => group
                 .Add<ShaderImageNode>(NodeGraphStrings.ShaderImageNode)
                 .Add<ShaderFixedImageNode>(NodeGraphStrings.ShaderFixedImageNode)

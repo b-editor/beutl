@@ -83,8 +83,8 @@ public partial class ShaderNodeRenderingTests
         graph.Connect(compute.In("maskImage"), mask.Output);
         var combine = graph.Add(new ShaderFullscreenPassNode { Code = { Value = CombineCode } });
         graph.Connect(combine.In("maskImage"), compute.Out("maskImage"));
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.Image, combine.Out("color"));
+        var output = graph.Add(new OutputNode());
+        graph.Connect(output.InputPort, combine.Out("color"));
 
         AssertMatches(graph, ShaderGraphBuilder.Build(0, static (builder, _) =>
         {
@@ -143,8 +143,8 @@ public partial class ShaderNodeRenderingTests
         pass.Set("parameters.basis", basis);
         pass.Set("parameters.weights", weights);
         pass.Set("constants.bias", new Vector4(0.1f, 0, 0, 0));
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.Image, pass.Out("color"));
+        var output = graph.Add(new OutputNode());
+        graph.Connect(output.InputPort, pass.Out("color"));
 
         AssertMatches(graph, ShaderGraphBuilder.Build(0, (builder, _) =>
         {
@@ -188,8 +188,8 @@ public partial class ShaderNodeRenderingTests
         var pass = graph.Add(new ShaderFullscreenPassNode { Code = { Value = code } });
         pass.Set("parameters.flat_", matrix);
         pass.Set("parameters.full", matrix);
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.Image, pass.Out("color"));
+        var output = graph.Add(new OutputNode());
+        graph.Connect(output.InputPort, pass.Out("color"));
 
         ushort[] pixels = ShaderNodeTestHelpers.Render(ShaderNodeTestHelpers.Record(graph), 1);
 
@@ -285,8 +285,8 @@ public partial class ShaderNodeRenderingTests
         graph.Connect(render.In("color"), color.Out("color"));
         foreach (IOutputPort setting in new IOutputPort[] { vertexBuffer.Output, indexBuffer.Output, draw.Output })
             graph.Connect(render.Settings, setting);
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.Image, render.Out("result"));
+        var output = graph.Add(new OutputNode());
+        graph.Connect(output.InputPort, render.Out("result"));
 
         ShaderGraphDescription reference = ShaderGraphBuilder.Build(0, static (builder, _) =>
         {
@@ -374,8 +374,8 @@ public partial class ShaderNodeRenderingTests
         graph.Connect(nearest.Image, pass.DepthOutput);
         graph.Connect(view.In("depth"), nearest.Output);
         graph.Connect(view.Targets, colorImage.Output);
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.Image, view.Out("color"));
+        var output = graph.Add(new OutputNode());
+        graph.Connect(output.InputPort, view.Out("color"));
 
         ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
 
@@ -398,9 +398,7 @@ public partial class ShaderNodeRenderingTests
     private static GraphModel CreateReplayGraph(out ShaderReplayNode replay)
     {
         var graph = new GraphModel();
-        var source = graph.Add(new ShaderSourceNode());
         replay = graph.Add(new ShaderReplayNode());
-        graph.Connect(replay.Items.OfType<IInputPort>().First(), source.Image);
         replay.StepsPerSecond.Property!.SetValue(10d);
         replay.ResetTime.Property!.SetValue(0.2d);
         var body = replay.Group.Value;
@@ -420,8 +418,8 @@ public partial class ShaderNodeRenderingTests
             }
         };
         body.Connect((IInputPort)body.Output.Value!.Items[0], pass.Out("color"));
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.Image, replay.Items.OfType<IOutputPort>().First());
+        var output = graph.Add(new OutputNode());
+        graph.Connect(output.InputPort, replay.Items.OfType<IOutputPort>().First());
         return graph;
     }
 
@@ -464,6 +462,13 @@ public partial class ShaderNodeRenderingTests
                 var context = new CompositionContext(MediaTime.FromSeconds(time));
                 snapshot.Build(candidate, context);
                 snapshot.Evaluate(context);
+                // Up to its reset time a replay has no steps, and with nothing connected it hands on nothing.
+                if (time <= 0.2)
+                {
+                    Assert.That(ShaderNodeTestHelpers.Picture(candidate, snapshot), Is.Null, $"At {time}");
+                    continue;
+                }
+
                 ShaderGraphDescription description = ShaderNodeTestHelpers.Record(candidate, snapshot);
                 ShaderGraphDescription reference = ReplayReference(time);
                 Assert.That(description.PassNames.Length, Is.EqualTo(reference.PassNames.Length));
@@ -498,10 +503,8 @@ public partial class ShaderNodeRenderingTests
         pass.Format.Property!.SetValue(TextureFormat.RGBA32Float);
         body.Connect(pass.In("previous"), (IOutputPort)body.Input.Value!.Items[0]);
         body.Connect((IInputPort)body.Output.Value!.Items[0], pass.Out("color"));
-        var source = graph.Add(new ShaderSourceNode());
-        graph.Connect(replay.Items.OfType<IInputPort>().First(), source.Image);
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.Image, replay.Items.OfType<IOutputPort>().First());
+        var output = graph.Add(new OutputNode());
+        graph.Connect(output.InputPort, replay.Items.OfType<IOutputPort>().First());
 
         ShaderGraphDescription description = ShaderNodeTestHelpers.Record(graph);
         Assert.That(description.PassNames.Length, Is.EqualTo(Steps));
@@ -531,10 +534,8 @@ public partial class ShaderNodeRenderingTests
         var pass = body.Add(new ShaderFullscreenPassNode { Code = { Value = BlurCode } });
         body.Connect(pass.In("previous"), (IOutputPort)body.Input.Value!.Items[0]);
         body.Connect((IInputPort)body.Output.Value!.Items[0], pass.Out("color"));
-        var source = graph.Add(new ShaderSourceNode());
-        graph.Connect(repeat.Items.OfType<IInputPort>().First(), source.Image);
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.Image, repeat.Items.OfType<IOutputPort>().First());
+        var output = graph.Add(new OutputNode());
+        graph.Connect(output.InputPort, repeat.Items.OfType<IOutputPort>().First());
 
         AssertMatches(graph, ShaderGraphBuilder.Build(0, static (builder, _) =>
             builder.Output(builder.Repeat(4, builder.Source, static (b, previous, index) =>
@@ -559,11 +560,8 @@ public partial class ShaderNodeRenderingTests
         ((IModifiableHierarchical)new TestHierarchicalRoot()).AddChild(files.Scene);
         GraphModel graph = CreateReplayGraph(out ShaderReplayNode replay);
         replay.ResetTime.Property!.SetValue(0d);
-        ShaderApplyNode apply = graph.Nodes.OfType<ShaderApplyNode>().Single();
         var source = graph.Add(new FilterEffectInputNode());
-        graph.Connect(apply.NamedInput("Input"), source.Output);
-        var output = graph.Add(new OutputNode());
-        graph.Connect(output.InputPort, apply.Items.OfType<IOutputPort>().Single());
+        graph.Connect(replay.Items.OfType<IInputPort>().First(), source.Output);
         var effect = new NodeGraphFilterEffect();
         effect.Model.Value = graph;
         Populate(files, effect, MediaTime.FromSeconds(start));
@@ -631,11 +629,9 @@ public partial class ShaderNodeRenderingTests
                 new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 1f } }
             }
         };
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.NamedInput("Input"), input.Output);
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(pass.In("sourceImage"), input.Output);
         var output = graph.Add(new OutputNode());
-        graph.Connect(output.InputPort, apply.Items.OfType<IOutputPort>().Single());
+        graph.Connect(output.InputPort, pass.Out("color"));
         Populate(files, effect);
         Populate(referenceFiles, new GLSLScriptEffect
         {
@@ -691,11 +687,9 @@ public partial class ShaderNodeRenderingTests
         GraphModel graph = effect.Model.Value!;
         var input = graph.Add(new FilterEffectInputNode());
         var pass = graph.Add(new ShaderFullscreenPassNode());
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.NamedInput("Input"), input.Output);
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(pass.In("source"), input.Output);
         var output = graph.Add(new OutputNode());
-        graph.Connect(output.InputPort, apply.Items.OfType<IOutputPort>().Single());
+        graph.Connect(output.InputPort, pass.Out("color"));
         Populate(files, effect);
         using var renderer = new SceneRenderer(files.Scene, RenderIntent.Preview, 1);
         ushort[] working = RenderScene(renderer, MediaTime.Zero, 1);
@@ -703,7 +697,7 @@ public partial class ShaderNodeRenderingTests
 
         pass.Code.Value = "broken";
         ushort[] failed = RenderScene(renderer, MediaTime.Zero, 1);
-        Assert.That(apply.Error.Value, Is.Not.Null.And.Not.Empty);
+        Assert.That(pass.Error.Value, Is.Not.Null.And.Not.Empty);
         Assert.That(failed, Is.All.EqualTo((ushort)0), "A failure must not pass for a working result.");
 
         pass.Code.Value = ShaderFullscreenPassNode.DefaultCode;
@@ -730,16 +724,14 @@ public partial class ShaderNodeRenderingTests
                     """
             }
         });
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.Image, pass.Out("color"));
         var output = graph.Add(new OutputNode());
-        graph.Connect(output.InputPort, apply.Items.OfType<IOutputPort>().Single());
+        graph.Connect(output.InputPort, pass.Out("color"));
         files.AddElement(MediaTime.Zero, MediaTime.FromSeconds(1)).AddObject(drawable);
         using var renderer = new SceneRenderer(files.Scene, RenderIntent.Preview, 1);
 
         ushort[] pixels = RenderScene(renderer, MediaTime.Zero, 1);
 
-        Assert.That(apply.Error.Value, Is.Null);
+        Assert.That(pass.Error.Value, Is.Null);
         Assert.That(pixels, Has.Length.EqualTo(48 * 40 * 4));
         Assert.That(Enumerable.Range(0, 48 * 40).Select(i => (float)BitConverter.UInt16BitsToHalf(pixels[i * 4 + 3])), Is.All.EqualTo(1f));
         Assert.That((float)BitConverter.UInt16BitsToHalf(pixels[47 * 4]), Is.GreaterThan((float)BitConverter.UInt16BitsToHalf(pixels[0])));
@@ -769,14 +761,10 @@ public partial class ShaderNodeRenderingTests
         var shape = graph.Add(new GeometryShapeNode());
         shape.Fill.Property!.SetValue(new SolidColorBrush(Colors.White));
         graph.Connect(shape.Geometry, geometry.OutputPort);
-        var picture = graph.Add(new ShaderPictureNode());
         var pass = graph.Add(new ShaderFullscreenPassNode { Code = { Value = mask } });
-        graph.Connect(pass.In("matte"), picture.Image);
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.NamedInput("Input"), input.Output);
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(pass.In("source"), input.Output);
         var output = graph.Add(new OutputNode());
-        graph.Connect(output.InputPort, apply.Items.OfType<IOutputPort>().Single());
+        graph.Connect(output.InputPort, pass.Out("color"));
         Populate(files, effect);
         using var renderer = new SceneRenderer(files.Scene, RenderIntent.Preview, 1);
         const int frameWidth = 48;
@@ -784,14 +772,14 @@ public partial class ShaderNodeRenderingTests
 
         // With nothing connected the picture is the source itself, which shows where the source lies.
         ushort[] whole = RenderScene(renderer, MediaTime.Zero, 1);
-        Assert.That(apply.Error.Value, Is.Null);
+        Assert.That(pass.Error.Value, Is.Null);
         int[] columns = [.. Enumerable.Range(0, frameWidth).Where(x => Enumerable.Range(0, 40).Any(y => Alpha(whole, x, y) > 0.5f))];
         int[] rows = [.. Enumerable.Range(0, 40).Where(y => Enumerable.Range(0, frameWidth).Any(x => Alpha(whole, x, y) > 0.5f))];
         Assert.That(columns, Has.Length.EqualTo(24));
         Assert.That(rows, Has.Length.EqualTo(16));
 
         // A rectangle covering everything leaves it unchanged.
-        graph.Connect(picture.Input, shape.Output);
+        graph.Connect(pass.In("matte"), shape.Output);
         Assert.That(RenderScene(renderer, MediaTime.Zero, 1), Is.EqualTo(whole));
 
         // An effect works in its drawable's own coordinates, so a rectangle ending at 12 ends halfway across the source.
@@ -830,20 +818,16 @@ public partial class ShaderNodeRenderingTests
         var shape = graph.Add(new GeometryShapeNode());
         shape.Fill.Property!.SetValue(new SolidColorBrush(Colors.White));
         graph.Connect(shape.Geometry, geometry.OutputPort);
-        var picture = graph.Add(new ShaderPictureNode());
-        graph.Connect(picture.Input, shape.Output);
         var pass = graph.Add(new ShaderFullscreenPassNode());
-        graph.Connect(pass.In("source"), picture.Image);
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.Image, pass.Out("color"));
+        graph.Connect(pass.In("source"), shape.Output);
         var output = graph.Add(new OutputNode());
-        graph.Connect(output.InputPort, apply.Items.OfType<IOutputPort>().Single());
+        graph.Connect(output.InputPort, pass.Out("color"));
         files.AddElement(MediaTime.Zero, MediaTime.FromSeconds(1)).AddObject(drawable);
         using var renderer = new SceneRenderer(files.Scene, RenderIntent.Preview, 1);
 
         ushort[] pixels = RenderScene(renderer, MediaTime.Zero, 1);
 
-        Assert.That(apply.Error.Value, Is.Null);
+        Assert.That(pass.Error.Value, Is.Null);
         Assert.That((float)BitConverter.UInt16BitsToHalf(pixels[(20 * 48 + 12) * 4 + 3]), Is.EqualTo(1f).Within(1e-3f));
         Assert.That((float)BitConverter.UInt16BitsToHalf(pixels[(20 * 48 + 36) * 4 + 3]), Is.EqualTo(0f).Within(1e-3f));
     }
@@ -869,12 +853,10 @@ public partial class ShaderNodeRenderingTests
         var padded = graph.Add(new ShaderFullscreenPassNode());
         padded.Padding.Property!.SetValue(0f);
         var merge = graph.Add(new ShaderFullscreenPassNode { Code = { Value = MergeCode } });
+        graph.Connect(padded.In("source"), input.Output);
         graph.Connect(merge.In("b"), padded.Out("color"));
-        var apply = graph.Add(new ShaderApplyNode());
-        graph.Connect(apply.NamedInput("Input"), input.Output);
-        graph.Connect(apply.Image, merge.Out("color"));
         var output = graph.Add(new OutputNode());
-        graph.Connect(output.InputPort, apply.Items.OfType<IOutputPort>().Single());
+        graph.Connect(output.InputPort, merge.Out("color"));
         Populate(files, effect);
         using var renderer = new SceneRenderer(files.Scene, RenderIntent.Preview, 1);
         ushort[] plain = RenderScene(renderer, MediaTime.Zero, 1);
@@ -885,7 +867,7 @@ public partial class ShaderNodeRenderingTests
         if (resolutionOfTheSecondPass > 0) merge.Padding.Property!.SetValue(10f);
         ushort[] aligned = RenderScene(renderer, MediaTime.Zero, 1);
 
-        Assert.That(apply.Error.Value, Is.Null);
+        Assert.That(merge.Error.Value, Is.Null);
         Assert.That(aligned, Is.EqualTo(plain), "Space around a picture must not move or shrink it.");
     }
 

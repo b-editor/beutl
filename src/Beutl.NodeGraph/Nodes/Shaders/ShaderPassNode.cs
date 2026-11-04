@@ -25,10 +25,11 @@ internal sealed record ShaderPassCapture(
 internal sealed record ShaderPassResult(IReadOnlyDictionary<string, object> Resources, ShaderImage? Depth);
 
 /// <summary>One shader pass. Its code declares the ports: reading the declarations spares every binding by hand.</summary>
-public abstract partial class ShaderPassNode : ShaderDynamicNode
+public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPictureOwner
 {
     private const string InputPrefix = "In.";
     private const string OutputPrefix = "Out.";
+    private readonly ShaderErrorReports _errors;
 
     protected ShaderPassNode()
     {
@@ -46,6 +47,7 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode
             Display = { Value = NodePortDisplays.Error },
             ContentKind = NodeMonitorContentKind.Text
         };
+        _errors = new ShaderErrorReports(Error);
     }
 
     public override double EditorWidth => 380;
@@ -97,15 +99,16 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode
             return false;
         }
 
+        // What a picture failed on may be gone with the code it was about; the next evaluation says if it is not.
+        _errors.ReportPicture(null);
         ReportError(null);
         SyncPorts(CreatePortSpecs(reflection));
         return true;
     }
 
-    internal void ReportError(string? message)
-    {
-        if (Error.Value != message) Error.Value = message;
-    }
+    internal void ReportError(string? message) => _errors.ReportOwn(message);
+
+    void IShaderPictureOwner.ReportPictureFailure(string? message) => _errors.ReportPicture(message);
 
     private static IReadOnlyList<ShaderPortSpec> CreatePortSpecs(ShaderPassReflection reflection)
     {
@@ -348,82 +351,82 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode
                 switch (descriptor.Type)
                 {
                     case DescriptorType.StorageImage when descriptor.Access != ResourceAccess.Read:
-                    {
-                        ShaderGraphValue<ShaderImage>? wire = Wire<ShaderImage>(descriptor.Name);
-                        ShaderImage image;
-                        if (wire != null)
                         {
-                            image = recording.Evaluate(wire);
-                        }
-                        else if (descriptor.ImageKind == ImageKind.Image2D && descriptor.ImageFormat is { } format)
-                        {
-                            image = Allocate(recording, capture, descriptor.Name, like, format);
-                            // GLSL images read and write unless told otherwise, so what they read has to be known.
-                            if ((descriptor.Access & ResourceAccess.Read) != 0) ShaderImageContents.Clear(recording, image);
-                        }
-                        else
-                        {
-                            throw new InvalidOperationException(string.Format(NodeGraphStrings.ShaderError_NotConnected, descriptor.Name));
-                        }
+                            ShaderGraphValue<ShaderImage>? wire = Wire<ShaderImage>(descriptor.Name);
+                            ShaderImage image;
+                            if (wire != null)
+                            {
+                                image = recording.Evaluate(wire);
+                            }
+                            else if (descriptor.ImageKind == ImageKind.Image2D && descriptor.ImageFormat is { } format)
+                            {
+                                image = Allocate(recording, capture, descriptor.Name, like, format);
+                                // GLSL images read and write unless told otherwise, so what they read has to be known.
+                                if ((descriptor.Access & ResourceAccess.Read) != 0) ShaderImageContents.Clear(recording, image);
+                            }
+                            else
+                            {
+                                throw new InvalidOperationException(string.Format(NodeGraphStrings.ShaderError_NotConnected, descriptor.Name));
+                            }
 
-                        firstWritten ??= image;
-                        resources[OutputPrefix + descriptor.Name] = image;
-                        bindings.Add(pass => pass.StorageImage(binding, image, descriptor.Access));
-                        break;
-                    }
+                            firstWritten ??= image;
+                            resources[OutputPrefix + descriptor.Name] = image;
+                            bindings.Add(pass => pass.StorageImage(binding, image, descriptor.Access));
+                            break;
+                        }
                     case DescriptorType.StorageBuffer:
-                    {
-                        ShaderGraphValue<ShaderBuffer>? wire = Wire<ShaderBuffer>(descriptor.Name);
-                        ShaderBuffer buffer;
-                        if (wire != null)
                         {
-                            buffer = recording.Evaluate(wire);
-                        }
-                        else if ((descriptor.Access & ResourceAccess.Write) != 0 && !descriptor.IsRuntimeSized)
-                        {
-                            string name = recording.UniqueName($"{capture.Label}.{descriptor.Name}");
-                            // A block that is one array is checked against its element stride.
-                            int stride = descriptor.ArrayStride > 0 ? descriptor.ArrayStride : descriptor.MinimumSize;
-                            buffer = builder.Buffer(name, descriptor.MinimumSize / stride, stride);
-                            if ((descriptor.Access & ResourceAccess.Read) != 0) builder.Clear(recording.UniqueName($"{name}.clear"), buffer);
-                        }
-                        else
-                        {
-                            throw new InvalidOperationException(string.Format(NodeGraphStrings.ShaderError_NotConnected, descriptor.Name));
-                        }
+                            ShaderGraphValue<ShaderBuffer>? wire = Wire<ShaderBuffer>(descriptor.Name);
+                            ShaderBuffer buffer;
+                            if (wire != null)
+                            {
+                                buffer = recording.Evaluate(wire);
+                            }
+                            else if ((descriptor.Access & ResourceAccess.Write) != 0 && !descriptor.IsRuntimeSized)
+                            {
+                                string name = recording.UniqueName($"{capture.Label}.{descriptor.Name}");
+                                // A block that is one array is checked against its element stride.
+                                int stride = descriptor.ArrayStride > 0 ? descriptor.ArrayStride : descriptor.MinimumSize;
+                                buffer = builder.Buffer(name, descriptor.MinimumSize / stride, stride);
+                                if ((descriptor.Access & ResourceAccess.Read) != 0) builder.Clear(recording.UniqueName($"{name}.clear"), buffer);
+                            }
+                            else
+                            {
+                                throw new InvalidOperationException(string.Format(NodeGraphStrings.ShaderError_NotConnected, descriptor.Name));
+                            }
 
-                        if ((descriptor.Access & ResourceAccess.Write) != 0) resources[OutputPrefix + descriptor.Name] = buffer;
-                        bindings.Add(pass => pass.StorageBuffer(binding, buffer, descriptor.Access));
-                        break;
-                    }
+                            if ((descriptor.Access & ResourceAccess.Write) != 0) resources[OutputPrefix + descriptor.Name] = buffer;
+                            bindings.Add(pass => pass.StorageBuffer(binding, buffer, descriptor.Access));
+                            break;
+                        }
                     case DescriptorType.UniformBuffer:
-                    {
-                        switch (capture.Inputs.GetValueOrDefault(InputPrefix + descriptor.Name))
                         {
-                            case ShaderImageParametersValue parameters:
+                            switch (capture.Inputs.GetValueOrDefault(InputPrefix + descriptor.Name))
                             {
-                                ShaderImage image = recording.Evaluate(parameters.Image);
-                                bindings.Add(pass => pass.ImageParameters(binding, image));
-                                break;
+                                case ShaderImageParametersValue parameters:
+                                    {
+                                        ShaderImage image = recording.Evaluate(parameters.Image);
+                                        bindings.Add(pass => pass.ImageParameters(binding, image));
+                                        break;
+                                    }
+                                case ShaderGraphValue<ShaderBuffer> wire:
+                                    {
+                                        ShaderBuffer buffer = recording.Evaluate(wire);
+                                        bindings.Add(pass => pass.UniformBuffer(binding, buffer));
+                                        break;
+                                    }
+                                default:
+                                    {
+                                        byte[] bytes = ShaderParameterPacking.Pack(descriptor.Members, descriptor.MinimumSize,
+                                            member => capture.Inputs.GetValueOrDefault(MemberName(descriptor.Name, member)));
+                                        ShaderBuffer buffer = builder.Buffer(recording.UniqueName($"{capture.Label}.{descriptor.Name}"), bytes, 1);
+                                        bindings.Add(pass => pass.UniformBuffer(binding, buffer));
+                                        break;
+                                    }
                             }
-                            case ShaderGraphValue<ShaderBuffer> wire:
-                            {
-                                ShaderBuffer buffer = recording.Evaluate(wire);
-                                bindings.Add(pass => pass.UniformBuffer(binding, buffer));
-                                break;
-                            }
-                            default:
-                            {
-                                byte[] bytes = ShaderParameterPacking.Pack(descriptor.Members, descriptor.MinimumSize,
-                                    member => capture.Inputs.GetValueOrDefault(MemberName(descriptor.Name, member)));
-                                ShaderBuffer buffer = builder.Buffer(recording.UniqueName($"{capture.Label}.{descriptor.Name}"), bytes, 1);
-                                bindings.Add(pass => pass.UniformBuffer(binding, buffer));
-                                break;
-                            }
-                        }
 
-                        break;
-                    }
+                            break;
+                        }
                 }
             }
 
@@ -516,7 +519,7 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode
 /// position to keep, and its coordinates stay its own.</remarks>
 internal static class ShaderImageAlignment
 {
-    private static readonly ShaderProgram s_align = ShaderProgram.Fullscreen(new ShaderSource("""
+    private static readonly ShaderProgram s_resample = ShaderProgram.Fullscreen(new ShaderSource("""
         #version 450
         layout(location = 0) in vec2 uv;
         layout(location = 0) out vec4 color;
@@ -526,6 +529,29 @@ internal static class ShaderImageAlignment
 
         void main() {
             color = texture(image, (to.raster.xy - from_.raster.xy + uv * to.raster.zw) / from_.raster.zw);
+        }
+        """));
+
+    // At one density the grids coincide, so each texel comes over whole. Filtering would let rounding in these
+    // coordinates draw a trace of the picture across its edge.
+    private static readonly ShaderProgram s_align = ShaderProgram.Fullscreen(new ShaderSource("""
+        #version 450
+        layout(location = 0) in vec2 uv;
+        layout(location = 0) out vec4 color;
+        layout(set = 0, binding = 0) uniform sampler2D image;
+        layout(set = 0, binding = 1) uniform To { vec4 bounds; vec4 raster; vec4 size; } to;
+        layout(set = 0, binding = 2) uniform From { vec4 bounds; vec4 raster; vec4 size; } from_;
+
+        void main() {
+            vec2 position = to.raster.xy - from_.raster.xy + uv * to.raster.zw;
+            if (abs(to.size.z - from_.size.z) > 0.0001) {
+                color = texture(image, position / from_.raster.zw);
+                return;
+            }
+
+            ivec2 texel = ivec2(floor(position * from_.size.z));
+            bool inside = all(greaterThanEqual(texel, ivec2(0))) && all(lessThan(texel, textureSize(image, 0)));
+            color = inside ? texelFetch(image, texel, 0) : vec4(0);
         }
         """));
 
@@ -545,7 +571,9 @@ internal static class ShaderImageAlignment
             resolutionScale: frame.ResolutionScale);
         // The copy lines up with the output texel for texel, whatever density the output has.
         aligned.RasterSource = frame;
-        recording.Builder.Fullscreen(recording.UniqueName($"{name}.align"), s_align, pass =>
+        // A sampler that repeats or clamps says what lies outside the picture, which the exact copy takes to be nothing.
+        bool transparentOutside = sampler is null or { AddressU: SamplerAddressMode.ClampToBorder, AddressV: SamplerAddressMode.ClampToBorder };
+        recording.Builder.Fullscreen(recording.UniqueName($"{name}.align"), transparentOutside ? s_align : s_resample, pass =>
         {
             pass.SampledImage(0, image, sampler);
             pass.ImageParameters(1, aligned);

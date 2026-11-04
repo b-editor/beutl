@@ -66,15 +66,6 @@
   <data name="ShaderExtendedRenderPassNode" xml:space="preserve">
     <value>Render pass with geometry and tessellation (GLSL)</value>
   </data>
-  <data name="ShaderSourceNode" xml:space="preserve">
-    <value>Source image</value>
-  </data>
-  <data name="ShaderPictureNode" xml:space="preserve">
-    <value>Picture as image</value>
-  </data>
-  <data name="ShaderApplyNode" xml:space="preserve">
-    <value>Apply shader</value>
-  </data>
   <data name="ShaderImageNode" xml:space="preserve">
     <value>Image</value>
   </data>
@@ -245,9 +236,6 @@
   </data>
   <data name="ShaderPort_Color" xml:space="preserve">
     <value>Color</value>
-  </data>
-  <data name="ShaderPort_ColorEncoding" xml:space="preserve">
-    <value>Color encoding</value>
   </data>
   <data name="ShaderPort_ColorOperation" xml:space="preserve">
     <value>Color operation</value>

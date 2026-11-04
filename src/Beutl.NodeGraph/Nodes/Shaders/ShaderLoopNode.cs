@@ -19,8 +19,10 @@ internal readonly record struct ShaderLoopStep(int Index, int Count, double Time
 /// <summary>A group that runs repeatedly: each state output feeds the state input of the same position.</summary>
 /// <remarks>Evaluating the group only builds wire values, so the loop needs no recording of its own. What
 /// its outputs carry is recorded when something asks for them, through one value per iteration.</remarks>
-public abstract partial class ShaderLoopNode : GroupNode
+public abstract partial class ShaderLoopNode : GroupNode, IShaderPictureOwner
 {
+    private ShaderErrorReports? _errors;
+
     protected ShaderLoopNode()
     {
         var input = new ShaderLoopInput();
@@ -48,6 +50,10 @@ public abstract partial class ShaderLoopNode : GroupNode
     }
 
     public NodeMonitor<string?> Error { get; private protected set; } = null!;
+
+    private ShaderErrorReports Errors => _errors ??= new ShaderErrorReports(Error);
+
+    void IShaderPictureOwner.ReportPictureFailure(string? message) => Errors.ReportPicture(message);
 
     public override void Deserialize(ICoreSerializationContext context)
     {
@@ -95,7 +101,7 @@ public abstract partial class ShaderLoopNode : GroupNode
             }
 
             ShaderLoopStep[]? steps = GetSteps(context, out string? error);
-            if (node.Error.Value != error) node.Error.Value = error;
+            node.Errors.ReportOwn(error);
             try
             {
                 var ordered = new List<IShaderGraphValue>();
