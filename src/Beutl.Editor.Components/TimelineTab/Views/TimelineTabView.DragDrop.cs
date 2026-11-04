@@ -114,20 +114,15 @@ public sealed partial class TimelineTabView
             // The layout can have to open the files.
             ElementDescription[] descriptions = await Task.Run(
                 () => FileDropLayout.Create(files.Except(captions), frame, s_defaultElementLength, layer));
-            if (descriptions.Length > 0)
-            {
-                await viewModel.AddElementsWithResultAsync(descriptions);
-            }
-            else if (captions.Length == 0)
+            if (descriptions.Length == 0 && captions.Length == 0)
             {
                 // With no media among them, adding the first says why it cannot be added.
                 await viewModel.AddElementWithResultAsync(
                     new ElementDescription(frame, s_defaultElementLength, layer, new ElementSource.File(files[0])));
             }
-
-            foreach (string caption in captions)
+            else
             {
-                await CaptionFileDrop.AddAsync(viewModel, caption, template);
+                await CaptionFileDrop.AddAsync(viewModel, captions, descriptions, template);
             }
         }
         catch (OperationCanceledException) { }

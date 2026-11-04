@@ -12,6 +12,9 @@ internal readonly record struct CaptionSceneImportResult(
 
 internal static class AiCaptionSceneImporter
 {
+    public static int GetFirstFreeLayer(Scene scene)
+        => scene.Children.Select(item => item.ZIndex.Value).DefaultIfEmpty(-1).Max() + 1;
+
     public static async Task<CaptionSceneImportResult> AddAsync(
         Scene scene,
         IElementAdder adder,
@@ -26,23 +29,54 @@ internal static class AiCaptionSceneImporter
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(template);
 
-        int layer = scene.Children
-            .Select(item => item.ZIndex.Value)
-            .DefaultIfEmpty(-1)
-            .Max() + 1;
+        List<ElementDescription> descriptions = CreateDescriptions(
+            scene, GetFirstFreeLayer(scene), document, template, cancellationToken, elementName, minimumLength);
+        ElementAddResult result = await adder.AddAsync(descriptions, cancellationToken);
+        return new CaptionSceneImportResult(result.IsSuccess, result.Failure?.Id, result.Items.FirstOrDefault()?.PrimaryElement);
+    }
+
+    // Cues that overlap in time go on separate layers from firstLayer up: on one layer, adding them would move
+    // the later cue to after the earlier one.
+    public static List<ElementDescription> CreateDescriptions(
+        Scene scene,
+        int firstLayer,
+        CaptionDocument document,
+        CaptionTemplate template,
+        CancellationToken cancellationToken = default,
+        string? elementName = null,
+        MediaTime? minimumLength = null)
+    {
         Point defaultPosition = new(0, scene.FrameSize.Value.Height * 0.35f);
         var context = new CaptionElementContext(
-            layer,
+            firstLayer,
             elementName ?? Beutl.Language.Strings.AiSubtitle,
             defaultPosition,
             minimumLength);
         var descriptions = new List<ElementDescription>(document.Count);
-        foreach (CaptionCue cue in document.Cues)
+        var layerEnds = new Dictionary<int, MediaTime>();
+        foreach (CaptionCue cue in document.Cues.OrderBy(cue => cue.Start))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            descriptions.AddRange(template.CreateElements(cue, context));
+            IReadOnlyList<ElementDescription> elements = template.CreateElements(cue, context);
+            int shift = 0;
+            while (elements.Any(element => layerEnds.TryGetValue(element.Layer + shift, out MediaTime end) && element.Start < end))
+                shift++;
+
+            if (shift > 0)
+            {
+                elements = template.CreateElements(cue, new CaptionElementContext(
+                    firstLayer + shift, context.ElementName, context.DefaultPosition, context.MinimumLength));
+            }
+
+            foreach (ElementDescription element in elements)
+            {
+                MediaTime end = element.Start + (element.Length ?? MediaTime.Zero);
+                if (!layerEnds.TryGetValue(element.Layer, out MediaTime previous) || previous < end)
+                    layerEnds[element.Layer] = end;
+                descriptions.Add(element);
+            }
         }
-        ElementAddResult result = await adder.AddAsync(descriptions, cancellationToken);
-        return new CaptionSceneImportResult(result.IsSuccess, result.Failure?.Id, result.Items.FirstOrDefault()?.PrimaryElement);
+
+        return descriptions;
     }
 }
