@@ -41,6 +41,15 @@ public sealed class CaptionCatalog
     }
 
     /// <summary>
+    /// The saved templates a caption can be made from, for <see cref="RefreshObjectTemplates"/>.
+    /// </summary>
+    internal static IEnumerable<ObjectTemplateItem> FindObjectTemplates()
+    {
+        return ObjectTemplateService.Instance.FindByBaseType(typeof(Beutl.Graphics.Drawable))
+            .Concat(ElementTemplateResolver.FindElementTemplates());
+    }
+
+    /// <summary>
     /// Refreshes host-owned object templates.
     /// </summary>
     public void RefreshObjectTemplates(IEnumerable<ObjectTemplateItem> objectTemplates)
@@ -77,7 +86,7 @@ public sealed class CaptionCatalog
     private static CaptionTemplate[] CreateObjectTemplates(IEnumerable<ObjectTemplateItem> objectTemplates)
     {
         return objectTemplates
-            .Select(TextBlockCaptionTemplateAdapter.TryCreate)
+            .Select(item => TextBlockCaptionTemplateAdapter.TryCreate(item) ?? ElementCaptionTemplateAdapter.TryCreate(item))
             .OfType<CaptionTemplate>()
             .OrderBy(item => item.Descriptor.Name, StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.Descriptor.Id.Value, StringComparer.OrdinalIgnoreCase)

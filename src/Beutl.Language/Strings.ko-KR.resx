@@ -2027,7 +2027,7 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>기본값</value>
   </data>
   <data name="AiSubtitle_TemplateDescription" xml:space="preserve">
-    <value>저장된 TextBlock 템플릿이 여기에 표시됩니다. 서식, 효과, 애니메이션 및 배치가 모든 자막에 적용됩니다.</value>
+    <value>텍스트가 포함된 저장된 템플릿(TextBlock, 요소, 여러 요소)이 여기에 표시됩니다. 서식, 효과, 애니메이션 및 배치가 모든 자막에 적용됩니다.</value>
   </data>
   <data name="AiSubtitle_Transcribe" xml:space="preserve">
     <value>받아쓰기</value>

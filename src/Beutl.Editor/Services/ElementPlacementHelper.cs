@@ -121,6 +121,18 @@ internal static class ElementPlacementHelper
         return new GroupPlacement(range, minZIndex, rowOffsets, anchor.Start, anchor.ZIndex);
     }
 
+    /// <summary>The place for <paramref name="elements"/> kept together at exactly the given start and layer.</summary>
+    internal static GroupPlacement PlaceAt(IReadOnlyList<Element> elements, MediaTime start, int layer)
+    {
+        (TimeRange range, int minZIndex, _) = DuplicateHelper.ComputePlacementRange(elements);
+        return new GroupPlacement(
+            range,
+            minZIndex,
+            elements.Select(element => element.ZIndex.Value - minZIndex).ToHashSet(),
+            start,
+            layer);
+    }
+
     internal static HashSet<int> GetLockedRows(Scene scene)
         => scene.Layers.Where(layer => layer.IsLocked.Value).Select(layer => layer.ZIndex.Value).ToHashSet();
 

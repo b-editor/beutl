@@ -24,7 +24,7 @@ internal static class CaptionFileDrop
     public static IReadOnlyList<CaptionTemplate> GetTemplates()
     {
         CaptionCatalog catalog = s_catalog.Value;
-        catalog.RefreshObjectTemplates(ObjectTemplateService.Instance.FindByBaseType(typeof(Beutl.Graphics.Drawable)));
+        catalog.RefreshObjectTemplates(CaptionCatalog.FindObjectTemplates());
         return [.. catalog.Templates.Templates.Select(item => catalog.Templates.GetTemplate(item.Id))];
     }
 
@@ -64,7 +64,7 @@ internal static class CaptionFileDrop
                 elementName: Path.GetFileNameWithoutExtension(file),
                 minimumLength: s_shortestCue);
             descriptions.AddRange(clips);
-            layer = clips.Max(clip => clip.Layer) + 1;
+            layer = clips.SelectMany(AiCaptionSceneImporter.GetExtents).Max(extent => extent.Layer) + 1;
             // Everything but markup means a cue was left out.
             if (import.Diagnostics.Any(item => item.Kind != CaptionDiagnosticKinds.UnsupportedMarkup))
                 skippedSome.Add(file);

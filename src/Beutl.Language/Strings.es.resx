@@ -2027,7 +2027,7 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Predeterminada</value>
   </data>
   <data name="AiSubtitle_TemplateDescription" xml:space="preserve">
-    <value>Aquí aparecen las plantillas de TextBlock guardadas. Su formato, efectos, animación y posición se aplican a todos los subtítulos.</value>
+    <value>Aquí aparecen las plantillas guardadas que contienen texto, ya sean de un TextBlock, un elemento o varios elementos. Su formato, efectos, animación y posición se aplican a todos los subtítulos.</value>
   </data>
   <data name="AiSubtitle_Transcribe" xml:space="preserve">
     <value>Transcribir</value>

@@ -14,6 +14,7 @@ using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Editor.Components.AiWorkspaceTab.Views;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
+using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
@@ -375,6 +376,241 @@ public class AiSubtitleTemplateTests
                     position: new Beutl.Graphics.Point(140, context.DefaultPosition.Y)),
             ];
         }
+    }
+
+    private static Element CreateTextElement(string name, float start, float length, int layer, params EngineObject[] objects)
+    {
+        var element = new Element
+        {
+            Name = { Value = name },
+            Start = { Value = MediaTime.FromSeconds(start) },
+            Length = { Value = MediaTime.FromSeconds(length) },
+            ZIndex = { Value = layer },
+        };
+        foreach (EngineObject item in objects)
+        {
+            element.AddObject(item);
+        }
+
+        return element;
+    }
+
+    private static CaptionDocument CreateCues(params (double Start, double End, string Text)[] cues)
+    {
+        return new CaptionDocument(cues.Select(cue =>
+            new CaptionCue(TimeSpan.FromSeconds(cue.Start), TimeSpan.FromSeconds(cue.End), cue.Text)));
+    }
+
+    // A band and a text that last 4 seconds, a flourish of 1 second just after they start, and an ending at 5 seconds.
+    private static ObjectTemplateItem CreateLowerThird()
+    {
+        Element band = CreateTextElement("Band", 10, 4, 3, new RectShape());
+        Element text = CreateTextElement("Text", 10, 4, 4, new TextBlock { Text = { Value = "Placeholder" } });
+        Element flourish = CreateTextElement("Flourish", 10.5f, 1, 5, new EllipseShape());
+        Element ending = CreateTextElement("Ending", 15, 1, 6, new EllipseShape());
+        var set = new ElementSet();
+        set.Elements.AddRange([band, text, flourish, ending]);
+        set.Groups.Add([band.Id.Value, text.Id.Value]);
+        set.Groups.Add([flourish.Id.Value, ending.Id.Value]);
+        return ObjectTemplateItem.CreateFromInstance(set, "Lower third");
+    }
+
+    [Test]
+    public void Templates_of_elements_are_offered_when_they_hold_text()
+    {
+        ObjectTemplateItem Set(params Element[] elements)
+        {
+            var set = new ElementSet();
+            set.Elements.AddRange(elements);
+            return ObjectTemplateItem.CreateFromInstance(set, "Set");
+        }
+
+        var group = new DrawableGroup();
+        group.Children.Add(new TextBlock());
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                ElementCaptionTemplateAdapter.TryCreate(ObjectTemplateItem.CreateFromInstance(
+                    CreateTextElement("Text", 0, 1, 0, new TextBlock()), "Text")),
+                Is.Not.Null);
+            Assert.That(
+                ElementCaptionTemplateAdapter.TryCreate(ObjectTemplateItem.CreateFromInstance(
+                    CreateTextElement("Group", 0, 1, 0, group), "Group")),
+                Is.Not.Null,
+                "Text inside a group counts.");
+            Assert.That(
+                ElementCaptionTemplateAdapter.TryCreate(ObjectTemplateItem.CreateFromInstance(
+                    CreateTextElement("Shape", 0, 1, 0, new RectShape()), "Shape")),
+                Is.Null);
+            Assert.That(
+                ElementCaptionTemplateAdapter.TryCreate(Set(
+                    CreateTextElement("Shape", 0, 1, 0, new RectShape()),
+                    CreateTextElement("Text", 0, 1, 1, new TextBlock()))),
+                Is.Not.Null);
+            Assert.That(
+                ElementCaptionTemplateAdapter.TryCreate(Set(CreateTextElement("Shape", 0, 1, 0, new RectShape()))),
+                Is.Null);
+            Assert.That(
+                ElementCaptionTemplateAdapter.TryCreate(ObjectTemplateItem.CreateFromInstance(new TextBlock(), "Object")),
+                Is.Null,
+                "A lone text object has its own adapter.");
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_saved_element_takes_each_cue_in_all_its_text_and_keeps_the_rest()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("caption-element-template");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        var group = new DrawableGroup();
+        group.Children.Add(new TextBlock { Text = { Value = "In a group" }, Size = { Value = 30 } });
+        group.Children.Add(new RectShape());
+        ObjectTemplateItem saved = ObjectTemplateItem.CreateFromInstance(
+            CreateTextElement(
+                "Saved",
+                10,
+                4,
+                3,
+                new TextBlock
+                {
+                    Text = { Value = "Placeholder" },
+                    Size = { Value = 72 },
+                    Transform = { Value = new TranslateTransform(45, 60) },
+                },
+                group),
+            "Saved");
+        int undoCount = editor.HistoryManager.UndoCount;
+
+        CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+            editor.Scene,
+            adder,
+            CreateCues((1, 3, "First"), (2, 6, "Second")),
+            ElementCaptionTemplateAdapter.TryCreate(saved)!);
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(result.IsSuccess, Is.True);
+        Element[] elements = [.. editor.Scene.Children.OrderBy(element => element.Start.Value)];
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                elements.Select(element => (element.Name.Value, element.Start.Value, element.Length.Value, element.ZIndex.Value)),
+                Is.EqualTo(new[]
+                {
+                    ("Saved", MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0),
+                    ("Saved", MediaTime.FromSeconds(2), MediaTime.FromSeconds(4), 1),
+                }));
+            TextBlock text = elements[0].Objects.OfType<TextBlock>().Single();
+            var inGroup = (TextBlock)elements[0].Objects.OfType<DrawableGroup>().Single().Children[0];
+            Assert.That(text.Text.Value, Is.EqualTo("First"));
+            Assert.That(inGroup.Text.Value, Is.EqualTo("First"));
+            Assert.That(text.Size.Value, Is.EqualTo(72));
+            Assert.That(inGroup.Size.Value, Is.EqualTo(30));
+            Assert.That(GetTranslate(text).X.Value, Is.EqualTo(45), "The template's place stays.");
+            Assert.That(elements[1].Objects.OfType<TextBlock>().Single().Text.Value, Is.EqualTo("Second"));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
+        }
+
+        Assert.That(editor.HistoryManager.Undo(), Is.True);
+        Assert.That(editor.Scene.Children, Is.Empty);
+    }
+
+    [AvaloniaTest]
+    public async Task A_saved_set_goes_in_whole_for_each_cue_fitted_to_its_length()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("caption-set-template");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        int undoCount = editor.HistoryManager.UndoCount;
+
+        CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+            editor.Scene,
+            adder,
+            CreateCues((1, 3, "First"), (2, 8, "Second")),
+            ElementCaptionTemplateAdapter.TryCreate(CreateLowerThird())!);
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(result.IsSuccess, Is.True);
+        using (Assert.EnterMultipleScope())
+        {
+            // The first cue is too short for the ending. The second overlaps it, so its set goes above the first's.
+            Assert.That(
+                editor.Scene.Children.Select(element => (element.Name.Value, element.Start.Value, element.Length.Value, element.ZIndex.Value)),
+                Is.EquivalentTo(new[]
+                {
+                    ("Band", MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0),
+                    ("Text", MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 1),
+                    ("Flourish", MediaTime.FromSeconds(1.5), MediaTime.FromSeconds(1), 2),
+                    ("Band", MediaTime.FromSeconds(2), MediaTime.FromSeconds(6), 3),
+                    ("Text", MediaTime.FromSeconds(2), MediaTime.FromSeconds(6), 4),
+                    ("Flourish", MediaTime.FromSeconds(2.5), MediaTime.FromSeconds(1), 5),
+                    ("Ending", MediaTime.FromSeconds(7), MediaTime.FromSeconds(1), 6),
+                }));
+            Assert.That(
+                editor.Scene.Children.Where(element => element.Name.Value == "Text")
+                    .OrderBy(element => element.Start.Value)
+                    .Select(element => ((TextBlock)element.Objects[0]).Text.Value),
+                Is.EqualTo(new[] { "First", "Second" }));
+            // The flourish of the first set lost the partner of its group, and the group with it.
+            Assert.That(editor.Scene.Groups, Has.Count.EqualTo(3));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
+        }
+
+        Assert.That(editor.HistoryManager.Undo(), Is.True);
+        Assert.That(editor.Scene.Children, Is.Empty);
+    }
+
+    [AvaloniaTest]
+    public async Task A_saved_set_goes_above_the_scene_and_around_locked_layers()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("caption-set-locked");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        editor.Scene.AddChild(CreateTextElement("Existing", 0, 10, 0, new RectShape()));
+        editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 2 }, IsLocked = { Value = true } });
+
+        CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+            editor.Scene,
+            adder,
+            CreateCues((1, 3, "First")),
+            ElementCaptionTemplateAdapter.TryCreate(CreateLowerThird())!);
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(
+            editor.Scene.Children.Where(element => element.Name.Value != "Existing")
+                .Select(element => (element.Name.Value, element.Start.Value, element.ZIndex.Value)),
+            Is.EquivalentTo(new[]
+            {
+                ("Band", MediaTime.FromSeconds(1), 1),
+                ("Text", MediaTime.FromSeconds(1), 3),
+                ("Flourish", MediaTime.FromSeconds(1.5), 4),
+            }));
+    }
+
+    [AvaloniaTest]
+    public async Task The_template_preview_shows_every_element_of_a_saved_set()
+    {
+        await TestReset.ResetShellAsync();
+        var rendered = new TaskCompletionSource<IReadOnlyList<Element>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        ObjectTemplateItem saved = CreateLowerThird();
+        var catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [saved],
+            new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default));
+        using AiSubtitleDialogViewModel dialog = AiTestSupport.CreateSubtitleDialog(
+            TestShell.MainViewModel._beutlClients, null, captionCatalog: catalog);
+        dialog.TemplatePreviewRenderer = (elements, _, _) =>
+        {
+            rendered.TrySetResult(elements);
+            return Task.FromResult<byte[]?>(null);
+        };
+        dialog.SelectedSubtitlePageIndex.Value = 1;
+        dialog.SelectedCaptionTemplate.Value = dialog.CaptionTemplates
+            .Single(template => template.Id == ElementCaptionTemplateAdapter.TryCreate(saved)!.Descriptor.Id);
+        dialog.AttachTemplatePreview();
+
+        IReadOnlyList<Element> shown = await rendered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(shown.Select(element => element.Name.Value), Does.Contain("Band").And.Contain("Text"));
+        dialog.DetachTemplatePreview();
     }
 
     [AvaloniaTest]

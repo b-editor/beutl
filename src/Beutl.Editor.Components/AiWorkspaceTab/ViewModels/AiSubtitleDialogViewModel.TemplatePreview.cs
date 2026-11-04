@@ -260,6 +260,12 @@ public sealed partial class AiSubtitleDialogViewModel
                         element.Length.Value = length;
                     element.ZIndex.Value = description.Layer;
                     break;
+                case ElementSource.ElementSetTemplate source:
+                    Element[] set = [.. source.Factory().Elements];
+                    GroupPlacement placement = ElementPlacementHelper.PlaceAt(set, description.Start, description.Layer);
+                    ElementPlacementHelper.MoveTogether(set, placement.StartDelta, placement.LayerDelta);
+                    elements.AddRange(set);
+                    continue;
                 default:
                     return null;
             }

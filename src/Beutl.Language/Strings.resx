@@ -1796,7 +1796,7 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Default</value>
   </data>
   <data name="AiSubtitle_TemplateDescription" xml:space="preserve">
-    <value>Saved TextBlock templates appear here. Their formatting, effects, animation, and placement are applied to every subtitle.</value>
+    <value>Saved templates that hold text appear here, whether of a TextBlock, an element, or several elements. Their formatting, effects, animation, and placement are applied to every subtitle.</value>
   </data>
   <data name="AiSubtitle_Transcribe" xml:space="preserve">
     <value>Transcribe</value>
