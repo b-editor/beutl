@@ -14,8 +14,6 @@ public abstract class DynamicsNode : AudioNode
 {
     protected const float MinDb = -100f;
 
-    // Cache channel views across Process calls to avoid repeated slicing in hot loops.
-
     private int _lastSampleRate;
     private MediaTime? _lastTimeRangeEnd;
 
@@ -158,50 +156,20 @@ public abstract class DynamicsNode : AudioNode
         // A local copy lets the JIT keep the gain state in registers; it is written back at the end.
         TGain local = gain;
 
-        if (channels <= 2)
+        for (int i = start; i < end; i++)
         {
-            ReadOnlySpan<float> in0 = inputRaw[..stride];
-            Span<float> out0 = outputRaw[..stride];
-            ReadOnlySpan<float> in1 = channels == 2 ? inputRaw[stride..] : default;
-            Span<float> out1 = channels == 2 ? outputRaw[stride..] : default;
-
-            for (int i = start; i < end; i++)
+            float peak = 0f;
+            for (int ch = 0; ch < channels; ch++)
             {
-                float s0 = in0[i];
-                float peak = AccumulatePeak(0f, s0);
-                float s1 = 0f;
-                if (channels == 2)
-                {
-                    s1 = in1[i];
-                    peak = AccumulatePeak(peak, s1);
-                }
-
-                float gainLinear = local.Next(i, peak);
-
-                out0[i] = SanitizeOutput(s0 * gainLinear);
-                if (channels == 2)
-                {
-                    out1[i] = SanitizeOutput(s1 * gainLinear);
-                }
+                peak = AccumulatePeak(peak, inputRaw[ch * stride + i]);
             }
-        }
-        else
-        {
-            for (int i = start; i < end; i++)
+
+            float gainLinear = local.Next(i, peak);
+
+            for (int ch = 0; ch < channels; ch++)
             {
-                float peak = 0f;
-                for (int ch = 0; ch < channels; ch++)
-                {
-                    peak = AccumulatePeak(peak, inputRaw[ch * stride + i]);
-                }
-
-                float gainLinear = local.Next(i, peak);
-
-                for (int ch = 0; ch < channels; ch++)
-                {
-                    int index = ch * stride + i;
-                    outputRaw[index] = SanitizeOutput(inputRaw[index] * gainLinear);
-                }
+                int index = ch * stride + i;
+                outputRaw[index] = SanitizeOutput(inputRaw[index] * gainLinear);
             }
         }
 

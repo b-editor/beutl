@@ -15,20 +15,14 @@ public sealed class PitchShiftNode : AudioNode
     // The stretcher holds its tempo for this many frames, so a keyframed pitch moves in steps this small.
     private const int StretchedBlockFrames = 64;
 
-    private WsolaTimeStretcher? _stretcher;
-    private AudioSourceStream? _stream;
-    private List<AudioNode>? _upstreamSnapshot;
+    private WsolaFeed? _feed;
     private int _sampleRate;
-    private int _channels;
     private MediaTime? _lastTimeRangeEnd;
     private float _lastSemitones;
-    private long? _inputEnd;
-    private bool _flushed;
-    private bool _draining;
 
     // The stretched frames not played yet, the two being played, and how far playback is between them.
     private float[] _stretched = [];
-    private float[] _feed = [];
+    private float[] _feedBuffer = [];
     private float[] _previous = [];
     private float[] _next = [];
     private int _stretchedPosition;
@@ -37,7 +31,7 @@ public sealed class PitchShiftNode : AudioNode
     private bool _started;
 
     // The input format is supplied when the graph is built, without pulling upstream audio.
-    public int ChannelCount { get; set; } = 2;
+    public int ChannelCount { get; init; } = 2;
 
     public required IProperty<float> Semitones { get; init; }
 
@@ -47,10 +41,7 @@ public sealed class PitchShiftNode : AudioNode
     public override AudioBuffer Flush(AudioProcessContext context)
         => RecordProcessedOutput(ProcessCore(context, draining: true));
 
-    private bool IsUnshifted =>
-        Semitones.Value == 0
-        && Semitones.GetKeyFrameAnimation() == null
-        && Semitones is not IExpressionProperty { HasExpression: true };
+    private bool IsUnshifted => Semitones.Value == 0 && !AnimationSampler.IsAnimated(Semitones);
 
     private AudioBuffer ProcessCore(AudioProcessContext context, bool draining)
     {
@@ -71,11 +62,10 @@ public sealed class PitchShiftNode : AudioNode
         if (count == 0)
             return output;
 
-        float[] interleaved = ArrayPool<float>.Shared.Rent(Math.Min(count, 1024) * ChannelCount);
         try
         {
             if (Prepare(context, draining))
-                Play(output, interleaved, context, draining);
+                Play(output, context);
 
             return output;
         }
@@ -86,26 +76,19 @@ public sealed class PitchShiftNode : AudioNode
             output.Dispose();
             throw;
         }
-        finally
-        {
-            ArrayPool<float>.Shared.Return(interleaved);
-        }
     }
 
     // Returns false when a drain has nothing to release.
     private bool Prepare(AudioProcessContext context, bool draining)
     {
-        bool upstreamChanged = AudioSourceStream.UpstreamChangedAndCapture(this, ref _upstreamSnapshot);
-        if (_stretcher == null || _sampleRate != context.SampleRate || _channels != ChannelCount || upstreamChanged)
+        if (_feed == null || _sampleRate != context.SampleRate)
         {
             _sampleRate = context.SampleRate;
-            _channels = ChannelCount;
-            _stretcher = new WsolaTimeStretcher(_sampleRate, _channels);
-            _stream = new AudioSourceStream(_sampleRate, _channels, static time => time);
-            _stretched = new float[StretchedBlockFrames * _channels];
-            _feed = new float[FeedFrames * _channels];
-            _previous = new float[_channels];
-            _next = new float[_channels];
+            _feed = new WsolaFeed(_sampleRate, ChannelCount, static time => time);
+            _stretched = new float[StretchedBlockFrames * ChannelCount];
+            _feedBuffer = new float[FeedFrames * ChannelCount];
+            _previous = new float[ChannelCount];
+            _next = new float[ChannelCount];
             _lastTimeRangeEnd = null;
         }
 
@@ -116,68 +99,41 @@ public sealed class PitchShiftNode : AudioNode
             if (!contiguous)
                 return false;
 
-            if (!_draining)
+            if (!_feed.IsDraining)
             {
                 // The input stops at the terminal, so the upstream's held tail starts right there, and what
                 // the stretcher read ahead for the live audio has no part in it.
                 Reset();
-                _draining = true;
-                int latency = GetMaxInputLatency(_sampleRate, drain: true);
-                _inputEnd = latency == int.MaxValue ? null : checked(_stream!.Position + latency);
+                _feed.BeginDrain(this);
             }
 
             _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
             return true;
         }
 
-        long? inputEnd = GetInputEnd(context);
-        // An edit can move the end without replacing this node: input read past a nearer end must go, and a
-        // stretcher that has already released its last window cannot take more.
-        bool endMoved = inputEnd is { } value
-            ? _inputEnd is { } previous ? value < previous : _stream!.Position > value
-            : false;
-        bool reopened = _flushed && _inputEnd is { } old && (inputEnd is null || inputEnd > old);
-        if (!contiguous || _draining || endMoved || reopened)
+        long? inputEnd = _feed.Stream.GetInputEnd(Inputs[0], context);
+        if (!contiguous || _feed.InvalidatesReadAhead(inputEnd))
         {
             Reset();
             double start = context.TimeRange.Start.ToSeconds();
-            _stream!.Begin(start, start, forceReanchor: true);
+            _feed.Stream.Begin(start, start, forceReanchor: true);
         }
 
-        _inputEnd = inputEnd;
+        _feed.InputEnd = inputEnd;
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
         return true;
     }
 
-    private long? GetInputEnd(AudioProcessContext context)
-    {
-        double? end = Inputs[0].GetFiniteSourceEndSample(_sampleRate);
-        if (context.ProcessEndTime is { } terminal)
-        {
-            double terminalSample = terminal.ToSeconds() * _sampleRate;
-            end = end is { } finite ? Math.Min(finite, terminalSample) : terminalSample;
-        }
-
-        if (end is not { } value || !double.IsFinite(value))
-            return null;
-
-        double rounded = Math.Round(value);
-        return checked((long)(Math.Abs(value - rounded) < 1e-6 ? rounded : Math.Ceiling(value)));
-    }
-
     private void Reset()
     {
-        _stretcher!.Clear();
-        _flushed = false;
-        _draining = false;
-        _inputEnd = null;
+        _feed!.Reset();
         _stretchedPosition = 0;
         _stretchedCount = 0;
         _between = 0;
         _started = false;
     }
 
-    private void Play(AudioBuffer output, float[] interleaved, AudioProcessContext context, bool draining)
+    private void Play(AudioBuffer output, AudioProcessContext context)
     {
         int count = output.SampleCount;
         int chunkLimit = Math.Min(count, 1024);
@@ -189,7 +145,7 @@ public sealed class PitchShiftNode : AudioNode
             while (processed < count)
             {
                 int chunk = Math.Min(chunkLimit, count - processed);
-                if (draining)
+                if (_feed!.IsDraining)
                 {
                     semitones[..chunk].Fill(_lastSemitones);
                 }
@@ -200,14 +156,7 @@ public sealed class PitchShiftNode : AudioNode
                     _lastSemitones = semitones[chunk - 1];
                 }
 
-                PlayChunk(semitones[..chunk], interleaved, context, draining);
-                for (int ch = 0; ch < _channels; ch++)
-                {
-                    Span<float> destination = output.GetChannelData(ch).Slice(processed, chunk);
-                    for (int i = 0; i < chunk; i++)
-                        destination[i] = interleaved[i * _channels + ch];
-                }
-
+                PlayChunk(semitones[..chunk], output, processed, context);
                 processed += chunk;
             }
         }
@@ -215,73 +164,72 @@ public sealed class PitchShiftNode : AudioNode
         {
             ArrayPool<float>.Shared.Return(rented);
         }
-
-        _stream!.Complete(context, count);
     }
 
-    private void PlayChunk(ReadOnlySpan<float> semitones, Span<float> interleaved, AudioProcessContext context, bool draining)
+    private void PlayChunk(ReadOnlySpan<float> semitones, AudioBuffer output, int start, AudioProcessContext context)
     {
+        Span<float> raw = output.GetRawSpan();
+        int stride = output.SampleCount;
+        float lastShift = float.NaN;
+        double rate = 0;
         for (int i = 0; i < semitones.Length; i++)
         {
             // An expression or a hand-edited file can give any value, and playback reads this many frames per sample.
             float shift = float.IsNaN(semitones[i]) ? 0 : Math.Clamp(semitones[i], PitchShiftEffect.SemitonesMin, PitchShiftEffect.SemitonesMax);
-            double rate = Math.Pow(2, shift / 12);
-            // Stretched by the inverse of the playback rate, the source passes one sample for each one played.
-            _stretcher!.Tempo = 1 / rate;
+            if (shift != lastShift)
+            {
+                lastShift = shift;
+                rate = Math.Pow(2, shift / 12);
+                // Stretched by the inverse of the playback rate, the source passes one sample for each one played.
+                _feed!.Stretcher.Tempo = 1 / rate;
+            }
+
             if (!_started)
             {
-                ReadFrame(_previous, context, draining);
-                ReadFrame(_next, context, draining);
+                ReadFrame(_previous, context);
+                ReadFrame(_next, context);
                 _started = true;
             }
 
-            for (int ch = 0; ch < _channels; ch++)
-                interleaved[i * _channels + ch] = _previous[ch] + (_next[ch] - _previous[ch]) * (float)_between;
+            for (int ch = 0; ch < ChannelCount; ch++)
+                raw[ch * stride + start + i] = _previous[ch] + (_next[ch] - _previous[ch]) * (float)_between;
 
             _between += rate;
             while (_between >= 1)
             {
                 _between -= 1;
                 (_previous, _next) = (_next, _previous);
-                ReadFrame(_next, context, draining);
+                ReadFrame(_next, context);
             }
         }
     }
 
     // Past the end of the input the frame is silence.
-    private void ReadFrame(float[] frame, AudioProcessContext context, bool draining)
+    private void ReadFrame(float[] frame, AudioProcessContext context)
     {
-        if (_stretchedPosition == _stretchedCount && !Refill(context, draining))
+        if (_stretchedPosition == _stretchedCount && !Refill(context))
         {
             Array.Clear(frame);
             return;
         }
 
-        _stretched.AsSpan(_stretchedPosition * _channels, _channels).CopyTo(frame);
+        _stretched.AsSpan(_stretchedPosition * ChannelCount, ChannelCount).CopyTo(frame);
         _stretchedPosition++;
     }
 
-    private bool Refill(AudioProcessContext context, bool draining)
+    private bool Refill(AudioProcessContext context)
     {
         _stretchedPosition = 0;
         _stretchedCount = 0;
         while (true)
         {
-            _stretchedCount = _stretcher!.ReceiveSamples(_stretched, StretchedBlockFrames);
+            _stretchedCount = _feed!.Stretcher.ReceiveSamples(_stretched, StretchedBlockFrames);
             if (_stretchedCount > 0)
                 return true;
-            if (_flushed)
+            if (_feed.IsFlushed)
                 return false;
 
-            int got = _stream!.Read(_feed, Inputs[0], context, draining, _inputEnd) / _channels;
-            if (got > 0)
-                _stretcher.PutSamples(_feed.AsSpan(0, got * _channels), got);
-            // A short or exhausted source must release its final processing window once.
-            if (got == 0 || (_inputEnd is { } end && _stream.Position >= end))
-            {
-                _stretcher.Flush();
-                _flushed = true;
-            }
+            _feed.Feed(_feedBuffer, Inputs[0], context, _feed.IsDraining);
         }
     }
 }

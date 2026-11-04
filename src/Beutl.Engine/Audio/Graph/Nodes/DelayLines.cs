@@ -2,7 +2,8 @@
 
 namespace Beutl.Audio.Graph.Nodes;
 
-// One delay line per channel, read at positions between samples, for the nodes that move their reading point.
+// One delay line per channel. A node that moves its reading point uses Read, which reaches positions between samples;
+// a node that reads whole samples takes the line itself from the indexer.
 internal sealed class DelayLines : IDisposable
 {
     private readonly CircularBuffer<float>[] _lines;
@@ -18,6 +19,8 @@ internal sealed class DelayLines : IDisposable
     }
 
     public int ChannelCount => _lines.Length;
+
+    public CircularBuffer<float> this[int channel] => _lines[channel];
 
     public void Clear()
     {

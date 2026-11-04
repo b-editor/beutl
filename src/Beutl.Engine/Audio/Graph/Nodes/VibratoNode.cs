@@ -6,8 +6,6 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class VibratoNode : AudioNode
 {
-    private const double Tau = Math.PI * 2;
-
     private DelayLines? _delayLines;
     private int _lastSampleRate;
     private double _phase;
@@ -57,7 +55,7 @@ public sealed class VibratoNode : AudioNode
             Span<float> rates = stackalloc float[Math.Min(input.SampleCount, 1024)];
             Span<float> depths = stackalloc float[rates.Length];
             Span<float> delays = stackalloc float[rates.Length];
-            double step = Tau / context.SampleRate;
+            double step = Math.Tau / context.SampleRate;
             double samplesPerMillisecond = context.SampleRate / 1000d;
             double maxDelay = VibratoEffect.DepthMax * 2 * samplesPerMillisecond;
 
@@ -83,7 +81,7 @@ public sealed class VibratoNode : AudioNode
                 // From the time alone, so that a rate that stays the same gives the same result after a seek.
                 if (!continues)
                 {
-                    _phase = Tau * rates[0] * context.TimeRange.Start.ToSeconds() % Tau;
+                    _phase = Math.Tau * rates[0] * context.TimeRange.Start.ToSeconds() % Math.Tau;
                     continues = true;
                 }
 
@@ -93,7 +91,7 @@ public sealed class VibratoNode : AudioNode
                     // depth past its range, while the delay line only reaches over the range.
                     double delay = depths[i] * samplesPerMillisecond * (1 - Math.Cos(_phase));
                     delays[i] = (float)(delay > 0 ? Math.Min(delay, maxDelay) : 0);
-                    _phase = (_phase + step * rates[i]) % Tau;
+                    _phase = (_phase + step * rates[i]) % Math.Tau;
                 }
 
                 for (int ch = 0; ch < input.ChannelCount; ch++)

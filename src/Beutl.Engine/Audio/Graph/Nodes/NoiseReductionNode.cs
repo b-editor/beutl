@@ -302,13 +302,8 @@ public sealed class NoiseReductionNode : AudioNode
             _sampler!.SampleAt(Adaptation, time, _sampleRate));
     }
 
-    // A fractional end still contains the sample it cuts into.
     private long ToTerminalSample(MediaTime time)
-    {
-        double value = time.ToSeconds() * _sampleRate;
-        double rounded = Math.Round(value);
-        return (long)(Math.Abs(value - rounded) < 1e-6 ? rounded : Math.Ceiling(value));
-    }
+        => AudioSourceStream.ToEndSample(time.ToSeconds() * _sampleRate);
 
     private readonly record struct Controls(
         object? ReductionAnimation,

@@ -11,35 +11,26 @@ public sealed partial class TimeStretchNode
         private readonly int _sampleRate;
         private readonly int _channels;
         private readonly TimeStretchNode _node;
+        private readonly WsolaFeed _feed;
         private readonly AudioSourceStream _stream;
         private readonly WsolaTimeStretcher _stretcher;
         private float? _staticSpeed;
-        private bool _timeStretchFlushed;
-        private long? _timeStretchInputEnd;
-        private bool _timeStretchDraining;
 
         public TimeStretchProcessor(int sampleRate, int channels, TimeStretchNode node)
         {
             _sampleRate = sampleRate;
             _channels = channels;
             _node = node;
-            _stream = new AudioSourceStream(sampleRate, channels, node._mapping.MapOutputTimeToSource);
-            _stretcher = new WsolaTimeStretcher(sampleRate, channels);
+            _feed = new WsolaFeed(sampleRate, channels, node._mapping.MapOutputTimeToSource);
+            _stream = _feed.Stream;
+            _stretcher = _feed.Stretcher;
         }
 
         public bool CanPassThroughDrain => _stream.CanPassThroughDrain;
 
-        private void Reset()
-        {
-            _stretcher.Clear();
-            _timeStretchFlushed = false;
-            _timeStretchInputEnd = null;
-            _timeStretchDraining = false;
-        }
-
         public void TrackPassthrough(AudioProcessContext context, int sampleCount)
         {
-            Reset();
+            _feed.Reset();
             _stream.TrackPassthrough(context, sampleCount);
             _staticSpeed = 1f;
         }
@@ -48,11 +39,8 @@ public sealed partial class TimeStretchNode
         {
             bool seek = _stream.Begin(outputStartSeconds, sourceStartSeconds, forceReanchor);
             if (seek)
-                Reset();
+                _feed.Reset();
         }
-
-        private int Read(Span<float> buffer, AudioProcessContext context, bool draining)
-            => _stream.Read(buffer, _node.Inputs[0], context, draining, _timeStretchInputEnd);
 
         public AudioBuffer ProcessBuffer(AudioProcessContext context, float speed, int expectedOut, bool draining, bool forceReanchor)
         {
@@ -80,38 +68,15 @@ public sealed partial class TimeStretchNode
             int expectedOut,
             bool draining)
         {
-            double? end = draining ? null : _node.Inputs[0].GetFiniteSourceEndSample(_sampleRate);
-            if (!draining && context.ProcessEndTime is { } terminal)
-            {
-                double terminalSample = _node._mapping.MapOutputTimeToSource(terminal).ToSeconds() * _sampleRate;
-                end = end is { } finite ? Math.Min(finite, terminalSample) : terminalSample;
-            }
-            if (draining && !_timeStretchDraining)
+            if (draining && !_feed.IsDraining)
             {
                 // Analysis lookahead belongs to live processing, not to the held upstream tail.
                 // The live boundary kept the upstream state at its terminal sample; start a fresh
                 // drain stream there and consume only the latency that the upstream still retains.
-                _stretcher.Clear();
-                _timeStretchFlushed = false;
-                _timeStretchDraining = true;
-                int latency = _node.GetMaxInputLatency(_sampleRate, drain: true);
-                _timeStretchInputEnd = latency == int.MaxValue ? null : checked(_stream.Position + latency);
+                _feed.BeginDrain(_node);
             }
-            long? inputEnd = _timeStretchInputEnd;
-            if (end is { } value && double.IsFinite(value))
-            {
-                double rounded = Math.Round(value);
-                inputEnd = checked((long)(Math.Abs(value - rounded) < 1e-6 ? rounded : Math.Ceiling(value)));
-            }
-            else if (!draining)
-            {
-                inputEnd = null;
-            }
-            bool boundaryShrank = inputEnd is { } newEnd
-                && (_timeStretchInputEnd is { } oldEnd ? newEnd < oldEnd : _stream.Position > newEnd);
-            if (!draining && (_timeStretchDraining || boundaryShrank
-                || (_timeStretchFlushed && _timeStretchInputEnd is { } previousEnd
-                    && (inputEnd is null || inputEnd > previousEnd))))
+            long? inputEnd = draining ? _feed.InputEnd : _stream.GetInputEnd(_node.Inputs[0], context);
+            if (!draining && _feed.InvalidatesReadAhead(inputEnd))
             {
                 // Differential updates can change a downstream clip without replacing this processor.
                 // Re-anchor at the playback position to discard post-trim lookahead or reopen a
@@ -120,7 +85,7 @@ public sealed partial class TimeStretchNode
                     _node._mapping.MapOutputTimeToSource(context.TimeRange.Start).ToSeconds(),
                     forceReanchor: true);
             }
-            _timeStretchInputEnd = inputEnd;
+            _feed.InputEnd = inputEnd;
             var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
             float[] inputArray = ArrayPool<float>.Shared.Rent(TimeStretchFeedFrames * _channels);
             float[] outputArray = ArrayPool<float>.Shared.Rent(BLOCK * _channels);
@@ -139,20 +104,10 @@ public sealed partial class TimeStretchNode
                         outputArray.AsSpan(0, framesThis * _channels), framesThis, curve);
                     if (made == 0)
                     {
-                        if (_timeStretchFlushed)
+                        if (_feed.IsFlushed)
                             break;
 
-                        int got = Read(input, context, draining) / _channels;
-                        if (got > 0)
-                        {
-                            _stretcher.PutSamples(input[..(got * _channels)], got);
-                        }
-                        if (got == 0 || (_timeStretchInputEnd is { } terminalSample && _stream.Position >= terminalSample))
-                        {
-                            // A short/exhausted source must release its final processing window once.
-                            _stretcher.Flush();
-                            _timeStretchFlushed = true;
-                        }
+                        _feed.Feed(input, _node.Inputs[0], context, draining);
                         continue;
                     }
 
@@ -172,7 +127,7 @@ public sealed partial class TimeStretchNode
             catch
             {
                 output.Dispose();
-                Reset();
+                _feed.Reset();
                 _stream.Invalidate();
                 throw;
             }
