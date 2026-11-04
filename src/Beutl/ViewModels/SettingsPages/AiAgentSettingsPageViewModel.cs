@@ -449,14 +449,18 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
     // What the startup notice says. An older MCP layout means the agent config still carries the
     // separate live entry and its token; say so instead of announcing newer skills.
-    internal static string BuildUpdateNotice(AgentToolkitInstallManifest? manifest)
+    internal static (string Title, string Content) BuildUpdateNotice(AgentToolkitInstallManifest? manifest)
     {
-        string content = AgentToolkitInstallManifestStore.IsMcpLayoutOutdated(manifest)
+        bool mcpLayoutOutdated = AgentToolkitInstallManifestStore.IsMcpLayoutOutdated(manifest);
+        string title = mcpLayoutOutdated
+            ? SettingsStrings.AiAgents_McpChanged_Title
+            : SettingsStrings.AiAgents_UpdateAvailable_Title;
+        string content = mcpLayoutOutdated
             ? SettingsStrings.AiAgents_McpChanged_Content
             : SettingsStrings.AiAgents_UpdateAvailable_Content;
         return DescribeOutdatedMcpTargets(manifest) is { } outdated
-            ? content + Environment.NewLine + outdated
-            : content;
+            ? (title, content + Environment.NewLine + outdated)
+            : (title, content);
     }
 
     // A reinstall reaches the selected agent only, so the others have to be named.

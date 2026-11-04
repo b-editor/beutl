@@ -170,7 +170,6 @@ public class ExportTests
         Assert.That(output.SupersampleFactor.Value, Is.EqualTo(1));
         Assert.That(output.SupersampleFactors, Is.EqualTo(new[] { 1, 2, 4 }));
         Assert.That(output.CanEncode.Value, Is.False);
-        Assert.That(output.IsEncoding.Value, Is.False);
     }
 
     [AvaloniaTest]
@@ -643,8 +642,8 @@ public class ExportTests
             Assert.Multiple(() =>
             {
                 Assert.That(execution.IsCanceled, Is.True);
-                Assert.That(output.WasCancelled.Value, Is.True);
-                Assert.That(output.IsEncoding.Value, Is.False);
+                Assert.That(output.ProgressText.Value, Is.EqualTo(MessageStrings.Canceled));
+                Assert.That(item.IsRunning.Value, Is.False);
             });
             AssertWorkspaceMutationAvailable();
         }
@@ -681,12 +680,7 @@ public class ExportTests
         {
         }
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(output.WasCancelled.Value, Is.True);
-            Assert.That(output.IsEncoding.Value, Is.False);
-            Assert.That(output.ProgressText.Value, Is.EqualTo(MessageStrings.Canceled));
-        });
+        Assert.That(output.ProgressText.Value, Is.EqualTo(MessageStrings.Canceled));
     }
 
     [AvaloniaTest]

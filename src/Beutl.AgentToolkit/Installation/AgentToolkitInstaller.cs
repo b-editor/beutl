@@ -73,10 +73,7 @@ public static class AgentToolkitInstaller
             }
         }
 
-        return new AgentToolkitInstallResult(
-            installedFiles,
-            options.InstallMcp && manualMcpEdit is null,
-            assetFileRecords)
+        return new AgentToolkitInstallResult(installedFiles, assetFileRecords)
         {
             ManualMcpEdit = manualMcpEdit,
             McpConfigPath = manualMcpEdit is null ? mcpConfigPath : null,

@@ -619,7 +619,7 @@ public sealed class AiAgentSettingsPageViewModelTests
         await viewModel.InstallAsync();
         AgentToolkitInstallManifest first = AgentToolkitInstallManifestStore.Load(manifestPath)!;
         string firstStatus = viewModel.Status.Value;
-        string firstNotice = AiAgentSettingsPageViewModel.BuildUpdateNotice(first);
+        string firstNotice = AiAgentSettingsPageViewModel.BuildUpdateNotice(first).Content;
 
         viewModel.ProjectRoot.Value = otherRoot;
         await viewModel.InstallAsync();
@@ -641,7 +641,7 @@ public sealed class AiAgentSettingsPageViewModelTests
             Assert.That(second.McpTargets!.Select(target => target.Layout),
                 Is.All.EqualTo(AgentToolkitInstallManifest.CurrentMcpLayout));
             Assert.That(viewModel.Status.Value, Does.Not.Contain(other));
-            Assert.That(AiAgentSettingsPageViewModel.BuildUpdateNotice(second), Does.Not.Contain(other));
+            Assert.That(AiAgentSettingsPageViewModel.BuildUpdateNotice(second).Content, Does.Not.Contain(other));
         });
     }
 

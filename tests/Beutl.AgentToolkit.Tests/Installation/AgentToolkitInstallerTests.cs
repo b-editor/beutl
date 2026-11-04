@@ -96,7 +96,7 @@ public sealed class AgentToolkitInstallerTests
         Assert.That(File.ReadAllText(Path.Combine(_tempRoot, "skills", "demo", "SKILL.md")), Is.EqualTo("skill"));
         Assert.That(File.ReadAllText(Path.Combine(_tempRoot, "agents", "demo.md")), Is.EqualTo("agent"));
         Assert.That(result.InstalledFiles, Does.Contain(configPath));
-        Assert.That(result.InstalledMcp, Is.True);
+        Assert.That(result.McpConfigPath, Is.EqualTo(configPath));
 
         JsonObject root = ReadJson(configPath);
         JsonObject servers = root["mcpServers"]!.AsObject();
@@ -385,7 +385,7 @@ public sealed class AgentToolkitInstallerTests
         Assert.Multiple(() =>
         {
             Assert.That(File.ReadAllText(configPath), Is.EqualTo(original));
-            Assert.That(result.InstalledMcp, Is.False);
+            Assert.That(result.McpConfigPath, Is.Null);
             Assert.That(result.InstalledFiles, Is.Empty);
             Assert.That(result.ManualMcpEdit, Is.Not.Null);
             Assert.That(result.ManualMcpEdit!.ConfigPath, Is.EqualTo(configPath));
@@ -419,7 +419,7 @@ public sealed class AgentToolkitInstallerTests
         Assert.Multiple(() =>
         {
             Assert.That(File.ReadAllText(configPath), Is.EqualTo(original));
-            Assert.That(result.InstalledMcp, Is.True);
+            Assert.That(result.McpConfigPath, Is.EqualTo(configPath));
             Assert.That(result.ManualMcpEdit, Is.Null);
             Assert.That(result.InstalledFiles, Is.EqualTo(new[] { configPath }));
         });
