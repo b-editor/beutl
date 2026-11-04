@@ -130,8 +130,9 @@ public sealed record ElementDescription
     public bool FollowsPrevious { get; init; }
 
     /// <summary>
-    /// Goes above everything in the scene once the requests before it in the batch are in, which only then have their
-    /// final layers. <see cref="Layer"/> counts up from there, leaving out locked layers, so none of them refuses it.
+    /// Goes above what the scene holds when the first such request of the batch goes in, as the requests before that
+    /// have their final layers only then. <see cref="Layer"/> counts up from there for all of them, leaving out locked
+    /// layers, so none of them refuses it.
     /// </summary>
     public bool StacksAboveScene { get; init; }
 
