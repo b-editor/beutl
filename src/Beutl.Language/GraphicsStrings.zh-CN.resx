@@ -905,6 +905,21 @@
   <data name="GradientBrush_SpreadMethod" xml:space="preserve">
     <value>扩散方法</value>
   </data>
+  <data name="GradientBrush_InterpolationSpace" xml:space="preserve">
+    <value>插值色彩空间</value>
+  </data>
+  <data name="GradientBrush_InterpolatePremultiplied" xml:space="preserve">
+    <value>以预乘 Alpha 插值</value>
+  </data>
+  <data name="GradientInterpolationSpace_LinearSrgb" xml:space="preserve">
+    <value>线性 sRGB</value>
+  </data>
+  <data name="GradientInterpolationSpace_Srgb" xml:space="preserve">
+    <value>sRGB</value>
+  </data>
+  <data name="GradientInterpolationSpace_Oklab" xml:space="preserve">
+    <value>OKLab</value>
+  </data>
   <data name="Children" xml:space="preserve">
     <value>子项</value>
   </data>
@@ -1774,20 +1789,5 @@
   </data>
   <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
     <value>透明度阈值</value>
-  </data>
-  <data name="GradientBrush_InterpolationSpace" xml:space="preserve">
-    <value>插值色彩空间</value>
-  </data>
-  <data name="GradientBrush_InterpolatePremultiplied" xml:space="preserve">
-    <value>以预乘 Alpha 插值</value>
-  </data>
-  <data name="GradientInterpolationSpace_LinearSrgb" xml:space="preserve">
-    <value>线性 sRGB</value>
-  </data>
-  <data name="GradientInterpolationSpace_Srgb" xml:space="preserve">
-    <value>sRGB</value>
-  </data>
-  <data name="GradientInterpolationSpace_Oklab" xml:space="preserve">
-    <value>OKLab</value>
   </data>
 </root>

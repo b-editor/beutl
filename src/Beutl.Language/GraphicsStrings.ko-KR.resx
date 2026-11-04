@@ -905,6 +905,21 @@
   <data name="GradientBrush_SpreadMethod" xml:space="preserve">
     <value>확산 방법</value>
   </data>
+  <data name="GradientBrush_InterpolationSpace" xml:space="preserve">
+    <value>보간 색 공간</value>
+  </data>
+  <data name="GradientBrush_InterpolatePremultiplied" xml:space="preserve">
+    <value>미리 곱한 알파로 보간</value>
+  </data>
+  <data name="GradientInterpolationSpace_LinearSrgb" xml:space="preserve">
+    <value>선형 sRGB</value>
+  </data>
+  <data name="GradientInterpolationSpace_Srgb" xml:space="preserve">
+    <value>sRGB</value>
+  </data>
+  <data name="GradientInterpolationSpace_Oklab" xml:space="preserve">
+    <value>OKLab</value>
+  </data>
   <data name="Children" xml:space="preserve">
     <value>자식</value>
   </data>
@@ -1774,20 +1789,5 @@
   </data>
   <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
     <value>알파 임계값</value>
-  </data>
-  <data name="GradientBrush_InterpolationSpace" xml:space="preserve">
-    <value>보간 색 공간</value>
-  </data>
-  <data name="GradientBrush_InterpolatePremultiplied" xml:space="preserve">
-    <value>미리 곱한 알파로 보간</value>
-  </data>
-  <data name="GradientInterpolationSpace_LinearSrgb" xml:space="preserve">
-    <value>선형 sRGB</value>
-  </data>
-  <data name="GradientInterpolationSpace_Srgb" xml:space="preserve">
-    <value>sRGB</value>
-  </data>
-  <data name="GradientInterpolationSpace_Oklab" xml:space="preserve">
-    <value>OKLab</value>
   </data>
 </root>

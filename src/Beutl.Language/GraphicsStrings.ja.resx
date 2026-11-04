@@ -901,6 +901,21 @@
   <data name="GradientBrush_SpreadMethod" xml:space="preserve">
     <value>広がり方</value>
   </data>
+  <data name="GradientBrush_InterpolationSpace" xml:space="preserve">
+    <value>補間の色空間</value>
+  </data>
+  <data name="GradientBrush_InterpolatePremultiplied" xml:space="preserve">
+    <value>乗算済みアルファで補間</value>
+  </data>
+  <data name="GradientInterpolationSpace_LinearSrgb" xml:space="preserve">
+    <value>リニア sRGB</value>
+  </data>
+  <data name="GradientInterpolationSpace_Srgb" xml:space="preserve">
+    <value>sRGB</value>
+  </data>
+  <data name="GradientInterpolationSpace_Oklab" xml:space="preserve">
+    <value>OKLab</value>
+  </data>
   <data name="Children" xml:space="preserve">
     <value>子要素</value>
   </data>
@@ -1770,20 +1785,5 @@
   </data>
   <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
     <value>切り抜きのしきい値</value>
-  </data>
-  <data name="GradientBrush_InterpolationSpace" xml:space="preserve">
-    <value>補間の色空間</value>
-  </data>
-  <data name="GradientBrush_InterpolatePremultiplied" xml:space="preserve">
-    <value>乗算済みアルファで補間</value>
-  </data>
-  <data name="GradientInterpolationSpace_LinearSrgb" xml:space="preserve">
-    <value>リニア sRGB</value>
-  </data>
-  <data name="GradientInterpolationSpace_Srgb" xml:space="preserve">
-    <value>sRGB</value>
-  </data>
-  <data name="GradientInterpolationSpace_Oklab" xml:space="preserve">
-    <value>OKLab</value>
   </data>
 </root>
