@@ -391,6 +391,52 @@ public class ElementAdderTests
         }
     }
 
+    // Above the scene a set takes the unlocked layers, and a matte goes with the element it names.
+    [AvaloniaTest]
+    public async Task ElementSetTemplate_StackedAboveTheScene_KeepsItsMatteOnItsSource()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-set-stacked");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        var existing = new Element { Length = { Value = MediaTime.FromSeconds(100) } };
+        existing.AddObject(new RectShape());
+        editor.Scene.AddChild(existing);
+        editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 2 }, IsLocked = { Value = true } });
+        var source = new Element
+        {
+            Length = { Value = MediaTime.FromSeconds(4) },
+            ZIndex = { Value = 7 },
+            Name = { Value = "Source" },
+        };
+        source.AddObject(new RectShape());
+        var matted = new Element
+        {
+            Length = { Value = MediaTime.FromSeconds(4) },
+            ZIndex = { Value = 8 },
+            Name = { Value = "Matted" },
+            MatteSourceKind = { Value = MatteSourceKind.Layer },
+            MatteSourceZIndex = { Value = 7 },
+        };
+        matted.AddObject(new EllipseShape());
+        var set = new ElementSet();
+        set.Elements.AddRange([source, matted]);
+        ObjectTemplateItem template = ObjectTemplateItem.CreateFromInstance(set, "Matted set");
+
+        ElementAddResult result = await adder.AddAsync(
+            [ElementTemplateResolver.CreateDescription(template, MediaTime.FromSeconds(1), 0) with { StacksAboveScene = true }],
+            CancellationToken.None);
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(result.IsSuccess, Is.True);
+        Element added = result.Elements.Single(element => element.Name.Value == "Matted");
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Elements.Single(element => element.Name.Value == "Source").ZIndex.Value, Is.EqualTo(1));
+            Assert.That(added.ZIndex.Value, Is.EqualTo(3), "Layer 2 is locked.");
+            Assert.That(added.MatteSourceZIndex.Value, Is.EqualTo(1));
+        }
+    }
+
     // A "Back" element over the whole set and a "Text" element a second in and two layers up, grouped.
     private static ObjectTemplateItem CreateSetTemplate()
     {
