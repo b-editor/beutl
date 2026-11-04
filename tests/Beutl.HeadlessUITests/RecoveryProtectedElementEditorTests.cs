@@ -436,11 +436,33 @@ public sealed class RecoveryProtectedElementEditorTests
         HeadlessTestHelpers.Settle();
         var combined = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
             .OfType<CombinedEditorViewModel<float>>().Single();
+        Assert.That(PropertyEditorHost.TryCreateControl(combined, PropertyEditorSurface.Panel, out Control? control), Is.True);
+        control!.DataContext = combined;
+        var window = new Window { Width = 480, Height = 300, Content = control };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            PropertyEditorMenu[] menus = [.. window.GetVisualDescendants().OfType<PropertyEditorMenu>()
+                .Where(menu => menu.DataContext is NumberEditorViewModel<float>)];
+            Assert.That(menus.Select(menu => ((NumberEditorViewModel<float>)menu.DataContext!).PropertyAdapter.GetEngineProperty()),
+                Is.EqualTo(new IProperty[] { shape.Width, shape.Height }));
 
-        bool separated = false;
-        using IDisposable subscription = combined.SeparatedProperties.Subscribe(properties => separated = properties != null);
+            Button widthButton = menus[0].GetVisualDescendants().OfType<Button>().First();
+            Click(window, widthButton);
+            FAMenuFlyoutItem removeAnimation = MenuItem(widthButton, "removeAnimationItem");
+            Assert.That(removeAnimation.IsEnabled, Is.True);
 
-        Assert.That(separated, Is.True);
+            removeAnimation.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            HeadlessTestHelpers.Settle();
+            Assert.That(shape.Width.GetKeyFrameAnimation(), Is.Null);
+            Assert.That(element.SuppressedStorageSource, Is.Null);
+        }
+        finally
+        {
+            window.Close();
+            await TestReset.ResetShellAsync();
+        }
     }
 
     private static async Task<(string ProjectPath, string ElementPath)> CreateProjectWithUnreadableEasing(string name)
