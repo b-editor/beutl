@@ -193,9 +193,9 @@ public sealed class CurveVisualizationRenderer
                     () => new HistogramCounts(categories),
                     (y, _, counts) =>
                     {
-                        Span<Bgra8888> row = rgbaGamma.GetRow<Bgra8888>(y);
-                        for (int x = 0; x < rgbaGamma.Width; x++)
-                            counts.Add(row[x]);
+                        // Not a loop on Width: each read of it calls into Skia and takes SkiaSharp's process-wide handle lock.
+                        foreach (Bgra8888 pixel in rgbaGamma.GetRow<Bgra8888>(y))
+                            counts.Add(pixel);
 
                         return counts;
                     },
@@ -368,19 +368,19 @@ public sealed class CurveVisualizationRenderer
 
         public HistogramCategory Categories { get; } = categories;
 
-        public int[] Red { get; } = new int[256];
+        public int[] Red { get; } = categories.HasFlag(HistogramCategory.Rgb) ? new int[256] : [];
 
-        public int[] Green { get; } = new int[256];
+        public int[] Green { get; } = categories.HasFlag(HistogramCategory.Rgb) ? new int[256] : [];
 
-        public int[] Blue { get; } = new int[256];
+        public int[] Blue { get; } = categories.HasFlag(HistogramCategory.Rgb) ? new int[256] : [];
 
-        public int[] Combined { get; } = new int[256];
+        public int[] Combined { get; } = categories.HasFlag(HistogramCategory.Rgb) ? new int[256] : [];
 
-        public int[] Hue { get; } = new int[360];
+        public int[] Hue { get; } = categories.HasFlag(HistogramCategory.Hue) ? new int[360] : [];
 
-        public int[] Luminance { get; } = new int[256];
+        public int[] Luminance { get; } = categories.HasFlag(HistogramCategory.Luminance) ? new int[256] : [];
 
-        public int[] Saturation { get; } = new int[256];
+        public int[] Saturation { get; } = categories.HasFlag(HistogramCategory.Saturation) ? new int[256] : [];
 
         public void Add(Bgra8888 pixel)
         {

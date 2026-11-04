@@ -145,7 +145,6 @@ internal sealed class StorageWriteTransaction : IDisposable
             _batch = batch;
         }
 
-        bool moved = false;
         try
         {
             try
@@ -166,18 +165,15 @@ internal sealed class StorageWriteTransaction : IDisposable
                 InjectFault(StorageWriteStep.Replace, destination);
                 MoveIntoPlaceCore(temporary, destination, overwrite: true, isCompatibilityGate: false, previousBytes);
             }
-
-            moved = true;
         }
-        finally
+        catch
         {
-            if (!moved)
+            foreach ((string temporary, _, _) in batch)
             {
-                foreach ((string temporary, _, _) in batch)
-                {
-                    TryDeleteTemporaryFile(temporary);
-                }
+                TryDeleteTemporaryFile(temporary);
             }
+
+            throw;
         }
     }
 
