@@ -121,6 +121,20 @@ public sealed class CurvesAndLutEffectShaderTests
         Assert.That(rebound.Handle, Is.Not.EqualTo(IntPtr.Zero));
     }
 
+    [Test]
+    public void A_curve_shows_the_same_on_every_frame_from_one_lookup_image()
+    {
+        var curve = new CurveMap([new CurveControlPoint(0, 1), new CurveControlPoint(1, 0)]);
+        var effect = new Curves { MasterCurve = { Value = curve } };
+
+        SKColor first = Render(effect);
+        SKImage image = curve.LookupImage;
+        SKColor second = Render(effect);
+
+        Assert.That(curve.LookupImage, Is.SameAs(image));
+        Assert.That(second, Is.EqualTo(first));
+    }
+
     [TestCase(CubeFileDimension.OneDimension)]
     [TestCase(CubeFileDimension.ThreeDimension)]
     public void LutEffect_RecordsTypedResourceAndPreservesBorrowedLifetime(

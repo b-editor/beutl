@@ -12,7 +12,11 @@ namespace Beutl.Graphics;
 [JsonConverter(typeof(CurveMapJsonConverter))]
 public sealed class CurveMap : IEquatable<CurveMap>
 {
+    private const int LookupImageWidth = 10000;
+
     public static readonly CurveMap Default = new([new(0, 0), new(1, 1)]);
+
+    private SKImage? _lookupImage;
 
     public CurveMap(IEnumerable<CurveControlPoint> points)
     {
@@ -20,6 +24,10 @@ public sealed class CurveMap : IEquatable<CurveMap>
     }
 
     public ImmutableArray<CurveControlPoint> Points { get; }
+
+    // A curve never changes, and keeping its image keeps the texture on the GPU: a new image for each frame was evaluated
+    // and uploaded anew, nine times over for the Curves effect.
+    internal SKImage LookupImage => _lookupImage ??= CreateLookupImage();
 
     public CurveMap WithPoints(IEnumerable<CurveControlPoint> points)
     {
@@ -115,23 +123,27 @@ public sealed class CurveMap : IEquatable<CurveMap>
 
     public SKShader ToShader()
     {
-        var data = ArrayPool<Half>.Shared.Rent(10000);
+        return SKShader.CreateImage(
+            LookupImage,
+            SKShaderTileMode.Clamp,
+            SKShaderTileMode.Clamp,
+            SKSamplingOptions.Default,
+            SKMatrix.CreateScale(1 / (float)LookupImageWidth, 1));
+    }
+
+    private SKImage CreateLookupImage()
+    {
+        Half[] data = ArrayPool<Half>.Shared.Rent(LookupImageWidth);
         try
         {
-            for (int i = 0; i < data.Length; i++)
+            for (int i = 0; i < LookupImageWidth; i++)
             {
-                float v = Evaluate(i / 9999f);
+                float v = Evaluate(i / (float)(LookupImageWidth - 1));
                 data[i] = (Half)v;
             }
 
-            var info = new SKImageInfo(10000, 1, SKColorType.AlphaF16, SKAlphaType.Unpremul);
-            using SKImage image = SKImage.FromPixelCopy(info, MemoryMarshal.AsBytes(data.AsSpan()), info.RowBytes);
-            return SKShader.CreateImage(
-                image,
-                SKShaderTileMode.Clamp,
-                SKShaderTileMode.Clamp,
-                SKSamplingOptions.Default,
-                SKMatrix.CreateScale(1 / 10000f, 1));
+            var info = new SKImageInfo(LookupImageWidth, 1, SKColorType.AlphaF16, SKAlphaType.Unpremul);
+            return SKImage.FromPixelCopy(info, MemoryMarshal.AsBytes(data.AsSpan(0, LookupImageWidth)), info.RowBytes);
         }
         finally
         {
