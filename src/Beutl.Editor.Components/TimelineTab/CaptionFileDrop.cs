@@ -20,7 +20,15 @@ internal static class CaptionFileDrop
 
     public static bool IsCaptionFile(string file) => s_catalog.Value.Codecs.TryGetByFileName(file, out _);
 
-    public static async Task AddAsync(TimelineTabViewModel viewModel, string file)
+    // The default look and the text templates saved so far, which change while Beutl runs.
+    public static IReadOnlyList<CaptionTemplate> GetTemplates()
+    {
+        CaptionCatalog catalog = s_catalog.Value;
+        catalog.RefreshObjectTemplates(ObjectTemplateService.Instance.FindByBaseType(typeof(Beutl.Graphics.Drawable)));
+        return [.. catalog.Templates.Templates.Select(item => catalog.Templates.GetTemplate(item.Id))];
+    }
+
+    public static async Task AddAsync(TimelineTabViewModel viewModel, string file, CaptionTemplate? template = null)
     {
         if (!s_catalog.Value.Codecs.TryGetByFileName(file, out CaptionCodecInfo? codec)) return;
 
@@ -38,7 +46,7 @@ internal static class CaptionFileDrop
             viewModel.Scene,
             viewModel.EditorContext.GetRequiredService<IElementAdder>(),
             document,
-            CaptionPresentationDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate),
+            template ?? CaptionPresentationDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate),
             elementName: Path.GetFileNameWithoutExtension(file),
             minimumLength: s_shortestCue);
         if (result.IsSuccess)

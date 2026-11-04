@@ -1609,6 +1609,12 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>자막 파일</value>
   </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>{0}에서 자막을 읽지 못했습니다.</value>
+  </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>{0}의 자막 중 일부를 읽을 수 없어 건너뛰었습니다.</value>
+  </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>“{0}”을(를) 삭제할까요?</value>
   </data>
@@ -3687,10 +3693,7 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>프로젝트 오디오 채널</value>
   </data>
-  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
-    <value>{0}에서 자막을 읽지 못했습니다.</value>
-  </data>
-  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
-    <value>{0}의 자막 중 일부를 읽을 수 없어 건너뛰었습니다.</value>
+  <data name="Paste_ProjectNotSaved" xml:space="preserve">
+    <value>클립을 붙여넣기 전에 프로젝트를 저장하세요.</value>
   </data>
 </root>

@@ -2693,6 +2693,12 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>字幕ファイル</value>
   </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>{0} から字幕を読み取れませんでした。</value>
+  </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>{0} の字幕の一部を読み取れなかったため、読み飛ばしました。</value>
+  </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>「{0}」を削除しますか？</value>
   </data>
@@ -3682,10 +3688,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>プロジェクトの音声チャンネル</value>
   </data>
-  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
-    <value>{0} から字幕を読み取れませんでした。</value>
-  </data>
-  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
-    <value>{0} の字幕の一部を読み取れなかったため、読み飛ばしました。</value>
+  <data name="Paste_ProjectNotSaved" xml:space="preserve">
+    <value>クリップを貼り付ける前にプロジェクトを保存してください。</value>
   </data>
 </root>

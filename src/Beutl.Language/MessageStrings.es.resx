@@ -356,6 +356,12 @@ Podrás seguir editando cuando termine.</value>
   <data name="PackagesCanBeUpdated" xml:space="preserve">
     <value>Se pueden actualizar {0} paquete(s).</value>
   </data>
+  <data name="PackageUpdatesRequired" xml:space="preserve">
+    <value>Es necesario actualizar paquetes.</value>
+  </data>
+  <data name="PackagesNotLoadedOnThisVersion" xml:space="preserve">
+    <value>No se pudieron cargar {0} paquete(s) en esta versión de Beutl.</value>
+  </data>
   <data name="IsNotValid" xml:space="preserve">
     <value>{0} no es válido.</value>
   </data>
@@ -506,5 +512,14 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   </data>
   <data name="KeptUnknownDataSavedByMessage" xml:space="preserve">
     <value>Este proyecto se guardó por última vez con Beutl {0} y contiene datos de una versión más reciente de Beutl o de una extensión que no está instalada. Beutl conserva esos datos al guardar el proyecto, pero no los muestra ni los usa.</value>
+  </data>
+  <data name="UpdatedToVersion_Title" xml:space="preserve">
+    <value>Beutl se actualizó a {0}</value>
+  </data>
+  <data name="UpdatedToVersion_Content" xml:space="preserve">
+    <value>Las notas de la versión muestran qué ha cambiado.</value>
+  </data>
+  <data name="ReleaseNotes" xml:space="preserve">
+    <value>Notas de la versión</value>
   </data>
 </root>

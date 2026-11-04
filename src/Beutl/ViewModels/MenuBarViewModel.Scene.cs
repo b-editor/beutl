@@ -155,13 +155,9 @@ public partial class MenuBarViewModel
         {
             ElementPasteOutcome outcome = await viewModel.GetRequiredService<IElementClipboardService>()
                 .PasteAsync(scene, start, layer);
-            if (outcome.AddFailure is LockedElementLayerFailure)
+            if (outcome.AddFailure is { } failure)
             {
-                NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
-            }
-            else if (outcome.AddFailure is not null)
-            {
-                NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+                TimelineTabViewModel.ShowPasteFailure(failure);
             }
         }
         catch (Exception ex)

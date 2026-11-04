@@ -18,8 +18,8 @@ public sealed class AfterLoadingExtensionsTask : StartupTask
             LoadPrimitiveExtensionTask t2 = _startup.GetTask<LoadPrimitiveExtensionTask>();
             await Task.WhenAll(t1.Task, t2.Task);
 
-            (LocalPackage, Exception)[] failures = [.. t1.Failures, .. t2.Failures];
-            ShowFailures(failures);
+            // CheckForPackageUpdatesTask reports the API mismatches, once it knows which of them have an update.
+            ShowFailures([.. t1.Failures.Where(failure => failure.Item2 is not PackageApiMismatchException), .. t2.Failures]);
         });
     }
 

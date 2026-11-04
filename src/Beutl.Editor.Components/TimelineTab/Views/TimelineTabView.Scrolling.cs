@@ -39,8 +39,10 @@ public sealed partial class TimelineTabView
         const float ZoomSpeed = 1.2f;
         float delta = (float)e.Delta.Y;
 
-        scale = MathF.Pow(ZoomSpeed, delta) * scale;
-        scale = Math.Min(scale, 2);
+        scale = Math.Clamp(
+            MathF.Pow(ZoomSpeed, delta) * scale,
+            Beutl.ProjectSystem.TimelineOptions.MinScale,
+            Beutl.ProjectSystem.TimelineOptions.MaxScale);
 
         offset.X = ZoomOffsetX(pointerPos.X, offset.X, oldScale, scale);
     }

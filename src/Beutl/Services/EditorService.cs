@@ -18,27 +18,48 @@ public sealed partial class EditorService
         Beutl.Editor.Services.IEditorFileUsage,
         IProjectFileWriteAdmissionHost
 {
-    public bool IsFileInUse(string path, bool isDirectory)
+    public bool IsFileInUse(string path, bool isDirectory) => IsAnyFileInUse([(path, isDirectory)]);
+
+    // The objects are walked once and each folder is listed once, however many files are asked about.
+    public bool IsAnyFileInUse(IReadOnlyCollection<(string Path, bool IsDirectory)> files)
     {
         Dispatcher.UIThread.VerifyAccess();
-        IEnumerable<CoreObject> objects = _tabItems
+        if (files.Count == 0) return false;
+
+        FilePathComparison.ResolutionContext paths = FilePathComparison.CreateResolutionContext();
+        var exactFiles = new HashSet<string>(StringComparer.Ordinal);
+        var folders = new List<string>();
+        foreach ((string path, bool isDirectory) in files)
+        {
+            string canonicalPath = paths.ResolveCanonicalPath(path);
+            if (isDirectory)
+                folders.Add(canonicalPath);
+            else
+                exactFiles.Add(canonicalPath);
+        }
+
+        IEnumerable<CoreObject> roots = _tabItems
             .Select(item => item.Context.Value?.Object)
             .OfType<CoreObject>();
         if (BeutlApplication.Current.Project.Value is { } project)
-            objects = objects.Concat(project.Items).Prepend(project);
-        foreach (object value in objects
-                     .SelectMany(Beutl.ProjectSystem.SerializedGraphTraversal.Enumerate)
-                     .Distinct(ReferenceEqualityComparer.Instance))
-        {
-            if (value is CoreObject { Uri: { IsFile: true } uri } && Matches(uri.LocalPath)) return true;
-            // Media and model sources keep their file in IFileSource.Uri, which hides CoreObject.Uri.
-            if (value is IFileSource source && FileSourceFiles.EnumerateLocalPaths(source).Any(Matches)) return true;
-        }
-        return false;
+            roots = roots.Concat(project.Items).Prepend(project);
 
-        bool Matches(string file) => isDirectory
-            ? FilePathComparison.IsSameOrDescendant(path, file)
-            : FilePathComparison.AreSameCanonicalPath(path, file);
+        var filesFree = new HashSet<string>(StringComparer.Ordinal);
+        // An open scene is also a project item.
+        return roots.Distinct<CoreObject>(ReferenceEqualityComparer.Instance)
+            .Any(root => Beutl.Serialization.CoreSerializer.Visit(root, visit =>
+                visit.Value is CoreObject { Uri: { IsFile: true } uri } && Matches(uri.LocalPath)
+                // Media and model sources keep their file in IFileSource.Uri, which hides CoreObject.Uri.
+                || visit.Value is IFileSource source && FileSourceFiles.EnumerateLocalPaths(source).Any(Matches)));
+
+        bool Matches(string file)
+        {
+            if (!filesFree.Add(file)) return false;
+
+            string canonicalFile = paths.ResolveCanonicalPath(file);
+            return exactFiles.Contains(canonicalFile)
+                   || folders.Exists(folder => FilePathComparison.IsSameOrDescendantCanonicalPath(folder, canonicalFile));
+        }
     }
 
     internal Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost? BrowserSettingsHost { get; set; }

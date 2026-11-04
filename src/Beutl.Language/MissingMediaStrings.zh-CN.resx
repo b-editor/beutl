@@ -36,4 +36,5 @@
   <data name="Model" xml:space="preserve"><value>3D 模型</value></data>
   <data name="Cube" xml:space="preserve"><value>LUT</value></data>
   <data name="Font" xml:space="preserve"><value>字体</value></data>
+  <data name="SceneChanged" xml:space="preserve"><value>场景已更改，因此未应用任何内容。请检查列表后重试。</value></data>
 </root>

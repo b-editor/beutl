@@ -35,6 +35,17 @@ public sealed partial class ExtensionsPage : Window
             _pendingPackage = navigation;
     }
 
+    // Opens on the library and checks its packages for updates. Call it before the window loads, since
+    // OnFirstLoaded is what navigates to the selected item.
+    internal void OpenLibraryWithUpdates()
+    {
+        nav.SelectedItem = _navigationItems.Single(item => item.Tag as Type == typeof(LibraryPage));
+        if (DataContext is ExtensionsPageViewModel viewModel)
+        {
+            _ = viewModel.Library.CheckUpdateAfterRefreshAsync();
+        }
+    }
+
     public ExtensionsPage()
     {
         InitializeComponent();

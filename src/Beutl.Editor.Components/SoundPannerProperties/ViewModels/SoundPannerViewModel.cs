@@ -58,7 +58,12 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
         }
         Sound.AttachedToHierarchy += OnHierarchyChanged;
         Sound.DetachedFromHierarchy += OnHierarchyChanged;
-        CurrentTime.Subscribe(_ => RefreshValues()).AddTo(_subscriptions);
+        // Reading the clip layout can open the media file, so a seek does it only when time can change the layout.
+        CurrentTime.Subscribe(_ =>
+        {
+            if (Sound.HasTimeDependentClipLayout) RefreshLayout();
+            else RefreshValues();
+        }).AddTo(_subscriptions);
         AttachProject();
     }
 

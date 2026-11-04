@@ -92,6 +92,8 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
             })
             .Select(conn => graph.AllConnections.FirstOrDefault(a => a.Id.Value == conn.Id))
             .Where(a => a is not null)
+            // A connection a node makes to itself is listed by both of its ports.
+            .Distinct()
             .ToArray()!;
         // A missing plugin's node has no ports; its connections name the ports it was saved with.
         if (node is FallbackGraphNode fallback)
@@ -221,7 +223,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     }
 
     public bool CanConnect(GraphModel graph, INodePort port1, INodePort port2)
-        => IsEditable(graph) && TryGetConnectablePorts(port1, port2, out _, out _);
+        => IsEditable(graph) && TryGetConnectablePorts(graph, port1, port2, out _, out _);
 
     public NodeConnectOutcome TryConnect(GraphModel graph,
         GraphNode node1, INodePort? port1,
@@ -274,7 +276,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
 
         // Case 2: both ports are present — connect if direction-compatible.
         if (port1 is not null && port2 is not null
-            && TryGetConnectablePorts(port1, port2, out IInputPort? input, out IOutputPort? output))
+            && TryGetConnectablePorts(graph, port1, port2, out IInputPort? input, out IOutputPort? output))
         {
             graph.Connect(input, output);
             return NodeConnectOutcome.Connected;
@@ -283,15 +285,46 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         return NodeConnectOutcome.None;
     }
 
-    private static bool TryGetConnectablePorts(INodePort a, INodePort b,
+    private static bool TryGetConnectablePorts(GraphModel graph, INodePort a, INodePort b,
         [NotNullWhen(true)] out IInputPort? input, [NotNullWhen(true)] out IOutputPort? output)
-        => SortPortDirection(a, b, out input, out output) && CanAcceptConnection(input);
+        => SortPortDirection(a, b, out input, out output)
+           && CanAcceptConnection(input)
+           && !WouldCloseCycle(graph, input, output);
 
     private static bool CanAcceptConnection(IInputPort input)
     {
         if (input is not IListInputPort && !input.Connection.Value.IsNull)
             return false;
         return input.FindHierarchicalParent<GraphNode>() is not { } owner || owner.CanConnectInput(input);
+    }
+
+    // A graph evaluates its nodes in dependency order, so it skips every node on a cycle.
+    private static bool WouldCloseCycle(GraphModel graph, IInputPort input, IOutputPort output)
+    {
+        if (input.FindHierarchicalParent<GraphNode>() is not { } consumer
+            || output.FindHierarchicalParent<GraphNode>() is not { } producer)
+        {
+            return false;
+        }
+
+        // This runs on every pointer move over a candidate port during a wire drag.
+        ILookup<GraphNode?, GraphNode?> consumers = graph.AllConnections.ToLookup(
+            connection => connection.Output.Value.Value?.FindHierarchicalParent<GraphNode>(),
+            connection => connection.Input.Value.Value?.FindHierarchicalParent<GraphNode>());
+        var visited = new HashSet<GraphNode>();
+        var pending = new Stack<GraphNode>([consumer]);
+        while (pending.TryPop(out GraphNode? node))
+        {
+            if (node == producer) return true;
+            if (!visited.Add(node)) continue;
+
+            foreach (GraphNode? next in consumers[node])
+            {
+                if (next is not null) pending.Push(next);
+            }
+        }
+
+        return false;
     }
 
     public bool TryDisconnect(GraphModel graph, INodePort port1, INodePort port2, Connection? hint = null)

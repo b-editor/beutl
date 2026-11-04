@@ -109,6 +109,24 @@ public sealed class MoltenVKDeviceSelectionTests
         Assert.That(() => new CompositeContext(null!, swiftShader), Throws.TypeOf<NotSupportedException>());
     }
 
+    // A Mac with one GPU cannot tell this from taking the system default; it pins that the device comes from Vulkan.
+    [Test]
+    [Platform("MacOsX")]
+    public void OnMacOS_SkiaRendersOnTheMetalDeviceBehindTheSelectedVulkanDevice()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            var context = (CompositeContext)GraphicsContextFactory.GetOrCreateShared()!;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(context.Metal.MetalDevice, Is.Not.EqualTo(IntPtr.Zero));
+                Assert.That(context.Metal.MetalDevice, Is.EqualTo(CompositeContext.ExportMetalDevice(context.Vulkan)));
+            });
+        });
+    }
+
     // The bundled SwiftShader driver is registered on macOS as well, so the instance enumerates it beside the MoltenVK
     // devices. This drives the real driver query and the real factory instead of device infos made up for the test.
     [Test]

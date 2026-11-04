@@ -20,6 +20,52 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class ElementViewDragCancellationTests
 {
+    // A failed animation left the clip at the width of the drag, which the model rounded off to a frame.
+    [AvaloniaTest]
+    public async Task GroupResize_ShowsTheModelWhenAnAnimationFails()
+    {
+        bool originalRipple = GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value;
+        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
+        GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value = false;
+        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = false;
+        Window? window = null;
+        TimelineTabView? view = null;
+        try
+        {
+            (_, ElementViewModel[] elements) = await OpenElements(grouped: true);
+            TimelineTabViewModel timeline = elements[0].Timeline;
+            view = new TimelineTabView { DataContext = timeline };
+            window = new Window { Content = view, Width = 1200, Height = 420 };
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            Border border = view.GetVisualDescendants().OfType<ElementView>()
+                .Single(v => ReferenceEquals(v.DataContext, elements[0])).FindControl<Border>("border")!;
+            ElementViewModel failing = elements[1];
+            failing.AnimationRequested = (_, _) => throw new InvalidOperationException("The animation failed.");
+            float scale = timeline.Options.Value.Scale;
+            Point press = border.TranslatePoint(new Point(border.Bounds.Width - 2, border.Bounds.Height / 2), window)!.Value;
+            // Between two frames, which the commit rounds off.
+            Point release = press + new Vector(MediaTime.FromSeconds(0.51).TimeToPixel(scale), 0);
+            TimelineTestHost.WaitForHitTest(window, border, press);
+
+            window.MouseMove(press);
+            window.MouseDown(press, MouseButton.Left);
+            window.MouseMove(release, RawInputModifiers.LeftMouseButton);
+            Assert.That(failing.Width.Value, Is.Not.EqualTo(MediaTime.FromSeconds(0.5).TimeToPixel(scale)));
+            window.MouseUp(release, MouseButton.Left);
+
+            // After the animation of the other clip ends.
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => Math.Abs(failing.Width.Value - failing.Model.Length.Value.TimeToPixel(scale)) < 0.01);
+        }
+        finally
+        {
+            GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value = originalRipple;
+            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
+            TimelineTestHost.Close(view, window);
+        }
+    }
+
     [AvaloniaTest]
     [TestCase("left", false, false)]
     [TestCase("right", false, false)]

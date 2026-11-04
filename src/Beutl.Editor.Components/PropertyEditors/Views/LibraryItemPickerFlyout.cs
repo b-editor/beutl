@@ -1,4 +1,6 @@
 ﻿using Avalonia;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using FluentAvalonia.Core;
@@ -33,6 +35,19 @@ public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel vie
             .Subscribe(v => viewModel.SearchText.Value = v);
         viewModel.IsBusy.ObserveOnUIDispatcher()
             .Subscribe(v => pfp.IsBusy = v);
+        pfp.AddHandler(InputElement.KeyDownEvent, (_, e) =>
+        {
+            // These move through the results, so show the results for everything typed so far first.
+            if (e.Key is Key.Up or Key.Down)
+                viewModel.FlushSearch();
+        }, RoutingStrategies.Tunnel);
         return pfp;
+    }
+
+    protected override void OnConfirmed()
+    {
+        // Enter, the checkmark and any other way of confirming pick from the results for everything typed.
+        viewModel.FlushSearch();
+        base.OnConfirmed();
     }
 }

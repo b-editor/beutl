@@ -20,6 +20,8 @@ public class SelectLibraryItemDialogViewModel
     private Task<PinnableLibraryItem[]>? _allItemsTask;
     private PinnableLibraryItem[] _allReferenceItems = [];
     private int _searchVersion;
+    private string? _appliedSearchText;
+    private string? _appliedReferenceSearchText;
 
     public SelectLibraryItemDialogViewModel(string format, Type baseType)
         : this(format, baseType, null, null)
@@ -66,11 +68,7 @@ public class SelectLibraryItemDialogViewModel
             .Skip(1)
             .Throttle(TimeSpan.FromMilliseconds(100))
             .ObserveOnUIDispatcher()
-            .Subscribe(_ =>
-            {
-                ProcessSearchText();
-                ProcessReferenceSearchText();
-            });
+            .Subscribe(_ => FlushSearch());
 
         ProcessSearchText();
     }
@@ -88,7 +86,7 @@ public class SelectLibraryItemDialogViewModel
             .Skip(1)
             .Throttle(TimeSpan.FromMilliseconds(100))
             .ObserveOnUIDispatcher()
-            .Subscribe(_ => ProcessReferenceSearchText());
+            .Subscribe(_ => FlushSearch());
 
         InitializeReferences(targets);
     }
@@ -111,6 +109,17 @@ public class SelectLibraryItemDialogViewModel
     public bool ShowsOnlyReferences { get; }
 
     internal Task SearchTask { get; private set; } = Task.CompletedTask;
+
+    // Applies the search text right away instead of after the typing pause, so that a key acting on the results,
+    // such as Down or Enter, sees the results for what was typed. A catalog still loading shows no results until it
+    // finishes, so there is nothing stale to act on.
+    public void FlushSearch()
+    {
+        if (!ShowsOnlyReferences && !string.Equals(SearchText.Value, _appliedSearchText, StringComparison.Ordinal))
+            ProcessSearchText();
+        if (!string.Equals(SearchText.Value, _appliedReferenceSearchText, StringComparison.Ordinal))
+            ProcessReferenceSearchText();
+    }
 
     public async Task SelectTypeAsync(Type? type)
     {
@@ -222,6 +231,8 @@ public class SelectLibraryItemDialogViewModel
         var items = ShowAll.Value ? await LoadAllItems() : await _itemsTask;
         if (searchVersion != Volatile.Read(ref _searchVersion)) return;
 
+        // Read after the wait, so this is the text the results are for, whichever path asked for them.
+        _appliedSearchText = SearchText.Value;
         items = items.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData, i.Description))
             .OrderByDescending(t => t.IsPinned)
             .ToArray();
@@ -249,6 +260,7 @@ public class SelectLibraryItemDialogViewModel
     private void ProcessReferenceSearchText()
     {
         ReferenceItems.ClearOnScheduler();
+        _appliedReferenceSearchText = SearchText.Value;
 
         if (string.IsNullOrWhiteSpace(SearchText.Value))
         {

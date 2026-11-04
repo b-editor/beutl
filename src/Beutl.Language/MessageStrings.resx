@@ -356,6 +356,12 @@ Do you want to restart the application?</value>
   <data name="PackagesCanBeUpdated" xml:space="preserve">
     <value>{0} package(s) can be updated.</value>
   </data>
+  <data name="PackageUpdatesRequired" xml:space="preserve">
+    <value>Package updates are required.</value>
+  </data>
+  <data name="PackagesNotLoadedOnThisVersion" xml:space="preserve">
+    <value>{0} package(s) could not be loaded on this version of Beutl.</value>
+  </data>
   <data name="IsNotValid" xml:space="preserve">
     <value>{0} is not a valid.</value>
   </data>
@@ -505,5 +511,14 @@ Do you want to restart the application?</value>
   </data>
   <data name="KeptUnknownDataSavedByMessage" xml:space="preserve">
     <value>This project was last saved with Beutl {0} and contains data from a newer version of Beutl or from an extension that is not installed. Beutl keeps that data when it saves the project, but does not show or use it.</value>
+  </data>
+  <data name="UpdatedToVersion_Title" xml:space="preserve">
+    <value>Updated to Beutl {0}</value>
+  </data>
+  <data name="UpdatedToVersion_Content" xml:space="preserve">
+    <value>The release notes show what changed.</value>
+  </data>
+  <data name="ReleaseNotes" xml:space="preserve">
+    <value>Release notes</value>
   </data>
 </root>

@@ -258,10 +258,9 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
     {
         if (editorContext.FindToolTab<TimelineTabViewModel>()?.GetViewModelFor(element) is { } viewModel)
         {
-            IReadOnlyList<ElementViewModel> selected = viewModel.GetGroupOrSelectedElements();
-            return (selected.Count == 0 ? [viewModel] : selected)
-                .Where(e => e.IsEditable.Value)
-                .Select(e => e.Model)
+            Element[] selected = viewModel.GetGroupOrSelectedModels();
+            return (selected.Length == 0 ? [element] : selected)
+                .Where(e => !scene.IsElementLocked(e))
                 .ToArray();
         }
 
@@ -278,10 +277,8 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
     {
         if (editorContext.FindToolTab<TimelineTabViewModel>()?.GetViewModelFor(element) is { } viewModel)
         {
-            IReadOnlyList<ElementViewModel> selected = viewModel.GetGroupOrSelectedElements();
-            return (selected.Count == 0 ? [viewModel] : selected)
-                .Select(e => e.Model)
-                .ToArray();
+            Element[] selected = viewModel.GetGroupOrSelectedModels();
+            return selected.Length == 0 ? [element] : selected;
         }
 
         IEnumerable<Guid> selection = editorContext.GetService<IEditorSelection>()?.SelectedElements

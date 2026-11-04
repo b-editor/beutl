@@ -15,8 +15,6 @@ public abstract class DynamicsNode : AudioNode
     protected const float MinDb = -100f;
 
     // Cache channel views across Process calls to avoid repeated slicing in hot loops.
-    private Memory<float>[]? _inputChannelCache;
-    private Memory<float>[]? _outputChannelCache;
 
     private int _lastSampleRate;
     private MediaTime? _lastTimeRangeEnd;
@@ -145,51 +143,27 @@ public abstract class DynamicsNode : AudioNode
     }
 
     /// <summary>
-    /// Caches per-channel <see cref="Memory{T}"/> handles for the input and output buffers.
-    /// </summary>
-    /// <remarks>
-    /// Backing arrays are reused across calls. <see cref="Memory{T}"/> is required because ref structs
-    /// cannot live in arrays.
-    /// </remarks>
-    protected (Memory<float>[] Inputs, Memory<float>[] Outputs) MapChannels(AudioBuffer input, AudioBuffer output)
-    {
-        int channels = input.ChannelCount;
-        if (_inputChannelCache is null || _inputChannelCache.Length != channels)
-        {
-            _inputChannelCache = new Memory<float>[channels];
-            _outputChannelCache = new Memory<float>[channels];
-        }
-
-        for (int ch = 0; ch < channels; ch++)
-        {
-            _inputChannelCache[ch] = input.GetChannelMemory(ch);
-            _outputChannelCache![ch] = output.GetChannelMemory(ch);
-        }
-
-        return (_inputChannelCache, _outputChannelCache!);
-    }
-
-    /// <summary>
     /// Applies one linked gain per sample, computed by <paramref name="gain"/> from the peak across all
     /// channels, to samples [<paramref name="start"/>, <paramref name="start"/> + <paramref name="count"/>).
     /// </summary>
     private protected void ApplyLinkedGain<TGain>(
-        Memory<float>[] inputChannels, Memory<float>[] outputChannels, int channels, int start, int count, ref TGain gain)
+        AudioBuffer input, AudioBuffer output, int start, int count, ref TGain gain)
         where TGain : ILinkedGain, allows ref struct
     {
         int end = start + count;
+        int channels = input.ChannelCount;
+        int stride = input.SampleCount;
+        ReadOnlySpan<float> inputRaw = input.GetRawSpan();
+        Span<float> outputRaw = output.GetRawSpan();
         // A local copy lets the JIT keep the gain state in registers; it is written back at the end.
         TGain local = gain;
 
-        // Materialize the channel spans ONCE for the mono/stereo fast path to avoid the per-sample
-        // Memory.Span getter the >2-channel fallback still pays. Span<float>[] is impossible (ref
-        // struct), hence the explicit locals.
         if (channels <= 2)
         {
-            Span<float> in0 = inputChannels[0].Span;
-            Span<float> out0 = outputChannels[0].Span;
-            Span<float> in1 = channels == 2 ? inputChannels[1].Span : default;
-            Span<float> out1 = channels == 2 ? outputChannels[1].Span : default;
+            ReadOnlySpan<float> in0 = inputRaw[..stride];
+            Span<float> out0 = outputRaw[..stride];
+            ReadOnlySpan<float> in1 = channels == 2 ? inputRaw[stride..] : default;
+            Span<float> out1 = channels == 2 ? outputRaw[stride..] : default;
 
             for (int i = start; i < end; i++)
             {
@@ -218,15 +192,15 @@ public abstract class DynamicsNode : AudioNode
                 float peak = 0f;
                 for (int ch = 0; ch < channels; ch++)
                 {
-                    peak = AccumulatePeak(peak, inputChannels[ch].Span[i]);
+                    peak = AccumulatePeak(peak, inputRaw[ch * stride + i]);
                 }
 
                 float gainLinear = local.Next(i, peak);
 
                 for (int ch = 0; ch < channels; ch++)
                 {
-                    float sample = inputChannels[ch].Span[i] * gainLinear;
-                    outputChannels[ch].Span[i] = SanitizeOutput(sample);
+                    int index = ch * stride + i;
+                    outputRaw[index] = SanitizeOutput(inputRaw[index] * gainLinear);
                 }
             }
         }
@@ -306,17 +280,6 @@ public abstract class DynamicsNode : AudioNode
         return MathF.Exp(-1f / (timeMs * 0.001f * sampleRate));
     }
 
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            // Do not pin the last buffers' pooled memory after disposal.
-            _inputChannelCache = null;
-            _outputChannelCache = null;
-        }
-
-        base.Dispose(disposing);
-    }
 }
 
 // Computes the linear gain of one sample from its linked peak. A struct (or ref struct) type argument keeps

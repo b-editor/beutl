@@ -36,4 +36,5 @@
   <data name="Model" xml:space="preserve"><value>3D model</value></data>
   <data name="Cube" xml:space="preserve"><value>LUT</value></data>
   <data name="Font" xml:space="preserve"><value>Font</value></data>
+  <data name="SceneChanged" xml:space="preserve"><value>The scene changed, so nothing was applied. Check the list and try again.</value></data>
 </root>
