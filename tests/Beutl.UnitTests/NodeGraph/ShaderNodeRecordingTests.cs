@@ -526,6 +526,35 @@ public class ShaderNodeRecordingTests
         Assert.That(replay.Error.Value, Is.Not.Null.And.Not.Empty);
     }
 
+    [TestCase(1e-12d)]
+    [TestCase(double.Epsilon)]
+    public void AStepTooLongForTheClockReportsOnTheReplay(double stepsPerSecond)
+    {
+        var (graph, output) = NewGraph();
+        var replay = graph.Add(new ShaderReplayNode());
+        replay.StepsPerSecond.Property!.SetValue(stepsPerSecond);
+        graph.Connect(output.InputPort, replay.Items.OfType<IOutputPort>().First());
+        using var snapshot = new GraphSnapshot();
+
+        Evaluate(graph, snapshot);
+
+        Assert.That(replay.Error.Value, Is.Not.Null.And.Not.Empty);
+    }
+
+    [Test]
+    public void ATimeThatIsNotANumberReportsOnTheReplay()
+    {
+        var (graph, output) = NewGraph();
+        var replay = graph.Add(new ShaderReplayNode());
+        graph.Connect(replay.Time, NodeGraphTestHelpers.Source(graph, "soon"));
+        graph.Connect(output.InputPort, replay.Items.OfType<IOutputPort>().First());
+        using var snapshot = new GraphSnapshot();
+
+        Evaluate(graph, snapshot);
+
+        Assert.That(replay.Error.Value, Is.Not.Null.And.Not.Empty);
+    }
+
     [Test]
     public void StepsTooShortForTheClockToTellApartReportOnTheReplay()
     {

@@ -138,6 +138,51 @@ public class ShaderPassNodeTests
     }
 
     [Test]
+    public void AMemberOneStageLeavesOutStillGetsItsPort()
+    {
+        var node = new ShaderRenderPassNode();
+        node.Vertex.Value = """
+            #version 450
+            layout(set = 0, binding = 0) uniform Shared { float amount; } shared_;
+            void main() { gl_Position = vec4(shared_.amount); }
+            """;
+        node.Fragment.Value = """
+            #version 450
+            layout(location = 0) out vec4 color;
+            layout(set = 0, binding = 0) uniform Shared { float amount; vec4 tint; } shared_;
+            void main() { color = shared_.tint * shared_.amount; }
+            """;
+        Assert.That(node.Error.Value, Is.Null);
+
+        Assert.That(PortNames(node), Is.EqualTo(new[]
+        {
+            "Out.color", "In.shared_", "In.shared_.amount", "In.shared_.tint"
+        }));
+    }
+
+    [Test]
+    public void AConstantIdIsSharedOnlyByStagesDeclaringTheSameConstant()
+    {
+        var node = new ShaderRenderPassNode();
+        node.Vertex.Value = """
+            #version 450
+            layout(constant_id = 0) const float size = 1.0;
+            layout(constant_id = 1) const float both = 0.5;
+            void main() { gl_Position = vec4(size, both, 0, 1); }
+            """;
+        node.Fragment.Value = """
+            #version 450
+            layout(location = 0) out vec4 color;
+            layout(constant_id = 0) const int level = 2;
+            layout(constant_id = 1) const float both = 0.5;
+            void main() { color = vec4(float(level), both, 0, 1); }
+            """;
+        Assert.That(node.Error.Value, Is.Null);
+
+        Assert.That(PortNames(node), Is.EqualTo(new[] { "Out.color", "In.size", "In.level", "In.both" }));
+    }
+
+    [Test]
     public void CodeThatKeepsADeclarationKeepsItsPortAndCodeThatFailsKeepsEverything()
     {
         var node = new ShaderFullscreenPassNode();

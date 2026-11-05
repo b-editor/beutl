@@ -59,7 +59,7 @@ internal sealed record ShaderPassReflection(
     {
         var descriptors = new SortedDictionary<int, ShaderDescriptorLayout>();
         var pushConstants = new Dictionary<int, ShaderValueLayout>();
-        var specializations = new SortedDictionary<uint, (ShaderSpecializationLayout Layout, ShaderStage Stages)>();
+        var specializations = new Dictionary<(uint, string, ShaderScalarKind, int), (ShaderSpecializationLayout Layout, ShaderStage Stages)>();
         string? pushConstantName = null;
         int pushConstantSize = 0;
         ImmutableArray<ShaderColorOutputLayout> colors = [];
@@ -74,7 +74,9 @@ internal sealed record ShaderPassReflection(
                     {
                         Access = other.Access | descriptor.Access,
                         ReadOnly = other.ReadOnly && descriptor.ReadOnly,
-                        MinimumSize = Math.Max(other.MinimumSize, descriptor.MinimumSize)
+                        MinimumSize = Math.Max(other.MinimumSize, descriptor.MinimumSize),
+                        // A stage may declare only the part of a block it uses.
+                        Members = [.. other.Members.Concat(descriptor.Members).DistinctBy(member => member.Offset).OrderBy(member => member.Offset)]
                     }
                     : descriptor;
             }
@@ -86,14 +88,16 @@ internal sealed record ShaderPassReflection(
             if (stage == ShaderStage.Fragment) colors = [.. shader.ColorOutputs.OrderBy(output => output.Location)];
             foreach (ShaderSpecializationLayout constant in shader.SpecializationConstants)
             {
-                specializations[constant.ConstantId] = specializations.TryGetValue(constant.ConstantId, out var known)
+                // An ID belongs to its stage, so stages share a constant only by declaring the same one.
+                var key = (constant.ConstantId, constant.Name, constant.ScalarKind, constant.BitWidth);
+                specializations[key] = specializations.TryGetValue(key, out var known)
                     ? (known.Layout, known.Stages | stage) : (constant, stage);
             }
         }
 
         return new([.. descriptors.Values], pushConstantName,
             [.. pushConstants.Values.OrderBy(member => member.Offset)], pushConstantSize, colors,
-            [.. specializations.Values], stages);
+            [.. specializations.Values.OrderBy(constant => constant.Layout.ConstantId)], stages);
     }
 }
 

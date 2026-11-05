@@ -242,11 +242,21 @@ public partial class ShaderReplayNode : ShaderLoopNode
 
         private protected override ShaderLoopStep[]? GetSteps(GraphCompositionContext context, out string? error)
         {
-            double target = Time is IConvertible connected
-                ? connected.ToDouble(CultureInfo.InvariantCulture)
-                : (context.Time - RequireOriginal().Start).ToSeconds();
+            double target;
+            try
+            {
+                target = Time is IConvertible connected
+                    ? connected.ToDouble(CultureInfo.InvariantCulture)
+                    : (context.Time - RequireOriginal().Start).ToSeconds();
+            }
+            catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException)
+            {
+                error = NodeGraphStrings.ShaderError_InvalidReplayTime;
+                return null;
+            }
+
             if (!(StepsPerSecond > 0) || !double.IsFinite(StepsPerSecond) || !double.IsFinite(target) || !double.IsFinite(ResetTime)
-                || Math.Abs(target) > MaximumSeconds || Math.Abs(ResetTime) > MaximumSeconds)
+                || Math.Abs(target) > MaximumSeconds || Math.Abs(ResetTime) > MaximumSeconds || 1 / StepsPerSecond > MaximumSeconds)
             {
                 error = NodeGraphStrings.ShaderError_InvalidReplayTime;
                 return null;

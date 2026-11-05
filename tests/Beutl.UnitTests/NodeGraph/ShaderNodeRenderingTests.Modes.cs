@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Backend;
+﻿using System.Numerics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
@@ -219,6 +220,101 @@ public partial class ShaderNodeRenderingTests
             {
                 pass.UniformBuffer(0, buffer);
                 pass.ColorAttachment(0, image);
+            });
+            return builder.Output(image);
+        }));
+    }
+
+    private const string PartOfABlockVertexCode = """
+        #version 450
+        layout(set=0,binding=0,std140) uniform Parameters { float size; } parameters;
+        void main() {
+            vec2 p=vec2((gl_VertexIndex<<1)&2,gl_VertexIndex&2);
+            gl_Position=vec4((p*2.0-1.0)*parameters.size,0,1);
+        }
+        """;
+
+    private const string WholeBlockFragmentCode = """
+        #version 450
+        layout(location=0) out vec4 color;
+        layout(set=0,binding=0,std140) uniform Parameters { float size; vec4 tint; } parameters;
+        void main() { color=parameters.tint; }
+        """;
+
+    [Test]
+    public void AMemberOneStageLeavesOutStillReachesTheOther()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        GraphModel graph = WithOutput(graph =>
+        {
+            var pass = graph.Add(new ShaderRenderPassNode { Vertex = { Value = PartOfABlockVertexCode }, Fragment = { Value = WholeBlockFragmentCode } });
+            Assert.That(pass.Error.Value, Is.Null);
+            pass.Set("parameters.size", 1f);
+            pass.Set("parameters.tint", new Vector4(0.25f, 0.5f, 0.75f, 1));
+            return pass.Out("color");
+        });
+
+        AssertMatches(graph, ShaderGraphBuilder.Build(0, static (builder, _) =>
+        {
+            ShaderImage image = builder.Image2D("result", builder.Source);
+            byte[] data = new byte[32];
+            BitConverter.GetBytes(1f).CopyTo(data, 0);
+            BitConverter.GetBytes(0.25f).CopyTo(data, 16);
+            BitConverter.GetBytes(0.5f).CopyTo(data, 20);
+            BitConverter.GetBytes(0.75f).CopyTo(data, 24);
+            BitConverter.GetBytes(1f).CopyTo(data, 28);
+            ShaderBuffer buffer = builder.Buffer("parameters", data, 1);
+            builder.Render("draw", ShaderProgram.Graphics(new(PartOfABlockVertexCode), new(WholeBlockFragmentCode)), pass =>
+            {
+                pass.UniformBuffer(0, buffer);
+                pass.ColorAttachment(0, image);
+                pass.Draw(3);
+            });
+            return builder.Output(image);
+        }));
+    }
+
+    private const string SizeConstantVertexCode = """
+        #version 450
+        layout(constant_id=0) const float size=0.5;
+        void main() {
+            vec2 p=vec2((gl_VertexIndex<<1)&2,gl_VertexIndex&2);
+            gl_Position=vec4((p*2.0-1.0)*size,0,1);
+        }
+        """;
+
+    private const string LevelConstantFragmentCode = """
+        #version 450
+        layout(location=0) out vec4 color;
+        layout(constant_id=0) const int level=2;
+        void main() { color=vec4(float(level)/8.0,0,0,1); }
+        """;
+
+    [Test]
+    public void StagesKeepTheirOwnConstantsUnderOneId()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        GraphModel graph = WithOutput(graph =>
+        {
+            var pass = graph.Add(new ShaderRenderPassNode { Vertex = { Value = SizeConstantVertexCode }, Fragment = { Value = LevelConstantFragmentCode } });
+            Assert.That(pass.Error.Value, Is.Null);
+            pass.Set("size", 1f);
+            pass.Set("level", 3);
+            return pass.Out("color");
+        });
+
+        AssertMatches(graph, ShaderGraphBuilder.Build(0, static (builder, _) =>
+        {
+            ShaderImage image = builder.Image2D("result", builder.Source);
+            ShaderProgram program = ShaderProgram.Graphics(new(SizeConstantVertexCode), new(LevelConstantFragmentCode)).Specialize(
+            [
+                SpecializationConstant.Create(0, 1f, ShaderStage.Vertex),
+                SpecializationConstant.Create(0, 3, ShaderStage.Fragment)
+            ]);
+            builder.Render("draw", program, pass =>
+            {
+                pass.ColorAttachment(0, image);
+                pass.Draw(3);
             });
             return builder.Output(image);
         }));
