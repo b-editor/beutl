@@ -57,6 +57,13 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
             .Subscribe(ci => _config.UICulture.Value = ci)
             .DisposeWith(_disposables);
 
+        UseNativeContextMenus = _config.UseNativeContextMenus.GetObservable()
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        UseNativeContextMenus.Skip(1)
+            .Subscribe(value => _config.UseNativeContextMenus.Value = value)
+            .DisposeWith(_disposables);
+
         bool result = Color.TryParse(_config.CustomAccentColor.Value, out Color customColor);
 
         UseCustomAccent = new ReactiveProperty<bool>(_config.UseCustomAccentColor.Value);
@@ -115,6 +122,11 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
     public ReactiveProperty<CultureInfo> SelectedLanguage { get; }
 
     public IEnumerable<CultureInfo> Cultures { get; } = LocalizeService.Instance.SupportedCultures();
+
+    public ReactiveProperty<bool> UseNativeContextMenus { get; }
+
+    // macOS only: elsewhere context menus have no native form here.
+    public bool IsNativeContextMenuSupported { get; internal init; } = OperatingSystem.IsMacOS();
 
     public ReactiveProperty<bool> UseCustomAccent { get; }
 
