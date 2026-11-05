@@ -26,6 +26,8 @@ public sealed class PropertyEditorGrid : Grid
     private const double MinimumScopeWidth = 640;
     private const double MinimumHeaderWidth = 80;
     private const double InputInset = 4;
+    // The width the theme gives a GridSplitter.
+    private const double SplitterWidth = 6;
     private const double LayoutTolerance = .1;
     private Control? _scope;
     private ColumnDefinition? _alignedHeader;
@@ -148,28 +150,25 @@ public sealed class PropertyEditorGrid : Grid
         return base.MeasureOverride(availableSize);
     }
 
-    // Without a shared position the row splits its own width. Columns between the value and the last one, the keyframe
-    // buttons, come out of a value that fills its column alone, as they do where the value's column holds them, so that
-    // showing them does not move the value's edge.
+    // Without a shared position the row splits its own width. A row with no splitter before its value and the keyframe
+    // buttons after it still takes the edge of a row with a splitter before its value and the buttons in it: the star
+    // columns alone would start the value half a splitter earlier, and showing the buttons would move it.
     private void SplitOwnWidth(Size availableSize)
     {
-        if (double.IsFinite(availableSize.Width) && HasInlineValue()
+        if (ValueColumn == 1 && double.IsFinite(availableSize.Width) && HasInlineValue()
             && Children.Any(child => GetColumn(child) == ValueColumn && child.HorizontalAlignment == HorizontalAlignment.Stretch)
             && (_alignedHeader == null ? ColumnDefinitions[0].Width : _originalHeaderWidth) is { IsStar: true } header
             && ColumnDefinitions[ValueColumn].Width is { IsStar: true } value)
         {
-            double buttons = 0;
-            for (int column = ValueColumn + 1; column < ColumnDefinitions.Count - 1; column++)
-                buttons += MeasureColumn(column, availableSize.Height);
-
-            if (buttons > 0)
-            {
-                PseudoClasses.Set(":aligned", false);
-                HoldHeaderWidth();
-                double width = availableSize.Width - MeasureColumn(ColumnDefinitions.Count - 1, availableSize.Height);
-                SetHeaderWidth(new GridLength(width * header.Value / (header.Value + value.Value)));
-                return;
-            }
+            PseudoClasses.Set(":aligned", false);
+            HoldHeaderWidth();
+            double scale = LayoutHelper.GetLayoutScale(this);
+            double splitter = LayoutHelper.RoundLayoutValueUp(SplitterWidth, scale);
+            double width = availableSize.Width - MeasureColumn(ColumnDefinitions.Count - 1, availableSize.Height) - splitter;
+            // Star columns that cannot split evenly give the first one the extra device pixel.
+            double label = LayoutHelper.RoundLayoutValueUp(width * header.Value / (header.Value + value.Value), scale);
+            SetHeaderWidth(new GridLength(label + splitter));
+            return;
         }
 
         RestoreHeaderWidth();

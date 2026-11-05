@@ -162,11 +162,55 @@ public class PropertyEditorGridTests
 
             editor.KeyFrameCount = 0;
             HeadlessTestHelpers.Render(3);
-            Assert.That(GetGrid(editor).ColumnDefinitions[0].Width.IsStar, Is.True);
             Assert.That(box.TranslatePoint(default, scope)!.Value.X, Is.EqualTo(left).Within(1));
             Assert.That(box.Bounds.Width, Is.EqualTo(width).Within(1));
         }
         finally { window.Close(); }
+    }
+
+    // Too narrow for the shared position, each row splits its own width. A row without a splitter then started its value
+    // half a splitter's width before the rows that have one.
+    [AvaloniaTest]
+    [TestCaseSource(nameof(EditorsWithButtonsBesideTheValue))]
+    public void A_value_lines_up_with_the_rows_that_have_a_splitter(Func<PropertyEditor> create)
+    {
+        PropertyEditor editor = create();
+        editor.Header = "Size";
+        editor.MenuContent = new Border { Width = 24, Height = 24 };
+        var number = new NumberEditor<float> { Header = "Scale", MenuContent = new Border { Width = 24, Height = 24 } };
+        var scope = new StackPanel { Children = { number, editor } };
+        PropertyEditorGrid.SetIsAlignmentScope(scope, true);
+        var window = new Window { Content = scope, Width = 600, Height = 200 };
+        try
+        {
+            window.Show();
+            foreach (double scale in new[] { 1d, 2d })
+            {
+                window.SetRenderScaling(scale);
+                // An even and an odd number of device pixels to split.
+                foreach (double width in new[] { 600, 600 + 1 / scale })
+                {
+                    window.Width = width;
+                    number.KeyFrameCount = editor.KeyFrameCount = 0;
+                    HeadlessTestHelpers.Render(3);
+                    AssertSameEdges();
+
+                    number.KeyFrameCount = editor.KeyFrameCount = 3;
+                    HeadlessTestHelpers.Render(3);
+                    AssertSameEdges();
+                }
+            }
+        }
+        finally { window.Close(); }
+
+        void AssertSameEdges()
+        {
+            Control numberBox = number.GetVisualDescendants().OfType<TextBox>().Single();
+            Control box = GetBox(editor);
+            Assert.That(box.TranslatePoint(default, scope)!.Value.X,
+                Is.EqualTo(numberBox.TranslatePoint(default, scope)!.Value.X).Within(.01), "left");
+            Assert.That(box.Bounds.Width, Is.EqualTo(numberBox.Bounds.Width).Within(.01), "width");
+        }
     }
 
     private static void MoveSplitter(Window window, PropertyEditor editor, Key key, PhysicalKey physicalKey, double increment)
