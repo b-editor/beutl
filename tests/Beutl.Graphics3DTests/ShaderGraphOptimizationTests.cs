@@ -162,6 +162,43 @@ public sealed class ShaderGraphOptimizationTests
 
     [TestCase(false)]
     [TestCase(true)]
+    public void WorkingScaleReservesACopyOfAnotherPictureOnlyWhenItIsReadAsStorage(bool readAsStorage)
+    {
+        OnDevice(_ =>
+        {
+            ShaderGraphDescription graph = ShaderGraphBuilder.Build(0, (builder, _) =>
+            {
+                ShaderImage other = builder.ExternalImage("other");
+                ShaderImage image = builder.Image2D("read", builder.Source);
+                builder.Fullscreen("read-other", ShaderProgram.Fullscreen(new ShaderSource(readAsStorage
+                    ? """
+                        #version 450
+                        layout(binding = 0, rgba16f) readonly uniform image2D other;
+                        layout(location = 0) out vec4 color;
+                        void main() { color = imageLoad(other, ivec2(0)); }
+                        """
+                    : """
+                        #version 450
+                        layout(binding = 0) uniform sampler2D other;
+                        layout(location = 0) out vec4 color;
+                        void main() { color = texture(other, vec2(0)); }
+                        """)), pass =>
+                {
+                    if (readAsStorage) pass.StorageImage(0, other, ResourceAccess.Read);
+                    else pass.SampledImage(0, other);
+                    pass.ColorAttachment(0, image);
+                });
+                return builder.Output(Sample(builder, image));
+            });
+
+            float density = graph.ClampWorkingScale(new Rect(0, 0, 4096, 4096), 1, default, sourceSize: new PixelSize(4096, 4096));
+
+            Assert.That(density, readAsStorage ? Is.InRange(0.65f, 0.67f) : Is.InRange(0.96f, 0.98f));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
     public void WorkingScaleReservesOnlyTheSourceCopyTheExecutorNeeds(bool sourceSupportsStorage)
     {
         OnDevice(_ =>

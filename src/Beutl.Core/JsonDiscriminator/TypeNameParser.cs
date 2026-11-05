@@ -238,7 +238,8 @@ internal class TypeNameParser
         {
             Type? element = ParseNestedType(elementTokens, out definitionName);
             definitionName += "[]";
-            return element?.MakeArrayType();
+            // A name in a file can ask for an array of what has none, which is an unknown type like any other.
+            return element == null || element == typeof(void) || element.IsByRefLike ? null : element.MakeArrayType();
         }
         string typeName = TakeTypeNameTokens(tokens, out Span<Token> genericTokens, out Span<Token> parents);
         Type[] genericArgs = ParseGenericTypes(genericTokens);

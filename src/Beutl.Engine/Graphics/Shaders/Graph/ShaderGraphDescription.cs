@@ -186,11 +186,17 @@ public sealed class ShaderGraphDescription
     internal float ClampWorkingScale(Rect sourceBounds, float scale, Vector gridOffset, Rect? referenceBounds = null,
         PixelSize? sourceSize = null, ImageUsageFlags sourceUsage = VulkanTexture2D.ColorTextureUsage)
     {
-        // The executor copies an incompatible source before the first pass and keeps it until
-        // execution ends. Its native extent does not shrink with the graph's working density.
+        // The executor copies an incompatible input before the first pass and keeps it until execution
+        // ends. Its native extent does not shrink with the graph's working density, and any other
+        // picture is laid out the way the source is.
         PixelSize inputSize = sourceSize ?? PixelRect.FromRect(sourceBounds.Translate(gridOffset), scale).Size;
-        long sourceBytes = (ImageUsages[0] & ~sourceUsage) != 0
-            ? ShaderGraphExecutor.EstimateImageBytes(((ShaderImage)Resources[0]).DescriptionFor(inputSize)) : 0;
+        long sourceBytes = 0;
+        foreach (ShaderImage input in Resources.OfType<ShaderImage>())
+        {
+            if (input.IsInput && (ImageUsages[input.Id] & ~sourceUsage) != 0)
+                sourceBytes = checked(sourceBytes + ShaderGraphExecutor.EstimateImageBytes(input.DescriptionFor(inputSize)));
+        }
+
         foreach (ShaderImage image in Resources.OfType<ShaderImage>())
         {
             if (_firstUses[image.Id] == int.MaxValue || image.Description.HasValue)

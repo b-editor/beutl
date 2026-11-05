@@ -271,7 +271,8 @@ public partial class ShaderReplayNode : ShaderLoopNode
                 return null;
             }
 
-            long count = time > reset ? (time - reset).Ticks / step.Ticks + 1 : 0;
+            long ticks = time > reset ? (time - reset).Ticks : 0;
+            long count = ticks / step.Ticks + (ticks % step.Ticks == 0 ? 0 : 1);
             if (IsTooMany(count))
             {
                 error = TooManySteps(count);

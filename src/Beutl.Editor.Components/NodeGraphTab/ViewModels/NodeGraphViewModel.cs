@@ -202,12 +202,20 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
             .AddNode(NodeGraph, node, point.X, point.Y);
     }
 
+    /// <summary>Adds a node with the middle of its top edge under the pointer, whatever its width.</summary>
+    public void AddNodeUnderPointer(Type type, Point pointer)
+    {
+        var node = (GraphNode)Activator.CreateInstance(type)!;
+        EditorContext.GetRequiredService<INodeGraphMutationService>()
+            .AddNode(NodeGraph, node, pointer.X - node.EditorWidth / 2, pointer.Y);
+    }
+
     public bool AddNodeAndConnect(GraphNode node, Point point, INodePort existingPort, INodePort? newPort)
         => EditorContext.GetRequiredService<INodeGraphMutationService>()
             .AddNodeAndConnect(NodeGraph, node, point.X, point.Y, existingPort, newPort);
 
     internal bool TryAddSuggestedNode(CompatibleNodeFinder.Candidate candidate,
-        CompatibleNodeFinder.PortChoice? choice, INodePort source, Point point)
+        CompatibleNodeFinder.PortChoice? choice, INodePort source, Point pointer)
     {
         if (!CompatibleNodeFinder.TryCreateSelection(candidate, choice, source,
                 out GraphNode? node, out INodePort? port) || node == null)
@@ -216,7 +224,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
         bool added = false;
         try
         {
-            added = AddNodeAndConnect(node, point, source, port);
+            added = AddNodeAndConnect(node, new Point(pointer.X - node.EditorWidth / 2, pointer.Y), source, port);
             return added;
         }
         finally

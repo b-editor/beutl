@@ -130,6 +130,18 @@ public class JsonConvertersTests
     }
 
     [Test]
+    public void Vector2_TooManyComponents_Throws()
+    {
+        Assert.Throws<FormatException>(() => JsonSerializer.Deserialize<Vector2>("\"1,2,3\"", s_options));
+    }
+
+    [Test]
+    public void Vector4_TooManyComponents_Throws()
+    {
+        Assert.Throws<FormatException>(() => JsonSerializer.Deserialize<Vector4>("\"1,2,3,4,5\"", s_options));
+    }
+
+    [Test]
     public void Vector3_InvalidString_Throws()
     {
         Assert.Throws<FormatException>(() => JsonSerializer.Deserialize<Vector3>("\"not-a-vector\"", s_options));

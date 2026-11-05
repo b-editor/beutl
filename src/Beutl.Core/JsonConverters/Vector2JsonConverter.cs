@@ -14,7 +14,7 @@ internal sealed class Vector2JsonConverter : JsonConverter<Vector2>
         if (s == null)
             throw new Exception("Invalid Vector2.");
 
-        var tokenizer = new RefStringTokenizer(s, exceptionMessage: "Invalid Vector2.");
+        using var tokenizer = new RefStringTokenizer(s, exceptionMessage: "Invalid Vector2.");
         float x = tokenizer.ReadSingle();
         float y = tokenizer.ReadSingle();
         return new Vector2(x, y);

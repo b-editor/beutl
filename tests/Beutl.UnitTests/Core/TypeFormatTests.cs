@@ -54,6 +54,13 @@ public class TypeFormatTests
         Assert.That(formatted, Does.Contain(":Int32"));
     }
 
+    [TestCase("[System.Private.CoreLib]System:Void[]")]
+    [TestCase("[System.Private.CoreLib]System:Span<[System.Private.CoreLib]System:Int32>[]")]
+    public void ToType_AnArrayNoTypeCanHave_ReturnsNull(string name)
+    {
+        Assert.That(TypeFormat.ToType(name), Is.Null);
+    }
+
     [Test]
     public void ToType_UnknownAssembly_ReturnsNull()
     {

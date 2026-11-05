@@ -526,6 +526,67 @@ public class ShaderNodeRecordingTests
         Assert.That(replay.Error.Value, Is.Not.Null.And.Not.Empty);
     }
 
+    [TestCase(100d, false)]
+    [TestCase(100.001d, true)]
+    public void AReplayIsLimitedByTheStepsItWouldRun(double time, bool tooMany)
+    {
+        var (graph, output) = NewGraph();
+        var replay = graph.Add(new ShaderReplayNode());
+        replay.StepsPerSecond.Property!.SetValue(1000d);
+        graph.Connect(replay.Time, NodeGraphTestHelpers.Source(graph, time));
+        graph.Connect(output.InputPort, replay.Items.OfType<IOutputPort>().First());
+        using var snapshot = new GraphSnapshot();
+
+        Evaluate(graph, snapshot);
+
+        Assert.That(replay.Error.Value, tooMany ? Is.Not.Null.And.Not.Empty : Is.Null);
+    }
+
+    [Test]
+    public void PaddingGrowsAnImageOfExplicitBoundsAndMustNotBeNegative()
+    {
+        var (graph, output) = NewGraph();
+        var image = graph.Add(new ShaderImageNode());
+        image.Bounds.Property!.SetValue(new Rect(0, 0, 10, 20));
+        image.Padding.Property!.SetValue(2f);
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        graph.Connect(pass.Targets, image.Output);
+        graph.Connect(output.InputPort, pass.Out("color"));
+
+        Assert.That(ShaderNodeTestHelpers.Record(graph).TransformBounds(new Rect(0, 0, 1, 1)), Is.EqualTo(new Rect(-2, -2, 14, 24)));
+
+        image.Padding.Property!.SetValue(-1f);
+        using var snapshot = new GraphSnapshot();
+        Assert.That(Evaluate(graph, snapshot).Description, Is.Null);
+    }
+
+    [Test]
+    public void ABufferOfPartWordsStillStartsWithItsContentsKnown()
+    {
+        var (graph, output) = NewGraph();
+        var buffer = graph.Add(new ShaderBufferNode());
+        buffer.Count.Property!.SetValue(3);
+        buffer.Stride.Property!.SetValue(2);
+        var pass = graph.Add(new ShaderFullscreenPassNode
+        {
+            Code =
+            {
+                Value = """
+                    #version 450
+                    layout(location = 0) out vec4 color;
+                    layout(set = 0, binding = 0, std430) readonly buffer Data { uint first; } data;
+                    void main() { color = vec4(float(data.first)); }
+                    """
+            }
+        });
+        graph.Connect(pass.In("data"), buffer.Output);
+        graph.Connect(output.InputPort, pass.Out("color"));
+
+        ShaderNodeTestHelpers.Record(graph);
+
+        Assert.That(pass.Error.Value, Is.Null);
+    }
+
     [TestCase(1e-12d)]
     [TestCase(double.Epsilon)]
     public void AStepTooLongForTheClockReportsOnTheReplay(double stepsPerSecond)

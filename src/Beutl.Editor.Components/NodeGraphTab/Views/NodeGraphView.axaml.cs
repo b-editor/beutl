@@ -17,7 +17,6 @@ namespace Beutl.Editor.Components.NodeGraphTab.Views;
 public partial class NodeGraphView : UserControl
 {
     // The width of most nodes, which a new node is centered under the pointer by.
-    private const int GraphNodeWidth = 215;
     private readonly CompositeDisposable _disposables = [];
     private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;
     private readonly Func<TopLevel, IDisposable?> _attachNativeInput;
@@ -100,8 +99,7 @@ public partial class NodeGraphView : UserControl
             && e.DataTransfer.TryGetValue(BeutlDataFormats.GraphNode) is { } typeName
             && TypeFormat.ToType(typeName) is { } item)
         {
-            Point point = e.GetPosition(canvas) - new Point(GraphNodeWidth / 2, 0);
-            viewModel.AddNodePort(item, point);
+            viewModel.AddNodeUnderPointer(item, e.GetPosition(canvas));
         }
     }
 
@@ -337,8 +335,7 @@ public partial class NodeGraphView : UserControl
             try
             {
                 if (DataContext == viewModel && source.Model == sourcePort)
-                    viewModel.TryAddSuggestedNode(candidate, choice, sourcePort,
-                        new Point(canvasPoint.X - GraphNodeWidth / 2d, canvasPoint.Y));
+                    viewModel.TryAddSuggestedNode(candidate, choice, sourcePort, canvasPoint);
             }
             finally
             {

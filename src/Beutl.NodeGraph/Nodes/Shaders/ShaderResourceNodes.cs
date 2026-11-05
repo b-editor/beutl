@@ -57,12 +57,15 @@ public partial class ShaderImageNode : ShaderImageProducerNode
             Output = new(recording =>
             {
                 ShaderImage image = like == null && bounds.Width > 0 && bounds.Height > 0
-                    ? recording.Builder.Image2D(recording.UniqueName("Image"), bounds, format, scale)
+                    ? recording.Builder.Image2D(recording.UniqueName("Image"), Padded(bounds, padding), format, scale)
                     : ShaderImageContents.Declare(recording, "Image", like != null ? recording.Evaluate(like) : recording.Builder.Source,
                         format, padding, scale);
                 return ShaderImageContents.Clear(recording, image);
             });
         }
+
+        private static Rect Padded(Rect bounds, float padding)
+            => padding >= 0 ? bounds.Inflate(padding) : throw new ArgumentOutOfRangeException(nameof(padding));
     }
 }
 
@@ -189,10 +192,12 @@ public partial class ShaderBufferNode : GraphNode
                 string name = recording.UniqueName("Buffer");
                 if (data is { Length: > 0 })
                     return recording.Builder.Buffer(name, data, stride);
+                // A clear fills whole words, so any other length starts from zeros uploaded with it.
+                if (count > 0 && stride > 0 && (long)count * stride % 4 != 0)
+                    return recording.Builder.Buffer(name, new byte[checked(count * stride)], stride);
                 ShaderBuffer buffer = recording.Builder.Buffer(name, count, stride);
                 // A write-only shader has nothing to clear, but GLSL buffers read and write unless told otherwise.
-                if (buffer.ByteLength % 4 == 0)
-                    recording.Builder.Clear(recording.UniqueName($"{name}.clear"), buffer);
+                recording.Builder.Clear(recording.UniqueName($"{name}.clear"), buffer);
                 return buffer;
             });
         }

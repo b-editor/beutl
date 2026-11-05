@@ -119,6 +119,39 @@ public class NodeGraphPortDropTests
     }
 
     [AvaloniaTest]
+    public void ADroppedOrSuggestedNodeIsCenteredOnThePointerWhateverItsWidth()
+    {
+        var graph = new GraphModel();
+        var source = new FilterEffectInputNode { Position = { Value = (20, 40) } };
+        graph.Nodes.Add(source);
+        var sequence = new OperationSequenceGenerator();
+        using var history = new HistoryManager(sequence);
+        using var observer = new CoreObjectOperationObserver(null, graph, sequence);
+        history.Subscribe(observer);
+        Mock<IEditorContext> editor = NodeGraphTestContext.Create(new NodeGraphMutationService(history));
+        using var playing = new ReactivePropertySlim<bool>();
+        var player = new Mock<IPreviewPlayer>();
+        player.SetupGet(x => x.IsPlaying).Returns(playing);
+        editor.Setup(x => x.GetService(typeof(IPreviewPlayer))).Returns(player.Object);
+        using var vm = new NodeGraphViewModel(graph, editor.Object);
+        var item = new GraphNodeRegistry.RegistryItem("Pass", Colors.Teal, typeof(ShaderFullscreenPassNode));
+        var found = CompatibleNodeFinder.Find(graph, source.Output, [item]);
+
+        Assert.That(vm.TryAddSuggestedNode(found[item], found[item].Ports[0], source.Output, new Point(500, 100)), Is.True);
+        vm.AddNodeUnderPointer(typeof(ShaderFullscreenPassNode), new Point(900, 200));
+
+        ShaderFullscreenPassNode[] added = [.. graph.Nodes.OfType<ShaderFullscreenPassNode>()];
+        Assert.That(added[0].EditorWidth, Is.GreaterThan(215));
+        Assert.Multiple(() =>
+        {
+            Assert.That(added[0].Position.Value.X, Is.EqualTo(500 - added[0].EditorWidth / 2));
+            Assert.That(added[0].Position.Value.Y, Is.EqualTo(100));
+            Assert.That(added[1].Position.Value.X, Is.EqualTo(900 - added[1].EditorWidth / 2));
+            Assert.That(added[1].Position.Value.Y, Is.EqualTo(200));
+        });
+    }
+
+    [AvaloniaTest]
     public void ShaderOutputDroppedOnEmptyGraph_OffersGraphOutputAndConnectsIt()
     {
         var graph = new GraphModel();
@@ -297,7 +330,7 @@ public class NodeGraphPortDropTests
             Assert.That(graph.Nodes, Has.Count.EqualTo(1));
             Assert.That(graph.AllConnections, Is.Empty);
         });
-        mutation.Verify(s => s.AddNodeAndConnect(graph, It.IsAny<GraphNode>(), 120, 80,
+        mutation.Verify(s => s.AddNodeAndConnect(graph, It.IsAny<GraphNode>(), 120 - 215 / 2d, 80,
             source.Value, It.IsAny<INodePort>()), Times.Once);
     }
 
