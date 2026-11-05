@@ -49,6 +49,7 @@ public partial class PlayerView
     private PlayerViewportTransform? _viewportTransform;
     private string _zoomLabel = "-";
     private bool _isSyncingZoomOption;
+    private RenderScale? _requestedPreviewScale;
 
     public string ZoomLabel
     {
@@ -179,6 +180,8 @@ public partial class PlayerView
     internal async Task ChangePreviewScaleAsync(PlayerViewModel viewModel, RenderScale scale)
     {
         EditViewModel editor = viewModel.EditViewModel;
+        // A choice still waiting for the pause gives way to this one.
+        _requestedPreviewScale = scale;
         // Choosing the quality in use changes nothing, so it must not stop playback either.
         if (scale == editor.PreviewScale.Value)
             return;
@@ -187,7 +190,7 @@ public partial class PlayerView
         {
             // Rebuilding the renderer must not happen mid-playback.
             await viewModel.Pause();
-            if (ReferenceEquals(DataContext, viewModel))
+            if (ReferenceEquals(DataContext, viewModel) && _requestedPreviewScale == scale)
                 editor.PreviewScale.Value = scale;
         }
         catch (Exception ex)

@@ -874,6 +874,39 @@ public sealed class PlayerViewControlsTests
     }
 
     [AvaloniaTest]
+    public async Task The_last_resolution_chosen_during_a_pause_wins()
+    {
+        EditViewModel editor = await OpenEditor();
+        PlayerViewModel player = editor.Player;
+        var view = new PlayerView { DataContext = player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        try
+        {
+            await Prepare(view, window);
+
+            // The first choice waits for the pause, and the second comes back to the scale in use.
+            player.IsPlaying.Value = true;
+            await Task.WhenAll(
+                view.ChangePreviewScaleAsync(player, RenderScale.Half),
+                view.ChangePreviewScaleAsync(player, RenderScale.Full));
+            HeadlessTestHelpers.Settle();
+            Assert.That(editor.PreviewScale.Value, Is.EqualTo(RenderScale.Full));
+
+            player.IsPlaying.Value = true;
+            await Task.WhenAll(
+                view.ChangePreviewScaleAsync(player, RenderScale.Half),
+                view.ChangePreviewScaleAsync(player, RenderScale.Quarter));
+            HeadlessTestHelpers.Settle();
+            Assert.That(editor.PreviewScale.Value, Is.EqualTo(RenderScale.Quarter));
+        }
+        finally
+        {
+            await player.Pause();
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task The_view_toggles_and_the_settings_stay_in_step()
     {
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
