@@ -12,6 +12,8 @@ namespace Beutl.ViewModels;
 
 public partial class MainViewModel
 {
+    private Action? _updateOnQuit;
+
     public override void Dispose()
     {
         try
@@ -93,8 +95,36 @@ public partial class MainViewModel
                 _closeForShutdownTask = null;
             }
 
-            return _closeForShutdownTask ??= CloseProjectAndBeginDisposeAsync();
+            return _closeForShutdownTask ??= CloseProjectAndBeginDisposeAsync(CreateUpdateOnQuitStep());
         }
+    }
+
+    // What to start once the session is saved and Beutl is on its way out, or null for nothing.
+    internal void SetUpdateOnQuit(Action? startInstaller)
+    {
+        Volatile.Write(ref _updateOnQuit, startInstaller);
+    }
+
+    private Func<bool>? CreateUpdateOnQuitStep()
+    {
+        if (Volatile.Read(ref _updateOnQuit) is null)
+            return null;
+
+        return () =>
+        {
+            try
+            {
+                // Once only: a save that fails after this step can leave the close to be tried again.
+                Interlocked.Exchange(ref _updateOnQuit, null)?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                // The user asked to quit, and the update is offered again on the next start.
+                _logger.LogError(ex, "Failed to start the update when quitting.");
+            }
+
+            return true;
+        };
     }
 
     internal Task<bool> TryDisposeForUpdateAsync(Func<bool> startInstaller)

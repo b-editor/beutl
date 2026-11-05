@@ -4,8 +4,6 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
-using Beutl.ViewModels.Dialogs;
-using Beutl.Views.Dialogs;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 
@@ -35,15 +33,15 @@ public sealed class CheckForUpdatesTask : StartupTask
                     if (result == UpdateCheckResult.UpgradeRequired)
                     {
                         _logger.LogWarning("Current version must be updated to the latest version.");
-                        await ShowUpgradeRequiredDialog(v1.Url);
+                        await ShowUpgradeRequiredDialog(v1.Url, inAppUpdate: null);
                     }
                     else if (result == UpdateCheckResult.UpdateAvailable)
                     {
                         _logger.LogInformation("A new version is available: {VersionUrl}", v1.Url);
                         NotificationService.ShowInformation(
                             MessageStrings.NewVersionAvailable,
-                            v1.Url,
-                            actions: [new(Strings.Open, () => OpenUrl(v1.Url))]);
+                            GetVersionLabel(v1.LatestVersion),
+                            actions: [new(MessageStrings.ReleaseNotes, () => OpenUrl(v1.Url))]);
                     }
                 }
                 else if (v3 != null)
@@ -52,31 +50,20 @@ public sealed class CheckForUpdatesTask : StartupTask
                     if (result == UpdateCheckResult.UpgradeRequired)
                     {
                         _logger.LogWarning("Current version must be updated to the latest version.");
-                        await ShowUpgradeRequiredDialog(GetReleaseUrl(v3, activity));
+                        await ShowUpgradeRequiredDialog(
+                            GetReleaseUrl(v3, activity), inAppUpdate: FlatpakUpdater.RequiresManualUpdate ? null : v3);
                     }
                     else if (result == UpdateCheckResult.UpdateAvailable)
                     {
                         _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
-                        if (FlatpakUpdater.RequiresManualUpdate)
-                        {
-                            string releaseUrl = GetReleaseUrl(v3, activity);
-                            NotificationService.ShowInformation(MessageStrings.NewVersionAvailable, releaseUrl,
-                                actions: [new(Strings.Open, () => OpenUrl(releaseUrl))]);
-                            return;
-                        }
+                        string releaseUrl = GetReleaseUrl(v3, activity);
+                        NotificationAction releaseNotes = new(MessageStrings.ReleaseNotes, () => OpenUrl(releaseUrl));
                         NotificationService.ShowInformation(
                             MessageStrings.NewVersionAvailable,
-                            message: MessageStrings.ConfirmInstall,
-                            actions:
-                            [
-                                new(ExtensionsStrings.Install, () =>
-                                {
-                                    var viewModel = new UpdateDialogViewModel(v3);
-                                    var dialog = new UpdateDialog { DataContext = viewModel };
-                                    dialog.ShowAsync();
-                                    viewModel.Start();
-                                })
-                            ]);
+                            GetVersionLabel(v3.LatestVersion),
+                            actions: FlatpakUpdater.RequiresManualUpdate
+                                ? [releaseNotes]
+                                : [new(ExtensionsStrings.Install, () => AppUpdateController.Instance.StartInBackground(v3)), releaseNotes]);
                     }
                 }
             }
@@ -107,6 +94,8 @@ public sealed class CheckForUpdatesTask : StartupTask
             closeApp();
         }
     }
+
+    internal static string GetVersionLabel(string version) => $"Beutl {version}";
 
     private string GetReleaseUrl(AppUpdateResponse v3, Activity? activity)
     {
@@ -169,7 +158,8 @@ public sealed class CheckForUpdatesTask : StartupTask
         }
     }
 
-    private async Task ShowUpgradeRequiredDialog(string releaseUrl)
+    // inAppUpdate is the update Beutl can install itself; without one, the release page is the way forward.
+    private async Task ShowUpgradeRequiredDialog(string releaseUrl, AppUpdateResponse? inAppUpdate)
     {
         await App.WaitWindowOpened();
         await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -178,11 +168,17 @@ public sealed class CheckForUpdatesTask : StartupTask
             {
                 Title = MessageStrings.UpgradeRequired,
                 Content = MessageStrings.VersionDiscontinued,
-                PrimaryButtonText = Strings.Yes,
-                CloseButtonText = Strings.No,
+                PrimaryButtonText = inAppUpdate != null ? ExtensionsStrings.Install : Strings.Open,
+                CloseButtonText = Strings.Close,
             };
 
             FAContentDialogResult answer = await dialog.ShowAsync();
+            if (inAppUpdate != null)
+            {
+                if (answer == FAContentDialogResult.Primary) AppUpdateController.Instance.StartAndShowDialog(inAppUpdate);
+                return;
+            }
+
             HandleUpgradeRequiredAnswer(
                 answer,
                 () => OpenUrl(releaseUrl),

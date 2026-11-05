@@ -25,6 +25,7 @@ public sealed class TitleBarStatusViewModel : IDisposable
     private readonly EditorService _editorService;
     private readonly AgentHostEndpoint _agentHostEndpoint;
     private readonly Action _openAiJobCenter;
+    private readonly Action? _openAppUpdate;
     private DispatcherTimer? _refreshTimer;
     private bool _graphicsRequested;
     private bool _isSamplingFrameCache;
@@ -36,8 +37,11 @@ public sealed class TitleBarStatusViewModel : IDisposable
         IObservable<AuthenticatedUser?> authenticatedUser,
         IObservable<AiJobMonitorSnapshot> aiJobs,
         IAiJobKindRegistry aiJobKinds,
-        Action openAiJobCenter)
+        Action openAiJobCenter,
+        IObservable<AppUpdateStatus>? appUpdateStatus = null,
+        Action? openAppUpdate = null)
     {
+        _openAppUpdate = openAppUpdate;
         _editorService = editorService;
         _agentHostEndpoint = agentHostEndpoint;
         _openAiJobCenter = openAiJobCenter;
@@ -60,14 +64,34 @@ public sealed class TitleBarStatusViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim([])
             .DisposeWith(_disposables);
 
+        AppUpdate = (appUpdateStatus ?? Observable.Return(AppUpdateStatus.Idle))
+            .ObserveOnUIDispatcher()
+            .ToReadOnlyReactivePropertySlim(AppUpdateStatus.Idle)
+            .DisposeWith(_disposables);
+
         IsBusy = IsRunningStartupTasks
-            .CombineLatest(RunningAiJobCount, RunningOutputs,
-                (startup, jobs, outputs) => startup || jobs > 0 || outputs.Length > 0)
+            .CombineLatest(RunningAiJobCount, RunningOutputs, AppUpdate,
+                (startup, jobs, outputs, update) => startup || jobs > 0 || outputs.Length > 0 || update.IsBusy)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        // A percentage only when the update is all the ring stands for, so it cannot be read as another task's.
+        IObservable<double?> ringProgress = IsRunningStartupTasks
+            .CombineLatest(RunningAiJobCount, RunningOutputs, AppUpdate,
+                (startup, jobs, outputs, update) => !startup && jobs == 0 && outputs.Length == 0 ? update.Progress : null);
+
+        RingValue = ringProgress
+            .Select(progress => progress ?? 0)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        IsRingIndeterminate = IsBusy
+            .CombineLatest(ringProgress, (busy, progress) => busy && progress == null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         ToolTip = IsRunningStartupTasks
-            .CombineLatest(RunningAiJobCount, RunningOutputs, BuildToolTip)
+            .CombineLatest(RunningAiJobCount, RunningOutputs, AppUpdate, BuildToolTip)
             .ToReadOnlyReactivePropertySlim(StatusStrings.Title)
             .DisposeWith(_disposables);
 
@@ -98,6 +122,12 @@ public sealed class TitleBarStatusViewModel : IDisposable
     }
 
     public ReadOnlyReactivePropertySlim<bool> IsBusy { get; }
+
+    public ReadOnlyReactivePropertySlim<AppUpdateStatus> AppUpdate { get; }
+
+    public ReadOnlyReactivePropertySlim<double> RingValue { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsRingIndeterminate { get; }
 
     public ReadOnlyReactivePropertySlim<string> ToolTip { get; }
 
@@ -162,6 +192,11 @@ public sealed class TitleBarStatusViewModel : IDisposable
     public void OpenAiJobCenter()
     {
         _openAiJobCenter();
+    }
+
+    public void OpenAppUpdate()
+    {
+        _openAppUpdate?.Invoke();
     }
 
     public void Dispose()
@@ -276,7 +311,8 @@ public sealed class TitleBarStatusViewModel : IDisposable
         IsRendering3DUnavailable.Value = !supports3D;
     }
 
-    private static string BuildToolTip(bool runningStartupTasks, int runningAiJobs, string[] runningOutputs)
+    private static string BuildToolTip(
+        bool runningStartupTasks, int runningAiJobs, string[] runningOutputs, AppUpdateStatus update)
     {
         List<string> lines = [StatusStrings.Title];
         if (runningStartupTasks)
@@ -285,6 +321,8 @@ public sealed class TitleBarStatusViewModel : IDisposable
             lines.Add($"{Strings.Output}: {string.Format(StatusStrings.RunningCount, runningOutputs.Length)}");
         if (runningAiJobs > 0)
             lines.Add($"{Strings.AiJobCenter}: {string.Format(StatusStrings.RunningCount, runningAiJobs)}");
+        if (update.IsActive)
+            lines.Add($"{Strings.Update}: {update.Text}");
 
         return string.Join(Environment.NewLine, lines);
     }

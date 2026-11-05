@@ -1,6 +1,6 @@
 #!/bin/bash
 # update.sh
-# 使用方法: update.sh <update_directory> <target_app_path> <app_process_name>
+# 使用方法: update.sh <update_directory> <target_app_path> <app_process_name> [executable_path]
 #
 # このスクリプトは以下の手順でアップデートを実施します。
 # 1. 指定プロセス（APP_PROCESS_NAME）の終了を待機
@@ -21,6 +21,9 @@ UPDATE_DIR="${1%/}"
 TARGET_APP_PATH="${2%/}"
 APP_PROCESS_NAME="$3"
 EXECUTABLE_PATH="$4"
+
+# Nothing is on screen between the application closing and the copy finishing, so say what is happening.
+osascript -e 'display notification "@(MessageStrings.UpdatingFiles)" with title "@(Strings.Update)"' || true
 
 # 更新ファイルのディレクトリが存在するか確認
 if [ ! -d "$UPDATE_DIR" ]; then
@@ -117,10 +120,8 @@ echo "@(MessageStrings.UpdateCompleted)"
 release_lock
 echo "@(MessageStrings.LockReleased)"
 
-# ユーザーにアプリケーション起動の確認をする
-USER_RESPONSE=$(osascript -e 'display dialog "@(MessageStrings.UpdateCompletedLaunchConfirm)" buttons {"はい", "いいえ"} default button "はい" with title "アップデート完了"' -e 'button returned of result')
-
-if [ "$USER_RESPONSE" = "はい" ]; then
+# An executable path means the user chose to restart, so it starts without asking again.
+if [ -n "$EXECUTABLE_PATH" ]; then
     echo "@(MessageStrings.LaunchingApplication)"
     if ! chmod +x "$EXECUTABLE_PATH"; then
         show_dialog "@(MessageStrings.FailedToChangePermissions)"
@@ -128,8 +129,6 @@ if [ "$USER_RESPONSE" = "はい" ]; then
     fi
 
     "$EXECUTABLE_PATH" &
-else
-    echo "@(MessageStrings.ApplicationNotLaunched)"
 fi
 
 exit 0
