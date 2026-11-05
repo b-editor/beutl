@@ -102,6 +102,7 @@ internal static class MacOSKeyBindings
 
     // Only the main window has a menu bar with Close Tab. The others show just the application menu, so the key
     // reaches them as a key. A floating dock window closes its focused tab, and the dock closes it with the last one.
+    // A tab that cannot close stays, as in the main window.
     internal static void CloseSecondaryWindow(Window window, KeyEventArgs e)
     {
         if (window.DataContext is MainViewModel
@@ -111,9 +112,9 @@ internal static class MacOSKeyBindings
         }
 
         e.Handled = true;
-        if (window is HostWindow { Window: { Factory: { } factory, Layout.FocusedDockable: { CanClose: true } focused } })
-            factory.CloseDockable(focused);
-        else
+        if (window is not HostWindow host)
             window.Close();
+        else if (host.Window is { Factory: { } factory, Layout.FocusedDockable: { CanClose: true } focused })
+            factory.CloseDockable(focused);
     }
 }

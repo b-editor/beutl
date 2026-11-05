@@ -607,6 +607,42 @@ public sealed class StandardShortcutsTests
         }
     }
 
+    // Closing the window would take the preview, which no Close Tab may close, with it.
+    [AvaloniaTest]
+    public async Task The_close_tab_key_leaves_a_floating_window_whose_focused_tab_cannot_close()
+    {
+        (Window window, MainView view, EditViewModel editor) = await ShowEditorAsync("shortcuts-floating-preview");
+        BeutlDockFactory factory = editor.DockHost.Factory;
+        PlayerToolDockable preview = BeutlDockFactory.Traverse(editor.DockHost.Layout.Value).OfType<PlayerToolDockable>().Single();
+        KeyGesture gesture = GetGesture(MainViewExtension.CloseTabCommandId);
+        factory.SplitToWindow((IDock)preview.Owner!, preview, 20, 20, 500, 400, null);
+        HeadlessTestHelpers.Render(2);
+        IHostWindow host = factory.FindRoot(preview, _ => true)!.Window!.Host!;
+        var floating = (Window)host;
+        try
+        {
+            factory.SetFocusedDockable((IDock)preview.Owner!, preview);
+
+            KeyEventArgs args = KeyDown(floating, gesture.Key, gesture.KeyModifiers);
+            MacOSKeyBindings.CloseSecondaryWindow(floating, args);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(args.Handled, Is.True);
+                Assert.That(floating.IsVisible, Is.True);
+                Assert.That(BeutlDockFactory.Traverse(editor.DockHost.Layout.Value), Does.Contain(preview));
+            });
+        }
+        finally
+        {
+            preview.CanClose = true;
+            host.Exit();
+            HeadlessTestHelpers.Settle();
+            await CloseAsync(window, view);
+        }
+    }
+
     [AvaloniaTest]
     public void Hide_others_moves_to_its_standard_key_and_the_rest_of_the_menu_stays()
     {
