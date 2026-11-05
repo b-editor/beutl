@@ -181,11 +181,14 @@ internal sealed class StorageWriteTransaction : IDisposable
     internal void AddToBatch(string temporaryPath, string destinationPath)
     {
         byte[]? previousBytes = File.Exists(destinationPath) ? File.ReadAllBytes(destinationPath) : null;
-        RemoveFromBatch(destinationPath);
+        string? earlier = null;
         lock (_sync)
         {
-            _batch![destinationPath] = (temporaryPath, previousBytes);
+            if (_batch!.TryGetValue(destinationPath, out var entry)) earlier = entry.Temporary;
+            _batch[destinationPath] = (temporaryPath, previousBytes);
         }
+
+        if (earlier is not null) TryDeleteTemporaryFile(earlier);
     }
 
     // Takes back what this batch wrote for a file, which is written again, or now holds what it should already.

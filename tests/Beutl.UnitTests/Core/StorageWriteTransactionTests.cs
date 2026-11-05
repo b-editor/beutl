@@ -473,6 +473,22 @@ public class StorageWriteTransactionTests
     }
 
     [Test]
+    public void Batch_LeavesNoTemporaryFileWhenThreadsWriteTheSameFile()
+    {
+        string existing = CreateFile("existing.belm", "before");
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        transaction.WriteInBatch(() => Parallel.For(0, 256, index => WriteJson(existing, $"write {index}")));
+        transaction.Commit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(existing), Does.StartWith("\"write "));
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+        });
+    }
+
+    [Test]
     public void Batch_LeavesAFileAsItWasWhenItsWriteIsTakenBack()
     {
         string existing = CreateFile("existing.belm", "before");
