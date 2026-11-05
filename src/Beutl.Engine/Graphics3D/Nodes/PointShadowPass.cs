@@ -62,6 +62,64 @@ void main() {
 }
 ";
 
+    private const string PointShadowCutoutVertexShader = @"
+#version 450
+
+layout(location = 0) in vec3 inPosition;
+layout(location = 1) in vec3 inNormal;
+layout(location = 2) in vec2 inTexCoord;
+
+layout(location = 0) out vec3 fragWorldPos;
+layout(location = 1) out vec2 fragTexCoord;
+
+layout(push_constant) uniform PushConstants {
+    mat4 model;
+    mat4 lightViewProjection;
+} pc;
+
+void main() {
+    vec4 worldPos = pc.model * vec4(inPosition, 1.0);
+    fragWorldPos = worldPos.xyz;
+    fragTexCoord = inTexCoord;
+    gl_Position = pc.lightViewProjection * worldPos;
+}
+";
+
+    private const string PointShadowCutoutFragmentShader = @"
+#version 450
+
+layout(location = 0) in vec3 fragWorldPos;
+layout(location = 1) in vec2 fragTexCoord;
+
+layout(location = 0) out float outDummy;
+
+layout(binding = 0) uniform CutoutData {
+    vec3 lightPos;
+    float farPlane;
+    vec4 cutout; // x: what the map's alpha is multiplied by, y: the alpha a pixel needs to cast a shadow.
+} data;
+
+layout(binding = 1) uniform sampler2D colorMap;
+
+void main() {
+    if (data.cutout.x * texture(colorMap, fragTexCoord).a < data.cutout.y) {
+        discard;
+    }
+
+    float distance = length(fragWorldPos - data.lightPos);
+    gl_FragDepth = distance / data.farPlane;
+    outDummy = 1.0;
+}
+";
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CutoutUBO
+    {
+        public Vector3 LightPos;
+        public float FarPlane;
+        public Vector4 Cutout;
+    }
+
     // UBO for light data: 16 bytes (vec3 + float with padding)
     [StructLayout(LayoutKind.Sequential)]
     private struct LightDataUBO
@@ -96,6 +154,9 @@ void main() {
     private Matrix4x4 _lightProjectionMatrix;
     private Vector3 _lightPosition;
     private float _farPlane;
+
+    /// <summary>The density of the surface being rendered, which decides the size of a drawable color map.</summary>
+    internal float SurfaceDensity { get; set; } = 1f;
 
     // Minimal dummy color attachment format
     private static readonly TextureFormat[] s_shadowPassFormats = [TextureFormat.R8Unorm];
@@ -327,8 +388,23 @@ void main() {
             return;
 
         bool doubleSided = obj.Material?.IsDoubleSided == true;
-        if (_pipelines.Bind(RenderPass!, doubleSided, out IPipeline3D pipeline))
+        if (obj.Material?.Cutout is { } cutout
+            && cutout.Map.GetTexture(Context, SurfaceDensity) is { } map)
+        {
+            _pipelines.EnsureCutoutPipelines<CutoutUBO>(
+                Context, RenderPass!, ShaderCompiler, PointShadowCutoutVertexShader, PointShadowCutoutFragmentShader);
+            var ubo = new CutoutUBO
+            {
+                LightPos = _lightPosition,
+                FarPlane = _farPlane,
+                Cutout = new Vector4(cutout.AlphaScale, cutout.Cutoff, 0, 0),
+            };
+            _pipelines.BindCutout(RenderPass!, doubleSided, map, in ubo);
+        }
+        else if (_pipelines.Bind(RenderPass!, doubleSided, out IPipeline3D pipeline))
+        {
             RenderPass!.BindDescriptorSet(pipeline, doubleSided ? _doubleSidedDescriptorSet! : _descriptorSet!);
+        }
 
         ShadowCasterPipelines.SetPushConstants(RenderPass!, worldMatrix, lightVP);
 
@@ -337,7 +413,7 @@ void main() {
 
     protected override void OnDispose()
     {
-        DisposeResources([_pipelines.OneSided, _pipelines.DoubleSided, _descriptorSet,
+        DisposeResources([_pipelines, _descriptorSet,
             _doubleSidedDescriptorSet, _lightDataBuffer, .. _faceFramebuffers,
             .. _faceDummyTextures, .. _faceDepthTextures, RenderPass]);
     }

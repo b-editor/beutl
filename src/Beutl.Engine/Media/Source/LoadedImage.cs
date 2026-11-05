@@ -16,9 +16,11 @@ internal sealed class LoadedImage : IDisposable
 
     private readonly SKSvg? _svg;
     private readonly Lazy<Bitmap?> _bitmap;
+    private readonly Uri? _uri;
 
-    public LoadedImage(Bitmap bitmap)
+    public LoadedImage(Bitmap bitmap, Uri? uri = null)
     {
+        _uri = uri;
         _bitmap = new Lazy<Bitmap?>(bitmap);
         Size = new PixelSize(bitmap.Width, bitmap.Height);
     }
@@ -41,7 +43,36 @@ internal sealed class LoadedImage : IDisposable
     public static LoadedImage Open(Uri uri)
     {
         using Stream stream = UriHelper.ResolveStream(uri);
-        return IsSvg(uri) ? OpenSvg(stream) : new LoadedImage(Bitmap.FromStream(stream));
+        return IsSvg(uri) ? OpenSvg(stream) : new LoadedImage(Bitmap.FromStream(stream), uri);
+    }
+
+    // Decoding multiplies colors by alpha, which loses them where alpha is 0, so this reads the file again. Null for a
+    // drawing, which has no colors under its alpha, and for a file that can no longer be read.
+    public Bitmap? DecodeUnpremultiplied()
+    {
+        if (_uri == null)
+            return null;
+
+        try
+        {
+            using Stream stream = UriHelper.ResolveStream(_uri);
+            using SKCodec? codec = SKCodec.Create(stream);
+            if (codec == null)
+                return null;
+
+            // Without a color space, as SKBitmap.Decode reads the file for Bitmap, so both hold the same colors.
+            SKImageInfo info = codec.Info.WithAlphaType(SKAlphaType.Unpremul).WithColorSpace(null);
+            var pixels = new SKBitmap(info);
+            if (codec.GetPixels(info, pixels.GetPixels()) is SKCodecResult.Success or SKCodecResult.IncompleteInput)
+                return new Bitmap(pixels);
+
+            pixels.Dispose();
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
     }
 
     public void Dispose()

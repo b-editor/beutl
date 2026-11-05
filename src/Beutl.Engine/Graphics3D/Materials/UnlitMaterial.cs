@@ -86,6 +86,10 @@ public sealed partial class UnlitMaterial : Material3D
             _ => Opacity <= 0 || Color.A == 0,
         };
 
+        internal override AlphaCutout? Cutout => AlphaMode == Materials.AlphaMode.Mask && EffectiveColorMap is { } map
+            ? new AlphaCutout(map, Opacity * Color.A / 255f, AlphaCutoff)
+            : null;
+
         protected internal override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
         {
             if (EffectiveColorMap is { } map)
@@ -144,7 +148,12 @@ public sealed partial class UnlitMaterial : Material3D
             if (pipeline == null || drawBindings == null || _sampler == null)
                 return;
 
-            ITexture2D? colorTex = EffectiveColorMap?.GetTexture(context.GraphicsContext, context.SurfaceDensity);
+            // An opaque material ignores the map's alpha, so what the map stores under alpha 0 shows too.
+            ITexture2D? straightColorTex = AlphaMode == Materials.AlphaMode.Opaque
+                ? EffectiveColorMap?.GetStraightColorTexture(context.GraphicsContext)
+                : null;
+            ITexture2D? colorTex = straightColorTex
+                ?? EffectiveColorMap?.GetTexture(context.GraphicsContext, context.SurfaceDensity);
 
             // Recorded draws must retain immutable bindings until the backend completes them.
             MaterialDrawBindings bindings = drawBindings.Acquire();
@@ -161,7 +170,7 @@ public sealed partial class UnlitMaterial : Material3D
                     : Color.ToLinearPremultiplied() * Opacity,
                 Alpha = AlphaMode switch
                 {
-                    Materials.AlphaMode.Opaque => new Vector4(0f, 1f, 0f, 0f),
+                    Materials.AlphaMode.Opaque => new Vector4(0f, straightColorTex != null ? 2f : 1f, 0f, 0f),
                     Materials.AlphaMode.Mask => new Vector4(AlphaCutoff, 1f, 0f, 0f),
                     _ => new Vector4(1f / 255f, 0f, 0f, 0f),
                 },
@@ -206,7 +215,7 @@ public sealed partial class UnlitMaterial : Material3D
                 mat4 view;
                 mat4 projection;
                 vec4 baseColor;
-                vec4 alpha; // x: the alpha a pixel needs to be kept, y: 1 when kept pixels are opaque.
+                vec4 alpha; // x: the alpha a pixel needs to be kept, y: 1 when kept pixels are opaque, 2 when also not premultiplied.
             } material;
             """;
 
@@ -246,7 +255,11 @@ public sealed partial class UnlitMaterial : Material3D
                     discard;
                 }
 
-                outColor = material.alpha.y != 0.0 ? vec4(color.rgb / max(color.a, 1.0 / 255.0), 1.0) : color;
+                if (material.alpha.y == 2.0) {
+                    outColor = vec4(color.rgb, 1.0);
+                } else {
+                    outColor = material.alpha.y != 0.0 ? vec4(color.rgb / max(color.a, 1.0 / 255.0), 1.0) : color;
+                }
             }
             """;
     }
