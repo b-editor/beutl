@@ -143,7 +143,7 @@ public class ProjectPersistenceTests
 
     [TestCase("2.0.0-alpha.1", FileFormat.Floor)]
     [TestCase("2.0.0-preview.2", FileFormat.Floor)]
-    [TestCase("2.0.0-preview.10", "2.0.0-preview.10")]
+    [TestCase("2.0.0-preview.11", "2.0.0-preview.11")]
     [TestCase("2.1.0", "2.1.0")]
     public void A_save_records_the_higher_of_the_recorded_minimum_and_the_floor(
         string recordedMinAppVersion,
