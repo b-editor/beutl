@@ -148,6 +148,73 @@ public sealed class StandardShortcutsTests
         }
     }
 
+    // A key map can give the entry another key, and the standard one to another command.
+    [AvaloniaTest]
+    public void An_entry_hands_over_the_key_it_shows()
+    {
+        var shown = new KeyGesture(Key.U, KeyModifiers.Meta | KeyModifiers.Alt);
+        var panel = new Border { Focusable = true };
+        KeyEventArgs? seen = null;
+        panel.KeyDown += (_, e) =>
+        {
+            seen = e;
+            e.Handled = true;
+        };
+        var window = new Window { Content = panel };
+        window.Show();
+        try
+        {
+            panel.Focus();
+            new FocusedEditCommand(StandardEditAction.Undo, new RecordingCommand(), window, shown).Execute(null);
+
+            Assert.That(shown.Matches(seen), Is.True);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Without a scene the fallbacks are off, as in the dialog that creates one, and the menu must not be.
+    [AvaloniaTest]
+    public void A_focused_text_input_enables_an_entry_whose_fallback_is_off()
+    {
+        var fallback = new RecordingCommand { CanRun = false };
+        var box = new TextBox();
+        var panel = new Border { Focusable = true };
+        var window = new Window { Content = new StackPanel { Children = { box, panel } } };
+        window.Show();
+        var command = new FocusedEditCommand(StandardEditAction.Copy, fallback, window);
+        int changes = 0;
+        command.CanExecuteChanged += (_, _) => changes++;
+        using IDisposable following = command.FollowFocus();
+        try
+        {
+            panel.Focus();
+            Assert.That(command.CanExecute(null), Is.False);
+
+            int before = changes;
+            box.Focus();
+            Assert.Multiple(() =>
+            {
+                Assert.That(command.CanExecute(null), Is.True);
+                Assert.That(changes, Is.GreaterThan(before));
+            });
+
+            before = changes;
+            panel.Focus();
+            Assert.Multiple(() =>
+            {
+                Assert.That(command.CanExecute(null), Is.False);
+                Assert.That(changes, Is.GreaterThan(before));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // A key does what it does without the menu: Cut only reaches a panel that handles it. Undo acted on the editor from
     // anywhere before the entries sent it to the focus, and choosing an entry with the mouse names the selected clip.
     [AvaloniaTest]
@@ -657,6 +724,17 @@ public sealed class StandardShortcutsTests
             button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             HeadlessTestHelpers.Render(3);
             var presenter = (ContentControl)window.OpenedPopups.Single(popup => popup.Child is ContentControl).Child!;
+
+            // A key the box inside would use for itself.
+            TextBox gestureBox = ((Grid)presenter.Content!).Children.OfType<TextBox>().Single();
+            KeyEventArgs inBox = KeyDown(gestureBox, Key.A, KeyModifiers.Control);
+            gestureBox.RaiseEvent(inBox);
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(inBox.Handled, Is.True);
+                Assert.That(gestureBox.Text, Is.EqualTo(new KeyGesture(Key.A, KeyModifiers.Control).ToString()));
+            });
 
             KeyEventArgs chord = KeyDown(presenter, Key.W, KeyModifiers.Meta);
             presenter.RaiseEvent(chord);

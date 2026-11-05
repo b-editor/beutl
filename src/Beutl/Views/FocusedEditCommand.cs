@@ -13,14 +13,24 @@ using FluentAvalonia.UI.Controls;
 namespace Beutl.Views;
 
 // An Edit entry of the macOS menu bar. AppKit gives a key equivalent to the menu before the focused control sees the
-// key, which would take Cmd+Z and Cmd+C from a text box. So the entry hands the action to the focused control the way
-// the key goes on the other platforms, and fallback only does what no control took.
-internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fallback, TopLevel window) : ICommand
+// key, which would take Cmd+Z and Cmd+C from a text box. So the entry hands its key to the focused control the way the
+// key goes on the other platforms, where a command bound to it can take it too, and fallback does what none took.
+internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fallback, TopLevel window, KeyGesture? shownGesture = null) : ICommand
 {
+    private EventHandler? _focusChanged;
+
     public event EventHandler? CanExecuteChanged
     {
-        add => fallback.CanExecuteChanged += value;
-        remove => fallback.CanExecuteChanged -= value;
+        add
+        {
+            fallback.CanExecuteChanged += value;
+            _focusChanged += value;
+        }
+        remove
+        {
+            fallback.CanExecuteChanged -= value;
+            _focusChanged -= value;
+        }
     }
 
     public ICommand Fallback => fallback;
@@ -28,7 +38,16 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
     // Test seam: the Headless platform has no AppKit event to look at.
     internal Func<bool> IsKeyEquivalent { get; init; } = () => IsCurrentEventKeyDown(window);
 
-    public bool CanExecute(object? parameter) => fallback.CanExecute(parameter);
+    // A text input takes the action whether or not the fallback, which may need a scene, is available.
+    public bool CanExecute(object? parameter)
+        => fallback.CanExecute(parameter)
+            || (window.FocusManager?.GetFocusedElement() is Visual focused
+                && ContextCommandInput.IsFromTextInput(new KeyEventArgs { Source = focused }));
+
+    // Keeps the entry's state with the focus until disposed.
+    internal IDisposable FollowFocus() => new CompositeDisposable(
+        window.AddDisposableHandler(InputElement.GotFocusEvent, (_, _) => _focusChanged?.Invoke(this, EventArgs.Empty), handledEventsToo: true),
+        window.AddDisposableHandler(InputElement.LostFocusEvent, (_, _) => _focusChanged?.Invoke(this, EventArgs.Empty), handledEventsToo: true));
 
     public void Execute(object? parameter)
     {
@@ -42,7 +61,8 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
             return;
 
         bool isKey = IsKeyEquivalent();
-        KeyGesture gesture = GetKeyGesture(action);
+        // A key map can move the entry's key, so the standard one may now run another command.
+        KeyGesture gesture = shownGesture ?? GetKeyGesture(action);
         var args = new KeyEventArgs
         {
             RoutedEvent = InputElement.KeyDownEvent,

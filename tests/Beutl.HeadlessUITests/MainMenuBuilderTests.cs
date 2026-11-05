@@ -224,6 +224,41 @@ public sealed class MainMenuBuilderTests
                 .Single(item => item.Header == entry);
     }
 
+    // The window's menu is built with what keeps an entry's state with the focus.
+    [AvaloniaTest]
+    public async Task An_edit_entry_follows_a_focused_text_box_when_no_scene_is_open()
+    {
+        await TestReset.ResetShellAsync();
+        var macWindow = new MacWindow { DataContext = TestShell.MainViewModel };
+        var main = (MainView)macWindow.Content!;
+        var box = new TextBox();
+        ((Grid)main.Content!).Children.Add(box);
+        macWindow.Show();
+        try
+        {
+            HeadlessTestHelpers.Render(2);
+            NativeMenuItem copy = NativeMenu.GetMenu(macWindow)!.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.Edit)
+                .Menu!.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.Copy);
+
+            main.Focus();
+            HeadlessTestHelpers.Settle();
+            Assert.That(copy.IsEnabled, Is.False);
+
+            box.Focus();
+            HeadlessTestHelpers.Settle();
+            Assert.That(copy.IsEnabled, Is.True);
+
+            main.Focus();
+            HeadlessTestHelpers.Settle();
+            Assert.That(copy.IsEnabled, Is.False);
+        }
+        finally
+        {
+            macWindow.DataContext = null;
+            macWindow.Close();
+        }
+    }
+
     private static IEnumerable<MainMenuItem> Entries(IEnumerable<MainMenuItem> items)
         => items.SelectMany(item => Entries(item.Items ?? []).Prepend(item));
 

@@ -68,13 +68,21 @@ internal static class MainMenuBuilder
         if (item.Header is null)
             return new NativeMenuItemSeparator();
 
+        KeyGesture? gesture = GetGesture(item);
         var menuItem = new NativeMenuItem
         {
             Header = item.Header,
-            Command = item.EditAction is { } action ? new FocusedEditCommand(action, item.Command!, window) : item.Command,
+            Command = item.Command,
             CommandParameter = item.CommandParameter,
-            Gesture = GetGesture(item)
+            Gesture = gesture
         };
+        if (item.EditAction is { } action)
+        {
+            var command = new FocusedEditCommand(action, item.Command!, window, gesture);
+            disposables.Add(command.FollowFocus());
+            menuItem.Command = command;
+        }
+
         if (item.IsVisible is { } isVisible)
             disposables.Add(isVisible.Subscribe(visible => menuItem.IsVisible = visible));
         if (item.Items is { } items)
