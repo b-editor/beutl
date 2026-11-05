@@ -168,9 +168,13 @@ internal static class NativeContextMenus
             finally
             {
                 _ended = true;
-                s_sessions.Remove(owner);
-                close();
-                Restore();
+                // A handler that opened the menu again has started another session, which is not this one's to end.
+                if (s_sessions.TryGetValue(owner, out Session? current) && ReferenceEquals(current, this))
+                {
+                    s_sessions.Remove(owner);
+                    close();
+                    Restore();
+                }
             }
         }
 

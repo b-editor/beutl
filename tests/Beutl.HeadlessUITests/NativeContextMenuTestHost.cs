@@ -265,6 +265,23 @@ internal static partial class NativeContextMenuTestHost
         await WaitUntilAsync(() => MacOSContextMenu.Current is null, "The native menu closes with the flyout.");
         Check(!live.IsOpen, "Hiding the flyout from code closes the native menu.");
 
+        // A handler that opens its own flyout again keeps the new menu.
+        var reopening = new FAMenuFlyout();
+        var again = new FAMenuFlyoutItem { Text = "Again" };
+        again.Click += (_, _) =>
+        {
+            reopening.Hide();
+            reopening.ShowAt(liveHost, true);
+        };
+        reopening.Items.Add(again);
+        liveHost.ContextFlyout = reopening;
+        menu = await RightClickAsync(window, liveHost, new Point(8, 8));
+        await ChooseAndAwaitNextAsync(menu, 0);
+        Check(reopening.IsOpen && reopening.Popup.Child is { Opacity: 0 }, "A handler can open its own flyout again.");
+        await WaitAsync(PostClickWaitMs);
+        await DismissAsync(MacOSContextMenu.Current!);
+        Check(!reopening.IsOpen, "The menu it opened closes as usual.");
+
         // ContextMenu, with an item that toggles through a binding.
         var checkItem = new MenuItem { ToggleType = MenuItemToggleType.CheckBox, Header = "_Check me", IsChecked = true };
         var boundItem = new MenuItem();
@@ -578,6 +595,16 @@ internal static partial class NativeContextMenuTestHost
     {
         SendVoid(Open(menu), Selector("performActionForItemAtIndex:"), index);
         await DismissAsync(menu);
+    }
+
+    // For an item whose handler opens another menu, where choosing ends with that one tracking.
+    private static async Task ChooseAndAwaitNextAsync(MacOSContextMenu menu, int index)
+    {
+        SendVoid(Open(menu), Selector("performActionForItemAtIndex:"), index);
+        SendVoid(Open(menu), Selector("cancelTracking"));
+        await WaitUntilAsync(
+            () => MacOSContextMenu.Current is { IsTracking: true } current && !ReferenceEquals(current, menu),
+            "The next native menu should open.");
     }
 
     private static async Task DismissAsync(MacOSContextMenu menu)

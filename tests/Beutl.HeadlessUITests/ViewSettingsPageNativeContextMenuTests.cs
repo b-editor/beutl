@@ -40,6 +40,14 @@ public class ViewSettingsPageNativeContextMenuTests
     }
 
     [AvaloniaTest]
+    public void By_default_the_switch_is_there_on_macOS_only()
+    {
+        using var viewModel = new ViewSettingsPageViewModel();
+
+        Assert.That(viewModel.IsNativeContextMenuSupported, Is.EqualTo(OperatingSystem.IsMacOS()));
+    }
+
+    [AvaloniaTest]
     public void The_switch_and_the_setting_follow_each_other()
     {
         // ViewSettingsPageViewModel reads the ViewConfig singleton, so hand it back unchanged.

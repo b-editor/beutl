@@ -173,7 +173,7 @@ internal sealed class ContextMenuEntry
             case FAMenuFlyoutItem:
                 return new ContextMenuEntry(control, ContextMenuEntryKind.Item, []);
 
-            case MenuItem item when item.Header is null or string or TextBlock:
+            case MenuItem item when item.Header is null or string:
                 return item.ItemCount > 0
                     ? TryReadSubMenu(item)
                     : new ContextMenuEntry(control, ContextMenuEntryKind.Item, []);
@@ -220,12 +220,7 @@ internal sealed class ContextMenuEntry
             ? new KeyGesture(gesture.Key, (gesture.KeyModifiers & ~KeyModifiers.Control) | KeyModifiers.Meta)
             : button.HotKey;
 
-    private static string? GetHeaderText(MenuItem item) => item.Header switch
-    {
-        string text => RemoveAccessKeys(text),
-        TextBlock block => block.Text,
-        _ => null
-    };
+    private static string? GetHeaderText(MenuItem item) => item.Header is string text ? RemoveAccessKeys(text) : null;
 
     // A menu item's header marks its access key with an underscore, and a doubled one stands for itself.
     private static string RemoveAccessKeys(string text)

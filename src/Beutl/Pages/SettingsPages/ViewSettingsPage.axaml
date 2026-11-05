@@ -177,7 +177,8 @@
                             </ctrls:OptionsDisplayItem.Icon>
 
                             <ctrls:OptionsDisplayItem.ActionButton>
-                                <ToggleSwitch Classes="left"
+                                <ToggleSwitch AutomationProperties.Name="{x:Static lang:SettingsStrings.UseNativeContextMenus}"
+                                              Classes="left"
                                               IsChecked="{CompiledBinding UseNativeContextMenus.Value}"
                                               Theme="{StaticResource CompactToggleSwitchStyle}" />
                             </ctrls:OptionsDisplayItem.ActionButton>

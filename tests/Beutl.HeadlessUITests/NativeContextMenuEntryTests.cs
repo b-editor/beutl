@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Windows.Input;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Primitives.PopupPositioning;
@@ -25,6 +26,13 @@ public class NativeContextMenuEntryTests
     private sealed class Model
     {
         public string Name { get; set; } = "From the data context";
+    }
+
+    private sealed class Command(Action action) : ICommand
+    {
+        public event EventHandler? CanExecuteChanged { add { } remove { } }
+        public bool CanExecute(object? parameter) => true;
+        public void Execute(object? parameter) => action();
     }
 
     // Opens the flyout at a control in a window and gives what the native menu would read.
@@ -119,6 +127,20 @@ public class NativeContextMenuEntryTests
             using var assertions = Assert.EnterMultipleScope();
             Assert.That(clicks, Is.EqualTo(1));
             Assert.That(item.IsChecked, Is.True);
+        });
+    }
+
+    [AvaloniaTest]
+    public void Invoking_a_menu_item_runs_its_command()
+    {
+        int commands = 0;
+        var item = new MenuItem { Header = "Run", Command = new Command(() => commands++) };
+
+        WithOpenFlyout(new MenuFlyout { Items = { item } }, entries =>
+        {
+            entries![0].Invoke();
+
+            Assert.That(commands, Is.EqualTo(1));
         });
     }
 
