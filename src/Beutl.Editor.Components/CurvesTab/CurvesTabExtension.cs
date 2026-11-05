@@ -20,6 +20,8 @@ public sealed class CurvesTabExtension : ToolTabExtension
 
     public override string DisplayName => Strings.Curves;
 
+    public override DockAnchor DefaultAnchor => DockAnchor.Left;
+
     public override string Header => Strings.Curves;
 
     public override FAIconSource? GetIcon()

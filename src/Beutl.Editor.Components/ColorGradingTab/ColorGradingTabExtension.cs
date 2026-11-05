@@ -20,6 +20,8 @@ public sealed class ColorGradingTabExtension : ToolTabExtension
 
     public override string DisplayName => Strings.ColorGrading;
 
+    public override DockAnchor DefaultAnchor => DockAnchor.Bottom;
+
     public override string Header => Strings.ColorGrading;
 
     public override FAIconSource? GetIcon()
