@@ -77,7 +77,7 @@ public sealed partial class RepeatEffect : FilterEffect
                         pass.ImageParameters(2, output);
                         pass.PushConstants(values);
                         pass.BoundsOriginConstants(RelativePoint.Center, 0);
-                        pass.PartialRendering();
+                        pass.PartialImages();
                         pass.ColorAttachment(0, output);
                     });
                     return graph.Output(output);

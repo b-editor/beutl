@@ -1,16 +1,19 @@
-﻿using Beutl.Graphics.Backend;
+﻿using System.Collections.Immutable;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Shaders;
 
-/// <summary>One request's complete coordinate frames and conservative per-pass evaluation rectangles.</summary>
+/// <summary>One request's coordinate frames and conservative per-pass evaluation rectangles.</summary>
 internal sealed class ShaderGraphRegions
 {
     public Dictionary<int, ShaderImageFrame> Frames { get; } = [];
     public Rect?[] PassRegions { get; }
     public Rect SourceRegion { get; }
 
+    /// <param name="requiredOutput">The part of the output the request needs. Empty when a plan does not know that yet,
+    /// which leaves images that can hold part of their bounds with next to nothing.</param>
     /// <param name="externalFrames">Where a render's other pictures were rasterized; left out, as the source was.</param>
     public ShaderGraphRegions(ShaderGraphDescription graph, ShaderImageFrame source, float scale,
         Vector gridOffset, Rect requiredOutput, IReadOnlyList<ShaderImageFrame>? externalFrames = null)
@@ -43,15 +46,12 @@ internal sealed class ShaderGraphRegions
         PassRegions = new Rect?[graph.Passes.Length];
         var required = new Dictionary<int, Rect>();
         ShaderImage selected = graph.Output.RenderingImage;
-        Require(selected, requiredOutput.Inflate(2 / Frames[selected.Id].Scale));
+        if (requiredOutput.Width > 0 && requiredOutput.Height > 0)
+            Require(selected, requiredOutput.Inflate(2 / Frames[selected.Id].Scale));
         for (int index = graph.Passes.Length - 1; index >= 0; index--)
         {
             ShaderPassDescription pass = graph.Passes[index];
-            bool local = pass.PartialRendering && pass.Program is { IsCompute: false }
-                && pass.DepthAttachment is null
-                && pass.Attachments.All(a => IsPlanar(a.Image))
-                && pass.Bindings.All(b => b.Metadata || (b.Access & ResourceAccess.Write) == 0
-                    && (b.Resource is not ShaderImage image || IsPlanar(image) && b.Type == DescriptorType.CombinedImageSampler));
+            bool local = pass.IsLocal;
             Rect output = Rect.Empty;
             if (local)
             {
@@ -95,6 +95,8 @@ internal sealed class ShaderGraphRegions
                 Require(transferSource, Frames[transferSource.Id].Bounds);
         }
         SourceRegion = required.GetValueOrDefault(0);
+        foreach (ImmutableArray<ShaderImage> images in graph.PartialImageSets)
+            FitToRequired(images, required, gridOffset);
 
         void Require(ShaderImage image, Rect region)
         {
@@ -103,7 +105,32 @@ internal sealed class ShaderGraphRegions
         }
     }
 
-    private static bool IsPlanar(ShaderImage image) => image.IsAttachment && !image.IsView;
+    private void FitToRequired(ImmutableArray<ShaderImage> images, Dictionary<int, Rect> required, Vector gridOffset)
+    {
+        ShaderImageFrame frame = Frames[images[0].Id];
+        // A pass refuses attachments whose frames differ, so these stay as they are for it to report.
+        if (images.Any(image => Frames[image.Id] != frame)) return;
+        Rect region = images.Aggregate(Rect.Empty, (all, image) => Union(all, required.GetValueOrDefault(image.Id)));
+        PixelRect whole = PixelRect.FromRect(frame.Bounds.Translate(gridOffset), frame.Scale);
+        PixelRect needed = PixelRect.FromRect(region.Translate(gridOffset), frame.Scale).Intersect(whole);
+        PixelRect pixels = needed.Width > 0 && needed.Height > 0
+            ? Window(needed, whole) : new PixelRect(whole.X, whole.Y, 1, 1);
+        if (pixels == whole) return;
+        ShaderImageFrame fitted = ShaderImageFrame.FromPixels(frame.Bounds, pixels, frame.Scale, gridOffset);
+        foreach (ShaderImage image in images)
+            Frames[image.Id] = fitted;
+    }
+
+    // An execution takes a retained image of the very size it asks for, so a region that moves or grows a little has to
+    // keep asking for the same size.
+    private static PixelRect Window(PixelRect needed, PixelRect whole)
+    {
+        const int step = 256;
+        int width = Math.Min((needed.Width + step - 1) / step * step, whole.Width);
+        int height = Math.Min((needed.Height + step - 1) / step * step, whole.Height);
+        return new(Math.Min(needed.X, whole.Right - width), Math.Min(needed.Y, whole.Bottom - height), width, height);
+    }
+
     private static Rect Union(Rect a, Rect b) => a.IsEmpty ? b : b.IsEmpty ? a : a.Union(b);
 
     internal static PixelRect Scissor(ShaderImageFrame frame, Rect region)
