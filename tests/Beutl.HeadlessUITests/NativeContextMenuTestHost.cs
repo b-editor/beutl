@@ -383,7 +383,7 @@ internal static partial class NativeContextMenuTestHost
             for (nint i = count - 1; i >= 0; i--)
             {
                 nint each = Send(windows, Selector("objectAtIndex:"), i);
-                NativeRect rect = SendRect(each, Selector("frame"));
+                NativeRect rect = GetFrame(each);
                 if (ToManagedString(Send(Send(each, Selector("className")), Selector("description"))) == "NSPopupMenuWindow" && rect.X > minX)
                     return (each, rect);
             }
@@ -676,6 +676,16 @@ internal static partial class NativeContextMenuTestHost
         }
     }
 
+    // A struct this large comes back in memory on x64, through another entry point.
+    private static NativeRect GetFrame(nint window)
+    {
+        if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
+            return SendRect(window, Selector("frame"));
+
+        SendRectInMemory(out NativeRect frame, window, Selector("frame"));
+        return frame;
+    }
+
     private static string? ToManagedString(nint value) =>
         value == 0 ? null : Marshal.PtrToStringUTF8(Send(value, Selector("UTF8String")));
 
@@ -687,6 +697,9 @@ internal static partial class NativeContextMenuTestHost
 
     [LibraryImport(ObjC, EntryPoint = "objc_msgSend")]
     private static partial NativeRect SendRect(nint receiver, nint selector);
+
+    [LibraryImport(ObjC, EntryPoint = "objc_msgSend_stret")]
+    private static partial void SendRectInMemory(out NativeRect result, nint receiver, nint selector);
 
     [LibraryImport(ObjC, EntryPoint = "objc_msgSend")]
     private static partial void PostEvent(nint receiver, nint selector, nint nativeEvent, byte atStart);
