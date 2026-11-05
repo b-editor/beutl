@@ -332,6 +332,40 @@ public sealed class ListItemLayoutTests
     }
 
     [AvaloniaTest]
+    public async Task Space_keeps_closing_and_opening_a_transform_as_its_handle_changes()
+    {
+        var scale = new ScaleTransform();
+        var group = new TransformGroup { Children = { scale } };
+        using var history = new HistoryScope(group);
+        using var list = CreateList(new EnginePropertyAdapter<ICoreList<Transform>>(group.Children, group), history);
+        var window = new Window { Content = new ListEditor { DataContext = list }, Width = 640, Height = 600 };
+        try
+        {
+            window.Show();
+            await Settle();
+            TransformListItemEditor item = Item(window, scale);
+            var viewModel = (TransformEditorViewModel)item.DataContext!;
+            var icon = (ToggleButton)item.ReorderHandle!;
+            ToggleButton nameRow = item.FindControl<ToggleButton>("reorderHandle")!;
+            Assert.That(icon.Focus(NavigationMethod.Tab), Is.True);
+
+            PressSpace(window);
+            await Settle();
+            Assert.That(viewModel.IsExpanded.Value, Is.False);
+            Assert.That(nameRow.IsFocused, Is.True);
+
+            PressSpace(window);
+            await Settle();
+            Assert.That(viewModel.IsExpanded.Value, Is.True);
+            Assert.That(icon.IsFocused, Is.True);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Dragging_the_icon_of_a_transform_reorders_it_and_leaves_it_open()
     {
         var move = new TranslateTransform();
@@ -542,6 +576,13 @@ public sealed class ListItemLayoutTests
     private static async Task Settle()
     {
         await Task.Delay(350);
+        HeadlessTestHelpers.Render(3);
+    }
+
+    private static void PressSpace(Window window)
+    {
+        window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+        window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
         HeadlessTestHelpers.Render(3);
     }
 

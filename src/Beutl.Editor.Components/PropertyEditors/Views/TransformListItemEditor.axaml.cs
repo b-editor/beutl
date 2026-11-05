@@ -1,6 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Data.Converters;
+using Avalonia.Input;
+using Avalonia.Threading;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using FluentAvalonia.UI.Controls;
 
@@ -18,7 +21,25 @@ public partial class TransformListItemEditor : PresenterListItemEditor
         AttachHandle(
             inlineHandle.GetObservable(IsVisibleProperty).Select(inline => inline ? (Control)inlineHandle : reorderHandle),
             presenterEditor);
+        HandOverFocus(inlineHandle, reorderHandle);
+        HandOverFocus(reorderHandle, inlineHandle);
         EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)ContextFlyout!);
+    }
+
+    // Opening or closing hides the focused handle, which leaves the focus nowhere, and shows the other one. That one takes
+    // the focus the same way, so a key keeps toggling the transform.
+    private static void HandOverFocus(ToggleButton from, ToggleButton to)
+    {
+        NavigationMethod method = NavigationMethod.Unspecified;
+        from.GotFocus += (_, e) => method = e.NavigationMethod;
+        from.LostFocus += (_, _) => Dispatcher.UIThread.Post(() =>
+        {
+            if (!from.IsEffectivelyVisible && to.IsEffectivelyVisible
+                && TopLevel.GetTopLevel(to)?.FocusManager?.GetFocusedElement() == null)
+            {
+                to.Focus(method);
+            }
+        });
     }
 
     private sealed class TransformTypeToIconConverter : IValueConverter
