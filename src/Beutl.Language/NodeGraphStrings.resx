@@ -501,6 +501,9 @@
   <data name="ShaderError_NotConnected" xml:space="preserve">
     <value>'{0}' must be connected.</value>
   </data>
+  <data name="ShaderError_BufferTooLarge" xml:space="preserve">
+    <value>This buffer would take {0} bytes; the limit is {1}.</value>
+  </data>
   <data name="ShaderError_TooManySteps" xml:space="preserve">
     <value>This would run {0} iterations; the limit is {1}.</value>
   </data>

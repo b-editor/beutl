@@ -501,6 +501,9 @@
   <data name="ShaderError_NotConnected" xml:space="preserve">
     <value>「{0}」を接続してください。</value>
   </data>
+  <data name="ShaderError_BufferTooLarge" xml:space="preserve">
+    <value>このバッファには{0}バイト必要ですが、上限は{1}バイトです。</value>
+  </data>
   <data name="ShaderError_TooManySteps" xml:space="preserve">
     <value>{0}回の反復が必要ですが、上限は{1}回です。</value>
   </data>

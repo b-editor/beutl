@@ -192,9 +192,13 @@ public partial class ShaderBufferNode : GraphNode
                 string name = recording.UniqueName("Buffer");
                 if (data is { Length: > 0 })
                     return recording.Builder.Buffer(name, data, stride);
+                // The renderer would refuse this anyway, and only after the zeros below were allocated.
+                long bytes = (long)count * stride;
+                if (bytes > ShaderGraphExecutor.MaximumTransientBytes)
+                    throw new InvalidOperationException(string.Format(NodeGraphStrings.ShaderError_BufferTooLarge, bytes, ShaderGraphExecutor.MaximumTransientBytes));
                 // A clear fills whole words, so any other length starts from zeros uploaded with it.
-                if (count > 0 && stride > 0 && (long)count * stride % 4 != 0)
-                    return recording.Builder.Buffer(name, new byte[checked(count * stride)], stride);
+                if (count > 0 && stride > 0 && bytes % 4 != 0)
+                    return recording.Builder.Buffer(name, new byte[bytes], stride);
                 ShaderBuffer buffer = recording.Builder.Buffer(name, count, stride);
                 // A write-only shader has nothing to clear, but GLSL buffers read and write unless told otherwise.
                 recording.Builder.Clear(recording.UniqueName($"{name}.clear"), buffer);

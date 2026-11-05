@@ -501,6 +501,9 @@
   <data name="ShaderError_NotConnected" xml:space="preserve">
     <value>必须连接“{0}”。</value>
   </data>
+  <data name="ShaderError_BufferTooLarge" xml:space="preserve">
+    <value>此缓冲区将占用 {0} 字节;上限为 {1} 字节。</value>
+  </data>
   <data name="ShaderError_TooManySteps" xml:space="preserve">
     <value>这将运行 {0} 次迭代;上限为 {1} 次。</value>
   </data>

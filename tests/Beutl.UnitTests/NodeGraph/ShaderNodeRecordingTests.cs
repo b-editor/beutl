@@ -587,6 +587,39 @@ public class ShaderNodeRecordingTests
         Assert.That(pass.Error.Value, Is.Null);
     }
 
+    [TestCase(100000001)]
+    [TestCase(100000002)]
+    public void ABufferTooLargeForAGraphIsRefusedWithoutBeingAllocated(int count)
+    {
+        var (graph, output) = NewGraph();
+        var buffer = graph.Add(new ShaderBufferNode());
+        buffer.Count.Property!.SetValue(count);
+        buffer.Stride.Property!.SetValue(6);
+        var pass = graph.Add(new ShaderFullscreenPassNode
+        {
+            Code =
+            {
+                Value = """
+                    #version 450
+                    layout(location = 0) out vec4 color;
+                    layout(set = 0, binding = 0, std430) readonly buffer Data { uint first; } data;
+                    void main() { color = vec4(float(data.first)); }
+                    """
+            }
+        });
+        graph.Connect(pass.In("data"), buffer.Output);
+        graph.Connect(output.InputPort, pass.Out("color"));
+        using var snapshot = new GraphSnapshot();
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        ShaderGraphRenderNode picture = Evaluate(graph, snapshot);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.That(allocated, Is.LessThan(64L * 1024 * 1024));
+        Assert.That(picture.Description, Is.Null);
+        Assert.That(pass.Error.Value, Does.Contain(((long)count * 6).ToString()));
+    }
+
     [TestCase(1e-12d)]
     [TestCase(double.Epsilon)]
     public void AStepTooLongForTheClockReportsOnTheReplay(double stepsPerSecond)
