@@ -169,6 +169,12 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
     // Whether the nested editors have the property's name and menu above them.
     internal virtual bool ShowsSeparatedHeader => true;
 
+    // Whether the menu of each nested editor unseparates them, as no header above them does.
+    internal virtual bool UnseparatesFromNestedEditors => false;
+
+    // The editor this one shows a component of, when this one's menu unseparates them.
+    internal PropertyEditorViewModel? SeparatedFrom { get; set; }
+
     internal virtual string? ExpressionError => (PropertyAdapter.GetEngineProperty() as IExpressionProperty)?.ExpressionError;
 
     // An expression to show the expression editor with, where what it returns is not the plain type of a property.
@@ -443,6 +449,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
         IsAtKeyFrame.Dispose();
         _parentServices = null;
         _propertyEditorControlHost = null;
+        SeparatedFrom = null;
         _element = null;
         _scene = null;
         PropertyAdapter = null!;

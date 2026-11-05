@@ -53,6 +53,8 @@ internal sealed class ComponentEditors : StackPanel, IDisposable
             if (context == null) continue;
             _contexts.Add(context);
             context.Accept(new ChildVisitor(_owner));
+            if (_owner.UnseparatesFromNestedEditors && context is PropertyEditorViewModel nested)
+                nested.SeparatedFrom = _owner;
             if (PropertyEditorHost.TryCreateControl(context, PropertyEditorSurface.Panel, out Control? control))
             {
                 control.DataContext = context;
