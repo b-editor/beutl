@@ -693,6 +693,25 @@ public sealed class StandardShortcutsTests
         });
     }
 
+    // The results of AppKit's own NSTextView: deleteToBeginningOfLine: stops, and deleteToEndOfParagraph: does not.
+    [AvaloniaTest]
+    [TestCase(Key.Back, KeyModifiers.Meta, 9, "line one\nline two", 9)]
+    [TestCase(Key.K, KeyModifiers.Control, 8, "line oneline two", 8)]
+    public void A_macOS_delete_command_at_the_edge_of_a_line_does_what_AppKit_does(Key key, KeyModifiers modifiers, int from, string text, int caret)
+    {
+        using var fixture = new TextBoxFixture("line one\nline two", caret: from);
+
+        KeyEventArgs args = KeyDown(fixture.Box, key, modifiers);
+        MacOSKeyBindings.OnTextBoxKeyDown(fixture.Box, args);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fixture.Box.Text, Is.EqualTo(text));
+            Assert.That(fixture.Box.CaretIndex, Is.EqualTo(caret));
+            Assert.That(args.Handled, Is.True);
+        });
+    }
+
     [AvaloniaTest]
     [TestCase(Key.N, 3, 12)]
     [TestCase(Key.P, 12, 3)]

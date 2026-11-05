@@ -50,11 +50,15 @@ internal static class MacOSKeyBindings
     {
         switch (e.KeyModifiers, e.Key)
         {
+            // As in AppKit, this stops at the start of a line, whereas Ctrl+K joins the next line at the end of one.
             case (KeyModifiers.Meta, Key.Back):
-                DeleteTo(textBox, e, Key.Home, Key.Back);
+                SelectToLineEdge(textBox, e, Key.Home);
+                if (textBox.SelectionStart != textBox.SelectionEnd)
+                    Press(textBox, e, Key.Back);
                 break;
             case (KeyModifiers.Control, Key.K):
-                DeleteTo(textBox, e, Key.End, Key.Delete);
+                SelectToLineEdge(textBox, e, Key.End);
+                Press(textBox, e, Key.Delete);
                 break;
             case (KeyModifiers.Control, Key.D):
                 Press(textBox, e, Key.Delete);
@@ -78,11 +82,10 @@ internal static class MacOSKeyBindings
     }
 
     // A selection is what gets deleted, as with any other delete key.
-    private static void DeleteTo(TextBox textBox, KeyEventArgs e, Key lineEnd, Key delete)
+    private static void SelectToLineEdge(TextBox textBox, KeyEventArgs e, Key lineEdge)
     {
         if (textBox.SelectionStart == textBox.SelectionEnd)
-            Press(textBox, e, lineEnd, KeyModifiers.Shift);
-        Press(textBox, e, delete);
+            Press(textBox, e, lineEdge, KeyModifiers.Shift);
     }
 
     private static void Press(TextBox textBox, KeyEventArgs e, Key key, KeyModifiers modifiers = KeyModifiers.None)
