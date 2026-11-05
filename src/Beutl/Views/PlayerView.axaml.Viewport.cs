@@ -171,6 +171,10 @@ public partial class PlayerView
             OnPreviewZoomRequested(viewModel, PreviewZoomAction.Fit);
     }
 
+    // The list keeps its items between openings, and a shortcut can change in the key map meanwhile.
+    private void OnZoomDropDownOpened(object? sender, EventArgs e)
+        => s_zoomOptions[0].RefreshShortcut();
+
     private async void OnResolutionSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (DataContext is PlayerViewModel viewModel && resolutionComboBox.SelectedItem is RenderScale scale)
@@ -196,6 +200,9 @@ public partial class PlayerView
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to change the preview render scale to {Scale}.", scale);
+            // The box goes back to the quality in use, unless a newer choice took over. Going back starts no pause.
+            if (ReferenceEquals(DataContext, viewModel) && _requestedPreviewScale == scale)
+                resolutionComboBox.SelectedItem = editor.PreviewScale.Value;
             NotificationService.ShowError(MessageStrings.UnexpectedError, MessageStrings.OperationFailed);
         }
     }

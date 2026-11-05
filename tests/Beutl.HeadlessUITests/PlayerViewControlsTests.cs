@@ -1,4 +1,7 @@
-﻿using Avalonia;
+﻿using System.Reflection;
+using System.Runtime.InteropServices;
+
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -7,8 +10,10 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 
+using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Controls;
+using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Models;
@@ -17,6 +22,8 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using BtlMatrix = Beutl.Graphics.Matrix;
 using BtlPixelSize = Beutl.Media.PixelSize;
@@ -70,8 +77,11 @@ public sealed class PlayerViewControlsTests
     private static Point PreviewCenter(PlayerView view, Window window)
         => view.image.TranslatePoint(new Point(view.image.Bounds.Width / 2, view.image.Bounds.Height / 2), window)!.Value;
 
+    // The time editor is wider than the time, and takes more of the footer's leading part.
     [AvaloniaTest]
-    public async Task The_footer_parts_never_overlap_or_leave_the_panel()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task The_footer_parts_never_overlap_or_leave_the_panel(bool editingTime)
     {
         EditViewModel editor = await OpenEditor();
         var view = new PlayerView { DataContext = editor.Player };
@@ -80,6 +90,9 @@ public sealed class PlayerViewControlsTests
         {
             await Prepare(view, window);
             PlayerFooterPanel footer = Part<PlayerFooterPanel>(view.Player, "PART_FooterPanel");
+            TextBox timeEditor = Part<TextBox>(view.Player, "PART_CurrentTimeTextBox");
+            if (editingTime)
+                view.Player.BeginEditCurrentTime();
 
             for (int width = 1200; width >= 180; width -= 7)
             {
@@ -89,15 +102,14 @@ public sealed class PlayerViewControlsTests
                 Rect[] parts = [.. footer.Children.Where(child => child.IsVisible).Select(child => child.Bounds)];
                 Assert.Multiple(() =>
                 {
-                    foreach (Rect part in parts)
+                    Assert.That(timeEditor.IsVisible, Is.EqualTo(editingTime), $"at width {width}");
+                    for (int i = 0; i < parts.Length; i++)
                     {
+                        Rect part = parts[i];
                         Assert.That(part.X, Is.GreaterThanOrEqualTo(0), $"{part} at width {width}");
                         Assert.That(part.Right, Is.LessThanOrEqualTo(footer.Bounds.Width), $"{part} at width {width}");
-                        foreach (Rect other in parts)
-                        {
-                            if (other != part)
-                                Assert.That(part.Intersects(other), Is.False, $"{part} and {other} at width {width}");
-                        }
+                        for (int j = i + 1; j < parts.Length; j++)
+                            Assert.That(part.Intersects(parts[j]), Is.False, $"{part} and {parts[j]} at width {width}");
                     }
                 });
             }
@@ -390,6 +402,47 @@ public sealed class PlayerViewControlsTests
         }
     }
 
+    // The seek bar reaches a playhead or an element past the end of the scene, and the total stays where the scene ends.
+    [AvaloniaTest]
+    public async Task The_total_time_ignores_what_lies_past_the_end_of_the_scene()
+    {
+        EditViewModel editor = await OpenEditor();
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 400 };
+        try
+        {
+            await Prepare(view, window);
+            Scene scene = editor.Scene;
+            MediaTime end = scene.Start.Value + scene.Duration.Value;
+            string expected = end.ToTimeSpan().ToString(@"hh\:mm\:ss\.ff");
+            TextBlock total = Part<TextBlock>(view.Player, "PART_DurationTextBlock");
+
+            MediaTime playhead = end + MediaTime.FromSeconds(10);
+            editor.GetRequiredService<IEditorClock>().Seek(playhead);
+            HeadlessTestHelpers.Settle();
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(view.Player.Maximum, Is.GreaterThan(end.ToTimeSpan().TotalSeconds), "The seek bar reaches the playhead.");
+                Assert.That(total.Text, Is.EqualTo(expected), "A playhead past the end");
+            });
+
+            MediaTime elementEnd = playhead + MediaTime.FromSeconds(10);
+            scene.Children.Add(new Element { Start = { Value = playhead }, Length = { Value = elementEnd - playhead } });
+            HeadlessTestHelpers.Settle();
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(view.Player.Maximum, Is.GreaterThan(playhead.ToTimeSpan().TotalSeconds), "The seek bar reaches the element.");
+                Assert.That(total.Text, Is.EqualTo(expected), "An element past the end");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTest]
     [TestCase("PART_StartButton")]
     [TestCase("PART_PreviousButton")]
@@ -598,6 +651,48 @@ public sealed class PlayerViewControlsTests
         }
         finally
         {
+            window.Close();
+        }
+    }
+
+    // The list keeps its items between openings, and a shortcut can change in the key map meanwhile.
+    [AvaloniaTest]
+    public async Task The_zoom_list_shows_the_current_shortcut_each_time_it_opens()
+    {
+        EditViewModel editor = await OpenEditor();
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        ContextCommandManager manager = TestShell.MainViewModel.ContextCommandManager!;
+        OSPlatform platform = OperatingSystem.IsMacOS() ? OSPlatform.OSX
+            : OperatingSystem.IsWindows() ? OSPlatform.Windows : OSPlatform.Linux;
+        ContextCommandEntry fit = manager.GetDefinitions<SceneEditorExtension>()
+            .Single(command => command.Definition.Id == "editor.previewZoomFit");
+        KeyGesture original = fit.KeyGestures.First(item => item.Platform == platform).KeyGesture!;
+        var changed = KeyGesture.Parse("Alt+D9");
+        try
+        {
+            await Prepare(view, window);
+            ComboBox zoom = view.zoomComboBox;
+
+            string?[] ShownInTheList()
+            {
+                zoom.IsDropDownOpen = true;
+                HeadlessTestHelpers.Render(2);
+                string?[] texts = [.. ((Control)zoom.ContainerFromIndex(0)!).GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text)];
+                zoom.IsDropDownOpen = false;
+                HeadlessTestHelpers.Render(2);
+                return texts;
+            }
+
+            Assert.That(ShownInTheList(), Does.Contain(original.ToString("p", null)));
+
+            manager.ChangeKeyGesture(fit, changed, platform);
+
+            Assert.That(ShownInTheList(), Does.Contain(changed.ToString("p", null)));
+        }
+        finally
+        {
+            manager.ChangeKeyGesture(fit, original, platform);
             window.Close();
         }
     }
@@ -898,6 +993,45 @@ public sealed class PlayerViewControlsTests
                 view.ChangePreviewScaleAsync(player, RenderScale.Quarter));
             HeadlessTestHelpers.Settle();
             Assert.That(editor.PreviewScale.Value, Is.EqualTo(RenderScale.Quarter));
+        }
+        finally
+        {
+            await player.Pause();
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task The_resolution_box_goes_back_when_the_pause_fails()
+    {
+        EditViewModel editor = await OpenEditor();
+        PlayerViewModel player = editor.Player;
+        var view = new PlayerView { DataContext = player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        try
+        {
+            await Prepare(view, window);
+            RenderScale inUse = editor.PreviewScale.Value;
+            // A pause still running is what the next caller waits for.
+            FieldInfo pauseTask = typeof(PlayerViewModel).GetField("_pauseTask", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var pause = new TaskCompletionSource();
+            pauseTask.SetValue(player, pause.Task);
+
+            view.resolutionComboBox.SelectedItem = RenderScale.Half;
+            HeadlessTestHelpers.Settle();
+            Assert.That(view.resolutionComboBox.SelectedItem, Is.EqualTo(RenderScale.Half));
+
+            pause.SetException(new InvalidOperationException("The pause failed."));
+            await pause.Task.ContinueWith(static _ => { }, TaskScheduler.Default);
+            HeadlessTestHelpers.Settle();
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(editor.PreviewScale.Value, Is.EqualTo(inUse));
+                Assert.That(view.resolutionComboBox.SelectedItem, Is.EqualTo(inUse));
+                Assert.That(pauseTask.GetValue(player), Is.SameAs(pause.Task), "Going back must not start another pause.");
+            });
         }
         finally
         {

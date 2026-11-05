@@ -125,6 +125,32 @@ public class PreviewTabCaptureTests
         }
     }
 
+    // The time editor takes more of the footer than the time does.
+    [AvaloniaTest]
+    [TestCase(1200, 520, "wide")]
+    [TestCase(560, 420, "medium")]
+    [TestCase(300, 320, "narrow")]
+    [TestCase(240, 320, "narrowest")]
+    public async Task Capture_player_editing_the_time(int width, int height, string name)
+    {
+        EditViewModel editor = await OpenSampleScene();
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = width, Height = height };
+        try
+        {
+            await Prepare(window);
+            view.Player.BeginEditCurrentTime();
+            HeadlessTestHelpers.Render(4);
+            Save(window, $"editing-{name}.png");
+            RecordSizes(view, $"editing-{name}");
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
     [AvaloniaTest]
     public async Task Capture_player_light()
     {

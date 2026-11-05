@@ -199,8 +199,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
-        EndTime = Duration
-            .Select(lastFrame => lastFrame + MediaTime.FromFrames(1, GetFrameRate()))
+        EndTime = Scene.Start.GetObservable()
+            .CombineLatest(Scene.Duration.GetObservable(), (start, duration) => start + duration)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
@@ -400,7 +400,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     // The last frame's time, which is the seek slider's maximum.
     public ReadOnlyReactiveProperty<MediaTime> Duration { get; }
 
-    // Where the last frame ends: the length of a scene that starts at zero.
+    // Where the scene ends: its length when it starts at zero. The seek slider's maximum can lie further,
+    // because it also reaches a playhead or an element past the end.
     public ReadOnlyReactiveProperty<MediaTime> EndTime { get; }
 
     // The shuttle's rate, or null while there is nothing to tell: playing at normal speed looks the part.

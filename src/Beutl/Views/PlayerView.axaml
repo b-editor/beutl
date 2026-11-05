@@ -184,6 +184,7 @@
                           MinHeight="0"
                           Padding="0,3"
                           VerticalAlignment="Center"
+                          DropDownOpened="OnZoomDropDownOpened"
                           PlaceholderForeground="{DynamicResource TextFillColorPrimaryBrush}"
                           PlaceholderText="{Binding $parent[local:PlayerView].ZoomLabel}"
                           SelectionChanged="OnZoomSelectionChanged"
