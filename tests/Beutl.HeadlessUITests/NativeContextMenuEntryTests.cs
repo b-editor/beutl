@@ -145,6 +145,222 @@ public class NativeContextMenuEntryTests
     }
 
     [AvaloniaTest]
+    public void Invoking_a_radio_menu_item_checks_it_and_leaves_it_checked()
+    {
+        var item = new MenuItem { Header = "Radio", ToggleType = MenuItemToggleType.Radio };
+
+        WithOpenFlyout(new MenuFlyout { Items = { item } }, entries =>
+        {
+            entries![0].Invoke();
+            Assert.That(item.IsChecked, Is.True);
+
+            entries![0].Invoke();
+            Assert.That(item.IsChecked, Is.True);
+        });
+    }
+
+    [AvaloniaTest]
+    public void A_menu_item_gives_its_check_and_its_gesture()
+    {
+        var flyout = new MenuFlyout
+        {
+            Items =
+            {
+                new MenuItem
+                {
+                    Header = "Check",
+                    ToggleType = MenuItemToggleType.CheckBox,
+                    IsChecked = true,
+                    InputGesture = new KeyGesture(Key.S, KeyModifiers.Meta)
+                },
+                new MenuItem { Header = "Plain", IsChecked = true }
+            }
+        };
+
+        WithOpenFlyout(flyout, entries =>
+        {
+            using var assertions = Assert.EnterMultipleScope();
+            Assert.That(entries![0].IsChecked, Is.True);
+            Assert.That(entries![0].Gesture, Is.EqualTo(new KeyGesture(Key.S, KeyModifiers.Meta)));
+            Assert.That(entries![1].IsChecked, Is.False);
+            Assert.That(entries![1].Gesture, Is.Null);
+        });
+    }
+
+    [AvaloniaTest]
+    public void A_menu_item_with_items_gives_a_sub_menu()
+    {
+        var flyout = new MenuFlyout
+        {
+            Items =
+            {
+                new MenuItem
+                {
+                    Header = "Sub",
+                    Items = { new MenuItem { Header = "Child" }, new Separator(), new MenuItem { Header = "-" } }
+                }
+            }
+        };
+
+        WithOpenFlyout(flyout, entries =>
+        {
+            using var assertions = Assert.EnterMultipleScope();
+            Assert.That(entries![0].Kind, Is.EqualTo(ContextMenuEntryKind.SubMenu));
+            Assert.That(entries![0].Children.Select(e => e.Kind), Is.EqualTo(new[]
+            {
+                ContextMenuEntryKind.Item, ContextMenuEntryKind.Separator, ContextMenuEntryKind.Separator
+            }));
+            Assert.That(entries![0].Children[0].Title, Is.EqualTo("Child"));
+        });
+    }
+
+    // Only an open sub menu turns data into containers.
+    [AvaloniaTest]
+    public void A_sub_menu_of_data_or_of_a_header_that_is_not_text_keeps_the_avalonia_menu()
+    {
+        var ofData = new MenuFlyout { Items = { new MenuItem { Header = "Sub", Items = { "Data" } } } };
+        var ofControl = new MenuFlyout
+        {
+            Items = { new MenuItem { Header = "Sub", Items = { new MenuItem { Header = new StackPanel() } } } }
+        };
+
+        WithOpenFlyout(ofData, entries => Assert.That(entries, Is.Null));
+        WithOpenFlyout(ofControl, entries => Assert.That(entries, Is.Null));
+    }
+
+    [AvaloniaTest]
+    public void A_menu_whose_containers_do_not_exist_yet_gives_nothing()
+    {
+        var presenter = new ItemsControl { Items = { new MenuItem { Header = "Item" } } };
+
+        Assert.That(ContextMenuEntry.TryRead(presenter), Is.Null);
+    }
+
+    [AvaloniaTest]
+    public void Items_give_their_icons()
+    {
+        var icon = new FAPathIconSource();
+        var flyout = new FAMenuFlyout
+        {
+            Items =
+            {
+                new FAMenuFlyoutItem { Text = "Item", IconSource = icon },
+                new FAMenuFlyoutSubItem { Text = "Sub", IconSource = icon },
+                new FAMenuFlyoutSeparator()
+            }
+        };
+
+        WithOpenFlyout(flyout, entries =>
+        {
+            using var assertions = Assert.EnterMultipleScope();
+            Assert.That(entries![0].Icon, Is.SameAs(icon));
+            Assert.That(entries![1].Icon, Is.SameAs(icon));
+            Assert.That(entries![2].Icon, Is.Null);
+            Assert.That(entries![2].Gesture, Is.Null);
+        });
+    }
+
+    [AvaloniaTest]
+    public void An_item_without_text_has_an_empty_title()
+    {
+        WithOpenFlyout(new FAMenuFlyout { Items = { new FAMenuFlyoutItem(), new FAMenuFlyoutSubItem() } }, entries =>
+            Assert.That(entries!.Select(e => e.Title), Is.EqualTo(new[] { "", "" })));
+        WithOpenFlyout(new MenuFlyout { Items = { new MenuItem() } }, entries =>
+            Assert.That(entries![0].Title, Is.Empty));
+
+        IReadOnlyList<ContextMenuEntry> commands = ContextMenuEntry.TryRead(new FACommandBarFlyout
+        {
+            SecondaryCommands = { new FACommandBarButton(), new FACommandBarToggleButton() }
+        })!;
+        Assert.That(commands.Select(e => e.Title), Is.EqualTo(new[] { "", "" }));
+    }
+
+    [AvaloniaTest]
+    public void A_command_bar_gives_its_commands_with_a_separator_between_the_two_lists()
+    {
+        var icon = new FAPathIconSource();
+        var flyout = new FACommandBarFlyout
+        {
+            PrimaryCommands =
+            {
+                new FACommandBarToggleButton { Label = "Toggle", IconSource = icon, IsChecked = true },
+                new FACommandBarSeparator()
+            },
+            SecondaryCommands =
+            {
+                new FACommandBarButton { Label = "Button", IconSource = icon, HotKey = new KeyGesture(Key.S, KeyModifiers.Alt) }
+            }
+        };
+
+        IReadOnlyList<ContextMenuEntry> entries = ContextMenuEntry.TryRead(flyout)!;
+
+        using var assertions = Assert.EnterMultipleScope();
+        Assert.That(entries.Select(e => e.Title), Is.EqualTo(new[] { "Toggle", "", "", "Button" }));
+        Assert.That(entries.Select(e => e.Kind), Is.EqualTo(new[]
+        {
+            ContextMenuEntryKind.Item, ContextMenuEntryKind.Separator, ContextMenuEntryKind.Separator, ContextMenuEntryKind.Item
+        }));
+        Assert.That(entries.Select(e => e.IsChecked), Is.EqualTo(new[] { true, false, false, false }));
+        Assert.That(entries[0].Icon, Is.SameAs(icon));
+        Assert.That(entries[3].Icon, Is.SameAs(icon));
+        Assert.That(entries[3].Gesture, Is.EqualTo(new KeyGesture(Key.S, KeyModifiers.Alt)));
+    }
+
+    [AvaloniaTest]
+    public void A_command_bar_with_one_list_has_no_separator()
+    {
+        var flyout = new FACommandBarFlyout { PrimaryCommands = { new FACommandBarButton { Label = "Button" } } };
+
+        Assert.That(ContextMenuEntry.TryRead(flyout)!.Select(e => e.Title), Is.EqualTo(new[] { "Button" }));
+    }
+
+    [AvaloniaTest]
+    public void A_command_with_a_flyout_of_its_own_keeps_the_avalonia_menu()
+    {
+        var primary = new FACommandBarFlyout { PrimaryCommands = { new FACommandBarButton { Flyout = new FAMenuFlyout() } } };
+        var secondary = new FACommandBarFlyout { SecondaryCommands = { new FACommandBarButton { Flyout = new FAMenuFlyout() } } };
+
+        using var assertions = Assert.EnterMultipleScope();
+        Assert.That(ContextMenuEntry.TryRead(primary), Is.Null);
+        Assert.That(ContextMenuEntry.TryRead(secondary), Is.Null);
+    }
+
+    [AvaloniaTest]
+    public void Invoking_a_toggle_in_a_command_bar_toggles_it()
+    {
+        var toggle = new FACommandBarToggleButton { Label = "Toggle" };
+        IReadOnlyList<ContextMenuEntry> entries = ContextMenuEntry.TryRead(new FACommandBarFlyout { SecondaryCommands = { toggle } })!;
+
+        entries[0].Invoke();
+
+        Assert.That(toggle.IsChecked, Is.True);
+    }
+
+    // The native item follows only the changes these name, so whatever an entry reads has to be among them.
+    [Test]
+    public void What_an_entry_reads_is_tracked()
+    {
+        AvaloniaProperty[] read =
+        [
+            Visual.IsVisibleProperty,
+            InputElement.IsEffectivelyEnabledProperty,
+            FAMenuFlyoutItem.TextProperty,
+            FAMenuFlyoutSubItem.TextProperty,
+            HeaderedSelectingItemsControl.HeaderProperty,
+            FACommandBarButton.LabelProperty,
+            FACommandBarToggleButton.LabelProperty,
+            FAToggleMenuFlyoutItem.IsCheckedProperty,
+            FARadioMenuFlyoutItem.IsCheckedProperty,
+            MenuItem.IsCheckedProperty,
+            FACommandBarToggleButton.IsCheckedProperty
+        ];
+
+        using var assertions = Assert.EnterMultipleScope();
+        Assert.That(read.Where(p => !ContextMenuEntry.IsTracked(p)), Is.Empty);
+        Assert.That(ContextMenuEntry.IsTracked(Control.TagProperty), Is.False);
+    }
+
+    [AvaloniaTest]
     public void Items_in_a_sub_menu_get_their_data_context_though_no_sub_menu_opened()
     {
         var child = new FAMenuFlyoutItem();
@@ -357,7 +573,10 @@ public class NativeContextMenuEntryTests
     [TestCase(PlacementMode.BottomEdgeAlignedLeft, 100, 50)]
     [TestCase(PlacementMode.BottomEdgeAlignedRight, 80, 50)]
     [TestCase(PlacementMode.TopEdgeAlignedLeft, 100, -30)]
+    [TestCase(PlacementMode.TopEdgeAlignedRight, 80, -30)]
     [TestCase(PlacementMode.RightEdgeAlignedTop, 200, 10)]
+    [TestCase(PlacementMode.RightEdgeAlignedBottom, 200, 10)]
+    [TestCase(PlacementMode.LeftEdgeAlignedTop, -20, 10)]
     [TestCase(PlacementMode.LeftEdgeAlignedBottom, -20, 10)]
     [TestCase(PlacementMode.Center, 90, 10)]
     public void A_menu_goes_where_the_placement_puts_a_popup(PlacementMode placement, double x, double y)
@@ -379,29 +598,70 @@ public class NativeContextMenuEntryTests
     }
 
     [Test]
-    [TestCase(Key.C, "c")]
-    [TestCase(Key.D5, "5")]
-    [TestCase(Key.OemComma, ",")]
+    [TestCase(Key.A, "a")]
+    [TestCase(Key.Z, "z")]
+    [TestCase(Key.D0, "0")]
+    [TestCase(Key.D9, "9")]
+    [TestCase(Key.NumPad0, "0")]
+    [TestCase(Key.NumPad9, "9")]
     [TestCase(Key.Space, " ")]
+    [TestCase(Key.OemPlus, "=")]
+    [TestCase(Key.Add, "+")]
+    [TestCase(Key.OemMinus, "-")]
+    [TestCase(Key.Subtract, "-")]
+    [TestCase(Key.Multiply, "*")]
+    [TestCase(Key.Divide, "/")]
+    [TestCase(Key.OemQuestion, "/")]
+    [TestCase(Key.OemComma, ",")]
+    [TestCase(Key.OemPeriod, ".")]
+    [TestCase(Key.Decimal, ".")]
+    [TestCase(Key.OemSemicolon, ";")]
+    [TestCase(Key.OemQuotes, "'")]
+    [TestCase(Key.OemOpenBrackets, "[")]
+    [TestCase(Key.OemCloseBrackets, "]")]
+    [TestCase(Key.OemPipe, "\\")]
+    [TestCase(Key.OemBackslash, "\\")]
+    [TestCase(Key.OemTilde, "`")]
     public void Keys_become_key_equivalents(Key key, string expected)
     {
         Assert.That(ContextMenuLayout.GetKeyEquivalent(key), Is.EqualTo(expected));
     }
 
+    // NSUpArrowFunctionKey and its neighbors in NSEvent.h, and the control characters.
     [Test]
-    public void Keys_without_a_character_use_the_function_key_range()
+    [TestCase(Key.Up, 0xF700)]
+    [TestCase(Key.Down, 0xF701)]
+    [TestCase(Key.Left, 0xF702)]
+    [TestCase(Key.Right, 0xF703)]
+    [TestCase(Key.F1, 0xF704)]
+    [TestCase(Key.F12, 0xF70F)]
+    [TestCase(Key.F24, 0xF71B)]
+    [TestCase(Key.Delete, 0xF728)]
+    [TestCase(Key.Home, 0xF729)]
+    [TestCase(Key.End, 0xF72B)]
+    [TestCase(Key.PageUp, 0xF72C)]
+    [TestCase(Key.PageDown, 0xF72D)]
+    [TestCase(Key.Back, 0x08)]
+    [TestCase(Key.Tab, 0x09)]
+    [TestCase(Key.Return, 0x0D)]
+    [TestCase(Key.Escape, 0x1B)]
+    public void Keys_without_a_character_use_their_code(Key key, int expected)
     {
-        using var assertions = Assert.EnterMultipleScope();
-        Assert.That(ContextMenuLayout.GetKeyEquivalent(Key.F1)![0], Is.EqualTo((char)0xF704));
-        Assert.That(ContextMenuLayout.GetKeyEquivalent(Key.F12)![0], Is.EqualTo((char)0xF70F));
-        Assert.That(ContextMenuLayout.GetKeyEquivalent(Key.Delete)![0], Is.EqualTo((char)0xF728));
-        Assert.That(ContextMenuLayout.GetKeyEquivalent(Key.Up)![0], Is.EqualTo((char)0xF700));
+        Assert.That(ContextMenuLayout.GetKeyEquivalent(key), Is.EqualTo(((char)expected).ToString()));
+    }
+
+    [Test]
+    public void A_key_a_menu_item_cannot_show_has_no_equivalent()
+    {
         Assert.That(ContextMenuLayout.GetKeyEquivalent(Key.None), Is.Null);
     }
 
     [Test]
     public void Modifiers_become_the_modifier_mask()
     {
+        using var assertions = Assert.EnterMultipleScope();
+        Assert.That(ContextMenuLayout.GetModifierMask(KeyModifiers.None), Is.Zero);
         Assert.That(ContextMenuLayout.GetModifierMask(KeyModifiers.Meta | KeyModifiers.Shift), Is.EqualTo((1UL << 20) | (1UL << 17)));
+        Assert.That(ContextMenuLayout.GetModifierMask(KeyModifiers.Control | KeyModifiers.Alt), Is.EqualTo((1UL << 18) | (1UL << 19)));
     }
 }
