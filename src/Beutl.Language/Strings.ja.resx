@@ -1790,7 +1790,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>既定</value>
   </data>
   <data name="AiSubtitle_TemplateDescription" xml:space="preserve">
-    <value>保存済みのTextBlockテンプレートが表示されます。書式、エフェクト、アニメーション、配置がすべての字幕に適用されます。</value>
+    <value>テキストを含む保存済みのテンプレートが表示されます（TextBlock、要素、複数の要素）。書式、エフェクト、アニメーション、配置がすべての字幕に適用されます。</value>
   </data>
   <data name="AiSubtitle_Transcribe" xml:space="preserve">
     <value>文字起こし</value>

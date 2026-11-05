@@ -2,6 +2,7 @@
 using Beutl.Editor.Components.AiWorkspaceTab;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
+using Beutl.Editor.Services.Captions;
 using Beutl.Services.AI;
 using DynamicData;
 
@@ -57,9 +58,7 @@ public partial class MainViewModel : IAiWorkspaceHost
 
     internal AiSubtitleDialogViewModel CreateAiSubtitleToolViewModel(EditViewModel? editViewModel)
     {
-        _captionCatalog.RefreshObjectTemplates(
-            Beutl.Editor.Services.ObjectTemplateService.Instance.FindByBaseType(
-                typeof(Beutl.Graphics.Drawable)));
+        _captionCatalog.RefreshObjectTemplates(CaptionCatalog.FindObjectTemplates());
         return new AiSubtitleDialogViewModel(
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
