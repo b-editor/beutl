@@ -72,6 +72,11 @@ public class UpdateDialogViewModel
     // Test seam: tests await the started update.
     internal Task? UpdateTask => _startTask;
 
+    // Where the update can be installed by hand when installing it from here keeps failing.
+    public Uri? ReleaseUri => Uri.TryCreate(Update.Url, UriKind.Absolute, out Uri? uri) && uri.Scheme == Uri.UriSchemeHttps
+        ? uri
+        : null;
+
     public string VersionText => $"Beutl {BeutlApplication.Version} → {Update.LatestVersion}";
 
     // The dialog decides whether to show this button when it opens, so a Flatpak update, which has no
@@ -123,7 +128,7 @@ public class UpdateDialogViewModel
         catch (Exception e)
         {
             _logger.LogError(e, "Failed to handle primary button click");
-            NotificationService.ShowError(Strings.Error, e.Message);
+            ProgressText.Value = DescribeFailure(MessageStrings.OperationFailed, e);
         }
         finally
         {
@@ -176,6 +181,8 @@ public class UpdateDialogViewModel
             || _isInstalling || _installationStarted || _installOnQuit || _cts.IsCancellationRequested)
             return false;
 
+        // Both ways of installing write the same update script, so they must not overlap.
+        _isInstalling = true;
         try
         {
             if (await _loadMetadata() is not { } metadata)
@@ -214,6 +221,10 @@ public class UpdateDialogViewModel
             ProgressText.Value = DescribeFailure(MessageStrings.OperationFailed, e);
             return false;
         }
+        finally
+        {
+            _isInstalling = false;
+        }
     }
 
     // How to start the installer for this platform, or null with the reason in ProgressText.
@@ -221,11 +232,11 @@ public class UpdateDialogViewModel
     {
         if (OperatingSystem.IsMacOS()) return await CreateMacInstallerStartInfoAsync(metadata, relaunch);
         if (OperatingSystem.IsLinux()) return await CreateLinuxInstallerStartInfoAsync(metadata, relaunch);
-        if (OperatingSystem.IsWindows()) return CreateWindowsInstallerStartInfo(metadata);
+        if (OperatingSystem.IsWindows()) return CreateWindowsInstallerStartInfo(metadata, relaunch);
         return null;
     }
 
-    private ProcessStartInfo? CreateWindowsInstallerStartInfo(AssetMetadataJson metadata)
+    private ProcessStartInfo? CreateWindowsInstallerStartInfo(AssetMetadataJson metadata, bool relaunch)
     {
         if (metadata.Type != "installer") return null;
 
@@ -235,7 +246,13 @@ public class UpdateDialogViewModel
             return null;
         }
 
-        return new ProcessStartInfo(_downloadFile) { UseShellExecute = true, Verb = "open" };
+        // beutl-setup.iss reads this switch to leave out its "Launch Beutl" option.
+        return new ProcessStartInfo(_downloadFile)
+        {
+            UseShellExecute = true,
+            Verb = "open",
+            Arguments = relaunch ? "" : "/BeutlOnQuit=1",
+        };
     }
 
     private async Task<ProcessStartInfo?> CreateLinuxInstallerStartInfoAsync(AssetMetadataJson metadata, bool relaunch)
@@ -315,7 +332,18 @@ public class UpdateDialogViewModel
         _startTask ??= Task.Run(async () =>
         {
             _logger.LogInformation("Starting update process");
-            AppUpdatePhase result = await PrepareUpdateAsync();
+            AppUpdatePhase result;
+            try
+            {
+                result = await PrepareUpdateAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to prepare the update");
+                ProgressText.Value = DescribeFailure(MessageStrings.OperationFailed, ex);
+                result = AppUpdatePhase.Failed;
+            }
+
             if (_cts.IsCancellationRequested) return;
 
             switch (result)

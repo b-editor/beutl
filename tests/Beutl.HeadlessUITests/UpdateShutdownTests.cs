@@ -99,6 +99,31 @@ public class UpdateShutdownTests
     }
 
     [AvaloniaTest]
+    public async Task A_failed_save_keeps_the_scheduled_update_for_the_next_attempt_to_quit()
+    {
+        var (main, scene) = await CreateShellAsync();
+        scene.Duration.Value = MediaTime.FromSeconds(73);
+        int launches = 0;
+        try
+        {
+            main.SetUpdateOnQuit(() => launches++);
+            using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+                   {
+                       if (step == StorageWriteStep.Replace && path == scene.Uri!.LocalPath)
+                           throw new IOException("save failed");
+                   }))
+            {
+                Assert.That(await main.TryDisposeForWindowCloseAsync(), Is.False);
+            }
+
+            Assert.That(launches, Is.Zero);
+            Assert.That(await main.TryDisposeForWindowCloseAsync(), Is.True);
+            Assert.That(launches, Is.EqualTo(1));
+        }
+        finally { await DisposeShellAsync(main); }
+    }
+
+    [AvaloniaTest]
     public async Task A_scheduled_update_that_cannot_start_does_not_stop_Beutl_quitting()
     {
         var (main, _) = await CreateShellAsync();

@@ -20,6 +20,7 @@ public sealed class UpdateHandoffTests
     [AvaloniaTest]
     public async Task PrimaryButton_KeepsTheDialogOpenSoAFailedHandoffCanBeRead()
     {
+        bool handled = false;
         var viewModel = new UpdateDialogViewModel(new AppUpdateResponse
         {
             LatestVersion = "2.0.0",
@@ -27,7 +28,11 @@ public sealed class UpdateHandoffTests
             DownloadUrl = "https://downloads.example.test/update.zip",
             IsLatest = false,
             MustLatest = false,
-        }, false);
+        }, false, loadMetadata: () =>
+        {
+            handled = true;
+            return Task.FromResult<AssetMetadataJson?>(null);
+        });
         var dialog = new UpdateDialog { DataContext = viewModel };
         bool closing = false;
         dialog.Closing += (_, _) => closing = true;
@@ -43,9 +48,9 @@ public sealed class UpdateHandoffTests
             Assert.That(primary.IsVisible, Is.True);
 
             primary.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            await BeutlApiApplication.LoadMetadata();
             HeadlessTestHelpers.Render();
 
+            Assert.That(handled, Is.True);
             Assert.That(closing, Is.False);
         }
         finally

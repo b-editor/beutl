@@ -8,6 +8,7 @@ using Beutl.Api.Clients;
 using Beutl.Language;
 using Beutl.Services;
 using Beutl.Testing.Headless;
+using Beutl.Utilities;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 
@@ -186,13 +187,31 @@ public sealed class AppUpdateControllerTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task AMetadataFailureOffersRetry()
+    {
+        using var client = new HttpClient(new Handler(HttpStatusCode.OK));
+        var vm = new UpdateDialogViewModel(Update(), false, httpClient: client,
+            loadMetadata: () => throw new IOException("metadata is unreadable"));
+
+        vm.Start();
+        await vm.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(vm.Phase.Value, Is.EqualTo(AppUpdatePhase.Failed));
+            Assert.That(vm.IsRetryVisible.Value, Is.True);
+            Assert.That(vm.ProgressText.Value, Does.Contain("metadata is unreadable"));
+        });
+    }
+
     [Test]
     public void DownloadProgressShowsThePercentageAndTheSizes()
     {
         string text = UpdateDialogViewModel.FormatDownloadProgress(512, 1024);
 
-        Assert.That(text, Does.StartWith(MessageStrings.Downloading + " 50% ("));
-        Assert.That(text, Does.Contain(" / "));
+        Assert.That(text, Is.EqualTo(
+            $"{MessageStrings.Downloading} 50% ({StringFormats.ToHumanReadableSize(512)} / {StringFormats.ToHumanReadableSize(1024)})"));
     }
 
     private sealed class Handler(Task release, params HttpStatusCode[] codes) : HttpMessageHandler
