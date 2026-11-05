@@ -48,6 +48,9 @@ internal static class UnsavedSceneStorage
         private readonly List<ElementRehome> _elements;
         private readonly List<ResourceRehome> _resources;
 
+        // Whether this save moves anything, which changes what the elements save.
+        public bool MovesFiles => _elements.Count > 0 || _resources.Count > 0;
+
         public SaveRelocation(Scene scene, Uri sceneUri)
         {
             _scene = scene;

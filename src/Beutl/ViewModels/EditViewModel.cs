@@ -164,6 +164,9 @@ public sealed partial class EditViewModel
         _mediaReferences = new MediaReferenceIndex(Scene);
         observer.Operations.Subscribe(_mediaReferences.Invalidate)
             .DisposeWith(_disposables);
+        _unsavedElements = new EditedElements(Scene);
+        observer.Operations.Subscribe(_unsavedElements.Add)
+            .DisposeWith(_disposables);
         HistoryManager = new HistoryManager(sequenceGenerator);
         HistoryManager.Subscribe(observer)
             .DisposeWith(_disposables);
@@ -531,6 +534,24 @@ public sealed partial class EditViewModel
         }
     }
 
+    // Serializing an element to find that its file already holds it takes as long as writing it, so a save writes the
+    // elements edited since the last one. The first save writes them all: it also brings their files up to the current
+    // format. So does one that moved files or repaired media, which change what elements save without an operation.
+    // A file that has gone is written again however it went.
+    private Element[] GetElementsToSave(Scene scene, UnsavedSceneStorage.SaveRelocation relocation)
+    {
+        Element[] children = [.. scene.Children];
+        if (_unsavedElements.All || relocation.MovesFiles || HasMediaRepairs.Value) return children;
+
+        var save = new bool[children.Length];
+        Parallel.For(0, children.Length, index =>
+        {
+            Element element = children[index];
+            save[index] = element.Uri is not { } uri || !File.Exists(uri.LocalPath);
+        });
+        return [.. children.Where((element, index) => save[index] || _unsavedElements.Contains(element))];
+    }
+
     public async ValueTask<bool> SaveAsync()
     {
         // A direct explicit save (including media repair) must not race an older auto-save's
@@ -554,6 +575,7 @@ public sealed partial class EditViewModel
         Uri sceneUri = scene.Uri
             ?? throw new InvalidOperationException("An unsaved scene needs a destination before it can be saved.");
         UnsavedSceneStorage.SaveRelocation relocation = new(scene, sceneUri);
+        bool savedAll;
         // A failure at any step restores the project, scene, element and resource files this
         // save replaced, instead of leaving the files written before it on disk.
         using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
@@ -561,7 +583,9 @@ public sealed partial class EditViewModel
             try
             {
                 relocation.Apply();
-                transaction.WriteInBatch(() => Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!)));
+                Element[] elements = GetElementsToSave(scene, relocation);
+                savedAll = elements.Length == scene.Children.Count;
+                transaction.WriteInBatch(() => Parallel.ForEach(elements, item => CoreSerializer.StoreToUri(item, item.Uri!)));
                 // The scene is stored without SaveReferencedObjects, which would store the children
                 // again, so its fingerprint file is saved, or removed, here too.
                 scene.SaveMediaFingerprintFile();
@@ -579,7 +603,9 @@ public sealed partial class EditViewModel
         }
 
         relocation.Commit();
-        if (scene.FindHierarchicalParent<Project>() is { } project)
+        _unsavedElements.Clear();
+        // This walk also grows with the scene, and closing the project reports what the saves in between did not.
+        if (savedAll && scene.FindHierarchicalParent<Project>() is { } project)
             DuplicateIds.Report(project, "save");
 
         SaveState(isExplicitUserSave: true);

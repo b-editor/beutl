@@ -20,6 +20,11 @@ public interface IGenerativeRunHost
 
     /// <summary>Records the edits made since the last commit as one undoable step.</summary>
     void CommitHistory(string name);
+
+    /// <summary>Has the next save write a change to <paramref name="node"/> that history does not record.</summary>
+    void MarkUnsaved(GenerativeNode node)
+    {
+    }
 }
 
 /// <summary>
@@ -120,7 +125,11 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                 await host.InvokeOnUIThreadAsync(() =>
                 {
                     if (ex.SettledRequest)
+                    {
                         node.RenewRequestKey();
+                        host.MarkUnsaved(node);
+                    }
+
                     node.LoadActivePreview();
                     node.SetStatus(GenerativeNodeStatus.Failed, ex.Message);
                 });

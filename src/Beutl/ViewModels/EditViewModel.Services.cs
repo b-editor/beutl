@@ -41,6 +41,7 @@ public partial class EditViewModel
         .Add<IFrameCacheInvalidator>(() => this)
         .Add<IHistoryNavigator>(() => this)
         .Add<HistoryManager>(() => HistoryManager)
+        .Add<EditedElements>(() => _unsavedElements)
         .Add<AutoSaveService>(() => _autoSaveService)
         .Add<IProjectVersionControlService>(() => EditorService.ProjectVersionControlService.Value)
         .Add<IReadOnlyReactiveProperty<IProjectVersionControlService?>>(() => EditorService.ProjectVersionControlService)
