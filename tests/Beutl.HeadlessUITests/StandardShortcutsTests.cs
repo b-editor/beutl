@@ -283,6 +283,43 @@ public sealed class StandardShortcutsTests
         }
     }
 
+    // A text box leaves Right alone at its end and Left at its start, and the key bubbles to the editor around it.
+    [AvaloniaTest]
+    [TestCase(Key.Right, 3)]
+    [TestCase(Key.Left, 0)]
+    public async Task A_key_that_a_text_box_leaves_does_not_move_the_playhead(Key key, int caret)
+    {
+        (Window window, MainView view, EditViewModel editor) = await ShowEditorAsync($"shortcuts-caret-{key}");
+        var clock = (IEditorClock)editor.GetService(typeof(IEditorClock))!;
+        MediaTime start = MediaTime.FromSeconds(1);
+        clock.Seek(start);
+        Panel panel = view.GetVisualDescendants().OfType<EditorHostView>().Single().GetVisualDescendants().OfType<Panel>().First();
+        var box = new TextBox { Text = "abc", CaretIndex = caret };
+        var other = new Border { Focusable = true };
+        panel.Children.Add(box);
+        panel.Children.Add(other);
+        try
+        {
+            HeadlessTestHelpers.Render();
+            box.Focus();
+            box.RaiseEvent(KeyDown(box, key, KeyModifiers.None));
+            HeadlessTestHelpers.Settle();
+            Assert.That(clock.CurrentTime.Value, Is.EqualTo(start));
+
+            // The same key anywhere else in the editor still moves it.
+            other.Focus();
+            other.RaiseEvent(KeyDown(other, key, KeyModifiers.None));
+            HeadlessTestHelpers.Settle();
+            Assert.That(clock.CurrentTime.Value, Is.Not.EqualTo(start));
+        }
+        finally
+        {
+            panel.Children.Remove(box);
+            panel.Children.Remove(other);
+            await CloseAsync(window, view);
+        }
+    }
+
     // A dialog does not always take the focus: with no default button it can stay on what the dialog covers.
     [AvaloniaTest]
     [TestCase(true)]
