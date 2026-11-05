@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -11,7 +12,13 @@ public partial class TransformListItemEditor : PresenterListItemEditor
     {
         Resources["TransformTypeToIconConverter"] = TransformTypeToIconConverter.Instance;
         InitializeComponent();
-        AttachParts(reorderHandle, content, presenterEditor);
+        // Opening and closing swap the first row and the row with the name, so the content shows at once: a fade
+        // would leave the rows under the row with the name while they fade out.
+        FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
+        AttachHandle(
+            inlineHandle.GetObservable(IsVisibleProperty).Select(inline => inline ? (Control)inlineHandle : reorderHandle),
+            presenterEditor);
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)ContextFlyout!);
     }
 
     private sealed class TransformTypeToIconConverter : IValueConverter

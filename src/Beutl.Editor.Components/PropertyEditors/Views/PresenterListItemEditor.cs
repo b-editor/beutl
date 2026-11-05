@@ -31,15 +31,22 @@ public class PresenterListItemEditor : UserControl, IListItemEditor
     {
         ExpandTransitionHelper.Attach(reorderHandle, content, ExpandTransitionHelper.ListItemDuration);
         FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
-
-        this.GetObservable(DataContextProperty)
-            .Select(x => (x as IPresenterEditorViewModel)?.IsPresenter ?? Observable.Return(false))
-            .Switch()
-            .CombineLatest(presenterEditor.GetObservable(PropertyEditor.ReorderHandleProperty))
-            .Subscribe(t => ReorderHandle = t.First ? t.Second : reorderHandle);
+        AttachHandle(Observable.Return<Control>(reorderHandle), presenterEditor);
 
         reorderHandle.ContextFlyout = new FAMenuFlyout { Placement = PlacementMode.Pointer };
         EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)reorderHandle.ContextFlyout);
+    }
+
+    protected void AttachHandle(IObservable<Control> handle, PropertyEditor presenterEditor)
+    {
+        this.GetObservable(DataContextProperty)
+            .Select(x => (x as IPresenterEditorViewModel)?.IsPresenter ?? Observable.Return(false))
+            .Switch()
+            .CombineLatest(
+                presenterEditor.GetObservable(PropertyEditor.ReorderHandleProperty),
+                handle,
+                (isPresenter, presenterHandle, ownHandle) => isPresenter ? presenterHandle : ownHandle)
+            .Subscribe(current => ReorderHandle = current);
     }
 
     protected void DeleteClick(object? sender, RoutedEventArgs e)

@@ -135,6 +135,8 @@ public class ListItemExpansionTests
             window.MouseMove(default);
             await Settle();
             AssertState(filterHeader, true);
+            // An open transform has no row for its name, and its handle is the icon beside its first row.
+            transformHeader = (ToggleButton)transformRows[0].ReorderHandle!;
             AssertState(transformHeader, true);
             Assert.That(((FilterEffectEditorViewModel)filterRows[0].DataContext!).IsExpanded.Value, Is.True);
             Assert.That(((TransformEditorViewModel)transformRows[0].DataContext!).IsExpanded.Value, Is.True);
@@ -160,9 +162,10 @@ public class ListItemExpansionTests
             }
 
             HeadlessTestHelpers.Click(Title(filterHeader), ticks: 3);
-            HeadlessTestHelpers.Click(Title(transformHeader), ticks: 3);
+            HeadlessTestHelpers.Click(Grip(transformHeader), ticks: 3);
             await Settle();
             AssertState(filterHeader, false);
+            transformHeader = (ToggleButton)transformRows[0].ReorderHandle!;
             AssertState(transformHeader, false);
             Assert.That(filterRows[0].FindControl<Panel>("content")!.IsVisible, Is.False);
             Assert.That(filterHeader.Focus(NavigationMethod.Tab), Is.True);
