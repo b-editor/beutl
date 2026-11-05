@@ -40,9 +40,7 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
 
     // A text input takes the action whether or not the fallback, which may need a scene, is available.
     public bool CanExecute(object? parameter)
-        => fallback.CanExecute(parameter)
-            || (window.FocusManager?.GetFocusedElement() is Visual focused
-                && ContextCommandInput.IsFromTextInput(new KeyEventArgs { Source = focused }));
+        => fallback.CanExecute(parameter) || IsTextInput(window.FocusManager?.GetFocusedElement());
 
     // Keeps the entry's state with the focus until disposed.
     internal IDisposable FollowFocus() => new CompositeDisposable(
@@ -61,8 +59,10 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
             return;
 
         bool isKey = IsKeyEquivalent();
-        // A key map can move the entry's key, so the standard one may now run another command.
-        KeyGesture gesture = shownGesture ?? GetKeyGesture(action);
+        bool isTextInput = IsTextInput(target);
+        // A text input knows only the standard keys. Elsewhere a key map can have moved the entry's key, and the
+        // standard one may then run another command.
+        KeyGesture gesture = (isTextInput ? null : shownGesture) ?? GetKeyGesture(action);
         var args = new KeyEventArgs
         {
             RoutedEvent = InputElement.KeyDownEvent,
@@ -72,7 +72,7 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
         };
         target.RaiseEvent(args);
 
-        if (args.Handled || isDialogOpen || ContextCommandInput.IsFromTextInput(args))
+        if (args.Handled || isDialogOpen || isTextInput)
             return;
 
         // Cut, Copy and Paste keys belong to the panel with the focus, which may have nothing to do with the
@@ -84,6 +84,9 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
     // The macOS menu bar stays reachable while a dialog covers the window, unlike keys that bubble to the main view.
     internal static bool IsDialogOpen(TopLevel window)
         => OverlayLayer.GetOverlayLayer(window)?.GetVisualDescendants().OfType<FAContentDialog>().Any() == true;
+
+    private static bool IsTextInput(object? element)
+        => ContextCommandInput.IsFromTextInput(new KeyEventArgs { Source = element });
 
     internal static KeyGesture GetKeyGesture(StandardEditAction action)
     {

@@ -607,11 +607,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         _selection.SelectedElements.Clear();
     }
 
-    internal void SelectAll()
-    {
-        ICoreList<Element> selected = _selection.SelectedElements;
-        selected.AddRange(Scene.Children.Except(selected).ToArray());
-    }
+    internal void SelectAll() => _selection.SelectAll(Scene);
 
     internal const float ZoomStep = 1.2f;
 

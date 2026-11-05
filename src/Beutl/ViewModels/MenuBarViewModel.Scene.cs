@@ -1,13 +1,10 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -79,35 +76,6 @@ public partial class MenuBarViewModel
         }
     }
 
-    private static DataTransfer CreateElementDataObject(Element element)
-    {
-        string json = CoreSerializer.SerializeToJsonString(element);
-        var data = new DataTransfer();
-        data.Add(DataTransferItem.CreateText(json));
-        data.Add(DataTransferItem.Create(BeutlDataFormats.Element, json));
-
-        return data;
-    }
-
-    private bool TryGetSelectedElement(
-        [NotNullWhen(true)] out EditViewModel? viewModel,
-        [NotNullWhen(true)] out Scene? scene,
-        [NotNullWhen(true)] out Element? element)
-    {
-        if (TryGetSelectedEditViewModel(out viewModel)
-            && viewModel.Scene is Scene selectedScene
-            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element selectedElement)
-        {
-            scene = selectedScene;
-            element = selectedElement;
-            return true;
-        }
-
-        scene = null;
-        element = null;
-        return false;
-    }
-
     private Task OnDeleteElement()
     {
         if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
@@ -123,22 +91,22 @@ public partial class MenuBarViewModel
 
     private async Task OnCutElement()
     {
-        if (TryGetSelectedElement(out EditViewModel? viewModel, out Scene? scene, out Element? element))
+        if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+            && viewModel.Scene is Scene scene
+            && viewModel.GetService<IEditorSelection>() is { } selection)
         {
-            await viewModel.GetRequiredService<IElementClipboardService>()
-                .CutAsync(scene, [element], GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value);
+            await viewModel.GetRequiredService<IElementClipboardService>().CutAsync(
+                scene, selection.GetTargetElements(scene), GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value);
         }
     }
 
     private async Task OnCopyElement()
     {
-        if (ClipboardHelper.GetClipboard() is IClipboard clipboard
-            && TryGetSelectedEditViewModel(out EditViewModel? viewModel)
-            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
+        if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+            && viewModel.Scene is Scene scene
+            && viewModel.GetService<IEditorSelection>() is { } selection)
         {
-            DataTransfer data = CreateElementDataObject(element);
-
-            await clipboard.SetDataAsync(data);
+            await viewModel.GetRequiredService<IElementClipboardService>().CopyAsync(selection.GetTargetElements(scene));
         }
     }
 
@@ -174,7 +142,7 @@ public partial class MenuBarViewModel
     private void OnSelectAll()
     {
         if (TryGetSelectedEditViewModel(out EditViewModel? viewModel))
-            viewModel.FindToolTab<TimelineTabViewModel>()?.SelectAll();
+            viewModel.GetService<IEditorSelection>()?.SelectAll(viewModel.Scene);
     }
 
     private void OnShowSceneSettings()

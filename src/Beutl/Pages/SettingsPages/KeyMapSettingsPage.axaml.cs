@@ -99,9 +99,15 @@ public sealed class KeyMapFlyout : FAPickerFlyoutBase
         pfp.Content = grid;
 
         pfp.Focusable = true;
-        // Tunnels, so the keys a text box uses reach this before the read-only box above can take them.
+        // A chord comes first, before the read-only box above can take it. Other keys come last, since Enter and Space
+        // on the flyout's buttons act on the button.
         pfp.AddHandler(InputElement.KeyDownEvent, (_, e) =>
         {
+            if (e.Route == RoutingStrategies.Tunnel && !KeyMapSettingsPage.IsChord(e))
+            {
+                return;
+            }
+
             if (e.Key == Key.Escape)
             {
                 Hide();
@@ -116,7 +122,7 @@ public sealed class KeyMapFlyout : FAPickerFlyoutBase
                 Gesture = new KeyGesture(e.Key, e.KeyModifiers);
                 e.Handled = KeyMapSettingsPage.IsChord(e);
             }
-        }, RoutingStrategies.Tunnel);
+        }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
         pfp.MinWidth = 200;
         pfp.Confirmed += OnFlyoutConfirmed;
         pfp.Dismissed += (_, _) => Hide();

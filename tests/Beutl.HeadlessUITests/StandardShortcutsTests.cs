@@ -27,6 +27,7 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
+using Beutl.ViewModels.SettingsPages;
 using Beutl.Views;
 using Dock.Model.Core;
 using FluentAvalonia.UI.Controls;
@@ -173,6 +174,21 @@ public sealed class StandardShortcutsTests
         {
             window.Close();
         }
+    }
+
+    // A text box knows only the standard keys, and what it leaves would bubble to the command with that key.
+    [AvaloniaTest]
+    public void A_text_box_gets_the_standard_key_whichever_the_entry_shows()
+    {
+        using var fixture = new TextBoxFixture();
+        fixture.Window.KeyTextInput("hello");
+        HeadlessTestHelpers.Settle();
+        var shown = new KeyGesture(Key.U, KeyModifiers.Meta | KeyModifiers.Alt);
+
+        new FocusedEditCommand(StandardEditAction.Undo, new RecordingCommand(), fixture.Window, shown).Execute(null);
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(fixture.Box.Text ?? "", Is.Empty);
     }
 
     // Without a scene the fallbacks are off, as in the dialog that creates one, and the menu must not be.
@@ -468,6 +484,49 @@ public sealed class StandardShortcutsTests
         }
     }
 
+    // A floating dock window can hold several tabs, and only the last one takes the window with it.
+    [AvaloniaTest]
+    public async Task The_close_tab_key_closes_the_focused_tab_of_a_floating_window()
+    {
+        (Window window, MainView view, EditViewModel editor) = await ShowEditorAsync("shortcuts-floating");
+        BeutlDockFactory factory = editor.DockHost.Factory;
+        BeutlToolDockable[] tools = [.. factory.EnumerateTools().Take(2)];
+        KeyGesture gesture = GetGesture(MainViewExtension.CloseTabCommandId);
+        factory.SplitToWindow((IDock)tools[0].Owner!, tools[0], 20, 20, 500, 400, null);
+        HeadlessTestHelpers.Render(2);
+        var floating = (Window)factory.FindRoot(tools[0], _ => true)!.Window!.Host!;
+        try
+        {
+            factory.MoveDockable((IDock)tools[1].Owner!, (IDock)tools[0].Owner!, tools[1], null);
+            factory.SetFocusedDockable((IDock)tools[1].Owner!, tools[1]);
+            HeadlessTestHelpers.Render(2);
+
+            KeyEventArgs first = KeyDown(floating, gesture.Key, gesture.KeyModifiers);
+            MacOSKeyBindings.CloseSecondaryWindow(floating, first);
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(first.Handled, Is.True);
+                Assert.That(factory.EnumerateTools(), Does.Not.Contain(tools[1]));
+                Assert.That(factory.EnumerateTools(), Does.Contain(tools[0]));
+                Assert.That(floating.IsVisible, Is.True);
+            });
+
+            MacOSKeyBindings.CloseSecondaryWindow(floating, KeyDown(floating, gesture.Key, gesture.KeyModifiers));
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(factory.EnumerateTools(), Does.Not.Contain(tools[0]));
+                Assert.That(floating.IsVisible, Is.False);
+            });
+        }
+        finally
+        {
+            floating.Close();
+            await CloseAsync(window, view);
+        }
+    }
+
     [AvaloniaTest]
     public void Hide_others_moves_to_its_standard_key_and_the_rest_of_the_menu_stays()
     {
@@ -715,15 +774,7 @@ public sealed class StandardShortcutsTests
         window.Show();
         try
         {
-            HeadlessTestHelpers.Render();
-            OptionsDisplayItem group = page.GetVisualDescendants().OfType<OptionsDisplayItem>().First(row => row.Expands);
-            group.ContentTransition = null;
-            group.IsExpanded = true;
-            HeadlessTestHelpers.Render();
-            var button = (Button)page.GetVisualDescendants().OfType<OptionsDisplayItem>().First(row => row.ActionButton is Button).ActionButton!;
-            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            HeadlessTestHelpers.Render(3);
-            var presenter = (ContentControl)window.OpenedPopups.Single(popup => popup.Child is ContentControl).Child!;
+            (Button button, ContentControl presenter) = OpenKeyMapFlyout(page, window);
 
             // A key the box inside would use for itself.
             TextBox gestureBox = ((Grid)presenter.Content!).Children.OfType<TextBox>().Single();
@@ -760,6 +811,47 @@ public sealed class StandardShortcutsTests
         {
             window.Close();
         }
+    }
+
+    // Enter acts on the button with the focus, and is not what is being assigned.
+    [AvaloniaTest]
+    public async Task Enter_on_the_checkmark_saves_the_chord_pressed_before_it()
+    {
+        await TestReset.ResetShellAsync();
+        using var model = TestShell.MainViewModel.CreateSettingsDialog();
+        var page = new KeyMapSettingsPage { DataContext = model.KeyMap };
+        var window = new Window { Content = page, Width = 1000, Height = 900 };
+        window.Show();
+        (Button row, ContentControl presenter) = OpenKeyMapFlyout(page, window);
+        var item = (KeyMapSettingsItem)row.DataContext!;
+        KeyGesture? original = item.KeyGesture.Value;
+        try
+        {
+            presenter.RaiseEvent(KeyDown(presenter, Key.K, KeyModifiers.Meta | KeyModifiers.Alt));
+            Button accept = presenter.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "AcceptButton");
+            accept.RaiseEvent(KeyDown(accept, Key.Enter, KeyModifiers.None));
+            HeadlessTestHelpers.Render(3);
+
+            Assert.That(item.KeyGesture.Value, Is.EqualTo(new KeyGesture(Key.K, KeyModifiers.Meta | KeyModifiers.Alt)));
+        }
+        finally
+        {
+            item.SetKeyGesture(original);
+            window.Close();
+        }
+    }
+
+    private static (Button Row, ContentControl Presenter) OpenKeyMapFlyout(KeyMapSettingsPage page, Window window)
+    {
+        HeadlessTestHelpers.Render();
+        OptionsDisplayItem group = page.GetVisualDescendants().OfType<OptionsDisplayItem>().First(row => row.Expands);
+        group.ContentTransition = null;
+        group.IsExpanded = true;
+        HeadlessTestHelpers.Render();
+        var button = (Button)page.GetVisualDescendants().OfType<OptionsDisplayItem>().First(row => row.ActionButton is Button).ActionButton!;
+        button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        HeadlessTestHelpers.Render(3);
+        return (button, (ContentControl)window.OpenedPopups.Single(popup => popup.Child is ContentControl).Child!);
     }
 
     [AvaloniaTest]
