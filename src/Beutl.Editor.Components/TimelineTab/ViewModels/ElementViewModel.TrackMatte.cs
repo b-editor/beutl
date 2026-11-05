@@ -39,8 +39,8 @@ public sealed partial class ElementViewModel
                     if (mode == MatteMode.None) return null;
                     return kind switch
                     {
-                        MatteSourceKind.Above => $"↑ {Strings.MatteSourceAbove}",
-                        MatteSourceKind.Below => $"↓ {Strings.MatteSourceBelow}",
+                        MatteSourceKind.Above => "↑",
+                        MatteSourceKind.Below => "↓",
                         MatteSourceKind.Layer when source is { } z => $"{(z < own ? "↑" : z > own ? "↓" : "↻")} {z}",
                         _ => null,
                     };
