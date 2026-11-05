@@ -55,22 +55,24 @@
             </WrapPanel>
         </ToggleButton>
 
-        <controls:TreeLineDecorator Grid.Row="1" LineBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
-            <StackPanel x:Name="content" MinHeight="24">
-                <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:MessageStrings.PropertyUnset}" />
-                <local:PropertiesEditor Padding="0"
-                                        DataContext="{Binding Properties.Value}" />
+        <StackPanel x:Name="content"
+                    Grid.Row="1"
+                    MinHeight="24">
+            <controls:TreeLineDecorator LineBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                <StackPanel x:Name="ownProperties">
+                    <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:MessageStrings.PropertyUnset}" />
+                    <local:PropertiesEditor Padding="0"
+                                            DataContext="{Binding Properties.Value}" />
+                </StackPanel>
+            </controls:TreeLineDecorator>
 
-                <ItemsControl Margin="-16,0,0,0"
-                              DataContext="{Binding Group.Value}"
-                              ItemsSource="{Binding Items}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <local:ListItemEditor />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
-        </controls:TreeLineDecorator>
+            <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <local:ListItemEditor />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
     </Grid>
 </UserControl>

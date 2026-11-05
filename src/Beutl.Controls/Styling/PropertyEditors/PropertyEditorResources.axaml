@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:behaviors="using:Beutl.Controls.Behaviors"
+                    xmlns:controls="using:Beutl.Controls"
                     xmlns:i="using:Avalonia.Xaml.Interactions.Core"
                     xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:intv="using:Avalonia.Xaml.Interactivity"
@@ -102,6 +103,16 @@
             <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundDisabled}" />
         </Style>
 
+    </ControlTheme>
+
+    <!--  A list item's name starts 40 in, after its grip of 8 + 24 + 8. A row insets its label by 8, so its rows start 32 in.  -->
+    <Thickness x:Key="ListItemContentMargin">32,0,0,0</Thickness>
+
+    <!--  The line of a list item's content, under the center of its grip, 20 in, as the decorator draws it 8 into itself.  -->
+    <!--  It fills the height of the content, so it meets the grip above it and the grip of the next item alike.  -->
+    <ControlTheme x:Key="ListItemTreeLine" TargetType="controls:TreeLineDecorator">
+        <Setter Property="Margin" Value="12,0,0,0" />
+        <Setter Property="LineBrush" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
     </ControlTheme>
 
     <ControlTheme x:Key="PropertyEditorLeftRightButton" TargetType="Button">
@@ -251,7 +262,7 @@
     </ControlTheme>
 
     <ControlTheme x:Key="PropertyEditorReorderHandle" TargetType="Border">
-        <Setter Property="Margin" Value="8,0,4,0" />
+        <Setter Property="Margin" Value="4,0,4,0" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="Width" Value="24" />
         <Setter Property="Height" Value="24" />

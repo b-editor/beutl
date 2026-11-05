@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.PropertyEditors.Views.GraphModelNodeMemberView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:editorConverters="using:Beutl.Controls.Converters"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -14,7 +15,7 @@
              x:DataType="viewModel:GraphModelNodeMemberViewModel"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
-        <Grid Margin="8,0,0,0" ColumnDefinitions="*,Auto">
+        <Grid ColumnDefinitions="*,Auto">
             <ToggleButton x:Name="expandToggle"
                           Content="{Binding NodeName.Value}"
                           IsChecked="{Binding IsExpanded.Value}"
@@ -48,10 +49,10 @@
             </Button>
         </Grid>
 
-        <Panel x:Name="content"
-               Grid.Row="1"
-               Margin="16,0,0,0">
-            <ItemsControl ItemsSource="{Binding Properties}">
+        <Panel x:Name="content" Grid.Row="1">
+            <controls:TreeLineDecorator Theme="{StaticResource ListItemTreeLine}" />
+
+            <ItemsControl Margin="{StaticResource ListItemContentMargin}" ItemsSource="{Binding Properties}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <ContentControl Content="{Binding Converter={x:Static editorConverters:PropertyEditorContextToViewConverter.Instance}}" />

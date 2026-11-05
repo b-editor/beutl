@@ -19,7 +19,7 @@ public partial class GeometryEditor : UserControl
     {
         InitializeComponent();
         ExpandTransitionHelper.Attach(expandToggle, content);
-        FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
+        FallbackObjectViewHelper.Attach(this, view => ownProperties.Children.Add(view));
 
         EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)expandToggle.ContextFlyout!);
 

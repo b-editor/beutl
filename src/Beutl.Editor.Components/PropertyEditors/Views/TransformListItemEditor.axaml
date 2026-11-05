@@ -15,8 +15,7 @@
                                x:CompileBindings="False"
                                mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
-        <Grid Margin="8,0,0,0"
-              ColumnDefinitions="*,Auto,Auto"
+        <Grid ColumnDefinitions="*,Auto,Auto"
               IsVisible="{Binding !IsPresenter.Value}">
             <ToggleButton x:Name="reorderHandle"
                           Content="{Binding TransformName.Value}"
@@ -48,7 +47,7 @@
         </Grid>
 
         <pe:ReferenceEditor x:Name="presenterEditor"
-                            Margin="8,0,0,0"
+                            Margin="4,0,0,0"
                             EditorStyle="ListItem"
                             IsVisible="{Binding IsPresenter.Value}"
                             SelectTargetRequested="SelectTarget_Requested"
@@ -76,11 +75,15 @@
         <Panel x:Name="content"
                Grid.Row="1"
                IsVisible="{Binding !IsPresenter.Value}">
-            <local:PropertiesEditor Margin="16,0,0,0"
+            <controls:TreeLineDecorator IsVisible="{Binding !IsFallback.Value}" Theme="{StaticResource ListItemTreeLine}" />
+
+            <local:PropertiesEditor Margin="{StaticResource ListItemContentMargin}"
                                     Padding="0"
                                     DataContext="{Binding Properties.Value}" />
 
-            <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
+            <ItemsControl Margin="{StaticResource ListItemContentMargin}"
+                          DataContext="{Binding Group.Value}"
+                          ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <local:ListItemEditor />
