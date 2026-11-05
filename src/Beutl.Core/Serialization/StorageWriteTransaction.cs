@@ -44,8 +44,8 @@ internal sealed class StorageWriteTransaction : IDisposable
     // the second one unrestored. Gates are restored after every other entry, so journal a gate before any other
     // write that can reach the same file.
     private readonly Dictionary<string, FileEntry> _files = new(StringComparer.Ordinal);
-    // The temporary files a running batch has written, with their destinations and what those held.
-    private List<(string Temporary, string Destination, byte[]? PreviousBytes)>? _batch;
+    // The temporary files a running batch has written, with what their destinations held, by destination.
+    private Dictionary<string, (string Temporary, byte[]? PreviousBytes)>? _batch;
     private State _state;
 
     private StorageWriteTransaction()
@@ -133,7 +133,7 @@ internal sealed class StorageWriteTransaction : IDisposable
     /// </remarks>
     internal void WriteInBatch(Action writes)
     {
-        var batch = new List<(string Temporary, string Destination, byte[]? PreviousBytes)>();
+        var batch = new Dictionary<string, (string Temporary, byte[]? PreviousBytes)>(StringComparer.Ordinal);
         lock (_sync)
         {
             ThrowIfCompleted();
@@ -160,7 +160,7 @@ internal sealed class StorageWriteTransaction : IDisposable
             }
 
             FlushDeviceCaches(batch);
-            foreach ((string temporary, string destination, byte[]? previousBytes) in batch)
+            foreach ((string destination, (string temporary, byte[]? previousBytes)) in batch)
             {
                 InjectFault(StorageWriteStep.Replace, destination);
                 MoveIntoPlaceCore(temporary, destination, overwrite: true, isCompatibilityGate: false, previousBytes);
@@ -168,7 +168,7 @@ internal sealed class StorageWriteTransaction : IDisposable
         }
         catch
         {
-            foreach ((string temporary, _, _) in batch)
+            foreach ((string temporary, _) in batch.Values)
             {
                 TryDeleteTemporaryFile(temporary);
             }
@@ -181,10 +181,27 @@ internal sealed class StorageWriteTransaction : IDisposable
     internal void AddToBatch(string temporaryPath, string destinationPath)
     {
         byte[]? previousBytes = File.Exists(destinationPath) ? File.ReadAllBytes(destinationPath) : null;
+        string? earlier = null;
         lock (_sync)
         {
-            _batch!.Add((temporaryPath, destinationPath, previousBytes));
+            if (_batch!.TryGetValue(destinationPath, out var entry)) earlier = entry.Temporary;
+            _batch[destinationPath] = (temporaryPath, previousBytes);
         }
+
+        if (earlier is not null) TryDeleteTemporaryFile(earlier);
+    }
+
+    // Takes back what this batch wrote for a file, which is written again, or now holds what it should already.
+    internal void RemoveFromBatch(string destinationPath)
+    {
+        string temporary;
+        lock (_sync)
+        {
+            if (!_batch!.Remove(destinationPath, out var earlier)) return;
+            temporary = earlier.Temporary;
+        }
+
+        TryDeleteTemporaryFile(temporary);
     }
 
     internal static void FlushAheadOfBatch(FileStream stream)
@@ -202,7 +219,7 @@ internal sealed class StorageWriteTransaction : IDisposable
         stream.Flush(flushToDisk: true);
     }
 
-    private static void FlushDeviceCaches(List<(string Temporary, string Destination, byte[]? PreviousBytes)> batch)
+    private static void FlushDeviceCaches(Dictionary<string, (string Temporary, byte[]? PreviousBytes)> batch)
     {
         if (!OperatingSystem.IsMacOS())
         {
@@ -211,7 +228,7 @@ internal sealed class StorageWriteTransaction : IDisposable
 
         // One per folder rather than per device, which .NET does not tell: a batch rarely spans more than one.
         var folders = new HashSet<string?>(StringComparer.Ordinal);
-        foreach ((string temporary, _, _) in batch)
+        foreach ((string temporary, _) in batch.Values)
         {
             if (folders.Add(Path.GetDirectoryName(temporary)))
             {

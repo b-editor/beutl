@@ -214,6 +214,9 @@ public static partial class CoreSerializer
         Uri uri,
         string? authorizedRootPath)
     {
+        // What a batch has queued for the file is no longer what the object holds.
+        StorageWriteTransaction.CurrentBatch?.RemoveFromBatch(uri.LocalPath);
+
         if (uri == suppressed.SourceUri)
         {
             // An undone repair (WasReinstated) writes the retained bytes back, so the next open sees what the undo
@@ -278,6 +281,9 @@ public static partial class CoreSerializer
             write(writer);
             writer.Flush();
         }
+
+        // What decides is the file as it is now, not one a batch has yet to move into place.
+        StorageWriteTransaction.CurrentBatch?.RemoveFromBatch(path);
 
         ReadOnlyMemory<byte> content = buffer.GetBuffer().AsMemory(0, checked((int)buffer.Length));
         try
