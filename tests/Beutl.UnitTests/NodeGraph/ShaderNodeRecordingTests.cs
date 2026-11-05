@@ -620,6 +620,35 @@ public class ShaderNodeRecordingTests
         Assert.That(pass.Error.Value, Does.Contain(((long)count * 6).ToString()));
     }
 
+    [Test]
+    public void ImageParametersKeepTheirMeaningThroughALoop()
+    {
+        const string code = """
+            #version 450
+            layout(location = 0) out vec4 color;
+            layout(set = 0, binding = 0) uniform sampler2D source;
+            layout(set = 0, binding = 1) uniform Frame { vec4 logical; vec4 raster; vec4 size; } frame;
+            void main() { color = texture(source, frame.raster.xy); }
+            """;
+        var (graph, output) = NewGraph();
+        var repeat = graph.Add(new ShaderRepeatNode());
+        repeat.Count.Property!.SetValue(2);
+        GraphGroup body = repeat.Group.Value;
+        var parameters = body.Add(new ShaderImageParametersNode());
+        Assert.That(body.Output.Value!.AddNodePort(parameters.Output, out _), Is.True);
+        IOutputPort[] outputs = [.. repeat.Items.OfType<IOutputPort>()];
+        Assert.That(outputs, Has.Length.EqualTo(2));
+        var after = graph.Add(new ShaderFullscreenPassNode { Code = { Value = code } });
+        graph.Connect(after.In("source"), outputs[0]);
+        graph.Connect(after.In("frame"), outputs[1]);
+        graph.Connect(output.InputPort, after.Out("color"));
+
+        ShaderNodeTestHelpers.Record(graph);
+
+        Assert.That(after.Error.Value, Is.Null);
+        Assert.That(repeat.Error.Value, Is.Null);
+    }
+
     [TestCase(1e-12d)]
     [TestCase(double.Epsilon)]
     public void AStepTooLongForTheClockReportsOnTheReplay(double stepsPerSecond)

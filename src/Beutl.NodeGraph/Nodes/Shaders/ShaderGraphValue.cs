@@ -32,7 +32,9 @@ public class ShaderGraphValue<T> : IShaderGraphValue, IPictureWire
 
     internal T Evaluate(ShaderGraphRecordingContext context) => _record(context);
 
-    void IShaderGraphValue.Record(ShaderGraphRecordingContext context) => context.Evaluate(this);
+    void IShaderGraphValue.Record(ShaderGraphRecordingContext context) => Record(context);
+
+    private protected virtual void Record(ShaderGraphRecordingContext context) => context.Evaluate(this);
 
     IShaderGraphValue IShaderGraphValue.After(IReadOnlyList<IShaderGraphValue> prerequisites) => After(prerequisites);
 
@@ -81,6 +83,12 @@ public sealed class ShaderImageParametersValue(ShaderGraphValue<ShaderImage> ima
     : ShaderGraphValue<ShaderBuffer>(_ => throw new InvalidOperationException(NodeGraphStrings.ShaderError_ImageParametersNeedUniformBlock))
 {
     public ShaderGraphValue<ShaderImage> Image { get; } = image;
+
+    // It holds no buffer of its own to record; what a read depends on is its image.
+    private protected override void Record(ShaderGraphRecordingContext context) => context.Evaluate(Image);
+
+    private protected override ShaderGraphValue<ShaderBuffer> After(IReadOnlyList<IShaderGraphValue> prerequisites)
+        => new ShaderImageParametersValue((ShaderGraphValue<ShaderImage>)((IShaderGraphValue)Image).After(prerequisites));
 }
 
 /// <summary>One recording of the wires reaching a picture.</summary>
