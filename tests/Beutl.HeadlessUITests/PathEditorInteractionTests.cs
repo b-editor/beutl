@@ -1921,7 +1921,7 @@ public class PathEditorInteractionTests
             Has.All.Matches<BtlPoint>(handle => MathF.Abs(handle.X - 200) < 0.01f && MathF.Abs(handle.Y - 150) < 0.01f));
     }
 
-    private sealed class Fixture : IDisposable
+    internal sealed class Fixture : IDisposable
     {
         public required EditViewModel Editor { get; init; }
         public required PathEditorTabViewModel Model { get; init; }

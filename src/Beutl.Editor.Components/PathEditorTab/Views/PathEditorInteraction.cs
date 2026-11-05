@@ -8,6 +8,7 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using Beutl.Composition;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.Services;
 using Beutl.Editor.Components.Views;
 using Beutl.Editor.Services;
@@ -26,6 +27,7 @@ internal sealed partial class PathEditorInteraction
 {
     private readonly IPathEditorView _view;
     private readonly Control _host;
+    private readonly SpacePanKey _space;
     private readonly Canvas _canvas;
     private readonly Action<Vector>? _pan;
     private readonly Action<double, Point>? _zoom;
@@ -41,7 +43,6 @@ internal sealed partial class PathEditorInteraction
     private Point _start;
     private Point _last;
     private bool _panning;
-    private bool _space;
     private bool _adding;
     private HashSet<Thumb> _selectionBefore = [];
     private List<PathPointDragState>? _nudges;
@@ -64,6 +65,7 @@ internal sealed partial class PathEditorInteraction
     {
         _view = view;
         _host = (Control)view;
+        _space = new SpacePanKey(_host);
         _canvas = canvas;
         _pan = pan;
         _zoom = zoom;
@@ -156,7 +158,7 @@ internal sealed partial class PathEditorInteraction
         }
     }
 
-    public bool CanDragPoint(Thumb thumb) => !_space && _pointer == null
+    public bool CanDragPoint(Thumb thumb) => !_space.IsPressed && _pointer == null
         && (Tool == PathEditorTool.Move || Tool == PathEditorTool.Bend && thumb.Classes.Contains("control"));
 
     private void AddToolbar(Panel? toolbarHost)
@@ -245,7 +247,7 @@ internal sealed partial class PathEditorInteraction
         if (!properties.IsLeftButtonPressed && !properties.IsMiddleButtonPressed) return;
         _host.Focus();
         Point point = e.GetPosition(_canvas);
-        bool pan = properties.IsMiddleButtonPressed || _space || Tool == PathEditorTool.Hand;
+        bool pan = properties.IsMiddleButtonPressed || _space.IsPressed || Tool == PathEditorTool.Hand;
         if (pan)
         {
             if (_pan == null) return;
@@ -430,7 +432,7 @@ internal sealed partial class PathEditorInteraction
         _view.Refresh();
     }
 
-    private void UpdateCursor() => _canvas.Cursor = new Cursor(_space || Tool == PathEditorTool.Hand
+    private void UpdateCursor() => _canvas.Cursor = new Cursor(_space.IsPressed || Tool == PathEditorTool.Hand
         ? StandardCursorType.Hand : Tool is PathEditorTool.Pen or PathEditorTool.Bend ? StandardCursorType.Cross : StandardCursorType.Arrow);
 
     private void Reset()
@@ -438,7 +440,7 @@ internal sealed partial class PathEditorInteraction
         FinishGesture();
         CommitNudge();
         CommitSelectionPosition();
-        _space = false;
+        _space.Reset();
         Tool = PathEditorTool.Move;
     }
 
