@@ -187,6 +187,10 @@ public class UpdateDialogViewModel
             if (await CreateInstallerStartInfoAsync(metadata, relaunch: false) is not { } startInfo)
                 return false;
 
+            // The update can be canceled while the script is written, and Cancel had nothing to clear yet.
+            if (_cts.IsCancellationRequested)
+                return false;
+
             if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
                 { MainWindow.DataContext: MainViewModel main })
             {

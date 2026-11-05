@@ -74,7 +74,7 @@ internal sealed class AppUpdateController
                 MessageStrings.UpdateAction_UpdateOnQuit,
                 MessageStrings.UpdateWillInstallOnQuit);
         }
-        else
+        else if (!viewModel.CancellationToken.IsCancellationRequested)
         {
             NotificationService.ShowError(MessageStrings.UpdateFailed_Title, viewModel.ProgressText.Value);
         }
