@@ -100,6 +100,14 @@
     <value>使用自定义强调色</value>
     <comment />
   </data>
+  <data name="UseNativeContextMenus" xml:space="preserve">
+    <value>使用原生上下文菜单</value>
+    <comment />
+  </data>
+  <data name="UseNativeContextMenus_Description" xml:space="preserve">
+    <value>以 macOS 标准菜单显示右键菜单。</value>
+    <comment />
+  </data>
   <data name="Telemetry_Beutl_Application" xml:space="preserve">
     <value>应用程序</value>
     <comment />
