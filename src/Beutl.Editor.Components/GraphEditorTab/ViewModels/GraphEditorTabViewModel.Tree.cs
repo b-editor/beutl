@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
@@ -18,6 +19,8 @@ namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 public sealed partial class GraphEditorTabViewModel
 {
     private readonly Dictionary<string, GraphEditorTreeItemViewModel> _treeCache = [];
+    private readonly HashSet<PropertyPair> _observedPairs = [];
+    private readonly CompositeDisposable _pairDisposables = [];
     private bool _synchronizingTree;
     private bool _refreshPending;
 
@@ -41,7 +44,9 @@ public sealed partial class GraphEditorTabViewModel
     {
         if (_synchronizingTree) return;
         _synchronizingTree = true;
-        string? selectedKey = SelectedTreeItem.Value?.Key;
+        // The tree view clears its selection as soon as the selected row leaves it.
+        GraphEditorTreeItemViewModel? previous = SelectedTreeItem.Value;
+        string? selectedKey = previous?.Key;
         var used = new HashSet<string>();
         var ancestors = new HashSet<object>(ReferenceEqualityComparer.Instance);
         try
@@ -78,7 +83,15 @@ public sealed partial class GraphEditorTabViewModel
                 }
             }
 
-            SelectedTreeItem.Value = selectedKey != null && used.Contains(selectedKey) ? _treeCache[selectedKey] : null;
+            ObservePairs(used);
+
+            GraphEditorTreeItemViewModel? selected = selectedKey != null && used.Contains(selectedKey) ? _treeCache[selectedKey] : null;
+            // The rows below two properties change when the two join or part, and the selection stays with the two.
+            if (selected == null && previous?.Parent is { Adapter: PropertyPair } pairRow && used.Contains(pairRow.Key))
+                selected = pairRow;
+            if (selected is { Adapter: PropertyPair, HasSeparatedComponents.Value: true })
+                selected = selected.Children.FirstOrDefault(child => child.Animation != null) ?? selected;
+            SelectedTreeItem.Value = selected;
             foreach (string key in _treeCache.Keys.Where(x => !used.Contains(x)).ToArray())
             {
                 _treeCache[key].Dispose();
@@ -91,6 +104,23 @@ public sealed partial class GraphEditorTabViewModel
         }
         SelectTreeItem(SelectedTreeItem.Value);
         UpdateKeyFrameStates();
+    }
+
+    // A pair says when it changes, which can be after the edit that a refresh follows. Only the pairs in the tree are
+    // listened to, because this holds on to them and to the objects they belong to.
+    private void ObservePairs(HashSet<string> used)
+    {
+        HashSet<PropertyPair> pairs = [.. used.Select(key => _treeCache[key].Adapter).OfType<PropertyPair>()];
+        if (_observedPairs.SetEquals(pairs)) return;
+
+        _pairDisposables.Clear();
+        _observedPairs.Clear();
+        _observedPairs.UnionWith(pairs);
+        foreach (PropertyPair pair in pairs)
+        {
+            pair.IsSeparated.Skip(1).Subscribe(_ => ScheduleRefresh()).DisposeWith(_pairDisposables);
+            pair.ObserveAnimation.Skip(1).Subscribe(_ => ScheduleRefresh()).DisposeWith(_pairDisposables);
+        }
     }
 
     private GraphEditorTreeItemViewModel GetTreeItem(string key, string name, GraphEditorTreeItemViewModel? parent, HashSet<string> used)
@@ -152,6 +182,18 @@ public sealed partial class GraphEditorTabViewModel
                 AppendValue(list.Value, parent, path, children, used, ancestors);
                 continue;
             }
+            if (PropertyPair.Find(property) is { } pair)
+            {
+                // The row of the first property stands for both.
+                if (!ReferenceEquals(property, pair.Properties[0])) continue;
+
+                var pairItem = GetTreeItem(path, pair.DisplayName, parent, used);
+                pairItem.Adapter = pair;
+                UpdatePropertyItem(pairItem, !pair.IsReadOnly, used, ancestors);
+                children.Add(pairItem);
+                continue;
+            }
+
             var item = GetTreeItem(path, Property.GetLocalizedName(property), parent, used);
             item.Property = property;
             UpdatePropertyItem(item, property is IExpressionProperty { IsAnimatable: true }, used, ancestors);
@@ -174,16 +216,21 @@ public sealed partial class GraphEditorTabViewModel
     private void UpdatePropertyItem(GraphEditorTreeItemViewModel item, bool canAnimate, HashSet<string> used, HashSet<object> ancestors)
     {
         var engineProperty = item.Property ?? item.Adapter?.GetEngineProperty();
-        var componentAnimation = engineProperty?.GetPropertyAnimation() as IComponentAnimation;
-        item.CanSeparateComponents.Value = canAnimate && ComponentSeparation.CanSeparate(engineProperty);
-        item.HasSeparatedComponents.Value = componentAnimation != null;
-        if (componentAnimation != null)
+        var pair = item.Adapter as PropertyPair;
+        IReadOnlyList<IProperty>? separated = pair != null
+            ? pair.IsSeparated.Value ? pair.Properties : null
+            : (engineProperty?.GetPropertyAnimation() as IComponentAnimation)?.Components;
+        item.CanSeparateComponents.Value = pair != null
+            ? canAnimate && pair.CanStandForBoth.Value
+            : canAnimate && ComponentSeparation.CanSeparate(engineProperty);
+        item.HasSeparatedComponents.Value = separated != null;
+        if (separated != null)
         {
             item.CanAnimate.Value = false;
             item.CanRemoveAnimation.Value = false;
-            item.HasAnimation.Value = true;
+            item.HasAnimation.Value = pair == null || pair.Adapters.Any(adapter => adapter.Animation != null);
             var components = new List<GraphEditorTreeItemViewModel>();
-            foreach (var property in componentAnimation.Components)
+            foreach (var property in separated)
             {
                 var child = GetTreeItem($"{item.Key}/component:{property.Name}", Property.GetLocalizedName(property), item, used);
                 child.Property = property;
@@ -277,15 +324,29 @@ public sealed partial class GraphEditorTabViewModel
     public void ToggleComponentSeparation(GraphEditorTreeItemViewModel item)
     {
         if (!item.CanSeparateComponents.Value || Element.Value == null || !ElementEditability.IsEditable(Element.Value)
-            || !_treeCache.TryGetValue(item.Key, out var current) || current != item
-            || (item.Property ?? item.Adapter?.GetEngineProperty()) is not { } property) return;
+            || !_treeCache.TryGetValue(item.Key, out var current) || current != item) return;
 
-        bool separated = property.GetPropertyAnimation() is IComponentAnimation;
-        _editorContext.GetRequiredService<HistoryManager>().ExecuteInTransaction(() =>
+        bool separated;
+        if (item.Adapter is PropertyPair pair)
         {
-            if (separated) ComponentAnimations.Unseparate(property, _clock.CurrentTime.Value);
-            else ComponentAnimations.Separate(property);
-        }, separated ? Strings.UnseparateComponents : Strings.SeparateComponents);
+            // Only the view changes: the properties were separate all along.
+            separated = pair.IsSeparated.Value;
+            pair.SetKeepsSeparated(!separated);
+        }
+        else if ((item.Property ?? item.Adapter?.GetEngineProperty()) is { } property)
+        {
+            separated = property.GetPropertyAnimation() is IComponentAnimation;
+            _editorContext.GetRequiredService<HistoryManager>().ExecuteInTransaction(() =>
+            {
+                if (separated) ComponentAnimations.Unseparate(property, _clock.CurrentTime.Value);
+                else ComponentAnimations.Separate(property);
+            }, separated ? Strings.UnseparateComponents : Strings.SeparateComponents);
+        }
+        else
+        {
+            return;
+        }
+
         Refresh();
         ExpandAncestors(item);
         if (!separated) item.IsExpanded.Value = true;

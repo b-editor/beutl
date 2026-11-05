@@ -53,7 +53,7 @@ public class ListItemExpansionTests
         var effects = new FilterEffectGroup { Children = { blur, shadow } };
         var transforms = new TransformGroup
         {
-            Children = { new TranslateTransform(24, 12), new ScaleTransform(120, 80) }
+            Children = { new ScaleTransform(120, 80), new TranslateTransform(24, 12) }
         };
         var card = new RoundedRectShape
         {
@@ -147,7 +147,7 @@ public class ListItemExpansionTests
             {
                 var numbers = view.GetVisualDescendants().OfType<NumberEditor<float>>()
                     .Where(editor => editor.IsEffectivelyVisible).ToArray();
-                Assert.That(numbers.Length, Is.GreaterThanOrEqualTo(4));
+                Assert.That(numbers.Length, Is.GreaterThanOrEqualTo(3));
                 Assert.That(numbers.Any(editor => editor.GetVisualAncestors().Contains(transformRows[0])), Is.True);
                 foreach (var editor in numbers)
                 {

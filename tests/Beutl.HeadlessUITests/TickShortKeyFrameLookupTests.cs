@@ -46,9 +46,7 @@ public sealed class TickShortKeyFrameLookupTests
         using var tab = new ElementPropertyTabViewModel(editor);
         tab.Element.Value = element;
         HeadlessTestHelpers.Settle();
-        NumberEditorViewModel<float> width = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
-            .OfType<NumberEditorViewModel<float>>()
-            .Single(x => ReferenceEquals(x.PropertyAdapter.GetEngineProperty(), shape.Width));
+        NumberEditorViewModel<float> width = PropertyEditorTestHost.FindNumberEditor(tab.Items[0].Properties, shape.Width);
 
         ((IEditorClock)editor.GetService(typeof(IEditorClock))!).Seek(MediaTime.FromFrames(1, rate));
         HeadlessTestHelpers.Settle();

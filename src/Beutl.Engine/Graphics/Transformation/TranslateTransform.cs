@@ -32,6 +32,7 @@ public sealed partial class TranslateTransform : Transform
     }
 
     [Display(Name = nameof(GraphicsStrings.TranslateTransform_X), ResourceType = typeof(GraphicsStrings))]
+    [CombinedEditor(nameof(Y), Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> X { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.TranslateTransform_Y), ResourceType = typeof(GraphicsStrings))]

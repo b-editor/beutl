@@ -13,6 +13,7 @@ public sealed partial class Dilate : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Dilate_RadiusX), ResourceType = typeof(GraphicsStrings))]
+    [CombinedEditor(nameof(RadiusY), Name = nameof(GraphicsStrings.Radius), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> RadiusX { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Dilate_RadiusY), ResourceType = typeof(GraphicsStrings))]

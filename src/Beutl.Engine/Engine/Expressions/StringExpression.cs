@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using Beutl.Scripting;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -14,6 +15,7 @@ namespace Beutl.Engine.Expressions;
 public sealed class StringExpression<T> : IReplacingExpression<T>
 {
     private static readonly ScriptOptions s_scriptOptions = CreateScriptOptions();
+    private static readonly CSharpParseOptions s_parseOptions = new(LanguageVersion.Latest, kind: SourceCodeKind.Script);
 
     private readonly Lazy<ParseResult> _parseResult;
 
@@ -65,6 +67,20 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
         return result.ParseError == null;
     }
 
+    // The script with a member taken from what it returns, which can come after statements.
+    internal string WithMemberOfResult(string member)
+    {
+        var root = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(ExpressionString, s_parseOptions).GetRoot();
+        var script = new StringBuilder(ExpressionString);
+        foreach (ExpressionSyntax result in GetResults(root).OrderByDescending(result => result.SpanStart))
+        {
+            script.Insert(result.Span.End, $").{member}");
+            script.Insert(result.SpanStart, '(');
+        }
+
+        return script.ToString();
+    }
+
     private ParseResult Parse()
     {
         try
@@ -100,37 +116,42 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
 
         foreach (SyntaxTree tree in compilation.SyntaxTrees)
         {
-            var root = (CompilationUnitSyntax)tree.GetRoot();
             SemanticModel model = compilation.GetSemanticModel(tree);
-            foreach (GlobalStatementSyntax global in root.Members.OfType<GlobalStatementSyntax>())
+            foreach (ExpressionSyntax result in GetResults((CompilationUnitSyntax)tree.GetRoot()))
             {
-                // Returns inside lambdas or local functions do not return from the script.
-                var results = global.Statement.DescendantNodesAndSelf(node =>
-                        node is not AnonymousFunctionExpressionSyntax and not LocalFunctionStatementSyntax)
-                    .OfType<ReturnStatementSyntax>()
-                    .Select(statement => statement.Expression)
-                    .OfType<ExpressionSyntax>();
-                if (global == root.Members.LastOrDefault()
-                    && global.Statement is ExpressionStatementSyntax { SemicolonToken.IsMissing: true } final)
-                {
-                    results = results.Append(final.Expression);
-                }
+                // ConvertResult accepts null as default(T), regardless of its declared type.
+                if (model.GetConstantValue(result) is { HasValue: true, Value: null }) continue;
 
-                foreach (ExpressionSyntax result in results)
+                ITypeSymbol? sourceType = model.GetTypeInfo(result).Type;
+                if (sourceType != null && !CanConvertResultType(compilation, sourceType, targetType))
                 {
-                    // ConvertResult accepts null as default(T), regardless of its declared type.
-                    if (model.GetConstantValue(result) is { HasValue: true, Value: null }) continue;
-
-                    ITypeSymbol? sourceType = model.GetTypeInfo(result).Type;
-                    if (sourceType != null && !CanConvertResultType(compilation, sourceType, targetType))
-                    {
-                        return $"The expression returns {sourceType.ToDisplayString()}, but this property needs {targetType.ToDisplayString()}.";
-                    }
+                    return $"The expression returns {sourceType.ToDisplayString()}, but this property needs {targetType.ToDisplayString()}.";
                 }
             }
         }
 
         return null;
+    }
+
+    private static IEnumerable<ExpressionSyntax> GetResults(CompilationUnitSyntax root)
+    {
+        foreach (GlobalStatementSyntax global in root.Members.OfType<GlobalStatementSyntax>())
+        {
+            // Returns inside lambdas or local functions do not return from the script.
+            var results = global.Statement.DescendantNodesAndSelf(node =>
+                    node is not AnonymousFunctionExpressionSyntax and not LocalFunctionStatementSyntax)
+                .OfType<ReturnStatementSyntax>()
+                .Select(statement => statement.Expression)
+                .OfType<ExpressionSyntax>();
+            foreach (ExpressionSyntax result in results)
+                yield return result;
+
+            if (global == root.Members.LastOrDefault()
+                && global.Statement is ExpressionStatementSyntax { SemicolonToken.IsMissing: true } final)
+            {
+                yield return final.Expression;
+            }
+        }
     }
 
     private static bool CanConvertResultType(CSharpCompilation compilation, ITypeSymbol source, ITypeSymbol target)

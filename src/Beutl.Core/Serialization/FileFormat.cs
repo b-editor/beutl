@@ -32,9 +32,11 @@ public static class FileFormat
     /// <remarks>
     /// Raise it only for a breaking change, in the pull request that adds that change's migration. A
     /// breaking change changes the meaning of an existing member, changes the structure of persisted
-    /// data, or writes a type or member under a new name. New members and new types do not raise it.
+    /// data, or writes a type or member under a new name. New members and new types do not raise it,
+    /// except a new type of expression: an older build has nothing to keep one in, so it drops the
+    /// expression when it saves.
     /// </remarks>
-    public const string Floor = "2.0.0-preview.10";
+    public const string Floor = "2.0.0-preview.11";
 
     internal const string AppVersionKey = "appVersion";
 

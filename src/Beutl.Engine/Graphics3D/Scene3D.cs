@@ -64,6 +64,7 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scene3D_RenderWidth), ResourceType = typeof(GraphicsStrings))]
     [Range(1f, 8192f)]
+    [CombinedEditor(nameof(RenderHeight), Name = nameof(GraphicsStrings.Scene3D_RenderSize), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> RenderWidth { get; } = Property.CreateAnimatable(1920f);
 
     /// <summary>

@@ -630,6 +630,9 @@
   <data name="ParticleEmitter_EmitterWidth" xml:space="preserve">
     <value>Emitter Width</value>
   </data>
+  <data name="ParticleEmitter_EmitterSize" xml:space="preserve">
+    <value>Emitter Size</value>
+  </data>
   <data name="ParticleEmitter_EndColor" xml:space="preserve">
     <value>End Color</value>
   </data>
@@ -752,6 +755,9 @@
   </data>
   <data name="ScaleTransform_ScaleY" xml:space="preserve">
     <value>Scale Y</value>
+  </data>
+  <data name="ScaleTransform_ScaleXY" xml:space="preserve">
+    <value>Scale XY</value>
   </data>
   <data name="ShakeEffect" xml:space="preserve">
     <value>Shake</value>
@@ -981,6 +987,9 @@
   <data name="DrawableTextureSource_TextureWidth" xml:space="preserve">
     <value>Texture Width</value>
   </data>
+  <data name="DrawableTextureSource_TextureSize" xml:space="preserve">
+    <value>Texture Size</value>
+  </data>
   <data name="EllipseGeometry" xml:space="preserve">
     <value>Ellipse</value>
   </data>
@@ -1167,6 +1176,9 @@
   <data name="PerlinNoiseBrush_BaseFrequencyY" xml:space="preserve">
     <value>Base Frequency Y</value>
   </data>
+  <data name="PerlinNoiseBrush_BaseFrequency" xml:space="preserve">
+    <value>Base Frequency</value>
+  </data>
   <data name="PerlinNoiseBrush_Octaves" xml:space="preserve">
     <value>Octaves</value>
   </data>
@@ -1265,6 +1277,9 @@
   </data>
   <data name="Scene3D_RenderWidth" xml:space="preserve">
     <value>Render Width</value>
+  </data>
+  <data name="Scene3D_RenderSize" xml:space="preserve">
+    <value>Render Size</value>
   </data>
   <data name="SolidColorBrush" xml:space="preserve">
     <value>Solid</value>
@@ -1397,6 +1412,9 @@
   </data>
   <data name="CenterY" xml:space="preserve">
     <value>Center Y</value>
+  </data>
+  <data name="Center" xml:space="preserve">
+    <value>Center</value>
   </data>
   <data name="Color" xml:space="preserve">
     <value>Color</value>

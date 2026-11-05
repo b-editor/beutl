@@ -17,6 +17,13 @@ public class ExpressionEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     public static readonly StyledProperty<string?> ErrorMessageProperty =
         AvaloniaProperty.Register<ExpressionEditorFlyoutPresenter, string?>(nameof(ErrorMessage));
 
+    public static readonly StyledProperty<string?> ExpressionHintProperty =
+        AvaloniaProperty.Register<ExpressionEditorFlyoutPresenter, string?>(nameof(ExpressionHint));
+
+    public static readonly StyledProperty<string> ExpressionPlaceholderProperty =
+        AvaloniaProperty.Register<ExpressionEditorFlyoutPresenter, string>(
+            nameof(ExpressionPlaceholder), "Sin(Time * 2 * PI) * 100");
+
     private readonly CompositeDisposable _disposables = [];
     private const string HasErrorPseudoClass = ":has-error";
     private const string HelpTabPseudoClass = ":help-tab";
@@ -34,6 +41,18 @@ public class ExpressionEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         get => GetValue(ErrorMessageProperty);
         set => SetValue(ErrorMessageProperty, value);
+    }
+
+    public string? ExpressionHint
+    {
+        get => GetValue(ExpressionHintProperty);
+        set => SetValue(ExpressionHintProperty, value);
+    }
+
+    public string ExpressionPlaceholder
+    {
+        get => GetValue(ExpressionPlaceholderProperty);
+        set => SetValue(ExpressionPlaceholderProperty, value);
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)

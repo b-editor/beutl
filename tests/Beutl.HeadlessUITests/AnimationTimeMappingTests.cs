@@ -112,6 +112,27 @@ public class AnimationTimeMappingTests
     }
 
     [AvaloniaTest]
+    public async Task The_indicator_goes_with_the_animation()
+    {
+        await TestReset.ResetShellAsync();
+        using var graph = await GraphScope.CreateAsync();
+        var editor = (EditViewModel)graph.Model.EditorContext;
+        Element element = graph.Model.Element!;
+        var shape = element.Objects.OfType<RectShape>().Single();
+        var adapter = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Width, shape);
+        var clock = (IEditorClock)editor.GetService(typeof(IEditorClock))!;
+        using var property = new NumberEditorViewModel<float>(adapter);
+        property.Accept(new PropertyEditorTestHost.ServiceVisitor(
+            (typeof(Element), element), (typeof(Scene), editor.Scene), (typeof(IEditorClock), clock)));
+        clock.Seek(MediaTime.FromSeconds(0.5));
+        Assert.That(property.IsAtKeyFrame.Value, Is.True);
+
+        shape.Width.SetKeyFrameAnimation(null);
+
+        Assert.That(property.IsAtKeyFrame.Value, Is.False);
+    }
+
+    [AvaloniaTest]
     public async Task The_indicator_tracks_clock_mode_and_owner_moves_without_seeking()
     {
         await TestReset.ResetShellAsync();

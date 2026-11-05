@@ -21,6 +21,7 @@ public sealed partial class PlaneMesh : Mesh
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
+    [CombinedEditor(nameof(Height), Name = nameof(Strings.Size), ResourceType = typeof(Strings))]
     public IExpressionProperty<float> Width { get; } = Property.CreateAnimatable(1000f);
 
     /// <summary>

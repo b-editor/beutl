@@ -407,6 +407,50 @@ public class NestedNodePortTests
     }
 
     [AvaloniaTest]
+    public async Task PropertiesThatShareARowInThePanelKeepARowAndAPortEachInANode()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
+        var translate = new TranslateTransform(1, 2);
+        var node = new FactoryNode<TransformGroup>();
+        node.Object.Value.Children.Add(translate);
+        var graph = new GraphModel();
+        graph.Nodes.Add(node);
+        using var vm = new NodeGraphViewModel(graph, editor);
+        var list = (ListEditorViewModel<Transform?>)vm.Nodes.Single().Items
+            .Single(p => p.Model!.Name.Value == "Children").PropertyEditorContext!;
+        Guid rootId = node.Items.Single(p => p.Name.Value == "Children").Id.Value;
+        var view = new NodeGraphView { DataContext = vm };
+        var window = new Window { Content = view, Width = 640, Height = 1000 };
+        try
+        {
+            window.Show();
+            list.IsExpanded.Value = true;
+            await FinishTransition();
+            var item = (TransformEditorViewModel)list.Items.Single().Context!;
+            item.IsExpanded.Value = true;
+            await FinishTransition();
+
+            Assert.That(item.Properties.Value!.Properties.Single(), Is.TypeOf<CombinedEditorViewModel<float>>());
+            Assert.That(view.GetVisualDescendants().OfType<Vector2Editor<float>>().Count(e => e.IsEffectivelyVisible), Is.Zero);
+            foreach (IProperty property in new IProperty[] { translate.X, translate.Y })
+            {
+                NodePortView row = view.GetVisualDescendants().OfType<NodePortView>()
+                    .Single(row => row.ProvidedEditor?.DataContext is PropertyEditorViewModel context
+                                   && ReferenceEquals(context.PropertyAdapter.GetEngineProperty(), property));
+                Assert.That(row.IsEffectivelyVisible, Is.True);
+                var port = (INestedInputPort)((InputPortViewModel)row.DataContext!).Model!;
+                Assert.That(port.RootMember.Id, Is.EqualTo(rootId));
+                Assert.That(port.PropertyPath, Is.EqualTo(new[] { "i:" + translate.Id.Value, "p:" + property.Name }));
+            }
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public void BulkPortUpdatesPreserveExistingViewModelsAndPublishOneCollectionChange()
     {
         var graph = new GraphModel();

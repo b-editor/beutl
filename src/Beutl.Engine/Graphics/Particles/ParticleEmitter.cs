@@ -27,6 +27,7 @@ public partial class ParticleEmitter : Drawable
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_EmitterWidth), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_EmitterGroup))]
     [Range(0, float.MaxValue)]
+    [CombinedEditor(nameof(EmitterHeight), Name = nameof(GraphicsStrings.ParticleEmitter_EmitterSize), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> EmitterWidth { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_EmitterHeight), ResourceType = typeof(GraphicsStrings),

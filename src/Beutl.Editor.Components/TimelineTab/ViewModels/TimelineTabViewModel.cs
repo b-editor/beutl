@@ -3,6 +3,7 @@ using Avalonia;
 using Beutl.Collections.Pooled;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Logging;
@@ -24,6 +25,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
     private readonly Subject<System.Reactive.Unit> _canExecuteChangedSubject = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
+    private readonly Dictionary<PropertyPair, IDisposable> _inlinePairs = [];
     private readonly IEditorSelection _selection;
     private readonly IEditorClock _editorClock;
     private bool _isDisposed;
@@ -409,6 +411,13 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             item.Dispose();
         }
 
+        foreach (IDisposable item in _inlinePairs.Values)
+        {
+            item.Dispose();
+        }
+
+        _inlinePairs.Clear();
+
         // A copy, since disposing a tracker runs its Deinitialize, which removes it from _trackerCache.
         foreach (TrackedLayerTopObservable? item in _trackerCache.Values.ToArray())
         {
@@ -519,6 +528,24 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     {
         _logger.LogInformation("Attaching inline animation for element {ElementId} and property {Property}.",
             element.Id.Value, property);
+        if (PropertyPair.Find(property) is { } pair)
+        {
+            // One layer while the two stand as one, and a layer for each otherwise.
+            if (pair.IsSeparated.Value && ReferenceEquals(property, pair))
+            {
+                foreach (IAnimatablePropertyAdapter adapter in pair.Adapters.Where(adapter => adapter.Animation != null))
+                    AttachInline(adapter, element);
+                return;
+            }
+
+            if (!pair.IsSeparated.Value)
+                property = pair;
+            if (!_inlinePairs.ContainsKey(pair))
+            {
+                _inlinePairs[pair] = pair.IsSeparated.Skip(1).Subscribe(_ => ReplaceInlines(pair, element));
+            }
+        }
+
         if (Inlines.Any(x => x.Element.Model == element && x.Property == property))
         {
             _logger.LogWarning("Inline animation already attached for element {ElementId}.", element.Id.Value);
@@ -535,7 +562,33 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         _logger.LogInformation("Inline animation attached successfully for element {ElementId}.", element.Id.Value);
     }
 
+    private void ReplaceInlines(PropertyPair pair, Element element)
+    {
+        InlineAnimationLayerViewModel[] layers = [.. Inlines.Where(x => x.Element.Model == element && pair.Contains(x.Property))];
+        if (layers.Length == 0)
+        {
+            if (_inlinePairs.Remove(pair, out IDisposable? subscription))
+                subscription.Dispose();
+            return;
+        }
+
+        foreach (InlineAnimationLayerViewModel layer in layers)
+            RemoveInline(layer);
+        AttachInline(pair, element);
+    }
+
     public void DetachInline(InlineAnimationLayerViewModel item)
+    {
+        RemoveInline(item);
+        // This holds on to the two and to the object they belong to, which nothing shows any more.
+        if (PropertyPair.Find(item.Property) is { } pair && !Inlines.Any(x => pair.Contains(x.Property))
+            && _inlinePairs.Remove(pair, out IDisposable? subscription))
+        {
+            subscription.Dispose();
+        }
+    }
+
+    private void RemoveInline(InlineAnimationLayerViewModel item)
     {
         _logger.LogInformation("Detaching inline animation for element {ElementId}.", item.Element.Model.Id.Value);
         if (item.LayerHeader.Value is { } layerHeader)

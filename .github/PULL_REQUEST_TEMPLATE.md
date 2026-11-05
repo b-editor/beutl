@@ -38,7 +38,8 @@
      or write a type or member under a new name? Then older versions would misread what this build
      saves: raise `FileFormat.Floor` (`src/Beutl.Core/Serialization/FileFormat.cs`) in this PR,
      together with the migration that reads the old form, and give the new value here.
-     New members and new types do not raise it. Write "No" otherwise. -->
+     New members and new types do not raise it, except a new type of expression, which older
+     versions drop when they save. Write "No" otherwise. -->
 
 ## Test plan
 <!-- - Unit/integration tests added or updated (path + brief intent)

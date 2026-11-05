@@ -3,14 +3,12 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
-using Beutl.Animation;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.PropertyEditors;
-using Beutl.PropertyAdapters;
 using RelativeUnit = Beutl.Graphics.RelativeUnit;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
@@ -32,25 +30,25 @@ internal sealed class ComponentEditors : StackPanel, IDisposable
         _combined = combined;
         _hasMenu = combined is PropertyEditor { MenuContent: not null };
         Children.Add(combined);
-        _subscription = owner.SeparatedComponents.Subscribe(Rebuild);
+        _subscription = owner.SeparatedProperties.Subscribe(Rebuild);
     }
 
-    private void Rebuild(IComponentAnimation? animation)
+    private void Rebuild(IReadOnlyList<IPropertyAdapter>? properties)
     {
-        _combined.IsVisible = animation == null;
-        if (animation == null && _chrome == null) return;
+        _combined.IsVisible = properties == null;
+        if (properties == null && _chrome == null) return;
 
         SeparatedChrome chrome = EnsureSeparatedChrome();
-        chrome.Header.IsVisible = animation != null;
-        chrome.Tree.IsVisible = animation != null;
+        chrome.Header.IsVisible = properties != null && _owner.ShowsSeparatedHeader;
+        chrome.Tree.IsVisible = properties != null;
+        chrome.Tree.IndentLevel = _owner.ShowsSeparatedHeader ? 1 : 0;
         chrome.Components.Children.Clear();
         foreach (var context in _contexts) context.Dispose();
         _contexts.Clear();
-        if (animation is not CoreObject obj) return;
+        if (properties == null) return;
         if (chrome.UnitEditor != null) chrome.Components.Children.Add(chrome.UnitEditor);
-        foreach (IProperty property in animation.Components)
+        foreach (IPropertyAdapter adapter in properties)
         {
-            var adapter = PropertyAdapterFactory.CreateAdapter(property, obj);
             var context = PropertyEditorResolver.CreateContext(adapter, [PropertyEditorExtension.Instance], PropertyEditorSurface.Panel);
             if (context == null) continue;
             _contexts.Add(context);
@@ -58,7 +56,10 @@ internal sealed class ComponentEditors : StackPanel, IDisposable
             if (PropertyEditorHost.TryCreateControl(context, PropertyEditorSurface.Panel, out Control? control))
             {
                 control.DataContext = context;
-                chrome.Components.Children.Add(control);
+                chrome.Components.Children.Add(
+                    (context as IServiceProvider)?.GetService(typeof(IPropertyEditorControlHost)) is IPropertyEditorControlHost host
+                        ? host.WrapEditor(context, control)
+                        : control);
             }
         }
     }

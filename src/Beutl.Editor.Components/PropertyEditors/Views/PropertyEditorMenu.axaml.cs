@@ -10,6 +10,7 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
+using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
@@ -41,41 +42,61 @@ public sealed partial class PropertyEditorMenu : UserControl
     {
         base.OnDataContextChanged(e);
         toggleLivePreview.IsVisible = DataContext is IConfigureLivePreview;
+        FillCopySubItem(copyPropertyPathSubItem, CopyPropertyPath_Click);
+        FillCopySubItem(copyGetPropertyCodeSubItem, CopyGetPropertyCode_Click);
 
         _componentSubscription?.Dispose();
         _componentSubscription = null;
         if (DataContext is PropertyEditorViewModel model)
         {
-            _componentSubscription = model.SeparatedComponents.CombineLatest(model.HasExpression)
-                .Subscribe(state => UpdateActionVisibility(model, state.First));
+            _componentSubscription = model.SeparatedProperties.CombineLatest(model.HasExpression)
+                .Subscribe(state => UpdateActionVisibility(model, state.First != null));
             model.Own(_componentSubscription);
         }
         else
         {
-            UpdateActionVisibility(null, null);
+            UpdateActionVisibility(null, false);
         }
-
-        bool isEngineProperty = (DataContext as PropertyEditorViewModel)?.PropertyAdapter.GetEngineProperty() != null;
-        copyPropertyPathSeparator.IsVisible = isEngineProperty;
-        copyPropertyPathItem.IsVisible = isEngineProperty;
-        copyGetPropertyCodeItem.IsVisible = isEngineProperty;
     }
 
-    private void UpdateActionVisibility(PropertyEditorViewModel? model, IComponentAnimation? components)
+    // A path names one property, so a row that properties share asks which one. Each has a row of its own once separated.
+    private void FillCopySubItem(FAMenuFlyoutSubItem subItem, EventHandler<RoutedEventArgs> click)
     {
-        bool supportsAnimation = model?.PropertyAdapter is IAnimatablePropertyAdapter && components == null;
+        subItem.Items.Clear();
+        if (DataContext is PropertyEditorViewModel { EditedProperties: { Count: > 1 } properties })
+        {
+            foreach (IPropertyAdapter property in properties)
+            {
+                var item = new FAMenuFlyoutItem { Text = property.DisplayName, Tag = property };
+                item.Click += click;
+                subItem.Items.Add(item);
+            }
+        }
+    }
+
+    private void UpdateActionVisibility(PropertyEditorViewModel? model, bool separated)
+    {
+        bool supportsAnimation = model?.PropertyAdapter is IAnimatablePropertyAdapter && !separated;
         editAnimationItem.IsVisible = supportsAnimation;
         editInlineAnimationItem.IsVisible = supportsAnimation;
         removeAnimationItem.IsVisible = supportsAnimation;
-        separateComponentsItem.IsVisible = model?.CanSeparateComponents == true && components == null;
-        unseparateComponentsItem.IsVisible = components != null;
-        uniformEditorToggle.IsVisible = model is IConfigureUniformEditor && components == null;
+        separateComponentsItem.IsVisible = model?.CanSeparateComponents == true && !separated;
+        unseparateComponentsItem.IsVisible = separated;
+        uniformEditorToggle.IsVisible = model is IConfigureUniformEditor && !separated;
 
-        bool supportsExpression = model != null && SupportsTextExpression(model);
+        bool supportsExpression = model != null && !separated && SupportsTextExpression(model);
         editExpressionItem.IsVisible = supportsExpression;
         // Separation keeps an existing aggregate expression; let users remove it without discarding the tracks.
-        removeExpressionItem.IsVisible = supportsExpression || components != null && model?.HasExpression.Value == true;
+        removeExpressionItem.IsVisible = supportsExpression || separated && model?.HasExpression.Value == true;
         expressionSeparator.IsVisible = editExpressionItem.IsVisible || removeExpressionItem.IsVisible;
+
+        bool isEngineProperty = model?.PropertyAdapter.GetEngineProperty() != null;
+        bool asksWhichProperty = model?.EditedProperties.Count > 1 && !separated;
+        copyPropertyPathItem.IsVisible = isEngineProperty;
+        copyGetPropertyCodeItem.IsVisible = isEngineProperty;
+        copyPropertyPathSubItem.IsVisible = asksWhichProperty;
+        copyGetPropertyCodeSubItem.IsVisible = asksWhichProperty;
+        copyPropertyPathSeparator.IsVisible = isEngineProperty || asksWhichProperty;
     }
 
     private void SeparateComponents_Click(object? sender, RoutedEventArgs e)
@@ -171,9 +192,10 @@ public sealed partial class PropertyEditorMenu : UserControl
             viewModel.PrepareToEditAnimation();
 
             if (animatableProperty.Animation is IKeyFrameAnimation
+                && viewModel.InlineProperty is { } inlineProperty
                 && FindOrOpenTimeline(editorContext) is { } timeline)
             {
-                timeline.AttachInline(animatableProperty, element);
+                timeline.AttachInline(inlineProperty, element);
             }
         }
     }
@@ -206,7 +228,12 @@ public sealed partial class PropertyEditorMenu : UserControl
             var flyout = new ExpressionEditorFlyout();
             flyout.Placement = PlacementMode.BottomEdgeAlignedRight;
             flyout.ExpressionText = currentExpression ?? "";
-            flyout.ErrorMessage = (viewModel.PropertyAdapter.GetEngineProperty() as IExpressionProperty)?.ExpressionError;
+            flyout.ErrorMessage = viewModel.ExpressionError;
+            if (viewModel.ExpressionExample is { } example)
+            {
+                flyout.ExpressionHint = string.Format(Strings.Expression_ReturnsBothValues, example);
+                flyout.ExpressionPlaceholder = example;
+            }
             flyout.Confirmed += (_, args) =>
             {
                 bool isValid = viewModel.SetExpression(args.ExpressionText, out var error);
@@ -235,7 +262,7 @@ public sealed partial class PropertyEditorMenu : UserControl
     private async void CopyPropertyPath_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is PropertyEditorViewModel { IsDisposed: false } viewModel
-            && viewModel.PropertyAdapter.GetEngineProperty() is { } engineProperty
+            && PropertyToCopy(sender, viewModel).GetEngineProperty() is { } engineProperty
             && engineProperty.GetOwnerObject() is { } engineObject
             && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
         {
@@ -247,7 +274,7 @@ public sealed partial class PropertyEditorMenu : UserControl
     private async void CopyGetPropertyCode_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is PropertyEditorViewModel { IsDisposed: false } viewModel
-            && viewModel.PropertyAdapter.GetEngineProperty() is { } engineProperty
+            && PropertyToCopy(sender, viewModel).GetEngineProperty() is { } engineProperty
             && engineProperty.GetOwnerObject() is { } engineObject
             && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
         {
@@ -256,6 +283,9 @@ public sealed partial class PropertyEditorMenu : UserControl
             await clipboard.SetTextAsync(code);
         }
     }
+
+    private static IPropertyAdapter PropertyToCopy(object? sender, PropertyEditorViewModel viewModel)
+        => (sender as Control)?.Tag as IPropertyAdapter ?? viewModel.PropertyAdapter;
 
     // The type as C# code names it without usings: keywords, "Outer.Inner" for a nested type and the type
     // arguments in angle brackets, where Type.FullName gives "Outer+Inner" and "List`1[[...]]".
