@@ -154,16 +154,39 @@ public sealed class ShaderGraphContractTests
         void main() { color = data.value; }
         """));
 
+    /// <summary>Runs a graph into a target of what <paramref name="region"/> needs, and gives the pixels where a complete output has them.</summary>
     internal static (float[] Pixels, ShaderGraphExecutionStatistics Statistics) Execute(ShaderGraphDescription graph,
+        Rect sourceBounds, float scale = 1, Rect? region = null, Vector4? sourceColor = null,
+        ProgramCache<ShaderGraphPipeline>? cache = null, Func<int, int, Vector4>? sourcePixel = null,
+        ShaderGraphImagePool? images = null)
+    {
+        (float[] target, ShaderGraphExecutionStatistics statistics) = ExecuteIntoTarget(graph, sourceBounds, scale, region, sourceColor,
+            cache, sourcePixel, images);
+        if (region is not { } part)
+            return (target, statistics);
+        Rect outputBounds = graph.TransformBounds(sourceBounds);
+        PixelRect outputPixels = PixelRect.FromRect(outputBounds, scale);
+        PixelRect targetPixels = PixelRect.FromRect(part.Intersect(outputBounds), scale);
+        var pixels = new float[outputPixels.Width * outputPixels.Height * 4];
+        for (int y = 0; y < targetPixels.Height; y++)
+            Array.Copy(target, y * targetPixels.Width * 4, pixels,
+                ((y + targetPixels.Y - outputPixels.Y) * outputPixels.Width + targetPixels.X - outputPixels.X) * 4, targetPixels.Width * 4);
+        return (pixels, statistics);
+    }
+
+    /// <summary>Runs a graph into a target of what <paramref name="region"/> needs, and gives that target's pixels.</summary>
+    internal static (float[] Pixels, ShaderGraphExecutionStatistics Statistics) ExecuteIntoTarget(ShaderGraphDescription graph,
         Rect sourceBounds, float scale = 1, Rect? region = null, Vector4? sourceColor = null,
         ProgramCache<ShaderGraphPipeline>? cache = null, Func<int, int, Vector4>? sourcePixel = null,
         ShaderGraphImagePool? images = null)
     {
         var context = GpuTestEnvironment.ResolveVulkan(GraphicsContextFactory.SharedContext!);
         PixelRect sourcePixels = PixelRect.FromRect(sourceBounds, scale);
-        PixelRect outputPixels = PixelRect.FromRect(graph.TransformBounds(sourceBounds), scale);
+        Rect outputBounds = graph.TransformBounds(sourceBounds);
+        Rect? required = region?.Intersect(outputBounds);
+        PixelRect targetPixels = PixelRect.FromRect(required ?? outputBounds, scale);
         using ITexture2D source = context.CreateTexture2D(sourcePixels.Width, sourcePixels.Height, TextureFormat.RGBA16Float);
-        using ITexture2D output = context.CreateTexture2D(outputPixels.Width, outputPixels.Height, TextureFormat.RGBA16Float);
+        using ITexture2D output = context.CreateTexture2D(targetPixels.Width, targetPixels.Height, TextureFormat.RGBA16Float);
         var data = new Half[sourcePixels.Width * sourcePixels.Height * 4];
         for (int y = 0; y < sourcePixels.Height; y++)
             for (int x = 0; x < sourcePixels.Width; x++)
@@ -181,7 +204,7 @@ public sealed class ShaderGraphContractTests
             new(sourcePixels.X / scale, sourcePixels.Y / scale, sourcePixels.Width / scale, sourcePixels.Height / scale),
             sourcePixels.Size, scale);
         ShaderGraphExecutionStatistics statistics = ShaderGraphExecutor.Execute(graph, source, frame, output, scale, default,
-            (device, pass, identity) => ShaderGraphPipeline.Acquire(programs, new(context, context, "test", "test"), device, pass, identity), region,
+            (device, pass, identity) => ShaderGraphPipeline.Acquire(programs, new(context, context, "test", "test"), device, pass, identity), required,
             images);
         float[] pixels = MemoryMarshal.Cast<byte, Half>(output.DownloadPixels()).ToArray().Select(v => (float)v).ToArray();
         return (pixels, statistics);

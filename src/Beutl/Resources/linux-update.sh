@@ -7,7 +7,7 @@
 # 2. ロックディレクトリを作成し排他制御
 # 3. 現行アプリのバックアップ作成＆更新ファイルの配置
 # 4. ロック解除
-# 5. アプリケーション再起動の確認後、起動
+# 5. アプリケーションを起動
 #
 # ※ 本スクリプトでは、ダイアログ表示の代わりにターミナル上で入力を求める方式を採用しています。
 
@@ -127,18 +127,11 @@ echo "@(MessageStrings.UpdateCompleted)"
 release_lock
 echo "@(MessageStrings.LockReleased)"
 
-# アプリケーション起動の確認
-read -r -p "@(MessageStrings.UpdateCompletedLaunchPrompt)" USER_RESPONSE
-if [ "$USER_RESPONSE" = "y" ] || [ "$USER_RESPONSE" = "Y" ]; then
+# An executable path means the user chose to restart, so it starts without asking again.
+if [ -n "$EXECUTABLE_PATH" ]; then
     echo "@(MessageStrings.LaunchingApplication)"
-    if [ -n "$EXECUTABLE_PATH" ]; then
-        chmod +x "$EXECUTABLE_PATH" || { echo "@(MessageStrings.FailedToChangePermissions)"; exit 1; }
-        "$EXECUTABLE_PATH" &
-    else
-        echo "@(MessageStrings.ApplicationPathNotSpecified)"
-    fi
-else
-    echo "@(MessageStrings.ApplicationNotLaunched)"
+    chmod +x "$EXECUTABLE_PATH" || { echo "@(MessageStrings.FailedToChangePermissions)"; exit 1; }
+    "$EXECUTABLE_PATH" &
 fi
 
 exit 0

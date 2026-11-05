@@ -74,6 +74,85 @@ public class UpdateShutdownTests
     }
 
     [AvaloniaTest]
+    public async Task Quitting_starts_a_scheduled_update_once_after_pending_edits_are_saved()
+    {
+        var (main, scene) = await CreateShellAsync();
+        Uri uri = scene.Uri!;
+        scene.Duration.Value = MediaTime.FromSeconds(73);
+        int launches = 0;
+        MediaTime savedAtLaunch = default;
+        try
+        {
+            main.SetUpdateOnQuit(() =>
+            {
+                launches++;
+                savedAtLaunch = CoreSerializer.RestoreFromUri<Scene>(uri).Duration.Value;
+            });
+
+            Assert.That(await main.TryDisposeForWindowCloseAsync(), Is.True);
+            await main.WaitForDisposalAsync();
+
+            Assert.That(launches, Is.EqualTo(1));
+            Assert.That(savedAtLaunch, Is.EqualTo(MediaTime.FromSeconds(73)));
+        }
+        finally { await DisposeShellAsync(main); }
+    }
+
+    [AvaloniaTest]
+    public async Task A_failed_save_keeps_the_scheduled_update_for_the_next_attempt_to_quit()
+    {
+        var (main, scene) = await CreateShellAsync();
+        scene.Duration.Value = MediaTime.FromSeconds(73);
+        int launches = 0;
+        try
+        {
+            main.SetUpdateOnQuit(() => launches++);
+            using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+                   {
+                       if (step == StorageWriteStep.Replace && path == scene.Uri!.LocalPath)
+                           throw new IOException("save failed");
+                   }))
+            {
+                Assert.That(await main.TryDisposeForWindowCloseAsync(), Is.False);
+            }
+
+            Assert.That(launches, Is.Zero);
+            Assert.That(await main.TryDisposeForWindowCloseAsync(), Is.True);
+            Assert.That(launches, Is.EqualTo(1));
+        }
+        finally { await DisposeShellAsync(main); }
+    }
+
+    [AvaloniaTest]
+    public async Task A_scheduled_update_that_cannot_start_does_not_stop_Beutl_quitting()
+    {
+        var (main, _) = await CreateShellAsync();
+        try
+        {
+            main.SetUpdateOnQuit(() => throw new IOException("could not start installer"));
+
+            Assert.That(await main.TryDisposeForWindowCloseAsync(), Is.True);
+        }
+        finally { await DisposeShellAsync(main); }
+    }
+
+    [AvaloniaTest]
+    public async Task A_canceled_update_does_not_start_when_quitting()
+    {
+        var (main, _) = await CreateShellAsync();
+        bool launched = false;
+        try
+        {
+            main.SetUpdateOnQuit(() => launched = true);
+            main.SetUpdateOnQuit(null);
+
+            Assert.That(await main.TryDisposeForWindowCloseAsync(), Is.True);
+            Assert.That(launched, Is.False);
+        }
+        finally { await DisposeShellAsync(main); }
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public async Task A_failed_installer_launch_leaves_shell_services_usable(bool throws)

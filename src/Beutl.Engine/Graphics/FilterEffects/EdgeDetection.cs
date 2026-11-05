@@ -78,6 +78,7 @@ public sealed partial class EdgeDetection : FilterEffect
                         pass.PushConstants(new CompositeValues(values.Line, (float)values.Original));
                         pass.InputRegion(0, ShaderInputRegion.Identity);
                         pass.InputRegion(1, ShaderInputRegion.Identity);
+                        pass.PartialImages();
                         pass.ColorAttachment(0, output);
                     });
                     return graph.Output(output);

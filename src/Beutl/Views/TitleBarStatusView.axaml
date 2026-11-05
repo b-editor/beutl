@@ -5,6 +5,7 @@
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels"
              d:DesignHeight="32"
              d:DesignWidth="32"
@@ -124,7 +125,7 @@
                             <TextBlock Classes="header" Text="{x:Static lang:StatusStrings.BackgroundTasks}" />
                             <Grid Classes="rows"
                                   ColumnSpacing="12"
-                                  RowDefinitions="Auto,Auto,Auto"
+                                  RowDefinitions="Auto,Auto,Auto,Auto"
                                   RowSpacing="4">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
@@ -162,6 +163,19 @@
                                                      Click="OnOpenAiJobsClick"
                                                      Content="{x:Static lang:StatusStrings.OpenAiJobs}" />
                                 </WrapPanel>
+                                <TextBlock Grid.Row="3"
+                                           Classes="label"
+                                           IsVisible="{Binding AppUpdate.Value.IsActive}"
+                                           Text="{x:Static lang:Strings.Update}" />
+                                <StackPanel Grid.Row="3"
+                                            Grid.Column="1"
+                                            IsVisible="{Binding AppUpdate.Value.IsActive}"
+                                            Spacing="2">
+                                    <TextBlock Text="{Binding AppUpdate.Value.Text}" TextWrapping="Wrap" />
+                                    <HyperlinkButton Padding="0"
+                                                     Click="OnOpenAppUpdateClick"
+                                                     Content="{x:Static lang:MessageStrings.UpdateAction_ShowProgress}" />
+                                </StackPanel>
                             </Grid>
                         </StackPanel>
 
@@ -202,15 +216,17 @@
                               VerticalAlignment="Center"
                               Icon="Pulse"
                               IsVisible="{Binding !IsBusy.Value}" />
-            <ProgressRing Width="20"
-                          Height="20"
-                          MinWidth="0"
-                          MinHeight="0"
-                          HorizontalAlignment="Center"
-                          VerticalAlignment="Center"
-                          BorderThickness="4"
-                          IsIndeterminate="{Binding IsBusy.Value}"
-                          IsVisible="{Binding IsBusy.Value}" />
+            <ui:FAProgressRing Width="18"
+                               Height="18"
+                               MinWidth="0"
+                               MinHeight="0"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               IsIndeterminate="{Binding IsRingIndeterminate.Value}"
+                               IsVisible="{Binding IsBusy.Value}"
+                               Maximum="1"
+                               Minimum="0"
+                               Value="{Binding RingValue.Value}" />
         </Panel>
     </Button>
 </UserControl>

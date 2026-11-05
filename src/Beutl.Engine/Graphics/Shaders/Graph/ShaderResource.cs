@@ -134,6 +134,7 @@ public sealed class ShaderImage : ShaderResource
     /// <summary>Whether a render supplies this image, so it has the source's position and no pass may write it.</summary>
     internal bool IsInput => Id == 0 || ExternalIndex >= 0;
     internal bool IsAttachment => Kind == ImageKind.Image2D && MipLevels == 1;
+    internal bool IsPlanar => IsAttachment && !IsView;
     internal IEnumerable<(int Image, int Mip, int Layer, int Aspect)> Subresources
     {
         get

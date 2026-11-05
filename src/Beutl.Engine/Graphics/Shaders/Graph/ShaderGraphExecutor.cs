@@ -121,6 +121,7 @@ internal static class ShaderGraphExecutor
             [new(0, selected, DescriptorType.CombinedImageSampler, ResourceAccess.Read, SamplerState.LinearClamp, false)],
             [new(0, s_result, AttachmentLoadOp.Clear)], mapping, BlendState.Replace, (3, 1, 1), false);
 
+    /// <param name="requiredOutput">The part of the output <paramref name="output"/> covers, or null for all of it.</param>
     /// <param name="retainedImages">Where the execution takes images from and returns them to, so later executions
     /// skip the allocation; without it the execution disposes its images.</param>
     /// <param name="externalImages">The pictures the graph declared besides the source, in that order.</param>
@@ -190,7 +191,7 @@ internal static class ShaderGraphExecutor
             // The boundary conversion is also preflighted, before any authored pass executes.
             ShaderImage selected = graph.Output.RenderingImage;
             Rect selectedRaster = frames[selected.Id].RasterBounds;
-            Rect outputBounds = graph.TransformBounds(sourceFrame.Bounds, sourceFrame.ReferenceBounds);
+            Rect outputBounds = requiredOutput ?? graph.TransformBounds(sourceFrame.Bounds, sourceFrame.ReferenceBounds);
             PixelRect outputPixels = PixelRect.FromRect(outputBounds.Translate(gridOffset), scale);
             Vector4[] mapping =
             [

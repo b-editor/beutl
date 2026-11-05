@@ -67,12 +67,14 @@ public sealed partial class WaveRefraction : FilterEffect
                 {
                     ShaderImage field = graph.Image2D("wave-field", graph.Source, TextureFormat.RG32Float, padding: values.X);
                     ShaderImage output = graph.Image2D("output", field);
+                    // Reading the field a texel at a time takes the same pixels on both.
+                    output.RasterSource = field;
                     graph.Fullscreen("wave-field", s_field, pass =>
                     {
                         pass.ImageParameters(0, graph.Source);
                         pass.ImageParameters(1, field);
                         pass.PushConstants(values);
-                        pass.PartialRendering();
+                        pass.PartialImages();
                         pass.ColorAttachment(0, field);
                     });
                     graph.Fullscreen("refract", s_refract, pass =>
@@ -84,6 +86,7 @@ public sealed partial class WaveRefraction : FilterEffect
                         pass.PushConstants(values);
                         pass.InputRegion(0, new(Matrix.Identity, values.X));
                         pass.InputRegion(1, new(Matrix.Identity));
+                        pass.PartialImages();
                         pass.ColorAttachment(0, output);
                     });
                     return graph.Output(output);

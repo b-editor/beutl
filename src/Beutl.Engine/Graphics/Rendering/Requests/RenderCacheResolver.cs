@@ -350,7 +350,8 @@ internal sealed partial class RenderCacheResolver
 
         float density = ResolveMaterializationDensity(
             reference,
-            materializationDemands);
+            materializationDemands,
+            regions);
         if (transformDependentReferences.Contains(reference)
             || (deviceGridAffectedReferences.Contains(reference)
                 && DeviceGridAlignment.NormalizePhase(context.DeviceGridOffset, density) != default))
@@ -408,7 +409,7 @@ internal sealed partial class RenderCacheResolver
                 regions,
                 inputMetadata,
                 inputRequirement,
-                RenderMaterializationDensityPolicy.Clamp(input, density),
+                RenderMaterializationDensityPolicy.Clamp(input, density, regions),
                 out result);
         }
 
@@ -446,7 +447,8 @@ internal sealed partial class RenderCacheResolver
 
     private static float ResolveMaterializationDensity(
         RenderFragmentReference reference,
-        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands)
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
+        RegionAnalysis regions)
     {
         if (!materializationDemands.TryGetValue(reference, out EffectiveScale demand))
         {
@@ -455,7 +457,7 @@ internal sealed partial class RenderCacheResolver
         }
 
         float density = demand.Value;
-        return RenderMaterializationDensityPolicy.Clamp(reference, density);
+        return RenderMaterializationDensityPolicy.Clamp(reference, density, regions);
     }
 
     private static bool ContainsRawTargetWork(RenderFragmentReference reference)

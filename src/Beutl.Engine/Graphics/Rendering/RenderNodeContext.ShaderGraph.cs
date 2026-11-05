@@ -33,8 +33,8 @@ public sealed partial class RenderNodeContext
         foreach (RenderFragmentReference external in externals)
             EnsureValueInput(external, nameof(externalImages));
         Rect bounds = description.TransformBounds(reference.Bounds);
-        EffectiveScale scale = ResolveMaterializingScale(reference, bounds, workingScalePolicy);
-        scale = EffectiveScale.At(description.ClampWorkingScale(reference.Bounds, scale.Value, default));
+        EffectiveScale scale = ShaderGraphRenderFragmentPayload.ResolvePlannedScale(
+            description, workingScalePolicy, [reference], OutputScale, MaxWorkingScale);
         return transaction.CreateFragment(RenderFragmentKind.ShaderGraph, bounds, scale,
             reference.ValueCardinality, reference.ContributesValuesToTarget, canBeUsedAsValueInput: true,
             reference.HasTargetEffects || externals.Any(static external => external.HasTargetEffects),
