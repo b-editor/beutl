@@ -99,11 +99,11 @@ public sealed class KeyMapFlyout : FAPickerFlyoutBase
         pfp.Content = grid;
 
         pfp.Focusable = true;
-        // A chord comes first, before the read-only box above can take it. Other keys come last, since Enter and Space
-        // on the flyout's buttons act on the button.
+        // Tunnels, so a key arrives before the read-only box above can take it. Enter and Space on the flyout's
+        // buttons act on the button, and are not what is being assigned.
         pfp.AddHandler(InputElement.KeyDownEvent, (_, e) =>
         {
-            if (e.Route == RoutingStrategies.Tunnel && !KeyMapSettingsPage.IsChord(e))
+            if (e is { Key: Key.Enter or Key.Space, Source: Button } && !KeyMapSettingsPage.IsChord(e))
             {
                 return;
             }
@@ -122,7 +122,7 @@ public sealed class KeyMapFlyout : FAPickerFlyoutBase
                 Gesture = new KeyGesture(e.Key, e.KeyModifiers);
                 e.Handled = KeyMapSettingsPage.IsChord(e);
             }
-        }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
+        }, RoutingStrategies.Tunnel);
         pfp.MinWidth = 200;
         pfp.Confirmed += OnFlyoutConfirmed;
         pfp.Dismissed += (_, _) => Hide();

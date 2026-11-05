@@ -787,6 +787,11 @@ public sealed class StandardShortcutsTests
                 Assert.That(gestureBox.Text, Is.EqualTo(new KeyGesture(Key.A, KeyModifiers.Control).ToString()));
             });
 
+            // And one that it would take without a modifier.
+            gestureBox.RaiseEvent(KeyDown(gestureBox, Key.Home, KeyModifiers.None));
+            HeadlessTestHelpers.Settle();
+            Assert.That(gestureBox.Text, Is.EqualTo(new KeyGesture(Key.Home).ToString()));
+
             KeyEventArgs chord = KeyDown(presenter, Key.W, KeyModifiers.Meta);
             presenter.RaiseEvent(chord);
             KeyEventArgs plain = KeyDown(presenter, Key.F5, KeyModifiers.None);
