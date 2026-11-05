@@ -864,10 +864,10 @@
     <value>Alterna entre reproducir y pausar.</value>
   </data>
   <data name="MoveToNext" xml:space="preserve">
-    <value>Mover al siguiente</value>
+    <value>Mover al fotograma siguiente</value>
   </data>
   <data name="MoveToPrevious" xml:space="preserve">
-    <value>Mover al anterior</value>
+    <value>Mover al fotograma anterior</value>
   </data>
   <data name="MoveToNext_Description" xml:space="preserve">
     <value>Mover al siguiente fotograma.</value>
@@ -1419,6 +1419,9 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="RenderScale_FitToPreviewer" xml:space="preserve">
     <value>Ajustar al visor</value>
+  </data>
+  <data name="RenderScale_FitToPreviewer_Short" xml:space="preserve">
+    <value>Auto</value>
   </data>
   <data name="Terminal" xml:space="preserve">
     <value>Terminal</value>
@@ -3608,6 +3611,18 @@ cuando el registro del historial está activado.</value>
   </data>
   <data name="TogglePreviewGuides_Description" xml:space="preserve">
     <value>Muestra u oculta las áreas seguras y las guías de composición en la vista previa.</value>
+  </data>
+  <data name="PreviewZoom" xml:space="preserve">
+    <value>Zoom de la vista previa</value>
+  </data>
+  <data name="PreviewZoomIn" xml:space="preserve">
+    <value>Acercar la vista previa</value>
+  </data>
+  <data name="PreviewZoomOut" xml:space="preserve">
+    <value>Alejar la vista previa</value>
+  </data>
+  <data name="PreviewZoomFit" xml:space="preserve">
+    <value>Ajustar la vista previa</value>
   </data>
   <data name="PreviewGuide_TitleSafe" xml:space="preserve">
     <value>Área segura de títulos</value>

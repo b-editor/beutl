@@ -9,15 +9,19 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:models="using:Beutl.Models"
              xmlns:pathEditor="using:Beutl.Editor.Components.PathEditorTab.Views"
+             xmlns:scaleConverters="using:Beutl.Editor.Components.Converters"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:vm="using:Beutl.ViewModels"
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:CompileBindings="True"
              x:DataType="vm:PlayerViewModel"
              mc:Ignorable="d">
+    <!--  The dock leaves 2 px below the view, which makes the space under the buttons match the 3 px above them.  -->
     <Player x:Name="Player"
-            Margin="4"
+            Margin="4,4,4,1"
             CurrentTime="{Binding CurrentFrame.Value, Converter={x:Static converters:MediaTimeToTimeSpanConverter.Instance}, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
             EndButtonCommand="{Binding End}"
             IsPlaying="{Binding IsPlaying.Value, Mode=OneWay}"
@@ -25,10 +29,11 @@
             Maximum="{Binding Duration.Value, Converter={x:Static converters:MediaTimeToSecondsConverter.Instance}}"
             NextButtonCommand="{Binding Next}"
             PlayButtonCommand="{Binding PlayPause}"
+            PlaybackRateText="{Binding PlaybackRateText.Value}"
             PreviousButtonCommand="{Binding Previous}"
             StartButtonCommand="{Binding Start}"
             Value="{Binding CurrentFrame.Value, Converter={x:Static converters:MediaTimeToSecondsConverter.Instance}}"
-            Duration="{Binding Duration.Value, Converter={x:Static converters:MediaTimeToTimeSpanConverter.Instance}, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}">
+            Duration="{Binding EndTime.Value, Converter={x:Static converters:MediaTimeToTimeSpanConverter.Instance}, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}">
         <Player.InnerLeftContent>
             <StackPanel>
                 <StackPanel.Styles>
@@ -145,16 +150,94 @@
                         ToolTip.Tip="{x:Static lang:Strings.PreviewSettings}">
                     <icons:FluentIcon Icon="Settings" />
                 </Button>
+                <Border Margin="0,8,0,8"
+                        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                        BorderThickness="0,1,0,0" />
+                <ToggleButton Name="guidesToggle"
+                              Padding="5,6,5,6"
+                              usage:UsageTracking.Feature="Preview.ToggleGuides"
+                              IsChecked="{Binding IsPreviewGuideEnabled.Value}"
+                              Theme="{StaticResource TransparentToggleButton}"
+                              AutomationProperties.Name="{x:Static lang:Strings.PreviewGuides}"
+                              ToolTip.Tip="{x:Static lang:Strings.TogglePreviewGuides}">
+                    <icons:FluentIcon Icon="Table" />
+                </ToggleButton>
+                <ToggleButton Name="onionSkinToggle"
+                              Padding="5,6,5,6"
+                              usage:UsageTracking.Feature="Preview.ToggleOnionSkin"
+                              IsChecked="{Binding IsOnionSkinEnabled.Value}"
+                              Theme="{StaticResource TransparentToggleButton}"
+                              AutomationProperties.Name="{x:Static lang:Strings.OnionSkin}"
+                              ToolTip.Tip="{x:Static lang:Strings.ToggleOnionSkin}">
+                    <icons:FluentIcon Icon="Layer" />
+                </ToggleButton>
             </StackPanel>
         </Player.InnerRightContent>
+        <Player.FooterRightContent>
+            <!--  The boxes' height keeps the row as low as the buttons: their arrow asks for 32 px, and stays centered in less.
+                  The margin takes back most of the empty 17 px a box keeps right of its arrow.  -->
+            <StackPanel Margin="0,0,-12,0"
+                        Orientation="Horizontal"
+                        Spacing="4">
+                <ComboBox Name="zoomComboBox"
+                          Height="28"
+                          MinHeight="0"
+                          Padding="0,3"
+                          VerticalAlignment="Center"
+                          DropDownOpened="OnZoomDropDownOpened"
+                          PlaceholderForeground="{DynamicResource TextFillColorPrimaryBrush}"
+                          PlaceholderText="{Binding $parent[local:PlayerView].ZoomLabel}"
+                          SelectionChanged="OnZoomSelectionChanged"
+                          Theme="{StaticResource LiteComboBoxStyle}"
+                          AutomationProperties.Name="{x:Static lang:Strings.PreviewZoom}"
+                          ToolTip.Tip="{x:Static lang:Strings.PreviewZoom}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="local:PreviewZoomOption">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                                <TextBlock Text="{Binding Label}" />
+                                <TextBlock Grid.Column="1"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           Text="{Binding Shortcut}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                    <!--  The zoom in use, for the option that fits the frame as for the others.  -->
+                    <ComboBox.SelectionBoxItemTemplate>
+                        <DataTemplate x:DataType="local:PreviewZoomOption">
+                            <TextBlock Text="{Binding $parent[local:PlayerView].ZoomLabel}" />
+                        </DataTemplate>
+                    </ComboBox.SelectionBoxItemTemplate>
+                </ComboBox>
+                <ComboBox Name="resolutionComboBox"
+                          Height="28"
+                          MinHeight="0"
+                          Padding="0,3"
+                          VerticalAlignment="Center"
+                          ItemsSource="{Binding EditViewModel.PreviewScaleOptions}"
+                          SelectionChanged="OnResolutionSelectionChanged"
+                          Theme="{StaticResource LiteComboBoxStyle}"
+                          AutomationProperties.Name="{x:Static lang:Strings.PreviewRenderQuality}"
+                          ToolTip.Tip="{x:Static lang:Strings.PreviewRenderQuality}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:RenderScale">
+                            <TextBlock Text="{Binding Converter={x:Static scaleConverters:RenderScaleNameConverter.Instance}}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                    <ComboBox.SelectionBoxItemTemplate>
+                        <DataTemplate x:DataType="models:RenderScale">
+                            <TextBlock Text="{Binding Converter={x:Static local:PlayerView.ResolutionLabelConverter}}" />
+                        </DataTemplate>
+                    </ComboBox.SelectionBoxItemTemplate>
+                </ComboBox>
+            </StackPanel>
+        </Player.FooterRightContent>
         <Player.Content>
             <Grid>
                 <Panel Name="framePanel"
                        Margin="0"
                        Background="Transparent">
-                    <Border Name="imageBackground"
-                            Background="Black"
-                            ClipToBounds="True" />
+                    <!--  Its box shadow, which PlayerView sets, is the outline that shows where the frame ends against the panel.  -->
+                    <Border Name="imageBackground" Background="Black" />
 
                     <!-- BitmapView or HdrBitmapView is created dynamically in code-behind -->
 

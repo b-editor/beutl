@@ -58,6 +58,7 @@ public partial class PlayerView : UserControl
     {
         InitializeComponent();
 
+        zoomComboBox.ItemsSource = s_zoomOptions;
         SetupImageControl();
 
         ConfigureFrameContextMenu(framePanel);
@@ -72,6 +73,7 @@ public partial class PlayerView : UserControl
         framePanel.PointerMoved += OnFramePointerMoved;
         framePanel.PointerCaptureLost += OnFramePointerCaptureLost;
         framePanel.AddHandler(PointerWheelChangedEvent, OnFramePointerWheelChanged, RoutingStrategies.Tunnel);
+        framePanel.AddHandler(PointerTouchPadGestureMagnifyEvent, OnFrameMagnify);
 
         framePanel.Focusable = true;
         framePanel.KeyDown += OnFrameKeyDown;
@@ -85,6 +87,9 @@ public partial class PlayerView : UserControl
         framePanel.AddHandler(DragDrop.DropEvent, OnFrameDrop);
 
         Player.CurrentTimeSubmitted += OnPlayerCurrentTimeSubmitted;
+        Player.TemplateApplied += OnPlayerTemplateApplied;
+        ShowShortcutInToolTip(guidesToggle, "editor.togglePreviewGuides");
+        ShowShortcutInToolTip(onionSkinToggle, "editor.toggleOnionSkin");
     }
 
     private async void OnPlayerCurrentTimeSubmitted(object? sender, Beutl.Controls.TimecodeSubmittedEventArgs e)
@@ -190,6 +195,7 @@ public partial class PlayerView : UserControl
             topLevel.ScalingChanged += OnTopLevelScalingChanged;
         }
         UpdateMaxFrameSize();
+        UpdateZoomDisplay();
     }
 
     protected override async void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -218,6 +224,7 @@ public partial class PlayerView : UserControl
     private void OnTopLevelScalingChanged(object? sender, EventArgs e)
     {
         UpdateMaxFrameSize();
+        UpdateZoomDisplay();
     }
 
     private void UpdateMaxFrameSize()
@@ -249,6 +256,15 @@ public partial class PlayerView : UserControl
             vm.BeginEditTimecodeRequested
                 .ObserveOnUIDispatcher()
                 .Subscribe(_ => Player.BeginEditCurrentTime())
+                .DisposeWith(_disposables);
+
+            vm.PreviewZoomRequested
+                .Subscribe(action => OnPreviewZoomRequested(vm, action))
+                .DisposeWith(_disposables);
+
+            vm.EditViewModel.PreviewScale
+                .ObserveOnUIDispatcher()
+                .Subscribe(scale => resolutionComboBox.SelectedItem = scale)
                 .DisposeWith(_disposables);
 
             if (vm.Scene is { } scene)
@@ -297,6 +313,8 @@ public partial class PlayerView : UserControl
                 framePanel.RenderTransformOrigin = Avalonia.RelativePoint.TopLeft;
                 framePanel.RenderTransform = new ImmutableTransform(matrix.ToAvaMatrix());
                 guideOverlay.Zoom = matrix.M11;
+                UpdateFrameOutline(matrix.M11);
+                UpdateZoomDisplay();
                 if (DataContext is PlayerViewModel { Scene: { } } vm)
                 {
                     if (ViewportTransform is not { } viewport) return;

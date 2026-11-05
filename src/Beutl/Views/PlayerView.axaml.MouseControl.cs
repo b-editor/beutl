@@ -183,11 +183,15 @@ public partial class PlayerView
     private void ZoomFrameAtPointer(PointerWheelEventArgs e, PlayerViewModel viewModel)
     {
         const float ZoomSpeed = 1.2f;
-        AvaPoint pos = e.GetPosition(framePanel);
-        float x = (float)pos.X, y = (float)pos.Y;
-        float ratio = MathF.Pow(ZoomSpeed, (float)e.Delta.Y);
-        var zoom = new Matrix(ratio, 0, 0, ratio, x - ratio * x, y - ratio * y);
-        viewModel.FrameMatrix.Value = zoom * viewModel.FrameMatrix.Value;
+        ZoomFrameAt(viewModel, MathF.Pow(ZoomSpeed, (float)e.Delta.Y), e.GetPosition(framePanel));
+        e.Handled = true;
+    }
+
+    private static void PanFrameByWheel(PointerWheelEventArgs e, PlayerViewModel viewModel)
+    {
+        AvaPoint delta = e.KeyModifiers.HasFlag(KeyModifiers.Shift)
+            ? new AvaPoint(e.Delta.Y, e.Delta.X) : new AvaPoint(e.Delta.X, e.Delta.Y);
+        viewModel.FrameMatrix.Value *= Matrix.CreateTranslation((float)delta.X * 24, (float)delta.Y * 24);
         e.Handled = true;
     }
 
@@ -195,17 +199,16 @@ public partial class PlayerView
     {
         if (DataContext is PlayerViewModel viewModel)
         {
+            // The same modifier zooms the timeline and the graph editor, so it works with every preview tool.
+            if ((e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) != 0)
+            {
+                ZoomFrameAtPointer(e, viewModel);
+                return;
+            }
+
             if (viewModel.PathEditor.IsVisible.Value)
             {
-                if ((e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) != 0)
-                    ZoomFrameAtPointer(e, viewModel);
-                else
-                {
-                    AvaPoint delta = e.KeyModifiers.HasFlag(KeyModifiers.Shift)
-                        ? new AvaPoint(e.Delta.Y, e.Delta.X) : new AvaPoint(e.Delta.X, e.Delta.Y);
-                    viewModel.FrameMatrix.Value *= Matrix.CreateTranslation((float)delta.X * 24, (float)delta.Y * 24);
-                }
-                e.Handled = true;
+                PanFrameByWheel(e, viewModel);
                 return;
             }
 
@@ -213,9 +216,25 @@ public partial class PlayerView
                 ZoomFrameAtPointer(e, viewModel);
             // During a drag (a held left or right button) the wheel step would commit the drag's unfinished edit
             // with its own.
-            else if (viewModel.IsCameraMode.Value
-                     && e.GetCurrentPoint(null).Properties is { IsLeftButtonPressed: false, IsRightButtonPressed: false })
-                CreateCameraHandler(viewModel).OnWheelChanged(e);
+            else if (viewModel.IsCameraMode.Value)
+            {
+                if (e.GetCurrentPoint(null).Properties is { IsLeftButtonPressed: false, IsRightButtonPressed: false })
+                    CreateCameraHandler(viewModel).OnWheelChanged(e);
+            }
+            // A frame that fits has nowhere to go, and a stray scroll should not knock it off center.
+            else if (viewModel.FrameMatrix.Value != Matrix.Identity)
+                PanFrameByWheel(e, viewModel);
+        }
+    }
+
+    private void OnFrameMagnify(object? sender, PointerDeltaEventArgs e)
+    {
+        // Native magnification is a relative scale change, not a mouse-wheel delta.
+        double factor = 1 + e.Delta.X;
+        if (DataContext is PlayerViewModel viewModel && double.IsFinite(factor) && factor > 0)
+        {
+            ZoomFrameAt(viewModel, (float)factor, e.GetPosition(framePanel));
+            e.Handled = true;
         }
     }
 

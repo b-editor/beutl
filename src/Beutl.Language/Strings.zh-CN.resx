@@ -864,10 +864,10 @@
     <value>在播放和暂停之间切换。</value>
   </data>
   <data name="MoveToNext" xml:space="preserve">
-    <value>移到下一个</value>
+    <value>移到下一帧</value>
   </data>
   <data name="MoveToPrevious" xml:space="preserve">
-    <value>移到上一个</value>
+    <value>移到上一帧</value>
   </data>
   <data name="MoveToNext_Description" xml:space="preserve">
     <value>移到下一帧。</value>
@@ -1419,6 +1419,9 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="RenderScale_FitToPreviewer" xml:space="preserve">
     <value>适应预览器</value>
+  </data>
+  <data name="RenderScale_FitToPreviewer_Short" xml:space="preserve">
+    <value>自动</value>
   </data>
   <data name="Terminal" xml:space="preserve">
     <value>终端</value>
@@ -3608,6 +3611,18 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="TogglePreviewGuides_Description" xml:space="preserve">
     <value>在预览中显示或隐藏安全区域和构图参考线。</value>
+  </data>
+  <data name="PreviewZoom" xml:space="preserve">
+    <value>预览缩放</value>
+  </data>
+  <data name="PreviewZoomIn" xml:space="preserve">
+    <value>放大预览</value>
+  </data>
+  <data name="PreviewZoomOut" xml:space="preserve">
+    <value>缩小预览</value>
+  </data>
+  <data name="PreviewZoomFit" xml:space="preserve">
+    <value>适应预览大小</value>
   </data>
   <data name="PreviewGuide_TitleSafe" xml:space="preserve">
     <value>字幕安全框</value>
