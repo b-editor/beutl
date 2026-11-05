@@ -213,6 +213,24 @@ public class PropertyEditorGridTests
         }
     }
 
+    // The last column is the menu only where one follows the value.
+    [AvaloniaTest]
+    public void A_row_that_ends_with_its_value_splits_its_width_evenly()
+    {
+        var value = new TextBox();
+        Grid.SetColumn(value, 1);
+        var grid = new PropertyEditorGrid { ColumnDefinitions = new ColumnDefinitions("*,*"), ValueColumn = 1, Children = { new TextBlock(), value } };
+        var window = new Window { Content = grid, Width = 400, Height = 100 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            Assert.That(value.Bounds.X, Is.EqualTo(200).Within(.01));
+            Assert.That(value.Bounds.Width, Is.EqualTo(200).Within(.01));
+        }
+        finally { window.Close(); }
+    }
+
     private static void MoveSplitter(Window window, PropertyEditor editor, Key key, PhysicalKey physicalKey, double increment)
     {
         var splitter = editor.GetVisualDescendants().OfType<GridSplitter>().Single();

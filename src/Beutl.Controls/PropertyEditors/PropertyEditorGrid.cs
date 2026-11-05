@@ -155,7 +155,7 @@ public sealed class PropertyEditorGrid : Grid
     // columns alone would start the value half a splitter earlier, and showing the buttons would move it.
     private void SplitOwnWidth(Size availableSize)
     {
-        if (ValueColumn == 1 && double.IsFinite(availableSize.Width) && HasInlineValue()
+        if (ValueColumn == 1 && ColumnDefinitions.Count > 2 && double.IsFinite(availableSize.Width) && HasInlineValue()
             && Children.Any(child => GetColumn(child) == ValueColumn && child.HorizontalAlignment == HorizontalAlignment.Stretch)
             && (_alignedHeader == null ? ColumnDefinitions[0].Width : _originalHeaderWidth) is { IsStar: true } header
             && ColumnDefinitions[ValueColumn].Width is { IsStar: true } value)
