@@ -6,11 +6,13 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Threading;
+using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
 using MouseFlags = Beutl.Editor.Components.Helpers.TimelineHelper.MouseFlags;
@@ -143,6 +145,13 @@ public sealed partial class TimelineTabView : UserControl
                 vm.Scene.Edited -= OnSceneEdited;
             })
             .DisposeWith(_disposables);
+        // A clip painted from its element has nothing else to report a new color or lock through.
+        vm.EditorContext.GetService<HistoryManager>()?.StateChanged
+            .Subscribe(_ =>
+            {
+                if (_showsUnrealizedClips) InvalidateElementViewport();
+            })
+            .DisposeWith(_disposables);
         vm.Scale.Subscribe(_ => InvalidateElementViewport()).DisposeWith(_disposables);
         vm.LayerHeightChanged.Subscribe(_ => InvalidateElementViewport()).DisposeWith(_disposables);
 
@@ -250,7 +259,9 @@ public sealed partial class TimelineTabView : UserControl
 
     private ElementView? FindElementView(Element element)
     {
+        if (ViewModel?.GetViewModelFor(element) is null) return null;
         ViewportElement? entry = _viewportEntries.GetValueOrDefault(element);
+        if (entry is { ShowView: false }) UpdateElementViewport();
         return entry is null ? null : entry.View ?? RealizeCompactElement(entry);
     }
 }

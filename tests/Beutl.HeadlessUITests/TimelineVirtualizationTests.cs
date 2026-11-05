@@ -7,6 +7,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
@@ -120,6 +122,7 @@ public sealed class TimelineVirtualizationTests
         using var host = new ViewportHost(scene, scale: 0.0002f);
         double initialMs = timer.Elapsed.TotalMilliseconds;
         Assert.That(host.Views, Is.Empty);
+        Assert.That(host.Model.RealizedElements, Is.Empty, "Clips this narrow are painted from their elements.");
         Assert.That(host.Panel.Children.OfType<CompactElementLayer>().Count(), Is.EqualTo(2));
         Assert.That(host.Panel.Children.OfType<CompactElementLayer>().Sum(layer => layer.ElementCount), Is.EqualTo(20_000));
         Assert.That(host.Model.GetViewModelFor(scene.Children[^1])!.GetGroupOrSelectedElements()
@@ -231,6 +234,85 @@ public sealed class TimelineVirtualizationTests
         host.Selection.SelectedElements.Clear();
         Assert.That(host.Model.SelectedElements, Is.Empty);
         Assert.That(host.Model.RealizedElements, Has.Count.InRange(1, 501));
+    }
+
+    [AvaloniaTest]
+    public void Narrow_clips_paint_the_same_without_a_view_model()
+    {
+        var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(100) } };
+        Element plain = Clip(0, 0);
+        Element colored = Clip(1, 5);
+        colored.AccentColor.Value = Beutl.Media.Colors.Red;
+        Element disabled = Clip(2, 10);
+        disabled.IsEnabled.Value = false;
+        Element locked = Clip(3, 15);
+        locked.IsLocked.Value = true;
+        Element thin = Clip(4, 20);
+        thin.Length.Value = MediaTime.FromSeconds(0.1);
+        Element[] clips = [plain, colored, disabled, locked, thin];
+        scene.Children.AddRange(clips);
+        using var host = new ViewportHost(scene, scale: 0.1f);
+        Assert.That(host.Model.RealizedElements, Is.Empty);
+        byte[] painted = CapturePixels(host.Window);
+
+        foreach (Element clip in clips)
+        {
+            host.Model.GetViewModelFor(clip);
+        }
+
+        HeadlessTestHelpers.Render(3);
+
+        Assert.That(host.Model.RealizedElements, Has.Count.EqualTo(clips.Length));
+        Assert.That(host.Views, Is.Empty);
+        Assert.That(CapturePixels(host.Window), Is.EqualTo(painted));
+    }
+
+    [AvaloniaTest]
+    public void A_narrow_clip_gets_its_view_model_when_the_pointer_reaches_it()
+    {
+        var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(100) } };
+        Element reached = Clip(0, 0);
+        Element other = Clip(0, 5);
+        scene.Children.AddRange([reached, other]);
+        using var host = new ViewportHost(scene, scale: 0.1f);
+        Assert.That(host.Model.RealizedElements, Is.Empty);
+
+        host.Window.MouseMove(host.Panel.TranslatePoint(new Point(5, 12.5), host.Window)!.Value);
+        HeadlessTestHelpers.Render(3);
+
+        Assert.That(host.Model.RealizedElements.Select(item => item.Model), Is.EqualTo(new[] { reached }));
+        Assert.That(host.Views.Select(view => ((ElementViewModel)view.DataContext!).Model), Is.EqualTo(new[] { reached }));
+    }
+
+    [AvaloniaTest]
+    public void A_narrow_clip_without_a_view_model_follows_its_element()
+    {
+        var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(100) } };
+        Element clip = Clip(0, 0);
+        scene.Children.Add(clip);
+        using var host = new ViewportHost(scene, scale: 0.1f);
+        Rect bounds = host.Model.GetElementBounds(clip);
+
+        clip.Start.Value = MediaTime.FromSeconds(10);
+        clip.ZIndex.Value = 2;
+        HeadlessTestHelpers.Render(3);
+        Rect moved = host.Model.GetElementBounds(clip);
+        Assert.That(moved, Is.Not.EqualTo(bounds));
+        Assert.That(host.Model.FindViewModelFor(clip), Is.Null);
+
+        host.Window.MouseMove(host.Panel.TranslatePoint(moved.Center, host.Window)!.Value);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(host.Views.Select(view => ((ElementViewModel)view.DataContext!).Model), Is.EqualTo(new[] { clip }));
+    }
+
+    private static byte[] CapturePixels(Window window)
+    {
+        HeadlessTestHelpers.Render(3);
+        using WriteableBitmap frame = window.CaptureRenderedFrame()!;
+        using ILockedFramebuffer buffer = frame.Lock();
+        var pixels = new byte[buffer.RowBytes * buffer.Size.Height];
+        System.Runtime.InteropServices.Marshal.Copy(buffer.Address, pixels, 0, pixels.Length);
+        return pixels;
     }
 
     [AvaloniaTest]
