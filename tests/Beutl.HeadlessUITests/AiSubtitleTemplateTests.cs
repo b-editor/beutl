@@ -438,6 +438,13 @@ public class AiSubtitleTemplateTests
                     CreateTextElement("Group", 0, 1, 0, group), "Group")),
                 Is.Not.Null,
                 "Text inside a group counts.");
+            var decorator = new DrawableDecorator();
+            decorator.Children.Add(new TextBlock());
+            Assert.That(
+                ElementCaptionTemplateAdapter.TryCreate(ObjectTemplateItem.CreateFromInstance(
+                    CreateTextElement("Decorator", 0, 1, 0, decorator), "Decorator")),
+                Is.Not.Null,
+                "So does text inside a decorator.");
             Assert.That(
                 ElementCaptionTemplateAdapter.TryCreate(ObjectTemplateItem.CreateFromInstance(
                     CreateTextElement("Shape", 0, 1, 0, new RectShape()), "Shape")),
@@ -465,6 +472,8 @@ public class AiSubtitleTemplateTests
         var group = new DrawableGroup();
         group.Children.Add(new TextBlock { Text = { Value = "In a group" }, Size = { Value = 30 } });
         group.Children.Add(new RectShape());
+        var decorator = new DrawableDecorator();
+        decorator.Children.Add(new TextBlock { Text = { Value = "In a decorator" } });
         ObjectTemplateItem saved = ObjectTemplateItem.CreateFromInstance(
             CreateTextElement(
                 "Saved",
@@ -477,7 +486,8 @@ public class AiSubtitleTemplateTests
                     Size = { Value = 72 },
                     Transform = { Value = new TranslateTransform(45, 60) },
                 },
-                group),
+                group,
+                decorator),
             "Saved");
         int undoCount = editor.HistoryManager.UndoCount;
 
@@ -503,6 +513,9 @@ public class AiSubtitleTemplateTests
             var inGroup = (TextBlock)elements[0].Objects.OfType<DrawableGroup>().Single().Children[0];
             Assert.That(text.Text.Value, Is.EqualTo("First"));
             Assert.That(inGroup.Text.Value, Is.EqualTo("First"));
+            Assert.That(
+                ((TextBlock)elements[0].Objects.OfType<DrawableDecorator>().Single().Children[0]).Text.Value,
+                Is.EqualTo("First"));
             Assert.That(text.Size.Value, Is.EqualTo(72));
             Assert.That(inGroup.Size.Value, Is.EqualTo(30));
             Assert.That(GetTranslate(text).X.Value, Is.EqualTo(45), "The template's place stays.");

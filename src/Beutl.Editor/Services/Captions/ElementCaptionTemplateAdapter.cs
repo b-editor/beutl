@@ -50,6 +50,7 @@ internal static class ElementCaptionTemplateAdapter
     {
         TextBlock text => [text],
         DrawableGroup group => group.Children.SelectMany(FindTexts),
+        DrawableDecorator decorator => decorator.Children.SelectMany(FindTexts),
         _ => [],
     };
 
