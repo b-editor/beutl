@@ -292,7 +292,8 @@ public sealed class ShaderGraphDescription
                 || sourceBounds.IsInvalid || sourceBounds.Width <= 0 || sourceBounds.Height <= 0)
                 return null;
             ShaderImageFrame source = ShaderImageFrame.FromPixels(sourceBounds,
-                PixelRect.FromRect(sourceBounds.Translate(gridOffset), density), density, gridOffset) with { ReferenceBounds = referenceBounds };
+                PixelRect.FromRect(sourceBounds.Translate(gridOffset), density), density, gridOffset) with
+            { ReferenceBounds = referenceBounds };
             return new ShaderGraphRegions(this, source, density, gridOffset, region).Frames;
         }
 
