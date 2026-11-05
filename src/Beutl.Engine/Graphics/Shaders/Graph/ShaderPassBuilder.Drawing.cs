@@ -72,6 +72,7 @@ public sealed partial class ShaderPassBuilder
         EnsureCompute();
         SetIndirect(commands, offset, 1, 12, 12);
         _threads = false;
+        _workImage = null;
     }
 
     private void SetIndirect(ShaderBuffer commands, long offset, int count, int stride, int commandSize)

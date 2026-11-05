@@ -55,6 +55,16 @@ public class JsonConvertersTests
     }
 
     [Test]
+    [SetCulture("es-ES")]
+    public void ShaderVectorsPreserveEveryComponentAcrossSaving()
+    {
+        var pair = new Vector2(1.5f, -2.5f);
+        var quadruple = new Vector4(0.1f, -2.5f, 3.5f, 4.5f);
+        Assert.That(JsonSerializer.Deserialize<Vector2>(JsonSerializer.Serialize(pair, s_options), s_options), Is.EqualTo(pair));
+        Assert.That(JsonSerializer.Deserialize<Vector4>(JsonSerializer.Serialize(quadruple, s_options), s_options), Is.EqualTo(quadruple));
+    }
+
+    [Test]
     public void Quaternion_RoundTrip()
     {
         var q = new Quaternion(0.1f, 0.2f, 0.3f, 1f);
@@ -117,6 +127,18 @@ public class JsonConvertersTests
     public void CultureInfo_NullJsonValue_ReturnsNull()
     {
         Assert.That(JsonSerializer.Deserialize<CultureInfo>("null", s_options), Is.Null);
+    }
+
+    [Test]
+    public void Vector2_TooManyComponents_Throws()
+    {
+        Assert.Throws<FormatException>(() => JsonSerializer.Deserialize<Vector2>("\"1,2,3\"", s_options));
+    }
+
+    [Test]
+    public void Vector4_TooManyComponents_Throws()
+    {
+        Assert.Throws<FormatException>(() => JsonSerializer.Deserialize<Vector4>("\"1,2,3,4,5\"", s_options));
     }
 
     [Test]

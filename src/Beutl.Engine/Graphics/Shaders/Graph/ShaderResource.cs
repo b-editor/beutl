@@ -98,6 +98,8 @@ public abstract class ShaderResource
 /// <summary>A virtual image in composition coordinates, with a separately declared raster density.</summary>
 public sealed class ShaderImage : ShaderResource
 {
+    private ShaderImage? _rasterSource;
+
     internal ShaderImage(object owner, int id, string name, TextureFormat format,
         ShaderImage? like, Rect? bounds, float padding, float resolutionScale,
         ImageDescription? description = null, ShaderImage? root = null, int baseMip = 0, int baseLayer = 0)
@@ -125,6 +127,12 @@ public sealed class ShaderImage : ShaderResource
     internal int BaseMipLevel { get; }
     internal int BaseArrayLayer { get; }
     internal bool IsView => !ReferenceEquals(Root, this);
+
+    /// <summary>The position among the pictures a render supplies besides the source, or -1.</summary>
+    internal int ExternalIndex { get; init; } = -1;
+
+    /// <summary>Whether a render supplies this image, so it has the source's position and no pass may write it.</summary>
+    internal bool IsInput => Id == 0 || ExternalIndex >= 0;
     internal bool IsAttachment => Kind == ImageKind.Image2D && MipLevels == 1;
     internal IEnumerable<(int Image, int Mip, int Layer, int Aspect)> Subresources
     {
@@ -143,18 +151,16 @@ public sealed class ShaderImage : ShaderResource
         && BaseMipLevel < other.BaseMipLevel + other.MipLevels && other.BaseMipLevel < BaseMipLevel + MipLevels
         && BaseArrayLayer < other.BaseArrayLayer + other.ArrayLayers && other.BaseArrayLayer < BaseArrayLayer + ArrayLayers;
     internal ShaderImage? Like { get; }
-    internal ShaderImage? RasterSource { get; set; }
 
-    /// <summary>The image whose raster frame this one shares, following <see cref="RasterSource"/> to its end.</summary>
-    internal ShaderImage RasterRoot
+    // Kept at the end of any chain, so images that each take after the last stay one step from the frame they share.
+    internal ShaderImage? RasterSource
     {
-        get
-        {
-            ShaderImage raster = this;
-            while (raster.RasterSource is { } inherited) raster = inherited;
-            return raster;
-        }
+        get => _rasterSource;
+        set => _rasterSource = value?.RasterRoot;
     }
+
+    /// <summary>The image whose raster frame this one shares.</summary>
+    internal ShaderImage RasterRoot => _rasterSource ?? this;
 
     /// <summary>The fixed description, or a single 2D texel extent of <paramref name="size"/> in this format.</summary>
     internal ImageDescription DescriptionFor(PixelSize size)
@@ -171,7 +177,7 @@ public sealed class ShaderImage : ShaderResource
 
     internal Rect ResolveBounds(Rect sourceBounds, Rect? referenceBounds = null)
     {
-        Rect bounds = Id == 0 ? sourceBounds
+        Rect bounds = IsInput ? sourceBounds
             : BoundsFromGroup ? referenceBounds ?? sourceBounds
             : (ExplicitBounds ?? Like!.ResolveBounds(sourceBounds, referenceBounds)).Inflate(Padding);
         if (BoundsTransforms.IsEmpty || bounds.IsEmpty)

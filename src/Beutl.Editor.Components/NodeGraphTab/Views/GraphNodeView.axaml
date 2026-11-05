@@ -12,7 +12,7 @@
              xmlns:views="using:Beutl.Editor.Components.NodeGraphTab.Views"
              Canvas.Left="{Binding Position.Value.X}"
              Canvas.Top="{Binding Position.Value.Y}"
-             Width="215"
+             Width="{Binding EditorWidth}"
              x:CompileBindings="True"
              x:DataType="viewModels:GraphNodeViewModel"
              Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
@@ -33,6 +33,10 @@
         <!-- Root rows keep the original theme minimum width and horizontal layout. -->
         <Style Selector="views|NodePortView.nested :is(pe|PropertyEditor), :is(pe|PropertyEditor):list-item">
             <Setter Property="MinWidth" Value="0" />
+        </Style>
+        <!-- A long script scrolls inside its field rather than stretching the node past the view. -->
+        <Style Selector="pe|StringEditor.multiline /template/ TextBox#PART_InnerTextBox">
+            <Setter Property="MaxHeight" Value="360" />
         </Style>
         <Style Selector="views|GraphNodeView.selected /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuterBrush}" />

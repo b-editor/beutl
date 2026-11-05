@@ -42,7 +42,9 @@ public static class JsonHelper
             new DirectoryInfoConverter(),
             new FileInfoConverter(),
             new CoreSerializableJsonConverter(),
+            new Vector2JsonConverter(),
             new Vector3JsonConverter(),
+            new Vector4JsonConverter(),
             new QuaternionJsonConverter()
         }
     };

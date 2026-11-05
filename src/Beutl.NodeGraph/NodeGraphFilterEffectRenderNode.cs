@@ -85,7 +85,10 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
                 var resource = graphResource.Snapshot.GetResource(slotIndex);
                 if (resource is FilterEffectInputNode.Resource inputResource)
                 {
-                    inputHasMultipleConsumers = inputNode.Output.Connections.Count > 1;
+                    // A connection that becomes an image wire can be read by any number of pictures past it.
+                    inputHasMultipleConsumers = inputNode.Output.Connections.Count > 1
+                        || inputNode.Output.Connections.Any(static connection =>
+                            connection.Value?.Input.Value.Value is IInputPort { AssociatedType: { } type } && type != typeof(RenderNode));
                     return inputResource.InputFacade;
                 }
             }

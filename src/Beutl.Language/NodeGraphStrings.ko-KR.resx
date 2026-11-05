@@ -36,6 +36,480 @@
   <data name="Group" xml:space="preserve">
     <value>그룹</value>
   </data>
+  <data name="Shaders" xml:space="preserve">
+    <value>셰이더</value>
+  </data>
+  <data name="ShaderCategory_Resources" xml:space="preserve">
+    <value>리소스</value>
+  </data>
+  <data name="ShaderCategory_Operations" xml:space="preserve">
+    <value>작업</value>
+  </data>
+  <data name="ShaderCategory_Loops" xml:space="preserve">
+    <value>반복</value>
+  </data>
+  <data name="ShaderCategory_Inputs" xml:space="preserve">
+    <value>패스 입력</value>
+  </data>
+  <data name="ShaderCategory_PassSettings" xml:space="preserve">
+    <value>패스 설정</value>
+  </data>
+  <data name="ShaderFullscreenPassNode" xml:space="preserve">
+    <value>전체 화면 패스 (GLSL)</value>
+  </data>
+  <data name="ShaderComputePassNode" xml:space="preserve">
+    <value>컴퓨트 패스 (GLSL)</value>
+  </data>
+  <data name="ShaderRenderPassNode" xml:space="preserve">
+    <value>렌더 패스 (GLSL)</value>
+  </data>
+  <data name="ShaderExtendedRenderPassNode" xml:space="preserve">
+    <value>지오메트리·테셀레이션 렌더 패스 (GLSL)</value>
+  </data>
+  <data name="ShaderImageNode" xml:space="preserve">
+    <value>이미지</value>
+  </data>
+  <data name="ShaderFixedImageNode" xml:space="preserve">
+    <value>고정 크기 이미지</value>
+  </data>
+  <data name="ShaderImageViewNode" xml:space="preserve">
+    <value>이미지 뷰</value>
+  </data>
+  <data name="ShaderBufferNode" xml:space="preserve">
+    <value>버퍼</value>
+  </data>
+  <data name="ShaderDataNode" xml:space="preserve">
+    <value>텍스트에서 데이터</value>
+  </data>
+  <data name="ShaderPackNode" xml:space="preserve">
+    <value>값 묶기</value>
+  </data>
+  <data name="ShaderClearImageNode" xml:space="preserve">
+    <value>이미지 지우기</value>
+  </data>
+  <data name="ShaderClearBufferNode" xml:space="preserve">
+    <value>버퍼 지우기</value>
+  </data>
+  <data name="ShaderCopyImageNode" xml:space="preserve">
+    <value>이미지 복사</value>
+  </data>
+  <data name="ShaderCopyBufferNode" xml:space="preserve">
+    <value>버퍼 복사</value>
+  </data>
+  <data name="ShaderGenerateMipmapsNode" xml:space="preserve">
+    <value>밉맵 생성</value>
+  </data>
+  <data name="ShaderConvertColorNode" xml:space="preserve">
+    <value>색 인코딩 변환</value>
+  </data>
+  <data name="ShaderRepeatNode" xml:space="preserve">
+    <value>반복</value>
+  </data>
+  <data name="ShaderReplayNode" xml:space="preserve">
+    <value>시뮬레이션 재생</value>
+  </data>
+  <data name="ShaderLoopInfoNode" xml:space="preserve">
+    <value>반복 정보</value>
+  </data>
+  <data name="ShaderSamplerNode" xml:space="preserve">
+    <value>샘플링</value>
+  </data>
+  <data name="ShaderInputRegionNode" xml:space="preserve">
+    <value>입력 영역</value>
+  </data>
+  <data name="ShaderImageParametersNode" xml:space="preserve">
+    <value>이미지 매개변수</value>
+  </data>
+  <data name="ShaderVectorNode" xml:space="preserve">
+    <value>벡터</value>
+  </data>
+  <data name="ShaderColorNode" xml:space="preserve">
+    <value>색을 vec4로</value>
+  </data>
+  <data name="ShaderBlendNode" xml:space="preserve">
+    <value>블렌딩</value>
+  </data>
+  <data name="ShaderDrawNode" xml:space="preserve">
+    <value>그리기</value>
+  </data>
+  <data name="ShaderDispatchNode" xml:space="preserve">
+    <value>디스패치</value>
+  </data>
+  <data name="ShaderRasterizerNode" xml:space="preserve">
+    <value>래스터라이저</value>
+  </data>
+  <data name="ShaderDepthNode" xml:space="preserve">
+    <value>깊이·스텐실</value>
+  </data>
+  <data name="ShaderStencilNode" xml:space="preserve">
+    <value>스텐실 면</value>
+  </data>
+  <data name="ShaderVertexBufferNode" xml:space="preserve">
+    <value>정점 버퍼</value>
+  </data>
+  <data name="ShaderVertexAttributeNode" xml:space="preserve">
+    <value>정점 속성</value>
+  </data>
+  <data name="ShaderIndexBufferNode" xml:space="preserve">
+    <value>인덱스 버퍼</value>
+  </data>
+  <data name="ShaderLoadNode" xml:space="preserve">
+    <value>출력 초기 내용</value>
+  </data>
+  <data name="ShaderLoopInput" xml:space="preserve">
+    <value>반복 입력</value>
+  </data>
+  <data name="ShaderLoopOutput" xml:space="preserve">
+    <value>반복 출력</value>
+  </data>
+  <data name="ShaderPartialRenderingNode" xml:space="preserve">
+    <value>부분 렌더링</value>
+  </data>
+  <data name="ShaderDrawMode_Vertices" xml:space="preserve">
+    <value>정점</value>
+  </data>
+  <data name="ShaderDrawMode_Indexed" xml:space="preserve">
+    <value>인덱스</value>
+  </data>
+  <data name="ShaderDrawMode_Indirect" xml:space="preserve">
+    <value>간접</value>
+  </data>
+  <data name="ShaderDrawMode_IndexedIndirect" xml:space="preserve">
+    <value>인덱스 간접</value>
+  </data>
+  <data name="ShaderDispatchMode_Image" xml:space="preserve">
+    <value>이미지의 모든 픽셀</value>
+  </data>
+  <data name="ShaderDispatchMode_Workgroups" xml:space="preserve">
+    <value>작업 그룹</value>
+  </data>
+  <data name="ShaderDispatchMode_Invocations" xml:space="preserve">
+    <value>호출 수</value>
+  </data>
+  <data name="ShaderDispatchMode_Indirect" xml:space="preserve">
+    <value>간접</value>
+  </data>
+  <data name="ShaderDataType_HexBytes" xml:space="preserve">
+    <value>16진수 바이트</value>
+  </data>
+  <data name="ShaderPort_AddressU" xml:space="preserve">
+    <value>주소 U</value>
+  </data>
+  <data name="ShaderPort_AddressV" xml:space="preserve">
+    <value>주소 V</value>
+  </data>
+  <data name="ShaderPort_AddressW" xml:space="preserve">
+    <value>주소 W</value>
+  </data>
+  <data name="ShaderPort_AlphaOperation" xml:space="preserve">
+    <value>알파 연산</value>
+  </data>
+  <data name="ShaderPort_ArrayLayers" xml:space="preserve">
+    <value>배열 레이어 수</value>
+  </data>
+  <data name="ShaderPort_Attributes" xml:space="preserve">
+    <value>속성</value>
+  </data>
+  <data name="ShaderPort_BaseLayer" xml:space="preserve">
+    <value>첫 레이어</value>
+  </data>
+  <data name="ShaderPort_BaseMip" xml:space="preserve">
+    <value>첫 밉 레벨</value>
+  </data>
+  <data name="ShaderPort_Binding" xml:space="preserve">
+    <value>바인딩</value>
+  </data>
+  <data name="ShaderPort_Bounds" xml:space="preserve">
+    <value>범위</value>
+  </data>
+  <data name="ShaderPort_Buffer" xml:space="preserve">
+    <value>버퍼</value>
+  </data>
+  <data name="ShaderPort_ClearDepth" xml:space="preserve">
+    <value>지우기 깊이</value>
+  </data>
+  <data name="ShaderPort_ClearStencil" xml:space="preserve">
+    <value>지우기 스텐실</value>
+  </data>
+  <data name="ShaderPort_Code" xml:space="preserve">
+    <value>코드</value>
+  </data>
+  <data name="ShaderPort_Color" xml:space="preserve">
+    <value>색</value>
+  </data>
+  <data name="ShaderPort_ColorOperation" xml:space="preserve">
+    <value>색 연산</value>
+  </data>
+  <data name="ShaderPort_Commands" xml:space="preserve">
+    <value>명령</value>
+  </data>
+  <data name="ShaderPort_Compare" xml:space="preserve">
+    <value>비교</value>
+  </data>
+  <data name="ShaderPort_CompareMask" xml:space="preserve">
+    <value>비교 마스크</value>
+  </data>
+  <data name="ShaderPort_Count" xml:space="preserve">
+    <value>횟수</value>
+  </data>
+  <data name="ShaderPort_Cull" xml:space="preserve">
+    <value>컬링</value>
+  </data>
+  <data name="ShaderPort_Data" xml:space="preserve">
+    <value>데이터</value>
+  </data>
+  <data name="ShaderPort_DataType" xml:space="preserve">
+    <value>데이터 형식</value>
+  </data>
+  <data name="ShaderPort_Delta" xml:space="preserve">
+    <value>시간 간격</value>
+  </data>
+  <data name="ShaderPort_DepthOutput" xml:space="preserve">
+    <value>깊이</value>
+  </data>
+  <data name="ShaderPort_DepthTest" xml:space="preserve">
+    <value>깊이 테스트</value>
+  </data>
+  <data name="ShaderPort_DepthWrite" xml:space="preserve">
+    <value>깊이 쓰기</value>
+  </data>
+  <data name="ShaderPort_Destination" xml:space="preserve">
+    <value>대상</value>
+  </data>
+  <data name="ShaderPort_DestinationAlpha" xml:space="preserve">
+    <value>대상 알파</value>
+  </data>
+  <data name="ShaderPort_DestinationColor" xml:space="preserve">
+    <value>대상 색</value>
+  </data>
+  <data name="ShaderPort_DrawCount" xml:space="preserve">
+    <value>그리기 횟수</value>
+  </data>
+  <data name="ShaderPort_ElementCount" xml:space="preserve">
+    <value>요소 수</value>
+  </data>
+  <data name="ShaderPort_Filter" xml:space="preserve">
+    <value>필터</value>
+  </data>
+  <data name="ShaderPort_FirstIndex" xml:space="preserve">
+    <value>첫 인덱스</value>
+  </data>
+  <data name="ShaderPort_FirstInstance" xml:space="preserve">
+    <value>첫 인스턴스</value>
+  </data>
+  <data name="ShaderPort_FirstVertex" xml:space="preserve">
+    <value>첫 정점</value>
+  </data>
+  <data name="ShaderPort_Format" xml:space="preserve">
+    <value>형식</value>
+  </data>
+  <data name="ShaderPort_FragmentCode" xml:space="preserve">
+    <value>프래그먼트 셰이더</value>
+  </data>
+  <data name="ShaderPort_From" xml:space="preserve">
+    <value>원본</value>
+  </data>
+  <data name="ShaderPort_Front" xml:space="preserve">
+    <value>앞면</value>
+  </data>
+  <data name="ShaderPort_GeometryCode" xml:space="preserve">
+    <value>지오메트리 셰이더</value>
+  </data>
+  <data name="ShaderPort_Image" xml:space="preserve">
+    <value>이미지</value>
+  </data>
+  <data name="ShaderPort_Index" xml:space="preserve">
+    <value>반복 번호</value>
+  </data>
+  <data name="ShaderPort_IndexCount" xml:space="preserve">
+    <value>인덱스 수</value>
+  </data>
+  <data name="ShaderPort_InstanceCount" xml:space="preserve">
+    <value>인스턴스 수</value>
+  </data>
+  <data name="ShaderPort_Kind" xml:space="preserve">
+    <value>종류</value>
+  </data>
+  <data name="ShaderPort_Like" xml:space="preserve">
+    <value>크기 기준</value>
+  </data>
+  <data name="ShaderPort_Load" xml:space="preserve">
+    <value>초기 내용</value>
+  </data>
+  <data name="ShaderPort_Location" xml:space="preserve">
+    <value>위치</value>
+  </data>
+  <data name="ShaderPort_MagFilter" xml:space="preserve">
+    <value>확대 필터</value>
+  </data>
+  <data name="ShaderPort_MaxLod" xml:space="preserve">
+    <value>최대 LOD</value>
+  </data>
+  <data name="ShaderPort_MinFilter" xml:space="preserve">
+    <value>축소 필터</value>
+  </data>
+  <data name="ShaderPort_MinLod" xml:space="preserve">
+    <value>최소 LOD</value>
+  </data>
+  <data name="ShaderPort_MipLevels" xml:space="preserve">
+    <value>밉 레벨 수</value>
+  </data>
+  <data name="ShaderPort_MipmapFilter" xml:space="preserve">
+    <value>밉맵 필터</value>
+  </data>
+  <data name="ShaderPort_Mode" xml:space="preserve">
+    <value>모드</value>
+  </data>
+  <data name="ShaderPort_Offset" xml:space="preserve">
+    <value>오프셋</value>
+  </data>
+  <data name="ShaderPort_Padding" xml:space="preserve">
+    <value>여백</value>
+  </data>
+  <data name="ShaderPort_PatchControlPoints" xml:space="preserve">
+    <value>패치 제어점 수</value>
+  </data>
+  <data name="ShaderPort_Rate" xml:space="preserve">
+    <value>입력 단위</value>
+  </data>
+  <data name="ShaderPort_Reference" xml:space="preserve">
+    <value>기준값</value>
+  </data>
+  <data name="ShaderPort_ResetTime" xml:space="preserve">
+    <value>시작 시간 (초)</value>
+  </data>
+  <data name="ShaderPort_ResolutionScale" xml:space="preserve">
+    <value>해상도 배율</value>
+  </data>
+  <data name="ShaderPort_Settings" xml:space="preserve">
+    <value>설정</value>
+  </data>
+  <data name="ShaderPort_Source" xml:space="preserve">
+    <value>원본</value>
+  </data>
+  <data name="ShaderPort_SourceAlpha" xml:space="preserve">
+    <value>원본 알파</value>
+  </data>
+  <data name="ShaderPort_SourceColor" xml:space="preserve">
+    <value>원본 색</value>
+  </data>
+  <data name="ShaderPort_Stencil" xml:space="preserve">
+    <value>스텐실</value>
+  </data>
+  <data name="ShaderPort_StencilBack" xml:space="preserve">
+    <value>스텐실 (뒷면)</value>
+  </data>
+  <data name="ShaderPort_StencilDepthFail" xml:space="preserve">
+    <value>깊이 실패 시</value>
+  </data>
+  <data name="ShaderPort_StencilFail" xml:space="preserve">
+    <value>스텐실 실패 시</value>
+  </data>
+  <data name="ShaderPort_StencilFront" xml:space="preserve">
+    <value>스텐실 (앞면)</value>
+  </data>
+  <data name="ShaderPort_StencilPass" xml:space="preserve">
+    <value>통과 시</value>
+  </data>
+  <data name="ShaderPort_StepsPerSecond" xml:space="preserve">
+    <value>초당 업데이트 횟수</value>
+  </data>
+  <data name="ShaderPort_Stride" xml:space="preserve">
+    <value>스트라이드</value>
+  </data>
+  <data name="ShaderPort_Targets" xml:space="preserve">
+    <value>렌더 대상</value>
+  </data>
+  <data name="ShaderPort_TessellationControlCode" xml:space="preserve">
+    <value>테셀레이션 제어 셰이더</value>
+  </data>
+  <data name="ShaderPort_TessellationEvaluationCode" xml:space="preserve">
+    <value>테셀레이션 평가 셰이더</value>
+  </data>
+  <data name="ShaderPort_Text" xml:space="preserve">
+    <value>값</value>
+  </data>
+  <data name="ShaderPort_To" xml:space="preserve">
+    <value>대상</value>
+  </data>
+  <data name="ShaderPort_Topology" xml:space="preserve">
+    <value>토폴로지</value>
+  </data>
+  <data name="ShaderPort_Transform" xml:space="preserve">
+    <value>변환</value>
+  </data>
+  <data name="ShaderPort_UseCompare" xml:space="preserve">
+    <value>깊이와 비교</value>
+  </data>
+  <data name="ShaderPort_Value" xml:space="preserve">
+    <value>값</value>
+  </data>
+  <data name="ShaderPort_Values" xml:space="preserve">
+    <value>값</value>
+  </data>
+  <data name="ShaderPort_VertexCode" xml:space="preserve">
+    <value>정점 셰이더</value>
+  </data>
+  <data name="ShaderPort_VertexCount" xml:space="preserve">
+    <value>정점 수</value>
+  </data>
+  <data name="ShaderPort_VertexOffset" xml:space="preserve">
+    <value>정점 오프셋</value>
+  </data>
+  <data name="ShaderPort_Vec2" xml:space="preserve">
+    <value>vec2</value>
+  </data>
+  <data name="ShaderPort_Vec3" xml:space="preserve">
+    <value>vec3</value>
+  </data>
+  <data name="ShaderPort_Vec4" xml:space="preserve">
+    <value>vec4</value>
+  </data>
+  <data name="ShaderPort_W" xml:space="preserve">
+    <value>W</value>
+  </data>
+  <data name="ShaderPort_WriteMask" xml:space="preserve">
+    <value>쓰기 마스크</value>
+  </data>
+  <data name="ShaderPort_X" xml:space="preserve">
+    <value>X</value>
+  </data>
+  <data name="ShaderPort_Y" xml:space="preserve">
+    <value>Y</value>
+  </data>
+  <data name="ShaderPort_Z" xml:space="preserve">
+    <value>Z</value>
+  </data>
+  <data name="ShaderError_Cycle" xml:space="preserve">
+    <value>셰이더 연결이 순환합니다.</value>
+  </data>
+  <data name="ShaderError_DataSize" xml:space="preserve">
+    <value>'{0}'에는 {1}바이트가 필요하지만 {2}바이트가 전달되었습니다.</value>
+  </data>
+  <data name="ShaderError_EmptyCode" xml:space="preserve">
+    <value>셰이더 코드가 비어 있습니다.</value>
+  </data>
+  <data name="ShaderError_ImageParametersNeedUniformBlock" xml:space="preserve">
+    <value>이미지 매개변수는 uniform 블록에만 연결할 수 있습니다.</value>
+  </data>
+  <data name="ShaderError_InvalidReplayTime" xml:space="preserve">
+    <value>초당 업데이트 횟수는 양수, 시간은 범위 내 값이어야 합니다.</value>
+  </data>
+  <data name="ShaderError_NoDepthAttachment" xml:space="preserve">
+    <value>이 패스에는 깊이 이미지가 없습니다.</value>
+  </data>
+  <data name="ShaderError_NotConnected" xml:space="preserve">
+    <value>'{0}'을(를) 연결해야 합니다.</value>
+  </data>
+  <data name="ShaderError_BufferTooLarge" xml:space="preserve">
+    <value>이 버퍼에는 {0}바이트가 필요하지만 상한은 {1}바이트입니다.</value>
+  </data>
+  <data name="ShaderError_TooManySteps" xml:space="preserve">
+    <value>{0}번 반복해야 하지만 상한은 {1}번입니다.</value>
+  </data>
+  <data name="ShaderError_ValueType" xml:space="preserve">
+    <value>'{0}'에 잘못된 형식의 값이 전달되었습니다.</value>
+  </data>
   <data name="ToolsAndValues" xml:space="preserve">
     <value>도구와 값</value>
   </data>

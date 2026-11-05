@@ -15,6 +15,8 @@ public sealed partial class FilterEffectContext
     public void ShaderGraph(ShaderGraphDescription description)
     {
         ArgumentNullException.ThrowIfNull(description);
+        if (description.ExternalImageCount > 0)
+            throw new ArgumentException("A filter effect has no pictures to give a graph's external images.", nameof(description));
         AppendDescription(new FEItem_ShaderGraph(description));
     }
 }

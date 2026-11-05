@@ -87,7 +87,9 @@ internal sealed partial class RegionAnalyzer
         var source = ShaderImageFrame.FromPixels(bounds, PixelRect.FromRect(bounds, inputScale), inputScale, default);
         var regions = new ShaderGraphRegions(graph, source, scale, default, outputRequirement.Resolve(reference.Bounds));
         // A generated output still needs the incoming value's existence and complete logical bounds.
-        return regions.SourceRegion.IsEmpty ? FullInputs(reference) : [RequiredRegion.Region(regions.SourceRegion)];
+        return regions.SourceRegion.IsEmpty
+            ? FullInputs(reference)
+            : [RequiredRegion.Region(regions.SourceRegion), .. RepeatInputs(RequiredRegion.Full, reference.Inputs.Length - 1)];
     }
 
     private static ImmutableArray<RequiredRegion> MapUnary(

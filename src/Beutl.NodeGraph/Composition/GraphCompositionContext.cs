@@ -12,6 +12,9 @@ public sealed class GraphCompositionContext : CompositionContext
 
     internal GraphSnapshot Snapshot { get; set; } = null!;
 
+    /// <summary>The iteration of the shader loop being evaluated, including through groups inside it.</summary>
+    internal Nodes.Shaders.ShaderLoopStep? LoopStep { get; set; }
+
     public bool HasConnection(IInputPort port)
     {
         return Snapshot.HasInputConnection(Resource.SlotIndex, Resource.ItemIndexMap[port]);

@@ -100,6 +100,8 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
 
     public NodeGraphViewModel NodeGraphViewModel { get; }
 
+    public double EditorWidth => GraphNode.EditorWidth;
+
     public ReadOnlyReactiveProperty<string> NodeName { get; }
 
     public IBrush Color { get; }

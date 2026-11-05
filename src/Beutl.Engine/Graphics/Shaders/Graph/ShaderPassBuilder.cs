@@ -19,6 +19,7 @@ public sealed partial class ShaderPassBuilder
     private BlendState _blend = BlendState.Replace;
     private (int X, int Y, int Z)? _work;
     private bool _threads;
+    private ShaderImage? _workImage;
     private bool _sealed;
     private ImmutableArray<VertexBindingDescription> _vertexBindings = [];
     private ImmutableArray<VertexAttributeDescription> _vertexAttributes = [];
@@ -82,7 +83,7 @@ public sealed partial class ShaderPassBuilder
     /// </remarks>
     public void StorageImage(int binding, ShaderImage image, ResourceAccess access)
     {
-        if (ReferenceEquals(image.Root, _graph.Source) && (access & ResourceAccess.Write) != 0)
+        if (image.Root.IsInput && (access & ResourceAccess.Write) != 0)
             throw new ArgumentException("The source image is read-only.", nameof(image));
         if (image.MipLevels != 1 || image.Format.IsDepthFormat())
             throw new ArgumentException("Storage image bindings select one color mip level.", nameof(image));
@@ -134,7 +135,7 @@ public sealed partial class ShaderPassBuilder
         ArgumentOutOfRangeException.ThrowIfNegative(location);
         if (!Enum.IsDefined(load))
             throw new ArgumentOutOfRangeException(nameof(load));
-        if (ReferenceEquals(image.Root, _graph.Source))
+        if (image.Root.IsInput)
             throw new ArgumentException("The source image is read-only.", nameof(image));
         if (!image.IsAttachment || image.Format.IsDepthFormat())
             throw new ArgumentException("A color attachment selects one 2D color subresource.", nameof(image));
@@ -249,6 +250,7 @@ public sealed partial class ShaderPassBuilder
         SetWork(x, y, z);
         _threads = false;
         _indirect = null;
+        _workImage = null;
     }
 
     /// <summary>Rounds invocation counts up to the compiled local size. The shader must guard excess invocations.</summary>
@@ -258,6 +260,20 @@ public sealed partial class ShaderPassBuilder
         SetWork(x, y, z);
         _threads = true;
         _indirect = null;
+        _workImage = null;
+    }
+
+    /// <summary>Runs one invocation per texel of <paramref name="image"/>, rounded up to the compiled local size.</summary>
+    /// <remarks>The size is resolved when the graph executes, so this covers a composition-sized image at any
+    /// working scale, which no fixed count can. The shader must guard excess invocations.</remarks>
+    public void DispatchImage(ShaderImage image)
+    {
+        EnsureCompute();
+        _graph.ValidateResource(image);
+        SetWork(1, 1, 1);
+        _threads = true;
+        _indirect = null;
+        _workImage = image;
     }
 
     private void SetWork(int x, int y, int z)
@@ -329,7 +345,8 @@ public sealed partial class ShaderPassBuilder
             PatchControlPoints = _patchControlPoints,
             PartialRendering = _partialRendering,
             InputRegions = _inputRegions.ToImmutableDictionary(),
-            RuntimeConstants = [.. runtimeConstants]
+            RuntimeConstants = [.. runtimeConstants],
+            WorkImage = _workImage
         };
     }
 }
@@ -381,4 +398,5 @@ internal sealed record ShaderPassDescription(string Name, ShaderProgram? Program
     public ShaderTransfer? Transfer { get; init; }
     public bool PartialRendering { get; init; }
     public ImmutableDictionary<int, ShaderInputRegion> InputRegions { get; init; } = ImmutableDictionary<int, ShaderInputRegion>.Empty;
+    public ShaderImage? WorkImage { get; init; }
 }

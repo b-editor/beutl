@@ -18,6 +18,7 @@ public sealed partial class ShaderGraphBuilder
     private readonly HashSet<string> _passNames = new(StringComparer.Ordinal);
     private bool _sealed;
     private bool _recordingPass;
+    private int _externalImages;
 
     private ShaderGraphBuilder()
     {
@@ -53,6 +54,21 @@ public sealed partial class ShaderGraphBuilder
         }
     }
 
+    /// <summary>Declares a picture besides the source, which a render supplies in the order these are declared.</summary>
+    /// <remarks>It covers what the source covers: the same coordinates read the same place in both, and what the
+    /// picture leaves uncovered is transparent. Like the source, it is read-only.</remarks>
+    internal ShaderImage ExternalImage(string name)
+    {
+        EnsureRecording();
+        AddName(_resourceNames, name);
+        var image = new ShaderImage(this, _resources.Count, name, TextureFormat.RGBA16Float, null, null, 0, 1)
+        {
+            ExternalIndex = _externalImages++
+        };
+        _resources.Add(image);
+        return image;
+    }
+
     /// <summary>Declares an image with the logical bounds of another image, optionally expanded on all sides.</summary>
     /// <param name="resolutionScale">Raster density relative to the graph's working scale; independent of bounds.</param>
     public ShaderImage Image2D(string name, ShaderImage like,
@@ -81,6 +97,14 @@ public sealed partial class ShaderGraphBuilder
         if (!float.IsFinite(resolutionScale) || resolutionScale <= 0)
             throw new ArgumentOutOfRangeException(nameof(resolutionScale));
         AddName(_resourceNames, name);
+        // An image that only follows its own like has no bounds of its own, so following past it keeps images that
+        // each take after the last, as a replay's do, from nesting as deep as the loop when bounds are resolved.
+        while (like is { IsInput: false, ExplicitBounds: null, BoundsFromGroup: false, BoundsTransforms.IsEmpty: true })
+        {
+            padding += like.Padding;
+            like = like.Like;
+        }
+
         var image = new ShaderImage(this, _resources.Count, name, format, like, bounds, padding, resolutionScale);
         _resources.Add(image);
         return image;
