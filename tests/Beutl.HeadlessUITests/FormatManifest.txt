@@ -1689,12 +1689,14 @@ library.addElement
 library.addElementFromTemplate
 main.changeTheme
 main.closeProject
+main.closeTab
 main.commitVersion
 main.createNewFile
 main.createNewProject
 main.createToolTab
 main.enableVersionControl
 main.exit
+main.minimizeWindow
 main.nextTab
 main.nextToolTab
 main.openFile
@@ -1707,6 +1709,9 @@ main.redo
 main.save
 main.saveAll
 main.showCommandPalette
+main.showSettings
+main.showTutorials
+main.toggleFullScreen
 main.undo
 previewSettings.changePreviewRenderQuality
 sceneSettings.changeSceneDuration
@@ -1717,6 +1722,7 @@ timeline.closeGap
 timeline.copy
 timeline.cut
 timeline.delete
+timeline.deselectAll
 timeline.duplicate
 timeline.exitRazorMode
 timeline.exitRollMode
@@ -1732,7 +1738,9 @@ timeline.nudgeRightLarge
 timeline.nudgeRightSecond
 timeline.paste
 timeline.rename
+timeline.resetZoom
 timeline.saveAsTemplate
+timeline.selectAll
 timeline.setEndTime
 timeline.setStartTime
 timeline.split
@@ -1742,6 +1750,8 @@ timeline.toggleRippleMode
 timeline.toggleRollMode
 timeline.toggleSlideMode
 timeline.toggleSlipMode
+timeline.zoomIn
+timeline.zoomOut
 
 ## Decoders
 # Extension.DecoderPriority in settings.json: the $type of every IDecoderInfo.
