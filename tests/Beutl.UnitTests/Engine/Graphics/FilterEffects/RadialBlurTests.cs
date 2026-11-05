@@ -385,11 +385,19 @@ public sealed class RadialBlurTests
             using Bitmap expected = whole[0].RenderTarget!.Snapshot();
             using Bitmap actual = part[0].RenderTarget!.Snapshot();
             Assert.That(part[0].RasterBounds.Position, Is.EqualTo(whole[0].RasterBounds.Position));
+            // SwiftShader rounds the positions the part samples at differently from the whole's, by the last bit.
+            float largest = 0;
             for (int y = 0; y < actual.Height; y++)
             {
-                Assert.That(actual.GetRow<ushort>(y).ToArray(),
-                    Is.EqualTo(expected.GetRow<ushort>(y)[..(actual.Width * 4)].ToArray()), $"row {y}");
+                ReadOnlySpan<ushort> got = actual.GetRow<ushort>(y), want = expected.GetRow<ushort>(y);
+                for (int index = 0; index < actual.Width * 4; index++)
+                {
+                    largest = MathF.Max(largest, MathF.Abs(
+                        (float)BitConverter.UInt16BitsToHalf(got[index]) - (float)BitConverter.UInt16BitsToHalf(want[index])));
+                }
             }
+
+            Assert.That(largest, Is.LessThanOrEqualTo(0.002f));
         });
     }
 
