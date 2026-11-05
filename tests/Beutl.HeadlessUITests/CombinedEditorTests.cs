@@ -898,7 +898,9 @@ public sealed class CombinedEditorTests
     // Apart, a width and a height show as the rows of any two properties, with nothing above them, and clicking the menu
     // of either joins them again. That disposes the row whose menu is open.
     [AvaloniaTest]
-    public void The_menu_of_either_row_joins_the_two_again()
+    [TestCase(0)]
+    [TestCase(1)]
+    public void The_menu_of_either_row_joins_the_two_again(int clicked)
     {
         var shape = new RectShape();
         using PropertyEditorTestHost.HistoryScope history = new(shape);
@@ -918,13 +920,13 @@ public sealed class CombinedEditorTests
             Assert.That(window.GetVisualDescendants().OfType<TextBlock>()
                 .Any(text => text.Text == combined.Header && text.IsEffectivelyVisible), Is.False, "Nothing names the two above them.");
             Assert.That(window.GetVisualDescendants().OfType<TreeLineDecorator>().Single().IndentLevel, Is.Zero);
-            var height = (PropertyEditorViewModel)rows[1].DataContext!;
+            var clickedRow = (PropertyEditorViewModel)rows[clicked].DataContext!;
 
-            Button button = ((Control)rows[1].MenuContent!).GetVisualDescendants().OfType<Button>().First();
+            Button button = ((Control)rows[clicked].MenuContent!).GetVisualDescendants().OfType<Button>().First();
             button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             HeadlessTestHelpers.Render(3);
             var menu = (FAMenuFlyout)button.ContextFlyout!;
-            FAMenuFlyoutItem unseparate = RowMenuItem(rows[1], "unseparateComponentsItem");
+            FAMenuFlyoutItem unseparate = RowMenuItem(rows[clicked], "unseparateComponentsItem");
             Assert.That(unseparate.IsEffectivelyVisible, Is.True);
             TimelineTestHost.WaitForHitTest(window, unseparate, HeadlessTestHelpers.Center(unseparate, window));
             HeadlessTestHelpers.Click(unseparate, move: true, ticks: 3);
@@ -933,7 +935,7 @@ public sealed class CombinedEditorTests
             Assert.That(IsSeparated(combined), Is.False);
             Assert.That(window.GetVisualDescendants().OfType<Vector2Editor<float>>().Single().IsEffectivelyVisible, Is.True);
             Assert.That(window.GetVisualDescendants().OfType<NumberEditor<float>>(), Is.Empty);
-            Assert.That(height.IsDisposed, Is.True);
+            Assert.That(clickedRow.IsDisposed, Is.True);
             Assert.That(history.History.UndoCount, Is.EqualTo(before), "Only the view changes.");
         }
         finally { window.Close(); }
