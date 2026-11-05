@@ -279,6 +279,9 @@ public static partial class CoreSerializer
             writer.Flush();
         }
 
+        // What decides is the file as it is now, not one a batch has yet to move into place.
+        StorageWriteTransaction.CurrentBatch?.RemoveFromBatch(path);
+
         ReadOnlyMemory<byte> content = buffer.GetBuffer().AsMemory(0, checked((int)buffer.Length));
         try
         {

@@ -923,9 +923,8 @@ public partial class MissingMediaTests
         };
         try
         {
-            ValueTask<bool> save = editor.SaveAsync();
-            Assert.That(save.IsCompletedSuccessfully, Is.True, "Saving must not depend on a pending media read.");
-            await save;
+            // Saving must not depend on a pending media read.
+            Assert.That(await editor.SaveAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(30)), Is.True);
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             using (editor.HistoryManager.SuppressRecording()) editor.Scene.Duration.Value = MediaTime.FromSeconds(17);
             release.SetResult();

@@ -137,7 +137,9 @@ public partial class MenuBarViewModel
             Project? project = _projectService.CurrentProject.Value;
             if (project != null)
             {
-                CoreSerializer.StoreToUri(project, project.Uri!);
+                // This writes every scene of the project, so it leaves the UI thread, as a lifecycle save does.
+                using (_editorService.SuspendEditors())
+                    await Task.Run(() => CoreSerializer.StoreToUri(project, project.Uri!));
             }
 
             itemsCount++;

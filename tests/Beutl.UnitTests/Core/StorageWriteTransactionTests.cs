@@ -452,6 +452,47 @@ public class StorageWriteTransactionTests
     }
 
     [Test]
+    public void Batch_KeepsTheLastWriteOfAFile()
+    {
+        string existing = CreateFile("existing.belm", "before");
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        transaction.WriteInBatch(() =>
+        {
+            WriteJson(existing, "first");
+            WriteJson(existing, "second");
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Has.Length.EqualTo(1));
+        });
+        transaction.Commit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(existing), Is.EqualTo("\"second\""));
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Batch_LeavesAFileAsItWasWhenItsWriteIsTakenBack()
+    {
+        string existing = CreateFile("existing.belm", "before");
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        transaction.WriteInBatch(() =>
+        {
+            WriteJson(existing, "first");
+            transaction.RemoveFromBatch(existing);
+        });
+        transaction.Commit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(existing), Is.EqualTo("before"));
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+        });
+    }
+
+    [Test]
     public void Batch_MovesItsFilesIntoPlaceAfterTheLastWrite()
     {
         string existing = CreateFile("existing.belm", "before");
