@@ -320,6 +320,26 @@ public partial class ShaderNodeRenderingTests
         }));
     }
 
+    [TestCase(0.5f)]
+    [TestCase(2f)]
+    public void TheDefaultComputePassCopiesWhatTheDefaultFullscreenPassDoesAtAnyResolution(float resolution)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        ushort[] Rendered(ShaderPassNode pass, string output)
+        {
+            pass.ResolutionScale.Property!.SetValue(resolution);
+            return ShaderNodeTestHelpers.Render(ShaderNodeTestHelpers.Record(WithOutput(graph => graph.Add(pass).Out(output))), 1);
+        }
+
+        ushort[] expected = Rendered(new ShaderFullscreenPassNode(), "color");
+        ushort[] actual = Rendered(new ShaderComputePassNode(), "result");
+
+        Assert.That(expected, Has.Some.Not.EqualTo((ushort)0));
+        Assert.That(actual, Has.Length.EqualTo(expected.Length));
+        for (int index = 0; index < expected.Length; index++)
+            Assert.That(Channel(actual, index), Is.EqualTo(Channel(expected, index)).Within(1f / 1024), $"At {index}");
+    }
+
     private const string ReadOnlyImageCode = """
         #version 450
         layout(local_size_x=8, local_size_y=8) in;

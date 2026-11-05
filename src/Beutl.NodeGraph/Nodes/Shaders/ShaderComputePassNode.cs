@@ -17,8 +17,9 @@ public partial class ShaderComputePassNode : ShaderPassNode
 
         void main() {
             ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
-            if (any(greaterThanEqual(pixel, imageSize(result)))) return;
-            imageStore(result, pixel, texelFetch(source, pixel, 0));
+            ivec2 size = imageSize(result);
+            if (any(greaterThanEqual(pixel, size))) return;
+            imageStore(result, pixel, textureLod(source, (vec2(pixel) + 0.5) / vec2(size), 0.0));
         }
         """;
 
