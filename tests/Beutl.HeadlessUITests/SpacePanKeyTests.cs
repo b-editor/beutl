@@ -125,6 +125,26 @@ public class SpacePanKeyTests
     }
 
     [AvaloniaTest]
+    public async Task Space_pressed_during_a_ruler_drag_is_not_a_tap()
+    {
+        await using var scope = await Scope.CreateAsync(Surface.GraphEditor);
+        Assert.That(scope.View.Focus(), Is.True);
+        Point ruler = scope.CenterOf(scope.ClickTarget);
+
+        scope.Window.MouseDown(ruler, MouseButton.Left);
+        scope.Press();
+        scope.Release();
+        scope.Window.MouseUp(ruler, MouseButton.Left);
+        HeadlessTestHelpers.Settle();
+        Assert.That(scope.IsPlaying, Is.False);
+
+        // The drag is over, so the next tap is a tap again.
+        scope.Press();
+        scope.Release();
+        Assert.That(scope.IsPlaying, Is.True);
+    }
+
+    [AvaloniaTest]
     public async Task Space_held_across_a_click_is_not_a_tap([Values] Surface surface)
     {
         await using var scope = await Scope.CreateAsync(surface);

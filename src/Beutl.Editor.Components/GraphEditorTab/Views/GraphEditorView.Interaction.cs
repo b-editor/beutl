@@ -364,7 +364,11 @@ public partial class GraphEditorView
         if (VelocityFlyout?.IsOpen == true || ValueScaleFlyout?.IsOpen == true) return;
         if (e.Source is TextBox || DataContext is not GraphEditorViewModel { SelectedView.Value: { } channel } model) return;
         var command = KeyGestureHelper.GetCommandModifier();
-        if (e.Key == Key.Space) { _space.Press(e, _interactionPointer == null && ControlPointMoveState == null); return; }
+        if (e.Key == Key.Space)
+        {
+            _space.Press(e, _interactionPointer == null && ControlPointMoveState == null && _mouseFlag == TimelineHelper.MouseFlags.Free);
+            return;
+        }
         if (e.Key == Key.Escape)
         {
             if (ControlPointMoveState is { } controlPoint) controlPoint.Complete?.Invoke(true);
