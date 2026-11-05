@@ -108,6 +108,8 @@ public sealed class ShaderGraphCacheTests
             });
             WarmCache(renderer);
             Assert.That(node.Cache.IsCached, Is.True);
+            RenderRed(renderer);
+            Assert.That(renderer.LastExecutionStatistics.ShaderStageExecutions, Is.Zero, "The next frame takes what was kept.");
         });
     }
 
