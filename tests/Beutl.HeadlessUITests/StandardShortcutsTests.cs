@@ -395,12 +395,16 @@ public sealed class StandardShortcutsTests
         BeutlDockFactory factory = editor.DockHost.Factory;
         try
         {
-            view.Focus();
             BeutlToolDockable first = FocusFirstTool(factory);
+            HeadlessTestHelpers.Render(2);
+            var inside = (Control)view.GetVisualDescendants().OfType<ToolTabContent>()
+                .First(content => ReferenceEquals(content.DataContext, first)).Content!;
+            inside.Focusable = true;
+            inside.Focus();
             TestShell.MainViewModel.MenuBar.CloseTab.Execute();
             HeadlessTestHelpers.Settle();
             Assert.That(factory.EnumerateTools(), Does.Not.Contain(first));
-            Assert.That(window.FocusManager?.GetFocusedElement(), Is.Not.Null);
+            Assert.That(window.FocusManager?.GetFocusedElement(), Is.Not.Null.And.Not.SameAs(inside));
 
             view.Focus();
             BeutlToolDockable second = FocusFirstTool(factory);
@@ -442,15 +446,54 @@ public sealed class StandardShortcutsTests
         }
     }
 
+    // With nothing left to close, a macOS window closes itself. On the other platforms the key would quit the app.
     [AvaloniaTest]
-    public async Task Close_tab_with_no_editor_open_leaves_it_to_the_window()
+    public async Task Close_tab_with_no_editor_open_closes_only_a_macOS_window()
     {
         await TestReset.ResetShellAsync();
-        int closes = 0;
+        var view = new MainView { DataContext = TestShell.MainViewModel };
+        var window = new Window { Content = view };
+        window.Show();
+        HeadlessTestHelpers.Render(2);
+        try
+        {
+            TestShell.MainViewModel.MenuBar.CloseTab.Execute();
+            HeadlessTestHelpers.Settle();
 
-        TestShell.MainViewModel.CloseTab(() => closes++);
+            Assert.That(window.IsVisible, Is.EqualTo(!OperatingSystem.IsMacOS()));
+        }
+        finally
+        {
+            await CloseAsync(window, view);
+        }
+    }
 
-        Assert.That(closes, Is.EqualTo(1));
+    [AvaloniaTest]
+    public async Task The_window_entries_change_the_state_of_the_window()
+    {
+        (Window window, MainView view, _) = await ShowEditorAsync("shortcuts-window-state");
+        MenuBarViewModel menu = TestShell.MainViewModel.MenuBar;
+        try
+        {
+            menu.ZoomWindow.Execute();
+            Assert.That(window.WindowState, Is.EqualTo(WindowState.Maximized));
+            menu.ZoomWindow.Execute();
+            Assert.That(window.WindowState, Is.EqualTo(WindowState.Normal));
+
+            menu.ToggleFullScreen.Execute();
+            Assert.That(window.WindowState, Is.EqualTo(WindowState.FullScreen));
+            menu.ZoomWindow.Execute();
+            Assert.That(window.WindowState, Is.EqualTo(WindowState.FullScreen), "Zoom has no meaning in full screen.");
+            menu.ToggleFullScreen.Execute();
+            Assert.That(window.WindowState, Is.EqualTo(WindowState.Normal));
+
+            menu.MinimizeWindow.Execute();
+            Assert.That(window.WindowState, Is.EqualTo(WindowState.Minimized));
+        }
+        finally
+        {
+            await CloseAsync(window, view);
+        }
     }
 
     [AvaloniaTest]
@@ -646,6 +689,23 @@ public sealed class StandardShortcutsTests
         {
             Assert.That(fixture.Box.Text, Is.EqualTo(text));
             Assert.That(fixture.Box.CaretIndex, Is.EqualTo(caret));
+            Assert.That(args.Handled, Is.True);
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(Key.N, 3, 12)]
+    [TestCase(Key.P, 12, 3)]
+    public void A_macOS_text_command_moves_the_caret_between_lines(Key key, int from, int to)
+    {
+        using var fixture = new TextBoxFixture("line one\nline two", caret: from);
+
+        KeyEventArgs args = KeyDown(fixture.Box, key, KeyModifiers.Control);
+        MacOSKeyBindings.OnTextBoxKeyDown(fixture.Box, args);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fixture.Box.CaretIndex, Is.EqualTo(to));
             Assert.That(args.Handled, Is.True);
         });
     }
