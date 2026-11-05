@@ -1,7 +1,6 @@
 <UserControl x:Class="Beutl.Editor.Components.PropertyEditors.Views.GraphModelEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Editor.Components.PropertyEditors.Views"
@@ -19,14 +18,12 @@
                                Icon="Flow"
                                Text="{x:Static lang:Strings.OpenInTab}" />
 
-        <controls:TreeLineDecorator Grid.Row="1" LineBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
-            <ItemsControl Margin="-16,0,0,0" ItemsSource="{Binding NodeMembers}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <local:GraphModelNodeMemberView />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </controls:TreeLineDecorator>
+        <ItemsControl Grid.Row="1" ItemsSource="{Binding NodeMembers}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <local:GraphModelNodeMemberView />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
     </Grid>
 </UserControl>

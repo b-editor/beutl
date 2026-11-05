@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.PropertyEditors.Views.AudioEffectListItemEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -13,7 +14,7 @@
              x:CompileBindings="False"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
-        <Grid Margin="8,0,0,0" ColumnDefinitions="*,Auto,Auto">
+        <Grid ColumnDefinitions="*,Auto,Auto">
             <ToggleButton x:Name="reorderHandle"
                           Content="{Binding FilterName.Value}"
                           Cursor="SizeNorthSouth"
@@ -40,11 +41,15 @@
         </Grid>
 
         <Panel x:Name="content" Grid.Row="2">
-            <local:PropertiesEditor Margin="16,0,0,0"
+            <controls:TreeLineDecorator IsVisible="{Binding !IsFallback.Value}" Theme="{StaticResource ListItemTreeLine}" />
+
+            <local:PropertiesEditor Margin="{StaticResource ListItemContentMargin}"
                                     Padding="0"
                                     DataContext="{Binding Properties.Value}" />
 
-            <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
+            <ItemsControl Margin="{StaticResource ListItemContentMargin}"
+                          DataContext="{Binding Group.Value}"
+                          ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <local:ListItemEditor />

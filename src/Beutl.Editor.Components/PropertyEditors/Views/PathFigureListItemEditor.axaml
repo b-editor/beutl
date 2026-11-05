@@ -16,7 +16,7 @@
              Background="Transparent"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
-        <Grid Margin="8,0,0,0" ColumnDefinitions="*,Auto">
+        <Grid ColumnDefinitions="*,Auto">
             <ToggleButton x:Name="reorderHandle"
                           Cursor="SizeNorthSouth"
                           IsChecked="{Binding IsExpanded.Value}"
@@ -91,27 +91,27 @@
             </StackPanel>
         </Grid>
 
-        <StackPanel x:Name="content"
-                    Grid.Row="1"
-                    MinHeight="24"
-                    Margin="16,0,0,0">
-            <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:MessageStrings.PropertyUnset}" />
+        <Panel x:Name="content"
+               Grid.Row="1"
+               MinHeight="24">
+            <controls:TreeLineDecorator Theme="{StaticResource ListItemTreeLine}" />
 
-            <local:PropertiesEditor Padding="0"
-                                    DataContext="{Binding Properties.Value}" />
+            <TextBlock Margin="40,0,0,0"
+                       IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}"
+                       Text="{x:Static lang:MessageStrings.PropertyUnset}" />
 
+            <StackPanel Margin="{StaticResource ListItemContentMargin}">
+                <local:PropertiesEditor Padding="0"
+                                        DataContext="{Binding Properties.Value}" />
 
-            <controls:TreeLineDecorator LineBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
-                <ItemsControl Margin="-16,0,0,0"
-                              DataContext="{Binding Group.Value}"
-                              ItemsSource="{Binding Items}">
+                <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <local:ListItemEditor />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-            </controls:TreeLineDecorator>
-        </StackPanel>
+            </StackPanel>
+        </Panel>
     </Grid>
 </UserControl>
