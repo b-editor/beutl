@@ -27,6 +27,9 @@ public class GradientStopsSlider : TemplatedControl
     public static readonly StyledProperty<GradientStop?> SelectedStopProperty =
         AvaloniaProperty.Register<GradientStopsSlider, GradientStop?>(nameof(SelectedStop));
 
+    public static readonly StyledProperty<GradientStops?> BackgroundStopsProperty =
+        AvaloniaProperty.Register<GradientStopsSlider, GradientStops?>(nameof(BackgroundStops));
+
     private readonly CompositeDisposable _disposables = [];
     private Rectangle? _backgroundElement;
     private ItemsControl? _itemsControl;
@@ -50,6 +53,13 @@ public class GradientStopsSlider : TemplatedControl
     {
         get => GetValue(SelectedStopProperty);
         set => SetValue(SelectedStopProperty, value);
+    }
+
+    /// <summary>What the bar shows in place of <see cref="Stops"/>, for a gradient that Avalonia would not mix alike.</summary>
+    public GradientStops? BackgroundStops
+    {
+        get => GetValue(BackgroundStopsProperty);
+        set => SetValue(BackgroundStopsProperty, value);
     }
 
     // ドラッグ操作中
@@ -106,7 +116,7 @@ public class GradientStopsSlider : TemplatedControl
             {
                 StartPoint = new RelativePoint(0, 0.5, RelativeUnit.Relative),
                 EndPoint = new RelativePoint(1, 0.5, RelativeUnit.Relative),
-                GradientStops = _backgroundStops
+                GradientStops = BackgroundStops ?? _backgroundStops
             };
         }
     }
@@ -123,6 +133,11 @@ public class GradientStopsSlider : TemplatedControl
             {
                 _stopsSubscription = SubscribeStops(stops);
             }
+        }
+        else if (change.Property == BackgroundStopsProperty)
+        {
+            if (_backgroundElement?.Fill is LinearGradientBrush brush)
+                brush.GradientStops = BackgroundStops ?? _backgroundStops;
         }
         else if (change.Property == SelectedStopProperty)
         {
@@ -412,6 +427,9 @@ public class GradientStopsSlider : TemplatedControl
             double x = point.Position.X;
             double offset = x / width;
             (Color color, int index) = ResolveInsertedStop(Stops, offset);
+            // Keep the color the bar shows there, or the new stop would change the gradient.
+            if (BackgroundStops != null)
+                color = ResolveInsertedStop(BackgroundStops, offset).Color;
 
             var stop = new GradientStop(color, offset);
             Added?.Invoke(this, (index, stop));

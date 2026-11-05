@@ -189,39 +189,30 @@ public sealed partial class LutEffect : FilterEffect
 
     private sealed class LutShaderResource
     {
-        private readonly Vector3[] _data;
-        private readonly int _height;
+        // Kept so that its texture stays on the GPU: a new image for each frame was uploaded anew.
+        private readonly SKImage _image;
 
-        private LutShaderResource(Vector3[] data)
+        private LutShaderResource(ReadOnlySpan<Vector3> data)
         {
-            _data = data;
             // A single row for a 33-point 3D LUT is 35,937 pixels wide, past common GPU limits.
             Width = (int)Math.Ceiling(Math.Sqrt(data.Length));
-            _height = (data.Length + Width - 1) / Width;
+            int height = (data.Length + Width - 1) / Width;
+            using SKColorSpace colorSpace = SKColorSpace.CreateSrgbLinear();
+            _image = SKImage.Create(new SKImageInfo(Width, height, SKColorType.RgbaF32, SKAlphaType.Premul, colorSpace));
+            using SKPixmap pixmap = _image.PeekPixels();
+            Span<Vector4> pixels = pixmap.GetPixelSpan<Vector4>();
+            pixels[data.Length..].Clear();
+            for (int i = 0; i < data.Length; i++)
+            {
+                pixels[i] = new Vector4(data[i], 1);
+            }
         }
 
         public int Width { get; }
 
-        public static LutShaderResource Create(ReadOnlySpan<Vector3> data)
-            => new(data.ToArray());
+        public static LutShaderResource Create(ReadOnlySpan<Vector3> data) => new(data);
 
-        public SKShader CreateShader()
-        {
-            using SKColorSpace colorSpace = SKColorSpace.CreateSrgbLinear();
-            using SKImage image = SKImage.Create(
-                new SKImageInfo(Width, _height, SKColorType.RgbaF32, SKAlphaType.Premul, colorSpace));
-            using (SKPixmap pixmap = image.PeekPixels())
-            {
-                Span<Vector4> pixels = pixmap.GetPixelSpan<Vector4>();
-                pixels[_data.Length..].Clear();
-                for (int i = 0; i < _data.Length; i++)
-                {
-                    pixels[i] = new Vector4(_data[i], 1);
-                }
-            }
-
-            return image.ToShader();
-        }
+        public SKShader CreateShader() => _image.ToShader();
     }
 
     public new partial class Resource

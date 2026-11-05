@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Beutl.Audio;
 using Beutl.Embedding.MediaFoundation.Decoding;
 using Beutl.Embedding.MediaFoundation.Encoding;
@@ -301,14 +302,38 @@ public class MFEncodingTests
             && !MFThread.Dispatcher.Invoke(() => MFEncodingController.IsVideoEncoderAvailable(expectedVideo, true)))
             Assert.Ignore("No HEVC encoder is installed on this system.");
 
-        var controller = CreateController(extension);
-        controller.VideoSettings.Codec.Value = codec;
-        controller.VideoSettings.UseHardwareAcceleration.Value = expectedVideo == MFVideoCodec.HEVC;
-        controller.VideoSettings.DestinationSize.Value = new PixelSize(320, 240);
-        controller.AudioSettings.Codec.Value = audioCodec;
-        using var frames = new GradientFrameProvider(30, new Rational(30, 1), 64, 48);
-        using var samples = new TrackedSamples(44100 + 137, 44100);
-        await controller.Encode(frames, samples, CancellationToken.None);
+        async Task<(MFEncodingController, TrackedSamples)> Encode()
+        {
+            // Two tries fit in CI's two-minute hang limit.
+            var created = Configure(new MFEncodingController(Path.Combine(_directory, "output" + extension))
+            {
+                FinalizeStallLimit = TimeSpan.FromSeconds(30),
+            });
+            created.VideoSettings.Codec.Value = codec;
+            created.VideoSettings.UseHardwareAcceleration.Value = expectedVideo == MFVideoCodec.HEVC;
+            created.VideoSettings.DestinationSize.Value = new PixelSize(320, 240);
+            created.AudioSettings.Codec.Value = audioCodec;
+            using var frames = new GradientFrameProvider(30, new Rational(30, 1), 64, 48);
+            var encoded = new TrackedSamples(44100 + 137, 44100);
+            await created.Encode(frames, encoded, CancellationToken.None);
+            return (created, encoded);
+        }
+
+        MFEncodingController controller;
+        TrackedSamples samples;
+        try
+        {
+            (controller, samples) = await Encode();
+        }
+        catch (TimeoutException ex)
+        {
+            // Windows stalling (#4006) is not what this test checks, and must not take an unrelated PR out of the merge
+            // queue. The stalled writer keeps its file, so the second try needs another folder.
+            TestContext.Out.WriteLine($"Retrying after a stall: {ex.Message}");
+            SetUp();
+            (controller, samples) = await Encode();
+        }
+
         MFThread.Dispatcher.Invoke(() =>
         {
             using var source = MediaFactory.MFCreateSourceReaderFromURL(controller.OutputFile, null);
@@ -539,9 +564,75 @@ public class MFEncodingTests
         using (File.Open(controller.OutputFile, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
     }
 
-    private MFEncodingController CreateController(string extension = ".mp4")
+    [Test]
+    public async Task A_stalled_finalize_fails_the_export_without_holding_the_media_foundation_thread()
     {
-        var controller = new MFEncodingController(Path.Combine(_directory, "output" + extension));
+        using var stall = new StalledFinalize();
+        var controller = Configure(new MFEncodingController(Path.Combine(_directory, "output.avi"))
+        {
+            FinalizeStallLimit = TimeSpan.FromSeconds(1),
+            FinalizeWriter = stall.Run,
+        });
+        using var frames = new GradientFrameProvider(3, new Rational(30, 1), 64, 48);
+        using var samples = new TrackedSamples(0, 0);
+
+        Task encode = controller.Encode(frames, samples, CancellationToken.None).AsTask();
+        await stall.Entered.WaitAsync(TimeSpan.FromMinutes(1));
+
+        // Every reader waits for this thread.
+        await MFThread.Dispatcher.InvokeAsync(() => { }).WaitAsync(TimeSpan.FromSeconds(30));
+        await Assert.ThrowsAsync<TimeoutException>(() => encode);
+        Assert.That(stall.HasReturned, Is.False, "The call is given up on, not finished.");
+
+        stall.Release();
+        await WaitUntilClosed(controller.OutputFile);
+    }
+
+    [Test]
+    public async Task Cancelling_a_stalled_finalize_stops_the_export()
+    {
+        using var stall = new StalledFinalize();
+        using var cancellation = new CancellationTokenSource();
+        var controller = Configure(new MFEncodingController(Path.Combine(_directory, "output.avi"))
+        {
+            FinalizeWriter = stall.Run,
+        });
+        using var frames = new GradientFrameProvider(3, new Rational(30, 1), 64, 48);
+        using var samples = new TrackedSamples(0, 0);
+
+        Task encode = controller.Encode(frames, samples, cancellation.Token).AsTask();
+        await stall.Entered.WaitAsync(TimeSpan.FromMinutes(1));
+        cancellation.Cancel();
+
+        await Assert.CatchAsync<OperationCanceledException>(() => encode);
+        Assert.That(stall.HasReturned, Is.False, "The call is given up on, not finished.");
+
+        stall.Release();
+        await WaitUntilClosed(controller.OutputFile);
+    }
+
+    // The writer's last reference goes just after the call returns.
+    private static async Task WaitUntilClosed(string file)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                using var stream = new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                return;
+            }
+            catch (IOException) when (attempt < 300)
+            {
+                await Task.Delay(100);
+            }
+        }
+    }
+
+    private MFEncodingController CreateController(string extension = ".mp4")
+        => Configure(new MFEncodingController(Path.Combine(_directory, "output" + extension)));
+
+    private static MFEncodingController Configure(MFEncodingController controller)
+    {
         controller.VideoSettings.UseHardwareAcceleration.Value = false;
         controller.VideoSettings.SourceSize.Value = new PixelSize(64, 48);
         controller.VideoSettings.DestinationSize.Value = new PixelSize(64, 48);
@@ -569,6 +660,30 @@ public class MFEncodingTests
         public void Dispose() => WasDisposed = true;
     }
 
+    // A Finalize that does not return until the test lets it.
+    private sealed class StalledFinalize : IDisposable
+    {
+        private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly ManualResetEventSlim _released = new();
+
+        public Task Entered => _entered.Task;
+
+        public bool HasReturned { get; private set; }
+
+        public void Run(IMFSinkWriter writer)
+        {
+            _entered.SetResult();
+            _released.Wait();
+            writer.Finalize();
+            HasReturned = true;
+        }
+
+        public void Release() => _released.Set();
+
+        // A failed test must not leave the call waiting on a disposed event.
+        public void Dispose() => Release();
+    }
+
     private sealed class FailingFrames : IFrameProvider
     {
         public long FrameCount => 30;
@@ -582,6 +697,82 @@ public class MFEncodingTests
         }
 
         public void Dispose() => WasDisposed = true;
+    }
+}
+
+[TestFixture]
+public class MFFinalizeWaitTests
+{
+    private static readonly TimeSpan s_limit = TimeSpan.FromMilliseconds(600);
+
+    [Test]
+    public async Task A_call_that_keeps_writing_is_waited_for()
+    {
+        var finalizing = new TaskCompletionSource();
+        long length = 0;
+        var elapsed = Stopwatch.StartNew();
+
+        await MFEncodingController.WaitForFinalize(finalizing.Task, () =>
+        {
+            if (elapsed.Elapsed >= s_limit * 3) finalizing.TrySetResult();
+            return ++length;
+        }, s_limit, CancellationToken.None);
+
+        Assert.That(finalizing.Task.IsCompleted, Is.True);
+    }
+
+    [Test]
+    public async Task A_call_that_stops_writing_is_reported()
+    {
+        var elapsed = Stopwatch.StartNew();
+
+        await Assert.ThrowsAsync<TimeoutException>(() => MFEncodingController.WaitForFinalize(
+            new TaskCompletionSource().Task, () => 0, s_limit, CancellationToken.None));
+
+        Assert.That(elapsed.Elapsed, Is.GreaterThanOrEqualTo(s_limit));
+    }
+
+    [Test]
+    public async Task A_failed_call_reports_its_failure()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => MFEncodingController.WaitForFinalize(
+            Task.FromException(new InvalidOperationException()), () => 0, s_limit, CancellationToken.None));
+    }
+
+    [Test]
+    public async Task Cancelling_gives_up_on_a_call_that_stopped_writing()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.CancelAfter(s_limit);
+
+        await Assert.CatchAsync<OperationCanceledException>(() => MFEncodingController.WaitForFinalize(
+            new TaskCompletionSource().Task, () => 0, TimeSpan.FromHours(1), cancellation.Token));
+    }
+
+    [Test]
+    public async Task Cancelling_gives_up_on_a_call_that_keeps_writing()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        long length = 0;
+
+        await Assert.CatchAsync<OperationCanceledException>(() => MFEncodingController.WaitForFinalize(
+                new TaskCompletionSource().Task, () => ++length, TimeSpan.FromHours(1), cancellation.Token)
+            .WaitAsync(TimeSpan.FromSeconds(30)));
+    }
+
+    [Test]
+    public async Task Cancelling_lets_a_call_about_to_return_release_the_file()
+    {
+        var finalizing = new TaskCompletionSource();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        _ = Task.Delay(s_limit).ContinueWith(_ => finalizing.SetResult(), TaskScheduler.Default);
+
+        await Assert.CatchAsync<OperationCanceledException>(() => MFEncodingController.WaitForFinalize(
+            finalizing.Task, () => 0, TimeSpan.FromHours(1), cancellation.Token));
+
+        Assert.That(finalizing.Task.IsCompleted, Is.True);
     }
 }
 

@@ -24,6 +24,7 @@
                                 Grid.Row="1"
                                 Height="20"
                                 Margin="4,0"
+                                BackgroundStops="{Binding DisplayStops.Value}"
                                 IsEnabled="{Binding CanEdit.Value}"
                                 SelectedStop="{Binding SelectedItem.Value, Mode=TwoWay}"
                                 Stops="{Binding Stops.Value}" />

@@ -116,7 +116,10 @@ internal static class CaptionFileDrop
         if (result.IsSuccess || result.Diagnostics.All(item => item.Kind != CaptionDiagnosticKinds.InvalidUtf8))
             return result;
 
-        Encoding legacy = CodePagesEncodingProvider.Instance.GetEncoding(CultureInfo.CurrentCulture.TextInfo.ANSICodePage)
+        // Code page 0 is the system's on Windows, whatever the regional format says. Elsewhere there is none, and the
+        // locale is the best guess.
+        Encoding legacy = CodePagesEncodingProvider.Instance.GetEncoding(0)
+            ?? CodePagesEncodingProvider.Instance.GetEncoding(CultureInfo.CurrentCulture.TextInfo.ANSICodePage)
             ?? Encoding.Latin1;
         return serializer.Import(Encoding.Convert(legacy, Encoding.UTF8, bytes), format);
     }

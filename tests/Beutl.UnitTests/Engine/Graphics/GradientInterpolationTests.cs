@@ -21,6 +21,22 @@ public sealed class GradientInterpolationTests
         _ => 0.5f,
     };
 
+    [Test]
+    public void A_surface_that_mixes_in_srgb_gets_stops_for_linear_srgb_as_well()
+    {
+        SKColor[] colors = [SKColors.Black, SKColors.White];
+        float[] offsets = [0f, 1f];
+
+        (SKColor[] rendered, _) = GradientStopInterpolation.Expand(
+            colors, offsets, GradientInterpolationSpace.LinearSrgb, premultiplied: false);
+        (SKColor[] shown, float[] shownOffsets) = GradientStopInterpolation.ExpandForSrgbSurface(
+            colors, offsets, GradientInterpolationSpace.LinearSrgb, premultiplied: false);
+
+        Assert.That(rendered, Is.SameAs(colors), "Skia already mixes in linear sRGB on the render surface.");
+        Assert.That(shown, Has.Length.GreaterThan(colors.Length));
+        Assert.That(shown[Array.IndexOf(shownOffsets, 0.5f)].Red, Is.EqualTo(188));
+    }
+
     [TestCase(GradientInterpolationSpace.LinearSrgb)]
     [TestCase(GradientInterpolationSpace.Srgb)]
     [TestCase(GradientInterpolationSpace.Oklab)]
