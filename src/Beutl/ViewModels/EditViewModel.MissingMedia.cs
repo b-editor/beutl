@@ -193,7 +193,7 @@ public sealed partial class EditViewModel : IMediaRepairHost
             else
             {
                 existing = new MissingMediaViewModel(this, missing);
-                if (!DockHost.OpenToolTab(existing, DockHost.Factory.GetAnchoredDock(existing.Extension.DefaultAnchor)))
+                if (!OpenToolTab(existing))
                 {
                     existing.Dispose();
                     return;

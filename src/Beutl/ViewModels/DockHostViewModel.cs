@@ -87,8 +87,10 @@ public class DockHostViewModel : IDisposable, IJsonSerializable, IToolDockHost
             }
 
             // Another tab of a tool already open goes into the same dock, e.g. next to a pinned tab.
+            // With none to join, it goes to its tool's own dock.
             target ??= Factory.EnumerateTools()
-                .FirstOrDefault(t => t.ToolContext.Extension == item.Extension)?.Owner as IToolDock;
+                    .FirstOrDefault(t => t.ToolContext.Extension == item.Extension)?.Owner as IToolDock
+                ?? Factory.GetAnchoredDock(item.Extension.DefaultAnchor);
 
             var dockable = replacing is null
                 ? Factory.AddTool(item, target, activate)
