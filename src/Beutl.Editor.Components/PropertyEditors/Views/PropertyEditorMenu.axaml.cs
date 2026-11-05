@@ -10,6 +10,7 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
+using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
@@ -41,6 +42,8 @@ public sealed partial class PropertyEditorMenu : UserControl
     {
         base.OnDataContextChanged(e);
         toggleLivePreview.IsVisible = DataContext is IConfigureLivePreview;
+        FillCopySubItem(copyPropertyPathSubItem, CopyPropertyPath_Click);
+        FillCopySubItem(copyGetPropertyCodeSubItem, CopyGetPropertyCode_Click);
 
         _componentSubscription?.Dispose();
         _componentSubscription = null;
@@ -54,11 +57,21 @@ public sealed partial class PropertyEditorMenu : UserControl
         {
             UpdateActionVisibility(null, false);
         }
+    }
 
-        bool isEngineProperty = (DataContext as PropertyEditorViewModel)?.PropertyAdapter.GetEngineProperty() != null;
-        copyPropertyPathSeparator.IsVisible = isEngineProperty;
-        copyPropertyPathItem.IsVisible = isEngineProperty;
-        copyGetPropertyCodeItem.IsVisible = isEngineProperty;
+    // A path names one property, so a row that properties share asks which one. Each has a row of its own once separated.
+    private void FillCopySubItem(FAMenuFlyoutSubItem subItem, EventHandler<RoutedEventArgs> click)
+    {
+        subItem.Items.Clear();
+        if (DataContext is PropertyEditorViewModel { EditedProperties: { Count: > 1 } properties })
+        {
+            foreach (IPropertyAdapter property in properties)
+            {
+                var item = new FAMenuFlyoutItem { Text = property.DisplayName, Tag = property };
+                item.Click += click;
+                subItem.Items.Add(item);
+            }
+        }
     }
 
     private void UpdateActionVisibility(PropertyEditorViewModel? model, bool separated)
@@ -76,6 +89,14 @@ public sealed partial class PropertyEditorMenu : UserControl
         // Separation keeps an existing aggregate expression; let users remove it without discarding the tracks.
         removeExpressionItem.IsVisible = supportsExpression || separated && model?.HasExpression.Value == true;
         expressionSeparator.IsVisible = editExpressionItem.IsVisible || removeExpressionItem.IsVisible;
+
+        bool isEngineProperty = model?.PropertyAdapter.GetEngineProperty() != null;
+        bool asksWhichProperty = model?.EditedProperties.Count > 1 && !separated;
+        copyPropertyPathItem.IsVisible = isEngineProperty;
+        copyGetPropertyCodeItem.IsVisible = isEngineProperty;
+        copyPropertyPathSubItem.IsVisible = asksWhichProperty;
+        copyGetPropertyCodeSubItem.IsVisible = asksWhichProperty;
+        copyPropertyPathSeparator.IsVisible = isEngineProperty || asksWhichProperty;
     }
 
     private void SeparateComponents_Click(object? sender, RoutedEventArgs e)
@@ -241,7 +262,7 @@ public sealed partial class PropertyEditorMenu : UserControl
     private async void CopyPropertyPath_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is PropertyEditorViewModel { IsDisposed: false } viewModel
-            && viewModel.PropertyAdapter.GetEngineProperty() is { } engineProperty
+            && PropertyToCopy(sender, viewModel).GetEngineProperty() is { } engineProperty
             && engineProperty.GetOwnerObject() is { } engineObject
             && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
         {
@@ -253,7 +274,7 @@ public sealed partial class PropertyEditorMenu : UserControl
     private async void CopyGetPropertyCode_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is PropertyEditorViewModel { IsDisposed: false } viewModel
-            && viewModel.PropertyAdapter.GetEngineProperty() is { } engineProperty
+            && PropertyToCopy(sender, viewModel).GetEngineProperty() is { } engineProperty
             && engineProperty.GetOwnerObject() is { } engineObject
             && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
         {
@@ -262,6 +283,9 @@ public sealed partial class PropertyEditorMenu : UserControl
             await clipboard.SetTextAsync(code);
         }
     }
+
+    private static IPropertyAdapter PropertyToCopy(object? sender, PropertyEditorViewModel viewModel)
+        => (sender as Control)?.Tag as IPropertyAdapter ?? viewModel.PropertyAdapter;
 
     // The type as C# code names it without usings: keywords, "Outer.Inner" for a nested type and the type
     // arguments in angle brackets, where Type.FullName gives "Outer+Inner" and "List`1[[...]]".

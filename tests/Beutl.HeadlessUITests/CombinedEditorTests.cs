@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Animation;
@@ -831,6 +832,10 @@ public sealed class CombinedEditorTests
                 Assert.That(Item(menu, "removeAnimationItem").IsVisible, Is.True);
                 Assert.That(Item(menu, "editExpressionItem").IsVisible, Is.True);
                 Assert.That(Item(menu, "copyPropertyPathItem").IsVisible, Is.False, "A path names one property.");
+                Assert.That(Item(menu, "copyGetPropertyCodeItem").IsVisible, Is.False);
+                Assert.That(SubItem(menu, "copyPropertyPathSubItem").IsVisible, Is.True);
+                Assert.That(SubItem(menu, "copyGetPropertyCodeSubItem").IsVisible, Is.True);
+                Assert.That(menu.Items.OfType<FAMenuFlyoutSeparator>().Single(i => i.Name == "copyPropertyPathSeparator").IsVisible, Is.True);
                 Assert.That(menu.Items.OfType<FAToggleMenuFlyoutItem>().Single(i => i.Name == "uniformEditorToggle").IsVisible, Is.True);
             });
             Item(menu, "separateComponentsItem").RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
@@ -848,6 +853,9 @@ public sealed class CombinedEditorTests
                 Assert.That(Item(headerMenu, "separateComponentsItem").IsVisible, Is.False);
                 Assert.That(Item(headerMenu, "editAnimationItem").IsVisible, Is.False);
                 Assert.That(Item(headerMenu, "editExpressionItem").IsVisible, Is.False, "Each row has its own expression.");
+                Assert.That(SubItem(headerMenu, "copyPropertyPathSubItem").IsVisible, Is.False, "Each row has its own path.");
+                Assert.That(SubItem(headerMenu, "copyGetPropertyCodeSubItem").IsVisible, Is.False);
+                Assert.That(headerMenu.Items.OfType<FAMenuFlyoutSeparator>().Single(i => i.Name == "copyPropertyPathSeparator").IsVisible, Is.False);
                 Assert.That(unseparate.IsVisible, Is.True);
                 Assert.That(unseparate.IsEnabled, Is.True);
                 Assert.That(ToolTip.GetTip(unseparate), Is.EqualTo(Strings.UnseparateComponents_SameTiming));
@@ -873,6 +881,51 @@ public sealed class CombinedEditorTests
 
         static FAMenuFlyoutItem Item(FAMenuFlyout menu, string name)
             => menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == name);
+    }
+
+    private static FAMenuFlyoutSubItem SubItem(FAMenuFlyout menu, string name)
+        => menu.Items.OfType<FAMenuFlyoutSubItem>().Single(item => item.Name == name);
+
+    [AvaloniaTest]
+    public async Task The_menu_asks_which_property_to_copy_the_path_and_code_of()
+    {
+        var transform = new ScaleTransform();
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        combined.Accept(Services(history.History));
+        var window = new Window { Width = 480, Height = 400, Content = CreateControl(combined) };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            var editor = window.GetVisualDescendants().OfType<Vector2Editor<float>>().Single();
+            Button button = ((Control)editor.MenuContent!).GetVisualDescendants().OfType<Button>().First();
+            Assert.That(await Copied("copyPropertyPathSubItem", 1), Is.EqualTo($"{{{transform.Id.Value}}}.ScaleY"));
+            Assert.That(await Copied("copyGetPropertyCodeSubItem", 0), Is.EqualTo($"GetProperty<float>(\"{{{transform.Id.Value}}}.ScaleX\")"));
+
+            async Task<string?> Copied(string subItemName, int index)
+            {
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                HeadlessTestHelpers.Render(3);
+                var menu = (FAMenuFlyout)button.ContextFlyout!;
+                FAMenuFlyoutSubItem subItem = SubItem(menu, subItemName);
+                FAMenuFlyoutItem[] items = [.. subItem.Items.Cast<FAMenuFlyoutItem>()];
+                Assert.That(items.Select(item => item.Text),
+                    Is.EqualTo(new[] { GraphicsStrings.ScaleTransform_ScaleX, GraphicsStrings.ScaleTransform_ScaleY }));
+
+                // A submenu opens a moment after the pointer reaches it.
+                TopLevel top = TopLevel.GetTopLevel(subItem)!;
+                top.MouseMove(HeadlessTestHelpers.Center(subItem, top));
+                await Task.Delay(500);
+                HeadlessTestHelpers.Render(3);
+                Assert.That(TopLevel.GetTopLevel(items[index]), Is.Not.Null, "The submenu opens.");
+                HeadlessTestHelpers.Click(items[index], move: true, ticks: 3);
+                HeadlessTestHelpers.Settle();
+                Assert.That(menu.IsOpen, Is.False);
+                return await window.Clipboard!.TryGetTextAsync();
+            }
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]

@@ -93,6 +93,12 @@
                                    Click="CopyGetPropertyCode_Click"
                                    IsVisible="False"
                                    Text="{x:Static lang:Strings.CopyGetPropertyCode}" />
+                <ui:FAMenuFlyoutSubItem x:Name="copyPropertyPathSubItem"
+                                      IsVisible="False"
+                                      Text="{x:Static lang:Strings.CopyPropertyPath}" />
+                <ui:FAMenuFlyoutSubItem x:Name="copyGetPropertyCodeSubItem"
+                                      IsVisible="False"
+                                      Text="{x:Static lang:Strings.CopyGetPropertyCode}" />
             </ui:FAMenuFlyout>
         </Button.ContextFlyout>
         <icons:FluentIcon x:Name="symbolIcon"
