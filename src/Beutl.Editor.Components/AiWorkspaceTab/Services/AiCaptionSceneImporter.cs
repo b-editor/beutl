@@ -23,14 +23,13 @@ internal static class AiCaptionSceneImporter
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(template);
 
-        List<ElementDescription> descriptions = CreateDescriptions(
-            scene, scene.GetFirstFreeLayer(), document, template, cancellationToken);
+        List<ElementDescription> descriptions = CreateDescriptions(scene, 0, document, template, cancellationToken);
         ElementAddResult result = await adder.AddAsync(descriptions, cancellationToken);
         return new CaptionSceneImportResult(result.IsSuccess, result.Failure?.Id);
     }
 
-    // Cues that overlap in time go on separate layers from firstLayer up: on one layer, adding them would move
-    // the later cue to after the earlier one.
+    // Cues that overlap in time go on separate layers from firstLayer up, counted above the scene as it is when they
+    // are added: on one layer, adding them would move the later cue to after the earlier one.
     public static List<ElementDescription> CreateDescriptions(
         Scene scene,
         int firstLayer,
@@ -67,7 +66,7 @@ internal static class AiCaptionSceneImporter
                 MediaTime end = element.Start + (element.Length ?? MediaTime.Zero);
                 if (!layerEnds.TryGetValue(element.Layer, out MediaTime previous) || previous < end)
                     layerEnds[element.Layer] = end;
-                descriptions.Add(element);
+                descriptions.Add(element with { StacksAboveScene = true });
             }
         }
 

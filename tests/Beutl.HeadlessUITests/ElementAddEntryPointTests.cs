@@ -556,6 +556,86 @@ public class ElementAddEntryPointTests
         }
     }
 
+    // Two cues that overlap need two layers, and the second must not take the locked one and refuse the file.
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFile_GoesAroundALockedEmptyLayer()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-locked");
+        await timeline.AddElementWithResultAsync(new ElementDescription(
+            MediaTime.Zero, MediaTime.FromSeconds(10), 0, new ElementSource.EngineObject(() => new RectShape())));
+        editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 2 }, IsLocked = { Value = true } });
+        string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "overlap.srt");
+        File.WriteAllText(path, "1\n00:00:01,000 --> 00:00:03,000\nfirst\n\n2\n00:00:02,000 --> 00:00:04,000\nsecond\n");
+
+        await CaptionFileDrop.AddAsync(timeline, path);
+
+        Element[] texts = [.. editor.Scene.Children
+            .Where(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any())
+            .OrderBy(child => child.Start.Value)];
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(texts.Select(text => text.ZIndex.Value), Is.EqualTo(new[] { 1, 3 }));
+            Assert.That(texts.Select(text => text.Range), Is.EqualTo(new[]
+            {
+                new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2)),
+                new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2)),
+            }));
+        }
+    }
+
+    // The picture skips the locked layers to find a free one, and the subtitle must not meet it there and lose time.
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFile_KeepsItsTimesAboveAPictureThatSkippedLockedLayers()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-locked-pushed");
+        await timeline.AddElementWithResultAsync(new ElementDescription(
+            MediaTime.Zero, MediaTime.FromSeconds(10), 0, new ElementSource.EngineObject(() => new RectShape())));
+        for (int layer = 1; layer <= 3; layer++)
+        {
+            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = layer }, IsLocked = { Value = true } });
+        }
+
+        string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "above.srt");
+        File.WriteAllText(path, "1\n00:00:05,000 --> 00:00:08,000\nsubtitle\n");
+        var picture = new ElementDescription(
+            MediaTime.FromSeconds(1), MediaTime.FromSeconds(5), 0, new ElementSource.EngineObject(() => new RectShape()));
+
+        await CaptionFileDrop.AddAsync(timeline, [path], [picture]);
+
+        Element text = editor.Scene.Children.Single(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any());
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(editor.Scene.Children.Where(child => child != text).Max(child => child.ZIndex.Value), Is.EqualTo(4),
+                "The picture goes to the first free unlocked layer.");
+            Assert.That(text.ZIndex.Value, Is.EqualTo(5));
+            Assert.That(text.Range, Is.EqualTo(new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(3))));
+        }
+    }
+
+    // Reserving room for what the others could be pushed to left dozens of empty layers under the subtitles.
+    [AvaloniaTest]
+    public async Task TimelineView_SubtitleFile_GoesDirectlyAboveWhatWasDroppedWithIt()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-subtitle-no-gap");
+        await timeline.AddElementWithResultAsync(new ElementDescription(
+            MediaTime.Zero, MediaTime.FromSeconds(5), 0, new ElementSource.EngineObject(() => new RectShape())));
+        string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "pictures.srt");
+        File.WriteAllText(path, "1\n00:00:01,000 --> 00:00:02,000\nsubtitle\n");
+        ElementDescription[] pictures = [.. Enumerable.Range(0, 10).Select(index => new ElementDescription(
+            MediaTime.FromSeconds(10 + index), MediaTime.FromSeconds(1), 0, new ElementSource.EngineObject(() => new RectShape())))];
+
+        await CaptionFileDrop.AddAsync(timeline, [path], pictures);
+
+        Element text = editor.Scene.Children.Single(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any());
+        Assert.That(text.ZIndex.Value, Is.EqualTo(1));
+    }
+
     // One unreadable file is said to be so, and need not cost the user the others.
     [AvaloniaTest]
     public async Task TimelineView_SubtitleFileThatCannotBeRead_LeavesTheRestOfTheDrop()

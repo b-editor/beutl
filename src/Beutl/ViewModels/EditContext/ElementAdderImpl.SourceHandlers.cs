@@ -300,7 +300,7 @@ internal sealed partial class ElementAdderImpl
             }
 
             // Refused as a paste onto a locked layer is, rather than moved off it by the search.
-            if (context.Scene.IsLayerLocked(description.Layer))
+            if (!description.StacksAboveScene && context.Scene.IsLayerLocked(description.Layer))
             {
                 return ValueTask.FromResult(ElementSourcePreflightResult.Rejected(
                     new LockedElementLayerFailure(description.Layer)));
@@ -324,9 +324,12 @@ internal sealed partial class ElementAdderImpl
                     new ElementSourcePreflightFailure("The element-set template holds no elements.")));
             }
 
-            if (ElementPlacementHelper.FindFreePlacement(
-                    context.Scene, [.. set.Elements], description.Start, description.Layer)
-                is not { } placement)
+            // A request that stacks above the scene has nothing to avoid, and its layers are final only once it goes in.
+            GroupPlacement? found = description.StacksAboveScene
+                ? ElementPlacementHelper.PlaceAt([.. set.Elements], description.Start, description.Layer)
+                : ElementPlacementHelper.FindFreePlacement(
+                    context.Scene, [.. set.Elements], description.Start, description.Layer);
+            if (found is not { } placement)
             {
                 return ValueTask.FromResult(ElementSourcePreflightResult.Rejected(
                     new ElementSourcePreflightFailure("No free place was found for the element-set template.")));

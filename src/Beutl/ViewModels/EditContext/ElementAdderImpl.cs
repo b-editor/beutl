@@ -187,7 +187,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
 
             foreach (int layer in preflight.TargetLayers)
             {
-                if (scene.IsLayerLocked(layer))
+                if (!description.StacksAboveScene && scene.IsLayerLocked(layer))
                 {
                     _logger.LogInformation(
                         "Refusing element batch because target layer {Layer} is locked.",
@@ -347,6 +347,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                     return;
 
                 var layerEnds = new Dictionary<int, MediaTime>();
+                int? firstFreeLayer = null;
                 for (int index = 0; index < itemResults.Count; index++)
                 {
                     IReadOnlyList<Element> elements = itemResults[index].Elements;
@@ -356,6 +357,22 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                         foreach (Element element in elements)
                         {
                             element.Start.Value += end - description.Start;
+                        }
+                    }
+
+                    if (description.StacksAboveScene)
+                    {
+                        firstFreeLayer ??= scene.GetFirstFreeLayer();
+                        foreach (Element element in elements)
+                        {
+                            element.ZIndex.Value = scene.CountUnlockedLayers(firstFreeLayer.Value, element.ZIndex.Value);
+                            // A matte in a set names a layer of the set, which has just moved.
+                            if (arrangements[index]
+                                && element.MatteSourceKind.Value == MatteSourceKind.Layer
+                                && element.MatteSourceZIndex.Value is { } source)
+                            {
+                                element.MatteSourceZIndex.Value = scene.CountUnlockedLayers(firstFreeLayer.Value, source);
+                            }
                         }
                     }
 
@@ -427,7 +444,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             ElementCreationPlan plan = plans[index];
             foreach (int layer in plan.TargetLayers)
             {
-                if (scene.IsLayerLocked(layer))
+                if (!plan.Description.StacksAboveScene && scene.IsLayerLocked(layer))
                 {
                     return new CommitValidationFailure(
                         new LockedElementLayerFailure(layer));
