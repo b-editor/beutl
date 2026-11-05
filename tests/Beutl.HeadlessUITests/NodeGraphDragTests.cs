@@ -225,6 +225,30 @@ public class NodeGraphDragTests
         });
     }
 
+    // macOS users add to a selection with Cmd, where Ctrl+click means a right click.
+    [AvaloniaTest]
+    [TestCase(RawInputModifiers.Control)]
+    [TestCase(RawInputModifiers.Meta)]
+    public void Clicking_a_node_with_the_command_key_toggles_its_selection(RawInputModifiers modifier)
+    {
+        var node = new ExpressionNode { Position = { Value = (20, 40) } };
+        using var scope = PortScope.Create(node);
+        GraphNodeViewModel model = scope.Model.Nodes.Single();
+        Border handle = scope.View.GetVisualDescendants().OfType<GraphNodeView>().Single().FindControl<Border>("handle")!;
+        Point point = handle.TranslatePoint(new Point(handle.Bounds.Width / 2, handle.Bounds.Height / 2), scope.Window)!.Value;
+
+        scope.Window.MouseMove(point);
+        scope.Window.MouseDown(point, MouseButton.Left, modifier);
+        scope.Window.MouseUp(point, MouseButton.Left, modifier);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(model.IsSelected.Value, Is.True);
+
+        scope.Window.MouseDown(point, MouseButton.Left, modifier);
+        scope.Window.MouseUp(point, MouseButton.Left, modifier);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(model.IsSelected.Value, Is.False);
+    }
+
     [AvaloniaTest]
     [TestCase(DragEnd.CaptureLoss)]
     [TestCase(DragEnd.Playback)]

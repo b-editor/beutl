@@ -74,6 +74,10 @@ public partial class MainView
         viewModel.MenuBar.ThrowUnhandledException.Subscribe(ThrowDebugException).AddTo(_disposables);
         viewModel.MenuBar.StartWindowCapture.Subscribe(StartWindowCapture).AddTo(_disposables);
         viewModel.MenuBar.StopWindowCapture.Subscribe(StopWindowCapture).AddTo(_disposables);
+        viewModel.MenuBar.CloseTab.Subscribe(() => CloseTab(viewModel)).AddTo(_disposables);
+        viewModel.MenuBar.MinimizeWindow.Subscribe(MinimizeWindow).AddTo(_disposables);
+        viewModel.MenuBar.ZoomWindow.Subscribe(ToggleZoom).AddTo(_disposables);
+        viewModel.MenuBar.ToggleFullScreen.Subscribe(ToggleFullScreen).AddTo(_disposables);
 
         viewModel.MenuBar.ShowAiJobs.Subscribe(viewModel.OpenAiJobCenter).AddTo(_disposables);
         viewModel.MenuBar.GenerateImage.Subscribe(viewModel.OpenAiImageGeneration).AddTo(_disposables);

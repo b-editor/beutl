@@ -63,7 +63,7 @@ public sealed class ExpressionEditorFlyout : FAPickerFlyoutBase
 
     private void OnFlyoutKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.Control)
+        if (e is { Key: Key.Enter, KeyModifiers: KeyModifiers.Control or KeyModifiers.Meta })
         {
             OnConfirmed();
             e.Handled = true;

@@ -53,7 +53,11 @@ public static class TextBoxAttachment
         {
             EnterBehaviorMode mode = GetEnterDownBehavior(tb);
             if (mode == EnterBehaviorMode.None) return;
-            if (mode == EnterBehaviorMode.Auto && tb.AcceptsReturn && !e.KeyModifiers.HasFlag(KeyModifiers.Control)) return;
+            if (mode == EnterBehaviorMode.Auto && tb.AcceptsReturn
+                && (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) == 0)
+            {
+                return;
+            }
 
             foreach (InputElement item in tb.GetLogicalSiblings().SkipWhile(v => v != tb).Skip(1).OfType<InputElement>())
             {

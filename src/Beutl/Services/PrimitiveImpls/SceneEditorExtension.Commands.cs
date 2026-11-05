@@ -78,12 +78,13 @@ public sealed partial class SceneEditorExtension
 
     private static bool CanRun(ICommand command) => command.CanExecute(null);
 
+    // A text box leaves an arrow key that cannot move its caret any further, and the key bubbles up to these.
     private static ContextCommandDefinition<EditViewModel> PlayerCommand(
         string id, string displayName, string description, ContextCommandKeyGesture[] keyGestures,
         Func<PlayerViewModel, ReactiveCommand> command)
         => new(id, displayName, description, keyGestures)
         {
-            CanExecuteOn = (editor, _) => CanRun(command(editor.Player)),
+            CanExecuteOn = (editor, execution) => !execution.IsFromTextInput && CanRun(command(editor.Player)),
             ExecuteOnAsync = (editor, _) =>
             {
                 command(editor.Player).Execute();

@@ -62,6 +62,9 @@
   <data name="Close" xml:space="preserve">
     <value>Cerrar</value>
   </data>
+  <data name="CloseTab" xml:space="preserve">
+    <value>Cerrar pestaña</value>
+  </data>
   <data name="ColorScopes" xml:space="preserve">
     <value>Scopes de color</value>
   </data>
@@ -88,6 +91,18 @@
   </data>
   <data name="View" xml:space="preserve">
     <value>Ver</value>
+  </data>
+  <data name="Window" xml:space="preserve">
+    <value>Ventana</value>
+  </data>
+  <data name="MinimizeWindow" xml:space="preserve">
+    <value>Minimizar</value>
+  </data>
+  <data name="ZoomWindow" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="ToggleFullScreen" xml:space="preserve">
+    <value>Alternar pantalla completa</value>
   </data>
   <data name="Object" xml:space="preserve">
     <value>Objeto</value>
@@ -166,6 +181,12 @@
   </data>
   <data name="Paste" xml:space="preserve">
     <value>Pegar</value>
+  </data>
+  <data name="SelectAll" xml:space="preserve">
+    <value>Seleccionar todo</value>
+  </data>
+  <data name="DeselectAll" xml:space="preserve">
+    <value>Deseleccionar todo</value>
   </data>
   <data name="Split" xml:space="preserve">
     <value>Dividir</value>
@@ -547,6 +568,12 @@
   </data>
   <data name="TimelineZoom" xml:space="preserve">
     <value>Zoom</value>
+  </data>
+  <data name="TimelineZoomIn" xml:space="preserve">
+    <value>Acercar</value>
+  </data>
+  <data name="TimelineZoomOut" xml:space="preserve">
+    <value>Alejar</value>
   </data>
   <data name="TimelineSnap" xml:space="preserve">
     <value>Ajuste</value>

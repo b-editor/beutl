@@ -607,6 +607,25 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         _selection.SelectedElements.Clear();
     }
 
+    internal void SelectAll() => _selection.SelectAll(Scene);
+
+    internal const float ZoomStep = 1.2f;
+
+    // The playhead stays where it is in the view, as the pointer does when zooming with the wheel.
+    internal void ZoomAroundPlayhead(float factor) => SetScaleAroundPlayhead(Options.Value.Scale * factor);
+
+    internal void ResetZoom() => SetScaleAroundPlayhead(1);
+
+    private void SetScaleAroundPlayhead(float scale)
+    {
+        TimelineOptions options = Options.Value;
+        scale = Math.Clamp(scale, TimelineOptions.MinScale, TimelineOptions.MaxScale);
+        var offset = options.Offset;
+        offset.X = Math.Max(0, TimelineHelper.ZoomOffsetX(
+            _editorClock.CurrentTime.Value.TimeToPixel(options.Scale), offset.X, options.Scale, scale));
+        Options.Value = options with { Scale = scale, Offset = offset };
+    }
+
     public void SelectElement(ElementViewModel item)
     {
         if (!_selection.SelectedElements.Contains(item.Model))

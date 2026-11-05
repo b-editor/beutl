@@ -24,7 +24,24 @@ public partial class TerminalTabView : UserControl, IDisposable
         {
             if (args.Key == Key.Enter)
                 UsageTelemetry.Current?.Record("tool.command", "Terminal", "SubmitInput");
+            else if (args is { KeyModifiers: KeyModifiers.Meta, Source: TerminalView view })
+                OnCommandKeyDown(view, args);
         }, RoutingStrategies.Tunnel);
+    }
+
+    // The terminal copies and pastes on Ctrl+Shift, whereas macOS leaves Ctrl for the shell and has them on Cmd.
+    private static async void OnCommandKeyDown(TerminalView view, KeyEventArgs args)
+    {
+        if (args.Key == Key.C)
+        {
+            args.Handled = true;
+            await view.CopyAsync();
+        }
+        else if (args.Key == Key.V)
+        {
+            args.Handled = true;
+            await view.PasteAsync();
+        }
     }
 
     // The view is recycled; update the view-model that owns the PTY.

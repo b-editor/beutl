@@ -37,7 +37,7 @@ public sealed partial class MacWindow : Window
         base.OnDataContextChanged(e);
         _menuDisposables.Clear();
         if (DataContext is MainViewModel viewModel)
-            MainMenuBuilder.AddMenus(NativeMenu.GetMenu(this)!, viewModel.MenuItems, _menuDisposables);
+            MainMenuBuilder.AddMenus(NativeMenu.GetMenu(this)!, viewModel.MenuItems, this, _menuDisposables);
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)

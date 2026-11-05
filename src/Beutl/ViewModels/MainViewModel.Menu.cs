@@ -3,6 +3,9 @@ using System.Windows.Input;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.DockLayoutTab;
 using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
+using Beutl.ViewModels.Dock;
+using Dock.Model.Core;
 using DynamicData;
 using DynamicData.Binding;
 using FluentIcons.Common;
@@ -46,8 +49,9 @@ public sealed partial class MainViewModel
                     ]
                 },
                 MainMenuItem.Separator,
+                new(Strings.CloseTab) { Command = MenuBar.CloseTab, GestureCommand = MainViewExtension.CloseTabCommandId },
                 new(Strings.Close) { Command = MenuBar.CloseFile },
-                new(Strings.CloseProject) { Command = MenuBar.CloseProject },
+                new(Strings.CloseProject) { Command = MenuBar.CloseProject, GestureCommand = "main.closeProject" },
                 MainMenuItem.Separator,
                 new(Strings.Save) { Command = MenuBar.Save, GestureCommand = "main.save", Icon = Icon.Save },
                 new(Strings.SaveAll) { Command = MenuBar.SaveAll, GestureCommand = "main.saveAll", Icon = Icon.SaveMultiple },
@@ -64,7 +68,10 @@ public sealed partial class MainViewModel
                     Items = CreateRecentItems(MenuBar.RecentProjectItems, MenuBar.OpenRecentProject)
                 },
                 MainMenuItem.Separator,
-                new(Strings.Settings) { Command = MenuBar.ShowSettings, IsInWindowOnly = true },
+                new(Strings.Settings)
+                {
+                    Command = MenuBar.ShowSettings, GestureCommand = MainViewExtension.ShowSettingsCommandId, IsInWindowOnly = true
+                },
                 new(null) { IsInWindowOnly = true },
                 new(Strings.Exit) { Command = MenuBar.Exit, GestureCommand = "main.exit" },
             ]
@@ -73,8 +80,19 @@ public sealed partial class MainViewModel
         {
             Items =
             [
-                new(Strings.Undo) { Command = MenuBar.Undo, GestureCommand = "main.undo", Icon = Icon.ArrowUndo },
-                new(Strings.Redo) { Command = MenuBar.Redo, GestureCommand = "main.redo", Icon = Icon.ArrowRedo },
+                new(Strings.Undo)
+                {
+                    Command = MenuBar.Undo, GestureCommand = "main.undo", Icon = Icon.ArrowUndo, EditAction = StandardEditAction.Undo
+                },
+                new(Strings.Redo)
+                {
+                    Command = MenuBar.Redo, GestureCommand = "main.redo", Icon = Icon.ArrowRedo, EditAction = StandardEditAction.Redo
+                },
+                new(null) { IsInNativeMenuOnly = true },
+                new(Strings.Cut) { Command = MenuBar.CutLayer, EditAction = StandardEditAction.Cut, IsInNativeMenuOnly = true },
+                new(Strings.Copy) { Command = MenuBar.CopyLayer, EditAction = StandardEditAction.Copy, IsInNativeMenuOnly = true },
+                new(Strings.Paste) { Command = MenuBar.PasteLayer, EditAction = StandardEditAction.Paste, IsInNativeMenuOnly = true },
+                new(Strings.SelectAll) { Command = MenuBar.SelectAll, EditAction = StandardEditAction.SelectAll, IsInNativeMenuOnly = true },
             ]
         },
         new(Strings.View)
@@ -117,6 +135,11 @@ public sealed partial class MainViewModel
                         transformOnRefresh: true)
                 },
                 new(Strings.ManageDockLayouts) { Command = MenuBar.OpenDockLayoutTab },
+                new(null) { IsInNativeMenuOnly = true },
+                new(Strings.ToggleFullScreen)
+                {
+                    Command = MenuBar.ToggleFullScreen, GestureCommand = "main.toggleFullScreen", IsInNativeMenuOnly = true
+                },
             ]
         },
         new(Strings.Tools)
@@ -161,11 +184,20 @@ public sealed partial class MainViewModel
                 new(Strings.AiVideoEditing) { Command = MenuBar.EditVideo, Icon = Icon.VideoClipWand },
             ]
         },
+        new(Strings.Window)
+        {
+            IsInNativeMenuOnly = true,
+            Items =
+            [
+                new(Strings.MinimizeWindow) { Command = MenuBar.MinimizeWindow, GestureCommand = "main.minimizeWindow" },
+                new(Strings.ZoomWindow) { Command = MenuBar.ZoomWindow },
+            ]
+        },
         new(Strings.Help)
         {
             Items =
             [
-                new(Strings.Tutorials) { Command = MenuBar.ShowTutorials },
+                new(Strings.Tutorials) { Command = MenuBar.ShowTutorials, GestureCommand = "main.showTutorials" },
                 MainMenuItem.Separator,
                 new("GC.Collect") { Command = MenuBar.CollectGarbage, IsVisible = UnderDebugger },
                 new("Monitor KeyModifier") { Command = MenuBar.MonitorKeyModifiers, IsVisible = UnderDebugger },
@@ -203,6 +235,30 @@ public sealed partial class MainViewModel
             .Bind(out ReadOnlyObservableCollection<MainMenuItem> items)
             .Subscribe());
         return items;
+    }
+
+    // The counterpart of Ctrl+T. A scene editor closes its tool tab with the focus, unless that tab cannot close, as the
+    // preview cannot. Another editor closes its file, and with no editor open the window is what is left to close.
+    internal void CloseTab(Action closeWindow)
+    {
+        if (_editorService.SelectedTabItem.Value is not { } selected)
+        {
+            closeWindow();
+        }
+        else if (TabSwitcher.CanOpen)
+        {
+            if (selected.Context.Value is EditViewModel editor)
+            {
+                BeutlDockFactory factory = editor.DockHost.Factory;
+                IDockable? focused = factory.CurrentDockable ?? editor.DockHost.Layout.Value.FocusedDockable;
+                if (focused is BeutlToolDockable or NewToolTabDockable && focused.CanClose)
+                    factory.CloseDockable(focused);
+            }
+            else
+            {
+                MenuBar.CloseFile.Execute();
+            }
+        }
     }
 
     private void OpenToolTab(ToolTabExtension extension)

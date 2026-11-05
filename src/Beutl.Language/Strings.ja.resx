@@ -39,6 +39,9 @@
   <data name="Close" xml:space="preserve">
     <value>閉じる</value>
   </data>
+  <data name="CloseTab" xml:space="preserve">
+    <value>タブを閉じる</value>
+  </data>
   <data name="ColorScopes" xml:space="preserve">
     <value>スコープ</value>
   </data>
@@ -177,6 +180,18 @@
   <data name="View" xml:space="preserve">
     <value>表示</value>
   </data>
+  <data name="Window" xml:space="preserve">
+    <value>ウィンドウ</value>
+  </data>
+  <data name="MinimizeWindow" xml:space="preserve">
+    <value>最小化</value>
+  </data>
+  <data name="ZoomWindow" xml:space="preserve">
+    <value>拡大/縮小</value>
+  </data>
+  <data name="ToggleFullScreen" xml:space="preserve">
+    <value>全画面を切り替え</value>
+  </data>
   <data name="Settings" xml:space="preserve">
     <value>設定</value>
   </data>
@@ -194,6 +209,12 @@
   </data>
   <data name="Paste" xml:space="preserve">
     <value>貼り付け</value>
+  </data>
+  <data name="SelectAll" xml:space="preserve">
+    <value>すべて選択</value>
+  </data>
+  <data name="DeselectAll" xml:space="preserve">
+    <value>すべての選択を解除</value>
   </data>
   <data name="Remove" xml:space="preserve">
     <value>削除</value>
@@ -569,6 +590,12 @@
   </data>
   <data name="TimelineZoom" xml:space="preserve">
     <value>拡大率</value>
+  </data>
+  <data name="TimelineZoomIn" xml:space="preserve">
+    <value>拡大</value>
+  </data>
+  <data name="TimelineZoomOut" xml:space="preserve">
+    <value>縮小</value>
   </data>
   <data name="TimelineSnap" xml:space="preserve">
     <value>スナップ</value>

@@ -229,7 +229,7 @@ public partial class NodeGraphView : UserControl
         }
         else if (point.Properties.IsLeftButtonPressed)
         {
-            if (e.KeyModifiers == KeyModifiers.Control
+            if (e.KeyModifiers is KeyModifiers.Control or KeyModifiers.Meta
                 && e.Source is ZoomBorder)
             {
                 _rangeSelectionPressed = true;

@@ -78,9 +78,25 @@ public sealed class EditorSelectionTests
     }
 
     [AvaloniaTest]
+    public async Task Select_all_in_the_menu_needs_no_timeline()
+    {
+        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenAsync("editor-selection-all", 3);
+        IEditorSelection selection = editor.GetRequiredService<IEditorSelection>();
+        selection.SelectedElements.Add(editor.Scene.Children[1]);
+        editor.CloseToolTab(timeline);
+        HeadlessTestHelpers.Settle();
+
+        TestShell.MainViewModel.MenuBar.SelectAll.Execute();
+
+        Assert.That(selection.SelectedElements, Is.EquivalentTo(editor.Scene.Children));
+    }
+
+    [AvaloniaTest]
     [TestCase("copy")]
+    [TestCase("menu-copy")]
     [TestCase("nudge")]
     [TestCase("cut")]
+    [TestCase("menu-cut")]
     [TestCase("split")]
     [TestCase("duplicate")]
     [TestCase("delete")]
@@ -141,18 +157,26 @@ public sealed class EditorSelectionTests
             else
             {
                 if (operation == "split") editor.GetRequiredService<IEditorClock>().Seek(MediaTime.FromSeconds(0.5));
-                string command = operation == "nudge" ? "timeline.nudgeRightFrame" : $"timeline.{operation}";
-                await TimelineTabExtension.Instance.RunAsync(operation == "split" ? items[1] : timeline,
-                    new ContextCommandExecution(command));
+                if (operation.StartsWith("menu-"))
+                {
+                    MenuBarViewModel menuBar = TestShell.MainViewModel.MenuBar;
+                    await (operation == "menu-copy" ? menuBar.CopyLayer : menuBar.CutLayer).ExecuteAsync();
+                }
+                else
+                {
+                    string command = operation == "nudge" ? "timeline.nudgeRightFrame" : $"timeline.{operation}";
+                    await TimelineTabExtension.Instance.RunAsync(operation == "split" ? items[1] : timeline,
+                        new ContextCommandExecution(command));
+                }
                 if (operation == "nudge") editor.GetRequiredService<IElementNudgeService>().Flush();
                 HeadlessTestHelpers.Settle();
                 affected = operation switch
                 {
-                    "copy" => JsonNode.Parse((await editor.GetRequiredService<IClipboardGateway>()
+                    "copy" or "menu-copy" => JsonNode.Parse((await editor.GetRequiredService<IClipboardGateway>()
                         .TryGetStringAsync(BeutlClipboardFormats.Elements))!)!.AsArray()
                         .Select(node => node!["Name"]!.GetValue<string>()).ToArray(),
                     "nudge" => [.. items.Where(item => item.Model.Start.Value != MediaTime.Zero).Select(item => item.Model.Name.Value)],
-                    "cut" or "delete" => [.. items.Where(item => !host.Scene.Children.Contains(item.Model)).Select(item => item.Model.Name.Value)],
+                    "cut" or "menu-cut" or "delete" => [.. items.Where(item => !host.Scene.Children.Contains(item.Model)).Select(item => item.Model.Name.Value)],
                     "split" => [.. items.Where(item => item.Model.Length.Value != MediaTime.FromSeconds(1)).Select(item => item.Model.Name.Value)],
                     "duplicate" => [.. host.Scene.Children.Except(items.Select(item => item.Model)).Select(e => e.Name.Value)],
                     _ => throw new InvalidOperationException(operation)
@@ -160,7 +184,7 @@ public sealed class EditorSelectionTests
             }
 
             Assert.That(affected, Is.EquivalentTo(new[] { "A", "B", "C", "D" }));
-            if (operation != "copy")
+            if (!operation.EndsWith("copy"))
             {
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
                 Assert.That(await editor.UndoAsync(), Is.True);

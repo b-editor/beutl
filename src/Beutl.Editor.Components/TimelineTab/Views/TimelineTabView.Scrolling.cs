@@ -45,14 +45,7 @@ public sealed partial class TimelineTabView
             Beutl.ProjectSystem.TimelineOptions.MinScale,
             Beutl.ProjectSystem.TimelineOptions.MaxScale);
 
-        offset.X = ZoomOffsetX(pointerPos.X, offset.X, oldScale, scale);
-    }
-
-    // Keeps the content under pointerX in place while the scale changes.
-    private static float ZoomOffsetX(double pointerX, float offsetX, float oldScale, float newScale)
-    {
-        double deltaLeft = pointerX - offsetX;
-        return (float)((pointerX / oldScale * newScale) - deltaLeft);
+        offset.X = TimelineHelper.ZoomOffsetX(pointerPos.X, offset.X, oldScale, scale);
     }
 
     private void ContentScroll_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -87,7 +80,7 @@ public sealed partial class TimelineTabView
             float oldScale = ViewModel.Options.Value.Scale;
             var offset = ViewModel.Options.Value.Offset;
             double pointerPos = _pointerFrame.TimeToPixel(ViewModel.Options.Value.Scale);
-            offset.X = ZoomOffsetX(pointerPos, offset.X, oldScale, zoom);
+            offset.X = TimelineHelper.ZoomOffsetX(pointerPos, offset.X, oldScale, zoom);
             ViewModel.Options.Value = ViewModel.Options.Value with { Scale = zoom, Offset = offset };
         }
     }
