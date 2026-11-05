@@ -36,7 +36,7 @@ public sealed class RepeatEffectTests
     }
 
     // BGRA bytes in sRGB without premultiplying, one array per row.
-    private static byte[][] Render(RectShape shape, FilterEffect? effect, float scale = 1f, Rect? region = null)
+    private static byte[][] Render(RectShape shape, FilterEffect? effect, float scale = 1f, Rect? region = null, PixelSize? frame = null)
     {
         byte[][] rows = [];
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -44,7 +44,7 @@ public sealed class RepeatEffectTests
             shape.FilterEffect.Value = effect;
             using var resource = (Drawable.Resource)shape.ToResource(CompositionContext.Default);
             using Bitmap rendered = GoldenImageHarness.RenderAtScale(
-                resource, new PixelSize(Width, Height), scale, region, Colors.Transparent);
+                resource, frame ?? new PixelSize(Width, Height), scale, region, Colors.Transparent);
             using Bitmap bytes = rendered.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
             rows = [.. Enumerable.Range(0, bytes.Height).Select(y => bytes.GetRow(y).ToArray())];
         });
@@ -275,6 +275,59 @@ public sealed class RepeatEffectTests
         Assert.That(Across(rows, X(50), X(25), X(35), X(65), X(75), X(85), X(115), X(125), X(135), X(165), X(175)), Is.EqualTo(".RB.RB.RB."));
     }
 
+    // The part goes through the object's transform like the whole, on whatever grid of pixels that puts it.
+    private static IEnumerable<TestCaseData> Transforms()
+    {
+        yield return new TestCaseData(new TranslateTransform(new Point(0.25f, 0.5f))).SetName("BetweenPixels");
+        yield return new TestCaseData(new RotationTransform(15)).SetName("Rotated");
+        yield return new TestCaseData(new ScaleTransform(new Vector(150, 150))).SetName("Scaled");
+    }
+
+    [TestCaseSource(nameof(Transforms))]
+    public void Drawing_part_of_a_grid_under_a_transform_gives_the_same_pixels(Transform transform)
+    {
+        RectShape Moved()
+        {
+            RectShape picture = Picture();
+            picture.Width.Value = 120;
+            picture.Height.Value = 80;
+            picture.Transform.Value = transform;
+            return picture;
+        }
+
+        var frame = new PixelSize(1920, 1880);
+        Rect region = new(300, 500, 700, 500);
+        byte[][] whole = Render(Moved(), WideGrid(10), frame: frame);
+        byte[][] part = Render(Moved(), WideGrid(10), region: region, frame: frame);
+
+        // Premultiplied, as a pixel with next to no alpha can hold any color. Under a scale the part's outermost pixels
+        // read past what was asked for, so the comparison stays inside it. Near black, sRGB bytes move 13 for each byte of
+        // linear light, which rounding in a rotation can reach.
+        int largest = 0;
+        for (int y = 502; y < 998; y++)
+            for (int x = 302; x < 998; x++)
+            {
+                int alpha = part[y][x * 4 + 3], wholeAlpha = whole[y][x * 4 + 3];
+                largest = Math.Max(largest, Math.Abs(alpha - wholeAlpha));
+                for (int channel = 0; channel < 3; channel++)
+                    largest = Math.Max(largest, Math.Abs(part[y][x * 4 + channel] * alpha - whole[y][x * 4 + channel] * wholeAlpha) / 255);
+            }
+        Assert.That(largest, Is.LessThanOrEqualTo(16));
+    }
+
+    // Past 16384 pixels no single image could hold the whole grid, which leaves nothing to compare with except the pattern.
+    [Test]
+    public void Drawing_part_of_a_wide_grid_at_another_scale_gives_the_same_pattern()
+    {
+        RectShape picture = Picture();
+        picture.Width.Value = 120;
+        picture.Height.Value = 80;
+
+        byte[][] rows = Render(picture, WideGrid(100), 2, frame: new PixelSize(1920, 1080));
+
+        Assert.That(Across(rows, 620 * 2, 2000, 2118, 2119, 2120, 2121, 2238, 2239, 2240), Is.EqualTo("RRRBBBB."));
+    }
+
     // Any pixel of the grid can read any of the picture, which is outside the part being drawn here.
     [Test]
     public void Drawing_part_of_the_grid_gives_the_same_pixels()
@@ -342,6 +395,84 @@ public sealed class RepeatEffectTests
 
         int[] alphas = [.. Enumerable.Range(40, 120).Select(x => (int)rows[50][x * 4 + 3])];
         Assert.That(alphas, Is.All.InRange(118, 138));
+    }
+
+    // However many the grid has, a 1920 x 1080 frame shows ten columns of these: 120 x 80, one every 200. The row at
+    // y = 620 goes through a copy, and along it a copy starts every 200 from x = 0.
+    private static byte[][] RenderInFrame(FilterEffect effect)
+    {
+        RectShape picture = Picture();
+        picture.Width.Value = 120;
+        picture.Height.Value = 80;
+        return Render(picture, effect, frame: new PixelSize(1920, 1080));
+    }
+
+    private static RepeatEffect WideGrid(int count) => new()
+    {
+        Columns = { Value = count },
+        Rows = { Value = count },
+        Spacing = { Value = new Size(80, 120) },
+    };
+
+    [TestCase(10)]
+    [TestCase(30)]
+    [TestCase(60)]
+    [TestCase(82)]
+    [TestCase(100)]
+    public void A_wide_grid_stays_sharp_in_the_frame(int count)
+    {
+        byte[][] rows = RenderInFrame(WideGrid(count));
+
+        string expected = new([.. Enumerable.Range(0, 1920).Select(static x => x % 200 < 60 ? 'R' : x % 200 < 120 ? 'B' : '.')]);
+        Assert.That(Across(rows, 620, [.. Enumerable.Range(0, 1920)]), Is.EqualTo(expected));
+    }
+
+    // A Skia filter still works within 16384 pixels of the whole grid, however little of it the frame shows.
+    [TestCase(30)]
+    [TestCase(82)]
+    public void A_wide_grid_stays_sharp_under_a_filter_after_it(int count)
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(WideGrid(count));
+        group.Children.Add(new DropShadow { Position = { Value = new Point(10, 10) }, Sigma = { Value = new Size(4, 4) }, Color = { Value = Colors.Black } });
+
+        byte[][] rows = RenderInFrame(group);
+
+        // The shadow falls in the gaps, and the copies stay as they are over it.
+        Assert.That(Across(rows, 620, 1000, 1059, 1060, 1119), Is.EqualTo("RRBB"));
+    }
+
+    [TestCase(30)]
+    [TestCase(100)]
+    public void A_wide_grid_stays_sharp_under_a_shader_graph_after_it(int count)
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(WideGrid(count));
+        group.Children.Add(new Sharpen { Amount = { Value = 10 }, Radius = { Value = 2 } });
+
+        byte[][] rows = RenderInFrame(group);
+
+        Assert.That(Across(rows, 620, 1000, 1059, 1060, 1119, 1200, 1259, 1260, 1319), Is.EqualTo("RRBBRRBB"));
+    }
+
+    // A full frame of red and blue, which meet in the middle of each copy. An even count puts a join in the middle of
+    // the frame, so half of the frame is the blue end of one copy and the rest the red start of the next.
+    [TestCase(4)]
+    [TestCase(10)]
+    public void A_picture_as_large_as_the_frame_stays_sharp_up_to_its_edges(int count)
+    {
+        RectShape picture = Picture();
+        picture.Width.Value = 1920;
+        picture.Height.Value = 1080;
+
+        byte[][] rows = Render(picture, new RepeatEffect { Columns = { Value = count }, Rows = { Value = count } }, frame: new PixelSize(1920, 1080));
+
+        int[] alphas = [.. Enumerable.Range(0, 1920).Select(x => (int)rows[270][x * 4 + 3])];
+        Assert.Multiple(() =>
+        {
+            Assert.That(Across(rows, 270, 0, 1, 958, 959, 960, 961, 1918, 1919), Is.EqualTo("BBBBRRRR"));
+            Assert.That(alphas, Is.All.EqualTo(255));
+        });
     }
 
     [Test]

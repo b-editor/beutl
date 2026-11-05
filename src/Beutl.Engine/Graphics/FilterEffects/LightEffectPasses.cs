@@ -16,6 +16,7 @@ internal static class LightEffectPasses
             pass.ImageParameters(2, highlights);
             pass.PushConstants(new Vector2(threshold, softKnee));
             pass.InputRegion(0, ShaderInputRegion.Identity);
+            pass.PartialImages();
             pass.ColorAttachment(0, highlights);
             pass.ColorAttachment(1, mask);
         });
@@ -35,6 +36,7 @@ internal static class LightEffectPasses
             pass.InputRegion(0, ShaderInputRegion.Identity);
             pass.InputRegion(1, ShaderInputRegion.Identity);
             pass.InputRegion(2, ShaderInputRegion.Identity);
+            pass.PartialImages();
             pass.ColorAttachment(0, output);
         });
 
@@ -74,6 +76,7 @@ internal static class LightEffectPasses
             pass.ImageParameters(1, source);
             pass.ImageParameters(2, destination);
             pass.InputRegion(0, new(Matrix.Identity, reach));
+            pass.PartialImages();
             pass.ColorAttachment(0, destination);
             configure?.Invoke(pass);
         });

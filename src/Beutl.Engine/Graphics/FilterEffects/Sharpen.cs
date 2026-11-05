@@ -56,6 +56,7 @@ public sealed partial class Sharpen : FilterEffect
                         pass.InputRegion(0, ShaderInputRegion.Identity);
                         pass.InputRegion(1, ShaderInputRegion.Identity);
                         pass.InputRegion(2, ShaderInputRegion.Identity);
+                        pass.PartialImages();
                         pass.ColorAttachment(0, output);
                     });
                     return graph.Output(output);

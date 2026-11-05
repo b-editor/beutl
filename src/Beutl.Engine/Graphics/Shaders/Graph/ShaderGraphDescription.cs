@@ -106,6 +106,7 @@ public sealed class ShaderGraphDescription
                 releases[LastUses[resource.Id]].Add(resource);
         ReleasesAfter = [.. releases.Select(bucket => bucket.ToImmutableArray())];
         UsesGroupOrigin = passes.Any(pass => pass.RuntimeConstants.Any(c => c.Kind == ShaderRuntimeConstantKind.BoundsOrigin));
+        (PartialImageSets, AcceptsPartialSource) = ResolvePartialImages();
         StructuralIdentity = CreateIdentity(includeValues: false);
         OutputIdentity = new ShaderGraphValueIdentity(CreateIdentity(includeValues: true),
             resources.OfType<ShaderBuffer>().Select(b => b.InitialData).ToImmutableArray());
@@ -171,6 +172,12 @@ public sealed class ShaderGraphDescription
     /// <summary>Whether a pass reads an origin in the complete input group's bounds.</summary>
     internal bool UsesGroupOrigin { get; }
 
+    /// <summary>The images that can hold only the part of their bounds a request needs, in sets that keep one frame.</summary>
+    internal ImmutableArray<ImmutableArray<ShaderImage>> PartialImageSets { get; }
+
+    /// <summary>Whether a source holding only part of its bounds serves every pass that reads it.</summary>
+    internal bool AcceptsPartialSource { get; }
+
     internal string StructuralIdentity { get; }
     internal ShaderGraphValueIdentity OutputIdentity { get; }
 
@@ -183,8 +190,51 @@ public sealed class ShaderGraphDescription
         return bounds;
     }
 
+    private (ImmutableArray<ImmutableArray<ShaderImage>> Sets, bool PartialSource) ResolvePartialImages()
+    {
+        ShaderImage[] images = [.. Resources.OfType<ShaderImage>()];
+        int[] parents = [.. Enumerable.Range(0, Resources.Length)];
+        var whole = new HashSet<int>();
+        foreach (ShaderImage image in images)
+        {
+            // Shares a frame with what it takes its raster from.
+            if (image.RasterSource is { } raster) parents[Find(image.Id)] = Find(raster.Id);
+            if (!image.IsPlanar || image.Description.HasValue || image.ExternalIndex >= 0) Keep(image);
+        }
+
+        foreach (ShaderPassDescription pass in Passes)
+        {
+            // A pass writes all of its attachments through one frame.
+            foreach (ShaderColorAttachment attachment in pass.Attachments)
+                parents[Find(attachment.Image.Id)] = Find(pass.Attachments[0].Image.Id);
+            if (pass.PartialImages && pass.IsLocal) continue;
+            foreach (ShaderImage image in pass.Images)
+                Keep(image);
+        }
+
+        IGrouping<int, ShaderImage>[] sets = [.. images.Where(image => LastUses[image.Id] >= 0).GroupBy(image => Find(image.Id))];
+        bool partialSource = ExternalImageCount == 0 && (sets.FirstOrDefault(set => set.Key == Find(0)) is not { } source
+            || source.All(image => !whole.Contains(image.Id) && (image.IsInput || image.RasterRoot.IsInput)));
+        return ([.. sets.Where(set => !set.Any(image => image.IsInput || whole.Contains(image.Id)))
+            .Select(set => set.ToImmutableArray())], partialSource);
+
+        void Keep(ShaderImage image)
+        {
+            whole.Add(image.Id);
+            whole.Add(image.Root.Id);
+        }
+
+        int Find(int id)
+        {
+            while (parents[id] != id) id = parents[id] = parents[parents[id]];
+            return id;
+        }
+    }
+
+    /// <param name="required">The part of the output a request needs, which is what partial images hold. Empty when a plan does
+    /// not know that yet, so that only what every request allocates whole counts. Null stands for the complete output.</param>
     internal float ClampWorkingScale(Rect sourceBounds, float scale, Vector gridOffset, Rect? referenceBounds = null,
-        PixelSize? sourceSize = null, ImageUsageFlags sourceUsage = VulkanTexture2D.ColorTextureUsage)
+        PixelSize? sourceSize = null, ImageUsageFlags sourceUsage = VulkanTexture2D.ColorTextureUsage, Rect? required = null)
     {
         // The executor copies an incompatible input before the first pass and keeps it until execution
         // ends. Its native extent does not shrink with the graph's working density, and any other
@@ -197,14 +247,22 @@ public sealed class ShaderGraphDescription
                 sourceBytes = checked(sourceBytes + ShaderGraphExecutor.EstimateImageBytes(input.DescriptionFor(inputSize)));
         }
 
+        float framesDensity = scale;
+        Dictionary<int, ShaderImageFrame>? frames = FramesAt(scale);
         foreach (ShaderImage image in Resources.OfType<ShaderImage>())
         {
-            if (_firstUses[image.Id] == int.MaxValue || image.Description.HasValue)
+            if (_firstUses[image.Id] == int.MaxValue || image.Description.HasValue
+                || image.RasterRoot.IsInput && required.HasValue && AcceptsPartialSource)
                 continue;
-            Rect bounds = image.ResolveBounds(sourceBounds, referenceBounds).Translate(gridOffset);
+            Rect bounds = frames is not null && !image.IsInput
+                ? frames[image.Id].RasterBounds.Translate(gridOffset)
+                : image.ResolveBounds(sourceBounds, referenceBounds).Translate(gridOffset);
             scale = Math.Min(scale, BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
                 bounds, scale * image.ResolutionScale) / image.ResolutionScale);
         }
+        // The output goes into a target of what the request needs, at the working density whatever the image it comes from has.
+        if (required is { } output)
+            scale = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(output.Translate(gridOffset), scale);
         // An allocation sizes its storage from its raster root's frame. Those bounds do not depend on
         // density, so they are resolved once for every estimate below.
         var rasters = new (ShaderImage Image, Rect Bounds)[Resources.Length];
@@ -228,8 +286,19 @@ public sealed class ShaderGraphDescription
         }
         return lower > 0 ? lower : scale;
 
+        Dictionary<int, ShaderImageFrame>? FramesAt(float density)
+        {
+            if (required is not { } region || PartialImageSets.IsEmpty || density <= 0
+                || sourceBounds.IsInvalid || sourceBounds.Width <= 0 || sourceBounds.Height <= 0)
+                return null;
+            ShaderImageFrame source = ShaderImageFrame.FromPixels(sourceBounds,
+                PixelRect.FromRect(sourceBounds.Translate(gridOffset), density), density, gridOffset) with { ReferenceBounds = referenceBounds };
+            return new ShaderGraphRegions(this, source, density, gridOffset, region).Frames;
+        }
+
         long PeakBytes(float density)
         {
+            Dictionary<int, ShaderImageFrame>? fitted = density == framesDensity ? frames : FramesAt(density);
             var changes = new long[Passes.Length + 2];
             foreach (ShaderResource resource in Resources)
             {
@@ -239,7 +308,7 @@ public sealed class ShaderGraphDescription
                 {
                     (ShaderImage raster, Rect bounds) = rasters[image.Id];
                     PixelSize size = raster.IsInput ? inputSize
-                        : PixelRect.FromRect(bounds, density * raster.ResolutionScale).Size;
+                        : fitted?[raster.Id].PixelSize ?? PixelRect.FromRect(bounds, density * raster.ResolutionScale).Size;
                     bytes = ShaderGraphExecutor.EstimateImageBytes(
                         image.DescriptionFor(new(Math.Max(1, size.Width), Math.Max(1, size.Height))));
                 }
@@ -342,6 +411,7 @@ public sealed class ShaderGraphDescription
                 }
             }
             writer.Write(pass.PartialRendering);
+            writer.Write(pass.PartialImages);
             writer.Write(pass.InputRegions.Count);
             foreach ((int binding, ShaderInputRegion region) in pass.InputRegions.OrderBy(p => p.Key))
             {

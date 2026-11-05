@@ -28,6 +28,8 @@ public sealed partial class ShaderGraphBuilder
         {
             pass.SampledImage(0, image, SamplerState.NearestClamp);
             pass.InputRegion(0, ShaderInputRegion.Identity);
+            // The output shares the image's frame, so the UVs read the same place in both.
+            pass.PartialImages();
             pass.ColorAttachment(0, output);
             pass.PushConstants(new Vector4((int)from, (int)to, 0, 0));
         });

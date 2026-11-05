@@ -39,7 +39,7 @@ internal sealed partial class RegionAnalyzer
         {
             ShaderRenderFragmentPayload shader
                 => MapUnary(reference, outputRequirement, shader.Description.Bounds),
-            ShaderGraphRenderFragmentPayload graph => MapShaderGraph(reference, outputRequirement, graph.Description),
+            ShaderGraphRenderFragmentPayload graph => MapShaderGraph(reference, outputRequirement, graph),
             GeometryRenderFragmentPayload geometry
                 => MapUnary(reference, outputRequirement, geometry.Description.Bounds),
             TargetScopeRenderFragmentPayload scope
@@ -75,17 +75,18 @@ internal sealed partial class RegionAnalyzer
     }
 
     private static ImmutableArray<RequiredRegion> MapShaderGraph(RenderFragmentReference reference,
-        RequiredRegion outputRequirement, ShaderGraphDescription graph)
+        RequiredRegion outputRequirement, ShaderGraphRenderFragmentPayload graph)
     {
         // A collection's union does not describe each value's coordinate frame or raster density.
         if (outputRequirement.IsFull || reference.Inputs[0].ValueCardinality.Maximum != 1)
             return FullInputs(reference);
         Rect bounds = reference.Inputs[0].Bounds;
         if (bounds.Width == 0 || bounds.Height == 0) return FullInputs(reference);
-        float scale = reference.EffectiveScale.Value;
+        Rect required = outputRequirement.Resolve(reference.Bounds).Intersect(reference.Bounds);
+        float scale = graph.ClampDensity(reference.Inputs[0], reference.EffectiveScale.Value, required);
         float inputScale = ShaderGraphRenderFragmentPayload.InputDensity(reference.Inputs[0], scale);
         var source = ShaderImageFrame.FromPixels(bounds, PixelRect.FromRect(bounds, inputScale), inputScale, default);
-        var regions = new ShaderGraphRegions(graph, source, scale, default, outputRequirement.Resolve(reference.Bounds));
+        var regions = new ShaderGraphRegions(graph.Description, source, scale, default, required);
         // A generated output still needs the incoming value's existence and complete logical bounds.
         return regions.SourceRegion.IsEmpty
             ? FullInputs(reference)

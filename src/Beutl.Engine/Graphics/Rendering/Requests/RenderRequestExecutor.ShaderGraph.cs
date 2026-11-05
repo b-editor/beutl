@@ -21,8 +21,10 @@ internal sealed partial class RenderRequestExecutor
         private IReadOnlyList<MaterializedRenderValue> ExecuteShaderGraphCore(RenderFragmentReference fragment,
             ImmediateCanvas currentTarget, EffectiveScale? requestedScale)
         {
-            var graph = ((ShaderGraphRenderFragmentPayload)fragment.Payload!).Description;
-            EffectiveScale scale = requestedScale ?? fragment.EffectiveScale;
+            var payload = (ShaderGraphRenderFragmentPayload)fragment.Payload!;
+            ShaderGraphDescription graph = payload.Description;
+            EffectiveScale scale = EffectiveScale.At(payload.ClampDensity(fragment.Inputs[0],
+                (requestedScale ?? fragment.EffectiveScale).Value, ResolveFragmentRequirement(fragment, fragment.Bounds)));
             IReadOnlyList<MaterializedRenderValue> inputs = Materialize(fragment.Inputs[0], currentTarget,
                 fragment.Inputs[0].EffectiveScale.IsUnbounded ? scale : null);
             Rect referenceBounds = inputs.Aggregate(Rect.Empty, (bounds, input) => bounds.Union(input.CompleteBounds));
@@ -49,16 +51,18 @@ internal sealed partial class RenderRequestExecutor
                     try
                     {
                         // A source may retain a raster apron for direct replay. A graph's normalized UVs
-                        // cover its complete input footprint, not that implementation-specific apron.
-                        PixelRect footprint = PixelRect.FromRect(input.CompleteBounds.Translate(input.DeviceGridOffset),
+                        // cover its complete input footprint, not that implementation-specific apron,
+                        // and only passes that find the source through its metadata can read a part of it.
+                        Rect sourceBounds = graph.AcceptsPartialSource ? input.Bounds : input.CompleteBounds;
+                        PixelRect footprint = PixelRect.FromRect(sourceBounds.Translate(input.DeviceGridOffset),
                             input.EffectiveScale.Value);
-                        if (input.DeviceBounds != footprint || input.Bounds != input.CompleteBounds)
-                            sourceValue = CropValue(input, input.CompleteBounds, allowPreviewDrop: true);
+                        if (input.DeviceBounds != footprint || input.Bounds != sourceBounds)
+                            sourceValue = CropValue(input, sourceBounds, allowPreviewDrop: true);
                         ITexture2D source = sourceValue.Target.Texture
                             ?? throw new NotSupportedException("Shader graphs require backend textures; CPU rendering is not a compatible fallback.");
                         float density = graph.ClampWorkingScale(input.CompleteBounds, scale.Value, _activeDeviceGridOffset,
-                            referenceBounds, sourceValue.DeviceBounds.Size, ((VulkanTexture2D)source).Usage);
-                        output = CreateOwnedValue(bounds, EffectiveScale.At(density), bounds, allowPreviewDrop: true);
+                            referenceBounds, sourceValue.DeviceBounds.Size, ((VulkanTexture2D)source).Usage, required);
+                        output = CreateOwnedValue(required, EffectiveScale.At(density), bounds, allowPreviewDrop: true);
                         ITexture2D destination = output.Target.Texture
                             ?? throw new NotSupportedException("Shader graph output requires a backend texture.");
                         sourceValue.Target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
@@ -92,12 +96,6 @@ internal sealed partial class RenderRequestExecutor
                         _shaderRunExecutions++;
                         _spirvShaderRunExecutions++;
                         _shaderStageExecutions += execution.ExecutedPasses;
-                        if (required != bounds)
-                        {
-                            MaterializedRenderValue cropped = CropValue(output, required, allowPreviewDrop: true);
-                            ReleaseUnpublished(output);
-                            output = cropped;
-                        }
                         results.Add(output);
                         keep = true;
                     }
