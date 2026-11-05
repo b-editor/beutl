@@ -62,6 +62,9 @@
   <data name="Close" xml:space="preserve">
     <value>닫기</value>
   </data>
+  <data name="CloseTab" xml:space="preserve">
+    <value>탭 닫기</value>
+  </data>
   <data name="ColorScopes" xml:space="preserve">
     <value>스코프</value>
   </data>
@@ -88,6 +91,18 @@
   </data>
   <data name="View" xml:space="preserve">
     <value>보기</value>
+  </data>
+  <data name="Window" xml:space="preserve">
+    <value>창</value>
+  </data>
+  <data name="MinimizeWindow" xml:space="preserve">
+    <value>최소화</value>
+  </data>
+  <data name="ZoomWindow" xml:space="preserve">
+    <value>확대/축소</value>
+  </data>
+  <data name="ToggleFullScreen" xml:space="preserve">
+    <value>전체 화면 전환</value>
   </data>
   <data name="Object" xml:space="preserve">
     <value>개체</value>
@@ -166,6 +181,12 @@
   </data>
   <data name="Paste" xml:space="preserve">
     <value>붙여넣기</value>
+  </data>
+  <data name="SelectAll" xml:space="preserve">
+    <value>모두 선택</value>
+  </data>
+  <data name="DeselectAll" xml:space="preserve">
+    <value>모두 선택 해제</value>
   </data>
   <data name="Split" xml:space="preserve">
     <value>분할</value>
@@ -547,6 +568,12 @@
   </data>
   <data name="TimelineZoom" xml:space="preserve">
     <value>확대/축소</value>
+  </data>
+  <data name="TimelineZoomIn" xml:space="preserve">
+    <value>확대</value>
+  </data>
+  <data name="TimelineZoomOut" xml:space="preserve">
+    <value>축소</value>
   </data>
   <data name="TimelineSnap" xml:space="preserve">
     <value>스냅</value>

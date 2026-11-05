@@ -1,9 +1,11 @@
 ﻿using System.Collections;
+using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
+using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Beutl.Api.Services;
 using Beutl.Editor.Components.DockLayoutTab;
-using Beutl.Editor.Components.Helpers;
 using Beutl.Language;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
@@ -46,8 +48,9 @@ public sealed class MainMenuBuilderTests
             menuBar.RecentFileItems.Remove("recent.scene");
             AssertMenus();
             view.DataContext = macWindow.DataContext = null;
-            int removed = viewModel.MenuItems.Count;
-            Assert.That((menu.Count, nativeMenu.Count), Is.EqualTo((menuCount - removed, nativeCount - removed)));
+            Assert.That((menu.Count, nativeMenu.Count), Is.EqualTo((
+                menuCount - viewModel.MenuItems.Count(item => !item.IsInNativeMenuOnly),
+                nativeCount - viewModel.MenuItems.Count(item => !item.IsInWindowOnly))));
             view.DataContext = macWindow.DataContext = viewModel;
             AssertMenus();
             Assert.That((menu.Count, nativeMenu.Count), Is.EqualTo((menuCount, nativeCount)));
@@ -143,27 +146,90 @@ public sealed class MainMenuBuilderTests
         }
     }
 
-    // A shortcut that names no window command would leave its entry without one.
+    // A shortcut that names no window command would leave its entry without one. Entries of the menu the platform shows
+    // have a key by default, except for the commands that only macOS gives one.
     [AvaloniaTest]
     public void Every_menu_shortcut_names_a_window_command()
     {
+        ContextCommandEntry[] definitions = [.. TestShell.MainViewModel.ContextCommandManager.GetDefinitions<MainViewExtension>()];
         string[] commands = [.. Entries(TestShell.MainViewModel.MenuItems).Select(item => item.GestureCommand).OfType<string>()];
 
         Assert.Multiple(() =>
         {
             Assert.That(commands, Is.Not.Empty);
+            Assert.That(commands, Is.SubsetOf(definitions.Select(entry => entry.Definition.Id)));
             Assert.That(
-                commands.Where(command => GetCommandGestureExtension.GetKeyGesture(typeof(MainViewExtension), command) is null),
+                definitions.Where(entry => commands.Contains(entry.Definition.Id)
+                    && !entry.KeyGestures.Any(gesture => gesture.Platform == OSPlatform.OSX && gesture.KeyGesture is not null))
+                    .Select(entry => entry.Definition.Id),
                 Is.Empty);
         });
-
-        static IEnumerable<MainMenuItem> Entries(IEnumerable<MainMenuItem> items)
-            => items.SelectMany(item => Entries(item.Items ?? []).Prepend(item));
     }
+
+    // The menus of a macOS menu bar that the title bars of the other platforms have no need of.
+    [AvaloniaTest]
+    public async Task The_native_menu_has_what_macOS_users_expect_and_the_window_menu_stays_as_it_was()
+    {
+        await TestReset.ResetShellAsync();
+        MainViewModel viewModel = TestShell.MainViewModel;
+        MenuBarViewModel menuBar = viewModel.MenuBar;
+        var view = new MainView { DataContext = viewModel };
+        var macWindow = new MacWindow { DataContext = viewModel };
+        try
+        {
+            HeadlessTestHelpers.Settle();
+            IList<NativeMenuItemBase> native = NativeMenu.GetMenu(macWindow)!.Items;
+            ItemCollection inWindow = view.FindControl<Menu>("MenuBar")!.Items;
+
+            Assert.Multiple(() =>
+            {
+                foreach ((string header, ICommand command, StandardEditAction action) in new (string, ICommand, StandardEditAction)[]
+                {
+                    (Strings.Cut, menuBar.CutLayer, StandardEditAction.Cut),
+                    (Strings.Copy, menuBar.CopyLayer, StandardEditAction.Copy),
+                    (Strings.Paste, menuBar.PasteLayer, StandardEditAction.Paste),
+                    (Strings.SelectAll, menuBar.SelectAll, StandardEditAction.SelectAll),
+                })
+                {
+                    NativeMenuItem entry = NativeEntry(native, Strings.Edit, header);
+                    Assert.That(((FocusedEditCommand)entry.Command!).Fallback, Is.SameAs(command));
+                    Assert.That(entry.Gesture, Is.EqualTo(FocusedEditCommand.GetKeyGesture(action)));
+                }
+
+                Assert.That(((FocusedEditCommand)NativeEntry(native, Strings.Edit, Strings.Undo).Command!).Fallback, Is.SameAs(menuBar.Undo));
+                Assert.That(((FocusedEditCommand)NativeEntry(native, Strings.Edit, Strings.Redo).Command!).Fallback, Is.SameAs(menuBar.Redo));
+                Assert.That(NativeEntry(native, Strings.View, Strings.ToggleFullScreen).Command, Is.SameAs(menuBar.ToggleFullScreen));
+                Assert.That(NativeEntry(native, Strings.Window, Strings.MinimizeWindow).Command, Is.SameAs(menuBar.MinimizeWindow));
+                Assert.That(NativeEntry(native, Strings.Window, Strings.ZoomWindow).Command, Is.SameAs(menuBar.ZoomWindow));
+                Assert.That(NativeEntry(native, Strings.File, Strings.CloseTab).Command, Is.SameAs(menuBar.CloseTab));
+
+                MenuItem[] tops = [.. inWindow.OfType<MenuItem>()];
+                Assert.That(tops.Select(item => item.Header), Does.Not.Contain(Strings.Window));
+                Assert.That(tops.Single(item => Equals(item.Header, Strings.Edit)).Items.OfType<MenuItem>().Select(item => item.Header),
+                    Is.EqualTo(new[] { Strings.Undo, Strings.Redo }));
+                Assert.That(tops.Single(item => Equals(item.Header, Strings.Edit)).Items.OfType<MenuItem>().First().Command, Is.SameAs(menuBar.Undo));
+                Assert.That(tops.Single(item => Equals(item.Header, Strings.View)).Items.OfType<MenuItem>().Select(item => item.Header),
+                    Does.Not.Contain(Strings.ToggleFullScreen));
+            });
+        }
+        finally
+        {
+            macWindow.DataContext = null;
+            macWindow.Close();
+            view.DataContext = null;
+        }
+
+        static NativeMenuItem NativeEntry(IEnumerable<NativeMenuItemBase> menus, string top, string entry)
+            => menus.OfType<NativeMenuItem>().Single(item => item.Header == top).Menu!.Items.OfType<NativeMenuItem>()
+                .Single(item => item.Header == entry);
+    }
+
+    private static IEnumerable<MainMenuItem> Entries(IEnumerable<MainMenuItem> items)
+        => items.SelectMany(item => Entries(item.Items ?? []).Prepend(item));
 
     // "Header:Command" per entry, depth first.
     private static IEnumerable<string> Describe(IEnumerable<MainMenuItem> items, bool inWindow, MainViewModel viewModel)
-        => items.Where(item => inWindow || !item.IsInWindowOnly).SelectMany(item =>
+        => items.Where(item => inWindow ? !item.IsInNativeMenuOnly : !item.IsInWindowOnly).SelectMany(item =>
             Describe(item.Items ?? [], inWindow, viewModel).Prepend($"{item.Header ?? "-"}:{CommandName(item.Command, viewModel)}"));
 
     // The same for the built menus.
@@ -176,5 +242,6 @@ public sealed class MainMenuBuilderTests
         });
 
     private static string CommandName(object? command, MainViewModel viewModel)
-        => command is null ? "" : typeof(MenuBarViewModel).GetProperties().First(p => ReferenceEquals(p.GetValue(viewModel.MenuBar), command)).Name;
+        => command is null ? "" : typeof(MenuBarViewModel).GetProperties()
+            .First(p => ReferenceEquals(p.GetValue(viewModel.MenuBar), (command as FocusedEditCommand)?.Fallback ?? command)).Name;
 }

@@ -23,6 +23,14 @@ public partial class MenuBarViewModel
 
     public ReactiveCommandSlim StopWindowCapture { get; } = new();
 
+    public ReactiveCommandSlim CloseTab { get; } = new();
+
+    public ReactiveCommandSlim MinimizeWindow { get; } = new();
+
+    public ReactiveCommandSlim ZoomWindow { get; } = new();
+
+    public ReactiveCommandSlim ToggleFullScreen { get; } = new();
+
     // MainViewModel runs these.
     public ReactiveCommandSlim<ToolTabExtension> OpenToolTab { get; } = new();
 

@@ -334,7 +334,7 @@ public partial class GraphNodeView : UserControl
         // A press that did not move the node is a click on it.
         if (moved || DataContext is not GraphNodeViewModel viewModel) return;
         if (!viewModel.CanEdit.Value && !_start.NearlyEquals(e.GetPosition(Parent as Visual))) return;
-        if (e.KeyModifiers == KeyModifiers.Control)
+        if (e.KeyModifiers is KeyModifiers.Control or KeyModifiers.Meta)
         {
             viewModel.IsSelected.Value = !viewModel.IsSelected.Value;
         }

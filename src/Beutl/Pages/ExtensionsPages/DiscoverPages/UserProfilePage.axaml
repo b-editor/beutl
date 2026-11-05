@@ -20,6 +20,7 @@
     <UserControl.KeyBindings>
         <KeyBinding Command="{Binding Refresh}" Gesture="F5" />
         <KeyBinding Command="{Binding Refresh}" Gesture="Ctrl+R" />
+        <KeyBinding Command="{Binding Refresh}" Gesture="Cmd+R" />
     </UserControl.KeyBindings>
 
     <Panel>

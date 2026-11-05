@@ -129,6 +129,7 @@
     </UserControl.Styles>
     <UserControl.KeyBindings>
         <KeyBinding Command="{Binding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{Binding Refresh}" Gesture="Cmd+R" />
     </UserControl.KeyBindings>
     <Grid>
         <ScrollViewer HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding !SignedIn.Value}">

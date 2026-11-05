@@ -17,7 +17,7 @@ namespace Beutl.ViewModels;
 
 public partial class MenuBarViewModel
 {
-    [MemberNotNull(nameof(DeleteLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(ShowSceneSettings), nameof(RemoveFromProject))]
+    [MemberNotNull(nameof(DeleteLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(SelectAll), nameof(ShowSceneSettings), nameof(RemoveFromProject))]
     private void InitializeSceneCommands(IObservable<bool> isSceneOpened)
     {
         IObservable<bool> isProjectOpenedAndTabOpened = _projectService.IsOpened
@@ -35,6 +35,8 @@ public partial class MenuBarViewModel
             .WithSubscribe(OnCopyElement);
         PasteLayer = new AsyncReactiveCommand(isSceneOpened)
             .WithSubscribe(OnPasteElement);
+        SelectAll = new ReactiveCommandSlim(isSceneOpened)
+            .WithSubscribe(OnSelectAll);
 
         ShowSceneSettings = new ReactiveCommandSlim(isSceneOpened)
             .WithSubscribe(OnShowSceneSettings);
@@ -56,6 +58,8 @@ public partial class MenuBarViewModel
     public AsyncReactiveCommand CopyLayer { get; private set; }
 
     public AsyncReactiveCommand PasteLayer { get; private set; }
+
+    public ReactiveCommandSlim SelectAll { get; private set; }
 
     public ReactiveCommandSlim ShowSceneSettings { get; private set; }
 
@@ -165,6 +169,12 @@ public partial class MenuBarViewModel
             _logger.LogError(ex, "An exception has occurred while pasting an element.");
             NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
         }
+    }
+
+    private void OnSelectAll()
+    {
+        if (TryGetSelectedEditViewModel(out EditViewModel? viewModel))
+            viewModel.FindToolTab<TimelineTabViewModel>()?.SelectAll();
     }
 
     private void OnShowSceneSettings()

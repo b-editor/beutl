@@ -16,6 +16,7 @@ namespace Beutl.Pages.SettingsPages;
 public partial class KeyMapSettingsPage : UserControl
 {
     private readonly ReactiveProperty<KeyGesture?> _keyGesture = new();
+    private bool _isAssigning;
 
     public KeyMapSettingsPage()
     {
@@ -31,6 +32,8 @@ public partial class KeyMapSettingsPage : UserControl
             flyout.Bind(KeyMapFlyout.GestureProperty, _keyGesture);
             flyout.ShowAt(control);
             flyout.Confirmed += (_, _) => item.SetKeyGesture(flyout.Gesture);
+            flyout.Closed += (_, _) => _isAssigning = false;
+            _isAssigning = true;
 
             e.Handled = true;
         }
@@ -44,7 +47,12 @@ public partial class KeyMapSettingsPage : UserControl
         }
 
         _keyGesture.Value = new KeyGesture(e.Key, e.KeyModifiers);
+        e.Handled = _isAssigning && IsChord(e);
     }
+
+    // A chord being assigned must not run what it is bound to, such as the window closing on Cmd+W. Keys without
+    // a modifier keep their meaning, since Tab reaches the flyout's buttons.
+    internal static bool IsChord(KeyEventArgs e) => (e.KeyModifiers & ~KeyModifiers.Shift) != KeyModifiers.None;
 
     // A gesture is named by its main key; a modifier pressed on its own is still being held for one.
     internal static bool IsModifierKey(Key key)
@@ -105,6 +113,7 @@ public sealed class KeyMapFlyout : FAPickerFlyoutBase
                 }
 
                 Gesture = new KeyGesture(e.Key, e.KeyModifiers);
+                e.Handled = KeyMapSettingsPage.IsChord(e);
             }
         };
         pfp.MinWidth = 200;

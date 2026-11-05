@@ -4,6 +4,17 @@ using FluentIcons.Common;
 
 namespace Beutl.ViewModels;
 
+// An action that the Edit menu of a macOS app sends to whatever has the keyboard focus.
+public enum StandardEditAction
+{
+    Undo,
+    Redo,
+    Cut,
+    Copy,
+    Paste,
+    SelectAll
+}
+
 // An entry of the main menu. MainView shows the entries as a Menu and MacWindow as a NativeMenu.
 public sealed class MainMenuItem(string? header)
 {
@@ -32,4 +43,10 @@ public sealed class MainMenuItem(string? header)
 
     // macOS has it in the application menu instead.
     public bool IsInWindowOnly { get; init; }
+
+    // What macOS users expect of a menu bar. On the other platforms, the title bar or the panels have it.
+    public bool IsInNativeMenuOnly { get; init; }
+
+    // In the native menu, the focused control gets this action first, and Command does what no control took.
+    public StandardEditAction? EditAction { get; init; }
 }

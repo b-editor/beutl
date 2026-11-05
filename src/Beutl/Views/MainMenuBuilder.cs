@@ -16,24 +16,26 @@ internal static class MainMenuBuilder
     // Puts the menus first and takes them out again when disposables is disposed.
     public static void AddMenus(Menu menu, IReadOnlyList<MainMenuItem> items, CompositeDisposable disposables)
     {
-        Control[] menus = [.. items.Select(item => CreateMenuItem(item, disposables))];
+        Control[] menus = [.. items.Select(item => CreateMenuItem(item, disposables)).OfType<Control>()];
         for (int i = 0; i < menus.Length; i++)
             menu.Items.Insert(i, menus[i]);
 
         disposables.Add(Disposable.Create(() => Array.ForEach(menus, item => menu.Items.Remove(item))));
     }
 
-    public static void AddMenus(NativeMenu menu, IReadOnlyList<MainMenuItem> items, CompositeDisposable disposables)
+    public static void AddMenus(NativeMenu menu, IReadOnlyList<MainMenuItem> items, TopLevel window, CompositeDisposable disposables)
     {
-        NativeMenuItemBase[] menus = [.. items.Select(item => CreateNativeMenuItem(item, disposables)).OfType<NativeMenuItemBase>()];
+        NativeMenuItemBase[] menus = [.. items.Select(item => CreateNativeMenuItem(item, window, disposables)).OfType<NativeMenuItemBase>()];
         for (int i = 0; i < menus.Length; i++)
             menu.Items.Insert(i, menus[i]);
 
         disposables.Add(Disposable.Create(() => Array.ForEach(menus, item => menu.Items.Remove(item))));
     }
 
-    private static Control CreateMenuItem(MainMenuItem item, CompositeDisposable disposables)
+    private static Control? CreateMenuItem(MainMenuItem item, CompositeDisposable disposables)
     {
+        if (item.IsInNativeMenuOnly)
+            return null;
         if (item.Header is null)
             return new Separator();
 
@@ -59,7 +61,7 @@ internal static class MainMenuBuilder
         return menuItem;
     }
 
-    private static NativeMenuItemBase? CreateNativeMenuItem(MainMenuItem item, CompositeDisposable disposables)
+    private static NativeMenuItemBase? CreateNativeMenuItem(MainMenuItem item, TopLevel window, CompositeDisposable disposables)
     {
         if (item.IsInWindowOnly)
             return null;
@@ -69,7 +71,7 @@ internal static class MainMenuBuilder
         var menuItem = new NativeMenuItem
         {
             Header = item.Header,
-            Command = item.Command,
+            Command = item.EditAction is { } action ? new FocusedEditCommand(action, item.Command!, window) : item.Command,
             CommandParameter = item.CommandParameter,
             Gesture = GetGesture(item)
         };
@@ -79,15 +81,19 @@ internal static class MainMenuBuilder
         {
             var menu = new NativeMenu();
             menuItem.Menu = menu;
-            Follow(items, CreateNativeMenuItem, menu.Items.Insert, menu.Items.RemoveAt, disposables);
+            Follow<NativeMenuItemBase>(items, (entry, entries) => CreateNativeMenuItem(entry, window, entries),
+                menu.Items.Insert, menu.Items.RemoveAt, disposables);
         }
 
         return menuItem;
     }
 
-    private static KeyGesture? GetGesture(MainMenuItem item) => item.GestureCommand is { } id
-        ? GetCommandGestureExtension.GetKeyGesture(typeof(MainViewExtension), id)
-        : null;
+    private static KeyGesture? GetGesture(MainMenuItem item) => item switch
+    {
+        { GestureCommand: { } id } => GetCommandGestureExtension.GetKeyGesture(typeof(MainViewExtension), id),
+        { EditAction: { } action } => FocusedEditCommand.GetKeyGesture(action),
+        _ => null
+    };
 
     // Applies each change in place: rebuilding on every change made each open view recreate all its entries.
     private static void Follow<T>(
@@ -98,7 +104,7 @@ internal static class MainMenuBuilder
         // The subscriptions of each shown entry, which end when the entry goes.
         var shown = new List<CompositeDisposable>();
 
-        // create skips window-only entries, which only fixed lists have, so a change's index is also the target's.
+        // create skips the other menu's entries, which only fixed lists have, so a change's index is also the target's.
         void Insert(int index, IEnumerable added)
         {
             foreach (MainMenuItem item in added)
