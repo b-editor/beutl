@@ -7,7 +7,6 @@ using Avalonia.VisualTree;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
-using Beutl.NodeGraph;
 using FluentAvalonia.UI.Media;
 
 namespace Beutl.Editor.Components.NodeGraphTab.Views;
@@ -29,7 +28,7 @@ public sealed class NodePortPoint : Control
     private Point _lastCanvasPoint;
     private bool _connected;
     private DragSession? _drag;
-    private INodePort? _feedbackTarget;
+    private NodePortPoint? _feedbackTarget;
 
     static NodePortPoint()
     {
@@ -137,36 +136,48 @@ public sealed class NodePortPoint : Control
             }
 
             _lastCanvasPoint = e.GetPosition(_canvas);
+            NodePortPoint? snap = FindSnapTarget(_lastCanvasPoint);
+            Point end = snap?.TranslatePoint(new Point(5, 5), _canvas!) ?? _lastCanvasPoint;
             if (DataContext is InputPortViewModel)
             {
-                _line.EndPoint = e.GetPosition(_canvas);
+                _line.EndPoint = end;
             }
             else
             {
-                _line.StartPoint = e.GetPosition(_canvas);
+                _line.StartPoint = end;
             }
-            UpdateHoverFeedback(_lastCanvasPoint, e.Timestamp);
+
+            if (snap != null && snap != _feedbackTarget)
+                NativeHapticFeedback.PerformAlignment(this, e.Timestamp);
+            _feedbackTarget = snap;
             e.Handled = true;
         }
     }
 
-    private NodePortPoint? FindTargetPort(Point canvasPoint)
-        => _canvas?.InputHitTest(canvasPoint) is NodePortPoint target && target != this ? target : null;
-
-    private void UpdateHoverFeedback(Point canvasPoint, ulong timestamp)
+    // A wire drops on a port's point or anywhere on the row that shows it. A list port takes it after its slots,
+    // whichever of them the wire is over.
+    internal static NodePortPoint? FindDropTarget(Canvas canvas, Point canvasPoint)
     {
-        INodePort? target = DataContext is NodePortViewModel source
-            && FindTargetPort(canvasPoint)?.DataContext is NodePortViewModel destination
-            && source.CanConnectTo(destination) ? destination.Model : null;
-
-        if (target != null && target != _feedbackTarget)
-            NativeHapticFeedback.PerformAlignment(this, timestamp);
-        _feedbackTarget = target;
+        switch (canvas.InputHitTest(canvasPoint))
+        {
+            case NodePortPoint point:
+                return point.FindAncestorOfType<NodePortView>()?.DropTarget ?? point;
+            case Visual hit when hit.FindAncestorOfType<GraphNodeView>(includeSelf: true) is { } node
+                                 && canvas.TranslatePoint(canvasPoint, node) is { } position:
+                return node.FindPortRow(position)?.DropTarget;
+            default:
+                return null;
+        }
     }
+
+    private NodePortPoint? FindSnapTarget(Point canvasPoint)
+        => _canvas != null && DataContext is NodePortViewModel source
+            && FindDropTarget(_canvas, canvasPoint) is { DataContext: NodePortViewModel destination } target
+            && source.CanConnectTo(destination) ? target : null;
 
     private bool TryConnect(Point canvasPoint)
     {
-        if (FindTargetPort(canvasPoint)?.DataContext is NodePortViewModel target)
+        if (_canvas != null && FindDropTarget(_canvas, canvasPoint)?.DataContext is NodePortViewModel target)
         {
             var args = new NodePortConnectRequestedEventArgs(target, false);
             ConnectRequested?.Invoke(this, args);

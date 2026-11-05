@@ -248,6 +248,66 @@ public class NodeGraphMutationServiceTests
     }
 
     [Test]
+    public void CanConnect_WithAnUndecidedPort_AnswersWhatTryConnectDoes()
+    {
+        var input = new GroupInput();
+        var output = new GroupOutput();
+        var first = new SwitchNode();
+        var occupied = new SwitchNode();
+        _graph.Nodes.AddRange([input, output, first, occupied]);
+        _graph.Connect(occupied.True, first.Output);
+        _history.Commit("Seed");
+        int beforeUndo = _history.UndoCount;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_service.CanConnect(_graph, input, null, first, first.True), Is.True, "A new output for an input");
+            Assert.That(_service.CanConnect(_graph, first, first.True, input, null), Is.True, "Either way round");
+            Assert.That(_service.CanConnect(_graph, output, null, first, first.Output), Is.True, "A new input for an output");
+            Assert.That(_service.CanConnect(_graph, input, null, first, first.Output), Is.False, "A new output for an output");
+            Assert.That(_service.CanConnect(_graph, output, null, first, first.True), Is.False, "A new input for an input");
+            Assert.That(_service.CanConnect(_graph, input, null, occupied, occupied.True), Is.False, "An occupied input");
+            Assert.That(_service.CanConnect(_graph, input, null, output, null), Is.False, "Two undecided ports");
+            Assert.That(_service.CanConnect(_graph, first, null, occupied, occupied.False), Is.False, "A node that adds no port");
+            Assert.That(_service.CanConnect(_graph, first, first.Output, occupied, occupied.False), Is.True, "Two existing ports");
+            Assert.That(_service.CanConnect(_graph, occupied, occupied.Output, first, first.True), Is.False, "A cycle");
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo), "Asking changes nothing.");
+            Assert.That(input.Items, Is.Empty);
+            Assert.That(output.Items, Is.Empty);
+            Assert.That(_service.TryConnect(_graph, input, null, first, first.True), Is.EqualTo(NodeConnectOutcome.PortAdded));
+        });
+    }
+
+    [Test]
+    public void TryConnect_ANewPortThatClosesACycle_IsRefused()
+    {
+        var layer = new LayerInputNode();
+        var brush = new SolidColorBrush();
+        var brushOutput = new LayerInputNode.LayerInputPort<Brush>();
+        brushOutput.SetupProperty("Brush");
+        brushOutput.Property!.SetValue(brush);
+        layer.Items.Add(brushOutput);
+        var source = new SwitchNode();
+        _graph.Nodes.AddRange([layer, source]);
+        // The brush's properties are inputs of the layer node, which then consumes the switch.
+        _graph.Connect(layer.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), brush.Color)), source.Output);
+        INodePort opacity = layer.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), brush.Opacity));
+        _history.Commit("Seed");
+        int beforeUndo = _history.UndoCount;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_service.CanConnect(_graph, layer, null, source, source.True), Is.False);
+            Assert.That(_service.TryConnect(_graph, layer, null, source, source.True), Is.EqualTo(NodeConnectOutcome.None));
+            Assert.That(_service.CanConnect(_graph, layer, null, layer, opacity), Is.False, "Its own input");
+            Assert.That(_service.TryConnect(_graph, layer, null, layer, opacity), Is.EqualTo(NodeConnectOutcome.None));
+            Assert.That(layer.Items, Has.Count.EqualTo(1));
+            Assert.That(_graph.AllConnections, Has.Count.EqualTo(1));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
+        });
+    }
+
+    [Test]
     public void TryConnect_BranchesThatMeetAgain_AreNotACycle()
     {
         var source = new SwitchNode();

@@ -225,6 +225,35 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     public bool CanConnect(GraphModel graph, INodePort port1, INodePort port2)
         => IsEditable(graph) && TryGetConnectablePorts(graph, port1, port2, out _, out _);
 
+    public bool CanConnect(GraphModel graph,
+        GraphNode node1, INodePort? port1,
+        GraphNode node2, INodePort? port2)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(node1);
+        ArgumentNullException.ThrowIfNull(node2);
+        if (!IsEditable(graph)) return false;
+
+        return (port1, port2) switch
+        {
+            (null, { } mate) => CanAddPort(graph, node1, mate),
+            ({ } mate, null) => CanAddPort(graph, node2, mate),
+            ({ } first, { } second) => TryGetConnectablePorts(graph, first, second, out _, out _),
+            _ => false,
+        };
+    }
+
+    // A dynamic-port node adds a port on the side it offers, for a mate on the opposite side.
+    private static bool CanAddPort(GraphModel graph, GraphNode node, INodePort mate)
+        => node is IDynamicPortNode dynamicNode && mate.AssociatedType != null
+            && !WouldNewPortCloseCycle(graph, node, mate)
+            && mate switch
+            {
+                IInputPort input => dynamicNode.PossibleLocation.HasFlag(NodePortLocation.Right) && CanAcceptConnection(input),
+                IOutputPort => dynamicNode.PossibleLocation.HasFlag(NodePortLocation.Left),
+                _ => false,
+            };
+
     public NodeConnectOutcome TryConnect(GraphModel graph,
         GraphNode node1, INodePort? port1,
         GraphNode node2, INodePort? port2)
@@ -266,7 +295,9 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
                 return NodeConnectOutcome.None;
             }
 
-            if (dynamicNode is not null && mate is not null && dynamicNode.AddNodePort(mate, out _))
+            if (dynamicNode is not null && mate is not null
+                && !WouldNewPortCloseCycle(graph, port1 is null ? node1 : node2, mate)
+                && dynamicNode.AddNodePort(mate, out _))
             {
                 return NodeConnectOutcome.PortAdded;
             }
@@ -307,6 +338,18 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
             return false;
         }
 
+        return WouldCloseCycle(graph, consumer, producer);
+    }
+
+    // The new port makes the node the producer of an input mate, or the consumer of an output mate.
+    private static bool WouldNewPortCloseCycle(GraphModel graph, GraphNode node, INodePort mate)
+        => mate.FindHierarchicalParent<GraphNode>() is { } mateNode
+            && (mate is IInputPort
+                ? WouldCloseCycle(graph, mateNode, node)
+                : WouldCloseCycle(graph, node, mateNode));
+
+    private static bool WouldCloseCycle(GraphModel graph, GraphNode consumer, GraphNode producer)
+    {
         // This runs on every pointer move over a candidate port during a wire drag.
         ILookup<GraphNode?, GraphNode?> consumers = graph.AllConnections.ToLookup(
             connection => connection.Output.Value.Value?.FindHierarchicalParent<GraphNode>(),
