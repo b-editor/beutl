@@ -20,11 +20,30 @@ internal static class EffectItemSamplingSupport
     public static bool TryResolveSampledInput(ImmutableArray<IFEItem> items, Rect output, out Rect input)
     {
         input = default;
-        if (items.IsDefaultOrEmpty || !RenderRectValidation.IsFiniteNonNegative(output))
+        return !items.IsDefaultOrEmpty && TryMapBackward(items, 0, output, out input);
+    }
+
+    /// <summary>
+    /// Maps <paramref name="output"/> backward through the items after <paramref name="index"/>, to the part of its
+    /// output the item at <paramref name="index"/> has to produce.
+    /// </summary>
+    /// <returns>
+    /// <see langword="false"/> when an item after it is not a Skia filter with a proven sampling footprint, or when a
+    /// mapped region is unusable; the item then has to produce all of its output.
+    /// </returns>
+    public static bool TryResolveStageOutput(IReadOnlyList<IFEItem> items, int index, Rect output, out Rect stageOutput)
+        => TryMapBackward(items, index + 1, output, out stageOutput);
+
+    // Generic so that an ImmutableArray is read without boxing it.
+    private static bool TryMapBackward<TItems>(TItems items, int first, Rect output, out Rect input)
+        where TItems : IReadOnlyList<IFEItem>
+    {
+        input = default;
+        if (!RenderRectValidation.IsFiniteNonNegative(output))
             return false;
 
         Rect region = output;
-        for (int index = items.Length - 1; index >= 0; index--)
+        for (int index = items.Count - 1; index >= first; index--)
         {
             if (items[index] is not IFEItem_Skia skia
                 || !skia.TryTransformSamplingBounds(region, out Rect sampled)

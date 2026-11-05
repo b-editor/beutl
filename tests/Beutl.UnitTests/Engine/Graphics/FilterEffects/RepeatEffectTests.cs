@@ -5,6 +5,7 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
@@ -36,13 +37,13 @@ public sealed class RepeatEffectTests
     }
 
     // BGRA bytes in sRGB without premultiplying, one array per row.
-    private static byte[][] Render(RectShape shape, FilterEffect? effect, float scale = 1f, Rect? region = null, PixelSize? frame = null)
+    private static byte[][] Render(Drawable drawable, FilterEffect? effect, float scale = 1f, Rect? region = null, PixelSize? frame = null)
     {
         byte[][] rows = [];
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            shape.FilterEffect.Value = effect;
-            using var resource = (Drawable.Resource)shape.ToResource(CompositionContext.Default);
+            drawable.FilterEffect.Value = effect;
+            using var resource = (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
             using Bitmap rendered = GoldenImageHarness.RenderAtScale(
                 resource, frame ?? new PixelSize(Width, Height), scale, region, Colors.Transparent);
             using Bitmap bytes = rendered.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
@@ -399,13 +400,39 @@ public sealed class RepeatEffectTests
 
     // However many the grid has, a 1920 x 1080 frame shows ten columns of these: 120 x 80, one every 200. The row at
     // y = 620 goes through a copy, and along it a copy starts every 200 from x = 0.
-    private static byte[][] RenderInFrame(FilterEffect effect)
+    private static byte[][] RenderInFrame(FilterEffect effect, Drawable? drawable = null, Rect? region = null)
     {
-        RectShape picture = Picture();
-        picture.Width.Value = 120;
-        picture.Height.Value = 80;
-        return Render(picture, effect, frame: new PixelSize(1920, 1080));
+        if (drawable is null)
+        {
+            RectShape picture = Picture();
+            picture.Width.Value = 120;
+            picture.Height.Value = 80;
+            drawable = picture;
+        }
+
+        return Render(drawable, effect, region: region, frame: new PixelSize(1920, 1080));
     }
+
+    // The picture RenderInFrame draws, as the two children of a group: red on the left and blue on the right. A graph
+    // effect gets them as separate pieces.
+    private static DrawableGroup Halves()
+    {
+        var group = new DrawableGroup();
+        foreach ((Color color, float x) in new[] { (Colors.Red, -30f), (Colors.Blue, 30f) })
+        {
+            var half = new RectShape { Width = { Value = 60 }, Height = { Value = 80 } };
+            half.Fill.Value = new SolidColorBrush(color);
+            half.Transform.Value = new TranslateTransform(x, 0);
+            group.Children.Add(half);
+        }
+
+        return group;
+    }
+
+    private static readonly string s_frameRow =
+        new([.. Enumerable.Range(0, 1920).Select(static x => x % 200 < 60 ? 'R' : x % 200 < 120 ? 'B' : '.')]);
+
+    private static string FrameRow(byte[][] rows) => Across(rows, 620, [.. Enumerable.Range(0, 1920)]);
 
     private static RepeatEffect WideGrid(int count) => new()
     {
@@ -423,8 +450,92 @@ public sealed class RepeatEffectTests
     {
         byte[][] rows = RenderInFrame(WideGrid(count));
 
-        string expected = new([.. Enumerable.Range(0, 1920).Select(static x => x % 200 < 60 ? 'R' : x % 200 < 120 ? 'B' : '.')]);
-        Assert.That(Across(rows, 620, [.. Enumerable.Range(0, 1920)]), Is.EqualTo(expected));
+        Assert.That(FrameRow(rows), Is.EqualTo(s_frameRow));
+    }
+
+    // The pieces repeat around the group's middle as the one picture they make.
+    [TestCase(10)]
+    [TestCase(30)]
+    [TestCase(60)]
+    [TestCase(100)]
+    public void A_wide_grid_of_a_group_stays_sharp_in_the_frame(int count)
+    {
+        byte[][] rows = RenderInFrame(WideGrid(count), Halves());
+
+        Assert.That(FrameRow(rows), Is.EqualTo(s_frameRow));
+    }
+
+    [Test]
+    public void Drawing_part_of_a_group_s_grid_gives_the_same_pixels()
+    {
+        var region = new PixelRect(300, 500, 700, 300);
+        byte[][] whole = RenderInFrame(WideGrid(10), Halves());
+
+        byte[][] part = RenderInFrame(WideGrid(10), Halves(), region.ToRect(1));
+
+        int different = 0;
+        for (int y = region.Y; y < region.Bottom; y++)
+            for (int x = region.X * 4; x < region.Right * 4; x++)
+                different += part[y][x] == whole[y][x] ? 0 : 1;
+        Assert.Multiple(() =>
+        {
+            Assert.That(Across(part, 620, 459, 460, 519, 520), Is.EqualTo("RBB."));
+            Assert.That(different, Is.Zero);
+        });
+    }
+
+    // The effects one effect records run in one segment, where the grid makes only what the filter after it reads.
+    [TestCase(30)]
+    [TestCase(100)]
+    public void A_wide_grid_of_a_group_stays_sharp_under_a_filter_in_the_same_effect(int count)
+    {
+        using FilterEffect.Resource grid = WideGrid(count).ToResource(CompositionContext.Default);
+        using FilterEffect.Resource shadow = new DropShadow
+        {
+            Position = { Value = new Point(10, 10) },
+            Sigma = { Value = new Size(4, 4) },
+            Color = { Value = Colors.Black },
+        }.ToResource(CompositionContext.Default);
+
+        byte[][] rows = RenderInFrame(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+        {
+            context.Apply(grid);
+            context.Apply(shadow);
+        }), Halves());
+
+        Assert.That(Across(rows, 620, 1000, 1059, 1060, 1119), Is.EqualTo("RRBB"));
+    }
+
+    // An effect whose bounds are known only when it runs keeps the effects after it in its segment.
+    [TestCase(30)]
+    [TestCase(100)]
+    public void A_wide_grid_after_an_effect_of_unknown_bounds_stays_sharp_in_the_frame(int count)
+    {
+        using FilterEffect.Resource grid = WideGrid(count).ToResource(CompositionContext.Default);
+
+        byte[][] rows = RenderInFrame(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+        {
+            context.CustomEffect(0, static (_, _) => { }, static (_, _) => Rect.Invalid);
+            context.Apply(grid);
+        }));
+
+        Assert.That(FrameRow(rows), Is.EqualTo(s_frameRow));
+    }
+
+    // An effect that reaches the composition target runs with the effects after it as work on the target.
+    [TestCase(30)]
+    [TestCase(100)]
+    public void A_wide_grid_after_an_effect_on_the_target_stays_sharp_in_the_frame(int count)
+    {
+        using FilterEffect.Resource grid = WideGrid(count).ToResource(CompositionContext.Default);
+
+        byte[][] rows = RenderInFrame(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+        {
+            context.TargetEffect(0, static (_, _, _) => { });
+            context.Apply(grid);
+        }, declaresTargetAccess: true));
+
+        Assert.That(FrameRow(rows), Is.EqualTo(s_frameRow));
     }
 
     // A Skia filter still works within 16384 pixels of the whole grid, however little of it the frame shows.

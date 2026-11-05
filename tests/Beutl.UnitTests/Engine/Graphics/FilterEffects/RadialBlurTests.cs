@@ -343,6 +343,56 @@ public sealed class RadialBlurTests
         });
     }
 
+    // The second shape's trail misses the part of the output kept here, so it gets no target, and the first one's target
+    // holds that part of its trail.
+    [TestCase(RadialBlurMode.Zoom)]
+    [TestCase(RadialBlurMode.Spin)]
+    public void FragmentedInputs_MakeOnlyThePartTheCallerKeeps(RadialBlurMode mode)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget backing = RenderTarget.Create(10, 10)!;
+            backing.Value.Canvas.Clear(SKColors.White);
+            backing.Value.Canvas.Flush();
+            using FilterEffect.Resource resource = Create(mode, mode == RadialBlurMode.Zoom ? 100 : 90, 65)
+                .ToResource(CompositionContext.Default);
+
+            EffectTargets Run(Rect? requiredOutput)
+            {
+                var targets = new EffectTargets
+                {
+                    new EffectTarget(backing, new Rect(0, 0, 10, 10), EffectiveScale.At(1)),
+                    new EffectTarget(backing, new Rect(90, 0, 10, 10), EffectiveScale.At(1)),
+                };
+                using var context = new FilterEffectContext(targets.CalculateBounds());
+                context.ApplyTransactional(resource);
+                using var builder = new SKImageFilterBuilder();
+                using var executor = new FilterEffectExecutor(targets, builder, RenderIntent.Preview,
+                    RenderRequestPurpose.Auxiliary, drawableBrushMaterializer: null);
+                executor.Apply(context, requiredOutput);
+                executor.Flush(false);
+                return targets;
+            }
+
+            using EffectTargets whole = Run(null);
+            Rect trail = whole[0].Bounds;
+            var kept = new Rect(trail.X, trail.Y, trail.Width / 2, trail.Height);
+            using EffectTargets part = Run(kept);
+
+            Assert.That(part, Has.Count.EqualTo(1));
+            Assert.That(part[0].Bounds, Is.EqualTo(kept));
+            using Bitmap expected = whole[0].RenderTarget!.Snapshot();
+            using Bitmap actual = part[0].RenderTarget!.Snapshot();
+            Assert.That(part[0].RasterBounds.Position, Is.EqualTo(whole[0].RasterBounds.Position));
+            for (int y = 0; y < actual.Height; y++)
+            {
+                Assert.That(actual.GetRow<ushort>(y).ToArray(),
+                    Is.EqualTo(expected.GetRow<ushort>(y)[..(actual.Width * 4)].ToArray()), $"row {y}");
+            }
+        });
+    }
+
     private static Rect RecordBounds(RadialBlur effect, Rect bounds)
     {
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);

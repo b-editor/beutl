@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
@@ -135,8 +136,9 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         ArgumentNullException.ThrowIfNull(inputBounds);
         ArgumentNullException.ThrowIfNull(boundsItems);
         var result = new List<Rect>();
+        int itemCount = CountItemsAllocatedWhole(boundsItems, fallbackBounds);
         int firstCustomIndex = -1;
-        for (int index = 0; index < boundsItems.Count; index++)
+        for (int index = 0; index < itemCount; index++)
         {
             if (boundsItems[index] is IFEItem_Custom)
             {
@@ -145,7 +147,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
             }
         }
 
-        int branchItemCount = firstCustomIndex >= 0 ? firstCustomIndex : boundsItems.Count;
+        int branchItemCount = firstCustomIndex >= 0 ? firstCustomIndex : itemCount;
         Rect preCustomAggregateBounds = default;
         var preCustomBranchStates = new List<EffectItemFootprintState>(inputBounds.Count);
         foreach (Rect input in inputBounds)
@@ -182,7 +184,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
                 preCustomAggregateBounds,
                 boundsItems,
                 firstCustomIndex,
-                boundsItems.Count - firstCustomIndex,
+                itemCount - firstCustomIndex,
                 fallbackBounds,
                 result,
                 preCustomRetainedBackingOffsets,
@@ -192,6 +194,24 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         if (result.Count == 0)
             result.Add(ToLocalEffectItemFootprint(fallbackBounds, fallbackBounds));
         return result.ToArray();
+    }
+
+    // A shader graph that only Skia filters with a sampling footprint follow produces what the request needs of its
+    // output, so neither it nor those filters set a limit here: what it allocates is held to its budgets once the
+    // request's region is known. Every item before it is allocated whole.
+    private static int CountItemsAllocatedWhole(IReadOnlyList<IFEItem> items, Rect output)
+    {
+        for (int index = items.Count - 1; index >= 0; index--)
+        {
+            if (items[index] is IFEItem_Skia)
+                continue;
+            return items[index] is FEItem_ShaderGraph
+                   && EffectItemSamplingSupport.TryResolveStageOutput(items, index, output, out _)
+                ? index
+                : items.Count;
+        }
+
+        return items.Count;
     }
 
     private static EffectItemFootprintState CollectEffectItemFootprints(
