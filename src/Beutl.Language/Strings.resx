@@ -894,10 +894,10 @@
     <value>Switches between play and pause.</value>
   </data>
   <data name="MoveToNext" xml:space="preserve">
-    <value>Move to next</value>
+    <value>Move to next frame</value>
   </data>
   <data name="MoveToPrevious" xml:space="preserve">
-    <value>Move to previous</value>
+    <value>Move to previous frame</value>
   </data>
   <data name="MoveToNext_Description" xml:space="preserve">
     <value>Move to the next frame.</value>
@@ -1503,6 +1503,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="RenderScale_FitToPreviewer" xml:space="preserve">
     <value>Fit to previewer</value>
+  </data>
+  <data name="RenderScale_FitToPreviewer_Short" xml:space="preserve">
+    <value>Auto</value>
   </data>
   <data name="Terminal" xml:space="preserve">
     <value>Terminal</value>
@@ -3605,6 +3608,18 @@ when history recording is enabled.</value>
   </data>
   <data name="TogglePreviewGuides_Description" xml:space="preserve">
     <value>Show or hide the safe areas and composition guides in the preview.</value>
+  </data>
+  <data name="PreviewZoom" xml:space="preserve">
+    <value>Preview zoom</value>
+  </data>
+  <data name="PreviewZoomIn" xml:space="preserve">
+    <value>Zoom in preview</value>
+  </data>
+  <data name="PreviewZoomOut" xml:space="preserve">
+    <value>Zoom out preview</value>
+  </data>
+  <data name="PreviewZoomFit" xml:space="preserve">
+    <value>Fit preview</value>
   </data>
   <data name="PreviewGuide_TitleSafe" xml:space="preserve">
     <value>Title safe</value>

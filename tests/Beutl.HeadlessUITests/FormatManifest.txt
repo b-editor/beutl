@@ -1669,6 +1669,9 @@ editor.next
 editor.nextKeyFrame
 editor.nextMarker
 editor.playPause
+editor.previewZoomFit
+editor.previewZoomIn
+editor.previewZoomOut
 editor.previous
 editor.previousKeyFrame
 editor.previousMarker

@@ -1,6 +1,7 @@
 ﻿using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
@@ -8,12 +9,25 @@ using Avalonia.Interactivity;
 
 namespace Beutl.Controls;
 
+[PseudoClasses(ShuttlingClass, CompactClass, TinyClass)]
 public partial class Player : RangeBase
 {
+    private const string ShuttlingClass = ":shuttling";
+    private const string CompactClass = ":compact";
+    private const string TinyClass = ":tiny";
+
+    // Below this width the total time would push the footer onto a second row.
+    private const double CompactWidth = 530;
+
+    // Below this width the footer's sides do not fit on a row of their own.
+    private const double TinyWidth = 216;
+
     public static readonly StyledProperty<string?> DurationProperty = AvaloniaProperty.Register<Player, string?>(nameof(Duration));
     public static readonly StyledProperty<object?> ContentProperty = AvaloniaProperty.Register<Player, object?>(nameof(Content));
     public static readonly StyledProperty<object?> InnerLeftContentProperty = AvaloniaProperty.Register<Player, object?>(nameof(InnerLeftContent));
     public static readonly StyledProperty<object?> InnerRightContentProperty = AvaloniaProperty.Register<Player, object?>(nameof(InnerRightContent));
+    public static readonly StyledProperty<object?> FooterRightContentProperty = AvaloniaProperty.Register<Player, object?>(nameof(FooterRightContent));
+    public static readonly StyledProperty<string?> PlaybackRateTextProperty = AvaloniaProperty.Register<Player, string?>(nameof(PlaybackRateText));
     public static readonly DirectProperty<Player, string> CurrentTimeProperty =
         AvaloniaProperty.RegisterDirect<Player, string>(
             nameof(CurrentTime),
@@ -114,6 +128,20 @@ public partial class Player : RangeBase
         set => SetValue(InnerRightContentProperty, value);
     }
 
+    /// <summary>Gets or sets the controls at the trailing end of the footer, beside the transport buttons.</summary>
+    public object? FooterRightContent
+    {
+        get => GetValue(FooterRightContentProperty);
+        set => SetValue(FooterRightContentProperty, value);
+    }
+
+    /// <summary>Gets or sets the shuttle's rate, such as 2×, shown beside the time. Null while there is none to show.</summary>
+    public string? PlaybackRateText
+    {
+        get => GetValue(PlaybackRateTextProperty);
+        set => SetValue(PlaybackRateTextProperty, value);
+    }
+
     public string CurrentTime
     {
         get => _currentTime;
@@ -208,10 +236,21 @@ public partial class Player : RangeBase
             _contentPresenter.Margin = new Thickness(rect.Width, 0);
     }
 
+    protected override void OnSizeChanged(SizeChangedEventArgs e)
+    {
+        base.OnSizeChanged(e);
+        PseudoClasses.Set(CompactClass, e.NewSize.Width < CompactWidth);
+        PseudoClasses.Set(TinyClass, e.NewSize.Width < TinyWidth);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == PlayButtonCommandProperty)
+        if (change.Property == PlaybackRateTextProperty)
+        {
+            PseudoClasses.Set(ShuttlingClass, !string.IsNullOrEmpty(change.GetNewValue<string?>()));
+        }
+        else if (change.Property == PlayButtonCommandProperty)
         {
             if (change.OldValue is ICommand oldValue)
             {

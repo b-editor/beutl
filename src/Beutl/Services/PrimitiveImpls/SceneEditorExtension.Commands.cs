@@ -67,6 +67,14 @@ public sealed partial class SceneEditorExtension
         // Alt+G for Guides, matching Alt+O for onion skin, and clear of the timeline's gap keys on ';'.
         KeyCommand("editor.togglePreviewGuides", Strings.TogglePreviewGuides, Strings.TogglePreviewGuides_Description,
             [new("Alt+G")], _ => TogglePreviewGuides()),
+        // Alt, like the other preview keys above: the Ctrl and Cmd forms zoom the timeline. Both Alt+= and Alt++ zoom in,
+        // and each reports OemPlus for its character, with Shift for + on a US or JIS layout.
+        KeyCommand("editor.previewZoomIn", Strings.PreviewZoomIn, "", [new("Alt+OemPlus"), new("Shift+Alt+OemPlus")],
+            editor => editor.Player.RequestPreviewZoom(PreviewZoomAction.ZoomIn)),
+        KeyCommand("editor.previewZoomOut", Strings.PreviewZoomOut, "", [new("Alt+OemMinus")],
+            editor => editor.Player.RequestPreviewZoom(PreviewZoomAction.ZoomOut)),
+        KeyCommand("editor.previewZoomFit", Strings.PreviewZoomFit, "", [new("Alt+D0")],
+            editor => editor.Player.RequestPreviewZoom(PreviewZoomAction.Fit)),
         // Palette-only: they ask for their arguments, so they have no default gesture.
         PaletteCommand("editor.goToMarker", Strings.GoToMarker,
             (editor, interaction) => editor.GoToMarkerAsync(interaction), editor => editor.Scene.Markers.Count > 0),
