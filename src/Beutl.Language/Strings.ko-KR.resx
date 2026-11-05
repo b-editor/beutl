@@ -824,6 +824,9 @@
   <data name="EnableElement" xml:space="preserve">
     <value>요소 사용</value>
   </data>
+  <data name="Visible" xml:space="preserve">
+    <value>표시</value>
+  </data>
   <data name="MoveTo" xml:space="preserve">
     <value>이동</value>
   </data>

@@ -852,6 +852,9 @@
   <data name="EnableElement" xml:space="preserve">
     <value>要素を有効化</value>
   </data>
+  <data name="Visible" xml:space="preserve">
+    <value>表示</value>
+  </data>
   <data name="MoveTo" xml:space="preserve">
     <value>移動</value>
   </data>

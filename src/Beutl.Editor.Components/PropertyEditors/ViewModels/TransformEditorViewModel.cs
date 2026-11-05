@@ -75,6 +75,17 @@ public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transfor
 
         (IsPresenter, CurrentTargetName) = PresenterEditorHelper.ObservePresenter<Transform>(Value, Disposables);
 
+        ShowsName = IsExpanded
+            .CombineLatest(
+                Properties,
+                IsFallback,
+                IsPresenter,
+                ObserveExtensionProvider().Select(_ => this.GetService<GraphNode>() != null).StartWith(false),
+                (expanded, properties, fallback, presenter, inNode) =>
+                    !presenter && (!expanded || fallback || inNode || properties is not { Properties.Count: > 0 }))
+            .ToReadOnlyReactivePropertySlim(true)
+            .DisposeWith(Disposables);
+
         // A row shows its values as soon as its group opens, and a saved state read afterwards overrides that. Opening
         // builds the children, so it waits for Accept. A node stays compact.
         if (property is IListItemAccessor)
@@ -88,6 +99,10 @@ public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transfor
     }
 
     public ReadOnlyReactivePropertySlim<string?> TransformName { get; }
+
+    // Whether a row of a list has a row for its name. While open, it shows its first property there instead, unless it
+    // is in a node, which stays compact, or has no property to show.
+    public ReadOnlyReactivePropertySlim<bool> ShowsName { get; }
 
     protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Transform;
 

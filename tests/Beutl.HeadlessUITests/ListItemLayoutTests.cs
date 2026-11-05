@@ -1,8 +1,11 @@
 ﻿using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
 using Beutl.Collections;
@@ -17,9 +20,14 @@ using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
+using Beutl.Language;
 using Beutl.Media;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
+using FluentAvalonia.UI.Controls;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 using TextBlock = Avalonia.Controls.TextBlock;
 
@@ -206,8 +214,323 @@ public sealed class ListItemLayoutTests
         }
     }
 
+    [AvaloniaTest]
+    [TestCase(640)]
+    [TestCase(300)]
+    public async Task An_open_transform_shows_its_first_property_in_place_of_its_name(int width)
+    {
+        var move = new TranslateTransform();
+        var scale = new ScaleTransform();
+        var group = new TransformGroup { Children = { move, scale } };
+        using var history = new HistoryScope(group);
+        using var list = CreateList(new EnginePropertyAdapter<ICoreList<Transform>>(group.Children, group), history);
+        var window = new Window { Content = new ListEditor { DataContext = list }, Width = width, Height = 600 };
+        try
+        {
+            window.Show();
+            await Settle();
+
+            foreach (Transform transform in new Transform[] { move, scale })
+            {
+                TransformListItemEditor item = Item(window, transform);
+                ContentPresenter grip = Grip((ToggleButton)item.ReorderHandle!);
+                TextBlock label = Labels(item).First();
+                Assert.That(item.FindControl<ToggleButton>("reorderHandle")!.IsEffectivelyVisible, Is.False);
+                Assert.That(Center(grip, window), Is.EqualTo(GripCenter));
+                Assert.That(Left(label, window), Is.EqualTo(NameStart));
+                // A row that stacks its label over its value has the icon beside the label, cut off by nothing above.
+                Assert.That(Middle(grip, window), Is.EqualTo(Middle(label, window)).Within(2));
+                Assert.That(AutomationProperties.GetName((ToggleButton)item.ReorderHandle!),
+                    Is.EqualTo(((TransformEditorViewModel)item.DataContext!).TransformName.Value).And.Not.Empty);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_transforms_line_runs_from_under_its_icon_to_its_last_row_and_a_single_row_has_none()
+    {
+        var move = new TranslateTransform();
+        var scale = new ScaleTransform();
+        var group = new TransformGroup { Children = { move, scale } };
+        using var history = new HistoryScope(group);
+        using var list = CreateList(new EnginePropertyAdapter<ICoreList<Transform>>(group.Children, group), history);
+        var window = new Window { Content = new ListEditor { DataContext = list }, Width = 640, Height = 600 };
+        try
+        {
+            window.Show();
+            await Settle();
+
+            Assert.That(Line(Item(window, move)).Bounds.Height, Is.Zero);
+
+            TransformListItemEditor item = Item(window, scale);
+            TreeLineDecorator line = Line(item);
+            ContentPresenter grip = Grip((ToggleButton)item.ReorderHandle!);
+            Panel content = item.FindControl<Panel>("content")!;
+            Assert.That(Left(line, window) + LineInset, Is.EqualTo(GripCenter));
+            Assert.That(Top(line, window), Is.EqualTo(Top(grip, window) + grip.Bounds.Height));
+            Assert.That(Top(line, window) + line.Bounds.Height, Is.EqualTo(Top(content, window) + content.Bounds.Height));
+            Assert.That(line.LineBrush, Is.Not.Null);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Clicking_the_icon_of_a_transform_closes_it_to_a_row_with_its_name_and_back()
+    {
+        var scale = new ScaleTransform();
+        var group = new TransformGroup { Children = { scale } };
+        using var history = new HistoryScope(group);
+        using var list = CreateList(new EnginePropertyAdapter<ICoreList<Transform>>(group.Children, group), history);
+        var window = new Window { Content = new ListEditor { DataContext = list }, Width = 640, Height = 600 };
+        try
+        {
+            window.Show();
+            await Settle();
+            TransformListItemEditor item = Item(window, scale);
+            var icon = (ToggleButton)item.ReorderHandle!;
+            ToggleButton nameRow = item.FindControl<ToggleButton>("reorderHandle")!;
+            Panel content = item.FindControl<Panel>("content")!;
+            Assert.That(icon, Is.Not.SameAs(nameRow));
+
+            // The rows swap at once: fading the open rows out under the row with the name made them jump.
+            HeadlessTestHelpers.Click(Grip(icon), ticks: 1);
+            Assert.That(content.IsVisible, Is.False);
+            Assert.That(nameRow.IsEffectivelyVisible, Is.True);
+            await Settle();
+            Assert.That(item.ReorderHandle, Is.SameAs(nameRow));
+            // The row with the name shows the buttons to hide and remove the transform.
+            Button[] buttons = NameRowButtons(item);
+            Assert.That(buttons, Has.Length.EqualTo(2));
+            Assert.That(buttons, Has.All.Matches<Button>(b => b.IsEffectivelyVisible));
+            HeadlessTestHelpers.Click(buttons.OfType<ToggleButton>().Single(), ticks: 3);
+            Assert.That(scale.IsEnabled.Value, Is.False);
+            HeadlessTestHelpers.Click(buttons.OfType<ToggleButton>().Single(), ticks: 3);
+            Assert.That(scale.IsEnabled.Value, Is.True);
+
+            HeadlessTestHelpers.Click(Grip(nameRow), ticks: 1);
+            Assert.That(content.IsVisible, Is.True);
+            Assert.That(content.Opacity, Is.EqualTo(1));
+            Assert.That(nameRow.IsEffectivelyVisible, Is.False);
+            await Settle();
+            Assert.That(item.ReorderHandle, Is.SameAs(icon));
+            Assert.That(buttons, Has.None.Matches<Button>(b => b.IsEffectivelyVisible));
+
+            HeadlessTestHelpers.Click(Grip(icon), ticks: 3);
+            await Settle();
+            HeadlessTestHelpers.Click(buttons.Single(b => b is not ToggleButton), ticks: 3);
+            await Settle();
+            Assert.That(group.Children, Is.Empty);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Space_keeps_closing_and_opening_a_transform_as_its_handle_changes()
+    {
+        var scale = new ScaleTransform();
+        var group = new TransformGroup { Children = { scale } };
+        using var history = new HistoryScope(group);
+        using var list = CreateList(new EnginePropertyAdapter<ICoreList<Transform>>(group.Children, group), history);
+        var window = new Window { Content = new ListEditor { DataContext = list }, Width = 640, Height = 600 };
+        try
+        {
+            window.Show();
+            await Settle();
+            TransformListItemEditor item = Item(window, scale);
+            var viewModel = (TransformEditorViewModel)item.DataContext!;
+            var icon = (ToggleButton)item.ReorderHandle!;
+            ToggleButton nameRow = item.FindControl<ToggleButton>("reorderHandle")!;
+            Assert.That(icon.Focus(NavigationMethod.Tab), Is.True);
+
+            PressSpace(window);
+            await Settle();
+            Assert.That(viewModel.IsExpanded.Value, Is.False);
+            Assert.That(nameRow.IsFocused, Is.True);
+
+            PressSpace(window);
+            await Settle();
+            Assert.That(viewModel.IsExpanded.Value, Is.True);
+            Assert.That(icon.IsFocused, Is.True);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Dragging_the_icon_of_a_transform_reorders_it_and_leaves_it_open()
+    {
+        var move = new TranslateTransform();
+        var scale = new ScaleTransform();
+        var group = new TransformGroup { Children = { move, scale } };
+        using var history = new HistoryScope(group);
+        using var list = CreateList(new EnginePropertyAdapter<ICoreList<Transform>>(group.Children, group), history);
+        var window = new Window { Content = new ListEditor { DataContext = list }, Width = 640, Height = 600 };
+        try
+        {
+            window.Show();
+            await Settle();
+            ContentPresenter from = Grip((ToggleButton)Item(window, move).ReorderHandle!);
+            Point start = from.TranslatePoint(new Point(from.Bounds.Width / 2, from.Bounds.Height / 2), window)!.Value;
+            // Past the middle of the next item, which has two rows.
+            Point end = start + new Vector(0, 60);
+
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(start + new Vector(0, 8), RawInputModifiers.LeftMouseButton);
+            window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(end, MouseButton.Left);
+            await Settle();
+
+            Assert.That(group.Children, Is.EqualTo(new Transform[] { scale, move }));
+            Assert.That(((TransformEditorViewModel)Item(window, move).DataContext!).IsExpanded.Value, Is.True);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_right_click_on_any_row_of_a_transform_offers_hiding_and_removing_it()
+    {
+        var move = new TranslateTransform();
+        var scale = new ScaleTransform();
+        var group = new TransformGroup { Children = { move, scale } };
+        using var history = new HistoryScope(group);
+        using var list = CreateList(new EnginePropertyAdapter<ICoreList<Transform>>(group.Children, group), history);
+        var window = new Window { Content = new ListEditor { DataContext = list }, Width = 640, Height = 600 };
+        try
+        {
+            window.Show();
+            await Settle();
+            TransformListItemEditor item = Item(window, scale);
+            var flyout = (FAMenuFlyout)item.ContextFlyout!;
+            var root = (Grid)item.Content!;
+            Assert.That(root.Opacity, Is.EqualTo(1));
+
+            HeadlessTestHelpers.Click(Labels(item).Last(), button: MouseButton.Right);
+            Assert.That(flyout.IsOpen, Is.True);
+            FAToggleMenuFlyoutItem visible = flyout.Items.OfType<FAToggleMenuFlyoutItem>().Single();
+            Assert.That(visible.Text, Is.EqualTo(Strings.Visible));
+            Assert.That(visible.IsChecked, Is.True);
+            HeadlessTestHelpers.Click(visible);
+            await Settle();
+            Assert.That(scale.IsEnabled.Value, Is.False);
+            Assert.That(flyout.IsOpen, Is.False);
+            // With no button left to show it, the row itself tells that the transform is hidden.
+            Assert.That(root.Opacity, Is.LessThan(1));
+
+            HeadlessTestHelpers.Click(Grip((ToggleButton)item.ReorderHandle!), button: MouseButton.Right);
+            Assert.That(flyout.IsOpen, Is.True);
+            Assert.That(visible.IsChecked, Is.False);
+            HeadlessTestHelpers.Click(flyout.Items.OfType<FAMenuFlyoutItem>().Single(i => i.Text == Strings.Remove));
+            await Settle();
+            Assert.That(group.Children.Single(), Is.SameAs(move));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_transform_in_a_node_keeps_the_row_with_its_name_when_open()
+    {
+        var scale = new ScaleTransform();
+        var group = new TransformGroup { Children = { scale } };
+        using var history = new HistoryScope(group);
+        var list = new ListEditorViewModel<Transform>(new EnginePropertyAdapter<ICoreList<Transform>>(group.Children, group));
+        using (list)
+        {
+            list.Accept(new ServiceVisitor(
+                (typeof(HistoryManager), history.History),
+                (typeof(IPropertyEditorFactory), new PropertyEditorFactoryAdapter(TestShell.Extensions)),
+                (typeof(ExtensionProvider), TestShell.Extensions),
+                (typeof(GraphNode), new LayerInputNode())));
+            list.IsExpanded.Value = true;
+            var window = new Window { Content = new ListEditor { DataContext = list }, Width = 640, Height = 600 };
+            try
+            {
+                window.Show();
+                await Settle();
+                TransformListItemEditor item = Item(window, scale);
+                var viewModel = (TransformEditorViewModel)item.DataContext!;
+                Assert.That(viewModel.IsExpanded.Value, Is.False);
+
+                viewModel.IsExpanded.Value = true;
+                await Settle();
+
+                ToggleButton nameRow = item.FindControl<ToggleButton>("reorderHandle")!;
+                Assert.That(item.ReorderHandle, Is.SameAs(nameRow));
+                Assert.That(nameRow.IsEffectivelyVisible, Is.True);
+                Assert.That(NameRowButtons(item), Has.All.Matches<Button>(b => b.IsEffectivelyVisible));
+                Assert.That(item.FindControl<Panel>("content")!.IsVisible, Is.True);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_presenter_transform_lines_up_with_the_boxes_of_the_other_rows()
+    {
+        var move = new TranslateTransform();
+        var presenter = new TransformPresenter();
+        var group = new TransformGroup { Children = { move, presenter } };
+        using var history = new HistoryScope(group);
+        using var list = CreateList(new EnginePropertyAdapter<ICoreList<Transform>>(group.Children, group), history);
+        var window = new Window { Content = new ListEditor { DataContext = list }, Width = 640, Height = 600 };
+        try
+        {
+            window.Show();
+            await Settle();
+
+            TransformListItemEditor item = Item(window, presenter);
+            ReferenceEditor reference = item.GetVisualDescendants().OfType<ReferenceEditor>().Single();
+            Control picker = reference.GetVisualDescendants().OfType<DropDownButton>().Single();
+            Border box = Item(window, move).GetVisualDescendants().OfType<Border>()
+                .First(b => b.Name == "PART_BackgroundBorder" && b.IsEffectivelyVisible);
+            Assert.That(item.ReorderHandle, Is.SameAs(reference.ReorderHandle));
+            Assert.That(Center(reference.ReorderHandle!, window), Is.EqualTo(GripCenter));
+            Assert.That(Right(picker, window), Is.EqualTo(Right(box, window)));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // The decorator draws its line this far into itself.
     private const double LineInset = 8;
+
+    private static TransformListItemEditor Item(Window window, Transform transform)
+        => window.GetVisualDescendants().OfType<TransformListItemEditor>()
+            .Single(i => ((TransformEditorViewModel)i.DataContext!).Value.Value == transform);
+
+    private static Button[] NameRowButtons(TransformListItemEditor item)
+        => ((Panel)item.FindControl<ToggleButton>("reorderHandle")!.Parent!).Children.OfType<Button>()
+            .Where(b => b.Name != "reorderHandle").ToArray();
+
+    private static IEnumerable<TextBlock> Labels(Control item) => item.GetVisualDescendants().OfType<TextBlock>()
+        .Where(t => t.Name == "PART_HeaderTextBlock" && t.IsEffectivelyVisible);
+
+    private static TreeLineDecorator Line(TransformListItemEditor item)
+        => item.FindControl<Panel>("content")!.GetVisualDescendants().OfType<TreeLineDecorator>().First();
+
+    private static double Middle(Control control, Visual root) => Top(control, root) + control.Bounds.Height / 2;
 
     private static void AssertLinesUp(FilterEffectListItemEditor item, Visual root, double itemLeft)
     {
@@ -256,6 +579,13 @@ public sealed class ListItemLayoutTests
     private static async Task Settle()
     {
         await Task.Delay(350);
+        HeadlessTestHelpers.Render(3);
+    }
+
+    private static void PressSpace(Window window)
+    {
+        window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+        window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
         HeadlessTestHelpers.Render(3);
     }
 

@@ -857,6 +857,9 @@
   <data name="EnableElement" xml:space="preserve">
     <value>Enable element</value>
   </data>
+  <data name="Visible" xml:space="preserve">
+    <value>Visible</value>
+  </data>
   <data name="MoveTo" xml:space="preserve">
     <value>Move to</value>
   </data>
