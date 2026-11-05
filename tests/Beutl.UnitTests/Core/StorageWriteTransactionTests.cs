@@ -452,6 +452,89 @@ public class StorageWriteTransactionTests
     }
 
     [Test]
+    public void Batch_KeepsTheLastWriteOfAFile()
+    {
+        string existing = CreateFile("existing.belm", "before");
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        transaction.WriteInBatch(() =>
+        {
+            WriteJson(existing, "first");
+            WriteJson(existing, "second");
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Has.Length.EqualTo(1));
+        });
+        transaction.Commit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(existing), Is.EqualTo("\"second\""));
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Batch_LeavesNoTemporaryFileWhenThreadsWriteTheSameFile()
+    {
+        string existing = CreateFile("existing.belm", "before");
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        transaction.WriteInBatch(() => Parallel.For(0, 256, index => WriteJson(existing, $"write {index}")));
+        transaction.Commit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(existing), Does.StartWith("\"write "));
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Batch_DoesNotPutAWriteOverTheBytesASuppressedObjectRestores()
+    {
+        string path = CreateFile("element.belm", "before");
+        byte[] retained = "retained"u8.ToArray();
+        var element = new Element
+        {
+            Uri = new Uri(path),
+            SuppressedStorageSource = new SuppressedStorageSource(retained, new Uri(path)) { WasReinstated = true },
+        };
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        transaction.WriteInBatch(() =>
+        {
+            WriteJson(path, "queued");
+            CoreSerializer.StoreToUri(element, element.Uri!);
+        });
+        transaction.Commit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(retained));
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Batch_LeavesAFileAsItWasWhenItsWriteIsTakenBack()
+    {
+        string existing = CreateFile("existing.belm", "before");
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        transaction.WriteInBatch(() =>
+        {
+            WriteJson(existing, "first");
+            transaction.RemoveFromBatch(existing);
+        });
+        transaction.Commit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(existing), Is.EqualTo("before"));
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+        });
+    }
+
+    [Test]
     public void Batch_MovesItsFilesIntoPlaceAfterTheLastWrite()
     {
         string existing = CreateFile("existing.belm", "before");

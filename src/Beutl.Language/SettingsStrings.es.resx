@@ -100,6 +100,14 @@
     <value>Usar color de acento personalizado</value>
     <comment />
   </data>
+  <data name="UseNativeContextMenus" xml:space="preserve">
+    <value>Usar menús contextuales nativos</value>
+    <comment />
+  </data>
+  <data name="UseNativeContextMenus_Description" xml:space="preserve">
+    <value>Muestra los menús contextuales como menús estándar de macOS.</value>
+    <comment />
+  </data>
   <data name="Telemetry_Beutl_Application" xml:space="preserve">
     <value>Aplicación</value>
     <comment />

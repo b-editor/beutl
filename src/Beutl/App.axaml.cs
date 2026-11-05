@@ -11,6 +11,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Controls.NativeContextMenu;
 using Beutl.Controls.Styling;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.Services;
@@ -195,6 +196,7 @@ public sealed class App : Application
         {
             if (OperatingSystem.IsMacOS())
             {
+                NativeContextMenus.Install();
                 desktop.MainWindow = new MacWindow { DataContext = GetMainViewModel(), };
             }
             else

@@ -5,6 +5,7 @@
     "UseCustomAccentColor": true,
     "CustomAccentColor": "#FF112233",
     "ShowExactBoundaries": true,
+    "UseNativeContextMenus": false,
     "LastOpenedProjectFile": "/golden/p.bproj",
     "Theme": "beutl.dark.border",
     "RecentFiles": [

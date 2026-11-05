@@ -96,6 +96,14 @@
     <value>アクセントカラーをカスタマイズ</value>
     <comment/>
   </data>
+  <data name="UseNativeContextMenus" xml:space="preserve">
+    <value>ネイティブのコンテキストメニューを使用</value>
+    <comment/>
+  </data>
+  <data name="UseNativeContextMenus_Description" xml:space="preserve">
+    <value>右クリックメニューを macOS 標準のメニューで表示します。</value>
+    <comment/>
+  </data>
   <data name="Telemetry_Beutl_Application" xml:space="preserve">
     <value>アプリケーション</value>
     <comment/>

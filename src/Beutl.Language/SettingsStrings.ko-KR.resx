@@ -100,6 +100,14 @@
     <value>사용자 지정 강조 색상 사용</value>
     <comment />
   </data>
+  <data name="UseNativeContextMenus" xml:space="preserve">
+    <value>네이티브 컨텍스트 메뉴 사용</value>
+    <comment />
+  </data>
+  <data name="UseNativeContextMenus_Description" xml:space="preserve">
+    <value>오른쪽 클릭 메뉴를 macOS 기본 메뉴로 표시합니다.</value>
+    <comment />
+  </data>
   <data name="Telemetry_Beutl_Application" xml:space="preserve">
     <value>애플리케이션</value>
     <comment />

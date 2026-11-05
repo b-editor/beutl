@@ -482,13 +482,17 @@ public sealed class AiResultImporterTests
             Assert.That(editor.HistoryManager.Undo(), Is.True);
             Assert.That(scene.Children, Is.Empty);
             scene.Uri = savedSceneUri;
-            Assert.That(await editor.SaveAsync(), Is.True);
-            using (Assert.EnterMultipleScope())
+            // As a save command holds it, so the auto-save of the undo waits for this check.
+            using (await TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None))
             {
-                Assert.That(File.Exists(unsavedSidecar.LocalPath), Is.True,
-                    "The redo stack still owns the unsaved element sidecar.");
-                Assert.That(File.Exists(resourcePath), Is.True,
-                    "The redo stack still owns the imported resource.");
+                Assert.That(await editor.SaveAsync(), Is.True);
+                using (Assert.EnterMultipleScope())
+                {
+                    Assert.That(File.Exists(unsavedSidecar.LocalPath), Is.True,
+                        "The redo stack still owns the unsaved element sidecar.");
+                    Assert.That(File.Exists(resourcePath), Is.True,
+                        "The redo stack still owns the imported resource.");
+                }
             }
 
             Assert.That(editor.HistoryManager.Redo(), Is.True);
@@ -651,37 +655,41 @@ public sealed class AiResultImporterTests
             using (editor.HistoryManager.SuppressRecording())
                 scene.Duration.Value += MediaTime.FromSeconds(1);
 
-            // Fails either the relocated sidecar, written right after the resource copy, or the scene,
-            // written after every sidecar.
-            using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
-                   {
-                       bool failing = failSceneWrite
-                           ? path == sceneFile
-                           : Path.GetDirectoryName(path) == sceneDirectory
-                             && Path.GetExtension(path) == ".belm";
-                       if (step == StorageWriteStep.Replace && failing)
+            // As a save command holds it, so the auto-save of the import waits for these checks.
+            using (await TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None))
+            {
+                // Fails either the relocated sidecar, written right after the resource copy, or the scene,
+                // written after every sidecar.
+                using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
                        {
-                           resourceCopiedBeforeFailure = Directory.GetFiles(resourceDirectory).Length > 0;
-                           throw new IOException("Injected save failure.");
-                       }
-                   }))
-            {
-                await Assert.CatchAsync<Exception>(async () => await editor.SaveAsync());
-            }
+                           bool failing = failSceneWrite
+                               ? path == sceneFile
+                               : Path.GetDirectoryName(path) == sceneDirectory
+                                 && Path.GetExtension(path) == ".belm";
+                           if (step == StorageWriteStep.Replace && failing)
+                           {
+                               resourceCopiedBeforeFailure = Directory.GetFiles(resourceDirectory).Length > 0;
+                               throw new IOException("Injected save failure.");
+                           }
+                       }))
+                {
+                    await Assert.CatchAsync<Exception>(async () => await editor.SaveAsync());
+                }
 
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(resourceCopiedBeforeFailure, Is.True);
-                Assert.That(element.Uri, Is.EqualTo(originalSidecar));
-                Assert.That(source.Uri, Is.EqualTo(originalResource));
-                Assert.That(File.Exists(originalResource.LocalPath), Is.True);
-                Assert.That(Directory.GetFiles(sceneDirectory, "*.belm"), Is.Empty);
-                Assert.That(Directory.GetFiles(resourceDirectory), Is.Empty);
-                Assert.That(File.ReadAllBytes(sceneFile), Is.EqualTo(sceneBefore));
-            }
+                using (Assert.EnterMultipleScope())
+                {
+                    Assert.That(resourceCopiedBeforeFailure, Is.True);
+                    Assert.That(element.Uri, Is.EqualTo(originalSidecar));
+                    Assert.That(source.Uri, Is.EqualTo(originalResource));
+                    Assert.That(File.Exists(originalResource.LocalPath), Is.True);
+                    Assert.That(Directory.GetFiles(sceneDirectory, "*.belm"), Is.Empty);
+                    Assert.That(Directory.GetFiles(resourceDirectory), Is.Empty);
+                    Assert.That(File.ReadAllBytes(sceneFile), Is.EqualTo(sceneBefore));
+                }
 
-            Assert.That(await editor.SaveAsync(), Is.True);
-            Assert.That(Directory.GetFiles(sceneDirectory, "*.belm"), Has.Length.EqualTo(1));
+                Assert.That(await editor.SaveAsync(), Is.True);
+                Assert.That(Directory.GetFiles(sceneDirectory, "*.belm"), Has.Length.EqualTo(1));
+            }
         }
         finally
         {
