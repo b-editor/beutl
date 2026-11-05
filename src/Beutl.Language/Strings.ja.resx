@@ -889,10 +889,10 @@
     <value>再生/一時停止を切り替えます。</value>
   </data>
   <data name="MoveToNext" xml:space="preserve">
-    <value>次へ移動</value>
+    <value>次のフレームへ移動</value>
   </data>
   <data name="MoveToPrevious" xml:space="preserve">
-    <value>前へ移動</value>
+    <value>前のフレームへ移動</value>
   </data>
   <data name="MoveToNext_Description" xml:space="preserve">
     <value>次のフレームへ移動。</value>
@@ -1497,6 +1497,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="RenderScale_FitToPreviewer" xml:space="preserve">
     <value>プレビューに合わせる</value>
+  </data>
+  <data name="RenderScale_FitToPreviewer_Short" xml:space="preserve">
+    <value>自動</value>
   </data>
   <data name="Terminal" xml:space="preserve">
     <value>ターミナル</value>
@@ -3600,6 +3603,18 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="TogglePreviewGuides_Description" xml:space="preserve">
     <value>プレビューのセーフエリアと構図ガイドの表示を切り替えます。</value>
+  </data>
+  <data name="PreviewZoom" xml:space="preserve">
+    <value>プレビューの拡大率</value>
+  </data>
+  <data name="PreviewZoomIn" xml:space="preserve">
+    <value>プレビューを拡大</value>
+  </data>
+  <data name="PreviewZoomOut" xml:space="preserve">
+    <value>プレビューを縮小</value>
+  </data>
+  <data name="PreviewZoomFit" xml:space="preserve">
+    <value>プレビュー全体を表示</value>
   </data>
   <data name="PreviewGuide_TitleSafe" xml:space="preserve">
     <value>タイトルセーフ</value>

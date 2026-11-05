@@ -6,6 +6,18 @@ namespace Beutl.ViewModels;
 
 public partial class PlayerViewModel
 {
+    internal static string? FormatPlaybackRate(float speed, PlaybackDirection direction)
+    {
+        if (direction == ViewModels.PlaybackDirection.Stopped
+            || (direction == ViewModels.PlaybackDirection.Forward && speed == 1f))
+        {
+            return null;
+        }
+
+        string sign = direction == ViewModels.PlaybackDirection.Backward ? "−" : "";
+        return $"{sign}{speed.ToString("0.##", CultureInfo.InvariantCulture)}×";
+    }
+
     public void ShuttleStop()
     {
         _isShuttling = false;

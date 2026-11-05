@@ -11,6 +11,71 @@
                          Duration="00:10:00" />
     </Design.PreviewWith>
 
+    <!--  Takes clicks over the seek bar's whole height, and draws only its thin track.  -->
+    <ControlTheme x:Key="PlayerSeekBarTrackButtonTheme" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel Background="Transparent">
+                    <Border Height="4"
+                            VerticalAlignment="Center"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="2" />
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="PlayerSeekBarThumbTheme" TargetType="Thumb">
+        <Setter Property="Width" Value="10" />
+        <Setter Property="Height" Value="10" />
+        <Setter Property="Background" Value="{DynamicResource SliderThumbBackground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SliderThumbBorderBrush}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="5" />
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SliderThumbBackgroundPointerOver}" />
+        </Style>
+        <Style Selector="^:pressed">
+            <Setter Property="Background" Value="{DynamicResource SliderThumbBackgroundPressed}" />
+        </Style>
+    </ControlTheme>
+
+    <!--  It has a template of its own, because the slider theme ties the height that takes clicks to the size of the thumb.
+          Nothing in it takes the focus: a focused slider would take the arrow keys from the editor's frame steps and move
+          the playhead by a whole second.  -->
+    <ControlTheme x:Key="PlayerSeekBarTheme" TargetType="Slider">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Track Name="PART_Track"
+                       Maximum="{TemplateBinding Maximum}"
+                       Minimum="{TemplateBinding Minimum}"
+                       Orientation="Horizontal"
+                       Value="{TemplateBinding Value, Mode=TwoWay}">
+                    <Track.DecreaseButton>
+                        <RepeatButton Name="PART_DecreaseButton"
+                                      Background="{DynamicResource SliderTrackValueFill}"
+                                      Theme="{StaticResource PlayerSeekBarTrackButtonTheme}" />
+                    </Track.DecreaseButton>
+                    <Track.IncreaseButton>
+                        <RepeatButton Name="PART_IncreaseButton"
+                                      Background="{DynamicResource SliderTrackFill}"
+                                      Theme="{StaticResource PlayerSeekBarTrackButtonTheme}" />
+                    </Track.IncreaseButton>
+                    <Thumb Name="thumb" Theme="{StaticResource PlayerSeekBarThumbTheme}" />
+                </Track>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
     <ControlTheme x:Key="{x:Type controls:Player}" TargetType="controls:Player">
         <Setter Property="Template">
             <ControlTemplate>
@@ -31,141 +96,214 @@
 
                     <Grid Grid.Row="1" RowDefinitions="Auto,Auto">
                         <Grid.Styles>
-                            <Style Selector="icons|FluentIcon">
-                                <Setter Property="FontSize" Value="20" />
-                            </Style>
                             <Style Selector="TextBox.invalid">
                                 <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
                                 <Setter Property="BorderThickness" Value="2" />
                             </Style>
                         </Grid.Styles>
 
+                        <!--  Every pixel here comes out of the frame. The bar reaches 3 px over its neighbors, which keeps it easy to grab.  -->
                         <Slider Name="PART_Slider"
-                                Margin="0,-6"
+                                Height="16"
+                                Margin="0,-3"
                                 Maximum="{TemplateBinding Maximum, Mode=TwoWay}"
                                 Minimum="{TemplateBinding Minimum, Mode=TwoWay}"
+                                Theme="{StaticResource PlayerSeekBarTheme}"
                                 Value="{TemplateBinding Value, Mode=TwoWay}" />
 
-                        <TextBlock Name="PART_CurrentTimeTextBlock"
-                                   Grid.Row="1"
-                                   HorizontalAlignment="Left"
-                                   VerticalAlignment="Center"
-                                   Cursor="IBeam"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource AccentFillColorDefaultBrush}"
-                                   Text="{TemplateBinding CurrentTime}" />
+                        <controls:PlayerFooterPanel Name="PART_FooterPanel" Grid.Row="1">
+                            <StackPanel Name="PART_TimePanel"
+                                        VerticalAlignment="Center"
+                                        Orientation="Horizontal"
+                                        Spacing="4">
+                                <Panel VerticalAlignment="Center">
+                                    <TextBlock Name="PART_CurrentTimeTextBlock"
+                                               VerticalAlignment="Center"
+                                               Cursor="IBeam"
+                                               FontFeatures="+tnum"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource AccentFillColorDefaultBrush}"
+                                               Text="{TemplateBinding CurrentTime}"
+                                               ToolTip.Tip="{x:Static lang:Strings.GotoTimecode}" />
 
-                        <TextBox Name="PART_CurrentTimeTextBox"
-                                 Grid.Row="1"
-                                 MinWidth="120"
-                                 Padding="4,2"
-                                 HorizontalAlignment="Left"
-                                 VerticalAlignment="Center"
-                                 controls:TextBoxAttachment.EnterDownBehavior="None"
-                                 FontWeight="SemiBold"
-                                 IsVisible="False"
-                                 PlaceholderText="{x:Static lang:Strings.GotoTimecode_InputHint}" />
+                                    <!--  No taller than the buttons beside it, or the frame would jump when the edit starts.  -->
+                                    <TextBox Name="PART_CurrentTimeTextBox"
+                                             Height="26"
+                                             MinWidth="120"
+                                             MinHeight="0"
+                                             Padding="4,0"
+                                             VerticalAlignment="Center"
+                                             VerticalContentAlignment="Center"
+                                             controls:TextBoxAttachment.EnterDownBehavior="None"
+                                             FontWeight="SemiBold"
+                                             IsVisible="False"
+                                             PlaceholderText="{x:Static lang:Strings.GotoTimecode_InputHint}" />
 
-                        <Popup Name="PART_MarkerPopup"
-                               Grid.Row="1"
-                               IsLightDismissEnabled="False"
-                               Placement="Top"
-                               PlacementTarget="{Binding ElementName=PART_CurrentTimeTextBox}">
-                            <Border Padding="0"
-                                    Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
-                                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                                    BorderThickness="1"
-                                    BoxShadow="0 4 16 0 #40000000"
-                                    CornerRadius="{DynamicResource OverlayCornerRadius}">
-                                <ListBox Name="PART_MarkerListBox"
-                                         MinWidth="200"
-                                         MaxHeight="240"
-                                         Background="Transparent"
-                                         BorderThickness="0"
-                                         Focusable="False">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate x:DataType="controls:PlayerMarkerEntry">
-                                            <Grid ColumnDefinitions="*,Auto">
-                                                <TextBlock Grid.Column="0"
-                                                           FontWeight="SemiBold"
-                                                           Text="{Binding Name}"
-                                                           VerticalAlignment="Center"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Grid.Column="1"
-                                                           Margin="12,0,0,0"
-                                                           FontSize="11"
-                                                           VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                           Text="{Binding TimeText}" />
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                            </Border>
-                        </Popup>
+                                    <Popup Name="PART_MarkerPopup"
+                                           IsLightDismissEnabled="False"
+                                           Placement="Top"
+                                           PlacementTarget="{Binding ElementName=PART_CurrentTimeTextBox}">
+                                        <Border Padding="0"
+                                                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                                                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                                BorderThickness="1"
+                                                BoxShadow="0 4 16 0 #40000000"
+                                                CornerRadius="{DynamicResource OverlayCornerRadius}">
+                                            <ListBox Name="PART_MarkerListBox"
+                                                     MinWidth="200"
+                                                     MaxHeight="240"
+                                                     Background="Transparent"
+                                                     BorderThickness="0"
+                                                     Focusable="False">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="controls:PlayerMarkerEntry">
+                                                        <Grid ColumnDefinitions="*,Auto">
+                                                            <TextBlock Grid.Column="0"
+                                                                       FontWeight="SemiBold"
+                                                                       Text="{Binding Name}"
+                                                                       VerticalAlignment="Center"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Grid.Column="1"
+                                                                       Margin="12,0,0,0"
+                                                                       FontSize="11"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                                       Text="{Binding TimeText}" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </Border>
+                                    </Popup>
+                                </Panel>
 
-                        <TextBlock Name="PART_DurationTextBlock"
-                                   Grid.Row="1"
-                                   HorizontalAlignment="Right"
-                                   VerticalAlignment="Center"
-                                   FontWeight="SemiBold"
-                                   Text="{TemplateBinding Duration}" />
+                                <StackPanel Name="PART_DurationPanel"
+                                            VerticalAlignment="Center"
+                                            Orientation="Horizontal"
+                                            Spacing="4">
+                                    <TextBlock Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="/" />
+                                    <TextBlock Name="PART_DurationTextBlock"
+                                               FontFeatures="+tnum"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               Text="{TemplateBinding Duration}" />
+                                </StackPanel>
 
-                        <StackPanel Grid.Row="1"
-                                    HorizontalAlignment="Center"
-                                    Orientation="Horizontal">
+                                <Border Name="PART_PlaybackRateBadge"
+                                        Padding="6,1"
+                                        VerticalAlignment="Center"
+                                        Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                        CornerRadius="{DynamicResource ControlCornerRadius}"
+                                        IsVisible="False">
+                                    <TextBlock Name="PART_PlaybackRateTextBlock"
+                                               FontFeatures="+tnum"
+                                               FontWeight="SemiBold"
+                                               Text="{TemplateBinding PlaybackRateText}" />
+                                </Border>
+                            </StackPanel>
 
-                            <Button Name="PART_StartButton"
-                                    Theme="{StaticResource TransparentButton}">
-                                <icons:FluentIcon Icon="Previous" />
-                            </Button>
-
-                            <RepeatButton Name="PART_PreviousButton"
-                                          Theme="{StaticResource TransparentButton}">
-                                <icons:FluentIcon Icon="Rewind" />
-                            </RepeatButton>
-
-                            <ToggleButton Name="PART_PlayButton"
-                                          IsChecked="{TemplateBinding IsPlaying, Mode=OneWay}"
-                                          Theme="{StaticResource TransparentToggleButton}">
-                                <ToggleButton.Styles>
-                                    <Style Selector="ToggleButton">
-                                        <Setter Property="Content">
-                                            <Template>
-                                                <icons:FluentIcon Icon="Play" />
-                                            </Template>
-                                        </Setter>
+                            <StackPanel Name="PART_TransportPanel" Orientation="Horizontal">
+                                <StackPanel.Styles>
+                                    <Style Selector=":is(Button)">
+                                        <Setter Property="Padding" Value="{DynamicResource ToolTabBarIconButtonPadding}" />
                                     </Style>
-                                    <Style Selector="ToggleButton:checked">
-                                        <Setter Property="Content">
-                                            <Template>
-                                                <icons:FluentIcon Icon="Pause" />
-                                            </Template>
-                                        </Setter>
+                                    <Style Selector="icons|FluentIcon">
+                                        <Setter Property="FontSize" Value="16" />
                                     </Style>
-                                </ToggleButton.Styles>
-                            </ToggleButton>
+                                </StackPanel.Styles>
 
-                            <RepeatButton Name="PART_NextButton"
-                                          Theme="{StaticResource TransparentButton}">
-                                <icons:FluentIcon Icon="FastForward" />
-                            </RepeatButton>
+                                <Button Name="PART_StartButton"
+                                        AutomationProperties.Name="{x:Static lang:Strings.MoveToStart}"
+                                        Theme="{StaticResource TransparentButton}"
+                                        ToolTip.Tip="{x:Static lang:Strings.MoveToStart}">
+                                    <icons:FluentIcon Icon="Previous" />
+                                </Button>
 
-                            <Button Name="PART_EndButton"
-                                    Theme="{StaticResource TransparentButton}">
-                                <icons:FluentIcon Icon="Next" />
-                            </Button>
+                                <RepeatButton Name="PART_PreviousButton"
+                                              AutomationProperties.Name="{x:Static lang:Strings.MoveToPrevious}"
+                                              Theme="{StaticResource TransparentButton}"
+                                              ToolTip.Tip="{x:Static lang:Strings.MoveToPrevious}">
+                                    <icons:FluentIcon Icon="PreviousFrame" />
+                                </RepeatButton>
 
-                            <ToggleButton Name="PART_LoopButton"
-                                          IsChecked="{TemplateBinding IsLoopEnabled, Mode=TwoWay}"
-                                          Theme="{StaticResource TransparentToggleButton}"
-                                          ToolTip.Tip="{x:Static lang:Strings.ToggleLoop}">
-                                <icons:FluentIcon Icon="ArrowRepeat1" />
-                            </ToggleButton>
-                        </StackPanel>
+                                <ToggleButton Name="PART_PlayButton"
+                                              AutomationProperties.Name="{x:Static lang:Strings.PlayPause}"
+                                              IsChecked="{TemplateBinding IsPlaying, Mode=OneWay}"
+                                              Theme="{StaticResource TransparentToggleButton}"
+                                              ToolTip.Tip="{x:Static lang:Strings.PlayPause}">
+                                    <ToggleButton.Styles>
+                                        <Style Selector="ToggleButton">
+                                            <Setter Property="Content">
+                                                <Template>
+                                                    <icons:FluentIcon Icon="Play" />
+                                                </Template>
+                                            </Setter>
+                                        </Style>
+                                        <Style Selector="ToggleButton:checked">
+                                            <Setter Property="Content">
+                                                <Template>
+                                                    <icons:FluentIcon Icon="Pause" />
+                                                </Template>
+                                            </Setter>
+                                        </Style>
+                                    </ToggleButton.Styles>
+                                </ToggleButton>
+
+                                <RepeatButton Name="PART_NextButton"
+                                              AutomationProperties.Name="{x:Static lang:Strings.MoveToNext}"
+                                              Theme="{StaticResource TransparentButton}"
+                                              ToolTip.Tip="{x:Static lang:Strings.MoveToNext}">
+                                    <icons:FluentIcon Icon="NextFrame" />
+                                </RepeatButton>
+
+                                <Button Name="PART_EndButton"
+                                        AutomationProperties.Name="{x:Static lang:Strings.MoveToEnd}"
+                                        Theme="{StaticResource TransparentButton}"
+                                        ToolTip.Tip="{x:Static lang:Strings.MoveToEnd}">
+                                    <icons:FluentIcon Icon="Next" />
+                                </Button>
+
+                                <ToggleButton Name="PART_LoopButton"
+                                              AutomationProperties.Name="{x:Static lang:Strings.ToggleLoop}"
+                                              IsChecked="{TemplateBinding IsLoopEnabled, Mode=TwoWay}"
+                                              Theme="{StaticResource TransparentToggleButton}"
+                                              ToolTip.Tip="{x:Static lang:Strings.ToggleLoop}">
+                                    <icons:FluentIcon Icon="ArrowRepeatAll" />
+                                </ToggleButton>
+                            </StackPanel>
+
+                            <ContentPresenter Name="PART_FooterRightPresenter"
+                                              VerticalAlignment="Center"
+                                              Content="{TemplateBinding FooterRightContent}" />
+                        </controls:PlayerFooterPanel>
                     </Grid>
                 </Grid>
             </ControlTemplate>
         </Setter>
+
+        <Style Selector="^:shuttling">
+            <Style Selector="^ /template/ StackPanel#PART_DurationPanel">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+            <Style Selector="^ /template/ Border#PART_PlaybackRateBadge">
+                <Setter Property="IsVisible" Value="True" />
+            </Style>
+        </Style>
+
+        <!--  The total time goes first: a second row would cost the frame far more than it is worth.  -->
+        <Style Selector="^:compact /template/ StackPanel#PART_DurationPanel">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <Style Selector="^:tiny">
+            <Style Selector="^ /template/ ContentPresenter#PART_FooterRightPresenter">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+            <Style Selector="^ /template/ Button#PART_StartButton">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+            <Style Selector="^ /template/ Button#PART_EndButton">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+        </Style>
     </ControlTheme>
 </ResourceDictionary>

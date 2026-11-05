@@ -31,6 +31,13 @@ public enum PlaybackDirection
     Backward,
 }
 
+public enum PreviewZoomAction
+{
+    ZoomIn,
+    ZoomOut,
+    Fit,
+}
+
 public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, IFullScaleFrameRenderer
 {
     private static readonly MediaTime s_second = MediaTime.FromSeconds(1);
@@ -192,6 +199,16 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
+        EndTime = Duration
+            .Select(lastFrame => lastFrame + MediaTime.FromFrames(1, GetFrameRate()))
+            .ToReadOnlyReactiveProperty()
+            .DisposeWith(_disposables);
+
+        PlaybackRateText = PlaybackSpeed
+            .CombineLatest(PlaybackDirection, FormatPlaybackRate)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
         PathEditor = new PathEditorViewModel(_editViewModel, this)
             .DisposeWith(_disposables);
 
@@ -226,6 +243,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             .DisposeWith(_disposables);
 
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+
+        IsPreviewGuideEnabled = SettingBinding.Bind(editorConfig.IsPreviewGuideEnabled, v => v, v => v, _disposables);
+        IsOnionSkinEnabled = SettingBinding.Bind(editorConfig.IsOnionSkinEnabled, v => v, v => v, _disposables);
 
         // Re-render when an onion-skin setting changes.
         editorConfig.IsOnionSkinEnabled.GetObservable()
@@ -377,7 +397,18 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
     public ReactiveProperty<MediaTime> CurrentFrame { get; }
 
+    // The last frame's time, which is the seek slider's maximum.
     public ReadOnlyReactiveProperty<MediaTime> Duration { get; }
+
+    // Where the last frame ends: the length of a scene that starts at zero.
+    public ReadOnlyReactiveProperty<MediaTime> EndTime { get; }
+
+    // The shuttle's rate, or null while there is nothing to tell: playing at normal speed looks the part.
+    public ReadOnlyReactivePropertySlim<string?> PlaybackRateText { get; }
+
+    public ReactiveProperty<bool> IsPreviewGuideEnabled { get; }
+
+    public ReactiveProperty<bool> IsOnionSkinEnabled { get; }
 
     public AsyncReactiveCommand PlayPause { get; }
 
@@ -825,6 +856,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         // Complete so an abandoned audio task can finish without throwing.
         _audioFramePushed.OnCompleted();
         BeginEditTimecodeRequested.Dispose();
+        PreviewZoomRequested.Dispose();
         PreviewInvalidated = null;
         Scene = null!;
         PreviewImage.Value?.Dispose();
