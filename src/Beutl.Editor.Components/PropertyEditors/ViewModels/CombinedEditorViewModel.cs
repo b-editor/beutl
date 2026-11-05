@@ -55,7 +55,11 @@ public sealed class CombinedEditorViewModel<T> : VectorEditorViewModel<(T, T), T
 
     internal override IObservable<IReadOnlyList<IPropertyAdapter>?> SeparatedProperties => _separatedProperties;
 
-    internal override bool ShowsSeparatedHeader => !_adapter.IsInNode.Value;
+    // Each property has a name of its own, so its row needs none above it, and its menu joins the two again. In a node
+    // each has an input port of its own and stays apart.
+    internal override bool ShowsSeparatedHeader => false;
+
+    internal override bool UnseparatesFromNestedEditors => !_adapter.IsInNode.Value;
 
     internal override string? ExpressionError => First.ExpressionError ?? Second.ExpressionError;
 

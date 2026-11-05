@@ -434,7 +434,7 @@ public sealed class CombinedEditorTests
             NumberEditor<float>[] rows = window.GetVisualDescendants().OfType<NumberEditor<float>>().ToArray();
             Assert.That(rows.Select(row => row.Header), Is.EqualTo(new[] { "X", "Y" }));
             Assert.That(rows.All(row => row.IsEffectivelyVisible && row.MenuContent != null), Is.True);
-            Assert.That(combined.HasAnimation.Value, Is.False, "The header's menu does not edit keyframes.");
+            Assert.That(combined.HasAnimation.Value, Is.False, "No keyframes stand for both.");
             Assert.That(combined.CanUnseparateComponents.Value, Is.False);
 
             transform.X.Expression = null;
@@ -729,9 +729,9 @@ public sealed class CombinedEditorTests
         }
     }
 
-    // The menu fills its icon on a keyframe, but the header above the two rows has no keyframes to mark.
+    // The menu fills its icon on a keyframe. Apart, no menu stands for both, and each row's marks its own property's.
     [AvaloniaTest]
-    public void The_menu_marks_a_keyframe_only_while_the_row_stands_for_both()
+    public void Each_menu_marks_the_keyframes_its_row_stands_for()
     {
         var transform = new TranslateTransform();
         transform.X.SetKeyFrameAnimation(Animation(0, 2));
@@ -744,27 +744,30 @@ public sealed class CombinedEditorTests
         {
             window.Show();
             HeadlessTestHelpers.Render(3);
-            Assert.That(MenuIcon().IconVariant, Is.EqualTo(IconVariant.Filled));
+            Assert.That(MenuIcons(), Is.EqualTo(new[] { (Icon.Diamond, IconVariant.Filled) }));
 
             combined.SeparateComponents();
             HeadlessTestHelpers.Render(3);
-            Assert.That(MenuIcon().Icon, Is.EqualTo(Icon.MoreVertical));
-            Assert.That(MenuIcon().IconVariant, Is.EqualTo(IconVariant.Regular));
+            Assert.That(MenuIcons(), Is.EqualTo(new[] { (Icon.Diamond, IconVariant.Filled), (Icon.Diamond, IconVariant.Filled) }));
 
             combined.UnseparateComponents();
             HeadlessTestHelpers.Render(3);
-            Assert.That(MenuIcon().IconVariant, Is.EqualTo(IconVariant.Filled));
+            Assert.That(MenuIcons(), Is.EqualTo(new[] { (Icon.Diamond, IconVariant.Filled) }));
 
             transform.Y.SetKeyFrameAnimation(null);
             HeadlessTestHelpers.Render(3);
-            Assert.That(MenuIcon().Icon, Is.EqualTo(Icon.MoreVertical));
-            Assert.That(MenuIcon().IconVariant, Is.EqualTo(IconVariant.Regular));
+            Assert.That(MenuIcons(), Is.EqualTo(new[] { (Icon.Diamond, IconVariant.Filled), (Icon.MoreVertical, IconVariant.Regular) }));
         }
         finally { window.Close(); }
 
-        FluentIcon MenuIcon() => window.GetVisualDescendants().OfType<PropertyEditorMenu>()
-            .Single(menu => ReferenceEquals(menu.DataContext, combined) && menu.IsEffectivelyVisible)
-            .GetVisualDescendants().OfType<FluentIcon>().Single();
+        (Icon, IconVariant)[] MenuIcons()
+        {
+            PropertyEditorMenu[] menus = [.. window.GetVisualDescendants().OfType<PropertyEditorMenu>().Where(menu => menu.IsEffectivelyVisible)];
+            bool separated = menus.Length > 1;
+            Assert.That(menus.Select(menu => ReferenceEquals(menu.DataContext, combined)), Is.All.EqualTo(!separated));
+            return [.. menus.Select(menu => menu.GetVisualDescendants().OfType<FluentIcon>().Single())
+                .Select(icon => (icon.Icon, icon.IconVariant))];
+        }
     }
 
     [AvaloniaTest]
@@ -842,31 +845,33 @@ public sealed class CombinedEditorTests
             menu.Hide();
             HeadlessTestHelpers.Render(3);
 
-            Assert.That(window.GetVisualDescendants().OfType<TextBlock>()
-                .Any(text => text.Text == combined.Header && text.IsEffectivelyVisible), Is.True, "The rows have the name above them.");
-            var header = window.GetVisualDescendants().OfType<PropertyEditorMenu>()
-                .Single(item => ReferenceEquals(item.DataContext, combined) && item.IsEffectivelyVisible);
-            FAMenuFlyout headerMenu = OpenMenu(header);
-            FAMenuFlyoutItem unseparate = Item(headerMenu, "unseparateComponentsItem");
-            Assert.Multiple(() =>
+            // Apart, each row has its own property's menu, which also joins the two again.
+            PropertyEditorMenu[] rows = [.. window.GetVisualDescendants().OfType<PropertyEditorMenu>().Where(item => item.IsEffectivelyVisible)];
+            Assert.That(rows.Select(row => ((PropertyEditorViewModel)row.DataContext!).Header), Is.EqualTo(new[] { "X", "Y" }));
+            foreach (PropertyEditorMenu row in rows)
             {
-                Assert.That(Item(headerMenu, "separateComponentsItem").IsVisible, Is.False);
-                Assert.That(Item(headerMenu, "editAnimationItem").IsVisible, Is.False);
-                Assert.That(Item(headerMenu, "editExpressionItem").IsVisible, Is.False, "Each row has its own expression.");
-                Assert.That(SubItem(headerMenu, "copyPropertyPathSubItem").IsVisible, Is.False, "Each row has its own path.");
-                Assert.That(SubItem(headerMenu, "copyGetPropertyCodeSubItem").IsVisible, Is.False);
-                Assert.That(headerMenu.Items.OfType<FAMenuFlyoutSeparator>().Single(i => i.Name == "copyPropertyPathSeparator").IsVisible, Is.False);
-                Assert.That(unseparate.IsVisible, Is.True);
-                Assert.That(unseparate.IsEnabled, Is.True);
-                Assert.That(ToolTip.GetTip(unseparate), Is.EqualTo(Strings.UnseparateComponents_SameTiming));
-            });
-            headerMenu.Hide();
+                FAMenuFlyout rowMenu = OpenMenu(row);
+                FAMenuFlyoutItem unseparate = Item(rowMenu, "unseparateComponentsItem");
+                Assert.Multiple(() =>
+                {
+                    Assert.That(Item(rowMenu, "separateComponentsItem").IsVisible, Is.False);
+                    Assert.That(Item(rowMenu, "editAnimationItem").IsVisible, Is.True);
+                    Assert.That(Item(rowMenu, "editExpressionItem").IsVisible, Is.True, "Each row has its own expression.");
+                    Assert.That(Item(rowMenu, "copyPropertyPathItem").IsVisible, Is.True, "Each row has its own path.");
+                    Assert.That(SubItem(rowMenu, "copyPropertyPathSubItem").IsVisible, Is.False);
+                    Assert.That(unseparate.IsVisible, Is.True);
+                    Assert.That(unseparate.IsEnabled, Is.True);
+                    Assert.That(ToolTip.GetTip(unseparate), Is.EqualTo(Strings.UnseparateComponents_SameTiming));
+                });
+                rowMenu.Hide();
+            }
 
+            // The menu of a row with an expression opens the expression's editor, so this opens the other row's.
             transform.Y.Expression = Expression.Create<float>("1f");
             HeadlessTestHelpers.Render(3);
-            headerMenu = OpenMenu(header);
-            Assert.That(Item(headerMenu, "unseparateComponentsItem").IsEnabled, Is.False);
-            headerMenu.Hide();
+            FAMenuFlyout xMenu = OpenMenu(rows[0]);
+            Assert.That(Item(xMenu, "unseparateComponentsItem").IsEnabled, Is.False);
+            xMenu.Hide();
             HeadlessTestHelpers.Render(3);
         }
         finally { window.Close(); }
@@ -885,6 +890,56 @@ public sealed class CombinedEditorTests
 
     private static FAMenuFlyoutSubItem SubItem(FAMenuFlyout menu, string name)
         => menu.Items.OfType<FAMenuFlyoutSubItem>().Single(item => item.Name == name);
+
+    private static FAMenuFlyoutItem RowMenuItem(PropertyEditor editor, string name)
+        => ((FAMenuFlyout)((Control)editor.MenuContent!).GetVisualDescendants().OfType<Button>().First().ContextFlyout!)
+            .Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == name);
+
+    // Apart, a width and a height show as the rows of any two properties, with nothing above them, and clicking the menu
+    // of either joins them again. That disposes the row whose menu is open.
+    [AvaloniaTest]
+    [TestCase(0)]
+    [TestCase(1)]
+    public void The_menu_of_either_row_joins_the_two_again(int clicked)
+    {
+        var shape = new RectShape();
+        using PropertyEditorTestHost.HistoryScope history = new(shape);
+        using CombinedEditorViewModel<float> combined = CreateCombined(shape);
+        combined.Accept(Services(history.History));
+        history.History.Commit();
+        int before = history.History.UndoCount;
+        combined.SeparateComponents();
+        var window = new Window { Width = 480, Height = 600, Content = CreateControl(combined) };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            NumberEditor<float>[] rows = [.. window.GetVisualDescendants().OfType<NumberEditor<float>>()];
+            Assert.That(rows.Select(row => row.Header), Is.EqualTo(new[] { GraphicsStrings.Width, GraphicsStrings.Height }));
+            Assert.That(rows.All(row => row.IsEffectivelyVisible), Is.True);
+            Assert.That(window.GetVisualDescendants().OfType<TextBlock>()
+                .Any(text => text.Text == combined.Header && text.IsEffectivelyVisible), Is.False, "Nothing names the two above them.");
+            Assert.That(window.GetVisualDescendants().OfType<TreeLineDecorator>().Single().IndentLevel, Is.Zero);
+            var clickedRow = (PropertyEditorViewModel)rows[clicked].DataContext!;
+
+            Button button = ((Control)rows[clicked].MenuContent!).GetVisualDescendants().OfType<Button>().First();
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render(3);
+            var menu = (FAMenuFlyout)button.ContextFlyout!;
+            FAMenuFlyoutItem unseparate = RowMenuItem(rows[clicked], "unseparateComponentsItem");
+            Assert.That(unseparate.IsEffectivelyVisible, Is.True);
+            TimelineTestHost.WaitForHitTest(window, unseparate, HeadlessTestHelpers.Center(unseparate, window));
+            HeadlessTestHelpers.Click(unseparate, move: true, ticks: 3);
+
+            Assert.That(menu.IsOpen, Is.False);
+            Assert.That(IsSeparated(combined), Is.False);
+            Assert.That(window.GetVisualDescendants().OfType<Vector2Editor<float>>().Single().IsEffectivelyVisible, Is.True);
+            Assert.That(window.GetVisualDescendants().OfType<NumberEditor<float>>(), Is.Empty);
+            Assert.That(clickedRow.IsDisposed, Is.True);
+            Assert.That(history.History.UndoCount, Is.EqualTo(before), "Only the view changes.");
+        }
+        finally { window.Close(); }
+    }
 
     [AvaloniaTest]
     public async Task The_menu_asks_which_property_to_copy_the_path_and_code_of()
@@ -1013,6 +1068,9 @@ public sealed class CombinedEditorTests
             Assert.That(window.GetVisualDescendants().OfType<TextBlock>()
                 .Any(text => text.Text == combined.Header && text.IsEffectivelyVisible), Is.False);
             Assert.That(window.GetVisualDescendants().OfType<TreeLineDecorator>().Single().IndentLevel, Is.Zero);
+            Assert.That(window.GetVisualDescendants().OfType<NumberEditor<float>>()
+                    .Select(row => RowMenuItem(row, "unseparateComponentsItem").IsVisible), Is.All.False,
+                "A row with a port of its own cannot join the other.");
         }
         finally { window.Close(); }
     }

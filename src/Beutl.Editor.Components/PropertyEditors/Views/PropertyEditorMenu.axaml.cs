@@ -81,7 +81,10 @@ public sealed partial class PropertyEditorMenu : UserControl
         editInlineAnimationItem.IsVisible = supportsAnimation;
         removeAnimationItem.IsVisible = supportsAnimation;
         separateComponentsItem.IsVisible = model?.CanSeparateComponents == true && !separated;
-        unseparateComponentsItem.IsVisible = separated;
+        // The item's state and command are those of the editor it unseparates, which can be the one this one came from.
+        PropertyEditorViewModel? unseparated = separated ? model : model?.SeparatedFrom;
+        unseparateComponentsItem.IsVisible = unseparated != null;
+        unseparateComponentsItem.DataContext = unseparated;
         uniformEditorToggle.IsVisible = model is IConfigureUniformEditor && !separated;
 
         bool supportsExpression = model != null && !separated && SupportsTextExpression(model);
@@ -106,7 +109,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void UnseparateComponents_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PropertyEditorViewModel model) model.UnseparateComponents();
+        if (unseparateComponentsItem.DataContext is PropertyEditorViewModel model) model.UnseparateComponents();
     }
 
     private void Button_Click(object? sender, RoutedEventArgs e)
