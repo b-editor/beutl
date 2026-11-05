@@ -20,8 +20,8 @@ using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
-using TextBlock = Avalonia.Controls.TextBlock;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
+using TextBlock = Avalonia.Controls.TextBlock;
 
 namespace Beutl.HeadlessUITests;
 
