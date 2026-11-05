@@ -3,6 +3,7 @@ using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.VersionControl;
 using Beutl.JsonConverters;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
@@ -137,9 +138,21 @@ public partial class MenuBarViewModel
             Project? project = _projectService.CurrentProject.Value;
             if (project != null)
             {
-                // This writes every scene of the project, so it leaves the UI thread, as a lifecycle save does.
+                // Every scene of the project is written, so that leaves the UI thread, as a lifecycle save does. The
+                // list of them does not: it changes on this thread, and the project file must end up holding the last.
+                ProjectItem[] items = [.. project.Items];
                 using (_editorService.SuspendEditors())
-                    await Task.Run(() => CoreSerializer.StoreToUri(project, project.Uri!));
+                {
+                    await Task.Run(() =>
+                    {
+                        foreach (ProjectItem item in items)
+                            CoreSerializer.StoreToUri(item, item.Uri!);
+
+                        DuplicateIds.Report(project, "save");
+                    });
+                }
+
+                CoreSerializer.StoreToUri(project, project.Uri!, CoreSerializationMode.Write);
             }
 
             itemsCount++;

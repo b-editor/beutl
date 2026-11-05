@@ -15,6 +15,7 @@ using Beutl.NodeGraph.Generative;
 using Beutl.NodeGraph.Nodes.Generative;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 
@@ -388,6 +389,46 @@ public sealed class ExplicitSaveTests
             Assert.That(held.Thread, Is.Not.EqualTo(Environment.CurrentManagedThreadId));
             AssertFileHolds(clip.Element);
         }
+    }
+
+    [AvaloniaTest]
+    public async Task Save_all_keeps_an_item_added_to_the_project_during_it()
+    {
+        (Scene scene, EditViewModel editor, _, _) = await OpenAsync();
+        Project project = scene.FindHierarchicalParent<Project>()!;
+        HeldWhileSaving held = AddHeldClip(scene, out _);
+        editor.HistoryManager.Commit();
+        held.Arm(failedReads: 0);
+        using var notifications = new NotificationCapture();
+
+        Task saveAll = TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
+        await held.Reached.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        string addedFile = Path.Combine(Path.GetDirectoryName(project.Uri!.LocalPath)!, "added", "added.scene");
+        var added = new Scene(1920, 1080, "added") { Uri = new Uri(addedFile) };
+        ProjectPersistence.AddItemAndPersist(project, added);
+        held.Release.Set();
+        await saveAll;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(notifications.All.Where(item => item.Type == NotificationType.Error), Is.Empty);
+            Assert.That(File.ReadAllText(project.Uri!.LocalPath), Does.Contain("added.scene"));
+        }
+    }
+
+    // A version-control cycle saves without the write lease a tab's close waits for.
+    [AvaloniaTest]
+    public async Task A_save_finishes_when_its_editor_closes_during_it()
+    {
+        (Scene scene, EditViewModel editor, _, _) = await OpenAsync();
+        HeldWhileSaving held = AddHeldClip(scene, out Clip clip);
+
+        Task<bool> save = await StartSaveAsync(editor, held);
+        await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!, saveChanges: false);
+        held.Release.Set();
+
+        Assert.That(await save, Is.True);
+        AssertFileHolds(clip.Element);
     }
 
     [AvaloniaTest]

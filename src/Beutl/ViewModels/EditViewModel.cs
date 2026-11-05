@@ -644,6 +644,9 @@ public sealed partial class EditViewModel
         if (savedAll && scene.FindHierarchicalParent<Project>() is { } project)
             await Task.Run(() => DuplicateIds.Report(project, "save"));
 
+        // A version-control cycle saves without the write lease, so its tab can have closed by now.
+        if (_disposed) return true;
+
         SaveState(isExplicitUserSave: true);
         _logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id.Value);
         usage?.Complete();

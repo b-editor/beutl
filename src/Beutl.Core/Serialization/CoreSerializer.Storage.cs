@@ -214,6 +214,9 @@ public static partial class CoreSerializer
         Uri uri,
         string? authorizedRootPath)
     {
+        // What a batch has queued for the file is no longer what the object holds.
+        StorageWriteTransaction.CurrentBatch?.RemoveFromBatch(uri.LocalPath);
+
         if (uri == suppressed.SourceUri)
         {
             // An undone repair (WasReinstated) writes the retained bytes back, so the next open sees what the undo

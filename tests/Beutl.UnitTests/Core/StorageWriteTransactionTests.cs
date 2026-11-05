@@ -489,6 +489,32 @@ public class StorageWriteTransactionTests
     }
 
     [Test]
+    public void Batch_DoesNotPutAWriteOverTheBytesASuppressedObjectRestores()
+    {
+        string path = CreateFile("element.belm", "before");
+        byte[] retained = "retained"u8.ToArray();
+        var element = new Element
+        {
+            Uri = new Uri(path),
+            SuppressedStorageSource = new SuppressedStorageSource(retained, new Uri(path)) { WasReinstated = true },
+        };
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        transaction.WriteInBatch(() =>
+        {
+            WriteJson(path, "queued");
+            CoreSerializer.StoreToUri(element, element.Uri!);
+        });
+        transaction.Commit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(retained));
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+        });
+    }
+
+    [Test]
     public void Batch_LeavesAFileAsItWasWhenItsWriteIsTakenBack()
     {
         string existing = CreateFile("existing.belm", "before");
