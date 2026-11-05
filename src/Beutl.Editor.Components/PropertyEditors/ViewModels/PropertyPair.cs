@@ -314,8 +314,12 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
     {
         if (_syncing || _editDepth > 0) return;
 
-        if (Dispatcher.UIThread.CheckAccess() && _animation.Value != null && CanStand())
-            ReadFromProperties(_first.Animation!, _second.Animation!);
+        // Undo can take the keyframes off both before the joined ones go.
+        if (Dispatcher.UIThread.CheckAccess() && _animation.Value != null && CanStand()
+            && _first.Animation is { } first && _second.Animation is { } second)
+        {
+            ReadFromProperties(first, second);
+        }
 
         ScheduleUpdate();
     }

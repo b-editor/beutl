@@ -93,6 +93,32 @@ public sealed class PropertyPairAnimationTests
         });
     }
 
+    // Undo takes the keyframes off the two one after the other, so they stand as one with none before the joined ones go.
+    [AvaloniaTest]
+    public async Task Undoing_the_keyframes_of_both_lets_the_joined_ones_go()
+    {
+        (EditViewModel editor, RectShape shape, _) = await CreateAsync(animated: false);
+        HistoryManager history = editor.HistoryManager;
+        history.Commit();
+        PropertyPair pair = PropertyPair.Find(shape.Width)!;
+
+        shape.Width.SetKeyFrameAnimation(Keys((0, 100), (2, 200)));
+        shape.Height.SetKeyFrameAnimation(Keys((0, 50), (2, 150)));
+        history.Commit();
+        HeadlessTestHelpers.Settle();
+        Assert.That(pair.Animation, Is.Not.Null);
+
+        history.Undo();
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shape.Width.GetKeyFrameAnimation(), Is.Null);
+            Assert.That(shape.Height.GetKeyFrameAnimation(), Is.Null);
+            Assert.That(pair.Animation, Is.Null);
+        });
+    }
+
     [AvaloniaTest]
     public async Task Moving_a_joined_key_moves_both_as_one_history_entry_without_splitting_on_undo()
     {
