@@ -20,6 +20,73 @@ namespace Beutl.HeadlessUITests;
 public sealed class TitleBarStatusViewModelTests
 {
     [AvaloniaTest]
+    public async Task The_ring_spins_while_another_task_runs_beside_a_download()
+    {
+        var startup = new ReactivePropertySlim<bool>(true);
+        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
+        await using var endpoint = new AgentHostEndpoint(
+            new ProjectService(), editorService, UnavailableAgentAiBackend.Instance, AgentHostEndpoint.DefaultPort, "test-token");
+        using var status = new TitleBarStatusViewModel(
+            startup,
+            editorService,
+            endpoint,
+            Observable.Return<AuthenticatedUser?>(null),
+            Observable.Return(AiJobMonitorSnapshot.Empty),
+            CreateJobKinds(),
+            () => { },
+            Observable.Return(new AppUpdateStatus("Downloading", IsBusy: true, Progress: 0.5)));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(status.IsRingIndeterminate.Value, Is.True);
+
+        startup.Value = false;
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(status.IsRingIndeterminate.Value, Is.False);
+        Assert.That(status.RingValue.Value, Is.EqualTo(0.5));
+    }
+
+    [AvaloniaTest]
+    public async Task Busy_and_the_update_row_follow_the_app_update()
+    {
+        var update = new ReactivePropertySlim<AppUpdateStatus>(AppUpdateStatus.Idle);
+        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
+        await using var endpoint = new AgentHostEndpoint(
+            new ProjectService(), editorService, UnavailableAgentAiBackend.Instance, AgentHostEndpoint.DefaultPort, "test-token");
+        bool opened = false;
+        using var status = new TitleBarStatusViewModel(
+            Observable.Return(false),
+            editorService,
+            endpoint,
+            Observable.Return<AuthenticatedUser?>(null),
+            Observable.Return(AiJobMonitorSnapshot.Empty),
+            CreateJobKinds(),
+            () => { },
+            update,
+            () => opened = true);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(status.AppUpdate.Value.IsActive, Is.False);
+
+        update.Value = new AppUpdateStatus("Downloading", IsBusy: true);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(status.IsBusy.Value, Is.True);
+        Assert.That(status.AppUpdate.Value.Text, Is.EqualTo("Downloading"));
+        Assert.That(status.IsRingIndeterminate.Value, Is.True);
+        Assert.That(status.ToolTip.Value, Does.Contain("Downloading"));
+
+        update.Value = new AppUpdateStatus("Downloading", IsBusy: true, Progress: 0.5);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(status.IsRingIndeterminate.Value, Is.False);
+        Assert.That(status.RingValue.Value, Is.EqualTo(0.5));
+
+        update.Value = new AppUpdateStatus("Ready", IsBusy: false);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(status.IsBusy.Value, Is.False);
+        Assert.That(status.AppUpdate.Value.IsActive, Is.True);
+
+        status.OpenAppUpdate();
+        Assert.That(opened, Is.True);
+    }
+
+    [AvaloniaTest]
     public async Task Busy_follows_startup_tasks_running_outputs_and_running_ai_jobs()
     {
         var startup = new ReactivePropertySlim<bool>();

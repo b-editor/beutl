@@ -67,13 +67,19 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent; Check: ShouldOfferLaunch
 
 [Code]
 var
   GPLLicensePage: TOutputMsgMemoWizardPage;
   GPLAcceptedRadio: TRadioButton;
   GPLNotAcceptedRadio: TRadioButton;
+
+// Beutl passes /BeutlOnQuit=1 when the user is quitting, so the installer leaves it closed.
+function ShouldOfferLaunch: Boolean;
+begin
+  Result := ExpandConstant('{param:BeutlOnQuit|0}') = '0';
+end;
 
 procedure CheckGPLAccepted(Sender: TObject);
 begin

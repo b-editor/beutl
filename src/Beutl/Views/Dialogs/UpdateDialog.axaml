@@ -13,18 +13,33 @@
                   x:DataType="viewModels:UpdateDialogViewModel"
                   CloseButtonText="{Binding CloseButtonText.Value}"
                   IsPrimaryButtonEnabled="{Binding IsPrimaryButtonEnabled.Value}"
-                  PrimaryButtonCommand="{Binding HandlePrimaryButtonClick}"
-                  PrimaryButtonText="{Binding PrimaryButtonText}"
+                  PrimaryButtonText="{Binding PrimaryButtonText.Value}"
+                  IsSecondaryButtonEnabled="{Binding IsSecondaryButtonEnabled.Value}"
+                  SecondaryButtonText="{Binding SecondaryButtonText.Value}"
                   mc:Ignorable="d">
     <ui:FAContentDialog.Resources>
-        <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
+        <!-- Wide enough for three buttons, whose labels are long in every language. -->
+        <x:Double x:Key="ContentDialogMinWidth">560</x:Double>
+        <x:Double x:Key="ContentDialogMaxWidth">560</x:Double>
     </ui:FAContentDialog.Resources>
 
     <StackPanel Spacing="8">
+        <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   Text="{Binding VersionText}"
+                   Theme="{StaticResource CaptionTextBlockStyle}" />
         <!-- Selectable so the user can copy a command or an error message. -->
         <SelectableTextBlock Text="{Binding ProgressText.Value}" TextWrapping="Wrap" />
         <ProgressBar IsIndeterminate="{Binding IsIndeterminate.Value}"
                      Maximum="{Binding ProgressMax.Value}"
                      Value="{Binding ProgressValue.Value}" />
+        <!-- Here rather than on the dialog's own buttons, which are fixed when it opens. -->
+        <StackPanel IsVisible="{Binding IsRetryVisible.Value}"
+                    Orientation="Horizontal"
+                    Spacing="8">
+            <Button Command="{Binding Retry}" Content="{x:Static lang:MessageStrings.UpdateAction_Retry}" />
+            <HyperlinkButton Content="{x:Static lang:MessageStrings.ReleaseNotes}"
+                             IsVisible="{Binding ReleaseUri, Converter={x:Static ObjectConverters.IsNotNull}}"
+                             NavigateUri="{Binding ReleaseUri}" />
+        </StackPanel>
     </StackPanel>
 </ui:FAContentDialog>

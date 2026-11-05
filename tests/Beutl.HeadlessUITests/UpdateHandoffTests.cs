@@ -1,6 +1,14 @@
 ﻿using System.Diagnostics;
+using Avalonia.Controls;
+using Avalonia.Headless.NUnit;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
+using Beutl.Api;
+using Beutl.Api.Clients;
 using Beutl.Services;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels.Dialogs;
+using Beutl.Views.Dialogs;
 
 namespace Beutl.HeadlessUITests;
 
@@ -8,6 +16,62 @@ namespace Beutl.HeadlessUITests;
 public sealed class UpdateHandoffTests
 {
     private static readonly string[] s_command = ["bash", "-c", "echo update"];
+
+    [AvaloniaTest]
+    public async Task PrimaryButton_KeepsTheDialogOpenSoAFailedHandoffCanBeRead()
+    {
+        bool handled = false;
+        var viewModel = new UpdateDialogViewModel(new AppUpdateResponse
+        {
+            LatestVersion = "2.0.0",
+            Url = null,
+            DownloadUrl = "https://downloads.example.test/update.zip",
+            IsLatest = false,
+            MustLatest = false,
+        }, false, loadMetadata: () =>
+        {
+            handled = true;
+            return Task.FromResult<AssetMetadataJson?>(null);
+        });
+        var dialog = new UpdateDialog { DataContext = viewModel };
+        bool closing = false;
+        dialog.Closing += (_, _) => closing = true;
+        var window = new Window { Width = 400, Height = 400 };
+        window.Show();
+        Task closed = dialog.ShowAsync(window);
+        try
+        {
+            HeadlessTestHelpers.Render();
+            viewModel.IsPrimaryButtonEnabled.Value = true;
+            HeadlessTestHelpers.Render();
+            Button primary = dialog.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PrimaryButton");
+            Assert.That(primary.IsVisible, Is.True);
+
+            primary.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render();
+
+            Assert.That(handled, Is.True);
+            Assert.That(closing, Is.False);
+        }
+        finally
+        {
+            dialog.Hide();
+            await closed;
+            window.Close();
+        }
+    }
+
+    [Test]
+    public void AFailureNamesTheStepAndAddsOnlyANewCause()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(UpdateDialogViewModel.DescribeFailure("Download failed.", new IOException("Disk full")),
+                Is.EqualTo("Download failed.\nDisk full"));
+            Assert.That(UpdateDialogViewModel.DescribeFailure("Download failed.", new InvalidDataException("Download failed.")),
+                Is.EqualTo("Download failed."));
+        });
+    }
 
     [Test]
     public void UnixZipStaging_StaysInTheHomeDirectory()

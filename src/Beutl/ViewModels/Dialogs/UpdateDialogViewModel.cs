@@ -6,10 +6,21 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Logging;
 using Beutl.Services;
+using Beutl.Utilities;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
+
+public enum AppUpdatePhase
+{
+    Preparing,
+    Ready,
+    // A Flatpak update is installed by the time it finishes preparing.
+    Completed,
+    Failed,
+    Canceled,
+}
 
 public class UpdateDialogViewModel
 {
@@ -17,10 +28,12 @@ public class UpdateDialogViewModel
     private readonly ILogger _logger = Log.CreateLogger<UpdateDialogViewModel>();
     private readonly FlatpakUpdater? _flatpak;
     private readonly HttpClient? _httpClient;
+    private readonly Func<Task<AssetMetadataJson?>> _loadMetadata;
     private Task? _startTask;
     private string? _downloadFile;
     private bool _isInstalling;
     private bool _installationStarted;
+    private bool _installOnQuit;
 
     public UpdateDialogViewModel(AppUpdateResponse update) : this(update, FlatpakUpdater.IsRunning)
     {
@@ -28,12 +41,19 @@ public class UpdateDialogViewModel
 
     // Test seam: the app passes neither flatpak nor httpClient and uses the defaults.
     internal UpdateDialogViewModel(AppUpdateResponse update, bool isFlatpak,
-        FlatpakUpdater? flatpak = null, HttpClient? httpClient = null)
+        FlatpakUpdater? flatpak = null, HttpClient? httpClient = null,
+        Func<Task<AssetMetadataJson?>>? loadMetadata = null)
     {
         Update = update;
         IsFlatpak = isFlatpak;
         _flatpak = flatpak;
         _httpClient = httpClient;
+        _loadMetadata = loadMetadata ?? BeutlApiApplication.LoadMetadata;
+        PrimaryButtonText = new(isFlatpak
+            ? ""
+            : OperatingSystem.IsWindows()
+                ? MessageStrings.UpdateAction_StartInstaller
+                : MessageStrings.UpdateAction_RestartAndUpdate);
     }
 
     public AppUpdateResponse Update { get; set; }
@@ -52,9 +72,33 @@ public class UpdateDialogViewModel
     // Test seam: tests await the started update.
     internal Task? UpdateTask => _startTask;
 
-    public string PrimaryButtonText => IsFlatpak ? "" : Strings.Next;
+    // Where the update can be installed by hand when installing it from here keeps failing.
+    public Uri? ReleaseUri => Uri.TryCreate(Update.Url, UriKind.Absolute, out Uri? uri) && uri.Scheme == Uri.UriSchemeHttps
+        ? uri
+        : null;
+
+    public string VersionText => $"Beutl {BeutlApplication.Version} → {Update.LatestVersion}";
+
+    // The dialog decides whether to show this button when it opens, so a Flatpak update, which has no
+    // handoff step, starts empty and every other update starts with a label.
+    public ReactiveProperty<string> PrimaryButtonText { get; }
 
     public ReactiveProperty<string> CloseButtonText { get; } = new(Strings.Cancel);
+
+    public ReactiveProperty<string> SecondaryButtonText { get; } = new(MessageStrings.UpdateAction_RunInBackground);
+
+    public ReactiveProperty<bool> IsSecondaryButtonEnabled { get; } = new(true);
+
+    public ReactivePropertySlim<AppUpdatePhase> Phase { get; } = new(AppUpdatePhase.Preparing);
+
+    // From 0 to 1 while a download of known size runs, and null otherwise.
+    public ReactivePropertySlim<double?> DownloadProgress { get; } = new();
+
+    // Canceled when the update is abandoned, so whatever still offers it can go away.
+    internal CancellationToken CancellationToken => _cts.Token;
+
+    // Set when the download or the preparation failed, so the user can try again without restarting Beutl.
+    public ReactiveProperty<bool> IsRetryVisible { get; } = new();
 
     public async Task HandlePrimaryButtonClick()
     {
@@ -65,24 +109,16 @@ public class UpdateDialogViewModel
         IsPrimaryButtonEnabled.Value = false;
         try
         {
-            var metadata = await BeutlApiApplication.LoadMetadata();
+            var metadata = await _loadMetadata();
             if (metadata == null)
             {
                 ProgressText.Value = MessageStrings.FailedToLoadMetadata;
                 return;
             }
 
-            if (OperatingSystem.IsMacOS())
+            if (await CreateInstallerStartInfoAsync(metadata, relaunch: true) is { } startInfo)
             {
-                await InstallOnOSX(metadata);
-            }
-            else if (OperatingSystem.IsLinux())
-            {
-                await InstallOnLinux(metadata);
-            }
-            else if (OperatingSystem.IsWindows())
-            {
-                await InstallOnWindows(metadata);
+                await LaunchInstallerAsync(startInfo);
             }
         }
         catch (OperationCanceledException) when (_cts.IsCancellationRequested)
@@ -92,7 +128,7 @@ public class UpdateDialogViewModel
         catch (Exception e)
         {
             _logger.LogError(e, "Failed to handle primary button click");
-            NotificationService.ShowError(Strings.Error, e.Message);
+            ProgressText.Value = DescribeFailure(MessageStrings.OperationFailed, e);
         }
         finally
         {
@@ -137,22 +173,89 @@ public class UpdateDialogViewModel
             ProgressText.Value = MessageStrings.OperationFailed;
     }
 
-    private async Task InstallOnWindows(AssetMetadataJson metadata)
+    // Makes the prepared update install when Beutl quits. The application is left closed afterwards,
+    // since the user was leaving anyway. False when that is impossible; ProgressText says why.
+    public async Task<bool> ScheduleInstallOnQuitAsync()
     {
-        if (metadata.Type == "installer")
+        if (IsFlatpak || Phase.Value != AppUpdatePhase.Ready
+            || _isInstalling || _installationStarted || _installOnQuit || _cts.IsCancellationRequested)
+            return false;
+
+        // Both ways of installing write the same update script, so they must not overlap.
+        _isInstalling = true;
+        try
         {
-            if (_downloadFile == null)
+            if (await _loadMetadata() is not { } metadata)
             {
-                ProgressText.Value = MessageStrings.DownloadFailed;
-                return;
+                ProgressText.Value = MessageStrings.FailedToLoadMetadata;
+                return false;
             }
 
-            var psi = new ProcessStartInfo(_downloadFile) { UseShellExecute = true, Verb = "open" };
-            await LaunchInstallerAsync(psi);
+            if (await CreateInstallerStartInfoAsync(metadata, relaunch: false) is not { } startInfo)
+                return false;
+
+            // The update can be canceled while the script is written, and Cancel had nothing to clear yet.
+            if (_cts.IsCancellationRequested)
+                return false;
+
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
+                { MainWindow.DataContext: MainViewModel main })
+            {
+                ProgressText.Value = MessageStrings.OperationFailed;
+                return false;
+            }
+
+            main.SetUpdateOnQuit(() =>
+            {
+                using Process process = Process.Start(startInfo)
+                    ?? throw new InvalidOperationException(MessageStrings.OperationFailed);
+            });
+            _installOnQuit = true;
+            ProgressText.Value = MessageStrings.UpdateWillInstallOnQuit;
+            IsSecondaryButtonEnabled.Value = false;
+            return true;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Failed to schedule the update for when Beutl quits");
+            ProgressText.Value = DescribeFailure(MessageStrings.OperationFailed, e);
+            return false;
+        }
+        finally
+        {
+            _isInstalling = false;
         }
     }
 
-    private async Task InstallOnLinux(AssetMetadataJson metadata)
+    // How to start the installer for this platform, or null with the reason in ProgressText.
+    private async Task<ProcessStartInfo?> CreateInstallerStartInfoAsync(AssetMetadataJson metadata, bool relaunch)
+    {
+        if (OperatingSystem.IsMacOS()) return await CreateMacInstallerStartInfoAsync(metadata, relaunch);
+        if (OperatingSystem.IsLinux()) return await CreateLinuxInstallerStartInfoAsync(metadata, relaunch);
+        if (OperatingSystem.IsWindows()) return CreateWindowsInstallerStartInfo(metadata, relaunch);
+        return null;
+    }
+
+    private ProcessStartInfo? CreateWindowsInstallerStartInfo(AssetMetadataJson metadata, bool relaunch)
+    {
+        if (metadata.Type != "installer") return null;
+
+        if (_downloadFile == null)
+        {
+            ProgressText.Value = MessageStrings.DownloadFailed;
+            return null;
+        }
+
+        // beutl-setup.iss reads this switch to leave out its "Launch Beutl" option.
+        return new ProcessStartInfo(_downloadFile)
+        {
+            UseShellExecute = true,
+            Verb = "open",
+            Arguments = relaunch ? "" : "/BeutlOnQuit=1",
+        };
+    }
+
+    private async Task<ProcessStartInfo?> CreateLinuxInstallerStartInfoAsync(AssetMetadataJson metadata, bool relaunch)
     {
         string command;
         if (metadata.Type == "debian")
@@ -160,7 +263,7 @@ public class UpdateDialogViewModel
             if (_downloadFile == null)
             {
                 ProgressText.Value = MessageStrings.DownloadFailed;
-                return;
+                return null;
             }
 
             command = $"sudo apt update && sudo apt install \"{_downloadFile}\"";
@@ -169,17 +272,18 @@ public class UpdateDialogViewModel
         {
             if (await WriteUpdateScriptAsync("update.sh", "Beutl.Resources.linux-update.sh") is not { } scriptPath)
             {
-                return;
+                return null;
             }
 
             var directory = ZipStagingDirectory;
             var target = AppContext.BaseDirectory;
+            string executable = relaunch ? $" \"{Path.Combine(AppContext.BaseDirectory, "Beutl")}\"" : "";
 
-            command = $"chmod +x \"{scriptPath}\" && \"{scriptPath}\" \"{directory}\" \"{target}\" Beutl \"{Path.Combine(AppContext.BaseDirectory, "Beutl")}\"";
+            command = $"chmod +x \"{scriptPath}\" && \"{scriptPath}\" \"{directory}\" \"{target}\" Beutl{executable}";
         }
         else
         {
-            return;
+            return null;
         }
 
         if (TerminalLauncher.CreateStartInfo(["bash", "-c", command]) is not { } psi)
@@ -187,20 +291,20 @@ public class UpdateDialogViewModel
             // Beutl keeps running, and the user can finish the update by running the command themselves.
             _logger.LogWarning("No terminal emulator was found for the update command: {Command}", command);
             ProgressText.Value = string.Format(MessageStrings.TerminalNotFound, command);
-            return;
+            return null;
         }
 
-        await LaunchInstallerAsync(psi);
+        return psi;
     }
 
-    private async Task InstallOnOSX(AssetMetadataJson metadata)
+    private async Task<ProcessStartInfo?> CreateMacInstallerStartInfoAsync(AssetMetadataJson metadata, bool relaunch)
     {
         // Only the signed app updates in place; the unsigned macOS zips are no longer published.
-        if (metadata.Type != "app") return;
+        if (metadata.Type != "app") return null;
 
         if (await WriteUpdateScriptAsync("update.sh", "Beutl.Resources.osx-update.sh") is not { } scriptPath)
         {
-            return;
+            return null;
         }
 
         // The update unpacks to Beutl.app in the staging folder and replaces the bundle the application runs from.
@@ -217,10 +321,10 @@ public class UpdateDialogViewModel
                 directory,
                 target,
                 "Beutl",
-                Path.Combine(AppContext.BaseDirectory, "Beutl")
             }
         };
-        await LaunchInstallerAsync(psi);
+        if (relaunch) psi.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "Beutl"));
+        return psi;
     }
 
     public void Start()
@@ -228,62 +332,125 @@ public class UpdateDialogViewModel
         _startTask ??= Task.Run(async () =>
         {
             _logger.LogInformation("Starting update process");
-            FlatpakUpdater? flatpak = null;
+            AppUpdatePhase result;
             try
             {
-                if (IsFlatpak) flatpak = _flatpak ?? FlatpakUpdater.Create();
-                _downloadFile = await DownloadFile(flatpak?.DownloadPath, _httpClient);
-                if (_downloadFile == null) return;
-                if (flatpak != null)
-                {
-                    ProgressText.Value = ExtensionsStrings.Installing;
-                    IsIndeterminate.Value = true;
-                    await flatpak.InstallAsync(_cts.Token);
-                    ProgressText.Value = MessageStrings.FlatpakUpdateCompleted;
-                    return;
-                }
+                result = await PrepareUpdateAsync();
             }
-            catch (OperationCanceledException) { ProgressText.Value = MessageStrings.Canceled; return; }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to install update");
-                ProgressText.Value = ex.Message;
-                ProgressValue.Value = 0;
-                return;
+                _logger.LogError(ex, "Failed to prepare the update");
+                ProgressText.Value = DescribeFailure(MessageStrings.OperationFailed, ex);
+                result = AppUpdatePhase.Failed;
             }
-            finally
+
+            if (_cts.IsCancellationRequested) return;
+
+            switch (result)
             {
-                if (IsFlatpak)
-                {
-                    IsIndeterminate.Value = false;
+                case AppUpdatePhase.Failed:
+                    IsRetryVisible.Value = true;
                     CloseButtonText.Value = Strings.Close;
-                    try { if (flatpak != null) File.Delete(flatpak.DownloadPath); }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                    { _logger.LogWarning(ex, "Failed to remove update download"); }
-                }
+                    IsSecondaryButtonEnabled.Value = false;
+                    break;
+                case AppUpdatePhase.Completed:
+                    IsSecondaryButtonEnabled.Value = false;
+                    break;
+                case AppUpdatePhase.Ready:
+                    SecondaryButtonText.Value = MessageStrings.UpdateAction_UpdateOnQuit;
+                    break;
             }
 
-            var metadata = await BeutlApiApplication.LoadMetadata();
-            if (metadata == null)
-            {
-                ProgressText.Value = MessageStrings.FailedToLoadMetadata;
-                return;
-            }
-
-            // Only the Linux zip and the macOS app install from an unpacked update. Windows and macOS zips
-            // are no longer published and have no update path.
-            if ((metadata.Type == "zip" && OperatingSystem.IsLinux()) || metadata.Type == "app")
-            {
-                if (!await StageExtractedUpdateAsync(metadata, _downloadFile)) return;
-            }
-
-            if (metadata.Type is "installer" or "debian")
-            {
-                ProgressText.Value = MessageStrings.StartInstaller;
-                IsPrimaryButtonEnabled.Value = true;
-            }
+            Phase.Value = result;
         });
     }
+
+    public void Retry()
+    {
+        if (!IsRetryVisible.Value || _cts.IsCancellationRequested) return;
+
+        _logger.LogInformation("Retrying update process");
+        IsRetryVisible.Value = false;
+        CloseButtonText.Value = Strings.Cancel;
+        IsSecondaryButtonEnabled.Value = true;
+        Phase.Value = AppUpdatePhase.Preparing;
+        _startTask = null;
+        Start();
+    }
+
+    // Failed when the update could not be prepared; ProgressText says why.
+    private async Task<AppUpdatePhase> PrepareUpdateAsync()
+    {
+        FlatpakUpdater? flatpak = null;
+        try
+        {
+            if (IsFlatpak) flatpak = _flatpak ?? FlatpakUpdater.Create();
+            _downloadFile = await DownloadFile(flatpak?.DownloadPath, _httpClient);
+            if (_downloadFile == null) return AppUpdatePhase.Failed;
+            if (flatpak != null)
+            {
+                ProgressText.Value = ExtensionsStrings.Installing;
+                IsIndeterminate.Value = true;
+                await flatpak.InstallAsync(_cts.Token);
+                ProgressText.Value = MessageStrings.FlatpakUpdateCompleted;
+                return AppUpdatePhase.Completed;
+            }
+        }
+        catch (OperationCanceledException) { ProgressText.Value = MessageStrings.Canceled; return AppUpdatePhase.Canceled; }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to install update");
+            ProgressText.Value = ex.Message;
+            ProgressValue.Value = 0;
+            return AppUpdatePhase.Failed;
+        }
+        finally
+        {
+            if (IsFlatpak)
+            {
+                IsIndeterminate.Value = false;
+                CloseButtonText.Value = Strings.Close;
+                try { if (flatpak != null) File.Delete(flatpak.DownloadPath); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                { _logger.LogWarning(ex, "Failed to remove update download"); }
+            }
+        }
+
+        var metadata = await _loadMetadata();
+        if (metadata == null)
+        {
+            ProgressText.Value = MessageStrings.FailedToLoadMetadata;
+            return AppUpdatePhase.Failed;
+        }
+
+        // Only the Linux zip and the macOS app install from an unpacked update. Windows and macOS zips
+        // are no longer published and have no update path.
+        if ((metadata.Type == "zip" && OperatingSystem.IsLinux()) || metadata.Type == "app")
+        {
+            return await StageExtractedUpdateAsync(metadata, _downloadFile)
+                ? AppUpdatePhase.Ready
+                : AppUpdatePhase.Failed;
+        }
+
+        if (metadata.Type is "installer" or "debian")
+        {
+            ProgressText.Value = MessageStrings.StartInstaller;
+            PrimaryButtonText.Value = MessageStrings.UpdateAction_StartInstaller;
+            IsPrimaryButtonEnabled.Value = true;
+            return AppUpdatePhase.Ready;
+        }
+
+        ProgressText.Value = MessageStrings.OperationFailed;
+        return AppUpdatePhase.Failed;
+    }
+
+    internal static string FormatDownloadProgress(long downloaded, long total)
+        => $"{MessageStrings.Downloading} {downloaded * 100 / total}% "
+           + $"({StringFormats.ToHumanReadableSize(downloaded)} / {StringFormats.ToHumanReadableSize(total)})";
+
+    // Names the step that failed, then the cause when it adds something.
+    internal static string DescribeFailure(string step, Exception exception)
+        => exception.Message == step ? step : $"{step}\n{exception.Message}";
 
     // Where an update is unpacked before the update script copies it over the application.
     private static string UpdateStagingRoot
@@ -314,7 +481,7 @@ public class UpdateDialogViewModel
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _logger.LogError(ex, "Failed to prepare the update folder {Destination}", destination);
-            ProgressText.Value = ex.Message;
+            ProgressText.Value = DescribeFailure(MessageStrings.OperationFailed, ex);
             return false;
         }
 
@@ -429,7 +596,9 @@ public class UpdateDialogViewModel
                 throw new InvalidDataException(MessageStrings.DownloadFailed);
 
             _logger.LogInformation("Downloading update from {DownloadUrl}", Update.DownloadUrl);
-            using var client = httpClient ?? new HttpClient();
+            // A client that was passed in outlives this attempt, so a retry can use it again.
+            using var ownedClient = httpClient == null ? new HttpClient() : null;
+            HttpClient client = httpClient ?? ownedClient!;
             using var response =
                 await client.GetAsync(Update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
             response.EnsureSuccessStatusCode();
@@ -467,6 +636,7 @@ public class UpdateDialogViewModel
                 IsIndeterminate.Value = !contentLength.HasValue;
                 byte[] buffer = new byte[bufferSize];
                 long totalBytesRead = 0;
+                long shownPercent = -1;
                 int bytesRead;
                 while ((bytesRead = await download.ReadAsync(buffer, ct).ConfigureAwait(false)) != 0)
                 {
@@ -475,7 +645,17 @@ public class UpdateDialogViewModel
                         throw new InvalidDataException(MessageStrings.DownloadFailed);
                     hash?.AppendData(buffer, 0, bytesRead);
                     await destination.WriteAsync(buffer.AsMemory(0, bytesRead), ct).ConfigureAwait(false);
-                    if (contentLength > 0) ProgressValue.Value = totalBytesRead / (double)contentLength.Value;
+                    if (contentLength > 0)
+                    {
+                        ProgressValue.Value = totalBytesRead / (double)contentLength.Value;
+                        long percent = totalBytesRead * 100 / contentLength.Value;
+                        if (percent != shownPercent)
+                        {
+                            shownPercent = percent;
+                            DownloadProgress.Value = percent / 100.0;
+                            ProgressText.Value = FormatDownloadProgress(totalBytesRead, contentLength.Value);
+                        }
+                    }
                 }
 
                 if (totalBytesRead == 0 || (contentLength.HasValue && totalBytesRead != contentLength.Value))
@@ -504,7 +684,7 @@ public class UpdateDialogViewModel
 
             return file;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
         {
             _logger.LogWarning("Download canceled");
             ProgressText.Value = MessageStrings.Canceled;
@@ -512,12 +692,14 @@ public class UpdateDialogViewModel
         }
         catch (Exception e)
         {
+            // Includes the HTTP client's own timeout, which is a failure the user did not ask for.
             _logger.LogError(e, "Failed to download update");
-            ProgressText.Value = e.Message;
+            ProgressText.Value = DescribeFailure(MessageStrings.DownloadFailed, e);
             return null;
         }
         finally
         {
+            DownloadProgress.Value = null;
             if (temporaryPath != null)
             {
                 try { File.Delete(temporaryPath); }
@@ -562,7 +744,7 @@ public class UpdateDialogViewModel
         catch (Exception e)
         {
             _logger.LogError(e, "Failed to extract update");
-            ProgressText.Value = e.Message;
+            ProgressText.Value = DescribeFailure(MessageStrings.OperationFailed, e);
             return false;
         }
         finally
@@ -709,6 +891,17 @@ public class UpdateDialogViewModel
         if (_cts.IsCancellationRequested) return;
         _logger.LogInformation("Canceling update process");
         _cts.Cancel();
+        if (_installOnQuit
+            && Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime
+            { MainWindow.DataContext: MainViewModel main })
+        {
+            main.SetUpdateOnQuit(null);
+        }
+
+        if (Phase.Value is AppUpdatePhase.Preparing or AppUpdatePhase.Ready or AppUpdatePhase.Failed)
+        {
+            Phase.Value = AppUpdatePhase.Canceled;
+        }
     }
 
     private async Task<bool> LoadScript(string name, Stream stream)
