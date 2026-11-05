@@ -219,6 +219,7 @@ public sealed class ListItemLayoutTests
         Assert.That(Left(label, root), Is.EqualTo(itemLeft + NameStart));
 
         Assert.That(Left(Line(item), root) + LineInset, Is.EqualTo(itemLeft + GripCenter));
+        Assert.That(Line(item).LineBrush, Is.Not.Null);
     }
 
     private static TreeLineDecorator Line(FilterEffectListItemEditor item)
