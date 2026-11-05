@@ -506,6 +506,23 @@ public sealed class RepeatEffectTests
         Assert.That(Across(rows, 620, 1000, 1059, 1060, 1119), Is.EqualTo("RRBB"));
     }
 
+    // A tiled crop reads only its rectangle but fills all of what it gets, so the grid before it is made whole. The
+    // cell it keeps is one period of the grid, so the tiles give back the grid's own pattern.
+    [Test]
+    public void A_tiled_crop_after_a_group_s_grid_in_the_same_effect_still_fills_the_frame()
+    {
+        using FilterEffect.Resource grid = WideGrid(10).ToResource(CompositionContext.Default);
+
+        byte[][] rows = RenderInFrame(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+        {
+            context.Apply(grid);
+            Rect bounds = context.Bounds;
+            context.Crop(new Rect(bounds.X + 800, bounds.Y + 1000, 200, 200), GradientSpreadMethod.Repeat);
+        }), Halves());
+
+        Assert.That(FrameRow(rows), Is.EqualTo(s_frameRow));
+    }
+
     // An effect whose bounds are known only when it runs keeps the effects after it in its segment.
     [TestCase(30)]
     [TestCase(100)]
