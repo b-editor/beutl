@@ -98,9 +98,11 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
+                <!--  It replaces the row with the name, so it carries the name for a screen reader.  -->
                 <ToggleButton x:Name="inlineHandle"
                               HorizontalAlignment="Left"
                               VerticalAlignment="Top"
+                              AutomationProperties.Name="{Binding TransformName.Value}"
                               Cursor="SizeNorthSouth"
                               IsChecked="{Binding IsExpanded.Value}"
                               IsVisible="{Binding !ShowsName.Value}"

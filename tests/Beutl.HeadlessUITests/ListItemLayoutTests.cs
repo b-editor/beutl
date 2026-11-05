@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
@@ -239,6 +240,8 @@ public sealed class ListItemLayoutTests
                 Assert.That(Left(label, window), Is.EqualTo(NameStart));
                 // A row that stacks its label over its value has the icon beside the label, cut off by nothing above.
                 Assert.That(Middle(grip, window), Is.EqualTo(Middle(label, window)).Within(2));
+                Assert.That(AutomationProperties.GetName((ToggleButton)item.ReorderHandle!),
+                    Is.EqualTo(((TransformEditorViewModel)item.DataContext!).TransformName.Value).And.Not.Empty);
             }
         }
         finally
