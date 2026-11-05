@@ -425,7 +425,7 @@ public sealed class PropertyPairAnimationTests
             Assert.That(row.Children.Select(child => child.Name.Value), Is.EqualTo(new[] { Strings.Width, Strings.Height }));
             Assert.That(row.HasSeparatedComponents.Value, Is.False);
             Assert.That(row.CanSeparateComponents.Value, Is.True);
-            Assert.That(Flatten(tab.TreeItems).Where(item => item.Property == shape.Width || item.Property == shape.Height), Is.Empty);
+            Assert.That(Flatten(tab.TreeItems).Where(item => ReferenceEquals(item.Property, shape.Width) || ReferenceEquals(item.Property, shape.Height)), Is.Empty);
         });
 
         tab.Select(joined);

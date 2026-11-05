@@ -50,7 +50,7 @@ internal abstract class PropertyPair : IAnimatablePropertyAdapter, IExpressionPr
         foreach (IProperty first in owner.Properties)
         {
             if (first.GetAttributes()?.OfType<CombinedEditorAttribute>().FirstOrDefault() is not { } attribute
-                || (first != property && attribute.Second != property.Name)
+                || (!ReferenceEquals(first, property) && attribute.Second != property.Name)
                 || owner.Properties.FirstOrDefault(other => other.Name == attribute.Second) is not { } second)
             {
                 continue;

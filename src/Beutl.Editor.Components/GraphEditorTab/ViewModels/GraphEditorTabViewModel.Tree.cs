@@ -185,7 +185,7 @@ public sealed partial class GraphEditorTabViewModel
             if (PropertyPair.Find(property) is { } pair)
             {
                 // The row of the first property stands for both.
-                if (property != pair.Properties[0]) continue;
+                if (!ReferenceEquals(property, pair.Properties[0])) continue;
 
                 var pairItem = GetTreeItem(path, pair.DisplayName, parent, used);
                 pairItem.Adapter = pair;
