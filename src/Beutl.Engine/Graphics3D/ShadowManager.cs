@@ -16,6 +16,8 @@ internal sealed class ShadowManager : IDisposable
     private readonly IGraphicsContext _context;
     private readonly IShaderCompiler _shaderCompiler;
 
+    internal float SurfaceDensity { get; set; } = 1f;
+
     // Shared by every 2D light: its matrix rides in push constants, and its map is copied out before the next clear.
     private ShadowPass? _shadowPass2D;
     private readonly PointShadowPass[] _pointShadowPasses;
@@ -200,6 +202,7 @@ internal sealed class ShadowManager : IDisposable
     /// <summary>Renders <paramref name="shadowPass"/> and copies its depth into the current 2D shadow map layer.</summary>
     private void ExecuteAndCopyToArray(ShadowPass shadowPass, IReadOnlyList<Object3D.Resource> objects)
     {
+        shadowPass.SurfaceDensity = SurfaceDensity;
         shadowPass.Execute(objects);
 
         if (shadowPass.ShadowDepthTexture != null && _shadowMapArray != null)
@@ -214,6 +217,7 @@ internal sealed class ShadowManager : IDisposable
     {
         var shadowPass = _pointShadowPasses[_activeShadowCountCube];
         shadowPass.SetupForPointLight(light);
+        shadowPass.SurfaceDensity = SurfaceDensity;
         shadowPass.Execute(objects);
 
         if (_shadowMapCubeArray != null)

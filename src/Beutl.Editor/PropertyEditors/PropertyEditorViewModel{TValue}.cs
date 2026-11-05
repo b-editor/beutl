@@ -251,32 +251,56 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     public override bool SetExpression(string expressionString, [NotNullWhen(false)] out string? error)
     {
-        // Setting an expression drops the animation, so it can discard an easing that could not be read.
-        if (!CanReplace(GetAnimation()))
+        if (!CanSetExpression(out error))
         {
-            error = MessageStrings.OperationFailed;
             return false;
         }
-        if (PropertyAdapter is IExpressionPropertyAdapter<TValue> expressionProperty)
+        if (PropertyAdapter is IExpressionPropertyAdapter<TValue>)
         {
             if (!Expression.TryParse<TValue>(expressionString, out var newExpression, out error))
             {
                 return false;
             }
 
-            expressionProperty.Expression = newExpression;
-            if (PropertyAdapter is IAnimatablePropertyAdapter<TValue> ap)
-            {
-                ap.Animation = null;
-            }
-
-            // Also for a property that cannot be animated: an expression replaces a value that loading dropped.
-            CompleteElementRepair();
-            Commit();
+            WriteExpression(newExpression);
         }
 
         error = null;
         return true;
+    }
+
+    // Puts an expression that another editor has read in place of this property's animation.
+    internal bool SetExpression(IExpression<TValue> expression, [NotNullWhen(false)] out string? error)
+    {
+        if (!CanSetExpression(out error))
+        {
+            return false;
+        }
+
+        WriteExpression(expression);
+        return true;
+    }
+
+    // Setting an expression drops the animation, so it can discard an easing that could not be read.
+    private bool CanSetExpression([NotNullWhen(false)] out string? error)
+    {
+        error = CanReplace(GetAnimation()) ? null : MessageStrings.OperationFailed;
+        return error == null;
+    }
+
+    private void WriteExpression(IExpression<TValue> expression)
+    {
+        if (PropertyAdapter is not IExpressionPropertyAdapter<TValue> expressionProperty) return;
+
+        expressionProperty.Expression = expression;
+        if (PropertyAdapter is IAnimatablePropertyAdapter<TValue> ap)
+        {
+            ap.Animation = null;
+        }
+
+        // Also for a property that cannot be animated: an expression replaces a value that loading dropped.
+        CompleteElementRepair();
+        Commit();
     }
 
     public override void RemoveExpression()

@@ -26,6 +26,8 @@ public sealed class PropertyEditorGrid : Grid
     private const double MinimumScopeWidth = 640;
     private const double MinimumHeaderWidth = 80;
     private const double InputInset = 4;
+    // The width the theme gives a GridSplitter.
+    private const double SplitterWidth = 6;
     private const double LayoutTolerance = .1;
     private Control? _scope;
     private ColumnDefinition? _alignedHeader;
@@ -127,19 +129,13 @@ public sealed class PropertyEditorGrid : Grid
             double labelWidth = availableSize.Width - bandWidth - _precedingWidth - InputInset;
             if (labelWidth >= MinimumHeaderWidth - LayoutTolerance && bandWidth >= _minimumValueSpace - LayoutTolerance)
             {
-                if (_alignedHeader != ColumnDefinitions[0])
-                {
-                    RestoreHeaderWidth();
-                    _alignedHeader = ColumnDefinitions[0];
-                    _originalHeaderWidth = _alignedHeader.Width;
-                    _alignedHeader.PropertyChanged += OnHeaderPropertyChanged;
-                }
+                HoldHeaderWidth();
                 SetHeaderWidth(new GridLength(Math.Max(labelWidth, MinimumHeaderWidth)));
                 PseudoClasses.Set(":aligned", true);
             }
             else
             {
-                RestoreHeaderWidth();
+                SplitOwnWidth(availableSize);
                 // Bounds still describe the previous layout during measure/arrange.
                 // Clamp once the new row position and scope width are both final.
                 _reclampPending = true;
@@ -148,10 +144,56 @@ public sealed class PropertyEditorGrid : Grid
         }
         else
         {
-            RestoreHeaderWidth();
+            SplitOwnWidth(availableSize);
         }
 
         return base.MeasureOverride(availableSize);
+    }
+
+    // Without a shared position the row splits its own width. A row with no splitter before its value and the keyframe
+    // buttons after it still takes the edge of a row with a splitter before its value and the buttons in it: the star
+    // columns alone would start the value half a splitter earlier, and showing the buttons would move it.
+    private void SplitOwnWidth(Size availableSize)
+    {
+        if (ValueColumn == 1 && ColumnDefinitions.Count > 2 && double.IsFinite(availableSize.Width) && HasInlineValue()
+            && Children.Any(child => GetColumn(child) == ValueColumn && child.HorizontalAlignment == HorizontalAlignment.Stretch)
+            && (_alignedHeader == null ? ColumnDefinitions[0].Width : _originalHeaderWidth) is { IsStar: true } header
+            && ColumnDefinitions[ValueColumn].Width is { IsStar: true } value)
+        {
+            PseudoClasses.Set(":aligned", false);
+            HoldHeaderWidth();
+            double scale = LayoutHelper.GetLayoutScale(this);
+            double splitter = LayoutHelper.RoundLayoutValueUp(SplitterWidth, scale);
+            double width = availableSize.Width - MeasureColumn(ColumnDefinitions.Count - 1, availableSize.Height) - splitter;
+            // Star columns that cannot split evenly give the first one the extra device pixel.
+            double label = LayoutHelper.RoundLayoutValueUp(width * header.Value / (header.Value + value.Value), scale);
+            SetHeaderWidth(new GridLength(label + splitter));
+            return;
+        }
+
+        RestoreHeaderWidth();
+    }
+
+    private double MeasureColumn(int column, double availableHeight)
+    {
+        double width = 0;
+        foreach (Control child in Children.Where(child => child.IsVisible && GetRow(child) == 0
+                     && GetColumn(child) == column && GetColumnSpan(child) == 1))
+        {
+            child.Measure(new Size(double.PositiveInfinity, availableHeight));
+            width = Math.Max(width, child.DesiredSize.Width);
+        }
+        return width;
+    }
+
+    private void HoldHeaderWidth()
+    {
+        if (_alignedHeader == ColumnDefinitions[0]) return;
+
+        RestoreHeaderWidth();
+        _alignedHeader = ColumnDefinitions[0];
+        _originalHeaderWidth = _alignedHeader.Width;
+        _alignedHeader.PropertyChanged += OnHeaderPropertyChanged;
     }
 
     private bool HasInlineValue()

@@ -22,6 +22,7 @@ public sealed partial class DrawableTextureSource : TextureSource
 
     [Display(Name = nameof(GraphicsStrings.DrawableTextureSource_TextureWidth), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 8192)]
+    [CombinedEditor(nameof(TextureHeight), Name = nameof(GraphicsStrings.DrawableTextureSource_TextureSize), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<int> TextureWidth { get; } = Property.CreateAnimatable(256);
 
     [Display(Name = nameof(GraphicsStrings.DrawableTextureSource_TextureHeight), ResourceType = typeof(GraphicsStrings))]

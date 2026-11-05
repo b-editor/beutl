@@ -14,6 +14,7 @@ public sealed partial class EllipseGeometry : Geometry
     }
 
     [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
+    [CombinedEditor(nameof(Height), Name = nameof(Strings.Size), ResourceType = typeof(Strings))]
     public IExpressionProperty<float> Width { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]

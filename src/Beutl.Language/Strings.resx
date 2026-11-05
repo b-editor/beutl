@@ -611,6 +611,9 @@
   <data name="RemoveExpression" xml:space="preserve">
     <value>Remove expression</value>
   </data>
+  <data name="Expression_ReturnsBothValues" xml:space="preserve">
+    <value>Enter one expression that returns both values, such as {0}.</value>
+  </data>
   <data name="ExpressionHelp" xml:space="preserve">
     <value>Enter a mathematical expression. Available variables: Time, Start, Duration, Progress. Use GetProperty&lt;T&gt;("{GUID}.Property") to reference other properties.</value>
   </data>
@@ -1796,7 +1799,7 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Default</value>
   </data>
   <data name="AiSubtitle_TemplateDescription" xml:space="preserve">
-    <value>Saved TextBlock templates appear here. Their formatting, effects, animation, and placement are applied to every subtitle.</value>
+    <value>Saved templates that hold text appear here, whether of a TextBlock, an element, or several elements. Their formatting, effects, animation, and placement are applied to every subtitle.</value>
   </data>
   <data name="AiSubtitle_Transcribe" xml:space="preserve">
     <value>Transcribe</value>
@@ -3557,6 +3560,9 @@ when history recording is enabled.</value>
   </data>
   <data name="UnseparateComponents_Description" xml:space="preserve">
     <value>Keep the value at the current time and remove component keyframes and expressions.</value>
+  </data>
+  <data name="UnseparateComponents_SameTiming" xml:space="preserve">
+    <value>Available while both values have the same keyframe times and easings and share one expression or have none.</value>
   </data>
   <data name="RelativeUnit_Relative" xml:space="preserve">
     <value>Relative (1 = 100%)</value>

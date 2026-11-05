@@ -45,14 +45,19 @@ public sealed record CaptionElementContext
         ArgumentNullException.ThrowIfNull(cue);
         ArgumentNullException.ThrowIfNull(engineObjectFactory);
 
-        MediaTime cueLength = cue.End > cue.Start ? MediaTime.FromTimeSpan(cue.End - cue.Start) : MediaTime.Zero;
         return new ElementDescription(
             Start: MediaTime.FromTimeSpan(cue.Start),
-            Length: cueLength < MinimumLength ? MinimumLength : cueLength,
+            Length: GetCueLength(cue),
             Layer: checked(Layer + layerOffset),
             Source: new ElementSource.EngineObject(engineObjectFactory),
             Name: name ?? ElementName,
             Position: position);
+    }
+
+    internal MediaTime GetCueLength(CaptionCue cue)
+    {
+        MediaTime cueLength = cue.End > cue.Start ? MediaTime.FromTimeSpan(cue.End - cue.Start) : MediaTime.Zero;
+        return cueLength < MinimumLength ? MinimumLength : cueLength;
     }
 }
 

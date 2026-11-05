@@ -19,6 +19,7 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
     public IExpressionProperty<float> Rotation { get; } = Property.CreateAnimatable<float>(0);
 
     [Display(Name = nameof(GraphicsStrings.CenterX), ResourceType = typeof(GraphicsStrings))]
+    [CombinedEditor(nameof(CenterY), Name = nameof(GraphicsStrings.Center), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> CenterX { get; } = Property.CreateAnimatable<float>(0);
 
     [Display(Name = nameof(GraphicsStrings.CenterY), ResourceType = typeof(GraphicsStrings))]

@@ -9,7 +9,7 @@ namespace Beutl.Graphics.Shaders;
 /// Reads the interface of compiler-produced SPIR-V. This does not parse or restrict shader expressions.
 /// Unsupported resource shapes are diagnosed before a device pipeline is created.
 /// </summary>
-internal sealed class ShaderInterface
+internal sealed partial class ShaderInterface
 {
     private readonly Dictionary<uint, (ushort Op, uint[] Args)> _types = [];
     private readonly Dictionary<(uint Id, uint Decoration), uint> _decorations = [];
@@ -52,6 +52,12 @@ internal sealed class ShaderInterface
             uint[] args = words.Slice(offset + 1, length - 1).ToArray();
             switch (op)
             {
+                case 5: // OpName
+                    _names[args[0]] = ReadName(args.AsSpan(1));
+                    break;
+                case 6: // OpMemberName
+                    _memberNames[(args[0], args[1])] = ReadName(args.AsSpan(2));
+                    break;
                 case 16 when args[1] == 17: // OpExecutionMode LocalSize
                     LocalSize = (args[2], args[3], args[4]);
                     break;
@@ -68,13 +74,16 @@ internal sealed class ShaderInterface
                 case 48 or 49 or 50: // OpSpecConstantTrue, OpSpecConstantFalse, OpSpecConstant
                     ulong value = op is 41 or 48 ? 1u : op is 42 or 49 ? 0u
                         : args.Length > 3 ? args[2] | ((ulong)args[3] << 32) : args[2];
-                    if (op is 48 or 49 or 50 && _decorations.TryGetValue((args[1], 1u), out uint constantId)
-                        && specializations.TryGetValue(constantId, out SpecializationConstant constant))
+                    if (op is 48 or 49 or 50 && _decorations.TryGetValue((args[1], 1u), out uint constantId))
                     {
-                        if (constant.SizeInBytes != SizeOf(args[0]))
-                            throw new ArgumentException($"Specialization constant {constantId} in {stage} requires {SizeOf(args[0])} bytes; supplied {constant.SizeInBytes}.");
-                        constant.CopyValueTo(scalar);
-                        value = constant.SizeInBytes == sizeof(ulong) ? BitConverter.ToUInt64(scalar) : BitConverter.ToUInt32(scalar);
+                        _specializationDefaults.Add((constantId, args[0], args[1], value));
+                        if (specializations.TryGetValue(constantId, out SpecializationConstant constant))
+                        {
+                            if (constant.SizeInBytes != SizeOf(args[0]))
+                                throw new ArgumentException($"Specialization constant {constantId} in {stage} requires {SizeOf(args[0])} bytes; supplied {constant.SizeInBytes}.");
+                            constant.CopyValueTo(scalar);
+                            value = constant.SizeInBytes == sizeof(ulong) ? BitConverter.ToUInt64(scalar) : BitConverter.ToUInt32(scalar);
+                        }
                     }
                     _constants.Add(args[1], value);
                     break;

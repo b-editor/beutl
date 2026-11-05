@@ -1,4 +1,5 @@
-﻿using System.Reactive.Linq;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Engine.Expressions;
@@ -14,6 +15,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>, IChi
     private readonly ReactivePropertySlim<T?> _rxProperty = new();
     private KeyFrameAnimation<T>? _animation;
     private CoreObject? _owner;
+    private readonly DisplayAttribute? _display;
 
     // For tests, which start an adapter with a value or an animation.
     internal NodePropertyAdapter(string name, T? value, KeyFrameAnimation<T>? animation)
@@ -24,9 +26,14 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>, IChi
         _rxProperty.Value = value;
     }
 
-    public NodePropertyAdapter(string name)
+    public NodePropertyAdapter(string name) : this(name, null)
+    {
+    }
+
+    public NodePropertyAdapter(string name, DisplayAttribute? display)
     {
         Name = name;
+        _display = display;
         ObserveAnimation = new AnimationObservable(this);
     }
 
@@ -130,7 +137,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>, IChi
 
     public string DisplayName
     {
-        get => field ?? Name;
+        get => field ?? _display?.GetName() ?? Name;
         set => field = value;
     }
 

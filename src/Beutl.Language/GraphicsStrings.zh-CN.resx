@@ -629,6 +629,9 @@
   <data name="ParticleEmitter_EmitterWidth" xml:space="preserve">
     <value>发射器宽度</value>
   </data>
+  <data name="ParticleEmitter_EmitterSize" xml:space="preserve">
+    <value>发射器大小</value>
+  </data>
   <data name="ParticleEmitter_EndColor" xml:space="preserve">
     <value>结束颜色</value>
   </data>
@@ -751,6 +754,9 @@
   </data>
   <data name="ScaleTransform_ScaleY" xml:space="preserve">
     <value>缩放 Y</value>
+  </data>
+  <data name="ScaleTransform_ScaleXY" xml:space="preserve">
+    <value>缩放 XY</value>
   </data>
   <data name="ShakeEffect" xml:space="preserve">
     <value>抖动</value>
@@ -980,6 +986,9 @@
   <data name="DrawableTextureSource_TextureWidth" xml:space="preserve">
     <value>纹理宽度</value>
   </data>
+  <data name="DrawableTextureSource_TextureSize" xml:space="preserve">
+    <value>纹理大小</value>
+  </data>
   <data name="EllipseGeometry" xml:space="preserve">
     <value>椭圆</value>
   </data>
@@ -1166,6 +1175,9 @@
   <data name="PerlinNoiseBrush_BaseFrequencyY" xml:space="preserve">
     <value>基础频率 Y</value>
   </data>
+  <data name="PerlinNoiseBrush_BaseFrequency" xml:space="preserve">
+    <value>基础频率</value>
+  </data>
   <data name="PerlinNoiseBrush_Octaves" xml:space="preserve">
     <value>八度</value>
   </data>
@@ -1264,6 +1276,9 @@
   </data>
   <data name="Scene3D_RenderWidth" xml:space="preserve">
     <value>渲染宽度</value>
+  </data>
+  <data name="Scene3D_RenderSize" xml:space="preserve">
+    <value>渲染大小</value>
   </data>
   <data name="SolidColorBrush" xml:space="preserve">
     <value>纯色</value>
@@ -1396,6 +1411,9 @@
   </data>
   <data name="CenterY" xml:space="preserve">
     <value>中心 Y</value>
+  </data>
+  <data name="Center" xml:space="preserve">
+    <value>中心</value>
   </data>
   <data name="Color" xml:space="preserve">
     <value>颜色</value>

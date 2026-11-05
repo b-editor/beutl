@@ -20,6 +20,8 @@ internal sealed class VulkanDescriptorBindingTable
             .ToArray();
     }
 
+    public bool IsEmpty => _declarations.Length == 0;
+
     /// <summary>
     /// Rejects a write of one descriptor at array element 0 that the pipeline layout does not describe.
     /// </summary>

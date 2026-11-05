@@ -25,6 +25,7 @@ public partial class ShakeEffect : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.ShakeEffect_StrengthX), ResourceType = typeof(GraphicsStrings))]
+    [CombinedEditor(nameof(StrengthY), Name = nameof(GraphicsStrings.Strength), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> StrengthX { get; } = Property.CreateAnimatable(50f);
 
     [Display(Name = nameof(GraphicsStrings.ShakeEffect_StrengthY), ResourceType = typeof(GraphicsStrings))]

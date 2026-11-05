@@ -9,7 +9,7 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
 // The editor of a value with two to four TElement components, such as a point or a rectangle, which a
 // Vector2Editor, Vector3Editor or Vector4Editor edits; headers name the components, or the editor's theme does.
-public sealed class VectorEditorViewModel<TValue, TElement, TEdit>(
+public class VectorEditorViewModel<TValue, TElement, TEdit>(
     IPropertyAdapter<TValue> property,
     Func<TValue, TEdit> toEdit,
     Func<TEdit, TValue> fromEdit,

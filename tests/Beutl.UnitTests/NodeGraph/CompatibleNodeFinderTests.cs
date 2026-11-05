@@ -1,11 +1,13 @@
 ﻿using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.NodeGraph.Nodes.Shaders;
 using Beutl.NodeGraph.Nodes.Utilities;
 
 namespace Beutl.UnitTests.NodeGraph;
@@ -18,6 +20,12 @@ public class CompatibleNodeFinderTests
     [TestCase(typeof(float), typeof(MediaTime), true)]
     [TestCase(typeof(RenderNode), typeof(Drawable), true)]
     [TestCase(typeof(Matrix), typeof(Transform), true)]
+    [TestCase(typeof(RenderNode), typeof(ShaderGraphValue<ShaderImage>), true)]
+    [TestCase(typeof(ContainerRenderNode), typeof(ShaderGraphValue<ShaderImage>), true)]
+    [TestCase(typeof(ShaderGraphValue<ShaderImage>), typeof(RenderNode), true)]
+    [TestCase(typeof(ShaderGraphValue<ShaderImage>), typeof(object), true)]
+    [TestCase(typeof(ShaderGraphValue<ShaderBuffer>), typeof(RenderNode), false)]
+    [TestCase(typeof(RenderNode), typeof(ShaderGraphValue<ShaderBuffer>), false)]
     [TestCase(typeof(object), typeof(float), true)]
     [TestCase(typeof(float), typeof(RenderNode), false)]
     [TestCase(typeof(string), typeof(Point), false)]
@@ -93,6 +101,57 @@ public class CompatibleNodeFinderTests
                 Is.True);
             Assert.That(CompatibleNodeFinder.Find(group, groupSource.Output, [outputItem]).ContainsKey(outputItem),
                 Is.False);
+        });
+    }
+
+    [Test]
+    public void Find_ShaderImage_OffersGraphOutputAtRootButNotInsideGroup()
+    {
+        var outputItem = Item<OutputNode>("Graph output");
+        var root = new GraphModel();
+        var rootPass = new ShaderFullscreenPassNode();
+        var buffer = new ShaderBufferNode();
+        root.Nodes.Add(rootPass);
+        root.Nodes.Add(buffer);
+        var group = new GraphGroup();
+        var groupPass = new ShaderFullscreenPassNode();
+        group.Nodes.Add(groupPass);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CompatibleNodeFinder.Find(root, rootPass.Out("color"), [outputItem]).ContainsKey(outputItem),
+                Is.True);
+            Assert.That(CompatibleNodeFinder.Find(group, groupPass.Out("color"), [outputItem]).ContainsKey(outputItem),
+                Is.False);
+            Assert.That(CompatibleNodeFinder.Find(root, buffer.Output, [outputItem]).ContainsKey(outputItem),
+                Is.False);
+        });
+    }
+
+    [Test]
+    public void APictureCanBeReadByAPassButNotDrawnOn()
+    {
+        var passItem = Item<ShaderFullscreenPassNode>("Fullscreen pass");
+        var graph = new GraphModel();
+        var picture = new FilterEffectInputNode();
+        var earlier = new ShaderFullscreenPassNode();
+        var pass = new ShaderFullscreenPassNode();
+        graph.Nodes.Add(picture);
+        graph.Nodes.Add(earlier);
+        graph.Nodes.Add(pass);
+
+        IEnumerable<string?> Offered(IOutputPort source)
+            => CompatibleNodeFinder.Find(graph, source, [passItem])[passItem].Ports.Select(port => port?.Name);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Offered(picture.Output), Does.Contain("In.source").And.Not.Contain("Targets"));
+            Assert.That(Offered(earlier.Out("color")), Does.Contain("In.source").And.Contain("Targets"));
+            Assert.That(CompatibleNodeFinder.CanConnect(picture.Output, pass.In("source")), Is.True);
+            Assert.That(CompatibleNodeFinder.CanConnect(picture.Output, pass.Targets), Is.False);
+            Assert.That(CompatibleNodeFinder.CanConnect(pass.Targets, picture.Output), Is.False);
+            Assert.That(CompatibleNodeFinder.CanConnect(earlier.Out("color"), pass.Targets), Is.True);
+            Assert.That(CompatibleNodeFinder.Find(graph, pass.Targets, [Item<FilterEffectInputNode>("Effect input")]), Is.Empty);
         });
     }
 

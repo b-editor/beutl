@@ -6,8 +6,12 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Camera;
+using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Primitives;
+using Beutl.Graphics3D.Textures;
 using Beutl.Media;
+using Beutl.Media.Source;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
@@ -86,6 +90,48 @@ public class HitTester3DVisibilityTests
         resource.UpdateLayout(new Size(1920, 1080), density: 1);
 
         Assert.That(HitTester3D.HitTest(s_center, 1920, 1080, camera, [resource]), Is.Null);
+    }
+
+    // A plane whose color map shows nothing on its left half: what a cut-out hides lets clicks through.
+    [TestCase(AlphaMode.Mask, -200f, false)]
+    [TestCase(AlphaMode.Mask, 200f, true)]
+    [TestCase(AlphaMode.Blend, -200f, true)]
+    [TestCase(AlphaMode.Opaque, -200f, true)]
+    public void Plane_WithAColorMap_AnswersOnlyWhereItsAlphaModeKeepsIt(AlphaMode mode, float x, bool expected)
+    {
+        DirectoryInfo directory = Directory.CreateTempSubdirectory("beutl-unlit-hit-");
+        try
+        {
+            string path = Path.Combine(directory.FullName, "map.png");
+            using (var bitmap = new SKBitmap(new SKImageInfo(2, 1, SKColorType.Rgba8888, SKAlphaType.Unpremul)))
+            {
+                bitmap.SetPixel(0, 0, new SKColor(255, 255, 255, 0));
+                bitmap.SetPixel(1, 0, new SKColor(255, 255, 255, 255));
+                using SKData data = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+                using FileStream stream = File.Create(path);
+                data.SaveTo(stream);
+            }
+
+            var image = new ImageSource();
+            image.ReadFrom(new Uri(path));
+            using var camera = CreateCamera(farPlane: 10000);
+            var plane = new Plane3D();
+            plane.Rotation.Value = new Vector3(90, 0, 0);
+            plane.Material.Value = new UnlitMaterial
+            {
+                AlphaMode = { Value = mode },
+                ColorMap = { Value = new ImageTextureSource { Source = { Value = image } } },
+            };
+            using var resource = (Object3D.Resource)plane.ToResource(CompositionContext.Default);
+
+            Object3D.Resource? hit = HitTester3D.HitTest(new Point(960 + x, 540), 1920, 1080, camera, [resource]);
+
+            Assert.That(hit is not null, Is.EqualTo(expected));
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
     }
 
     [Test]

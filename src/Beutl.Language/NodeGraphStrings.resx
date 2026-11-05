@@ -36,6 +36,480 @@
   <data name="Group" xml:space="preserve">
     <value>Group</value>
   </data>
+  <data name="Shaders" xml:space="preserve">
+    <value>Shaders</value>
+  </data>
+  <data name="ShaderCategory_Resources" xml:space="preserve">
+    <value>Resources</value>
+  </data>
+  <data name="ShaderCategory_Operations" xml:space="preserve">
+    <value>Operations</value>
+  </data>
+  <data name="ShaderCategory_Loops" xml:space="preserve">
+    <value>Loops</value>
+  </data>
+  <data name="ShaderCategory_Inputs" xml:space="preserve">
+    <value>Pass inputs</value>
+  </data>
+  <data name="ShaderCategory_PassSettings" xml:space="preserve">
+    <value>Pass settings</value>
+  </data>
+  <data name="ShaderFullscreenPassNode" xml:space="preserve">
+    <value>Fullscreen pass (GLSL)</value>
+  </data>
+  <data name="ShaderComputePassNode" xml:space="preserve">
+    <value>Compute pass (GLSL)</value>
+  </data>
+  <data name="ShaderRenderPassNode" xml:space="preserve">
+    <value>Render pass (GLSL)</value>
+  </data>
+  <data name="ShaderExtendedRenderPassNode" xml:space="preserve">
+    <value>Render pass with geometry and tessellation (GLSL)</value>
+  </data>
+  <data name="ShaderImageNode" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="ShaderFixedImageNode" xml:space="preserve">
+    <value>Fixed-size image</value>
+  </data>
+  <data name="ShaderImageViewNode" xml:space="preserve">
+    <value>Image view</value>
+  </data>
+  <data name="ShaderBufferNode" xml:space="preserve">
+    <value>Buffer</value>
+  </data>
+  <data name="ShaderDataNode" xml:space="preserve">
+    <value>Data from text</value>
+  </data>
+  <data name="ShaderPackNode" xml:space="preserve">
+    <value>Pack values</value>
+  </data>
+  <data name="ShaderClearImageNode" xml:space="preserve">
+    <value>Clear image</value>
+  </data>
+  <data name="ShaderClearBufferNode" xml:space="preserve">
+    <value>Clear buffer</value>
+  </data>
+  <data name="ShaderCopyImageNode" xml:space="preserve">
+    <value>Copy image</value>
+  </data>
+  <data name="ShaderCopyBufferNode" xml:space="preserve">
+    <value>Copy buffer</value>
+  </data>
+  <data name="ShaderGenerateMipmapsNode" xml:space="preserve">
+    <value>Generate mipmaps</value>
+  </data>
+  <data name="ShaderConvertColorNode" xml:space="preserve">
+    <value>Convert color encoding</value>
+  </data>
+  <data name="ShaderRepeatNode" xml:space="preserve">
+    <value>Repeat</value>
+  </data>
+  <data name="ShaderReplayNode" xml:space="preserve">
+    <value>Replay simulation</value>
+  </data>
+  <data name="ShaderLoopInfoNode" xml:space="preserve">
+    <value>Iteration info</value>
+  </data>
+  <data name="ShaderSamplerNode" xml:space="preserve">
+    <value>Sampling</value>
+  </data>
+  <data name="ShaderInputRegionNode" xml:space="preserve">
+    <value>Input region</value>
+  </data>
+  <data name="ShaderImageParametersNode" xml:space="preserve">
+    <value>Image parameters</value>
+  </data>
+  <data name="ShaderVectorNode" xml:space="preserve">
+    <value>Vector</value>
+  </data>
+  <data name="ShaderColorNode" xml:space="preserve">
+    <value>Color as vec4</value>
+  </data>
+  <data name="ShaderBlendNode" xml:space="preserve">
+    <value>Blending</value>
+  </data>
+  <data name="ShaderDrawNode" xml:space="preserve">
+    <value>Draw</value>
+  </data>
+  <data name="ShaderDispatchNode" xml:space="preserve">
+    <value>Dispatch</value>
+  </data>
+  <data name="ShaderRasterizerNode" xml:space="preserve">
+    <value>Rasterizer</value>
+  </data>
+  <data name="ShaderDepthNode" xml:space="preserve">
+    <value>Depth and stencil</value>
+  </data>
+  <data name="ShaderStencilNode" xml:space="preserve">
+    <value>Stencil face</value>
+  </data>
+  <data name="ShaderVertexBufferNode" xml:space="preserve">
+    <value>Vertex buffer</value>
+  </data>
+  <data name="ShaderVertexAttributeNode" xml:space="preserve">
+    <value>Vertex attribute</value>
+  </data>
+  <data name="ShaderIndexBufferNode" xml:space="preserve">
+    <value>Index buffer</value>
+  </data>
+  <data name="ShaderLoadNode" xml:space="preserve">
+    <value>Output starting contents</value>
+  </data>
+  <data name="ShaderLoopInput" xml:space="preserve">
+    <value>Loop inputs</value>
+  </data>
+  <data name="ShaderLoopOutput" xml:space="preserve">
+    <value>Loop outputs</value>
+  </data>
+  <data name="ShaderPartialRenderingNode" xml:space="preserve">
+    <value>Partial rendering</value>
+  </data>
+  <data name="ShaderDrawMode_Vertices" xml:space="preserve">
+    <value>Vertices</value>
+  </data>
+  <data name="ShaderDrawMode_Indexed" xml:space="preserve">
+    <value>Indexed</value>
+  </data>
+  <data name="ShaderDrawMode_Indirect" xml:space="preserve">
+    <value>Indirect</value>
+  </data>
+  <data name="ShaderDrawMode_IndexedIndirect" xml:space="preserve">
+    <value>Indexed indirect</value>
+  </data>
+  <data name="ShaderDispatchMode_Image" xml:space="preserve">
+    <value>Every pixel of an image</value>
+  </data>
+  <data name="ShaderDispatchMode_Workgroups" xml:space="preserve">
+    <value>Workgroups</value>
+  </data>
+  <data name="ShaderDispatchMode_Invocations" xml:space="preserve">
+    <value>Invocations</value>
+  </data>
+  <data name="ShaderDispatchMode_Indirect" xml:space="preserve">
+    <value>Indirect</value>
+  </data>
+  <data name="ShaderDataType_HexBytes" xml:space="preserve">
+    <value>Hexadecimal bytes</value>
+  </data>
+  <data name="ShaderPort_AddressU" xml:space="preserve">
+    <value>Address U</value>
+  </data>
+  <data name="ShaderPort_AddressV" xml:space="preserve">
+    <value>Address V</value>
+  </data>
+  <data name="ShaderPort_AddressW" xml:space="preserve">
+    <value>Address W</value>
+  </data>
+  <data name="ShaderPort_AlphaOperation" xml:space="preserve">
+    <value>Alpha operation</value>
+  </data>
+  <data name="ShaderPort_ArrayLayers" xml:space="preserve">
+    <value>Array layers</value>
+  </data>
+  <data name="ShaderPort_Attributes" xml:space="preserve">
+    <value>Attributes</value>
+  </data>
+  <data name="ShaderPort_BaseLayer" xml:space="preserve">
+    <value>First layer</value>
+  </data>
+  <data name="ShaderPort_BaseMip" xml:space="preserve">
+    <value>First mip level</value>
+  </data>
+  <data name="ShaderPort_Binding" xml:space="preserve">
+    <value>Binding</value>
+  </data>
+  <data name="ShaderPort_Bounds" xml:space="preserve">
+    <value>Bounds</value>
+  </data>
+  <data name="ShaderPort_Buffer" xml:space="preserve">
+    <value>Buffer</value>
+  </data>
+  <data name="ShaderPort_ClearDepth" xml:space="preserve">
+    <value>Clear depth</value>
+  </data>
+  <data name="ShaderPort_ClearStencil" xml:space="preserve">
+    <value>Clear stencil</value>
+  </data>
+  <data name="ShaderPort_Code" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="ShaderPort_Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="ShaderPort_ColorOperation" xml:space="preserve">
+    <value>Color operation</value>
+  </data>
+  <data name="ShaderPort_Commands" xml:space="preserve">
+    <value>Commands</value>
+  </data>
+  <data name="ShaderPort_Compare" xml:space="preserve">
+    <value>Compare</value>
+  </data>
+  <data name="ShaderPort_CompareMask" xml:space="preserve">
+    <value>Compare mask</value>
+  </data>
+  <data name="ShaderPort_Count" xml:space="preserve">
+    <value>Count</value>
+  </data>
+  <data name="ShaderPort_Cull" xml:space="preserve">
+    <value>Culling</value>
+  </data>
+  <data name="ShaderPort_Data" xml:space="preserve">
+    <value>Data</value>
+  </data>
+  <data name="ShaderPort_DataType" xml:space="preserve">
+    <value>Data type</value>
+  </data>
+  <data name="ShaderPort_Delta" xml:space="preserve">
+    <value>Time step</value>
+  </data>
+  <data name="ShaderPort_DepthOutput" xml:space="preserve">
+    <value>Depth</value>
+  </data>
+  <data name="ShaderPort_DepthTest" xml:space="preserve">
+    <value>Depth test</value>
+  </data>
+  <data name="ShaderPort_DepthWrite" xml:space="preserve">
+    <value>Depth write</value>
+  </data>
+  <data name="ShaderPort_Destination" xml:space="preserve">
+    <value>Destination</value>
+  </data>
+  <data name="ShaderPort_DestinationAlpha" xml:space="preserve">
+    <value>Destination alpha</value>
+  </data>
+  <data name="ShaderPort_DestinationColor" xml:space="preserve">
+    <value>Destination color</value>
+  </data>
+  <data name="ShaderPort_DrawCount" xml:space="preserve">
+    <value>Draw count</value>
+  </data>
+  <data name="ShaderPort_ElementCount" xml:space="preserve">
+    <value>Element count</value>
+  </data>
+  <data name="ShaderPort_Filter" xml:space="preserve">
+    <value>Filter</value>
+  </data>
+  <data name="ShaderPort_FirstIndex" xml:space="preserve">
+    <value>First index</value>
+  </data>
+  <data name="ShaderPort_FirstInstance" xml:space="preserve">
+    <value>First instance</value>
+  </data>
+  <data name="ShaderPort_FirstVertex" xml:space="preserve">
+    <value>First vertex</value>
+  </data>
+  <data name="ShaderPort_Format" xml:space="preserve">
+    <value>Format</value>
+  </data>
+  <data name="ShaderPort_FragmentCode" xml:space="preserve">
+    <value>Fragment shader</value>
+  </data>
+  <data name="ShaderPort_From" xml:space="preserve">
+    <value>From</value>
+  </data>
+  <data name="ShaderPort_Front" xml:space="preserve">
+    <value>Front face</value>
+  </data>
+  <data name="ShaderPort_GeometryCode" xml:space="preserve">
+    <value>Geometry shader</value>
+  </data>
+  <data name="ShaderPort_Image" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="ShaderPort_Index" xml:space="preserve">
+    <value>Iteration</value>
+  </data>
+  <data name="ShaderPort_IndexCount" xml:space="preserve">
+    <value>Index count</value>
+  </data>
+  <data name="ShaderPort_InstanceCount" xml:space="preserve">
+    <value>Instance count</value>
+  </data>
+  <data name="ShaderPort_Kind" xml:space="preserve">
+    <value>Kind</value>
+  </data>
+  <data name="ShaderPort_Like" xml:space="preserve">
+    <value>Same size as</value>
+  </data>
+  <data name="ShaderPort_Load" xml:space="preserve">
+    <value>Starting contents</value>
+  </data>
+  <data name="ShaderPort_Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="ShaderPort_MagFilter" xml:space="preserve">
+    <value>Magnification filter</value>
+  </data>
+  <data name="ShaderPort_MaxLod" xml:space="preserve">
+    <value>Maximum LOD</value>
+  </data>
+  <data name="ShaderPort_MinFilter" xml:space="preserve">
+    <value>Minification filter</value>
+  </data>
+  <data name="ShaderPort_MinLod" xml:space="preserve">
+    <value>Minimum LOD</value>
+  </data>
+  <data name="ShaderPort_MipLevels" xml:space="preserve">
+    <value>Mip levels</value>
+  </data>
+  <data name="ShaderPort_MipmapFilter" xml:space="preserve">
+    <value>Mipmap filter</value>
+  </data>
+  <data name="ShaderPort_Mode" xml:space="preserve">
+    <value>Mode</value>
+  </data>
+  <data name="ShaderPort_Offset" xml:space="preserve">
+    <value>Offset</value>
+  </data>
+  <data name="ShaderPort_Padding" xml:space="preserve">
+    <value>Padding</value>
+  </data>
+  <data name="ShaderPort_PatchControlPoints" xml:space="preserve">
+    <value>Patch control points</value>
+  </data>
+  <data name="ShaderPort_Rate" xml:space="preserve">
+    <value>Step rate</value>
+  </data>
+  <data name="ShaderPort_Reference" xml:space="preserve">
+    <value>Reference</value>
+  </data>
+  <data name="ShaderPort_ResetTime" xml:space="preserve">
+    <value>Start time (seconds)</value>
+  </data>
+  <data name="ShaderPort_ResolutionScale" xml:space="preserve">
+    <value>Resolution scale</value>
+  </data>
+  <data name="ShaderPort_Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="ShaderPort_Source" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="ShaderPort_SourceAlpha" xml:space="preserve">
+    <value>Source alpha</value>
+  </data>
+  <data name="ShaderPort_SourceColor" xml:space="preserve">
+    <value>Source color</value>
+  </data>
+  <data name="ShaderPort_Stencil" xml:space="preserve">
+    <value>Stencil</value>
+  </data>
+  <data name="ShaderPort_StencilBack" xml:space="preserve">
+    <value>Stencil (back)</value>
+  </data>
+  <data name="ShaderPort_StencilDepthFail" xml:space="preserve">
+    <value>On depth failure</value>
+  </data>
+  <data name="ShaderPort_StencilFail" xml:space="preserve">
+    <value>On stencil failure</value>
+  </data>
+  <data name="ShaderPort_StencilFront" xml:space="preserve">
+    <value>Stencil (front)</value>
+  </data>
+  <data name="ShaderPort_StencilPass" xml:space="preserve">
+    <value>On pass</value>
+  </data>
+  <data name="ShaderPort_StepsPerSecond" xml:space="preserve">
+    <value>Steps per second</value>
+  </data>
+  <data name="ShaderPort_Stride" xml:space="preserve">
+    <value>Stride</value>
+  </data>
+  <data name="ShaderPort_Targets" xml:space="preserve">
+    <value>Render targets</value>
+  </data>
+  <data name="ShaderPort_TessellationControlCode" xml:space="preserve">
+    <value>Tessellation control shader</value>
+  </data>
+  <data name="ShaderPort_TessellationEvaluationCode" xml:space="preserve">
+    <value>Tessellation evaluation shader</value>
+  </data>
+  <data name="ShaderPort_Text" xml:space="preserve">
+    <value>Values</value>
+  </data>
+  <data name="ShaderPort_To" xml:space="preserve">
+    <value>To</value>
+  </data>
+  <data name="ShaderPort_Topology" xml:space="preserve">
+    <value>Topology</value>
+  </data>
+  <data name="ShaderPort_Transform" xml:space="preserve">
+    <value>Transform</value>
+  </data>
+  <data name="ShaderPort_UseCompare" xml:space="preserve">
+    <value>Compare with depth</value>
+  </data>
+  <data name="ShaderPort_Value" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="ShaderPort_Values" xml:space="preserve">
+    <value>Values</value>
+  </data>
+  <data name="ShaderPort_VertexCode" xml:space="preserve">
+    <value>Vertex shader</value>
+  </data>
+  <data name="ShaderPort_VertexCount" xml:space="preserve">
+    <value>Vertex count</value>
+  </data>
+  <data name="ShaderPort_VertexOffset" xml:space="preserve">
+    <value>Vertex offset</value>
+  </data>
+  <data name="ShaderPort_Vec2" xml:space="preserve">
+    <value>vec2</value>
+  </data>
+  <data name="ShaderPort_Vec3" xml:space="preserve">
+    <value>vec3</value>
+  </data>
+  <data name="ShaderPort_Vec4" xml:space="preserve">
+    <value>vec4</value>
+  </data>
+  <data name="ShaderPort_W" xml:space="preserve">
+    <value>W</value>
+  </data>
+  <data name="ShaderPort_WriteMask" xml:space="preserve">
+    <value>Write mask</value>
+  </data>
+  <data name="ShaderPort_X" xml:space="preserve">
+    <value>X</value>
+  </data>
+  <data name="ShaderPort_Y" xml:space="preserve">
+    <value>Y</value>
+  </data>
+  <data name="ShaderPort_Z" xml:space="preserve">
+    <value>Z</value>
+  </data>
+  <data name="ShaderError_Cycle" xml:space="preserve">
+    <value>The shader connections form a cycle.</value>
+  </data>
+  <data name="ShaderError_DataSize" xml:space="preserve">
+    <value>'{0}' needs {1} bytes, but {2} were supplied.</value>
+  </data>
+  <data name="ShaderError_EmptyCode" xml:space="preserve">
+    <value>The shader code is empty.</value>
+  </data>
+  <data name="ShaderError_ImageParametersNeedUniformBlock" xml:space="preserve">
+    <value>Image parameters can only fill a uniform block.</value>
+  </data>
+  <data name="ShaderError_InvalidReplayTime" xml:space="preserve">
+    <value>Steps per second must be positive and the times within range.</value>
+  </data>
+  <data name="ShaderError_NoDepthAttachment" xml:space="preserve">
+    <value>This pass has no depth image.</value>
+  </data>
+  <data name="ShaderError_NotConnected" xml:space="preserve">
+    <value>'{0}' must be connected.</value>
+  </data>
+  <data name="ShaderError_BufferTooLarge" xml:space="preserve">
+    <value>This buffer would take {0} bytes; the limit is {1}.</value>
+  </data>
+  <data name="ShaderError_TooManySteps" xml:space="preserve">
+    <value>This would run {0} iterations; the limit is {1}.</value>
+  </data>
+  <data name="ShaderError_ValueType" xml:space="preserve">
+    <value>'{0}' received a value of the wrong type.</value>
+  </data>
   <data name="ToolsAndValues" xml:space="preserve">
     <value>Tools &amp; values</value>
   </data>

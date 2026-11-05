@@ -32,6 +32,12 @@ public readonly struct Size(float width, float height)
       ISubtractionOperators<Size, Thickness, Size>,
       ITupleConvertible<Size, float>
 {
+    // Expressions calculate in double, as Time is one.
+    public Size(double width, double height)
+        : this((float)width, (float)height)
+    {
+    }
+
     public static readonly Size Infinity = new(float.PositiveInfinity, float.PositiveInfinity);
 
     /// <summary>

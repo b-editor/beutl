@@ -1,9 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Numerics;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Source;
+using SkiaSharp;
 
 namespace Beutl.Graphics3D.Textures;
 
@@ -20,8 +22,11 @@ public sealed partial class ImageTextureSource : TextureSource
 
     public partial class Resource
     {
+        private const int StraightColorSlot = 2;
+
         // One upload per content kind, so a source bound to a color and a data slot does not re-upload every draw.
-        private readonly CachedTexture[] _gpuTextures = new CachedTexture[2];
+        private readonly CachedTexture[] _gpuTextures = new CachedTexture[3];
+        private int? _versionWithoutStraightColors;
 
         // A decoded bitmap has a fixed pixel count, so surfaceDensity is ignored here —
         // unlike DrawableTextureSource, whose vector content re-rasterizes at the surface density.
@@ -32,13 +37,57 @@ public sealed partial class ImageTextureSource : TextureSource
 
         public override ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity, TextureContentKind contentKind)
         {
+            return GetCachedTexture(graphicsContext, (int)contentKind, bitmap => CreateUploadBitmap(bitmap, contentKind));
+        }
+
+        internal override ITexture2D? GetStraightColorTexture(IGraphicsContext graphicsContext)
+        {
+            if (_versionWithoutStraightColors == Version)
+                return null;
+
+            ITexture2D? texture = GetCachedTexture(graphicsContext, StraightColorSlot, bitmap =>
+            {
+                using Bitmap? decoded = Source?.DecodeUnpremultiplied();
+                // A file replaced since it was loaded can hold another size than the texture is made for.
+                return decoded?.Width == bitmap.Width && decoded.Height == bitmap.Height
+                    ? CreateStraightColorUploadBitmap(decoded)
+                    : null;
+            });
+            if (texture == null)
+                _versionWithoutStraightColors = Version;
+
+            return texture;
+        }
+
+        internal override bool TryGetAlpha(Vector2 texCoord, out float alpha)
+        {
+            if (Source?.Bitmap is not { } bitmap)
+                return base.TryGetAlpha(texCoord, out alpha);
+
+            // Filtered and clamped to the edge, as the materials sample their maps.
+            float x = texCoord.X * bitmap.Width - 0.5f;
+            float y = texCoord.Y * bitmap.Height - 0.5f;
+            int left = (int)MathF.Floor(x);
+            int top = (int)MathF.Floor(y);
+            alpha = float.Lerp(
+                float.Lerp(ReadAlpha(bitmap, left, top), ReadAlpha(bitmap, left + 1, top), x - left),
+                float.Lerp(ReadAlpha(bitmap, left, top + 1), ReadAlpha(bitmap, left + 1, top + 1), x - left),
+                y - top);
+            return true;
+        }
+
+        private static float ReadAlpha(Bitmap bitmap, int x, int y)
+            => bitmap.SKBitmap.GetPixel(Math.Clamp(x, 0, bitmap.Width - 1), Math.Clamp(y, 0, bitmap.Height - 1)).Alpha / 255f;
+
+        private ITexture2D? GetCachedTexture(IGraphicsContext graphicsContext, int slot, Func<Bitmap, Bitmap?> createUpload)
+        {
             if (Source?.Bitmap == null)
             {
                 DisposeGpuTextures();
                 return null;
             }
 
-            ref CachedTexture cached = ref _gpuTextures[(int)contentKind];
+            ref CachedTexture cached = ref _gpuTextures[slot];
 
             bool needsRecreate = cached.Texture == null ||
                                  !ReferenceEquals(cached.Context, graphicsContext) ||
@@ -51,7 +100,9 @@ public sealed partial class ImageTextureSource : TextureSource
                 cached.Texture?.Dispose();
                 cached.Texture = null;
 
-                using var uploadBitmap = CreateUploadBitmap(Source.Bitmap, contentKind);
+                using Bitmap? uploadBitmap = createUpload(Source.Bitmap);
+                if (uploadBitmap == null)
+                    return null;
 
                 var texture = graphicsContext.CreateTexture2D(
                     Source.FrameSize.Width,
@@ -115,6 +166,25 @@ public sealed partial class ImageTextureSource : TextureSource
             }
 
             return source.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        }
+
+        /// <summary>Converts unpremultiplied pixels to linear sRGB in half floats, keeping the colors under alpha 0.</summary>
+        internal static Bitmap CreateStraightColorUploadBitmap(Bitmap source)
+        {
+            // Not Bitmap.Convert: a draw goes through premultiplied colors.
+            var upload = new SKBitmap(new SKImageInfo(
+                source.Width, source.Height, SKColorType.RgbaF16, SKAlphaType.Unpremul, SKColorSpace.CreateSrgbLinear()));
+            using SKPixmap destination = upload.PeekPixels();
+            using SKPixmap pixels = source.SKBitmap.PeekPixels();
+            using var tagged = new SKPixmap(
+                pixels.Info.WithColorSpace(SKColorSpace.CreateSrgb()), pixels.GetPixels(), pixels.RowBytes);
+            if (!tagged.ReadPixels(destination))
+            {
+                upload.Dispose();
+                throw new InvalidOperationException("Failed to convert the image's colors for upload.");
+            }
+
+            return new Bitmap(upload);
         }
 
         private static bool HasAtMost8BitsPerChannel(BitmapColorType colorType)

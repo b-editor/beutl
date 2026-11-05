@@ -76,7 +76,7 @@ public static class TextBlockCaptionTemplateAdapter
             PreserveCaptionPlacementPolicy.Instance);
     }
 
-    private static void ApplyCue(TextBlock textBlock, CaptionCue cue)
+    internal static void ApplyCue(TextBlock textBlock, CaptionCue cue)
     {
         textBlock.Text.Expression = null;
         textBlock.Text.Value = CaptionTextUtilities.ToTextObjectText(cue.Text);

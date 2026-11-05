@@ -3,6 +3,7 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeGraph.Nodes.Generative;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.NodeGraph.Nodes.Shaders;
 
 namespace Beutl.NodeGraph.Nodes;
 
@@ -88,6 +89,8 @@ public static class NodesRegistrar
                 .Add<FilterEffectNode<GLSLScriptEffect>>(GraphicsStrings.GLSLScriptEffect)
                 .Register())
             .Register();
+
+        ShaderNodesRegistrar.RegisterAll();
 
         GraphNodeRegistry.RegisterNodes(GraphicsStrings.Brush, Colors.Orange)
             .Add<FactoryNode<SolidColorBrush>>(GraphicsStrings.SolidColorBrush)

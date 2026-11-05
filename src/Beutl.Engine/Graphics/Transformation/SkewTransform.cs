@@ -22,6 +22,7 @@ public sealed partial class SkewTransform : Transform
 
     [Display(Name = nameof(GraphicsStrings.SkewTransform_SkewX), ResourceType = typeof(GraphicsStrings))]
     [Unit(PropertyUnit.Degrees)]
+    [CombinedEditor(nameof(SkewY), Name = nameof(GraphicsStrings.SkewTransform), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> SkewX { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.SkewTransform_SkewY), ResourceType = typeof(GraphicsStrings))]

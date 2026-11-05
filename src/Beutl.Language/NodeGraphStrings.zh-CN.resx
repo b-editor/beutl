@@ -36,6 +36,480 @@
   <data name="Group" xml:space="preserve">
     <value>组</value>
   </data>
+  <data name="Shaders" xml:space="preserve">
+    <value>着色器</value>
+  </data>
+  <data name="ShaderCategory_Resources" xml:space="preserve">
+    <value>资源</value>
+  </data>
+  <data name="ShaderCategory_Operations" xml:space="preserve">
+    <value>操作</value>
+  </data>
+  <data name="ShaderCategory_Loops" xml:space="preserve">
+    <value>循环</value>
+  </data>
+  <data name="ShaderCategory_Inputs" xml:space="preserve">
+    <value>通道输入</value>
+  </data>
+  <data name="ShaderCategory_PassSettings" xml:space="preserve">
+    <value>通道设置</value>
+  </data>
+  <data name="ShaderFullscreenPassNode" xml:space="preserve">
+    <value>全屏通道 (GLSL)</value>
+  </data>
+  <data name="ShaderComputePassNode" xml:space="preserve">
+    <value>计算通道 (GLSL)</value>
+  </data>
+  <data name="ShaderRenderPassNode" xml:space="preserve">
+    <value>渲染通道 (GLSL)</value>
+  </data>
+  <data name="ShaderExtendedRenderPassNode" xml:space="preserve">
+    <value>带几何与曲面细分的渲染通道 (GLSL)</value>
+  </data>
+  <data name="ShaderImageNode" xml:space="preserve">
+    <value>图像</value>
+  </data>
+  <data name="ShaderFixedImageNode" xml:space="preserve">
+    <value>固定尺寸图像</value>
+  </data>
+  <data name="ShaderImageViewNode" xml:space="preserve">
+    <value>图像视图</value>
+  </data>
+  <data name="ShaderBufferNode" xml:space="preserve">
+    <value>缓冲区</value>
+  </data>
+  <data name="ShaderDataNode" xml:space="preserve">
+    <value>文本数据</value>
+  </data>
+  <data name="ShaderPackNode" xml:space="preserve">
+    <value>打包数值</value>
+  </data>
+  <data name="ShaderClearImageNode" xml:space="preserve">
+    <value>清除图像</value>
+  </data>
+  <data name="ShaderClearBufferNode" xml:space="preserve">
+    <value>清除缓冲区</value>
+  </data>
+  <data name="ShaderCopyImageNode" xml:space="preserve">
+    <value>复制图像</value>
+  </data>
+  <data name="ShaderCopyBufferNode" xml:space="preserve">
+    <value>复制缓冲区</value>
+  </data>
+  <data name="ShaderGenerateMipmapsNode" xml:space="preserve">
+    <value>生成多级纹理</value>
+  </data>
+  <data name="ShaderConvertColorNode" xml:space="preserve">
+    <value>转换颜色编码</value>
+  </data>
+  <data name="ShaderRepeatNode" xml:space="preserve">
+    <value>重复</value>
+  </data>
+  <data name="ShaderReplayNode" xml:space="preserve">
+    <value>重放模拟</value>
+  </data>
+  <data name="ShaderLoopInfoNode" xml:space="preserve">
+    <value>迭代信息</value>
+  </data>
+  <data name="ShaderSamplerNode" xml:space="preserve">
+    <value>采样</value>
+  </data>
+  <data name="ShaderInputRegionNode" xml:space="preserve">
+    <value>输入区域</value>
+  </data>
+  <data name="ShaderImageParametersNode" xml:space="preserve">
+    <value>图像参数</value>
+  </data>
+  <data name="ShaderVectorNode" xml:space="preserve">
+    <value>向量</value>
+  </data>
+  <data name="ShaderColorNode" xml:space="preserve">
+    <value>颜色转 vec4</value>
+  </data>
+  <data name="ShaderBlendNode" xml:space="preserve">
+    <value>混合</value>
+  </data>
+  <data name="ShaderDrawNode" xml:space="preserve">
+    <value>绘制</value>
+  </data>
+  <data name="ShaderDispatchNode" xml:space="preserve">
+    <value>调度</value>
+  </data>
+  <data name="ShaderRasterizerNode" xml:space="preserve">
+    <value>光栅化</value>
+  </data>
+  <data name="ShaderDepthNode" xml:space="preserve">
+    <value>深度与模板</value>
+  </data>
+  <data name="ShaderStencilNode" xml:space="preserve">
+    <value>模板面</value>
+  </data>
+  <data name="ShaderVertexBufferNode" xml:space="preserve">
+    <value>顶点缓冲区</value>
+  </data>
+  <data name="ShaderVertexAttributeNode" xml:space="preserve">
+    <value>顶点属性</value>
+  </data>
+  <data name="ShaderIndexBufferNode" xml:space="preserve">
+    <value>索引缓冲区</value>
+  </data>
+  <data name="ShaderLoadNode" xml:space="preserve">
+    <value>输出初始内容</value>
+  </data>
+  <data name="ShaderLoopInput" xml:space="preserve">
+    <value>循环输入</value>
+  </data>
+  <data name="ShaderLoopOutput" xml:space="preserve">
+    <value>循环输出</value>
+  </data>
+  <data name="ShaderPartialRenderingNode" xml:space="preserve">
+    <value>局部渲染</value>
+  </data>
+  <data name="ShaderDrawMode_Vertices" xml:space="preserve">
+    <value>顶点</value>
+  </data>
+  <data name="ShaderDrawMode_Indexed" xml:space="preserve">
+    <value>索引</value>
+  </data>
+  <data name="ShaderDrawMode_Indirect" xml:space="preserve">
+    <value>间接</value>
+  </data>
+  <data name="ShaderDrawMode_IndexedIndirect" xml:space="preserve">
+    <value>索引间接</value>
+  </data>
+  <data name="ShaderDispatchMode_Image" xml:space="preserve">
+    <value>图像的每个像素</value>
+  </data>
+  <data name="ShaderDispatchMode_Workgroups" xml:space="preserve">
+    <value>工作组</value>
+  </data>
+  <data name="ShaderDispatchMode_Invocations" xml:space="preserve">
+    <value>调用次数</value>
+  </data>
+  <data name="ShaderDispatchMode_Indirect" xml:space="preserve">
+    <value>间接</value>
+  </data>
+  <data name="ShaderDataType_HexBytes" xml:space="preserve">
+    <value>十六进制字节</value>
+  </data>
+  <data name="ShaderPort_AddressU" xml:space="preserve">
+    <value>寻址 U</value>
+  </data>
+  <data name="ShaderPort_AddressV" xml:space="preserve">
+    <value>寻址 V</value>
+  </data>
+  <data name="ShaderPort_AddressW" xml:space="preserve">
+    <value>寻址 W</value>
+  </data>
+  <data name="ShaderPort_AlphaOperation" xml:space="preserve">
+    <value>Alpha 运算</value>
+  </data>
+  <data name="ShaderPort_ArrayLayers" xml:space="preserve">
+    <value>数组层数</value>
+  </data>
+  <data name="ShaderPort_Attributes" xml:space="preserve">
+    <value>属性</value>
+  </data>
+  <data name="ShaderPort_BaseLayer" xml:space="preserve">
+    <value>起始层</value>
+  </data>
+  <data name="ShaderPort_BaseMip" xml:space="preserve">
+    <value>起始 Mip 级别</value>
+  </data>
+  <data name="ShaderPort_Binding" xml:space="preserve">
+    <value>绑定</value>
+  </data>
+  <data name="ShaderPort_Bounds" xml:space="preserve">
+    <value>范围</value>
+  </data>
+  <data name="ShaderPort_Buffer" xml:space="preserve">
+    <value>缓冲区</value>
+  </data>
+  <data name="ShaderPort_ClearDepth" xml:space="preserve">
+    <value>清除深度</value>
+  </data>
+  <data name="ShaderPort_ClearStencil" xml:space="preserve">
+    <value>清除模板</value>
+  </data>
+  <data name="ShaderPort_Code" xml:space="preserve">
+    <value>代码</value>
+  </data>
+  <data name="ShaderPort_Color" xml:space="preserve">
+    <value>颜色</value>
+  </data>
+  <data name="ShaderPort_ColorOperation" xml:space="preserve">
+    <value>颜色运算</value>
+  </data>
+  <data name="ShaderPort_Commands" xml:space="preserve">
+    <value>命令</value>
+  </data>
+  <data name="ShaderPort_Compare" xml:space="preserve">
+    <value>比较</value>
+  </data>
+  <data name="ShaderPort_CompareMask" xml:space="preserve">
+    <value>比较掩码</value>
+  </data>
+  <data name="ShaderPort_Count" xml:space="preserve">
+    <value>次数</value>
+  </data>
+  <data name="ShaderPort_Cull" xml:space="preserve">
+    <value>剔除</value>
+  </data>
+  <data name="ShaderPort_Data" xml:space="preserve">
+    <value>数据</value>
+  </data>
+  <data name="ShaderPort_DataType" xml:space="preserve">
+    <value>数据类型</value>
+  </data>
+  <data name="ShaderPort_Delta" xml:space="preserve">
+    <value>时间步长</value>
+  </data>
+  <data name="ShaderPort_DepthOutput" xml:space="preserve">
+    <value>深度</value>
+  </data>
+  <data name="ShaderPort_DepthTest" xml:space="preserve">
+    <value>深度测试</value>
+  </data>
+  <data name="ShaderPort_DepthWrite" xml:space="preserve">
+    <value>深度写入</value>
+  </data>
+  <data name="ShaderPort_Destination" xml:space="preserve">
+    <value>目标</value>
+  </data>
+  <data name="ShaderPort_DestinationAlpha" xml:space="preserve">
+    <value>目标 Alpha</value>
+  </data>
+  <data name="ShaderPort_DestinationColor" xml:space="preserve">
+    <value>目标颜色</value>
+  </data>
+  <data name="ShaderPort_DrawCount" xml:space="preserve">
+    <value>绘制次数</value>
+  </data>
+  <data name="ShaderPort_ElementCount" xml:space="preserve">
+    <value>元素数</value>
+  </data>
+  <data name="ShaderPort_Filter" xml:space="preserve">
+    <value>过滤</value>
+  </data>
+  <data name="ShaderPort_FirstIndex" xml:space="preserve">
+    <value>起始索引</value>
+  </data>
+  <data name="ShaderPort_FirstInstance" xml:space="preserve">
+    <value>起始实例</value>
+  </data>
+  <data name="ShaderPort_FirstVertex" xml:space="preserve">
+    <value>起始顶点</value>
+  </data>
+  <data name="ShaderPort_Format" xml:space="preserve">
+    <value>格式</value>
+  </data>
+  <data name="ShaderPort_FragmentCode" xml:space="preserve">
+    <value>片段着色器</value>
+  </data>
+  <data name="ShaderPort_From" xml:space="preserve">
+    <value>源</value>
+  </data>
+  <data name="ShaderPort_Front" xml:space="preserve">
+    <value>正面</value>
+  </data>
+  <data name="ShaderPort_GeometryCode" xml:space="preserve">
+    <value>几何着色器</value>
+  </data>
+  <data name="ShaderPort_Image" xml:space="preserve">
+    <value>图像</value>
+  </data>
+  <data name="ShaderPort_Index" xml:space="preserve">
+    <value>迭代序号</value>
+  </data>
+  <data name="ShaderPort_IndexCount" xml:space="preserve">
+    <value>索引数</value>
+  </data>
+  <data name="ShaderPort_InstanceCount" xml:space="preserve">
+    <value>实例数</value>
+  </data>
+  <data name="ShaderPort_Kind" xml:space="preserve">
+    <value>类型</value>
+  </data>
+  <data name="ShaderPort_Like" xml:space="preserve">
+    <value>尺寸参照</value>
+  </data>
+  <data name="ShaderPort_Load" xml:space="preserve">
+    <value>初始内容</value>
+  </data>
+  <data name="ShaderPort_Location" xml:space="preserve">
+    <value>位置</value>
+  </data>
+  <data name="ShaderPort_MagFilter" xml:space="preserve">
+    <value>放大过滤</value>
+  </data>
+  <data name="ShaderPort_MaxLod" xml:space="preserve">
+    <value>最大 LOD</value>
+  </data>
+  <data name="ShaderPort_MinFilter" xml:space="preserve">
+    <value>缩小过滤</value>
+  </data>
+  <data name="ShaderPort_MinLod" xml:space="preserve">
+    <value>最小 LOD</value>
+  </data>
+  <data name="ShaderPort_MipLevels" xml:space="preserve">
+    <value>Mip 级别数</value>
+  </data>
+  <data name="ShaderPort_MipmapFilter" xml:space="preserve">
+    <value>Mipmap 过滤</value>
+  </data>
+  <data name="ShaderPort_Mode" xml:space="preserve">
+    <value>模式</value>
+  </data>
+  <data name="ShaderPort_Offset" xml:space="preserve">
+    <value>偏移</value>
+  </data>
+  <data name="ShaderPort_Padding" xml:space="preserve">
+    <value>边距</value>
+  </data>
+  <data name="ShaderPort_PatchControlPoints" xml:space="preserve">
+    <value>面片控制点数</value>
+  </data>
+  <data name="ShaderPort_Rate" xml:space="preserve">
+    <value>输入频率</value>
+  </data>
+  <data name="ShaderPort_Reference" xml:space="preserve">
+    <value>参考值</value>
+  </data>
+  <data name="ShaderPort_ResetTime" xml:space="preserve">
+    <value>起始时间(秒)</value>
+  </data>
+  <data name="ShaderPort_ResolutionScale" xml:space="preserve">
+    <value>分辨率比例</value>
+  </data>
+  <data name="ShaderPort_Settings" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="ShaderPort_Source" xml:space="preserve">
+    <value>源</value>
+  </data>
+  <data name="ShaderPort_SourceAlpha" xml:space="preserve">
+    <value>源 Alpha</value>
+  </data>
+  <data name="ShaderPort_SourceColor" xml:space="preserve">
+    <value>源颜色</value>
+  </data>
+  <data name="ShaderPort_Stencil" xml:space="preserve">
+    <value>模板</value>
+  </data>
+  <data name="ShaderPort_StencilBack" xml:space="preserve">
+    <value>模板(背面)</value>
+  </data>
+  <data name="ShaderPort_StencilDepthFail" xml:space="preserve">
+    <value>深度失败时</value>
+  </data>
+  <data name="ShaderPort_StencilFail" xml:space="preserve">
+    <value>模板失败时</value>
+  </data>
+  <data name="ShaderPort_StencilFront" xml:space="preserve">
+    <value>模板(正面)</value>
+  </data>
+  <data name="ShaderPort_StencilPass" xml:space="preserve">
+    <value>通过时</value>
+  </data>
+  <data name="ShaderPort_StepsPerSecond" xml:space="preserve">
+    <value>每秒更新次数</value>
+  </data>
+  <data name="ShaderPort_Stride" xml:space="preserve">
+    <value>步幅</value>
+  </data>
+  <data name="ShaderPort_Targets" xml:space="preserve">
+    <value>渲染目标</value>
+  </data>
+  <data name="ShaderPort_TessellationControlCode" xml:space="preserve">
+    <value>曲面细分控制着色器</value>
+  </data>
+  <data name="ShaderPort_TessellationEvaluationCode" xml:space="preserve">
+    <value>曲面细分评估着色器</value>
+  </data>
+  <data name="ShaderPort_Text" xml:space="preserve">
+    <value>数值</value>
+  </data>
+  <data name="ShaderPort_To" xml:space="preserve">
+    <value>目标</value>
+  </data>
+  <data name="ShaderPort_Topology" xml:space="preserve">
+    <value>拓扑</value>
+  </data>
+  <data name="ShaderPort_Transform" xml:space="preserve">
+    <value>变换</value>
+  </data>
+  <data name="ShaderPort_UseCompare" xml:space="preserve">
+    <value>与深度比较</value>
+  </data>
+  <data name="ShaderPort_Value" xml:space="preserve">
+    <value>值</value>
+  </data>
+  <data name="ShaderPort_Values" xml:space="preserve">
+    <value>数值</value>
+  </data>
+  <data name="ShaderPort_VertexCode" xml:space="preserve">
+    <value>顶点着色器</value>
+  </data>
+  <data name="ShaderPort_VertexCount" xml:space="preserve">
+    <value>顶点数</value>
+  </data>
+  <data name="ShaderPort_VertexOffset" xml:space="preserve">
+    <value>顶点偏移</value>
+  </data>
+  <data name="ShaderPort_Vec2" xml:space="preserve">
+    <value>vec2</value>
+  </data>
+  <data name="ShaderPort_Vec3" xml:space="preserve">
+    <value>vec3</value>
+  </data>
+  <data name="ShaderPort_Vec4" xml:space="preserve">
+    <value>vec4</value>
+  </data>
+  <data name="ShaderPort_W" xml:space="preserve">
+    <value>W</value>
+  </data>
+  <data name="ShaderPort_WriteMask" xml:space="preserve">
+    <value>写入掩码</value>
+  </data>
+  <data name="ShaderPort_X" xml:space="preserve">
+    <value>X</value>
+  </data>
+  <data name="ShaderPort_Y" xml:space="preserve">
+    <value>Y</value>
+  </data>
+  <data name="ShaderPort_Z" xml:space="preserve">
+    <value>Z</value>
+  </data>
+  <data name="ShaderError_Cycle" xml:space="preserve">
+    <value>着色器连接形成了循环。</value>
+  </data>
+  <data name="ShaderError_DataSize" xml:space="preserve">
+    <value>“{0}”需要 {1} 字节,但提供了 {2} 字节。</value>
+  </data>
+  <data name="ShaderError_EmptyCode" xml:space="preserve">
+    <value>着色器代码为空。</value>
+  </data>
+  <data name="ShaderError_ImageParametersNeedUniformBlock" xml:space="preserve">
+    <value>图像参数只能填充 uniform 块。</value>
+  </data>
+  <data name="ShaderError_InvalidReplayTime" xml:space="preserve">
+    <value>每秒更新次数必须为正数,时间必须在范围内。</value>
+  </data>
+  <data name="ShaderError_NoDepthAttachment" xml:space="preserve">
+    <value>此通道没有深度图像。</value>
+  </data>
+  <data name="ShaderError_NotConnected" xml:space="preserve">
+    <value>必须连接“{0}”。</value>
+  </data>
+  <data name="ShaderError_BufferTooLarge" xml:space="preserve">
+    <value>此缓冲区将占用 {0} 字节;上限为 {1} 字节。</value>
+  </data>
+  <data name="ShaderError_TooManySteps" xml:space="preserve">
+    <value>这将运行 {0} 次迭代;上限为 {1} 次。</value>
+  </data>
+  <data name="ShaderError_ValueType" xml:space="preserve">
+    <value>“{0}”收到了类型错误的值。</value>
+  </data>
   <data name="ToolsAndValues" xml:space="preserve">
     <value>工具与数值</value>
   </data>

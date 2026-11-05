@@ -51,25 +51,41 @@ internal static class AiCaptionSceneImporter
         {
             cancellationToken.ThrowIfCancellationRequested();
             IReadOnlyList<ElementDescription> elements = template.CreateElements(cue, context);
+            (int Layer, MediaTime Start, MediaTime End)[] extents = [.. elements.SelectMany(GetExtents)];
             int shift = 0;
-            while (elements.Any(element => layerEnds.TryGetValue(element.Layer + shift, out MediaTime end) && element.Start < end))
+            while (extents.Any(extent => layerEnds.TryGetValue(extent.Layer + shift, out MediaTime end) && extent.Start < end))
                 shift++;
 
             if (shift > 0)
             {
                 elements = template.CreateElements(cue, new CaptionElementContext(
                     firstLayer + shift, context.ElementName, context.DefaultPosition, context.MinimumLength));
+                extents = [.. elements.SelectMany(GetExtents)];
             }
 
-            foreach (ElementDescription element in elements)
+            foreach ((int layer, _, MediaTime end) in extents)
             {
-                MediaTime end = element.Start + (element.Length ?? MediaTime.Zero);
-                if (!layerEnds.TryGetValue(element.Layer, out MediaTime previous) || previous < end)
-                    layerEnds[element.Layer] = end;
-                descriptions.Add(element with { StacksAboveScene = true });
+                if (!layerEnds.TryGetValue(layer, out MediaTime previous) || previous < end)
+                    layerEnds[layer] = end;
             }
+
+            descriptions.AddRange(elements.Select(element => element with { StacksAboveScene = true }));
         }
 
         return descriptions;
+    }
+
+    // Where a request lands: one layer, or for several elements kept together, the layers they span from its layer up.
+    // Those are placed by their whole time range, and another set goes above them all rather than between them.
+    internal static IEnumerable<(int Layer, MediaTime Start, MediaTime End)> GetExtents(ElementDescription description)
+    {
+        if (description.Source is not ElementSource.ElementSetTemplate source)
+            return [(description.Layer, description.Start, description.Start + (description.Length ?? MediaTime.Zero))];
+
+        IList<Element> elements = source.Factory().Elements;
+        MediaTime length = elements.Max(element => element.Range.End) - elements.Min(element => element.Start.Value);
+        int span = elements.Max(element => element.ZIndex.Value) - elements.Min(element => element.ZIndex.Value) + 1;
+        return Enumerable.Range(description.Layer, span)
+            .Select(layer => (layer, description.Start, description.Start + length));
     }
 }

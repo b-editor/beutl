@@ -18,9 +18,9 @@ internal sealed partial class PathEditorInteraction
         if (Ancestor<TextBox>(e.Source) != null || Ancestor<Button>(e.Source) != null) return;
         if (e.Key == Key.Space)
         {
-            _space = true;
+            // PathPointDragBehavior runs a thumb's drag, and SkipUpdatePosition is what shows it.
+            _space.Press(e, _pointer == null && !_view.SkipUpdatePosition);
             UpdateCursor();
-            e.Handled = true;
             return;
         }
         var command = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
@@ -165,7 +165,7 @@ internal sealed partial class PathEditorInteraction
 
     private void KeyUp(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Space) { _space = false; UpdateCursor(); }
+        if (e.Key == Key.Space) { _space.Release(e); UpdateCursor(); }
         if (e.Key is Key.Left or Key.Up or Key.Right or Key.Down) CommitNudge();
     }
 
@@ -177,7 +177,7 @@ internal sealed partial class PathEditorInteraction
 
     private void LostFocus(object? sender, RoutedEventArgs e)
     {
-        _space = false;
+        _space.Reset();
         UpdateCursor();
         CommitNudge();
         CommitSelectionPosition();

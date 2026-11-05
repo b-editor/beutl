@@ -18,6 +18,12 @@ public class TypeFormatTests
     [TestCase(typeof(Tuple<int, string, double>))]
     public void RoundTrip_MultipleGenericArguments(Type type) => AssertRoundTrip(type);
 
+    [TestCase(typeof(byte[]))]
+    [TestCase(typeof(List<byte[]>))]
+    [TestCase(typeof(List<int>[]))]
+    [TestCase(typeof(byte[][]))]
+    public void RoundTrip_ArrayPorts(Type type) => AssertRoundTrip(type);
+
     [Test]
     public void RoundTrip_BeutlOptional()
     {
@@ -46,6 +52,13 @@ public class TypeFormatTests
         Assert.That(formatted, Does.StartWith("["));
         Assert.That(formatted, Does.Contain("]"));
         Assert.That(formatted, Does.Contain(":Int32"));
+    }
+
+    [TestCase("[System.Private.CoreLib]System:Void[]")]
+    [TestCase("[System.Private.CoreLib]System:Span<[System.Private.CoreLib]System:Int32>[]")]
+    public void ToType_AnArrayNoTypeCanHave_ReturnsNull(string name)
+    {
+        Assert.That(TypeFormat.ToType(name), Is.Null);
     }
 
     [Test]

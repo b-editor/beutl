@@ -27,8 +27,16 @@ internal sealed partial class RenderRequestExecutor
                 fragment.Inputs[0].EffectiveScale.IsUnbounded ? scale : null);
             Rect referenceBounds = inputs.Aggregate(Rect.Empty, (bounds, input) => bounds.Union(input.CompleteBounds));
             var results = new List<MaterializedRenderValue>();
+            var externals = new IReadOnlyList<MaterializedRenderValue>[fragment.Inputs.Length - 1];
+            var externalValues = new List<MaterializedRenderValue>();
             try
             {
+                for (int index = 0; index < externals.Length; index++)
+                {
+                    RenderFragmentReference external = fragment.Inputs[index + 1];
+                    externals[index] = Materialize(external, currentTarget, external.EffectiveScale.IsUnbounded ? scale : null);
+                }
+
                 foreach (MaterializedRenderValue input in inputs)
                 {
                     Rect bounds = graph.TransformBounds(input.CompleteBounds, referenceBounds);
@@ -54,10 +62,32 @@ internal sealed partial class RenderRequestExecutor
                         ITexture2D destination = output.Target.Texture
                             ?? throw new NotSupportedException("Shader graph output requires a backend texture.");
                         sourceValue.Target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
-                        ShaderGraphExecutionStatistics execution = ShaderGraphExecutor.Execute(graph, source,
-                            new(sourceValue.CompleteBounds, sourceValue.RasterBounds, sourceValue.DeviceBounds.Size, sourceValue.EffectiveScale.Value, referenceBounds),
-                            destination, density, _activeDeviceGridOffset, AcquireShaderGraphProgram, required,
-                            _programCaches.ShaderGraphImages);
+                        var externalImages = new (ITexture2D Texture, ShaderImageFrame Frame)[externals.Length];
+                        for (int index = 0; index < externals.Length; index++)
+                        {
+                            MaterializedRenderValue aligned = AlignExternalImage(externals[index], sourceValue);
+                            externalValues.Add(aligned);
+                            aligned.Target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+                            externalImages[index] = (aligned.Target.Texture
+                                ?? throw new NotSupportedException("Shader graphs require backend textures; CPU rendering is not a compatible fallback."),
+                                new(aligned.CompleteBounds, aligned.RasterBounds, aligned.DeviceBounds.Size, aligned.EffectiveScale.Value, referenceBounds));
+                        }
+
+                        ShaderGraphExecutionStatistics execution;
+                        try
+                        {
+                            execution = ShaderGraphExecutor.Execute(graph, source,
+                                new(sourceValue.CompleteBounds, sourceValue.RasterBounds, sourceValue.DeviceBounds.Size, sourceValue.EffectiveScale.Value, referenceBounds),
+                                destination, density, _activeDeviceGridOffset, AcquireShaderGraphProgram, required,
+                                _programCaches.ShaderGraphImages, externalImages);
+                            graph.ExecutionObserver?.Invoke(null);
+                        }
+                        catch (Exception ex) when (graph.ExecutionObserver is { } observer)
+                        {
+                            observer(ex);
+                            continue;
+                        }
+
                         _programCacheHits += execution.ProgramCacheHits;
                         _shaderRunExecutions++;
                         _spirvShaderRunExecutions++;
@@ -73,6 +103,9 @@ internal sealed partial class RenderRequestExecutor
                     }
                     finally
                     {
+                        foreach (MaterializedRenderValue aligned in externalValues)
+                            ReleaseUnpublished(aligned);
+                        externalValues.Clear();
                         if (!ReferenceEquals(sourceValue, input))
                             ReleaseUnpublished(sourceValue);
                         if (!keep && output is not null)
@@ -89,7 +122,37 @@ internal sealed partial class RenderRequestExecutor
             }
             finally
             {
-                CompleteFragmentUse(fragment.Inputs[0]);
+                foreach (RenderFragmentReference input in fragment.Inputs)
+                    CompleteFragmentUse(input);
+            }
+        }
+
+        // A graph reads every picture through the same coordinates, so each one is laid out the way the source is.
+        private MaterializedRenderValue AlignExternalImage(IReadOnlyList<MaterializedRenderValue> values, MaterializedRenderValue source)
+        {
+            MaterializedRenderValue aligned = CreateOwnedValue(source.CompleteBounds, source.EffectiveScale, source.CompleteBounds,
+                source.DeviceBounds, source.DeviceGridOffset, physicalDeviceBoundsAreAligned: true, allowPreviewDrop: true);
+            bool succeeded = false;
+            try
+            {
+                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
+                    aligned.DeviceBounds, aligned.DeviceGridOffset, aligned.EffectiveScale.Value);
+                using var canvas = CreateExecutorCanvas(aligned.Target, aligned.EffectiveScale.Value, _options.MaxWorkingScale,
+                    aligned.RasterBounds.Size, _options.Intent, aligned.DeviceBounds.Position);
+                using (canvas.PushTransform(Matrix.CreateTranslation(rasterTranslation.X, rasterTranslation.Y)))
+                {
+                    canvas.ClipRect(source.CompleteBounds);
+                    foreach (MaterializedRenderValue value in values)
+                        canvas.DrawRenderTargetScaledWithoutFlush(value.Target, value.RasterBounds);
+                }
+
+                succeeded = true;
+                return aligned;
+            }
+            finally
+            {
+                if (!succeeded)
+                    ReleaseUnpublished(aligned);
             }
         }
     }

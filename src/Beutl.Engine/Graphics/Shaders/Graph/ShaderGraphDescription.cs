@@ -24,6 +24,12 @@ public sealed class ShaderGraphDescription
         ImageUsages = new ImageUsageFlags[resources.Length];
         var initialized = resources.OfType<ShaderBuffer>().Where(b => !b.InitialData.IsEmpty).Select(b => b.Id).ToHashSet();
         var images = new HashSet<(int Image, int Mip, int Layer, int Aspect)> { (0, 0, 0, 0) };
+        foreach (ShaderImage external in resources.OfType<ShaderImage>().Where(image => image.ExternalIndex >= 0))
+        {
+            images.Add((external.Id, 0, 0, 0));
+            ExternalImageCount++;
+        }
+
         for (int index = 0; index < passes.Length; index++)
         {
             ShaderPassDescription pass = passes[index];
@@ -41,6 +47,8 @@ public sealed class ShaderGraphDescription
             foreach (ShaderRuntimeConstant constant in pass.RuntimeConstants)
                 if (constant.Image is { } constantImage)
                     Touch(constantImage, index);
+            if (pass.WorkImage is { } workImage)
+                Touch(workImage, index);
             foreach (ShaderPassBinding binding in pass.Bindings)
             {
                 if (!binding.Metadata && (binding.Access & ResourceAccess.Read) != 0)
@@ -109,6 +117,9 @@ public sealed class ShaderGraphDescription
             {
                 LastUses[image.Root.Id] = index;
                 ImageUsages[image.Root.Id] |= usage;
+                // The frame it shares has to be resolved, even from an image nothing else uses.
+                if (image.RasterSource is { } raster && LastUses[raster.Id] < 0)
+                    LastUses[raster.Id] = index;
                 // Metadata needs a coordinate frame, but does not allocate image storage.
                 if (usage == 0) return;
                 _firstUses[image.Root.Id] = Math.Min(_firstUses[image.Root.Id], index);
@@ -137,6 +148,15 @@ public sealed class ShaderGraphDescription
     public ImmutableArray<ShaderResource> Resources { get; }
     public ShaderGraphOutput Output { get; }
     public ImmutableArray<string> PassNames => Passes.Select(p => p.Name).ToImmutableArray();
+
+    /// <summary>How many pictures a render has to supply besides the source.</summary>
+    internal int ExternalImageCount { get; }
+
+    /// <summary>Told how each execution went, with the failure if there was one. With an observer, a graph that
+    /// fails contributes nothing to the frame instead of failing all of it.</summary>
+    /// <remarks>What recorded the graph sets this before it renders. It takes no part in the graph's identity.</remarks>
+    internal Action<Exception?>? ExecutionObserver { get; set; }
+
     internal ImmutableArray<ShaderPassDescription> Passes { get; }
     internal int[] LastUses { get; }
     internal ImageUsageFlags[] ImageUsages { get; }
@@ -166,11 +186,17 @@ public sealed class ShaderGraphDescription
     internal float ClampWorkingScale(Rect sourceBounds, float scale, Vector gridOffset, Rect? referenceBounds = null,
         PixelSize? sourceSize = null, ImageUsageFlags sourceUsage = VulkanTexture2D.ColorTextureUsage)
     {
-        // The executor copies an incompatible source before the first pass and keeps it until
-        // execution ends. Its native extent does not shrink with the graph's working density.
+        // The executor copies an incompatible input before the first pass and keeps it until execution
+        // ends. Its native extent does not shrink with the graph's working density, and any other
+        // picture is laid out the way the source is.
         PixelSize inputSize = sourceSize ?? PixelRect.FromRect(sourceBounds.Translate(gridOffset), scale).Size;
-        long sourceBytes = (ImageUsages[0] & ~sourceUsage) != 0
-            ? ShaderGraphExecutor.EstimateImageBytes(((ShaderImage)Resources[0]).DescriptionFor(inputSize)) : 0;
+        long sourceBytes = 0;
+        foreach (ShaderImage input in Resources.OfType<ShaderImage>())
+        {
+            if (input.IsInput && (ImageUsages[input.Id] & ~sourceUsage) != 0)
+                sourceBytes = checked(sourceBytes + ShaderGraphExecutor.EstimateImageBytes(input.DescriptionFor(inputSize)));
+        }
+
         foreach (ShaderImage image in Resources.OfType<ShaderImage>())
         {
             if (_firstUses[image.Id] == int.MaxValue || image.Description.HasValue)
@@ -184,7 +210,7 @@ public sealed class ShaderGraphDescription
         var rasters = new (ShaderImage Image, Rect Bounds)[Resources.Length];
         foreach (ShaderImage image in Resources.OfType<ShaderImage>())
         {
-            if (image.Id == 0 || _firstUses[image.Id] == int.MaxValue || image.IsView) continue;
+            if (image.IsInput || _firstUses[image.Id] == int.MaxValue || image.IsView) continue;
             ShaderImage raster = image.RasterRoot;
             rasters[image.Id] = (raster, raster.ResolveBounds(sourceBounds, referenceBounds).Translate(gridOffset));
         }
@@ -207,12 +233,12 @@ public sealed class ShaderGraphDescription
             var changes = new long[Passes.Length + 2];
             foreach (ShaderResource resource in Resources)
             {
-                if (resource.Id == 0 || _firstUses[resource.Id] == int.MaxValue || resource is ShaderImage { IsView: true }) continue;
+                if (resource is ShaderImage { IsInput: true } || _firstUses[resource.Id] == int.MaxValue || resource is ShaderImage { IsView: true }) continue;
                 long bytes;
                 if (resource is ShaderImage image)
                 {
                     (ShaderImage raster, Rect bounds) = rasters[image.Id];
-                    PixelSize size = raster.Id == 0 ? inputSize
+                    PixelSize size = raster.IsInput ? inputSize
                         : PixelRect.FromRect(bounds, density * raster.ResolutionScale).Size;
                     bytes = ShaderGraphExecutor.EstimateImageBytes(
                         image.DescriptionFor(new(Math.Max(1, size.Width), Math.Max(1, size.Height))));
@@ -243,6 +269,7 @@ public sealed class ShaderGraphDescription
             {
                 writer.Write((int)image.Format);
                 writer.Write((int)image.Kind);
+                writer.Write(image.ExternalIndex);
                 writer.Write(image.Root.Id);
                 writer.Write(image.BaseMipLevel);
                 writer.Write(image.BaseArrayLayer);
@@ -349,6 +376,7 @@ public sealed class ShaderGraphDescription
                 writer.Write(depth.ClearDepth);
                 writer.Write(depth.ClearStencil);
             }
+            writer.Write(pass.WorkImage?.Id ?? -1);
             writer.Write(pass.Draw.Indirect?.Buffer.Id ?? -1);
             if (includeValues && pass.Draw.Indirect is { } indirect)
             {
