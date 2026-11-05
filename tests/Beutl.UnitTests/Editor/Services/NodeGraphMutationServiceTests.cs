@@ -248,6 +248,37 @@ public class NodeGraphMutationServiceTests
     }
 
     [Test]
+    public void CanConnect_WithAnUndecidedPort_AnswersWhatTryConnectDoes()
+    {
+        var input = new GroupInput();
+        var output = new GroupOutput();
+        var first = new SwitchNode();
+        var occupied = new SwitchNode();
+        _graph.Nodes.AddRange([input, output, first, occupied]);
+        _graph.Connect(occupied.True, first.Output);
+        _history.Commit("Seed");
+        int beforeUndo = _history.UndoCount;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_service.CanConnect(_graph, input, null, first, first.True), Is.True, "A new output for an input");
+            Assert.That(_service.CanConnect(_graph, first, first.True, input, null), Is.True, "Either way round");
+            Assert.That(_service.CanConnect(_graph, output, null, first, first.Output), Is.True, "A new input for an output");
+            Assert.That(_service.CanConnect(_graph, input, null, first, first.Output), Is.False, "A new output for an output");
+            Assert.That(_service.CanConnect(_graph, output, null, first, first.True), Is.False, "A new input for an input");
+            Assert.That(_service.CanConnect(_graph, input, null, occupied, occupied.True), Is.False, "An occupied input");
+            Assert.That(_service.CanConnect(_graph, input, null, output, null), Is.False, "Two undecided ports");
+            Assert.That(_service.CanConnect(_graph, first, null, occupied, occupied.False), Is.False, "A node that adds no port");
+            Assert.That(_service.CanConnect(_graph, first, first.Output, occupied, occupied.False), Is.True, "Two existing ports");
+            Assert.That(_service.CanConnect(_graph, occupied, occupied.Output, first, first.True), Is.False, "A cycle");
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo), "Asking changes nothing.");
+            Assert.That(input.Items, Is.Empty);
+            Assert.That(output.Items, Is.Empty);
+            Assert.That(_service.TryConnect(_graph, input, null, first, first.True), Is.EqualTo(NodeConnectOutcome.PortAdded));
+        });
+    }
+
+    [Test]
     public void TryConnect_BranchesThatMeetAgain_AreNotACycle()
     {
         var source = new SwitchNode();

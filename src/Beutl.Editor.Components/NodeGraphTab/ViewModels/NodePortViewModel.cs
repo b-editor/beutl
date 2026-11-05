@@ -152,9 +152,12 @@ public class NodePortViewModel : NodeMemberViewModel
     }
 
     internal bool CanConnectTo(NodePortViewModel target)
-        => Model is { } source && target.Model is { } destination
-            && _editorContext.GetRequiredService<INodeGraphMutationService>()
-                .CanConnect(GraphNodeViewModel.NodeGraphViewModel.NodeGraph, source, destination);
+        => _editorContext.GetRequiredService<INodeGraphMutationService>()
+            .CanConnect(GraphNodeViewModel.NodeGraphViewModel.NodeGraph, GraphNode, Model, target.GraphNode, target.Model);
+
+    // As RewireListSlot decides: the target already feeding the slot leaves it as it is.
+    internal bool CanRewireListSlot(ConnectionViewModel connVM, NodePortViewModel target)
+        => !ReferenceEquals(connVM.Connection.Output.Value.Value, target.Model) && CanConnectTo(target);
 
     public bool TryConnect(NodePortViewModel target)
     {

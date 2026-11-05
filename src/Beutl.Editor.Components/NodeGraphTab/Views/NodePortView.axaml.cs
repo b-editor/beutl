@@ -118,6 +118,19 @@ public partial class NodePortView : UserControl
         }
     }
 
+    // The point a wire dropped on this row lands on, after a list port's slots: none when the row shows no point
+    // or its point is disabled.
+    internal NodePortPoint? DropTarget
+        => (portPt ?? _listNodePortPanel?.Children[^1] as NodePortPoint) is { IsEffectivelyEnabled: true } point ? point : null;
+
+    // An expanded editor's content holds other rows, so a wire drops only on its header.
+    internal double DropHeight
+        => _editor != null
+           && NameScope.GetNameScope(_editor)?.Find<Control>("expandToggle") is { IsEffectivelyVisible: true } header
+           && header.TranslatePoint(new Point(0, header.Bounds.Height + header.Margin.Bottom), this) is { } bottom
+            ? bottom.Y
+            : Bounds.Height;
+
     internal Point? GetPortPosition()
     {
         if (_nodeView == null) return null;

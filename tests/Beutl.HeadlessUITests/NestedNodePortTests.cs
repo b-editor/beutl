@@ -753,6 +753,221 @@ public class NestedNodePortTests
     }
 
     [AvaloniaTest]
+    public async Task DroppingOnARowPicksItsPortAtAnyIndentButNotAnExpandedEditorsContent()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
+        var graph = new GraphModel();
+        var node = new GeometryShapeNode { Position = { Value = (240, 40) } };
+        var pen = new Pen();
+        var brush = new SolidColorBrush();
+        pen.Brush.Value = brush;
+        node.Pen.Property!.SetValue(pen);
+        graph.Nodes.Add(node);
+        var source = new LayerInputNode { Position = { Value = (10, 0) } };
+        var output = new LayerInputNode.LayerInputPort<float>();
+        output.SetupProperty("Output");
+        var otherOutput = new LayerInputNode.LayerInputPort<float>();
+        otherOutput.SetupProperty("Other output");
+        source.Items.Add(output);
+        source.Items.Add(otherOutput);
+        graph.Nodes.Add(source);
+        using var vm = new NodeGraphViewModel(graph, editor);
+        var view = new NodeGraphView { DataContext = vm };
+        var window = new Window { Content = view, Width = 640, Height = 900, RequestedThemeVariant = ThemeVariant.Dark };
+        try
+        {
+            window.Show();
+            GraphNodeViewModel nodeVm = vm.Nodes.Single(n => n.GraphNode == node);
+            var penVm = (PenEditorViewModel)nodeVm.Items.Single(p => p.Model == node.Pen).PropertyEditorContext!;
+            penVm.IsExpanded.Value = true;
+            penVm.MajorProperties.OfType<BrushEditorViewModel>().Single().IsExpanded.Value = true;
+            await FinishTransition();
+            GraphNodeView nodeView = view.GetVisualDescendants().OfType<GraphNodeView>()
+                .Single(n => ReferenceEquals(n.DataContext, nodeVm));
+            NodePortView penRow = view.GetVisualDescendants().OfType<NodePortView>()
+                .Single(row => row.DataContext is InputPortViewModel input && input.Model == node.Pen);
+            Point PartOf(Control row, string name) => HeadlessTestHelpers.Center(
+                row.GetVisualDescendants().OfType<Control>().First(control => control.Name == name), window);
+            Point InIndent(NodePortView row)
+            {
+                Point rowStart = row.TranslatePoint(new Point(0, row.Bounds.Height / 2), nodeView)!.Value;
+                Assert.That(rowStart.X, Is.GreaterThan(8), "The row must be indented past the point.");
+                Point point = nodeView.TranslatePoint(new Point(8, rowStart.Y), window)!.Value;
+                Assert.That(window.InputHitTest(point), Is.Not.InstanceOf<NodePortPoint>());
+                return point;
+            }
+            int presses = 0;
+            // Pressing the same spot again would be a double click, which disconnects instead of dragging.
+            void Drop(IOutputPort from, Point to) => DropWire(window, view, from, to, presses++ % 2 == 0 ? 2 : 8);
+            // Where a wire dropped at the point connects, leaving the graph as it was. Connecting replaces a row's
+            // content and the rows inside it, so the next drop looks them up again once the transition is over.
+            async Task<INodeMember?> InputAt(Point to)
+            {
+                Drop(output, to);
+                if (graph.AllConnections.SingleOrDefault() is not { } connection) return null;
+                var input = (INodeMember?)connection.Input.Value.Value;
+                graph.Disconnect(connection);
+                await FinishTransition();
+                return input;
+            }
+            async Task AssertConnects(Point to, IProperty expected, string message)
+                => Assert.That((await InputAt(to))?.Property?.GetEngineProperty(), Is.SameAs(expected), message);
+
+            await AssertConnects(InIndent(FindPortView(view, pen.Thickness)), pen.Thickness, "The row's indent");
+            await AssertConnects(PartOf(FindPortView(view, pen.Thickness), "PART_HeaderTextBlock"), pen.Thickness, "The row's label");
+            await AssertConnects(PartOf(FindPortView(view, pen.Thickness), "PART_InnerTextBox"), pen.Thickness, "The row's value");
+            await AssertConnects(InIndent(FindPortView(view, brush.Color)), brush.Color, "A row nested two levels down");
+            await AssertConnects(PartOf(FindPortView(view, pen.Brush), "expandToggle"), pen.Brush, "An expanded nested editor's header");
+            Assert.That(await InputAt(PartOf(penRow, "expandToggle")), Is.SameAs(node.Pen), "An expanded editor's header");
+            Assert.That(await InputAt(PartOf(penRow, "expandMinorProps")), Is.Null, "An expanded editor's content between its rows");
+
+            Drop(output, PartOf(FindPortView(view, pen.Thickness), "PART_InnerTextBox"));
+            await FinishTransition();
+            HeadlessCapture.SaveIfRequested(window, nameof(NestedNodePortTests), "row-drop-nested");
+            Assert.That(((InputPortViewModel)penRow.DataContext!).CanConnect.Value, Is.False);
+            Connection connected = graph.AllConnections.Single();
+            Drop(otherOutput, PartOf(penRow, "expandToggle"));
+            Assert.That(graph.AllConnections, Is.EqualTo(new[] { connected }),
+                "A row whose port takes no connection, its point disabled, takes no wire.");
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task AWireOverANestedRowSnapsToItsPortOnTheNodesEdge()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
+        var graph = new GraphModel();
+        var node = new GeometryShapeNode { Position = { Value = (240, 40) } };
+        var pen = new Pen();
+        node.Pen.Property!.SetValue(pen);
+        graph.Nodes.Add(node);
+        var source = new LayerInputNode { Position = { Value = (10, 0) } };
+        var output = new LayerInputNode.LayerInputPort<float>();
+        output.SetupProperty("Output");
+        source.Items.Add(output);
+        graph.Nodes.Add(source);
+        using var vm = new NodeGraphViewModel(graph, editor);
+        var view = new NodeGraphView { DataContext = vm };
+        var window = new Window { Content = view, Width = 640, Height = 900, RequestedThemeVariant = ThemeVariant.Dark };
+        try
+        {
+            window.Show();
+            var penVm = (PenEditorViewModel)vm.Nodes.Single(n => n.GraphNode == node).Items
+                .Single(p => p.Model == node.Pen).PropertyEditorContext!;
+            penVm.IsExpanded.Value = true;
+            await FinishTransition();
+            NodePortView row = FindPortView(view, pen.Thickness);
+            Point start = view.GetVisualDescendants().OfType<NodePortPoint>()
+                .Single(p => p.DataContext is NodePortViewModel m && m.Model == output).TranslatePoint(new Point(5, 5), window)!.Value;
+            Point over = HeadlessTestHelpers.Center(row, window);
+            Canvas canvas = view.FindControl<Canvas>("canvas")!;
+
+            window.MouseMove(start);
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(over, RawInputModifiers.LeftMouseButton);
+            HeadlessTestHelpers.Render(3);
+            HeadlessCapture.SaveIfRequested(window, nameof(NestedNodePortTests), "wire-snapped");
+
+            ConnectionLine wire = canvas.Children.OfType<ConnectionLine>().Single(line => line.ConnectionViewModel == null);
+            Point port = FindPortPoint(view, row).TranslatePoint(new Point(5, 5), canvas)!.Value;
+            Assert.That(Point.Distance(wire.StartPoint, port), Is.LessThan(0.01));
+            window.MouseUp(over, MouseButton.Left);
+            HeadlessTestHelpers.Render(3);
+
+            Point landed = vm.AllConnections.Single().InputPortPosition.Value;
+            Assert.That(Point.Distance(landed, port), Is.LessThan(0.01), "The wire must not jump when it connects.");
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task DroppingOnARowWithoutAPortConnectsNothing()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
+        var graph = new GraphModel();
+        var node = new FactoryNode<TransformGroup> { Position = { Value = (240, 40) } };
+        graph.Nodes.Add(node);
+        var source = new LayerInputNode { Position = { Value = (10, 0) } };
+        var output = new LayerInputNode.LayerInputPort<float>();
+        output.SetupProperty("Output");
+        source.Items.Add(output);
+        graph.Nodes.Add(source);
+        using var vm = new NodeGraphViewModel(graph, editor);
+        var view = new NodeGraphView { DataContext = vm };
+        var window = new Window { Content = view, Width = 640, Height = 900 };
+        try
+        {
+            window.Show();
+            await FinishTransition();
+            NodePortView row = view.GetVisualDescendants().OfType<NodePortView>()
+                .Single(r => r.DataContext is NodeMemberViewModel member && member.Model?.Name.Value == "Children");
+            Assert.That(view.GetVisualDescendants().OfType<NodePortPoint>().Any(p => ReferenceEquals(p.DataContext, row.DataContext)), Is.False,
+                "The row must show no port.");
+
+            DropWire(window, view, output, HeadlessTestHelpers.Center(row, window));
+
+            Assert.That(graph.AllConnections, Is.Empty);
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task DroppingOnAnExpandedEditorsContentDoesNotReachTheRowOfItsHeader()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
+        var graph = new GraphModel();
+        var node = new FactoryNode<Beutl.Graphics.Shapes.RectShape> { Position = { Value = (240, 40) } };
+        var group = new TransformGroup();
+        group.Children.Add(new TranslateTransform());
+        INodeMember member = node.Items.Single(i => i.Name.Value == "Transform");
+        member.Property!.SetValue(group);
+        graph.Nodes.Add(node);
+        var source = new LayerInputNode { Position = { Value = (10, 0) } };
+        var output = new LayerInputNode.LayerInputPort<float>();
+        output.SetupProperty("Output");
+        source.Items.Add(output);
+        graph.Nodes.Add(source);
+        using var vm = new NodeGraphViewModel(graph, editor);
+        var view = new NodeGraphView { DataContext = vm };
+        var window = new Window { Content = view, Width = 640, Height = 900 };
+        try
+        {
+            window.Show();
+            vm.Nodes.Single(n => n.GraphNode == node).Items.Select(p => p.PropertyEditorContext)
+                .OfType<TransformEditorViewModel>().Single().IsExpanded.Value = true;
+            await FinishTransition();
+            NodePortView row = view.GetVisualDescendants().OfType<NodePortView>()
+                .Single(r => r.DataContext is InputPortViewModel input && input.Model == member);
+            Control item = row.GetVisualDescendants().OfType<TransformListItemEditor>().Single(e => e.IsEffectivelyVisible);
+            Control header = row.GetVisualDescendants().OfType<Control>().First(c => c.Name == "expandToggle");
+
+            DropWire(window, view, output, HeadlessTestHelpers.Center(item, window));
+            Assert.That(graph.AllConnections, Is.Empty, "The item shows no port and is not the header.");
+
+            DropWire(window, view, output, HeadlessTestHelpers.Center(header, window), pressX: 8);
+            Assert.That(graph.AllConnections.Single().Input.Value.Value, Is.SameAs(member));
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task ListItemPropertiesKeepTheirPortAfterReordering()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
@@ -894,6 +1109,18 @@ public class NestedNodePortTests
     {
         public object? GetService(Type serviceType) => Context.GetService(serviceType);
         public void Visit(IPropertyEditorContext context) { }
+    }
+
+    private static void DropWire(Window window, Control view, IOutputPort from, Point to, double pressX = 5)
+    {
+        NodePortPoint socket = view.GetVisualDescendants().OfType<NodePortPoint>()
+            .Single(p => p.DataContext is NodePortViewModel m && m.Model == from);
+        Point start = socket.TranslatePoint(new Point(pressX, 5), window)!.Value;
+        window.MouseMove(start);
+        window.MouseDown(start, MouseButton.Left);
+        window.MouseMove(to, RawInputModifiers.LeftMouseButton);
+        window.MouseUp(to, MouseButton.Left);
+        HeadlessTestHelpers.Render(3);
     }
 
     private static NodePortView FindPortView(Control view, IProperty property)

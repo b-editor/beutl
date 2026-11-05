@@ -108,7 +108,233 @@ public class NodeGraphDragTests
     }
 
     [AvaloniaTest]
-    public void Dragging_over_an_occupied_input_does_not_pulse_or_change_its_connection()
+    [TestCase(false, 0.5d)]
+    [TestCase(false, 1.5d)]
+    [TestCase(true, 0.5d)]
+    [TestCase(true, 1.5d)]
+    public void Dropping_anywhere_on_a_row_connects_its_port(bool reverse, double scale)
+    {
+        var source = new RandomSingleNode { Position = { Value = (20, 40) } };
+        var target = new RandomSingleNode { Position = { Value = (260, 40) } };
+        using var scope = PortScope.Create(source, target);
+        scope.Zoom(scale);
+        using var feedback = new HapticFeedbackRecorder();
+        INodePort from = reverse ? target.Maximum : source.Value;
+        INodePort to = reverse ? source.Value : target.Maximum;
+        Point start = scope.Socket(from).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+
+        scope.Window.MouseMove(start);
+        scope.Window.MouseDown(start, MouseButton.Left);
+        foreach (double across in new[] { 0.5, 0.02, 0.98 })
+        {
+            scope.Window.MouseMove(scope.OnRow(to, across), RawInputModifiers.LeftMouseButton);
+            Assert.That(feedback.Pulses, Has.Count.EqualTo(1), "The row is one target, entered once.");
+            Assert.That(scope.Graph.AllConnections, Is.Empty, "Hover must not create a connection.");
+        }
+        HeadlessTestHelpers.Render(3);
+        HeadlessCapture.SaveIfRequested(scope.Window, nameof(NodeGraphDragTests), $"row-hover-{reverse}");
+        scope.Window.MouseUp(scope.OnRow(to, 0.98), MouseButton.Left);
+        HeadlessTestHelpers.Render(3);
+        HeadlessCapture.SaveIfRequested(scope.Window, nameof(NodeGraphDragTests), $"row-connection-{reverse}");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.Graph.AllConnections.Single().Input.Value.Value, Is.SameAs(target.Maximum));
+            Assert.That(scope.Graph.AllConnections.Single().Output.Value.Value, Is.SameAs(source.Value));
+            Assert.That(scope.History.UndoCount, Is.EqualTo(1));
+            Assert.That(scope.View.PortDropMenu?.IsOpen, Is.Not.True);
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, 0.5d)]
+    [TestCase(false, 1.5d)]
+    [TestCase(true, 0.5d)]
+    [TestCase(true, 1.5d)]
+    public void A_wire_snaps_to_a_port_it_can_connect_to_and_lands_where_it_snapped(bool reverse, double scale)
+    {
+        var source = new RandomSingleNode { Position = { Value = (20, 40) } };
+        var target = new RandomSingleNode { Position = { Value = (260, 40) } };
+        using var scope = PortScope.Create(source, target);
+        scope.Zoom(scale);
+        INodePort from = reverse ? target.Maximum : source.Value;
+        INodePort to = reverse ? source.Value : target.Maximum;
+        INodePort sameSide = reverse ? target.Minimum : target.Value;
+        Point start = scope.Socket(from).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+        Point over = scope.OnRow(to, 0.98);
+        Point snapped = scope.PortCenter(to);
+
+        scope.Window.MouseMove(start);
+        scope.Window.MouseDown(start, MouseButton.Left);
+        scope.Window.MouseMove(over, RawInputModifiers.LeftMouseButton);
+        scope.AssertWireEnd(reverse, snapped, "Over the row");
+        Point cannot = scope.OnRow(sameSide, 0.5);
+        scope.Window.MouseMove(cannot, RawInputModifiers.LeftMouseButton);
+        scope.AssertWireEnd(reverse, scope.ToCanvas(cannot), "Over a port it cannot connect to");
+        Point blank = new(720, 460);
+        scope.Window.MouseMove(blank, RawInputModifiers.LeftMouseButton);
+        scope.AssertWireEnd(reverse, scope.ToCanvas(blank), "Off the node");
+        scope.Window.MouseMove(over, RawInputModifiers.LeftMouseButton);
+        scope.AssertWireEnd(reverse, snapped, "Back over the row");
+        scope.Window.MouseUp(over, MouseButton.Left);
+        HeadlessTestHelpers.Render(3);
+
+        ConnectionViewModel connection = scope.Model.AllConnections.Single();
+        Point landed = reverse ? connection.OutputPortPosition.Value : connection.InputPortPosition.Value;
+        Assert.That(Point.Distance(landed, snapped), Is.LessThan(0.01), "The wire must not jump when it connects.");
+    }
+
+    [AvaloniaTest]
+    public void A_dragged_list_slot_snaps_only_to_a_port_it_can_move_to()
+    {
+        var first = new ExpressionNode { Position = { Value = (20, 20) } };
+        var third = new ExpressionNode { Position = { Value = (20, 240) } };
+        var target = new ExpressionNode { Position = { Value = (380, 40) } };
+        using var scope = PortScope.Create(first, third, target);
+        scope.Graph.Connect(target.InputPort, first.Output);
+        scope.History.Commit();
+        HeadlessTestHelpers.Render(3);
+        NodePortPoint slot = scope.View.GetVisualDescendants().OfType<NodePortPoint>()
+            .Single(p => p.Tag is ConnectionViewModel && p.DataContext is InputPortViewModel input && input.Model == target.InputPort);
+        Point start = slot.TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+
+        scope.Window.MouseMove(start);
+        scope.Window.MouseDown(start, MouseButton.Left);
+        scope.Window.MouseMove(start + new Vector(-20, 0), RawInputModifiers.LeftMouseButton);
+        void Hover(Point pointer, Point expected, string message)
+        {
+            scope.Window.MouseMove(pointer, RawInputModifiers.LeftMouseButton);
+            scope.AssertWireEnd(fromInput: true, expected, message);
+        }
+        Point OnRow(INodePort port, out Point onCanvas)
+        {
+            Point point = scope.OnRow(port, 0.5);
+            onCanvas = scope.ToCanvas(point);
+            return point;
+        }
+
+        Hover(scope.OnRow(third.Output, 0.5), scope.PortCenter(third.Output), "Another output");
+        Assert.That(Point.Distance(scope.Wire().StartPoint, scope.ToCanvas(start)), Is.LessThan(0.01),
+            "An input's wire starts at the input, as a connection's does.");
+        Hover(OnRow(first.Output, out Point feeding), feeding, "The output that already feeds the slot");
+        Hover(OnRow(third.InputPort, out Point input), input, "An input");
+        Hover(OnRow(target.Output, out Point cycle), cycle, "An output that would close a cycle");
+        scope.Window.MouseUp(new Point(720, 460), MouseButton.Left);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Dropping_on_a_node_outside_its_rows_connects_nothing(bool header)
+    {
+        var source = new RandomSingleNode { Position = { Value = (20, 40) } };
+        var target = new RandomSingleNode { Position = { Value = (380, 40) } };
+        using var scope = PortScope.Create(source, target);
+        using var feedback = new HapticFeedbackRecorder();
+        GraphNodeView node = scope.NodeView(target);
+        Point start = scope.Socket(source.Value).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+        Point end = header
+            ? HeadlessTestHelpers.Center(node.FindControl<Border>("handle")!, scope.Window)
+            : node.TranslatePoint(new Point(node.Bounds.Width / 2, node.Bounds.Height - 2), scope.Window)!.Value;
+
+        scope.Window.MouseMove(start);
+        scope.Window.MouseDown(start, MouseButton.Left);
+        scope.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        scope.Window.MouseUp(end, MouseButton.Left);
+        HeadlessTestHelpers.Render(3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.Graph.AllConnections, Is.Empty);
+            Assert.That(feedback.Pulses, Is.Empty);
+            Assert.That(scope.View.PortDropMenu?.IsOpen, Is.Not.True, "A node is not the empty graph.");
+        });
+    }
+
+    [AvaloniaTest]
+    public void Dropping_on_a_list_port_row_adds_to_its_connections()
+    {
+        var first = new ExpressionNode { Position = { Value = (20, 20) } };
+        var source = new ExpressionNode { Position = { Value = (20, 220) } };
+        var target = new ExpressionNode { Position = { Value = (380, 40) } };
+        using var scope = PortScope.Create(first, source, target);
+        scope.Graph.Connect(target.InputPort, first.Output);
+        scope.History.Commit();
+        HeadlessTestHelpers.Render(3);
+        NodePortPoint slot = scope.View.GetVisualDescendants().OfType<NodePortPoint>()
+            .Single(p => p.Tag is ConnectionViewModel && p.DataContext is NodePortViewModel vm && vm.Model == target.InputPort);
+        Point start = scope.Socket(source.Output).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+        Point end = scope.OnRow(target.InputPort, 0.5);
+        Point placeholder = scope.PortCenter(target.InputPort);
+
+        scope.Window.MouseMove(start);
+        scope.Window.MouseDown(start, MouseButton.Left);
+        scope.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        scope.AssertWireEnd(fromInput: false, placeholder, "Over the row, the new connection takes the free place");
+        scope.Window.MouseMove(slot.TranslatePoint(new Point(5, 5), scope.Window)!.Value, RawInputModifiers.LeftMouseButton);
+        scope.AssertWireEnd(fromInput: false, placeholder, "Over a slot, the new connection still goes after it");
+        scope.Window.MouseUp(end, MouseButton.Left);
+        HeadlessTestHelpers.Render(3);
+        HeadlessTestHelpers.Render(3);
+
+        Assert.That(target.InputPort.Connections.Select(c => c.Value!.Output.Value.Value),
+            Is.EqualTo(new object[] { first.Output, source.Output }));
+        Point landed = scope.Model.AllConnections.Single(c => c.Connection.Output.Value.Value == source.Output).InputPortPosition.Value;
+        Assert.That(Point.Distance(landed, placeholder), Is.LessThan(0.01), "The wire must not jump when it connects.");
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void A_wire_snaps_to_the_row_of_an_undecided_port_and_adds_a_port(bool fromUndecided)
+    {
+        var target = new RandomSingleNode { Position = { Value = (20, 40) } };
+        var dynamicNode = new LayerInputNode { Position = { Value = (380, 40) } };
+        using var scope = PortScope.Create(target, dynamicNode);
+        using var feedback = new HapticFeedbackRecorder();
+        INodePort? from = fromUndecided ? null : target.Maximum;
+        INodePort? to = fromUndecided ? target.Maximum : null;
+        Point start = scope.Socket(from).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+        Point end = scope.OnRow(to, 0.5);
+
+        scope.Window.MouseMove(start);
+        scope.Window.MouseDown(start, MouseButton.Left);
+        scope.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        scope.AssertWireEnd(fromInput: !fromUndecided, scope.PortCenter(to), "Over the row");
+        Assert.That(feedback.Pulses, Has.Count.EqualTo(1));
+        scope.Window.MouseUp(end, MouseButton.Left);
+        HeadlessTestHelpers.Render(3);
+
+        Assert.That(dynamicNode.Items, Has.Count.EqualTo(1));
+        Assert.That(scope.Graph.AllConnections.Single().Input.Value.Value, Is.SameAs(target.Maximum));
+        Assert.That(scope.Graph.AllConnections.Single().Output.Value.Value, Is.SameAs(dynamicNode.Items[0]));
+    }
+
+    [AvaloniaTest]
+    public void A_wire_from_the_side_an_undecided_port_offers_neither_snaps_nor_adds_a_port()
+    {
+        var source = new RandomSingleNode { Position = { Value = (20, 40) } };
+        var dynamicNode = new LayerInputNode { Position = { Value = (380, 40) } };
+        using var scope = PortScope.Create(source, dynamicNode);
+        using var feedback = new HapticFeedbackRecorder();
+        Point start = scope.Socket(source.Value).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+        Point end = scope.OnRow(null, 0.5);
+
+        scope.Window.MouseMove(start);
+        scope.Window.MouseDown(start, MouseButton.Left);
+        scope.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        scope.AssertWireEnd(fromInput: false, scope.ToCanvas(end), "A new output takes no output.");
+        scope.Window.MouseUp(end, MouseButton.Left);
+        HeadlessTestHelpers.Render(3);
+
+        Assert.That(feedback.Pulses, Is.Empty);
+        Assert.That(dynamicNode.Items, Is.Empty);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Dragging_over_an_occupied_input_does_not_pulse_or_change_its_connection(bool onRow)
     {
         var first = new ExpressionNode { Position = { Value = (20, 40) } };
         var second = new ExpressionNode { Position = { Value = (20, 240) } };
@@ -119,11 +345,14 @@ public class NodeGraphDragTests
         HeadlessTestHelpers.Render(3);
         using var feedback = new HapticFeedbackRecorder();
         Point start = scope.Socket(second.Output).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
-        Point target = scope.Socket(output.InputPort).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+        Point target = onRow
+            ? scope.OnRow(output.InputPort, 0.5)
+            : scope.Socket(output.InputPort).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
         scope.Window.MouseMove(start);
         scope.Window.MouseDown(start, MouseButton.Left);
         scope.Window.MouseMove(target, RawInputModifiers.LeftMouseButton);
         Assert.That(feedback.Pulses, Is.Empty);
+        scope.AssertWireEnd(fromInput: false, scope.ToCanvas(target), "An occupied input does not take the wire.");
         scope.Window.MouseUp(target, MouseButton.Left);
         Assert.That(feedback.Pulses, Is.Empty);
         Assert.That(scope.Graph.AllConnections.Single(), Is.SameAs(connection));
@@ -294,12 +523,15 @@ public class NodeGraphDragTests
         });
     }
 
-    public enum SlotDrop { OwnPlaceholder, AnotherInput, AnotherOutput }
+    public enum SlotDrop { OwnPlaceholder, OwnRow, AnotherInput, AnotherInputRow, AnotherOutput, AnotherOutputRow }
 
     [AvaloniaTest]
     [TestCase(SlotDrop.OwnPlaceholder)]
+    [TestCase(SlotDrop.OwnRow)]
     [TestCase(SlotDrop.AnotherInput)]
+    [TestCase(SlotDrop.AnotherInputRow)]
     [TestCase(SlotDrop.AnotherOutput)]
+    [TestCase(SlotDrop.AnotherOutputRow)]
     public void Dragging_a_list_slot_sideways_rewires_it_in_place_or_keeps_it(SlotDrop drop)
     {
         var first = new ExpressionNode { Position = { Value = (20, 20) } };
@@ -315,14 +547,17 @@ public class NodeGraphDragTests
         NodePortPoint slot = scope.View.GetVisualDescendants().OfType<NodePortPoint>()
             .Where(p => p.Tag is ConnectionViewModel && p.DataContext is InputPortViewModel input && input.Model == target.InputPort)
             .MinBy(p => p.TranslatePoint(default, scope.Window)!.Value.Y)!;
-        NodePortPoint dropPoint = drop switch
-        {
-            SlotDrop.OwnPlaceholder => scope.Socket(target.InputPort),
-            SlotDrop.AnotherInput => scope.Socket(first.InputPort),
-            _ => scope.Socket(third.Output),
-        };
+        Point OnPoint(INodePort port) => scope.Socket(port).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
         Point start = slot.TranslatePoint(new Point(5, 5), scope.Window)!.Value;
-        Point end = dropPoint.TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+        Point end = drop switch
+        {
+            SlotDrop.OwnPlaceholder => OnPoint(target.InputPort),
+            SlotDrop.OwnRow => scope.OnRow(target.InputPort, 0.5),
+            SlotDrop.AnotherInput => OnPoint(first.InputPort),
+            SlotDrop.AnotherInputRow => scope.OnRow(first.InputPort, 0.5),
+            SlotDrop.AnotherOutput => OnPoint(third.Output),
+            _ => scope.OnRow(third.Output, 0.5),
+        };
 
         scope.Window.MouseMove(start);
         scope.Window.MouseDown(start, MouseButton.Left);
@@ -332,7 +567,7 @@ public class NodeGraphDragTests
         scope.Window.MouseUp(end, MouseButton.Left);
         HeadlessTestHelpers.Render(3);
 
-        bool rewired = drop == SlotDrop.AnotherOutput;
+        bool rewired = drop is SlotDrop.AnotherOutput or SlotDrop.AnotherOutputRow;
         Assert.Multiple(() =>
         {
             Assert.That(SlotSources(), Is.EqualTo(rewired
@@ -397,10 +632,44 @@ public class NodeGraphDragTests
             return new PortScope(graph);
         }
 
-        public NodePortPoint Socket(INodePort port) => View.GetVisualDescendants().OfType<NodePortPoint>()
+        // A null port is the point that a dynamic node offers for a new port.
+        public NodePortPoint Socket(INodePort? port) => View.GetVisualDescendants().OfType<NodePortPoint>()
             .Single(p => p.DataContext is NodePortViewModel vm && vm.Model == port && p.Tag is null);
 
-        public int Lines() => View.FindControl<Canvas>("canvas")!.Children.OfType<ConnectionLine>().Count();
+        public Point PortCenter(INodePort? port) => Socket(port).TranslatePoint(new Point(5, 5), Canvas)!.Value;
+
+        public Point ToCanvas(Point windowPoint) => Window.TranslatePoint(windowPoint, Canvas)!.Value;
+
+        // The wire being dragged, which unlike a connection's has no view model.
+        public ConnectionLine Wire() => Canvas.Children.OfType<ConnectionLine>().Single(line => line.ConnectionViewModel == null);
+
+        public void AssertWireEnd(bool fromInput, Point expected, string message)
+        {
+            ConnectionLine wire = Wire();
+            Assert.That(Point.Distance(fromInput ? wire.EndPoint : wire.StartPoint, expected), Is.LessThan(0.01), message);
+        }
+
+        public GraphNodeView NodeView(GraphNode node) => View.GetVisualDescendants().OfType<GraphNodeView>()
+            .Single(view => view.DataContext is GraphNodeViewModel vm && vm.GraphNode == node);
+
+        // A point at half the height of a port's row, the given fraction across its width. A null port is the row
+        // that a dynamic node offers for a new port.
+        public Point OnRow(INodePort? port, double across)
+        {
+            NodePortView row = View.GetVisualDescendants().OfType<NodePortView>()
+                .Single(view => view.DataContext is NodePortViewModel vm && vm.Model == port);
+            return row.TranslatePoint(new Point(row.Bounds.Width * across, row.Bounds.Height / 2), Window)!.Value;
+        }
+
+        public void Zoom(double scale)
+        {
+            View.FindControl<ZoomBorder>("zoomBorder")!.SetMatrix(Matrix.CreateScale(scale, scale), true);
+            HeadlessTestHelpers.Render(3);
+        }
+
+        public int Lines() => Canvas.Children.OfType<ConnectionLine>().Count();
+
+        private Canvas Canvas => View.FindControl<Canvas>("canvas")!;
 
         public void End(DragEnd end, IPointer pointer)
         {

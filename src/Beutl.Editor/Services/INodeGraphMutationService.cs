@@ -48,6 +48,13 @@ public interface INodeGraphMutationService
     /// <summary>Checks whether two existing ports can be connected, without changing the graph or history.</summary>
     bool CanConnect(GraphModel graph, INodePort port1, INodePort port2);
 
+    /// <summary>Checks whether <see cref="TryConnect"/> would connect the ports or add a port for one of them,
+    /// without changing the graph or history. A null port is the new port that a dynamic-port node offers.</summary>
+    bool CanConnect(GraphModel graph,
+        GraphNode node1, INodePort? port1,
+        GraphNode node2, INodePort? port2)
+        => port1 != null && port2 != null && CanConnect(graph, port1, port2);
+
     /// <summary>Three-way connect:
     /// <list type="bullet">
     /// <item>One port unset + opposite side is <see cref="IDynamicPortNode"/>

@@ -225,6 +225,33 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     public bool CanConnect(GraphModel graph, INodePort port1, INodePort port2)
         => IsEditable(graph) && TryGetConnectablePorts(graph, port1, port2, out _, out _);
 
+    public bool CanConnect(GraphModel graph,
+        GraphNode node1, INodePort? port1,
+        GraphNode node2, INodePort? port2)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(node1);
+        ArgumentNullException.ThrowIfNull(node2);
+        if (!IsEditable(graph)) return false;
+
+        return (port1, port2) switch
+        {
+            (null, { } mate) => CanAddPort(node1, mate),
+            ({ } mate, null) => CanAddPort(node2, mate),
+            ({ } first, { } second) => TryGetConnectablePorts(graph, first, second, out _, out _),
+            _ => false,
+        };
+    }
+
+    // A dynamic-port node adds a port on the side it offers, for a mate on the opposite side.
+    private static bool CanAddPort(GraphNode node, INodePort mate)
+        => node is IDynamicPortNode dynamicNode && mate.AssociatedType != null && mate switch
+        {
+            IInputPort input => dynamicNode.PossibleLocation.HasFlag(NodePortLocation.Right) && CanAcceptConnection(input),
+            IOutputPort => dynamicNode.PossibleLocation.HasFlag(NodePortLocation.Left),
+            _ => false,
+        };
+
     public NodeConnectOutcome TryConnect(GraphModel graph,
         GraphNode node1, INodePort? port1,
         GraphNode node2, INodePort? port2)
