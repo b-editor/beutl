@@ -279,6 +279,35 @@ public class NodeGraphMutationServiceTests
     }
 
     [Test]
+    public void TryConnect_ANewPortThatClosesACycle_IsRefused()
+    {
+        var layer = new LayerInputNode();
+        var brush = new SolidColorBrush();
+        var brushOutput = new LayerInputNode.LayerInputPort<Brush>();
+        brushOutput.SetupProperty("Brush");
+        brushOutput.Property!.SetValue(brush);
+        layer.Items.Add(brushOutput);
+        var source = new SwitchNode();
+        _graph.Nodes.AddRange([layer, source]);
+        // The brush's properties are inputs of the layer node, which then consumes the switch.
+        _graph.Connect(layer.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), brush.Color)), source.Output);
+        INodePort opacity = layer.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), brush.Opacity));
+        _history.Commit("Seed");
+        int beforeUndo = _history.UndoCount;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_service.CanConnect(_graph, layer, null, source, source.True), Is.False);
+            Assert.That(_service.TryConnect(_graph, layer, null, source, source.True), Is.EqualTo(NodeConnectOutcome.None));
+            Assert.That(_service.CanConnect(_graph, layer, null, layer, opacity), Is.False, "Its own input");
+            Assert.That(_service.TryConnect(_graph, layer, null, layer, opacity), Is.EqualTo(NodeConnectOutcome.None));
+            Assert.That(layer.Items, Has.Count.EqualTo(1));
+            Assert.That(_graph.AllConnections, Has.Count.EqualTo(1));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
+        });
+    }
+
+    [Test]
     public void TryConnect_BranchesThatMeetAgain_AreNotACycle()
     {
         var source = new SwitchNode();

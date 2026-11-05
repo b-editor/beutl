@@ -49,7 +49,9 @@ public interface INodeGraphMutationService
     bool CanConnect(GraphModel graph, INodePort port1, INodePort port2);
 
     /// <summary>Checks whether <see cref="TryConnect"/> would connect the ports or add a port for one of them,
-    /// without changing the graph or history. A null port is the new port that a dynamic-port node offers.</summary>
+    /// without changing the graph or history. A null port is the new port that a dynamic-port node offers; a refusal
+    /// of the node's own in <see cref="IDynamicPortNode.AddNodePort"/> is not predicted. The default implementation
+    /// answers false for a null port, so an implementation that adds ports should override it.</summary>
     bool CanConnect(GraphModel graph,
         GraphNode node1, INodePort? port1,
         GraphNode node2, INodePort? port2)

@@ -916,6 +916,7 @@ public class NestedNodePortTests
             DropWire(window, view, output, HeadlessTestHelpers.Center(row, window));
 
             Assert.That(graph.AllConnections, Is.Empty);
+            Assert.That(view.PortDropMenu?.IsOpen, Is.Not.True, "A row without a port is not the empty graph.");
         }
         finally
         {
