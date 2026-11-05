@@ -21,7 +21,6 @@ public partial class GraphEditorView
     private Point? _marqueeStart;
     private Point? _seekClickStart;
     private IKeyFrame[] _marqueeSelection = [];
-    private bool _spacePressed;
     private bool _editStarted;
     private bool _finishingInteraction;
     private Rect? _selectionBounds;
@@ -365,7 +364,11 @@ public partial class GraphEditorView
         if (VelocityFlyout?.IsOpen == true || ValueScaleFlyout?.IsOpen == true) return;
         if (e.Source is TextBox || DataContext is not GraphEditorViewModel { SelectedView.Value: { } channel } model) return;
         var command = KeyGestureHelper.GetCommandModifier();
-        if (e.Key == Key.Space) { _spacePressed = true; e.Handled = true; return; }
+        if (e.Key == Key.Space)
+        {
+            _space.Press(e, _interactionPointer == null && ControlPointMoveState == null && _mouseFlag == TimelineHelper.MouseFlags.Free);
+            return;
+        }
         if (e.Key == Key.Escape)
         {
             if (ControlPointMoveState is { } controlPoint) controlPoint.Complete?.Invoke(true);
@@ -468,7 +471,7 @@ public partial class GraphEditorView
 
     private void OnGraphKeyUp(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Space) { _spacePressed = false; e.Handled = true; }
+        if (e.Key == Key.Space) { _space.Release(e); e.Handled = true; }
     }
 
     private void DeleteSelection()

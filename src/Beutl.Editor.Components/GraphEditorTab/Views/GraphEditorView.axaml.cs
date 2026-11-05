@@ -28,6 +28,7 @@ public partial class GraphEditorView : UserControl
     private IDisposable? _nativeInputRegistration;
     private TimelineHelper.MouseFlags _mouseFlag = TimelineHelper.MouseFlags.Free;
     private readonly TimelineRulerDrag _rulerDrag;
+    private readonly SpacePanKey _space;
     private MediaTime _pointerFrame;
     private int _contextVersion;
 
@@ -42,6 +43,7 @@ public partial class GraphEditorView : UserControl
         _attachNativeInput = attachNativeInput ?? NativeScrollInput.Attach;
         InitializeComponent();
         _rulerDrag = new TimelineRulerDrag(() => _mouseFlag = TimelineHelper.MouseFlags.Free);
+        _space = new SpacePanKey(this);
         KeyModifiers commandModifier = KeyGestureHelper.GetCommandModifier();
         foreach (FAMenuFlyoutItem item in ((FAMenuFlyout)graphPanel.ContextFlyout!).Items.OfType<FAMenuFlyoutItem>())
         {
@@ -66,7 +68,7 @@ public partial class GraphEditorView : UserControl
         graphPanel.AddHandler(PointerPressedEvent, OnPlotNavigationPressed, RoutingStrategies.Tunnel);
         KeyDown += OnGraphKeyDown;
         KeyUp += OnGraphKeyUp;
-        LostFocus += (_, _) => _spacePressed = false;
+        LostFocus += (_, _) => _space.Reset();
         graphPanel.PointerMoved += OnGraphPanelPointerMoved;
         graphPanel.PointerReleased += OnGraphPanelPointerReleased;
 
