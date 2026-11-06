@@ -48,9 +48,11 @@ internal sealed partial class RegionAnalyzer
                     outputRequirement,
                     scope.Description.Bounds,
                     targetDomain,
-                    // A public scope's matrix is hidden in its callback, but its declared grid mapping says whether it
-                    // replays its input onto another grid; a transform scope declares Preserved only for no matrix.
-                    scope.Description.DeviceGridMapping == RenderDeviceGridMapping.Remapped),
+                    // A transform scope draws its value under its matrix, and with an identity matrix still at the density
+                    // of what it draws into. A public scope's matrix is hidden in its callback, but its declared grid mapping
+                    // says whether it replays its input onto another grid.
+                    scope.Description.IsValueReplayMap
+                    || scope.Description.DeviceGridMapping == RenderDeviceGridMapping.Remapped),
             RawTargetScopeRenderFragmentPayload
                 => FullInputs(reference),
             OpaqueRenderFragmentPayload opaque
