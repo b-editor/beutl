@@ -188,22 +188,32 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     private void TrackElementCollections()
     {
-        void ThumbnailsDisabled(Guid id)
+        void ThumbnailsOverrideChanged(Guid id)
         {
-            foreach (ElementViewModel element in RealizedElementsSnapshot()) element.OnThumbnailsDisabledElementsAttached(id);
-        }
-        void ThumbnailsEnabled(Guid id)
-        {
-            foreach (ElementViewModel element in RealizedElementsSnapshot()) element.OnThumbnailsDisabledElementsDetached(id);
+            foreach (ElementViewModel element in RealizedElementsSnapshot())
+            {
+                if (element.Model.Id.Value == id) element.RefreshIsThumbnailsDisabled();
+            }
         }
 
-        ThumbnailsDisabledElements.Attached += ThumbnailsDisabled;
-        ThumbnailsDisabledElements.Detached += ThumbnailsEnabled;
+        ThumbnailsDisabledElements.Attached += ThumbnailsOverrideChanged;
+        ThumbnailsDisabledElements.Detached += ThumbnailsOverrideChanged;
+        ThumbnailsEnabledElements.Attached += ThumbnailsOverrideChanged;
+        ThumbnailsEnabledElements.Detached += ThumbnailsOverrideChanged;
         Disposable.Create(() =>
         {
-            ThumbnailsDisabledElements.Attached -= ThumbnailsDisabled;
-            ThumbnailsDisabledElements.Detached -= ThumbnailsEnabled;
+            ThumbnailsDisabledElements.Attached -= ThumbnailsOverrideChanged;
+            ThumbnailsDisabledElements.Detached -= ThumbnailsOverrideChanged;
+            ThumbnailsEnabledElements.Attached -= ThumbnailsOverrideChanged;
+            ThumbnailsEnabledElements.Detached -= ThumbnailsOverrideChanged;
         }).AddTo(_disposables);
+
+        GlobalConfiguration.Instance.EditorConfig.ShowTimelineThumbnailsByDefault.GetObservable()
+            .Skip(1).DistinctUntilChanged().ObserveOnUIDispatcher()
+            .Subscribe(_ =>
+            {
+                foreach (ElementViewModel element in RealizedElementsSnapshot()) element.RefreshIsThumbnailsDisabled();
+            }).AddTo(_disposables);
 
         void RefreshThumbnails()
         {
@@ -301,6 +311,9 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     public AsyncReactiveCommand<ElementDescription> AddElement { get; } = new();
 
     public CoreList<Guid> ThumbnailsDisabledElements { get; } = [];
+
+    // Clips whose thumbnails are on while ShowTimelineThumbnailsByDefault is off.
+    public CoreList<Guid> ThumbnailsEnabledElements { get; } = [];
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = [];
 

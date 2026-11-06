@@ -296,6 +296,14 @@
     <value>Evita que los elementos de la línea de tiempo se redimensionen más allá de la duración original del medio</value>
     <comment />
   </data>
+  <data name="ShowTimelineThumbnailsByDefault" xml:space="preserve">
+    <value>Mostrar miniaturas en la línea de tiempo de forma predeterminada</value>
+    <comment />
+  </data>
+  <data name="ShowTimelineThumbnailsByDefault_Description" xml:space="preserve">
+    <value>Muestra tiras de fotogramas y formas de onda en los clips de la línea de tiempo. Si está desactivado, actívalas por clip desde su menú contextual; así el zoom de una línea de tiempo con muchos medios sigue siendo fluido.</value>
+    <comment />
+  </data>
   <data name="Graphics" xml:space="preserve">
     <value>Gráficos</value>
     <comment />

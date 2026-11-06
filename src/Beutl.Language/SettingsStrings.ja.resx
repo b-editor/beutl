@@ -292,6 +292,14 @@
     <value>タイムラインの要素をメディアの元の長さを超えてリサイズできないようにします</value>
     <comment/>
   </data>
+  <data name="ShowTimelineThumbnailsByDefault" xml:space="preserve">
+    <value>タイムラインのサムネイルを既定で表示する</value>
+    <comment/>
+  </data>
+  <data name="ShowTimelineThumbnailsByDefault_Description" xml:space="preserve">
+    <value>タイムラインのクリップにフィルムストリップと波形を表示します。オフにすると、クリップの右クリックメニューから個別にオンにできます。メディアの多いタイムラインの拡大縮小が軽くなります。</value>
+    <comment/>
+  </data>
   <data name="Graphics" xml:space="preserve">
     <value>Graphics</value>
     <comment/>

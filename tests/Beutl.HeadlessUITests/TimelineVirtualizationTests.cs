@@ -551,6 +551,85 @@ public sealed class TimelineVirtualizationTests
     }
 
     [AvaloniaTest]
+    public async Task Thumbnails_off_by_default_load_only_for_clips_turned_on_and_survive_a_reload()
+    {
+        var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(100) } };
+        Element chosen = Clip(0, 0);
+        Element other = Clip(1, 0);
+        var chosenSource = new CountingThumbnailSource();
+        var otherSource = new CountingThumbnailSource();
+        chosen.Objects.Add(chosenSource);
+        other.Objects.Add(otherSource);
+        scene.Children.AddRange([chosen, other]);
+
+        IProperty<bool> showByDefault = GlobalConfiguration.Instance.EditorConfig.ShowTimelineThumbnailsByDefault;
+        bool original = showByDefault.Value;
+        showByDefault.Value = false;
+        try
+        {
+            var state = new System.Text.Json.Nodes.JsonObject();
+            using (var host = new ViewportHost(scene))
+            {
+                ElementViewModel chosenModel = host.Model.GetViewModelFor(chosen)!;
+                ElementViewModel otherModel = host.Model.GetViewModelFor(other)!;
+                await Task.Delay(550);
+                HeadlessTestHelpers.Render();
+                Assert.Multiple(() =>
+                {
+                    Assert.That(chosenModel.IsThumbnailsDisabled.Value, Is.True);
+                    Assert.That(otherModel.IsThumbnailsDisabled.Value, Is.True);
+                    Assert.That(chosenSource.Requests + otherSource.Requests, Is.Zero, "No clip decodes while the default is off.");
+                });
+
+                chosenModel.IsThumbnailsDisabled.Value = false;
+                await HeadlessTestHelpers.WaitUntilAsync(() => chosenSource.Requests > 0);
+                Assert.That(host.Model.ThumbnailsEnabledElements, Is.EqualTo(new[] { chosen.Id.Value }));
+                Assert.That(host.Model.ThumbnailsDisabledElements, Is.Empty);
+
+                showByDefault.Value = true;
+                await HeadlessTestHelpers.WaitUntilAsync(() => otherSource.Requests > 0);
+                Assert.That(chosenModel.IsThumbnailsDisabled.Value, Is.False);
+                Assert.That(otherModel.IsThumbnailsDisabled.Value, Is.False, "A clip without its own choice follows the default.");
+
+                showByDefault.Value = false;
+                HeadlessTestHelpers.Settle();
+                Assert.That(chosenModel.IsThumbnailsDisabled.Value, Is.False, "The clip turned on keeps its choice.");
+                Assert.That(otherModel.IsThumbnailsDisabled.Value, Is.True);
+
+                // A choice made under one default replaces the one made under the other.
+                showByDefault.Value = true;
+                HeadlessTestHelpers.Settle();
+                otherModel.IsThumbnailsDisabled.Value = true;
+                showByDefault.Value = false;
+                HeadlessTestHelpers.Settle();
+                otherModel.IsThumbnailsDisabled.Value = false;
+                showByDefault.Value = true;
+                HeadlessTestHelpers.Settle();
+                Assert.That(otherModel.IsThumbnailsDisabled.Value, Is.False, "The newer choice wins after the default flips back.");
+                Assert.That(host.Model.ThumbnailsDisabledElements, Does.Not.Contain(other.Id.Value));
+                otherModel.IsThumbnailsDisabled.Value = true;
+                showByDefault.Value = false;
+                HeadlessTestHelpers.Settle();
+                Assert.That(chosenModel.IsThumbnailsDisabled.Value, Is.False, "Flipping the default keeps saved choices.");
+                Assert.That(otherModel.IsThumbnailsDisabled.Value, Is.True);
+                host.Model.WriteToJson(state);
+            }
+
+            using (var reopened = new ViewportHost(scene))
+            {
+                reopened.Model.ReadFromJson(state);
+                Assert.That(reopened.Model.GetViewModelFor(chosen)!.IsThumbnailsDisabled.Value, Is.False);
+                Assert.That(reopened.Model.GetViewModelFor(other)!.IsThumbnailsDisabled.Value, Is.True);
+            }
+        }
+        finally
+        {
+            showByDefault.Value = original;
+            HeadlessTestHelpers.Render();
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(ThumbnailsKind.Video)]
     [TestCase(ThumbnailsKind.Audio)]
     public async Task Narrow_clips_skip_thumbnails_and_resume_after_zoom_or_resize(ThumbnailsKind kind)

@@ -296,6 +296,14 @@
     <value>타임라인 요소가 원본 미디어 길이를 초과하여 크기가 조정되지 않도록 방지합니다</value>
     <comment />
   </data>
+  <data name="ShowTimelineThumbnailsByDefault" xml:space="preserve">
+    <value>타임라인 썸네일을 기본으로 표시</value>
+    <comment />
+  </data>
+  <data name="ShowTimelineThumbnailsByDefault_Description" xml:space="preserve">
+    <value>타임라인 클립에 필름스트립과 파형을 표시합니다. 끄면 클립의 컨텍스트 메뉴에서 클립별로 켤 수 있으며, 미디어가 많은 타임라인의 확대/축소가 가벼워집니다.</value>
+    <comment />
+  </data>
   <data name="Graphics" xml:space="preserve">
     <value>그래픽</value>
     <comment />

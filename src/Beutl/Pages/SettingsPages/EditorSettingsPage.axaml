@@ -102,6 +102,14 @@
                                               Theme="{StaticResource CompactToggleSwitchStyle}" />
                             </ctrls:OptionsDisplayItem.ActionButton>
                         </ctrls:OptionsDisplayItem>
+
+                        <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ShowTimelineThumbnailsByDefault_Description}" Header="{x:Static lang:SettingsStrings.ShowTimelineThumbnailsByDefault}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ToggleSwitch Classes="left"
+                                              IsChecked="{CompiledBinding ShowTimelineThumbnailsByDefault.Value}"
+                                              Theme="{StaticResource CompactToggleSwitchStyle}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
                     </ctrls:OptionsGroupPanel>
                 </Border>
 
