@@ -68,8 +68,7 @@
                                          MaxHeight="200"
                                          TextWrapping="Wrap"
                                          PlaceholderText="{TemplateBinding ExpressionPlaceholder}"
-                                         Text="{TemplateBinding ExpressionText, Mode=TwoWay}"
-                                         VerticalContentAlignment="Top" />
+                                         Text="{TemplateBinding ExpressionText, Mode=TwoWay}" />
                                 <TextBlock Name="ErrorTextBlock"
                                            Text="{TemplateBinding ErrorMessage}"
                                            TextWrapping="Wrap"

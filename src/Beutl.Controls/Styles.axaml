@@ -183,6 +183,10 @@
     <Style Selector="TextBox">
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
+    <!-- A box that takes several lines starts them at the top, where a single-line box shows its line. -->
+    <Style Selector="TextBox[AcceptsReturn=True]">
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+    </Style>
     <Style Selector="CheckBox">
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
