@@ -115,6 +115,17 @@
             <Setter Property="Template">
                 <ControlTemplate x:CompileBindings="True" x:DataType="dmc:IToolDock">
                     <Panel>
+                        <!--
+                            One baseline along the whole strip, drawn under the tabs, so the selected tab's accent
+                            underline covers it wherever that tab is drawn. This replaces Dock's PART_BorderLeftFill
+                            and PART_BorderRightFill, which Dock moves around the selected tab from layout events:
+                            an event it misses (it stops listening once the strip leaves the visual tree, for one)
+                            leaves them covering part of the underline.
+                        -->
+                        <Border Name="PART_Baseline"
+                                BorderBrush="{DynamicResource DockSeparatorBrush}"
+                                BorderThickness="0,0,0,1"
+                                IsHitTestVisible="False" />
                         <Border Name="PART_Border"
                                 Padding="{TemplateBinding Padding}"
                                 Background="{TemplateBinding Background}"
@@ -127,14 +138,12 @@
                             </ScrollViewer>
                         </Border>
                         <!--
-                            Dock positions these overlays with margins derived from arranged bounds.
-                            Keep them out of measurement so those margins cannot retain a closed tab's width.
+                            Dock positions this overlay with a margin derived from arranged bounds.
+                            Keep it out of measurement so that margin cannot retain a closed tab's width.
                         -->
                         <Canvas>
                             <Panel Width="{Binding #PART_Border.Bounds.Width}"
                                    Height="{Binding #PART_Border.Bounds.Height}">
-                                <Border Name="PART_BorderLeftFill" IsHitTestVisible="False" />
-                                <Border Name="PART_BorderRightFill" IsHitTestVisible="False" />
                                 <Border Name="PART_BorderFill"
                                         DockProperties.IsDropArea="True"
                                         DockProperties.IsDockTarget="True"
@@ -540,12 +549,6 @@
         <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimary}" />
     </Style>
 
-    <Style Selector="ToolTabStrip /template/ Border#PART_BorderLeftFill">
-        <Setter Property="BorderThickness" Value="0,0,0,1" />
-    </Style>
-    <Style Selector="ToolTabStrip /template/ Border#PART_BorderRightFill">
-        <Setter Property="BorderThickness" Value="0,0,0,1" />
-    </Style>
     <Style Selector="ToolTabStrip:singleitem /template/ Border#PART_Border">
         <Setter Property="ZIndex" Value="100" />
     </Style>
