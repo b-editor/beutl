@@ -99,10 +99,16 @@ public class AlphaOutlineTracerTests
         List<Vector2[]> contours = Trace(bitmap);
 
         Assert.That(contours, Has.Count.EqualTo(1));
-        float worst = contours[0].Max(p => MathF.Abs(Vector2.Distance(p, center) - Radius));
+        Vector2[] polygon = contours[0];
+        float worst = polygon.Max(p => MathF.Abs(Vector2.Distance(p, center) - Radius));
         Assert.That(worst, Is.LessThan(0.2f), $"a vertex strayed {worst} px from the circle");
         // Dense enough that the polygon follows the curve rather than cutting across it.
-        Assert.That(contours[0], Has.Length.GreaterThan(24));
+        Assert.That(polygon, Has.Length.GreaterThan(24));
+        // Every edge, the closing one too, runs along the circle: an outline of part of it would cut across.
+        float worstEdge = polygon
+            .Select((p, k) => MathF.Abs(Vector2.Distance((p + polygon[(k + 1) % polygon.Length]) / 2, center) - Radius))
+            .Max();
+        Assert.That(worstEdge, Is.LessThan(0.3f), $"an edge strayed {worstEdge} px from the circle");
     }
 
     [Test]
@@ -248,6 +254,19 @@ public class AlphaOutlineTracerTests
 
         Assert.That(contours, Has.Count.EqualTo(1));
         Assert.That(contours[0], Has.All.Matches<Vector2>(p => Vector2.Distance(p, new Vector2(4100, 4100)) < 1.5f));
+    }
+
+    [Test]
+    public void A_connected_faint_region_is_not_outlined()
+    {
+        // Faint pixels stay background however many of them touch, not only when each stands alone.
+        using Bitmap bitmap = Pixels(16, 16, (pixels, stride) =>
+        {
+            for (int y = 2; y < 14; y++)
+                pixels.Slice(y * stride + 2, 12).Fill(AlphaOutlineTracer.BackgroundAlpha - 1);
+        });
+
+        Assert.That(Trace(bitmap), Is.Empty);
     }
 
     [Test]

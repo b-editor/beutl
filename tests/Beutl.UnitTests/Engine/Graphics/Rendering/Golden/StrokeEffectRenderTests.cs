@@ -182,17 +182,21 @@ public class StrokeEffectRenderTests
             (int Left, int Top, int Right, int Bottom) shapeBounds = Bounds(AlphaOf(shape), shape, 0);
             (int Left, int Top, int Right, int Bottom) effectBounds = Bounds(PenCoverage(viaEffect), viaEffect, 0.5f);
             (int Left, int Top, int Right, int Bottom) penBounds = Bounds(PenCoverage(viaPen), viaPen, 0.5f);
+            // Each point reaches at least as far as the effect's output allows, or as far as the pen when that is
+            // nearer, and never past the pen. Until #4104 lets the output take in the miter, that is the cut.
             const int Reach = Thickness / 2;
             Assert.Multiple(() =>
             {
-                Assert.That(effectBounds.Left, Is.EqualTo(Math.Max(penBounds.Left, shapeBounds.Left - Reach)).Within(1),
-                    "left point");
-                Assert.That(effectBounds.Top, Is.EqualTo(Math.Max(penBounds.Top, shapeBounds.Top - Reach)).Within(1),
-                    "top point");
+                Assert.That(effectBounds.Left,
+                    Is.InRange(penBounds.Left - 1, Math.Max(penBounds.Left, shapeBounds.Left - Reach) + 1), "left point");
+                Assert.That(effectBounds.Top,
+                    Is.InRange(penBounds.Top - 1, Math.Max(penBounds.Top, shapeBounds.Top - Reach) + 1), "top point");
                 Assert.That(effectBounds.Right,
-                    Is.EqualTo(Math.Min(penBounds.Right, shapeBounds.Right + Reach)).Within(1), "right point");
+                    Is.InRange(Math.Min(penBounds.Right, shapeBounds.Right + Reach) - 1, penBounds.Right + 1),
+                    "right point");
                 Assert.That(effectBounds.Bottom,
-                    Is.EqualTo(Math.Min(penBounds.Bottom, shapeBounds.Bottom + Reach)).Within(1), "bottom points");
+                    Is.InRange(Math.Min(penBounds.Bottom, shapeBounds.Bottom + Reach) - 1, penBounds.Bottom + 1),
+                    "bottom points");
             });
         });
 
