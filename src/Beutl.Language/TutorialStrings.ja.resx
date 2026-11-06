@@ -12,9 +12,6 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="StartTutorial" xml:space="preserve">
-    <value>チュートリアルを開始</value>
-  </data>
   <data name="TutorialStep" xml:space="preserve">
     <value>ステップ {0}/{1}</value>
   </data>
@@ -52,7 +49,7 @@
     <value>新規作成</value>
   </data>
   <data name="Tutorial_Welcome_Create_Content" xml:space="preserve">
-    <value>ここをクリックして新しいプロジェクトやシーンを作成し、編集を開始できます。</value>
+    <value>ここをクリックして新しいプロジェクトを作成し、編集を開始できます。</value>
   </data>
   <data name="Tutorial_SceneEdit_Title" xml:space="preserve">
     <value>シーン編集の基本</value>

@@ -37,6 +37,7 @@
                                 Theme="{StaticResource CompactFlyoutItemButtonTheme}" />
                         <Button Click="OnButtonClick"
                                 Content="{x:Static lang:Strings.CreateNew}"
+                                IsEnabled="{Binding IsProjectOpened.Value}"
                                 Tag="NewScene"
                                 Theme="{StaticResource CompactFlyoutItemButtonTheme}" />
                         <Separator Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />

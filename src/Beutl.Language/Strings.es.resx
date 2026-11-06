@@ -398,29 +398,8 @@
   <data name="BringToTop" xml:space="preserve">
     <value>Traer al frente</value>
   </data>
-  <data name="StartEditing" xml:space="preserve">
-    <value>Comenzar edición</value>
-  </data>
-  <data name="CreateNewProjectOrScene" xml:space="preserve">
-    <value>Crear nuevo proyecto o escena</value>
-  </data>
-  <data name="OpenAFileYouHaveAlreadyCreated" xml:space="preserve">
-    <value>Abrir un archivo que ya has creado</value>
-  </data>
-  <data name="Recently" xml:space="preserve">
-    <value>Recientemente</value>
-  </data>
-  <data name="Projects" xml:space="preserve">
-    <value>Proyectos</value>
-  </data>
-  <data name="Files" xml:space="preserve">
-    <value>Archivos</value>
-  </data>
-  <data name="All" xml:space="preserve">
-    <value>Todo</value>
-  </data>
-  <data name="NoFilesUsedRecently" xml:space="preserve">
-    <value>No se usaron archivos recientemente.</value>
+  <data name="RecentProjectsEmpty" xml:space="preserve">
+    <value>Los proyectos que abras aparecerán aquí.</value>
   </data>
   <data name="AddOutputProfile" xml:space="preserve">
     <value>Agregar perfil</value>
@@ -493,6 +472,9 @@
   </data>
   <data name="FileBrowser" xml:space="preserve">
     <value>Archivos</value>
+  </data>
+  <data name="GridView" xml:space="preserve">
+    <value>Vista de cuadrícula</value>
   </data>
   <data name="ListView" xml:space="preserve">
     <value>Vista de lista</value>

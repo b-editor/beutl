@@ -398,29 +398,8 @@
   <data name="BringToTop" xml:space="preserve">
     <value>맨 위로 가져오기</value>
   </data>
-  <data name="StartEditing" xml:space="preserve">
-    <value>편집 시작</value>
-  </data>
-  <data name="CreateNewProjectOrScene" xml:space="preserve">
-    <value>새 프로젝트 또는 장면 만들기</value>
-  </data>
-  <data name="OpenAFileYouHaveAlreadyCreated" xml:space="preserve">
-    <value>이미 만든 파일 열기</value>
-  </data>
-  <data name="Recently" xml:space="preserve">
-    <value>최근</value>
-  </data>
-  <data name="Projects" xml:space="preserve">
-    <value>프로젝트</value>
-  </data>
-  <data name="Files" xml:space="preserve">
-    <value>파일</value>
-  </data>
-  <data name="All" xml:space="preserve">
-    <value>모두</value>
-  </data>
-  <data name="NoFilesUsedRecently" xml:space="preserve">
-    <value>최근에 사용한 파일이 없습니다.</value>
+  <data name="RecentProjectsEmpty" xml:space="preserve">
+    <value>연 프로젝트가 여기에 표시됩니다.</value>
   </data>
   <data name="AddOutputProfile" xml:space="preserve">
     <value>프로필 추가</value>
@@ -493,6 +472,9 @@
   </data>
   <data name="FileBrowser" xml:space="preserve">
     <value>파일</value>
+  </data>
+  <data name="GridView" xml:space="preserve">
+    <value>격자 보기</value>
   </data>
   <data name="ListView" xml:space="preserve">
     <value>목록 보기</value>

@@ -14,12 +14,15 @@ namespace Beutl.ViewModels;
 
 public partial class MenuBarViewModel
 {
-    [MemberNotNull(nameof(DeleteLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(SelectAll), nameof(ShowSceneSettings), nameof(RemoveFromProject))]
+    [MemberNotNull(nameof(NewScene), nameof(DeleteLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(SelectAll), nameof(ShowSceneSettings), nameof(RemoveFromProject))]
     private void InitializeSceneCommands(IObservable<bool> isSceneOpened)
     {
         IObservable<bool> isProjectOpenedAndTabOpened = _projectService.IsOpened
             .CombineLatest(_editorService.SelectedTabItem)
             .Select(i => i is { First: true, Second: not null });
+
+        // A scene belongs to a project.
+        NewScene = new AsyncReactiveCommand(IsProjectOpened);
 
         RemoveFromProject = new(isProjectOpenedAndTabOpened);
 
@@ -44,7 +47,7 @@ public partial class MenuBarViewModel
         });
     }
 
-    public AsyncReactiveCommand NewScene { get; } = new();
+    public AsyncReactiveCommand NewScene { get; private set; }
 
     public ReactiveCommandSlim<EditorTabItem?> RemoveFromProject { get; private set; }
 

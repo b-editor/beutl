@@ -435,7 +435,7 @@ public static class ObjectTemplatePreviewRenderer
     // An audio-only element composites to a fully transparent frame; embedding that would replace a
     // meaningful type icon with an empty square. A uniformly coloured but opaque result (a solid
     // brush swatch) is a legitimate preview and must survive this check.
-    private static bool IsBlank(Bitmap bitmap)
+    internal static bool IsBlank(Bitmap bitmap)
     {
         if (bitmap.Width <= 0 || bitmap.Height <= 0)
             return true;

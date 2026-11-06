@@ -11,14 +11,15 @@ namespace Beutl.ViewModels.Dialogs;
 
 public sealed class CreateNewSceneViewModel
 {
-    private readonly Project? _proj;
+    private readonly Project _proj;
     private readonly EditorService _editorService;
 
     public CreateNewSceneViewModel(ProjectService projectService, EditorService editorService)
     {
         _editorService = editorService;
-        _proj = projectService.CurrentProject.Value;
-        Location.Value = GetInitialLocation();
+        _proj = projectService.CurrentProject.Value
+            ?? throw new InvalidOperationException("A scene can be created only in an open project.");
+        Location.Value = Path.GetDirectoryName(_proj.Uri!.LocalPath)!;
         Name.Value = NewDocumentValidation.UniqueName(Location.Value, "Scene");
 
         Name.SetValidateNotifyError(n => NewDocumentValidation.ValidateName(n, Location.Value));
@@ -48,10 +49,7 @@ public sealed class CreateNewSceneViewModel
                     UriHelper.CreateFromPath(Path.Combine(Location.Value, Name.Value,
                         $"{Name.Value}.{EditorConstants.SceneFileExtension}")));
 
-                if (_proj != null)
-                {
-                    ProjectPersistence.AddItemAndPersist(_proj, scene);
-                }
+                ProjectPersistence.AddItemAndPersist(_proj, scene);
             }
             catch (Exception ex)
             {
@@ -76,14 +74,4 @@ public sealed class CreateNewSceneViewModel
     public ReadOnlyReactivePropertySlim<bool> CanCreate { get; }
 
     public AsyncReactiveCommand Create { get; }
-
-    private string GetInitialLocation()
-    {
-        if (_proj != null)
-        {
-            return Path.GetDirectoryName(_proj.Uri!.LocalPath)!;
-        }
-
-        return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-    }
 }

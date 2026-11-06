@@ -1,200 +1,414 @@
 <UserControl x:Class="Beutl.Views.EditorHostFallback"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:beutl="using:Beutl"
              xmlns:converters="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:sysIO="using:System.IO"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels"
              xmlns:xaml="using:Avalonia.Markup.Xaml.MarkupExtensions"
              d:DesignHeight="720"
              d:DesignWidth="1280"
              mc:Ignorable="d">
-    <Grid Margin="32">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <UserControl.Resources>
+        <!-- An empty frame in the corner marks of a camera's viewfinder: nothing has been shot here yet. -->
+        <ControlTheme x:Key="ViewfinderTheme" TargetType="ContentControl">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Panel>
+                        <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" />
+                        <Border Classes="viewfinder-mark"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
+                                BorderThickness="1.5,1.5,0,0" />
+                        <Border Classes="viewfinder-mark"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                BorderThickness="0,1.5,1.5,0" />
+                        <Border Classes="viewfinder-mark"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Bottom"
+                                BorderThickness="1.5,0,0,1.5" />
+                        <Border Classes="viewfinder-mark"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                BorderThickness="0,0,1.5,1.5" />
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}" />
+                    </Panel>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
 
-        <StackPanel Grid.ColumnSpan="2"
-                    Margin="32"
-                    Spacing="8">
-            <TextBlock Text="{x:Static lang:Strings.StartEditing}" Theme="{StaticResource SubtitleTextBlockStyle}" />
+        <!-- The frame carries the selection in the grid, so the cell itself draws nothing. -->
+        <ControlTheme x:Key="RecentGridItemTheme" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Padding="{TemplateBinding Padding}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      Background="{TemplateBinding Background}"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}" />
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
 
-            <WrapPanel Margin="-4" Orientation="Horizontal">
-                <OptionsDisplayItem x:Name="createNewButton"
-                                    Margin="4"
-                                    Description="{x:Static lang:Strings.CreateNewProjectOrScene}"
-                                    Header="{x:Static lang:Strings.CreateNew}"
-                                    Navigates="True"
-                                    NavigationRequested="OpenContext">
-                    <OptionsDisplayItem.Icon>
-                        <icons:FluentIcon Icon="New" />
-                    </OptionsDisplayItem.Icon>
-                    <OptionsDisplayItem.ContextFlyout>
-                        <ui:FAMenuFlyout Placement="AnchorAndGravity"
-                                         PlacementAnchor="BottomRight"
-                                         PlacementGravity="BottomLeft">
-                            <ui:FAMenuFlyoutItem Click="CreateNewProject_Click" Text="{x:Static lang:Strings.CreateNewProject}" />
-                            <ui:FAMenuFlyoutItem Click="CreateNewScene_Click" Text="{x:Static lang:Strings.CreateNewScene}" />
-                        </ui:FAMenuFlyout>
-                    </OptionsDisplayItem.ContextFlyout>
-                </OptionsDisplayItem>
+        <DataTemplate x:Key="RecentGridItemTemplate" x:DataType="vm:RecentProjectItem">
+            <StackPanel Classes.missing="{CompiledBinding IsMissing.Value}"
+                        Spacing="8"
+                        ToolTip.Tip="{CompiledBinding FullName}">
+                <local:WideFramePanel>
+                    <Border Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                            ClipToBounds="True"
+                            CornerRadius="{DynamicResource ControlCornerRadius}">
+                        <Panel>
+                            <ContentControl Background="Transparent"
+                                            IsVisible="{CompiledBinding HasNoThumbnail.Value}"
+                                            Theme="{StaticResource ViewfinderTheme}">
+                                <icons:FluentIcon FontSize="28"
+                                                  Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                  Icon="VideoClip" />
+                            </ContentControl>
+                            <Image RenderOptions.BitmapInterpolationMode="HighQuality" Source="{CompiledBinding Thumbnail.Value}" />
+                            <Border Background="{DynamicResource ControlOnImageFillColorDefaultBrush}" IsVisible="{Binding #openingRing.IsVisible}" />
+                            <ui:FAProgressRing x:Name="openingRing"
+                                               Width="32"
+                                               Height="32"
+                                               IsIndeterminate="{CompiledBinding $self.IsVisible}">
+                                <ui:FAProgressRing.IsVisible>
+                                    <MultiBinding Converter="{x:Static converters:EqualAllConverter.Instance}">
+                                        <xaml:CompiledBindingExtension Path="FullName" />
+                                        <xaml:CompiledBindingExtension Path="$parent[local:EditorHostFallback].OpeningFile" />
+                                    </MultiBinding>
+                                </ui:FAProgressRing.IsVisible>
+                            </ui:FAProgressRing>
+                        </Panel>
+                    </Border>
+                    <Border Classes="frame-ring"
+                            CornerRadius="{DynamicResource ControlCornerRadius}"
+                            IsHitTestVisible="False" />
+                </local:WideFramePanel>
+                <StackPanel Margin="2,0" Spacing="1">
+                    <TextBlock Text="{CompiledBinding Name}"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap" />
+                    <TextBlock FontSize="12"
+                               Text="{CompiledBinding Status.Value}"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap"
+                               Theme="{StaticResource LabelTextBlockStyle}" />
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
 
-                <OptionsDisplayItem Margin="4"
-                                    Description="{x:Static lang:Strings.OpenAFileYouHaveAlreadyCreated}"
-                                    Header="{x:Static lang:Strings.Open}"
-                                    Navigates="True"
-                                    NavigationRequested="OpenContext">
-                    <OptionsDisplayItem.Icon>
-                        <icons:FluentIcon Icon="Open" />
-                    </OptionsDisplayItem.Icon>
-                    <OptionsDisplayItem.ContextFlyout>
-                        <ui:FAMenuFlyout Placement="AnchorAndGravity"
-                                         PlacementAnchor="BottomRight"
-                                         PlacementGravity="BottomLeft">
-                            <ui:FAMenuFlyoutItem Click="OpenProject_Click" Text="{x:Static lang:Strings.Project}" />
-                            <ui:FAMenuFlyoutItem Click="OpenFile_Click" Text="{x:Static lang:Strings.File}" />
-                        </ui:FAMenuFlyout>
-                    </OptionsDisplayItem.ContextFlyout>
-                </OptionsDisplayItem>
+        <DataTemplate x:Key="RecentListItemTemplate" x:DataType="vm:RecentProjectItem">
+            <Grid Margin="0,4"
+                  Classes.missing="{CompiledBinding IsMissing.Value}"
+                  ColumnDefinitions="Auto,*,Auto"
+                  ColumnSpacing="12"
+                  ToolTip.Tip="{CompiledBinding FullName}">
+                <Border Width="64"
+                        Height="36"
+                        VerticalAlignment="Center"
+                        Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                        ClipToBounds="True"
+                        CornerRadius="4">
+                    <Panel>
+                        <icons:FluentIcon FontSize="16"
+                                          Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                          Icon="VideoClip"
+                                          IsVisible="{CompiledBinding HasNoThumbnail.Value}" />
+                        <Image RenderOptions.BitmapInterpolationMode="HighQuality" Source="{CompiledBinding Thumbnail.Value}" />
+                    </Panel>
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{CompiledBinding Name}"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap" />
+                    <TextBlock FontSize="12"
+                               Text="{CompiledBinding DirectoryName}"
+                               TextTrimming="PathSegmentEllipsis"
+                               TextWrapping="NoWrap"
+                               Theme="{StaticResource LabelTextBlockStyle}" />
+                </StackPanel>
+                <Panel Grid.Column="2" VerticalAlignment="Center">
+                    <TextBlock MaxWidth="160"
+                               FontSize="12"
+                               IsVisible="{Binding !#openingRing.IsVisible}"
+                               Text="{CompiledBinding Status.Value}"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap"
+                               Theme="{StaticResource LabelTextBlockStyle}" />
+                    <ui:FAProgressRing x:Name="openingRing"
+                                       Width="20"
+                                       Height="20"
+                                       HorizontalAlignment="Right"
+                                       IsIndeterminate="{CompiledBinding $self.IsVisible}">
+                        <ui:FAProgressRing.IsVisible>
+                            <MultiBinding Converter="{x:Static converters:EqualAllConverter.Instance}">
+                                <xaml:CompiledBindingExtension Path="FullName" />
+                                <xaml:CompiledBindingExtension Path="$parent[local:EditorHostFallback].OpeningFile" />
+                            </MultiBinding>
+                        </ui:FAProgressRing.IsVisible>
+                    </ui:FAProgressRing>
+                </Panel>
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
 
-                <OptionsDisplayItem Margin="4"
-                                    Description="{x:Static lang:TutorialStrings.LearnBeutlBasics}"
-                                    Header="{x:Static lang:TutorialStrings.StartTutorial}"
-                                    Navigates="True"
-                                    NavigationRequested="StartTutorial_Click">
-                    <OptionsDisplayItem.Icon>
-                        <icons:FluentIcon Icon="QuestionCircle" />
-                    </OptionsDisplayItem.Icon>
-                </OptionsDisplayItem>
-            </WrapPanel>
-        </StackPanel>
+    <UserControl.Styles>
+        <Style Selector="Border.viewfinder-mark">
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="Margin" Value="12" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlStrongStrokeColorDefaultBrush}" />
+        </Style>
 
-        <!-- The * column caps the panel at 600px while letting it shrink on narrow windows; the
-             stretched wrapper keeps it left-anchored (MaxWidth on a stretched grid would centre it). -->
-        <Grid Grid.Row="1" Margin="32,0,32,32">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MaxWidth="600" />
-            </Grid.ColumnDefinitions>
+        <Style Selector="Border.frame-ring">
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover Border.frame-ring">
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlStrongStrokeColorDefaultBrush}" />
+        </Style>
+        <Style Selector="ListBoxItem:selected Border.frame-ring">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+        </Style>
+        <Style Selector=":is(Control).missing local|WideFramePanel, Grid.missing > Border">
+            <Setter Property="Opacity" Value="0.5" />
+        </Style>
 
-            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,8,*">
-                <TextBlock Text="{x:Static lang:Strings.Recently}" Theme="{StaticResource SubtitleTextBlockStyle}" />
+        <Style Selector="ListBox#recentList">
+            <Setter Property="ItemTemplate" Value="{StaticResource RecentListItemTemplate}" />
+        </Style>
+        <!-- Lines the rows' content up with the header above them. -->
+        <Style Selector="ListBox#recentList:not(.grid) ListBoxItem">
+            <Setter Property="Padding" Value="22,0" />
+        </Style>
+        <Style Selector="ListBox#recentList.grid">
+            <Setter Property="ItemTemplate" Value="{StaticResource RecentGridItemTemplate}" />
+            <Setter Property="ItemContainerTheme" Value="{StaticResource RecentGridItemTheme}" />
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <WrapPanel Margin="16,0,16,16" ItemWidth="{Binding $parent[ListBox].Bounds.Width, Converter={x:Static local:EditorHostFallback.ToGridCellWidth}}" />
+                </ItemsPanelTemplate>
+            </Setter>
+        </Style>
 
-                <ComboBox x:Name="FilterComboBox"
-                          Grid.Column="1"
-                          VerticalAlignment="Center"
-                          SelectedIndex="1"
-                          Theme="{StaticResource LiteComboBoxStyle}">
-                    <ComboBoxItem Content="{x:Static lang:Strings.All}" />
-                    <ComboBoxItem Content="{x:Static lang:Strings.Projects}" />
-                    <ComboBoxItem Content="{x:Static lang:Strings.Files}" />
-                </ComboBox>
+        <Style Selector="Button.action">
+            <Setter Property="Width" Value="224" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
 
-                <ListBox x:Name="recentList"
-                         Grid.Row="2"
-                         Grid.ColumnSpan="2">
+        <Style Selector="Button.social">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="5" />
+        </Style>
+
+        <!-- Beside the sheet while the window is wide enough for both; above it otherwise. -->
+        <Style Selector="DockPanel#rail">
+            <Setter Property="Width" Value="256" />
+            <Setter Property="Grid.RowSpan" Value="2" />
+        </Style>
+        <Style Selector="Border#railDivider">
+            <Setter Property="Width" Value="1" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="Grid.RowSpan" Value="2" />
+        </Style>
+        <Style Selector="Grid#sheet">
+            <Setter Property="Grid.Column" Value="1" />
+            <Setter Property="Grid.RowSpan" Value="2" />
+        </Style>
+        <Style Selector="WrapPanel#actions">
+            <Setter Property="Orientation" Value="Vertical" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border Container.Name="StartScreen" Container.Sizing="Width">
+        <Border.Styles>
+            <ContainerQuery Name="StartScreen" Query="max-width:719">
+                <Style Selector="DockPanel#rail">
+                    <Setter Property="Width" Value="NaN" />
+                    <Setter Property="Grid.RowSpan" Value="1" />
+                    <Setter Property="Grid.ColumnSpan" Value="2" />
+                </Style>
+                <Style Selector="Border#railDivider">
+                    <Setter Property="Width" Value="NaN" />
+                    <Setter Property="Height" Value="1" />
+                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                    <Setter Property="VerticalAlignment" Value="Bottom" />
+                    <Setter Property="Grid.RowSpan" Value="1" />
+                    <Setter Property="Grid.ColumnSpan" Value="2" />
+                </Style>
+                <Style Selector="Grid#sheet">
+                    <Setter Property="Grid.Row" Value="1" />
+                    <Setter Property="Grid.Column" Value="0" />
+                    <Setter Property="Grid.RowSpan" Value="1" />
+                    <Setter Property="Grid.ColumnSpan" Value="2" />
+                </Style>
+                <Style Selector="WrapPanel#actions">
+                    <Setter Property="Orientation" Value="Horizontal" />
+                </Style>
+                <Style Selector="Button.action">
+                    <Setter Property="Width" Value="NaN" />
+                </Style>
+                <Style Selector="Grid#railFooter">
+                    <Setter Property="IsVisible" Value="False" />
+                </Style>
+            </ContainerQuery>
+        </Border.Styles>
+
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,*">
+            <DockPanel x:Name="rail">
+                <Grid x:Name="railFooter"
+                      Margin="26,0,16,16"
+                      ColumnDefinitions="*,Auto"
+                      DockPanel.Dock="Bottom">
+                    <TextBlock VerticalAlignment="Center"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                               Text="{x:Static beutl:BeutlApplication.Version}"
+                               TextTrimming="CharacterEllipsis" />
+                    <StackPanel Grid.Column="1"
+                                Margin="8,0,0,0"
+                                Orientation="Horizontal"
+                                Spacing="2">
+                        <Button Classes="social"
+                                AutomationProperties.Name="GitHub"
+                                Click="SocialClick"
+                                Tag="https://github.com/b-editor/beutl"
+                                Theme="{StaticResource TransparentButton}"
+                                ToolTip.Tip="GitHub">
+                            <Image x:Name="githubLogo" RenderOptions.BitmapInterpolationMode="HighQuality" />
+                        </Button>
+                        <Button Classes="social"
+                                AutomationProperties.Name="X"
+                                Click="SocialClick"
+                                Tag="https://x.com/yuto_daisensei"
+                                Theme="{StaticResource TransparentButton}"
+                                ToolTip.Tip="X">
+                            <Image x:Name="xLogo"
+                                   Margin="1"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality" />
+                        </Button>
+                        <Button Classes="social"
+                                AutomationProperties.Name="{x:Static lang:Strings.Website}"
+                                Click="SocialClick"
+                                Tag="https://github.com/b-editor"
+                                Theme="{StaticResource TransparentButton}"
+                                ToolTip.Tip="{x:Static lang:Strings.Website}">
+                            <icons:FluentIcon FontSize="16" Icon="Link" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <ScrollViewer>
+                    <WrapPanel x:Name="actions"
+                               Margin="16,22,16,16"
+                               ItemSpacing="4"
+                               LineSpacing="4">
+                        <Button x:Name="createNewButton"
+                                Classes="accent action"
+                                Click="CreateNewProject_Click">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                <icons:FluentIcon Icon="Add" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{x:Static lang:Strings.CreateNewProject}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                        </Button>
+                        <Button Classes="action"
+                                Click="OpenProject_Click"
+                                Theme="{StaticResource TransparentButton}">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                <icons:FluentIcon Icon="FolderOpen" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{x:Static lang:Strings.OpenProject}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                        </Button>
+                        <Button Classes="action"
+                                Click="StartTutorial_Click"
+                                Theme="{StaticResource TransparentButton}">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                <icons:FluentIcon Icon="QuestionCircle" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{x:Static lang:Strings.Tutorials}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                        </Button>
+                    </WrapPanel>
+                </ScrollViewer>
+            </DockPanel>
+            <Border x:Name="railDivider" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+
+            <Grid x:Name="sheet" RowDefinitions="Auto,*">
+                <Grid Margin="24,22,24,12" ColumnDefinitions="*,Auto">
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{x:Static lang:Strings.RecentProjects}"
+                               TextTrimming="CharacterEllipsis"
+                               Theme="{StaticResource SubtitleTextBlockStyle}" />
+                    <TabStrip x:Name="layoutTabs"
+                              Grid.Column="1"
+                              Margin="12,0,0,0"
+                              Theme="{DynamicResource SegmentedTabStrip}">
+                        <TabStripItem AutomationProperties.Name="{x:Static lang:Strings.GridView}" ToolTip.Tip="{x:Static lang:Strings.GridView}">
+                            <icons:FluentIcon FontSize="16" Icon="Grid" />
+                        </TabStripItem>
+                        <TabStripItem AutomationProperties.Name="{x:Static lang:Strings.ListView}" ToolTip.Tip="{x:Static lang:Strings.ListView}">
+                            <icons:FluentIcon FontSize="16" Icon="TextBulletList" />
+                        </TabStripItem>
+                    </TabStrip>
+                </Grid>
+
+                <ListBox x:Name="recentList" Grid.Row="1">
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem">
+                            <Setter Property="AutomationProperties.Name" Value="{ReflectionBinding Name}" />
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                             <Setter Property="ContextFlyout">
-                                <ui:FAMenuFlyout x:DataType="sysIO:FileInfo">
-                                    <ui:FAMenuFlyoutItem Click="DeleteRecentItem_Click" Text="{x:Static lang:Strings.Remove}" />
+                                <ui:FAMenuFlyout>
                                     <ui:FAMenuFlyoutItem Click="OpenRecentItem_Click" Text="{x:Static lang:Strings.Open}" />
-                                    <!-- Only projects: deleting a scene on its own would leave its project unable to open. -->
-                                    <ui:FAMenuFlyoutSeparator IsVisible="{CompiledBinding Converter={x:Static converters:ProjectFileConverters.IsProjectFile}}" />
-                                    <ui:FAMenuFlyoutItem Click="DeleteRecentProjectFromDisk_Click"
-                                                         Text="{x:Static lang:Strings.DeleteFromDisk}"
-                                                         IsVisible="{CompiledBinding Converter={x:Static converters:ProjectFileConverters.IsProjectFile}}" />
+                                    <ui:FAMenuFlyoutItem Click="ShowRecentItemInFileManager_Click" Text="{x:Static local:EditorHostFallback.FileManagerMenuHeader}" />
+                                    <ui:FAMenuFlyoutItem Click="DeleteRecentItem_Click" Text="{x:Static lang:Strings.Remove}" />
+                                    <ui:FAMenuFlyoutSeparator />
+                                    <ui:FAMenuFlyoutItem Click="DeleteRecentProjectFromDisk_Click" Text="{x:Static lang:Strings.DeleteFromDisk}" />
                                 </ui:FAMenuFlyout>
                             </Setter>
                         </Style>
                     </ListBox.Styles>
-                    <ListBox.ItemTemplate>
-                        <DataTemplate x:DataType="sysIO:FileInfo">
-                            <Grid Margin="0,4" ColumnDefinitions="*,Auto">
-                                <StackPanel>
-                                    <TextBlock Text="{CompiledBinding Name}"
-                                               TextTrimming="CharacterEllipsis"
-                                               TextWrapping="NoWrap" />
-                                    <TextBlock FontSize="12"
-                                               Text="{CompiledBinding DirectoryName}"
-                                               TextTrimming="CharacterEllipsis"
-                                               TextWrapping="NoWrap"
-                                               Theme="{StaticResource LabelTextBlockStyle}" />
-                                </StackPanel>
-                                <ui:FAProgressRing Grid.Column="1"
-                                                   Width="20"
-                                                   Height="20"
-                                                   Margin="12,0,0,0"
-                                                   VerticalAlignment="Center"
-                                                   IsIndeterminate="{CompiledBinding $self.IsVisible}">
-                                    <ui:FAProgressRing.IsVisible>
-                                        <MultiBinding Converter="{x:Static converters:EqualAllConverter.Instance}">
-                                            <xaml:CompiledBindingExtension Path="FullName" />
-                                            <xaml:CompiledBindingExtension Path="$parent[local:EditorHostFallback].OpeningFile" />
-                                        </MultiBinding>
-                                    </ui:FAProgressRing.IsVisible>
-                                </ui:FAProgressRing>
-                            </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
                 </ListBox>
 
-                <TextBlock Grid.Row="2"
-                           IsVisible="{Binding !#recentList.ItemCount}"
-                           Text="{x:Static lang:Strings.NoFilesUsedRecently}" />
+                <!-- Stands where the first frame will go. -->
+                <local:WideFramePanel x:Name="emptyState"
+                                      Grid.Row="1"
+                                      MaxWidth="360"
+                                      Margin="24,8,24,24"
+                                      HorizontalAlignment="Left"
+                                      VerticalAlignment="Top"
+                                      IsVisible="{Binding !#recentList.ItemCount}">
+                    <ContentControl CornerRadius="{DynamicResource ControlCornerRadius}" Theme="{StaticResource ViewfinderTheme}">
+                        <TextBlock Margin="32,0"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   Text="{x:Static lang:Strings.RecentProjectsEmpty}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                    </ContentControl>
+                </local:WideFramePanel>
             </Grid>
         </Grid>
-
-        <StackPanel Grid.Row="2"
-                    Margin="32,0,0,0"
-                    HorizontalAlignment="Left"
-                    Orientation="Horizontal"
-                    RenderOptions.BitmapInterpolationMode="HighQuality"
-                    Spacing="8">
-            <StackPanel.Styles>
-                <Style Selector="Button">
-                    <Setter Property="Padding" Value="8" />
-                    <Setter Property="CornerRadius" Value="32" />
-                    <Setter Property="Width" Value="40" />
-                    <Setter Property="Height" Value="40" />
-                </Style>
-                <Style Selector="Image">
-                    <Setter Property="Stretch" Value="Uniform" />
-                </Style>
-            </StackPanel.Styles>
-            <Button Click="SocialClick"
-                    AutomationProperties.Name="GitHub"
-                    Tag="https://github.com/b-editor/beutl"
-                    ToolTip.Tip="GitHub">
-                <Image x:Name="githubLogo" RenderOptions.BitmapInterpolationMode="HighQuality" />
-            </Button>
-            <Button Click="SocialClick"
-                    AutomationProperties.Name="X"
-                    Tag="https://x.com/yuto_daisensei"
-                    ToolTip.Tip="X">
-                <Image x:Name="xLogo"
-                       Margin="2"
-                       RenderOptions.BitmapInterpolationMode="HighQuality" />
-            </Button>
-            <Button Click="SocialClick"
-                    AutomationProperties.Name="{x:Static lang:Strings.Website}"
-                    Tag="https://github.com/b-editor"
-                    ToolTip.Tip="{x:Static lang:Strings.Website}">
-                <icons:FluentIcon Width="24"
-                                  Height="24"
-                                  FontSize="20"
-                                  Icon="Link" />
-            </Button>
-        </StackPanel>
-    </Grid>
+    </Border>
 </UserControl>

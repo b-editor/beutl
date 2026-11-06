@@ -1,8 +1,11 @@
 ﻿using Beutl.Composition;
+using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.Models;
+using Beutl.ProjectSystem;
 
 namespace Beutl.ViewModels;
 
@@ -122,6 +125,82 @@ public partial class PlayerViewModel
         {
             TargetDomain = new Rect(default, frameSize.ToSize(1)),
         };
+
+    /// <summary>
+    /// Renders the frame the start page shows for this scene on the preview renderer, without the editor's overlays:
+    /// the frame at the playhead, or the middle of the scene's elements when nothing shows there, as after playing
+    /// through to the end. Returns <see langword="null"/> when nothing shows at either.
+    /// </summary>
+    /// <remarks>
+    /// A render cannot be stopped once started, and the editor's teardown waits for it, so the playhead's frame comes
+    /// from the frame cache whenever the preview already put it there.
+    /// </remarks>
+    internal async Task<Bitmap?> DrawThumbnailFrame()
+    {
+        await Pause();
+
+        return await RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            if (Scene is not { } scene
+                || EditViewModel.Renderer.Value is not { IsDisposed: false, IsGraphicsRendering: false } renderer)
+                return null;
+
+            MediaTime playhead = CurrentFrame.Value;
+            if ((ReadCachedVisibleFrame(renderer, playhead) ?? DrawVisibleFrame(renderer, playhead)) is { } frame)
+                return frame;
+
+            if (scene.Children.Count == 0)
+                return null;
+
+            MediaTime start = scene.Children.Min(element => element.Range.Start);
+            MediaTime end = scene.Children.Max(element => element.Range.End);
+            frame = DrawVisibleFrame(renderer, start + new MediaTime((end - start).Flicks / 2));
+            // Selection bounds and later queries must use the playhead's geometry if the close is refused.
+            renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(playhead));
+            return frame;
+        });
+    }
+
+    // A cached 3D frame can hold an editor handle, so such a frame is replayed without it, as the clean preview does.
+    // A YUV cache drops transparency, which would make an empty frame look like a black one, so it is not used.
+    private Bitmap? ReadCachedVisibleFrame(SceneRenderer renderer, MediaTime time)
+    {
+        FrameCacheManager cache = EditViewModel.FrameCacheManager.Value;
+        int frame = (int)time.ToFrame(GetFrameRate(), MidpointRounding.AwayFromZero);
+        if (cache.IsDisposed
+            || cache.Options.ColorType == FrameCacheColorType.YUV
+            || !cache.TryGet(frame, out Ref<Bitmap>? cached))
+            return null;
+
+        using (cached)
+        {
+            renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(time));
+            if (renderer.SnapshotWithoutGizmos() is { } clean)
+            {
+                using (clean)
+                    return ToVisibleFrame(clean);
+            }
+
+            return ToVisibleFrame(cached.Value);
+        }
+    }
+
+    private static Bitmap? DrawVisibleFrame(SceneRenderer renderer, MediaTime time)
+    {
+        renderer.Render(renderer.Compositor.EvaluateGraphics(time));
+        using Bitmap snapshot = renderer.SnapshotWithoutGizmos() ?? renderer.Snapshot();
+        return ToVisibleFrame(snapshot);
+    }
+
+    private static Bitmap? ToVisibleFrame(Bitmap source)
+    {
+        Bitmap frame = source.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+        if (!ObjectTemplatePreviewRenderer.IsBlank(frame))
+            return frame;
+
+        frame.Dispose();
+        return null;
+    }
 
     /// <summary>
     /// Renders the current frame at full scale on a throwaway renderer, ignoring preview quality.

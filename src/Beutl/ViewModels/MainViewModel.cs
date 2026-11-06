@@ -69,6 +69,8 @@ public sealed partial class MainViewModel : BasePageViewModel
         _projectService = new ProjectService();
         _editorService = new EditorService(_extensionProvider);
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
+        // After version control, whose preparation can refuse the close.
+        _ = new ProjectThumbnailService(_projectService, _editorService);
         _captionCatalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             Beutl.Language.Strings.AiSubtitle_DefaultTemplate,
             Beutl.Editor.Services.ObjectTemplateService.Instance.FindByBaseType(

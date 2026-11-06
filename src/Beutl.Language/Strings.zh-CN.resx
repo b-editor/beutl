@@ -398,29 +398,8 @@
   <data name="BringToTop" xml:space="preserve">
     <value>置于顶部</value>
   </data>
-  <data name="StartEditing" xml:space="preserve">
-    <value>开始编辑</value>
-  </data>
-  <data name="CreateNewProjectOrScene" xml:space="preserve">
-    <value>创建新项目或场景</value>
-  </data>
-  <data name="OpenAFileYouHaveAlreadyCreated" xml:space="preserve">
-    <value>打开已创建的文件</value>
-  </data>
-  <data name="Recently" xml:space="preserve">
-    <value>最近</value>
-  </data>
-  <data name="Projects" xml:space="preserve">
-    <value>项目</value>
-  </data>
-  <data name="Files" xml:space="preserve">
-    <value>文件</value>
-  </data>
-  <data name="All" xml:space="preserve">
-    <value>全部</value>
-  </data>
-  <data name="NoFilesUsedRecently" xml:space="preserve">
-    <value>最近没有使用过的文件。</value>
+  <data name="RecentProjectsEmpty" xml:space="preserve">
+    <value>打开过的项目会显示在这里。</value>
   </data>
   <data name="AddOutputProfile" xml:space="preserve">
     <value>添加配置文件</value>
@@ -493,6 +472,9 @@
   </data>
   <data name="FileBrowser" xml:space="preserve">
     <value>文件</value>
+  </data>
+  <data name="GridView" xml:space="preserve">
+    <value>网格视图</value>
   </data>
   <data name="ListView" xml:space="preserve">
     <value>列表视图</value>

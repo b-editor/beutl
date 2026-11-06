@@ -1,14 +1,12 @@
 ﻿using System.Collections.Specialized;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
-using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Dialogs;
-using Beutl.Views;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
@@ -564,6 +562,7 @@ public class ProjectDiskDeletionTests
     public async Task A_scene_is_not_created_while_a_deletion_holds_the_workspace()
     {
         await TestReset.ResetShellAsync();
+        await TestShell.CreateProjectAsync("scene-during-delete-project");
         string location = NewWorkspace("scene-during-delete");
         string sceneFile = Path.Combine(location, "created", "created.scene");
         var dialog = new CreateNewSceneViewModel(TestShell.Project, TestShell.Editor);
@@ -586,7 +585,7 @@ public class ProjectDiskDeletionTests
             Assert.Multiple(() =>
             {
                 Assert.That(Path.Exists(Path.GetDirectoryName(sceneFile)), Is.False);
-                Assert.That(TestShell.Editor.TabItems, Is.Empty);
+                Assert.That(TestShell.Editor.TabItems.Select(tab => tab.FilePath.Value), Does.Not.Contain(sceneFile));
                 Assert.That(
                     notifications.All.Select(notification => notification.Message),
                     Does.Contain(MessageStrings.ProjectFilesBeingChanged));
@@ -895,65 +894,6 @@ public class ProjectDiskDeletionTests
             releaseChange.TrySetResult();
             TestShell.Project.Closing -= blockingClosing;
             await TestReset.ResetShellAsync();
-        }
-    }
-
-    [AvaloniaTest]
-    public void Delete_from_disk_is_offered_for_projects_only()
-    {
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        string[] savedRecentFiles = viewConfig.RecentFiles.ToArray();
-        string workspace = NewWorkspace("menu");
-        string projectFile = Path.Combine(workspace, "menu", "menu.bep");
-        string sceneFile = Path.Combine(workspace, "menu", "menu", "menu.scene");
-        var view = new EditorHostFallback();
-        var window = new Window { Content = view, Width = 1200, Height = 800 };
-        try
-        {
-            viewConfig.RecentFiles.Clear();
-            viewConfig.UpdateRecentFile(sceneFile);
-            viewConfig.UpdateRecentFile(projectFile);
-            window.Show();
-            view.GetVisualDescendants().OfType<ComboBox>().First(x => x.Name == "FilterComboBox")
-                .SelectedIndex = 0;
-            HeadlessTestHelpers.Render();
-
-            ListBox recentList = view.GetVisualDescendants().OfType<ListBox>().First(x => x.Name == "recentList");
-            var offered = new Dictionary<string, bool>();
-            foreach (ListBoxItem item in recentList.GetRealizedContainers().OfType<ListBoxItem>())
-            {
-                FAMenuFlyout menu = (FAMenuFlyout)item.ContextFlyout!;
-                menu.ShowAt(item);
-                HeadlessTestHelpers.Render();
-                try
-                {
-                    FAMenuFlyoutItem delete = menu.Items.OfType<FAMenuFlyoutItem>()
-                        .Single(menuItem => Equals(menuItem.Text, Strings.DeleteFromDisk));
-                    FAMenuFlyoutSeparator separator = menu.Items.OfType<FAMenuFlyoutSeparator>().Single();
-                    Assert.That(separator.IsVisible, Is.EqualTo(delete.IsVisible));
-                    offered[((FileInfo)item.DataContext!).FullName] = delete.IsVisible;
-                }
-                finally
-                {
-                    menu.Hide();
-                    HeadlessTestHelpers.Render();
-                }
-            }
-
-            Assert.That(offered, Is.EquivalentTo(new Dictionary<string, bool>
-            {
-                [projectFile] = true,
-                [sceneFile] = false,
-            }));
-        }
-        finally
-        {
-            window.Close();
-            HeadlessTestHelpers.Settle();
-            // Not Replace: the change-set pipeline behind the recent list reads only the first new
-            // item of a Replace, and throws when there is none, as when nothing was listed before.
-            viewConfig.RecentFiles.Clear();
-            viewConfig.RecentFiles.AddRange(savedRecentFiles);
         }
     }
 }
