@@ -295,33 +295,28 @@ public sealed class FilterEffectCropTests
         }
     }
 
-    // Asserts that actual draws what expected draws where expected draws it, within rounding, and nothing elsewhere; only
-    // inside within when it is given.
+    // Asserts that actual draws what expected draws, within rounding, over both of their bounds, with a pixel outside either
+    // counting as transparent; only inside within when it is given. A result that lost part of the crop fails too.
     private static void AssertDrawsTheSame(
         (Rect Bounds, byte[][] Rows) expected, (Rect Bounds, byte[][] Rows) actual, Rect? within = null)
     {
-        int offsetX = (int)MathF.Round(expected.Bounds.X - actual.Bounds.X);
-        int offsetY = (int)MathF.Round(expected.Bounds.Y - actual.Bounds.Y);
+        Rect both = expected.Bounds.Union(actual.Bounds);
         int largest = 0, largestX = 0, largestY = 0, kept = 0;
-        for (int y = 0; y < actual.Rows.Length; y++)
+        for (int y = (int)MathF.Floor(both.Y); y < (int)MathF.Ceiling(both.Bottom); y++)
         {
-            for (int x = 0; x < actual.Rows[y].Length / 4; x++)
+            for (int x = (int)MathF.Floor(both.X); x < (int)MathF.Ceiling(both.Right); x++)
             {
-                if (within is { } area && !area.Contains(new Point(actual.Bounds.X + x + 0.5f, actual.Bounds.Y + y + 0.5f)))
+                if (within is { } area && !area.Contains(new Point(x + 0.5f, y + 0.5f)))
                     continue;
 
-                int expectedX = x - offsetX, expectedY = y - offsetY;
-                bool inExpected = expectedY >= 0 && expectedY < expected.Rows.Length
-                                  && expectedX >= 0 && expectedX < expected.Rows[expectedY].Length / 4;
                 for (int channel = 0; channel < 4; channel++)
                 {
-                    int want = inExpected ? expected.Rows[expectedY][(expectedX * 4) + channel] : 0;
-                    int difference = Math.Abs(actual.Rows[y][(x * 4) + channel] - want);
+                    int difference = Math.Abs(ByteAt(actual, x, y, channel) - ByteAt(expected, x, y, channel));
                     if (difference > largest)
                         (largest, largestX, largestY) = (difference, x, y);
                 }
 
-                if (inExpected && expected.Rows[expectedY][(expectedX * 4) + 3] > 0)
+                if (ByteAt(expected, x, y, 3) > 0)
                     kept++;
             }
         }
@@ -330,9 +325,17 @@ public sealed class FilterEffectCropTests
         {
             Assert.That(kept, Is.Positive, "the crop must keep something");
             Assert.That(largest, Is.LessThanOrEqualTo(2),
-                $"the result differs by {largest} at ({largestX + actual.Bounds.X}, {largestY + actual.Bounds.Y}); "
-                + $"bounds {actual.Bounds}, expected {expected.Bounds}");
+                $"the result differs by {largest} at ({largestX}, {largestY}); bounds {actual.Bounds}, expected {expected.Bounds}");
         });
+    }
+
+    // A channel's byte at a position, and 0 outside the raster.
+    private static int ByteAt((Rect Bounds, byte[][] Rows) image, int x, int y, int channel)
+    {
+        int column = x - (int)MathF.Round(image.Bounds.X), row = y - (int)MathF.Round(image.Bounds.Y);
+        return row >= 0 && row < image.Rows.Length && column >= 0 && column < image.Rows[row].Length / 4
+            ? image.Rows[row][(column * 4) + channel]
+            : 0;
     }
 
     private static FilterEffectRenderNode CreateCropFilter(
