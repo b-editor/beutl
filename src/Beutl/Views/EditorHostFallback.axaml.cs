@@ -184,8 +184,6 @@ public partial class EditorHostFallback : UserControl
         }
     }
 
-    // One click opens a project. The press and the release must land on the same entry, so moving off it before
-    // letting go cancels the open.
     // Selects the project file in the platform's file manager, or opens its folder where it cannot select a file.
     private async void ShowRecentItemInFileManager_Click(object? sender, RoutedEventArgs e)
     {
@@ -214,6 +212,8 @@ public partial class EditorHostFallback : UserControl
         }
     }
 
+    // One click opens a project. The press and the release must land on the same entry, so moving off it before
+    // letting go cancels the open.
     private void OnRecentListPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         _pressedItem = e.GetCurrentPoint(this).Properties.IsLeftButtonPressed ? FindRecentItem(e.Source) : null;
