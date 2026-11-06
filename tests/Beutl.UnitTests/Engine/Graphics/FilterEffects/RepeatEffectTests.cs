@@ -565,19 +565,78 @@ public sealed class RepeatEffectTests
         Assert.That(FrameRow(rows), Is.EqualTo(s_frameRow));
     }
 
-    // A Skia filter still works within 16384 pixels of the whole grid, however little of it the frame shows.
+    private static DropShadow Shadow() => new()
+    {
+        Position = { Value = new Point(10, 10) },
+        Sigma = { Value = new Size(4, 4) },
+        Color = { Value = Colors.Black },
+    };
+
+    // A Skia filter after the grid makes only what the frame shows, so 16384 pixels across the whole grid set no limit.
     [TestCase(30)]
     [TestCase(82)]
+    [TestCase(100)]
     public void A_wide_grid_stays_sharp_under_a_filter_after_it(int count)
     {
         var group = new FilterEffectGroup();
         group.Children.Add(WideGrid(count));
-        group.Children.Add(new DropShadow { Position = { Value = new Point(10, 10) }, Sigma = { Value = new Size(4, 4) }, Color = { Value = Colors.Black } });
+        group.Children.Add(Shadow());
 
         byte[][] rows = RenderInFrame(group);
 
         // The shadow falls in the gaps, and the copies stay as they are over it.
         Assert.That(Across(rows, 620, 1000, 1059, 1060, 1119), Is.EqualTo("RRBB"));
+    }
+
+    // Several pictures reach the filter, which then runs as an effect over all of them.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void A_wide_grid_of_pieces_stays_sharp_under_a_filter_after_it(bool group)
+    {
+        var effects = new FilterEffectGroup();
+        if (!group)
+            effects.Children.Add(new SplitEffect { HorizontalDivisions = { Value = 2 }, VerticalDivisions = { Value = 1 } });
+        effects.Children.Add(WideGrid(100));
+        effects.Children.Add(Shadow());
+
+        byte[][] rows = RenderInFrame(effects, group ? Halves() : null);
+
+        Assert.That(Across(rows, 620, 1000, 1059, 1060, 1119), Is.EqualTo("RRBB"));
+    }
+
+    // Scaled up, the copies do not land on whole pixels of the frame as they are drawn, so the filter makes a value of
+    // what the frame shows instead of drawing straight into it. A grid too wide for one buffer then gives the pixels of
+    // one that fits.
+    [Test]
+    public void A_wide_grid_scaled_up_under_a_filter_after_it_draws_like_a_small_one()
+    {
+        byte[][] small = RenderScaledUp(10);
+
+        byte[][] wide = RenderScaledUp(100);
+
+        // Twice as large around the picture's middle, the copy at x = 1000 covers 1040 to 1280, and the rows of copies
+        // from y = 600 are from 660.
+        (int Difference, int X, int Y) largest = default;
+        for (int y = 600; y < 900; y++)
+            for (int x = 900 * 4; x < 1500 * 4; x++)
+            {
+                int difference = Math.Abs(wide[y][x] - small[y][x]);
+                if (difference > largest.Difference)
+                    largest = (difference, x / 4, y);
+            }
+        Assert.That(largest.Difference, Is.LessThanOrEqualTo(2), $"at ({largest.X}, {largest.Y})");
+
+        static byte[][] RenderScaledUp(int count)
+        {
+            RectShape picture = Picture();
+            picture.Width.Value = 120;
+            picture.Height.Value = 80;
+            picture.Transform.Value = new ScaleTransform(new Vector(100, 100), 200);
+            var effects = new FilterEffectGroup();
+            effects.Children.Add(WideGrid(count));
+            effects.Children.Add(Shadow());
+            return RenderInFrame(effects, picture, linear: true);
+        }
     }
 
     [TestCase(30)]

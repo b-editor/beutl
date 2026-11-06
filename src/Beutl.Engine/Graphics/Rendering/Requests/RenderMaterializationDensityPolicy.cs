@@ -29,7 +29,10 @@ internal static class RenderMaterializationDensityPolicy
         Rect logicalBounds = fragment.Kind == RenderFragmentKind.Layer
                              && fragment.Payload is LayerRenderFragmentPayload layer
             ? layer.Domain ?? fragment.Bounds
-            : fragment.Bounds;
+            // A segment makes only the part of its output the request needs.
+            : fragment.Payload is FilterEffectSegmentRenderFragmentPayload && regions is not null
+                ? regions.GetFragmentRequirement(fragment).Resolve(fragment.Bounds).Intersect(fragment.Bounds)
+                : fragment.Bounds;
         return RequiresRasterApron(fragment)
             ? BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToRasterApron(logicalBounds, density)
             : BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(logicalBounds, density);
