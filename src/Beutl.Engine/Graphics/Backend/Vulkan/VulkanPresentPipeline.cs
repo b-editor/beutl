@@ -58,6 +58,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             int outputBt2020;
             int overlay;
             int composeInGamma;
+            int sampleNearest;
         } pc;
 
         vec3 reinhard(vec3 c) { return c / (1.0 + c); }
@@ -114,7 +115,14 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
                 return;
             }
 
-            vec4 c = texture(srcTexture, srcUV);
+            // A zoomed-in frame shows each of its pixels as a sharp square, as the SDR preview does.
+            vec4 c;
+            if (pc.sampleNearest != 0) {
+                ivec2 size = textureSize(srcTexture, 0);
+                c = texelFetch(srcTexture, clamp(ivec2(srcUV * vec2(size)), ivec2(0), size - 1), 0);
+            } else {
+                c = texture(srcTexture, srcUV);
+            }
             float alpha = c.a;
             vec3 rgb = vec3(0.0);
             if (alpha > 0.0001) {

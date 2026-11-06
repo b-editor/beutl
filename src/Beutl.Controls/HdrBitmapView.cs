@@ -455,7 +455,8 @@ public partial class HdrBitmapView : NativeControlHost
             IsSourceLinear: bitmap.ColorSpace?.GammaIsLinear == true,
             DisplayGamut: _displayGamut,
             DisplayPeakLuminance: DisplayPeakLuminance,
-            Destination: GetDestination());
+            Destination: GetDestination(),
+            SampleNearest: InterpolationMode == BitmapInterpolationMode.None);
     }
 
     // FrameRect in fractions of the view's size.

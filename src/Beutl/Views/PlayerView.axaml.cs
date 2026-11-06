@@ -5,8 +5,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 
@@ -365,19 +363,6 @@ public partial class PlayerView : UserControl
                 UpdateFrameOutline(matrix.M11);
                 UpdateZoomDisplay();
                 UpdateHdrFrameRect();
-                if (DataContext is PlayerViewModel { Scene: { } } vm)
-                {
-                    if (ViewportTransform is not { } viewport) return;
-                    double pixelSize = viewport.FrameScale * matrix.M11;
-                    if (pixelSize >= 1)
-                    {
-                        RenderOptions.SetBitmapInterpolationMode(image, BitmapInterpolationMode.None);
-                    }
-                    else
-                    {
-                        RenderOptions.SetBitmapInterpolationMode(image, BitmapInterpolationMode.HighQuality);
-                    }
-                }
             })
             .DisposeWith(_disposables);
     }

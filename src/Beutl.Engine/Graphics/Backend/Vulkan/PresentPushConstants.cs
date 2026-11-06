@@ -36,6 +36,8 @@ internal struct PresentPushConstants
 
     public int ComposeInGamma; // 1 = blend the frame over black and the overlay over it in sRGB-encoded values
 
+    public int SampleNearest; // 1 = take the texel each pixel falls in, so a zoomed-in frame shows its pixels sharp
+
     public void SetDisplayMapping(PreviewDisplayMapping m) =>
         DisplayMapping = new Vector4(m.Knee, m.Ks, m.MaxLum, m.SourcePq);
 

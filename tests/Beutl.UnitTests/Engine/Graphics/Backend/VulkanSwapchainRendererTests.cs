@@ -48,6 +48,25 @@ public class VulkanSwapchainRendererTests
         Assert.That((pc.DstX, pc.DstY, pc.DstW, pc.DstH), Is.EqualTo((-0.5f, 0.25f, 2f, 1.5f)));
     }
 
+    // A zoomed-in frame shows its pixels sharp, whether the player places it or Stretch does (#4082).
+    [Test]
+    public void AFrameAskedForSharpPixelsTellsTheShaderSo()
+    {
+        var placed = new RenderParams(1920, 1080, Stretch.Uniform, UIToneMappingOperator.None, 0f,
+            IsSourceLinear: true, Destination: new Beutl.Graphics.Rect(0f, 0f, 1f, 1f), SampleNearest: true);
+
+        VulkanSwapchainRenderer.ComputeStretchRects(placed, s_view, out PresentPushConstants fromPlaced);
+        VulkanSwapchainRenderer.ComputeStretchRects(placed with { Destination = null }, s_view, out PresentPushConstants fromStretch);
+        VulkanSwapchainRenderer.ComputeStretchRects(placed with { SampleNearest = false }, s_view, out PresentPushConstants smooth);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fromPlaced.SampleNearest, Is.EqualTo(1));
+            Assert.That(fromStretch.SampleNearest, Is.EqualTo(1));
+            Assert.That(smooth.SampleNearest, Is.Zero);
+        });
+    }
+
     // The presentation thread takes a frame through its queue and a redraw beside it. A frame requested with the old
     // destination just before a zoom can reach a later batch than the zoom's redraw did, and must not move the frame back.
     [Test]

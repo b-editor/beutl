@@ -12,6 +12,8 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// in place of the one it reports, or 0 to use that.</param>
 /// <param name="Destination">Where the frame goes, in fractions of the swapchain's size from its top left corner, or
 /// null to place it by <paramref name="Stretch"/>. It can reach past the swapchain, as a zoomed-in frame does.</param>
+/// <param name="SampleNearest">Whether each pixel takes the texel it falls in rather than filtering the texels around
+/// it, so the frame's pixels show as sharp squares when it is zoomed in.</param>
 internal readonly record struct RenderParams(
     float SourceWidth,
     float SourceHeight,
@@ -21,4 +23,5 @@ internal readonly record struct RenderParams(
     bool IsSourceLinear,
     PreviewGamutMapping DisplayGamut = default,
     float DisplayPeakLuminance = 0f,
-    Rect? Destination = null);
+    Rect? Destination = null,
+    bool SampleNearest = false);
