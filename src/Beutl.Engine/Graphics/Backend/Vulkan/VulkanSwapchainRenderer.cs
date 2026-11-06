@@ -74,6 +74,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
     private (RenderParams Params, long Stamp)? _pendingRedraw;
     private long _requestStamp;
 
+    // The newest parameters any batch has taken. Only the presentation thread touches it.
+    private NewestRenderParams _newestParams;
+
     private VkSemaphore _imageAvailableSemaphore;
     private VkSemaphore _renderFinishedSemaphore;
     private Fence _inFlightFence;
@@ -231,6 +234,11 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
                 }
 
                 TakePending(ref batch);
+
+                // A frame comes through the queue and a redraw beside it, so a frame requested before a redraw can reach a
+                // later batch than the redraw did. Its older parameters must not move the frame back.
+                if (batch.Params is { } requested)
+                    batch.Params = _newestParams.Take(requested, batch.Stamp);
 
                 // A paused preview gets no new frame when its window moves to another display, the display's settings
                 // change, or its native view takes a new size after the last frame, so the last one is drawn again.
@@ -833,7 +841,8 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         // The newest parameters, and the stamp of the request that gave them.
         public RenderParams? Params;
-        private long _stamp;
+
+        public long Stamp { readonly get; private set; }
 
         public (uint Width, uint Height)? Resize;
 
@@ -860,11 +869,33 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         public void Offer(RenderParams renderParams, long stamp)
         {
-            if (Params == null || stamp >= _stamp)
+            if (Params == null || stamp >= Stamp)
             {
                 Params = renderParams;
+                Stamp = stamp;
+            }
+        }
+    }
+
+    /// <summary>The newest render parameters taken, by the order in which the view requested them.</summary>
+    internal struct NewestRenderParams
+    {
+        private RenderParams? _params;
+        private long _stamp;
+
+        /// <summary>
+        /// Returns the parameters to draw with: <paramref name="renderParams"/> unless a later request's parameters were
+        /// taken before, in which case those.
+        /// </summary>
+        public RenderParams Take(RenderParams renderParams, long stamp)
+        {
+            if (_params == null || stamp >= _stamp)
+            {
+                _params = renderParams;
                 _stamp = stamp;
             }
+
+            return _params.Value;
         }
     }
 

@@ -48,6 +48,29 @@ public class VulkanSwapchainRendererTests
         Assert.That((pc.DstX, pc.DstY, pc.DstW, pc.DstH), Is.EqualTo((-0.5f, 0.25f, 2f, 1.5f)));
     }
 
+    // The presentation thread takes a frame through its queue and a redraw beside it. A frame requested with the old
+    // destination just before a zoom can reach a later batch than the zoom's redraw did, and must not move the frame back.
+    [Test]
+    public void AFrameRequestedBeforeARedrawTakenEarlierKeepsTheRedrawsDestination()
+    {
+        RenderParams fit = WithDestination(new Beutl.Graphics.Rect(0.1f, 0.1f, 0.8f, 0.8f));
+        RenderParams zoomed = WithDestination(new Beutl.Graphics.Rect(-0.5f, -0.5f, 2f, 2f));
+        var newest = new VulkanSwapchainRenderer.NewestRenderParams();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(newest.Take(zoomed, stamp: 2), Is.EqualTo(zoomed), "the redraw, taken first");
+            Assert.That(newest.Take(fit, stamp: 1), Is.EqualTo(zoomed), "the frame requested before it, taken later");
+            Assert.That(newest.Take(fit, stamp: 3), Is.EqualTo(fit), "a request after both");
+        });
+    }
+
+    private static RenderParams WithDestination(Beutl.Graphics.Rect destination)
+    {
+        return new RenderParams(1920, 1080, Stretch.Uniform, UIToneMappingOperator.None, 0f, IsSourceLinear: true,
+            Destination: destination);
+    }
+
     [Test]
     public void APausedPreviewKeepsAFrameDrawnAtTheSurfacesSize()
     {
