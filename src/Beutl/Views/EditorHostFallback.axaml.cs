@@ -192,7 +192,8 @@ public partial class EditorHostFallback : UserControl
         if (sender is not FAMenuFlyoutItem { DataContext: RecentProjectItem item })
             return;
 
-        if (!File.Exists(item.FullName))
+        // A project on a disconnected drive can take a while to answer.
+        if (!await Task.Run(() => File.Exists(item.FullName)))
         {
             NotificationService.ShowError(FileManagerMenuHeader, MessageStrings.FileDoesNotExist);
             return;

@@ -162,11 +162,14 @@ public partial class PlayerViewModel
     }
 
     // A cached 3D frame can hold an editor handle, so such a frame is replayed without it, as the clean preview does.
+    // A YUV cache drops transparency, which would make an empty frame look like a black one, so it is not used.
     private Bitmap? ReadCachedVisibleFrame(SceneRenderer renderer, MediaTime time)
     {
         FrameCacheManager cache = EditViewModel.FrameCacheManager.Value;
         int frame = (int)time.ToFrame(GetFrameRate(), MidpointRounding.AwayFromZero);
-        if (cache.IsDisposed || !cache.TryGet(frame, out Ref<Bitmap>? cached))
+        if (cache.IsDisposed
+            || cache.Options.ColorType == FrameCacheColorType.YUV
+            || !cache.TryGet(frame, out Ref<Bitmap>? cached))
             return null;
 
         using (cached)

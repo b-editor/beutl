@@ -75,8 +75,8 @@ internal sealed class ProjectThumbnailService
     {
         if (closeContext.CloseIntent != ProjectService.ProjectCloseIntent.SaveChanges
             || _editorService.IsWorktreeMutationActive
-            || _projectService.CurrentProject.Value?.Uri is not { IsFile: true } projectUri
-            || FindSceneEditor() is not { } editor)
+            || _projectService.CurrentProject.Value is not { Uri: { IsFile: true } projectUri } project
+            || FindSceneEditor(project) is not { } editor)
         {
             return;
         }
@@ -111,13 +111,16 @@ internal sealed class ProjectThumbnailService
         }
     }
 
-    private EditViewModel? FindSceneEditor()
+    // A scene removed from the project can still have its tab open, and is no picture of the project.
+    private EditViewModel? FindSceneEditor(Project project)
     {
-        if (_editorService.SelectedTabItem.Value?.Context.Value is EditViewModel { IsDisposingOrDisposed: false } selected)
+        bool Shows(EditViewModel editor) => !editor.IsDisposingOrDisposed && project.Items.Contains(editor.Scene);
+
+        if (_editorService.SelectedTabItem.Value?.Context.Value is EditViewModel selected && Shows(selected))
             return selected;
 
         return _editorService.TabItems.Select(item => item.Context.Value)
             .OfType<EditViewModel>()
-            .FirstOrDefault(editor => !editor.IsDisposingOrDisposed);
+            .FirstOrDefault(Shows);
     }
 }
