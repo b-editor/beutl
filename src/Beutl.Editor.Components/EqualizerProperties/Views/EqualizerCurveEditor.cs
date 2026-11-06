@@ -4,7 +4,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using Beutl.Audio.Effects.Equalizer;
 using Beutl.Editor.Components.EqualizerProperties.ViewModels;
@@ -12,7 +11,7 @@ using Beutl.Editor.Components.Helpers;
 
 namespace Beutl.Editor.Components.EqualizerProperties.Views;
 
-public sealed class EqualizerCurveEditor : Control
+public sealed class EqualizerCurveEditor : AudioCanvas
 {
     public const float MinFrequency = 20f;
     public const float MaxFrequency = 20000f;
@@ -28,8 +27,11 @@ public sealed class EqualizerCurveEditor : Control
     // Used only when the host has not bound a session sample rate (e.g. design-time).
     private const int DefaultResponseSampleRate = 48000;
 
-    private static readonly ImmutablePen s_gridPen = new(new ImmutableSolidColorBrush(Color.FromRgb(45, 48, 54)));
-    private static readonly ImmutablePen s_curvePen = new(AudioCanvasStyle.Accent, 2, lineJoin: PenLineJoin.Round);
+    public static readonly StyledProperty<IBrush?> GridBrushProperty =
+        AvaloniaProperty.Register<EqualizerCurveEditor, IBrush?>(nameof(GridBrush));
+
+    public static readonly StyledProperty<IBrush?> CurveBrushProperty =
+        AvaloniaProperty.Register<EqualizerCurveEditor, IBrush?>(nameof(CurveBrush));
 
     public static readonly StyledProperty<ObservableCollection<EqualizerBandItemViewModel>?> BandViewModelsProperty =
         AvaloniaProperty.Register<EqualizerCurveEditor, ObservableCollection<EqualizerBandItemViewModel>?>(nameof(BandViewModels));
@@ -58,10 +60,13 @@ public sealed class EqualizerCurveEditor : Control
 
     private ObservableCollection<EqualizerBandItemViewModel>? _bandViewModels;
     private bool _isAttached;
+    private Pen? _gridPen;
+    private Pen? _curvePen;
 
     static EqualizerCurveEditor()
     {
-        AffectsRender<EqualizerCurveEditor>(BandViewModelsProperty, SelectedBandIndexProperty, CurrentTimeProperty, SampleRateProperty);
+        AffectsRender<EqualizerCurveEditor>(GridBrushProperty, CurveBrushProperty,
+            BandViewModelsProperty, SelectedBandIndexProperty, CurrentTimeProperty, SampleRateProperty);
         BandViewModelsProperty.Changed.AddClassHandler<EqualizerCurveEditor>((o, e) => o.OnBandViewModelsChanged(
             e.OldValue as ObservableCollection<EqualizerBandItemViewModel>,
             e.NewValue as ObservableCollection<EqualizerBandItemViewModel>));
@@ -71,6 +76,20 @@ public sealed class EqualizerCurveEditor : Control
     {
         ClipToBounds = true;
         Focusable = true;
+    }
+
+    // The lines between the axes.
+    public IBrush? GridBrush
+    {
+        get => GetValue(GridBrushProperty);
+        set => SetValue(GridBrushProperty, value);
+    }
+
+    // The response curve.
+    public IBrush? CurveBrush
+    {
+        get => GetValue(CurveBrushProperty);
+        set => SetValue(CurveBrushProperty, value);
     }
 
     public ObservableCollection<EqualizerBandItemViewModel>? BandViewModels
@@ -384,23 +403,25 @@ public sealed class EqualizerCurveEditor : Control
 
         if (Bounds.Width <= 0 || Bounds.Height <= 0) return;
 
-        AudioCanvasStyle.DrawFrame(context, Bounds.Size);
+        DrawFrame(context);
         Rect area = PlotBounds;
+        Pen line = LinePen;
+        Pen grid = GetPen(ref _gridPen, GridBrush);
 
         for (int db = -18; db <= 18; db += 6)
         {
             double y = YFromGain(db);
-            context.DrawLine(db == 0 ? AudioCanvasStyle.Line : s_gridPen, new Point(area.Left, y), new Point(area.Right, y));
+            context.DrawLine(db == 0 ? line : grid, new Point(area.Left, y), new Point(area.Right, y));
         }
 
         foreach (double freq in new double[] { 50, 100, 200, 500, 1000, 2000, 5000, 10000 })
         {
             double x = XFromFrequency((float)freq);
             bool isDecade = Math.Abs(Math.Log10(freq) - Math.Round(Math.Log10(freq))) < 0.01;
-            context.DrawLine(isDecade ? AudioCanvasStyle.Line : s_gridPen, new Point(x, area.Top), new Point(x, area.Bottom));
+            context.DrawLine(isDecade ? line : grid, new Point(x, area.Top), new Point(x, area.Bottom));
         }
 
-        context.DrawRectangle(null, AudioCanvasStyle.Line, area);
+        context.DrawRectangle(null, line, area);
 
         if (_bandViewModels is { Count: > 0 })
         {
@@ -422,7 +443,7 @@ public sealed class EqualizerCurveEditor : Control
                 }
                 ctx.EndFigure(false);
             }
-            context.DrawGeometry(null, s_curvePen, curve);
+            context.DrawGeometry(null, GetPen(ref _curvePen, CurveBrush, 2, PenLineJoin.Round), curve);
 
             for (int i = 0; i < _bandViewModels.Count; i++)
             {
@@ -434,7 +455,7 @@ public sealed class EqualizerCurveEditor : Control
                 bool isHover = i == _hoverIndex || i == _draggingIndex;
                 double radius = isSelected || isHover ? HandleRadius + 2 : HandleRadius;
 
-                AudioCanvasStyle.DrawHandle(context, center, radius, isSelected);
+                DrawHandle(context, center, radius, isSelected);
             }
         }
     }
@@ -467,7 +488,7 @@ public sealed class EqualizerCurveEditor : Control
         return new Point(x, y);
     }
 
-    internal Rect PlotBounds => AudioCanvasStyle.Inset(Bounds.Size, PlotInset, PlotInset);
+    internal Rect PlotBounds => Inset(PlotInset, PlotInset);
 
     private double XFromFrequency(float frequency)
     {

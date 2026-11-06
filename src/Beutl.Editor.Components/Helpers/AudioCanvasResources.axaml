@@ -1,0 +1,27 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:eq="using:Beutl.Editor.Components.EqualizerProperties.Views"
+                    xmlns:helpers="using:Beutl.Editor.Components.Helpers"
+                    xmlns:panner="using:Beutl.Editor.Components.SoundPannerProperties.Views">
+    <!--  One palette for the panner and the equalizer, so both audio canvases look alike.  -->
+    <ControlTheme x:Key="AudioCanvasTheme" TargetType="helpers:AudioCanvas">
+        <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        <Setter Property="LineBrush" Value="{DynamicResource ControlStrongStrokeColorDefaultBrush}" />
+        <Setter Property="HandleBrush" Value="{DynamicResource ControlAltFillColorQuarternaryBrush}" />
+        <Setter Property="AccentBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="{x:Type panner:SoundPanner}"
+                  BasedOn="{StaticResource AudioCanvasTheme}"
+                  TargetType="panner:SoundPanner" />
+
+    <ControlTheme x:Key="{x:Type eq:EqualizerCurveEditor}"
+                  BasedOn="{StaticResource AudioCanvasTheme}"
+                  TargetType="eq:EqualizerCurveEditor">
+        <Setter Property="GridBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+        <!--  An accent foreground: high contrast paints the accent fill in the window color, which would hide the curve.  -->
+        <Setter Property="CurveBrush" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+    </ControlTheme>
+</ResourceDictionary>

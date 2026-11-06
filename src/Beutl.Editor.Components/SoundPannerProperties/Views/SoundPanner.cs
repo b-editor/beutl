@@ -8,7 +8,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.SoundPannerProperties.Views;
 
-public sealed class SoundPanner : Control
+public sealed class SoundPanner : AudioCanvas
 {
     public static readonly StyledProperty<SoundPannerViewModel?> ViewModelProperty =
         AvaloniaProperty.Register<SoundPanner, SoundPannerViewModel?>(nameof(ViewModel));
@@ -26,7 +26,7 @@ public sealed class SoundPanner : Control
         set => SetValue(ViewModelProperty, value);
     }
 
-    internal Rect PanningBounds => AudioCanvasStyle.Inset(Bounds.Size, 36, 40);
+    internal Rect PanningBounds => Inset(36, 40);
 
     internal Point PuckCenter => ViewModel is { } vm
         ? new Point(PanningBounds.X + (Math.Clamp(vm.Pan.Value, -100, 100) + 100) / 200 * PanningBounds.Width,
@@ -143,18 +143,19 @@ public sealed class SoundPanner : Control
     {
         base.Render(context);
         if (ViewModel is not { } vm || Bounds.Width <= 0 || Bounds.Height <= 0) return;
-        AudioCanvasStyle.DrawFrame(context, Bounds.Size);
+        DrawFrame(context);
         Rect area = PanningBounds;
+        Pen line = LinePen;
         bool stereo = vm.Layout.Value == SpeakerLayout.Stereo;
         bool mono = vm.Layout.Value == SpeakerLayout.Mono;
         using (context.PushOpacity(vm.CanPan.Value ? 1 : 0.45))
         {
             if (!stereo && !mono)
             {
-                context.DrawRectangle(null, AudioCanvasStyle.Line, area);
-                context.DrawLine(AudioCanvasStyle.Line, new Point(area.Center.X, area.Top), new Point(area.Center.X, area.Bottom));
+                context.DrawRectangle(null, line, area);
+                context.DrawLine(line, new Point(area.Center.X, area.Top), new Point(area.Center.X, area.Bottom));
             }
-            context.DrawLine(AudioCanvasStyle.Line, new Point(area.Left, area.Center.Y), new Point(area.Right, area.Center.Y));
+            context.DrawLine(line, new Point(area.Left, area.Center.Y), new Point(area.Right, area.Center.Y));
             if (mono)
             {
                 DrawSpeaker(context, "C", new Point(area.Center.X, 17));
@@ -182,15 +183,15 @@ public sealed class SoundPanner : Control
                     DrawSpeaker(context, "Rs", new Point(area.Right, Bounds.Height - 17));
                 }
             }
-            AudioCanvasStyle.DrawHandle(context, PuckCenter, 8, vm.CanDrag.Value);
+            DrawHandle(context, PuckCenter, 8, vm.CanDrag.Value);
         }
     }
 
-    private static void DrawSpeaker(DrawingContext context, string label, Point center)
+    private void DrawSpeaker(DrawingContext context, string label, Point center)
     {
-        context.DrawRectangle(AudioCanvasStyle.Handle, null, new RoundedRect(new Rect(center.X - 14, center.Y - 11, 28, 22), 4));
+        context.DrawRectangle(HandleBrush, null, new RoundedRect(new Rect(center.X - 14, center.Y - 11, 28, 22), 4));
         var text = new FormattedText(label, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-            Typeface.Default, 11, Brushes.White);
+            Typeface.Default, 11, Foreground);
         context.DrawText(text, new Point(center.X - text.Width / 2, center.Y - text.Height / 2));
     }
 }
