@@ -116,12 +116,17 @@ public sealed class PlayerViewPreviewSamplingTests
             editor.Player.FrameMatrix.Value *= BtlMatrix.CreateTranslation(30, 20);
             HeadlessTestHelpers.Settle();
             BitmapInterpolationMode panned = Sampling(view);
+            // A level right next to fit, as 200% is where fit comes to 199.5%, is still a zoom the user chose.
+            editor.Player.FrameMatrix.Value = BtlMatrix.CreateScale(1.0025f, 1.0025f);
+            HeadlessTestHelpers.Settle();
+            BitmapInterpolationMode nextToFit = Sampling(view);
             ZoomTo(view, 2);
 
             Assert.Multiple(() =>
             {
                 Assert.That(fit, Is.EqualTo(BitmapInterpolationMode.HighQuality));
                 Assert.That(panned, Is.EqualTo(BitmapInterpolationMode.HighQuality));
+                Assert.That(nextToFit, Is.EqualTo(BitmapInterpolationMode.None));
                 Assert.That(view.ScreenZoom, Is.EqualTo(2).Within(1e-3));
                 Assert.That(Sampling(view), Is.EqualTo(BitmapInterpolationMode.None));
             });

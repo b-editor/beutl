@@ -114,11 +114,11 @@ public partial class PlayerView
     }
 
     // The frame stays smooth at fit, whatever its size, and at a zoom the user chose its pixels turn sharp once each is
-    // SharpPixelsMinScreenZoom device pixels wide. Only the scale tells the two apart, so panning at fit keeps it smooth.
+    // SharpPixelsMinScreenZoom device pixels wide. Fit's scale is exactly 1, which panning keeps. Any other scale is a
+    // zoom, as the zoom box also takes it, even a level that lands right next to fit.
     private void UpdatePreviewInterpolation(double? zoom)
     {
-        bool zoomed = DataContext is PlayerViewModel viewModel
-                      && Math.Abs(viewModel.FrameMatrix.Value.M11 - 1) >= ZoomLevelTolerance;
+        bool zoomed = DataContext is PlayerViewModel viewModel && viewModel.FrameMatrix.Value.M11 != 1;
         // A zoom the box counts as the level, which rounding can leave just under it, reaches it here too.
         BitmapInterpolationMode mode = zoomed && zoom >= SharpPixelsMinScreenZoom * (1 - ZoomLevelTolerance)
             ? BitmapInterpolationMode.None
