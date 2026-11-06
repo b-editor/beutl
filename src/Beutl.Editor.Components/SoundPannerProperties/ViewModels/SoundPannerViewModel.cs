@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Audio;
+using Beutl.Audio.Graph.Nodes;
 using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
@@ -57,7 +58,12 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
         }
         Sound.AttachedToHierarchy += OnHierarchyChanged;
         Sound.DetachedFromHierarchy += OnHierarchyChanged;
-        CurrentTime.Subscribe(_ => RefreshValues()).AddTo(_subscriptions);
+        // Reading the clip layout can open the media file, so a seek does it only when time can change the layout.
+        CurrentTime.Subscribe(_ =>
+        {
+            if (Sound.HasTimeDependentClipLayout) RefreshLayout();
+            else RefreshValues();
+        }).AddTo(_subscriptions);
         AttachProject();
     }
 
@@ -74,8 +80,6 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
     public ReactivePropertySlim<bool> IsHorizontalOnly { get; } = new(true);
 
     public ReactivePropertySlim<bool> CanPan { get; } = new();
-
-    public ReactivePropertySlim<bool> CanPosition { get; } = new();
 
     public ReactivePropertySlim<bool> CanDrag { get; } = new();
 
@@ -130,18 +134,18 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
         _layoutSubscription?.Dispose();
         var project = Sound.FindHierarchicalParent<Project>();
         _layoutSubscription = project?.ChannelLayout.GetObservable().Subscribe(_ => RefreshLayout());
-        RefreshLayout();
+        // Subscribing replays the current layout, and each refresh can open the media file.
+        if (project == null) RefreshLayout();
     }
 
     private void RefreshLayout()
     {
         var project = Sound.FindHierarchicalParent<Project>();
-        Layout.Value = project?.ChannelLayout.Value ?? SpeakerLayout.Stereo;
-        bool mono = Layout.Value == SpeakerLayout.Mono;
-        bool stereo = Layout.Value == SpeakerLayout.Stereo;
-        bool multichannel = !mono && !stereo && Sound.GetClipLayout(project.GetChannelLayout(), CurrentTime.Value).ChannelCount >= 3;
-        IsHorizontalOnly.Value = mono || stereo || multichannel;
-        CanPosition.Value = !IsHorizontalOnly.Value;
+        Layout.Value = project.GetSpeakerLayout();
+        AudioChannelLayout output = project.GetChannelLayout();
+        // The short-circuit keeps mono and stereo projects from reading the clip layout.
+        IsHorizontalOnly.Value = !PannerNode.PositionsOnto(output)
+            || !PannerNode.IsPositionedClip(Sound.GetClipLayout(output, CurrentTime.Value).ChannelCount);
         RefreshValues();
     }
 
@@ -165,7 +169,7 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
             || animation.KeyFrames.Count == 0) return null;
         var keyFrames = animation.KeyFrames;
         MediaTime time = animation.ToLocal(CurrentTime.Value);
-        int index = Math.Clamp(keyFrames.IndexAtOrCount(time), 0, keyFrames.Count - 1);
+        int index = keyFrames.IndexAt(time);
         return keyFrames[index] as KeyFrame<float>;
     }
 
@@ -207,7 +211,7 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json[nameof(IsExpanded)] is JsonValue value && value.TryGetValue(out bool isExpanded))
+        if (json.TryGetPropertyValueAsJsonValue(nameof(IsExpanded), out bool isExpanded))
             IsExpanded.Value = isExpanded;
     }
 
@@ -234,7 +238,6 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
         Layout.Dispose();
         IsHorizontalOnly.Dispose();
         CanPan.Dispose();
-        CanPosition.Dispose();
         CanDrag.Dispose();
         Pan.Dispose();
         SurroundPan.Dispose();

@@ -7,6 +7,7 @@ using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Editor;
+using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
@@ -19,6 +20,7 @@ using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
+using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
@@ -110,6 +112,27 @@ public class AnimationTimeMappingTests
     }
 
     [AvaloniaTest]
+    public async Task The_indicator_goes_with_the_animation()
+    {
+        await TestReset.ResetShellAsync();
+        using var graph = await GraphScope.CreateAsync();
+        var editor = (EditViewModel)graph.Model.EditorContext;
+        Element element = graph.Model.Element!;
+        var shape = element.Objects.OfType<RectShape>().Single();
+        var adapter = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Width, shape);
+        var clock = (IEditorClock)editor.GetService(typeof(IEditorClock))!;
+        using var property = new NumberEditorViewModel<float>(adapter);
+        property.Accept(new PropertyEditorTestHost.ServiceVisitor(
+            (typeof(Element), element), (typeof(Scene), editor.Scene), (typeof(IEditorClock), clock)));
+        clock.Seek(MediaTime.FromSeconds(0.5));
+        Assert.That(property.IsAtKeyFrame.Value, Is.True);
+
+        shape.Width.SetKeyFrameAnimation(null);
+
+        Assert.That(property.IsAtKeyFrame.Value, Is.False);
+    }
+
+    [AvaloniaTest]
     public async Task The_indicator_tracks_clock_mode_and_owner_moves_without_seeking()
     {
         await TestReset.ResetShellAsync();
@@ -179,6 +202,40 @@ public class AnimationTimeMappingTests
         }
     }
 
+    // The property panel lists what a layer input node exposes, and its keyframe commands go by the node's clock too.
+    [AvaloniaTest]
+    public async Task A_layer_input_property_in_the_property_panel_uses_the_clock_of_its_clip()
+    {
+        await TestReset.ResetShellAsync();
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("node-member-panel-time");
+        await TestShell.AddElementAsync(editor, () => new NodeGraphDrawable(), MediaTime.FromSeconds(5), MediaTime.FromSeconds(10));
+        Element element = scene.Children.Single();
+        var drawable = (NodeGraphDrawable)element.Objects.Single();
+        var port = new LayerInputNode.LayerInputPort<float>();
+        port.SetupProperty("Amount");
+        var adapter = (NodePropertyAdapter<float>)port.Property!;
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 100 } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 200 } });
+        adapter.Animation = animation;
+        var node = new LayerInputNode();
+        node.Items.Add(port);
+        drawable.Model.Value!.Nodes.Add(node);
+        using var tab = new ElementPropertyTabViewModel(editor);
+        tab.Element.Value = element;
+        var graph = PropertyEditorTestHost.Flatten(tab.Items.Single(item => item.Model == drawable).Properties, includeGroups: false)
+            .OfType<GraphModelEditorViewModel>().Single();
+        var property = graph.NodeMembers.Single().Properties.OfType<NumberEditorViewModel<float>>().Single();
+        var clock = (IEditorClock)editor.GetService(typeof(IEditorClock))!;
+
+        clock.Seek(MediaTime.FromSeconds(5.2));
+        property.InsertKeyFrame(clock.CurrentTime.Value);
+        Assert.That(animation.KeyFrames.Select(key => key.KeyTime.Value), Does.Contain(MediaTime.FromSeconds(0.2)));
+
+        property.RemoveKeyFrame(clock.CurrentTime.Value);
+        Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
+    }
+
     [AvaloniaTest]
     [TestCase(false, false)]
     [TestCase(true, false)]
@@ -227,7 +284,7 @@ public class AnimationTimeMappingTests
         {
             window.Show();
             property.KeyFrameIndex.Value = 1;
-            Assert.That(animation.HierarchicalParent, Is.Null);
+            Assert.That(animation.HierarchicalParent, Is.SameAs(node.Items.Single()));
             Assert.That(clock.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(global ? 1 : 6)));
             Assert.That(property.IsAtKeyFrame.Value, Is.True);
             AssertGraphClock(global ? 0 : 5);
@@ -239,6 +296,14 @@ public class AnimationTimeMappingTests
             Assert.That(animation.KeyFrames.Select(key => key.KeyTime.Value), Does.Contain(MediaTime.FromSeconds(0.5)));
             Assert.That(treeItem.HasKeyFrame.Value, Is.True);
             graphTab.ToggleKeyFrame(treeItem);
+            Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
+
+            // The keyframe commands of the property's own menu go by the same clock.
+            clock.Seek(MediaTime.FromSeconds(global ? 0.2 : 5.2));
+            property.InsertKeyFrame(clock.CurrentTime.Value);
+            Assert.That(animation.KeyFrames.Select(key => key.KeyTime.Value), Does.Contain(MediaTime.FromSeconds(0.2)));
+            Assert.That(property.IsAtKeyFrame.Value, Is.True);
+            property.RemoveKeyFrame(clock.CurrentTime.Value);
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
 
             clock.Seek(MediaTime.FromSeconds(global ? 1 : 6));

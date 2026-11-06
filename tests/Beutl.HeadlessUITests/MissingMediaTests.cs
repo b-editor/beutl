@@ -578,6 +578,7 @@ public partial class MissingMediaTests
     {
         public string Name => "Restored media test decoder";
         public int OpenCount { get; private set; }
+        public bool VideoOnly { get; init; }
         public IEnumerable<string> VideoExtensions() => [".relink-video"];
         public IEnumerable<string> AudioExtensions() => [".relink-audio"];
 
@@ -586,7 +587,7 @@ public partial class MissingMediaTests
             OpenCount++;
             var reader = new Moq.Mock<MediaReader>();
             reader.SetupGet(value => value.HasVideo).Returns(options.StreamsToLoad == MediaMode.Video);
-            reader.SetupGet(value => value.HasAudio).Returns(options.StreamsToLoad == MediaMode.Audio);
+            reader.SetupGet(value => value.HasAudio).Returns(options.StreamsToLoad == MediaMode.Audio && !VideoOnly);
             reader.SetupGet(value => value.VideoInfo).Returns(new VideoStreamInfo("test", new Rational(2, 1),
                 new Beutl.Media.PixelSize(2, 2), new Rational(30, 1)));
             reader.SetupGet(value => value.AudioInfo).Returns(new AudioStreamInfo("test", new Rational(2, 1), 44100, 2));
@@ -709,6 +710,7 @@ public partial class MissingMediaTests
             offlineItem.IsChecked = true;
             Assert.That(row.IsOffline.Value, Is.True);
             Assert.That(row.StateText.Value, Is.EqualTo(Beutl.Language.MissingMediaStrings.Offline));
+            Assert.That(row.StateKind.Value, Is.EqualTo(Beutl.Controls.StatusLabelKind.Neutral));
             offlineItem.IsChecked = false;
             flyout.Hide();
             await vm.SetReplacementAsync(row, replacement);
@@ -716,11 +718,11 @@ public partial class MissingMediaTests
             HeadlessTestHelpers.Render(3);
             Assert.That(row.IsReady.Value, Is.True);
             Assert.That(row.StateText.Value, Is.EqualTo(Beutl.Language.MissingMediaStrings.Ready));
+            Assert.That(row.StateKind.Value, Is.EqualTo(Beutl.Controls.StatusLabelKind.Success));
             Assert.That(view.FindControl<Button>("ApplyButton")!.IsEnabled, Is.True);
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             HeadlessTestHelpers.Render(3);
-            Assert.That(view.FindControl<Avalonia.Controls.TextBlock>("EmptyText")!.IsEffectivelyVisible, Is.True);
-            Assert.That(view.FindControl<Avalonia.Controls.TextBlock>("EmptyDescription")!.IsEffectivelyVisible, Is.True);
+            Assert.That(view.FindControl<Beutl.Controls.EmptyState>("EmptyState")!.IsEffectivelyVisible, Is.True);
             Assert.That(view.FindControl<Button>("ApplyButton")!.IsEffectivelyVisible, Is.False);
         }
         finally
@@ -777,6 +779,89 @@ public partial class MissingMediaTests
         var service = new MissingMediaService(_ => true, Entries);
         var matches = await service.FindMatchesAsync(service.FindMissing(scene), directory);
         Assert.That(matches.Values.SelectMany(paths => paths), Is.EquivalentTo(new[] { partial, first, second }));
+    }
+
+    // A library can hold links to media kept elsewhere. A linked folder stays out, as it could lead back up the tree.
+    [AvaloniaTest]
+    public async Task Linked_files_are_candidates_and_linked_folders_are_not_entered()
+    {
+        string library = NewDirectory();
+        string elsewhere = NewDirectory();
+        string real = Path.Combine(elsewhere, "clip.png");
+        File.WriteAllBytes(real, s_png);
+        string linked = Path.Combine(elsewhere, "folder");
+        Directory.CreateDirectory(linked);
+        File.WriteAllBytes(Path.Combine(linked, "hidden.png"), s_png);
+        string link = Path.Combine(library, "clip.png");
+        CreateFileLink(link, real);
+        CreateFileLink(Path.Combine(library, "broken.png"), Path.Combine(elsewhere, "gone.png"));
+        Directory.CreateSymbolicLink(Path.Combine(library, "folder"), linked);
+        Directory.CreateSymbolicLink(Path.Combine(library, "loop"), library);
+        var scene = new Scene();
+        foreach (string name in new[] { "clip.png", "broken.png", "hidden.png" })
+            AddImage(scene, Path.Combine(NewDirectory(), name));
+        var service = new MissingMediaService();
+
+        var matches = await service.FindMatchesAsync(service.FindMissing(scene), library);
+
+        Assert.That(matches.Values.SelectMany(paths => paths), Is.EqualTo(new[] { link }));
+    }
+
+    // The fingerprint describes the file, so it finds the file again however it was reached when it was taken.
+    [AvaloniaTest]
+    public async Task Fingerprints_of_a_linked_file_describe_the_file_it_leads_to()
+    {
+        string directory = NewDirectory();
+        string real = Path.Combine(directory, "real.png");
+        File.WriteAllBytes(real, s_png);
+        string link = Path.Combine(directory, "link.png");
+        CreateFileLink(link, real);
+        var scene = new Scene(); AddImage(scene, link);
+        var service = new MissingMediaService();
+
+        await service.UpdateFingerprintsAsync(scene);
+
+        Assert.That(scene.MediaFingerprints.Values.Single().Length, Is.EqualTo(s_png.Length));
+        string moved = NewDirectory();
+        string renamed = Path.Combine(moved, "renamed.png");
+        File.Move(real, renamed);
+        File.Delete(link);
+        var missing = service.FindMissing(scene).Single();
+        Assert.That((await service.FindMatchesAsync([missing], moved))[missing].Single(), Is.EqualTo(renamed));
+    }
+
+    // A linked candidate is measured by the file it leads to, not by the link, which is what its fingerprint saved.
+    [AvaloniaTest]
+    public async Task A_linked_candidate_matches_the_fingerprint_of_the_file_it_leads_to()
+    {
+        string directory = NewDirectory();
+        string original = Path.Combine(directory, "original.png");
+        File.WriteAllBytes(original, s_png);
+        var scene = new Scene(); AddImage(scene, original);
+        var service = new MissingMediaService();
+        await service.UpdateFingerprintsAsync(scene);
+        string elsewhere = NewDirectory();
+        string real = Path.Combine(elsewhere, "real.png");
+        File.Move(original, real);
+        string library = NewDirectory();
+        string link = Path.Combine(library, "renamed.png");
+        CreateFileLink(link, real);
+
+        var missing = service.FindMissing(scene).Single();
+
+        Assert.That((await service.FindMatchesAsync([missing], library))[missing].Single(), Is.EqualTo(link));
+    }
+
+    private static void CreateFileLink(string path, string target)
+    {
+        try
+        {
+            File.CreateSymbolicLink(path, target);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Assert.Ignore($"This account cannot create symbolic links: {ex.Message}");
+        }
     }
 
     [AvaloniaTest]
@@ -838,9 +923,8 @@ public partial class MissingMediaTests
         };
         try
         {
-            ValueTask<bool> save = editor.SaveAsync();
-            Assert.That(save.IsCompletedSuccessfully, Is.True, "Saving must not depend on a pending media read.");
-            await save;
+            // Saving must not depend on a pending media read.
+            Assert.That(await editor.SaveAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(30)), Is.True);
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             using (editor.HistoryManager.SuppressRecording()) editor.Scene.Duration.Value = MediaTime.FromSeconds(17);
             release.SetResult();

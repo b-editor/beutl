@@ -13,7 +13,7 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 // values of its own kind, edited as a nested list, or a fallback for one that could not be read.
 public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEditorViewModel<T?>, IFallbackObjectViewModel, IObjectEditorCommands
     where T : EngineObject
-    where TGroup : T
+    where TGroup : T, new()
     where TFallback : T
 {
     protected GroupableEditorViewModel(IPropertyAdapter<T?> property)
@@ -24,10 +24,6 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
             .DisposeWith(Disposables);
 
         (IsFallback, ActualTypeName, FallbackMessage) = FallbackEditorHelper.ObserveFallbackInfo(Value, Disposables);
-
-        IsGroup = Value.Select(v => v is TGroup)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
 
         IsGroupOrNull = Value.Select(v => v is TGroup || v == null)
             .ToReadOnlyReactivePropertySlim()
@@ -96,9 +92,11 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
 
     DataFormat<string>? IObjectEditorCommands.PasteFormat => PasteFormat;
 
-    public ReadOnlyReactivePropertySlim<bool> IsGroup { get; }
-
     public ReadOnlyReactivePropertySlim<bool> IsGroupOrNull { get; }
+
+    // Replacing or clearing the whole value is how the user repairs what could not be loaded, so the editor offers
+    // it only then.
+    public bool NeedsRepair => CanReplaceContent && (IsFallback.Value || !IsElementEditable);
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
@@ -163,23 +161,52 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
 
     public void AddItem(T instance, string? commandName = null)
     {
-        if (!IsElementEditable) return;
-        if (Value.Value is TGroup group)
-        {
-            IsExpanded.Value = true;
-            ChildrenOf(group).Add(instance);
-            Commit(commandName);
+        // An expression decides the value: what is added would not show, and the value it gives belongs elsewhere.
+        if (HasExpression.Value) return;
 
-            if (Group.Value is { } listEditor)
+        if (!IsElementEditable)
+        {
+            // Nothing can be added while the element is under repair, but a value that is no group can be replaced.
+            if (Value.Value is not TGroup)
             {
-                var addedItem = listEditor.Items.LastOrDefault();
-                if (addedItem?.Context is GroupableEditorViewModel<T, TGroup, TFallback> vm)
-                {
-                    vm.IsExpanded.Value = true;
-                }
+                ChangeValue(instance, commandName);
             }
+
+            return;
+        }
+
+        TGroup group = GetOrCreateGroup();
+        IsExpanded.Value = true;
+        IListProperty<T> children = ChildrenOf(group);
+        int index = GetInsertionIndex(children, instance);
+        children.Insert(index, instance);
+        Commit(commandName);
+
+        if (Group.Value?.Items.ElementAtOrDefault(index)?.Context is GroupableEditorViewModel<T, TGroup, TFallback> vm)
+        {
+            vm.IsExpanded.Value = true;
         }
     }
+
+    private TGroup GetOrCreateGroup()
+    {
+        if (Value.Value is TGroup existingGroup) return existingGroup;
+
+        T? existing = Value.Value;
+        var group = new TGroup();
+        // The group takes the value's place first. Added while the property still owned it, the value would stay in
+        // the group's children but lose its parent when the property released it.
+        PropertyAdapter.SetValue(group);
+        if (existing != null)
+        {
+            ChildrenOf(group).Add(existing);
+        }
+
+        return group;
+    }
+
+    // Where a new item goes in the group.
+    protected virtual int GetInsertionIndex(IReadOnlyList<T> children, T instance) => children.Count;
 
     public void SetNull()
     {

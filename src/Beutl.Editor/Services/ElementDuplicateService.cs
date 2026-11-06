@@ -1,4 +1,5 @@
-﻿using Beutl.Language;
+﻿using System.Collections.Immutable;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -23,6 +24,27 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         MediaTime clickedFrame,
         int clickedLayer)
     {
+        return DuplicateAtClickedPositionCore(scene, sources, clickedFrame, clickedLayer, null);
+    }
+
+    public DuplicateOutcome DuplicateAtClickedPosition(
+        Scene scene,
+        IReadOnlyList<Element> sources,
+        MediaTime clickedFrame,
+        int clickedLayer,
+        IReadOnlyCollection<ImmutableHashSet<Guid>> sourceGroups)
+    {
+        ArgumentNullException.ThrowIfNull(sourceGroups);
+        return DuplicateAtClickedPositionCore(scene, sources, clickedFrame, clickedLayer, sourceGroups);
+    }
+
+    private DuplicateOutcome DuplicateAtClickedPositionCore(
+        Scene scene,
+        IReadOnlyList<Element> sources,
+        MediaTime clickedFrame,
+        int clickedLayer,
+        IReadOnlyCollection<ImmutableHashSet<Guid>>? sourceGroups)
+    {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(sources);
 
@@ -37,41 +59,32 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         if (sourceArray.Length == 0) return DuplicateOutcome.Failed;
 
         Element[] regenerated;
-        TimeRange seedRange;
-        int minZIndex;
-        MediaTime anchorStart;
-        int anchorZIndex;
+        GroupPlacement placement;
         try
         {
             // Regeneration can throw on a corrupt / unknown-plugin element, so
             // keep it inside the guarded region (like DuplicateAtPosition).
             ObjectRegenerator.Regenerate(sourceArray, out regenerated);
-            (seedRange, minZIndex, _) = DuplicateHelper.ComputePlacementRange(regenerated);
 
-            // Only rows a duplicate actually lands on matter — a sparse selection
-            // (layers 0 and 2) must not be blocked by content or a lock on layer 1.
-            // Snapshot once: the bounded spiral search probes these per candidate.
-            var rowOffsets = regenerated.Select(r => r.ZIndex.Value - minZIndex).ToHashSet();
-            HashSet<int> lockedRows = scene.Layers.Where(l => l.IsLocked.Value).Select(l => l.ZIndex.Value).ToHashSet();
-            var anchor = ElementPlacementHelper.FindFreeAnchor(
-                scene, seedRange, rowOffsets, lockedRows, clickedFrame, clickedLayer);
-            if (anchor is null)
+            if (ElementPlacementHelper.FindFreePlacement(scene, regenerated, clickedFrame, clickedLayer)
+                is not { } found)
             {
                 return DuplicateOutcome.Failed;
             }
 
-            (anchorStart, anchorZIndex) = anchor.Value;
+            placement = found;
 
             // The search only returns unlocked destinations; keep the guard at the
             // insertion boundary so placement never depends on that invariant alone.
-            if (ElementPlacementHelper.AnyDestinationRowLocked(anchorZIndex, rowOffsets, lockedRows))
+            if (ElementPlacementHelper.AnyDestinationRowLocked(
+                    placement.ZIndex, placement.RowOffsets, ElementPlacementHelper.GetLockedRows(scene)))
             {
                 return DuplicateOutcome.Failed;
             }
 
             // The anchor is free for the whole set, so the duplicates go in as they are.
             DuplicateHelper.PlaceDuplicates(
-                scene, regenerated, sourceArray, anchorStart, anchorZIndex, ElementOverlapHandling.Allow);
+                scene, regenerated, sourceArray, placement.Start, placement.ZIndex, ElementOverlapHandling.Allow, sourceGroups);
         }
         catch (Exception ex)
         {
@@ -80,7 +93,7 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         }
 
         _historyManager.Commit(CommandNames.DuplicateElement);
-        return new DuplicateOutcome(true, new TimeRange(anchorStart, seedRange.Duration), anchorZIndex);
+        return new DuplicateOutcome(true, new TimeRange(placement.Start, placement.Range.Duration), placement.ZIndex);
     }
 
     public bool DuplicateAtPosition(

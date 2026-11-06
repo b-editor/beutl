@@ -251,7 +251,9 @@ public sealed partial class FilterEffectContext
             },
             // Outside the crop, a tile anywhere in the output reads from anywhere in the crop.
             transformSamplingBounds: static (data, region) =>
-                data.spreadMethod == GradientSpreadMethod.Decal ? region.Intersect(data.rect) : data.rect);
+                data.spreadMethod == GradientSpreadMethod.Decal ? region.Intersect(data.rect) : data.rect,
+            // The rectangle stays where it is when the input moves.
+            needsBoundsCoordinates: true);
     }
 
     public void ColorMatrix(in ColorMatrix matrix)

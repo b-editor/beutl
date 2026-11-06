@@ -139,8 +139,11 @@ public readonly struct BrushConstructor(
     private SKShader? CreateGradientShader(GradientBrush.Resource gradientBrush)
     {
         var tileMode = gradientBrush.SpreadMethod.ToSKShaderTileMode();
-        SKColor[] stopColors = gradientBrush.GradientStops.Select(s => s.Color.ToSKColor()).ToArray();
-        float[] stopOffsets = gradientBrush.GradientStops.Select(s => s.Offset).ToArray();
+        (SKColor[] stopColors, float[] stopOffsets) = GradientStopInterpolation.Expand(
+            gradientBrush.GradientStops.Select(s => s.Color.ToSKColor()).ToArray(),
+            gradientBrush.GradientStops.Select(s => s.Offset).ToArray(),
+            gradientBrush.InterpolationSpace,
+            gradientBrush.InterpolatePremultiplied);
 
         switch (gradientBrush)
         {
@@ -234,7 +237,7 @@ public readonly struct BrushConstructor(
 
     /// <summary>
     /// Reverses the stops for the two-point conical gradient that stands in for a radial gradient whose origin
-    /// left its centre: their order, and each inner offset measured from the other end.
+    /// left its centre: their order, and each offset measured from the other end.
     /// </summary>
     private static void ReverseStopsForConical(
         SKColor[] stopColors,
@@ -251,11 +254,7 @@ public readonly struct BrushConstructor(
         reversedStops = new float[stopOffsets.Length];
         for (int i = 0; i < stopOffsets.Length; i++)
         {
-            reversedStops[i] = stopOffsets[i];
-            if (reversedStops[i] > 0 && reversedStops[i] < 1)
-            {
-                reversedStops[i] = Math.Abs(1 - stopOffsets[i]);
-            }
+            reversedStops[i] = 1 - stopOffsets[stopOffsets.Length - 1 - i];
         }
     }
 
@@ -376,7 +375,7 @@ public readonly struct BrushConstructor(
     /// Resolves the image a tile brush tiles at density <paramref name="s"/>, which the caller disposes, with the
     /// logical size and the device pixels per logical unit of its content.
     /// </summary>
-    /// <returns><see langword="false"/> when a drawable brush produced no image; the fill degrades to transparent.</returns>
+    /// <returns><see langword="false"/> when the brush has no image to tile; the fill degrades to transparent.</returns>
     private bool TryResolveTileSource(
         TileBrush.Resource tileBrush,
         float s,
@@ -413,9 +412,18 @@ public readonly struct BrushConstructor(
             return true;
         }
 
-        if (tileBrush is ImageBrush.Resource imageBrush
-            && imageBrush.Source?.Bitmap is { } bitmap)
+        if (tileBrush is ImageBrush.Resource imageBrush)
         {
+            // An SVG too large to turn into pixels has none, and no source has none either.
+            if (imageBrush.Source?.Bitmap is not { } bitmap)
+            {
+                s_logger.LogWarning(
+                    "Image brush '{Brush}' has no pixels to tile; the fill degrades to transparent.",
+                    imageBrush);
+                ThrowIfDeliveryContentLoss($"Image brush '{imageBrush}' has no pixels to tile.");
+                return false;
+            }
+
             skImage = SKImage.FromBitmap(bitmap.SKBitmap);
             contentSize = new Size(bitmap.Width, bitmap.Height);
             contentDensity = 1f; // the bitmap's native pixels ARE the logical content (1:1)

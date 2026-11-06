@@ -62,6 +62,9 @@
   <data name="Close" xml:space="preserve">
     <value>Close</value>
   </data>
+  <data name="CloseTab" xml:space="preserve">
+    <value>Close Tab</value>
+  </data>
   <data name="ColorScopes" xml:space="preserve">
     <value>Scopes</value>
   </data>
@@ -88,6 +91,18 @@
   </data>
   <data name="View" xml:space="preserve">
     <value>View</value>
+  </data>
+  <data name="Window" xml:space="preserve">
+    <value>Window</value>
+  </data>
+  <data name="MinimizeWindow" xml:space="preserve">
+    <value>Minimize</value>
+  </data>
+  <data name="ZoomWindow" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="ToggleFullScreen" xml:space="preserve">
+    <value>Toggle Full Screen</value>
   </data>
   <data name="Object" xml:space="preserve">
     <value>Object</value>
@@ -172,6 +187,12 @@
   </data>
   <data name="Paste" xml:space="preserve">
     <value>Paste</value>
+  </data>
+  <data name="SelectAll" xml:space="preserve">
+    <value>Select All</value>
+  </data>
+  <data name="DeselectAll" xml:space="preserve">
+    <value>Deselect All</value>
   </data>
   <data name="Split" xml:space="preserve">
     <value>Split</value>
@@ -344,6 +365,15 @@
   <data name="Easing" xml:space="preserve">
     <value>Easing</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>First control point {0}, {1}. Second control point {2}, {3}.</value>
+  </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>The first control point is selected.</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>The second control point is selected.</value>
+  </data>
   <data name="Hold" xml:space="preserve">
     <value>Hold</value>
   </data>
@@ -430,6 +460,9 @@
   </data>
   <data name="Audio" xml:space="preserve">
     <value>Audio</value>
+  </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>Master volume (%)</value>
   </data>
   <data name="Off" xml:space="preserve">
     <value>Off</value>
@@ -545,6 +578,12 @@
   <data name="TimelineZoom" xml:space="preserve">
     <value>Zoom</value>
   </data>
+  <data name="TimelineZoomIn" xml:space="preserve">
+    <value>Zoom In</value>
+  </data>
+  <data name="TimelineZoomOut" xml:space="preserve">
+    <value>Zoom Out</value>
+  </data>
   <data name="TimelineSnap" xml:space="preserve">
     <value>Snap</value>
   </data>
@@ -580,6 +619,9 @@
   </data>
   <data name="RemoveExpression" xml:space="preserve">
     <value>Remove expression</value>
+  </data>
+  <data name="Expression_ReturnsBothValues" xml:space="preserve">
+    <value>Enter one expression that returns the values together, such as {0}.</value>
   </data>
   <data name="ExpressionHelp" xml:space="preserve">
     <value>Enter a mathematical expression. Available variables: Time, Start, Duration, Progress. Use GetProperty&lt;T&gt;("{GUID}.Property") to reference other properties.</value>
@@ -797,6 +839,9 @@
   <data name="EnableElement" xml:space="preserve">
     <value>Enable element</value>
   </data>
+  <data name="Visible" xml:space="preserve">
+    <value>Visible</value>
+  </data>
   <data name="MoveTo" xml:space="preserve">
     <value>Move to</value>
   </data>
@@ -834,10 +879,10 @@
     <value>Switches between play and pause.</value>
   </data>
   <data name="MoveToNext" xml:space="preserve">
-    <value>Move to next</value>
+    <value>Move to next frame</value>
   </data>
   <data name="MoveToPrevious" xml:space="preserve">
-    <value>Move to previous</value>
+    <value>Move to previous frame</value>
   </data>
   <data name="MoveToNext_Description" xml:space="preserve">
     <value>Move to the next frame.</value>
@@ -1444,6 +1489,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="RenderScale_FitToPreviewer" xml:space="preserve">
     <value>Fit to previewer</value>
   </data>
+  <data name="RenderScale_FitToPreviewer_Short" xml:space="preserve">
+    <value>Auto</value>
+  </data>
   <data name="Terminal" xml:space="preserve">
     <value>Terminal</value>
   </data>
@@ -1766,7 +1814,7 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Default</value>
   </data>
   <data name="AiSubtitle_TemplateDescription" xml:space="preserve">
-    <value>Saved TextBlock templates appear here. Their formatting, effects, animation, and placement are applied to every subtitle.</value>
+    <value>Saved templates that hold text appear here, whether of a TextBlock, an element, or several elements. Their formatting, effects, animation, and placement are applied to every subtitle.</value>
   </data>
   <data name="AiSubtitle_Transcribe" xml:space="preserve">
     <value>Transcribe</value>
@@ -2681,6 +2729,12 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>Captions file</value>
   </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>Could not read any subtitles from {0}.</value>
+  </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>Some of the subtitles in {0} could not be read and were skipped.</value>
+  </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>Delete “{0}”?</value>
   </data>
@@ -3522,6 +3576,9 @@ when history recording is enabled.</value>
   <data name="UnseparateComponents_Description" xml:space="preserve">
     <value>Keep the value at the current time and remove component keyframes and expressions.</value>
   </data>
+  <data name="UnseparateComponents_SameTiming" xml:space="preserve">
+    <value>Available while all the values have the same keyframe times and easings and share one expression or have none.</value>
+  </data>
   <data name="RelativeUnit_Relative" xml:space="preserve">
     <value>Relative (1 = 100%)</value>
   </data>
@@ -3536,6 +3593,18 @@ when history recording is enabled.</value>
   </data>
   <data name="TogglePreviewGuides_Description" xml:space="preserve">
     <value>Show or hide the safe areas and composition guides in the preview.</value>
+  </data>
+  <data name="PreviewZoom" xml:space="preserve">
+    <value>Preview zoom</value>
+  </data>
+  <data name="PreviewZoomIn" xml:space="preserve">
+    <value>Zoom in preview</value>
+  </data>
+  <data name="PreviewZoomOut" xml:space="preserve">
+    <value>Zoom out preview</value>
+  </data>
+  <data name="PreviewZoomFit" xml:space="preserve">
+    <value>Fit preview</value>
   </data>
   <data name="PreviewGuide_TitleSafe" xml:space="preserve">
     <value>Title safe</value>
@@ -3668,5 +3737,8 @@ when history recording is enabled.</value>
   </data>
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>Project audio channels</value>
+  </data>
+  <data name="Paste_ProjectNotSaved" xml:space="preserve">
+    <value>Save the project before pasting clips.</value>
   </data>
 </root>

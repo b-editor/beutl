@@ -15,6 +15,7 @@ using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Services;
 using Beutl.Embedding.MediaFoundation.Encoding;
 using Beutl.Engine;
+using Beutl.Language;
 using Beutl.Media.Source;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -86,7 +87,7 @@ public sealed class MFEncoderSettingsTests
         if (succeeds)
         {
             await output.RunAsync(CancellationToken.None);
-            Assert.That(output.WasCancelled.Value, Is.False);
+            Assert.That(output.ProgressText.Value, Is.EqualTo(Strings.Completed));
             Assert.That(File.Exists(output.DestinationFile.Value), Is.True);
             Assert.Multiple(() =>
             {

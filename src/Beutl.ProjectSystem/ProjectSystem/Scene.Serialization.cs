@@ -65,7 +65,7 @@ public partial class Scene
         context.SetValue(nameof(Duration), MediaTimeJsonConverter.LengthToWrite(Start.Value, Duration.Value));
         context.SetValue("Width", FrameSize.Value.Width);
         context.SetValue("Height", FrameSize.Value.Height);
-        context.SetValue("Groups", Groups.Select(ids => string.Join(':', ids)).ToArray());
+        context.SetValue("Groups", ElementGroups.Write(Groups));
         context.SetValue(nameof(Markers), Markers);
         Recovery.WriteMetadata(context);
 
@@ -186,19 +186,12 @@ public partial class Scene
         if (context.Contains("Groups"))
         {
             string[]? groups = context.GetValue<string[]>("Groups");
-            var elementIds = Children.Select(element => element.Id.Value).ToHashSet();
+            // Guid.Empty joins no group here, even when an element has it as its id.
+            var elementIds = Children.Select(element => element.Id.Value).Where(id => id != Guid.Empty).ToHashSet();
             Groups.Clear();
-            foreach (string group in groups ?? [])
+            foreach (ImmutableHashSet<Guid> ids in ElementGroups.Read(groups, elementIds, Recovery.MapElementId))
             {
-                var ids = group.Split(':')
-                    .Select(s => Guid.TryParse(s, out Guid id) ? id : Guid.Empty)
-                    .Select(id => Recovery.MapElementId(id))
-                    .Where(i => i != Guid.Empty && elementIds.Contains(i))
-                    .ToImmutableHashSet();
-                if (ids.Count >= 2)
-                {
-                    Groups.Add(ids);
-                }
+                Groups.Add(ids);
             }
         }
 
@@ -274,7 +267,7 @@ public partial class Scene
         activity?.SetTag("childrenCount", Children.Count);
     }
 
-    private void UpdateInclude(IReadOnlyDictionary<string, bool>? pendingFiles = null)
+    private void UpdateInclude(IReadOnlySet<string>? pendingFiles = null)
     {
         string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
         var elementPaths = Children.Select(item => NormalizeElementPattern(
@@ -291,7 +284,7 @@ public partial class Scene
             // A pending deletion can fail. Keep its exclusion in the live model and snapshot until
             // the writer confirms success; a later save prunes the live entry once the file is gone.
             _excludeElements.RemoveAll(pattern => GetLiteralElementPath(dirPath, pattern) is { } path
-                && pendingFiles?.ContainsKey(path) != true && !File.Exists(path));
+                && pendingFiles?.Contains(path) != true && !File.Exists(path));
         }
 
         // The children's element files are what the next load must find, so they are matched in memory instead of
@@ -340,10 +333,40 @@ public partial class Scene
         var directory = new FilteredDirectoryInfo(
             new DirectoryInfoWrapper(new DirectoryInfo(directoryName)), excludedDirectories);
         var exclusionsByName = literalExclusions.ToLookup(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase);
+        var holdsScene = new Dictionary<string, bool>(StringComparer.Ordinal);
         return matcher.Execute(directory).Files.Select(file => file.Path)
             .Where(path => !exclusionsByName[Path.GetFileName(path)]
                 .Any(pattern => AreSameElementPaths(directoryName, pattern, path)))
+            .Where(path => !IsBelowAnotherScene(directoryName, path, holdsScene))
             .ToArray();
+    }
+
+    // The editor opens a scene whatever the case of its extension, on any file system.
+    private static readonly EnumerationOptions s_sceneFileSearch = new() { MatchCasing = MatchCasing.CaseInsensitive, AttributesToSkip = 0 };
+
+    // The elements in and below a folder with a scene file of its own are that scene's.
+    private static bool IsBelowAnotherScene(string directoryName, string path, Dictionary<string, bool> holdsScene)
+    {
+        for (string? folder = Path.GetDirectoryName(path); !string.IsNullOrEmpty(folder); folder = Path.GetDirectoryName(folder))
+        {
+            if (!holdsScene.TryGetValue(folder, out bool holds))
+            {
+                try
+                {
+                    holds = Directory.EnumerateFiles(Path.Combine(directoryName, folder), "*.scene", s_sceneFileSearch).Any();
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    holds = false;
+                }
+
+                holdsScene[folder] = holds;
+            }
+
+            if (holds) return true;
+        }
+
+        return false;
     }
 
     // Runs on the writer's captured JSON, after element deletions. Never mutate the live exclusions:

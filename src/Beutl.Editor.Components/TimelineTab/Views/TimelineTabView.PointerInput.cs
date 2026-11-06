@@ -1,5 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Input;
+using Avalonia.VisualTree;
+using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
@@ -12,6 +14,9 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class TimelineTabView
 {
+    // How near the playhead's line a press on the timeline still takes the bar.
+    private const double SeekBarGrabDistance = 4;
+
     private void TimelinePanel_PointerMoved(object? sender, PointerEventArgs e)
     {
         if (ViewModel == null) return;
@@ -62,6 +67,11 @@ public sealed partial class TimelineTabView
         else if (!_rulerDrag.Move(_mouseFlag, viewModel.EditorContext, RulerBar, viewModel.Scene, _pointerFrame))
         {
             UpdateScaleHover(viewModel, e, pointerPt);
+            // Razor mode keeps its own cursor.
+            if (!viewModel.IsRazorMode.Value)
+            {
+                TimelinePanel.Cursor = IsOnSeekBar(viewModel, e, pointerPt) ? Cursors.SizeWestEast : Cursors.Arrow;
+            }
         }
     }
 
@@ -165,14 +175,16 @@ public sealed partial class TimelineTabView
     {
         if (ViewModel == null) return;
         TimelineTabViewModel viewModel = ViewModel;
-        viewModel.ClearSelected();
 
         // Hit-test only existing rows inside the visible scroll viewport.
-        var bounds = new Rect(0, 0, TimelinePanel.Bounds.Width,
-            viewModel.LayerHeaders.Sum(layer => layer.Height.Value));
+        var bounds = new Rect(0, 0, TimelinePanel.Bounds.Width, viewModel.CalculateLayersBottom());
         var viewport = new Rect(new Point(ContentScroll.Offset.X, ContentScroll.Offset.Y), ContentScroll.Viewport);
         Rect rect = overlay.SelectionRange.Normalize().Intersect(bounds).Intersect(viewport);
-        if (rect == default) return;
+        if (rect == default)
+        {
+            viewModel.ClearSelected();
+            return;
+        }
 
         var startTime = rect.Left.PixelToTime(viewModel.Options.Value.Scale);
         var endTime = rect.Right.PixelToTime(viewModel.Options.Value.Scale);
@@ -182,14 +194,7 @@ public sealed partial class TimelineTabView
         int startLayer = viewModel.ToLayerNumber(Math.BitIncrement(rect.Top));
         int endLayer = viewModel.ToLayerNumber(rect.Bottom);
 
-        foreach (ElementViewModel item in viewModel.Elements)
-        {
-            if (timeRange.Intersects(item.Model.Range)
-                && startLayer <= item.Model.ZIndex.Value && item.Model.ZIndex.Value <= endLayer)
-            {
-                viewModel.SelectElement(item);
-            }
-        }
+        viewModel.SelectRange(timeRange, startLayer, endLayer);
     }
 
     private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -211,14 +216,23 @@ public sealed partial class TimelineTabView
                 return;
             }
 
-            if (e.KeyModifiers == KeyGestureHelper.GetCommandModifier())
+            // With seeking on a click turned off, only the ruler and a drag of the bar itself move the playhead,
+            // which leaves the rest free to select.
+            bool seeks = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick.Value || IsOnRuler(e);
+            bool command = e.KeyModifiers == KeyGestureHelper.GetCommandModifier();
+            if (!command && IsOnSeekBar(viewModel, e, pointerPt))
+            {
+                // Nothing moves until the pointer does, so a click here leaves the playhead where it is.
+                _mouseFlag = MouseFlags.SeekBarPressed;
+            }
+            else if (command || (!seeks && !IsOnClip(e)))
             {
                 _mouseFlag = MouseFlags.RangeSelectionPressed;
                 ViewModel.ClearSelected();
 
                 overlay.SelectionRange = new(pointerPt.Position, default(Size));
             }
-            else if (BeginScalePress(viewModel, e, pointerPt))
+            else if (seeks && BeginScalePress(viewModel, e, pointerPt))
             {
                 return;
             }
@@ -226,6 +240,19 @@ public sealed partial class TimelineTabView
 
         _rightButtonPressed = pointerPt.Properties.IsRightButtonPressed;
     }
+
+    // A clip that takes no drag, such as a locked one, was selected on the way and leaves its press to the timeline.
+    private static bool IsOnClip(PointerEventArgs e)
+        => (e.Source as Visual)?.FindAncestorOfType<ElementView>(includeSelf: true) is not null;
+
+    private bool IsOnRuler(PointerEventArgs e) => new Rect(RulerBar.Bounds.Size).Contains(e.GetPosition(RulerBar));
+
+    // With seeking on a click turned off, the playhead's line takes a drag wherever a clip or a keyframe does not.
+    private bool IsOnSeekBar(TimelineTabViewModel viewModel, PointerEventArgs e, PointerPoint pointerPt)
+        => !GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick.Value
+           && Math.Abs(pointerPt.Position.X - viewModel.SeekBarMargin.Value.Left) <= SeekBarGrabDistance
+           && !IsOnRuler(e)
+           && !IsOnClip(e);
 
     // Returns true when a point marker was pressed; that press is then fully handled.
     private bool BeginScalePress(TimelineTabViewModel viewModel, PointerPressedEventArgs e, PointerPoint pointerPt)

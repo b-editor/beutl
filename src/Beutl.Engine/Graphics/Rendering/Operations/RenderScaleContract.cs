@@ -256,6 +256,16 @@ public readonly struct RenderScaleContract
         Rect outputBounds,
         float outputScale,
         float maxWorkingScale)
+        => Resolve(inputSupplies, outputBounds, outputScale, maxWorkingScale, fitToOutputBounds: true);
+
+    /// <param name="fitToOutputBounds">Whether a buffer of all of <paramref name="outputBounds"/> has to fit the engine
+    /// ceiling. A caller whose buffers hold only what a request needs fits the density to that request instead.</param>
+    internal EffectiveScale Resolve(
+        IReadOnlyList<EffectiveScale> inputSupplies,
+        Rect outputBounds,
+        float outputScale,
+        float maxWorkingScale,
+        bool fitToOutputBounds)
     {
         ThrowIfNotInitialized();
         ArgumentNullException.ThrowIfNull(inputSupplies);
@@ -319,7 +329,8 @@ public readonly struct RenderScaleContract
             resolved = MathF.Min(resolved, ceiling);
         }
 
-        resolved = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(outputBounds, resolved);
+        if (fitToOutputBounds)
+            resolved = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(outputBounds, resolved);
         if (!float.IsFinite(resolved) || resolved <= 0)
         {
             throw new InvalidOperationException(

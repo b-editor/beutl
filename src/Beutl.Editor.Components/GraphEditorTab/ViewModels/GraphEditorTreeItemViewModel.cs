@@ -1,5 +1,6 @@
 ﻿using Avalonia.Media;
 using Beutl.Animation;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using FluentIcons.Common;
@@ -24,7 +25,7 @@ public sealed class GraphEditorTreeItemViewModel : IDisposable
                     : $"{(hasKeyFrame ? CommandNames.RemoveKeyFrame : CommandNames.InsertKeyFrame)}\n{MessageStrings.RightClickToShowMenu}")
             .ToReadOnlyReactivePropertySlim(Strings.EnableAnimation);
         SeparationToolTip = HasSeparatedComponents.Select(separated => separated
-                ? $"{Strings.UnseparateComponents}\n{Strings.UnseparateComponents_Description}"
+                ? $"{Strings.UnseparateComponents}\n{(Adapter is PropertyPair ? Strings.UnseparateComponents_SameTiming : Strings.UnseparateComponents_Description)}"
                 : Strings.SeparateComponents)
             .ToReadOnlyReactivePropertySlim(Strings.SeparateComponents);
     }

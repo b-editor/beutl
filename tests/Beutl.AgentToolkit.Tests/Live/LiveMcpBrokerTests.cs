@@ -120,6 +120,25 @@ public sealed class LiveMcpBrokerTests
         // A scene belongs to a running editor; without an instance the call is neither live nor headless.
         AssertError(await client.CallToolAsync("read_document",
             new Dictionary<string, object?> { ["sceneId"] = Guid.NewGuid().ToString() }), ErrorCode.ValidationRejected);
+        // A scene-bound tool needs its scene in any editor, so the answer does not depend on that editor running.
+        AssertError(await client.CallToolAsync("apply_edit", new Dictionary<string, object?>
+        {
+            ["instanceId"] = unknown,
+            ["schemaVersion"] = "1",
+            ["patch"] = new JsonObject { ["Name"] = "never applied" }
+        }), ErrorCode.ValidationRejected);
+        AssertError(await client.CallToolAsync("read_operation_status",
+            new Dictionary<string, object?> { ["instanceId"] = unknown }), ErrorCode.InstanceUnavailable);
+        // The schema leaves the session optional for live calls; a headless call still has to name one.
+        CallToolResult noTarget = await client.CallToolAsync("add_scene", new Dictionary<string, object?>
+        {
+            ["width"] = 1920,
+            ["height"] = 1080,
+            ["start"] = "00:00:00",
+            ["duration"] = "00:00:01"
+        });
+        AssertError(noTarget, ErrorCode.ValidationRejected);
+        Assert.That(Payload(noTarget)["error"]?["target"]?.GetValue<string>(), Is.EqualTo("session"));
         // Editor-only tools are rejected headlessly instead of surfacing an unknown-tool error.
         AssertError(await client.CallToolAsync("list_scenes"), ErrorCode.ValidationRejected);
         AssertError(await client.CallToolAsync(LiveMcpBroker.ListInstancesToolName,
@@ -149,7 +168,7 @@ public sealed class LiveMcpBrokerTests
             Assert.That(discovery["error"]!["message"]!.GetValue<string>(), Does.Contain("corrupt token store"));
         });
         AssertError(await client.CallToolAsync("read_document",
-            new Dictionary<string, object?> { ["instanceId"] = Guid.NewGuid().ToString("N") }), ErrorCode.LiveUnavailable);
+            new Dictionary<string, object?> { ["sceneId"] = Guid.NewGuid().ToString(), ["instanceId"] = Guid.NewGuid().ToString("N") }), ErrorCode.LiveUnavailable);
         AssertSuccess(await client.CallToolAsync("read_operation_status"));
     }
 

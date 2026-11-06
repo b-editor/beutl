@@ -72,7 +72,7 @@ public partial class PlayerView
             using var import = await storage.ImportToSceneAsync(scene);
             foreach (string path in import.Paths)
             {
-                int layer = scene.Children.Select(element => element.ZIndex.Value).DefaultIfEmpty(-1).Max() + 1;
+                int layer = scene.GetFirstFreeLayer();
                 ElementAddResult? result = await AddElement(editViewModel, new ElementDescription(frame, MediaTime.FromSeconds(5), layer,
                     new ElementSource.File(path), Position: centeredPosition));
                 if (result is { IsSuccess: true }) import.Retain(path);
@@ -117,18 +117,14 @@ public partial class PlayerView
                 && TypeFormat.ToType(feTypeName) is { } feType
                 && Activator.CreateInstance(feType) is FilterEffect newFe)
             {
-                FilterEffect? fe = drawable.FilterEffect.Value;
-                AddOrSetHelper.AddOrSet(ref fe, newFe);
-                drawable.FilterEffect.Value = fe;
+                AddToGroupHelper.Add(drawable.FilterEffect, newFe);
             }
             else if (containsTra
                      && e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is { } traTypeName
                      && TypeFormat.ToType(traTypeName) is { } traType
                      && Activator.CreateInstance(traType) is Transform newTra)
             {
-                Transform? tra = drawable.Transform.Value;
-                AddOrSetHelper.AddOrSet(ref tra, newTra);
-                drawable.Transform.Value = tra;
+                AddToGroupHelper.Add(drawable.Transform, newTra);
             }
 
             e.Handled = true;

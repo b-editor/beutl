@@ -35,6 +35,15 @@ public sealed partial class TitleBarStatusView : UserControl
         _openedViewModel = null;
     }
 
+    private void OnOpenAppUpdateClick(object? sender, RoutedEventArgs e)
+    {
+        StatusButton.Flyout?.Hide();
+        if (DataContext is TitleBarStatusViewModel viewModel)
+        {
+            viewModel.OpenAppUpdate();
+        }
+    }
+
     private void OnOpenAiJobsClick(object? sender, RoutedEventArgs e)
     {
         StatusButton.Flyout?.Hide();

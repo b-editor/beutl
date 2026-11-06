@@ -3,7 +3,7 @@ using Beutl.Graphics.Shaders;
 
 namespace Beutl.Graphics.Effects;
 
-/// <summary>Shared linear-light extraction and composition for bloom and light-ray effects.</summary>
+/// <summary>Shared linear-light extraction and composition for bloom and light-ray effects, and a blur for any effect.</summary>
 internal static class LightEffectPasses
 {
     // softKnee is the transition half-width relative to threshold, in [0, 1].
@@ -16,6 +16,7 @@ internal static class LightEffectPasses
             pass.ImageParameters(2, highlights);
             pass.PushConstants(new Vector2(threshold, softKnee));
             pass.InputRegion(0, ShaderInputRegion.Identity);
+            pass.PartialImages();
             pass.ColorAttachment(0, highlights);
             pass.ColorAttachment(1, mask);
         });
@@ -35,18 +36,74 @@ internal static class LightEffectPasses
             pass.InputRegion(0, ShaderInputRegion.Identity);
             pass.InputRegion(1, ShaderInputRegion.Identity);
             pass.InputRegion(2, ShaderInputRegion.Identity);
+            pass.PartialImages();
             pass.ColorAttachment(0, output);
         });
 
-    public static void Downsample(ShaderGraphBuilder graph, ShaderImage source, ShaderImage destination)
-        => graph.Fullscreen(destination.Name, s_downsample, pass =>
+    /// <summary>Blurs in two directions over <paramref name="radius"/>, which is three standard deviations.</summary>
+    public static ShaderImage GaussianBlur(ShaderGraphBuilder graph, ShaderImage image, float radius)
+    {
+        // Reduce in 2x steps so even a one-pixel highlight survives the filtering.
+        // The final blur radius stays at most 16 texels per unit of working scale.
+        ShaderImage reduced = image;
+        for (int level = 1; radius * reduced.ResolutionScale > 16; level++)
+            reduced = Downsample(graph, $"downsample-{level}", reduced);
+        ShaderImage horizontal = graph.Image2D("horizontal", reduced, resolutionScale: reduced.ResolutionScale);
+        ShaderImage blurred = graph.Image2D("blurred", reduced, resolutionScale: reduced.ResolutionScale);
+        Blur(graph, "blur-horizontal", reduced, horizontal, new(radius, 1, 0, 0));
+        Blur(graph, "blur-vertical", horizontal, blurred, new(radius, 0, 1, 0));
+        return blurred;
+    }
+
+    private static void Blur(ShaderGraphBuilder graph, string name, ShaderImage source, ShaderImage output, Vector4 values)
+        => ImagePass(graph, name, s_blur, source, output, values.X, pass => pass.PushConstants(values));
+
+    /// <summary>Reduces <paramref name="source"/> into a new image of half its raster density, and returns that image.</summary>
+    public static ShaderImage Downsample(ShaderGraphBuilder graph, string name, ShaderImage source, float padding = 0)
+    {
+        ShaderImage destination = graph.Image2D(name, source, padding: padding, resolutionScale: source.ResolutionScale / 2);
+        ImagePass(graph, name, s_downsample, source, destination);
+        return destination;
+    }
+
+    /// <summary>A fullscreen pass that reads one image, for a shader that binds it at 0 and the two frames at 1 and 2.</summary>
+    /// <param name="reach">How far from an output point the shader reads, in composition units.</param>
+    public static void ImagePass(ShaderGraphBuilder graph, string name, ShaderProgram program, ShaderImage source,
+        ShaderImage destination, float reach = 0, Action<ShaderPassBuilder>? configure = null)
+        => graph.Fullscreen(name, program, pass =>
         {
             pass.SampledImage(0, source);
             pass.ImageParameters(1, source);
             pass.ImageParameters(2, destination);
-            pass.InputRegion(0, ShaderInputRegion.Identity);
+            pass.InputRegion(0, new(Matrix.Identity, reach));
+            pass.PartialImages();
             pass.ColorAttachment(0, destination);
+            configure?.Invoke(pass);
         });
+
+    // Sample count depends on working scale, but no longer grows with the logical radius.
+    private static readonly ShaderProgram s_blur = ShaderProgram.Fullscreen(new ShaderSource("""
+        #version 450
+        layout(binding = 0) uniform sampler2D image;
+        layout(binding = 1, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
+        layout(binding = 2, std140) uniform Destination { vec4 logical; vec4 raster; vec4 size; } dst;
+        layout(push_constant) uniform Values { vec4 value; } pc;
+        layout(location = 0) out vec4 color;
+        void main() {
+            vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
+            color = vec4(0);
+            float total = 0;
+            int steps = max(16, int(ceil(pc.value.x * src.size.z)));
+            for (int i = -steps; i <= steps; i++) {
+                float x = float(i) / float(steps);
+                float weight = exp(-4.5 * x * x);
+                vec2 samplePosition = position + pc.value.yz * (x * pc.value.x);
+                color += texture(image, (samplePosition - src.raster.xy) / src.raster.zw) * weight;
+                total += weight;
+            }
+            color /= total;
+        }
+        """));
 
     // The separable [1, 3, 3, 1] / 8 filter preserves small highlights and their center
     // as the grid gets coarser. Four bilinear samples cover its 4x4 source footprint.
@@ -66,7 +123,7 @@ internal static class LightEffectPasses
         }
         """));
 
-    private static readonly ShaderProgram s_extract = ShaderProgram.Fullscreen(new ShaderSource("""
+    private static readonly ShaderProgram s_extract = ShaderProgram.Fullscreen(new ShaderSource($$"""
         #version 450
         layout(binding = 0) uniform sampler2D image;
         layout(binding = 1, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
@@ -74,11 +131,12 @@ internal static class LightEffectPasses
         layout(push_constant) uniform Values { float threshold; float softKnee; } pc;
         layout(location = 0) out vec4 bright;
         layout(location = 1) out float mask;
+        {{GlslSnippets.Luminance}}
         void main() {
             vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
             vec4 color = texture(image, (position - src.raster.xy) / src.raster.zw);
             // Select by straight luminance, then scale premultiplied RGBA so translucent edges fade naturally.
-            float luminance = color.a > 0 ? dot(color.rgb / color.a, vec3(0.2126, 0.7152, 0.0722)) : 0;
+            float luminance = straightLuminance(color);
             float excess = luminance - pc.threshold;
             float contribution = max(excess, 0);
             float knee = pc.threshold * pc.softKnee;

@@ -229,6 +229,7 @@ internal sealed class Renderer3D : IRenderer3D
 
         var (sceneCenter, sceneRadius) = CalculateSceneBounds(objects);
 
+        _shadowManager.SurfaceDensity = SurfaceDensity;
         var lightToShadowIndex = _shadowManager.RenderShadows(lights, objects, sceneCenter, sceneRadius);
         var shadowUbo = _shadowManager.GetShadowUBO();
 

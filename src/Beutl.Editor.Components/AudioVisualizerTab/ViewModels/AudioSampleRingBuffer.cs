@@ -19,9 +19,7 @@ public sealed class AudioSampleRingBuffer
     private readonly object _gate = new();
     private float[] _left = [];
     private float[] _right = [];
-    private float[][] _channels = [];
     private float[][] _sourceChannels = [];
-    private int _channelCount;
     private int _capacity;
     private int _writeIndex;
     private long _totalWritten;
@@ -32,6 +30,16 @@ public sealed class AudioSampleRingBuffer
     private bool _hasAnchor;
     private MediaTime _lastWriteEndTime;
     private long _lastWriteEndIndex;
+    private long _version;
+
+    // Changes with every write and clear, so a view can tell when there is nothing new to read.
+    public long Version
+    {
+        get
+        {
+            lock (_gate) return _version;
+        }
+    }
 
     public int SampleRate
     {
@@ -46,7 +54,7 @@ public sealed class AudioSampleRingBuffer
     {
         get
         {
-            lock (_gate) return _channelCount;
+            lock (_gate) return _sourceChannels.Length;
         }
     }
 
@@ -61,7 +69,7 @@ public sealed class AudioSampleRingBuffer
 
         lock (_gate)
         {
-            bool needsReset = _capacity == 0 || _sampleRate != sampleRate || _channelCount != channelCount;
+            bool needsReset = _capacity == 0 || _sampleRate != sampleRate || _sourceChannels.Length != channelCount;
             if (_hasAnchor && !needsReset)
             {
                 // Any backward overlap (paused frame-step composes a fixed 100 ms
@@ -98,7 +106,7 @@ public sealed class AudioSampleRingBuffer
                         float leftGain = matrix.GetCoefficient(0, channel), rightGain = matrix.GetCoefficient(1, channel);
                         if (leftGain != 0) l += interleaved[baseIdx + channel] * leftGain;
                         if (rightGain != 0) r += interleaved[baseIdx + channel] * rightGain;
-                        _channels[channel][idx] = interleaved[baseIdx + channel];
+                        _sourceChannels[channel][idx] = interleaved[baseIdx + channel];
                     }
                 }
                 _left[idx] = l;
@@ -112,6 +120,7 @@ public sealed class AudioSampleRingBuffer
             _hasAnchor = true;
             _lastWriteEndIndex = _totalWritten;
             _lastWriteEndTime = startTime + MediaTime.FromSamples(frames, sampleRate);
+            _version++;
         }
     }
 
@@ -121,12 +130,13 @@ public sealed class AudioSampleRingBuffer
         {
             Array.Clear(_left);
             Array.Clear(_right);
-            foreach (float[] channel in _channels) Array.Clear(channel);
+            foreach (float[] channel in _sourceChannels) Array.Clear(channel);
             _writeIndex = 0;
             _totalWritten = 0;
             _hasAnchor = false;
             _lastWriteEndIndex = 0;
             _lastWriteEndTime = MediaTime.Zero;
+            _version++;
         }
     }
 
@@ -145,13 +155,6 @@ public sealed class AudioSampleRingBuffer
         if (destLeft.Length < length || destRight.Length < length) return 0;
         lock (_gate)
         {
-            if (!_hasAnchor || _sampleRate <= 0)
-            {
-                destLeft.Slice(0, length).Clear();
-                destRight.Slice(0, length).Clear();
-                return 0;
-            }
-
             int got = LocateLocked(playheadTime, length, out leadingZeros, out int ringStart);
             CopyLocked(_left, destLeft, length, leadingZeros, got, ringStart);
             CopyLocked(_right, destRight, length, leadingZeros, got, ringStart);
@@ -173,12 +176,7 @@ public sealed class AudioSampleRingBuffer
                 if (channel.Length < length) return 0;
             }
 
-            int got = 0;
-            int ringStart = 0;
-            if (_hasAnchor && _sampleRate > 0)
-            {
-                got = LocateLocked(playheadTime, length, out leadingZeros, out ringStart);
-            }
+            int got = LocateLocked(playheadTime, length, out leadingZeros, out int ringStart);
 
             for (int ch = 0; ch < dest.Length; ch++)
             {
@@ -233,12 +231,12 @@ public sealed class AudioSampleRingBuffer
 
     // Maps `playheadTime` to a ring range: the real samples land at
     // [leadingZeros, leadingZeros + returned count) of a `length` window and start at
-    // ring index `ringStart`. Must be called with an anchor.
+    // ring index `ringStart`.
     private int LocateLocked(MediaTime playheadTime, int length, out int leadingZeros, out int ringStart)
     {
         leadingZeros = 0;
         ringStart = 0;
-        if (_capacity == 0) return 0;
+        if (!_hasAnchor || _sampleRate <= 0) return 0;
 
         double secondsFromEnd = (_lastWriteEndTime - playheadTime).ToSeconds();
         long samplesFromEnd = (long)Math.Round(secondsFromEnd * _sampleRate);
@@ -291,19 +289,22 @@ public sealed class AudioSampleRingBuffer
 
     private void ResetInternal(int sampleRate, int capacity, int channelCount)
     {
+        // Paused frame-stepping resets up to 25 times a second, so the arrays are kept when their
+        // shape still fits. Their old samples are unreachable: reads stop at _totalWritten.
+        if (capacity != _capacity || channelCount != _sourceChannels.Length)
+        {
+            _left = new float[capacity];
+            _right = new float[capacity];
+            _sourceChannels = channelCount switch
+            {
+                1 => [_left],
+                2 => [_left, _right],
+                _ => [.. Enumerable.Range(0, channelCount).Select(_ => new float[capacity])],
+            };
+        }
+
         _sampleRate = sampleRate;
         _capacity = capacity;
-        _channelCount = channelCount;
-        _left = new float[capacity];
-        _right = new float[capacity];
-        _channels = new float[channelCount > 2 ? channelCount : 0][];
-        for (int ch = 0; ch < _channels.Length; ch++) _channels[ch] = new float[capacity];
-        _sourceChannels = channelCount switch
-        {
-            1 => [_left],
-            2 => [_left, _right],
-            _ => _channels,
-        };
         _writeIndex = 0;
         _totalWritten = 0;
         _hasAnchor = false;

@@ -33,6 +33,7 @@ public sealed partial class ScaleTransform : Transform
 
     [Display(Name = nameof(GraphicsStrings.ScaleTransform_ScaleX), ResourceType = typeof(GraphicsStrings))]
     [Unit(PropertyUnit.Percent)]
+    [CombinedEditor(nameof(ScaleY), Name = nameof(GraphicsStrings.ScaleTransform_ScaleXY), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> ScaleX { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(GraphicsStrings.ScaleTransform_ScaleY), ResourceType = typeof(GraphicsStrings))]

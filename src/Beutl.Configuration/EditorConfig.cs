@@ -93,7 +93,13 @@ public sealed partial class EditorConfig : ConfigurationBase
 
     public IProperty<bool> SwapTimelineScrollDirection { get; } = Property.CreateValue(false);
 
+    public IProperty<bool> SeekOnTimelineClick { get; } = Property.CreateValue(true);
+
     public IProperty<bool> ClampResizeToOriginalLength { get; } = Property.CreateValue(true);
+
+    // Off leaves clips without a filmstrip or waveform unless one is turned on for that clip, which keeps
+    // zooming a timeline full of media from decoding thumbnails.
+    public IProperty<bool> ShowTimelineThumbnailsByDefault { get; } = Property.CreateValue(true);
 
     public IProperty<bool> IsTimelineSnapEnabled { get; } = Property.CreateValue(true);
 

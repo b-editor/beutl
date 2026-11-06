@@ -256,6 +256,29 @@ public class PaletteCommandTests
         });
     }
 
+    // The command is checked again as the playhead moves, and a group can be large.
+    [AvaloniaTest]
+    public async Task Whether_a_group_can_split_is_answered_without_view_models_for_its_clips()
+    {
+        EditViewModel editor = await OpenEditorForNewScene("palette-split-no-view-models");
+        Element selected = await AddRectAsync(editor, 0, 4, 0);
+        Element sibling = await AddRectAsync(editor, 0, 4, 1);
+        editor.Scene.Groups.Add(System.Collections.Immutable.ImmutableHashSet.Create(selected.Id.Value, sibling.Id.Value));
+        editor.GetService<IEditorSelection>()!.Select(selected);
+        TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
+        SetPlayhead(editor, 1);
+        selected.IsLocked.Value = true;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CanRun(TimelineTabExtension.Instance, Execution("timeline.split", editor)), Is.True, "the sibling");
+            Assert.That(timeline.FindViewModelFor(sibling), Is.Null);
+        });
+
+        sibling.IsLocked.Value = true;
+        Assert.That(CanRun(TimelineTabExtension.Instance, Execution("timeline.split", editor)), Is.False);
+    }
+
     [AvaloniaTest]
     public async Task Save_as_template_saves_the_selected_clips_with_their_groups_as_one_template()
     {

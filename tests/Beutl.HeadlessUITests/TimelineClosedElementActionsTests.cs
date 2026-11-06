@@ -15,6 +15,7 @@ using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
@@ -69,6 +70,44 @@ public class TimelineClosedElementActionsTests
         }
         finally
         {
+            ClipboardHelper.OverrideClipboard = null;
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Menu_paste_into_a_scene_not_saved_yet_says_so_with_the_timeline_closed()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("timeline-closed-paste-unsaved");
+        Element copied = await AddElementAsync(editor, () => new RectShape(), lengthSeconds: 4);
+        CloseTimeline(editor);
+        editor.GetRequiredService<IEditorSelection>().Select(copied);
+        MenuBarViewModel menuBar = TestShell.MainViewModel.MenuBar;
+        Uri uri = editor.Scene.Uri!;
+        var window = new Window();
+        using var notifications = new NotificationCapture();
+        try
+        {
+            window.Show();
+            ClipboardHelper.OverrideClipboard = window.Clipboard;
+
+            await menuBar.CopyLayer.ExecuteAsync();
+            editor.Scene.Uri = null;
+            await menuBar.PasteLayer.ExecuteAsync();
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
+                Assert.That(notifications.All.Select(notification => notification.Message),
+                    Is.EqualTo(new[] { Strings.Paste_ProjectNotSaved }));
+            });
+        }
+        finally
+        {
+            editor.Scene.Uri = uri;
             ClipboardHelper.OverrideClipboard = null;
             window.Close();
             HeadlessTestHelpers.Settle();
@@ -173,9 +212,7 @@ public class TimelineClosedElementActionsTests
     }
 
     private static NumberEditorViewModel<float> WidthEditor(ElementPropertyTabViewModel tab, RectShape shape)
-        => PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
-            .OfType<NumberEditorViewModel<float>>()
-            .Single(x => ReferenceEquals(x.PropertyAdapter.GetEngineProperty(), shape.Width));
+        => PropertyEditorTestHost.FindNumberEditor(tab.Items[0].Properties, shape.Width);
 
     // The services a property editor gets from the property tab it is shown in.
     private sealed class EditorServices(EditViewModel editor, Element element) : IPropertyEditorContextVisitor, IServiceProvider

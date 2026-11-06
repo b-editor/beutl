@@ -196,6 +196,15 @@
   <data name="Blur" xml:space="preserve">
     <value>ぼかし</value>
   </data>
+  <data name="Sharpen" xml:space="preserve">
+    <value>シャープ</value>
+  </data>
+  <data name="Sharpen_Threshold" xml:space="preserve">
+    <value>しきい値</value>
+  </data>
+  <data name="Sharpen_Threshold_Description" xml:space="preserve">
+    <value>これより小さな差は強調しません。ノイズを目立たせたくないときに上げます。</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>輝度</value>
   </data>
@@ -210,6 +219,18 @@
   </data>
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>彩度範囲</value>
+  </data>
+  <data name="LumaKey" xml:space="preserve">
+    <value>輝度キー</value>
+  </data>
+  <data name="LumaKey_Lower" xml:space="preserve">
+    <value>下限 (%)</value>
+  </data>
+  <data name="LumaKey_Upper" xml:space="preserve">
+    <value>上限 (%)</value>
+  </data>
+  <data name="LumaKey_Softness" xml:space="preserve">
+    <value>境界の滑らかさ (%)</value>
   </data>
   <data name="Clipping" xml:space="preserve">
     <value>クリッピング</value>
@@ -451,6 +472,39 @@
   <data name="Erode_RadiusY" xml:space="preserve">
     <value>半径Y</value>
   </data>
+  <data name="EdgeDetection" xml:space="preserve">
+    <value>エッジ抽出</value>
+  </data>
+  <data name="EdgeDetection_Target" xml:space="preserve">
+    <value>検出対象</value>
+  </data>
+  <data name="EdgeDetectionTarget_Luminance" xml:space="preserve">
+    <value>輝度</value>
+  </data>
+  <data name="EdgeDetectionTarget_Alpha" xml:space="preserve">
+    <value>透明度</value>
+  </data>
+  <data name="EdgeDetection_Thickness" xml:space="preserve">
+    <value>太さ</value>
+  </data>
+  <data name="EdgeDetection_Threshold" xml:space="preserve">
+    <value>しきい値</value>
+  </data>
+  <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
+    <value>これより小さな変化には線を引きません。</value>
+  </data>
+  <data name="EdgeDetection_Original" xml:space="preserve">
+    <value>元画像</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Hidden" xml:space="preserve">
+    <value>表示しない</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Behind" xml:space="preserve">
+    <value>裏に表示</value>
+  </data>
+  <data name="EdgeDetectionOriginal_InFront" xml:space="preserve">
+    <value>表に表示</value>
+  </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>フラットシャドウ</value>
   </data>
@@ -565,6 +619,9 @@
   <data name="ParticleEmitter_EmitterWidth" xml:space="preserve">
     <value>エミッタ幅</value>
   </data>
+  <data name="ParticleEmitter_EmitterSize" xml:space="preserve">
+    <value>エミッタサイズ</value>
+  </data>
   <data name="ParticleEmitter_EndColor" xml:space="preserve">
     <value>終了色</value>
   </data>
@@ -676,6 +733,9 @@
   <data name="ScaleTransform_ScaleY" xml:space="preserve">
     <value>Y拡大率</value>
   </data>
+  <data name="ScaleTransform_ScaleXY" xml:space="preserve">
+    <value>XY拡大率</value>
+  </data>
   <data name="ShakeEffect" xml:space="preserve">
     <value>振動</value>
   </data>
@@ -729,6 +789,39 @@
   </data>
   <data name="SplitEffect_VerticalSpacing" xml:space="preserve">
     <value>垂直方向の間隔</value>
+  </data>
+  <data name="RepeatEffect" xml:space="preserve">
+    <value>繰り返し配置</value>
+  </data>
+  <data name="RepeatEffect_Columns" xml:space="preserve">
+    <value>列数</value>
+  </data>
+  <data name="RepeatEffect_Rows" xml:space="preserve">
+    <value>行数</value>
+  </data>
+  <data name="RepeatEffect_Spacing" xml:space="preserve">
+    <value>間隔</value>
+  </data>
+  <data name="RepeatEffect_Spacing_Description" xml:space="preserve">
+    <value>コピーどうしの隙間です。0 で隙間なく並びます。</value>
+  </data>
+  <data name="RepeatEffect_Offset_Description" xml:space="preserve">
+    <value>グリッドの中でコピーを動かします。端から出たコピーは反対側から戻るので、アニメーションさせると途切れずにスクロールします。</value>
+  </data>
+  <data name="RepeatEffect_Mirror" xml:space="preserve">
+    <value>交互に反転</value>
+  </data>
+  <data name="RepeatEffectMirror_None" xml:space="preserve">
+    <value>なし</value>
+  </data>
+  <data name="RepeatEffectMirror_Columns" xml:space="preserve">
+    <value>1 列おき</value>
+  </data>
+  <data name="RepeatEffectMirror_Rows" xml:space="preserve">
+    <value>1 行おき</value>
+  </data>
+  <data name="RepeatEffectMirror_Both" xml:space="preserve">
+    <value>両方</value>
   </data>
   <data name="TextAlignment_Center" xml:space="preserve">
     <value>中央揃え</value>
@@ -889,6 +982,9 @@
   <data name="DrawableTextureSource_TextureWidth" xml:space="preserve">
     <value>テクスチャ幅</value>
   </data>
+  <data name="DrawableTextureSource_TextureSize" xml:space="preserve">
+    <value>テクスチャサイズ</value>
+  </data>
   <data name="EllipseGeometry" xml:space="preserve">
     <value>楕円</value>
   </data>
@@ -900,6 +996,21 @@
   </data>
   <data name="GradientBrush_SpreadMethod" xml:space="preserve">
     <value>広がり方</value>
+  </data>
+  <data name="GradientBrush_InterpolationSpace" xml:space="preserve">
+    <value>補間の色空間</value>
+  </data>
+  <data name="GradientBrush_InterpolatePremultiplied" xml:space="preserve">
+    <value>乗算済みアルファで補間</value>
+  </data>
+  <data name="GradientInterpolationSpace_LinearSrgb" xml:space="preserve">
+    <value>リニア sRGB</value>
+  </data>
+  <data name="GradientInterpolationSpace_Srgb" xml:space="preserve">
+    <value>sRGB</value>
+  </data>
+  <data name="GradientInterpolationSpace_Oklab" xml:space="preserve">
+    <value>OKLab</value>
   </data>
   <data name="Children" xml:space="preserve">
     <value>子要素</value>
@@ -1060,6 +1171,9 @@
   <data name="PerlinNoiseBrush_BaseFrequencyY" xml:space="preserve">
     <value>基本周波数Y</value>
   </data>
+  <data name="PerlinNoiseBrush_BaseFrequency" xml:space="preserve">
+    <value>基本周波数</value>
+  </data>
   <data name="PerlinNoiseBrush_Octaves" xml:space="preserve">
     <value>オクターブ</value>
   </data>
@@ -1158,6 +1272,9 @@
   </data>
   <data name="Scene3D_RenderWidth" xml:space="preserve">
     <value>レンダリング幅</value>
+  </data>
+  <data name="Scene3D_RenderSize" xml:space="preserve">
+    <value>レンダリングサイズ</value>
   </data>
   <data name="SolidColorBrush" xml:space="preserve">
     <value>塗りつぶし</value>
@@ -1291,6 +1408,9 @@
   <data name="CenterY" xml:space="preserve">
     <value>中心Y</value>
   </data>
+  <data name="Center" xml:space="preserve">
+    <value>中心</value>
+  </data>
   <data name="Color" xml:space="preserve">
     <value>色</value>
   </data>
@@ -1322,7 +1442,7 @@
     <value>位置</value>
   </data>
   <data name="Presenter" xml:space="preserve">
-    <value>プレセンター</value>
+    <value>プレゼンター</value>
   </data>
   <data name="Radius" xml:space="preserve">
     <value>半径</value>
@@ -1642,6 +1762,45 @@
   <data name="RadialBlur_Samples" xml:space="preserve">
     <value>サンプル数</value>
   </data>
+  <data name="Bokeh" xml:space="preserve">
+    <value>ボケ</value>
+  </data>
+  <data name="Bokeh_Shape" xml:space="preserve">
+    <value>絞りの形</value>
+  </data>
+  <data name="BokehShape_Circle" xml:space="preserve">
+    <value>円形</value>
+  </data>
+  <data name="BokehShape_Polygon" xml:space="preserve">
+    <value>多角形</value>
+  </data>
+  <data name="Bokeh_Sides" xml:space="preserve">
+    <value>辺の数</value>
+  </data>
+  <data name="Bokeh_Rotation" xml:space="preserve">
+    <value>回転</value>
+  </data>
+  <data name="Bokeh_Highlight" xml:space="preserve">
+    <value>ハイライトの強調</value>
+  </data>
+  <data name="Bokeh_Highlight_Description" xml:space="preserve">
+    <value>明るい部分を広げる前に明るくして、形として目立たせます。100% で 2 倍の明るさになります。</value>
+  </data>
+  <data name="Bokeh_Quality" xml:space="preserve">
+    <value>品質</value>
+  </data>
+  <data name="Bokeh_Quality_Description" xml:space="preserve">
+    <value>サンプルを増やすほど形がきれいになり、時間がかかります。高は低の約 3 倍かかります。</value>
+  </data>
+  <data name="BokehQuality_Low" xml:space="preserve">
+    <value>低</value>
+  </data>
+  <data name="BokehQuality_Medium" xml:space="preserve">
+    <value>標準</value>
+  </data>
+  <data name="BokehQuality_High" xml:space="preserve">
+    <value>高</value>
+  </data>
   <data name="RadialBlurMode_Zoom" xml:space="preserve">
     <value>ズーム</value>
   </data>
@@ -1752,5 +1911,23 @@
   </data>
   <data name="MotionBlur_End" xml:space="preserve">
     <value>終了</value>
+  </data>
+  <data name="AlphaMode" xml:space="preserve">
+    <value>アルファモード</value>
+  </data>
+  <data name="AlphaMode_Auto" xml:space="preserve">
+    <value>自動</value>
+  </data>
+  <data name="AlphaMode_Opaque" xml:space="preserve">
+    <value>不透明</value>
+  </data>
+  <data name="AlphaMode_Mask" xml:space="preserve">
+    <value>マスク</value>
+  </data>
+  <data name="AlphaMode_Blend" xml:space="preserve">
+    <value>ブレンド</value>
+  </data>
+  <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
+    <value>切り抜きのしきい値</value>
   </data>
 </root>

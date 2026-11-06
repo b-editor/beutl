@@ -19,6 +19,7 @@ public sealed partial class ShaderPassBuilder
     private BlendState _blend = BlendState.Replace;
     private (int X, int Y, int Z)? _work;
     private bool _threads;
+    private ShaderImage? _workImage;
     private bool _sealed;
     private ImmutableArray<VertexBindingDescription> _vertexBindings = [];
     private ImmutableArray<VertexAttributeDescription> _vertexAttributes = [];
@@ -30,6 +31,7 @@ public sealed partial class ShaderPassBuilder
     private int _vertexOffset;
     private int _firstInstance;
     private bool _partialRendering;
+    private bool _partialImages;
     private readonly Dictionary<int, ShaderInputRegion> _inputRegions = [];
 
     internal ShaderPassBuilder(ShaderGraphBuilder graph, string name, ShaderProgram program, bool fullscreen)
@@ -61,6 +63,18 @@ public sealed partial class ShaderPassBuilder
         _partialRendering = true;
     }
 
+    /// <summary>Declares that images can hold only the part of their bounds a request needs, and enables partial rendering.</summary>
+    /// <remarks>Partial rendering alone keeps every coordinate complete. With this, raster bounds and pixel size describe the
+    /// part an image holds, the viewport and UVs cover the part its attachment holds, and only logical bounds stay complete.
+    /// So the pass has to find every pixel through metadata: a position from an attachment's raster bounds and raster scale,
+    /// and a read from the raster bounds of the image it reads. An image keeps all of its bounds when a pass that does not
+    /// declare this uses it.</remarks>
+    internal void PartialImages()
+    {
+        PartialRendering();
+        _partialImages = true;
+    }
+
     /// <summary>Declares the complete sampling footprint of a sampled-image binding and enables partial rendering.</summary>
     /// <remarks>Output coordinates refer to the first color attachment's composition frame.</remarks>
     public void InputRegion(int binding, ShaderInputRegion region)
@@ -82,7 +96,7 @@ public sealed partial class ShaderPassBuilder
     /// </remarks>
     public void StorageImage(int binding, ShaderImage image, ResourceAccess access)
     {
-        if (ReferenceEquals(image.Root, _graph.Source) && (access & ResourceAccess.Write) != 0)
+        if (image.Root.IsInput && (access & ResourceAccess.Write) != 0)
             throw new ArgumentException("The source image is read-only.", nameof(image));
         if (image.MipLevels != 1 || image.Format.IsDepthFormat())
             throw new ArgumentException("Storage image bindings select one color mip level.", nameof(image));
@@ -134,7 +148,7 @@ public sealed partial class ShaderPassBuilder
         ArgumentOutOfRangeException.ThrowIfNegative(location);
         if (!Enum.IsDefined(load))
             throw new ArgumentOutOfRangeException(nameof(load));
-        if (ReferenceEquals(image.Root, _graph.Source))
+        if (image.Root.IsInput)
             throw new ArgumentException("The source image is read-only.", nameof(image));
         if (!image.IsAttachment || image.Format.IsDepthFormat())
             throw new ArgumentException("A color attachment selects one 2D color subresource.", nameof(image));
@@ -249,6 +263,7 @@ public sealed partial class ShaderPassBuilder
         SetWork(x, y, z);
         _threads = false;
         _indirect = null;
+        _workImage = null;
     }
 
     /// <summary>Rounds invocation counts up to the compiled local size. The shader must guard excess invocations.</summary>
@@ -258,6 +273,20 @@ public sealed partial class ShaderPassBuilder
         SetWork(x, y, z);
         _threads = true;
         _indirect = null;
+        _workImage = null;
+    }
+
+    /// <summary>Runs one invocation per texel of <paramref name="image"/>, rounded up to the compiled local size.</summary>
+    /// <remarks>The size is resolved when the graph executes, so this covers a composition-sized image at any
+    /// working scale, which no fixed count can. The shader must guard excess invocations.</remarks>
+    public void DispatchImage(ShaderImage image)
+    {
+        EnsureCompute();
+        _graph.ValidateResource(image);
+        SetWork(1, 1, 1);
+        _threads = true;
+        _indirect = null;
+        _workImage = image;
     }
 
     private void SetWork(int x, int y, int z)
@@ -328,8 +357,10 @@ public sealed partial class ShaderPassBuilder
             FrontFace = _frontFace,
             PatchControlPoints = _patchControlPoints,
             PartialRendering = _partialRendering,
+            PartialImages = _partialImages,
             InputRegions = _inputRegions.ToImmutableDictionary(),
-            RuntimeConstants = [.. runtimeConstants]
+            RuntimeConstants = [.. runtimeConstants],
+            WorkImage = _workImage
         };
     }
 }
@@ -380,5 +411,31 @@ internal sealed record ShaderPassDescription(string Name, ShaderProgram? Program
     public int PatchControlPoints { get; init; } = 3;
     public ShaderTransfer? Transfer { get; init; }
     public bool PartialRendering { get; init; }
+    public bool PartialImages { get; init; }
     public ImmutableDictionary<int, ShaderInputRegion> InputRegions { get; init; } = ImmutableDictionary<int, ShaderInputRegion>.Empty;
+    public ShaderImage? WorkImage { get; init; }
+
+    /// <summary>Whether each output pixel can be evaluated on its own, from inputs the pass only reads.</summary>
+    internal bool IsLocal => PartialRendering && Program is { IsCompute: false }
+        && DepthAttachment is null
+        && Attachments.All(a => a.Image.IsPlanar)
+        && Bindings.All(b => b.Metadata || (b.Access & ResourceAccess.Write) == 0
+            && (b.Resource is not ShaderImage image || image.IsPlanar && b.Type == DescriptorType.CombinedImageSampler));
+
+    /// <summary>Every image the pass uses, metadata included.</summary>
+    internal IEnumerable<ShaderImage> Images
+    {
+        get
+        {
+            foreach (ShaderPassBinding binding in Bindings)
+                if (binding.Resource is ShaderImage image) yield return image;
+            foreach (ShaderColorAttachment attachment in Attachments) yield return attachment.Image;
+            if (DepthAttachment is { } depth) yield return depth.Image;
+            if (WorkImage is not null) yield return WorkImage;
+            foreach (ShaderRuntimeConstant constant in RuntimeConstants)
+                if (constant.Image is not null) yield return constant.Image;
+            if (Transfer?.Source is ShaderImage source) yield return source;
+            if (Transfer?.Destination is ShaderImage destination) yield return destination;
+        }
+    }
 }

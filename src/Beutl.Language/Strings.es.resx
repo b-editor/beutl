@@ -62,6 +62,9 @@
   <data name="Close" xml:space="preserve">
     <value>Cerrar</value>
   </data>
+  <data name="CloseTab" xml:space="preserve">
+    <value>Cerrar pestaña</value>
+  </data>
   <data name="ColorScopes" xml:space="preserve">
     <value>Scopes de color</value>
   </data>
@@ -88,6 +91,18 @@
   </data>
   <data name="View" xml:space="preserve">
     <value>Ver</value>
+  </data>
+  <data name="Window" xml:space="preserve">
+    <value>Ventana</value>
+  </data>
+  <data name="MinimizeWindow" xml:space="preserve">
+    <value>Minimizar</value>
+  </data>
+  <data name="ZoomWindow" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="ToggleFullScreen" xml:space="preserve">
+    <value>Alternar pantalla completa</value>
   </data>
   <data name="Object" xml:space="preserve">
     <value>Objeto</value>
@@ -166,6 +181,12 @@
   </data>
   <data name="Paste" xml:space="preserve">
     <value>Pegar</value>
+  </data>
+  <data name="SelectAll" xml:space="preserve">
+    <value>Seleccionar todo</value>
+  </data>
+  <data name="DeselectAll" xml:space="preserve">
+    <value>Deseleccionar todo</value>
   </data>
   <data name="Split" xml:space="preserve">
     <value>Dividir</value>
@@ -338,6 +359,15 @@
   <data name="Easing" xml:space="preserve">
     <value>Suavizado</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>Primer punto de control {0}, {1}. Segundo punto de control {2}, {3}.</value>
+  </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>Está seleccionado el primer punto de control.</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>Está seleccionado el segundo punto de control.</value>
+  </data>
   <data name="Hold" xml:space="preserve">
     <value>Mantener</value>
   </data>
@@ -424,6 +454,9 @@
   </data>
   <data name="Audio" xml:space="preserve">
     <value>Audio</value>
+  </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>Volumen maestro (%)</value>
   </data>
   <data name="Off" xml:space="preserve">
     <value>Desactivado</value>
@@ -518,6 +551,12 @@
   <data name="TimelineZoom" xml:space="preserve">
     <value>Zoom</value>
   </data>
+  <data name="TimelineZoomIn" xml:space="preserve">
+    <value>Acercar</value>
+  </data>
+  <data name="TimelineZoomOut" xml:space="preserve">
+    <value>Alejar</value>
+  </data>
   <data name="TimelineSnap" xml:space="preserve">
     <value>Ajuste</value>
   </data>
@@ -553,6 +592,9 @@
   </data>
   <data name="RemoveExpression" xml:space="preserve">
     <value>Quitar expresión</value>
+  </data>
+  <data name="Expression_ReturnsBothValues" xml:space="preserve">
+    <value>Introduce una expresión que devuelva los valores juntos, por ejemplo {0}.</value>
   </data>
   <data name="ExpressionHelp" xml:space="preserve">
     <value>Introduce una expresión matemática. Variables disponibles: Time, Start, Duration, Progress. Usa GetProperty&lt;T&gt;("{GUID}.Property") para hacer referencia a otras propiedades.</value>
@@ -764,6 +806,9 @@
   <data name="EnableElement" xml:space="preserve">
     <value>Habilitar elemento</value>
   </data>
+  <data name="Visible" xml:space="preserve">
+    <value>Visible</value>
+  </data>
   <data name="MoveTo" xml:space="preserve">
     <value>Mover a</value>
   </data>
@@ -801,10 +846,10 @@
     <value>Alterna entre reproducir y pausar.</value>
   </data>
   <data name="MoveToNext" xml:space="preserve">
-    <value>Mover al siguiente</value>
+    <value>Mover al fotograma siguiente</value>
   </data>
   <data name="MoveToPrevious" xml:space="preserve">
-    <value>Mover al anterior</value>
+    <value>Mover al fotograma anterior</value>
   </data>
   <data name="MoveToNext_Description" xml:space="preserve">
     <value>Mover al siguiente fotograma.</value>
@@ -1357,6 +1402,9 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="RenderScale_FitToPreviewer" xml:space="preserve">
     <value>Ajustar al visor</value>
   </data>
+  <data name="RenderScale_FitToPreviewer_Short" xml:space="preserve">
+    <value>Auto</value>
+  </data>
   <data name="Terminal" xml:space="preserve">
     <value>Terminal</value>
   </data>
@@ -1590,6 +1638,12 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>Archivo de subtítulos</value>
+  </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>No se pudo leer ningún subtítulo de {0}.</value>
+  </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>Algunos de los subtítulos de {0} no se pudieron leer y se omitieron.</value>
   </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>¿Eliminar «{0}»?</value>
@@ -1991,7 +2045,7 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Predeterminada</value>
   </data>
   <data name="AiSubtitle_TemplateDescription" xml:space="preserve">
-    <value>Aquí aparecen las plantillas de TextBlock guardadas. Su formato, efectos, animación y posición se aplican a todos los subtítulos.</value>
+    <value>Aquí aparecen las plantillas guardadas que contienen texto, ya sean de un TextBlock, un elemento o varios elementos. Su formato, efectos, animación y posición se aplican a todos los subtítulos.</value>
   </data>
   <data name="AiSubtitle_Transcribe" xml:space="preserve">
     <value>Transcribir</value>
@@ -3522,6 +3576,9 @@ cuando el registro del historial está activado.</value>
   <data name="UnseparateComponents_Description" xml:space="preserve">
     <value>Conservar el valor del momento actual y eliminar los fotogramas clave y las expresiones de los componentes.</value>
   </data>
+  <data name="UnseparateComponents_SameTiming" xml:space="preserve">
+    <value>Disponible cuando todos los valores tienen los mismos tiempos de fotogramas clave y suavizados, y comparten una expresión o no tienen ninguna.</value>
+  </data>
   <data name="RelativeUnit_Relative" xml:space="preserve">
     <value>Relativa (1 = 100%)</value>
   </data>
@@ -3536,6 +3593,18 @@ cuando el registro del historial está activado.</value>
   </data>
   <data name="TogglePreviewGuides_Description" xml:space="preserve">
     <value>Muestra u oculta las áreas seguras y las guías de composición en la vista previa.</value>
+  </data>
+  <data name="PreviewZoom" xml:space="preserve">
+    <value>Zoom de la vista previa</value>
+  </data>
+  <data name="PreviewZoomIn" xml:space="preserve">
+    <value>Acercar la vista previa</value>
+  </data>
+  <data name="PreviewZoomOut" xml:space="preserve">
+    <value>Alejar la vista previa</value>
+  </data>
+  <data name="PreviewZoomFit" xml:space="preserve">
+    <value>Ajustar la vista previa</value>
   </data>
   <data name="PreviewGuide_TitleSafe" xml:space="preserve">
     <value>Área segura de títulos</value>
@@ -3668,5 +3737,8 @@ cuando el registro del historial está activado.</value>
   </data>
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>Canales de audio del proyecto</value>
+  </data>
+  <data name="Paste_ProjectNotSaved" xml:space="preserve">
+    <value>Guarda el proyecto antes de pegar clips.</value>
   </data>
 </root>

@@ -39,6 +39,9 @@
   <data name="Close" xml:space="preserve">
     <value>閉じる</value>
   </data>
+  <data name="CloseTab" xml:space="preserve">
+    <value>タブを閉じる</value>
+  </data>
   <data name="ColorScopes" xml:space="preserve">
     <value>スコープ</value>
   </data>
@@ -177,6 +180,18 @@
   <data name="View" xml:space="preserve">
     <value>表示</value>
   </data>
+  <data name="Window" xml:space="preserve">
+    <value>ウィンドウ</value>
+  </data>
+  <data name="MinimizeWindow" xml:space="preserve">
+    <value>最小化</value>
+  </data>
+  <data name="ZoomWindow" xml:space="preserve">
+    <value>拡大/縮小</value>
+  </data>
+  <data name="ToggleFullScreen" xml:space="preserve">
+    <value>全画面を切り替え</value>
+  </data>
   <data name="Settings" xml:space="preserve">
     <value>設定</value>
   </data>
@@ -194,6 +209,12 @@
   </data>
   <data name="Paste" xml:space="preserve">
     <value>貼り付け</value>
+  </data>
+  <data name="SelectAll" xml:space="preserve">
+    <value>すべて選択</value>
+  </data>
+  <data name="DeselectAll" xml:space="preserve">
+    <value>すべての選択を解除</value>
   </data>
   <data name="Remove" xml:space="preserve">
     <value>削除</value>
@@ -339,6 +360,15 @@
   <data name="Easing" xml:space="preserve">
     <value>イージング</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>1 番目の制御点 {0}, {1}。2 番目の制御点 {2}, {3}。</value>
+  </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>1 番目の制御点を選択中です。</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>2 番目の制御点を選択中です。</value>
+  </data>
   <data name="Hold" xml:space="preserve">
     <value>ホールド</value>
   </data>
@@ -425,6 +455,9 @@
   </data>
   <data name="Audio" xml:space="preserve">
     <value>音声</value>
+  </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>マスター音量 (%)</value>
   </data>
   <data name="Off" xml:space="preserve">
     <value>オフ</value>
@@ -540,6 +573,12 @@
   <data name="TimelineZoom" xml:space="preserve">
     <value>拡大率</value>
   </data>
+  <data name="TimelineZoomIn" xml:space="preserve">
+    <value>拡大</value>
+  </data>
+  <data name="TimelineZoomOut" xml:space="preserve">
+    <value>縮小</value>
+  </data>
   <data name="TimelineSnap" xml:space="preserve">
     <value>スナップ</value>
   </data>
@@ -575,6 +614,9 @@
   </data>
   <data name="RemoveExpression" xml:space="preserve">
     <value>式を削除</value>
+  </data>
+  <data name="Expression_ReturnsBothValues" xml:space="preserve">
+    <value>値をまとめて返す式を1つ入力します。例: {0}</value>
   </data>
   <data name="ExpressionHelp" xml:space="preserve">
     <value>数式を入力してください。利用可能な変数: Time, Start, Duration, Progress。GetProperty&lt;T&gt;("{GUID}.Property")形式で他のプロパティを参照できます。</value>
@@ -792,6 +834,9 @@
   <data name="EnableElement" xml:space="preserve">
     <value>要素を有効化</value>
   </data>
+  <data name="Visible" xml:space="preserve">
+    <value>表示</value>
+  </data>
   <data name="MoveTo" xml:space="preserve">
     <value>移動</value>
   </data>
@@ -829,10 +874,10 @@
     <value>再生/一時停止を切り替えます。</value>
   </data>
   <data name="MoveToNext" xml:space="preserve">
-    <value>次へ移動</value>
+    <value>次のフレームへ移動</value>
   </data>
   <data name="MoveToPrevious" xml:space="preserve">
-    <value>前へ移動</value>
+    <value>前のフレームへ移動</value>
   </data>
   <data name="MoveToNext_Description" xml:space="preserve">
     <value>次のフレームへ移動。</value>
@@ -1438,6 +1483,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="RenderScale_FitToPreviewer" xml:space="preserve">
     <value>プレビューに合わせる</value>
   </data>
+  <data name="RenderScale_FitToPreviewer_Short" xml:space="preserve">
+    <value>自動</value>
+  </data>
   <data name="Terminal" xml:space="preserve">
     <value>ターミナル</value>
   </data>
@@ -1760,7 +1808,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>既定</value>
   </data>
   <data name="AiSubtitle_TemplateDescription" xml:space="preserve">
-    <value>保存済みのTextBlockテンプレートが表示されます。書式、エフェクト、アニメーション、配置がすべての字幕に適用されます。</value>
+    <value>テキストを含む保存済みのテンプレートが表示されます（TextBlock、要素、複数の要素）。書式、エフェクト、アニメーション、配置がすべての字幕に適用されます。</value>
   </data>
   <data name="AiSubtitle_Transcribe" xml:space="preserve">
     <value>文字起こし</value>
@@ -2675,6 +2723,12 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>字幕ファイル</value>
   </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>{0} から字幕を読み取れませんでした。</value>
+  </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>{0} の字幕の一部を読み取れなかったため、読み飛ばしました。</value>
+  </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>「{0}」を削除しますか？</value>
   </data>
@@ -3517,6 +3571,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="UnseparateComponents_Description" xml:space="preserve">
     <value>現在時刻の値を保持し、成分のキーフレームと式を削除します。</value>
   </data>
+  <data name="UnseparateComponents_SameTiming" xml:space="preserve">
+    <value>すべての値でキーフレーム時刻とイージングが同じで、式が共通か式がないときに使用できます。</value>
+  </data>
   <data name="RelativeUnit_Relative" xml:space="preserve">
     <value>相対 (1 = 100%)</value>
   </data>
@@ -3531,6 +3588,18 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="TogglePreviewGuides_Description" xml:space="preserve">
     <value>プレビューのセーフエリアと構図ガイドの表示を切り替えます。</value>
+  </data>
+  <data name="PreviewZoom" xml:space="preserve">
+    <value>プレビューの拡大率</value>
+  </data>
+  <data name="PreviewZoomIn" xml:space="preserve">
+    <value>プレビューを拡大</value>
+  </data>
+  <data name="PreviewZoomOut" xml:space="preserve">
+    <value>プレビューを縮小</value>
+  </data>
+  <data name="PreviewZoomFit" xml:space="preserve">
+    <value>プレビュー全体を表示</value>
   </data>
   <data name="PreviewGuide_TitleSafe" xml:space="preserve">
     <value>タイトルセーフ</value>
@@ -3663,5 +3732,8 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>プロジェクトの音声チャンネル</value>
+  </data>
+  <data name="Paste_ProjectNotSaved" xml:space="preserve">
+    <value>クリップを貼り付ける前にプロジェクトを保存してください。</value>
   </data>
 </root>

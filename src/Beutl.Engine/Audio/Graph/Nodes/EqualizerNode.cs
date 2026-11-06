@@ -52,9 +52,10 @@ public sealed class EqualizerNode : AudioNode
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
         bool hasAnimation = Bands.Any(band =>
-            band.Frequency.GetKeyFrameAnimation() != null ||
-            band.Gain.GetKeyFrameAnimation() != null ||
-            band.Q.GetKeyFrameAnimation() != null);
+            AnimationSampler.IsAnimated(band.FilterType) ||
+            AnimationSampler.IsAnimated(band.Frequency) ||
+            AnimationSampler.IsAnimated(band.Gain) ||
+            AnimationSampler.IsAnimated(band.Q));
 
         if (!hasAnimation)
         {
@@ -140,25 +141,32 @@ public sealed class EqualizerNode : AudioNode
 
                 for (int ch = 0; ch < input.ChannelCount; ch++)
                 {
-                    var inData = input.GetChannelData(ch).Slice(processed, chunkSize);
-                    var outData = output.GetChannelData(ch).Slice(processed, chunkSize);
+                    input.GetChannelData(ch).Slice(processed, chunkSize).CopyTo(output.GetChannelData(ch).Slice(processed, chunkSize));
+                }
 
-                    inData.CopyTo(outData);
+                for (int bandIndex = 0; bandIndex < Bands.Count; bandIndex++)
+                {
+                    var band = Bands[bandIndex];
+                    // A type has nothing to interpolate, so it holds for the chunk and the filter keeps its state.
+                    var filterType = context.AnimationSampler.SampleAt(band.FilterType, chunkRange.Start, context.SampleRate);
 
-                    for (int bandIndex = 0; bandIndex < Bands.Count; bandIndex++)
+                    // Sampled once for all channels, as an expression runs a script for each evaluation.
+                    context.AnimationSampler.SampleBuffer(band.Frequency, chunkRange, context.SampleRate, frequencies[..chunkSize]);
+                    context.AnimationSampler.SampleBuffer(band.Gain, chunkRange, context.SampleRate, gains[..chunkSize]);
+                    context.AnimationSampler.SampleBuffer(band.Q, chunkRange, context.SampleRate, qs[..chunkSize]);
+
+                    // Every channel of a band follows the same settings, so one computes the coefficients for all.
+                    BiQuadFilter[] filters = _filters![bandIndex];
+                    BiQuadFilter first = filters[0];
+                    Span<float> raw = output.GetRawSpan();
+                    for (int i = 0; i < chunkSize; i++)
                     {
-                        var band = Bands[bandIndex];
-                        var filter = _filters![bandIndex][ch];
-                        var filterType = band.FilterType.Value;
-
-                        context.AnimationSampler.SampleBuffer(band.Frequency, chunkRange, context.SampleRate, frequencies[..chunkSize]);
-                        context.AnimationSampler.SampleBuffer(band.Gain, chunkRange, context.SampleRate, gains[..chunkSize]);
-                        context.AnimationSampler.SampleBuffer(band.Q, chunkRange, context.SampleRate, qs[..chunkSize]);
-
-                        for (int i = 0; i < chunkSize; i++)
+                        first.CalculateCoefficients(filterType, frequencies[i], qs[i], gains[i], context.SampleRate);
+                        int index = processed + i;
+                        for (int ch = 0; ch < filters.Length; ch++, index += output.SampleCount)
                         {
-                            filter.CalculateCoefficients(filterType, frequencies[i], qs[i], gains[i], context.SampleRate);
-                            outData[i] = filter.Process(outData[i]);
+                            if (ch > 0) filters[ch].CopyCoefficientsFrom(first);
+                            raw[index] = filters[ch].Process(raw[index]);
                         }
                     }
                 }

@@ -41,6 +41,9 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
 
         layout(set = 0, binding = 0) uniform sampler2D srcTexture;
 
+        // What the UI draws over the frame, premultiplied and sRGB-encoded, at the swapchain's size.
+        layout(set = 0, binding = 1) uniform sampler2D overlayTexture;
+
         layout(push_constant) uniform PushConstants {
             vec4 dstRect;
             float exposure;
@@ -53,6 +56,8 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             vec4 gamut2;
             float referenceWhite;
             int outputBt2020;
+            int overlay;
+            int composeInGamma;
         } pc;
 
         vec3 reinhard(vec3 c) { return c / (1.0 + c); }
@@ -98,46 +103,69 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         }
 
         void main() {
-            // Map UV through stretch viewport
-            vec2 srcUV = (uv - pc.dstRect.xy) / pc.dstRect.zw;
+            // From the top left corner, in fractions of the swapchain's size.
+            vec2 pos = vec2(uv.x, 1.0 - uv.y);
+            vec2 srcUV = (pos - pc.dstRect.xy) / pc.dstRect.zw;
 
-            if (srcUV.x < 0.0 || srcUV.x > 1.0 || srcUV.y < 0.0 || srcUV.y > 1.0) {
+            // Nothing is drawn around the frame, so a layer that is not opaque shows what lies under it there.
+            if (!(pc.dstRect.z > 0.0 && pc.dstRect.w > 0.0)
+                || srcUV.x < 0.0 || srcUV.x > 1.0 || srcUV.y < 0.0 || srcUV.y > 1.0) {
                 outColor = vec4(0.0);
                 return;
             }
 
-            vec4 c = texture(srcTexture, vec2(srcUV.x, 1.0 - srcUV.y));
+            vec4 c = texture(srcTexture, srcUV);
             float alpha = c.a;
-            if (alpha <= 0.0001) { outColor = vec4(0.0); return; }
+            vec3 rgb = vec3(0.0);
+            if (alpha > 0.0001) {
+                rgb = c.rgb / alpha;
+                if (pc.isSourceLinear == 0) {
+                    rgb = srgbToLinear(rgb);
+                }
+                rgb *= exp2(pc.exposure);
 
-            vec3 rgb = c.rgb / alpha;
-            if (pc.isSourceLinear == 0) {
-                rgb = srgbToLinear(rgb);
-            }
-            rgb *= exp2(pc.exposure);
+                if (pc.tmOperator == 1) rgb = reinhard(max(rgb, vec3(0.0)));
+                else if (pc.tmOperator == 2) rgb = aces(max(rgb, vec3(0.0)));
+                else if (pc.tmOperator == 3) rgb = hable(max(rgb, vec3(0.0)));
+                else if (pc.tmOperator == 4) {
+                    rgb = fitGamut(rgb);
+                    rgb *= displayMapGain(max(rgb.r, max(rgb.g, rgb.b)),
+                        pc.displayMapping.x, pc.displayMapping.y, pc.displayMapping.z, pc.displayMapping.w);
+                }
 
-            if (pc.tmOperator == 1) rgb = reinhard(max(rgb, vec3(0.0)));
-            else if (pc.tmOperator == 2) rgb = aces(max(rgb, vec3(0.0)));
-            else if (pc.tmOperator == 3) rgb = hable(max(rgb, vec3(0.0)));
-            else if (pc.tmOperator == 4) {
-                rgb = fitGamut(rgb);
-                rgb *= displayMapGain(max(rgb.r, max(rgb.g, rgb.b)),
-                    pc.displayMapping.x, pc.displayMapping.y, pc.displayMapping.z, pc.displayMapping.w);
-            }
-
-            // Reference white as bright as the UI's white (PresentLuminance).
-            rgb *= pc.referenceWhite;
-
-            if (pc.linearToSrgb == 1) {
-                rgb = linearToSrgb(rgb);
+                // Reference white as bright as the UI's white (PresentLuminance).
+                rgb *= pc.referenceWhite;
             }
 
-            // A BT.2020 swapchain takes the same colors in its own primaries.
-            if (pc.outputBt2020 == 1) {
-                rgb = srgbToBt2020 * rgb;
+            // The frame lies over black, as the SDR preview's does, and is opaque wherever it is drawn.
+            if (pc.composeInGamma == 1) {
+                // An SDR swapchain shows what an SDR window does: both blends in sRGB-encoded values.
+                vec3 g = linearToSrgb(clamp(rgb, 0.0, 1.0)) * alpha;
+                if (pc.overlay == 1) {
+                    vec4 o = texture(overlayTexture, pos);
+                    g = o.rgb + (1.0 - o.a) * g;
+                }
+                rgb = pc.linearToSrgb == 1 ? g : srgbToLinear(g);
+            } else {
+                rgb *= alpha;
+                if (pc.overlay == 1) {
+                    vec4 o = texture(overlayTexture, pos);
+                    vec3 overlayLinear = o.a > 0.0 ? srgbToLinear(o.rgb / o.a) * o.a : vec3(0.0);
+                    // The UI's white, as bright as the reference white the frame is shown at.
+                    rgb = overlayLinear * pc.referenceWhite + (1.0 - o.a) * rgb;
+                }
+
+                if (pc.linearToSrgb == 1) {
+                    rgb = linearToSrgb(rgb);
+                }
+
+                // A BT.2020 swapchain takes the same colors in its own primaries.
+                if (pc.outputBt2020 == 1) {
+                    rgb = srgbToBt2020 * rgb;
+                }
             }
 
-            outColor = vec4(rgb * alpha, alpha);
+            outColor = vec4(rgb, 1.0);
         }
         """;
 
@@ -208,7 +236,13 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             _vk.FreeDescriptorSets(_device, _descriptorPool, 1, &descriptorSet);
     }
 
-    public void UpdateDescriptorSet(DescriptorSet descriptorSet, ImageView textureView)
+    /// <summary>The binding the frame is sampled from.</summary>
+    public const uint SourceBinding = 0;
+
+    /// <summary>The binding the overlay is sampled from, which needs an image even while none is drawn.</summary>
+    public const uint OverlayBinding = 1;
+
+    public void UpdateDescriptorSet(DescriptorSet descriptorSet, uint binding, ImageView textureView)
     {
         var imageInfo = new DescriptorImageInfo
         {
@@ -221,7 +255,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         {
             SType = StructureType.WriteDescriptorSet,
             DstSet = descriptorSet,
-            DstBinding = 0,
+            DstBinding = binding,
             DstArrayElement = 0,
             DescriptorType = VkDescriptorType.CombinedImageSampler,
             DescriptorCount = 1,
@@ -295,19 +329,23 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
 
     private void CreateDescriptorSetLayout()
     {
-        var binding = new DescriptorSetLayoutBinding
+        var bindings = stackalloc DescriptorSetLayoutBinding[2];
+        for (uint i = 0; i < 2; i++)
         {
-            Binding = 0,
-            DescriptorType = VkDescriptorType.CombinedImageSampler,
-            DescriptorCount = 1,
-            StageFlags = ShaderStageFlags.FragmentBit
-        };
+            bindings[i] = new DescriptorSetLayoutBinding
+            {
+                Binding = i == 0 ? SourceBinding : OverlayBinding,
+                DescriptorType = VkDescriptorType.CombinedImageSampler,
+                DescriptorCount = 1,
+                StageFlags = ShaderStageFlags.FragmentBit
+            };
+        }
 
         var layoutInfo = new DescriptorSetLayoutCreateInfo
         {
             SType = StructureType.DescriptorSetLayoutCreateInfo,
-            BindingCount = 1,
-            PBindings = &binding
+            BindingCount = 2,
+            PBindings = bindings
         };
 
         DescriptorSetLayout layout;
@@ -499,10 +537,11 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
 
     private void CreateDescriptorPool()
     {
+        // Two images, the frame and the overlay, for each set.
         var poolSize = new VkDescriptorPoolSize
         {
             Type = VkDescriptorType.CombinedImageSampler,
-            DescriptorCount = 4
+            DescriptorCount = 8
         };
 
         var poolInfo = new DescriptorPoolCreateInfo

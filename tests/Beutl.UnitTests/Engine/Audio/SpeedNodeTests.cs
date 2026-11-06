@@ -15,6 +15,15 @@ public class SpeedNodeTests
 {
     private const int SampleRate = 100;
 
+    // An easing of no known range keeps one speed on the animated path, which a provable one leaves.
+    private static IExpressionProperty<float> UnprovenConstant(float percent, double seconds)
+    {
+        IExpressionProperty<float> property = Ramp("Speed", percent, percent, seconds);
+        foreach (IKeyFrame keyFrame in property.GetKeyFrameAnimation()!.KeyFrames)
+            keyFrame.Easing.Value = new UnknownRangeEasing();
+        return property;
+    }
+
     private static SpeedNode CreateAnimatedSpeedNode()
     {
         var node = new SpeedNode { Speed = Ramp("Speed", 50f, 200f, 1.0) };
@@ -124,7 +133,7 @@ public class SpeedNodeTests
     {
         const int sr = 1000;
         const float expectedSlope = 0.005f;
-        using var node = new SpeedNode { Speed = Ramp("Speed", 50f, 50f, 100.0) };
+        using var node = new SpeedNode { Speed = UnprovenConstant(50f, 100.0) };
         node.AddInput(new RampInputNode(sr));
 
         List<float> left = RenderChunks(node, sr, channel: 0, 0.0, 1.0, 2.0);
@@ -138,13 +147,28 @@ public class SpeedNodeTests
         }
     }
 
+    // Pitch-changing speed shares the mapping, so keyframes of one speed must sound as that speed does when fixed.
+    [Test]
+    public void ProcessAnimatedSpeed_ConstantSpeedSoundsAsAFixedSpeed()
+    {
+        const int sr = 1000;
+        using var animated = new SpeedNode { Speed = Ramp("Speed", 50f, 50f, 100.0) };
+        animated.AddInput(new RampInputNode(sr));
+        using var fixedSpeed = new SpeedNode { Speed = StaticSpeed(50f) };
+        fixedSpeed.AddInput(new RampInputNode(sr));
+
+        Assert.That(
+            RenderChunks(animated, sr, channel: 0, 0.0, 1.0, 2.0),
+            Is.EqualTo(RenderChunks(fixedSpeed, sr, channel: 0, 0.0, 1.0, 2.0)));
+    }
+
     // 44.1 kHz must cross the fractional-tick drift boundary; 48 kHz hits exact source boundaries.
     [TestCase(44100, 128)]
     [TestCase(48000, 1)]
     public void ProcessAnimatedSpeed_RequestsEverySourceSampleExactlyOnce(int sampleRate, int minRequests)
     {
         var input = new SourceRequestRecordingNode(sampleRate);
-        using var node = new SpeedNode { Speed = Ramp("Speed", 100f, 100f, 10.0) };
+        using var node = new SpeedNode { Speed = UnprovenConstant(100f, 10.0) };
         node.AddInput(input);
 
         using AudioBuffer _ = node.Process(

@@ -405,11 +405,13 @@ public class SilenceSplitTabTests
             HeadlessTestHelpers.Render();
             using (await TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None)) { }
             TestContext.Out.WriteLine($"Including timeline render and auto-save: {watch.Elapsed.TotalSeconds:F2} s");
-            Assert.That(timeline.Elements, Has.Count.EqualTo((silenceCount + 1) * 2));
+            Assert.That(scene.Children, Has.Count.EqualTo((silenceCount + 1) * 2));
+            Assert.That(timeline.RealizedElements, Has.Count.LessThan(scene.Children.Count),
+                "off-screen fragments must not allocate a view model");
             Assert.That(view.GetVisualDescendants().OfType<ElementView>().Count(), Is.LessThan(40),
                 "off-screen fragments must not allocate a control tree");
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
-            ElementViewModel fragment = timeline.Elements[2];
+            ElementViewModel fragment = timeline.GetViewModelFor(scene.Children[2])!;
             var linked = fragment.GetGroupOrSelectedElements();
             Assert.That(linked, Has.Count.EqualTo(2));
             Assert.That(linked.All(e => e.Model.Range == fragment.Model.Range), Is.True);
@@ -427,9 +429,9 @@ public class SilenceSplitTabTests
             Assert.That(fragment.GetGroupOrSelectedElements(), Is.EquivalentTo(linked));
             editor.HistoryManager.Undo();
             HeadlessTestHelpers.Render();
-            Assert.That(timeline.Elements.Select(e => e.Model), Is.EqualTo(original));
+            Assert.That(scene.Children, Is.EqualTo(original));
             Assert.That(original.All(e => e.Length.Value == duration), Is.True);
-            Assert.That(timeline.Elements[0].GetGroupOrSelectedElements(), Has.Count.EqualTo(2));
+            Assert.That(timeline.GetViewModelFor(scene.Children[0])!.GetGroupOrSelectedElements(), Has.Count.EqualTo(2));
         }
         finally
         {

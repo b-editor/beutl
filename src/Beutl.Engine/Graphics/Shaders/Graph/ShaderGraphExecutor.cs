@@ -58,7 +58,7 @@ internal sealed class ShaderGraphParameters : IDisposable
         var offsets = new Dictionary<int, ulong>();
         foreach (ShaderPassDescription pass in graph.Passes)
             foreach (ShaderPassBinding binding in pass.Bindings)
-                if (binding.Metadata && frames.ContainsKey(binding.Resource.Id))
+                if (binding.Metadata)
                     offsets.TryAdd(binding.Resource.Id, (ulong)offsets.Count * stride);
         if (offsets.Count == 0)
             return null;
@@ -121,11 +121,13 @@ internal static class ShaderGraphExecutor
             [new(0, selected, DescriptorType.CombinedImageSampler, ResourceAccess.Read, SamplerState.LinearClamp, false)],
             [new(0, s_result, AttachmentLoadOp.Clear)], mapping, BlendState.Replace, (3, 1, 1), false);
 
+    /// <param name="requiredOutput">The part of the output <paramref name="output"/> covers, or null for all of it.</param>
     /// <param name="retainedImages">Where the execution takes images from and returns them to, so later executions
     /// skip the allocation; without it the execution disposes its images.</param>
+    /// <param name="externalImages">The pictures the graph declared besides the source, in that order.</param>
     public static ShaderGraphExecutionStatistics Execute(ShaderGraphDescription graph, ITexture2D source, ShaderImageFrame sourceFrame,
         ITexture2D output, float scale, Vector gridOffset, ShaderGraphProgramAcquirer acquireProgram, Rect? requiredOutput = null,
-        ShaderGraphImagePool? retainedImages = null)
+        ShaderGraphImagePool? retainedImages = null, IReadOnlyList<(ITexture2D Texture, ShaderImageFrame Frame)>? externalImages = null)
     {
         VulkanContext context = GLSLFilterPipeline.TryResolveVulkan(GraphicsContextFactory.SharedContext)
             ?? throw new NotSupportedException("Shader graphs require a Vulkan rendering context.");
@@ -137,7 +139,8 @@ internal static class ShaderGraphExecutor
         var leases = new List<ProgramCacheLease<ShaderGraphPipeline>>();
         var programs = new ShaderGraphPipeline?[graph.Passes.Length];
         var regions = new ShaderGraphRegions(graph, sourceFrame, scale, gridOffset,
-            requiredOutput ?? graph.TransformBounds(sourceFrame.Bounds, sourceFrame.ReferenceBounds));
+            requiredOutput ?? graph.TransformBounds(sourceFrame.Bounds, sourceFrame.ReferenceBounds),
+            externalImages?.Select(static image => image.Frame).ToArray());
         Dictionary<int, ShaderImageFrame> frames = regions.Frames;
         var descriptions = new Dictionary<int, ImageDescription>();
         ShaderGraphParameters? parameters = null;
@@ -188,7 +191,7 @@ internal static class ShaderGraphExecutor
             // The boundary conversion is also preflighted, before any authored pass executes.
             ShaderImage selected = graph.Output.RenderingImage;
             Rect selectedRaster = frames[selected.Id].RasterBounds;
-            Rect outputBounds = graph.TransformBounds(sourceFrame.Bounds, sourceFrame.ReferenceBounds);
+            Rect outputBounds = requiredOutput ?? graph.TransformBounds(sourceFrame.Bounds, sourceFrame.ReferenceBounds);
             PixelRect outputPixels = PixelRect.FromRect(outputBounds.Translate(gridOffset), scale);
             Vector4[] mapping =
             [
@@ -205,18 +208,11 @@ internal static class ShaderGraphExecutor
             copyLease.Program.Validate(copy);
             parameters = ShaderGraphParameters.Create(context, graph, frames);
 
-            VulkanTexture2D sourceTexture = context.RequireOwned<VulkanTexture2D>(source, nameof(source));
-            if ((usages[0] & ~sourceTexture.Usage) != 0)
+            BindInput((ShaderImage)graph.Resources[0], source);
+            foreach (ShaderImage external in graph.Resources.OfType<ShaderImage>())
             {
-                usages[0] |= ImageUsageFlags.TransferDstBit;
-                Allocate(graph.Resources[0]);
-                context.CopyTexture(source, images[0]);
-            }
-            else
-            {
-                var borrowed = new ShaderGraphImage(context, descriptions[0], sourceTexture.Usage, sourceTexture);
-                storage.Add(0, borrowed);
-                imagePool.Add(borrowed);
+                if (external.ExternalIndex >= 0 && descriptions.ContainsKey(external.Id))
+                    BindInput(external, externalImages![external.ExternalIndex].Texture);
             }
 
             for (int index = 0; index < graph.Passes.Length; index++)
@@ -296,6 +292,23 @@ internal static class ShaderGraphExecutor
             }
         }
 
+        void BindInput(ShaderImage image, ITexture2D texture)
+        {
+            VulkanTexture2D owned = context.RequireOwned<VulkanTexture2D>(texture, nameof(source));
+            if ((usages[image.Id] & ~owned.Usage) != 0)
+            {
+                usages[image.Id] |= ImageUsageFlags.TransferDstBit;
+                Allocate(image);
+                context.CopyTexture(texture, images[image.Id]);
+            }
+            else
+            {
+                var borrowed = new ShaderGraphImage(context, descriptions[image.Id], owned.Usage, owned);
+                storage.Add(image.Id, borrowed);
+                imagePool.Add(borrowed);
+            }
+        }
+
         void Allocate(ShaderResource resource, bool attachment = false, bool createView = true)
         {
             if (resource is ShaderImage image)
@@ -304,7 +317,7 @@ internal static class ShaderGraphExecutor
                 if (!storage.TryGetValue(root.Id, out ShaderGraphImage? owner))
                 {
                     ImageDescription description = descriptions[root.Id];
-                    owner = imagePool.Take(i => i.Description == description && (i.Usage & usages[root.Id]) == usages[root.Id]);
+                    owner = imagePool.Take(i => i.Supports(description, usages[root.Id]));
                     if (owner is not null)
                         reuses++;
                     else if ((owner = retainedImages?.Take(context, description, usages[root.Id])) is not null)
@@ -381,7 +394,7 @@ internal static class ShaderGraphExecutor
         void Release(ShaderResource resource)
         {
             images.Remove(resource.Id);
-            if (resource is ShaderImage { IsView: false } image && image.Id != 0
+            if (resource is ShaderImage { IsView: false, IsInput: false } image
                 && storage.Remove(image.Id, out ShaderGraphImage? owner)) imagePool.Return(owner);
             if (buffers.Remove(resource.Id, out IBuffer? buffer))
                 bufferPool.Return((VulkanBuffer)buffer);

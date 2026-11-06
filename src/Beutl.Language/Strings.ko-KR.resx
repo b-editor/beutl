@@ -62,6 +62,9 @@
   <data name="Close" xml:space="preserve">
     <value>닫기</value>
   </data>
+  <data name="CloseTab" xml:space="preserve">
+    <value>탭 닫기</value>
+  </data>
   <data name="ColorScopes" xml:space="preserve">
     <value>스코프</value>
   </data>
@@ -88,6 +91,18 @@
   </data>
   <data name="View" xml:space="preserve">
     <value>보기</value>
+  </data>
+  <data name="Window" xml:space="preserve">
+    <value>창</value>
+  </data>
+  <data name="MinimizeWindow" xml:space="preserve">
+    <value>최소화</value>
+  </data>
+  <data name="ZoomWindow" xml:space="preserve">
+    <value>확대/축소</value>
+  </data>
+  <data name="ToggleFullScreen" xml:space="preserve">
+    <value>전체 화면 전환</value>
   </data>
   <data name="Object" xml:space="preserve">
     <value>개체</value>
@@ -166,6 +181,12 @@
   </data>
   <data name="Paste" xml:space="preserve">
     <value>붙여넣기</value>
+  </data>
+  <data name="SelectAll" xml:space="preserve">
+    <value>모두 선택</value>
+  </data>
+  <data name="DeselectAll" xml:space="preserve">
+    <value>모두 선택 해제</value>
   </data>
   <data name="Split" xml:space="preserve">
     <value>분할</value>
@@ -338,6 +359,15 @@
   <data name="Easing" xml:space="preserve">
     <value>이징</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>첫 번째 제어점 {0}, {1}. 두 번째 제어점 {2}, {3}.</value>
+  </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>첫 번째 제어점이 선택되어 있습니다.</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>두 번째 제어점이 선택되어 있습니다.</value>
+  </data>
   <data name="Hold" xml:space="preserve">
     <value>유지</value>
   </data>
@@ -424,6 +454,9 @@
   </data>
   <data name="Audio" xml:space="preserve">
     <value>오디오</value>
+  </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>마스터 볼륨 (%)</value>
   </data>
   <data name="Off" xml:space="preserve">
     <value>끄기</value>
@@ -518,6 +551,12 @@
   <data name="TimelineZoom" xml:space="preserve">
     <value>확대/축소</value>
   </data>
+  <data name="TimelineZoomIn" xml:space="preserve">
+    <value>확대</value>
+  </data>
+  <data name="TimelineZoomOut" xml:space="preserve">
+    <value>축소</value>
+  </data>
   <data name="TimelineSnap" xml:space="preserve">
     <value>스냅</value>
   </data>
@@ -553,6 +592,9 @@
   </data>
   <data name="RemoveExpression" xml:space="preserve">
     <value>식 제거</value>
+  </data>
+  <data name="Expression_ReturnsBothValues" xml:space="preserve">
+    <value>모든 값을 함께 반환하는 표현식 하나를 입력합니다. 예: {0}</value>
   </data>
   <data name="ExpressionHelp" xml:space="preserve">
     <value>수학 식을 입력하세요. 사용 가능한 변수: Time, Start, Duration, Progress. GetProperty&lt;T&gt;("{GUID}.Property")를 사용하여 다른 속성을 참조하세요.</value>
@@ -764,6 +806,9 @@
   <data name="EnableElement" xml:space="preserve">
     <value>요소 사용</value>
   </data>
+  <data name="Visible" xml:space="preserve">
+    <value>표시</value>
+  </data>
   <data name="MoveTo" xml:space="preserve">
     <value>이동</value>
   </data>
@@ -801,10 +846,10 @@
     <value>재생과 일시 정지 사이를 전환합니다.</value>
   </data>
   <data name="MoveToNext" xml:space="preserve">
-    <value>다음으로 이동</value>
+    <value>다음 프레임으로 이동</value>
   </data>
   <data name="MoveToPrevious" xml:space="preserve">
-    <value>이전으로 이동</value>
+    <value>이전 프레임으로 이동</value>
   </data>
   <data name="MoveToNext_Description" xml:space="preserve">
     <value>다음 프레임으로 이동합니다.</value>
@@ -1357,6 +1402,9 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="RenderScale_FitToPreviewer" xml:space="preserve">
     <value>미리 보기에 맞춤</value>
   </data>
+  <data name="RenderScale_FitToPreviewer_Short" xml:space="preserve">
+    <value>자동</value>
+  </data>
   <data name="Terminal" xml:space="preserve">
     <value>터미널</value>
   </data>
@@ -1590,6 +1638,12 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>자막 파일</value>
+  </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>{0}에서 자막을 읽지 못했습니다.</value>
+  </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>{0}의 자막 중 일부를 읽을 수 없어 건너뛰었습니다.</value>
   </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>“{0}”을(를) 삭제할까요?</value>
@@ -1991,7 +2045,7 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>기본값</value>
   </data>
   <data name="AiSubtitle_TemplateDescription" xml:space="preserve">
-    <value>저장된 TextBlock 템플릿이 여기에 표시됩니다. 서식, 효과, 애니메이션 및 배치가 모든 자막에 적용됩니다.</value>
+    <value>텍스트가 포함된 저장된 템플릿(TextBlock, 요소, 여러 요소)이 여기에 표시됩니다. 서식, 효과, 애니메이션 및 배치가 모든 자막에 적용됩니다.</value>
   </data>
   <data name="AiSubtitle_Transcribe" xml:space="preserve">
     <value>받아쓰기</value>
@@ -3522,6 +3576,9 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="UnseparateComponents_Description" xml:space="preserve">
     <value>현재 시점의 값을 유지하고 구성 요소의 키프레임과 표현식을 제거합니다.</value>
   </data>
+  <data name="UnseparateComponents_SameTiming" xml:space="preserve">
+    <value>모든 값의 키프레임 시간과 이징이 같고 표현식을 공유하거나 표현식이 없을 때 사용할 수 있습니다.</value>
+  </data>
   <data name="RelativeUnit_Relative" xml:space="preserve">
     <value>상대 (1 = 100%)</value>
   </data>
@@ -3536,6 +3593,18 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="TogglePreviewGuides_Description" xml:space="preserve">
     <value>미리보기에서 세이프 영역과 구도 가이드를 표시하거나 숨깁니다.</value>
+  </data>
+  <data name="PreviewZoom" xml:space="preserve">
+    <value>미리 보기 배율</value>
+  </data>
+  <data name="PreviewZoomIn" xml:space="preserve">
+    <value>미리 보기 확대</value>
+  </data>
+  <data name="PreviewZoomOut" xml:space="preserve">
+    <value>미리 보기 축소</value>
+  </data>
+  <data name="PreviewZoomFit" xml:space="preserve">
+    <value>미리 보기 맞춤</value>
   </data>
   <data name="PreviewGuide_TitleSafe" xml:space="preserve">
     <value>타이틀 세이프</value>
@@ -3668,5 +3737,8 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>프로젝트 오디오 채널</value>
+  </data>
+  <data name="Paste_ProjectNotSaved" xml:space="preserve">
+    <value>클립을 붙여넣기 전에 프로젝트를 저장하세요.</value>
   </data>
 </root>

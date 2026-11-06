@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Backend.Vulkan;
+﻿using Beutl.Graphics.Backend.Composite;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
@@ -95,13 +96,7 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
 
     private IntPtr ExportMetalTexture()
     {
-        var vk = _context.Vk;
-
-        if (!vk.TryGetDeviceExtension<ExtMetalObjects>(_context.Instance, _context.Device, out var metalObjects))
-        {
-            s_logger.LogWarning("VK_EXT_metal_objects extension not available");
-            return IntPtr.Zero;
-        }
+        ExtMetalObjects metalObjects = CompositeContext.GetMetalObjects(_context);
 
         var exportTextureInfo = new ExportMetalTextureInfoEXT
         {

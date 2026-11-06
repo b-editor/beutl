@@ -306,10 +306,8 @@ internal sealed partial class RegionAnalyzer
             case RenderFragmentKind.ShaderGraph:
                 {
                     var payload = (ShaderGraphRenderFragmentPayload)reference.Payload!;
-                    EffectiveScale scale = payload.WorkingScalePolicy is { } policy
-                        ? policy.Resolve(reference.Inputs, resolvedBounds, options.OutputScale, options.MaxWorkingScale)
-                        : ResolveMaterializedScale(InputScales(reference), resolvedBounds, options);
-                    return EffectiveScale.At(payload.ClampDensity(reference.Inputs[0], scale.Value));
+                    return ShaderGraphRenderFragmentPayload.ResolvePlannedScale(payload.Description, payload.WorkingScalePolicy,
+                        reference.Inputs, options.OutputScale, options.MaxWorkingScale);
                 }
             case RenderFragmentKind.Geometry:
                 {

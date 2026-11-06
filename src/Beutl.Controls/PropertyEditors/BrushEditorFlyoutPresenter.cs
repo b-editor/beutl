@@ -21,6 +21,9 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     public static readonly StyledProperty<Media.Brush?> OriginalBrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyoutPresenter, Media.Brush?>(nameof(OriginalBrush));
 
+    public static readonly StyledProperty<GradientStops?> BackgroundStopsProperty =
+        AvaloniaProperty.Register<BrushEditorFlyoutPresenter, GradientStops?>(nameof(BackgroundStops));
+
     public static readonly StyledProperty<string?> DrawableNameProperty =
         AvaloniaProperty.Register<BrushEditorFlyoutPresenter, string?>(nameof(DrawableName));
 
@@ -74,6 +77,12 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         get => GetValue(OriginalBrushProperty);
         set => SetValue(OriginalBrushProperty, value);
+    }
+
+    public GradientStops? BackgroundStops
+    {
+        get => GetValue(BackgroundStopsProperty);
+        set => SetValue(BackgroundStopsProperty, value);
     }
 
     public string? DrawableName
@@ -157,6 +166,11 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         else if (change.Property == OriginalBrushProperty)
         {
             UpdateTabCheckedState();
+        }
+        else if (change.Property == BackgroundStopsProperty)
+        {
+            if (_gradientStopsSlider != null)
+                _gradientStopsSlider.BackgroundStops = BackgroundStops;
         }
         else if (change.Property == ContentProperty)
         {
@@ -310,6 +324,7 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
             slider.SelectedStop = stops.FirstOrDefault();
         }
 
+        slider.BackgroundStops = BackgroundStops;
         slider.GetObservable(GradientStopsSlider.SelectedStopProperty)
             // The preview's color can arrive after the stop is selected.
             .Select(stop => stop?.GetObservable(GradientStop.ColorProperty) ?? Observable.Empty<Color>())

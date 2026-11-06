@@ -36,6 +36,10 @@ internal sealed partial class DeclarativeDocumentApplier
         }
 
         var desiredIds = new HashSet<Guid>();
+        // The items before desiredIndex are the ones already placed, so the next one sits at desiredIndex or after it,
+        // and scanning from there finds what scanning from the start would. Only a repeated Id, which a corrupted
+        // project can hold, moves a placed item back, so from then on every scan starts over.
+        bool repeatedId = false;
         for (int desiredIndex = 0; desiredIndex < desired.Count; desiredIndex++)
         {
             if (desired[desiredIndex] is not JsonObject itemJson)
@@ -55,9 +59,12 @@ internal sealed partial class DeclarativeDocumentApplier
                 elementBaseType,
                 itemJson,
                 CreateIdentityListItemPath(fieldName, desiredIndex),
-                owner);
-            desiredIds.Add(item.Id.Value);
-            PlaceListItem(list, item, desiredIndex);
+                owner,
+                desiredIds,
+                repeatedId ? 0 : desiredIndex,
+                out int currentIndex);
+            repeatedId |= !desiredIds.Add(item.Id.Value);
+            PlaceListItem(list, item, currentIndex, desiredIndex);
         }
 
         for (int index = list.Count - 1; index >= 0; index--)
@@ -76,15 +83,20 @@ internal sealed partial class DeclarativeDocumentApplier
         Type elementBaseType,
         JsonObject itemJson,
         string itemPath,
-        CoreObject? owner)
+        CoreObject? owner,
+        HashSet<Guid> placedIds,
+        int scanStart,
+        out int currentIndex)
     {
+        currentIndex = -1;
         CoreObject item;
         try
         {
-            if (CollectionReconciler.TryGetId(itemJson, out Guid id) && FindById(list, id) is { } existing)
+            if (CollectionReconciler.TryGetId(itemJson, out Guid id)
+                && (currentIndex = IndexOfId(list, id, placedIds.Contains(id) ? 0 : scanStart)) >= 0)
             {
-                item = existing;
-                ApplyCoreObject(existing, itemJson);
+                item = (CoreObject)list[currentIndex]!;
+                ApplyCoreObject(item, itemJson);
             }
             else
             {
@@ -129,9 +141,8 @@ internal sealed partial class DeclarativeDocumentApplier
         return item;
     }
 
-    private static void PlaceListItem(IList list, CoreObject item, int desiredIndex)
+    private static void PlaceListItem(IList list, CoreObject item, int currentIndex, int desiredIndex)
     {
-        int currentIndex = IndexOfReference(list, item);
         if (currentIndex < 0)
         {
             list.Insert(Math.Min(desiredIndex, list.Count), item);
@@ -264,22 +275,15 @@ internal sealed partial class DeclarativeDocumentApplier
 
     private static CoreObject? FindById(IList list, Guid id)
     {
-        foreach (object? item in list)
-        {
-            if (item is CoreObject coreObject && coreObject.Id.Value == id)
-            {
-                return coreObject;
-            }
-        }
-
-        return null;
+        int index = IndexOfId(list, id, 0);
+        return index < 0 ? null : (CoreObject)list[index]!;
     }
 
-    private static int IndexOfReference(IList list, object item)
+    private static int IndexOfId(IList list, Guid id, int start)
     {
-        for (int i = 0; i < list.Count; i++)
+        for (int i = start; i < list.Count; i++)
         {
-            if (ReferenceEquals(list[i], item))
+            if (list[i] is CoreObject coreObject && coreObject.Id.Value == id)
             {
                 return i;
             }

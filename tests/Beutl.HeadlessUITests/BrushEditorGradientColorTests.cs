@@ -6,9 +6,11 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Beutl.Collections;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
@@ -25,6 +27,160 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class BrushEditorGradientColorTests
 {
+    [Test]
+    public void Changing_the_type_of_a_gradient_keeps_how_it_mixes()
+    {
+        var linear = new LinearGradientBrush
+        {
+            InterpolationSpace = { Value = GradientInterpolationSpace.Oklab },
+            InterpolatePremultiplied = { Value = true },
+        };
+
+        GradientBrush radial = BrushEditor.CreateGradientBrush(BrushType.RadialGradientBrush, linear);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(radial.InterpolationSpace.Value, Is.EqualTo(GradientInterpolationSpace.Oklab));
+            Assert.That(radial.InterpolatePremultiplied.Value, Is.True);
+        });
+    }
+
+    // Black to white, sampled halfway: linear sRGB is the middle of the light, and sRGB the middle of the bytes.
+    [AvaloniaTest]
+    [TestCase(GradientInterpolationSpace.LinearSrgb, 188)]
+    [TestCase(GradientInterpolationSpace.Srgb, 128)]
+    [TestCase(GradientInterpolationSpace.Oklab, 99)]
+    public void The_swatch_and_the_stop_bar_show_how_the_gradient_mixes(GradientInterpolationSpace space, int middle)
+    {
+        var gradient = new LinearGradientBrush { InterpolationSpace = { Value = space } };
+        gradient.GradientStops.AddRange([new GradientStop(Colors.Black, 0), new GradientStop(Colors.White, 1)]);
+        var shape = new RectShape { Fill = { Value = gradient } };
+        using var history = new HistoryScope(shape);
+        using var viewModel = new BrushEditorViewModel(
+            new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)shape.Fill, shape));
+        viewModel.Accept(ServiceVisitor.For(history.History));
+        var editor = new BrushEditor { DataContext = viewModel };
+        var window = new Window { Content = editor, Width = 480, Height = 600 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            editor.BrushPreviewButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render(3);
+            GradientStopsSlider slider = window.GetVisualDescendants().OfType<GradientStopsSlider>().Single();
+            HeadlessCapture.SaveIfRequested(window, nameof(BrushEditorGradientColorTests), $"mixes-in-{space}");
+
+            var swatch = (Avalonia.Media.LinearGradientBrush)viewModel.SwatchBrush.Value!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(ColorAt(swatch.GradientStops, 0.5).R, Is.EqualTo(middle).Within(1));
+                Assert.That(ColorAt(slider.BackgroundStops!, 0.5).R, Is.EqualTo(middle).Within(1));
+                Assert.That(slider.Stops, Has.Count.EqualTo(2), "The handles stay on the stops themselves.");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void The_swatch_follows_what_changes_how_the_gradient_looks()
+    {
+        var stop = new GradientStop(Colors.Black, 0);
+        var gradient = new LinearGradientBrush();
+        gradient.GradientStops.AddRange([stop, new GradientStop(Colors.White, 1)]);
+        var shape = new RectShape { Fill = { Value = gradient } };
+        using var history = new HistoryScope(shape);
+        using var viewModel = new BrushEditorViewModel(
+            new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)shape.Fill, shape));
+        viewModel.Accept(ServiceVisitor.For(history.History));
+        SettleEngineChange();
+        var swatch = (Avalonia.Media.LinearGradientBrush)viewModel.SwatchBrush.Value!;
+        Assert.That(ColorAt(swatch.GradientStops, 0.5).R, Is.EqualTo(188).Within(1));
+
+        gradient.InterpolationSpace.Value = GradientInterpolationSpace.Srgb;
+        SettleEngineChange();
+        Assert.That(ColorAt(swatch.GradientStops, 0.5).R, Is.EqualTo(128).Within(1));
+
+        stop.Color.Value = Colors.White;
+        SettleEngineChange();
+        Assert.That(ColorAt(swatch.GradientStops, 0.5).R, Is.EqualTo(255));
+
+        stop.Offset.Value = 0.75f;
+        stop.Color.Value = Colors.Black;
+        SettleEngineChange();
+        Assert.That(ColorAt(swatch.GradientStops, 0.875).R, Is.EqualTo(128).Within(1));
+    }
+
+    // A change reaches the swatch through the render thread.
+    private static void SettleEngineChange()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        RenderThread.Dispatcher.Invoke(static () => { }, DispatchPriority.Low, timeout.Token);
+        HeadlessTestHelpers.Render(3);
+    }
+
+    [AvaloniaTest]
+    public void A_solid_brush_shows_in_its_swatch_as_it_is()
+    {
+        var shape = new RectShape { Fill = { Value = new SolidColorBrush(Colors.Red) } };
+        using var history = new HistoryScope(shape);
+        using var viewModel = new BrushEditorViewModel(
+            new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)shape.Fill, shape));
+        viewModel.Accept(ServiceVisitor.For(history.History));
+
+        Assert.That(viewModel.SwatchBrush.Value, Is.SameAs(viewModel.AvaloniaBrush.Value));
+        Assert.That(viewModel.DisplayStops.Value, Is.Null);
+    }
+
+    [AvaloniaTest]
+    public void The_stop_bar_of_a_brushs_stops_shows_how_the_brush_mixes()
+    {
+        var gradient = new LinearGradientBrush { InterpolationSpace = { Value = GradientInterpolationSpace.Srgb } };
+        gradient.GradientStops.AddRange([new GradientStop(Colors.Black, 0), new GradientStop(Colors.White, 1)]);
+        var shape = new RectShape { Fill = { Value = gradient } };
+        using var history = new HistoryScope(shape);
+        (PropertyEditorViewModel viewModel, Control editor) = CreateControl(
+            new EnginePropertyAdapter<ICoreList<GradientStop>>(gradient.GradientStops, gradient));
+        viewModel.Accept(ServiceVisitor.For(history.History));
+        var window = new Window { Content = editor, Width = 400, Height = 200 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            GradientStopsSlider slider = editor.GetVisualDescendants().OfType<GradientStopsSlider>().Single();
+
+            Assert.That(ColorAt(slider.BackgroundStops!, 0.5).R, Is.EqualTo(128).Within(1));
+            Assert.That(slider.Stops, Has.Count.EqualTo(2));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Avalonia mixes these stops in sRGB, and they stand close enough for that to pass for any space.
+    private static Avalonia.Media.Color ColorAt(Avalonia.Media.GradientStops stops, double offset)
+    {
+        for (int i = 1; i < stops.Count; i++)
+        {
+            Avalonia.Media.GradientStop previous = stops[i - 1];
+            Avalonia.Media.GradientStop next = stops[i];
+            if (offset > next.Offset) continue;
+
+            double t = next.Offset > previous.Offset ? (offset - previous.Offset) / (next.Offset - previous.Offset) : 0;
+            byte Mix(byte from, byte to) => (byte)Math.Round(from + (to - from) * t);
+            return Avalonia.Media.Color.FromArgb(
+                Mix(previous.Color.A, next.Color.A),
+                Mix(previous.Color.R, next.Color.R),
+                Mix(previous.Color.G, next.Color.G),
+                Mix(previous.Color.B, next.Color.B));
+        }
+
+        return stops[^1].Color;
+    }
+
     [AvaloniaTest]
     public void Switching_from_solid_to_gradient_shows_the_first_stops_opacity()
     {

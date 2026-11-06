@@ -36,4 +36,6 @@ internal sealed class EditorGenerativeRunHost(IEditorContext editorContext, IRea
         if (canEdit is { Value: false }) history.Rollback();
         else history.Commit(name);
     }
+
+    public void MarkUnsaved(GenerativeNode node) => editorContext.GetService<EditedElements>()?.AddOwnerOf(node);
 }

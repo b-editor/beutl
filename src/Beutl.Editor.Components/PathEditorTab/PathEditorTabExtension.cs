@@ -20,6 +20,8 @@ public sealed class PathEditorTabExtension : ToolTabExtension
 
     public override string DisplayName => Strings.PathEditor;
 
+    public override DockAnchor DefaultAnchor => DockAnchor.Bottom;
+
     public override bool CanMultiple => true;
 
     public override string? Header => Strings.PathEditor;

@@ -60,7 +60,10 @@
                 </ui:FAMenuFlyout>
             </Canvas.ContextFlyout>
 
+            <!--  The control draws past its bounds. It takes the canvas's size, because the copy of the overlays over an HDR frame draws a control only where its bounds meet the frame.  -->
             <local:PathGeometryControl x:Name="view"
+                                       Width="{Binding #canvas.Bounds.Width}"
+                                       Height="{Binding #canvas.Bounds.Height}"
                                        Figure="{Binding PathFigure.Value}"
                                        GeometryResource="{Binding GeometryResource.Value}"
                                        IsHitTestVisible="False"

@@ -144,9 +144,11 @@ public sealed class RecoveryProtectedElementEditorTests
     }
 
     [AvaloniaTest]
-    public async Task Property_editors_refuse_edits_but_allow_removing_and_replacing_what_could_not_be_loaded()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Property_editors_refuse_edits_but_allow_removing_and_replacing_what_could_not_be_loaded(bool replaceByAdding)
     {
-        (string projectPath, string elementPath) = await CreateProjectWithUnreadableEasings("recovery-properties");
+        (string projectPath, string elementPath) = await CreateProjectWithUnreadableEasings($"recovery-properties-{replaceByAdding}");
         EditViewModel editor = await OpenProjectAsync(projectPath);
         Element element = editor.Scene.Children.Single();
         var shape = (RectShape)element.Objects[0];
@@ -161,9 +163,7 @@ public sealed class RecoveryProtectedElementEditorTests
         editor.HistoryManager.Commit("test setup");
         int before = editor.HistoryManager.UndoCount;
 
-        NumberEditorViewModel<float> width = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
-            .OfType<NumberEditorViewModel<float>>()
-            .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shape.Width));
+        NumberEditorViewModel<float> width = PropertyEditorTestHost.FindNumberEditor(tab.Items[0].Properties, shape.Width);
         TransformEditorViewModel transform = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
             .OfType<TransformEditorViewModel>().Single();
         float oldWidth = shape.Width.Value;
@@ -178,6 +178,7 @@ public sealed class RecoveryProtectedElementEditorTests
             Assert.That(width.CanEdit.Value, Is.False);
             Assert.That(shape.Width.Value, Is.EqualTo(oldWidth));
             Assert.That(shape.Transform.Value!.IsEnabled.Value, Is.True, "Toggling the transform would not be saved.");
+            Assert.That(transform.NeedsRepair, Is.True, "Its right-click menu offers replacing it.");
             Assert.That(tab.Items[0].CanReplace.Value, Is.True, "The shape holds the transform with the unreadable easing.");
             Assert.That(tab.Items[1].CanReplace.Value, Is.False);
             Assert.That(element.Objects, Does.Contain(healthy));
@@ -185,15 +186,24 @@ public sealed class RecoveryProtectedElementEditorTests
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
         });
 
-        // Replacing the transform is a repair. Another unreadable easing remains, so the element stays
-        // protected until the object that holds it is removed too.
-        transform.SetNull();
+        // Replacing the transform is a repair, whether it is cleared or something is added in its place. Another
+        // unreadable easing remains, so the element stays protected until the object that holds it is removed too.
+        if (replaceByAdding)
+        {
+            transform.AddItem(new ScaleTransform(150, 150));
+        }
+        else
+        {
+            transform.SetNull();
+        }
+
+        Type? replacement = replaceByAdding ? typeof(ScaleTransform) : null;
         HeadlessTestHelpers.Settle();
         objectView.DataContext = tab.Items[0];
         objectView.Remove_Click(null, new RoutedEventArgs());
         Assert.Multiple(() =>
         {
-            Assert.That(shape.Transform.Value, Is.Null);
+            Assert.That(shape.Transform.Value?.GetType(), Is.EqualTo(replacement));
             Assert.That(element.SuppressedStorageSource, Is.Not.Null);
             Assert.That(tab.CanEdit.Value, Is.False);
             Assert.That(element.Objects, Does.Contain(shape), "The shape no longer holds anything to repair.");
@@ -216,7 +226,7 @@ public sealed class RecoveryProtectedElementEditorTests
         Assert.Multiple(() =>
         {
             Assert.That(((RectShape)saved.Objects[0]).Width.Value, Is.EqualTo(oldWidth + 10));
-            Assert.That(((RectShape)saved.Objects[0]).Transform.Value, Is.Null);
+            Assert.That(((RectShape)saved.Objects[0]).Transform.Value?.GetType(), Is.EqualTo(replacement));
             Assert.That(saved.Objects, Has.Count.EqualTo(2));
             Assert.That(saved.SuppressedStorageSource, Is.Null);
         });
@@ -244,9 +254,7 @@ public sealed class RecoveryProtectedElementEditorTests
         HeadlessTestHelpers.Settle();
         EngineObjectPropertyViewModel unavailableItem = tab.Items.Single(item => item.Model == unavailable);
 
-        NumberEditorViewModel<float> width = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
-            .OfType<NumberEditorViewModel<float>>()
-            .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shape.Width));
+        NumberEditorViewModel<float> width = PropertyEditorTestHost.FindNumberEditor(tab.Items[0].Properties, shape.Width);
         FilterEffectEditorViewModel filter = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
             .OfType<FilterEffectEditorViewModel>().Single();
         float oldWidth = shape.Width.Value;
@@ -413,6 +421,50 @@ public sealed class RecoveryProtectedElementEditorTests
     // Saves a project with one clip holding a rectangle whose width and height are animated, then
     // rewrites the easing of one width keyframe in the clip's file to a type from an assembly that is
     // not loaded, as when the plugin that provides it is not installed.
+    [AvaloniaTest]
+    public async Task An_unreadable_easing_gives_each_property_a_row_with_its_own_menu()
+    {
+        (string projectPath, _) = await CreateProjectWithUnreadableEasing("recovery-rows");
+        EditViewModel editor = await OpenProjectAsync(projectPath);
+        Element element = editor.Scene.Children.Single();
+        var shape = (RectShape)element.Objects.Single();
+        Assert.That(shape.Width.GetKeyFrameAnimation()!.KeyFrames.Select(key => key.KeyTime.Value),
+            Is.EqualTo(shape.Height.GetKeyFrameAnimation()!.KeyFrames.Select(key => key.KeyTime.Value)),
+            "Only the easing keeps the two from sharing a row.");
+        using var tab = new ElementPropertyTabViewModel(editor);
+        tab.Element.Value = element;
+        HeadlessTestHelpers.Settle();
+        var combined = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
+            .OfType<CombinedEditorViewModel<float, (float, float)>>().Single();
+        Assert.That(PropertyEditorHost.TryCreateControl(combined, PropertyEditorSurface.Panel, out Control? control), Is.True);
+        control!.DataContext = combined;
+        var window = new Window { Width = 480, Height = 300, Content = control };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            PropertyEditorMenu[] menus = [.. window.GetVisualDescendants().OfType<PropertyEditorMenu>()
+                .Where(menu => menu.DataContext is NumberEditorViewModel<float>)];
+            Assert.That(menus.Select(menu => ((NumberEditorViewModel<float>)menu.DataContext!).PropertyAdapter.GetEngineProperty()),
+                Is.EqualTo(new IProperty[] { shape.Width, shape.Height }));
+
+            Button widthButton = menus[0].GetVisualDescendants().OfType<Button>().First();
+            Click(window, widthButton);
+            FAMenuFlyoutItem removeAnimation = MenuItem(widthButton, "removeAnimationItem");
+            Assert.That(removeAnimation.IsEnabled, Is.True);
+
+            removeAnimation.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            HeadlessTestHelpers.Settle();
+            Assert.That(shape.Width.GetKeyFrameAnimation(), Is.Null);
+            Assert.That(element.SuppressedStorageSource, Is.Null);
+        }
+        finally
+        {
+            window.Close();
+            await TestReset.ResetShellAsync();
+        }
+    }
+
     private static async Task<(string ProjectPath, string ElementPath)> CreateProjectWithUnreadableEasing(string name)
     {
         var unreadable = new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 200 } };
@@ -457,9 +509,7 @@ public sealed class RecoveryProtectedElementEditorTests
     }
 
     private static NumberEditorViewModel<float> NumberEditor(ElementPropertyTabViewModel tab, IProperty property)
-        => PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
-            .OfType<NumberEditorViewModel<float>>()
-            .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), property));
+        => PropertyEditorTestHost.FindNumberEditor(tab.Items[0].Properties, property);
 
     private static FAMenuFlyoutItem MenuItem(Button button, string name)
         => ((FAMenuFlyout)button.ContextFlyout!).Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == name);

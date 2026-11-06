@@ -6,6 +6,18 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.Editor.Services;
 
 /// <summary>
+/// The free place found for elements kept together, with the range, lowest layer and layer offsets they had when
+/// it was found.
+/// </summary>
+internal readonly record struct GroupPlacement(
+    TimeRange Range, int MinZIndex, IReadOnlySet<int> RowOffsets, MediaTime Start, int ZIndex)
+{
+    public MediaTime StartDelta => Start - Range.Start;
+
+    public int LayerDelta => ZIndex - MinZIndex;
+}
+
+/// <summary>
 /// Finds the anchor slot for clips inserted at a clicked position. Duplicate and paste share this
 /// search so an occupied slot sends the clips to a free one instead of silently shortening them.
 /// </summary>
@@ -87,6 +99,44 @@ internal static class ElementPlacementHelper
     }
 
     /// <summary>
+    /// Searches for a free place for <paramref name="elements"/> kept together, around <paramref name="start"/> and
+    /// <paramref name="layer"/>, or around where they are when those are left out.
+    /// Returns <see langword="null"/> when no free slot was found within the limit.
+    /// </summary>
+    internal static GroupPlacement? FindFreePlacement(
+        Scene scene, IReadOnlyList<Element> elements, MediaTime? start = null, int? layer = null)
+    {
+        (TimeRange range, int minZIndex, _) = DuplicateHelper.ComputePlacementRange(elements);
+        // Only rows an element actually lands on matter: a sparse selection (layers 0 and 2) must not be blocked by
+        // content or a lock on layer 1.
+        HashSet<int> rowOffsets = elements.Select(element => element.ZIndex.Value - minZIndex).ToHashSet();
+        // Snapshot once: the bounded spiral search probes these per candidate.
+        HashSet<int> lockedRows = GetLockedRows(scene);
+        if (FindFreeAnchor(scene, range, rowOffsets, lockedRows, start ?? range.Start, layer ?? minZIndex)
+            is not { } anchor)
+        {
+            return null;
+        }
+
+        return new GroupPlacement(range, minZIndex, rowOffsets, anchor.Start, anchor.ZIndex);
+    }
+
+    /// <summary>The place for <paramref name="elements"/> kept together at exactly the given start and layer.</summary>
+    internal static GroupPlacement PlaceAt(IReadOnlyList<Element> elements, MediaTime start, int layer)
+    {
+        (TimeRange range, int minZIndex, _) = DuplicateHelper.ComputePlacementRange(elements);
+        return new GroupPlacement(
+            range,
+            minZIndex,
+            elements.Select(element => element.ZIndex.Value - minZIndex).ToHashSet(),
+            start,
+            layer);
+    }
+
+    internal static HashSet<int> GetLockedRows(Scene scene)
+        => scene.Layers.Where(layer => layer.IsLocked.Value).Select(layer => layer.ZIndex.Value).ToHashSet();
+
+    /// <summary>
     /// Moves every element by the deltas. A matte that names its source layer moves with the elements, so it keeps
     /// the source it had among them, or its distance from them when they do not hold that layer.
     /// </summary>
@@ -123,14 +173,10 @@ internal static class ElementPlacementHelper
     private static bool IsOverlapping(
         Scene scene, TimeRange range, int anchorZIndex, IReadOnlySet<int> rowOffsets)
     {
-        foreach (Element child in scene.Children)
+        SceneElementIndex index = scene.ElementIndex;
+        foreach (int offset in rowOffsets)
         {
-            if (!rowOffsets.Contains(child.ZIndex.Value - anchorZIndex)) continue;
-            TimeRange other = child.Range;
-            if (other == range || other.Intersects(range) || other.Contains(range) || range.Contains(other))
-            {
-                return true;
-            }
+            if (index.Overlaps(anchorZIndex + offset, range)) return true;
         }
 
         return false;

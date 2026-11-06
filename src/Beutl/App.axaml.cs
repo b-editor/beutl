@@ -11,6 +11,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Controls.NativeContextMenu;
 using Beutl.Controls.Styling;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.Services;
@@ -179,6 +180,8 @@ public sealed class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        MacOSKeyBindings.Install(this);
+        ShowSettingsGestureInApplicationMenu();
         Program.ActivationBroker?.SetHandler(HandlePackageLink);
         if (this.TryGetFeature<IActivatableLifetime>() is { } activatableLifetime)
         {
@@ -193,6 +196,7 @@ public sealed class App : Application
         {
             if (OperatingSystem.IsMacOS())
             {
+                NativeContextMenus.Install();
                 desktop.MainWindow = new MacWindow { DataContext = GetMainViewModel(), };
             }
             else
@@ -314,25 +318,26 @@ public sealed class App : Application
         return _mainViewModel ??= new MainViewModel();
     }
 
-    private async void AboutBeutlClicked(object? sender, EventArgs e)
+    private void AboutBeutlClicked(object? sender, EventArgs e)
     {
-        await ShowSettingsDialogAsync(static dialogViewModel => dialogViewModel.GoToSettingsPage());
+        _mainViewModel?.MenuBar.ShowInformation.Execute();
     }
 
-    private async void OpenSettingsClicked(object? sender, EventArgs e)
+    private void OpenSettingsClicked(object? sender, EventArgs e)
     {
-        await ShowSettingsDialogAsync(static dialogViewModel => dialogViewModel.GoToAccountSettingsPage());
+        _mainViewModel?.MenuBar.ShowSettings.Execute();
     }
 
-    private async Task ShowSettingsDialogAsync(Action<SettingsDialogViewModel> navigate)
+    // The application menu's entry shows the command's gesture, which is known once the commands are registered.
+    private void ShowSettingsGestureInApplicationMenu()
     {
-        if (_mainViewModel != null
-            && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
-        {
-            using var dialogViewModel = _mainViewModel.CreateSettingsDialog();
-            var dialog = new SettingsDialog { DataContext = dialogViewModel };
-            navigate(dialogViewModel);
-            await dialog.ShowDialog(window);
-        }
+        if (NativeMenu.GetMenu(this)?.Items.OfType<NativeMenuItem>().FirstOrDefault(item => item.Header == Strings.Settings) is not { } settings)
+            return;
+
+        Task registered = _startUp?.GetTask<LoadPrimitiveExtensionTask>().Task ?? Task.CompletedTask;
+        registered.ContinueWith(
+            _ => Dispatcher.UIThread.Post(() => settings.Gesture = GetCommandGestureExtension.GetKeyGesture(
+                typeof(MainViewExtension), MainViewExtension.ShowSettingsCommandId)),
+            TaskScheduler.Default);
     }
 }

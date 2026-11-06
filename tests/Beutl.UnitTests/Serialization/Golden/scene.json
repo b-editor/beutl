@@ -2,6 +2,7 @@
   "FrameSize": "1280, 720",
   "Start": 705600000,
   "Duration": 21168000000,
+  "MasterVolume": 100,
   "Layers": [
     {
       "ZIndex": 2,

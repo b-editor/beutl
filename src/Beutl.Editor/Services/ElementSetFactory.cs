@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using Beutl.Media;
+﻿using Beutl.Media;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -7,7 +6,7 @@ namespace Beutl.Editor.Services;
 /// <summary>
 /// Copies elements of a scene into an <see cref="ElementSet"/>, the form a template keeps several elements in.
 /// </summary>
-public static class ElementSetFactory
+internal static class ElementSetFactory
 {
     /// <summary>
     /// A copy of <paramref name="elements"/> apart from <paramref name="scene"/>. Each copy starts and lies where it
@@ -24,18 +23,10 @@ public static class ElementSetFactory
         ObjectRegenerator.Regenerate(sources, out Element[] copies);
         (TimeRange range, int minZIndex, _) = DuplicateHelper.ComputePlacementRange(copies);
 
-        // The copies have Ids of their own, so the groups follow them the way a duplicate's do.
-        var idMapping = new Dictionary<Guid, Guid>(sources.Length);
-        for (int i = 0; i < sources.Length; i++)
-        {
-            idMapping[sources[i].Id.Value] = copies[i].Id.Value;
-        }
-
         var set = new ElementSet { FrameSize = { Value = scene.FrameSize.Value } };
         set.Elements.AddRange(copies);
-        set.Groups.AddRange(scene.Groups
-            .Select(group => group.Where(idMapping.ContainsKey).Select(id => idMapping[id]).ToImmutableHashSet())
-            .Where(group => group.Count >= 2));
+        // The copies have Ids of their own, so the groups follow them the way a duplicate's do.
+        set.Groups.AddRange(DuplicateHelper.MapGroups(scene.Groups, sources, copies));
         ElementPlacementHelper.MoveTogether(set.Elements, -range.Start, -minZIndex);
         return set;
     }

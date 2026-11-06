@@ -424,10 +424,9 @@ public sealed partial class ElementView : UserControl
         if (DataContext is not ElementViewModel viewModel) return;
 
         // The clips Copy takes: the selection, each clip with its group.
-        Element[] elements = [.. viewModel.GetGroupOrSelectedElements().Select(item => item.Model)];
         KeepRealizedWhileOpen(TemplateSaving.ShowSaveFlyout(
             this,
-            TemplateSaving.CreateElementTemplate(viewModel.Scene, elements.Length > 0 ? elements : [viewModel.Model]),
+            TemplateSaving.CreateElementTemplate(viewModel.Scene, viewModel.GetGroupOrSelectedModelsOrSelf()),
             TimelineTabExtension.GetDefaultTemplateName(viewModel.Model),
             showAtPointer: true));
     }
@@ -473,7 +472,9 @@ public sealed partial class ElementView : UserControl
         }
     }
 
-    private SnapResult SnapTime(MediaTime time, float scale, bool disabled, int? sameZIndex = null)
+    // The clips moving along with this one leave where they are, so their edges do not count.
+    private SnapResult SnapTime(
+        MediaTime time, float scale, bool disabled, IEnumerable<ElementViewModel>? moving = null)
     {
         Element model = ViewModel.Model;
         TimelineTabViewModel timeline = ViewModel.Timeline;
@@ -484,8 +485,12 @@ public sealed partial class ElementView : UserControl
         }
 
         IEditorClock clock = timeline.EditorContext.GetRequiredService<IEditorClock>();
+        HashSet<Element>? leaving = moving?.Select(item => item.Model).ToHashSet();
+        IEnumerable<Element> others = leaving is null
+            ? timeline.Scene.Children
+            : timeline.Scene.Children.Where(element => !leaving.Contains(element));
         IEnumerable<MediaTime> candidates = SnapHelper
-            .CollectElementCandidates(timeline.Scene.Children, model, sameZIndex)
+            .CollectElementCandidates(others, model)
             .Concat(SnapHelper.CollectSceneCandidates(timeline.Scene, clock.CurrentTime.Value));
 
         return SnapHelper.Snap(time, candidates, scale);
@@ -514,9 +519,7 @@ public sealed partial class ElementView : UserControl
     // them, and the slip service drops them itself.
     private static Element[] CollectTrimMembers(ElementViewModel viewModel)
     {
-        var members = viewModel.GetGroupOrSelectedElements()
-            .Select(el => el.Model)
-            .ToList();
+        var members = viewModel.GetGroupOrSelectedModels().ToList();
         if (!members.Contains(viewModel.Model))
         {
             members.Add(viewModel.Model);

@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
 using Beutl.Engine.Expressions;
@@ -8,6 +9,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using Beutl.UnitTests.Engine;
 
 namespace Beutl.UnitTests.Editor.Services.Captions;
 
@@ -99,6 +101,79 @@ public class CaptionTemplateTests
             Assert.That(first.Id.Value, Is.Not.EqualTo(source.Id.Value));
             Assert.That(second.Id.Value, Is.Not.EqualTo(first.Id.Value));
         }
+    }
+
+    // What is not a tag of the text object or of a subtitle format is drawn as the words it is.
+    [TestCase("<name> says hi")]
+    [TestCase("before </name> after")]
+    [TestCase("a < b > c")]
+    [TestCase("<3 you, <3 me>")]
+    [TestCase("no closing <bracket")]
+    [TestCase("<a><c2>\n<d>")]
+    public void Cue_text_that_is_not_markup_is_drawn(string cueText)
+    {
+        foreach (TextBlock text in CreateCaptionObjects(cueText))
+        {
+            Assert.That(GetDrawnText(text), Is.EqualTo(cueText));
+        }
+    }
+
+    // A subtitle's markup looks as it always has: formatting where the text object knows the tag, nothing where not.
+    [TestCase("<i>one</i> <b>two</b>", "one two")]
+    [TestCase("<I>one</I> <B>two</B>", "one two")]
+    [TestCase("<u>one</u> <s>two</s><br>", "one two")]
+    [TestCase("<font color=\"#ff0000\">one</font>", "one")]
+    [TestCase("<c.yellow>one</c> <v Bob>two</v>", "one two")]
+    [TestCase("<#ff0000>one</#> <size=20>two</size>", "one two")]
+    [TestCase("<noparse><name></noparse>", "<name>")]
+    [TestCase("<noparse=x><name></noparse>", "<name>")]
+    public void Cue_text_that_is_markup_stays_as_it_was(string cueText, string drawn)
+    {
+        foreach (TextBlock text in CreateCaptionObjects(cueText))
+        {
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(text.Text.Value, Is.EqualTo(cueText));
+                Assert.That(GetDrawnText(text), Is.EqualTo(drawn));
+            }
+        }
+    }
+
+    [Test]
+    public void Cue_text_keeps_the_formatting_of_the_tags_around_the_words_it_shows()
+    {
+        foreach (TextBlock text in CreateCaptionObjects("<i>one</i> <name>"))
+        {
+            using TextBlock.Resource resource = text.ToResource(CompositionContext.Default);
+            TextElements elements = resource.GetTextElements();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(elements.Single(element => element.Text == "one").FontStyle, Is.EqualTo(FontStyle.Italic));
+                Assert.That(elements.Single(element => element.Text == "<name>").FontStyle, Is.EqualTo(FontStyle.Normal));
+            }
+        }
+    }
+
+    // The default look and a saved template, the two ways a cue reaches a text object.
+    private static IEnumerable<TextBlock> CreateCaptionObjects(string cueText)
+    {
+        var cue = new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), cueText);
+        var context = new CaptionElementContext(0, "Caption");
+        CaptionTemplate defaultTemplate = CaptionTemplateDefaults.CreateDefaultText(
+            "Default",
+            new DefaultTextCaptionElementFactory(TypefaceProvider.Typeface().FontFamily));
+        CaptionTemplate savedTemplate = TextBlockCaptionTemplateAdapter.TryCreate(
+            ObjectTemplateItem.CreateFromInstance(new TextBlock(), "Saved"))!;
+
+        yield return CreateTextBlock(CreateElements(defaultTemplate, cue, context).Single());
+        yield return CreateTextBlock(CreateElements(savedTemplate, cue, context).Single());
+    }
+
+    private static string GetDrawnText(TextBlock text)
+    {
+        using TextBlock.Resource resource = text.ToResource(CompositionContext.Default);
+        return string.Concat(resource.GetTextElements().Select(element => element.Text));
     }
 
     [Test]

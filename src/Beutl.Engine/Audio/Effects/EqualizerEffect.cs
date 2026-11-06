@@ -113,6 +113,8 @@ public sealed partial class EqualizerEffect : AudioEffect
 
     private static bool IsNeutral(EqualizerBand band)
     {
+        if (AnimationSampler.IsAnimated(band.FilterType)) return false;
+
         // Only gain-dependent filter types collapse to pass-through at 0 dB.
         // LowPass/HighPass/BandPass/Notch still shape the signal regardless of gain.
         var type = band.FilterType.Value;
@@ -123,9 +125,7 @@ public sealed partial class EqualizerEffect : AudioEffect
             return false;
         }
 
-        // Expressions render at Value, so only an animation keeps the gain live.
-        // FIXME(expression): also treat HasExpression as live once AnimationSampler evaluates expressions.
-        if (band.Gain.GetKeyFrameAnimation() is not null) return false;
+        if (AnimationSampler.IsAnimated(band.Gain)) return false;
 
         return band.Gain.Value == 0f;
     }

@@ -20,7 +20,8 @@ namespace Beutl.Graphics.Effects;
 /// </para>
 /// <para>
 /// Inside a custom effect callback there is one, so call
-/// <see cref="CustomFilterEffectContext.CreateExecutor"/> instead of constructing an executor: it carries
+/// <see cref="CustomFilterEffectContext.CreateExecutor(EffectTargets, SKImageFilterBuilder)"/>
+/// instead of constructing an executor: it carries
 /// the running render's lease session, and so allocates through a caller-supplied
 /// <see cref="IRenderTargetFactory"/> rather than drawing factory-made inputs into a shared-context buffer.
 /// </para>
@@ -28,12 +29,14 @@ namespace Beutl.Graphics.Effects;
 public sealed partial class FilterEffectExecutor : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectExecutor");
-    // Replaced rather than copied field by field when the working scale, execution context or instance changes,
+    // Replaced rather than copied field by field when the working scale or execution context changes,
     // so whatever this executor starts takes the current values. Its program acquirers are always set.
     private FilterEffectExecutionSettings _settings;
     private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
     private ProgramCache<ShaderGraphPipeline>? _ownedGraphProgramCache;
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
+    // Whether an item of the pending chain reads positions in the coordinates of the bounds (IFEItem_Skia.NeedsBoundsCoordinates).
+    private bool _pendingChainNeedsBoundsCoordinates;
     private bool _customEffectBoundaryMaterialized;
 
     /// <param name="drawableBrushMaterializer">
@@ -92,12 +95,6 @@ public sealed partial class FilterEffectExecutor : IDisposable
     {
         get => _settings.ExecutionContext;
         set => _settings = _settings with { ExecutionContext = value };
-    }
-
-    internal FilterEffectInstance? Instance
-    {
-        get => _settings.Instance;
-        set => _settings = _settings with { Instance = value };
     }
 
     public SKImageFilterBuilder Builder { get; }
@@ -205,7 +202,14 @@ public sealed partial class FilterEffectExecutor : IDisposable
         }
     }
 
-    public void Apply(FilterEffectContext context)
+    public void Apply(FilterEffectContext context) => Apply(context, null);
+
+    /// <param name="requiredOutput">
+    /// The part of the output the caller keeps, or <see langword="null"/> for all of it. A shader graph that only Skia
+    /// filters with a sampling footprint follow then produces only what they read of it. It holds for this call alone:
+    /// nested executors and continuations produce all of their output.
+    /// </param>
+    internal void Apply(FilterEffectContext context, Rect? requiredOutput)
     {
         ArgumentNullException.ThrowIfNull(context);
         if (CurrentTargets.Count == 0) return;
@@ -237,7 +241,11 @@ public sealed partial class FilterEffectExecutor : IDisposable
                 case FEItem_ShaderGraph graph:
                     Flush(false);
                     if (CurrentTargets.Count == 0) return;
-                    FilterEffectStageFallbackExecutor.ApplyShaderGraph(CurrentTargets, graph.Description, _settings);
+                    FilterEffectStageFallbackExecutor.ApplyShaderGraph(CurrentTargets, graph.Description, _settings,
+                        requiredOutput is { } output
+                        && EffectItemSamplingSupport.TryResolveStageOutput(items, index, output, out Rect stageOutput)
+                            ? stageOutput
+                            : null);
                     break;
                 case FEItem_Shader shader:
                     Flush(false);
@@ -267,14 +275,23 @@ public sealed partial class FilterEffectExecutor : IDisposable
 
         BeginSkiaChain();
         effectiveItem.Accepts(this, Builder);
+        _pendingChainNeedsBoundsCoordinates |= effectiveItem.NeedsBoundsCoordinates;
 
         foreach (EffectTarget t in CurrentTargets)
         {
             PendingSkiaTarget pending = _pendingSkiaTargets![t];
-            pending.PhysicalBounds = effectiveItem.TransformBounds(pending.PhysicalBounds);
-            pending.AnchorFrame = effectiveItem.TransformBounds(pending.AnchorFrame);
+            // PhysicalBounds shares OriginalBounds' frame, and AnchorFrame has its own. An item that reads positions in
+            // the coordinates of the bounds maps each in those coordinates: these offsets take a frame there.
+            Vector original = effectiveItem.NeedsBoundsCoordinates
+                ? t.Bounds.Position - t.OriginalBounds.Position
+                : default;
+            Vector anchor = effectiveItem.NeedsBoundsCoordinates
+                ? t.Bounds.Position - pending.AnchorFrame.Position
+                : default;
+            pending.PhysicalBounds = TransformBoundsFrom(effectiveItem, pending.PhysicalBounds, original);
+            pending.AnchorFrame = TransformBoundsFrom(effectiveItem, pending.AnchorFrame, anchor);
             t.Bounds = effectiveItem.TransformBounds(t.Bounds);
-            t.OriginalBounds = effectiveItem.TransformBounds(t.OriginalBounds);
+            t.OriginalBounds = TransformBoundsFrom(effectiveItem, t.OriginalBounds, original);
             // The chain's execution frame is anchored at InputBounds.Position, which
             // must stay equal to the displacement this item's accumulated mapping
             // gives the chain-start Bounds.Position. A translation-invariant item
@@ -285,6 +302,12 @@ public sealed partial class FilterEffectExecutor : IDisposable
                 pending.InputBounds.Size);
         }
     }
+
+    // Maps bounds held in a frame that offset takes into the coordinates of the bounds.
+    private static Rect TransformBoundsFrom(IFEItem item, Rect bounds, Vector offset)
+        => offset == default
+            ? item.TransformBounds(bounds)
+            : item.TransformBounds(bounds.Translate(offset)).Translate(-offset);
 
     /// <summary>Hands the materialized targets to author code, and re-anchors what it left behind.</summary>
     private void RunCustomEffectItem(IFEItem_Custom custom, IFEItem[]? continuation)
@@ -322,11 +345,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
         using var executor = new FilterEffectExecutor(
             cloned,
             builder,
-            _settings with
-            {
-                DeviceGridOffset = _settings.DeviceGridOffset
-                    ?? (cloned.Count > 0 ? cloned[0].DeviceGridOffset : default),
-            });
+            _settings.WithDeviceGridOffsetFrom(cloned));
 
         executor.Apply(context);
         executor.Flush(false);
@@ -362,6 +381,9 @@ public sealed partial class FilterEffectExecutor : IDisposable
     {
         public Rect InputBounds { get; set; } = inputBounds;
 
+        /// <summary>Where the coordinates of the bounds put the input's origin when the chain began.</summary>
+        public Point ChainOrigin { get; } = inputBounds.Position;
+
         public Rect PhysicalBounds { get; set; } = physicalBounds;
 
         /// <summary>
@@ -370,17 +392,4 @@ public sealed partial class FilterEffectExecutor : IDisposable
         /// </summary>
         public Rect AnchorFrame { get; set; } = anchorFrame;
     }
-
-    private ImmediateCanvas CreateExecutionCanvas(
-        RenderTarget target,
-        float density,
-        Size logicalSize)
-        => ImmediateCanvas.CreateCustomEffectCanvas(
-            target,
-            density,
-            MaxWorkingScale,
-            logicalSize,
-            Intent,
-            _settings.UseExecutorManagedCanvas,
-            _settings.DrawableBrushMaterializer);
 }

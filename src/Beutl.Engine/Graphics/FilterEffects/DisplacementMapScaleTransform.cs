@@ -18,12 +18,14 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
     public IExpressionProperty<float> Scale { get; } = Property.CreateAnimatable<float>(100);
 
     [Display(Name = nameof(GraphicsStrings.ScaleTransform_ScaleX), ResourceType = typeof(GraphicsStrings))]
+    [CombinedEditor(nameof(ScaleY), Name = nameof(GraphicsStrings.ScaleTransform_ScaleXY), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> ScaleX { get; } = Property.CreateAnimatable<float>(100);
 
     [Display(Name = nameof(GraphicsStrings.ScaleTransform_ScaleY), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> ScaleY { get; } = Property.CreateAnimatable<float>(100);
 
     [Display(Name = nameof(GraphicsStrings.CenterX), ResourceType = typeof(GraphicsStrings))]
+    [CombinedEditor(nameof(CenterY), Name = nameof(GraphicsStrings.Center), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> CenterX { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.CenterY), ResourceType = typeof(GraphicsStrings))]

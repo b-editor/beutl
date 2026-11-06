@@ -452,6 +452,257 @@ public class StorageWriteTransactionTests
     }
 
     [Test]
+    public void Batch_KeepsTheLastWriteOfAFile()
+    {
+        string existing = CreateFile("existing.belm", "before");
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        transaction.WriteInBatch(() =>
+        {
+            WriteJson(existing, "first");
+            WriteJson(existing, "second");
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Has.Length.EqualTo(1));
+        });
+        transaction.Commit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(existing), Is.EqualTo("\"second\""));
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Batch_LeavesNoTemporaryFileWhenThreadsWriteTheSameFile()
+    {
+        string existing = CreateFile("existing.belm", "before");
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        transaction.WriteInBatch(() => Parallel.For(0, 256, index => WriteJson(existing, $"write {index}")));
+        transaction.Commit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(existing), Does.StartWith("\"write "));
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Batch_DoesNotPutAWriteOverTheBytesASuppressedObjectRestores()
+    {
+        string path = CreateFile("element.belm", "before");
+        byte[] retained = "retained"u8.ToArray();
+        var element = new Element
+        {
+            Uri = new Uri(path),
+            SuppressedStorageSource = new SuppressedStorageSource(retained, new Uri(path)) { WasReinstated = true },
+        };
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        transaction.WriteInBatch(() =>
+        {
+            WriteJson(path, "queued");
+            CoreSerializer.StoreToUri(element, element.Uri!);
+        });
+        transaction.Commit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(retained));
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Batch_LeavesAFileAsItWasWhenItsWriteIsTakenBack()
+    {
+        string existing = CreateFile("existing.belm", "before");
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        transaction.WriteInBatch(() =>
+        {
+            WriteJson(existing, "first");
+            transaction.RemoveFromBatch(existing);
+        });
+        transaction.Commit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(existing), Is.EqualTo("before"));
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Batch_MovesItsFilesIntoPlaceAfterTheLastWrite()
+    {
+        string existing = CreateFile("existing.belm", "before");
+        string created = PathOf("created.belm");
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        transaction.WriteInBatch(() =>
+        {
+            WriteJson(existing, "after");
+            WriteJson(created, "new");
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.ReadAllText(existing), Is.EqualTo("before"));
+                Assert.That(File.Exists(created), Is.False);
+                Assert.That(Directory.GetFiles(_directory, "*.tmp"), Has.Length.EqualTo(2));
+            });
+        });
+        transaction.Commit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(existing), Is.EqualTo("\"after\""));
+            Assert.That(File.ReadAllText(created), Is.EqualTo("\"new\""));
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Batch_TakesTheWritesOfParallelWorkersAndRollsThemBack()
+    {
+        string[] paths = Enumerable.Range(0, 32)
+            .Select(index => CreateFile($"element-{index}.belm", $"before-{index}"))
+            .ToArray();
+
+        using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
+        {
+            transaction.WriteInBatch(() => Parallel.ForEach(
+                paths,
+                new ParallelOptions { MaxDegreeOfParallelism = 8 },
+                path => WriteJson(path, "after")));
+            Assert.That(paths.Select(File.ReadAllText), Is.All.EqualTo("\"after\""));
+            Assert.That(transaction.Rollback(), Is.True);
+        }
+
+        Assert.That(
+            paths.Select(File.ReadAllText),
+            Is.EqualTo(Enumerable.Range(0, 32).Select(index => $"before-{index}")));
+    }
+
+    [Test]
+    public void Batch_ThatWritesAFileTwice_RollsBackToWhatItHeldBefore()
+    {
+        string existing = CreateFile("existing.belm", "before");
+
+        using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
+        {
+            transaction.WriteInBatch(() =>
+            {
+                WriteJson(existing, "first");
+                WriteJson(existing, "second");
+            });
+            Assert.That(File.ReadAllText(existing), Is.EqualTo("\"second\""));
+            Assert.That(transaction.Rollback(), Is.True);
+        }
+
+        Assert.That(File.ReadAllText(existing), Is.EqualTo("before"));
+    }
+
+    [Test]
+    public void Batch_ThatFailsToWrite_LeavesEveryDestinationAndNoTemporaryFile()
+    {
+        string existing = CreateFile("existing.belm", "before");
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        Assert.Throws<IOException>(() => transaction.WriteInBatch(() =>
+        {
+            WriteJson(existing, "after");
+            throw new IOException("The next write failed.");
+        }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(existing), Is.EqualTo("before"));
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+            Assert.That(StorageWriteTransaction.CurrentBatch, Is.Null);
+        });
+    }
+
+    [Test]
+    public void Batch_ThatFailsToMove_LeavesTheMovesBeforeItForRollback()
+    {
+        string first = CreateFile("first.belm", "before");
+        string second = CreateFile("second.belm", "before");
+        string third = CreateFile("third.belm", "before");
+        bool restored;
+
+        using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
+        using (StorageWriteTransaction.InjectFaultsForTesting((step, target) =>
+               {
+                   if (step == StorageWriteStep.Replace && target == second) throw new IOException("The move failed.");
+               }))
+        {
+            Assert.Throws<IOException>(() => transaction.WriteInBatch(() =>
+            {
+                WriteJson(first, "after");
+                WriteJson(second, "after");
+                WriteJson(third, "after");
+            }));
+            Assert.That(File.ReadAllText(first), Is.EqualTo("\"after\""));
+            restored = transaction.Rollback();
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored, Is.True);
+            Assert.That(new[] { first, second, third }.Select(File.ReadAllText), Is.All.EqualTo("before"));
+            Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Batch_WritesTheCompatibilityGateAtOnce()
+    {
+        string gate = CreateFile("project.bep", "before");
+        string element = CreateFile("element.belm", "before");
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        transaction.WriteInBatch(() =>
+        {
+            WriteJson(gate, "after", isCompatibilityGate: true);
+            WriteJson(element, "after");
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.ReadAllText(gate), Is.EqualTo("\"after\""));
+                Assert.That(File.ReadAllText(element), Is.EqualTo("before"));
+            });
+        });
+    }
+
+    [Test]
+    public void Batch_FlushesTheDeviceOncePerFolderBeforeItsFirstMove()
+    {
+        string nested = Directory.CreateDirectory(PathOf("nested")).FullName;
+        var steps = new List<StorageWriteStep>();
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+        using var faults = StorageWriteTransaction.InjectFaultsForTesting((step, _) => steps.Add(step));
+
+        transaction.WriteInBatch(() =>
+        {
+            WriteJson(PathOf("first.belm"), "after");
+            WriteJson(PathOf("second.belm"), "after");
+            WriteJson(Path.Combine(nested, "third.belm"), "after");
+        });
+
+        StorageWriteStep[] flushes = OperatingSystem.IsMacOS() ? [StorageWriteStep.FlushDevice, StorageWriteStep.FlushDevice] : [];
+        Assert.That(steps, Is.EqualTo(flushes.Concat(Enumerable.Repeat(StorageWriteStep.Replace, 3))));
+    }
+
+    [Test]
+    public void Batch_WhileABatchIsRunning_Throws()
+    {
+        using StorageWriteTransaction transaction = StorageWriteTransaction.Begin();
+
+        transaction.WriteInBatch(() =>
+            Assert.Throws<InvalidOperationException>(() => transaction.WriteInBatch(() => { })));
+    }
+
+    [Test]
     public void Dispose_WithoutCommit_RollsBack()
     {
         string existing = CreateFile("existing.json", "before");
@@ -486,6 +737,7 @@ public class StorageWriteTransactionTests
         {
             Assert.Throws<InvalidOperationException>(() => transaction.OnRollback(() => { }));
             Assert.Throws<InvalidOperationException>(() => transaction.Rollback());
+            Assert.Throws<InvalidOperationException>(() => transaction.WriteInBatch(() => { }));
             Assert.DoesNotThrow(transaction.Dispose);
         });
     }
@@ -498,6 +750,13 @@ public class StorageWriteTransactionTests
         File.WriteAllText(path, contents);
         return path;
     }
+
+    private static void WriteJson(string path, string contents, bool isCompatibilityGate = false)
+        => JsonHelper.WriteAtomically(
+            path,
+            writer => writer.WriteStringValue(contents),
+            journal: true,
+            isCompatibilityGate: isCompatibilityGate);
 
     private static void Replace(
         string path,

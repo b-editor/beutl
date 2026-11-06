@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.Tools.CloudStorageView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:Beutl.Controls"
              xmlns:fileVm="using:Beutl.Editor.Components.FileBrowserTab.ViewModels"
              xmlns:files="using:Beutl.Editor.Components.FileBrowserTab.Views"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -128,6 +129,7 @@
     </UserControl.Styles>
     <UserControl.KeyBindings>
         <KeyBinding Command="{Binding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{Binding Refresh}" Gesture="Cmd+R" />
     </UserControl.KeyBindings>
     <Grid>
         <ScrollViewer HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding !SignedIn.Value}">
@@ -183,15 +185,10 @@
                           IsVisible="{Binding ShowPlaceholders.Value}"
                           ItemsSource="{x:Static local:CloudStorageView.LoadingPlaceholders}"
                           Opacity="0.35" />
-            <TextBlock x:Name="EmptyState"
-                       Grid.Row="2"
-                       MaxWidth="320"
-                       Margin="24"
-                       VerticalAlignment="Center"
-                       IsVisible="{Binding IsEmpty.Value}"
-                       Text="{x:Static lang:Strings.CloudStorageEmpty}"
-                       TextAlignment="Center"
-                       TextWrapping="Wrap" />
+            <ctrls:EmptyState x:Name="EmptyState"
+                              Grid.Row="2"
+                              Title="{x:Static lang:Strings.CloudStorageEmpty}"
+                              IsVisible="{Binding IsEmpty.Value}" />
             <StackPanel Grid.Row="3" Spacing="4">
                 <TextBlock Margin="8,4"
                            Foreground="{DynamicResource SystemFillColorCriticalBrush}"

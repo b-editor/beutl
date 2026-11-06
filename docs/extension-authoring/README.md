@@ -15,6 +15,7 @@ package name, shows one notice and turns the extension off until it restarts.
 - [File source properties](file-source-properties.md): file pickers for custom file-source and `FileInfo`
   properties.
 - [Element recovery](element-recovery.md): completing repairs of recovered elements from a plugin.
+- [Libraries Beutl ships](host-libraries.md): using FluentIcons and the like without a second copy of them.
 
 ## Migration guides
 

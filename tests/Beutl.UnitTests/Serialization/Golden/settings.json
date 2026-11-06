@@ -6,6 +6,7 @@
     "CustomAccentColor": "#FF112233",
     "ShowExactBoundaries": true,
     "RecentProjectsLayout": 1,
+    "UseNativeContextMenus": false,
     "LastOpenedProjectFile": "/golden/p.bproj",
     "Theme": "beutl.dark.border",
     "RecentFiles": [
@@ -46,7 +47,9 @@
     "NodeCacheMaxPixels": 1000000,
     "NodeCacheMinPixels": 1,
     "SwapTimelineScrollDirection": false,
+    "SeekOnTimelineClick": false,
     "ClampResizeToOriginalLength": true,
+    "ShowTimelineThumbnailsByDefault": true,
     "IsTimelineSnapEnabled": true,
     "IsRippleEnabled": false,
     "TimelineAutoScrollMode": 1,

@@ -14,6 +14,10 @@ internal static class TimeStretchParameters
 
     public static double GetMinimumSpeedFactor(IProperty<float> speed)
     {
+        // An expression can give any speed, which processing clamps.
+        if (speed is IExpressionProperty { HasExpression: true })
+            return MinSpeed / 100d;
+
         if (speed.GetKeyFrameAnimation() is not { } animation)
             return Normalize(speed.Value) / 100d;
 

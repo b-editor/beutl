@@ -266,7 +266,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
                 if (IsGeneratedFileRequest(request))
                 {
                     Uri? creator = GetGeneratedFileCreator(navigationAction, request);
-                    source = new NativeDownload((name, offered) => handler._onGeneratedDownload(creator, name, offered, null));
+                    source = new NativeDownload((name, offered) => handler._onGeneratedDownload(creator, name, offered, null), creator);
                     source.Attach(download);
                     return;
                 }
@@ -355,7 +355,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
             {
                 nint navigation = handler._cancellations.Current;
                 if (handler._cancellations.MarkCanceled(navigation)) canceledNavigation = navigation;
-                source = new NativeDownload(name, ToManagedString(Send(response, Selector("textEncodingName"))));
+                source = new NativeDownload(name, ToManagedString(Send(response, Selector("textEncodingName"))), uri);
                 // WebKit retains this same response for didBecomeDownload. Keep its wrapper alive
                 // so simultaneous conversions are matched by object identity, never by URL.
                 handler._pendingDownloads.Add(Send(navigationResponse, Selector("retain")), source);

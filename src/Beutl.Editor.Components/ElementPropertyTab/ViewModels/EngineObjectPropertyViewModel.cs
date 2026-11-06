@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
@@ -141,25 +142,30 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
 
         foreach (IPropertyEditorContext? context in Properties)
         {
-            if ((context as IServiceProvider)?.GetService(typeof(IPropertyAdapter)) is not IPropertyAdapter adapter
-                || adapter.GetEngineProperty() is not { } property)
+            foreach (IProperty property in GetEngineProperties(context))
             {
-                continue;
-            }
-
-            if (ReferenceEquals(property.GetOwnerObject(), target))
-            {
-                if (property.Name == propertyName)
+                if (ReferenceEquals(property.GetOwnerObject(), target))
+                {
+                    if (property.Name == propertyName)
+                        return context;
+                }
+                else if (Holds(property.Value, target) || Holds(property.GetPropertyAnimation(), target)
+                         || (property is IListProperty list && list.OfType<object>().Any(item => Holds(item, target))))
+                {
                     return context;
-            }
-            else if (Holds(property.Value, target) || Holds(property.GetPropertyAnimation(), target)
-                     || (property is IListProperty list && list.OfType<object>().Any(item => Holds(item, target))))
-            {
-                return context;
+                }
             }
         }
 
         return null;
+    }
+
+    private static IEnumerable<IProperty> GetEngineProperties(IPropertyEditorContext? context)
+    {
+        IEnumerable<IPropertyAdapter> adapters = context is PropertyEditorViewModel viewModel
+            ? viewModel.EditedProperties
+            : (context as IServiceProvider)?.GetService(typeof(IPropertyAdapter)) is IPropertyAdapter adapter ? [adapter] : [];
+        return adapters.Select(adapter => adapter.GetEngineProperty()).OfType<IProperty>();
     }
 
     private static bool Holds(object? value, CoreObject target)

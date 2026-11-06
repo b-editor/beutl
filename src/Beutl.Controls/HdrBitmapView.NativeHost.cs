@@ -41,6 +41,81 @@ public partial class HdrBitmapView
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr GetModuleHandleW(string? lpModuleName);
 
+    private const int GWLP_WNDPROC = -4;
+    private const uint WM_NCHITTEST = 0x0084;
+    private const uint WM_NCDESTROY = 0x0082;
+    private const int HTTRANSPARENT = -1;
+
+    // The window procedures of the holder windows that pass the mouse through, by holder.
+    private static readonly Dictionary<IntPtr, IntPtr> s_holderProcedures = [];
+
+    // Avalonia's holder window answers hit tests itself, so the mouse over the frame never reached the UI under it: no
+    // click, drag, wheel or context menu worked on an HDR preview. Answering transparent hands it to the next window under
+    // the pointer on this thread, the UI's, as the static control the swapchain draws into already does. Returns whether
+    // the holder is new.
+    private static unsafe bool PassMouseThrough(IntPtr holder)
+    {
+        if (holder == IntPtr.Zero || s_holderProcedures.ContainsKey(holder))
+            return false;
+
+        delegate* unmanaged<IntPtr, uint, IntPtr, IntPtr, IntPtr> procedure = &HolderWindowProcedure;
+        IntPtr previous = SetWindowLongPtrW(holder, GWLP_WNDPROC, (IntPtr)procedure);
+        if (previous == IntPtr.Zero)
+            return false;
+
+        s_holderProcedures[holder] = previous;
+        return true;
+    }
+
+    [UnmanagedCallersOnly]
+    private static IntPtr HolderWindowProcedure(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam)
+    {
+        if (message == WM_NCHITTEST)
+            return HTTRANSPARENT;
+
+        if (!s_holderProcedures.TryGetValue(hwnd, out IntPtr previous))
+            return DefWindowProcW(hwnd, message, wParam, lParam);
+
+        if (message == WM_NCDESTROY)
+            s_holderProcedures.Remove(hwnd);
+
+        return CallWindowProcW(previous, hwnd, message, wParam, lParam);
+    }
+
+    // Shapes the holder window to the frame, or removes its shape. The child window it holds is clipped with it.
+    private static void SetWindowsShape(IntPtr holder, Avalonia.PixelRect? shape)
+    {
+        if (holder == IntPtr.Zero)
+            return;
+
+        IntPtr region = shape is { } rect ? CreateRectRgn(rect.X, rect.Y, rect.Right, rect.Bottom) : IntPtr.Zero;
+        // The window owns a region it takes.
+        if (SetWindowRgn(holder, region, true) == 0 && region != IntPtr.Zero)
+            DeleteObject(region);
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetParent(IntPtr hwnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr SetWindowLongPtrW(IntPtr hwnd, int index, IntPtr newLong);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr CallWindowProcW(IntPtr previous, IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr DefWindowProcW(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern int SetWindowRgn(IntPtr hwnd, IntPtr region, [MarshalAs(UnmanagedType.Bool)] bool redraw);
+
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
+
+    [DllImport("gdi32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool DeleteObject(IntPtr gdiObject);
+
     // macOS
     private static IPlatformHandle CreateMacOSControl(IPlatformHandle parent)
     {
@@ -50,17 +125,12 @@ public partial class HdrBitmapView
         var initWithFrameSel = sel_getUid("initWithFrame:");
 
         var nsView = objc_msgSend_IntPtr(nsViewClass, allocSel);
-        nsView = objc_msgSend_NSRect(nsView, initWithFrameSel, 0, 0, 1, 1);
+        nsView = objc_msgSend_NSRect(nsView, initWithFrameSel, new NSRect(0, 0, 1, 1));
 
         if (nsView == IntPtr.Zero)
             throw new InvalidOperationException("Failed to create NSView");
 
         return new PlatformHandle(nsView, "NSView");
-    }
-
-    private static void ReleaseMacOSView(IntPtr nsView)
-    {
-        ReleaseMacOSObject(nsView);
     }
 
     private static IntPtr RetainMacOSObject(IntPtr obj)
@@ -83,6 +153,14 @@ public partial class HdrBitmapView
     private static IntPtr GetMacOSLayer(IntPtr nsView)
     {
         return objc_msgSend_IntPtr(nsView, sel_getUid("layer"));
+    }
+
+    // layer.contentsScale = scale. MoltenVK reports the layer's bounds times this as the surface's size and the
+    // swapchain takes that size, whatever size it is asked for.
+    internal static void SetMacOSContentsScale(IntPtr layer, double scale)
+    {
+        if (layer != IntPtr.Zero)
+            objc_msgSend_void_double(layer, sel_getUid("setContentsScale:"), scale);
     }
 
     // layer.EDRMetadata = [CAEDRMetadata HDR10MetadataWithMinLuminance:maxLuminance:opticalOutputScale:], or nil to
@@ -212,13 +290,17 @@ public partial class HdrBitmapView
 
     // Float arguments travel in floating-point registers on arm64 and x86_64 alike, so plain objc_msgSend serves.
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void objc_msgSend_void_double(IntPtr receiver, IntPtr selector, double arg);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     private static extern IntPtr objc_msgSend_float3(IntPtr receiver, IntPtr selector, float arg1, float arg2, float arg3);
 
-    // initWithFrame: takes an NSRect (CGRect) which is { x, y, width, height } as doubles
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct NSRect(double X, double Y, double Width, double Height);
+
+    // By value, because x86-64 passes a struct this large on the stack rather than in floating-point registers.
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
-    private static extern IntPtr objc_msgSend_NSRect(
-        IntPtr receiver, IntPtr selector,
-        double x, double y, double width, double height);
+    private static extern IntPtr objc_msgSend_NSRect(IntPtr receiver, IntPtr selector, NSRect frame);
 
     // Linux
     private static IPlatformHandle CreateLinuxControl(IPlatformHandle parent)
@@ -227,6 +309,67 @@ public partial class HdrBitmapView
         // In a full implementation, we'd create a child X window
         return parent;
     }
+
+    private const int ShapeBounding = 0;
+    private const int ShapeSet = 0;
+    private const int Unsorted = 0;
+
+    private static readonly Lazy<IntPtr> s_x11Display = new(() =>
+    {
+        try
+        {
+            return XOpenDisplay(IntPtr.Zero);
+        }
+        catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
+        {
+            return IntPtr.Zero;
+        }
+    });
+
+    // Shapes the window to the frame with the X shape extension, or removes its shape. Without libXext the window keeps
+    // its full size, and black shows around the frame.
+    private static void SetX11Shape(IntPtr window, Avalonia.PixelRect? shape)
+    {
+        IntPtr display = s_x11Display.Value;
+        if (display == IntPtr.Zero)
+            return;
+
+        try
+        {
+            if (shape is { } rect)
+            {
+                var rectangle = new XRectangle(
+                    (short)rect.X, (short)rect.Y, (ushort)Math.Max(0, rect.Width), (ushort)Math.Max(0, rect.Height));
+                XShapeCombineRectangles(display, window, ShapeBounding, 0, 0, ref rectangle, 1, ShapeSet, Unsorted);
+            }
+            else
+            {
+                XShapeCombineMask(display, window, ShapeBounding, 0, 0, IntPtr.Zero, ShapeSet);
+            }
+
+            XFlush(display);
+        }
+        catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
+        {
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct XRectangle(short X, short Y, ushort Width, ushort Height);
+
+    [DllImport("libX11.so.6")]
+    private static extern IntPtr XOpenDisplay(IntPtr displayName);
+
+    [DllImport("libX11.so.6")]
+    private static extern int XFlush(IntPtr display);
+
+    [DllImport("libXext.so.6")]
+    private static extern void XShapeCombineRectangles(IntPtr display, IntPtr window, int destinationKind, int xOffset,
+        int yOffset, ref XRectangle rectangles, int count, int operation, int ordering);
+
+    [DllImport("libXext.so.6")]
+    private static extern void XShapeCombineMask(IntPtr display, IntPtr window, int destinationKind, int xOffset,
+        int yOffset, IntPtr pixmap, int operation);
 
     #endregion
 

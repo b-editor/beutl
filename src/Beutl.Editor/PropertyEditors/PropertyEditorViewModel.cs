@@ -157,16 +157,46 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     public ReadOnlyReactivePropertySlim<IComponentAnimation?> SeparatedComponents { get; }
 
-    public bool CanSeparateComponents => ComponentSeparation.CanSeparate(PropertyAdapter.GetEngineProperty());
+    // The properties this editor edits, for those that look a row up by its property.
+    internal virtual IReadOnlyList<IPropertyAdapter> EditedProperties => [PropertyAdapter];
 
-    public void SeparateComponents()
+    // The properties nested editors show in place of the combined control, or null while that control shows.
+    internal virtual IObservable<IReadOnlyList<IPropertyAdapter>?> SeparatedProperties => SeparatedComponents
+        .Select(IReadOnlyList<IPropertyAdapter>? (animation) => animation is CoreObject obj
+            ? [.. animation.Components.Select(property => PropertyAdapterFactory.CreateAdapter(property, obj))]
+            : null);
+
+    // Whether the nested editors have the property's name and menu above them.
+    internal virtual bool ShowsSeparatedHeader => true;
+
+    // Whether the menu of each nested editor unseparates them, as no header above them does.
+    internal virtual bool UnseparatesFromNestedEditors => false;
+
+    // The editor this one shows a component of, when this one's menu unseparates them.
+    internal PropertyEditorViewModel? SeparatedFrom { get; set; }
+
+    internal virtual string? ExpressionError => (PropertyAdapter.GetEngineProperty() as IExpressionProperty)?.ExpressionError;
+
+    // An expression to show the expression editor with, where what it returns is not the plain type of a property.
+    internal virtual string? ExpressionExample => null;
+
+    // What the timeline's inline view shows for this editor.
+    internal virtual IAnimatablePropertyAdapter? InlineProperty => PropertyAdapter as IAnimatablePropertyAdapter;
+
+    public virtual bool CanSeparateComponents => ComponentSeparation.CanSeparate(PropertyAdapter.GetEngineProperty());
+
+    public virtual IReadOnlyReactiveProperty<bool> CanUnseparateComponents => CanEditProperty;
+
+    public virtual string UnseparateComponentsDescription => Strings.UnseparateComponents_Description;
+
+    public virtual void SeparateComponents()
     {
         if (!IsElementEditable || PropertyAdapter.IsReadOnly || !CanSeparateComponents || SeparatedComponents.Value != null) return;
         ComponentAnimations.Separate(PropertyAdapter.GetEngineProperty()!);
         Commit();
     }
 
-    public void UnseparateComponents()
+    public virtual void UnseparateComponents()
     {
         if (!IsElementEditable || PropertyAdapter.IsReadOnly || SeparatedComponents.Value == null) return;
         ComponentAnimations.Unseparate(PropertyAdapter.GetEngineProperty()!, CurrentTimeValue);
@@ -238,6 +268,9 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
     public IObservable<MediaTime> CurrentTime { get; }
 
     protected MediaTime CurrentTimeValue => _currentTime.Value;
+
+    // A node member's animation has no parent to find its clock through.
+    private protected GraphNode? AnimationOwner => _node;
 
     [AllowNull] public PropertyEditorExtension Extension { get; set; }
 
@@ -326,6 +359,10 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
                 KeyFrameIndex.Value = kfIndex;
             }
         }
+        else
+        {
+            IsAtKeyFrame.Value = false;
+        }
     }
 
     public virtual void Accept(IPropertyEditorContextVisitor visitor)
@@ -380,9 +417,13 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
         }
     }
 
+    // Set while another editor runs this one's edit as part of its own, which it commits as one history entry.
+    internal bool DefersCommit { get; set; }
+
     public void Commit(string? name = null)
     {
-        this.GetRequiredService<HistoryManager>().Commit(name ?? CommandNames.EditProperty);
+        if (!DefersCommit)
+            this.GetRequiredService<HistoryManager>().Commit(name ?? CommandNames.EditProperty);
     }
 
     protected object? GetDefaultValue()
@@ -408,6 +449,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
         IsAtKeyFrame.Dispose();
         _parentServices = null;
         _propertyEditorControlHost = null;
+        SeparatedFrom = null;
         _element = null;
         _scene = null;
         PropertyAdapter = null!;

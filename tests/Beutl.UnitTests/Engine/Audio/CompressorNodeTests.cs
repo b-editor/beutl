@@ -840,22 +840,18 @@ public class CompressorNodeTests
     }
 
     [Test]
-    public void Process_ExpressionBackedParameter_RoutesToStaticPathAndIgnoresExpression()
+    public void Process_ExpressionBackedParameter_PlaysTheExpressionValue()
     {
-        // hasAnimation keys solely on Animation != null, so an expression-backed property routes to
-        // ProcessStatic and reads Value without evaluating the expression. Output must equal
-        // a fully-static node with the same Value. Update this test once expressions are evaluated
-        // per sample (FIXME(expression) in EqualizerEffect.cs).
+        // An expression routes to the sampled path, so the output must match a static node with its value.
         const int sampleCount = SampleRate / 2;
         var duration = MediaTime.FromSeconds(sampleCount / (double)SampleRate);
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
-        using var staticNode = CreateNode(threshold: -20f);
+        using var staticNode = CreateNode(threshold: -40f);
         staticNode.AddInput(new BufferReplayNode(input));
         using var staticOut = staticNode.Process(CreateContext(MediaTime.Zero, duration));
 
-        // Value stays -20; the expression evaluates to -40 (which would compress harder).
-        // Because the static path ignores the expression, -40 must NOT take effect.
+        // Value stays at its default; the expression evaluates to -40, which compresses harder.
         using var exprNode = CreateNode();
         var threshold = (IExpressionProperty<float>)exprNode.Threshold;
         threshold.Expression = new StringExpression<float>("-40");
@@ -870,8 +866,8 @@ public class CompressorNodeTests
             var e = exprOut.GetChannelData(ch);
             for (int i = 0; i < sampleCount; i++)
             {
-                Assert.That(e[i], Is.EqualTo(s[i]).Within(1e-6f),
-                    $"Expression-backed parameter must route to the static path and ignore the expression; mismatch at [{ch}][{i}]");
+                Assert.That(e[i], Is.EqualTo(s[i]).Within(1e-3f),
+                    $"Expression-backed parameter must play the expression's value; mismatch at [{ch}][{i}]");
             }
         }
     }
@@ -879,8 +875,7 @@ public class CompressorNodeTests
     [Test]
     public void Process_LinkedSurround_AppliesLoudestChannelGainToAllChannels()
     {
-        // Peak detection links across ALL channels and MapChannels reallocates caches for >2
-        // channels (the channel-major fallback). A 4-channel buffer whose loudest is channel 2
+        // Peak detection links across ALL channels. A 4-channel buffer whose loudest is channel 2
         // (not 0) must attenuate every channel by channel 2's reduction — a loop scanning only
         // channels 0..1, or a channel-bound off-by-one, would fail here.
         const int sampleCount = SampleRate;

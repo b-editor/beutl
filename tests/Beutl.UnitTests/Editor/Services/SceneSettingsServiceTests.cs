@@ -55,6 +55,41 @@ public class SceneSettingsServiceTests
     }
 
     [Test]
+    public void Apply_MasterVolumeIsOneUndoableEntry()
+    {
+        int before = _history.UndoCount;
+
+        bool applied = _service.Apply(
+            _scene, _scene.FrameSize.Value, _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Stereo, 50f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(_scene.MasterVolume.Value, Is.EqualTo(50f));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+        _history.Undo();
+        Assert.That(_scene.MasterVolume.Value, Is.EqualTo(100f));
+        _history.Redo();
+        Assert.That(_scene.MasterVolume.Value, Is.EqualTo(50f));
+    }
+
+    [Test]
+    public void Apply_SameMasterVolume_CommitsNothing()
+    {
+        int before = _history.UndoCount;
+
+        bool applied = _service.Apply(
+            _scene, _scene.FrameSize.Value, _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Stereo, 100f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void Apply_ProjectLayoutPersistsOnApplyUndoAndRedo()
     {
         string directory = Directory.CreateTempSubdirectory("beutl-layout-").FullName;

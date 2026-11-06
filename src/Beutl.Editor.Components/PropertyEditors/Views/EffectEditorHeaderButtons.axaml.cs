@@ -3,7 +3,7 @@ using Avalonia.Interactivity;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
-// The visibility toggle and the edit or add button in the header of
+// The visibility toggle and the add button in the header of
 // AudioEffectEditor, FilterEffectEditor and TransformEditor.
 public partial class EffectEditorHeaderButtons : UserControl
 {

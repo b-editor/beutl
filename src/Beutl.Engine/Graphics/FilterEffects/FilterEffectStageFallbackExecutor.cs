@@ -14,27 +14,6 @@ internal static class FilterEffectStageFallbackExecutor
 {
     private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectStageFallbackExecutor");
 
-    /// <summary>The render-wide inputs every stage of one fallback application shares.</summary>
-    private readonly record struct StageEnvironment(
-        float OutputScale,
-        float WorkingScale,
-        float MaxWorkingScale,
-        RenderIntent Intent,
-        RenderRequestPurpose Purpose,
-        RenderTargetLeaseSession? LeaseSession,
-        BufferDimensionBudget Budget)
-    {
-        public static StageEnvironment From(FilterEffectExecutionSettings settings)
-            => new(
-                settings.OutputScale,
-                settings.WorkingScale,
-                settings.MaxWorkingScale,
-                settings.Intent,
-                settings.Purpose,
-                settings.RenderTargetLeaseSession,
-                settings.ResolveBudget());
-    }
-
     public static void ApplyShader(
         EffectTargets targets,
         ShaderDescription description,
@@ -45,10 +24,10 @@ internal static class FilterEffectStageFallbackExecutor
         ArgumentNullException.ThrowIfNull(settings);
         SkRuntimeEffectProgramAcquirer acquireProgram = settings.ProgramAcquirer
             ?? throw new ArgumentException("A shader stage needs a program acquirer.", nameof(settings));
-        var environment = StageEnvironment.From(settings);
+        settings = settings.WithResolvedBudget();
         ReplaceTargets(
             targets,
-            target => ExecuteShader(target, description, acquireProgram, environment));
+            target => ExecuteShader(target, description, acquireProgram, settings));
     }
 
     public static void ApplyGeometry(
@@ -59,39 +38,45 @@ internal static class FilterEffectStageFallbackExecutor
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(description);
         ArgumentNullException.ThrowIfNull(settings);
-        var environment = StageEnvironment.From(settings);
+        settings = settings.WithResolvedBudget();
         ReplaceTargets(
             targets,
-            target => ExecuteGeometry(target, description, environment));
+            target => ExecuteGeometry(target, description, settings));
     }
 
+    /// <param name="requiredOutput">
+    /// The part of the output the caller keeps, or <see langword="null"/> for all of it. A piece whose output misses it
+    /// is dropped, and the others go into targets of what they cover of it, which leaves the rest undefined.
+    /// </param>
     public static void ApplyShaderGraph(EffectTargets targets, ShaderGraphDescription description,
-        FilterEffectExecutionSettings settings)
+        FilterEffectExecutionSettings settings, Rect? requiredOutput = null)
     {
         ShaderGraphProgramAcquirer acquireProgram = settings.ShaderGraphProgramAcquirer
             ?? throw new ArgumentException("A shader graph stage needs a program acquirer.", nameof(settings));
-        var environment = StageEnvironment.From(settings);
+        settings = settings.WithResolvedBudget();
         Rect referenceBounds = targets.CalculateBounds();
         ReplaceTargets(targets, source =>
         {
-            using EffectTarget? normalized = NormalizeInput(source, environment);
+            using EffectTarget? normalized = NormalizeInput(source, settings);
             if (normalized is null)
                 return source.IsMaterialized ? source.Clone() : null;
             PixelRect footprint = PixelRect.FromRect(normalized.Bounds.Translate(normalized.DeviceGridOffset), normalized.Scale.Value);
             using EffectTarget? cropped = normalized.DeviceBounds != footprint
-                ? CropTarget(normalized, normalized.Bounds, environment) : null;
+                ? CropTarget(normalized, normalized.Bounds, settings) : null;
             EffectTarget? input = normalized.DeviceBounds != footprint ? cropped : normalized;
             if (input?.RenderTarget is not { } inputTarget)
                 return source.Clone();
             Rect bounds = description.TransformBounds(input.Bounds, referenceBounds);
-            if (IsEmpty(bounds))
+            Rect? part = requiredOutput?.Intersect(bounds);
+            Rect outputBounds = part ?? bounds;
+            if (IsEmpty(outputBounds))
                 return null;
             ITexture2D texture = inputTarget.Texture
                 ?? throw new NotSupportedException("The shader graph input requires a backend texture.");
             float density = description.ClampWorkingScale(input.Bounds,
-                ResolveSupplyDensity(input, environment), input.DeviceGridOffset, referenceBounds,
-                input.DeviceBounds.Size, ((VulkanTexture2D)texture).Usage);
-            EffectTarget? output = AllocateStageOutput(input, bounds, density, environment, native: true);
+                ResolveSupplyDensity(input, settings), input.DeviceGridOffset, referenceBounds,
+                input.DeviceBounds.Size, ((VulkanTexture2D)texture).Usage, part);
+            EffectTarget? output = AllocateStageOutput(input, outputBounds, density, settings, native: true);
             if (output?.RenderTarget is not { } outputTarget)
             {
                 output?.Dispose();
@@ -103,10 +88,16 @@ internal static class FilterEffectStageFallbackExecutor
                 ShaderGraphExecutor.Execute(description, texture,
                     new(input.Bounds, input.RasterBounds, input.DeviceBounds.Size, input.Scale.Value, referenceBounds),
                     outputTarget.Texture ?? throw new NotSupportedException("The shader graph output requires a backend texture."),
-                    output.Scale.Value, input.DeviceGridOffset, acquireProgram, retainedImages: settings.ShaderGraphImages);
+                    output.Scale.Value, input.DeviceGridOffset, acquireProgram, part, settings.ShaderGraphImages);
+                description.ExecutionObserver?.Invoke(null);
                 EffectTarget result = output;
                 output = null;
                 return result;
+            }
+            catch (Exception ex) when (description.ExecutionObserver is { } observer)
+            {
+                observer(ex);
+                return null;
             }
             finally
             {
@@ -119,9 +110,9 @@ internal static class FilterEffectStageFallbackExecutor
         EffectTarget source,
         ShaderDescription description,
         SkRuntimeEffectProgramAcquirer acquireProgram,
-        StageEnvironment environment)
+        FilterEffectExecutionSettings settings)
     {
-        using EffectTarget? input = NormalizeInput(source, environment);
+        using EffectTarget? input = NormalizeInput(source, settings);
         if (input?.RenderTarget is not { } inputTarget)
             return null;
 
@@ -133,8 +124,8 @@ internal static class FilterEffectStageFallbackExecutor
         // input's own density; a whole-source stage resolves one from the supply the way any stage does.
         float density = description.Kind == ShaderDescriptionKind.CurrentPixel
             ? input.Scale.Value
-            : ResolveSupplyDensity(input, environment);
-        EffectTarget? output = AllocateStageOutput(input, outputBounds, density, environment);
+            : ResolveSupplyDensity(input, settings);
+        EffectTarget? output = AllocateStageOutput(input, outputBounds, density, settings);
         if (output?.RenderTarget is not { } outputTarget)
         {
             output?.Dispose();
@@ -154,7 +145,7 @@ internal static class FilterEffectStageFallbackExecutor
                 outputTarget,
                 outputBounds,
                 acquireProgram,
-                environment);
+                settings);
 
             EffectTarget result = output;
             output = null;
@@ -171,26 +162,26 @@ internal static class FilterEffectStageFallbackExecutor
         EffectTarget input,
         Rect outputBounds,
         float density,
-        StageEnvironment environment,
+        FilterEffectExecutionSettings settings,
         bool native = false)
     {
-        density = environment.Budget.ClampWorkingScaleToExactFootprint(
+        density = settings.ResolveBudget().ClampWorkingScaleToExactFootprint(
             outputBounds.Translate(input.DeviceGridOffset),
             density);
         return AllocateTarget(
             outputBounds,
             density,
-            environment,
+            settings,
             deviceGridOffset: input.DeviceGridOffset,
             native: native);
     }
 
     /// <summary>Resolves the density a stage's output is rasterized at from the supply of its input.</summary>
-    private static float ResolveSupplyDensity(EffectTarget input, StageEnvironment environment)
+    private static float ResolveSupplyDensity(EffectTarget input, FilterEffectExecutionSettings settings)
         => RenderScaleUtilities.ResolveWorkingScale(
             [input.Scale],
-            environment.OutputScale,
-            environment.MaxWorkingScale);
+            settings.OutputScale,
+            settings.MaxWorkingScale);
 
     /// <summary>Compiles the stage's program, binds its inputs, and fills the output buffer with it.</summary>
     private static void RunShaderStage(
@@ -202,7 +193,7 @@ internal static class FilterEffectStageFallbackExecutor
         RenderTarget outputTarget,
         Rect outputBounds,
         SkRuntimeEffectProgramAcquirer acquireProgram,
-        StageEnvironment environment)
+        FilterEffectExecutionSettings settings)
     {
         StandaloneShaderProgram program = StandaloneShaderProgram.For(description);
         using ProgramCacheLease<CachedSkRuntimeEffect> lease = acquireProgram(output, program.Source);
@@ -222,15 +213,15 @@ internal static class FilterEffectStageFallbackExecutor
                 uniforms,
                 runtimeChildren,
                 children,
-                environment);
+                settings);
             PaintShaderStage(
                 lease.Program.Effect,
                 uniforms,
                 runtimeChildren,
                 output,
                 outputTarget,
-                environment.MaxWorkingScale,
-                environment.Intent);
+                settings.MaxWorkingScale,
+                settings.Intent);
         }
         finally
         {
@@ -253,7 +244,7 @@ internal static class FilterEffectStageFallbackExecutor
         SKRuntimeEffectUniforms uniforms,
         SKRuntimeEffectChildren runtimeChildren,
         List<SKShader> children,
-        StageEnvironment environment)
+        FilterEffectExecutionSettings settings)
     {
         if (!description.HasExecutionContextBinder)
         {
@@ -282,7 +273,7 @@ internal static class FilterEffectStageFallbackExecutor
             uniforms,
             runtimeChildren,
             children,
-            environment);
+            settings);
     }
 
     /// <remarks>
@@ -300,7 +291,7 @@ internal static class FilterEffectStageFallbackExecutor
         SKRuntimeEffectUniforms uniforms,
         SKRuntimeEffectChildren runtimeChildren,
         List<SKShader> children,
-        StageEnvironment environment)
+        FilterEffectExecutionSettings settings)
     {
         var bindingToken = new RenderExecutionSessionToken();
         bindingToken.RunAndComplete(
@@ -314,11 +305,11 @@ internal static class FilterEffectStageFallbackExecutor
                     output.DeviceBounds,
                     output.RasterBounds.Position,
                     input.Scale,
-                    environment.OutputScale,
+                    settings.OutputScale,
                     output.Scale.Value,
-                    environment.MaxWorkingScale,
-                    environment.Intent,
-                    environment.Purpose,
+                    settings.MaxWorkingScale,
+                    settings.Intent,
+                    settings.Purpose,
                     description.Kind == ShaderDescriptionKind.WholeSource
                         ? RasterShaderMapping.SemanticRasterOrigin(
                             input.Bounds,
@@ -397,9 +388,9 @@ internal static class FilterEffectStageFallbackExecutor
     private static EffectTarget? ExecuteGeometry(
         EffectTarget source,
         GeometryDescription description,
-        StageEnvironment environment)
+        FilterEffectExecutionSettings settings)
     {
-        using EffectTarget? input = NormalizeInput(source, environment);
+        using EffectTarget? input = NormalizeInput(source, settings);
         if (input?.RenderTarget is not { } inputTarget)
             return null;
 
@@ -407,8 +398,8 @@ internal static class FilterEffectStageFallbackExecutor
         if (IsEmpty(outputBounds))
             return null;
 
-        float density = ResolveSupplyDensity(input, environment);
-        EffectTarget? output = AllocateStageOutput(input, outputBounds, density, environment);
+        float density = ResolveSupplyDensity(input, settings);
+        EffectTarget? output = AllocateStageOutput(input, outputBounds, density, settings);
         if (output?.RenderTarget is not { } outputTarget)
         {
             output?.Dispose();
@@ -427,7 +418,7 @@ internal static class FilterEffectStageFallbackExecutor
                 output,
                 outputTarget,
                 outputBounds,
-                environment);
+                settings);
 
             if (selectedBounds is not { Width: > 0, Height: > 0 } selected)
                 return null;
@@ -439,7 +430,7 @@ internal static class FilterEffectStageFallbackExecutor
                 return result;
             }
 
-            return CropTarget(output, selected, environment);
+            return CropTarget(output, selected, settings);
         }
         finally
         {
@@ -462,7 +453,7 @@ internal static class FilterEffectStageFallbackExecutor
         EffectTarget output,
         RenderTarget outputTarget,
         Rect outputBounds,
-        StageEnvironment environment)
+        FilterEffectExecutionSettings settings)
     {
         var token = new RenderExecutionSessionToken();
         return token.RunAndComplete<Rect?>(
@@ -487,19 +478,19 @@ internal static class FilterEffectStageFallbackExecutor
                     () => ImmediateCanvas.CreateExecutorManaged(
                         outputTarget,
                         output.Scale.Value,
-                        environment.MaxWorkingScale,
+                        settings.MaxWorkingScale,
                         output.RasterBounds.Size,
-                        environment.Intent,
+                        settings.Intent,
                         output.DeviceBounds.Position),
                     CallbackCanvasCapability.Draw,
                     rasterBounds: output.RasterBounds);
                 var session = new GeometrySession(
                     executionInput,
                     outputBounds,
-                    environment.OutputScale,
-                    environment.MaxWorkingScale,
-                    environment.Intent,
-                    environment.Purpose,
+                    settings.OutputScale,
+                    settings.MaxWorkingScale,
+                    settings.Intent,
+                    settings.Purpose,
                     callbackCanvas,
                     description.Resources);
                 description.Render(session);
@@ -509,12 +500,12 @@ internal static class FilterEffectStageFallbackExecutor
             });
     }
 
-    private static EffectTarget? NormalizeInput(EffectTarget source, StageEnvironment environment)
+    private static EffectTarget? NormalizeInput(EffectTarget source, FilterEffectExecutionSettings settings)
     {
         if (source.RenderTarget is not { } sourceTarget)
             return null;
 
-        float density = source.Scale.IsUnbounded ? environment.WorkingScale : source.Scale.Value;
+        float density = source.Scale.IsUnbounded ? settings.WorkingScale : source.Scale.Value;
         PixelRect semanticDeviceBounds = PixelRect.FromRect(
             source.Bounds.Translate(source.DeviceGridOffset),
             density);
@@ -530,7 +521,7 @@ internal static class FilterEffectStageFallbackExecutor
         EffectTarget? normalized = AllocateTarget(
             source.Bounds,
             density,
-            environment,
+            settings,
             source.RasterBounds.Union(source.Bounds),
             source.DeviceGridOffset);
         if (normalized?.RenderTarget is not { } normalizedTarget)
@@ -548,9 +539,9 @@ internal static class FilterEffectStageFallbackExecutor
             using var canvas = ImmediateCanvas.CreateExecutorManaged(
                 normalizedTarget,
                 normalized.Scale.Value,
-                environment.MaxWorkingScale,
+                settings.MaxWorkingScale,
                 normalized.RasterBounds.Size,
-                environment.Intent);
+                settings.Intent);
             using (canvas.PushTransform(Matrix.CreateTranslation(
                        rasterTranslation.X,
                        rasterTranslation.Y)))
@@ -568,7 +559,7 @@ internal static class FilterEffectStageFallbackExecutor
         }
     }
 
-    private static EffectTarget? CropTarget(EffectTarget source, Rect selectedBounds, StageEnvironment environment)
+    private static EffectTarget? CropTarget(EffectTarget source, Rect selectedBounds, FilterEffectExecutionSettings settings)
     {
         if (source.RenderTarget is not { } sourceTarget)
             return null;
@@ -576,7 +567,7 @@ internal static class FilterEffectStageFallbackExecutor
         EffectTarget? cropped = AllocateTarget(
             selectedBounds,
             source.Scale.Value,
-            environment,
+            settings,
             deviceGridOffset: source.DeviceGridOffset);
         if (cropped?.RenderTarget is not { } croppedTarget)
         {
@@ -593,9 +584,9 @@ internal static class FilterEffectStageFallbackExecutor
             using var canvas = ImmediateCanvas.CreateExecutorManaged(
                 croppedTarget,
                 cropped.Scale.Value,
-                environment.MaxWorkingScale,
+                settings.MaxWorkingScale,
                 cropped.RasterBounds.Size,
-                environment.Intent);
+                settings.Intent);
             using (canvas.PushTransform(Matrix.CreateTranslation(
                        rasterTranslation.X,
                        rasterTranslation.Y)))
@@ -616,7 +607,7 @@ internal static class FilterEffectStageFallbackExecutor
     private static EffectTarget? AllocateTarget(
         Rect bounds,
         float density,
-        StageEnvironment environment,
+        FilterEffectExecutionSettings settings,
         Rect? physicalBounds = null,
         Vector deviceGridOffset = default,
         bool native = false)
@@ -627,11 +618,11 @@ internal static class FilterEffectStageFallbackExecutor
         PixelRect deviceBounds = FitAllocationToBudget(
             bounds,
             ref density,
-            environment.Budget,
+            settings.ResolveBudget(),
             physicalBounds,
             deviceGridOffset);
         EffectTarget? result = EffectTargetAllocation.Allocate(
-            environment.LeaseSession,
+            settings.RenderTargetLeaseSession,
             bounds,
             density,
             deviceBounds,
@@ -640,7 +631,7 @@ internal static class FilterEffectStageFallbackExecutor
             clearContents: !native);
         if (result is null)
         {
-            ReportAllocationFailure(bounds, density, deviceBounds, environment.Intent, environment.LeaseSession);
+            ReportAllocationFailure(bounds, density, deviceBounds, settings.Intent, settings.RenderTargetLeaseSession);
             return null;
         }
 
@@ -654,9 +645,9 @@ internal static class FilterEffectStageFallbackExecutor
             using var canvas = ImmediateCanvas.CreateExecutorManaged(
                 result.RenderTarget!,
                 density,
-                environment.MaxWorkingScale,
+                settings.MaxWorkingScale,
                 result.RasterBounds.Size,
-                environment.Intent,
+                settings.Intent,
                 result.DeviceBounds.Position);
             canvas.Clear();
             return result;

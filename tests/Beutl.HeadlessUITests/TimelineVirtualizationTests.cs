@@ -7,6 +7,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
@@ -44,7 +46,7 @@ public sealed class TimelineVirtualizationTests
         host.Model.Options.Value = host.Model.Options.Value with { Scale = 1 };
         HeadlessTestHelpers.Render(3);
         Assert.That(host.Panel.Children, Does.Contain(overlay));
-        Assert.That(host.Views.Single().DataContext, Is.SameAs(host.Model.Elements.Single()));
+        Assert.That(host.Views.Single().DataContext, Is.SameAs(host.Model.GetViewModelFor(scene.Children.Single())));
     }
 
     [AvaloniaTest]
@@ -120,6 +122,7 @@ public sealed class TimelineVirtualizationTests
         using var host = new ViewportHost(scene, scale: 0.0002f);
         double initialMs = timer.Elapsed.TotalMilliseconds;
         Assert.That(host.Views, Is.Empty);
+        Assert.That(host.Model.RealizedElements, Is.Empty, "Clips this narrow are painted from their elements.");
         Assert.That(host.Panel.Children.OfType<CompactElementLayer>().Count(), Is.EqualTo(2));
         Assert.That(host.Panel.Children.OfType<CompactElementLayer>().Sum(layer => layer.ElementCount), Is.EqualTo(20_000));
         Assert.That(host.Model.GetViewModelFor(scene.Children[^1])!.GetGroupOrSelectedElements()
@@ -208,6 +211,204 @@ public sealed class TimelineVirtualizationTests
     }
 
     [AvaloniaTest]
+    [TestCase(2, 10_000)]
+    [TestCase(200, 100)]
+    public void Twenty_thousand_clips_only_create_view_models_for_those_shown_or_selected(int rows, int columns)
+    {
+        var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(columns * 2 + 10) } };
+        scene.Children.AddRange(Enumerable.Range(0, rows * columns).Select(i => Clip(i / columns, i % columns * 2)));
+        using var host = new ViewportHost(scene);
+        Assert.That(host.Model.RealizedElements, Has.Count.InRange(1, 250));
+        Element distant = scene.Children[^1];
+        Assert.That(host.Model.FindViewModelFor(distant), Is.Null);
+
+        host.Model.Options.Value = host.Model.Options.Value with { Scale = 0.5f };
+        HeadlessTestHelpers.Render(3);
+        Assert.That(host.Model.RealizedElements, Has.Count.InRange(1, 500), "Zooming only adds the clips it brings into view.");
+
+        host.Selection.SelectedElements.Add(distant);
+        Assert.That(host.Model.FindViewModelFor(distant)!.IsSelected.Value, Is.True);
+        Assert.That(host.Model.SelectedElements.Select(item => item.Model), Is.EqualTo(new[] { distant }));
+        Assert.That(host.Views.Select(view => view.DataContext), Does.Not.Contain(host.Model.FindViewModelFor(distant)));
+
+        host.Selection.SelectedElements.Clear();
+        Assert.That(host.Model.SelectedElements, Is.Empty);
+        Assert.That(host.Model.RealizedElements, Has.Count.InRange(1, 501));
+    }
+
+    [AvaloniaTest]
+    public void Narrow_clips_paint_the_same_without_a_view_model()
+    {
+        var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(100) } };
+        Element plain = Clip(0, 0);
+        Element colored = Clip(1, 5);
+        colored.AccentColor.Value = Beutl.Media.Colors.Red;
+        Element disabled = Clip(2, 10);
+        disabled.IsEnabled.Value = false;
+        Element locked = Clip(3, 15);
+        locked.IsLocked.Value = true;
+        Element thin = Clip(4, 20);
+        thin.Length.Value = MediaTime.FromSeconds(0.1);
+        Element[] clips = [plain, colored, disabled, locked, thin];
+        scene.Children.AddRange(clips);
+        using var host = new ViewportHost(scene, scale: 0.1f);
+        Assert.That(host.Model.RealizedElements, Is.Empty);
+        byte[] painted = CapturePixels(host.Window);
+
+        foreach (Element clip in clips)
+        {
+            host.Model.GetViewModelFor(clip);
+        }
+
+        HeadlessTestHelpers.Render(3);
+
+        Assert.That(host.Model.RealizedElements, Has.Count.EqualTo(clips.Length));
+        Assert.That(host.Views, Is.Empty);
+        Assert.That(CapturePixels(host.Window), Is.EqualTo(painted));
+    }
+
+    [AvaloniaTest]
+    public void A_narrow_clip_gets_its_view_model_when_the_pointer_reaches_it()
+    {
+        var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(100) } };
+        Element reached = Clip(0, 0);
+        Element other = Clip(0, 5);
+        scene.Children.AddRange([reached, other]);
+        using var host = new ViewportHost(scene, scale: 0.1f);
+        Assert.That(host.Model.RealizedElements, Is.Empty);
+
+        host.Window.MouseMove(host.Panel.TranslatePoint(new Point(5, 12.5), host.Window)!.Value);
+        HeadlessTestHelpers.Render(3);
+
+        Assert.That(host.Model.RealizedElements.Select(item => item.Model), Is.EqualTo(new[] { reached }));
+        Assert.That(host.Views.Select(view => ((ElementViewModel)view.DataContext!).Model), Is.EqualTo(new[] { reached }));
+    }
+
+    [AvaloniaTest]
+    public void A_narrow_clip_without_a_view_model_follows_its_element()
+    {
+        var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(100) } };
+        Element clip = Clip(0, 0);
+        scene.Children.Add(clip);
+        using var host = new ViewportHost(scene, scale: 0.1f);
+        Rect bounds = host.Model.GetElementBounds(clip);
+
+        clip.Start.Value = MediaTime.FromSeconds(10);
+        clip.ZIndex.Value = 2;
+        HeadlessTestHelpers.Render(3);
+        Rect moved = host.Model.GetElementBounds(clip);
+        Assert.That(moved, Is.Not.EqualTo(bounds));
+        Assert.That(host.Model.FindViewModelFor(clip), Is.Null);
+
+        host.Window.MouseMove(host.Panel.TranslatePoint(moved.Center, host.Window)!.Value);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(host.Views.Select(view => ((ElementViewModel)view.DataContext!).Model), Is.EqualTo(new[] { clip }));
+    }
+
+    private static byte[] CapturePixels(Window window)
+    {
+        HeadlessTestHelpers.Render(3);
+        using WriteableBitmap frame = window.CaptureRenderedFrame()!;
+        using ILockedFramebuffer buffer = frame.Lock();
+        var pixels = new byte[buffer.RowBytes * buffer.Size.Height];
+        System.Runtime.InteropServices.Marshal.Copy(buffer.Address, pixels, 0, pixels.Length);
+        return pixels;
+    }
+
+    [AvaloniaTest]
+    public void An_edit_brings_a_clip_without_a_view_model_into_view_and_on_its_row()
+    {
+        var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(100) } };
+        Element near = Clip(0, 0);
+        Element distant = Clip(30, 50);
+        scene.Children.AddRange([near, distant]);
+        using var host = new ViewportHost(scene);
+        Assert.That(host.Model.FindViewModelFor(distant), Is.Null);
+
+        // The row exists at once, as a clip with a view model would have asked for it.
+        distant.ZIndex.Value = 60;
+        Assert.That(host.Model.LayerHeaders, Has.Count.EqualTo(61));
+        Assert.That(host.Model.FindViewModelFor(distant), Is.Null);
+
+        // A clip keeps its row, whether it has a view model or not.
+        host.Model.Options.Value = host.Model.Options.Value with { MaxLayerCount = 1 };
+        Assert.That(host.Model.LayerHeaders, Has.Count.EqualTo(61));
+
+        distant.Start.Value = MediaTime.Zero;
+        distant.ZIndex.Value = 1;
+        HeadlessTestHelpers.Render(3);
+        Assert.That(host.Views.Select(view => ((ElementViewModel)view.DataContext!).Model), Is.EquivalentTo(new[] { near, distant }));
+
+        // The rows left empty go when the count asks for it.
+        host.Model.Options.Value = host.Model.Options.Value with { MaxLayerCount = 1 };
+        Assert.That(host.Model.LayerHeaders, Has.Count.EqualTo(2));
+
+        scene.Children.Remove(distant);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(host.Model.GetViewModelFor(distant), Is.Null);
+        Assert.That(host.Model.RealizedElements.Select(item => item.Model), Is.EqualTo(new[] { near }));
+        Assert.That(host.Views.Select(view => ((ElementViewModel)view.DataContext!).Model), Is.EqualTo(new[] { near }));
+    }
+
+    [AvaloniaTest]
+    public void Clips_stay_in_scene_order_whichever_got_its_view_model_first()
+    {
+        var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(100) } };
+        Element first = Clip(0, 50);
+        Element second = Clip(0, 50);
+        scene.Children.AddRange([first, second]);
+        using var host = new ViewportHost(scene);
+
+        // The later clip gets its view model first, and the view still paints the clips in scene order.
+        host.Selection.SelectedElements.Add(second);
+        host.Selection.SelectedElements.Clear();
+        Assert.That(host.Model.FindViewModelFor(first), Is.Null);
+        host.Scroll(MediaTime.FromSeconds(50).TimeToPixel(1), 0);
+        Assert.That(host.Views.Select(view => ((ElementViewModel)view.DataContext!).Model), Is.EqualTo(new[] { first, second }));
+    }
+
+    [AvaloniaTest]
+    public void A_portal_added_to_a_clip_without_a_view_model_shows_its_scope()
+    {
+        var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(100) } };
+        scene.Children.Add(Clip(30, 0));
+        using var host = new ViewportHost(scene);
+        host.Scroll(0, host.Model.CalculateLayerTop(25));
+        Element added = Clip(1, 0);
+        scene.Children.Add(added);
+        HeadlessTestHelpers.Render();
+        Assert.That(host.Model.FindViewModelFor(added), Is.Null);
+
+        added.Objects.Add(new PortalObject { Count = { Value = 35 } });
+        HeadlessTestHelpers.Render(3);
+        Assert.That(host.Panel.Children.OfType<ElementScopeView>().Single().DataContext,
+            Is.SameAs(host.Model.FindViewModelFor(added)!.Scope));
+    }
+
+    [AvaloniaTest]
+    public async Task The_razor_cuts_a_clip_without_a_view_model_and_leaves_a_locked_one()
+    {
+        using var host = await TimelineTestHost.CreateAsync("razor-no-view-model", MediaTime.FromSeconds(120));
+        Element distant = Clip(0, 100);
+        Element locked = Clip(1, 100);
+        locked.IsLocked.Value = true;
+        Element elsewhere = Clip(2, 110);
+        host.Scene.Children.AddRange([distant, locked, elsewhere]);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(host.Model.FindViewModelFor(distant), Is.Null);
+
+        host.Model.RazorSplitAt(MediaTime.FromSeconds(100.5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(distant.Length.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
+            Assert.That(locked.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+            Assert.That(elsewhere.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+            Assert.That(host.Scene.Children, Has.Count.EqualTo(4));
+        });
+    }
+
+    [AvaloniaTest]
     public void Recycling_preserves_selection_order_and_tracks_edits_and_scopes()
     {
         var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(100) } };
@@ -262,7 +463,7 @@ public sealed class TimelineVirtualizationTests
                 new ElementSource.EngineObject(() => new RectShape())),
              new ElementDescription(MediaTime.Zero, MediaTime.FromSeconds(2), 0,
                 new ElementSource.EngineObject(() => new RectShape()))]);
-        ElementViewModel model = host.Model.Elements[1];
+        ElementViewModel model = host.Model.AllElements()[1];
         Assert.That(host.Timeline.Children.OfType<CompactElementLayer>(), Is.Not.Empty);
         ElementView view = host.Timeline.Children.OfType<ElementView>().Single();
         int detached = 0;
@@ -296,11 +497,13 @@ public sealed class TimelineVirtualizationTests
         var visible = views.Select(v => v.DataContext).ToHashSet();
         var viewport = new Rect(host.ScrollViewer.Offset.X, host.ScrollViewer.Offset.Y,
             host.ScrollViewer.Viewport.Width, host.ScrollViewer.Viewport.Height);
-        foreach (ElementViewModel model in host.Model.Elements)
+        float scale = host.Model.Options.Value.Scale;
+        foreach (Element element in host.Model.Scene.Children)
         {
-            var bounds = new Rect(model.BorderMargin.Value.Left, model.Margin.Value.Top,
-                model.Width.Value, FrameNumberHelper.LayerHeight);
-            if (bounds.Intersects(viewport)) Assert.That(visible.Contains(model), Is.True, model.Name.Value);
+            var bounds = new Rect(element.Start.Value.TimeToPixel(scale), host.Model.CalculateLayerTop(element.ZIndex.Value),
+                element.Length.Value.TimeToPixel(scale), FrameNumberHelper.LayerHeight);
+            if (bounds.Intersects(viewport))
+                Assert.That(visible.Contains(host.Model.FindViewModelFor(element)), Is.True, element.Name.Value);
         }
     }
 
@@ -345,6 +548,85 @@ public sealed class TimelineVirtualizationTests
 
         host.Scroll(0, 0);
         Assert.That(firstSource.Requests, Is.GreaterThan(firstRequests));
+    }
+
+    [AvaloniaTest]
+    public async Task Thumbnails_off_by_default_load_only_for_clips_turned_on_and_survive_a_reload()
+    {
+        var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(100) } };
+        Element chosen = Clip(0, 0);
+        Element other = Clip(1, 0);
+        var chosenSource = new CountingThumbnailSource();
+        var otherSource = new CountingThumbnailSource();
+        chosen.Objects.Add(chosenSource);
+        other.Objects.Add(otherSource);
+        scene.Children.AddRange([chosen, other]);
+
+        IProperty<bool> showByDefault = GlobalConfiguration.Instance.EditorConfig.ShowTimelineThumbnailsByDefault;
+        bool original = showByDefault.Value;
+        showByDefault.Value = false;
+        try
+        {
+            var state = new System.Text.Json.Nodes.JsonObject();
+            using (var host = new ViewportHost(scene))
+            {
+                ElementViewModel chosenModel = host.Model.GetViewModelFor(chosen)!;
+                ElementViewModel otherModel = host.Model.GetViewModelFor(other)!;
+                await Task.Delay(550);
+                HeadlessTestHelpers.Render();
+                Assert.Multiple(() =>
+                {
+                    Assert.That(chosenModel.IsThumbnailsDisabled.Value, Is.True);
+                    Assert.That(otherModel.IsThumbnailsDisabled.Value, Is.True);
+                    Assert.That(chosenSource.Requests + otherSource.Requests, Is.Zero, "No clip decodes while the default is off.");
+                });
+
+                chosenModel.IsThumbnailsDisabled.Value = false;
+                await HeadlessTestHelpers.WaitUntilAsync(() => chosenSource.Requests > 0);
+                Assert.That(host.Model.ThumbnailsEnabledElements, Is.EqualTo(new[] { chosen.Id.Value }));
+                Assert.That(host.Model.ThumbnailsDisabledElements, Is.Empty);
+
+                showByDefault.Value = true;
+                await HeadlessTestHelpers.WaitUntilAsync(() => otherSource.Requests > 0);
+                Assert.That(chosenModel.IsThumbnailsDisabled.Value, Is.False);
+                Assert.That(otherModel.IsThumbnailsDisabled.Value, Is.False, "A clip without its own choice follows the default.");
+
+                showByDefault.Value = false;
+                HeadlessTestHelpers.Settle();
+                Assert.That(chosenModel.IsThumbnailsDisabled.Value, Is.False, "The clip turned on keeps its choice.");
+                Assert.That(otherModel.IsThumbnailsDisabled.Value, Is.True);
+
+                // A choice made under one default replaces the one made under the other.
+                showByDefault.Value = true;
+                HeadlessTestHelpers.Settle();
+                otherModel.IsThumbnailsDisabled.Value = true;
+                showByDefault.Value = false;
+                HeadlessTestHelpers.Settle();
+                otherModel.IsThumbnailsDisabled.Value = false;
+                showByDefault.Value = true;
+                HeadlessTestHelpers.Settle();
+                Assert.That(otherModel.IsThumbnailsDisabled.Value, Is.False, "The newer choice wins after the default flips back.");
+                Assert.That(host.Model.ThumbnailsDisabledElements, Does.Not.Contain(other.Id.Value));
+                otherModel.IsThumbnailsDisabled.Value = true;
+                showByDefault.Value = false;
+                HeadlessTestHelpers.Settle();
+                Assert.That(chosenModel.IsThumbnailsDisabled.Value, Is.False, "Flipping the default keeps saved choices.");
+                Assert.That(otherModel.IsThumbnailsDisabled.Value, Is.True);
+                host.Model.WriteToJson(state);
+            }
+
+            using (var reopened = new ViewportHost(scene))
+            {
+                reopened.Model.ReadFromJson(state);
+                Assert.That(reopened.Model.GetViewModelFor(chosen)!.IsThumbnailsDisabled.Value, Is.False);
+                Assert.That(reopened.Model.GetViewModelFor(other)!.IsThumbnailsDisabled.Value, Is.True);
+            }
+        }
+        finally
+        {
+            showByDefault.Value = original;
+            HeadlessTestHelpers.Render();
+        }
     }
 
     [AvaloniaTest]
@@ -515,7 +797,7 @@ public sealed class TimelineVirtualizationTests
 
         public void Dispose()
         {
-            int count = Model.Elements.Count;
+            int count = Model.Scene.Children.Count;
             var timer = Stopwatch.StartNew();
             View.DataContext = null;
             Window.Close();
@@ -536,7 +818,7 @@ public sealed class TimelineVirtualizationTests
     {
         using var host = await TimelineTestHost.CreateAsync("deselect-offscreen", MediaTime.FromSeconds(120),
             [new(MediaTime.Zero, MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(() => new Beutl.Graphics.Shapes.RectShape()))]);
-        ElementViewModel clip = host.Model.Elements.Single();
+        ElementViewModel clip = host.Model.AllElements().Single();
         host.Model.SelectElement(clip);
         HeadlessTestHelpers.Render();
         Assert.That(FindView(host, clip), Is.Not.Null);
@@ -562,7 +844,7 @@ public sealed class TimelineVirtualizationTests
     {
         using var host = await TimelineTestHost.CreateAsync("highlight-offscreen", MediaTime.FromSeconds(120),
             [new(MediaTime.FromSeconds(60), MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(() => new Beutl.Graphics.Shapes.RectShape()))]);
-        ElementViewModel clip = host.Model.Elements.Single();
+        ElementViewModel clip = host.Model.AllElements().Single();
         host.Model.ClearSelected();
         HeadlessTestHelpers.Render();
         Assert.That(FindView(host, clip), Is.Null);

@@ -75,12 +75,14 @@ public sealed record AgentToolkitInstallOptions
 
 public sealed record AgentToolkitInstallResult(
     IReadOnlyList<string> InstalledFiles,
-    bool InstalledMcp,
     IReadOnlyList<InstalledFileRecord> AssetFileRecords)
 {
     // Set when the JSON MCP configuration has comments and needed a change: writing it would drop the
     // comments, so it was left unchanged and the user has to make the edit.
     public ManualMcpEdit? ManualMcpEdit { get; init; }
+
+    // The configuration file that now holds the Beutl entry; null when none was written.
+    public string? McpConfigPath { get; init; }
 
     // Skill and subagent files the user had edited, copied aside before the bundled version replaced them.
     public IReadOnlyList<BackedUpFile> BackedUpFiles { get; init; } = [];

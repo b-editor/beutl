@@ -26,7 +26,7 @@ internal sealed partial class RenderRequestExecutor
                 using (destination.PushClip(requiredRegion))
                 {
                     ApplyFilterEffects(executor, program, materializationRequired: true, density,
-                        _options.MaxWorkingScale, destination);
+                        _options.MaxWorkingScale, destination, requiredRegion);
                     foreach (EffectTarget target in targets)
                     {
                         if (target.RenderTarget is not { } surface) continue;

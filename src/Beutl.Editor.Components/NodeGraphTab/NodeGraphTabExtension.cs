@@ -18,6 +18,8 @@ public sealed class NodeGraphTabExtension : ToolTabExtension
 
     public override string DisplayName => Strings.NodeGraph;
 
+    public override DockAnchor DefaultAnchor => DockAnchor.Bottom;
+
     public override string? Header => Strings.NodeGraph;
 
     public override FAIconSource? GetIcon()

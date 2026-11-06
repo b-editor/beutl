@@ -44,10 +44,7 @@ public class ClipNode : AudioNode
         else
         {
             // 本来なら時間範囲外のノードは処理されないはずだが...
-            return RecordProcessedOutput(new AudioBuffer(
-                context.SampleRate,
-                LastProcessedChannelCount,
-                context.GetSampleCount()));
+            return RecordProcessedOutput(CreateSilentFlush(context));
         }
 
         MediaTime padBefore = newRange.Start - context.TimeRange.Start;

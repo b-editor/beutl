@@ -19,7 +19,6 @@ jobs:
       asmVer: ${{ needs.determine-version.outputs.asmVer }}
       infoVer: ${{ needs.determine-version.outputs.infoVer }}
       rids: '["linux_x64", "linux_arm64", "win_x64", "win_arm64", "osx_x64", "osx_arm64"]'
-      selfContained: false
       metadata: false
       artifactName: 'beutl_{0}'
 

@@ -54,7 +54,7 @@ Beutl.Utilities
   abstract
 [Beutl.Configuration]:EditorConfig
   sealed
-  keys: AutoAdjustSceneDuration, ClampResizeToOriginalLength, DisplayPeakLuminance, EnablePointerLockInProperty, FrameCacheColorType, FrameCacheMaxSize, FrameCacheScale, IsFrameCacheEnabled, IsNodeCacheEnabled, IsOnionSkinEnabled, IsPreviewGuideEnabled, IsRippleEnabled, IsTimelineSnapEnabled, LastMediaDirectory, LibraryTabDisplayModes, NodeCacheMaxPixels, NodeCacheMinPixels, OnionSkinNextCount, OnionSkinNextOpacity, OnionSkinPrevCount, OnionSkinPrevOpacity, PreviewGuideAspectRatios, PreviewGuideColor, PreviewGuideGridColumns, PreviewGuideGridRows, PreviewGuideKinds, PreviewGuideOpacity, PreviewSourceMode, SwapTimelineScrollDirection, TimelineAutoScrollMode, ToneMappingExposure, ToneMappingMode, UseHdrPreview
+  keys: AutoAdjustSceneDuration, ClampResizeToOriginalLength, DisplayPeakLuminance, EnablePointerLockInProperty, FrameCacheColorType, FrameCacheMaxSize, FrameCacheScale, IsFrameCacheEnabled, IsNodeCacheEnabled, IsOnionSkinEnabled, IsPreviewGuideEnabled, IsRippleEnabled, IsTimelineSnapEnabled, LastMediaDirectory, LibraryTabDisplayModes, NodeCacheMaxPixels, NodeCacheMinPixels, OnionSkinNextCount, OnionSkinNextOpacity, OnionSkinPrevCount, OnionSkinPrevOpacity, PreviewGuideAspectRatios, PreviewGuideColor, PreviewGuideGridColumns, PreviewGuideGridRows, PreviewGuideKinds, PreviewGuideOpacity, PreviewSourceMode, SeekOnTimelineClick, ShowTimelineThumbnailsByDefault, SwapTimelineScrollDirection, TimelineAutoScrollMode, ToneMappingExposure, ToneMappingMode, UseHdrPreview
 [Beutl.Configuration]:ExtensionConfig
   sealed
   keys: DecoderPriority, EditorExtensions
@@ -78,7 +78,7 @@ Beutl.Utilities
   keys: AutoCommitOnClose, AutoCommitOnSave, EnableForNewProjects, GitExecutablePath, LargeMediaWarningThresholdMb, UseLfsWhenAvailable
 [Beutl.Configuration]:ViewConfig
   sealed
-  keys: CustomAccentColor, IsWindowMaximized, LastOpenedProjectFile, PinnedToolTabs, RecentFiles, RecentProjects, RecentProjectsLayout, ShowExactBoundaries, Theme, UICulture, UseCustomAccentColor
+  keys: CustomAccentColor, IsWindowMaximized, LastOpenedProjectFile, PinnedToolTabs, RecentFiles, RecentProjects, RecentProjectsLayout, ShowExactBoundaries, Theme, UICulture, UseCustomAccentColor, UseNativeContextMenus
 [Beutl.Core]Beutl:BeutlApplication
   unsealed
   keys: Id, Name, Project
@@ -118,7 +118,16 @@ Beutl.Utilities
   keys: (no public parameterless constructor)
 [Beutl.Engine]Beutl.Animation:KeyFrame<T>
   sealed
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:EdgeDetectionOriginal>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:EdgeDetectionTarget>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:RepeatEffectMirror>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:BlendMode>
@@ -192,7 +201,16 @@ Beutl.Utilities
   keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<T>
   unsealed
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:EdgeDetectionOriginal>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:EdgeDetectionTarget>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:RepeatEffectMirror>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:BlendMode>
@@ -293,9 +311,18 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Audio.Effects:NoiseReductionEffect
   sealed
   keys: Adaptation, Animations, Expressions, Id, IsEnabled, Name, Reduction, Sensitivity, Smoothing
+[Beutl.Engine]Beutl.Audio.Effects:PitchShiftEffect
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Semitones
+[Beutl.Engine]Beutl.Audio.Effects:RingModulatorEffect
+  sealed
+  keys: Animations, Expressions, Frequency, Id, IsEnabled, Mix, Name
 [Beutl.Engine]Beutl.Audio.Effects:TimeStretchEffect
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Speed
+[Beutl.Engine]Beutl.Audio.Effects:VibratoEffect
+  sealed
+  keys: Animations, Depth, Expressions, Id, IsEnabled, Name, Rate
 [Beutl.Engine]Beutl.Audio:FallbackSound
   sealed
   keys: Animations, CenterLevel, Effect, Expressions, Gain, Id, IsEnabled, LfeLevel, Name, OffsetPosition, Pan, Speed, SurroundPan
@@ -367,6 +394,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:Blur
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Sigma
+[Beutl.Engine]Beutl.Graphics.Effects:Bokeh
+  sealed
+  keys: Animations, Expressions, Highlight, Id, IsEnabled, Name, Quality, Radius, Rotation, Shape, Sides
 [Beutl.Engine]Beutl.Graphics.Effects:Brightness
   sealed
   keys: Amount, Animations, Expressions, Id, IsEnabled, Name
@@ -417,6 +447,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:DropShadow
   sealed
   keys: Animations, Color, Expressions, Id, IsEnabled, Name, Position, ShadowOnly, Sigma
+[Beutl.Engine]Beutl.Graphics.Effects:EdgeDetection
+  sealed
+  keys: Animations, Color, Expressions, Id, IsEnabled, Name, Original, Target, Thickness, Threshold
 [Beutl.Engine]Beutl.Graphics.Effects:Erode
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, RadiusX, RadiusY
@@ -464,6 +497,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:LumaColor
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:LumaKey
+  sealed
+  keys: Animations, Expressions, Id, Invert, IsEnabled, Lower, Name, Softness, Upper
 [Beutl.Engine]Beutl.Graphics.Effects:LutEffect
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Source, Strength
@@ -488,6 +524,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:RadialBlur
   sealed
   keys: Amount, Animations, Center, Expressions, Id, IsEnabled, Mode, Name, Samples
+[Beutl.Engine]Beutl.Graphics.Effects:RepeatEffect
+  sealed
+  keys: Animations, Columns, Expressions, Id, IsEnabled, Mirror, Name, Offset, Rows, Spacing
 [Beutl.Engine]Beutl.Graphics.Effects:SKSLScriptEffect
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Script
@@ -497,6 +536,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:ShakeEffect
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Speed, StrengthX, StrengthY
+[Beutl.Engine]Beutl.Graphics.Effects:Sharpen
+  sealed
+  keys: Amount, Animations, Expressions, Id, IsEnabled, Name, Radius, Threshold
 [Beutl.Engine]Beutl.Graphics.Effects:SplitEffect
   unsealed
   keys: Animations, Expressions, HorizontalDivisions, HorizontalSpacing, Id, IsEnabled, Name, VerticalDivisions, VerticalSpacing
@@ -649,7 +691,7 @@ Beutl.Utilities
   keys: Animations, Color, ColorMap, Expressions, Id, IndexOfRefraction, IsEnabled, Name, Opacity, Roughness
 [Beutl.Engine]Beutl.Graphics3D.Materials:UnlitMaterial
   sealed
-  keys: Animations, Color, ColorMap, Expressions, Id, IsEnabled, Name, Opacity
+  keys: AlphaCutoff, AlphaMode, Animations, Color, ColorMap, Expressions, Id, IsEnabled, Name, Opacity
 [Beutl.Engine]Beutl.Graphics3D.Meshes:CubeMesh
   sealed
   keys: Animations, Depth, Expressions, Height, Id, IsEnabled, Name, Width
@@ -762,7 +804,7 @@ Beutl.Utilities
   keys: Animations, Expressions, Id, IsEnabled, Name, Opacity, Target, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media:ConicGradientBrush
   sealed
-  keys: Angle, Animations, Center, Expressions, GradientStops, Id, IsEnabled, Name, Opacity, SpreadMethod, Transform, TransformOrigin
+  keys: Angle, Animations, Center, Expressions, GradientStops, Id, InterpolatePremultiplied, InterpolationSpace, IsEnabled, Name, Opacity, SpreadMethod, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media:ConicSegment
   sealed
   keys: Animations, ControlPoint, EndPoint, Expressions, Id, IsEnabled, Name, Weight
@@ -799,7 +841,7 @@ Beutl.Utilities
   keys: Animations, Expressions, Id, IsEnabled, Name, Point
 [Beutl.Engine]Beutl.Media:LinearGradientBrush
   sealed
-  keys: Animations, EndPoint, Expressions, GradientStops, Id, IsEnabled, Name, Opacity, SpreadMethod, StartPoint, Transform, TransformOrigin
+  keys: Animations, EndPoint, Expressions, GradientStops, Id, InterpolatePremultiplied, InterpolationSpace, IsEnabled, Name, Opacity, SpreadMethod, StartPoint, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media:PathFigure
   sealed
   keys: Animations, Expressions, Id, IsClosed, IsEnabled, Name, Segments, StartPoint
@@ -819,7 +861,7 @@ Beutl.Utilities
   keys: Animations, ControlPoint, EndPoint, Expressions, Id, IsEnabled, Name
 [Beutl.Engine]Beutl.Media:RadialGradientBrush
   sealed
-  keys: Animations, Center, Expressions, GradientOrigin, GradientStops, Id, IsEnabled, Name, Opacity, Radius, SpreadMethod, Transform, TransformOrigin
+  keys: Animations, Center, Expressions, GradientOrigin, GradientStops, Id, InterpolatePremultiplied, InterpolationSpace, IsEnabled, Name, Opacity, Radius, SpreadMethod, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media:RectGeometry
   sealed
   keys: Animations, Expressions, FillType, Height, Id, IsEnabled, Name, Transform, Width
@@ -887,6 +929,9 @@ Beutl.Utilities
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Group:GroupInput:GroupInputPort<T>
   unsealed
+[Beutl.NodeGraph].Nodes.Group:GroupInput:GroupInputPort<[Beutl.NodeGraph].Nodes.Shaders:ShaderGraphValue<[Beutl.Engine]Beutl.Graphics.Shaders:ShaderImage>>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph].Nodes.Group:GroupNode
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, node-tree
@@ -895,6 +940,133 @@ Beutl.Utilities
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Group:GroupOutput:GroupOutputPort<T>
   unsealed
+[Beutl.NodeGraph].Nodes.Group:GroupOutput:GroupOutputPort<[Beutl.NodeGraph].Nodes.Shaders:ShaderGraphValue<[Beutl.Engine]Beutl.Graphics.Shaders:ShaderImage>>
+  unsealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph].Nodes.Shaders:ShaderBlendNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderBufferNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderClearBufferNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderClearImageNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderColorNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderComputePassNode
+  unsealed
+  keys: Animations, Code, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderConvertColorNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderCopyBufferNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderCopyImageNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderDataNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderDepthNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderDispatchNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Mode, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderDrawNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Mode, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderDynamicNode
+  abstract
+[Beutl.NodeGraph].Nodes.Shaders:ShaderExtendedRenderPassNode
+  unsealed
+  keys: Animations, Expressions, Fragment, Geometry, Id, IsEnabled, IsExpanded, Items, Name, Position, TessellationControl, TessellationEvaluation, Vertex
+[Beutl.NodeGraph].Nodes.Shaders:ShaderFixedImageNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderFullscreenPassNode
+  unsealed
+  keys: Animations, Code, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderGenerateMipmapsNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderGraphEffect
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph].Nodes.Shaders:ShaderGraphicsPassNode
+  abstract
+[Beutl.NodeGraph].Nodes.Shaders:ShaderImageNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderImageParametersNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderImageProducerNode
+  abstract
+[Beutl.NodeGraph].Nodes.Shaders:ShaderImageViewNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderIndexBufferNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderInputRegionNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderLoadNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderLoopInfoNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderLoopInput
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderLoopNode
+  abstract
+[Beutl.NodeGraph].Nodes.Shaders:ShaderLoopOutput
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderPackNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderPartialRenderingNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderPassNode
+  abstract
+[Beutl.NodeGraph].Nodes.Shaders:ShaderRasterizerNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderRenderPassNode
+  unsealed
+  keys: Animations, Expressions, Fragment, Id, IsEnabled, IsExpanded, Items, Name, Position, Vertex
+[Beutl.NodeGraph].Nodes.Shaders:ShaderRepeatNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, node-tree
+[Beutl.NodeGraph].Nodes.Shaders:ShaderReplayNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, node-tree
+[Beutl.NodeGraph].Nodes.Shaders:ShaderSamplerNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderStencilNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderVectorNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderVertexAttributeNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderVertexBufferNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities.Struct:PixelPointNode
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
@@ -1020,13 +1192,67 @@ Beutl.Utilities
 [Beutl.NodeGraph]:DefaultInputPort<[Beutl.Core]Beutl:MediaTime>
   sealed
   keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Backend:AttachmentLoadOp>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Backend:BlendFactor>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Backend:BlendOp>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Backend:CompareFunction>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Backend:CullMode>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Backend:FrontFace>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Backend:IndexFormat>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Backend:PrimitiveTopology>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Backend:SamplerAddressMode>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Backend:SamplerFilter>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Backend:StencilFaceState>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Backend:StencilOperation>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Backend:TextureFormat>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Backend:VertexFormat>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Backend:VertexInputRate>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Rendering:RenderNode>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Shaders:ColorEncoding>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Shaders:ImageKind>
   sealed
   keys: Animations, Connection, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics:Matrix>
   sealed
   keys: Animations, Connection, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics:Point>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics:Rect>
   sealed
   keys: Animations, Connection, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics:Size>
@@ -1039,6 +1265,9 @@ Beutl.Utilities
   sealed
   keys: Animations, Connection, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Media:Brush>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Media:Color>
   sealed
   keys: Animations, Connection, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Media:Geometry>
@@ -1071,7 +1300,22 @@ Beutl.Utilities
 [Beutl.NodeGraph]:DefaultInputPort<[Beutl.NodeGraph].Nodes.Generative:GenerativeSeedControl>
   sealed
   keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.NodeGraph].Nodes.Shaders:ShaderDataType>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.NodeGraph].Nodes.Shaders:ShaderGraphValue<[Beutl.Engine]Beutl.Graphics.Shaders:ShaderBuffer>>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.NodeGraph].Nodes.Shaders:ShaderGraphValue<[Beutl.Engine]Beutl.Graphics.Shaders:ShaderImage>>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System.Numerics:Vector4>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:Boolean>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:Byte[]>
   sealed
   keys: Animations, Connection, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:Double>
@@ -1090,6 +1334,9 @@ Beutl.Utilities
   sealed
   keys: Animations, Connection, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:String>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:UInt32>
   sealed
   keys: Animations, Connection, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:DefaultNodeMember<T>
@@ -1132,6 +1379,12 @@ Beutl.Utilities
 [Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:WritingMode>
   unsealed
   keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.NodeGraph].Nodes.Shaders:ShaderDispatchMode>
+  unsealed
+  keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.NodeGraph].Nodes.Shaders:ShaderDrawMode>
+  unsealed
+  keys: (no public parameterless constructor)
 [Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.ProjectSystem]:Scene>
   unsealed
   keys: (no public parameterless constructor)
@@ -1159,10 +1412,19 @@ Beutl.Utilities
   unsealed
 [Beutl.NodeGraph]:ListInputPort<T>
   unsealed
+[Beutl.NodeGraph]:ListInputPort<[Beutl.Engine]Beutl.Graphics.Backend:VertexAttributeDescription>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:ListInputPort<[Beutl.Engine]Beutl.Graphics.Rendering:RenderNode>
   unsealed
   keys: Animations, Connections, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:ListInputPort<[Beutl.Engine]Beutl.Media.Source:VideoSource>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:ListInputPort<[Beutl.NodeGraph].Nodes.Shaders:ShaderGraphValue<[Beutl.Engine]Beutl.Graphics.Shaders:ShaderImage>>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:ListInputPort<[Beutl.NodeGraph].Nodes.Shaders:ShaderPassConfiguration>
   unsealed
   keys: Animations, Connections, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:ListInputPort<[System.Private.CoreLib]System:Object>
@@ -1204,6 +1466,12 @@ Beutl.Utilities
   unsealed
 [Beutl.NodeGraph]:OutputPort<T>
   unsealed
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics.Backend:StencilFaceState>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics.Backend:VertexAttributeDescription>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics.Rendering:ContainerRenderNode>
   unsealed
   keys: Animations, Connections, Expressions, Id, IsEnabled, Name
@@ -1261,6 +1529,27 @@ Beutl.Utilities
 [Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Media:RoundedRectGeometry>
   unsealed
   keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.NodeGraph].Nodes.Shaders:ShaderGraphValue<[Beutl.Engine]Beutl.Graphics.Shaders:ShaderBuffer>>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.NodeGraph].Nodes.Shaders:ShaderGraphValue<[Beutl.Engine]Beutl.Graphics.Shaders:ShaderImage>>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.NodeGraph].Nodes.Shaders:ShaderPassConfiguration>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[System.Private.CoreLib]System.Numerics:Vector2>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[System.Private.CoreLib]System.Numerics:Vector3>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[System.Private.CoreLib]System.Numerics:Vector4>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[System.Private.CoreLib]System:Byte[]>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:OutputPort<[System.Private.CoreLib]System:Double>
   unsealed
   keys: Animations, Connections, Expressions, Id, IsEnabled, Name
@@ -1293,7 +1582,7 @@ Beutl.Utilities
   keys: Animations, Clear, Count, Expressions, Id, IsEnabled, Name
 [Beutl.ProjectSystem]:Scene
   unsealed
-  keys: Duration, Elements, FrameSize, Groups, Height, Id, Layers, Markers, Name, Start, Width
+  keys: Duration, Elements, FrameSize, Groups, Height, Id, Layers, Markers, MasterVolume, Name, Start, Width
 [Beutl.ProjectSystem]:SceneDrawable
   sealed
   keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, OffsetPosition, Opacity, ReferencedScene, Transform, TransformOrigin
@@ -1380,6 +1669,9 @@ editor.next
 editor.nextKeyFrame
 editor.nextMarker
 editor.playPause
+editor.previewZoomFit
+editor.previewZoomIn
+editor.previewZoomOut
 editor.previous
 editor.previousKeyFrame
 editor.previousMarker
@@ -1400,12 +1692,14 @@ library.addElement
 library.addElementFromTemplate
 main.changeTheme
 main.closeProject
+main.closeTab
 main.commitVersion
 main.createNewFile
 main.createNewProject
 main.createToolTab
 main.enableVersionControl
 main.exit
+main.minimizeWindow
 main.nextTab
 main.nextToolTab
 main.openFile
@@ -1418,6 +1712,9 @@ main.redo
 main.save
 main.saveAll
 main.showCommandPalette
+main.showSettings
+main.showTutorials
+main.toggleFullScreen
 main.undo
 previewSettings.changePreviewRenderQuality
 sceneSettings.changeSceneDuration
@@ -1428,6 +1725,7 @@ timeline.closeGap
 timeline.copy
 timeline.cut
 timeline.delete
+timeline.deselectAll
 timeline.duplicate
 timeline.exitRazorMode
 timeline.exitRollMode
@@ -1443,7 +1741,9 @@ timeline.nudgeRightLarge
 timeline.nudgeRightSecond
 timeline.paste
 timeline.rename
+timeline.resetZoom
 timeline.saveAsTemplate
+timeline.selectAll
 timeline.setEndTime
 timeline.setStartTime
 timeline.split
@@ -1453,6 +1753,8 @@ timeline.toggleRippleMode
 timeline.toggleRollMode
 timeline.toggleSlideMode
 timeline.toggleSlipMode
+timeline.zoomIn
+timeline.zoomOut
 
 ## Decoders
 # Extension.DecoderPriority in settings.json: the $type of every IDecoderInfo.

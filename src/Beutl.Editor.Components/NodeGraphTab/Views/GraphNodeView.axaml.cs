@@ -76,6 +76,24 @@ public partial class GraphNodeView : UserControl
             nestedPortOverlay.SetPosition(port, position - new Point(5, 5));
     }
 
+    // The height alone picks the row, so a nested row's indent still drops on it. Rows hold their nested rows,
+    // so the last one to start above the point is the innermost, and past its end the point is in no row.
+    internal NodePortView? FindPortRow(Point point)
+    {
+        NodePortView? row = null;
+        double top = double.NegativeInfinity;
+        foreach (NodePortView view in this.GetVisualDescendants().OfType<NodePortView>())
+        {
+            if (view.IsEffectivelyVisible && view.TranslatePoint(default, this) is { Y: var y } && y <= point.Y && y >= top)
+            {
+                row = view;
+                top = y;
+            }
+        }
+
+        return row != null && point.Y < top + row.DropHeight ? row : null;
+    }
+
     private void OnDataContextDetached(GraphNodeViewModel obj)
     {
         void DetachUndecidedNodePort(ref NodePortView? port, ref NodePortViewModel? portViewModel)
@@ -334,7 +352,7 @@ public partial class GraphNodeView : UserControl
         // A press that did not move the node is a click on it.
         if (moved || DataContext is not GraphNodeViewModel viewModel) return;
         if (!viewModel.CanEdit.Value && !_start.NearlyEquals(e.GetPosition(Parent as Visual))) return;
-        if (e.KeyModifiers == KeyModifiers.Control)
+        if (e.KeyModifiers is KeyModifiers.Control or KeyModifiers.Meta)
         {
             viewModel.IsSelected.Value = !viewModel.IsSelected.Value;
         }

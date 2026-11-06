@@ -83,6 +83,13 @@ public static class TimelineHelper
         scrollViewer.Offset = new Vector(offsetX, scrollViewer.Offset.Y);
     }
 
+    // Keeps the content under pointerX in place while the scale changes.
+    internal static float ZoomOffsetX(double pointerX, float offsetX, float oldScale, float newScale)
+    {
+        double deltaLeft = pointerX - offsetX;
+        return (float)((pointerX / oldScale * newScale) - deltaLeft);
+    }
+
     // The zoom menus pass their levels as invariant string literals, and Beutl leaves CurrentCulture at the OS one.
     internal static bool TryParseZoom(object? commandParameter, out float zoom)
     {

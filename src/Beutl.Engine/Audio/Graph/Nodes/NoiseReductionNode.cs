@@ -16,7 +16,6 @@ public sealed class NoiseReductionNode : AudioNode
     // The input format is supplied when the graph is built, without pulling upstream audio.
     public int ChannelCount { get; set; } = 2;
 
-    private int _reducerChannels;
     private const int MaxReadFrames = 16384;
 
     // Audio around a restart that seeds the noise floor. At most half of it precedes the restart, so a
@@ -115,12 +114,11 @@ public sealed class NoiseReductionNode : AudioNode
     {
         int sampleRate = context.SampleRate;
         bool upstreamChanged = AudioSourceStream.UpstreamChangedAndCapture(this, ref _upstreamSnapshot);
-        if (_reducer is null || _sampleRate != sampleRate || _reducerChannels != ChannelCount || upstreamChanged)
+        if (_reducer is null || _sampleRate != sampleRate || _reducer.ChannelCount != ChannelCount || upstreamChanged)
         {
             _reducer = new SpectralNoiseReducer(sampleRate, ChannelCount);
             _stream = new AudioSourceStream(sampleRate, ChannelCount, static time => time);
             _sampleRate = sampleRate;
-            _reducerChannels = ChannelCount;
             _lastTimeRangeEnd = null;
         }
 
@@ -265,10 +263,10 @@ public sealed class NoiseReductionNode : AudioNode
     {
         _sampler = context.AnimationSampler;
         _processedControls = ReadControls();
-        _animated = Reduction.GetKeyFrameAnimation() != null
-                    || Sensitivity.GetKeyFrameAnimation() != null
-                    || Smoothing.GetKeyFrameAnimation() != null
-                    || Adaptation.GetKeyFrameAnimation() != null;
+        _animated = AnimationSampler.IsAnimated(Reduction)
+                    || AnimationSampler.IsAnimated(Sensitivity)
+                    || AnimationSampler.IsAnimated(Smoothing)
+                    || AnimationSampler.IsAnimated(Adaptation);
         _staticSettings = NoiseReductionParameters.Normalize(
             Reduction.Value,
             Sensitivity.Value,
@@ -276,14 +274,18 @@ public sealed class NoiseReductionNode : AudioNode
             Adaptation.Value);
     }
 
-    // Animated controls are compared by animation; static ones by value.
+    // Animated controls are compared by their keyframes or expression; static ones by value.
     private Controls ReadControls()
     {
         return new Controls(
-            Reduction.GetKeyFrameAnimation(), Reduction.GetKeyFrameAnimation() is null ? Reduction.Value : 0,
-            Sensitivity.GetKeyFrameAnimation(), Sensitivity.GetKeyFrameAnimation() is null ? Sensitivity.Value : 0,
-            Smoothing.GetKeyFrameAnimation(), Smoothing.GetKeyFrameAnimation() is null ? Smoothing.Value : 0,
-            Adaptation.GetKeyFrameAnimation(), Adaptation.GetKeyFrameAnimation() is null ? Adaptation.Value : 0);
+            GetAnimation(Reduction), GetStaticValue(Reduction),
+            GetAnimation(Sensitivity), GetStaticValue(Sensitivity),
+            GetAnimation(Smoothing), GetStaticValue(Smoothing),
+            GetAnimation(Adaptation), GetStaticValue(Adaptation));
+
+        static object? GetAnimation(IProperty<float> property) => (property as IExpressionProperty)?.Expression;
+
+        static float GetStaticValue(IProperty<float> property) => AnimationSampler.IsAnimated(property) ? 0 : property.Value;
     }
 
     // Animated parameters are evaluated once per frame, at the frame's center.
@@ -294,29 +296,14 @@ public sealed class NoiseReductionNode : AudioNode
 
         var time = MediaTime.FromSeconds(position / (double)_sampleRate);
         return NoiseReductionParameters.Normalize(
-            Sample(Reduction, time),
-            Sample(Sensitivity, time),
-            Sample(Smoothing, time),
-            Sample(Adaptation, time));
+            _sampler!.SampleAt(Reduction, time, _sampleRate),
+            _sampler!.SampleAt(Sensitivity, time, _sampleRate),
+            _sampler!.SampleAt(Smoothing, time, _sampleRate),
+            _sampler!.SampleAt(Adaptation, time, _sampleRate));
     }
 
-    private float Sample(IProperty<float> property, MediaTime time)
-    {
-        if (property.GetKeyFrameAnimation() is null)
-            return property.Value;
-
-        Span<float> value = stackalloc float[1];
-        _sampler!.SampleBuffer(property, new TimeRange(time, MediaTime.Zero), _sampleRate, value);
-        return value[0];
-    }
-
-    // A fractional end still contains the sample it cuts into.
     private long ToTerminalSample(MediaTime time)
-    {
-        double value = time.ToSeconds() * _sampleRate;
-        double rounded = Math.Round(value);
-        return (long)(Math.Abs(value - rounded) < 1e-6 ? rounded : Math.Ceiling(value));
-    }
+        => AudioSourceStream.ToEndSample(time.ToSeconds() * _sampleRate);
 
     private readonly record struct Controls(
         object? ReductionAnimation,

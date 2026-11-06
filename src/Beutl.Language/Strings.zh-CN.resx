@@ -62,6 +62,9 @@
   <data name="Close" xml:space="preserve">
     <value>关闭</value>
   </data>
+  <data name="CloseTab" xml:space="preserve">
+    <value>关闭标签页</value>
+  </data>
   <data name="ColorScopes" xml:space="preserve">
     <value>示波器</value>
   </data>
@@ -88,6 +91,18 @@
   </data>
   <data name="View" xml:space="preserve">
     <value>视图</value>
+  </data>
+  <data name="Window" xml:space="preserve">
+    <value>窗口</value>
+  </data>
+  <data name="MinimizeWindow" xml:space="preserve">
+    <value>最小化</value>
+  </data>
+  <data name="ZoomWindow" xml:space="preserve">
+    <value>缩放</value>
+  </data>
+  <data name="ToggleFullScreen" xml:space="preserve">
+    <value>切换全屏</value>
   </data>
   <data name="Object" xml:space="preserve">
     <value>对象</value>
@@ -166,6 +181,12 @@
   </data>
   <data name="Paste" xml:space="preserve">
     <value>粘贴</value>
+  </data>
+  <data name="SelectAll" xml:space="preserve">
+    <value>全选</value>
+  </data>
+  <data name="DeselectAll" xml:space="preserve">
+    <value>取消全选</value>
   </data>
   <data name="Split" xml:space="preserve">
     <value>分割</value>
@@ -338,6 +359,15 @@
   <data name="Easing" xml:space="preserve">
     <value>缓动</value>
   </data>
+  <data name="EasingCurve_ControlPoints" xml:space="preserve">
+    <value>第一个控制点 {0}, {1}。第二个控制点 {2}, {3}。</value>
+  </data>
+  <data name="EasingCurve_FirstSelected" xml:space="preserve">
+    <value>已选择第一个控制点。</value>
+  </data>
+  <data name="EasingCurve_SecondSelected" xml:space="preserve">
+    <value>已选择第二个控制点。</value>
+  </data>
   <data name="Hold" xml:space="preserve">
     <value>保持</value>
   </data>
@@ -424,6 +454,9 @@
   </data>
   <data name="Audio" xml:space="preserve">
     <value>音频</value>
+  </data>
+  <data name="MasterVolume" xml:space="preserve">
+    <value>主音量 (%)</value>
   </data>
   <data name="Off" xml:space="preserve">
     <value>关</value>
@@ -518,6 +551,12 @@
   <data name="TimelineZoom" xml:space="preserve">
     <value>缩放</value>
   </data>
+  <data name="TimelineZoomIn" xml:space="preserve">
+    <value>放大</value>
+  </data>
+  <data name="TimelineZoomOut" xml:space="preserve">
+    <value>缩小</value>
+  </data>
   <data name="TimelineSnap" xml:space="preserve">
     <value>吸附</value>
   </data>
@@ -553,6 +592,9 @@
   </data>
   <data name="RemoveExpression" xml:space="preserve">
     <value>移除表达式</value>
+  </data>
+  <data name="Expression_ReturnsBothValues" xml:space="preserve">
+    <value>输入一个同时返回所有值的表达式,例如 {0}。</value>
   </data>
   <data name="ExpressionHelp" xml:space="preserve">
     <value>输入数学表达式。可用变量：Time、Start、Duration、Progress。使用 GetProperty&lt;T&gt;("{GUID}.Property") 引用其他属性。</value>
@@ -764,6 +806,9 @@
   <data name="EnableElement" xml:space="preserve">
     <value>启用元素</value>
   </data>
+  <data name="Visible" xml:space="preserve">
+    <value>显示</value>
+  </data>
   <data name="MoveTo" xml:space="preserve">
     <value>移动到</value>
   </data>
@@ -801,10 +846,10 @@
     <value>在播放和暂停之间切换。</value>
   </data>
   <data name="MoveToNext" xml:space="preserve">
-    <value>移到下一个</value>
+    <value>移到下一帧</value>
   </data>
   <data name="MoveToPrevious" xml:space="preserve">
-    <value>移到上一个</value>
+    <value>移到上一帧</value>
   </data>
   <data name="MoveToNext_Description" xml:space="preserve">
     <value>移到下一帧。</value>
@@ -1357,6 +1402,9 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="RenderScale_FitToPreviewer" xml:space="preserve">
     <value>适应预览器</value>
   </data>
+  <data name="RenderScale_FitToPreviewer_Short" xml:space="preserve">
+    <value>自动</value>
+  </data>
   <data name="Terminal" xml:space="preserve">
     <value>终端</value>
   </data>
@@ -1590,6 +1638,12 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>字幕文件</value>
+  </data>
+  <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
+    <value>无法从 {0} 读取字幕。</value>
+  </data>
+  <data name="SubtitleFile_SomeSkipped" xml:space="preserve">
+    <value>无法读取 {0} 中的部分字幕，已跳过。</value>
   </data>
   <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
     <value>要删除“{0}”吗？</value>
@@ -3522,6 +3576,9 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="UnseparateComponents_Description" xml:space="preserve">
     <value>保留当前时间的值，并移除分量的关键帧和表达式。</value>
   </data>
+  <data name="UnseparateComponents_SameTiming" xml:space="preserve">
+    <value>仅当所有值的关键帧时间和缓动相同,且共用一个表达式或没有表达式时可用。</value>
+  </data>
   <data name="RelativeUnit_Relative" xml:space="preserve">
     <value>相对 (1 = 100%)</value>
   </data>
@@ -3536,6 +3593,18 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="TogglePreviewGuides_Description" xml:space="preserve">
     <value>在预览中显示或隐藏安全区域和构图参考线。</value>
+  </data>
+  <data name="PreviewZoom" xml:space="preserve">
+    <value>预览缩放</value>
+  </data>
+  <data name="PreviewZoomIn" xml:space="preserve">
+    <value>放大预览</value>
+  </data>
+  <data name="PreviewZoomOut" xml:space="preserve">
+    <value>缩小预览</value>
+  </data>
+  <data name="PreviewZoomFit" xml:space="preserve">
+    <value>适应预览大小</value>
   </data>
   <data name="PreviewGuide_TitleSafe" xml:space="preserve">
     <value>字幕安全框</value>
@@ -3668,5 +3737,8 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="ProjectAudioChannels" xml:space="preserve">
     <value>项目音频声道</value>
+  </data>
+  <data name="Paste_ProjectNotSaved" xml:space="preserve">
+    <value>粘贴剪辑之前请先保存项目。</value>
   </data>
 </root>

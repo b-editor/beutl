@@ -678,8 +678,7 @@ public class Renderer : IRenderer
     }
 
     // Maps a point into the space a drawable is drawn in through the transforms above it, or returns null
-    // when a clip above it hides that point. Masks are not evaluated, so a masked drawable still answers
-    // for points its mask hides.
+    // when a clip or mask above it hides that point.
     private static Point? MapIntoDrawable(Point point, RenderNode[] path)
     {
         foreach (RenderNode node in path)
@@ -692,6 +691,11 @@ public class Renderer : IRenderer
                     break;
                 case RectClipRenderNode clip
                     when clip.Clip.Contains(point) != (clip.Operation == ClipOperation.Intersect):
+                    return null;
+                case GeometryClipRenderNode { Clip: { } geometry } clip
+                    when geometry.Resource.FillContains(point) != (clip.Operation == ClipOperation.Intersect):
+                    return null;
+                case OpacityMaskRenderNode mask when mask.HidesPoint(point):
                     return null;
             }
         }

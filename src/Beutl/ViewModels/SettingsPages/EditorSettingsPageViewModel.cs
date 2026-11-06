@@ -70,9 +70,17 @@ public sealed class EditorSettingsPageViewModel : IDisposable
             _editorConfig.SwapTimelineScrollDirection.GetObservable(),
             b => _editorConfig.SwapTimelineScrollDirection.Value = b);
 
+        SeekOnTimelineClick = CreateSetting(
+            _editorConfig.SeekOnTimelineClick.GetObservable(),
+            b => _editorConfig.SeekOnTimelineClick.Value = b);
+
         ClampResizeToOriginalLength = CreateSetting(
             _editorConfig.ClampResizeToOriginalLength.GetObservable(),
             b => _editorConfig.ClampResizeToOriginalLength.Value = b);
+
+        ShowTimelineThumbnailsByDefault = CreateSetting(
+            _editorConfig.ShowTimelineThumbnailsByDefault.GetObservable(),
+            b => _editorConfig.ShowTimelineThumbnailsByDefault.Value = b);
 
         TimelineAutoScrollMode = CreateSetting(
             _editorConfig.TimelineAutoScrollMode.GetObservable()
@@ -291,7 +299,11 @@ public sealed class EditorSettingsPageViewModel : IDisposable
 
     public ReactiveProperty<bool> SwapTimelineScrollDirection { get; }
 
+    public ReactiveProperty<bool> SeekOnTimelineClick { get; }
+
     public ReactiveProperty<bool> ClampResizeToOriginalLength { get; }
+
+    public ReactiveProperty<bool> ShowTimelineThumbnailsByDefault { get; }
 
     public ReactiveProperty<int> TimelineAutoScrollMode { get; }
 

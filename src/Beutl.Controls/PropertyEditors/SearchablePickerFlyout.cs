@@ -4,29 +4,21 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
-using FluentAvalonia.Core;
-using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Controls.PropertyEditors;
 
 // Picks an item of an ISearchablePickerViewModel. Enter or the checkmark confirms the highlighted item, and Escape
 // cancels even from the search box.
-public sealed class SearchablePickerFlyout(ISearchablePickerViewModel viewModel) : FAPickerFlyoutBase
+public sealed class SearchablePickerFlyout(ISearchablePickerViewModel viewModel)
+    : ConfirmablePickerFlyout<SearchablePickerFlyout, LibraryItemPickerFlyoutPresenter>
 {
-    private bool _confirmed;
-
-    public event TypedEventHandler<SearchablePickerFlyout, EventArgs>? Confirmed;
-
-    // Raised when the picker closes any way but by confirming, even with the control it is placed at.
-    public event TypedEventHandler<SearchablePickerFlyout, EventArgs>? Dismissed;
-
     // The key of the presenter's ControlTheme, which lays out the items.
     public string PresenterThemeKey { get; init; } = "SearchablePickerFlyoutPresenter";
 
     // Shown in place of the list when a search matches nothing.
     public string? NoResultsText { get; init; }
 
-    protected override Control CreatePresenter()
+    protected override LibraryItemPickerFlyoutPresenter CreatePickerPresenter()
     {
         // These items are found by name far more often than by scrolling, so the search box starts open.
         var pfp = new LibraryItemPickerFlyoutPresenter
@@ -35,9 +27,6 @@ public sealed class SearchablePickerFlyout(ISearchablePickerViewModel viewModel)
             NoResultsText = NoResultsText
         };
 
-        pfp.CloseClicked += OnFlyoutDismissed;
-        pfp.Confirmed += OnFlyoutConfirmed;
-        pfp.Dismissed += OnFlyoutDismissed;
         pfp.Pinned += viewModel.Pin;
         pfp.Unpinned += viewModel.Unpin;
         pfp.Items = viewModel.Items;
@@ -57,70 +46,20 @@ public sealed class SearchablePickerFlyout(ISearchablePickerViewModel viewModel)
                     pfp.SearchText = null;
                 }
             });
-        pfp.KeyDown += (_, e) =>
-        {
-            if (e.Key == Key.Enter)
-            {
-                OnConfirmed();
-            }
-        };
         pfp.AddHandler(InputElement.KeyDownEvent, (_, e) =>
         {
-            switch (e.Key)
+            // Escape cancels the picker even from the search box, which would otherwise only close the box.
+            if (e.Key == Key.Escape)
             {
-                // Escape cancels the picker even from the search box, which would otherwise only close the box.
-                case Key.Escape:
-                    e.Handled = true;
-                    Hide();
-                    break;
-                // These move through the results, so show the results for everything typed so far first.
-                case Key.Up or Key.Down:
-                    viewModel.FlushSearch();
-                    break;
+                e.Handled = true;
+                Hide();
             }
         }, RoutingStrategies.Tunnel);
 
         return pfp;
     }
 
-    protected override void OnOpened()
-    {
-        base.OnOpened();
-        if (Popup.Child is LibraryItemPickerFlyoutPresenter pfp)
-        {
-            pfp.FocusInitialElement();
-        }
-    }
-
-    private void OnFlyoutDismissed(DraggablePickerFlyoutPresenter sender, object args)
-    {
-        Hide();
-    }
-
-    private void OnFlyoutConfirmed(DraggablePickerFlyoutPresenter sender, object args)
-    {
-        OnConfirmed();
-    }
-
-    protected override void OnConfirmed()
-    {
-        // Enter, the checkmark and any other way of confirming pick from the results for everything typed.
-        viewModel.FlushSearch();
-        _confirmed = true;
-        Confirmed?.Invoke(this, EventArgs.Empty);
-        Hide();
-    }
-
-    protected override void OnClosed()
-    {
-        base.OnClosed();
-        if (!_confirmed)
-        {
-            Dismissed?.Invoke(this, EventArgs.Empty);
-        }
-
-        _confirmed = false;
-    }
+    protected override void FlushPendingSearch() => viewModel.FlushSearch();
 
     protected override void OnOpening(CancelEventArgs args)
     {
@@ -129,9 +68,5 @@ public sealed class SearchablePickerFlyout(ISearchablePickerViewModel viewModel)
         {
             pfp.Theme = Popup.FindResource(PresenterThemeKey) as ControlTheme;
         }
-
-        Popup.IsLightDismissEnabled = false;
     }
-
-    protected override bool ShouldShowConfirmationButtons() => true;
 }

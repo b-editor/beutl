@@ -47,11 +47,12 @@ public partial class Scene
     /// size. An overlapping peer that extends the run past the anchor moves the
     /// target gap to the run's covered end. Returns <see langword="false"/> when
     /// there is no gap after the run (no next element, or the next element
-    /// touches or overlaps the run), when the layer is locked, or when a locked
-    /// element blocks every shiftable follower. Locked layers and locked
-    /// elements are never moved; a locked element acts as an immovable barrier
-    /// that halts the shift. Does not commit history; the caller owns the single
-    /// <c>HistoryManager.Commit</c> boundary.
+    /// touches or overlaps the run), when the layer is locked, when a locked
+    /// element blocks every shiftable follower, or when a follower would still
+    /// overlap what stays after moving by the gap size, in which case nothing
+    /// moves. Locked layers and locked elements are never moved; a locked element
+    /// acts as an immovable barrier that halts the shift. Does not commit history;
+    /// the caller owns the single <c>HistoryManager.Commit</c> boundary.
     /// </summary>
     public bool CloseGapAfter(Element anchor)
     {
@@ -69,38 +70,103 @@ public partial class Scene
             return false;
         }
 
+        // Moving by anything but the gap's width would not close this gap, so a clip that would still land on what
+        // stays keeps it open rather than fitting around it.
         Element[] toShift = ShiftableAfter(z, gap.Range.End);
-        return toShift.Length != 0 && MoveChildrenAndDetectChange(toShift, -gap.Range.Duration);
+        return toShift.Length != 0 && MoveChildrenCore(toShift, 0, -gap.Range.Duration, fitAroundConflicts: false);
     }
 
     /// <summary>
     /// Closes every gap between elements on every ZIndex (the space before the
     /// first element on a ZIndex is not closed). Returns the number of gaps
-    /// closed. Gaps are closed right-to-left within each ZIndex so earlier
-    /// closes do not shift elements that later closes depend on. Locked layers
+    /// closed. Each element moves once, by the gaps closed before it. Locked layers
     /// are skipped and locked elements are never moved; a locked element acts as
     /// an immovable barrier that halts the shift. Does not commit history; the
     /// caller owns the single commit boundary.
     /// </summary>
     public int CloseAllGaps()
     {
-        List<SceneGap> gaps = EnumerateGaps().ToList();
-        if (gaps.Count == 0) return 0;
-
         int closed = 0;
-        foreach (IGrouping<int, SceneGap> zGroup in gaps.GroupBy(g => g.ZIndex))
+        MediaTime? movedEnd = null;
+        foreach (IGrouping<int, Element> layer in Children.GroupBy(e => e.ZIndex.Value))
         {
-            if (IsLayerLocked(zGroup.Key)) continue;
-
-            foreach (SceneGap gap in zGroup.OrderByDescending(g => g.Range.Start))
+            if (!IsLayerLocked(layer.Key))
             {
-                Element[] toShift = ShiftableAfter(zGroup.Key, gap.Range.End);
-                if (toShift.Length == 0) continue;
+                closed += CloseLayerGaps(layer, ref movedEnd);
+            }
+        }
 
-                if (MoveChildrenAndDetectChange(toShift, -gap.Range.Duration))
-                {
-                    closed++;
-                }
+        if (movedEnd is { } end) ExtendDurationToCover(end);
+
+        return closed;
+    }
+
+    private int CloseLayerGaps(IEnumerable<Element> layer, ref MediaTime? movedEnd)
+    {
+        // Grouping by Start keeps same-start elements atomic, independent of Children enumeration order.
+        IGrouping<MediaTime, Element>[] cohorts = [.. layer.GroupBy(e => e.Start.Value).OrderBy(g => g.Key)];
+        var gaps = new MediaTime[cohorts.Length];
+        var locked = new bool[cohorts.Length];
+
+        MediaTime coveredEnd = cohorts[0].Key;
+        for (int i = 0; i < cohorts.Length; i++)
+        {
+            if (cohorts[i].Key > coveredEnd) gaps[i] = cohorts[i].Key - coveredEnd;
+            foreach (Element element in cohorts[i])
+            {
+                if (element.Range.End > coveredEnd) coveredEnd = element.Range.End;
+            }
+        }
+
+        // Which gaps close, from the right. A gap moves everything up to the next locked cohort, and stays open
+        // when that would leave a clip on what stays, which depends on the gaps closed to its right. Empty elements
+        // collide with nothing, so an empty locked cohort stops the shift but does not count as what stays.
+        int closed = 0;
+        MediaTime? wall = null;
+        MediaTime? earliest = null;
+        MediaTime? reach = null;
+        for (int i = cohorts.Length - 1; i >= 0; i--)
+        {
+            if (cohorts[i].Any(IsElementLocked))
+            {
+                locked[i] = true;
+                wall = cohorts[i].Any(e => !e.Range.IsEmpty) ? cohorts[i].Key : earliest ?? wall;
+                earliest = null;
+                reach = null;
+                continue;
+            }
+
+            foreach (Element element in cohorts[i])
+            {
+                if (element.Range.IsEmpty) continue;
+
+                earliest = cohorts[i].Key;
+                if (reach is null || element.Range.End > reach) reach = element.Range.End;
+            }
+
+            if (gaps[i] == MediaTime.Zero) continue;
+
+            if (reach - gaps[i] > wall)
+            {
+                gaps[i] = MediaTime.Zero;
+                continue;
+            }
+
+            earliest -= gaps[i];
+            reach -= gaps[i];
+            closed++;
+        }
+
+        MediaTime shift = MediaTime.Zero;
+        for (int i = 0; i < cohorts.Length; i++)
+        {
+            shift = locked[i] ? MediaTime.Zero : shift + gaps[i];
+            if (shift == MediaTime.Zero) continue;
+
+            foreach (Element element in cohorts[i])
+            {
+                element.Start.Value -= shift;
+                if (movedEnd is null || element.Range.End > movedEnd) movedEnd = element.Range.End;
             }
         }
 
@@ -128,23 +194,6 @@ public partial class Scene
         }
 
         return [.. result];
-    }
-
-    private bool MoveChildrenAndDetectChange(Element[] elements, MediaTime deltaStart)
-    {
-        MediaTime[] originalStarts = elements.Select(e => e.Start.Value).ToArray();
-
-        MoveChildren(0, deltaStart, elements);
-
-        for (int i = 0; i < elements.Length; i++)
-        {
-            if (elements[i].Start.Value != originalStarts[i])
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>

@@ -29,6 +29,7 @@ public partial class PropertyConversionGoldenTests
                 CustomAccentColor = { Value = "#FF112233" },
                 ShowExactBoundaries = { Value = true },
                 RecentProjectsLayout = { Value = RecentProjectsLayout.List },
+                UseNativeContextMenus = { Value = false },
                 RecentFiles = { "/golden/a.belm" },
                 RecentProjects = { "/golden/p.bproj" },
                 PinnedToolTabs = { "Golden.Tab" },
@@ -43,6 +44,7 @@ public partial class PropertyConversionGoldenTests
             {
                 LastMediaDirectory = { Value = "/golden/media" },
                 AutoAdjustSceneDuration = { Value = false },
+                SeekOnTimelineClick = { Value = false },
                 FrameCacheMaxSize = { Value = 512 },
                 FrameCacheScale = { Value = FrameCacheConfigScale.Original },
                 TimelineAutoScrollMode = { Value = TimelineAutoScrollMode.AlwaysFollow },

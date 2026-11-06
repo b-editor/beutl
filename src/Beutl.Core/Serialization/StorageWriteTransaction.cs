@@ -1,4 +1,5 @@
-﻿using Beutl.Logging;
+﻿using System.Runtime.InteropServices;
+using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Serialization;
@@ -23,6 +24,10 @@ namespace Beutl.Serialization;
 /// The journal is held in memory. It covers failures the saving process observes; a terminated process still
 /// leaves only whole files, and the gate is written before the sidecars it covers.
 /// </para>
+/// <para>
+/// <see cref="WriteInBatch"/> keeps those guarantees for a save that changes many files at a cost that does not grow
+/// with a flush per file: its files are all flushed before the first of them is renamed.
+/// </para>
 /// </remarks>
 internal sealed class StorageWriteTransaction : IDisposable
 {
@@ -39,6 +44,8 @@ internal sealed class StorageWriteTransaction : IDisposable
     // the second one unrestored. Gates are restored after every other entry, so journal a gate before any other
     // write that can reach the same file.
     private readonly Dictionary<string, FileEntry> _files = new(StringComparer.Ordinal);
+    // The temporary files a running batch has written, with what their destinations held, by destination.
+    private Dictionary<string, (string Temporary, byte[]? PreviousBytes)>? _batch;
     private State _state;
 
     private StorageWriteTransaction()
@@ -53,6 +60,10 @@ internal sealed class StorageWriteTransaction : IDisposable
     }
 
     internal static StorageWriteTransaction? Current => s_current.Value;
+
+    // The transaction on this flow, while it runs a batch.
+    internal static StorageWriteTransaction? CurrentBatch
+        => s_current.Value is { _batch: not null } transaction ? transaction : null;
 
     internal static StorageWriteTransaction Begin()
     {
@@ -108,6 +119,140 @@ internal sealed class StorageWriteTransaction : IDisposable
             File.Delete(path);
         }
     }
+
+    /// <summary>
+    /// Runs <paramref name="writes"/>, which may write from several threads, and moves the files they wrote into place
+    /// only after the last of them is written and flushed.
+    /// </summary>
+    /// <remarks>
+    /// Flushing a device's cache for each file takes milliseconds and holds up the volume's other writes, so a save
+    /// that changes thousands of files would take minutes. On macOS the files of a batch reach the device through
+    /// fsync, and one flush of its cache then covers them all, as Git's core.fsyncMethod=batch does. Other systems flush
+    /// each file as it is written. A write that fails leaves every destination as it was; a move that fails leaves the
+    /// moves before it for <see cref="Rollback"/> to restore.
+    /// </remarks>
+    internal void WriteInBatch(Action writes)
+    {
+        var batch = new Dictionary<string, (string Temporary, byte[]? PreviousBytes)>(StringComparer.Ordinal);
+        lock (_sync)
+        {
+            ThrowIfCompleted();
+            if (_batch is not null)
+            {
+                throw new InvalidOperationException("A batch is already running.");
+            }
+
+            _batch = batch;
+        }
+
+        try
+        {
+            try
+            {
+                writes();
+            }
+            finally
+            {
+                lock (_sync)
+                {
+                    _batch = null;
+                }
+            }
+
+            FlushDeviceCaches(batch);
+            foreach ((string destination, (string temporary, byte[]? previousBytes)) in batch)
+            {
+                InjectFault(StorageWriteStep.Replace, destination);
+                MoveIntoPlaceCore(temporary, destination, overwrite: true, isCompatibilityGate: false, previousBytes);
+            }
+        }
+        catch
+        {
+            foreach ((string temporary, _) in batch.Values)
+            {
+                TryDeleteTemporaryFile(temporary);
+            }
+
+            throw;
+        }
+    }
+
+    // Reads what the destination holds here, on the writer's thread, because the moves run one at a time.
+    internal void AddToBatch(string temporaryPath, string destinationPath)
+    {
+        byte[]? previousBytes = File.Exists(destinationPath) ? File.ReadAllBytes(destinationPath) : null;
+        string? earlier = null;
+        lock (_sync)
+        {
+            if (_batch!.TryGetValue(destinationPath, out var entry)) earlier = entry.Temporary;
+            _batch[destinationPath] = (temporaryPath, previousBytes);
+        }
+
+        if (earlier is not null) TryDeleteTemporaryFile(earlier);
+    }
+
+    // Takes back what this batch wrote for a file, which is written again, or now holds what it should already.
+    internal void RemoveFromBatch(string destinationPath)
+    {
+        string temporary;
+        lock (_sync)
+        {
+            if (!_batch!.Remove(destinationPath, out var earlier)) return;
+            temporary = earlier.Temporary;
+        }
+
+        TryDeleteTemporaryFile(temporary);
+    }
+
+    internal static void FlushAheadOfBatch(FileStream stream)
+    {
+        if (OperatingSystem.IsMacOS())
+        {
+            stream.Flush(flushToDisk: false);
+            // .NET's flush to disk also flushes the device's cache, which the end of the batch does once for all files.
+            if (MacFSync(stream.SafeFileHandle) == 0)
+            {
+                return;
+            }
+        }
+
+        stream.Flush(flushToDisk: true);
+    }
+
+    private static void FlushDeviceCaches(Dictionary<string, (string Temporary, byte[]? PreviousBytes)> batch)
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return;
+        }
+
+        // One per folder rather than per device, which .NET does not tell: a batch rarely spans more than one.
+        var folders = new HashSet<string?>(StringComparer.Ordinal);
+        foreach ((string temporary, _) in batch.Values)
+        {
+            if (folders.Add(Path.GetDirectoryName(temporary)))
+            {
+                InjectFault(StorageWriteStep.FlushDevice, temporary);
+                using var stream = new FileStream(temporary, FileMode.Open, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+                stream.Flush(flushToDisk: true);
+            }
+        }
+    }
+
+    private static void TryDeleteTemporaryFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            s_logger.LogWarning(ex, "Could not remove the temporary file {Path} of a failed save.", path);
+        }
+    }
+
+    [DllImport("libSystem.B.dylib", EntryPoint = "fsync", SetLastError = true)]
+    private static extern int MacFSync(SafeHandle file);
 
     internal static FileStream CreateTemporaryFile(string temporaryPath, string destinationPath, bool privateContents = false)
     {
@@ -326,7 +471,8 @@ internal sealed class StorageWriteTransaction : IDisposable
         string temporaryPath,
         string destinationPath,
         bool overwrite,
-        bool isCompatibilityGate)
+        bool isCompatibilityGate,
+        byte[]? knownPreviousBytes = null)
     {
         string fullPath = Path.GetFullPath(destinationPath);
         lock (_sync)
@@ -341,7 +487,7 @@ internal sealed class StorageWriteTransaction : IDisposable
 
             // A move that may not overwrite either creates the destination or fails, so only a replacement has
             // previous bytes to keep. The entry is added after the move because a failed move changes nothing.
-            byte[]? previousBytes = overwrite && File.Exists(fullPath) ? File.ReadAllBytes(fullPath) : null;
+            byte[]? previousBytes = knownPreviousBytes ?? (overwrite && File.Exists(fullPath) ? File.ReadAllBytes(fullPath) : null);
             UnixFileMode? previousMode = MovePreservingPermissions(temporaryPath, destinationPath, overwrite);
             var entry = new FileEntry(fullPath, previousBytes, previousMode) { IsCompatibilityGate = isCompatibilityGate };
             _files.Add(fullPath, entry);
@@ -408,4 +554,5 @@ internal enum StorageWriteStep
 {
     Replace,
     Restore,
+    FlushDevice,
 }

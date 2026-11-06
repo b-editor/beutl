@@ -1,9 +1,11 @@
 ﻿using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
+using Microsoft.Extensions.Logging;
 using Color = Avalonia.Media.Color;
 using Colors = Avalonia.Media.Colors;
 using GradientStop = Avalonia.Media.GradientStop;
@@ -23,13 +25,17 @@ public enum HistogramCategory
 
 public sealed class CurveVisualizationRenderer
 {
-    private readonly int[] _rHist = new int[256];
-    private readonly int[] _gHist = new int[256];
-    private readonly int[] _bHist = new int[256];
-    private readonly int[] _combinedHist = new int[256];
-    private readonly int[] _hueHist = new int[360];
-    private readonly int[] _lumaHist = new int[256];
-    private readonly int[] _satHist = new int[256];
+    private static readonly ILogger s_logger = Log.CreateLogger<CurveVisualizationRenderer>();
+
+    private int[] _rHist = new int[256];
+    private int[] _gHist = new int[256];
+    private int[] _bHist = new int[256];
+    private int[] _combinedHist = new int[256];
+    private int[] _hueHist = new int[360];
+    private int[] _lumaHist = new int[256];
+    private int[] _satHist = new int[256];
+    private (Ref<Bitmap>? Bitmap, HistogramCategory Categories)? _pending;
+    private bool _isCounting;
     private int _histMax;
     private int _hueHistMax;
     private int _lumaHistMax;
@@ -111,143 +117,129 @@ public sealed class CurveVisualizationRenderer
 
     public event EventHandler? Updated;
 
+    /// <summary>
+    /// Counts every pixel of the frame on a worker and raises <see cref="Updated"/> on this thread when done.
+    /// </summary>
+    /// <remarks>
+    /// Values count gamma encoded, because that is what the Curves effect applies its curves to, so the bars
+    /// line up with the curves drawn over them. Only one frame is counted at a time; a frame still waiting
+    /// when a newer one arrives is skipped, so playback cannot queue work up.
+    /// </remarks>
     public void UpdateHistogram(Ref<Bitmap>? sourceBitmapRef, HistogramCategory categories)
     {
         if (categories == HistogramCategory.None)
             return;
 
-        bool needRgb = categories.HasFlag(HistogramCategory.Rgb);
-        bool needHue = categories.HasFlag(HistogramCategory.Hue);
-        bool needLuma = categories.HasFlag(HistogramCategory.Luminance);
-        bool needSat = categories.HasFlag(HistogramCategory.Saturation);
-        bool needHsl = needHue || needLuma || needSat;
+        _pending?.Bitmap?.Dispose();
+        _pending = (sourceBitmapRef?.TryClone(), categories);
+        if (!_isCounting)
+            CountPendingFrames();
+    }
 
-        ResetHistograms(needRgb, needHue, needLuma, needSat);
+    internal IReadOnlyList<int> GetHistogram(CurveVisualization visualization) => visualization switch
+    {
+        CurveVisualization.Master => _combinedHist,
+        CurveVisualization.Red => _rHist,
+        CurveVisualization.Green => _gHist,
+        CurveVisualization.Blue => _bHist,
+        CurveVisualization.HueVsHue or CurveVisualization.HueVsSaturation or CurveVisualization.HueVsLuminance => _hueHist,
+        CurveVisualization.LuminanceVsSaturation => _lumaHist,
+        CurveVisualization.SaturationVsSaturation => _satHist,
+        _ => []
+    };
 
-        var cloned = sourceBitmapRef?.TryClone();
-        if (cloned is not { Value: var bitmap })
-            return;
-
-        Bitmap rgbaGamma;
-        bool requireDispose = false;
-        if (bitmap.ColorType == BitmapColorType.Bgra8888 && bitmap.ColorSpace == BitmapColorSpace.Srgb)
-        {
-            rgbaGamma = bitmap;
-        }
-        else
-        {
-            rgbaGamma = bitmap.Convert(BitmapColorType.Bgra8888, colorSpace: BitmapColorSpace.Srgb);
-            requireDispose = true;
-        }
-
+    private async void CountPendingFrames()
+    {
+        _isCounting = true;
         try
         {
-            int stepX = Math.Max(1, bitmap.Width / 256);
-            int stepY = Math.Max(1, bitmap.Height / 256);
-
-            for (int y = 0; y < bitmap.Height; y += stepY)
+            while (_pending is var (bitmap, categories))
             {
-                var row = rgbaGamma.GetRow<Bgra8888>(y);
-                for (int x = 0; x < bitmap.Width; x += stepX)
-                {
-                    var pixel = row[x];
-                    byte b = pixel.B;
-                    byte g = pixel.G;
-                    byte r = pixel.R;
-
-                    if (needRgb)
-                    {
-                        _bHist[b]++;
-                        _gHist[g]++;
-                        _rHist[r]++;
-
-                        int luminance = (int)Math.Round(r * 0.2126 + g * 0.7152 + b * 0.0722, MidpointRounding.AwayFromZero);
-                        _combinedHist[luminance]++;
-                    }
-
-                    if (needHsl)
-                    {
-                        RgbToHsl(r, g, b, out int hue, out int sat, out int luma);
-
-                        if (needHue && sat > 10)
-                        {
-                            _hueHist[hue]++;
-                        }
-
-                        if (needLuma)
-                        {
-                            _lumaHist[luma]++;
-                        }
-
-                        if (needSat)
-                        {
-                            _satHist[sat]++;
-                        }
-                    }
-                }
+                _pending = null;
+                // Yielding even when the count is already done, so Updated never fires inside the caller's own call.
+                HistogramCounts counts = await Task.Run(() => Count(bitmap, categories)).ConfigureAwait(
+                    ConfigureAwaitOptions.ContinueOnCapturedContext | ConfigureAwaitOptions.ForceYielding);
+                // The await resumed on the thread that owns the histograms.
+                Apply(counts);
+                Updated?.Invoke(this, EventArgs.Empty);
             }
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Counting the curve histogram failed.");
         }
         finally
         {
-            if (requireDispose) rgbaGamma.Dispose();
-            cloned.Dispose();
-        }
-
-        UpdateMaxima(needRgb, needHue, needLuma, needSat);
-
-        Updated?.Invoke(this, EventArgs.Empty);
-    }
-
-    private void ResetHistograms(bool needRgb, bool needHue, bool needLuma, bool needSat)
-    {
-        if (needRgb)
-        {
-            Array.Clear(_rHist);
-            Array.Clear(_gHist);
-            Array.Clear(_bHist);
-            Array.Clear(_combinedHist);
-            _histMax = 0;
-        }
-
-        if (needHue)
-        {
-            Array.Clear(_hueHist);
-            _hueHistMax = 0;
-        }
-
-        if (needLuma)
-        {
-            Array.Clear(_lumaHist);
-            _lumaHistMax = 0;
-        }
-
-        if (needSat)
-        {
-            Array.Clear(_satHist);
-            _satHistMax = 0;
+            _isCounting = false;
         }
     }
 
-    private void UpdateMaxima(bool needRgb, bool needHue, bool needLuma, bool needSat)
+    private static HistogramCounts Count(Ref<Bitmap>? source, HistogramCategory categories)
     {
-        if (needRgb)
+        var total = new HistogramCounts(categories);
+        if (source is null)
+            return total;
+
+        using (source)
         {
-            _histMax = Math.Max(1,
-                Math.Max(_combinedHist.Max(), Math.Max(_rHist.Max(), Math.Max(_gHist.Max(), _bHist.Max()))));
+            Bitmap bitmap = source.Value;
+            bool isGamma = bitmap.ColorType == BitmapColorType.Bgra8888 && bitmap.ColorSpace == BitmapColorSpace.Srgb;
+            Bitmap rgbaGamma = isGamma ? bitmap : bitmap.Convert(BitmapColorType.Bgra8888, colorSpace: BitmapColorSpace.Srgb);
+            try
+            {
+                Parallel.For(
+                    0,
+                    rgbaGamma.Height,
+                    () => new HistogramCounts(categories),
+                    (y, _, counts) =>
+                    {
+                        // Not a loop on Width: each read of it calls into Skia and takes SkiaSharp's process-wide handle lock.
+                        foreach (Bgra8888 pixel in rgbaGamma.GetRow<Bgra8888>(y))
+                            counts.Add(pixel);
+
+                        return counts;
+                    },
+                    counts =>
+                    {
+                        lock (total)
+                            total.Merge(counts);
+                    });
+            }
+            finally
+            {
+                if (!isGamma) rgbaGamma.Dispose();
+            }
         }
 
-        if (needHue)
+        return total;
+    }
+
+    private void Apply(HistogramCounts counts)
+    {
+        if (counts.Categories.HasFlag(HistogramCategory.Rgb))
         {
+            _rHist = counts.Red;
+            _gHist = counts.Green;
+            _bHist = counts.Blue;
+            _combinedHist = counts.Combined;
+            _histMax = Math.Max(1, Math.Max(_combinedHist.Max(), Math.Max(_rHist.Max(), Math.Max(_gHist.Max(), _bHist.Max()))));
+        }
+
+        if (counts.Categories.HasFlag(HistogramCategory.Hue))
+        {
+            _hueHist = counts.Hue;
             _hueHistMax = Math.Max(1, _hueHist.Max());
         }
 
-        if (needLuma)
+        if (counts.Categories.HasFlag(HistogramCategory.Luminance))
         {
+            _lumaHist = counts.Luminance;
             _lumaHistMax = Math.Max(1, _lumaHist.Max());
         }
 
-        if (needSat)
+        if (counts.Categories.HasFlag(HistogramCategory.Saturation))
         {
+            _satHist = counts.Saturation;
             _satHistMax = Math.Max(1, _satHist.Max());
         }
     }
@@ -363,6 +355,84 @@ public sealed class CurveVisualizationRenderer
                 double height = bounds.Height * histogram[i] / histogramMax;
                 var rect = new Rect(bounds.X + i * barWidth, bounds.Bottom - height, Math.Max(1, barWidth), height);
                 context.DrawRectangle(s_whiteBarBrush, null, rect);
+            }
+        }
+    }
+
+    private sealed class HistogramCounts(HistogramCategory categories)
+    {
+        private readonly bool _needRgb = categories.HasFlag(HistogramCategory.Rgb);
+        private readonly bool _needHue = categories.HasFlag(HistogramCategory.Hue);
+        private readonly bool _needLuminance = categories.HasFlag(HistogramCategory.Luminance);
+        private readonly bool _needSaturation = categories.HasFlag(HistogramCategory.Saturation);
+
+        public HistogramCategory Categories { get; } = categories;
+
+        public int[] Red { get; } = categories.HasFlag(HistogramCategory.Rgb) ? new int[256] : [];
+
+        public int[] Green { get; } = categories.HasFlag(HistogramCategory.Rgb) ? new int[256] : [];
+
+        public int[] Blue { get; } = categories.HasFlag(HistogramCategory.Rgb) ? new int[256] : [];
+
+        public int[] Combined { get; } = categories.HasFlag(HistogramCategory.Rgb) ? new int[256] : [];
+
+        public int[] Hue { get; } = categories.HasFlag(HistogramCategory.Hue) ? new int[360] : [];
+
+        public int[] Luminance { get; } = categories.HasFlag(HistogramCategory.Luminance) ? new int[256] : [];
+
+        public int[] Saturation { get; } = categories.HasFlag(HistogramCategory.Saturation) ? new int[256] : [];
+
+        public void Add(Bgra8888 pixel)
+        {
+            byte r = pixel.R;
+            byte g = pixel.G;
+            byte b = pixel.B;
+
+            if (_needRgb)
+            {
+                Blue[b]++;
+                Green[g]++;
+                Red[r]++;
+
+                int luminance = (int)Math.Round(r * 0.2126 + g * 0.7152 + b * 0.0722, MidpointRounding.AwayFromZero);
+                Combined[luminance]++;
+            }
+
+            if (_needHue || _needLuminance || _needSaturation)
+            {
+                RgbToHsl(r, g, b, out int hue, out int sat, out int luma);
+
+                if (_needHue && sat > 10)
+                {
+                    Hue[hue]++;
+                }
+
+                if (_needLuminance)
+                {
+                    Luminance[luma]++;
+                }
+
+                if (_needSaturation)
+                {
+                    Saturation[sat]++;
+                }
+            }
+        }
+
+        public void Merge(HistogramCounts other)
+        {
+            Add(Red, other.Red);
+            Add(Green, other.Green);
+            Add(Blue, other.Blue);
+            Add(Combined, other.Combined);
+            Add(Hue, other.Hue);
+            Add(Luminance, other.Luminance);
+            Add(Saturation, other.Saturation);
+
+            static void Add(int[] total, int[] counts)
+            {
+                for (int i = 0; i < total.Length; i++)
+                    total[i] += counts[i];
             }
         }
     }

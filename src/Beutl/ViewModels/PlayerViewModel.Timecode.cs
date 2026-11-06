@@ -8,9 +8,17 @@ public partial class PlayerViewModel
 {
     public Subject<Unit> BeginEditTimecodeRequested { get; } = new();
 
+    // Only the view knows the size a zoom level relates to.
+    public Subject<PreviewZoomAction> PreviewZoomRequested { get; } = new();
+
     public void RequestEditTimecode()
     {
         BeginEditTimecodeRequested.OnNext(Unit.Default);
+    }
+
+    public void RequestPreviewZoom(PreviewZoomAction action)
+    {
+        PreviewZoomRequested.OnNext(action);
     }
 
     public bool TryParseTimecode(string input, out MediaTime target, out GotoTimecodeError error)

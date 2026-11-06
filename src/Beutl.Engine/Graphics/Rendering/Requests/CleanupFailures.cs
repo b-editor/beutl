@@ -30,6 +30,34 @@ internal static class CleanupFailures
         throw new AggregateException(message, failures);
     }
 
+    /// <summary>Retires each item of a snapshot of <paramref name="live"/>, then rethrows what failed.</summary>
+    /// <remarks><paramref name="live"/> is also the lock its owner adds and removes items under.</remarks>
+    public static void RetireLive<T>(HashSet<T> live, Action<T> retire, string message)
+    {
+        T[] items;
+        lock (live)
+            items = [.. live];
+
+        List<Exception> failures = [];
+        foreach (T item in items)
+        {
+            try
+            {
+                retire(item);
+            }
+            catch (ObjectDisposedException)
+            {
+                // Disposed after the snapshot was taken; it released what it held on the way out.
+            }
+            catch (Exception ex)
+            {
+                Append(failures, ex);
+            }
+        }
+
+        ThrowIfAny(failures, message);
+    }
+
     private static void AddDistinct(ICollection<Exception> failures, Exception failure)
     {
         foreach (Exception existing in failures)

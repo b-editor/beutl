@@ -10,13 +10,13 @@ public static class ElementTemplateResolver
     /// <summary>
     /// The templates a timeline adds as complete elements: one element's, and those saved from several.
     /// </summary>
-    public static IEnumerable<ObjectTemplateItem> FindElementTemplates()
+    internal static IEnumerable<ObjectTemplateItem> FindElementTemplates()
         => ObjectTemplateService.Instance.FindByBaseTypes(typeof(Element), typeof(ElementSet));
 
     /// <summary>
     /// Whether <see cref="CreateDescription"/> can add what <paramref name="template"/> holds to a scene.
     /// </summary>
-    public static bool CanCreateDescription(ObjectTemplateItem template)
+    internal static bool CanCreateDescription(ObjectTemplateItem template)
     {
         ArgumentNullException.ThrowIfNull(template);
 
@@ -66,7 +66,7 @@ public static class ElementTemplateResolver
             nameof(template));
     }
 
-    private static Element CreateElement(ObjectTemplateItem template)
+    internal static Element CreateElement(ObjectTemplateItem template)
     {
         Element source = template.CreateInstance() as Element
                          ?? throw new InvalidOperationException(
@@ -76,7 +76,7 @@ public static class ElementTemplateResolver
     }
 
     // Regenerated as one graph, so the groups, and any reference between the elements, follow the new Ids.
-    private static ElementSet CreateElementSet(ObjectTemplateItem template)
+    internal static ElementSet CreateElementSet(ObjectTemplateItem template)
     {
         ElementSet source = template.CreateInstance() as ElementSet
                             ?? throw new InvalidOperationException(

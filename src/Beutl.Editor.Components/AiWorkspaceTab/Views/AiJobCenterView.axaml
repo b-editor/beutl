@@ -89,16 +89,10 @@
         </Border>
 
         <Grid Grid.Row="4">
-            <live:SafeLiveRegionTextBlock Margin="16"
-                       AutomationProperties.LiveSetting="Polite"
-                       AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_Empty}"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                       IsVisible="{CompiledBinding ShowEmptyState.Value}"
-                       Text="{x:Static lang:Strings.AiJobCenter_Empty}"
-                       TextAlignment="Center"
-                       TextWrapping="Wrap" />
+            <live:EmptyState Margin="16"
+                             Title="{x:Static lang:Strings.AiJobCenter_Empty}"
+                             AutomationProperties.LiveSetting="Polite"
+                             IsVisible="{CompiledBinding ShowEmptyState.Value}" />
 
             <Grid RowDefinitions="*,Auto"
                   IsVisible="{CompiledBinding HasJobs.Value}">
@@ -139,15 +133,9 @@
                                         <Grid ColumnDefinitions="*,Auto">
                                             <TextBlock FontWeight="SemiBold"
                                                        Text="{CompiledBinding KindDisplayName}" />
-                                            <Border Grid.Column="1"
-                                                    Padding="6,2"
-                                                    Background="{DynamicResource ControlFillColorSecondaryBrush}"
-                                                    CornerRadius="8">
-                                                <live:SafeLiveRegionTextBlock AutomationProperties.LiveSetting="Polite"
-                                                           AutomationProperties.Name="{CompiledBinding StatusDisplayName}"
-                                                           FontSize="10"
-                                                           Text="{CompiledBinding StatusDisplayName}" />
-                                            </Border>
+                                            <live:StatusLabel Grid.Column="1"
+                                                              AutomationProperties.LiveSetting="Polite"
+                                                              Text="{CompiledBinding StatusDisplayName}" />
                                         </Grid>
                                         <TextBlock MaxLines="3"
                                                    Text="{CompiledBinding Summary}"

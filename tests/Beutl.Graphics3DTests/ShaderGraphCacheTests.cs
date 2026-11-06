@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
@@ -15,6 +16,103 @@ namespace Beutl.Graphics3DTests;
 [NonParallelizable]
 public sealed class ShaderGraphCacheTests
 {
+    private static RenderNodeRenderer CreateBloomRenderer(Rect bounds, GraphNode node)
+        => new(node, new()
+        {
+            Intent = RenderIntent.Preview,
+            Purpose = RenderRequestPurpose.Frame,
+            TargetDomain = bounds,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = RenderCacheOptions.Disabled,
+        });
+
+    [Test]
+    public void ReleasingRetainedTargetsAlsoReleasesTheShaderGraphImages()
+    {
+        OnDevice(_ =>
+        {
+            Rect bounds = new(0, 0, 64, 32);
+            using var brush = (Brush.Resource)new SolidColorBrush(Colors.White).ToResource(CompositionContext.Default);
+            using var rectangle = new RectangleRenderNode(bounds, brush, null);
+            using var node = new GraphNode(rectangle, ShaderGraphEffectTests.Record(new Bloom()));
+            using RenderNodeRenderer renderer = CreateBloomRenderer(bounds, node);
+
+            float red = RenderRed(renderer);
+            long retained = renderer.RetainedShaderGraphImageBytes;
+            renderer.ReleaseRetainedTargets();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(retained, Is.GreaterThan(0));
+                Assert.That(renderer.RetainedShaderGraphImageBytes, Is.Zero);
+                Assert.That(RenderRed(renderer), Is.EqualTo(red), "The next frame allocates what it needs again.");
+            });
+        });
+    }
+
+    [Test]
+    public void ContextTeardownReleasesWhatALiveRendererRetains()
+    {
+        OnDevice(_ =>
+        {
+            Rect bounds = new(0, 0, 64, 32);
+            using var brush = (Brush.Resource)new SolidColorBrush(Colors.White).ToResource(CompositionContext.Default);
+            using var rectangle = new RectangleRenderNode(bounds, brush, null);
+            using var node = new GraphNode(rectangle, ShaderGraphEffectTests.Record(new Bloom()));
+            using RenderNodeRenderer renderer = CreateBloomRenderer(bounds, node);
+
+            float red = RenderRed(renderer);
+            long retainedImages = renderer.RetainedShaderGraphImageBytes;
+            int retainedPrograms = renderer.ProgramCacheStatistics.RetainedPrograms;
+            RenderProgramCaches.RetireRetainedBeforeContextTeardown();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(retainedImages, Is.GreaterThan(0));
+                Assert.That(retainedPrograms, Is.GreaterThan(0));
+                Assert.That(renderer.RetainedShaderGraphImageBytes, Is.Zero);
+                Assert.That(renderer.ProgramCacheStatistics.RetainedPrograms, Is.Zero);
+                Assert.That(RenderRed(renderer), Is.EqualTo(red), "A renderer that outlives it compiles its programs again.");
+            });
+        });
+    }
+
+    // The region lowers the density here, so the plan has to know it for the result to be kept under its identity.
+    [Test]
+    public void AResultIsKeptAtTheDensityItsRegionAllows()
+    {
+        OnDevice(_ =>
+        {
+            Rect picture = new(0, 0, 120, 80);
+            using var brush = (Brush.Resource)new SolidColorBrush(Colors.White).ToResource(CompositionContext.Default);
+            using var rectangle = new RectangleRenderNode(picture, brush, null);
+            ShaderGraphDescription graph = ShaderGraphEffectTests.Record(new RepeatEffect
+            {
+                Columns = { Value = 100 },
+                Rows = { Value = 100 },
+                Spacing = { Value = new Size(80, 120) },
+            });
+            Rect region = new(-4000, -4000, 8000, 8000);
+            Assert.That(graph.ClampWorkingScale(picture, 1, default, required: region), Is.LessThan(1));
+            using var node = new GraphNode(rectangle, graph);
+            using var renderer = new RenderNodeRenderer(node, new()
+            {
+                Intent = RenderIntent.Preview,
+                Purpose = RenderRequestPurpose.Frame,
+                TargetDomain = region,
+                RequestedRegion = region,
+                OutputScale = 1,
+                MaxWorkingScale = 1,
+                CacheOptions = new RenderCacheOptions(true, RenderCacheRules.Create(int.MaxValue, 1))
+            });
+            WarmCache(renderer);
+            Assert.That(node.Cache.IsCached, Is.True);
+            RenderRed(renderer);
+            Assert.That(renderer.LastExecutionStatistics.ShaderStageExecutions, Is.Zero, "The next frame takes what was kept.");
+        });
+    }
+
     [Test]
     public void ResultCacheTracksSpecializationChangesAndReusesPreviousPipelines()
     {

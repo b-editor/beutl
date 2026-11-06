@@ -2,7 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.Media.Immutable;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SoundPannerProperties.ViewModels;
 using Reactive.Bindings.Extensions;
 
@@ -13,11 +13,6 @@ public sealed class SoundPanner : Control
     public static readonly StyledProperty<SoundPannerViewModel?> ViewModelProperty =
         AvaloniaProperty.Register<SoundPanner, SoundPannerViewModel?>(nameof(ViewModel));
 
-    private static readonly IBrush s_background = new ImmutableSolidColorBrush(Color.FromRgb(30, 32, 36));
-    private static readonly IBrush s_speaker = new ImmutableSolidColorBrush(Color.FromRgb(53, 57, 64));
-    private static readonly IBrush s_puck = new ImmutableSolidColorBrush(Color.FromRgb(100, 190, 245));
-    private static readonly IPen s_grid = new ImmutablePen(new ImmutableSolidColorBrush(Color.FromRgb(71, 76, 85)), 1);
-    private static readonly IPen s_outline = new ImmutablePen(Brushes.White, 1.5);
     private CompositeDisposable? _subscriptions;
     private SoundPannerViewModel? _dragging;
     private MediaTime _dragTime;
@@ -31,7 +26,7 @@ public sealed class SoundPanner : Control
         set => SetValue(ViewModelProperty, value);
     }
 
-    internal Rect PanningBounds => new(36, 40, Math.Max(1, Bounds.Width - 72), Math.Max(1, Bounds.Height - 80));
+    internal Rect PanningBounds => AudioCanvasStyle.Inset(Bounds.Size, 36, 40);
 
     internal Point PuckCenter => ViewModel is { } vm
         ? new Point(PanningBounds.X + (Math.Clamp(vm.Pan.Value, -100, 100) + 100) / 200 * PanningBounds.Width,
@@ -73,6 +68,7 @@ public sealed class SoundPanner : Control
             vm.SurroundPan.Subscribe(_ => InvalidateVisual()).AddTo(_subscriptions);
             vm.Layout.Subscribe(_ => InvalidateVisual()).AddTo(_subscriptions);
             vm.IsHorizontalOnly.Subscribe(_ => InvalidateVisual()).AddTo(_subscriptions);
+            vm.CanPan.Subscribe(_ => InvalidateVisual()).AddTo(_subscriptions);
             vm.CanDrag.Subscribe(_ => InvalidateVisual()).AddTo(_subscriptions);
         }
         InvalidateVisual();
@@ -147,7 +143,7 @@ public sealed class SoundPanner : Control
     {
         base.Render(context);
         if (ViewModel is not { } vm || Bounds.Width <= 0 || Bounds.Height <= 0) return;
-        context.DrawRectangle(s_background, s_grid, new RoundedRect(new Rect(Bounds.Size).Deflate(1), 6));
+        AudioCanvasStyle.DrawFrame(context, Bounds.Size);
         Rect area = PanningBounds;
         bool stereo = vm.Layout.Value == SpeakerLayout.Stereo;
         bool mono = vm.Layout.Value == SpeakerLayout.Mono;
@@ -155,10 +151,10 @@ public sealed class SoundPanner : Control
         {
             if (!stereo && !mono)
             {
-                context.DrawRectangle(null, s_grid, area);
-                context.DrawLine(s_grid, new Point(area.Center.X, area.Top), new Point(area.Center.X, area.Bottom));
+                context.DrawRectangle(null, AudioCanvasStyle.Line, area);
+                context.DrawLine(AudioCanvasStyle.Line, new Point(area.Center.X, area.Top), new Point(area.Center.X, area.Bottom));
             }
-            context.DrawLine(s_grid, new Point(area.Left, area.Center.Y), new Point(area.Right, area.Center.Y));
+            context.DrawLine(AudioCanvasStyle.Line, new Point(area.Left, area.Center.Y), new Point(area.Right, area.Center.Y));
             if (mono)
             {
                 DrawSpeaker(context, "C", new Point(area.Center.X, 17));
@@ -186,13 +182,13 @@ public sealed class SoundPanner : Control
                     DrawSpeaker(context, "Rs", new Point(area.Right, Bounds.Height - 17));
                 }
             }
-            context.DrawEllipse(vm.CanDrag.Value ? s_puck : s_speaker, s_outline, PuckCenter, 8, 8);
+            AudioCanvasStyle.DrawHandle(context, PuckCenter, 8, vm.CanDrag.Value);
         }
     }
 
     private static void DrawSpeaker(DrawingContext context, string label, Point center)
     {
-        context.DrawRectangle(s_speaker, null, new RoundedRect(new Rect(center.X - 14, center.Y - 11, 28, 22), 4));
+        context.DrawRectangle(AudioCanvasStyle.Handle, null, new RoundedRect(new Rect(center.X - 14, center.Y - 11, 28, 22), 4));
         var text = new FormattedText(label, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
             Typeface.Default, 11, Brushes.White);
         context.DrawText(text, new Point(center.X - text.Width / 2, center.Y - text.Height / 2));

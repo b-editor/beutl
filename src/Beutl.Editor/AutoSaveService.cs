@@ -42,7 +42,7 @@ public sealed class AutoSaveService : IDisposable
             new Progress<(int Percentage, Exception? Error)>(value => Report(value.Percentage, value.Error));
         Report(0, null);
         var writes = new List<Action>();
-        var pendingFiles = new Dictionary<string, bool>(StringComparer.Ordinal);
+        var pendingFiles = new HashSet<string>(StringComparer.Ordinal);
         var deletedFiles = new HashSet<string>(StringComparer.Ordinal);
         foreach (CoreObject obj in objectsToSave.OrderBy(obj => obj is Scene))
         {
@@ -59,7 +59,7 @@ public sealed class AutoSaveService : IDisposable
                             File.Delete(path);
                             deletedFiles.Add(path);
                         });
-                        pendingFiles[path] = false;
+                        pendingFiles.Add(path);
                     }
                 }
                 else
@@ -67,7 +67,7 @@ public sealed class AutoSaveService : IDisposable
                     writes.Add(CoreSerializer.PrepareStoreToUri(obj, pendingFiles, obj is Scene
                         ? (json, uri) => Scene.RemoveDeletedElementExclusions(json, uri, deletedFiles)
                         : null));
-                    pendingFiles[obj.Uri!.LocalPath] = true;
+                    pendingFiles.Add(obj.Uri!.LocalPath);
                 }
             }
             catch (Exception ex)

@@ -562,6 +562,108 @@ public sealed class GenerativeNodeModelTests
         Assert.That(videos.SourceRequests, Is.Empty);
     }
 
+    // The agent tools rely on it: the answer before a job starts is the one the job would get.
+    [AvaloniaTest]
+    public async Task ValidationAnswersAsExecutionWouldAndSendsNothing()
+    {
+        var videos = new FakeVideos(AiJobStatuses.Succeeded);
+        AiGenerativeNodeExecutor executor = CreateVideoExecutor(videos, sourceSeconds: 61);
+        GenerativeRequest[] requests =
+        [
+            VideoRequest(duration: 6, audio: false, seed: null),
+            VideoRequest(duration: 4, audio: false, seed: null) with { Resolution = "144p" },
+            VideoRequest(duration: 4, audio: false, seed: null) with { AspectRatio = "5:4" },
+            VideoRequest(duration: 4, audio: false, seed: null) with { Prompt = new string('a', 4_001) },
+            VideoRequest(duration: 4, audio: false, seed: null) with { ModelId = "nope" },
+            EditRequest(AiVideoEditMode.Edit, duration: 8),
+        ];
+
+        var answers = new List<(GenerativeRefusal? Answer, GenerativeExecutionException? Refused)>();
+        foreach (GenerativeRequest request in requests)
+        {
+            answers.Add((
+                await executor.ValidateAsync(request, CancellationToken.None),
+                await RefusalOf(executor.ExecuteAsync(request, new Progress<GenerativeProgress>(), CancellationToken.None))));
+        }
+
+        Assert.Multiple(() =>
+        {
+            foreach ((GenerativeRefusal? answer, GenerativeExecutionException? refused) in answers)
+            {
+                Assert.That(answer, Is.Not.Null);
+                Assert.That(answer?.Message, Is.EqualTo(refused?.Message));
+                Assert.That(answer?.Input, Is.EqualTo(refused?.Input));
+            }
+
+            Assert.That(videos.Requests, Is.Empty);
+            Assert.That(videos.SourceRequests, Is.Empty);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task ValidationPassesWhatExecutionWouldSendWithoutSendingIt()
+    {
+        var videos = new FakeVideos(AiJobStatuses.Succeeded);
+        AiGenerativeNodeExecutor executor = CreateVideoExecutor(videos, sourceSeconds: 4);
+
+        GenerativeRefusal? clip = await executor.ValidateAsync(VideoRequest(duration: 4, audio: false, seed: null), CancellationToken.None);
+        GenerativeRefusal? edit = await executor.ValidateAsync(EditRequest(AiVideoEditMode.Extend, duration: 8), CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clip, Is.Null);
+            Assert.That(edit, Is.Null);
+            Assert.That(videos.Requests, Is.Empty);
+            Assert.That(videos.SourceRequests, Is.Empty);
+        });
+    }
+
+    // A clip with no model to check against is already held to the AI tab's lists; a picture now is too.
+    [AvaloniaTest]
+    public async Task WithNoModelToCheckAgainstThePictureIsHeldToWhatTheDialogOffers()
+    {
+        var images = new CapturingImages();
+        AiGenerativeNodeExecutor executor = CreateExecutor(images, catalog: AiModelCatalog.Empty);
+        var node = new AiImageGenerationNode();
+
+        GenerativeExecutionException? ratio = await RefusalOf(executor.ExecuteAsync(
+            Request(node, model: null, aspectRatio: "17:3"), new Progress<GenerativeProgress>(), CancellationToken.None));
+        GenerativeExecutionException? background = await RefusalOf(executor.ExecuteAsync(
+            Request(node, model: null, aspectRatio: "16:9") with { Background = "blurred" }, new Progress<GenerativeProgress>(), CancellationToken.None));
+        GenerativeExecutionException? seed = await RefusalOf(executor.ExecuteAsync(
+            Request(node, model: null, aspectRatio: "16:9", seed: -1), new Progress<GenerativeProgress>(), CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ratio?.Input, Is.EqualTo(nameof(AiImageGenerationNodeRequest.AspectRatio)));
+            Assert.That(background?.Input, Is.EqualTo(nameof(AiImageGenerationNodeRequest.Background)));
+            Assert.That(seed?.Input, Is.EqualTo(nameof(AiImageGenerationNodeRequest.Seed)));
+            Assert.That(images.Requests, Is.Empty);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task AnOutpaintWiderThanTheServiceTakesIsARefusalNotAnError()
+    {
+        using var picture = new Bitmap(8_000, 10);
+        using var encoded = new MemoryStream();
+        Assert.That(picture.Save(encoded, EncodedImageFormat.Png), Is.True);
+        AiGenerativeNodeExecutor executor = CreateExecutor(new CapturingImages(), catalog: AiModelCatalog.Empty);
+        var request = new AiImageEditNodeRequest(new AiImageEditNode())
+        {
+            Task = AiImageEditTask.Outpaint,
+            Prompt = "more sky",
+            OutpaintExpansionPercent = 10,
+            Image = new GenerativeImageInput("wide.png", encoded.ToArray()),
+            RequestKeySeed = Guid.NewGuid().ToString("N"),
+            ParameterFingerprint = "p",
+        };
+
+        GenerativeRefusal? refusal = await executor.ValidateAsync(request, CancellationToken.None);
+
+        Assert.That(refusal?.Input, Is.EqualTo(nameof(AiImageEditNodeRequest.OutpaintExpansionPercent)));
+    }
+
     private static AiVideoEditNodeRequest EditRequest(AiVideoEditMode mode, int duration)
     {
         var node = new AiVideoEditNode();

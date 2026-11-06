@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.Collections.Pooled;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Transitions;
@@ -80,8 +81,9 @@ public sealed partial class Reconciler
     }
 
     // As in the editor (ElementStructureService.Group and Ungroup), a locked element is never added to a
-    // group, taken out of one or moved to another. Its group may only lose other members, and it may be
-    // left alone only when the others were deleted, since deleting an element prunes its group.
+    // group, taken out of one or moved to another, so the locked members of a group stay together. Its group
+    // may only lose unlocked members, and it may be left alone only when the others were deleted, since
+    // deleting an element prunes its group.
     private static ToolError? FindRegroupedLockedElement(Scene scene, Scene sandbox, Element[] lockedElements)
     {
         if (lockedElements.Length == 0 || (scene.Groups.Count == 0 && sandbox.Groups.Count == 0))
@@ -92,8 +94,9 @@ public sealed partial class Reconciler
         HashSet<Guid> lockedIds = lockedElements.Select(element => element.Id.Value).ToHashSet();
         ILookup<Guid, ImmutableHashSet<Guid>> groupsBefore = GroupsHolding(scene, lockedIds);
         ILookup<Guid, ImmutableHashSet<Guid>> groupsAfter = GroupsHolding(sandbox, lockedIds);
-        // Locked members of one group share the answer, and IsSubsetOf copies the original into a new set on each call.
-        var keptGroups = new HashSet<(ImmutableHashSet<Guid> After, ImmutableHashSet<Guid> Original)>();
+        // The group each original became. Its other locked members must be in that one too, which also spares
+        // them IsSubsetOf, since it copies the original into a new set on each call.
+        var keptGroups = new Dictionary<ImmutableHashSet<Guid>, ImmutableHashSet<Guid>>();
         HashSet<Guid> remaining = sandbox.Children.Select(element => element.Id.Value).ToHashSet();
         foreach (Element locked in lockedElements)
         {
@@ -115,8 +118,9 @@ public sealed partial class Reconciler
             {
                 0 => original is null || !original.Any(id => id != locked.Id.Value && remaining.Contains(id)),
                 1 => original is not null
-                     && (keptGroups.Contains((after[0], original))
-                         || (after[0].IsSubsetOf(original) && keptGroups.Add((after[0], original)))),
+                     && (keptGroups.TryGetValue(original, out ImmutableHashSet<Guid>? keptGroup)
+                         ? keptGroup == after[0]
+                         : after[0].IsSubsetOf(original) && keptGroups.TryAdd(original, after[0])),
                 _ => false,
             };
             if (!kept)
@@ -125,7 +129,7 @@ public sealed partial class Reconciler
                     ErrorCode.ValidationRejected,
                     $"Element {DescribeElement(locked)} is locked, so an agent cannot add it to a group, take it out of its group or move it to another.",
                     ElementTarget(locked),
-                    $"Keep the Groups entry that holds this element as it is; other members may leave it. Or ask the user to unlock the element in the timeline. {LockHint}");
+                    $"Keep the Groups entry that holds this element as it is; unlocked members may leave it. Or ask the user to unlock the element in the timeline. {LockHint}");
             }
         }
 
@@ -208,10 +212,12 @@ public sealed partial class Reconciler
         }
 
         Dictionary<Guid, (int Index, Element Element)> current = IndexElementsById(scene.Children);
-        ILookup<int, Element> layers = sandbox.Children.ToLookup(element => element.ZIndex.Value);
+        SceneElementIndex index = sandbox.ElementIndex;
+        using var candidates = new PooledList<Element>();
         foreach (Element locked in lockedElements)
         {
-            foreach (Element placed in layers[locked.ZIndex.Value])
+            QueryOverlapCandidates(index, locked, candidates);
+            foreach (Element placed in candidates)
             {
                 if (placed.Id.Value == locked.Id.Value
                     || !Overlaps(placed, locked)
@@ -239,11 +245,9 @@ public sealed partial class Reconciler
             return null;
         }
 
-        Dictionary<Guid, (int Index, Element Element)> current = IndexElementsById(scene.Children);
         Dictionary<Guid, (int Index, Element Element)> applied = IndexElementsById(sandbox.Children);
-        ILookup<int, (Element Element, int Index)> layers = scene.Children
-            .Select((element, index) => (element, index))
-            .ToLookup(pair => pair.element.ZIndex.Value);
+        SceneElementIndex index = scene.ElementIndex;
+        using var candidates = new PooledList<Element>();
         foreach (Element locked in lockedElements)
         {
             if (!applied.TryGetValue(locked.Id.Value, out (int Index, Element Element) lockedAfter))
@@ -251,14 +255,14 @@ public sealed partial class Reconciler
                 continue;
             }
 
-            int lockedBefore = current[locked.Id.Value].Index;
-            foreach ((Element other, int otherBefore) in layers[locked.ZIndex.Value])
+            QueryOverlapCandidates(index, locked, candidates);
+            foreach (Element other in candidates)
             {
                 if (other == locked
                     || !Overlaps(other, locked)
                     || !applied.TryGetValue(other.Id.Value, out (int Index, Element Element) otherAfter)
                     || !Overlaps(otherAfter.Element, locked)
-                    || (otherBefore > lockedBefore) == (otherAfter.Index > lockedAfter.Index))
+                    || (index.CompareSceneOrder(other, locked) > 0) == (otherAfter.Index > lockedAfter.Index))
                 {
                     continue;
                 }
@@ -272,6 +276,14 @@ public sealed partial class Reconciler
         }
 
         return null;
+    }
+
+    // The elements that may overlap this one on its layer, in Elements order, without walking the layer for each lock.
+    private static void QueryOverlapCandidates(SceneElementIndex index, Element element, PooledList<Element> candidates)
+    {
+        candidates.Clear();
+        index.Query(element.Start.Value, element.Range.End, candidates, element.ZIndex.Value);
+        candidates.Span.Sort(index.CompareSceneOrder);
     }
 
     private static bool Overlaps(Element element, Element other)

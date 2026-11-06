@@ -1,7 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
@@ -37,10 +36,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private static readonly object s_reportedFailureKey = new();
     private readonly EditViewModel _editViewModel;
     private readonly ILogger _logger = Log.CreateLogger<OutputViewModel>();
-    private readonly ReactiveProperty<bool> _isEncoding = new();
     private readonly ReadOnlyObservableCollection<ControllableEncodingExtension> _encoders;
     private readonly CompositeDisposable _disposable = [];
-    private string? _activeDestination;
     private long _totalFrames;
 
     public OutputViewModel(EditViewModel editViewModel)
@@ -177,13 +174,14 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public ReadOnlyReactivePropertySlim<EncoderSettingsViewModel?> AudioSettings { get; }
 
-    public ReactiveProperty<double> ProgressMax { get; } = new();
+    public ReactiveProperty<double> ProgressMax { get; } = new(1);
 
     public ReactiveProperty<double> ProgressValue { get; } = new();
 
     public ReactiveProperty<string> ProgressText { get; } = new();
 
-    public ReactiveProperty<string> ProgressMain { get; } = new(string.Empty);
+    // Stays on after a run, so that its figures can be read once it is over.
+    public ReactiveProperty<bool> HasProgress { get; } = new();
 
     public ReactiveProperty<string> Elapsed { get; } = new("00:00:00");
 
@@ -194,10 +192,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     public ReactiveProperty<string> EstimatedSize { get; } = new("-- MB");
 
     public ReactiveProperty<string> FrameProgressText { get; } = new("0 / 0");
-
-    public ReactiveProperty<bool> WasCancelled { get; } = new();
-
-    public IReadOnlyReactiveProperty<bool> IsEncoding => _isEncoding;
 
     public FilePickerFileType[] GetFilePickerFileTypes()
     {
@@ -307,10 +301,9 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         EnsureNoSourceIsMissing(missingSources);
 
         var stopwatch = new Stopwatch();
-        bool succeeded = false;
+        string? publishedPath = null;
         try
         {
-            WasCancelled.Value = false;
             string destination = destinationFile
                 ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
             ControllableEncodingExtension encoder = selectedEncoder
@@ -327,7 +320,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             _logger.LogInformation("Starting encoding process.");
             LogEncodingSettings();
             BeginProgress();
-            _activeDestination = output.DestinationPath;
             stopwatch.Start();
 
             await Task.Run(() => EncodeOnWorkerAsync(
@@ -342,9 +334,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 stopwatch,
                 cancellationToken));
 
-            output.Commit(cancellationToken);
-            succeeded = true;
-            ShowCompletedProgress();
+            // On a worker: a long image sequence takes many file operations, and Cancel has to stay clickable.
+            IReadOnlyList<string> published = await Task.Run(() => output.Commit(controller.OutputFiles, cancellationToken));
+            // An encoder that writes several files may not write the file the user named.
+            publishedPath = published.Count > 0 ? published[0] : output.DestinationPath;
+            ShowCompletedProgress(output.DestinationPath);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -358,7 +352,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
         finally
         {
-            FinishEncoding(stopwatch, succeeded);
+            FinishEncoding(stopwatch, publishedPath);
         }
     }
 
@@ -384,6 +378,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 missingSources[0],
                 missingSources.Count);
             ProgressText.Value = message;
+            // This attempt wrote nothing, so the figures of the last run must not read as its own.
+            HasProgress.Value = false;
             NotificationService.ShowError(MessageStrings.OutputException, message);
             _logger.LogWarning(
                 "Encoding blocked because {MissingSourceCount} referenced source file(s) are missing. First missing source: {MissingSource}",
@@ -395,13 +391,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     private void BeginProgress()
     {
-        _isEncoding.Value = true;
-        ProgressText.Value = "";
-        ProgressMain.Value = Strings.Encoding;
+        HasProgress.Value = true;
+        ProgressText.Value = Strings.Encoding;
+        ProgressValue.Value = 0;
         Elapsed.Value = "00:00:00";
-        Eta.Value = "--:--:--";
         CurrentSize.Value = "0 MB";
-        EstimatedSize.Value = "-- MB";
+        ClearEstimates();
         _totalFrames = 0;
         FrameProgressText.Value = "0 / 0";
     }
@@ -435,16 +430,16 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             ClearEditViewModelCaches();
 
         float renderScale = Math.Max(1, supersampleFactor);
-        using var renderer = videoEnabled ? ExportRendererFactory.Create(scene, renderScale) : null;
-        using var frameProgress = new Subject<MediaTime>();
-        using IFrameProvider frameProvider = renderer != null
-            ? new FrameProviderImpl(scene, videoSettings.FrameRate.Value, renderer, frameProgress)
-            : DisabledMediaProvider.Instance;
-        using var composer = audioEnabled ? CreateExportComposer(scene, audioSettings.SampleRate.Value) : null;
-        using var sampleProgress = new Subject<MediaTime>();
-        using ISampleProvider sampleProvider = composer != null
-            ? new SampleProviderImpl(scene, composer, audioSettings.SampleRate.Value, sampleProgress, audioSettings.GetChannelLayout())
-            : DisabledMediaProvider.Instance;
+        using var providers = ExportMediaProviders.Create(
+            scene,
+            videoEnabled,
+            audioEnabled,
+            renderScale,
+            videoSettings.FrameRate.Value,
+            audioSettings.SampleRate.Value,
+            audioSettings.GetChannelLayout());
+        IObservable<MediaTime> frameProgress = providers.FrameProgress;
+        IObservable<MediaTime> sampleProgress = providers.SampleProgress;
 
         IObservable<MediaTime> progress = videoEnabled && audioEnabled
             ? frameProgress.CombineLatest(sampleProgress, (video, audio) => video + audio)
@@ -468,40 +463,22 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                        UpdateProgressIndicators(stopwatch.Elapsed, value, ProgressMax.Value, destinationPath);
                    }))
         {
-            await controller.Encode(frameProvider, sampleProvider, cancellationToken);
+            await controller.Encode(providers.FrameProvider, providers.SampleProvider, cancellationToken);
         }
     }
 
-    internal static SceneComposer CreateExportComposer(Scene scene, int sampleRate) =>
-        new(scene, disableResourceShare: true, forceOriginalSource: true)
-        {
-            SampleRate = sampleRate,
-            ChannelLayout = scene.FindHierarchicalParent<Project>().GetChannelLayout(),
-        };
-
-    private sealed class DisabledMediaProvider : IFrameProvider, ISampleProvider
-    {
-        public static DisabledMediaProvider Instance { get; } = new();
-        public long FrameCount => 0;
-        public Rational FrameRate => new(0, 1);
-        public long SampleCount => 0;
-        public long SampleRate => 0;
-        public AudioChannelLayout ChannelLayout => AudioChannelLayout.Stereo;
-        public ValueTask<Bitmap?> ReadNextFrame() => ValueTask.FromResult<Bitmap?>(null);
-        public ValueTask<AudioBuffer?> ReadNextSamples(int length)
-            => ValueTask.FromResult<AudioBuffer?>(null);
-        public void Dispose() { }
-    }
-
-    private void ShowCompletedProgress()
+    private void ShowCompletedProgress(string destinationPath)
     {
         ProgressValue.Value = ProgressMax.Value;
         FrameProgressText.Value = _totalFrames > 0
             ? $"{_totalFrames} / {_totalFrames}"
             : FrameProgressText.Value;
         ProgressText.Value = Strings.Completed;
-        ProgressMain.Value = Strings.Completed;
         Eta.Value = "00:00:00";
+        // An encoder goes on writing after its last sample, such as the container's index.
+        string size = FormatBytes(GetFileSize(destinationPath));
+        CurrentSize.Value = size;
+        EstimatedSize.Value = size;
         _logger.LogInformation("Encoding process completed successfully.");
     }
 
@@ -510,6 +487,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         string userMessage = TranslateEncodingFailure(ex);
 
         ProgressText.Value = userMessage;
+        ClearEstimates();
         NotificationService.ShowError(MessageStrings.OutputException, userMessage);
         MarkFailureAsReported(ex);
         if (ex is FFmpegWorkerException { FFmpegErrorCode: { } ffmpegErrorCode })
@@ -544,18 +522,15 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         return userMessage;
     }
 
-    private void FinishEncoding(Stopwatch stopwatch, bool succeeded)
+    private void FinishEncoding(Stopwatch stopwatch, string? publishedPath)
     {
         stopwatch.Stop();
         Elapsed.Value = FormatDuration(stopwatch.Elapsed);
-        _isEncoding.Value = false;
-        string? completedPath = _activeDestination;
-        _activeDestination = null;
         _logger.LogInformation("Encoding process finished.");
 
-        if (succeeded && completedPath != null)
+        if (publishedPath != null)
         {
-            ShowCompletionNotification(completedPath);
+            ShowCompletionNotification(publishedPath);
         }
     }
 
@@ -590,29 +565,23 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     private void HandleCancellation()
     {
-        WasCancelled.Value = true;
-        ProgressText.Value = Strings.Cancel;
-        ProgressMain.Value = Strings.Cancel;
+        ProgressText.Value = MessageStrings.Canceled;
+        ClearEstimates();
         _logger.LogInformation("Encoding cancelled.");
     }
 
-    private void UpdateProgressIndicators(TimeSpan elapsed, double value, double max, string? destinationPath)
+    // A run's figures stay on show after it, and one that stopped has no end left to estimate.
+    private void ClearEstimates()
+    {
+        Eta.Value = "--:--:--";
+        EstimatedSize.Value = "-- MB";
+    }
+
+    private void UpdateProgressIndicators(TimeSpan elapsed, double value, double max, string destinationPath)
     {
         Elapsed.Value = FormatDuration(elapsed);
 
-        long currentBytes = 0;
-        if (destinationPath != null)
-        {
-            try
-            {
-                var info = new FileInfo(destinationPath);
-                if (info.Exists) currentBytes = info.Length;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Failed to read partial file size during encoding.");
-            }
-        }
+        long currentBytes = GetFileSize(destinationPath);
 
         CurrentSize.Value = FormatBytes(currentBytes);
 
@@ -637,6 +606,20 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 long estimatedTotal = (long)(currentBytes / ratio);
                 EstimatedSize.Value = FormatBytes(estimatedTotal);
             }
+        }
+    }
+
+    private long GetFileSize(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? info.Length : 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to read the size of the output file.");
+            return 0;
         }
     }
 

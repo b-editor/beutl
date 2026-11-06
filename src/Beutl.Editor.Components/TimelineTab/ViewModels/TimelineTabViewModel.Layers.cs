@@ -118,7 +118,7 @@ public sealed partial class TimelineTabViewModel
                 // A clipless row whose TimelineLayer still carries lock/mute/solo
                 // keeps affecting the editor/compositor; removing its header would
                 // leave no UI to see or clear those flags.
-                if (item.ItemsCount.Value > 0 || HasFlaggedLayerModel(item.Number))
+                if (Scene.ElementIndex.HasLayer(item.Number) || HasFlaggedLayerModel(item.Number))
                     break;
 
                 LayerHeaders.RemoveAt(i);
@@ -169,6 +169,13 @@ public sealed partial class TimelineTabViewModel
         return _layerTops[Math.Max(0, count)];
     }
 
+    // The bottom of the last row, which unlike CalculateLayerTop adds no row.
+    internal double CalculateLayersBottom()
+    {
+        EnsureLayerTops(LayerHeaders.Count);
+        return _layerTops[LayerHeaders.Count];
+    }
+
     public int ToLayerNumber(double pixel)
     {
         return FindLayerNumber(pixel, pixel);
@@ -181,7 +188,14 @@ public sealed partial class TimelineTabViewModel
         return FindLayerNumber(thickness.Top + (FrameNumberHelper.LayerHeight / 2), thickness.Top);
     }
 
-    private int FindLayerNumber(double hitY, double overflowY)
+    // The rows a band of the timeline covers. Unlike ToLayerNumber, this adds none.
+    internal (int First, int Last) FindLayerRange(double top, double bottom)
+    {
+        return (FindRow(top), Math.Min(FindRow(bottom), LayerHeaders.Count - 1));
+    }
+
+    // The first row that ends at or below y, or the row count when none does.
+    private int FindRow(double y)
     {
         EnsureLayerTops(LayerHeaders.Count);
         int low = 0;
@@ -189,10 +203,16 @@ public sealed partial class TimelineTabViewModel
         while (low < high)
         {
             int mid = low + (high - low) / 2;
-            if (_layerTops[mid + 1] < hitY) low = mid + 1;
+            if (_layerTops[mid + 1] < y) low = mid + 1;
             else high = mid;
         }
 
+        return low;
+    }
+
+    private int FindLayerNumber(double hitY, double overflowY)
+    {
+        int low = FindRow(hitY);
         if (low < LayerHeaders.Count && hitY >= 0) return low;
 
         double delta = overflowY - _layerTops[^1];

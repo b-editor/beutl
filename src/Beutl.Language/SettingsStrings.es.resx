@@ -100,6 +100,14 @@
     <value>Usar color de acento personalizado</value>
     <comment />
   </data>
+  <data name="UseNativeContextMenus" xml:space="preserve">
+    <value>Usar menús contextuales nativos</value>
+    <comment />
+  </data>
+  <data name="UseNativeContextMenus_Description" xml:space="preserve">
+    <value>Muestra los menús contextuales como menús estándar de macOS.</value>
+    <comment />
+  </data>
   <data name="Telemetry_Beutl_Application" xml:space="preserve">
     <value>Aplicación</value>
     <comment />
@@ -288,6 +296,14 @@
     <value>Evita que los elementos de la línea de tiempo se redimensionen más allá de la duración original del medio</value>
     <comment />
   </data>
+  <data name="ShowTimelineThumbnailsByDefault" xml:space="preserve">
+    <value>Mostrar miniaturas en la línea de tiempo de forma predeterminada</value>
+    <comment />
+  </data>
+  <data name="ShowTimelineThumbnailsByDefault_Description" xml:space="preserve">
+    <value>Muestra tiras de fotogramas y formas de onda en los clips de la línea de tiempo. Si está desactivado, actívalas por clip desde su menú contextual; así el zoom de una línea de tiempo con muchos medios sigue siendo fluido.</value>
+    <comment />
+  </data>
   <data name="Graphics" xml:space="preserve">
     <value>Gráficos</value>
     <comment />
@@ -418,7 +434,7 @@
     <comment />
   </data>
   <data name="UseHdrPreview_Description" xml:space="preserve">
-    <value>Usa renderizado HDR para el reproductor de vista previa (las operaciones del mouse, etc., estarán restringidas)</value>
+    <value>Usa renderizado HDR para el reproductor de vista previa</value>
     <comment />
   </data>
   <data name="DisplayPeakLuminance" xml:space="preserve">
@@ -626,6 +642,9 @@
     <value>Beutl ahora instala un único servidor MCP "beutl-agent": edita un Beutl en ejecución cuando el agente indica un instanceId y, en caso contrario, edita los archivos del proyecto sin interfaz. ¿Reinstalar ahora con la configuración guardada? La entrada "beutl-live" separada y su token se eliminan de la configuración del agente, y los archivos editados a mano en el destino se guardan como copia de seguridad antes de reemplazarse.</value>
     <comment />
   </data>
+  <data name="AiAgents_McpTargetsNeedReinstall" xml:space="preserve">
+    <value>Al reinstalar solo se actualiza el agente seleccionado en Configuración &gt; Agentes de IA. Estos destinos aún conservan una entrada anterior; selecciona cada uno allí y reinstala: {0}</value>
+  </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">
     <value>Reinstalar</value>
     <comment />
@@ -733,9 +752,15 @@
     <value>Mostrar guías</value>
   </data>
   <data name="ShowPreviewGuides_Description" xml:space="preserve">
-    <value>Dibuja áreas seguras y guías de composición sobre la vista previa del editor. Nunca aparecen en el video exportado, y la vista previa HDR no las muestra.</value>
+    <value>Dibuja áreas seguras y guías de composición sobre la vista previa del editor. Nunca aparecen en el video exportado.</value>
   </data>
   <data name="PreviewGuideKinds" xml:space="preserve">
     <value>Guías que se muestran</value>
+  </data>
+  <data name="SeekOnTimelineClick" xml:space="preserve">
+    <value>Mover el cabezal de reproducción al hacer clic en la línea de tiempo</value>
+  </data>
+  <data name="SeekOnTimelineClick_Description" xml:space="preserve">
+    <value>Si se desactiva, el cabezal de reproducción solo se mueve con la regla o arrastrando su línea, y arrastrar en una zona vacía de la línea de tiempo selecciona clips sin tecla modificadora.</value>
   </data>
 </root>

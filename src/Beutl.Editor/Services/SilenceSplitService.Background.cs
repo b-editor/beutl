@@ -18,10 +18,11 @@ public sealed partial class SilenceSplitService
         cancellationToken.ThrowIfCancellationRequested();
         if (!TryResolveTargets(scene, element, ranges, includeLinked, out var group, out int groupIndex, out Element[] originals))
             return false;
-        // Scene references, portals and extension callbacks can depend on live objects outside the
-        // clip. They retain the existing Razor path, without limiting which clips can be edited.
+        // Scene references, portals, extension callbacks and the speed expressions a cut reads can depend on live
+        // objects outside the clip. They retain the existing Razor path, without limiting which clips can be edited.
         if (!originals.All(e => e.GetType() == typeof(Element)
-            && e.Objects.All(o => o.GetType() == typeof(SourceSound) || o.GetType() == typeof(SourceVideo))))
+            && e.Objects.All(o => (o.GetType() == typeof(SourceSound) || o.GetType() == typeof(SourceVideo))
+                && o is not ITimeMappedSource { Speed.HasExpression: true })))
         {
             progress?.Report(100);
             Apply(scene, element, ranges, mode, includeLinked);
@@ -30,7 +31,7 @@ public sealed partial class SilenceSplitService
 
         Rational frameRate = SceneTimeRangeService.GetFrameRate(scene);
         int sampleRate = scene.FindHierarchicalParent<Project>().GetSampleRate();
-        SpeakerLayout channelLayout = scene.FindHierarchicalParent<Project>()?.ChannelLayout.Value ?? SpeakerLayout.Stereo;
+        SpeakerLayout channelLayout = scene.FindHierarchicalParent<Project>().GetSpeakerLayout();
         var project = new Project { FrameRate = { Value = frameRate }, SampleRate = { Value = sampleRate }, ChannelLayout = { Value = channelLayout } };
         var snapshot = new Scene { Uri = scene.Uri, Start = { Value = scene.Start.Value }, Duration = { Value = scene.Duration.Value } };
         project.Items.Add(snapshot);
@@ -95,7 +96,7 @@ public sealed partial class SilenceSplitService
             history.FlushPendingMutations();
             if (changed || history.ChangeVersion != changeVersion || frameRate != SceneTimeRangeService.GetFrameRate(scene)
                 || sampleRate != scene.FindHierarchicalParent<Project>().GetSampleRate()
-                || channelLayout != (scene.FindHierarchicalParent<Project>()?.ChannelLayout.Value ?? SpeakerLayout.Stereo)) return false;
+                || channelLayout != scene.FindHierarchicalParent<Project>().GetSpeakerLayout()) return false;
 
             HashSet<Element> retained = snapshot.Children.ToHashSet();
             Element[] removed = originals.Where(e => !retained.Contains(copies[e])).ToArray();

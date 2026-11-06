@@ -260,4 +260,28 @@
   <data name="Panner_Help" xml:space="preserve">
     <value>퍽을 드래그하여 위치를 조절합니다. 두 번 클릭하면 초기화됩니다.</value>
   </data>
+  <data name="PitchShiftEffect" xml:space="preserve">
+    <value>피치 시프트</value>
+  </data>
+  <data name="PitchShiftEffect_Semitones" xml:space="preserve">
+    <value>반음</value>
+  </data>
+  <data name="VibratoEffect" xml:space="preserve">
+    <value>비브라토</value>
+  </data>
+  <data name="VibratoEffect_Rate" xml:space="preserve">
+    <value>속도 (Hz)</value>
+  </data>
+  <data name="VibratoEffect_Depth" xml:space="preserve">
+    <value>깊이 (ms)</value>
+  </data>
+  <data name="RingModulatorEffect" xml:space="preserve">
+    <value>링 모듈레이터</value>
+  </data>
+  <data name="RingModulatorEffect_Frequency" xml:space="preserve">
+    <value>주파수 (Hz)</value>
+  </data>
+  <data name="RingModulatorEffect_Mix" xml:space="preserve">
+    <value>믹스 (%)</value>
+  </data>
 </root>

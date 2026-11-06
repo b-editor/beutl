@@ -1,4 +1,4 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Animation;
 
 namespace Beutl.Audio.Graph.Nodes;
 
@@ -40,7 +40,7 @@ public class ShiftNode : AudioNode
         // An expression runs a script, so it is evaluated once for each read rather than each sample. Behind the
         // speed this node sees the source's time, so it is evaluated at the start of the window the composer asked
         // for, or of the sound if that starts later.
-        MediaTime ownerStart = (offset.GetOwnerObject() as EngineObject)?.TimeRange.Value.Start ?? MediaTime.Zero;
+        MediaTime ownerStart = AnimationSampler.GetOwnerStart(offset);
         MediaTime windowStart = context.OriginalTimeRange.Start;
         MediaTime shift = offset.Evaluate(new EvaluationContext(windowStart > ownerStart ? windowStart : ownerStart));
         if (!draining)

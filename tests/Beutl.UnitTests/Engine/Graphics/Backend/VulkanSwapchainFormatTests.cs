@@ -157,4 +157,28 @@ public class VulkanSwapchainFormatTests
         if (followed)
             Assert.That((extent!.Value.Width, extent.Value.Height), Is.EqualTo((width, height)));
     }
+
+    // A layer that is not opaque shows the UI where the present shader draws nothing, around a frame given a
+    // destination. A child window on Windows or X11 cannot be blended with its parent, so it stays opaque there.
+    [Test]
+    public void TheSwapchainBlendsWithTheUiUnderItWhereThePlatformOffersAlpha()
+    {
+        const CompositeAlphaFlagsKHR all = CompositeAlphaFlagsKHR.OpaqueBitKhr | CompositeAlphaFlagsKHR.PreMultipliedBitKhr
+            | CompositeAlphaFlagsKHR.PostMultipliedBitKhr | CompositeAlphaFlagsKHR.InheritBitKhr;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(VulkanSwapchain.SelectCompositeAlpha(all, blendsWithUnderlay: true),
+                Is.EqualTo(CompositeAlphaFlagsKHR.PreMultipliedBitKhr));
+            Assert.That(VulkanSwapchain.SelectCompositeAlpha(all, blendsWithUnderlay: false),
+                Is.EqualTo(CompositeAlphaFlagsKHR.OpaqueBitKhr));
+            // What MoltenVK 1.4.0 offers.
+            Assert.That(VulkanSwapchain.SelectCompositeAlpha(
+                    CompositeAlphaFlagsKHR.OpaqueBitKhr | CompositeAlphaFlagsKHR.PostMultipliedBitKhr
+                    | CompositeAlphaFlagsKHR.InheritBitKhr, blendsWithUnderlay: true),
+                Is.EqualTo(CompositeAlphaFlagsKHR.PostMultipliedBitKhr));
+            Assert.That(VulkanSwapchain.SelectCompositeAlpha(CompositeAlphaFlagsKHR.OpaqueBitKhr, blendsWithUnderlay: true),
+                Is.EqualTo(CompositeAlphaFlagsKHR.OpaqueBitKhr));
+        });
+    }
 }

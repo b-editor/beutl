@@ -1,5 +1,6 @@
 ﻿using Avalonia.Headless.NUnit;
 using Beutl.Extensibility;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -34,7 +35,7 @@ public class OutputFileSafetyTests
             Assert.That(File.ReadAllText(destination), Is.EqualTo("previous complete output"));
             cancellation.Cancel();
             Assert.That(await execution, Is.InstanceOf<OperationCanceledException>());
-            Assert.That(output.WasCancelled.Value, Is.True);
+            Assert.That(output.ProgressText.Value, Is.EqualTo(MessageStrings.Canceled));
             Assert.That(File.ReadAllText(destination), Is.EqualTo("previous complete output"));
             AssertNoStaging(destination);
         }
@@ -59,7 +60,7 @@ public class OutputFileSafetyTests
 
         Assert.That(await CaptureFailure(output.RunAsync(CancellationToken.None)), Is.TypeOf<IOException>());
         Assert.That(File.ReadAllText(destination), Is.EqualTo("previous complete output"));
-        Assert.That(output.WasCancelled.Value, Is.False);
+        Assert.That(output.ProgressText.Value, Is.EqualTo("encoder failed after writing"));
         AssertNoStaging(destination);
     }
 
@@ -92,7 +93,7 @@ public class OutputFileSafetyTests
         Assert.Multiple(() =>
         {
             Assert.That(File.ReadAllText(destination), Is.EqualTo("new"));
-            Assert.That(output.WasCancelled.Value, Is.False);
+            Assert.That(output.ProgressText.Value, Is.EqualTo(Strings.Completed));
             Assert.That(output.Controller.Value, Is.SameAs(settings));
             Assert.That(executionController!.OutputFile, Is.Not.EqualTo(destination));
             Assert.That(Path.GetFileName(executionController.OutputFile), Is.EqualTo(Path.GetFileName(destination)));
@@ -137,7 +138,7 @@ public class OutputFileSafetyTests
         using var output = CreateOutput(editor, destination, encoder);
 
         Assert.That(await CaptureFailure(output.RunAsync(CancellationToken.None)), Is.Not.Null);
-        Assert.That(output.WasCancelled.Value, Is.False);
+        Assert.That(output.ProgressText.Value, Is.Not.EqualTo(MessageStrings.Canceled));
         Assert.That(File.ReadAllText(Path.Combine(destination, "keep.txt")), Is.EqualTo("keep"));
         AssertNoStaging(destination);
     }

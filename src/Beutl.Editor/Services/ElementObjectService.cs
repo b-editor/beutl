@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Engine;
+using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
@@ -25,6 +26,7 @@ public sealed class ElementObjectService : IElementObjectService
         ArgumentNullException.ThrowIfNull(obj);
 
         if (!ElementEditability.IsEditable(element)) return;
+        CanonicalTransformLayout.SeedEmptyGroup(obj);
         element.AddObject(obj);
         _historyManager.Commit(CommandNames.AddObject);
     }
@@ -36,6 +38,7 @@ public sealed class ElementObjectService : IElementObjectService
 
         if (!ElementEditability.IsEditable(element)) return;
         int clamped = Math.Clamp(index, 0, element.Objects.Count);
+        CanonicalTransformLayout.SeedEmptyGroup(obj);
         element.InsertObject(clamped, obj);
         _historyManager.Commit(CommandNames.AddObject);
     }

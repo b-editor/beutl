@@ -1,7 +1,6 @@
 ﻿using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.ProjectSystem;
-using Dock.Model.Controls;
 
 namespace Beutl.ViewModels;
 
@@ -60,11 +59,7 @@ public partial class EditViewModel
         T tab = reusable ?? create();
         show(tab);
 
-        // A new tab joins the open tabs of its kind, or, with none open, goes to its tool's own dock.
-        IToolDock? dock = FindToolTab<T>() == null
-            ? DockHost.Factory.GetAnchoredDock(tab.Extension.DefaultAnchor)
-            : null;
-        if (!DockHost.OpenToolTab(tab, dock, activate: !_keepFrontTabs) && reusable == null)
+        if (!DockHost.OpenToolTab(tab, target: null, activate: !_keepFrontTabs) && reusable == null)
         {
             tab.Dispose();
         }

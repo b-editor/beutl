@@ -51,24 +51,29 @@ public sealed partial class FileBrowserTabViewModel
         }
     }
 
-    private bool CanMutateItem(FileSystemItemViewModel item) => CanMutate(item.FullPath, item.IsDirectory);
+    private bool CanMutateItem(FileSystemItemViewModel item) => CanMutateAll([(item.FullPath, item.IsDirectory)]);
 
-    private bool CanMutate(string fullPath, bool isDirectory)
+    private bool CanMutateAll(IReadOnlyList<FileSystemItemViewModel> items)
+    {
+        return CanMutateAll([.. items.Select(item => (item.FullPath, item.IsDirectory))]);
+    }
+
+    private bool CanMutateAll(IReadOnlyCollection<(string Path, bool IsDirectory)> entries)
     {
         if (_disposed) return false;
         try
         {
             bool inUse = _editorContext.GetService<IEditorFileUsage>() is { } usage
-                ? usage.IsFileInUse(fullPath, isDirectory)
-                : _editorContext.Object.Uri is { IsFile: true } own && (isDirectory
-                    ? FilePathComparison.IsSameOrDescendant(fullPath, own.LocalPath)
-                    : FilePathComparison.AreSameCanonicalPath(fullPath, own.LocalPath));
+                ? usage.IsAnyFileInUse(entries)
+                : _editorContext.Object.Uri is { IsFile: true } own && entries.Any(entry => entry.IsDirectory
+                    ? FilePathComparison.IsSameOrDescendant(entry.Path, own.LocalPath)
+                    : FilePathComparison.AreSameCanonicalPath(entry.Path, own.LocalPath));
             if (!inUse) return true;
             NotificationService.ShowError(Strings.File, MessageStrings.FileInUse);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not verify whether {Path} is in use.", fullPath);
+            _logger.LogWarning(ex, "Could not verify whether {Paths} are in use.", entries.Select(entry => entry.Path));
             NotificationService.ShowError(Strings.File, MessageStrings.OperationFailed);
         }
         return false;
@@ -100,7 +105,7 @@ public sealed partial class FileBrowserTabViewModel
 
     public async Task DeleteItemsAsync(IReadOnlyList<FileSystemItemViewModel> items)
     {
-        if (items.Any(item => !CanMutateItem(item))) return;
+        if (!CanMutateAll(items)) return;
         if (items.Count == 0)
             return;
 
@@ -115,6 +120,7 @@ public sealed partial class FileBrowserTabViewModel
         FAContentDialogResult result = await ConfirmAsync(dialog);
         if (result == FAContentDialogResult.Primary)
         {
+            if (!CanMutateAll(items)) return;
             if (!TryBeginProjectFileWrite(Strings.Delete, out IProjectFileWriteLease? fileWrite))
                 return;
 
@@ -123,7 +129,6 @@ public sealed partial class FileBrowserTabViewModel
                 {
                     try
                     {
-                        if (!CanMutateItem(item)) continue;
                         DeleteEntry(item);
                     }
                     catch (Exception ex)
@@ -414,7 +419,7 @@ public sealed partial class FileBrowserTabViewModel
         string runningMessage = move ? Strings.FileBrowser_MovingFiles : Strings.FileBrowser_CopyingFiles;
         (string LocalPath, bool IsDirectory)[] entries = files.ToArray();
         // The document keeps reading a moved file at its old path, so a file it uses stays, as it does for a rename.
-        if (move && entries.Any(entry => !CanMutate(entry.LocalPath, entry.IsDirectory)))
+        if (move && !CanMutateAll(entries))
             return;
 
         HashSet<string> merging = [];

@@ -7,16 +7,30 @@ using Avalonia.Rendering;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
+// A narrow clip as a surface paints and hits it, with or without a view model.
+internal interface ICompactClip
+{
+    Rect Bounds { get; }
+
+    bool IsSelected { get; }
+
+    double Opacity { get; }
+
+    IBrush FillBrush { get; }
+
+    IPen RestBorderPen { get; }
+}
+
 // One drawing surface for a run of narrow clips. Selected clips use a separate surface at the same
 // ZIndex as selected ElementViews, preserving paint and hit-test order when detail levels are mixed.
 internal sealed class CompactElementLayer : Control, ICustomHitTest
 {
     private readonly bool _selected;
-    private readonly Func<TimelineTabView.ViewportElement, ElementView?> _realize;
-    private IReadOnlyList<TimelineTabView.ViewportElement> _elements = [];
+    private readonly Func<ICompactClip, ElementView?> _realize;
+    private IReadOnlyList<ICompactClip> _elements = [];
     private Vector _offset;
 
-    public CompactElementLayer(bool selected, Func<TimelineTabView.ViewportElement, ElementView?> realize)
+    public CompactElementLayer(bool selected, Func<ICompactClip, ElementView?> realize)
     {
         _selected = selected;
         _realize = realize;
@@ -28,9 +42,9 @@ internal sealed class CompactElementLayer : Control, ICustomHitTest
         ActualThemeVariantChanged += (_, _) => InvalidateVisual();
     }
 
-    internal int ElementCount => _elements.Count(entry => entry.Model.IsSelected.Value == _selected);
+    internal int ElementCount => _elements.Count(entry => entry.IsSelected == _selected);
 
-    public void Update(IReadOnlyList<TimelineTabView.ViewportElement> elements, Rect viewport)
+    public void Update(IReadOnlyList<ICompactClip> elements, Rect viewport)
     {
         _elements = elements;
         _offset = new Vector(viewport.X, viewport.Y);
@@ -45,12 +59,12 @@ internal sealed class CompactElementLayer : Control, ICustomHitTest
         base.Render(context);
         var selectionPen = new Pen(this.TryFindResource("TextControlForeground", out object? resource)
             && resource is IBrush brush ? brush : Brushes.White);
-        foreach (TimelineTabView.ViewportElement entry in _elements)
+        foreach (ICompactClip entry in _elements)
         {
-            if (entry.Model.IsSelected.Value != _selected) continue;
+            if (entry.IsSelected != _selected) continue;
             Rect bounds = entry.Bounds.Translate(-_offset);
             if (bounds.Width <= 0 || bounds.Height <= 2 || !bounds.Intersects(new Rect(Bounds.Size))) continue;
-            double opacity = !entry.Model.IsEditable.Value ? 0.6 : !entry.Model.IsEnabled.Value ? 0.5 : 1;
+            double opacity = entry.Opacity;
             using var state = opacity == 1 ? default : context.PushOpacity(opacity);
             IPen pen = _selected ? selectionPen : entry.RestBorderPen;
             if (bounds.Width <= 2)
@@ -61,13 +75,13 @@ internal sealed class CompactElementLayer : Control, ICustomHitTest
         }
     }
 
-    private TimelineTabView.ViewportElement? FindElement(Point localPoint)
+    private ICompactClip? FindElement(Point localPoint)
     {
         Point point = localPoint + _offset;
         for (int i = _elements.Count - 1; i >= 0; i--)
         {
-            TimelineTabView.ViewportElement entry = _elements[i];
-            if (entry.Model.IsSelected.Value == _selected && entry.Bounds.Contains(point)) return entry;
+            ICompactClip entry = _elements[i];
+            if (entry.IsSelected == _selected && entry.Bounds.Contains(point)) return entry;
         }
         return null;
     }

@@ -87,7 +87,7 @@ public partial class CubeFile : IEquatable<CubeFile>
         surf_color[3] = vertex_color[3] * (1.0f - delta[2]) + vertex_color[7] * delta[2];
 
         line_color[0] = surf_color[0] * (1.0f - delta[0]) + surf_color[1] * delta[0];
-        line_color[1] = surf_color[2] * (1.0f - delta[0]) + surf_color[3] * delta[0];
+        line_color[1] = surf_color[3] * (1.0f - delta[0]) + surf_color[2] * delta[0];
 
         out_color = line_color[0] * (1.0f - delta[1]) + line_color[1] * delta[1];
 
@@ -121,7 +121,7 @@ public partial class CubeFile : IEquatable<CubeFile>
         int size = Size;
         for (int i = 0; i < 256; i++)
         {
-            float p = i * size / 256f;
+            float p = i * (size - 1) / 255f;
             Vector3 v = LinearInterplate(p);
 
             float add = i * (1 - strength);

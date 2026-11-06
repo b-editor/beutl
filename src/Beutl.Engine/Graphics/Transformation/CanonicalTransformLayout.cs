@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Engine;
 
 namespace Beutl.Graphics.Transformation;
 
@@ -87,6 +88,32 @@ internal static class CanonicalTransformLayout
         return new CanonicalTransformLayoutResult(translate, scale, rotation, tg, structureChanged)
         {
             PostMatrixOfT = postMatrixOfT,
+        };
+    }
+
+    /// <summary>
+    /// Completes a new drawable whose group is still empty, so that it shows its position, rotation and scale from the
+    /// start. Returns its translate, or null for anything else, which keeps the transform it has.
+    /// </summary>
+    public static TranslateTransform? SeedEmptyGroup(EngineObject obj)
+    {
+        return obj is Drawable { Transform.Value: TransformGroup { Children.Count: 0 } } drawable
+            ? Ensure(drawable, CompositionContext.Default).Translate
+            : null;
+    }
+
+    /// <summary>
+    /// The index at which a new child takes the place <see cref="Ensure"/> gives it: the first enabled translate goes
+    /// on top, the first enabled rotation right below it, and anything else at the end.
+    /// </summary>
+    public static int GetInsertionIndex(IReadOnlyList<Transform> children, Transform added)
+    {
+        (int rIdx, _, int tIdx) = FindFirstEnabledIndices(children);
+        return added switch
+        {
+            TranslateTransform when tIdx < 0 => 0,
+            RotationTransform when rIdx < 0 => tIdx + 1,
+            _ => children.Count,
         };
     }
 

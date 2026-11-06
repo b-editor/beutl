@@ -58,7 +58,7 @@ public class ProxiesTabLayoutTests
         {
             window.Show();
             HeadlessTestHelpers.Render(3);
-            Assert.That(view.FindControl<Border>("EmptyState")!.IsEffectivelyVisible, Is.True);
+            Assert.That(view.FindControl<Beutl.Controls.EmptyState>("EmptyState")!.IsEffectivelyVisible, Is.True);
             Capture("empty");
 
             string readyPath = AddSource("forest-a-long-descriptive-clip-name-for-layout.mov", ProxyState.Ready);
@@ -69,7 +69,7 @@ public class ProxiesTabLayoutTests
             Assert.That(model.Clips, Has.Count.EqualTo(4));
             Assert.That(model.HasClips.Value, Is.True);
             Assert.That(model.HasSelection.Value, Is.False);
-            Assert.That(view.FindControl<Border>("EmptyState")!.IsEffectivelyVisible, Is.False);
+            Assert.That(view.FindControl<Beutl.Controls.EmptyState>("EmptyState")!.IsEffectivelyVisible, Is.False);
             Button generateSelected = view.FindControl<Button>("GenerateButton")!;
             Assert.That(generateSelected.IsEffectivelyEnabled, Is.True);
             Assert.That(generateSelected.Content, Is.EqualTo(Strings.ProxyGenerateAll));
@@ -187,7 +187,7 @@ public class ProxiesTabLayoutTests
             HeadlessTestHelpers.Render(3);
             Assert.That(model.HasClips.Value, Is.False);
             Assert.That(model.HasSelection.Value, Is.False);
-            Assert.That(view.FindControl<Border>("EmptyState")!.IsEffectivelyVisible, Is.True);
+            Assert.That(view.FindControl<Beutl.Controls.EmptyState>("EmptyState")!.IsEffectivelyVisible, Is.True);
 
             ProxyClipViewModel FindClip() => model.Clips.Single(x => x.Path == readyPath);
 

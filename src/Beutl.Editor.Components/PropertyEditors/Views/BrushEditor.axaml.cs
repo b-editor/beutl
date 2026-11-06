@@ -26,6 +26,9 @@ public sealed partial class BrushEditor : UserControl
     public static readonly StyledProperty<Media.Brush?> OriginalBrushProperty =
         AvaloniaProperty.Register<BrushEditor, Media.Brush?>(nameof(OriginalBrush));
 
+    public static readonly StyledProperty<Avalonia.Media.GradientStops?> BackgroundStopsProperty =
+        AvaloniaProperty.Register<BrushEditor, Avalonia.Media.GradientStops?>(nameof(BackgroundStops));
+
     private BrushEditorFlyout? _flyout;
     private readonly LiveEditDrag _drag = new();
     private Media.DrawableBrush? _followedBrush;
@@ -102,6 +105,12 @@ public sealed partial class BrushEditor : UserControl
         set => SetValue(OriginalBrushProperty, value);
     }
 
+    public Avalonia.Media.GradientStops? BackgroundStops
+    {
+        get => GetValue(BackgroundStopsProperty);
+        set => SetValue(BackgroundStopsProperty, value);
+    }
+
     protected override void OnPointerEntered(PointerEventArgs e)
     {
         base.OnPointerEntered(e);
@@ -116,6 +125,11 @@ public sealed partial class BrushEditor : UserControl
         if (change.Property == BrushProperty)
         {
             _flyout.Brush = Brush;
+        }
+
+        if (change.Property == BackgroundStopsProperty)
+        {
+            _flyout.BackgroundStops = BackgroundStops;
         }
 
         if (change.Property == OriginalBrushProperty)
@@ -202,6 +216,7 @@ public sealed partial class BrushEditor : UserControl
 
         _flyout.Brush = Brush;
         _flyout.OriginalBrush = OriginalBrush;
+        _flyout.BackgroundStops = BackgroundStops;
         _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable.Value);
         _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable.Value is not null;
 
@@ -266,20 +281,9 @@ public sealed partial class BrushEditor : UserControl
         }
     }
 
-    // Keeps the stops of the current gradient, or starts from white to black.
-    private static GradientBrush CreateGradientBrush(BrushType e, Media.Brush? current)
+    // Keeps the stops of the current gradient and how they mix, or starts from white to black.
+    internal static GradientBrush CreateGradientBrush(BrushType e, Media.Brush? current)
     {
-        var gradStops = new List<GradientStop>();
-        if (current is GradientBrush oldBrush)
-        {
-            gradStops.AddRange(oldBrush.GradientStops.Select(v => new GradientStop(v.Color.Value, v.Offset.Value)));
-        }
-        else
-        {
-            gradStops.Add(new GradientStop(Colors.White, 0));
-            gradStops.Add(new GradientStop(Colors.Black, 1));
-        }
-
         GradientBrush brush = e switch
         {
             BrushType.LinearGradientBrush => new LinearGradientBrush(),
@@ -287,7 +291,17 @@ public sealed partial class BrushEditor : UserControl
             BrushType.RadialGradientBrush => new RadialGradientBrush(),
             _ => throw new ArgumentOutOfRangeException(nameof(e), e, null)
         };
-        brush.GradientStops.Replace(gradStops);
+        if (current is GradientBrush oldBrush)
+        {
+            brush.GradientStops.Replace([.. oldBrush.GradientStops.Select(v => new GradientStop(v.Color.Value, v.Offset.Value))]);
+            brush.InterpolationSpace.Value = oldBrush.InterpolationSpace.Value;
+            brush.InterpolatePremultiplied.Value = oldBrush.InterpolatePremultiplied.Value;
+        }
+        else
+        {
+            brush.GradientStops.Replace([new GradientStop(Colors.White, 0), new GradientStop(Colors.Black, 1)]);
+        }
+
         return brush;
     }
 
@@ -388,11 +402,6 @@ public sealed partial class BrushEditor : UserControl
     {
         if (DataContext is not BrushEditorViewModel { IsDisposed: false } vm) return;
 
-        await TargetSelectionHelper.HandleSelectTargetRequestAsync<BrushEditorViewModel, Brush>(
-            this,
-            sender as Control,
-            vm,
-            vm => vm.GetAvailableTargets(),
-            (vm, target) => vm.SetTarget(target));
+        await TargetSelectionHelper.PickTargetAsync(this, sender as Control, vm);
     }
 }

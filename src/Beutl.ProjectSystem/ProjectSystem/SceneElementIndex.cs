@@ -3,9 +3,9 @@ using Beutl.Media;
 
 namespace Beutl.ProjectSystem;
 
-// Time and layer lookups shared by playback, sampling and editing. Range changes update balanced
-// interval trees in O(log N); collection changes rebuild once on demand. Queries hold the lock only
-// while collecting candidates, never while evaluating plugin objects.
+// Time and layer lookups shared by playback, sampling and editing. Range changes and appends update
+// balanced interval trees in O(log N); other collection changes rebuild once on demand. Queries hold the
+// lock only while collecting candidates, never while evaluating plugin objects.
 internal sealed class SceneElementIndex
 {
     private readonly object _sync = new();
@@ -13,6 +13,7 @@ internal sealed class SceneElementIndex
     private readonly Dictionary<int, Tree> _layers;
     private readonly Dictionary<Element, Entry> _entries = new(ReferenceEqualityComparer.Instance);
     private HashSet<Element>? _transitionParticipants;
+    private int _nextOrder;
 
     public SceneElementIndex(IEnumerable<Element> elements)
     {
@@ -22,6 +23,7 @@ internal sealed class SceneElementIndex
         _layers = entries.GroupBy(entry => entry.Layer)
             .ToDictionary(group => group.Key, group => new Tree(group.ToArray()));
         _all = new Tree(entries);
+        _nextOrder = entries.Length;
     }
 
     public void Update(Element element)
@@ -31,17 +33,38 @@ internal sealed class SceneElementIndex
             if (!_entries.TryGetValue(element, out Entry old)) return;
             var entry = new Entry(element, element.Range, element.ZIndex.Value, old.Order);
             if (entry == old) return;
-            _all.Remove(old);
-            Tree oldLayer = _layers[old.Layer];
-            oldLayer.Remove(old);
-            if (old.Layer != entry.Layer && oldLayer.IsEmpty) _layers.Remove(old.Layer);
-            _all.Add(entry);
-            if (!_layers.TryGetValue(entry.Layer, out Tree? layer))
-                _layers.Add(entry.Layer, layer = new Tree([]));
-            layer.Add(entry);
-            _entries[element] = entry;
+            RemoveEntry(old);
+            AddEntry(entry);
             _transitionParticipants = null;
         }
+    }
+
+    // An element added after every other one in scene order. An index built since the list changed has it already.
+    public void Append(Element element)
+    {
+        lock (_sync)
+        {
+            if (_entries.ContainsKey(element)) return;
+            AddEntry(new Entry(element, element.Range, element.ZIndex.Value, _nextOrder++));
+            _transitionParticipants = null;
+        }
+    }
+
+    private void AddEntry(Entry entry)
+    {
+        _entries[entry.Element] = entry;
+        _all.Add(entry);
+        if (!_layers.TryGetValue(entry.Layer, out Tree? layer))
+            _layers.Add(entry.Layer, layer = new Tree([]));
+        layer.Add(entry);
+    }
+
+    private void RemoveEntry(Entry entry)
+    {
+        _all.Remove(entry);
+        Tree layer = _layers[entry.Layer];
+        layer.Remove(entry);
+        if (layer.IsEmpty) _layers.Remove(entry.Layer);
     }
 
     public void InvalidateTransitions()
@@ -64,10 +87,23 @@ internal sealed class SceneElementIndex
         }
     }
 
+    public bool HasLayer(int layer)
+    {
+        lock (_sync) return _layers.ContainsKey(layer);
+    }
+
     public bool Intersects(int layer, TimeRange range)
     {
         lock (_sync)
             return !range.IsEmpty && _layers.TryGetValue(layer, out Tree? tree) && tree.Intersects(range);
+    }
+
+    // Whether a clip placed at range would land on another one. Unlike Intersects, this counts an empty range or
+    // clip that lies inside the other.
+    public bool Overlaps(int layer, TimeRange range)
+    {
+        lock (_sync)
+            return _layers.TryGetValue(layer, out Tree? tree) && tree.Overlaps(range);
     }
 
     public (Element? Before, Element? After) Neighbors(int layer, TimeRange range)
@@ -242,6 +278,18 @@ internal sealed class SceneElementIndex
             => node is not null && node.MaxEnd > range.Start
                && (Intersects(node.Left, range) || node.Entry.Range.Start < range.End
                    && (node.Entry.Range.Intersects(range) || Intersects(node.Right, range)));
+
+        public bool Overlaps(TimeRange range) => Overlaps(_root, range);
+
+        private static bool Overlaps(Node? node, TimeRange range)
+        {
+            if (node is null || node.MaxEnd < range.Start) return false;
+            if (Overlaps(node.Left, range)) return true;
+            if (node.Entry.Range.Start > range.End) return false;
+            TimeRange other = node.Entry.Range;
+            return other == range || other.Intersects(range) || other.Contains(range) || range.Contains(other)
+                || Overlaps(node.Right, range);
+        }
 
         public (Element? Before, Element? After) Neighbors(TimeRange range)
         {

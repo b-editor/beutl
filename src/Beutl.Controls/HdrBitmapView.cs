@@ -4,10 +4,12 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Media.Source;
 using BtlBitmap = Beutl.Media.Bitmap;
+using BtlRect = Beutl.Graphics.Rect;
 using BtlStretch = Beutl.Media.Stretch;
 using PreviewGamutMapping = Beutl.Media.PreviewGamutMapping;
 
@@ -39,9 +41,25 @@ public partial class HdrBitmapView : NativeControlHost
     public static readonly StyledProperty<float> DisplayPeakLuminanceProperty =
         AvaloniaProperty.Register<HdrBitmapView, float>(nameof(DisplayPeakLuminance), 0f);
 
+    internal static readonly StyledProperty<Rect?> FrameRectProperty =
+        AvaloniaProperty.Register<HdrBitmapView, Rect?>(nameof(FrameRect));
+
+    internal static readonly StyledProperty<HdrOverlay?> OverlayProperty =
+        AvaloniaProperty.Register<HdrBitmapView, HdrOverlay?>(nameof(Overlay));
+
+    internal static readonly DirectProperty<HdrBitmapView, Size?> SourceSizeProperty =
+        AvaloniaProperty.RegisterDirect<HdrBitmapView, Size?>(nameof(SourceSize), view => view.SourceSize);
+
     private VulkanSwapchainRenderer? _renderer;
     private Ref<BtlBitmap>? _clonedSource;
     private Size? _lastSourceSize;
+    private bool _drawAtNewSizeQueued;
+    private bool _overlayQueued;
+    private bool _overlaySent;
+    private IntPtr _windowsControl;
+    private IntPtr _x11Window;
+    private PixelRect? _frameShape;
+    private bool _frameShapeKnown;
     private IntPtr _macOSView;
     private IntPtr _macOSScreenColorSpace;
     private PreviewGamutMapping _displayGamut;
@@ -89,6 +107,28 @@ public partial class HdrBitmapView : NativeControlHost
         set => SetValue(DisplayPeakLuminanceProperty, value);
     }
 
+    // Where the frame goes in this view, or null to place it by Stretch. It can reach past the view, as a zoomed-in
+    // frame does. A view given one fills its layout slot and draws nothing around the frame, where the UI under it
+    // shows: its layer is not opaque on macOS, and its window takes the frame's shape on Windows and X11.
+    internal Rect? FrameRect
+    {
+        get => GetValue(FrameRectProperty);
+        set => SetValue(FrameRectProperty, value);
+    }
+
+    // A copy of what the UI draws over the frame, which the view draws over it in turn.
+    internal HdrOverlay? Overlay
+    {
+        get => GetValue(OverlayProperty);
+        set => SetValue(OverlayProperty, value);
+    }
+
+    // The size of the frame in pixels, or null while there is none.
+    internal Size? SourceSize => _lastSourceSize;
+
+    // The part of the view the frame takes.
+    internal Rect FrameRegion => FrameRect is { } frame ? frame.Intersect(new Rect(Bounds.Size)) : new Rect(Bounds.Size);
+
     protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
     {
         base.OnAttachedToLogicalTree(e);
@@ -101,6 +141,26 @@ public partial class HdrBitmapView : NativeControlHost
         {
             window.PositionChanged += OnWindowPositionChanged;
         }
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        VulkanSwapchainRenderer? previous = _renderer;
+        base.OnAttachedToVisualTree(e);
+
+        // A native view that moved here from another window keeps its layer, at that window's scale.
+        UpdateContentsScale();
+
+        // A Windows control that moved to another window can have a new holder window, which takes the mouse and the
+        // shape anew.
+        AdoptWindowsHolder();
+        UpdateFrameShape();
+
+        // A view attached again keeps its bounds, so OnSizeChanged does not draw on its new native control. Only now
+        // does that control have a window, whose screen gives the gamut, and the size the renderer follows. A new view
+        // has no size yet and draws from OnSizeChanged.
+        if (_renderer != previous)
+            RequestRender();
     }
 
     protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
@@ -127,15 +187,12 @@ public partial class HdrBitmapView : NativeControlHost
 
     private void OnTopLevelScalingChanged(object? sender, EventArgs e)
     {
-        if (_renderer != null && Bounds.Width > 0 && Bounds.Height > 0)
-        {
-            var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
-            _renderer.Resize(
-                (uint)(Bounds.Width * scaling),
-                (uint)(Bounds.Height * scaling));
+        UpdateContentsScale();
+        UpdateFrameShape();
+        QueueOverlay();
 
-            RequestRender();
-        }
+        if (_renderer != null && Bounds.Width > 0 && Bounds.Height > 0)
+            ResizeRendererAndDraw(_renderer);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -155,9 +212,7 @@ public partial class HdrBitmapView : NativeControlHost
             _clonedSource = clone;
             previous?.Dispose();
 
-            var oldSize = _lastSourceSize;
-            _lastSourceSize = GetSourceSize();
-            if (oldSize != _lastSourceSize)
+            if (SetAndRaise(SourceSizeProperty, ref _lastSourceSize, GetSourceSize()))
                 InvalidateMeasure();
 
             RequestRender();
@@ -166,6 +221,26 @@ public partial class HdrBitmapView : NativeControlHost
         {
             UpdateEdrMetadata();
             RequestRender();
+        }
+        else if (change.Property == FrameRectProperty)
+        {
+            // A view that holds a frame rectangle fills its slot instead of taking the frame's size.
+            if (change.GetOldValue<Rect?>().HasValue != change.GetNewValue<Rect?>().HasValue)
+                InvalidateMeasure();
+
+            UpdateFrameShape();
+            // Zooming and panning move the frame many times a second, so it is not uploaded again for each.
+            RequestRedraw();
+            QueueOverlay();
+        }
+        else if (change.Property == OverlayProperty)
+        {
+            if (change.GetOldValue<HdrOverlay?>() is { } oldOverlay)
+                oldOverlay.Invalidated -= OnOverlayInvalidated;
+            if (change.GetNewValue<HdrOverlay?>() is { } overlay)
+                overlay.Invalidated += OnOverlayInvalidated;
+
+            QueueOverlay();
         }
         else if (change.Property == ToneMappingExposureProperty ||
                  change.Property == DisplayPeakLuminanceProperty ||
@@ -179,22 +254,46 @@ public partial class HdrBitmapView : NativeControlHost
 
     protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
-        base.OnSizeChanged(e);
-
-        if (_renderer != null && e.NewSize.Width > 0 && e.NewSize.Height > 0)
+        if (_renderer != null && e.NewSize.Width > 0 && e.NewSize.Height > 0 && !_drawAtNewSizeQueued)
         {
-            var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
-            _renderer.Resize(
-                (uint)(e.NewSize.Width * scaling),
-                (uint)(e.NewSize.Height * scaling));
-
-            RequestRender();
+            // A frame drawn before the native view takes this size would be stretched over it, and that has to wait
+            // for layout to end: ancestors still being arranged have their old bounds, so its place is not known yet.
+            _drawAtNewSizeQueued = true;
+            Dispatcher.UIThread.Post(DrawAtNewSize, DispatcherPriority.Loaded);
         }
+
+        // Raises SizeChanged, whose handlers may set a frame that has to wait like any other.
+        base.OnSizeChanged(e);
+    }
+
+    private void DrawAtNewSize()
+    {
+        _drawAtNewSizeQueued = false;
+        if (_renderer == null || Bounds.Width <= 0 || Bounds.Height <= 0)
+            return;
+
+        // NativeControlHost has moved the native view by now, unless layout ran from the updateLayer of Avalonia's view
+        // on macOS, which puts the move off with dispatch_async. This priority never runs there, so it applies at once.
+        TryUpdateNativeControlPosition();
+
+        UpdateFrameShape();
+        ResizeRendererAndDraw(_renderer);
+        QueueOverlay();
+    }
+
+    private void ResizeRendererAndDraw(VulkanSwapchainRenderer renderer)
+    {
+        var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
+        renderer.Resize(
+            (uint)(Bounds.Width * scaling),
+            (uint)(Bounds.Height * scaling));
+
+        RequestRender();
     }
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        if (_lastSourceSize == null)
+        if (_lastSourceSize == null || FrameRect != null)
             return default;
 
         return Stretch.CalculateSize(availableSize, _lastSourceSize.Value);
@@ -202,6 +301,9 @@ public partial class HdrBitmapView : NativeControlHost
 
     protected override Size ArrangeOverride(Size finalSize)
     {
+        if (FrameRect != null)
+            return finalSize;
+
         if (_lastSourceSize == null)
             return default;
 
@@ -215,6 +317,7 @@ public partial class HdrBitmapView : NativeControlHost
         if (OperatingSystem.IsWindows())
         {
             handle = CreateWindowsControl(parent);
+            _windowsControl = handle.Handle;
         }
         else if (OperatingSystem.IsMacOS())
         {
@@ -223,6 +326,7 @@ public partial class HdrBitmapView : NativeControlHost
         else if (OperatingSystem.IsLinux())
         {
             handle = CreateLinuxControl(parent);
+            _x11Window = handle.Handle;
         }
         else
         {
@@ -247,8 +351,10 @@ public partial class HdrBitmapView : NativeControlHost
             if (OperatingSystem.IsWindows())
                 DestroyWindow(handle.Handle);
             else if (OperatingSystem.IsMacOS())
-                ReleaseMacOSView(handle.Handle);
+                ReleaseMacOSObject(handle.Handle);
 
+            _windowsControl = IntPtr.Zero;
+            _x11Window = IntPtr.Zero;
             throw;
         }
 
@@ -256,9 +362,23 @@ public partial class HdrBitmapView : NativeControlHost
         {
             _macOSView = handle.Handle;
             _displayGamut = PreviewGamutMapping.Srgb;
+            UpdateContentsScale();
             UpdateEdrMetadata();
-            UpdateDisplayGamut();
         }
+
+        // DestroyNativeControlCore released the frame, and a view attached again sees no change of Source to bring it
+        // back. A ref playback already disposed leaves nothing to show until a live frame arrives, as in
+        // OnPropertyChanged.
+        _clonedSource ??= Source?.TryClone();
+
+        // On Windows the parent is Avalonia's holder window, which is sized to this view and shown in its place.
+        if (OperatingSystem.IsWindows())
+            AdoptWindowsHolder(parent.Handle);
+
+        _overlaySent = false;
+        _frameShapeKnown = false;
+        UpdateFrameShape();
+        QueueOverlay();
 
         return handle;
     }
@@ -268,7 +388,8 @@ public partial class HdrBitmapView : NativeControlHost
         _macOSView = IntPtr.Zero;
         ReleaseMacOSObject(_macOSScreenColorSpace);
         _macOSScreenColorSpace = IntPtr.Zero;
-        _displayGamut = PreviewGamutMapping.None;
+        _windowsControl = IntPtr.Zero;
+        _x11Window = IntPtr.Zero;
 
         _renderer?.Dispose();
         _renderer = null;
@@ -282,14 +403,18 @@ public partial class HdrBitmapView : NativeControlHost
         }
         else if (OperatingSystem.IsMacOS())
         {
-            ReleaseMacOSView(control.Handle);
+            ReleaseMacOSObject(control.Handle);
         }
     }
 
     private void RequestRender()
     {
-        if (_renderer == null || _clonedSource == null)
+        // Until the native view has the view's size, a frame would only be stretched over it. DrawAtNewSize draws then.
+        if (_renderer == null || _clonedSource == null || _drawAtNewSizeQueued
+            || Bounds.Width <= 0 || Bounds.Height <= 0)
+        {
             return;
+        }
 
         var bitmapRef = _clonedSource.TryClone();
         if (bitmapRef == null)
@@ -302,20 +427,135 @@ public partial class HdrBitmapView : NativeControlHost
             return;
         }
 
-        bool isLinear = bitmap.ColorSpace?.GammaIsLinear == true;
         UpdateDisplayGamut();
+        _renderer.RequestRender(bitmapRef, CreateRenderParams(bitmap));
+    }
 
-        var renderParams = new RenderParams(
+    // Draws the frame uploaded last again with the view's parameters now.
+    private void RequestRedraw()
+    {
+        if (_renderer == null || _drawAtNewSizeQueued || Bounds.Width <= 0 || Bounds.Height <= 0
+            || _clonedSource?.Value is not { IsDisposed: false } bitmap)
+        {
+            return;
+        }
+
+        UpdateDisplayGamut();
+        _renderer.RequestRedraw(CreateRenderParams(bitmap));
+    }
+
+    private RenderParams CreateRenderParams(BtlBitmap bitmap)
+    {
+        return new RenderParams(
             SourceWidth: bitmap.Width,
             SourceHeight: bitmap.Height,
             Stretch: (BtlStretch)(int)Stretch,
             ToneMapping: ToneMapping,
             Exposure: ToneMappingExposure,
-            IsSourceLinear: isLinear,
+            IsSourceLinear: bitmap.ColorSpace?.GammaIsLinear == true,
             DisplayGamut: _displayGamut,
-            DisplayPeakLuminance: DisplayPeakLuminance);
+            DisplayPeakLuminance: DisplayPeakLuminance,
+            Destination: GetDestination());
+    }
 
-        _renderer.RequestRender(bitmapRef, renderParams);
+    // FrameRect in fractions of the view's size.
+    private BtlRect? GetDestination()
+    {
+        if (FrameRect is not { } frame || !(Bounds.Width > 0 && Bounds.Height > 0))
+            return null;
+
+        return new BtlRect(
+            (float)(frame.X / Bounds.Width),
+            (float)(frame.Y / Bounds.Height),
+            (float)(frame.Width / Bounds.Width),
+            (float)(frame.Height / Bounds.Height));
+    }
+
+    private void OnOverlayInvalidated(object? sender, EventArgs e) => QueueOverlay();
+
+    // Records the overlay once layout settles, so any number of changes make one copy, at the size the view has then.
+    private void QueueOverlay()
+    {
+        if (_overlayQueued || _renderer == null)
+            return;
+
+        _overlayQueued = true;
+        Dispatcher.UIThread.Post(UpdateOverlay, DispatcherPriority.Loaded);
+    }
+
+    private void UpdateOverlay()
+    {
+        _overlayQueued = false;
+        if (_renderer is not { } renderer)
+            return;
+
+        if (Overlay is not { } overlay || !(Bounds.Width > 0 && Bounds.Height > 0))
+        {
+            if (_overlaySent)
+                renderer.SetOverlay(null, 0, 0);
+
+            _overlaySent = false;
+            return;
+        }
+
+        double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
+        renderer.SetOverlay(overlay.Record(Bounds.Size, FrameRegion, scaling), (float)Bounds.Width, (float)Bounds.Height);
+        _overlaySent = true;
+    }
+
+    // The frame's region in device pixels, which a Windows or X11 window takes as its shape, or null for no shape.
+    private PixelRect? GetFrameShape()
+    {
+        if (FrameRect == null)
+            return null;
+
+        double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
+        Rect region = FrameRegion;
+        int left = (int)Math.Round(region.X * scaling);
+        int top = (int)Math.Round(region.Y * scaling);
+        int right = (int)Math.Round(region.Right * scaling);
+        int bottom = (int)Math.Round(region.Bottom * scaling);
+        return new PixelRect(left, top, Math.Max(0, right - left), Math.Max(0, bottom - top));
+    }
+
+    // A child window on Windows or X11 cannot be blended with the UI under it, unlike the layer on macOS, so it takes the
+    // frame's shape to leave the UI around the frame in sight.
+    private void UpdateFrameShape()
+    {
+        if (_windowsControl == IntPtr.Zero && _x11Window == IntPtr.Zero)
+            return;
+
+        PixelRect? shape = GetFrameShape();
+        if (_frameShapeKnown && shape == _frameShape)
+            return;
+
+        _frameShape = shape;
+        _frameShapeKnown = true;
+        if (_windowsControl != IntPtr.Zero)
+            SetWindowsShape(GetParent(_windowsControl), shape);
+        else
+            SetX11Shape(_x11Window, shape);
+    }
+
+    // Lets the mouse through Avalonia's holder window to the UI, as on macOS, and gives a new holder the frame's shape.
+    private void AdoptWindowsHolder(IntPtr holder = default)
+    {
+        if (_windowsControl == IntPtr.Zero)
+            return;
+
+        if (holder == IntPtr.Zero)
+            holder = GetParent(_windowsControl);
+
+        if (PassMouseThrough(holder))
+            _frameShapeKnown = false;
+    }
+
+    // AppKit leaves a layer it did not create at a scale of 1. The swapchain would then have as many pixels as the view
+    // has points, and Core Animation would stretch it on a 2x screen.
+    private void UpdateContentsScale()
+    {
+        if (_macOSView != IntPtr.Zero && TopLevel.GetTopLevel(this) is { } topLevel)
+            SetMacOSContentsScale(GetMacOSLayer(_macOSView), topLevel.RenderScaling);
     }
 
     // On macOS, FitToDisplay hands tone mapping to Core Animation, which fits the frame into the screen's current

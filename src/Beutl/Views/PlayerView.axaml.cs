@@ -50,6 +50,11 @@ public partial class PlayerView : UserControl
     private TopLevel? _scalingTopLevel;
     internal Control image = null!;
 
+    // An HDR preview's native view, the copy of the UI over its frame, and its frame size feeding the slot.
+    internal HdrBitmapView? hdrView;
+    private HdrOverlay? _hdrOverlay;
+    private IDisposable? _hdrSourceSizeSubscription;
+
     // Only the render thread touches these, so a clear stays ordered after an overlay query that outlived its wait.
     private BtlDrawable.Resource? _transformHandleResource;
     private BtlDrawable? _transformHandleResourceTarget;
@@ -58,6 +63,7 @@ public partial class PlayerView : UserControl
     {
         InitializeComponent();
 
+        zoomComboBox.ItemsSource = s_zoomOptions;
         SetupImageControl();
 
         ConfigureFrameContextMenu(framePanel);
@@ -72,6 +78,7 @@ public partial class PlayerView : UserControl
         framePanel.PointerMoved += OnFramePointerMoved;
         framePanel.PointerCaptureLost += OnFramePointerCaptureLost;
         framePanel.AddHandler(PointerWheelChangedEvent, OnFramePointerWheelChanged, RoutingStrategies.Tunnel);
+        framePanel.AddHandler(PointerTouchPadGestureMagnifyEvent, OnFrameMagnify);
 
         framePanel.Focusable = true;
         framePanel.KeyDown += OnFrameKeyDown;
@@ -85,6 +92,9 @@ public partial class PlayerView : UserControl
         framePanel.AddHandler(DragDrop.DropEvent, OnFrameDrop);
 
         Player.CurrentTimeSubmitted += OnPlayerCurrentTimeSubmitted;
+        Player.TemplateApplied += OnPlayerTemplateApplied;
+        ShowShortcutInToolTip(guidesToggle, "editor.togglePreviewGuides");
+        ShowShortcutInToolTip(onionSkinToggle, "editor.toggleOnionSkin");
     }
 
     private async void OnPlayerCurrentTimeSubmitted(object? sender, Beutl.Controls.TimecodeSubmittedEventArgs e)
@@ -122,7 +132,7 @@ public partial class PlayerView : UserControl
     {
         var config = GlobalConfiguration.Instance.EditorConfig;
         // A view attached again keeps its image control unless the preview mode changed while it was detached.
-        if (image == null || (image is HdrBitmapView) != config.UseHdrPreview.Value)
+        if (image == null || (hdrView != null) != config.UseHdrPreview.Value)
         {
             SwapImageControl(config.UseHdrPreview.Value);
         }
@@ -144,15 +154,59 @@ public partial class PlayerView : UserControl
         }
 
         _boundsSubscription?.Dispose();
+        RemoveHdrView();
 
-        Control newImage = PreviewSurface.CreateImage(useHdr, "PreviewImage.Value");
-
-        image = newImage;
-
-        // Insert after imageBackground, before guideOverlay
-        framePanel.Children.Insert(1, newImage);
+        if (useHdr)
+        {
+            // A native view covers what the UI draws in its place, and follows neither the frame panel's transform nor
+            // its clip. So it covers the whole viewport and draws the frame where the slot is, zoom and pan included,
+            // with a copy of what the UI draws over the frame. Around the frame the UI under it shows.
+            var slot = new PreviewFrameSlot();
+            var view = (HdrBitmapView)PreviewSurface.CreateImage(true, "PreviewImage.Value");
+            _hdrSourceSizeSubscription = view.GetObservable(HdrBitmapView.SourceSizeProperty)
+                .Subscribe(size => slot.SourceSize = size);
+            image = slot;
+            hdrView = view;
+            framePanel.Children.Insert(1, slot);
+            previewViewport.Children.Insert(0, view);
+            _hdrOverlay = new HdrOverlay(slot, this, view);
+            view.Overlay = _hdrOverlay;
+        }
+        else
+        {
+            image = PreviewSurface.CreateImage(false, "PreviewImage.Value");
+            // Insert after imageBackground, before guideOverlay
+            framePanel.Children.Insert(1, image);
+        }
 
         SubscribeImageBounds();
+    }
+
+    private void RemoveHdrView()
+    {
+        if (hdrView is { } view)
+        {
+            view.Overlay = null;
+            view.ClearValue(HdrBitmapView.SourceProperty);
+            previewViewport.Children.Remove(view);
+            hdrView = null;
+        }
+
+        _hdrOverlay?.Dispose();
+        _hdrOverlay = null;
+        _hdrSourceSizeSubscription?.Dispose();
+        _hdrSourceSizeSubscription = null;
+    }
+
+    // Where the slot puts the frame in the HDR preview's native view, which the frame panel's transform moves.
+    private void UpdateHdrFrameRect()
+    {
+        if (hdrView is not { } view)
+            return;
+
+        view.FrameRect = image.TransformToVisual(view) is { } transform
+            ? new Avalonia.Rect(image.Bounds.Size).TransformToAABB(transform)
+            : default(Avalonia.Rect);
     }
 
     // The layers above the preview take the image's size. The current bounds arrive on subscribing.
@@ -171,6 +225,7 @@ public partial class PlayerView : UserControl
                 transformHandlesOverlay.Width = bounds.Width;
                 transformHandlesOverlay.Height = bounds.Height;
                 UpdateViewportScale();
+                UpdateHdrFrameRect();
             });
     }
 
@@ -190,6 +245,7 @@ public partial class PlayerView : UserControl
             topLevel.ScalingChanged += OnTopLevelScalingChanged;
         }
         UpdateMaxFrameSize();
+        UpdateZoomDisplay();
     }
 
     protected override async void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -218,6 +274,7 @@ public partial class PlayerView : UserControl
     private void OnTopLevelScalingChanged(object? sender, EventArgs e)
     {
         UpdateMaxFrameSize();
+        UpdateZoomDisplay();
     }
 
     private void UpdateMaxFrameSize()
@@ -249,6 +306,15 @@ public partial class PlayerView : UserControl
             vm.BeginEditTimecodeRequested
                 .ObserveOnUIDispatcher()
                 .Subscribe(_ => Player.BeginEditCurrentTime())
+                .DisposeWith(_disposables);
+
+            vm.PreviewZoomRequested
+                .Subscribe(action => OnPreviewZoomRequested(vm, action))
+                .DisposeWith(_disposables);
+
+            vm.EditViewModel.PreviewScale
+                .ObserveOnUIDispatcher()
+                .Subscribe(scale => resolutionComboBox.SelectedItem = scale)
                 .DisposeWith(_disposables);
 
             if (vm.Scene is { } scene)
@@ -297,6 +363,9 @@ public partial class PlayerView : UserControl
                 framePanel.RenderTransformOrigin = Avalonia.RelativePoint.TopLeft;
                 framePanel.RenderTransform = new ImmutableTransform(matrix.ToAvaMatrix());
                 guideOverlay.Zoom = matrix.M11;
+                UpdateFrameOutline(matrix.M11);
+                UpdateZoomDisplay();
+                UpdateHdrFrameRect();
                 if (DataContext is PlayerViewModel { Scene: { } } vm)
                 {
                     if (ViewportTransform is not { } viewport) return;
@@ -333,8 +402,10 @@ public partial class PlayerView : UserControl
     private void SubscribeTransformOverlay(PlayerViewModel vm)
     {
         // RenderThread.Invoke during playback would stall frame generation, so suppress overlay
-        // updates outside Move mode + paused state.
-        vm.IsMoveMode.CombineLatest(vm.IsPlaying, (move, playing) => move && !playing)
+        // updates outside Move mode + paused state. The path editor shows the shape it edits with its own points, so
+        // the handles give way to it.
+        vm.IsMoveMode.CombineLatest(vm.IsPlaying, vm.PathEditor.IsVisible,
+                (move, playing, editingPath) => move && !playing && !editingPath)
             .DistinctUntilChanged()
             .ObserveOnUIDispatcher()
             .Subscribe(visible =>
@@ -351,7 +422,7 @@ public partial class PlayerView : UserControl
         if (DataContext is not PlayerViewModel vm) return;
         // The overlay is hidden during playback; skip the blocking RenderThread query.
         if (vm.IsPlaybackActive) return;
-        if (!vm.IsMoveMode.Value)
+        if (!vm.IsMoveMode.Value || vm.PathEditor.IsVisible.Value)
         {
             ClearTransformHandleOverlay();
             return;

@@ -54,6 +54,10 @@ internal static partial class ObjCRuntime
     internal static partial bool SendBool(nint receiver, nint selector, nint argument);
 
     [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    internal static partial bool SendBool(nint receiver, nint selector, nint first, nint second, nint third);
+
+    [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
     internal static partial byte SendByte(nint receiver, nint selector);
 
     [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]

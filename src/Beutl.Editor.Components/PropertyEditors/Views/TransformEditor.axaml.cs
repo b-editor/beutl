@@ -30,10 +30,11 @@ public partial class TransformEditor : UserControl
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
 
-        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
+        EditorMenuHelper.AttachRepairMenus(
             this,
             (FAMenuFlyout)expandToggle.ContextFlyout!,
-            (FAMenuFlyout)ReferenceMenuButton.Flyout!);
+            () => DataContext is TransformEditorViewModel { NeedsRepair: true });
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)ReferenceMenuButton.Flyout!);
     }
 
     private void Drop(object? sender, DragEventArgs e)
@@ -44,23 +45,14 @@ public partial class TransformEditor : UserControl
                 e,
                 BeutlDataFormats.Transform,
                 tryPasteJson: viewModel.TryPasteJson,
-                onTemplateInstance: instance =>
-                {
-                    if (viewModel.IsGroup.Value)
-                        viewModel.AddItem(instance);
-                    else
-                        viewModel.ChangeTransform(instance);
-                },
+                onTemplateInstance: instance => viewModel.AddItem(instance),
                 onTypePayload: type =>
                 {
                     KnownTransformType knownType = TransformEditorViewModel.FromDroppedType(type);
                     if (knownType == KnownTransformType.Unknown)
                         return false;
 
-                    if (viewModel.IsGroup.Value)
-                        viewModel.AddItem(knownType);
-                    else
-                        viewModel.ChangeType(knownType);
+                    viewModel.AddItem(knownType);
                     return true;
                 }))
         {
@@ -95,21 +87,14 @@ public partial class TransformEditor : UserControl
 
     private void Tag_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
+        if (DataContext is TransformEditorViewModel { IsDisposed: false })
         {
-            if (viewModel.IsGroup.Value)
+            _addFlyout ??= new FAMenuFlyout
             {
-                _addFlyout ??= new FAMenuFlyout
-                {
-                    Placement = PlacementMode.Pointer,
-                    ItemsSource = CreateMenuItems(AddTransformClick)
-                };
-                _addFlyout.ShowAt(expandToggle);
-            }
-            else
-            {
-                expandToggle.ContextFlyout?.ShowAt(expandToggle);
-            }
+                Placement = PlacementMode.Pointer,
+                ItemsSource = CreateMenuItems(AddTransformClick)
+            };
+            _addFlyout.ShowAt(expandToggle);
         }
     }
 
@@ -143,11 +128,6 @@ public partial class TransformEditor : UserControl
     {
         if (DataContext is not TransformEditorViewModel { IsDisposed: false } vm) return;
 
-        await TargetSelectionHelper.HandleSelectTargetRequestAsync<TransformEditorViewModel, Transform>(
-            this,
-            sender as Control,
-            vm,
-            vm => vm.GetAvailableTargets(),
-            (vm, target) => vm.SetTarget(target));
+        await TargetSelectionHelper.PickTargetAsync(this, sender as Control, vm);
     }
 }

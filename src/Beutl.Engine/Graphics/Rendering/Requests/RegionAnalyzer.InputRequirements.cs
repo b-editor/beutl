@@ -39,7 +39,7 @@ internal sealed partial class RegionAnalyzer
         {
             ShaderRenderFragmentPayload shader
                 => MapUnary(reference, outputRequirement, shader.Description.Bounds),
-            ShaderGraphRenderFragmentPayload graph => MapShaderGraph(reference, outputRequirement, graph.Description),
+            ShaderGraphRenderFragmentPayload graph => MapShaderGraph(reference, outputRequirement, graph),
             GeometryRenderFragmentPayload geometry
                 => MapUnary(reference, outputRequirement, geometry.Description.Bounds),
             TargetScopeRenderFragmentPayload scope
@@ -47,7 +47,8 @@ internal sealed partial class RegionAnalyzer
                     reference,
                     outputRequirement,
                     scope.Description.Bounds,
-                    targetDomain),
+                    targetDomain,
+                    scope.Description.IsValueReplayMap),
             RawTargetScopeRenderFragmentPayload
                 => FullInputs(reference),
             OpaqueRenderFragmentPayload opaque
@@ -75,19 +76,24 @@ internal sealed partial class RegionAnalyzer
     }
 
     private static ImmutableArray<RequiredRegion> MapShaderGraph(RenderFragmentReference reference,
-        RequiredRegion outputRequirement, ShaderGraphDescription graph)
+        RequiredRegion outputRequirement, ShaderGraphRenderFragmentPayload graph)
     {
-        // A collection's union does not describe each value's coordinate frame or raster density.
-        if (outputRequirement.IsFull || reference.Inputs[0].ValueCardinality.Maximum != 1)
+        // A collection's union stands for each of its values only when the graph reads around the points it draws: what a
+        // value reads then lies within what the union reads.
+        if (outputRequirement.IsFull
+            || (reference.Inputs[0].ValueCardinality.Maximum != 1 && !graph.Description.ReadsAroundEachPoint))
             return FullInputs(reference);
         Rect bounds = reference.Inputs[0].Bounds;
         if (bounds.Width == 0 || bounds.Height == 0) return FullInputs(reference);
-        float scale = reference.EffectiveScale.Value;
+        Rect required = outputRequirement.Resolve(reference.Bounds).Intersect(reference.Bounds);
+        float scale = graph.ClampDensity(reference.Inputs[0], reference.EffectiveScale.Value, required);
         float inputScale = ShaderGraphRenderFragmentPayload.InputDensity(reference.Inputs[0], scale);
         var source = ShaderImageFrame.FromPixels(bounds, PixelRect.FromRect(bounds, inputScale), inputScale, default);
-        var regions = new ShaderGraphRegions(graph, source, scale, default, outputRequirement.Resolve(reference.Bounds));
+        var regions = new ShaderGraphRegions(graph.Description, source, scale, default, required);
         // A generated output still needs the incoming value's existence and complete logical bounds.
-        return regions.SourceRegion.IsEmpty ? FullInputs(reference) : [RequiredRegion.Region(regions.SourceRegion)];
+        return regions.SourceRegion.IsEmpty
+            ? FullInputs(reference)
+            : [RequiredRegion.Region(regions.SourceRegion), .. RepeatInputs(RequiredRegion.Full, reference.Inputs.Length - 1)];
     }
 
     private static ImmutableArray<RequiredRegion> MapUnary(
@@ -113,11 +119,13 @@ internal sealed partial class RegionAnalyzer
         return [RequiredRegion.Region(required.Intersect(reference.Inputs[0].Bounds))];
     }
 
+    /// <param name="resamplesInput">Whether the scope draws its input under a matrix.</param>
     private static ImmutableArray<RequiredRegion> MapTargetScope(
         RenderFragmentReference reference,
         RequiredRegion outputRequirement,
         RenderBoundsContract bounds,
-        Rect? targetDomain)
+        Rect? targetDomain,
+        bool resamplesInput)
     {
         if (reference.Inputs.Length != 1)
             throw new InvalidOperationException("A target scope requires exactly one input fragment.");
@@ -143,7 +151,13 @@ internal sealed partial class RegionAnalyzer
         else
         {
             Rect requested = outputRequirement.Resolve(ResolveSemanticBounds(reference, targetDomain));
-            required = RequiredRegion.Region(bounds.GetRequiredInputBounds(requested));
+            Rect input = bounds.GetRequiredInputBounds(requested);
+            // A value drawn under the matrix is filtered: the outermost pixels read the texels next to what the matrix
+            // maps them to, and the value's raster can sit off the destination's grid by a phase. A vector input is
+            // drawn again under the matrix and reads nothing past it.
+            if (resamplesInput && reference.Inputs[0].EffectiveScale is { IsUnbounded: false } supply)
+                input = input.Inflate(2 / supply.Value);
+            required = RequiredRegion.Region(input);
         }
 
         Rect? inputTargetDomain = targetDomain is { } domain

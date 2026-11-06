@@ -23,7 +23,8 @@ public sealed partial class TimelineTabView
     private void ContentScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         InvalidateElementViewport();
-        if (ViewModel == null) return;
+        // The first layout reports the offset the viewer starts at. OnLoaded has yet to apply the saved one.
+        if (ViewModel == null || !IsLoaded) return;
         TimelineTabViewModel viewModel = ViewModel;
         Avalonia.Vector aOffset = ContentScroll.Offset;
         var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
@@ -39,17 +40,12 @@ public sealed partial class TimelineTabView
         const float ZoomSpeed = 1.2f;
         float delta = (float)e.Delta.Y;
 
-        scale = MathF.Pow(ZoomSpeed, delta) * scale;
-        scale = Math.Min(scale, 2);
+        scale = Math.Clamp(
+            MathF.Pow(ZoomSpeed, delta) * scale,
+            Beutl.ProjectSystem.TimelineOptions.MinScale,
+            Beutl.ProjectSystem.TimelineOptions.MaxScale);
 
-        offset.X = ZoomOffsetX(pointerPos.X, offset.X, oldScale, scale);
-    }
-
-    // Keeps the content under pointerX in place while the scale changes.
-    private static float ZoomOffsetX(double pointerX, float offsetX, float oldScale, float newScale)
-    {
-        double deltaLeft = pointerX - offsetX;
-        return (float)((pointerX / oldScale * newScale) - deltaLeft);
+        offset.X = TimelineHelper.ZoomOffsetX(pointerPos.X, offset.X, oldScale, scale);
     }
 
     private void ContentScroll_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -84,7 +80,7 @@ public sealed partial class TimelineTabView
             float oldScale = ViewModel.Options.Value.Scale;
             var offset = ViewModel.Options.Value.Offset;
             double pointerPos = _pointerFrame.TimeToPixel(ViewModel.Options.Value.Scale);
-            offset.X = ZoomOffsetX(pointerPos, offset.X, oldScale, zoom);
+            offset.X = TimelineHelper.ZoomOffsetX(pointerPos, offset.X, oldScale, zoom);
             ViewModel.Options.Value = ViewModel.Options.Value with { Scale = zoom, Offset = offset };
         }
     }

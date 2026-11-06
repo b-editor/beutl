@@ -36,6 +36,9 @@ public abstract partial class Sound : EngineObject
     // Groups and scenes feed the panner in the project layout.
     public virtual AudioChannelLayout GetClipLayout(AudioChannelLayout projectLayout, MediaTime time) => projectLayout;
 
+    /// <summary>Whether <see cref="GetClipLayout"/> can answer differently at another time.</summary>
+    public virtual bool HasTimeDependentClipLayout => false;
+
     [Display(Name = nameof(AudioStrings.Sound_OffsetPosition), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     public IExpressionProperty<MediaTime> OffsetPosition { get; } = Property.CreateExpression<MediaTime>();
@@ -89,9 +92,8 @@ public abstract partial class Sound : EngineObject
             return;
         }
 
-        var channelMap = resource.GetChannelMap();
-        var clipLayout = channelMap.ResolveClipLayout(soundSource.ChannelLayout);
-        var sourceNode = context.CreateSourceNode(soundSource, clipLayout, channelMap);
+        var sourceNode = context.CreateSourceNode(soundSource, resource.GetChannelMap());
+        var clipLayout = sourceNode.ClipLayout;
 
         var shiftNode = context.CreateShiftNode(OffsetPosition);
         context.Connect(sourceNode, shiftNode);
@@ -102,8 +104,14 @@ public abstract partial class Sound : EngineObject
         var speedNode = context.CreateSpeedNode(Speed, clipLayout.ChannelCount);
         context.Connect(resampleNode, speedNode);
 
-        var pannerNode = context.CreatePannerNode(Pan, SurroundPan, CenterLevel, LfeLevel, clipLayout);
-        context.Connect(speedNode, pannerNode);
+        ComposeOutputStages(context, speedNode, clipLayout);
+    }
+
+    // What every kind of sound ends with, after input delivers its audio in inputLayout.
+    private protected void ComposeOutputStages(AudioContext context, AudioNode input, AudioChannelLayout inputLayout)
+    {
+        var pannerNode = context.CreatePannerNode(Pan, SurroundPan, CenterLevel, LfeLevel, inputLayout);
+        context.Connect(input, pannerNode);
 
         var gainNode = context.CreateGainNode(Gain);
         context.Connect(pannerNode, gainNode);
@@ -115,6 +123,7 @@ public abstract partial class Sound : EngineObject
             currentNode = Effect.Value.CreateNode(context, currentNode);
         }
 
+        // ClipNodeを作成（EffectがローカルTimeRangeを前提としているため）
         var clipNode = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
         context.Connect(currentNode, clipNode);
         context.MarkAsOutput(clipNode);

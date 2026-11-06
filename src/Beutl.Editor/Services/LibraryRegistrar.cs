@@ -186,8 +186,10 @@ internal static class LibraryRegistrar
         LibraryService.Current
             .RegisterGroup(GraphicsStrings.FilterEffect, g => g
                 .AddFilterEffect<Blur>(GraphicsStrings.Blur)
+                .AddFilterEffect<Sharpen>(GraphicsStrings.Sharpen)
                 .AddFilterEffect<RadialBlur>(GraphicsStrings.RadialBlur)
                 .AddFilterEffect<MotionBlur>(GraphicsStrings.MotionBlur)
+                .AddFilterEffect<Bokeh>(GraphicsStrings.Bokeh)
                 .AddFilterEffect<Bloom>(GraphicsStrings.Bloom)
                 .AddFilterEffect<LightRays>(GraphicsStrings.LightRays)
                 .AddFilterEffect<WaveRefraction>(GraphicsStrings.WaveRefraction)
@@ -205,6 +207,7 @@ internal static class LibraryRegistrar
                 .AddFilterEffect<LumaColor>(GraphicsStrings.LumaColor)
                 .AddFilterEffect<Saturate>(GraphicsStrings.Saturate)
                 .AddFilterEffect<Threshold>(GraphicsStrings.Threshold)
+                .AddFilterEffect<EdgeDetection>(GraphicsStrings.EdgeDetection)
                 .AddFilterEffect<Brightness>(GraphicsStrings.Brightness)
                 .AddFilterEffect<Gamma>(GraphicsStrings.Gamma)
                 .AddFilterEffect<ColorGrading>(GraphicsStrings.ColorGrading)
@@ -215,8 +218,10 @@ internal static class LibraryRegistrar
                 .AddFilterEffect<Negaposi>(GraphicsStrings.Negaposi)
                 .AddFilterEffect<ChromaKey>(GraphicsStrings.ChromaKey)
                 .AddFilterEffect<ColorKey>(GraphicsStrings.ColorKey)
+                .AddFilterEffect<LumaKey>(GraphicsStrings.LumaKey)
                 .AddFilterEffect<SplitEffect>(GraphicsStrings.SplitEffect)
                 .AddFilterEffect<PartsSplitEffect>(GraphicsStrings.PartsSplitEffect)
+                .AddFilterEffect<RepeatEffect>(GraphicsStrings.RepeatEffect)
                 .AddFilterEffect<TransformEffect>(GraphicsStrings.Transform)
                 .AddFilterEffect<MosaicEffect>(GraphicsStrings.MosaicEffect)
                 .AddFilterEffect<ColorShift>(GraphicsStrings.ColorShift)
@@ -263,6 +268,9 @@ internal static class LibraryRegistrar
                 .AddAudioEffect<GateEffect>(AudioStrings.GateEffect)
                 .AddAudioEffect<TimeStretchEffect>(AudioStrings.TimeStretchEffect)
                 .AddAudioEffect<NoiseReductionEffect>(AudioStrings.NoiseReductionEffect)
+                .AddAudioEffect<PitchShiftEffect>(AudioStrings.PitchShiftEffect)
+                .AddAudioEffect<VibratoEffect>(AudioStrings.VibratoEffect)
+                .AddAudioEffect<RingModulatorEffect>(AudioStrings.RingModulatorEffect)
             );
     }
 }

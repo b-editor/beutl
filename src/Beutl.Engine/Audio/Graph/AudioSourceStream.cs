@@ -42,6 +42,26 @@ internal sealed class AudioSourceStream(int sampleRate, int channels, Func<Media
 
     public void Invalidate() => IsInitialized = false;
 
+    // A fractional end still contains the sample it cuts into.
+    public static long ToEndSample(double value)
+    {
+        double rounded = Math.Round(value);
+        return checked((long)(Math.Abs(value - rounded) < 1e-6 ? rounded : Math.Ceiling(value)));
+    }
+
+    // Where live input stops: the end of a finite source or this block's terminal, whichever comes first.
+    public long? GetInputEnd(AudioNode input, AudioProcessContext context)
+    {
+        double? end = input.GetFiniteSourceEndSample(sampleRate);
+        if (context.ProcessEndTime is { } terminal)
+        {
+            double terminalSample = mapTime(terminal).ToSeconds() * sampleRate;
+            end = end is { } finite ? Math.Min(finite, terminalSample) : terminalSample;
+        }
+
+        return end is { } value && double.IsFinite(value) ? ToEndSample(value) : null;
+    }
+
     public int Read(Span<float> buffer, AudioNode input, AudioProcessContext context, bool draining, long? end = null)
     {
         if (buffer.IsEmpty)
@@ -64,12 +84,7 @@ internal sealed class AudioSourceStream(int sampleRate, int channels, Func<Media
         if (result.ChannelCount != channels)
             throw new InvalidOperationException("Upstream channel count does not match the audio stream.");
         int count = Math.Min(requestedFrames, result.SampleCount);
-        for (int channel = 0; channel < channels; channel++)
-        {
-            ReadOnlySpan<float> samples = result.GetChannelData(channel);
-            for (int i = 0; i < count; i++)
-                buffer[i * channels + channel] = samples[i];
-        }
+        AudioConversion.Interleave(result, count, buffer);
         Position += count;
         return count * channels;
     }

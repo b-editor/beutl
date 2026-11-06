@@ -12,7 +12,7 @@ public sealed partial class Reconciler
     // CompareArray records an insert without descending into it, so validate the inserted subtree
     // against the sandbox, where it exists and is findable by Id.
     private static void ValidateInsertedSubtrees(
-        CoreObject sandboxRoot,
+        ObjectLookup sandbox,
         List<ChangeSetEntry> changes,
         List<ValidationOutcome> validation)
     {
@@ -20,19 +20,19 @@ public sealed partial class Reconciler
         {
             if (change.Operation == ChangeOperations.InsertChild && change.NewValue is JsonObject inserted)
             {
-                ValidateInsertedNode(sandboxRoot, inserted, validation);
+                ValidateInsertedNode(sandbox, inserted, validation);
             }
         }
     }
 
     private static void ValidateInsertedNode(
-        CoreObject sandboxRoot,
+        ObjectLookup sandbox,
         JsonObject node,
         List<ValidationOutcome> validation)
     {
         // Start/Length have no property validator (see ValidateChangedElementTimelines).
         if (CollectionReconciler.TryGetId(node, out Guid nodeId)
-            && sandboxRoot.FindById(nodeId) is Element element)
+            && sandbox.Find(nodeId) is Element element)
         {
             ValidateElementTimeline(element, validation);
         }
@@ -47,17 +47,17 @@ public sealed partial class Reconciler
             switch (pair.Value)
             {
                 case JsonObject childObject:
-                    ValidateInsertedNode(sandboxRoot, childObject, validation);
+                    ValidateInsertedNode(sandbox, childObject, validation);
                     break;
                 case JsonArray childArray:
                     foreach (JsonObject childItem in childArray.OfType<JsonObject>())
                     {
-                        ValidateInsertedNode(sandboxRoot, childItem, validation);
+                        ValidateInsertedNode(sandbox, childItem, validation);
                     }
 
                     break;
                 default:
-                    AddValidation(sandboxRoot, node, pair.Key, pair.Value, validation);
+                    AddValidation(sandbox, node, pair.Key, pair.Value, validation);
                     break;
             }
         }
@@ -67,7 +67,7 @@ public sealed partial class Reconciler
     // timing (not just an insert) can persist a negative Start or non-positive Length that the
     // add/move tools reject. Validate every element whose timing changed against the applied sandbox.
     private static void ValidateChangedElementTimelines(
-        CoreObject sandboxRoot,
+        ObjectLookup sandbox,
         List<ChangeSetEntry> changes,
         List<ValidationOutcome> validation)
     {
@@ -80,7 +80,7 @@ public sealed partial class Reconciler
                     || change.Path.EndsWith("/Length", StringComparison.Ordinal))
                 && Guid.TryParse(id, out Guid guid)
                 && seen.Add(guid)
-                && sandboxRoot.FindById(guid) is Element element)
+                && sandbox.Find(guid) is Element element)
             {
                 ValidateElementTimeline(element, validation);
             }
@@ -139,7 +139,7 @@ public sealed partial class Reconciler
     }
 
     private static void CompareObject(
-        CoreObject root,
+        ObjectLookup objects,
         JsonObject current,
         JsonObject desired,
         string path,
@@ -162,11 +162,11 @@ public sealed partial class Reconciler
 
             if (currentNode is JsonObject currentObject && pair.Value is JsonObject desiredObject)
             {
-                CompareObject(root, currentObject, desiredObject, childPath, changes, validation);
+                CompareObject(objects, currentObject, desiredObject, childPath, changes, validation);
             }
             else if (currentNode is JsonArray currentArray && pair.Value is JsonArray desiredArray)
             {
-                CompareArray(root, currentArray, desiredArray, childPath, changes, validation);
+                CompareArray(objects, currentArray, desiredArray, childPath, changes, validation);
             }
             else if (!JsonEquals(currentNode, pair.Value))
             {
@@ -176,7 +176,7 @@ public sealed partial class Reconciler
                     targetId,
                     currentNode?.DeepClone(),
                     pair.Value?.DeepClone()));
-                AddValidation(root, desired, pair.Key, pair.Value, validation);
+                AddValidation(objects, desired, pair.Key, pair.Value, validation);
             }
         }
 
@@ -195,7 +195,7 @@ public sealed partial class Reconciler
     }
 
     private static void CompareArray(
-        CoreObject root,
+        ObjectLookup objects,
         JsonArray current,
         JsonArray desired,
         string path,
@@ -245,7 +245,7 @@ public sealed partial class Reconciler
                     desiredItem.Value.Index));
             }
 
-            CompareObject(root, currentItem.Node, desiredItem.Value.Node, $"{path}[Id={desiredItem.Key}]", changes, validation);
+            CompareObject(objects, currentItem.Node, desiredItem.Value.Node, $"{path}[Id={desiredItem.Key}]", changes, validation);
         }
 
         foreach (KeyValuePair<Guid, (int Index, JsonObject Node)> currentItem in currentById)
@@ -278,7 +278,7 @@ public sealed partial class Reconciler
     }
 
     private static void AddValidation(
-        CoreObject root,
+        ObjectLookup objects,
         JsonObject desiredOwner,
         string propertyName,
         JsonNode? valueNode,
@@ -289,7 +289,7 @@ public sealed partial class Reconciler
             return;
         }
 
-        if (root.FindById(ownerId) is not CoreObject target)
+        if (objects.Find(ownerId) is not CoreObject target)
         {
             return;
         }
@@ -306,7 +306,7 @@ public sealed partial class Reconciler
             }
 
             CoreSerializerOptions options = DeclarativeDocumentApplier.CreateOptions(
-                DeclarativeDocumentApplier.ResolveBaseUri(target) ?? root.Uri);
+                DeclarativeDocumentApplier.ResolveBaseUri(target) ?? objects.Root.Uri);
 
             // A member the type writes itself, such as a node's Position, is not in the property's own form.
             if (target.Properties.FirstOrDefault(p => p.Name == propertyName) is { } engineProperty

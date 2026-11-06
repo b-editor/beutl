@@ -22,6 +22,103 @@ public class LayerHeaderDragTests
     public enum DragEnd { CaptureLoss, Playback, Escape, Undo }
 
     [AvaloniaTest]
+    public async Task A_drag_moves_the_clips_off_screen_without_making_view_models_for_them()
+    {
+        ElementSource rect = new ElementSource.EngineObject(() => new RectShape());
+        (EditViewModel editor, TimelineTabViewModel timeline) = await TimelineTestHost.OpenTimelineAsync(
+            "layer-header-drag-off-screen",
+            [
+                new ElementDescription(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0, rect),
+                new ElementDescription(MediaTime.FromSeconds(8000), MediaTime.FromSeconds(2), 0, rect),
+                new ElementDescription(MediaTime.FromSeconds(9000), MediaTime.FromSeconds(2), 0, rect),
+            ]);
+        Element near = editor.Scene.Children.Single(clip => clip.Start.Value == MediaTime.FromSeconds(1));
+        Element far = editor.Scene.Children.Single(clip => clip.Start.Value == MediaTime.FromSeconds(8000));
+        Element farther = editor.Scene.Children.Single(clip => clip.Start.Value == MediaTime.FromSeconds(9000));
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 960, Height = 420 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            LayerHeader header = view.GetVisualDescendants().OfType<LayerHeader>()
+                .First(h => h.DataContext is LayerHeaderViewModel { Number: 0 });
+            Border handle = header.FindControl<Border>("border")!;
+            Point press = handle.TranslatePoint(new Point(handle.Bounds.Width / 2, handle.Bounds.Height / 2), window)!.Value;
+            Point moved = press + new Vector(0, 2 * FrameNumberHelper.LayerHeight);
+            TimelineTestHost.WaitForHitTest(window, handle, press);
+            window.MouseMove(press);
+            window.MouseDown(press, MouseButton.Left);
+            window.MouseMove(moved, RawInputModifiers.LeftMouseButton);
+
+            ElementViewModel nearModel = timeline.FindViewModelFor(near)!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(nearModel.Margin.Value.Top, Is.GreaterThan(timeline.CalculateLayerTop(0)), "the clip on screen");
+                Assert.That(timeline.FindViewModelFor(far), Is.Null);
+                Assert.That(timeline.FindViewModelFor(farther), Is.Null);
+            });
+
+            // A clip that comes on screen during the drag joins it.
+            ElementViewModel farModel = timeline.GetViewModelFor(far)!;
+            window.MouseMove(moved + new Vector(0, 1), RawInputModifiers.LeftMouseButton);
+            Assert.That(farModel.Margin.Value.Top, Is.EqualTo(nearModel.Margin.Value.Top));
+
+            window.MouseUp(moved, MouseButton.Left);
+            HeadlessTestHelpers.Settle(4);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(near.ZIndex.Value, Is.EqualTo(2));
+                Assert.That(far.ZIndex.Value, Is.EqualTo(2));
+                Assert.That(farther.ZIndex.Value, Is.EqualTo(2));
+                Assert.That(timeline.FindViewModelFor(farther), Is.Null);
+            });
+        }
+        finally
+        {
+            TimelineTestHost.Close(view, window);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_clip_too_narrow_for_a_view_model_follows_the_drag_while_on_screen()
+    {
+        (EditViewModel editor, TimelineTabViewModel timeline) = await TimelineTestHost.OpenTimelineAsync(
+            "layer-header-drag-narrow",
+            [new ElementDescription(MediaTime.FromSeconds(1), MediaTime.FromSeconds(0.005), 0,
+                new ElementSource.EngineObject(() => new RectShape()))]);
+        Element narrow = editor.Scene.Children.Single();
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 960, Height = 420 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            Assert.That(timeline.FindViewModelFor(narrow), Is.Null);
+            LayerHeader header = view.GetVisualDescendants().OfType<LayerHeader>()
+                .First(h => h.DataContext is LayerHeaderViewModel { Number: 0 });
+            Border handle = header.FindControl<Border>("border")!;
+            Point press = handle.TranslatePoint(new Point(handle.Bounds.Width / 2, handle.Bounds.Height / 2), window)!.Value;
+            Point moved = press + new Vector(0, 2 * FrameNumberHelper.LayerHeight);
+            TimelineTestHost.WaitForHitTest(window, handle, press);
+            window.MouseMove(press);
+            window.MouseDown(press, MouseButton.Left);
+            window.MouseMove(moved, RawInputModifiers.LeftMouseButton);
+
+            Assert.That(timeline.FindViewModelFor(narrow)?.Margin.Value.Top, Is.GreaterThan(timeline.CalculateLayerTop(0)));
+
+            window.MouseUp(moved, MouseButton.Left);
+            HeadlessTestHelpers.Settle(4);
+            Assert.That(narrow.ZIndex.Value, Is.EqualTo(2));
+        }
+        finally
+        {
+            TimelineTestHost.Close(view, window);
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(DragEnd.CaptureLoss)]
     [TestCase(DragEnd.Playback)]
     [TestCase(DragEnd.Escape)]

@@ -104,6 +104,8 @@ public sealed partial class GraphEditorTabViewModel : IToolContext
             h.DetachedFromHierarchy -= OnElementDetached;
         if (Element.Value is { } element) element.Edited -= OnElementEdited;
         _animationDisposables.Dispose();
+        _pairDisposables.Dispose();
+        _observedPairs.Clear();
         _disposables.Dispose();
         _activeGraph?.Dispose();
         foreach (var item in _treeCache.Values) item.Dispose();

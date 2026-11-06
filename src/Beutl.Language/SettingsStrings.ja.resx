@@ -96,6 +96,14 @@
     <value>アクセントカラーをカスタマイズ</value>
     <comment/>
   </data>
+  <data name="UseNativeContextMenus" xml:space="preserve">
+    <value>ネイティブのコンテキストメニューを使用</value>
+    <comment/>
+  </data>
+  <data name="UseNativeContextMenus_Description" xml:space="preserve">
+    <value>右クリックメニューを macOS 標準のメニューで表示します。</value>
+    <comment/>
+  </data>
   <data name="Telemetry_Beutl_Application" xml:space="preserve">
     <value>アプリケーション</value>
     <comment/>
@@ -284,6 +292,14 @@
     <value>タイムラインの要素をメディアの元の長さを超えてリサイズできないようにします</value>
     <comment/>
   </data>
+  <data name="ShowTimelineThumbnailsByDefault" xml:space="preserve">
+    <value>タイムラインのサムネイルを既定で表示する</value>
+    <comment/>
+  </data>
+  <data name="ShowTimelineThumbnailsByDefault_Description" xml:space="preserve">
+    <value>タイムラインのクリップにフィルムストリップと波形を表示します。オフにすると、クリップの右クリックメニューから個別にオンにできます。メディアの多いタイムラインの拡大縮小が軽くなります。</value>
+    <comment/>
+  </data>
   <data name="Graphics" xml:space="preserve">
     <value>Graphics</value>
     <comment/>
@@ -414,7 +430,7 @@
     <comment/>
   </data>
   <data name="UseHdrPreview_Description" xml:space="preserve">
-    <value>プレビュープレーヤーにHDRレンダリングを使用します（マウス操作などが制限されます）</value>
+    <value>プレビュープレーヤーにHDRレンダリングを使用します</value>
     <comment/>
   </data>
   <data name="DisplayPeakLuminance" xml:space="preserve">
@@ -622,6 +638,9 @@
     <value>Beutl がインストールする MCP サーバーは "beutl-agent" の 1 つになりました。エージェントが instanceId を指定すれば起動中の Beutl を、指定しなければプロジェクトファイルをヘッドレスで編集します。保存済みの設定で今すぐ再インストールしますか？エージェント設定から旧 "beutl-live" エントリとそのトークンが削除され、配布先で手動編集したファイルは、置き換える前にバックアップされます。</value>
     <comment/>
   </data>
+  <data name="AiAgents_McpTargetsNeedReinstall" xml:space="preserve">
+    <value>再インストールで更新されるのは、設定の「AI エージェント」で選択中のエージェントだけです。次の導入先には古いエントリーが残っているので、それぞれ選択して再インストールしてください: {0}</value>
+  </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">
     <value>再インストール</value>
     <comment/>
@@ -748,9 +767,15 @@
     <value>ガイドを表示</value>
   </data>
   <data name="ShowPreviewGuides_Description" xml:space="preserve">
-    <value>エディターのプレビューにセーフエリアや構図のガイドを重ねて表示します。書き出しには含まれず、HDRプレビューでは表示されません。</value>
+    <value>エディターのプレビューにセーフエリアや構図のガイドを重ねて表示します。書き出しには含まれません。</value>
   </data>
   <data name="PreviewGuideKinds" xml:space="preserve">
     <value>表示するガイド</value>
+  </data>
+  <data name="SeekOnTimelineClick" xml:space="preserve">
+    <value>タイムラインのクリックで再生位置を移動</value>
+  </data>
+  <data name="SeekOnTimelineClick_Description" xml:space="preserve">
+    <value>オフにすると、再生位置は目盛りの操作かバーのドラッグでのみ移動し、タイムラインの何もない場所をドラッグすると修飾キーなしでクリップを範囲選択します。</value>
   </data>
 </root>

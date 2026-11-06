@@ -74,6 +74,19 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
         },
         Command("timeline.duplicate", Strings.Duplicate, Strings.Duplicate_Description,
             [new("Ctrl+D"), new("Cmd+D", OSPlatform.OSX)], timeline => timeline.Duplicate.Execute(), HasSelection),
+        Command("timeline.selectAll", Strings.SelectAll, "",
+            [new("Ctrl+A"), new("Cmd+A", OSPlatform.OSX)], timeline => timeline.SelectAll()),
+        Command("timeline.deselectAll", Strings.DeselectAll, "",
+            [new("Ctrl+Shift+A"), new("Cmd+Shift+A", OSPlatform.OSX)], timeline => timeline.ClearSelected(), HasSelection),
+        // Both Cmd+= and Cmd++ zoom in. Each reports OemPlus for its character, with Shift for + on a US or JIS layout.
+        Command("timeline.zoomIn", Strings.TimelineZoomIn, "",
+            [new("Ctrl+OemPlus"), new("Ctrl+Shift+OemPlus"), new("Cmd+OemPlus", OSPlatform.OSX), new("Cmd+Shift+OemPlus", OSPlatform.OSX)],
+            timeline => timeline.ZoomAroundPlayhead(TimelineTabViewModel.ZoomStep)),
+        Command("timeline.zoomOut", Strings.TimelineZoomOut, "",
+            [new("Ctrl+OemMinus"), new("Cmd+OemMinus", OSPlatform.OSX)],
+            timeline => timeline.ZoomAroundPlayhead(1 / TimelineTabViewModel.ZoomStep)),
+        Command("timeline.resetZoom", Strings.ResetZoom, "",
+            [new("Ctrl+D0"), new("Cmd+D0", OSPlatform.OSX)], timeline => timeline.ResetZoom()),
         Shortcut("timeline.setStartTime", Strings.SetStartTime, [new("OemOpenBrackets")],
             timeline => timeline.SetStartTimeToCurrentTime.Execute()),
         Shortcut("timeline.setEndTime", Strings.SetEndTime, [new("OemCloseBrackets")],
@@ -258,10 +271,8 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
     {
         if (editorContext.FindToolTab<TimelineTabViewModel>()?.GetViewModelFor(element) is { } viewModel)
         {
-            IReadOnlyList<ElementViewModel> selected = viewModel.GetGroupOrSelectedElements();
-            return (selected.Count == 0 ? [viewModel] : selected)
-                .Where(e => e.IsEditable.Value)
-                .Select(e => e.Model)
+            return viewModel.GetGroupOrSelectedModelsOrSelf()
+                .Where(e => !scene.IsElementLocked(e))
                 .ToArray();
         }
 
@@ -278,16 +289,12 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
     {
         if (editorContext.FindToolTab<TimelineTabViewModel>()?.GetViewModelFor(element) is { } viewModel)
         {
-            IReadOnlyList<ElementViewModel> selected = viewModel.GetGroupOrSelectedElements();
-            return (selected.Count == 0 ? [viewModel] : selected)
-                .Select(e => e.Model)
-                .ToArray();
+            return viewModel.GetGroupOrSelectedModelsOrSelf();
         }
 
         IEnumerable<Guid> selection = editorContext.GetService<IEditorSelection>()?.SelectedElements
             .Select(e => e.Id.Value) ?? [];
-        HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(selection.Append(element.Id.Value), scene.Groups);
-        return scene.Children.Where(e => ids.Contains(e.Id.Value)).ToArray();
+        return DuplicateHelper.FindWithGroupSiblings(scene, selection.Append(element.Id.Value));
     }
 
     private static async Task SaveAsTemplateAsync(

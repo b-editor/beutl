@@ -25,7 +25,7 @@ internal static class SilenceWaveform
             ? TaskScheduler.Current : TaskScheduler.FromCurrentSynchronizationContext();
         var range = element.Range;
         int sampleRate = scene.FindHierarchicalParent<Project>().GetSampleRate();
-        SpeakerLayout channelLayout = scene.FindHierarchicalParent<Project>()?.ChannelLayout.Value ?? SpeakerLayout.Stereo;
+        AudioChannelLayout channelLayout = scene.FindHierarchicalParent<Project>().GetChannelLayout();
         if (range.Duration <= MediaTime.Zero) yield break;
         long totalSamples = range.Duration.ToSamples(sampleRate, MidpointRounding.ToZero);
         if (totalSamples < chunkCount) yield break;
@@ -103,7 +103,7 @@ internal static class SilenceWaveform
             }
         }
 
-        using var composer = new Composer { SampleRate = sampleRate, ChannelLayout = channelLayout.ToAudioChannelLayout() };
+        using var composer = new Composer { SampleRate = sampleRate, ChannelLayout = channelLayout };
         SceneCompositor compositor = isolated ? new SceneCompositor(scene) { ForceOriginalSource = true }
             : await Task.Factory.StartNew(() => new SceneCompositor(scene) { ForceOriginalSource = true },
                 cancellationToken, TaskCreationOptions.DenyChildAttach, owner).ConfigureAwait(false);

@@ -55,8 +55,7 @@ public sealed class ChannelMapEditorViewModel : ValueEditorViewModel<AudioChanne
     private void RefreshSource()
     {
         using var source = _sound?.Source.Value?.ToResource(CompositionContext.Default);
-        _sourceLayout = source is { MediaReader: not null, SampleRate: > 0, NumChannels: > 0 }
-            ? source.ChannelLayout : null;
+        _sourceLayout = source?.ReadableChannelLayout;
         _hasSource.Value = _sourceLayout != null;
 
         _refreshing = true;
@@ -136,7 +135,7 @@ public sealed class ChannelMapEditorViewModel : ValueEditorViewModel<AudioChanne
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json[nameof(IsExpanded)] is JsonValue value && value.TryGetValue(out bool isExpanded))
+        if (json.TryGetPropertyValueAsJsonValue(nameof(IsExpanded), out bool isExpanded))
             IsExpanded.Value = isExpanded;
     }
 

@@ -15,6 +15,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
     }
 
     [Display(Name = nameof(GraphicsStrings.TranslateTransform_X), ResourceType = typeof(GraphicsStrings))]
+    [CombinedEditor(nameof(Y), Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> X { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.TranslateTransform_Y), ResourceType = typeof(GraphicsStrings))]

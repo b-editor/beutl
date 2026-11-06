@@ -100,6 +100,14 @@
     <value>Use custom accent color</value>
     <comment/>
   </data>
+  <data name="UseNativeContextMenus" xml:space="preserve">
+    <value>Use native context menus</value>
+    <comment/>
+  </data>
+  <data name="UseNativeContextMenus_Description" xml:space="preserve">
+    <value>Shows right-click menus as standard macOS menus.</value>
+    <comment/>
+  </data>
   <data name="Telemetry_Beutl_Application" xml:space="preserve">
     <value>Application</value>
     <comment/>
@@ -288,6 +296,14 @@
     <value>Prevent timeline elements from being resized beyond the original media duration</value>
     <comment/>
   </data>
+  <data name="ShowTimelineThumbnailsByDefault" xml:space="preserve">
+    <value>Show timeline thumbnails by default</value>
+    <comment/>
+  </data>
+  <data name="ShowTimelineThumbnailsByDefault_Description" xml:space="preserve">
+    <value>Show filmstrips and waveforms on timeline clips. When off, turn them on per clip from its context menu; this keeps zooming a timeline full of media responsive.</value>
+    <comment/>
+  </data>
   <data name="Graphics" xml:space="preserve">
     <value>Graphics</value>
     <comment/>
@@ -418,7 +434,7 @@
     <comment/>
   </data>
   <data name="UseHdrPreview_Description" xml:space="preserve">
-    <value>Use HDR rendering for the preview player (mouse operations, etc., will be restricted)</value>
+    <value>Use HDR rendering for the preview player</value>
     <comment/>
   </data>
   <data name="DisplayPeakLuminance" xml:space="preserve">
@@ -626,6 +642,9 @@
     <value>Beutl now installs a single "beutl-agent" MCP server: it edits a running Beutl when the agent passes an instanceId and edits project files headlessly otherwise. Reinstall now with your saved settings? The separate "beutl-live" entry and its token are removed from the agent configuration, and files you edited by hand in the destination are saved as backups before they are replaced.</value>
     <comment/>
   </data>
+  <data name="AiAgents_McpTargetsNeedReinstall" xml:space="preserve">
+    <value>Reinstalling updates only the agent selected in Settings &gt; AI Agents. These targets still hold an earlier entry; select each one there and reinstall: {0}</value>
+  </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">
     <value>Reinstall</value>
     <comment/>
@@ -752,9 +771,15 @@
     <value>Show guides</value>
   </data>
   <data name="ShowPreviewGuides_Description" xml:space="preserve">
-    <value>Draw safe areas and composition guides over the editor's preview. They never appear in exported video, and the HDR preview does not show them.</value>
+    <value>Draw safe areas and composition guides over the editor's preview. They never appear in exported video.</value>
   </data>
   <data name="PreviewGuideKinds" xml:space="preserve">
     <value>Guides to show</value>
+  </data>
+  <data name="SeekOnTimelineClick" xml:space="preserve">
+    <value>Move the playhead with a click on the timeline</value>
+  </data>
+  <data name="SeekOnTimelineClick_Description" xml:space="preserve">
+    <value>When off, the playhead moves only from the ruler or by dragging its line, and dragging an empty part of the timeline selects clips without a modifier key.</value>
   </data>
 </root>

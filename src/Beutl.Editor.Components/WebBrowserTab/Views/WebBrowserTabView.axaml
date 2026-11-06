@@ -148,35 +148,6 @@
                 </StackPanel>
             </Border>
         </DataTemplate>
-        <DataTemplate x:Key="DownloadHistoryEmptyTemplate" x:DataType="viewModel:WebBrowserTabViewModel">
-            <Border MaxWidth="360" Padding="12,16">
-                <StackPanel Spacing="16">
-                    <Border Width="64"
-                            Height="64"
-                            HorizontalAlignment="Center"
-                            Background="{DynamicResource SubtleFillColorSecondaryBrush}"
-                            CornerRadius="20">
-                        <icons:FluentIcon HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          FontSize="28"
-                                          Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                          Icon="ArrowDownload" />
-                    </Border>
-                    <StackPanel Spacing="8">
-                        <TextBlock FontSize="18"
-                                   FontWeight="SemiBold"
-                                   Text="{x:Static lang:Strings.BrowserHistoryEmpty}"
-                                   TextAlignment="Center"
-                                   TextWrapping="Wrap" />
-                        <TextBlock Classes="browserSecondary"
-                                   LineHeight="20"
-                                   Text="{x:Static lang:Strings.BrowserHistoryEmptyHint}"
-                                   TextAlignment="Center"
-                                   TextWrapping="Wrap" />
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-        </DataTemplate>
     </UserControl.Resources>
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
         <controls:ToolTabBar x:Name="AddressBar">
@@ -513,61 +484,39 @@
                                 Margin="24"
                                 VerticalAlignment="Center"
                                 Spacing="16">
-                        <Border x:Name="BrowserEmptyState" Padding="8,24">
-                            <StackPanel MaxWidth="320"
-                                        HorizontalAlignment="Center"
-                                        Spacing="24">
-                                <Border Width="64"
-                                        Height="64"
-                                        HorizontalAlignment="Center"
-                                        Background="{DynamicResource SubtleFillColorSecondaryBrush}"
-                                        CornerRadius="20">
-                                    <icons:FluentIcon HorizontalAlignment="Center"
-                                                      VerticalAlignment="Center"
-                                                      FontSize="30"
-                                                      Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                                      Icon="Globe" />
-                                </Border>
-                                <StackPanel Spacing="10">
-                                    <TextBlock FontSize="20"
-                                               FontWeight="SemiBold"
-                                               Text="{x:Static lang:Strings.WebBrowser}"
-                                               TextAlignment="Center"
-                                               TextWrapping="Wrap" />
-                                    <TextBlock FontSize="13"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               LineHeight="22"
-                                               Text="{x:Static lang:Strings.BrowserStartDescription}"
-                                               TextAlignment="Center"
-                                               TextWrapping="Wrap" />
-                                </StackPanel>
-                                <StackPanel HorizontalAlignment="Center"
-                                            Orientation="Horizontal"
-                                            Spacing="8">
-                                    <Button x:Name="StartBrowsingButton"
-                                            usage:UsageTracking.Feature="WebBrowser.StartSearch"
-                                            AutomationProperties.Name="{x:Static lang:Strings.BrowserStartSearch}"
-                                            Click="OnStartSearchClick">
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <icons:FluentIcon VerticalAlignment="Center"
-                                                              FontSize="16"
-                                                              Icon="Search" />
-                                            <TextBlock Text="{x:Static lang:Strings.BrowserStartSearch}" />
-                                        </StackPanel>
-                                    </Button>
-                                    <Button x:Name="AddBookmarkButton"
-                                            Padding="6"
-                                            VerticalAlignment="Center"
-                                            usage:UsageTracking.Feature="WebBrowser.ShowBookmarkEditor"
-                                            AutomationProperties.Name="{x:Static lang:Strings.BrowserAddBookmark}"
-                                            Click="OnShowBookmarkEditorClick"
-                                            Theme="{StaticResource TransparentButton}"
-                                            ToolTip.Tip="{x:Static lang:Strings.BrowserAddBookmark}">
-                                        <icons:FluentIcon FontSize="16" Icon="Add" />
-                                    </Button>
-                                </StackPanel>
+                        <controls:EmptyState x:Name="BrowserEmptyState"
+                                             Title="{x:Static lang:Strings.WebBrowser}"
+                                             Margin="8,24"
+                                             Description="{x:Static lang:Strings.BrowserStartDescription}">
+                            <controls:EmptyState.Icon>
+                                <icons:FluentIcon Icon="Globe" />
+                            </controls:EmptyState.Icon>
+                            <StackPanel HorizontalAlignment="Center"
+                                        Orientation="Horizontal"
+                                        Spacing="8">
+                                <Button x:Name="StartBrowsingButton"
+                                        usage:UsageTracking.Feature="WebBrowser.StartSearch"
+                                        AutomationProperties.Name="{x:Static lang:Strings.BrowserStartSearch}"
+                                        Click="OnStartSearchClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <icons:FluentIcon VerticalAlignment="Center"
+                                                          FontSize="16"
+                                                          Icon="Search" />
+                                        <TextBlock Text="{x:Static lang:Strings.BrowserStartSearch}" />
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="AddBookmarkButton"
+                                        Padding="6"
+                                        VerticalAlignment="Center"
+                                        usage:UsageTracking.Feature="WebBrowser.ShowBookmarkEditor"
+                                        AutomationProperties.Name="{x:Static lang:Strings.BrowserAddBookmark}"
+                                        Click="OnShowBookmarkEditorClick"
+                                        Theme="{StaticResource TransparentButton}"
+                                        ToolTip.Tip="{x:Static lang:Strings.BrowserAddBookmark}">
+                                    <icons:FluentIcon FontSize="16" Icon="Add" />
+                                </Button>
                             </StackPanel>
-                        </Border>
+                        </controls:EmptyState>
                         <StackPanel x:Name="BookmarkListPanel"
                                     IsVisible="False"
                                     Spacing="8">

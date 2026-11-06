@@ -1,7 +1,9 @@
 ﻿using System.Reactive.Subjects;
 using Avalonia;
+using Beutl.Collections.Pooled;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Logging;
@@ -23,7 +25,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
     private readonly Subject<System.Reactive.Unit> _canExecuteChangedSubject = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
-    private readonly Dictionary<Element, ElementViewModel> _elementsByModel = [];
+    private readonly Dictionary<PropertyPair, IDisposable> _inlinePairs = [];
     private readonly IEditorSelection _selection;
     private readonly IEditorClock _editorClock;
     private bool _isDisposed;
@@ -70,20 +72,12 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
         TrackLayerModels().AddTo(_disposables);
 
-        Elements.TrackCollectionChanged(
-                item => _elementsByModel.Add(item.Model, item),
-                item => _elementsByModel.Remove(item.Model),
-                _elementsByModel.Clear)
-            .AddTo(_disposables);
-
         TimelineOptions options = Options.Value;
         LayerHeaders.AddRange(Enumerable.Range(0, options.MaxLayerCount)
             .Select(num => new LayerHeaderViewModel(num, this)));
         if (Scene.Children.Count > 0)
         {
             AddLayerHeaders(Scene.Children.Max(i => i.ZIndex.Value) + 1);
-            Elements.EnsureCapacity(Scene.Children.Count);
-            Elements.AddRange(Scene.Children.Select(item => new ElementViewModel(item, this)));
         }
 
         // A persisted layer-only model (solo/mute/lock on a clipless row) still
@@ -93,33 +87,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             AddLayerHeaders(Scene.Layers.Max(l => l.ZIndex.Value) + 1);
         }
 
-        Scene.Children.TrackCollectionChanged(
-                (idx, item) =>
-                {
-                    _logger.LogDebug("Element added {Id}.", item.Id.Value);
-                    AddLayerHeaders(item.ZIndex.Value + 1);
-                    Elements.Insert(idx, new ElementViewModel(item, this));
-                },
-                (idx, _) =>
-                {
-                    ElementViewModel element = Elements[idx];
-                    _logger.LogDebug("Element removed {Id}.", element.Model.Id.Value);
-                    SelectedElements.Remove(element);
-                    Elements.RemoveAt(idx);
-                    element.Dispose();
-                },
-                () =>
-                {
-                    _logger.LogDebug("All elements cleared.");
-                    ElementViewModel[] tmp = [.. Elements];
-                    Elements.Clear();
-                    SelectedElements.Clear();
-                    foreach (ElementViewModel? item in tmp)
-                    {
-                        item.Dispose();
-                    }
-                })
-            .AddTo(_disposables);
+        TrackSceneElements();
 
         // SelectedElements mirrors the editor's selection, which outlives this tab.
         _selection = editorContext.GetRequiredService<IEditorSelection>();
@@ -220,26 +188,36 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     private void TrackElementCollections()
     {
-        void ThumbnailsDisabled(Guid id)
+        void ThumbnailsOverrideChanged(Guid id)
         {
-            foreach (ElementViewModel element in Elements) element.OnThumbnailsDisabledElementsAttached(id);
-        }
-        void ThumbnailsEnabled(Guid id)
-        {
-            foreach (ElementViewModel element in Elements) element.OnThumbnailsDisabledElementsDetached(id);
+            foreach (ElementViewModel element in RealizedElementsSnapshot())
+            {
+                if (element.Model.Id.Value == id) element.RefreshIsThumbnailsDisabled();
+            }
         }
 
-        ThumbnailsDisabledElements.Attached += ThumbnailsDisabled;
-        ThumbnailsDisabledElements.Detached += ThumbnailsEnabled;
+        ThumbnailsDisabledElements.Attached += ThumbnailsOverrideChanged;
+        ThumbnailsDisabledElements.Detached += ThumbnailsOverrideChanged;
+        ThumbnailsEnabledElements.Attached += ThumbnailsOverrideChanged;
+        ThumbnailsEnabledElements.Detached += ThumbnailsOverrideChanged;
         Disposable.Create(() =>
         {
-            ThumbnailsDisabledElements.Attached -= ThumbnailsDisabled;
-            ThumbnailsDisabledElements.Detached -= ThumbnailsEnabled;
+            ThumbnailsDisabledElements.Attached -= ThumbnailsOverrideChanged;
+            ThumbnailsDisabledElements.Detached -= ThumbnailsOverrideChanged;
+            ThumbnailsEnabledElements.Attached -= ThumbnailsOverrideChanged;
+            ThumbnailsEnabledElements.Detached -= ThumbnailsOverrideChanged;
         }).AddTo(_disposables);
+
+        GlobalConfiguration.Instance.EditorConfig.ShowTimelineThumbnailsByDefault.GetObservable()
+            .Skip(1).DistinctUntilChanged().ObserveOnUIDispatcher()
+            .Subscribe(_ =>
+            {
+                foreach (ElementViewModel element in RealizedElementsSnapshot()) element.RefreshIsThumbnailsDisabled();
+            }).AddTo(_disposables);
 
         void RefreshThumbnails()
         {
-            foreach (ElementViewModel element in Elements) element.InvalidateAndUpdateThumbnails();
+            foreach (ElementViewModel element in RealizedElementsSnapshot()) element.InvalidateAndUpdateThumbnails();
         }
 
         // A source-mode change invalidates filmstrips. Subscribe once per tab so opening/closing
@@ -255,15 +233,20 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             .Subscribe(_ => RefreshThumbnails()).AddTo(_disposables);
     }
 
-    public async Task<ElementAddResult> AddElementWithResultAsync(
+    public Task<ElementAddResult> AddElementWithResultAsync(
         ElementDescription description, CancellationToken cancellationToken = default)
+        => AddElementsWithResultAsync([description], cancellationToken);
+
+    // Adds them all or none in one undo step, and shows the first.
+    public async Task<ElementAddResult> AddElementsWithResultAsync(
+        IReadOnlyList<ElementDescription> descriptions, CancellationToken cancellationToken = default)
     {
         ElementAddResult result = await EditorContext
             .GetRequiredService<IElementAdder>()
-            .AddAsync([description], cancellationToken);
+            .AddAsync(descriptions, cancellationToken);
         if (result.IsSuccess)
         {
-            Element scrollTarget = result.Items[^1].PrimaryElement;
+            Element scrollTarget = result.Items[0].PrimaryElement;
             ScrollTo.Execute((scrollTarget.Range, scrollTarget.ZIndex.Value));
             return result;
         }
@@ -327,9 +310,10 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public AsyncReactiveCommand<ElementDescription> AddElement { get; } = new();
 
-    public CoreList<ElementViewModel> Elements { get; } = [];
-
     public CoreList<Guid> ThumbnailsDisabledElements { get; } = [];
+
+    // Clips whose thumbnails are on while ShowTimelineThumbnailsByDefault is off.
+    public CoreList<Guid> ThumbnailsEnabledElements { get; } = [];
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = [];
 
@@ -424,7 +408,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         // 以降の OnNext を抑止してから内部 Subject を Dispose する。
         _isDisposed = true;
         _disposables.Dispose();
-        foreach (ElementViewModel? item in Elements.AsSpan())
+        ElementViewModel[] elements = RealizedElementsSnapshot();
+        foreach (ElementViewModel item in elements)
         {
             item.Dispose();
         }
@@ -439,6 +424,13 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             item.Dispose();
         }
 
+        foreach (IDisposable item in _inlinePairs.Values)
+        {
+            item.Dispose();
+        }
+
+        _inlinePairs.Clear();
+
         // A copy, since disposing a tracker runs its Deinitialize, which removes it from _trackerCache.
         foreach (TrackedLayerTopObservable? item in _trackerCache.Values.ToArray())
         {
@@ -450,8 +442,12 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
         Inlines.Clear();
         LayerHeaders.Clear();
-        Elements.Clear();
         _elementsByModel.Clear();
+        foreach (ElementViewModel item in elements)
+        {
+            ElementReleased?.Invoke(item);
+        }
+
         _logger.LogInformation("TimelineViewModel disposed successfully.");
     }
 
@@ -465,14 +461,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             return;
         }
 
-        HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(
-            SelectedElements.Select(s => s.Model.Id.Value),
-            Scene.Groups);
-
-        var sources = Elements
-            .Where(x => ids.Contains(x.Model.Id.Value))
-            .Select(x => x.Model)
-            .ToArray();
+        Element[] sources = _selection.GetTargetElements(Scene);
 
         try
         {
@@ -509,6 +498,22 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         }
     }
 
+    internal static void ShowPasteFailure(ElementAddFailure failure)
+    {
+        switch (failure)
+        {
+            case LockedElementLayerFailure:
+                NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+                break;
+            case ElementSceneNotSavedFailure:
+                NotificationService.ShowWarning(Strings.Paste, Strings.Paste_ProjectNotSaved);
+                break;
+            default:
+                NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+                break;
+        }
+    }
+
     private async Task PasteCore()
     {
         try
@@ -520,13 +525,9 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             {
                 ScrollTo.Execute((outcome.ScrollTo, outcome.ScrollToZIndex));
             }
-            else if (outcome.AddFailure is LockedElementLayerFailure)
+            else if (outcome.AddFailure is { } failure)
             {
-                NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
-            }
-            else if (outcome.AddFailure is not null)
-            {
-                NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+                ShowPasteFailure(failure);
             }
         }
         catch (Exception ex)
@@ -540,6 +541,24 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     {
         _logger.LogInformation("Attaching inline animation for element {ElementId} and property {Property}.",
             element.Id.Value, property);
+        if (PropertyPair.Find(property) is { } pair)
+        {
+            // One layer while the two stand as one, and a layer for each otherwise.
+            if (pair.IsSeparated.Value && ReferenceEquals(property, pair))
+            {
+                foreach (IAnimatablePropertyAdapter adapter in pair.Adapters.Where(adapter => adapter.Animation != null))
+                    AttachInline(adapter, element);
+                return;
+            }
+
+            if (!pair.IsSeparated.Value)
+                property = pair;
+            if (!_inlinePairs.ContainsKey(pair))
+            {
+                _inlinePairs[pair] = pair.IsSeparated.Skip(1).Subscribe(_ => ReplaceInlines(pair, element));
+            }
+        }
+
         if (Inlines.Any(x => x.Element.Model == element && x.Property == property))
         {
             _logger.LogWarning("Inline animation already attached for element {ElementId}.", element.Id.Value);
@@ -556,7 +575,33 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         _logger.LogInformation("Inline animation attached successfully for element {ElementId}.", element.Id.Value);
     }
 
+    private void ReplaceInlines(PropertyPair pair, Element element)
+    {
+        InlineAnimationLayerViewModel[] layers = [.. Inlines.Where(x => x.Element.Model == element && pair.Contains(x.Property))];
+        if (layers.Length == 0)
+        {
+            if (_inlinePairs.Remove(pair, out IDisposable? subscription))
+                subscription.Dispose();
+            return;
+        }
+
+        foreach (InlineAnimationLayerViewModel layer in layers)
+            RemoveInline(layer);
+        AttachInline(pair, element);
+    }
+
     public void DetachInline(InlineAnimationLayerViewModel item)
+    {
+        RemoveInline(item);
+        // This holds on to the two and to the object they belong to, which nothing shows any more.
+        if (PropertyPair.Find(item.Property) is { } pair && !Inlines.Any(x => pair.Contains(x.Property))
+            && _inlinePairs.Remove(pair, out IDisposable? subscription))
+        {
+            subscription.Dispose();
+        }
+    }
+
+    private void RemoveInline(InlineAnimationLayerViewModel item)
     {
         _logger.LogInformation("Detaching inline animation for element {ElementId}.", item.Element.Model.Id.Value);
         if (item.LayerHeader.Value is { } layerHeader)
@@ -575,10 +620,66 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         _selection.SelectedElements.Clear();
     }
 
+    internal void SelectAll() => _selection.SelectAll(Scene);
+
+    internal const float ZoomStep = 1.2f;
+
+    // The playhead stays where it is in the view, as the pointer does when zooming with the wheel.
+    internal void ZoomAroundPlayhead(float factor) => SetScaleAroundPlayhead(Options.Value.Scale * factor);
+
+    internal void ResetZoom() => SetScaleAroundPlayhead(1);
+
+    private void SetScaleAroundPlayhead(float scale)
+    {
+        TimelineOptions options = Options.Value;
+        scale = Math.Clamp(scale, TimelineOptions.MinScale, TimelineOptions.MaxScale);
+        var offset = options.Offset;
+        offset.X = Math.Max(0, TimelineHelper.ZoomOffsetX(
+            _editorClock.CurrentTime.Value.TimeToPixel(options.Scale), offset.X, options.Scale, scale));
+        Options.Value = options with { Scale = scale, Offset = offset };
+    }
+
     public void SelectElement(ElementViewModel item)
     {
         if (!_selection.SelectedElements.Contains(item.Model))
             _selection.SelectedElements.Add(item.Model);
+    }
+
+    // Selects the elements in range on the layers and no others. A pointer move changes few of them, so only those
+    // that enter or leave the selection notify.
+    internal void SelectRange(TimeRange range, int firstLayer, int lastLayer)
+    {
+        using var candidates = new PooledList<Element>();
+        SceneElementIndex index = Scene.ElementIndex;
+        for (int layer = firstLayer; layer <= lastLayer; layer++)
+        {
+            index.Query(range.Start, range.End, candidates, layer);
+        }
+
+        var entering = new HashSet<Element>(candidates.Count);
+        foreach (Element element in candidates)
+        {
+            if (range.Intersects(element.Range)) entering.Add(element);
+        }
+
+        // A run leaves at once, so the clips after it shift once however long the run is.
+        ICoreList<Element> selected = _selection.SelectedElements;
+        int leaving = 0;
+        for (int i = selected.Count - 1; i >= 0; i--)
+        {
+            if (!entering.Remove(selected[i]))
+            {
+                leaving++;
+            }
+            else if (leaving > 0)
+            {
+                selected.RemoveRange(i + 1, leaving);
+                leaving = 0;
+            }
+        }
+
+        selected.RemoveRange(0, leaving);
+        selected.AddRange(entering);
     }
 
     public void SwitchSelectedElement(ElementViewModel item)
@@ -589,7 +690,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     private void SetSelected(Element element, bool selected)
     {
-        if (GetViewModelFor(element) is not { } item)
+        // Selecting an element gives it a view model; one that has none was not selected.
+        if ((selected ? GetViewModelFor(element) : FindViewModelFor(element)) is not { } item)
             return;
 
         item.IsSelected.Value = selected;
@@ -604,10 +706,5 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     public object? GetService(Type serviceType)
     {
         return EditorContext.GetService(serviceType);
-    }
-
-    public ElementViewModel? GetViewModelFor(Element element)
-    {
-        return _elementsByModel.GetValueOrDefault(element);
     }
 }

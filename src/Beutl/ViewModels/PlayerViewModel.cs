@@ -31,6 +31,13 @@ public enum PlaybackDirection
     Backward,
 }
 
+public enum PreviewZoomAction
+{
+    ZoomIn,
+    ZoomOut,
+    Fit,
+}
+
 public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, IFullScaleFrameRenderer
 {
     private static readonly MediaTime s_second = MediaTime.FromSeconds(1);
@@ -46,6 +53,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     private readonly IEditorClock _editorClock;
     private readonly IEditorSelection _editorSelection;
     private IDisposable? _currentFrameSubscription;
+    private PlaybackTicker? _activeTicker;
     private readonly object _renderRequestLock = new();
     private CancellationTokenSource? _cts;
     private volatile bool _isDisposing;
@@ -191,7 +199,28 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
+        EndTime = Scene.Start.GetObservable()
+            .CombineLatest(Scene.Duration.GetObservable(), (start, duration) => start + duration)
+            .ToReadOnlyReactiveProperty()
+            .DisposeWith(_disposables);
+
+        PlaybackRateText = PlaybackSpeed
+            .CombineLatest(PlaybackDirection, FormatPlaybackRate)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
         PathEditor = new PathEditorViewModel(_editViewModel, this)
+            .DisposeWith(_disposables);
+
+        // The frame shows no boundary while the path editor is open (RenderOnRenderThread), so a paused frame is drawn
+        // again when it opens or closes.
+        PathEditor.IsVisible
+            .Skip(1)
+            .Subscribe(_ =>
+            {
+                if (!IsPlaying.Value)
+                    QueueRender();
+            })
             .DisposeWith(_disposables);
 
         IsCameraMode.Subscribe(isCameraMode =>
@@ -225,6 +254,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             .DisposeWith(_disposables);
 
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+
+        IsPreviewGuideEnabled = SettingBinding.Bind(editorConfig.IsPreviewGuideEnabled, v => v, v => v, _disposables);
+        IsOnionSkinEnabled = SettingBinding.Bind(editorConfig.IsOnionSkinEnabled, v => v, v => v, _disposables);
 
         // Re-render when an onion-skin setting changes.
         editorConfig.IsOnionSkinEnabled.GetObservable()
@@ -376,7 +408,19 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
     public ReactiveProperty<MediaTime> CurrentFrame { get; }
 
+    // The last frame's time, which is the seek slider's maximum.
     public ReadOnlyReactiveProperty<MediaTime> Duration { get; }
+
+    // Where the scene ends: its length when it starts at zero. The seek slider's maximum can lie further,
+    // because it also reaches a playhead or an element past the end.
+    public ReadOnlyReactiveProperty<MediaTime> EndTime { get; }
+
+    // The shuttle's rate, or null while there is nothing to tell: playing at normal speed looks the part.
+    public ReadOnlyReactivePropertySlim<string?> PlaybackRateText { get; }
+
+    public ReactiveProperty<bool> IsPreviewGuideEnabled { get; }
+
+    public ReactiveProperty<bool> IsOnionSkinEnabled { get; }
 
     public AsyncReactiveCommand PlayPause { get; }
 
@@ -432,6 +476,13 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     public EditViewModel EditViewModel => _editViewModel;
 
     public PathEditorViewModel PathEditor { get; }
+
+    public MediaTime? GetPlaybackTime()
+    {
+        if (!IsPlaying.Value) return null;
+
+        return Volatile.Read(ref _activeTicker)?.CurrentTime ?? _editorClock.CurrentTime.Value;
+    }
 
     public void Play()
     {
@@ -587,6 +638,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             ticker = new PlaybackTicker(
                 this, generation, playerImpl, clock, rate, range.StartFrame, range.EndFrame, startTime,
                 DateTime.UtcNow);
+            // A session a Pause() timeout abandoned during startup must not replace the clock of the one after it.
+            _sessionGuard.TryApply(generation, () => Volatile.Write(ref _activeTicker, ticker));
 
             await using var timer = new Timer(ticker.OnTick, null, tick, tick);
 
@@ -599,6 +652,10 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         }
         finally
         {
+            // A session that took over after a Pause() timeout has its own ticker.
+            if (ticker != null)
+                Interlocked.CompareExchange(ref _activeTicker, null, ticker);
+
             // Restore the stopped state only while this task owns the session; otherwise the new owner or
             // Pause()'s timeout path does. On the UI thread, after retiring the ticker, so nothing it posted
             // lands after the stopped state, the rewind or a restart.
@@ -709,6 +766,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             _isShuttling = false;
             // Retire before waiting, so late/queued callbacks cannot enter behind a drain barrier.
             _sessionGuard.Disown();
+            // A playback task this abandons on a timeout would otherwise answer for whatever plays next.
+            Volatile.Write(ref _activeTicker, null);
             renderCts?.Cancel();
             if (IsPlaying.Value)
                 _logger.LogInformation("Pause the playback. ({SceneId})", _editViewModel.SceneId);
@@ -809,6 +868,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         // Complete so an abandoned audio task can finish without throwing.
         _audioFramePushed.OnCompleted();
         BeginEditTimecodeRequested.Dispose();
+        PreviewZoomRequested.Dispose();
         PreviewInvalidated = null;
         Scene = null!;
         PreviewImage.Value?.Dispose();

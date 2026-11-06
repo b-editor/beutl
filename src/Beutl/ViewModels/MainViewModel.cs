@@ -133,7 +133,9 @@ public sealed partial class MainViewModel : BasePageViewModel
             _beutlClients.AuthenticatedUser,
             _beutlClients.GetResource<IAiJobMonitor>().Snapshot,
             _beutlClients.GetResource<IAiJobKindRegistry>(),
-            OpenAiJobCenter);
+            OpenAiJobCenter,
+            AppUpdateController.Instance.Status,
+            AppUpdateController.Instance.ShowDialog);
 
         EditorHost = new EditorHostViewModel(_projectService, _editorService);
 

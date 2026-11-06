@@ -37,6 +37,90 @@ public class CanonicalTransformLayoutTests
     }
 
     [Test]
+    public void SeedEmptyGroup_ANewDrawable_GetsTheCanonicalLayoutAndItsTranslateBack()
+    {
+        var drawable = CreateDrawable();
+
+        TranslateTransform? translate = CanonicalTransformLayout.SeedEmptyGroup(drawable);
+
+        var group = (TransformGroup)drawable.Transform.Value!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                group.Children.Select(child => child.GetType()),
+                Is.EqualTo(new[] { typeof(TranslateTransform), typeof(RotationTransform), typeof(ScaleTransform) }));
+            Assert.That(translate, Is.SameAs(group.Children[0]));
+        });
+    }
+
+    [Test]
+    public void SeedEmptyGroup_LeavesAnythingElseAlone()
+    {
+        var withChild = CreateDrawable();
+        var rotation = new RotationTransform(45f);
+        ((TransformGroup)withChild.Transform.Value!).Children.Add(rotation);
+        var single = CreateDrawable();
+        var translate = new TranslateTransform(5f, 5f);
+        single.Transform.Value = translate;
+        var unset = CreateDrawable();
+        unset.Transform.Value = null;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CanonicalTransformLayout.SeedEmptyGroup(withChild), Is.Null);
+            Assert.That(((TransformGroup)withChild.Transform.Value!).Children.Single(), Is.SameAs(rotation));
+            Assert.That(CanonicalTransformLayout.SeedEmptyGroup(single), Is.Null);
+            Assert.That(single.Transform.Value, Is.SameAs(translate));
+            Assert.That(CanonicalTransformLayout.SeedEmptyGroup(unset), Is.Null);
+            Assert.That(unset.Transform.Value, Is.Null);
+            Assert.That(CanonicalTransformLayout.SeedEmptyGroup(new TranslateTransform()), Is.Null);
+        });
+    }
+
+    [TestCase("", 'T', 0)]
+    [TestCase("", 'R', 0)]
+    [TestCase("", 'S', 0)]
+    [TestCase("R", 'T', 0)]
+    [TestCase("S", 'T', 0)]
+    [TestCase("T", 'R', 1)]
+    [TestCase("S", 'R', 0)]
+    [TestCase("TS", 'R', 1)]
+    [TestCase("TR", 'S', 2)]
+    [TestCase("RT", 'S', 2)]
+    [TestCase("TRS", 'T', 3)]
+    [TestCase("TRS", 'R', 3)]
+    [TestCase("TRS", 'S', 3)]
+    public void GetInsertionIndex_PutsTheFirstOfAKindInPlaceAndAnotherAtTheEnd(string order, char kind, int expected)
+    {
+        (TransformGroup group, _, _, _) = CreateGroup(order);
+        Transform added = kind switch
+        {
+            'T' => new TranslateTransform(),
+            'R' => new RotationTransform(),
+            _ => new ScaleTransform(),
+        };
+
+        Assert.That(CanonicalTransformLayout.GetInsertionIndex(group.Children, added), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void GetInsertionIndex_PutsOtherTransformsAtTheEnd()
+    {
+        (TransformGroup group, _, _, _) = CreateGroup("TRS");
+
+        Assert.That(CanonicalTransformLayout.GetInsertionIndex(group.Children, new SkewTransform()), Is.EqualTo(3));
+    }
+
+    [Test]
+    public void GetInsertionIndex_TreatsADisabledTransformAsAbsentLikeEnsure()
+    {
+        (TransformGroup group, TranslateTransform t, _, _) = CreateGroup("TRS");
+        t.IsEnabled.Value = false;
+
+        Assert.That(CanonicalTransformLayout.GetInsertionIndex(group.Children, new TranslateTransform()), Is.EqualTo(0));
+    }
+
+    [Test]
     public void Ensure_EmptyTransform_AppendsTRSInCanonicalOrder()
     {
         var drawable = CreateDrawable();

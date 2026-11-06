@@ -189,7 +189,7 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 || z > limits.MaxComputeWorkGroupSize[2] || (ulong)x * y * z > limits.MaxComputeWorkGroupInvocations
                 || shader.SharedMemorySize > limits.MaxComputeSharedMemorySize)
                 throw new NotSupportedException($"Pass '{pass.Name}' exceeds compute local-size or shared-memory limits.");
-            (uint gx, uint gy, uint gz) = pass.Draw.Indirect is null ? ResolveGroups(pass) : (0u, 0u, 0u);
+            (uint gx, uint gy, uint gz) = pass.Draw.Indirect is null ? ResolveGroups(pass, pass.Work) : (0u, 0u, 0u);
             if (gx > limits.MaxComputeWorkGroupCount[0] || gy > limits.MaxComputeWorkGroupCount[1] || gz > limits.MaxComputeWorkGroupCount[2])
                 throw new NotSupportedException($"Pass '{pass.Name}' exceeds maxComputeWorkGroupCount.");
         }
@@ -274,12 +274,12 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
         return (properties.OptimalTilingFeatures & required) == required;
     }
 
-    private (uint X, uint Y, uint Z) ResolveGroups(ShaderPassDescription pass)
+    private (uint X, uint Y, uint Z) ResolveGroups(ShaderPassDescription pass, (int X, int Y, int Z) work)
     {
         var size = _interfaces[ShaderStage.Compute].LocalSize;
         return pass.DispatchThreads
-            ? (RoundUp(pass.Work.X, size.X), RoundUp(pass.Work.Y, size.Y), RoundUp(pass.Work.Z, size.Z))
-            : ((uint)pass.Work.X, (uint)pass.Work.Y, (uint)pass.Work.Z);
+            ? (RoundUp(work.X, size.X), RoundUp(work.Y, size.Y), RoundUp(work.Z, size.Z))
+            : ((uint)work.X, (uint)work.Y, (uint)work.Z);
 
         static uint RoundUp(int value, uint divisor) => checked((uint)(((ulong)value + divisor - 1) / divisor));
     }
@@ -358,7 +358,16 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                     _context.RequireOwned<VulkanBuffer>(buffers[indirect.Buffer.Id], nameof(buffers)).Handle, (ulong)indirect.Offset);
             else
             {
-                (uint x, uint y, uint z) = ResolveGroups(pass);
+                (int X, int Y, int Z) work = pass.Work;
+                if (pass.WorkImage is { } workImage)
+                {
+                    PixelSize pixels = frames[workImage.Id].PixelSize;
+                    work = (pixels.Width, pixels.Height, Math.Max(workImage.Depth, workImage.ArrayLayers));
+                }
+                (uint x, uint y, uint z) = ResolveGroups(pass, work);
+                PhysicalDeviceLimits limits = _limits;
+                if (x > limits.MaxComputeWorkGroupCount[0] || y > limits.MaxComputeWorkGroupCount[1] || z > limits.MaxComputeWorkGroupCount[2])
+                    throw new NotSupportedException($"Pass '{pass.Name}' exceeds maxComputeWorkGroupCount.");
                 _context.Vk.CmdDispatch(command, x, y, z);
             }
         }

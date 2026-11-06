@@ -23,7 +23,7 @@ public partial class GraphEditorView
     {
         if (DataContext is not GraphEditorViewModel || _interactionPointer != null) return;
         var point = e.GetCurrentPoint(scroll);
-        if (!point.Properties.IsMiddleButtonPressed && !(_spacePressed && point.Properties.IsLeftButtonPressed)) return;
+        if (!point.Properties.IsMiddleButtonPressed && !(_space.IsPressed && point.Properties.IsLeftButtonPressed)) return;
         StartPan(e);
     }
 

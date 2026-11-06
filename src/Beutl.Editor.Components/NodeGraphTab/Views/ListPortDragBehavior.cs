@@ -252,37 +252,44 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
     {
         if (_canvas == null || AssociatedObject == null) return;
 
+        bool input = AssociatedObject.DataContext is InputPortViewModel;
         if (_tempLine == null)
         {
             _tempLine = new ConnectionLine();
-            Point? portPosition = AssociatedObject.TranslatePoint(new(5, 5), _canvas);
-            if (portPosition.HasValue)
+            if (AssociatedObject.TranslatePoint(new(5, 5), _canvas) is { } portPosition)
             {
-                if (AssociatedObject.DataContext is InputPortViewModel)
+                if (input)
                 {
-                    _tempLine.EndPoint = portPosition.Value;
-                    _tempLine.StartPoint = e.GetPosition(_canvas);
+                    _tempLine.StartPoint = portPosition;
                 }
                 else
                 {
-                    _tempLine.StartPoint = portPosition.Value;
-                    _tempLine.EndPoint = e.GetPosition(_canvas);
+                    _tempLine.EndPoint = portPosition;
                 }
             }
             _canvas.Children.Insert(0, _tempLine);
         }
+
+        Point end = FindWireEnd(e.GetPosition(_canvas));
+        if (input)
+        {
+            _tempLine.EndPoint = end;
+        }
         else
         {
-            if (AssociatedObject.DataContext is InputPortViewModel)
-            {
-                _tempLine.StartPoint = e.GetPosition(_canvas);
-            }
-            else
-            {
-                _tempLine.EndPoint = e.GetPosition(_canvas);
-            }
+            _tempLine.StartPoint = end;
         }
     }
+
+    // The wire's free end follows the pointer, and snaps to the point of a port the slot can move to.
+    private Point FindWireEnd(Point canvasPoint)
+        => _canvas != null
+            && AssociatedObject is { Tag: ConnectionViewModel connVM, DataContext: NodePortViewModel portVM }
+            && NodePortPoint.FindDropTarget(_canvas, canvasPoint) is { DataContext: NodePortViewModel targetVM } target
+            && portVM.CanRewireListSlot(connVM, targetVM)
+            && target.TranslatePoint(new(5, 5), _canvas) is { } center
+                ? center
+                : canvasPoint;
 
     private void ReleaseHorizontal(Point canvasPoint)
     {
@@ -292,16 +299,12 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
             _tempLine = null;
         }
 
-        if (_canvas != null && AssociatedObject != null)
+        if (_canvas != null
+            && AssociatedObject is { Tag: ConnectionViewModel connVM, DataContext: NodePortViewModel portVM }
+            && NodePortPoint.FindDropTarget(_canvas, canvasPoint)?.DataContext is NodePortViewModel targetVM
+            && targetVM != portVM)
         {
-            IInputElement? elm = _canvas.InputHitTest(canvasPoint);
-            if (elm is NodePortPoint { DataContext: NodePortViewModel targetVM } targetSp
-                && targetSp != AssociatedObject
-                && AssociatedObject.Tag is ConnectionViewModel connVM
-                && AssociatedObject.DataContext is NodePortViewModel portVM)
-            {
-                portVM.RewireListSlot(connVM, targetVM);
-            }
+            portVM.RewireListSlot(connVM, targetVM);
         }
     }
 

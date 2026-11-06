@@ -30,13 +30,12 @@ public sealed class GateNode : DynamicsNode
 
     protected override string DiagnosticName => "Gate";
 
-    // AnimationSampler does not yet evaluate expressions per sample.
     protected override bool HasAnimatedParameters =>
-        Threshold.GetKeyFrameAnimation() != null ||
-        Attack.GetKeyFrameAnimation() != null ||
-        Hold.GetKeyFrameAnimation() != null ||
-        Release.GetKeyFrameAnimation() != null ||
-        Range.GetKeyFrameAnimation() != null;
+        AnimationSampler.IsAnimated(Threshold) ||
+        AnimationSampler.IsAnimated(Attack) ||
+        AnimationSampler.IsAnimated(Hold) ||
+        AnimationSampler.IsAnimated(Release) ||
+        AnimationSampler.IsAnimated(Range);
 
     protected override AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {
@@ -52,8 +51,7 @@ public sealed class GateNode : DynamicsNode
                 p,
                 HoldSamples(p.Hold, context.SampleRate));
 
-            var (inputChannels, outputChannels) = MapChannels(input, output);
-            ApplyLinkedGain(inputChannels, outputChannels, input.ChannelCount, 0, input.SampleCount, ref gain);
+            ApplyLinkedGain(input, output, 0, input.SampleCount, ref gain);
 
             return output;
         }
@@ -93,7 +91,6 @@ public sealed class GateNode : DynamicsNode
             };
 
             int sampleCount = input.SampleCount;
-            var (inputChannels, outputChannels) = MapChannels(input, output);
 
             int processed = 0;
             while (processed < sampleCount)
@@ -109,7 +106,7 @@ public sealed class GateNode : DynamicsNode
                 context.AnimationSampler.SampleBuffer(Range, chunkRange, context.SampleRate, ranges[..chunkSize]);
 
                 gain.ChunkStart = processed;
-                ApplyLinkedGain(inputChannels, outputChannels, input.ChannelCount, processed, chunkSize, ref gain);
+                ApplyLinkedGain(input, output, processed, chunkSize, ref gain);
 
                 processed += chunkSize;
             }

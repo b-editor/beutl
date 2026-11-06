@@ -17,10 +17,13 @@ public sealed class SceneSettingsService : ISceneSettingsService
     }
 
     public bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration)
-        => Apply(scene, frameSize, start, duration,
-            scene.FindHierarchicalParent<Project>()?.ChannelLayout.Value ?? SpeakerLayout.Stereo);
+        => Apply(scene, frameSize, start, duration, scene.FindHierarchicalParent<Project>().GetSpeakerLayout());
 
     public bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration, SpeakerLayout channelLayout)
+        => Apply(scene, frameSize, start, duration, channelLayout, scene.MasterVolume.Value);
+
+    public bool Apply(
+        Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration, SpeakerLayout channelLayout, float masterVolume)
     {
         ArgumentNullException.ThrowIfNull(scene);
         Project? project = scene.FindHierarchicalParent<Project>();
@@ -29,6 +32,7 @@ public sealed class SceneSettingsService : ISceneSettingsService
         if (scene.FrameSize.Value == frameSize
             && scene.Start.Value == start
             && scene.Duration.Value == duration
+            && scene.MasterVolume.Value == masterVolume
             && !layoutChanged)
         {
             return false;
@@ -49,6 +53,7 @@ public sealed class SceneSettingsService : ISceneSettingsService
         scene.FrameSize.Value = frameSize;
         scene.Start.Value = start;
         scene.Duration.Value = duration;
+        scene.MasterVolume.Value = masterVolume;
         _historyManager.Commit(CommandNames.ChangeSceneSettings);
         return true;
     }

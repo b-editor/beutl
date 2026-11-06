@@ -255,8 +255,7 @@ public class LockedClipPropertyTests
         transform.IsExpanded.Value = true;
         var child = (TransformEditorViewModel)transform.Group.Value!.Items[0].Context!;
         child.IsExpanded.Value = true;
-        var x = child.Properties.Value!.Properties.OfType<NumberEditorViewModel<float>>()
-            .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), translation.X));
+        var x = PropertyEditorTestHost.FindNumberEditor(child.Properties.Value!.Properties, translation.X);
         var fill = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false).OfType<BrushEditorViewModel>()
             .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shape.Fill));
         editor.HistoryManager.Commit("test setup");
@@ -438,8 +437,7 @@ public class LockedClipPropertyTests
     }
 
     private static NumberEditorViewModel<float> WidthEditor(ElementPropertyTabViewModel tab, RectShape shape)
-        => PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false).OfType<NumberEditorViewModel<float>>()
-            .Single(x => ReferenceEquals(x.PropertyAdapter.GetEngineProperty(), shape.Width));
+        => PropertyEditorTestHost.FindNumberEditor(tab.Items[0].Properties, shape.Width);
 
     private static FAMenuFlyoutItem MenuItem(Button button, string name)
         => ((FAMenuFlyout)button.ContextFlyout!).Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == name);

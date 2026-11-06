@@ -84,18 +84,13 @@
         </controls:ToolTabBar>
 
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding !HasClips.Value}">
-            <Border x:Name="EmptyState" Margin="24" VerticalAlignment="Center">
-                <StackPanel MaxWidth="320" Spacing="12">
-                    <Border Width="56" Height="56" HorizontalAlignment="Center"
-                            Background="{DynamicResource SubtleFillColorSecondaryBrush}" CornerRadius="16">
-                        <icons:SymbolIcon FontSize="24" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" Symbol="Play" />
-                    </Border>
-                    <TextBlock FontSize="16" Text="{x:Static lang:Strings.ProxyEmptyTitle}"
-                               TextAlignment="Center" TextWrapping="Wrap" />
-                    <TextBlock Classes="secondary" Text="{x:Static lang:Strings.ProxyEmptyDescription}"
-                               TextAlignment="Center" TextWrapping="Wrap" />
-                </StackPanel>
-            </Border>
+            <controls:EmptyState x:Name="EmptyState"
+                                 Title="{x:Static lang:Strings.ProxyEmptyTitle}"
+                                 Description="{x:Static lang:Strings.ProxyEmptyDescription}">
+                <controls:EmptyState.Icon>
+                    <icons:SymbolIcon Symbol="Play" />
+                </controls:EmptyState.Icon>
+            </controls:EmptyState>
         </ScrollViewer>
 
         <ScrollViewer x:Name="ContentScrollViewer" Grid.Row="1"

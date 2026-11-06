@@ -13,6 +13,7 @@ public static class SharedFilePickerOptions
         "*.jpg",
         "*.jpeg",
         "*.png",
+        "*.svg",
         "*.wbmp",
         "*.webp",
         "*.pkm",

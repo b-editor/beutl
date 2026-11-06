@@ -259,8 +259,35 @@
     <value>需要重新启动应用程序。
 是否要重新启动应用程序？</value>
   </data>
+  <data name="UpdateAction_RestartAndUpdate" xml:space="preserve">
+    <value>重新启动并更新</value>
+  </data>
+  <data name="UpdateAction_StartInstaller" xml:space="preserve">
+    <value>启动安装程序</value>
+  </data>
+  <data name="UpdateAction_Retry" xml:space="preserve">
+    <value>重试</value>
+  </data>
+  <data name="UpdateAction_RunInBackground" xml:space="preserve">
+    <value>后台运行</value>
+  </data>
+  <data name="UpdateAction_UpdateOnQuit" xml:space="preserve">
+    <value>退出时更新</value>
+  </data>
+  <data name="UpdateAction_ShowProgress" xml:space="preserve">
+    <value>显示进度</value>
+  </data>
+  <data name="UpdateWillInstallOnQuit" xml:space="preserve">
+    <value>更新将在退出 Beutl 时安装。</value>
+  </data>
+  <data name="UpdateReady_Title" xml:space="preserve">
+    <value>更新已准备就绪</value>
+  </data>
+  <data name="UpdateFailed_Title" xml:space="preserve">
+    <value>更新失败</value>
+  </data>
   <data name="StartInstaller" xml:space="preserve">
-    <value>启动安装程序，</value>
+    <value>安装程序已准备就绪。</value>
   </data>
   <data name="Downloading" xml:space="preserve">
     <value>正在下载...</value>
@@ -319,33 +346,17 @@
   <data name="LockReleased" xml:space="preserve">
     <value>已解锁。</value>
   </data>
-  <data name="UpdateCompletedLaunchPrompt" xml:space="preserve">
-    <value>更新完成。是否要启动应用程序？(y/n)：</value>
-  </data>
   <data name="LaunchingApplication" xml:space="preserve">
     <value>正在启动应用程序...</value>
   </data>
   <data name="FailedToChangePermissions" xml:space="preserve">
     <value>更改应用程序执行权限失败。</value>
   </data>
-  <data name="ApplicationPathNotSpecified" xml:space="preserve">
-    <value>未指定应用程序执行路径。</value>
-  </data>
-  <data name="ApplicationNotLaunched" xml:space="preserve">
-    <value>应用程序未启动。</value>
-  </data>
   <data name="ClickOkAfterCompletion" xml:space="preserve">
     <value>完成后单击“确定”</value>
   </data>
-  <data name="UpdateCompletedLaunchConfirm" xml:space="preserve">
-    <value>更新完成。是否要启动应用程序？</value>
-  </data>
   <data name="FailedToRestoreBackup" xml:space="preserve">
     <value>还原备份失败。</value>
-  </data>
-  <data name="ConfirmInstall" xml:space="preserve">
-    <value>是否要安装？
-（更新功能是实验性功能。）</value>
   </data>
   <data name="ExpressionIsSet" xml:space="preserve">
     <value>已设置表达式</value>
@@ -355,6 +366,12 @@
   </data>
   <data name="PackagesCanBeUpdated" xml:space="preserve">
     <value>有 {0} 个包可以更新。</value>
+  </data>
+  <data name="PackageUpdatesRequired" xml:space="preserve">
+    <value>需要更新包。</value>
+  </data>
+  <data name="PackagesNotLoadedOnThisVersion" xml:space="preserve">
+    <value>有 {0} 个包无法在此版本的 Beutl 中加载。</value>
   </data>
   <data name="IsNotValid" xml:space="preserve">
     <value>{0} 无效。</value>
@@ -506,5 +523,14 @@
   </data>
   <data name="KeptUnknownDataSavedByMessage" xml:space="preserve">
     <value>此项目最后由 Beutl {0} 保存，包含来自较新版本的 Beutl 或未安装的扩展的数据。Beutl 在保存项目时会保留这些数据，但不会显示或使用它们。</value>
+  </data>
+  <data name="UpdatedToVersion_Title" xml:space="preserve">
+    <value>已更新到 Beutl {0}</value>
+  </data>
+  <data name="UpdatedToVersion_Content" xml:space="preserve">
+    <value>可在发行说明中查看变更内容。</value>
+  </data>
+  <data name="ReleaseNotes" xml:space="preserve">
+    <value>发行说明</value>
   </data>
 </root>

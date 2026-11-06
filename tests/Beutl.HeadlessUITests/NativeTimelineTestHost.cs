@@ -31,6 +31,12 @@ internal static partial class NativeTimelineTestHost
         if (OperatingSystem.IsMacOS() && args is ["--native-browser-frames"])
             return NativeBrowserFrameTestHost.Run(args);
 
+        if (OperatingSystem.IsMacOS() && args is ["--native-menu-shortcuts"])
+            return RunMenuShortcuts(args);
+
+        if (OperatingSystem.IsMacOS() && args is ["--native-context-menu", _])
+            return NativeContextMenuTestHost.Run(args);
+
         bool presentation = args is ["--native-presentation-fullscreen"];
         if ((!OperatingSystem.IsMacOS() && !(OperatingSystem.IsLinux() && presentation))
             || (!presentation && args is not ["--native-timeline-scroll"]))

@@ -62,7 +62,7 @@ public class TimelineTabViewModelShortcutTests
         var gapService = new CaptureGapService(nudgeService);
         using TimelineTabViewModel viewModel = TimelineTabViewModelTests.CreateViewModel(
             harness.Scene, nudgeService: nudgeService, gapService: gapService);
-        viewModel.SelectedElements.Add(viewModel.Elements.Single(element => element.Model == anchor));
+        viewModel.SelectedElements.Add(viewModel.GetViewModelFor(anchor)!);
 
         viewModel.CloseGap.Execute();
 

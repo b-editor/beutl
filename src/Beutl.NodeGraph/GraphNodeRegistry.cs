@@ -14,6 +14,11 @@ public class GraphNodeRegistry
         TypeUnloadNotifier.TypesUnloading += Unregister;
     }
 
+    /// <summary>
+    /// Raised after nodes are registered or unregistered, on the thread that changed them.
+    /// </summary>
+    public static event EventHandler? Changed;
+
     public static void RegisterNode<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
         string displayName)
@@ -81,24 +86,39 @@ public class GraphNodeRegistry
 
     private static void Unregister(Type[] types)
     {
+        bool changed;
         lock (s_lock)
         {
-            for (int i = s_nodes.Count - 1; i >= 0; i--)
+            changed = RemoveUnloaded(s_nodes, types);
+        }
+
+        if (changed)
+            Changed?.Invoke(null, EventArgs.Empty);
+    }
+
+    private static bool RemoveUnloaded(List<BaseRegistryItem> items, Type[] types)
+    {
+        bool changed = false;
+        for (int i = items.Count - 1; i >= 0; i--)
+        {
+            BaseRegistryItem item = items[i];
+            if (item is GroupableRegistryItem group)
             {
-                var item = s_nodes[i];
-                if (item is GroupableRegistryItem groupable)
+                changed |= RemoveUnloaded(group.Items, types);
+                if (group.Items.Count == 0)
                 {
-                    if (groupable.Unregister(types))
-                    {
-                        s_nodes.RemoveAt(i);
-                    }
-                }
-                else if (item is RegistryItem registryItem && types.Any(t => TypeUnloadNotifier.ContainsTypeRecursive(registryItem.Type, t)))
-                {
-                    s_nodes.RemoveAt(i);
+                    items.RemoveAt(i);
+                    changed = true;
                 }
             }
+            else if (item is RegistryItem registryItem && types.Any(t => TypeUnloadNotifier.ContainsTypeRecursive(registryItem.Type, t)))
+            {
+                items.RemoveAt(i);
+                changed = true;
+            }
         }
+
+        return changed;
     }
 
     private static void Register(BaseRegistryItem item)
@@ -123,6 +143,8 @@ public class GraphNodeRegistry
                 s_nodes.Add(item);
             }
         }
+
+        Changed?.Invoke(null, EventArgs.Empty);
     }
 
     private static BaseRegistryItem Copy(BaseRegistryItem item)
@@ -163,28 +185,6 @@ public class GraphNodeRegistry
                     Items.Add(item);
                 }
             }
-        }
-
-        internal bool Unregister(Type[] types)
-        {
-            for (int i = Items.Count - 1; i >= 0; i--)
-            {
-                BaseRegistryItem item = Items[i];
-
-                if (item is GroupableRegistryItem groupable)
-                {
-                    if (groupable.Unregister(types))
-                    {
-                        Items.RemoveAt(i);
-                    }
-                }
-                else if (item is RegistryItem registryItem && types.Any(t => TypeUnloadNotifier.ContainsTypeRecursive(registryItem.Type, t)))
-                {
-                    Items.RemoveAt(i);
-                }
-            }
-
-            return Items.Count == 0;
         }
     }
 

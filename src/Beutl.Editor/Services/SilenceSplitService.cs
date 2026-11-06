@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Audio;
-using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Language;
@@ -49,10 +48,12 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
         int[] layers = originals.Select(e => e.ZIndex.Value).Distinct().ToArray();
         TimeRange[] orderedRanges = ranges.OrderBy(r => r.Start).ToArray();
         List<Element> parts = [.. originals];
-        // Portals and extension split callbacks may inspect other live scene elements while splitting.
-        // Keep their normal Razor path; built-in media can be prepared without publishing intermediate clips.
-        SplitBatch? batch = originals.All(e => e.Objects.All(o => o is not PortalObject)
-            && ElementStructureService.OwnedSplittables(e).All(o => o is SourceSound or SceneSound or SceneDrawable || o.GetType() == typeof(SourceVideo)))
+        // Portals, extension split callbacks and the expressions a cut reads may inspect other live scene elements while
+        // splitting. Keep their normal Razor path; built-in media can be prepared without publishing intermediate clips.
+        SplitBatch? batch = originals.All(e => e.Objects.All(o => o is not PortalObject
+                && !(o is DrawableTimeController controller && MediaTimeMapping.HasTimeExpression(controller)))
+            && ElementStructureService.OwnedSplittables(e).All(o => (o is SourceSound or SceneSound or SceneDrawable || o.GetType() == typeof(SourceVideo))
+                && o is not ITimeMappedSource { Speed.HasExpression: true }))
             ? new SplitBatch(scene) : null;
         MediaTime maximumEnd = originals.Max(e => e.Range.End);
 
@@ -113,9 +114,7 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
                 scene.Groups.InsertRange(index, groups);
                 scene.Children.AddRange(pending);
                 // Match AddChild's duration adjustment even when a split tail was subsequently removed.
-                if (parts.Count > originals.Length && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value
-                    && maximumEnd > scene.Start.Value + scene.Duration.Value)
-                    scene.Duration.Value = maximumEnd - scene.Start.Value;
+                if (parts.Count > originals.Length) scene.ExtendDurationToCover(maximumEnd);
             }
         }
     }

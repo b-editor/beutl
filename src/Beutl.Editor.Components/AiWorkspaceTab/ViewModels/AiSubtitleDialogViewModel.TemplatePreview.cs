@@ -260,6 +260,12 @@ public sealed partial class AiSubtitleDialogViewModel
                         element.Length.Value = length;
                     element.ZIndex.Value = description.Layer;
                     break;
+                case ElementSource.ElementSetTemplate source:
+                    Element[] set = [.. source.Factory().Elements];
+                    GroupPlacement placement = ElementPlacementHelper.PlaceAt(set, description.Start, description.Layer);
+                    ElementPlacementHelper.MoveTogether(set, placement.StartDelta, placement.LayerDelta);
+                    elements.AddRange(set);
+                    continue;
                 default:
                     return null;
             }
@@ -268,11 +274,9 @@ public sealed partial class AiSubtitleDialogViewModel
             {
                 foreach (Beutl.Graphics.Drawable drawable in element.Objects.OfType<Beutl.Graphics.Drawable>())
                 {
-                    Beutl.Graphics.Transformation.Transform? transform = drawable.Transform.Value;
-                    Beutl.Editor.Components.Helpers.AddOrSetHelper.AddOrSet(
-                        ref transform,
+                    Beutl.Editor.Components.Helpers.AddToGroupHelper.Add(
+                        drawable.Transform,
                         new Beutl.Graphics.Transformation.TranslateTransform(position));
-                    drawable.Transform.Value = transform;
                 }
             }
 

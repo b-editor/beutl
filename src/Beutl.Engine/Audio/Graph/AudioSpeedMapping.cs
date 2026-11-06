@@ -1,5 +1,4 @@
 ﻿using Beutl.Animation;
-using Beutl.Engine;
 using Beutl.Media;
 
 namespace Beutl.Audio.Graph;
@@ -41,27 +40,67 @@ internal sealed class AudioSpeedMapping : IDisposable
 
     private bool HasExpression => Speed is IExpressionProperty { HasExpression: true };
 
-    private KeyFrameAnimation<float>? Animation => HasExpression ? null : Speed?.GetKeyFrameAnimation();
+    private KeyFrameAnimation<float>? KeyFrames => HasExpression ? null : Speed?.GetKeyFrameAnimation();
+
+    // Keyframes that can only give one speed play as that speed does when it is fixed.
+    private KeyFrameAnimation<float>? Animation
+        => KeyFrames is { } animation && !TryGetConstantPercent(animation, out _) ? animation : null;
 
     // The speed of a window that does not vary within it, the one an expression gave at its start if there is one.
-    private float CurrentPercent => (HasExpression ? _expressionPercent : null) ?? Speed?.Value ?? 100f;
+    private float CurrentPercent
+    {
+        get
+        {
+            if (HasExpression && _expressionPercent is { } expression) return expression;
+            if (KeyFrames is { } animation && TryGetConstantPercent(animation, out float constant)) return constant;
+            return Speed?.Value ?? 100f;
+        }
+    }
 
     public void Configure(int sampleRate)
     {
-        _integrator.EnsureCache(Animation);
+        _integrator.EnsureCache(KeyFrames);
         _integrator.SampleRate = sampleRate;
+    }
+
+    // Speeds of zero or below are left to the animated path.
+    private bool TryGetConstantPercent(KeyFrameAnimation<float> animation, out float percent)
+    {
+        percent = default;
+        if (animation.KeyFrames.Count == 0 || animation.KeyFrames[0] is not KeyFrame<float> first)
+            return false;
+
+        // Each keyframe's value is reached, so most animations are ruled out at the first one that differs.
+        float speed = Normalize(first.Value.Value);
+        for (int i = 1; i < animation.KeyFrames.Count; i++)
+        {
+            if (animation.KeyFrames[i] is not KeyFrame<float> next || Normalize(next.Value.Value) != speed)
+                return false;
+        }
+
+        // An easing can overshoot the keyframes around it, and one of no known range can give anything.
+        if (!(speed > 0)
+            || !animation.TryGetOutputRange(out float minimum, out float maximum)
+            || Normalize(minimum) != speed
+            || Normalize(maximum) != speed)
+        {
+            return false;
+        }
+
+        percent = first.Value.Value;
+        return true;
     }
 
     // An expression runs a script, so it is evaluated once for each window, at its start, and the window plays at
     // that speed as at a fixed one. A change between windows re-anchors the source as a fixed speed's edit does.
-    public void BeginWindow(MediaTime start)
+    public void BeginWindow(AudioProcessContext context)
     {
-        _expressionPercent = Speed is IExpressionProperty<float> { HasExpression: true } expression
-            ? expression.Evaluate(new EvaluationContext(GetOwnerStart() + start))
+        _expressionPercent = HasExpression
+            ? context.AnimationSampler.SampleAt(Speed!, context.TimeRange.Start, context.SampleRate)
             : null;
     }
 
-    private MediaTime GetOwnerStart() => (Speed?.GetOwnerObject() as EngineObject)?.TimeRange.Value.Start ?? MediaTime.Zero;
+    private MediaTime GetOwnerStart() => AnimationSampler.GetOwnerStart(Speed!);
 
     public void AcknowledgeChanges() => IsInvalidated = false;
     private float Normalize(float percent) => _normalize?.Invoke(percent) ?? percent;
@@ -219,7 +258,7 @@ internal sealed class AudioSpeedMapping : IDisposable
             return;
         }
 
-        var animation = Animation!;
+        var animation = KeyFrames!;
         var ownerStart = GetOwnerStart();
         long startInSamples = context.TimeRange.Start.ToSamples(
             context.SampleRate, roundSampleClock ? MidpointRounding.AwayFromZero : MidpointRounding.ToZero);

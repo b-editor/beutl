@@ -27,6 +27,7 @@ public sealed class SceneComposer : Composer
 
     public AudioBuffer? Compose(TimeRange timeRange)
     {
+        MasterGain = _compositor.Scene.MasterGain;
         var frame = _compositor.EvaluateAudio(timeRange);
         return base.Compose(timeRange, frame);
     }

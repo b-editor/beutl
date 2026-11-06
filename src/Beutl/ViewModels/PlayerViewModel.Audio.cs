@@ -106,9 +106,7 @@ public partial class PlayerViewModel
             bool useMultichannelBackend = AudioPlaybackOutput.UseMultichannelBackend(projectLayout);
             if (OperatingSystem.IsWindows())
             {
-                using var audioContext = useMultichannelBackend
-                    ? new XAudioContext(useDeviceDefaults: true)
-                    : new XAudioContext();
+                using var audioContext = new XAudioContext(useDeviceDefaults: useMultichannelBackend);
                 await PlayWithXA2(audioContext, projectLayout, useMultichannelBackend,
                     scene, clock, startTime, sampleRate, generation, playbackToken).ConfigureAwait(false);
             }
@@ -143,8 +141,8 @@ public partial class PlayerViewModel
                         if (!IsPlaying.Value || !_sessionGuard.Owns(generation)) return;
                     }
 
-                    using var audioContext = useMultichannelBackend ? new AudioContext(soft: true) : new AudioContext();
-                    await PlayWithOpenAL(audioContext, projectLayout, useMultichannelBackend,
+                    using var audioContext = new AudioContext(soft: useMultichannelBackend);
+                    await PlayWithOpenAL(audioContext, projectLayout,
                         scene, clock, startTime, sampleRate, generation, playbackToken);
                 }, playbackToken);
             }
@@ -482,8 +480,7 @@ public partial class PlayerViewModel
         }
     }
 
-    private async Task PlayWithOpenAL(AudioContext audioContext, AudioChannelLayout projectLayout,
-        bool useMultichannelBackend, Scene scene,
+    private async Task PlayWithOpenAL(AudioContext audioContext, AudioChannelLayout projectLayout, Scene scene,
         AudioPlaybackClock clock, MediaTime startTime, int sampleRate, int generation, CancellationToken playbackToken)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(playbackToken);
@@ -529,10 +526,7 @@ public partial class PlayerViewModel
                 }
 
                 using AudioBuffer? converted = outputMatrix?.Apply(audio);
-                if (useMultichannelBackend)
-                    audioContext.BufferData(buffer, converted ?? audio, outputLayout);
-                else
-                    audioContext.BufferData(buffer, converted ?? audio);
+                audioContext.BufferData(buffer, converted ?? audio, outputLayout);
                 fillSamples = audio.SampleCount;
                 hasAudio = true;
                 _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(audio, bufferStartTime));

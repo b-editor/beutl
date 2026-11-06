@@ -37,7 +37,7 @@ public sealed class FilterEffectEditorViewModel : GroupableEditorViewModel<Filte
 
     public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
-    void IPresenterEditorViewModel.SetTarget(CoreObject? target) => SetTarget(target as FilterEffect);
+    void ITargetPickerViewModel.SetTarget(CoreObject? target) => SetTarget(target as FilterEffect);
 
     public void ChangeFilter(FilterEffect instance) => ChangeValue(instance);
 
@@ -56,13 +56,10 @@ public sealed class FilterEffectEditorViewModel : GroupableEditorViewModel<Filte
     public void AddTarget(Type presenterType, FilterEffect target)
     {
         if (!IsElementEditable) return;
-        if (Value.Value is FilterEffectGroup group
-            && Activator.CreateInstance(presenterType) is IPresenter<FilterEffect> presenter)
+        if (Activator.CreateInstance(presenterType) is IPresenter<FilterEffect> presenter)
         {
-            IsExpanded.Value = true;
             PresenterEditorHelper.AssignTarget(presenter, target);
-            group.Children.Add((FilterEffect)presenter);
-            Commit();
+            AddItem((FilterEffect)presenter);
         }
     }
 

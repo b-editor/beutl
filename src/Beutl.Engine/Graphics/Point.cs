@@ -31,6 +31,12 @@ public readonly struct Point(float x, float y)
       IMultiplyOperators<Point, Matrix, Point>,
       ITupleConvertible<Point, float>
 {
+    // Expressions calculate in double, as Time is one.
+    public Point(double x, double y)
+        : this((float)x, (float)y)
+    {
+    }
+
     public static readonly Point Invalid = new(float.NaN, float.NaN);
 
     public float X { get; } = x;

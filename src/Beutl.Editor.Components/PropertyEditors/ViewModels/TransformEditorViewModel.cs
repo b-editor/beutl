@@ -1,7 +1,9 @@
 ﻿using Avalonia.Input;
 using Beutl.Engine;
 using Beutl.Graphics.Transformation;
+using Beutl.NodeGraph;
 using Beutl.PropertyAdapters;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
@@ -28,8 +30,6 @@ public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transfor
     // In the order the menus list them.
     internal static IReadOnlyList<KnownTransform> KnownTransforms { get; } =
     [
-        new(KnownTransformType.Group, typeof(TransformGroup), () => new TransformGroup(),
-            () => GraphicsStrings.Group, null),
         new(KnownTransformType.Translate, typeof(TranslateTransform), () => new TranslateTransform(),
             () => GraphicsStrings.TranslateTransform, "TranslateTransformIconData"),
         new(KnownTransformType.Rotation, typeof(RotationTransform), () => new RotationTransform(),
@@ -40,6 +40,8 @@ public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transfor
             () => GraphicsStrings.SkewTransform, "SkewTransformIconData"),
         new(KnownTransformType.Rotation3D, typeof(Rotation3DTransform), () => new Rotation3DTransform(),
             () => GraphicsStrings.Rotation3DTransform, "Rotation3DTransformIconData"),
+        new(KnownTransformType.Group, typeof(TransformGroup), () => new TransformGroup(),
+            () => GraphicsStrings.Group, null),
         new(KnownTransformType.Presenter, typeof(TransformPresenter), () => new TransformPresenter(),
             () => GraphicsStrings.Presenter, null),
     ];
@@ -72,9 +74,35 @@ public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transfor
             .DisposeWith(Disposables);
 
         (IsPresenter, CurrentTargetName) = PresenterEditorHelper.ObservePresenter<Transform>(Value, Disposables);
+
+        ShowsName = IsExpanded
+            .CombineLatest(
+                Properties,
+                IsFallback,
+                IsPresenter,
+                ObserveExtensionProvider().Select(_ => this.GetService<GraphNode>() != null).StartWith(false),
+                (expanded, properties, fallback, presenter, inNode) =>
+                    !presenter && (!expanded || fallback || inNode || properties is not { Properties.Count: > 0 }))
+            .ToReadOnlyReactivePropertySlim(true)
+            .DisposeWith(Disposables);
+
+        // A row shows its values as soon as its group opens, and a saved state read afterwards overrides that. Opening
+        // builds the children, so it waits for Accept. A node stays compact.
+        if (property is IListItemAccessor)
+        {
+            ObserveExtensionProvider()
+                .Take(1)
+                .Where(_ => this.GetService<GraphNode>() == null && Value.Value is not TransformGroup)
+                .Subscribe(_ => IsExpanded.Value = true)
+                .DisposeWith(Disposables);
+        }
     }
 
     public ReadOnlyReactivePropertySlim<string?> TransformName { get; }
+
+    // Whether a row of a list has a row for its name. While open, it shows its first property there instead, unless it
+    // is in a node, which stays compact, or has no property to show.
+    public ReadOnlyReactivePropertySlim<bool> ShowsName { get; }
 
     protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Transform;
 
@@ -84,7 +112,7 @@ public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transfor
 
     public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
-    void IPresenterEditorViewModel.SetTarget(CoreObject? target) => SetTarget(target as Transform);
+    void ITargetPickerViewModel.SetTarget(CoreObject? target) => SetTarget(target as Transform);
 
     public void ChangeTransform(Transform instance) => ChangeValue(instance);
 
@@ -101,4 +129,7 @@ public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transfor
     }
 
     protected override IListProperty<Transform> ChildrenOf(TransformGroup group) => group.Children;
+
+    protected override int GetInsertionIndex(IReadOnlyList<Transform> children, Transform instance)
+        => CanonicalTransformLayout.GetInsertionIndex(children, instance);
 }

@@ -61,9 +61,7 @@ public sealed partial class MainView : UserControl
                 {
                     if (e.ClickCount == 2)
                     {
-                        window.WindowState = window.WindowState == WindowState.Maximized
-                            ? WindowState.Normal
-                            : WindowState.Maximized;
+                        ToggleZoom();
                     }
                     else
                     {
@@ -122,6 +120,7 @@ public sealed partial class MainView : UserControl
 
         StartupNotificationService.ShowTelemetryConsent(GlobalConfiguration.Instance.TelemetryConfig);
         await CheckDifferentVersion();
+        StartupNotificationService.ShowReleaseNotes(GlobalConfiguration.Instance.LastStartedVersion, BeutlApplication.Version);
         await CheckAgentToolkitUpdateAsync();
 
         _logger.LogInformation("Window opened.");
@@ -145,12 +144,10 @@ public sealed partial class MainView : UserControl
                 return;
             }
 
-            // An older MCP layout means the agent config still carries the separate live entry and
-            // its token; say so instead of announcing newer skills.
-            bool mcpChanged = AgentToolkitInstallManifestStore.IsMcpLayoutOutdated(manifest);
+            (string title, string content) = AiAgentSettingsPageViewModel.BuildUpdateNotice(manifest);
             NotificationService.ShowInformation(
-                mcpChanged ? SettingsStrings.AiAgents_McpChanged_Title : SettingsStrings.AiAgents_UpdateAvailable_Title,
-                mcpChanged ? SettingsStrings.AiAgents_McpChanged_Content : SettingsStrings.AiAgents_UpdateAvailable_Content,
+                title,
+                content,
                 expiration: TimeSpan.FromSeconds(30),
                 actions:
                 [
@@ -213,6 +210,13 @@ public sealed partial class MainView : UserControl
 
     internal Task GoToInformationPageAsync()
     {
+        if (SettingsDialog.Current is { DataContext: SettingsDialogViewModel openViewModel } open)
+        {
+            openViewModel.GoToSettingsPage();
+            open.Activate();
+            return Task.CompletedTask;
+        }
+
         return ShowSettingsDialogAsync(static dialogViewModel => dialogViewModel.GoToSettingsPage());
     }
 
@@ -233,16 +237,70 @@ public sealed partial class MainView : UserControl
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 
+    // An open dialog keeps its page.
     private async void OpenSettingsDialog()
     {
-        await ShowSettingsDialogAsync(static dialogViewModel => dialogViewModel.GoToAccountSettingsPage());
+        if (SettingsDialog.Current is { } open)
+            open.Activate();
+        else
+            await ShowSettingsDialogAsync(static dialogViewModel => dialogViewModel.GoToAccountSettingsPage());
     }
 
-    private async void OpenTutorialsDialog() => await ShowTutorialsDialogAsync();
+    private async void OpenTutorialsDialog()
+    {
+        if (!IsDialogOpen())
+            await ShowTutorialsDialogAsync();
+    }
 
     internal async Task ShowTutorialsDialogAsync()
     {
         var dialog = new TutorialListDialog();
         await dialog.ShowAsync();
+    }
+
+    private bool IsDialogOpen() => TopLevel.GetTopLevel(this) is { } topLevel && FocusedEditCommand.IsDialogOpen(topLevel);
+
+    private void CloseTab(MainViewModel viewModel)
+    {
+        if (IsDialogOpen())
+            return;
+
+        // With nothing left in it to close, a macOS window closes itself. On the other platforms the same key
+        // would quit the app, as the main window's close does.
+        viewModel.CloseTab(() =>
+        {
+            if (OperatingSystem.IsMacOS())
+                (TopLevel.GetTopLevel(this) as Window)?.Close();
+        });
+
+        // The closed tab may have had the focus, and without a focus a key reaches nothing below the window.
+        if (TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is null)
+            Focus();
+    }
+
+    private void MinimizeWindow()
+    {
+        if (TopLevel.GetTopLevel(this) is Window window)
+            window.WindowState = WindowState.Minimized;
+    }
+
+    private void ToggleZoom()
+    {
+        if (TopLevel.GetTopLevel(this) is Window window && window.WindowState != WindowState.FullScreen)
+        {
+            window.WindowState = window.WindowState == WindowState.Maximized
+                ? WindowState.Normal
+                : WindowState.Maximized;
+        }
+    }
+
+    private void ToggleFullScreen()
+    {
+        if (TopLevel.GetTopLevel(this) is Window window)
+        {
+            window.WindowState = window.WindowState == WindowState.FullScreen
+                ? WindowState.Normal
+                : WindowState.FullScreen;
+        }
     }
 }

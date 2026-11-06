@@ -49,7 +49,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@v6.1.0
         with:
           global-json-file: global.json
 
@@ -232,7 +232,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@v6.1.0
         with:
           dotnet-version: ${{ needs.compile.outputs.dotnet-version }}
 
@@ -322,13 +322,13 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Preserve the required "build" check: every build, test shard, platform test
-  # and SDK check must succeed, including on the merge queue. Always run this
+  # Preserve the required "build" check: every build, test shard, platform test,
+  # SDK check and cross-publish must succeed, including on the merge queue. Always run this
   # gate so failed, cancelled or skipped dependencies cannot allow a merge.
   # Finalize coverage only after the build and test results have passed this gate.
   build:
     if: always()
-    needs: [compile, test, linux-arm64-tests, macos-tests, mediafoundation-tests, sdk-package]
+    needs: [compile, test, linux-arm64-tests, macos-tests, mediafoundation-tests, sdk-package, windows-publish]
     permissions:
       contents: read
       id-token: write
@@ -347,7 +347,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@v6.1.0
         with:
           dotnet-version: ${{ needs.compile.outputs.dotnet-version }}
 
@@ -395,7 +395,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@v6.1.0
         with:
           global-json-file: global.json
 
@@ -458,7 +458,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@v6.1.0
         with:
           global-json-file: global.json
 
@@ -509,7 +509,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@v6.1.0
         with:
           global-json-file: global.json
 
@@ -545,7 +545,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@v6.1.0
         with:
           global-json-file: global.json
 
@@ -554,3 +554,26 @@ jobs:
 
       - name: Build, pack and check a minimal extension
         run: python3 build/check_extension_package.py artifacts --version 0.0.0-ci
+
+  # Releases cross-publish to Windows from Linux, which no other job here does. #2538 broke that (NETSDK1152)
+  # with every check green, and nobody saw it until the daily build had failed for five days (#2887).
+  windows-publish:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6.1.0
+        with:
+          global-json-file: global.json
+
+      - name: Cross-publish to win-x64
+        run: ./build.sh publish --runtime win_x64 --self-contained true

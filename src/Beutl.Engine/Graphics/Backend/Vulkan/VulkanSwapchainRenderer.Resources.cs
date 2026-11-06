@@ -109,6 +109,60 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
 
     private void CreateSourceImage(int width, int height, Format format)
     {
+        CreateSampledImage(width, height, format, out _sourceImage, out _sourceMemory, out _sourceImageView);
+        _sourceImageLayout = ImageLayout.Undefined;
+
+        _descriptorSet = _pipeline!.AllocateDescriptorSet();
+        // The shader samples the overlay only once there is one, but its binding has to hold an image all along.
+        _pipeline.UpdateDescriptorSet(_descriptorSet, VulkanPresentPipeline.OverlayBinding,
+            _overlayImageView.Handle != 0 ? _overlayImageView : _sourceImageView);
+    }
+
+    private void CreateOverlayImage(int width, int height)
+    {
+        CreateSampledImage(width, height, Format.B8G8R8A8Unorm, out _overlayImage, out _overlayMemory, out _overlayImageView);
+        _overlayImageLayout = ImageLayout.Undefined;
+        _overlayWidth = width;
+        _overlayHeight = height;
+
+        if (_descriptorSet.Handle != 0)
+            _pipeline!.UpdateDescriptorSet(_descriptorSet, VulkanPresentPipeline.OverlayBinding, _overlayImageView);
+    }
+
+    private void DestroyOverlayImage()
+    {
+        if (_overlayImageView.Handle != 0)
+        {
+            _vk.DestroyImageView(_device, _overlayImageView, null);
+            _overlayImageView = default;
+        }
+
+        if (_overlayImage.Handle != 0)
+        {
+            _vk.DestroyImage(_device, _overlayImage, null);
+            _overlayImage = default;
+        }
+
+        if (_overlayMemory.Handle != 0)
+        {
+            _vk.FreeMemory(_device, _overlayMemory, null);
+            _overlayMemory = default;
+        }
+
+        _overlayWidth = 0;
+        _overlayHeight = 0;
+        _overlayImageLayout = ImageLayout.Undefined;
+        _overlayShown = false;
+
+        // The binding must not keep the view just destroyed, in case no new overlay image follows.
+        if (_descriptorSet.Handle != 0 && _sourceImageView.Handle != 0 && _pipeline != null)
+            _pipeline.UpdateDescriptorSet(_descriptorSet, VulkanPresentPipeline.OverlayBinding, _sourceImageView);
+    }
+
+    // A device-local image the present shader samples, filled from a staging buffer.
+    private void CreateSampledImage(int width, int height, Format format,
+        out Image image, out DeviceMemory memory, out ImageView view)
+    {
         var imageInfo = new ImageCreateInfo
         {
             SType = StructureType.ImageCreateInfo,
@@ -124,12 +178,14 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
             InitialLayout = ImageLayout.Undefined
         };
 
-        Image image;
-        Check(_vk.CreateImage(_device, &imageInfo, null, &image), "vkCreateImage");
-        _sourceImage = image;
+        Image newImage;
+        Check(_vk.CreateImage(_device, &imageInfo, null, &newImage), "vkCreateImage");
+        image = newImage;
+        memory = default;
+        view = default;
 
         MemoryRequirements memReqs;
-        _vk.GetImageMemoryRequirements(_device, _sourceImage, &memReqs);
+        _vk.GetImageMemoryRequirements(_device, newImage, &memReqs);
 
         var allocInfo = new MemoryAllocateInfo
         {
@@ -138,15 +194,15 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
             MemoryTypeIndex = FindMemoryType(memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
         };
 
-        DeviceMemory memory;
-        Check(_vk.AllocateMemory(_device, &allocInfo, null, &memory), "vkAllocateMemory");
-        _sourceMemory = memory;
-        Check(_vk.BindImageMemory(_device, _sourceImage, _sourceMemory, 0), "vkBindImageMemory");
+        DeviceMemory newMemory;
+        Check(_vk.AllocateMemory(_device, &allocInfo, null, &newMemory), "vkAllocateMemory");
+        memory = newMemory;
+        Check(_vk.BindImageMemory(_device, newImage, newMemory, 0), "vkBindImageMemory");
 
         var viewInfo = new ImageViewCreateInfo
         {
             SType = StructureType.ImageViewCreateInfo,
-            Image = _sourceImage,
+            Image = newImage,
             ViewType = ImageViewType.Type2D,
             Format = format,
             SubresourceRange = new ImageSubresourceRange
@@ -159,12 +215,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
             }
         };
 
-        ImageView view;
-        Check(_vk.CreateImageView(_device, &viewInfo, null, &view), "vkCreateImageView");
-        _sourceImageView = view;
-        _sourceImageLayout = ImageLayout.Undefined;
-
-        _descriptorSet = _pipeline!.AllocateDescriptorSet();
+        ImageView newView;
+        Check(_vk.CreateImageView(_device, &viewInfo, null, &newView), "vkCreateImageView");
+        view = newView;
     }
 
     private void DestroySourceImage()
@@ -201,21 +254,49 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
             return;
 
         DestroyStagingBuffer();
+        CreateStagingBuffer(requiredSize, out _stagingBuffer, out _stagingMemory);
+        _stagingSize = requiredSize;
+    }
 
+    private void DestroyStagingBuffer()
+    {
+        DestroyStagingBuffer(ref _stagingBuffer, ref _stagingMemory);
+        _stagingSize = 0;
+    }
+
+    private void EnsureOverlayStagingBuffer(ulong requiredSize)
+    {
+        if (_overlayStagingSize >= requiredSize)
+            return;
+
+        DestroyOverlayStagingBuffer();
+        CreateStagingBuffer(requiredSize, out _overlayStagingBuffer, out _overlayStagingMemory);
+        _overlayStagingSize = requiredSize;
+    }
+
+    private void DestroyOverlayStagingBuffer()
+    {
+        DestroyStagingBuffer(ref _overlayStagingBuffer, ref _overlayStagingMemory);
+        _overlayStagingSize = 0;
+    }
+
+    private void CreateStagingBuffer(ulong size, out Silk.NET.Vulkan.Buffer buffer, out DeviceMemory memory)
+    {
         var bufferInfo = new BufferCreateInfo
         {
             SType = StructureType.BufferCreateInfo,
-            Size = requiredSize,
+            Size = size,
             Usage = BufferUsageFlags.TransferSrcBit,
             SharingMode = SharingMode.Exclusive
         };
 
-        Silk.NET.Vulkan.Buffer buffer;
-        Check(_vk.CreateBuffer(_device, &bufferInfo, null, &buffer), "vkCreateBuffer");
-        _stagingBuffer = buffer;
+        Silk.NET.Vulkan.Buffer newBuffer;
+        Check(_vk.CreateBuffer(_device, &bufferInfo, null, &newBuffer), "vkCreateBuffer");
+        buffer = newBuffer;
+        memory = default;
 
         MemoryRequirements memReqs;
-        _vk.GetBufferMemoryRequirements(_device, _stagingBuffer, &memReqs);
+        _vk.GetBufferMemoryRequirements(_device, newBuffer, &memReqs);
 
         var allocInfo = new MemoryAllocateInfo
         {
@@ -225,29 +306,47 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
                 MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit)
         };
 
-        DeviceMemory memory;
-        Check(_vk.AllocateMemory(_device, &allocInfo, null, &memory), "vkAllocateMemory");
-        _stagingMemory = memory;
-        Check(_vk.BindBufferMemory(_device, _stagingBuffer, _stagingMemory, 0), "vkBindBufferMemory");
-
-        _stagingSize = requiredSize;
+        DeviceMemory newMemory;
+        Check(_vk.AllocateMemory(_device, &allocInfo, null, &newMemory), "vkAllocateMemory");
+        memory = newMemory;
+        Check(_vk.BindBufferMemory(_device, newBuffer, newMemory, 0), "vkBindBufferMemory");
     }
 
-    private void DestroyStagingBuffer()
+    private void DestroyStagingBuffer(ref Silk.NET.Vulkan.Buffer buffer, ref DeviceMemory memory)
     {
-        if (_stagingBuffer.Handle != 0)
+        if (buffer.Handle != 0)
         {
-            _vk.DestroyBuffer(_device, _stagingBuffer, null);
-            _stagingBuffer = default;
+            _vk.DestroyBuffer(_device, buffer, null);
+            buffer = default;
         }
 
-        if (_stagingMemory.Handle != 0)
+        if (memory.Handle != 0)
         {
-            _vk.FreeMemory(_device, _stagingMemory, null);
-            _stagingMemory = default;
+            _vk.FreeMemory(_device, memory, null);
+            memory = default;
+        }
+    }
+
+    // The CPU copy of the overlay that Skia draws into, kept between draws.
+    private void EnsureOverlayPixels(ulong size)
+    {
+        if (_overlayPixelsSize >= size)
+            return;
+
+        FreeOverlayPixels();
+        _overlayPixels = System.Runtime.InteropServices.NativeMemory.AlignedAlloc((nuint)size, 64);
+        _overlayPixelsSize = size;
+    }
+
+    private void FreeOverlayPixels()
+    {
+        if (_overlayPixels != null)
+        {
+            System.Runtime.InteropServices.NativeMemory.AlignedFree(_overlayPixels);
+            _overlayPixels = null;
         }
 
-        _stagingSize = 0;
+        _overlayPixelsSize = 0;
     }
 
     private uint FindMemoryType(uint typeFilter, MemoryPropertyFlags properties)

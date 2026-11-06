@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
@@ -28,6 +29,13 @@ public sealed class MissingMediaRowViewModel : IDisposable
         HasIssue = Status.Select(status => status == MissingMediaStrings.NoUniqueMatch || status == MissingMediaStrings.Unrecognized)
             .ToReadOnlyReactivePropertySlim();
         HasCandidate = CandidatePath.CombineLatest(IsOffline, (path, offline) => path != null && !offline)
+            .ToReadOnlyReactivePropertySlim();
+        StateKind = IsOffline.CombineLatest(HasIssue, HasCandidate, IsReady, (offline, issue, candidate, ready) =>
+                offline ? StatusLabelKind.Neutral
+                : issue ? StatusLabelKind.Critical
+                : candidate ? StatusLabelKind.Accent
+                : ready ? StatusLabelKind.Success
+                : StatusLabelKind.Caution)
             .ToReadOnlyReactivePropertySlim();
         StateText = Status.CombineLatest(IsOffline, (status, offline) => (offline ? MissingMediaStrings.Offline
                 : status == MissingMediaStrings.Missing || status == MissingMediaStrings.Ready || status == MissingMediaStrings.Candidate
@@ -67,6 +75,7 @@ public sealed class MissingMediaRowViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<bool> HasIssue { get; }
     public ReadOnlyReactivePropertySlim<bool> HasCandidate { get; }
     public ReadOnlyReactivePropertySlim<string?> StateText { get; }
+    public ReadOnlyReactivePropertySlim<StatusLabelKind> StateKind { get; }
     internal IFileSource? ValidatedSource { get; set; }
     internal IReadOnlyList<string> FontReplacementFiles { get; set; } = [];
 
@@ -76,6 +85,7 @@ public sealed class MissingMediaRowViewModel : IDisposable
         HasIssue.Dispose();
         HasCandidate.Dispose();
         StateText.Dispose();
+        StateKind.Dispose();
         IsExpanded.Dispose();
         ReplacementPath.Dispose();
         CandidatePath.Dispose();
@@ -90,7 +100,7 @@ public sealed class MissingMediaViewModel : IToolContext
     private readonly IEditorContext _editor;
     private readonly IMediaRepairHost _host;
     private readonly Scene _scene;
-    private readonly MissingMediaService _service = new();
+    private readonly MissingMediaService _service;
     private readonly CancellationTokenSource _cancellation;
     private readonly CancellationToken _token;
     private readonly List<IDisposable> _subscriptions = [];
@@ -102,6 +112,7 @@ public sealed class MissingMediaViewModel : IToolContext
     {
         _editor = editor;
         _host = editor.GetRequiredService<IMediaRepairHost>();
+        _service = _host.MissingMediaDetector;
         _scene = editor.GetRequiredService<Scene>();
         _cancellation = CancellationTokenSource.CreateLinkedTokenSource(_host.RepairCancellationToken);
         _token = _cancellation.Token;
@@ -130,7 +141,7 @@ public sealed class MissingMediaViewModel : IToolContext
     internal Task WaitForCandidatesAsync() => _candidateScanTask;
 
     internal async Task RefreshRowsAsync()
-        => RefreshRows(await _service.FindMissingAsync(_scene, _token));
+        => RefreshRows(await _host.FindMissingMediaAsync(_token));
 
     internal async Task InitializeRowsAsync()
     {
@@ -214,6 +225,14 @@ public sealed class MissingMediaViewModel : IToolContext
             await SetReplacementCoreAsync(row, path);
             if (row.ReplacementPath.Value != null)
             {
+                // Another kind of the same file, such as the audio of a video, follows the choice. The search below
+                // would read the whole file again to identify it.
+                foreach (var other in Rows.Where(other => other != row && other.Media.ExpectedUri is { } uri
+                             && uri == row.Media.ExpectedUri && !other.IsOffline.Value && other.ReplacementPath.Value == null).ToArray())
+                {
+                    await SetReplacementCoreAsync(other, path, followsChoice: true);
+                }
+
                 string directory = Path.GetDirectoryName(Path.GetFullPath(path))!;
                 GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory.Value = directory;
                 _candidateCancellation?.Cancel();
@@ -243,7 +262,7 @@ public sealed class MissingMediaViewModel : IToolContext
     }
 
     private async Task SetReplacementCoreAsync(MissingMediaRowViewModel row, string path, IReadOnlyList<string>? matchedPaths = null,
-        bool asCandidate = false, CancellationToken? cancellationToken = null)
+        bool asCandidate = false, CancellationToken? cancellationToken = null, bool followsChoice = false)
     {
         CancellationToken token = cancellationToken ?? _token;
         try
@@ -268,6 +287,8 @@ public sealed class MissingMediaViewModel : IToolContext
             row.Status.Value = asCandidate ? MissingMediaStrings.Candidate : MissingMediaStrings.Ready;
         }
         catch (OperationCanceledException) { throw; }
+        // The chosen file need not hold this kind of media; the row waits for a file of its own.
+        catch (Exception) when (followsChoice) { }
         catch (Exception)
         {
             if (asCandidate && (!Rows.Contains(row) || row.IsOffline.Value
@@ -290,13 +311,14 @@ public sealed class MissingMediaViewModel : IToolContext
         if (_disposed || !CanApply.Value) return false;
         _candidateCancellation?.Cancel();
         SetBusy(true);
-        IDisposable keepOpen = _editor.GetRequiredService<IToolDockHost>().KeepOpen(this);
+        IDisposable? keepOpen = _editor.GetRequiredService<IToolDockHost>().KeepOpen(this);
+        IDisposable? suspension = null;
         Error.Value = null;
         try
         {
             HistoryManager history = _editor.GetRequiredService<HistoryManager>();
             using var write = await _editor.GetRequiredService<IProjectFileWriteAdmission>().BeginProjectFileWriteAsync(_token);
-            using var suspension = _host.SuspendEditor();
+            suspension = _host.SuspendEditor();
             await _editor.GetRequiredService<IPreviewPlayer>().Pause();
             _token.ThrowIfCancellationRequested();
             var rows = Rows.Where(row => !row.IsOffline.Value && row.ReplacementPath.Value != null).ToArray();
@@ -323,11 +345,17 @@ public sealed class MissingMediaViewModel : IToolContext
             _token.ThrowIfCancellationRequested();
             // The scene remains editable while this tab is open; resolve its current
             // source instances rather than the detection-time references.
-            var currentSources = new ObjectSearcher(_scene,
-                    value => value is Beutl.Media.Source.MediaSource { HasUri: true }
-                        or Beutl.Graphics3D.Models.ModelSource { HasUri: true })
-                .SearchAll().OfType<IFileSource>().Distinct<IFileSource>(ReferenceEqualityComparer.Instance)
+            var currentSources = _host.GetMediaSources()
                 .ToLookup(source => (MissingMediaService.GetKind(source), source.Uri));
+            // Nothing is applied when a listed file is no longer used, or the save would report a repair that did not
+            // happen. Listing the rows again keeps the replacements chosen for the others.
+            if (rows.Any(row => row.Media.Kind != MissingMediaKind.Font && !currentSources[(row.Media.Kind, row.Media.ExpectedUri!)].Any()))
+            {
+                await RefreshRowsAsync();
+                Error.Value = MissingMediaStrings.SceneChanged;
+                return false;
+            }
+
             string projectDirectory = Path.GetDirectoryName((_scene.FindHierarchicalParent<Project>()?.Uri
                                       ?? _scene.Uri)!.LocalPath)!;
             string fontsDirectory = Path.Combine(projectDirectory, "resources", "fonts");
@@ -399,22 +427,30 @@ public sealed class MissingMediaViewModel : IToolContext
                 _host.ClearRenderCaches();
                 throw;
             }
+            _host.ClearRenderCaches();
+            await RefreshRowsAsync();
+            // The repair is on disk, and the snapshot of thousands of changed files can take a while. The write
+            // admission keeps other writers out meanwhile, so neither the editor nor this tab has to wait for Git.
+            suspension.Dispose();
+            suspension = null;
+            keepOpen.Dispose();
+            keepOpen = null;
+            SetBusy(false);
             if (_editor.GetService(typeof(IProjectVersionControlCoordinator)) is IProjectVersionControlSession session)
             {
                 try
                 {
-                    await session.NotifySavedAsync(write, _token);
+                    // The tab can close from here on, which must not cancel the snapshot.
+                    await session.NotifySavedAsync(write, _host.RepairCancellationToken);
                     _host.ScheduleMediaFingerprints(finishSaveSnapshot: true);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     // The repair has reached disk; a snapshot failure cannot undo that save.
                     s_logger.LogWarning(ex, "Could not snapshot the saved media repair.");
-                    Error.Value = ex.Message;
+                    if (!_disposed) Error.Value = ex.Message;
                 }
             }
-            _host.ClearRenderCaches();
-            await RefreshRowsAsync();
             return true;
         }
         catch (OperationCanceledException) when (_cancellation.IsCancellationRequested) { return false; }
@@ -425,9 +461,11 @@ public sealed class MissingMediaViewModel : IToolContext
         }
         finally
         {
-            keepOpen.Dispose();
-            if (!_disposed)
+            suspension?.Dispose();
+            // Already let go of, along with the busy state, if the repair got as far as its snapshot.
+            if (keepOpen != null)
             {
+                keepOpen.Dispose();
                 SetBusy(false);
             }
         }

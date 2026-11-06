@@ -23,8 +23,8 @@ internal sealed partial class MediaTimeMapping
 
     private readonly TimeRange _elementRange;
     private readonly Clock _sourceClock;
-    private readonly SpeedMap _speed;
-    private readonly Controller[] _controllers;
+    private SpeedMap _speed;
+    private Controller[] _controllers;
     private readonly MediaTime? _videoDuration;
     private readonly bool _loopVideo;
     private readonly KeyFrameAnimation<bool>? _loopAnimation;
@@ -75,10 +75,20 @@ internal sealed partial class MediaTimeMapping
         _timelineKnown = source is not ITimeMappedSource { HasDynamicTimeline: true };
     }
 
-    public bool IsSupported => _timelineKnown && IsMappingSupported;
+    public bool IsSupported => _timelineKnown && _sourceSupported && _speed.IsSupported && _controllers.All(c => c.IsSupported);
 
-    // A split continues whichever timeline plays, so unlike other edits it needs no length.
-    public bool IsMappingSupported => _sourceSupported && _speed.IsSupported && _controllers.All(c => c.IsSupported);
+    // A split continues whichever timeline plays and reads speed and controller expressions at the cut, so unlike other
+    // edits it needs neither a length nor the stored values.
+    public bool IsMappingSupported => _sourceSupported && _speed.IsMappingSupported && _controllers.All(c => c.IsMappingSupported);
+
+    // Whether an expression decides what time this controller plays, which a split reads on the back piece too.
+    public static bool HasTimeExpression(DrawableTimeController controller)
+        => controller.Speed.HasExpression || HasMappingExpression(controller);
+
+    private static bool HasMappingExpression(DrawableTimeController controller)
+        => controller.OffsetPosition.HasExpression || controller.AdjustTimeRange.HasExpression
+            || controller.Reverse.HasExpression || controller.Loop.HasExpression || controller.HoldFirstFrame.HasExpression
+            || controller.HoldLastFrame.HasExpression || controller.FrameRate.HasExpression;
 
     public bool CanWriteOffsets => !_sourceLocked && IsSupported && _speed.CanWriteOffsets;
 
@@ -116,6 +126,25 @@ internal sealed partial class MediaTimeMapping
         foreach (Controller controller in _controllers)
             time = controller.Map(time, _elementRange);
         return time.Min - sourceRange.Start;
+    }
+
+    // This mapping as it plays localTime, with each speed and controller expression at the value it gives then, which is
+    // how playback applies it. Null when a value cannot place a position.
+    public MediaTimeMapping? AtMoment(MediaTime localTime)
+    {
+        var moment = (MediaTimeMapping)MemberwiseClone();
+        moment._controllers = new Controller[_controllers.Length];
+        var time = new Interval(_elementRange.Start + localTime, _elementRange.Start + localTime);
+        for (int i = 0; i < _controllers.Length; i++)
+        {
+            if (_controllers[i].AtMoment(time.Min, _elementRange) is not { } controller) return null;
+            moment._controllers[i] = controller;
+            time = controller.Map(time, _elementRange);
+        }
+        MediaTime elapsed = time.Min - _sourceClock.GetRange(_elementRange).Start;
+        if (_speed.AtMoment(time.Min, elapsed) is not { } speed) return null;
+        moment._speed = speed;
+        return moment;
     }
 
     // The positions the source reads over the range with OffsetPosition at offset. With plainOnly, those it would
@@ -282,17 +311,21 @@ internal sealed partial class MediaTimeMapping
     {
         private readonly Clock _clock;
         private readonly Clock? _targetClock;
-        private readonly SpeedMap _speed;
-        private readonly MediaTime _offset;
-        private readonly bool _adjust;
-        private readonly bool _reverse;
-        private readonly bool _loop;
-        private readonly bool _holdFirst;
-        private readonly bool _holdLast;
-        private readonly float _frameRate;
+        private readonly DrawableTimeController _controller;
+        private readonly bool _ignoreLoops;
+        private SpeedMap _speed;
+        private MediaTime _offset;
+        private bool _adjust;
+        private bool _reverse;
+        private bool _loop;
+        private bool _holdFirst;
+        private bool _holdLast;
+        private float _frameRate;
         private readonly bool _hasMappingExpression;
 
         public bool IsSupported => !_hasMappingExpression && _speed.IsSupported;
+
+        public bool IsMappingSupported => _speed.IsMappingSupported;
 
         public bool HasVariableDuration => _targetClock?.ChangesWithElement == true && (_loop || _reverse || _holdLast);
 
@@ -313,6 +346,8 @@ internal sealed partial class MediaTimeMapping
         {
             _clock = new Clock(element, controller, timingPeers, timingRoles);
             _targetClock = new Clock(element, target, timingPeers, timingRoles);
+            _controller = controller;
+            _ignoreLoops = ignoreLoops;
             _speed = new SpeedMap(controller.Speed, 60, videoPlayback: true);
             _offset = controller.OffsetPosition.Value;
             _adjust = controller.AdjustTimeRange.Value;
@@ -321,9 +356,28 @@ internal sealed partial class MediaTimeMapping
             _holdFirst = controller.HoldFirstFrame.Value;
             _holdLast = controller.HoldLastFrame.Value;
             _frameRate = controller.FrameRate.Value;
-            _hasMappingExpression = controller.OffsetPosition.HasExpression || controller.AdjustTimeRange.HasExpression
-                || controller.Reverse.HasExpression || controller.Loop.HasExpression || controller.HoldFirstFrame.HasExpression
-                || controller.HoldLastFrame.HasExpression || controller.FrameRate.HasExpression;
+            _hasMappingExpression = HasMappingExpression(controller);
+        }
+
+        // This controller as it plays time, with each expression at the value it gives then.
+        public Controller? AtMoment(MediaTime time, TimeRange elementRange)
+        {
+            var moment = (Controller)MemberwiseClone();
+            if (_hasMappingExpression)
+            {
+                var context = new EvaluationContext(time);
+                moment._offset = _controller.OffsetPosition.Evaluate(context);
+                moment._adjust = _controller.AdjustTimeRange.Evaluate(context);
+                moment._reverse = _controller.Reverse.Evaluate(context);
+                moment._loop = !_ignoreLoops && _controller.Loop.Evaluate(context);
+                moment._holdFirst = _controller.HoldFirstFrame.Evaluate(context);
+                moment._holdLast = _controller.HoldLastFrame.Evaluate(context);
+                moment._frameRate = _controller.FrameRate.Evaluate(context);
+            }
+            TimeRange origin = moment._adjust ? _targetClock!.GetRange(elementRange) : _clock.GetRange(elementRange);
+            if (_speed.AtMoment(time, Add(time, moment._offset - origin.Start)) is not { } speed) return null;
+            moment._speed = speed;
+            return moment;
         }
 
         public Interval Map(Interval time, TimeRange elementRange)

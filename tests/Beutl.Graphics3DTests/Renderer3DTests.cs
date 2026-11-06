@@ -6,7 +6,10 @@ using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Primitives;
+using Beutl.Graphics3D.Textures;
 using Beutl.Media;
+using Beutl.Media.Source;
+using SkiaSharp;
 
 namespace Beutl.Graphics3DTests;
 
@@ -70,6 +73,270 @@ public class Renderer3DTests
         FramesRendered own = RenderFrames(static () => new BasicMaterial(), meshes: 4, frames: 6);
 
         Assert.That(shared.LastFrame, Is.EqualTo(own.LastFrame), "A draw must not take another draw's transform from reused bindings.");
+    }
+
+    // A white unlit sphere in front of a red one, with the green channel telling how much white reaches the pixel.
+    [TestCase(AlphaMode.Auto, 0.5f, 0.5f)]
+    [TestCase(AlphaMode.Blend, 0.5f, 0.5f)]
+    [TestCase(AlphaMode.Blend, 1f, 1f)]
+    [TestCase(AlphaMode.Opaque, 0.5f, 1f)]
+    [TestCase(AlphaMode.Opaque, 0f, 1f)]
+    [TestCase(AlphaMode.Mask, 0.6f, 1f)]
+    [TestCase(AlphaMode.Mask, 0.4f, 0f)]
+    public void AlphaMode_DecidesHowAnUnlitSphereCoversWhatIsBehindIt(AlphaMode mode, float opacity, float green)
+    {
+        AssertWhatReachesTheMiddle(new UnlitMaterial { AlphaMode = { Value = mode }, Opacity = { Value = opacity } }, green);
+    }
+
+    // An opaque material ignores the map's alpha, so what the map stores under alpha 0 shows, not black.
+    [Test]
+    public void AlphaMode_Opaque_ShowsTheColorsUnderATransparentMap()
+    {
+        WithMapFile([255, 255, 255, 0], 1, 1, map =>
+            AssertWhatReachesTheMiddle(new UnlitMaterial { AlphaMode = { Value = AlphaMode.Opaque }, ColorMap = { Value = map } }, 1f));
+    }
+
+    // A cut-out lets light through where it hides the surface. Compares what a caster with each map darkens.
+    [TestCase("Directional")]
+    [TestCase("Spot")]
+    [TestCase("Point")]
+    public void AlphaMode_Mask_CastsNoShadowWhereTheColorMapIsCutOut(string lightType)
+    {
+        void Configure(List<Light3D> lights) => lights.Add(CreateShadowLight(lightType));
+
+        int Shadow(byte[] mapPixels, int mapWidth)
+        {
+            int darkened = 0;
+            WithMapFile(mapPixels, mapWidth, 1, map =>
+            {
+                var material = new UnlitMaterial { AlphaMode = { Value = AlphaMode.Mask }, ColorMap = { Value = map } };
+                byte[] shadowed = RenderCutoutCaster(Configure, material, castShadows: true);
+                byte[] lit = RenderCutoutCaster(Configure, material, castShadows: false);
+                darkened = CountDarkenedPixels(shadowed, lit);
+            });
+            return darkened;
+        }
+
+        int whole = Shadow([255, 255, 255, 255], 1);
+        int half = Shadow([255, 255, 255, 0, 255, 255, 255, 255], 2);
+        int none = Shadow([255, 255, 255, 0], 1);
+
+        TestContext.Out.WriteLine($"{lightType}: whole {whole}, half {half}, none {none}");
+        Assert.That(whole, Is.GreaterThan(1000), "A map with nothing cut out still casts its whole shadow.");
+        Assert.That(none, Is.LessThan(whole / 100), "A map that cuts out everything casts none.");
+        Assert.That(half, Is.InRange(whole / 4, whole * 9 / 10), "A map that cuts out half casts part of it.");
+    }
+
+    // The bindings of a caster with holes stay bound, and the ordinary caster drawn after it has no use for them.
+    [TestCase("Directional")]
+    [TestCase("Spot")]
+    [TestCase("Point")]
+    public void AlphaMode_Mask_AnOrdinaryCasterCanFollowOneWithHoles(string lightType)
+    {
+        WithMapFile([255, 255, 255, 255], 1, 1, map =>
+        {
+            void Configure(List<Light3D> lights) => lights.Add(CreateShadowLight(lightType));
+            var material = new UnlitMaterial { AlphaMode = { Value = AlphaMode.Mask }, ColorMap = { Value = map } };
+
+            byte[] shadowed = RenderCutoutCaster(Configure, material, castShadows: true, casterFirst: true);
+            byte[] lit = RenderCutoutCaster(Configure, material, castShadows: false, casterFirst: true);
+
+            Assert.That(CountDarkenedPixels(shadowed, lit), Is.GreaterThan(1000));
+        });
+    }
+
+    private static Light3D CreateShadowLight(string lightType)
+    {
+        switch (lightType)
+        {
+            case "Directional":
+                var directional = new DirectionalLight3D();
+                directional.Direction.Value = Vector3.Normalize(new Vector3(-0.5f, -2, -0.5f));
+                directional.Intensity.Value = 2;
+                directional.CastsShadow.Value = true;
+                directional.ShadowDistance.Value = 30;
+                directional.ShadowMapSize.Value = 15;
+                return directional;
+            case "Spot":
+                var spot = new SpotLight3D();
+                spot.Position.Value = new Vector3(0, 8, 0);
+                spot.Direction.Value = new Vector3(0, -1, 0);
+                spot.Intensity.Value = 60;
+                spot.Range.Value = 30;
+                spot.InnerConeAngle.Value = 40;
+                spot.OuterConeAngle.Value = 50;
+                spot.CastsShadow.Value = true;
+                return spot;
+            default:
+                var point = new PointLight3D();
+                point.Position.Value = new Vector3(0, 8, 0);
+                point.Intensity.Value = 60;
+                point.Range.Value = 30;
+                point.CastsShadow.Value = true;
+                return point;
+        }
+    }
+
+    private static void WithMapFile(byte[] rgba, int width, int height, Action<ImageTextureSource> use)
+    {
+        DirectoryInfo directory = Directory.CreateTempSubdirectory("beutl-unlit-map-");
+        try
+        {
+            string path = Path.Combine(directory.FullName, "map.png");
+            using (var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Unpremul)))
+            {
+                rgba.CopyTo(bitmap.GetPixelSpan());
+                using SKData data = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+                using FileStream stream = File.Create(path);
+                data.SaveTo(stream);
+            }
+
+            var image = new ImageSource();
+            image.ReadFrom(new Uri(path));
+            var map = new ImageTextureSource();
+            map.Source.Value = image;
+            use(map);
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
+
+    // A flat box over a ground that receives its shadow.
+    private byte[] RenderCutoutCaster(
+        Action<List<Light3D>> configureLights, UnlitMaterial material, bool castShadows, bool casterFirst = false)
+    {
+        return GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var renderer = new Renderer3D(_context);
+            var objects = new List<Object3D.Resource>();
+            var sceneResources = new List<IDisposable>();
+            try
+            {
+                renderer.Initialize(Width, Height);
+                var renderContext = new CompositionContext(MediaTime.Zero);
+
+                var camera = new PerspectiveCamera();
+                camera.Position.Value = new Vector3(8, 10, 8);
+                camera.Target.Value = new Vector3(0, 0, 0);
+                camera.Up.Value = Vector3.UnitY;
+                camera.FieldOfView.Value = 50f;
+                camera.NearPlane.Value = 0.1f;
+                camera.FarPlane.Value = 100f;
+                var cameraResource = (PerspectiveCamera.Resource)camera.ToResource(renderContext);
+                sceneResources.Add(cameraResource);
+
+                var ground = new Cube3D();
+                ground.Width.Value = 20f;
+                ground.Height.Value = 0.1f;
+                ground.Depth.Value = 20f;
+                ground.Position.Value = new Vector3(0, -1.05f, 0);
+                ground.ReceiveShadows.Value = true;
+                ground.Material.Value = new PBRMaterial { Albedo = { Value = new Color(255, 180, 180, 180) }, Roughness = { Value = 0.8f } };
+                objects.Add((Object3D.Resource)ground.ToResource(renderContext));
+
+                var caster = new Cube3D();
+                caster.Width.Value = 6f;
+                caster.Height.Value = 0.1f;
+                caster.Depth.Value = 6f;
+                caster.Position.Value = new Vector3(0, 3, 0);
+                caster.CastShadows.Value = true;
+                caster.Material.Value = material;
+                objects.Insert(casterFirst ? 0 : objects.Count, (Object3D.Resource)caster.ToResource(renderContext));
+
+                var lightModels = new List<Light3D>();
+                configureLights(lightModels);
+                foreach (Light3D light in lightModels)
+                    light.CastsShadow.Value = castShadows;
+
+                var lights = lightModels.Select(l => (Light3D.Resource)l.ToResource(renderContext)).ToList();
+                sceneResources.AddRange(lights);
+
+                renderer.Render(renderContext, cameraResource, objects, lights, new Color(255, 40, 50, 60), Colors.White, 0.15f);
+                return renderer.DownloadPixels();
+            }
+            finally
+            {
+                DisposeAll(objects, sceneResources, renderer);
+            }
+        });
+    }
+
+    private static int CountDarkenedPixels(byte[] shadowed, byte[] unshadowed)
+    {
+        const int bytesPerPixel = 8; // 4 × Half (RGBA16Float)
+        int darkened = 0;
+        for (int i = 0; i < Width * Height; i++)
+        {
+            if (Luma(unshadowed, i * bytesPerPixel) - Luma(shadowed, i * bytesPerPixel) > 0.05f)
+                darkened++;
+        }
+
+        return darkened;
+    }
+
+    // What a cut-out is for: the alpha of the color map decides, pixel by pixel.
+    [TestCase(153, 1f)]
+    [TestCase(102, 0f)]
+    public void AlphaMode_Mask_CutsOutWhereTheColorMapIsTransparent(int alpha, float green)
+    {
+        DirectoryInfo directory = Directory.CreateTempSubdirectory("beutl-unlit-mask-");
+        try
+        {
+            string path = Path.Combine(directory.FullName, "map.png");
+            using (var bitmap = new SKBitmap(new SKImageInfo(4, 4, SKColorType.Rgba8888, SKAlphaType.Unpremul)))
+            {
+                bitmap.Erase(new SKColor(255, 255, 255, (byte)alpha));
+                using SKData data = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+                using FileStream stream = File.Create(path);
+                data.SaveTo(stream);
+            }
+
+            var image = new ImageSource();
+            image.ReadFrom(new Uri(path));
+            var map = new ImageTextureSource();
+            map.Source.Value = image;
+
+            AssertWhatReachesTheMiddle(new UnlitMaterial { AlphaMode = { Value = AlphaMode.Mask }, ColorMap = { Value = map } }, green);
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
+
+    private void AssertWhatReachesTheMiddle(UnlitMaterial material, float green)
+    {
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var renderer = new Renderer3D(_context);
+            renderer.Initialize(64, 64);
+            var composition = new CompositionContext(MediaTime.Zero);
+            using PerspectiveCamera.Resource camera = CreateCamera(composition);
+            var near = new Sphere3D();
+            near.Radius.Value = 1f;
+            near.Material.Value = material;
+            var far = new Sphere3D();
+            far.Radius.Value = 1f;
+            far.Position.Value = new Vector3(0, 0, -2);
+            far.Material.Value = new UnlitMaterial { Color = { Value = Colors.Red } };
+            using var nearResource = (Object3D.Resource)near.ToResource(composition);
+            using var farResource = (Object3D.Resource)far.ToResource(composition);
+
+            renderer.Render(composition, camera, [nearResource, farResource], [], Colors.Black, Colors.White, 1f);
+
+            ReadOnlySpan<Half> values = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, Half>(renderer.DownloadPixels());
+            int center = (32 * 64 + 32) * 4;
+            float red = (float)values[center];
+            float centerGreen = (float)values[center + 1];
+            Assert.Multiple(() =>
+            {
+                Assert.That(red, Is.EqualTo(1f).Within(0.01f));
+                Assert.That(centerGreen, Is.EqualTo(green).Within(0.01f));
+            });
+            return 0;
+        });
     }
 
     private FramesRendered RenderFrames(Func<Material3D?> createMaterial, int meshes, int frames)

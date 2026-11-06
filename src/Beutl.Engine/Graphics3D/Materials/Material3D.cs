@@ -40,6 +40,9 @@ public abstract partial class Material3D : EngineObject
         /// <summary>Whether the material draws nothing at all, so its surfaces cannot be seen or clicked.</summary>
         protected internal virtual bool IsInvisible => false;
 
+        /// <summary>What cuts holes in the material's surfaces, which let light and the pointer through as well.</summary>
+        internal virtual AlphaCutout? Cutout => null;
+
         /// <summary>Whether drawing the material writes depth, so later surfaces at the same depth fail the test.</summary>
         protected internal virtual bool WritesDepth => !IsTransparent;
 

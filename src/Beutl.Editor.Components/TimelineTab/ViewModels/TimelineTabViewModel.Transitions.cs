@@ -44,7 +44,7 @@ public sealed partial class TimelineTabViewModel
     private void UpdateTransitionParts()
     {
         if (_isDisposed) return;
-        foreach (ElementViewModel element in Elements)
+        foreach (ElementViewModel element in RealizedElementsSnapshot())
             element.UpdateTransitionParts();
     }
 

@@ -200,6 +200,15 @@
   <data name="Blur" xml:space="preserve">
     <value>흐림</value>
   </data>
+  <data name="Sharpen" xml:space="preserve">
+    <value>선명하게</value>
+  </data>
+  <data name="Sharpen_Threshold" xml:space="preserve">
+    <value>임계값</value>
+  </data>
+  <data name="Sharpen_Threshold_Description" xml:space="preserve">
+    <value>이보다 작은 차이는 강조하지 않아 노이즈가 두드러지지 않습니다.</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>밝기</value>
   </data>
@@ -214,6 +223,18 @@
   </data>
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>채도 범위</value>
+  </data>
+  <data name="LumaKey" xml:space="preserve">
+    <value>루마 키</value>
+  </data>
+  <data name="LumaKey_Lower" xml:space="preserve">
+    <value>하한 (%)</value>
+  </data>
+  <data name="LumaKey_Upper" xml:space="preserve">
+    <value>상한 (%)</value>
+  </data>
+  <data name="LumaKey_Softness" xml:space="preserve">
+    <value>경계 부드러움 (%)</value>
   </data>
   <data name="Clipping" xml:space="preserve">
     <value>클리핑</value>
@@ -455,6 +476,39 @@
   <data name="Erode_RadiusY" xml:space="preserve">
     <value>반경 Y</value>
   </data>
+  <data name="EdgeDetection" xml:space="preserve">
+    <value>가장자리 추출</value>
+  </data>
+  <data name="EdgeDetection_Target" xml:space="preserve">
+    <value>감지 대상</value>
+  </data>
+  <data name="EdgeDetectionTarget_Luminance" xml:space="preserve">
+    <value>휘도</value>
+  </data>
+  <data name="EdgeDetectionTarget_Alpha" xml:space="preserve">
+    <value>투명도</value>
+  </data>
+  <data name="EdgeDetection_Thickness" xml:space="preserve">
+    <value>두께</value>
+  </data>
+  <data name="EdgeDetection_Threshold" xml:space="preserve">
+    <value>임계값</value>
+  </data>
+  <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
+    <value>이보다 작은 변화에는 선을 그리지 않습니다.</value>
+  </data>
+  <data name="EdgeDetection_Original" xml:space="preserve">
+    <value>원본 이미지</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Hidden" xml:space="preserve">
+    <value>표시 안 함</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Behind" xml:space="preserve">
+    <value>뒤에 표시</value>
+  </data>
+  <data name="EdgeDetectionOriginal_InFront" xml:space="preserve">
+    <value>앞에 표시</value>
+  </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>평면 그림자</value>
   </data>
@@ -574,6 +628,9 @@
   </data>
   <data name="ParticleEmitter_EmitterWidth" xml:space="preserve">
     <value>방출기 너비</value>
+  </data>
+  <data name="ParticleEmitter_EmitterSize" xml:space="preserve">
+    <value>방출기 크기</value>
   </data>
   <data name="ParticleEmitter_EndColor" xml:space="preserve">
     <value>끝 색상</value>
@@ -698,6 +755,9 @@
   <data name="ScaleTransform_ScaleY" xml:space="preserve">
     <value>배율 Y</value>
   </data>
+  <data name="ScaleTransform_ScaleXY" xml:space="preserve">
+    <value>배율 XY</value>
+  </data>
   <data name="ShakeEffect" xml:space="preserve">
     <value>흔들기</value>
   </data>
@@ -751,6 +811,39 @@
   </data>
   <data name="SplitEffect_VerticalSpacing" xml:space="preserve">
     <value>세로 간격</value>
+  </data>
+  <data name="RepeatEffect" xml:space="preserve">
+    <value>반복 배치</value>
+  </data>
+  <data name="RepeatEffect_Columns" xml:space="preserve">
+    <value>열 수</value>
+  </data>
+  <data name="RepeatEffect_Rows" xml:space="preserve">
+    <value>행 수</value>
+  </data>
+  <data name="RepeatEffect_Spacing" xml:space="preserve">
+    <value>간격</value>
+  </data>
+  <data name="RepeatEffect_Spacing_Description" xml:space="preserve">
+    <value>복사본 사이의 간격입니다. 0이면 빈틈없이 붙습니다.</value>
+  </data>
+  <data name="RepeatEffect_Offset_Description" xml:space="preserve">
+    <value>격자 안에서 복사본을 움직입니다. 한쪽 끝으로 나간 복사본은 반대쪽에서 돌아오므로 애니메이션하면 끊김 없이 스크롤됩니다.</value>
+  </data>
+  <data name="RepeatEffect_Mirror" xml:space="preserve">
+    <value>번갈아 반전</value>
+  </data>
+  <data name="RepeatEffectMirror_None" xml:space="preserve">
+    <value>없음</value>
+  </data>
+  <data name="RepeatEffectMirror_Columns" xml:space="preserve">
+    <value>한 열 걸러</value>
+  </data>
+  <data name="RepeatEffectMirror_Rows" xml:space="preserve">
+    <value>한 행 걸러</value>
+  </data>
+  <data name="RepeatEffectMirror_Both" xml:space="preserve">
+    <value>둘 다</value>
   </data>
   <data name="TextAlignment_Center" xml:space="preserve">
     <value>가운데 정렬</value>
@@ -893,6 +986,9 @@
   <data name="DrawableTextureSource_TextureWidth" xml:space="preserve">
     <value>텍스처 너비</value>
   </data>
+  <data name="DrawableTextureSource_TextureSize" xml:space="preserve">
+    <value>텍스처 크기</value>
+  </data>
   <data name="EllipseGeometry" xml:space="preserve">
     <value>타원</value>
   </data>
@@ -904,6 +1000,21 @@
   </data>
   <data name="GradientBrush_SpreadMethod" xml:space="preserve">
     <value>확산 방법</value>
+  </data>
+  <data name="GradientBrush_InterpolationSpace" xml:space="preserve">
+    <value>보간 색 공간</value>
+  </data>
+  <data name="GradientBrush_InterpolatePremultiplied" xml:space="preserve">
+    <value>미리 곱한 알파로 보간</value>
+  </data>
+  <data name="GradientInterpolationSpace_LinearSrgb" xml:space="preserve">
+    <value>선형 sRGB</value>
+  </data>
+  <data name="GradientInterpolationSpace_Srgb" xml:space="preserve">
+    <value>sRGB</value>
+  </data>
+  <data name="GradientInterpolationSpace_Oklab" xml:space="preserve">
+    <value>OKLab</value>
   </data>
   <data name="Children" xml:space="preserve">
     <value>자식</value>
@@ -1064,6 +1175,9 @@
   <data name="PerlinNoiseBrush_BaseFrequencyY" xml:space="preserve">
     <value>기본 주파수 Y</value>
   </data>
+  <data name="PerlinNoiseBrush_BaseFrequency" xml:space="preserve">
+    <value>기본 주파수</value>
+  </data>
   <data name="PerlinNoiseBrush_Octaves" xml:space="preserve">
     <value>옥타브</value>
   </data>
@@ -1162,6 +1276,9 @@
   </data>
   <data name="Scene3D_RenderWidth" xml:space="preserve">
     <value>렌더 너비</value>
+  </data>
+  <data name="Scene3D_RenderSize" xml:space="preserve">
+    <value>렌더 크기</value>
   </data>
   <data name="SolidColorBrush" xml:space="preserve">
     <value>단색</value>
@@ -1294,6 +1411,9 @@
   </data>
   <data name="CenterY" xml:space="preserve">
     <value>중심 Y</value>
+  </data>
+  <data name="Center" xml:space="preserve">
+    <value>중심</value>
   </data>
   <data name="Color" xml:space="preserve">
     <value>색상</value>
@@ -1646,6 +1766,45 @@
   <data name="RadialBlur_Samples" xml:space="preserve">
     <value>샘플 수</value>
   </data>
+  <data name="Bokeh" xml:space="preserve">
+    <value>보케</value>
+  </data>
+  <data name="Bokeh_Shape" xml:space="preserve">
+    <value>조리개 모양</value>
+  </data>
+  <data name="BokehShape_Circle" xml:space="preserve">
+    <value>원형</value>
+  </data>
+  <data name="BokehShape_Polygon" xml:space="preserve">
+    <value>다각형</value>
+  </data>
+  <data name="Bokeh_Sides" xml:space="preserve">
+    <value>변의 수</value>
+  </data>
+  <data name="Bokeh_Rotation" xml:space="preserve">
+    <value>회전</value>
+  </data>
+  <data name="Bokeh_Highlight" xml:space="preserve">
+    <value>하이라이트 강조</value>
+  </data>
+  <data name="Bokeh_Highlight_Description" xml:space="preserve">
+    <value>밝은 부분을 번지기 전에 더 밝게 하여 모양이 돋보이게 합니다. 100%는 두 배 밝기입니다.</value>
+  </data>
+  <data name="Bokeh_Quality" xml:space="preserve">
+    <value>품질</value>
+  </data>
+  <data name="Bokeh_Quality_Description" xml:space="preserve">
+    <value>샘플이 많을수록 모양이 깔끔해지고 시간이 더 걸립니다. 높음은 낮음보다 약 3배 오래 걸립니다.</value>
+  </data>
+  <data name="BokehQuality_Low" xml:space="preserve">
+    <value>낮음</value>
+  </data>
+  <data name="BokehQuality_Medium" xml:space="preserve">
+    <value>보통</value>
+  </data>
+  <data name="BokehQuality_High" xml:space="preserve">
+    <value>높음</value>
+  </data>
   <data name="RadialBlurMode_Zoom" xml:space="preserve">
     <value>줌</value>
   </data>
@@ -1756,5 +1915,23 @@
   </data>
   <data name="MotionBlur_End" xml:space="preserve">
     <value>끝</value>
+  </data>
+  <data name="AlphaMode" xml:space="preserve">
+    <value>알파 모드</value>
+  </data>
+  <data name="AlphaMode_Auto" xml:space="preserve">
+    <value>자동</value>
+  </data>
+  <data name="AlphaMode_Opaque" xml:space="preserve">
+    <value>불투명</value>
+  </data>
+  <data name="AlphaMode_Mask" xml:space="preserve">
+    <value>마스크</value>
+  </data>
+  <data name="AlphaMode_Blend" xml:space="preserve">
+    <value>블렌드</value>
+  </data>
+  <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
+    <value>알파 임계값</value>
   </data>
 </root>

@@ -519,7 +519,7 @@ public class ElementTransitionTimelineTests
             top.Objects.Add(shape);
             editor.Scene.Children.Add(top);
             HeadlessTestHelpers.Settle(3);
-            ElementViewModel topViewModel = outgoing.Timeline.Elements.Single(item => item.Model == top);
+            ElementViewModel topViewModel = outgoing.Timeline.GetViewModelFor(top)!;
             (view, window) = Show(topViewModel);
             Border border = FindElementView(view, topViewModel).FindControl<Border>("border")!;
             Point point = new(3, border.Bounds.Height / 2);
@@ -535,6 +535,49 @@ public class ElementTransitionTimelineTests
                 Assert.That(outgoing.Model.EnterTransition.Value, Is.Null);
                 Assert.That(outgoing.Model.ExitTransition.Value, Is.Null);
                 Assert.That(over.EnterTransition.Value, Is.Null);
+            });
+        }
+        finally
+        {
+            TimelineTestHost.Close(view, window);
+        }
+    }
+
+    // A clip the compact layer draws, or one the timeline has not reached yet, has no ElementView under the
+    // pointer. The drop then looks for the clip at that row and time, and gives it a view model if it has none.
+    [AvaloniaTest]
+    public async Task ATransitionDroppedOutsideAnElementView_GoesToTheClipAtThatRowAndTime()
+    {
+        Window? window = null;
+        TimelineTabView? view = null;
+        try
+        {
+            (EditViewModel editor, ElementViewModel outgoing, _) = await OpenCut();
+            TimelineTabViewModel timeline = outgoing.Timeline;
+            (view, window) = Show(outgoing);
+            var added = new Element { Start = { Value = MediaTime.FromSeconds(6) }, Length = { Value = MediaTime.FromSeconds(1) }, ZIndex = { Value = 0 } };
+            added.Objects.Add(new RectShape());
+            editor.Scene.Children.Add(added);
+            Assert.That(timeline.FindViewModelFor(added), Is.Null);
+
+            Panel panel = view.FindControl<Panel>("TimelinePanel")!;
+            float scale = timeline.Options.Value.Scale;
+            double y = timeline.CalculateLayerTop(0) + FrameNumberHelper.LayerHeight / 2;
+            using var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.Create(BeutlDataFormats.ClipTransition, TypeFormat.ToString(typeof(FadeTransition))));
+            void Drop(double seconds) => panel.RaiseEvent(new DragEventArgs(
+                DragDrop.DropEvent, transfer, panel, new Point(MediaTime.FromSeconds(seconds).TimeToPixel(scale), y), KeyModifiers.None));
+
+            Drop(8);
+            Assert.That(added.EnterTransition.Value, Is.Null, "No clip is at that time.");
+
+            Drop(6.25);
+            HeadlessTestHelpers.Settle(3);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(added.EnterTransition.Value, Is.TypeOf<FadeTransition>());
+                Assert.That(timeline.FindViewModelFor(added), Is.Not.Null);
             });
         }
         finally

@@ -5,7 +5,10 @@ namespace Beutl;
 public static class ProjectRateExtensions
 {
     public static AudioChannelLayout GetChannelLayout(this Project? project)
-        => (project?.ChannelLayout.Value ?? SpeakerLayout.Stereo).ToAudioChannelLayout();
+        => project.GetSpeakerLayout().ToAudioChannelLayout();
+
+    // The project's speaker layout, or stereo when there is no project.
+    public static SpeakerLayout GetSpeakerLayout(this Project? project) => project?.ChannelLayout.Value ?? SpeakerLayout.Stereo;
 
     // The project's frame rate, or 30 when it is not a positive rate or there is no project.
     public static Rational GetFrameRate(this Project? project) => Project.ReadFrameRate(project);

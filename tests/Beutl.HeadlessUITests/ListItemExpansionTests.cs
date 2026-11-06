@@ -53,7 +53,7 @@ public class ListItemExpansionTests
         var effects = new FilterEffectGroup { Children = { blur, shadow } };
         var transforms = new TransformGroup
         {
-            Children = { new TranslateTransform(24, 12), new ScaleTransform(120, 80) }
+            Children = { new ScaleTransform(120, 80), new TranslateTransform(24, 12) }
         };
         var card = new RoundedRectShape
         {
@@ -103,6 +103,13 @@ public class ListItemExpansionTests
             var transformRows = view.GetVisualDescendants().OfType<TransformListItemEditor>().ToArray();
             Assert.That(filterRows, Has.Length.EqualTo(2));
             Assert.That(transformRows, Has.Length.EqualTo(2));
+            foreach (var row in transformRows)
+            {
+                // A transform row opens by default, unlike an effect row.
+                Assert.That(((TransformEditorViewModel)row.DataContext!).IsExpanded.Value, Is.True);
+                ((TransformEditorViewModel)row.DataContext!).IsExpanded.Value = false;
+            }
+            await Settle();
             var filterHeader = (ToggleButton)filterRows[0].ReorderHandle!;
             var transformHeader = (ToggleButton)transformRows[0].ReorderHandle!;
             foreach (var header in filterRows.Select(r => (ToggleButton)r.ReorderHandle!)
@@ -128,6 +135,8 @@ public class ListItemExpansionTests
             window.MouseMove(default);
             await Settle();
             AssertState(filterHeader, true);
+            // An open transform has no row for its name, and its handle is the icon beside its first row.
+            transformHeader = (ToggleButton)transformRows[0].ReorderHandle!;
             AssertState(transformHeader, true);
             Assert.That(((FilterEffectEditorViewModel)filterRows[0].DataContext!).IsExpanded.Value, Is.True);
             Assert.That(((TransformEditorViewModel)transformRows[0].DataContext!).IsExpanded.Value, Is.True);
@@ -140,7 +149,7 @@ public class ListItemExpansionTests
             {
                 var numbers = view.GetVisualDescendants().OfType<NumberEditor<float>>()
                     .Where(editor => editor.IsEffectivelyVisible).ToArray();
-                Assert.That(numbers.Length, Is.GreaterThanOrEqualTo(4));
+                Assert.That(numbers.Length, Is.GreaterThanOrEqualTo(3));
                 Assert.That(numbers.Any(editor => editor.GetVisualAncestors().Contains(transformRows[0])), Is.True);
                 foreach (var editor in numbers)
                 {
@@ -153,9 +162,10 @@ public class ListItemExpansionTests
             }
 
             HeadlessTestHelpers.Click(Title(filterHeader), ticks: 3);
-            HeadlessTestHelpers.Click(Title(transformHeader), ticks: 3);
+            HeadlessTestHelpers.Click(Grip(transformHeader), ticks: 3);
             await Settle();
             AssertState(filterHeader, false);
+            transformHeader = (ToggleButton)transformRows[0].ReorderHandle!;
             AssertState(transformHeader, false);
             Assert.That(filterRows[0].FindControl<Panel>("content")!.IsVisible, Is.False);
             Assert.That(filterHeader.Focus(NavigationMethod.Tab), Is.True);

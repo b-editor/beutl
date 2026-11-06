@@ -104,7 +104,7 @@ internal static class TestPackages
         return stream.ToArray();
     }
 
-    private static string Compile(string directory, string name, string source, params string[] references)
+    public static string Compile(string directory, string name, string source, params string[] references)
     {
         string path = Path.Combine(Directory.CreateDirectory(directory).FullName, $"{name}.dll");
         EmitResult result = CSharpCompilation.Create(

@@ -3,6 +3,7 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeGraph.Nodes.Generative;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.NodeGraph.Nodes.Shaders;
 
 namespace Beutl.NodeGraph.Nodes;
 
@@ -42,7 +43,9 @@ public static class NodesRegistrar
 
         GraphNodeRegistry.RegisterNodes(GraphicsStrings.FilterEffect, Colors.DodgerBlue)
             .Add<FilterEffectNode<Blur>>(GraphicsStrings.Blur)
+            .Add<FilterEffectNode<Sharpen>>(GraphicsStrings.Sharpen)
             .Add<FilterEffectNode<RadialBlur>>(GraphicsStrings.RadialBlur)
+            .Add<FilterEffectNode<Bokeh>>(GraphicsStrings.Bokeh)
             .Add<FilterEffectNode<DropShadow>>(GraphicsStrings.DropShadow)
             .Add<FilterEffectNode<InnerShadow>>(GraphicsStrings.InnerShadow)
             .Add<FilterEffectNode<FlatShadow>>(GraphicsStrings.FlatShadow)
@@ -57,6 +60,7 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<LumaColor>>(GraphicsStrings.LumaColor)
             .Add<FilterEffectNode<Saturate>>(GraphicsStrings.Saturate)
             .Add<FilterEffectNode<Threshold>>(GraphicsStrings.Threshold)
+            .Add<FilterEffectNode<EdgeDetection>>(GraphicsStrings.EdgeDetection)
             .Add<FilterEffectNode<Brightness>>(GraphicsStrings.Brightness)
             .Add<FilterEffectNode<Gamma>>(GraphicsStrings.Gamma)
             .Add<FilterEffectNode<ColorGrading>>(GraphicsStrings.ColorGrading)
@@ -67,8 +71,10 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<Negaposi>>(GraphicsStrings.Negaposi)
             .Add<FilterEffectNode<ChromaKey>>(GraphicsStrings.ChromaKey)
             .Add<FilterEffectNode<ColorKey>>(GraphicsStrings.ColorKey)
+            .Add<FilterEffectNode<LumaKey>>(GraphicsStrings.LumaKey)
             .Add<FilterEffectNode<SplitEffect>>(GraphicsStrings.SplitEffect)
             .Add<FilterEffectNode<PartsSplitEffect>>(GraphicsStrings.PartsSplitEffect)
+            .Add<FilterEffectNode<RepeatEffect>>(GraphicsStrings.RepeatEffect)
             .Add<FilterEffectNode<TransformEffect>>(GraphicsStrings.Transform)
             .Add<FilterEffectNode<MosaicEffect>>(GraphicsStrings.MosaicEffect)
             .Add<FilterEffectNode<ColorShift>>(GraphicsStrings.ColorShift)
@@ -83,6 +89,8 @@ public static class NodesRegistrar
                 .Add<FilterEffectNode<GLSLScriptEffect>>(GraphicsStrings.GLSLScriptEffect)
                 .Register())
             .Register();
+
+        ShaderNodesRegistrar.RegisterAll();
 
         GraphNodeRegistry.RegisterNodes(GraphicsStrings.Brush, Colors.Orange)
             .Add<FactoryNode<SolidColorBrush>>(GraphicsStrings.SolidColorBrush)

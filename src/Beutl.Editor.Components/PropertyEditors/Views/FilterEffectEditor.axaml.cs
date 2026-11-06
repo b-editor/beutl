@@ -25,10 +25,11 @@ public partial class FilterEffectEditor : UserControl
 
         FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
 
-        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
+        EditorMenuHelper.AttachRepairMenus(
             this,
             (FAMenuFlyout)expandToggle.ContextFlyout!,
-            (FAMenuFlyout)ReferenceMenuButton.Flyout!);
+            () => DataContext is FilterEffectEditorViewModel { NeedsRepair: true });
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)ReferenceMenuButton.Flyout!);
     }
 
     private void Drop(object? sender, DragEventArgs e)
@@ -39,19 +40,10 @@ public partial class FilterEffectEditor : UserControl
                 e,
                 BeutlDataFormats.FilterEffect,
                 tryPasteJson: viewModel.TryPasteJson,
-                onTemplateInstance: instance =>
-                {
-                    if (viewModel.IsGroup.Value)
-                        viewModel.AddItem(instance);
-                    else
-                        viewModel.ChangeFilter(instance);
-                },
+                onTemplateInstance: instance => viewModel.AddItem(instance),
                 onTypePayload: type =>
                 {
-                    if (viewModel.IsGroup.Value)
-                        viewModel.AddItem(type);
-                    else
-                        viewModel.ChangeFilterType(type);
+                    viewModel.AddItem(type);
                     return true;
                 }))
         {
@@ -68,34 +60,27 @@ public partial class FilterEffectEditor : UserControl
     {
         if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel) return;
 
-        if (viewModel.IsGroup.Value)
-        {
-            object? result = await SelectTypeOrReference(sender as Control);
+        object? result = await SelectTypeOrReference(sender as Control);
 
-            try
+        try
+        {
+            switch (result)
             {
-                switch (result)
-                {
-                    case Type type:
-                        viewModel.AddItem(type);
-                        break;
-                    case FilterEffect fe:
-                        Type? presenterType = PresenterTypeAttribute.GetPresenterType(typeof(FilterEffect));
-                        if (presenterType != null)
-                        {
-                            viewModel.AddTarget(presenterType, fe);
-                        }
-                        break;
-                }
-            }
-            catch (Exception ex)
-            {
-                NotificationService.ShowError(Strings.Error, ex.Message);
+                case Type type:
+                    viewModel.AddItem(type);
+                    break;
+                case FilterEffect fe:
+                    Type? presenterType = PresenterTypeAttribute.GetPresenterType(typeof(FilterEffect));
+                    if (presenterType != null)
+                    {
+                        viewModel.AddTarget(presenterType, fe);
+                    }
+                    break;
             }
         }
-        else
+        catch (Exception ex)
         {
-            expandToggle.ContextFlyout?.ShowAt(expandToggle);
+            NotificationService.ShowError(Strings.Error, ex.Message);
         }
     }
 
@@ -156,11 +141,6 @@ public partial class FilterEffectEditor : UserControl
     {
         if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } vm) return;
 
-        await TargetSelectionHelper.HandleSelectTargetRequestAsync<FilterEffectEditorViewModel, FilterEffect>(
-            this,
-            sender as Control,
-            vm,
-            vm => vm.GetAvailableTargets(),
-            (vm, target) => vm.SetTarget(target));
+        await TargetSelectionHelper.PickTargetAsync(this, sender as Control, vm);
     }
 }

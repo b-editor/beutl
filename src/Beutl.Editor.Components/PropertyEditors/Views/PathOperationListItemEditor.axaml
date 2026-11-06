@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.PropertyEditors.Views.PathOperationListItemEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -12,7 +13,7 @@
              x:CompileBindings="False"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
-        <Grid Margin="8,0,0,0" ColumnDefinitions="*,Auto">
+        <Grid ColumnDefinitions="*,Auto">
             <ToggleButton x:Name="reorderHandle"
                           Content="{Binding OpName.Value}"
                           Cursor="SizeNorthSouth"
@@ -29,12 +30,15 @@
             </Button>
         </Grid>
 
-        <Panel x:Name="content"
-               Grid.Row="1"
-               Margin="16,0,0,0">
-            <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:MessageStrings.PropertyUnset}" />
+        <Panel x:Name="content" Grid.Row="1">
+            <controls:TreeLineDecorator Theme="{StaticResource ListItemTreeLine}" />
 
-            <local:PropertiesEditor Padding="0"
+            <TextBlock Margin="40,0,0,0"
+                       IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}"
+                       Text="{x:Static lang:MessageStrings.PropertyUnset}" />
+
+            <local:PropertiesEditor Margin="{StaticResource ListItemContentMargin}"
+                                    Padding="0"
                                     DataContext="{Binding Properties.Value}" />
         </Panel>
     </Grid>

@@ -6,11 +6,13 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Threading;
+using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
 using MouseFlags = Beutl.Editor.Components.Helpers.TimelineHelper.MouseFlags;
@@ -120,11 +122,38 @@ public sealed partial class TimelineTabView : UserControl
 
         TimelinePanel.Children.AddRange(vm.Inlines.Select(e => new InlineAnimationLayer { DataContext = e }));
 
-        vm.Elements.ForEachItem(
-                AddElement,
-                RemoveElement,
-                ClearElementViewport)
+        foreach (ElementViewModel element in vm.RealizedElements)
+        {
+            AddElement(element);
+        }
+
+        // A clip with no view model does not report that the view can now show it. One with a view model reports
+        // through its ViewportElement, and an edit inside a clip moves none.
+        void OnSceneEdited(object? sender, EventArgs e)
+        {
+            if (sender is Scene or TimelineLayer || (sender is Element element && vm.FindViewModelFor(element) is null))
+                InvalidateElementViewport();
+        }
+
+        vm.ElementRealized += AddElement;
+        vm.ElementReleased += RemoveElement;
+        vm.Scene.Edited += OnSceneEdited;
+        Disposable.Create(() =>
+            {
+                vm.ElementRealized -= AddElement;
+                vm.ElementReleased -= RemoveElement;
+                vm.Scene.Edited -= OnSceneEdited;
+            })
             .DisposeWith(_disposables);
+        // A clip painted from its element has nothing else to report a new color or lock through.
+        vm.EditorContext.GetService<HistoryManager>()?.StateChanged
+            .Subscribe(_ =>
+            {
+                if (_showsUnrealizedClips) InvalidateElementViewport();
+            })
+            .DisposeWith(_disposables);
+        vm.Scale.Subscribe(_ => InvalidateElementViewport()).DisposeWith(_disposables);
+        vm.LayerHeightChanged.Subscribe(_ => InvalidateElementViewport()).DisposeWith(_disposables);
 
         vm.Inlines.TrackCollectionChanged(
                 OnAddedInline,
@@ -230,7 +259,9 @@ public sealed partial class TimelineTabView : UserControl
 
     private ElementView? FindElementView(Element element)
     {
-        ViewportElement? entry = _viewportElements.Find(item => ReferenceEquals(item.Model.Model, element));
+        if (ViewModel?.GetViewModelFor(element) is null) return null;
+        ViewportElement? entry = _viewportEntries.GetValueOrDefault(element);
+        if (entry is { ShowView: false }) UpdateElementViewport();
         return entry is null ? null : entry.View ?? RealizeCompactElement(entry);
     }
 }

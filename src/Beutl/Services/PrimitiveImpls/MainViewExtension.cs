@@ -13,6 +13,8 @@ public class MainViewExtension : ViewExtension
     public const string NextToolTabCommandId = "main.nextToolTab";
     public const string PreviousToolTabCommandId = "main.previousToolTab";
     public const string CreateToolTabCommandId = "main.createToolTab";
+    public const string ShowSettingsCommandId = "main.showSettings";
+    public const string CloseTabCommandId = "main.closeTab";
 
     public static readonly MainViewExtension Instance = new();
 
@@ -58,12 +60,23 @@ public class MainViewExtension : ViewExtension
                 ? main.CommitVersionAsync(interaction)
                 : MenuBarViewModel.ExecuteCommandAsync(main.MenuBar.CommitVersion)
         },
+        Menu(CloseTabCommandId, Strings.CloseTab, "",
+            [new("Ctrl+W"), new("Cmd+W", OSPlatform.OSX)], menuBar => menuBar.CloseTab),
         Menu("main.closeProject", Strings.CloseProject, Strings.CloseProject_Description,
             [new("Ctrl+Shift+F4"), new("Cmd+Shift+W", OSPlatform.OSX)], menuBar => menuBar.CloseProject),
         Menu("main.undo", Strings.Undo, Strings.Undo_Description,
             [new("Ctrl+Z"), new("Cmd+Z", OSPlatform.OSX)], menuBar => menuBar.Undo),
         Menu("main.redo", Strings.Redo, Strings.Redo_Description,
             [new("Ctrl+Y"), new("Cmd+Shift+Z", OSPlatform.OSX)], menuBar => menuBar.Redo),
+        Menu(ShowSettingsCommandId, Strings.Settings, "",
+            [new("Ctrl+OemComma"), new("Cmd+OemComma", OSPlatform.OSX)], menuBar => menuBar.ShowSettings),
+        Menu("main.showTutorials", Strings.Tutorials, "",
+            [new("Cmd+Shift+OemQuestion", OSPlatform.OSX)], menuBar => menuBar.ShowTutorials),
+        // The other platforms' title bars have these, so only macOS has keys for them by default.
+        Menu("main.minimizeWindow", Strings.MinimizeWindow, "",
+            [new("Cmd+M", OSPlatform.OSX)], menuBar => menuBar.MinimizeWindow),
+        Menu("main.toggleFullScreen", Strings.ToggleFullScreen, "",
+            [new("Cmd+Ctrl+F", OSPlatform.OSX)], menuBar => menuBar.ToggleFullScreen),
         Menu("main.exit", Strings.Exit, Strings.Exit_Description,
             [new("Alt+F4"), new("Cmd+Q", OSPlatform.OSX)], menuBar => menuBar.Exit),
         new ContextCommandDefinition<MainViewModel>(ShowCommandPaletteCommandId, Strings.ShowCommandPalette,

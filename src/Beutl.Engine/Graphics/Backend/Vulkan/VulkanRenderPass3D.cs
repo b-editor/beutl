@@ -512,7 +512,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     /// <remarks>
     /// Drawing through a layout the set was not bound against violates <c>VUID-vkCmdDraw-None-08600</c>. It is
     /// checked here rather than in <see cref="BindDescriptorSet"/> because the spec lets a set be bound with any
-    /// pipeline bound; a set that was never bound is left alone.
+    /// pipeline bound; a set that was never bound is left alone, and so is one left over from an earlier draw when
+    /// this pipeline declares no descriptors and so reads none.
     /// </remarks>
     private void ValidateDrawState()
     {
@@ -522,6 +523,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         }
 
         if (_boundDescriptorSet.Handle != 0
+            && !pipeline.DescriptorBindings.IsEmpty
             && _boundDescriptorSetPipelineLayout.Handle != pipeline.PipelineLayoutHandle.Handle)
         {
             throw new InvalidOperationException(

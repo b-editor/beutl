@@ -1,4 +1,5 @@
-﻿using System.Reactive.Disposables;
+﻿using System.Collections.Concurrent;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Beutl.Audio;
 using Beutl.Configuration;
@@ -21,6 +22,7 @@ using Beutl.ViewModels.Tools;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using Dispatcher = Avalonia.Threading.Dispatcher;
 
 namespace Beutl.ViewModels;
 
@@ -163,6 +165,9 @@ public sealed partial class EditViewModel
         // Each operation as it happens, not at the commit: a query between commits must see it too.
         _mediaReferences = new MediaReferenceIndex(Scene);
         observer.Operations.Subscribe(_mediaReferences.Invalidate)
+            .DisposeWith(_disposables);
+        _unsavedElements = new EditedElements(Scene);
+        observer.Operations.Subscribe(_unsavedElements.Add)
             .DisposeWith(_disposables);
         HistoryManager = new HistoryManager(sequenceGenerator);
         HistoryManager.Subscribe(observer)
@@ -531,6 +536,57 @@ public sealed partial class EditViewModel
         }
     }
 
+    // Serializing an element to find that its file already holds it takes as long as writing it, so a save writes the
+    // elements edited since the last one. The first save writes them all: it also brings their files up to the current
+    // format. So does one that moved files or repaired media, which change what elements save without an operation.
+    // A file that has gone is written again however it went.
+    private Element[] GetElementsToSave(Scene scene, UnsavedSceneStorage.SaveRelocation relocation)
+    {
+        Element[] children = [.. scene.Children];
+        if (_unsavedElements.All || relocation.MovesFiles || HasMediaRepairs.Value) return children;
+
+        var save = new bool[children.Length];
+        Parallel.For(0, children.Length, index =>
+        {
+            Element element = children[index];
+            save[index] = element.Uri is not { } uri || !File.Exists(uri.LocalPath);
+        });
+        return [.. children.Where((element, index) => save[index] || _unsavedElements.Contains(element))];
+    }
+
+    // Workers write the elements while the user can go on editing, which can also stop one from being read. What that
+    // touched is written again in one go on the thread that edits, so the files hold the elements as they are at that
+    // moment. Edits after it belong to the next save.
+    private void StoreElements(Scene scene, Element[] elements)
+    {
+        var unread = new ConcurrentBag<Element>();
+        // These block on the disk, and what the user does meanwhile can need a pool thread.
+        var options = new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount - 1) };
+        Parallel.ForEach(elements, options, element =>
+        {
+            try
+            {
+                CoreSerializer.StoreToUri(element, element.Uri!);
+            }
+            catch (Exception ex) when (ex is not (IOException or UnauthorizedAccessException))
+            {
+                unread.Add(element);
+            }
+        });
+
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            HashSet<Element> again = [.. unread];
+            foreach (Element element in scene.Children)
+            {
+                if (again.Contains(element) || _unsavedElements.Contains(element))
+                    CoreSerializer.StoreToUri(element, element.Uri!);
+            }
+
+            _unsavedElements.Clear();
+        });
+    }
+
     public async ValueTask<bool> SaveAsync()
     {
         // A direct explicit save (including media repair) must not race an older auto-save's
@@ -554,6 +610,7 @@ public sealed partial class EditViewModel
         Uri sceneUri = scene.Uri
             ?? throw new InvalidOperationException("An unsaved scene needs a destination before it can be saved.");
         UnsavedSceneStorage.SaveRelocation relocation = new(scene, sceneUri);
+        bool savedAll;
         // A failure at any step restores the project, scene, element and resource files this
         // save replaced, instead of leaving the files written before it on disk.
         using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
@@ -561,7 +618,10 @@ public sealed partial class EditViewModel
             try
             {
                 relocation.Apply();
-                Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
+                Element[] elements = GetElementsToSave(scene, relocation);
+                savedAll = elements.Length == scene.Children.Count;
+                _unsavedElements.Clear();
+                await Task.Run(() => transaction.WriteInBatch(() => StoreElements(scene, elements)));
                 // The scene is stored without SaveReferencedObjects, which would store the children
                 // again, so its fingerprint file is saved, or removed, here too.
                 scene.SaveMediaFingerprintFile();
@@ -574,13 +634,18 @@ public sealed partial class EditViewModel
             {
                 relocation.Rollback();
                 transaction.Rollback();
+                _unsavedElements.AddAll();
                 throw;
             }
         }
 
         relocation.Commit();
-        if (scene.FindHierarchicalParent<Project>() is { } project)
-            DuplicateIds.Report(project, "save");
+        // This walk also grows with the scene, and closing the project reports what the saves in between did not.
+        if (savedAll && scene.FindHierarchicalParent<Project>() is { } project)
+            await Task.Run(() => DuplicateIds.Report(project, "save"));
+
+        // A version-control cycle saves without the write lease, so its tab can have closed by now.
+        if (_disposed) return true;
 
         SaveState(isExplicitUserSave: true);
         _logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id.Value);

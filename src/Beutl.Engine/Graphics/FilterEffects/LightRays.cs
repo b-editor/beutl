@@ -86,8 +86,7 @@ public sealed partial class LightRays : FilterEffect
                     LightEffectPasses.ExtractHighlights(graph, graph.Source, bright, mask, values.Threshold, values.SoftKnee);
 
                     // Prefilter before halving the raster density so isolated highlights survive every grid phase.
-                    ShaderImage reduced = graph.Image2D("downsample", bright, resolutionScale: 0.5f);
-                    LightEffectPasses.Downsample(graph, bright, reduced);
+                    ShaderImage reduced = LightEffectPasses.Downsample(graph, "downsample", bright);
                     ShaderImage previous = reduced;
                     float stretch = 1 / values.InverseStretch;
                     // Five radix-eight passes integrate 32768 positions with only 40 reads per light pixel.

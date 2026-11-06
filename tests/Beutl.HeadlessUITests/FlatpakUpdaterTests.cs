@@ -173,6 +173,39 @@ public sealed class FlatpakUpdaterTests
         finally { vm.Cancel(); finish.TrySetResult(); if (vm.UpdateTask != null) await vm.UpdateTask; dialog.Hide(); await closed; window.Close(); }
     }
 
+    [AvaloniaTest]
+    public async Task AFailedUpdateCanBeRetriedFromTheDialog()
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("Flatpak uses Unix paths.");
+        int installs = 0;
+        var updater = Updater(run: (args, _) =>
+        {
+            if (args[0] == "list") return Task.FromResult($"{Ref}\tuser\n");
+            if (args[0] == "info") return Task.FromResult($"/install/user/app/{Ref}/new");
+            return ++installs == 1 ? throw new IOException("install failed") : Task.FromResult("");
+        }, read: _ => "app/" + Ref);
+        using var client = new HttpClient(new FreshResponseHandler());
+        var vm = ViewModel(updater, client);
+
+        vm.Start();
+        await vm.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(vm.ProgressText.Value, Is.EqualTo("install failed"));
+            Assert.That(vm.IsRetryVisible.Value, Is.True);
+            Assert.That(vm.CloseButtonText.Value, Is.EqualTo(Strings.Close));
+        });
+
+        vm.Retry();
+        await vm.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(installs, Is.EqualTo(2));
+            Assert.That(vm.ProgressText.Value, Is.EqualTo(MessageStrings.FlatpakUpdateCompleted));
+            Assert.That(vm.IsRetryVisible.Value, Is.False);
+        });
+    }
+
     [Test]
     public void EnvironmentWithoutMetadataRequiresManualUpdate()
     {
@@ -228,6 +261,12 @@ public sealed class FlatpakUpdaterTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
         { token.ThrowIfCancellationRequested(); Assert.That(request.RequestUri!.AbsoluteUri, Is.EqualTo(Url)); return Task.FromResult(response); }
+    }
+    // A response belongs to one download, so a retry needs its own.
+    private sealed class FreshResponseHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+            => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([1, 2, 3, 4]) });
     }
     private sealed class UnknownLengthContent : HttpContent
     {

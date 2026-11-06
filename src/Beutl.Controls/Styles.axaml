@@ -20,6 +20,8 @@
                 <ResourceInclude Source="/Styling/ToggleSwitchStyles.axaml" />
                 <ResourceInclude Source="/Styling/ToggleButtonStyles.axaml" />
                 <ResourceInclude Source="/Styling/ToolTabBar.axaml" />
+                <ResourceInclude Source="/Styling/EmptyState.axaml" />
+                <ResourceInclude Source="/Styling/StatusLabel.axaml" />
                 <ResourceInclude Source="/Styling/SimpleBreadcrumbBar.axaml" />
 
                 <ResourceInclude Source="/Styling/ProgressRing.axaml" />
@@ -152,6 +154,12 @@
     <Style Selector="ListBoxItem:selected :is(Button).row-action">
         <Setter Property="Opacity" Value="1" />
         <Setter Property="IsHitTestVisible" Value="True" />
+    </Style>
+
+    <!--  A name too long for its row scrolls while the pointer is over it or it is selected.  -->
+    <!--  Here rather than in a presenter's ControlTheme, whose styles do not reach DataTemplate content.  -->
+    <Style Selector="ListBoxItem:pointerover local|MarqueeTextBlock, ListBoxItem:selected local|MarqueeTextBlock">
+        <Setter Property="IsMarqueeActive" Value="True" />
     </Style>
 
     <Style Selector="Border.OverlayCard">

@@ -78,12 +78,11 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
 
     private void AcceptChild()
     {
-        var visitor = new ChildVisitor(this);
         foreach (GraphModelNodeMemberViewModel nodeMember in NodeMembers)
         {
             foreach (IPropertyEditorContext? prop in nodeMember.Properties)
             {
-                prop?.Accept(visitor);
+                prop?.Accept(nodeMember);
             }
         }
     }

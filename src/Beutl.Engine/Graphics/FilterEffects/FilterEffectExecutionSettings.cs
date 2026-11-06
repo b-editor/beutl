@@ -68,4 +68,24 @@ internal sealed record FilterEffectExecutionSettings
     // Per call: the graphics context may first answer after the settings are made.
     public BufferDimensionBudget ResolveBudget()
         => Budget ?? BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation);
+
+    // Pinned for one application of a stage, whose allocations must all answer to one budget.
+    public FilterEffectExecutionSettings WithResolvedBudget()
+        => Budget.HasValue ? this : this with { Budget = ResolveBudget() };
+
+    // A flush reads a null offset as zero, not as the first target's, so an execution over targets states it.
+    public FilterEffectExecutionSettings WithDeviceGridOffsetFrom(EffectTargets targets)
+        => DeviceGridOffset.HasValue
+            ? this
+            : this with { DeviceGridOffset = targets.Count > 0 ? targets[0].DeviceGridOffset : default };
+
+    public ImmediateCanvas CreateCanvas(RenderTarget target, float density, Size logicalSize)
+        => ImmediateCanvas.CreateCustomEffectCanvas(
+            target,
+            density,
+            MaxWorkingScale,
+            logicalSize,
+            Intent,
+            UseExecutorManagedCanvas,
+            DrawableBrushMaterializer);
 }

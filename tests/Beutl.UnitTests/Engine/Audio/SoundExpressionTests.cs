@@ -82,7 +82,7 @@ public class SoundExpressionTests
         });
     }
 
-    private static float[] Compose(Action<SourceSound> configure)
+    internal static float[] Compose(Action<SourceSound> configure)
     {
         string path = TestMediaHelper.CreateTestAudioFile(sampleRate: SampleRate, channels: 2, durationSeconds: 2.0);
         var source = new SoundSource();
@@ -98,7 +98,7 @@ public class SoundExpressionTests
         return buffer!.GetChannelData(0).ToArray();
     }
 
-    private sealed class CountingExpression<T>(T value) : IExpression<T>
+    internal sealed class CountingExpression<T>(T value) : IExpression<T>
     {
         public int Evaluations { get; private set; }
 

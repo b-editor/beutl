@@ -12,6 +12,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
     private const int RmsWindowSamples = 1024;
     private const float MinDb = -60f;
     private const double ScaleAreaWidth = 20.0;
+    private const double BarPadding = 4.0;
     private const double LabelFontSize = 12.0;
 
     // 0 dBFS in float audio = ±1.0. Use slightly below 1.0 as the trigger so that
@@ -27,8 +28,8 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
     private float _truePeakLHold;
     private float _truePeakRHold;
     private DateTime _lastRenderTime = DateTime.UtcNow;
-    private DateTime? _clipLAt;
-    private DateTime? _clipRAt;
+    private ClipLight _clipL;
+    private ClipLight _clipR;
     private float _displayLufs = -160f;
 
     private readonly LoudnessMeter _loudness = new();
@@ -43,10 +44,33 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
     private float[] _channelPeaks = [];
     private float[] _peakHolds = [];
     private float[] _truePeakHolds = [];
-    private DateTime?[] _clipAts = [];
+    private ClipLight[] _clips = [];
+
+    private readonly record struct BarMetrics(double ScaleWidth, double ClipLedHeight, double ClipLedY, double TopInset, double BarHeight);
+
+    // Samples holding a light on can stop the drawing for any length of time, so its hold starts when they let go.
+    private struct ClipLight
+    {
+        private DateTime? _at;
+        private bool _held;
+
+        public void Update(float peak, DateTime now)
+        {
+            bool over = peak >= ClipThreshold;
+            if (over || _held) _at = now;
+            _held = over;
+        }
+
+        public readonly bool IsOn(DateTime now) => _at is { } at && now - at < s_clipHold;
+
+        // A light the samples on screen hold on changes nothing until they do. One they have let go of is waiting to go out.
+        public readonly bool IsGoingOut(DateTime now) => !_held && IsOn(now);
+    }
 
     public override void Render(DrawingContext context)
     {
+        // Until a hold is found still falling, the loudness digit easing or a clip light lit.
+        IsSettling = false;
         Rect bounds = new(Bounds.Size);
         context.FillRectangle(Brushes.Transparent, bounds);
 
@@ -61,43 +85,30 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         }
 
         var (rmsL, rmsR, peakL, peakR) = buffer.ComputeMeters(RmsWindowSamples, PlayheadTime);
-        DateTime now = DateTime.UtcNow;
-        double elapsed = Math.Clamp((now - _lastRenderTime).TotalSeconds, 0, 0.5);
-        _lastRenderTime = now;
+        var (now, elapsed) = AdvanceClock();
 
         _peakLHold = DecayHold(_peakLHold, peakL, elapsed);
         _peakRHold = DecayHold(_peakRHold, peakR, elapsed);
 
-        if (peakL >= ClipThreshold) _clipLAt = now;
-        if (peakR >= ClipThreshold) _clipRAt = now;
-        bool clipL = _clipLAt is { } cl && now - cl < s_clipHold;
-        bool clipR = _clipRAt is { } cr && now - cr < s_clipHold;
+        _clipL.Update(peakL, now);
+        _clipR.Update(peakR, now);
+        bool clipL = _clipL.IsOn(now);
+        bool clipR = _clipR.IsOn(now);
+        IsSettling |= _clipL.IsGoingOut(now) || _clipR.IsGoingOut(now);
 
         UpdateLoudnessAndTruePeak(buffer, elapsed);
 
-        double padding = 4;
-        double scaleWidth = bounds.Width >= 80 ? ScaleAreaWidth : 0;
-        double barAreaWidth = bounds.Width - padding * 3 - scaleWidth;
+        var (scaleWidth, clipLedHeight, clipLedY, topInset, barHeight) = MeasureBars(bounds);
+        double barAreaWidth = bounds.Width - BarPadding * 3 - scaleWidth;
         double barWidth = barAreaWidth / 2;
-        double clipLedHeight = 8;
-        // Lay out top region: [L/R label][gap][clip LED][gap][bar].
-        // Use a real measurement for the channel label so larger fonts don't
-        // overflow into the LED.
-        double labelHeight = MeasureTextHeight("L", LabelFontSize);
-        double labelGap = 2;
-        double ledGap = 4;
-        double textStripHeight = labelHeight * 2;
-        double topInset = labelHeight + labelGap + clipLedHeight + ledGap;
-        double barHeight = bounds.Height - topInset - padding - textStripHeight;
 
-        double leftX = padding;
-        double rightX = padding * 2 + barWidth;
-        double scaleX = padding * 3 + barWidth * 2;
+        double leftX = BarPadding;
+        double rightX = BarPadding * 2 + barWidth;
+        double scaleX = BarPadding * 3 + barWidth * 2;
 
         DrawChannelLabel(context, "L", leftX + barWidth / 2, 0);
         DrawChannelLabel(context, "R", rightX + barWidth / 2, 0);
 
-        double clipLedY = labelHeight + labelGap;
         DrawClipLed(context, leftX, clipLedY, barWidth, clipLedHeight, clipL);
         DrawClipLed(context, rightX, clipLedY, barWidth, clipLedHeight, clipR);
 
@@ -105,7 +116,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         DrawChannel(context, rightX, topInset, barWidth, barHeight, rmsR, _peakRHold);
         if (scaleWidth > 0)
         {
-            DrawDbScale(context, scaleX, topInset, scaleWidth, barHeight, leftX, leftX + barWidth * 2 + padding);
+            DrawDbScale(context, scaleX, topInset, scaleWidth, barHeight, leftX, leftX + barWidth * 2 + BarPadding);
         }
 
         DrawLoudnessAndTruePeakText(context, leftX, topInset + barHeight + 4);
@@ -123,48 +134,62 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
             Array.Clear(_channelPeaks);
         }
 
-        DateTime now = DateTime.UtcNow;
-        double elapsed = Math.Clamp((now - _lastRenderTime).TotalSeconds, 0, 0.5);
-        _lastRenderTime = now;
+        var (now, elapsed) = AdvanceClock();
 
         for (int ch = 0; ch < channelCount; ch++)
         {
             _peakHolds[ch] = DecayHold(_peakHolds[ch], _channelPeaks[ch], elapsed);
-            if (_channelPeaks[ch] >= ClipThreshold) _clipAts[ch] = now;
+            _clips[ch].Update(_channelPeaks[ch], now);
         }
 
         UpdateSurroundLoudnessAndTruePeak(buffer, channelCount, elapsed);
 
-        double padding = 4;
         double gap = 2;
-        double scaleWidth = bounds.Width >= 80 ? ScaleAreaWidth : 0;
-        double barAreaWidth = bounds.Width - padding * 3 - scaleWidth - gap * (channelCount - 1);
+        var (scaleWidth, clipLedHeight, clipLedY, topInset, barHeight) = MeasureBars(bounds);
+        double barAreaWidth = bounds.Width - BarPadding * 3 - scaleWidth - gap * (channelCount - 1);
         double barWidth = Math.Max(1, barAreaWidth / channelCount);
-        double clipLedHeight = 8;
-        double labelHeight = MeasureTextHeight("L", LabelFontSize);
-        double labelGap = 2;
-        double ledGap = 4;
-        double textStripHeight = labelHeight * 2;
-        double topInset = labelHeight + labelGap + clipLedHeight + ledGap;
-        double barHeight = bounds.Height - topInset - padding - textStripHeight;
-        double clipLedY = labelHeight + labelGap;
 
         for (int ch = 0; ch < channelCount; ch++)
         {
-            double x = padding + ch * (barWidth + gap);
-            bool clip = _clipAts[ch] is { } at && now - at < s_clipHold;
+            double x = BarPadding + ch * (barWidth + gap);
+            bool clip = _clips[ch].IsOn(now);
+            IsSettling |= _clips[ch].IsGoingOut(now);
             DrawChannelLabel(context, AudioChannelMap.GetChannelName(_surroundLayout, ch), x + barWidth / 2, 0);
             DrawClipLed(context, x, clipLedY, barWidth, clipLedHeight, clip);
             DrawChannel(context, x, topInset, barWidth, barHeight, _channelRms[ch], _peakHolds[ch]);
         }
 
-        double barsEnd = padding + channelCount * barWidth + (channelCount - 1) * gap;
+        double barsEnd = BarPadding + channelCount * barWidth + (channelCount - 1) * gap;
         if (scaleWidth > 0)
         {
-            DrawDbScale(context, barsEnd + padding, topInset, scaleWidth, barHeight, padding, barsEnd);
+            DrawDbScale(context, barsEnd + BarPadding, topInset, scaleWidth, barHeight, BarPadding, barsEnd);
         }
 
-        DrawSurroundLoudnessAndTruePeakText(context, padding, topInset + barHeight + 4);
+        DrawSurroundLoudnessAndTruePeakText(context, BarPadding, topInset + barHeight + 4);
+    }
+
+    private (DateTime Now, double Elapsed) AdvanceClock()
+    {
+        DateTime now = DateTime.UtcNow;
+        double elapsed = Math.Clamp((now - _lastRenderTime).TotalSeconds, 0, 0.5);
+        _lastRenderTime = now;
+        return (now, elapsed);
+    }
+
+    private BarMetrics MeasureBars(Rect bounds)
+    {
+        double scaleWidth = bounds.Width >= 80 ? ScaleAreaWidth : 0;
+        double clipLedHeight = 8;
+        // Lay out top region: [channel label][gap][clip LED][gap][bar].
+        // Use a real measurement for the channel label so larger fonts don't
+        // overflow into the LED.
+        double labelHeight = MeasureTextHeight("L", LabelFontSize);
+        double labelGap = 2;
+        double ledGap = 4;
+        double textStripHeight = labelHeight * 2;
+        double topInset = labelHeight + labelGap + clipLedHeight + ledGap;
+        double barHeight = bounds.Height - topInset - BarPadding - textStripHeight;
+        return new BarMetrics(scaleWidth, clipLedHeight, labelHeight + labelGap, topInset, barHeight);
     }
 
     private void EnsureSurroundState(int channelCount)
@@ -179,7 +204,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         _channelPeaks = new float[channelCount];
         _peakHolds = new float[channelCount];
         _truePeakHolds = new float[channelCount];
-        _clipAts = new DateTime?[channelCount];
+        _clips = new ClipLight[channelCount];
     }
 
     private void UpdateSurroundLoudnessAndTruePeak(AudioSampleRingBuffer buffer, int channelCount, double elapsed)
@@ -196,12 +221,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         int got = buffer.ReadChannelsAroundTime(PlayheadTime, _loudnessChannels, n, out int leadingZeros);
         if (got <= 0) return;
 
-        float lufs = _loudness.Compute(_loudnessChannels, leadingZeros, got, _surroundLayout, sampleRate);
-        if (float.IsFinite(lufs))
-        {
-            float alpha = (float)Math.Clamp(elapsed / 0.2, 0.05, 1.0);
-            _displayLufs = _displayLufs * (1f - alpha) + lufs * alpha;
-        }
+        EaseDisplayLufs(_loudness.Compute(_loudnessChannels, leadingZeros, got, _surroundLayout, sampleRate), elapsed);
 
         for (int ch = 0; ch < channelCount; ch++)
         {
@@ -212,25 +232,14 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
 
     private void DrawSurroundLoudnessAndTruePeakText(DrawingContext context, double x, double y)
     {
-        Typeface tf = Typeface.Default;
-
-        string lufsLabel = _displayLufs <= -159f
-            ? "M  -∞ LUFS"
-            : $"M {_displayLufs,5:0.0} LUFS";
-
         // Too many channels to list each true peak; show the loudest and where it is.
         int loudest = 0;
         for (int ch = 1; ch < _truePeakHolds.Length; ch++)
         {
             if (_truePeakHolds[ch] > _truePeakHolds[loudest]) loudest = ch;
         }
-        string tpLabel = $"TP {LinearToDbtp(_truePeakHolds[loudest]),5:0.0} ({AudioChannelMap.GetChannelName(_surroundLayout, loudest)})";
 
-        var lufsText = new FormattedText(lufsLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LabelFontSize, Brushes.White);
-        var tpText = new FormattedText(tpLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LabelFontSize, Brushes.White);
-
-        context.DrawText(lufsText, new Point(x, y));
-        context.DrawText(tpText, new Point(x, y + lufsText.Height));
+        DrawReadout(context, x, y, $"TP {LinearToDbtp(_truePeakHolds[loudest]),5:0.0} ({AudioChannelMap.GetChannelName(_surroundLayout, loudest)})");
     }
 
     private double MeasureTextHeight(string text, double fontSize)
@@ -277,13 +286,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         ReadOnlySpan<float> l = _loudnessLeft.AsSpan(leadingZeros, got);
         ReadOnlySpan<float> r = _loudnessRight.AsSpan(leadingZeros, got);
 
-        float lufs = _loudness.Compute(l, r, sampleRate);
-        // Light low-pass on the displayed value so the digit isn't twitchy.
-        if (float.IsFinite(lufs))
-        {
-            float alpha = (float)Math.Clamp(elapsed / 0.2, 0.05, 1.0);
-            _displayLufs = _displayLufs * (1f - alpha) + lufs * alpha;
-        }
+        EaseDisplayLufs(_loudness.Compute(l, r, sampleRate), elapsed);
 
         float tpL = TruePeakDetector.Detect(l);
         float tpR = TruePeakDetector.Detect(r);
@@ -291,17 +294,31 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         _truePeakRHold = DecayHold(_truePeakRHold, tpR, elapsed);
     }
 
+    // Light low-pass on the displayed value so the digit isn't twitchy.
+    private void EaseDisplayLufs(float lufs, double elapsed)
+    {
+        if (float.IsFinite(lufs))
+        {
+            float alpha = (float)Math.Clamp(elapsed / 0.2, 0.05, 1.0);
+            _displayLufs = _displayLufs * (1f - alpha) + lufs * alpha;
+            // The digit shows one decimal place.
+            IsSettling |= MathF.Abs(_displayLufs - lufs) > 0.05f;
+        }
+    }
+
     private void DrawLoudnessAndTruePeakText(DrawingContext context, double x, double y)
+        => DrawReadout(context, x, y, $"TP L {LinearToDbtp(_truePeakLHold),5:0.0}  R {LinearToDbtp(_truePeakRHold),5:0.0}");
+
+    private void DrawReadout(DrawingContext context, double x, double y, string truePeakLabel)
     {
         Typeface tf = Typeface.Default;
 
         string lufsLabel = _displayLufs <= -159f
             ? "M  -∞ LUFS"
             : $"M {_displayLufs,5:0.0} LUFS";
-        string tpLabel = $"TP L {LinearToDbtp(_truePeakLHold),5:0.0}  R {LinearToDbtp(_truePeakRHold),5:0.0}";
 
         var lufsText = new FormattedText(lufsLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LabelFontSize, Brushes.White);
-        var tpText = new FormattedText(tpLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LabelFontSize, Brushes.White);
+        var tpText = new FormattedText(truePeakLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LabelFontSize, Brushes.White);
 
         context.DrawText(lufsText, new Point(x, y));
         context.DrawText(tpText, new Point(x, y + lufsText.Height));
@@ -370,13 +387,16 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         }
     }
 
-    private static float DecayHold(float current, float instant, double elapsed)
+    private float DecayHold(float current, float instant, double elapsed)
     {
         if (instant > current) return instant;
         // Lowers the amplitude linearly by 0.5 per second.
         float decay = (float)(0.5 * elapsed);
         float v = current - decay;
-        return v < instant ? instant : v;
+        if (v < instant) return instant;
+
+        IsSettling = true;
+        return v;
     }
 
     private static float AmplitudeToDb(float amp)

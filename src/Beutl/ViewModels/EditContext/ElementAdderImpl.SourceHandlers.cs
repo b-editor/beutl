@@ -56,7 +56,15 @@ internal sealed partial class ElementAdderImpl
         Type type = value.GetType();
         element.AccentColor.Value = ElementAccentColorGenerator.GenerateColor(type.FullName ?? type.Name);
         element.AddObject(value);
-        if (value is Drawable drawable)
+        if (CanonicalTransformLayout.SeedEmptyGroup(value) is { } translate)
+        {
+            if (description.Position is { } position)
+            {
+                translate.X.Value = position.X;
+                translate.Y.Value = position.Y;
+            }
+        }
+        else if (value is Drawable drawable)
         {
             SetTransform(drawable, description);
         }
@@ -69,9 +77,7 @@ internal sealed partial class ElementAdderImpl
         if (description.Position is not { } position)
             return;
 
-        Transform? transform = drawable.Transform.Value;
-        AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(position));
-        drawable.Transform.Value = transform;
+        AddToGroupHelper.Add(drawable.Transform, new TranslateTransform(position));
     }
 
     private static T? TrySetDuration<T>(Element element, Func<T> initialize, Func<T, MediaTime?> getDuration)
@@ -120,32 +126,6 @@ internal sealed partial class ElementAdderImpl
         }
     }
 
-    private static bool MatchFileExtensions(string filePath, IEnumerable<string> extensions)
-    {
-        string ext = Path.GetExtension(filePath);
-        return extensions
-            .Select(value =>
-            {
-                int index = value.LastIndexOf('.');
-                return index >= 0 ? value[index..] : value;
-            })
-            .Contains(ext, StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static bool MatchFileAudioOnly(string filePath)
-        => MatchFileExtensions(
-            filePath,
-            DecoderRegistry.EnumerateDecoder()
-                .SelectMany(decoder => decoder.AudioExtensions())
-                .Distinct());
-
-    private static bool MatchFileVideoOnly(string filePath)
-        => MatchFileExtensions(
-            filePath,
-            DecoderRegistry.EnumerateDecoder()
-                .SelectMany(decoder => decoder.VideoExtensions())
-                .Distinct());
-
     private MediaProbe ProbeMediaFile(string filePath)
     {
         try
@@ -193,9 +173,6 @@ internal sealed partial class ElementAdderImpl
             return false;
         }
     }
-
-    private static bool MatchFileImage(string filePath)
-        => MatchFileExtensions(filePath, SharedFilePickerOptions.ImagePatterns);
 
     private sealed class EngineObjectSourceHandler(ElementAdderImpl owner) : IElementSourceHandler
     {
@@ -323,7 +300,7 @@ internal sealed partial class ElementAdderImpl
             }
 
             // Refused as a paste onto a locked layer is, rather than moved off it by the search.
-            if (context.Scene.IsLayerLocked(description.Layer))
+            if (!description.StacksAboveScene && context.Scene.IsLayerLocked(description.Layer))
             {
                 return ValueTask.FromResult(ElementSourcePreflightResult.Rejected(
                     new LockedElementLayerFailure(description.Layer)));
@@ -347,23 +324,20 @@ internal sealed partial class ElementAdderImpl
                     new ElementSourcePreflightFailure("The element-set template holds no elements.")));
             }
 
-            (Beutl.Media.TimeRange range, int minZIndex, _) = DuplicateHelper.ComputePlacementRange([.. set.Elements]);
-            HashSet<int> rowOffsets = set.Elements.Select(element => element.ZIndex.Value - minZIndex).ToHashSet();
-            HashSet<int> lockedRows = context.Scene.Layers
-                .Where(layer => layer.IsLocked.Value)
-                .Select(layer => layer.ZIndex.Value)
-                .ToHashSet();
-            if (ElementPlacementHelper.FindFreeAnchor(
-                    context.Scene, range, rowOffsets, lockedRows, description.Start, description.Layer)
-                is not { } anchor)
+            // A request that stacks above the scene has nothing to avoid, and its layers are final only once it goes in.
+            GroupPlacement? found = description.StacksAboveScene
+                ? ElementPlacementHelper.PlaceAt([.. set.Elements], description.Start, description.Layer)
+                : ElementPlacementHelper.FindFreePlacement(
+                    context.Scene, [.. set.Elements], description.Start, description.Layer);
+            if (found is not { } placement)
             {
                 return ValueTask.FromResult(ElementSourcePreflightResult.Rejected(
                     new ElementSourcePreflightFailure("No free place was found for the element-set template.")));
             }
 
             return ValueTask.FromResult(ElementSourcePreflightResult.Ready(
-                new ElementSetPreflight(set, anchor.Start - range.Start, anchor.ZIndex - minZIndex),
-                rowOffsets.Select(offset => anchor.ZIndex + offset)));
+                new ElementSetPreflight(set, placement.StartDelta, placement.LayerDelta),
+                placement.RowOffsets.Select(offset => placement.ZIndex + offset)));
         }
 
         public ValueTask<ElementSourceMaterializationResult> MaterializeAsync(
@@ -416,11 +390,11 @@ internal sealed partial class ElementAdderImpl
             }
 
             string fileName = ((ElementSource.File)context.Description.Source).FileName;
-            FileSourceKind kind = MatchFileImage(fileName)
+            FileSourceKind kind = MediaFileMatcher.IsImage(fileName)
                 ? FileSourceKind.Image
-                : MatchFileVideoOnly(fileName)
+                : MediaFileMatcher.Matches(fileName, MediaFileMatcher.VideoExtensions())
                     ? FileSourceKind.Video
-                    : MatchFileAudioOnly(fileName)
+                    : MediaFileMatcher.Matches(fileName, MediaFileMatcher.AudioExtensions())
                         ? FileSourceKind.Audio
                         : FileSourceKind.Unsupported;
             if (kind == FileSourceKind.Unsupported)

@@ -35,4 +35,6 @@ public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel vie
             .Subscribe(v => pfp.IsBusy = v);
         return pfp;
     }
+
+    protected override void FlushPendingSearch() => viewModel.FlushSearch();
 }

@@ -91,12 +91,13 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
 
             deferral = GetObject(args, 10);
             Marshal.AddRef(args);
-            source = new NativeDownload(this, args, operation, deferral, name, generated);
+            Uri? origin = generated ? BrowserMediaDownload.GetGeneratedFileOrigin(address) : uri;
+            source = new NativeDownload(this, args, operation, deferral, name, generated, origin);
             operation = deferral = 0;
             source.HideDefaultDialog();
             _downloads.Add(source);
             // DownloadStarting names no frame, so only a blob: URL tells which document created the file.
-            if (generated) _onGeneratedDownload(BrowserMediaDownload.GetGeneratedFileOrigin(address), name, source, GetDocument());
+            if (generated) _onGeneratedDownload(origin, name, source, GetDocument());
             else _onDownload(uri!, name, source);
         }
         catch (Exception ex)
@@ -156,7 +157,7 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
     }
 
     private sealed class NativeDownload(
-        WindowsBrowserDownloadHandler owner, nint args, nint operation, nint deferral, string fileName, bool generated)
+        WindowsBrowserDownloadHandler owner, nint args, nint operation, nint deferral, string fileName, bool generated, Uri? origin)
         : IBrowserDownloadSource
     {
         private readonly TaskCompletionSource _finished = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -201,7 +202,7 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
                 await _finished.Task.WaitAsync(cancellationToken);
                 _progressTimer.Stop();
                 return await BrowserMediaDownload.PublishNativeFileAsync(temporaryPath, directory, fileName, generated, null,
-                    cancellationToken);
+                    cancellationToken, origin);
             }
             finally
             {

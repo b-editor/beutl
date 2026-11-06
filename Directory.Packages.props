@@ -5,17 +5,17 @@
   <ItemGroup>
     <PackageVersion Include="Aigamo.ResXGenerator" Version="4.4.0" />
     <PackageVersion Include="AsyncImageLoader.Avalonia" Version="4.0.0" />
-    <PackageVersion Include="Avalonia" Version="12.1.4" />
-    <PackageVersion Include="Avalonia.Controls.ColorPicker" Version="12.1.4" />
+    <PackageVersion Include="Avalonia" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.Controls.ColorPicker" Version="12.1.5" />
     <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
     <PackageVersion Include="Avalonia.Controls.ItemsRepeater" Version="12.0.0" />
     <PackageVersion Include="Avalonia.Controls.WebView" Version="12.1.1" />
     <PackageVersion Include="PanAndZoom" Version="12.1.1" />
     <PackageVersion Include="Avalonia.Desktop" Version="12.1.4" />
     <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
-    <PackageVersion Include="Avalonia.Headless" Version="12.1.4" />
-    <PackageVersion Include="Avalonia.Headless.NUnit" Version="12.1.4" />
-    <PackageVersion Include="Avalonia.Skia" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Headless" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.Headless.NUnit" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.Skia" Version="12.1.5" />
     <!-- The Reactive variant preserves the System.Reactive scheduler used by ReactiveProperty. -->
     <PackageVersion Include="ReactiveUI.Avalonia.Reactive" Version="12.1.6" />
     <PackageVersion Include="Silk.NET.MoltenVK.Native" Version="2.23.0" />
@@ -31,6 +31,7 @@
     <PackageVersion Include="Silk.NET.Assimp" Version="2.23.0" />
     <PackageVersion Include="Ultz.Native.Assimp" Version="6.0.2" />
     <PackageVersion Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.17" />
+    <PackageVersion Include="Svg.Skia" Version="5.2.3" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.4" />
     <PackageVersion Include="Xaml.Behaviors.Avalonia" Version="12.0.7" />
     <PackageVersion Include="Xaml.Behaviors.Interactivity" Version="12.0.7" />
@@ -42,11 +43,11 @@
     <PackageVersion Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" Version="8.1.0" />
     <PackageVersion Include="FFmpeg4Sharp" Version="7.0.1" />
     <PackageVersion Include="FluentAvaloniaUI" Version="3.1.0" />
-    <PackageVersion Include="FluentIcons.Avalonia.Fluent" Version="2.1.344" />
+    <PackageVersion Include="FluentIcons.Avalonia.Fluent" Version="2.1.345" />
     <PackageVersion Include="LiveMarkdown.Avalonia" Version="2.5.1" />
-    <PackageVersion Include="Markdig" Version="1.5.1" />
+    <PackageVersion Include="Markdig" Version="1.6.0" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
-    <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.367" />
+    <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.369" />
     <PackageVersion Include="Moq" Version="4.21.0" />
     <PackageVersion Include="NAudio.Wasapi" Version="3.3.0" />
     <PackageVersion Include="HarfBuzzSharp" Version="14.2.1.201" />
@@ -62,8 +63,8 @@
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="10.0.14" />
-    <PackageVersion Include="ModelContextProtocol" Version="2.3.0" />
-    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.3.0" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.3.1" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.3.1" />
     <PackageVersion Include="NAudio.Core" Version="3.3.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
@@ -96,7 +97,7 @@
     <PackageVersion Include="System.Reactive" Version="7.0.0" />
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.14" />
-    <PackageVersion Include="Tomlyn" Version="2.10.1" />
+    <PackageVersion Include="Tomlyn" Version="2.10.2" />
     <PackageVersion Include="Vortice.MediaFoundation" Version="3.8.3" />
     <PackageVersion Include="Vortice.XAudio2" Version="3.8.3" />
   </ItemGroup>

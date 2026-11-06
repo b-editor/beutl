@@ -1,6 +1,5 @@
 ﻿using System.Globalization;
 using System.Reactive.Disposables;
-using System.Reactive.Subjects;
 using Beutl.Collections;
 using Beutl.Extensibility;
 using Beutl.Extensions.AVFoundation.Encoding;
@@ -47,10 +46,6 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                 $"No encoder is registered for '{Path.GetExtension(outputPath)}'.");
         }
 
-        // Scene3DRenderNode silently renders nothing without a 3D-capable context, so exporting
-        // would succeed with the 3D layers missing; fail up front like render_still does.
-        await StillRenderer.ThrowIfGpuContextUnavailableAsync(scene, null, cancellationToken).ConfigureAwait(false);
-
         string? directory = Path.GetDirectoryName(outputPath);
         if (!string.IsNullOrEmpty(directory))
         {
@@ -65,21 +60,36 @@ public sealed class VideoExporter(EncoderRegistration encoders)
             using var output = new StagedOutputFile(outputPath);
             EncodingController controller = encoder.CreateController(output.TemporaryPath);
             List<string> warnings = ConfigureController(controller, scene, frameRate, normalizedSampleRate, crf, bitrate);
-            await ThrowIfExportSourcesMissingAsync(scene, frameRate, cancellationToken).ConfigureAwait(false);
+            // Like the editor's output panel, write only what the format holds: an audio-only file (.mp3, .wav)
+            // neither renders frames nor needs the video sources.
+            bool videoEnabled = controller.IsVideoEnabled;
+            bool audioEnabled = controller.IsAudioEnabled;
+            if (videoEnabled)
+            {
+                // Scene3DRenderNode silently renders nothing without a 3D-capable context, so exporting
+                // would succeed with the 3D layers missing; fail up front like render_still does.
+                await StillRenderer.ThrowIfGpuContextUnavailableAsync(scene, null, cancellationToken).ConfigureAwait(false);
+            }
 
-            using var renderer = ExportRendererFactory.Create(scene, normalizedScale);
-            using var frameProgress = new Subject<MediaTime>();
-            using var frameProvider = new FrameProviderImpl(scene, frameRate, renderer, frameProgress);
+            await ThrowIfExportSourcesMissingAsync(scene, frameRate, videoEnabled, audioEnabled, cancellationToken).ConfigureAwait(false);
+
+            using var providers = ExportMediaProviders.Create(
+                scene,
+                videoEnabled,
+                audioEnabled,
+                normalizedScale,
+                frameRate,
+                normalizedSampleRate,
+                controller.AudioSettings.GetChannelLayout());
+            IFrameProvider frameProvider = providers.FrameProvider;
+            ISampleProvider sampleProvider = providers.SampleProvider;
             using IDisposable frameProgressSubscription = onFrameProgress is null
                 ? Disposable.Empty
-                : frameProgress.Subscribe(time => onFrameProgress(
+                : providers.FrameProgress.Subscribe(time => onFrameProgress(
                     // ReadNextFrame emits this signal before returning the frame, so only preceding frames
                     // are complete at this point.
                     Math.Min(time.ToFrame(frameRate, MidpointRounding.AwayFromZero), frameProvider.FrameCount),
                     frameProvider.FrameCount));
-            using var composer = CreateExportComposer(scene, normalizedSampleRate);
-            using var sampleProgress = new Subject<MediaTime>();
-            using var sampleProvider = new SampleProviderImpl(scene, composer, normalizedSampleRate, sampleProgress, controller.AudioSettings.GetChannelLayout());
 
             int requestedAudioBitrate = controller.AudioSettings.Bitrate.Value;
             await controller.Encode(frameProvider, sampleProvider, cancellationToken).ConfigureAwait(false);
@@ -98,7 +108,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                 warnings.Add(bitrateWarning);
             }
 
-            output.Commit(cancellationToken);
+            output.Commit(controller.OutputFiles, cancellationToken);
             onFrameProgress?.Invoke(frameProvider.FrameCount, frameProvider.FrameCount);
             return new ExportVideoResponse(
                 outputPath,
@@ -140,16 +150,6 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         throw ffmpegFailure ?? new CodecUnavailableException("FFmpeg libraries are not available.");
     }
 
-    // Final output: audio must never read proxy media, even though audio opens skip the proxy resolver today.
-    internal static SceneComposer CreateExportComposer(Scene scene, int sampleRate)
-    {
-        return new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
-        {
-            SampleRate = sampleRate,
-            ChannelLayout = scene.FindHierarchicalParent<Project>().GetChannelLayout(),
-        };
-    }
-
     private static List<string> ConfigureController(
         EncodingController controller,
         Scene scene,
@@ -169,11 +169,12 @@ public sealed class VideoExporter(EncoderRegistration encoders)
 
     // Final export forces original media, so fail fast on missing sources (as StillRenderer does).
     // CollectRenderableSources walks the mutable scene graph, so run it on the render thread.
-    private static async ValueTask ThrowIfExportSourcesMissingAsync(Scene scene, Rational frameRate, CancellationToken cancellationToken)
+    private static async ValueTask ThrowIfExportSourcesMissingAsync(
+        Scene scene, Rational frameRate, bool includeVideo, bool includeAudio, CancellationToken cancellationToken)
     {
         IReadOnlySet<string> renderableSources = await RenderThread.Dispatcher.InvokeAsync(
             () => Beutl.Editor.ExportSourceValidator.CollectRenderableSources(
-                scene, new TimeRange(scene.Start.Value, scene.Duration.Value), includeVideo: true, includeAudio: true, frameRate),
+                scene, new TimeRange(scene.Start.Value, scene.Duration.Value), includeVideo, includeAudio, frameRate),
             ct: cancellationToken).ConfigureAwait(false);
         IReadOnlyList<string> missingSources = Beutl.Editor.ExportSourceValidator.GetMissingPaths(renderableSources);
         if (missingSources.Count > 0)

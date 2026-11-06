@@ -259,8 +259,35 @@ You can keep editing when this finishes.</value>
     <value>The application needs to be restarted.
 Do you want to restart the application?</value>
   </data>
+  <data name="UpdateAction_RestartAndUpdate" xml:space="preserve">
+    <value>Restart and update</value>
+  </data>
+  <data name="UpdateAction_StartInstaller" xml:space="preserve">
+    <value>Start installer</value>
+  </data>
+  <data name="UpdateAction_Retry" xml:space="preserve">
+    <value>Retry</value>
+  </data>
+  <data name="UpdateAction_RunInBackground" xml:space="preserve">
+    <value>Run in background</value>
+  </data>
+  <data name="UpdateAction_UpdateOnQuit" xml:space="preserve">
+    <value>Update on quit</value>
+  </data>
+  <data name="UpdateAction_ShowProgress" xml:space="preserve">
+    <value>Show progress</value>
+  </data>
+  <data name="UpdateWillInstallOnQuit" xml:space="preserve">
+    <value>The update will install when you quit Beutl.</value>
+  </data>
+  <data name="UpdateReady_Title" xml:space="preserve">
+    <value>The update is ready</value>
+  </data>
+  <data name="UpdateFailed_Title" xml:space="preserve">
+    <value>The update failed</value>
+  </data>
   <data name="StartInstaller" xml:space="preserve">
-    <value>Start the installer,</value>
+    <value>The installer is ready to start.</value>
   </data>
   <data name="Downloading" xml:space="preserve">
     <value>Downloading...</value>
@@ -319,33 +346,17 @@ Do you want to restart the application?</value>
   <data name="LockReleased" xml:space="preserve">
     <value>Unlocked.</value>
   </data>
-  <data name="UpdateCompletedLaunchPrompt" xml:space="preserve">
-    <value>Update completed. Do you want to start the application? (y/n):</value>
-  </data>
   <data name="LaunchingApplication" xml:space="preserve">
     <value>Launch the application...</value>
   </data>
   <data name="FailedToChangePermissions" xml:space="preserve">
     <value>Failed to change application execution permissions.</value>
   </data>
-  <data name="ApplicationPathNotSpecified" xml:space="preserve">
-    <value>The application execution path is not specified.</value>
-  </data>
-  <data name="ApplicationNotLaunched" xml:space="preserve">
-    <value>The application was not launched.</value>
-  </data>
   <data name="ClickOkAfterCompletion" xml:space="preserve">
     <value>Click OK after completion</value>
   </data>
-  <data name="UpdateCompletedLaunchConfirm" xml:space="preserve">
-    <value>Update completed. Do you want to start the application?</value>
-  </data>
   <data name="FailedToRestoreBackup" xml:space="preserve">
     <value>Failed to restore backup.</value>
-  </data>
-  <data name="ConfirmInstall" xml:space="preserve">
-    <value>Do you want to install?
-(The update function is an experimental feature.)</value>
   </data>
   <data name="ExpressionIsSet" xml:space="preserve">
     <value>Expression is set</value>
@@ -355,6 +366,12 @@ Do you want to restart the application?</value>
   </data>
   <data name="PackagesCanBeUpdated" xml:space="preserve">
     <value>{0} package(s) can be updated.</value>
+  </data>
+  <data name="PackageUpdatesRequired" xml:space="preserve">
+    <value>Package updates are required.</value>
+  </data>
+  <data name="PackagesNotLoadedOnThisVersion" xml:space="preserve">
+    <value>{0} package(s) could not be loaded on this version of Beutl.</value>
   </data>
   <data name="IsNotValid" xml:space="preserve">
     <value>{0} is not a valid.</value>
@@ -505,5 +522,14 @@ Do you want to restart the application?</value>
   </data>
   <data name="KeptUnknownDataSavedByMessage" xml:space="preserve">
     <value>This project was last saved with Beutl {0} and contains data from a newer version of Beutl or from an extension that is not installed. Beutl keeps that data when it saves the project, but does not show or use it.</value>
+  </data>
+  <data name="UpdatedToVersion_Title" xml:space="preserve">
+    <value>Updated to Beutl {0}</value>
+  </data>
+  <data name="UpdatedToVersion_Content" xml:space="preserve">
+    <value>The release notes show what changed.</value>
+  </data>
+  <data name="ReleaseNotes" xml:space="preserve">
+    <value>Release notes</value>
   </data>
 </root>

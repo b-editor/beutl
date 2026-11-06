@@ -2,6 +2,7 @@
 using Beutl.Composition;
 using Beutl.Controls;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Reactive.Bindings;
@@ -211,6 +212,35 @@ public static partial class AvaloniaTypeConverter
                 stops.Add(t.Item1);
             }
         }
+    }
+
+    // Reports the stops that show a gradient as it renders. Avalonia mixes in sRGB whichever space the brush mixes in, so
+    // these stand close enough together that what it mixes between them is not seen.
+    internal static IDisposable ObserveDisplayStops(
+        this Media.GradientBrush brush, IObservable<MediaTime> time, Action<Avalonia.Media.GradientStops> onUpdated)
+    {
+        return AdaptEngineObject(
+            brush, time,
+            (o, rc) => (Media.GradientBrush.Resource)o.ToResource(rc),
+            r => onUpdated(ToDisplayStops(r)));
+    }
+
+    private static Avalonia.Media.GradientStops ToDisplayStops(Media.GradientBrush.Resource brush)
+    {
+        (SkiaSharp.SKColor[] colors, float[] offsets) = GradientStopInterpolation.ExpandForSrgbSurface(
+            [.. brush.GradientStops.Select(s => s.Color.ToSKColor())],
+            [.. brush.GradientStops.Select(s => s.Offset)],
+            brush.InterpolationSpace,
+            brush.InterpolatePremultiplied);
+        var stops = new Avalonia.Media.GradientStops();
+        for (int i = 0; i < colors.Length; i++)
+        {
+            SkiaSharp.SKColor color = colors[i];
+            stops.Add(new Avalonia.Media.GradientStop(
+                Avalonia.Media.Color.FromArgb(color.Alpha, color.Red, color.Green, color.Blue), offsets[i]));
+        }
+
+        return stops;
     }
 
     public static (Avalonia.Media.Brush?, IDisposable, Action?) ToAvaBrushSync(this Media.Brush? brush,

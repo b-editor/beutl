@@ -124,6 +124,19 @@ public sealed record ElementDescription
     public Point? Position { get; init; }
 
     /// <summary>
+    /// Starts where the previous request of the batch on the same <see cref="Layer"/> ended, which is known only once
+    /// the source handler has opened the source. The first request on a layer starts at <see cref="Start"/>.
+    /// </summary>
+    public bool FollowsPrevious { get; init; }
+
+    /// <summary>
+    /// Goes above what the scene holds when the first such request of the batch goes in, as the requests before that
+    /// have their final layers only then. <see cref="Layer"/> counts up from there for all of them, leaving out locked
+    /// layers, so none of them refuses it.
+    /// </summary>
+    public bool StacksAboveScene { get; init; }
+
+    /// <summary>
     /// Resolves the element name: the explicit <see cref="Name"/> when set, otherwise the
     /// localized display name of <paramref name="fallbackType"/>.
     /// </summary>

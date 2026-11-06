@@ -30,15 +30,13 @@ public sealed class CompressorNode : DynamicsNode
 
     protected override string DiagnosticName => "Compressor";
 
-    // AnimationSampler does not evaluate expressions per sample, so expression-backed properties
-    // remain at Value.
     protected override bool HasAnimatedParameters =>
-        Threshold.GetKeyFrameAnimation() != null ||
-        Ratio.GetKeyFrameAnimation() != null ||
-        Attack.GetKeyFrameAnimation() != null ||
-        Release.GetKeyFrameAnimation() != null ||
-        Knee.GetKeyFrameAnimation() != null ||
-        MakeupGain.GetKeyFrameAnimation() != null;
+        AnimationSampler.IsAnimated(Threshold) ||
+        AnimationSampler.IsAnimated(Ratio) ||
+        AnimationSampler.IsAnimated(Attack) ||
+        AnimationSampler.IsAnimated(Release) ||
+        AnimationSampler.IsAnimated(Knee) ||
+        AnimationSampler.IsAnimated(MakeupGain);
 
     protected override AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {
@@ -54,8 +52,7 @@ public sealed class CompressorNode : DynamicsNode
                 p,
                 1f - 1f / p.Ratio);
 
-            var (inputChannels, outputChannels) = MapChannels(input, output);
-            ApplyLinkedGain(inputChannels, outputChannels, input.ChannelCount, 0, input.SampleCount, ref gain);
+            ApplyLinkedGain(input, output, 0, input.SampleCount, ref gain);
 
             return output;
         }
@@ -101,7 +98,6 @@ public sealed class CompressorNode : DynamicsNode
             };
 
             int sampleCount = input.SampleCount;
-            var (inputChannels, outputChannels) = MapChannels(input, output);
 
             int processed = 0;
             while (processed < sampleCount)
@@ -118,7 +114,7 @@ public sealed class CompressorNode : DynamicsNode
                 context.AnimationSampler.SampleBuffer(MakeupGain, chunkRange, context.SampleRate, makeups[..chunkSize]);
 
                 gain.ChunkStart = processed;
-                ApplyLinkedGain(inputChannels, outputChannels, input.ChannelCount, processed, chunkSize, ref gain);
+                ApplyLinkedGain(input, output, processed, chunkSize, ref gain);
 
                 processed += chunkSize;
             }

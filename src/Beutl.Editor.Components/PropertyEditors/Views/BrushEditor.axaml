@@ -16,6 +16,7 @@
              d:DesignWidth="300"
              x:CompileBindings="True"
              x:DataType="vm:BrushEditorViewModel"
+             BackgroundStops="{Binding DisplayStops.Value}"
              Brush="{Binding AvaloniaBrush.Value}"
              OriginalBrush="{Binding Value.Value}"
              mc:Ignorable="d">
@@ -42,7 +43,7 @@
                         <Panel>
                             <!--  Half a pixel tighter than ControlCornerRadius: the swatch sits inside the button's 1px padding.  -->
                             <Border Background="{StaticResource ColorControlCheckeredBackgroundBrush}" CornerRadius="7.5" />
-                            <Border Background="{Binding AvaloniaBrush.Value}" CornerRadius="7.5" />
+                            <Border Background="{Binding SwatchBrush.Value}" CornerRadius="7.5" />
                         </Panel>
                     </Button>
 

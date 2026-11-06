@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
@@ -51,6 +52,8 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         return bufferBounds;
     }
 
+    /// <param name="bufferBounds">The buffers the operation allocates whole. None means that every buffer, the inputs'
+    /// included, holds only what a request needs, so the density is fitted to that request.</param>
     public EffectiveScale Resolve(
         IReadOnlyList<EffectiveScale> inputSupplies,
         IReadOnlyList<Rect> inputBounds,
@@ -65,8 +68,6 @@ internal readonly record struct FilterEffectWorkingScalePolicy
             throw new InvalidOperationException("A filter-effect working-scale policy requires at least one input.");
         if (inputSupplies.Count != inputBounds.Count)
             throw new ArgumentException("Filter-effect input supplies and bounds must have matching cardinality.");
-        if (bufferBounds.Count == 0)
-            throw new ArgumentException("A filter-effect operation requires at least one buffer footprint.");
 
         EffectiveScale[] mappedSupplies = new EffectiveScale[inputSupplies.Count];
         for (int index = 0; index < inputSupplies.Count; index++)
@@ -75,7 +76,8 @@ internal readonly record struct FilterEffectWorkingScalePolicy
                 [inputSupplies[index]],
                 inputBounds[index],
                 outputScale,
-                maxWorkingScale);
+                maxWorkingScale,
+                fitToOutputBounds: bufferBounds.Count > 0);
         }
 
         float workingScale = 0;
@@ -107,6 +109,8 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         return EffectiveScale.At(ClampToBufferBudgets(bufferBounds, workingScale));
     }
 
+    /// <param name="bufferBounds">The buffers the operation allocates whole, or none when every one holds only what a
+    /// request needs.</param>
     internal static EffectiveScale ResolveMaterialized(
         IReadOnlyList<EffectiveScale> inputSupplies,
         IReadOnlyList<Rect> bufferBounds,
@@ -117,8 +121,6 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         ArgumentNullException.ThrowIfNull(bufferBounds);
         if (inputSupplies.Count == 0)
             throw new InvalidOperationException("A materialized filter-effect operation requires at least one input.");
-        if (bufferBounds.Count == 0)
-            throw new ArgumentException("A materialized filter-effect operation requires at least one buffer footprint.");
 
         float workingScale = RenderScaleUtilities.ResolveWorkingScale(
             inputSupplies.ToArray(),
@@ -134,9 +136,16 @@ internal readonly record struct FilterEffectWorkingScalePolicy
     {
         ArgumentNullException.ThrowIfNull(inputBounds);
         ArgumentNullException.ThrowIfNull(boundsItems);
+        // Filters that all have a sampling footprint get only the part of their input a request reads, and make only
+        // the part of their output it needs, so none of their buffers is allocated whole. What each request needs
+        // holds them to their budgets.
+        if (EffectItemSamplingSupport.CanResolveSampledInput(boundsItems, fallbackBounds))
+            return [];
+
         var result = new List<Rect>();
+        int itemCount = CountItemsAllocatedWhole(boundsItems, fallbackBounds);
         int firstCustomIndex = -1;
-        for (int index = 0; index < boundsItems.Count; index++)
+        for (int index = 0; index < itemCount; index++)
         {
             if (boundsItems[index] is IFEItem_Custom)
             {
@@ -145,7 +154,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
             }
         }
 
-        int branchItemCount = firstCustomIndex >= 0 ? firstCustomIndex : boundsItems.Count;
+        int branchItemCount = firstCustomIndex >= 0 ? firstCustomIndex : itemCount;
         Rect preCustomAggregateBounds = default;
         var preCustomBranchStates = new List<EffectItemFootprintState>(inputBounds.Count);
         foreach (Rect input in inputBounds)
@@ -182,7 +191,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
                 preCustomAggregateBounds,
                 boundsItems,
                 firstCustomIndex,
-                boundsItems.Count - firstCustomIndex,
+                itemCount - firstCustomIndex,
                 fallbackBounds,
                 result,
                 preCustomRetainedBackingOffsets,
@@ -192,6 +201,24 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         if (result.Count == 0)
             result.Add(ToLocalEffectItemFootprint(fallbackBounds, fallbackBounds));
         return result.ToArray();
+    }
+
+    // A shader graph that only Skia filters with a sampling footprint follow produces what the request needs of its
+    // output, so neither it nor those filters set a limit here: what it allocates is held to its budgets once the
+    // request's region is known. Every item before it is allocated whole.
+    private static int CountItemsAllocatedWhole(IReadOnlyList<IFEItem> items, Rect output)
+    {
+        for (int index = items.Count - 1; index >= 0; index--)
+        {
+            if (items[index] is IFEItem_Skia)
+                continue;
+            return items[index] is FEItem_ShaderGraph
+                   && EffectItemSamplingSupport.TryResolveStageOutput(items, index, output, out _)
+                ? index
+                : items.Count;
+        }
+
+        return items.Count;
     }
 
     private static EffectItemFootprintState CollectEffectItemFootprints(

@@ -1,4 +1,8 @@
-﻿using Beutl.Engine.Expressions;
+﻿using System.Numerics;
+using Beutl.Animation;
+using Beutl.Engine;
+using Beutl.Engine.Expressions;
+using Beutl.Graphics;
 using Beutl.Threading;
 
 namespace Beutl.UnitTests.Engine.Expressions;
@@ -22,6 +26,115 @@ public class ExpressionTests
             Assert.That(expression, Is.Null);
             Assert.That(error, Does.Contain("float"));
         });
+    }
+
+    [Test]
+    public void ComponentExpression_TakesItsComponentOfTheValue()
+    {
+        Assert.That(ComponentExpression<Size, float>.TryParse("new Size(Sin(Time) * 100, 50)", out var expressions, out string? error),
+            Is.True, error);
+
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
+        Assert.Multiple(() =>
+        {
+            Assert.That(expressions!.Select(expression => expression.Evaluate(context)), Is.EqualTo(new[] { 0f, 50f }));
+            Assert.That(expressions!.Select(expression => expression.ExpressionString), Is.EqualTo(new[]
+            {
+                "(new Size(Sin(Time) * 100, 50)).Width", "(new Size(Sin(Time) * 100, 50)).Height"
+            }));
+        });
+    }
+
+    // What the source returns may come after statements, and only that takes the component.
+    [TestCase("new Point(1, 2)", 1f, 2f)]
+    [TestCase("var size = 30; new Point(size, size * 2)", 30f, 60f)]
+    [TestCase("var size = 30; return new Point(size, size * 2);", 30f, 60f)]
+    [TestCase("if (Time < 0) return new Point(1, 2); new Point(3, 4)", 3f, 4f)]
+    [TestCase("if (Time >= 0) return new Point(1, 2); new Point(3, 4)", 1f, 2f)]
+    [TestCase("Func<int, int> twice = x => { return x * 2; }; new Point(twice(1), 3)", 2f, 3f)]
+    [TestCase("new Point(1, 2) // the position", 1f, 2f)]
+    public void ComponentExpression_ExpressionStringIsAScriptOfTheComponent(string source, float x, float y)
+    {
+        Assert.That(ComponentExpression<Point, float>.TryParse(source, out var expressions, out string? error), Is.True, error);
+
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
+        var values = expressions!.Select(expression =>
+        {
+            Assert.That(Expression.TryParse<float>(expression.ExpressionString, out var scalar, out string? scalarError), Is.True, scalarError);
+            return scalar!.Evaluate(context);
+        });
+        Assert.That(values, Is.EqualTo(new[] { x, y }));
+    }
+
+    [Test]
+    public void ComponentExpression_RejectsWhatDoesNotReturnTheValue()
+    {
+        Assert.That(ComponentExpression<Size, float>.TryParse("new Point(1, 2)", out var expressions, out string? error), Is.False);
+        Assert.That(expressions, Is.Null);
+        Assert.That(error, Does.Contain("Size"));
+    }
+
+    [Test]
+    public void ComponentExpression_RoundTripsThroughJson()
+    {
+        Assert.That(ComponentExpression<Point, float>.TryParse("new Point(1, 2)", out var expressions, out string? error), Is.True, error);
+
+        var copy = Expression.CreateFromNode<float>(Expression.ToNode(expressions![1]));
+
+        Assert.That(copy, Is.TypeOf<ComponentExpression<Point, float>>());
+        var component = (IComponentExpression)copy!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(component.Source, Is.EqualTo("new Point(1, 2)"));
+            Assert.That(component.Component, Is.EqualTo("Y"));
+            Assert.That(component.ComponentIndex, Is.EqualTo(1));
+            Assert.That(copy!.Evaluate(TestHelper.CreateExpressionContext(MediaTime.Zero)), Is.EqualTo(2f));
+        });
+    }
+
+    // Three properties share a Vector3, which an expression names in full.
+    [Test]
+    public void ComponentExpression_TakesEachComponentOfAVector3AndRoundTripsThroughJson()
+    {
+        Assert.That(ComponentExpression<Vector3, float>.TryParse("new System.Numerics.Vector3(1, 2, 3)", out var expressions,
+            out string? error), Is.True, error);
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
+        Assert.That(expressions!.Select(expression => expression.Evaluate(context)), Is.EqualTo(new[] { 1f, 2f, 3f }));
+
+        var copy = Expression.CreateFromNode<float>(Expression.ToNode(expressions![2]));
+
+        Assert.That(copy, Is.TypeOf<ComponentExpression<Vector3, float>>());
+        Assert.Multiple(() =>
+        {
+            Assert.That(((IComponentExpression)copy!).Component, Is.EqualTo("Z"));
+            Assert.That(((IComponentExpression)copy!).ComponentIndex, Is.EqualTo(2));
+            Assert.That(copy!.Evaluate(context), Is.EqualTo(3f));
+        });
+    }
+
+    [Test]
+    public void ComponentExpression_ReportsAComponentTheValueDoesNotHave()
+    {
+        var expression = new ComponentExpression<Point, float>("new Point(1, 2)", "Depth");
+
+        Assert.That(expression.Validate(out string? error), Is.False);
+        Assert.That(error, Does.Contain("Depth"));
+        Assert.Throws<ExpressionException>(() => expression.Evaluate(TestHelper.CreateExpressionContext(MediaTime.Zero)));
+    }
+
+    [Test]
+    public void ComponentExpression_KeepsTheKeyFramesBelowIt()
+    {
+        var property = new AnimatableProperty<float>(0);
+        var animation = new KeyFrameAnimation<float>();
+        property.SetKeyFrameAnimation(animation);
+        Assert.That(ComponentExpression<Point, float>.TryParse("new Point(1, 2)", out var expressions, out string? error), Is.True, error);
+
+        property.Expression = expressions![0];
+
+        Assert.That(property.HasExpression, Is.True);
+        Assert.That(property.GetKeyFrameAnimation(), Is.SameAs(animation));
+        Assert.That(property.Expression, Is.TypeOf<ComponentExpression<Point, float>>());
     }
 
     [TestCase("1.25", 1.25f)]

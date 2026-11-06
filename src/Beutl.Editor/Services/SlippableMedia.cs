@@ -31,6 +31,11 @@ internal static partial class SlippableMedia
         public MediaTime ContextTime(MediaTime localTime)
             => Mapping.MapControllerTime(localTime);
 
+        // This target as it plays localTime, with each speed and controller expression at the value it gives then. Null
+        // when a value cannot place a position.
+        public Target? AtMoment(MediaTime localTime)
+            => Mapping.AtMoment(localTime) is { } moment ? new Target(Offset, Total, moment, Length) : null;
+
         // The position playback shows, after any wrap the source applies.
         public MediaTime SourcePosition(MediaTime localTime)
             => Mapping.Range(localTime, localTime, extrapolate: false, conservative: false).Min;

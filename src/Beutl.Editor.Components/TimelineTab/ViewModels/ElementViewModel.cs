@@ -98,7 +98,7 @@ public sealed partial class ElementViewModel : IDisposable
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        RestBorderColor = Color.Select(v => (Avalonia.Media.Color)((Color2)v).LightenPercent(-0.3f))
+        RestBorderColor = Color.Select(GetRestBorderColor)
             .ToReadOnlyReactivePropertySlim();
 
         TextColor = Color.Select(ColorGenerator.GetTextColor)
@@ -140,14 +140,9 @@ public sealed partial class ElementViewModel : IDisposable
         zIndexSubject.Subscribe(number =>
             {
                 // A header's number is its index in LayerHeaders.
-                LayerHeaderViewModel? newLH = number >= 0 && number < Timeline.LayerHeaders.Count
+                LayerHeader.Value = number >= 0 && number < Timeline.LayerHeaders.Count
                     ? Timeline.LayerHeaders[number]
                     : null;
-
-                LayerHeader.Value?.ElementRemoved();
-
-                newLH?.ElementAdded();
-                LayerHeader.Value = newLH;
             })
             .AddTo(_disposables);
 
@@ -291,6 +286,9 @@ public sealed partial class ElementViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<Avalonia.Media.Color> RestBorderColor { get; }
 
+    internal static Avalonia.Media.Color GetRestBorderColor(Avalonia.Media.Color color)
+        => ((Color2)color).LightenPercent(-0.3f);
+
     public ReadOnlyReactivePropertySlim<Avalonia.Media.Color> TextColor { get; }
 
     public ReactiveCommand Split { get; } = new();
@@ -343,6 +341,15 @@ public sealed partial class ElementViewModel : IDisposable
 
     public IReadOnlyList<ElementViewModel> GetGroupOrSelectedElements()
     {
+        return GetGroupOrSelectedModels()
+            .Select(Timeline.GetViewModelFor)
+            .OfType<ElementViewModel>()
+            .ToArray();
+    }
+
+    // The same clips, for what only reads them: a clip that is not on screen has no view model until it needs one.
+    internal Element[] GetGroupOrSelectedModels()
+    {
         HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(
             Timeline.SelectedElements.Select(item => item.Model.Id.Value), Scene.Groups);
 
@@ -358,9 +365,13 @@ public sealed partial class ElementViewModel : IDisposable
             return [];
         }
 
-        return Timeline.Elements
-            .Where(x => ids.Contains(x.Model.Id.Value))
-            .ToArray();
+        return [.. Scene.Children.Where(x => ids.Contains(x.Id.Value))];
+    }
+
+    internal Element[] GetGroupOrSelectedModelsOrSelf()
+    {
+        Element[] models = GetGroupOrSelectedModels();
+        return models.Length == 0 ? [Model] : models;
     }
 
     public bool CanGroupSelectedElements()
@@ -508,8 +519,8 @@ public sealed partial class ElementViewModel : IDisposable
             .Delete(Scene, targets, Timeline.IsRippleEnabled.Value);
     }
 
-    private Element[] EditableTargets()
-        => GetGroupOrSelectedElements().Where(e => e.IsEditable.Value).Select(e => e.Model).ToArray();
+    internal Element[] EditableTargets()
+        => GetGroupOrSelectedModels().Where(e => !Scene.IsElementLocked(e)).ToArray();
 
     // IElementStructureService skips the user-locked ones.
     private Element[] RemovableTargets()
@@ -575,7 +586,7 @@ public sealed partial class ElementViewModel : IDisposable
 
     private async Task OnCopy()
     {
-        Element[] models = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
+        Element[] models = GetGroupOrSelectedModels();
         await Timeline.EditorContext.GetRequiredService<IElementClipboardService>().CopyAsync(models);
     }
 
@@ -589,28 +600,20 @@ public sealed partial class ElementViewModel : IDisposable
 
     public void SplitAt(MediaTime timeSpan)
     {
-        SplitCore([this], timeSpan);
+        SplitCore([Model], timeSpan);
     }
 
     private void OnSplit(MediaTime timeSpan)
     {
-        IReadOnlyList<ElementViewModel> targets = GetGroupOrSelectedElements();
-        if (targets.Count == 0)
-        {
-            targets = [this];
-        }
-
-        SplitCore(targets, timeSpan);
+        SplitCore(GetGroupOrSelectedModelsOrSelf(), timeSpan);
     }
 
-    private void SplitCore(IReadOnlyList<ElementViewModel> targets, MediaTime timeSpan)
+    private void SplitCore(Element[] targets, MediaTime timeSpan)
     {
-        Element[] models = targets.Where(t => t.IsEditable.Value).Select(t => t.Model).ToArray();
-        if (models.Length == 0) return;
         Rational rate = SceneTimeRangeService.GetFrameRate(Scene);
         MediaTime at = timeSpan.RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
-        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Split(Scene, models, at);
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Split(Scene, targets, at);
     }
 
     private async void OnChangeToOriginalDuration()

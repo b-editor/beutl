@@ -354,15 +354,6 @@ public sealed class FFmpegReader : MediaReader
 
     internal sealed class AudioFrameConverter : SampleConverter
     {
-        public AudioFrameConverter(int sampleRate) : this(sampleRate, new AVChannelLayout
-        {
-            order = AVChannelOrder.AV_CHANNEL_ORDER_NATIVE,
-            nb_channels = 2,
-            u = new AVChannelLayout_u { mask = ffmpeg.AV_CH_LAYOUT_STEREO }
-        })
-        {
-        }
-
         // outputLayout is the pointer-free NATIVE or UNSPEC layout fixed by GetOutputLayout at open.
         public AudioFrameConverter(int sampleRate, AVChannelLayout outputLayout)
         {

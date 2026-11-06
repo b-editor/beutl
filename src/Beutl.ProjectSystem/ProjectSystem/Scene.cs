@@ -54,7 +54,7 @@ public partial class Scene : ProjectItem, INotifyEdited
         Duration.Value = MediaTime.FromSeconds(300);
         ScanProperties<Scene>();
         FrameSize.Value = new PixelSize(width, height);
-        Children.CollectionChanged += (_, _) => { lock (_elementIndexLock) _elementIndex = null; };
+        Children.CollectionChanged += (_, e) => ApplyToElementIndex(e);
         Children.CollectionChanged += Children_CollectionChanged;
         Children.Attached += item =>
         {
@@ -103,6 +103,26 @@ public partial class Scene : ProjectItem, INotifyEdited
         lock (_elementIndexLock) _elementIndex?.Update(element);
     }
 
+    // Appending keeps the scene order of the other elements, so adding clips one by one with a placement check for
+    // each does not rebuild the index every time. Anything else gets a new one on demand: a renderer between a query
+    // and a sort still needs the elements it found in the instance it holds, even after they are removed.
+    private void ApplyToElementIndex(NotifyCollectionChangedEventArgs e)
+    {
+        lock (_elementIndexLock)
+        {
+            if (_elementIndex is not { } index) return;
+
+            if (e.Action == NotifyCollectionChangedAction.Add && e.NewStartingIndex + e.NewItems!.Count == Children.Count)
+            {
+                foreach (Element element in e.NewItems) index.Append(element);
+            }
+            else
+            {
+                _elementIndex = null;
+            }
+        }
+    }
+
     internal void UpdateTransitionElement(Element element)
     {
         lock (_elementIndexLock)
@@ -128,6 +148,13 @@ public partial class Scene : ProjectItem, INotifyEdited
 
     [Display(Name = nameof(Strings.DurationTime), ResourceType = typeof(Strings))]
     public IProperty<MediaTime> Duration { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero) { Coerce = static (_, value) => NotNegative(value) };
+
+    // The volume of everything in the scene together, in percent.
+    [Display(Name = nameof(Strings.MasterVolume), ResourceType = typeof(Strings))]
+    public IProperty<float> MasterVolume { get; } = new ValueOnlyProperty<float>(100f) { Coerce = static (_, value) => value > 0 ? value : 0 };
+
+    // What the mix is multiplied by.
+    internal float MasterGain => MasterVolume.Value / 100f;
 
     [NotAutoSerialized]
     public IListProperty<ImmutableHashSet<Guid>> Groups { get; } = new ListProperty<ImmutableHashSet<Guid>> { AffectsRender = false };
@@ -273,7 +300,7 @@ public partial class Scene : ProjectItem, INotifyEdited
             throw new ArgumentOutOfRangeException(nameof(elements));
         }
 
-        MoveChildrenCore(elements, deltaIndex, deltaStart);
+        MoveChildrenCore(elements, deltaIndex, deltaStart, fitAroundConflicts: true);
     }
 
     private void Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

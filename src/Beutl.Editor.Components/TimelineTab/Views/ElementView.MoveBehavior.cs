@@ -127,7 +127,8 @@ public sealed partial class ElementView
                     .RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
                 if (newStart < MediaTime.Zero) newStart = MediaTime.Zero;
-                SnapResult snap = view.SnapTime(newStart, scale, _lastAlt);
+                // A duplicate leaves the originals where they are, so their edges still count.
+                SnapResult snap = view.SnapTime(newStart, scale, _lastAlt, moving: _duplicateMode ? null : _relatedElements);
                 newStart = snap.Time;
 
                 var newTop = Math.Max(e.GetPosition(timeline.TimelinePanel).Y - _start.Y, 0);
@@ -375,17 +376,9 @@ public sealed partial class ElementView
                     return;
             }
 
-            try
-            {
-                // Must await: a fire-and-forget AnimationRequest swallows exceptions
-                // and leaves the visual stuck at the dragged position.
-                await Task.WhenAll(animations.Select(a => a.ViewModel.AnimationRequest(a.Context)));
-            }
-            catch (Exception ex)
-            {
-                s_logger.LogWarning(ex, "Animation failed after duplicate/move; snapping visuals to model.");
-                ForceRestoreVisualToModel(relatedElements);
-            }
+            await AnimateToModelAsync(
+                animations,
+                ex => s_logger.LogWarning(ex, "Animation failed after duplicate/move; snapping visuals to model."));
         }
 
         private void SpawnGhostsForRelatedElements(

@@ -10,13 +10,13 @@ public sealed partial class Reconciler
     // which resolves its ObjectId against the project at composition time. A direct value on the property cannot
     // resolve that way — the engine would mint a new empty object from it — so any non-null direct value is
     // rejected here, and the Expressions form (if present) is validated for a resolvable target.
-    private static void ValidateReferenceValues(CoreObject liveRoot, JsonNode? node, string path = "$")
+    private static void ValidateReferenceValues(ObjectLookup liveObjects, JsonNode? node, string path = "$")
     {
         if (node is JsonObject obj)
         {
-            foreach (ReferencePropertyDescriptor property in ResolveReferenceProperties(liveRoot, obj))
+            foreach (ReferencePropertyDescriptor property in ResolveReferenceProperties(liveObjects, obj))
             {
-                ValidateReferenceExpression(liveRoot, obj, property, path);
+                ValidateReferenceExpression(liveObjects, obj, property, path);
                 if (obj.TryGetPropertyValue(property.Name, out JsonNode? valueNode) && valueNode is not null)
                 {
                     throw new ReconcileException(new ToolError(
@@ -29,14 +29,14 @@ public sealed partial class Reconciler
 
             foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
             {
-                ValidateReferenceValues(liveRoot, pair.Value, $"{path}/{pair.Key}");
+                ValidateReferenceValues(liveObjects, pair.Value, $"{path}/{pair.Key}");
             }
         }
         else if (node is JsonArray array)
         {
             for (int i = 0; i < array.Count; i++)
             {
-                ValidateReferenceValues(liveRoot, array[i], $"{path}[{i}]");
+                ValidateReferenceValues(liveObjects, array[i], $"{path}[{i}]");
             }
         }
     }
@@ -45,7 +45,7 @@ public sealed partial class Reconciler
     // would render empty; validate it against the live project. PropertyPath references are rejected
     // because the toolkit never emits them and detached render snapshots cannot resolve them.
     private static void ValidateReferenceExpression(
-        CoreObject liveRoot, JsonObject obj, ReferencePropertyDescriptor property, string path)
+        ObjectLookup liveObjects, JsonObject obj, ReferencePropertyDescriptor property, string path)
     {
         if (!obj.TryGetPropertyValue("Expressions", out JsonNode? expressionsNode)
             || expressionsNode is not JsonObject expressions
@@ -104,10 +104,7 @@ public sealed partial class Reconciler
                 $"Set Expressions.{property.Name} = {{\"ObjectId\": \"<guid>\"}} without a PropertyPath."));
         }
 
-        ICoreObject searchRoot = (liveRoot as IHierarchical)?.FindHierarchicalRoot() as ICoreObject ?? liveRoot;
-        ICoreObject? target = liveRoot is IHierarchical anchor
-            ? ReferenceScope.Find(anchor, objectId, searchRoot)
-            : searchRoot.FindById(objectId);
+        ICoreObject? target = liveObjects.FindReference(objectId);
         if (target is null || !property.ReferencedType.IsInstanceOfType(target))
         {
             throw new ReconcileException(new ToolError(
@@ -129,7 +126,7 @@ public sealed partial class Reconciler
     }
 
     // A type that cannot be created takes its reference properties from the live object with the same Id, or has none.
-    private static IReadOnlyList<ReferencePropertyDescriptor> ResolveReferenceProperties(CoreObject liveRoot, JsonObject obj)
+    private static IReadOnlyList<ReferencePropertyDescriptor> ResolveReferenceProperties(ObjectLookup liveObjects, JsonObject obj)
     {
         if (obj.TryGetDiscriminator(out Type? type) && ReferenceProperties.ForOwner(type) is { } declared)
         {
@@ -137,7 +134,7 @@ public sealed partial class Reconciler
         }
 
         if (CollectionReconciler.TryGetId(obj, out Guid id)
-            && liveRoot.FindById(id) is EngineObject live)
+            && liveObjects.Find(id) is EngineObject live)
         {
             return ReferenceProperties.ForOwner(live.GetType()) ?? ReferenceProperties.Of(live);
         }

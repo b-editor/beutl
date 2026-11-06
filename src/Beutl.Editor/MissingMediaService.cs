@@ -34,6 +34,8 @@ public sealed class MissingMediaService
     private readonly Func<string, IEnumerable<string>> _enumerateEntries;
     private readonly ConcurrentDictionary<(MissingMediaKind Kind, Uri Uri),
         (HashSet<IFileSource> Sources, MediaFileFingerprint? Fingerprint)> _validated = new();
+    // Each file as it last decoded, so that a check of a file that has not changed since does not decode it again.
+    private readonly ConcurrentDictionary<(MissingMediaKind Kind, string Path), (long Length, long LastWriteTicks)> _decoded = new();
 
     public MissingMediaService() : this(font => FontManager.Instance.IsRegistered(font)) { }
 
@@ -43,7 +45,7 @@ public sealed class MissingMediaService
         _enumerateEntries = enumerateEntries ?? (directory => Directory.EnumerateFileSystemEntries(directory, "*", new EnumerationOptions
         {
             IgnoreInaccessible = true,
-            AttributesToSkip = FileAttributes.ReparsePoint
+            AttributesToSkip = 0
         }));
     }
 
@@ -181,8 +183,9 @@ public sealed class MissingMediaService
                 token.ThrowIfCancellationRequested();
                 try
                 {
+                    long length = ResolveLinkedFile(path).Length;
                     Add(byName, Path.GetFileName(path), path);
-                    Add(bySize, new FileInfo(path).Length, path);
+                    Add(bySize, length, path);
                     if (findFonts && IsFontFile(path))
                     {
                         foreach (var face in FontManager.OpenFontFaces(path))
@@ -279,7 +282,7 @@ public sealed class MissingMediaService
         if (item.Fingerprint is not { } expected) return false;
         async Task<bool> MatchesFileAsync(string file, MediaFileFingerprint fingerprint)
         {
-            if (new FileInfo(file).Length != fingerprint.Length) return false;
+            if (ResolveLinkedFile(file).Length != fingerprint.Length) return false;
             string hash;
             if (hashes is null || !hashes.TryGetValue(file, out hash!))
             {
@@ -315,11 +318,18 @@ public sealed class MissingMediaService
                 FileAttributes attributes;
                 try { attributes = File.GetAttributes(entry); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
-                if ((attributes & FileAttributes.ReparsePoint) != 0) continue;
-                if ((attributes & FileAttributes.Directory) != 0) pending.Push(entry);
-                else yield return entry;
+                if ((attributes & FileAttributes.Directory) == 0) yield return entry;
+                // A linked folder could lead back up the tree. A linked file is only a file.
+                else if ((attributes & FileAttributes.ReparsePoint) == 0) pending.Push(entry);
             }
         }
+    }
+
+    // The file a link leads to, which has the length and the time. Those of the link itself say nothing about it.
+    private static FileInfo ResolveLinkedFile(string path)
+    {
+        var file = new FileInfo(path);
+        return file.ResolveLinkTarget(returnFinalTarget: true) as FileInfo ?? file;
     }
 
     private IEnumerable<string> EnumerateReadableEntries(string directory, CancellationToken token)
@@ -349,12 +359,18 @@ public sealed class MissingMediaService
 
     private static bool IsFontFile(string path) => Path.GetExtension(path).ToLowerInvariant() is ".ttf" or ".ttc" or ".otf";
 
-    /// <summary>Decodes a candidate before any live source is changed.</summary>
+    /// <summary>
+    /// Decodes a candidate before any live source is changed, unless it decoded as this kind and has not changed since.
+    /// </summary>
     public Task<IFileSource?> ValidateAsync(MissingMedia item, string path, CancellationToken token = default)
         => Task.Run<IFileSource?>(() =>
         {
             token.ThrowIfCancellationRequested();
             if (!File.Exists(path)) throw new FileNotFoundException("Media file not found.", path);
+            // A model also depends on the files beside it, and a font on the family the row names, so those are always read.
+            var stamp = item.Kind is MissingMediaKind.Model or MissingMediaKind.Font ? null : ReadFileStamp(path);
+            if (stamp is { } unchanged && _decoded.TryGetValue((item.Kind, path), out var decoded) && decoded == unchanged)
+                return null;
             switch (item.Kind)
             {
                 case MissingMediaKind.Image:
@@ -394,8 +410,21 @@ public sealed class MissingMediaService
                     if (!found) throw new InvalidDataException("Choose a font file belonging to the missing font family.");
                     break;
             }
+            if (stamp is { } read) _decoded[(item.Kind, path)] = read;
             return null;
         }, token);
+
+    // Null for a file that cannot be opened, so that a decoder reports why. Opening it still notices a file that became
+    // unreadable, which its size and time do not show.
+    private static (long Length, long LastWriteTicks)? ReadFileStamp(string path)
+    {
+        try
+        {
+            using var handle = File.OpenHandle(path, share: FileShare.ReadWrite | FileShare.Delete);
+            return (RandomAccess.GetLength(handle), File.GetLastWriteTimeUtc(handle).Ticks);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
+    }
 
     // Caches hashes in the scene folder's .beutl/ only when asked, so a staged package copy gets none.
     public Task UpdateFingerprintsAsync(Scene scene, CancellationToken token = default, bool force = true,
@@ -479,7 +508,7 @@ public sealed class MissingMediaService
     private static async Task<MediaFileFingerprint> CaptureFileFingerprintAsync(string path, MediaFileFingerprint? previous,
         MediaHashCache? cache, CancellationToken token)
     {
-        var file = new FileInfo(path);
+        FileInfo file = ResolveLinkedFile(path);
         // A file without a fingerprint, for example one the repair tool relinked, is always read.
         string hash = (previous is null ? null : cache?.Find(file)) ?? await HashFileAsync(file.FullName, token);
         cache?.Add(file, hash);

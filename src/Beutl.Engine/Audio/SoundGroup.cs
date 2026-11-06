@@ -78,23 +78,7 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
             mixerNode.SetBranchEndTime(shiftNode, original.TimeRange.Value.End - TimeRange.Value.Start);
         }
 
-        var pannerNode = context.CreatePannerNode(Pan, SurroundPan, CenterLevel, LfeLevel, context.ChannelLayout);
-        context.Connect(mixerNode, pannerNode);
-        AudioNode currentNode = pannerNode;
-
-        var gainNode = context.CreateGainNode(Gain);
-        context.Connect(currentNode, gainNode);
-        currentNode = gainNode;
-
-        if (Effect.Value != null && Effect.Value.IsEnabled.Value)
-        {
-            currentNode = Effect.Value.CreateNode(context, currentNode);
-        }
-
-        // ClipNodeを作成（EffectがローカルTimeRangeを前提としているため）
-        var clipNode = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
-        context.Connect(currentNode, clipNode);
-        context.MarkAsOutput(clipNode);
+        ComposeOutputStages(context, mixerNode, context.ChannelLayout);
     }
 
     // Composes the child in a private context that reuses the child's previous nodes, moves its nodes into

@@ -38,6 +38,13 @@ internal static class BuiltInPropertyEditors
             Owner = registry.Owner,
         });
 
+        // PropertyPair says which value the properties make: two float or int properties a point or a size, and three
+        // float properties a Vector3.
+        Combined<float, (float, float)>(registry, v => [v.Item1, v.Item2], v => (v[0], v[1]), () => new Vector2Editor<float>());
+        Combined<int, (int, int)>(registry, v => [v.Item1, v.Item2], v => (v[0], v[1]), () => new Vector2Editor<int>());
+        Combined<float, (float, float, float)>(registry, v => [v.Item1, v.Item2, v.Item3], v => (v[0], v[1], v[2]),
+            () => new Vector3Editor<float>());
+
         Number<byte>(registry);
         Number<decimal>(registry);
         Number<double>(registry);
@@ -126,6 +133,61 @@ internal static class BuiltInPropertyEditors
         AddListItem<Transform?>(registry, p => new TransformEditorViewModel(p), () => new TransformListItemEditor());
         Add(registry, typeof(IFileSource), CreateFileSourceEditor, _ => new StorageFileEditor(), listItemOnly: true);
         Add(registry, typeof(CoreObject), p => Create(typeof(CoreObjectEditorViewModel<>), p.PropertyType, p), _ => new CoreObjectListItemEditor(), listItemOnly: true);
+    }
+
+    // split and compose turn the editor's value into the value of each property and back; the editor shows as many
+    // properties as split gives values.
+    private static void Combined<T, TTuple>(
+        PropertyEditorRegistry registry, Func<TTuple, T[]> split, Func<T[], TTuple> compose, Func<Control> createControl)
+        where T : struct, INumber<T>
+        where TTuple : struct
+    {
+        int count = split(default).Length;
+        registry.Add(new PropertyEditorRegistration
+        {
+            Tier = PropertyEditorTier.Match,
+            Match = properties => MatchCombined<T>(properties, count),
+            CreateContext = properties => new CombinedEditorViewModel<T, TTuple>(
+                [.. properties.Cast<IAnimatablePropertyAdapter<T>>()],
+                properties[0].GetAttributes().OfType<CombinedEditorAttribute>().First().GetName() ?? properties[0].DisplayName,
+                split, compose),
+            CreateControl = (_, _) => createControl(),
+            Connect = Connect,
+            IsStandard = true,
+            ShowsOn = surface => surface == PropertyEditorSurface.Panel,
+            Owner = registry.Owner,
+        });
+    }
+
+    // Waits until the panel reaches the first property, so that the row takes its place. count is the number of
+    // properties the row's editor shows.
+    private static IReadOnlyList<IPropertyAdapter> MatchCombined<T>(IReadOnlyList<IPropertyAdapter> properties, int count)
+    {
+        if (properties.FirstOrDefault() is not IAnimatablePropertyAdapter<T> first
+            || first.GetAttributes().OfType<CombinedEditorAttribute>().FirstOrDefault() is not { } attribute)
+        {
+            return [];
+        }
+
+        string[] others = PropertyPair.OtherNames(attribute);
+        if (others.Length + 1 != count) return [];
+
+        object? owner = first.GetEngineProperty()?.GetOwnerObject();
+        var matched = new List<IPropertyAdapter>(count) { first };
+        foreach (string name in others)
+        {
+            if (properties.FirstOrDefault(p => p is IAnimatablePropertyAdapter<T>
+                    && p.GetEngineProperty() is { } property
+                    && property.Name == name
+                    && ReferenceEquals(property.GetOwnerObject(), owner)) is not { } other)
+            {
+                return [];
+            }
+
+            matched.Add(other);
+        }
+
+        return matched;
     }
 
     private static void Number<T>(PropertyEditorRegistry registry)

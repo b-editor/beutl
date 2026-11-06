@@ -47,8 +47,6 @@ public sealed partial class FFmpegProxyGenerator
 
     private sealed class SilentSampleProvider : ISampleProvider
     {
-        public AudioChannelLayout ChannelLayout => AudioChannelLayout.Stereo;
-
         public long SampleCount => 0;
 
         public long SampleRate => 44100;

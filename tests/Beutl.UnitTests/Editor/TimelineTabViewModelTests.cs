@@ -6,9 +6,12 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.UnitTests.TestInfrastructure;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -200,8 +203,9 @@ public class TimelineTabViewModelTests
                 Assert.That(header.IsAudioMuted.Value, Is.EqualTo(row == namedRow), $"the audio mute on row {row}");
             }
 
-            foreach (ElementViewModel element in viewModel.Elements)
+            foreach (Element child in viewModel.Scene.Children)
             {
+                ElementViewModel element = viewModel.GetViewModelFor(child)!;
                 int row = element.Model.ZIndex.Value;
                 Assert.That(element.LayerHeader.Value, Is.SameAs(viewModel.LayerHeaders[row]),
                     $"the header of the clip on row {row}");
@@ -239,6 +243,101 @@ public class TimelineTabViewModelTests
         model.Options.Value = model.Options.Value with { Scale = 0.5f };
         model.Options.Value = model.Options.Value with { Offset = Vector2.Zero };
         Assert.That(values, Is.EqualTo(new[] { 1f, 0.5f }));
+    }
+
+    [Test]
+    public void GetViewModelFor_CreatesOneOnFirstUseOnlyForAnElementOfTheScene()
+    {
+        var scene = new Scene();
+        var element = new Element();
+        scene.Children.Add(element);
+        using TimelineTabViewModel model = CreateViewModel(scene);
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.RealizedElements, Is.Empty);
+            Assert.That(model.FindViewModelFor(element), Is.Null);
+            Assert.That(model.GetViewModelFor(new Element()), Is.Null);
+        });
+
+        ElementViewModel viewModel = model.GetViewModelFor(element)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.GetViewModelFor(element), Is.SameAs(viewModel));
+            Assert.That(model.RealizedElements, Is.EqualTo(new[] { viewModel }));
+        });
+
+        scene.Children.Remove(element);
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.RealizedElements, Is.Empty);
+            Assert.That(model.GetViewModelFor(element), Is.Null);
+        });
+    }
+
+    [Test]
+    public void FindLayerRange_ClampsToTheRowsThatExistWithoutAddingAny()
+    {
+        using TimelineTabViewModel model = CreateViewModel();
+        model.Options.Value = model.Options.Value with { MaxLayerCount = 4 };
+        double row = model.LayerHeaders[0].Height.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.FindLayerRange(-10, row / 2), Is.EqualTo((0, 0)));
+            Assert.That(model.FindLayerRange(row * 1.5, row * 2.5), Is.EqualTo((1, 2)));
+            Assert.That(model.FindLayerRange(row * 3.5, row * 100), Is.EqualTo((3, 3)));
+            Assert.That(model.LayerHeaders, Has.Count.EqualTo(4));
+        });
+    }
+
+    [Test]
+    public void SelectRange_SelectsExactlyTheElementsInRangeOnTheLayers()
+    {
+        var scene = new Scene();
+        var random = new Random(3721);
+        for (int i = 0; i < 2000; i++)
+        {
+            scene.Children.Add(new Element
+            {
+                Start = { Value = MediaTime.FromSeconds(random.NextDouble() * 100) },
+                Length = { Value = MediaTime.FromSeconds(random.NextDouble() * 3) },
+                ZIndex = { Value = random.Next(10) },
+            });
+        }
+
+        using TimelineTabViewModel model = CreateViewModel(scene);
+        ICoreList<Element> selection = model.EditorContext.GetRequiredService<IEditorSelection>().SelectedElements;
+        for (int i = 0; i < 50; i++)
+        {
+            var range = TimeRange.FromSeconds(random.NextDouble() * 100, random.NextDouble() * 20);
+            int first = random.Next(10);
+            int last = random.Next(first, 10);
+
+            model.SelectRange(range, first, last);
+
+            Element[] expected = [.. scene.Children.Where(e =>
+                first <= e.ZIndex.Value && e.ZIndex.Value <= last && range.Intersects(e.Range))];
+            Assert.That(selection, Is.EquivalentTo(expected));
+            Assert.That(model.SelectedElements.Select(e => e.Model), Is.EquivalentTo(expected));
+        }
+
+        model.SelectRange(TimeRange.FromSeconds(1000, 1), 0, 9);
+        Assert.That(selection, Is.Empty);
+    }
+
+    [Test]
+    public void CalculateLayersBottom_FollowsRowHeightsWithoutAddingRows()
+    {
+        using TimelineTabViewModel model = CreateViewModel();
+        model.Options.Value = model.Options.Value with { MaxLayerCount = 3 };
+        double rowHeight = model.LayerHeaders[0].Height.Value;
+        Assert.That(model.CalculateLayersBottom(), Is.EqualTo(3 * rowHeight));
+        Assert.That(model.LayerHeaders, Has.Count.EqualTo(3));
+
+        model.LayerHeaders[1].Height.Value = rowHeight * 2;
+        Assert.That(model.CalculateLayersBottom(), Is.EqualTo(4 * rowHeight));
+
+        model.Options.Value = model.Options.Value with { MaxLayerCount = 1 };
+        Assert.That(model.CalculateLayersBottom(), Is.EqualTo(rowHeight));
     }
 
     internal static TimelineTabViewModel CreateViewModel(

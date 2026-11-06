@@ -76,6 +76,146 @@ public class SceneElementIndexTests
     }
 
     [Test]
+    public void RemovingLeavesTheIndexARendererHoldsIntact()
+    {
+        var scene = new Scene();
+        Element first = Clip(0, 0);
+        Element second = Clip(0, 0);
+        scene.Children.AddRange([first, second]);
+        SceneElementIndex index = scene.ElementIndex;
+        using var found = new PooledList<Element>();
+        index.Query(MediaTime.Zero, MediaTime.FromSeconds(1), found);
+
+        // The editor removes a clip while the renderer is between its query and its sort.
+        scene.Children.Remove(first);
+        index.Sort(found);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(found.ToArray(), Is.EqualTo(new[] { second, first }));
+            Assert.That(index.CompareSceneOrder(first, second), Is.Negative);
+            Assert.That(scene.ElementIndex, Is.Not.SameAs(index));
+            Assert.That(scene.ElementIndex.Overlaps(0, TimeRange.FromSeconds(1)), Is.True);
+        });
+
+        scene.Children.Remove(second);
+        Assert.That(scene.ElementIndex.Overlaps(0, TimeRange.FromSeconds(1)), Is.False);
+    }
+
+    [Test]
+    public void AppendingKeepsTheIndexInPlace()
+    {
+        var scene = new Scene();
+        Element first = Clip(0, 0);
+        scene.Children.Add(first);
+        SceneElementIndex index = scene.ElementIndex;
+
+        Element added = Clip(0, 0);
+        scene.Children.Add(added);
+        scene.AddChild(Clip(10, 0), ElementOverlapHandling.Allow);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.ElementIndex, Is.SameAs(index));
+            Assert.That(index.CompareSceneOrder(first, added), Is.Negative);
+            Assert.That(index.Intersects(0, TimeRange.FromSeconds(10, 1)), Is.True);
+        });
+
+        // The trees know an added element's later edits.
+        added.Start.Value = MediaTime.FromSeconds(50);
+        Assert.That(index.Intersects(0, TimeRange.FromSeconds(50, 1)), Is.True);
+    }
+
+    [Test]
+    public void StaysInStepWithTheSceneThroughEveryListChange([Range(0, 19)] int seed)
+    {
+        var random = new Random(seed);
+        var scene = new Scene();
+        _ = scene.ElementIndex;
+        for (int step = 0; step < 200; step++)
+        {
+            int count = scene.Children.Count;
+            switch (random.Next(9))
+            {
+                case 0 or 1 or 2:
+                    scene.Children.Add(RandomClip(random));
+                    break;
+                case 3:
+                    scene.Children.AddRange([RandomClip(random), RandomClip(random)]);
+                    break;
+                case 4:
+                    scene.Children.Insert(random.Next(count + 1), RandomClip(random));
+                    break;
+                case 5 when count > 0:
+                    scene.Children.RemoveAt(random.Next(count));
+                    break;
+                case 6 when count > 0:
+                    scene.Children.Move(random.Next(count), random.Next(count));
+                    break;
+                case 7 when count > 0:
+                    scene.Children[random.Next(count)] = RandomClip(random);
+                    break;
+                case 8 when count > 0:
+                    Element edited = scene.Children[random.Next(count)];
+                    edited.Start.Value = MediaTime.FromSeconds(random.Next(100));
+                    edited.ZIndex.Value = random.Next(4);
+                    break;
+            }
+
+            AssertMatchesScene(scene, random);
+        }
+
+        scene.Children.Clear();
+        AssertMatchesScene(scene, random);
+    }
+
+    private static void AssertMatchesScene(Scene scene, Random random)
+    {
+        SceneElementIndex index = scene.ElementIndex;
+        Element[] children = [.. scene.Children];
+        int layer = random.Next(4);
+        var range = TimeRange.FromSeconds(random.Next(100), random.Next(20));
+
+        using var found = new PooledList<Element>();
+        index.Query(range.Start, range.End, found, layer);
+        index.Sort(found);
+        Element[] expected = [.. children.Select((element, order) => (element, order))
+            .Where(x => x.element.ZIndex.Value == layer && x.element.Start.Value <= range.End && x.element.Range.End >= range.Start)
+            .OrderByDescending(x => x.order)
+            .Select(x => x.element)];
+        Assert.That(found.ToArray(), Is.EqualTo(expected));
+
+        Element[] onLayer = [.. children.Where(element => element.ZIndex.Value == layer)];
+        Assert.That(index.Intersects(layer, range), Is.EqualTo(onLayer.Any(element => element.Range.Intersects(range))));
+        Assert.That(index.Overlaps(layer, range), Is.EqualTo(onLayer.Any(element =>
+        {
+            TimeRange other = element.Range;
+            return other == range || other.Intersects(range) || other.Contains(range) || range.Contains(other);
+        })));
+
+        if (children.Length > 1)
+        {
+            int left = random.Next(children.Length);
+            int right = random.Next(children.Length);
+            Assert.That(Math.Sign(index.CompareSceneOrder(children[left], children[right])), Is.EqualTo(Math.Sign(left - right)));
+        }
+    }
+
+    private static Element Clip(double start, int layer) => new()
+    {
+        Start = { Value = MediaTime.FromSeconds(start) },
+        Length = { Value = MediaTime.FromSeconds(1) },
+        ZIndex = { Value = layer },
+    };
+
+    private static Element RandomClip(Random random) => new()
+    {
+        Start = { Value = MediaTime.FromSeconds(random.Next(100)) },
+        Length = { Value = MediaTime.FromSeconds(random.Next(25)) },
+        ZIndex = { Value = random.Next(4) },
+    };
+
+    [Test]
     public void NeighborsUseNearestStartAndEndAndLastSceneOrderForTies()
     {
         var scene = new Scene();

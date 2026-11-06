@@ -58,6 +58,8 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value!.SchemaVersion, Is.EqualTo(SchemaVersion.Current));
             Assert.That(result.Value.Essentials, Is.Not.Empty);
             Assert.That(result.Value.CategoryAliases["visualEffect"], Is.EqualTo("FilterEffect"));
+            Assert.That(result.Value.CategoryAliases["transition"], Is.EqualTo("ClipTransition"));
+            Assert.That(result.Value.Essentials, Has.Some.Contain(nameof(Element.EnterTransition)));
             Assert.That(result.Value.RawHttpNote, Does.Contain("Server-Sent Events"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("content[0].text"));
         });
@@ -185,6 +187,7 @@ public sealed class ReadDocumentTests
             Assert.That(result.Error.Hint, Does.Contain("[Beutl.ProjectSystem]:Element"));
             Assert.That(result.Error.Hint, Does.Contain("Objects"));
             Assert.That(result.Error.Hint, Does.Contain("insert-new-element-skeleton"));
+            Assert.That(result.Error.Hint, Does.Contain(nameof(Element.EnterTransition)));
         });
     }
 

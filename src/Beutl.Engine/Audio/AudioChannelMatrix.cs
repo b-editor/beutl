@@ -1,4 +1,5 @@
-﻿using static Beutl.Audio.AudioSpeakers;
+﻿using System.Collections.Concurrent;
+using static Beutl.Audio.AudioSpeakers;
 
 namespace Beutl.Audio;
 
@@ -6,6 +7,10 @@ namespace Beutl.Audio;
 public sealed class AudioChannelMatrix
 {
     private const float SurroundGain = 0.70710677f;
+
+    // A matrix never changes once built, so one is shared and a caller can ask for it for every block.
+    private static readonly ConcurrentDictionary<(AudioChannelLayout Input, AudioChannelLayout Output), AudioChannelMatrix> s_matrices = new();
+
     private readonly float[,] _coefficients;
     private readonly int[] _copyInputs;
 
@@ -42,6 +47,9 @@ public sealed class AudioChannelMatrix
 
     public float GetCoefficient(int output, int input) => _coefficients[output, input];
 
+    // The input channel an output channel copies unchanged, or -1 if it mixes or stays silent.
+    internal int GetCopyInput(int output) => _copyInputs[output];
+
     /// <summary>
     /// Equal layouts preserve every channel. Otherwise, discrete layouts use Beutl's default order,
     /// with only FL/FR in the first two channels when no default positions are known.
@@ -50,6 +58,22 @@ public sealed class AudioChannelMatrix
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(input.ChannelCount, nameof(input));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(output.ChannelCount, nameof(output));
+        return s_matrices.GetOrAdd((input, output), static key => Build(key.Input, key.Output));
+    }
+
+    /// <summary>
+    /// Converts a decoded buffer to <paramref name="output"/> from the layout its reader declares.
+    /// Returns <see langword="null"/> when the buffer already is in that layout.
+    /// </summary>
+    public static AudioBuffer? ConvertOrNull(AudioBuffer decoded, AudioChannelLayout declared, AudioChannelLayout output)
+    {
+        ArgumentNullException.ThrowIfNull(decoded);
+        AudioChannelMatrix matrix = Create(AudioChannelLayout.ForChannelCount(declared, decoded.ChannelCount), output);
+        return matrix.IsIdentity ? null : matrix.Apply(decoded);
+    }
+
+    private static AudioChannelMatrix Build(AudioChannelLayout input, AudioChannelLayout output)
+    {
         var coefficients = new float[output.ChannelCount, input.ChannelCount];
         if (input == output)
         {
@@ -222,12 +246,19 @@ public sealed class AudioChannelMatrix
             return;
         }
 
+        ApplyFrames(input, output, input.SampleCount);
+    }
+
+    // Converts the first count frames, leaving the rest of output as it is. The caller has matched the channel
+    // counts and passes distinct buffers unless the matrix is an identity.
+    internal void ApplyFrames(AudioBuffer input, AudioBuffer output, int count)
+    {
         for (int row = 0; row < OutputChannelCount; row++)
         {
-            Span<float> destination = output.GetChannelData(row);
+            Span<float> destination = output.GetChannelData(row)[..count];
             if (_copyInputs[row] >= 0)
             {
-                input.GetChannelData(_copyInputs[row]).CopyTo(destination);
+                input.GetChannelData(_copyInputs[row])[..count].CopyTo(destination);
                 continue;
             }
 
@@ -237,7 +268,7 @@ public sealed class AudioChannelMatrix
                 float gain = _coefficients[row, channel];
                 if (gain == 0)
                     continue;
-                Span<float> source = input.GetChannelData(channel);
+                Span<float> source = input.GetChannelData(channel)[..count];
                 for (int i = 0; i < source.Length; i++)
                     destination[i] += source[i] * gain;
             }

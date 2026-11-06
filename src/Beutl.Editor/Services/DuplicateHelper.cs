@@ -27,6 +27,33 @@ public static class DuplicateHelper
         return ids;
     }
 
+    // The scene's elements among the seed and the rest of their groups, in scene order.
+    internal static Element[] FindWithGroupSiblings(Scene scene, IEnumerable<Guid> seedIds)
+    {
+        HashSet<Guid> ids = ExpandWithGroupSiblings(seedIds, scene.Groups);
+        return [.. scene.Children.Where(element => ids.Contains(element.Id.Value))];
+    }
+
+    // The groups as far as the copies reach, naming the copies. copies[i] is the copy of sources[i].
+    internal static List<ImmutableHashSet<Guid>> MapGroups(
+        IEnumerable<ImmutableHashSet<Guid>> groups,
+        IReadOnlyList<Element> sources,
+        IReadOnlyList<Element> copies)
+    {
+        var idMapping = new Dictionary<Guid, Guid>(sources.Count);
+        for (int i = 0; i < sources.Count; i++)
+        {
+            idMapping[sources[i].Id.Value] = copies[i].Id.Value;
+        }
+
+        return groups
+            .Select(g => g.Where(id => idMapping.ContainsKey(id))
+                .Select(id => idMapping[id])
+                .ToImmutableHashSet())
+            .Where(g => g.Count >= 2)
+            .ToList();
+    }
+
     /// <summary>
     /// Returns true when placing duplicates of <paramref name="sourceElements"/> at the
     /// given anchor would land on a source clip (same ZIndex, intersecting TimeRange).
@@ -128,13 +155,14 @@ public static class DuplicateHelper
     /// added: a caller that found the anchor free for the whole set passes <see cref="ElementOverlapHandling.Allow"/>,
     /// so duplicates that overlap each other on one layer keep that overlap.
     /// </remarks>
-    public static void PlaceDuplicates(
+    internal static void PlaceDuplicates(
         Scene scene,
         Element[] newElements,
         Element[] sourceElements,
         MediaTime anchorStart,
         int anchorZIndex,
-        ElementOverlapHandling overlapHandling)
+        ElementOverlapHandling overlapHandling,
+        IEnumerable<ImmutableHashSet<Guid>>? sourceGroups = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(newElements);
@@ -155,6 +183,7 @@ public static class DuplicateHelper
         }
 
         (MediaTime minStart, int minZIndex) = ComputeMinOrigin(newElements);
+        List<(Element Matte, Element Source)> copiedMattes = Scene.FindMatteSourcesAmong(newElements);
 
         foreach (Element newElement in newElements)
         {
@@ -163,18 +192,7 @@ public static class DuplicateHelper
             newElement.Uri = ElementFileNaming.GetUri(scene.Uri, newElement.Id.Value);
         }
 
-        var idMapping = new Dictionary<Guid, Guid>(sourceElements.Length);
-        for (int i = 0; i < sourceElements.Length; i++)
-        {
-            idMapping[sourceElements[i].Id.Value] = newElements[i].Id.Value;
-        }
-
-        List<ImmutableHashSet<Guid>> newGroups = scene.Groups
-            .Select(g => g.Where(id => idMapping.ContainsKey(id))
-                .Select(id => idMapping[id])
-                .ToImmutableHashSet())
-            .Where(g => g.Count >= 2)
-            .ToList();
+        List<ImmutableHashSet<Guid>> newGroups = MapGroups(sourceGroups ?? scene.Groups, sourceElements, newElements);
         if (newGroups.Count > 0)
         {
             scene.Groups.AddRange(newGroups);
@@ -183,6 +201,13 @@ public static class DuplicateHelper
         foreach (Element newElement in newElements)
         {
             scene.AddChild(newElement, overlapHandling);
+        }
+
+        // A matte follows a source copied with it, to the layer that copy ended up on: fitting it around what it
+        // overlaps can move it off its layer. Any other layer the matte names still holds its source.
+        foreach ((Element matte, Element source) in copiedMattes)
+        {
+            matte.MatteSourceZIndex.Value = source.ZIndex.Value;
         }
     }
 }

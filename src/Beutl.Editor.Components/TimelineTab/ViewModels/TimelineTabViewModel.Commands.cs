@@ -85,17 +85,9 @@ public sealed partial class TimelineTabViewModel
 
     internal void NudgeSelectedElements(int direction, NudgeUnit unit)
     {
-        // Anchor on the leftmost selected element so the resulting delta lands
-        // on the frame grid regardless of HashSet iteration order.
-        ElementViewModel? first = SelectedElements
-            .OrderBy(e => e.Model.Start.Value)
-            .ThenBy(e => e.Model.ZIndex.Value)
-            .FirstOrDefault();
-        if (first is null) return;
+        if (SelectedElements.FirstOrDefault() is not { } first) return;
 
-        ElementViewModel[] targets = first.GetGroupOrSelectedElements()
-            .Where(x => x.IsEditable.Value)
-            .ToArray();
+        Element[] targets = first.EditableTargets();
         if (targets.Length == 0) return;
 
         Rational rate = SceneTimeRangeService.GetFrameRate(Scene);
@@ -108,7 +100,7 @@ public sealed partial class TimelineTabViewModel
         };
 
         EditorContext.GetRequiredService<IElementNudgeService>()
-            .Nudge(Scene, targets.Select(x => x.Model).ToArray(), frames);
+            .Nudge(Scene, targets, frames);
     }
 
     internal void FlushPendingNudgeCommit()
@@ -126,9 +118,8 @@ public sealed partial class TimelineTabViewModel
 
     public void RazorSplitAt(MediaTime time)
     {
-        Element[] models = Elements
-            .Where(e => e.Model.Range.Contains(time) && e.IsEditable.Value)
-            .Select(e => e.Model)
+        Element[] models = Scene.Children
+            .Where(e => e.Range.Contains(time) && !Scene.IsElementLocked(e))
             .ToArray();
         if (models.Length == 0) return;
 

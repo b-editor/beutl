@@ -4,17 +4,26 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class TimelineTabView
 {
+    private readonly Dictionary<Element, ViewportElement> _viewportEntries = [];
     private readonly List<ViewportElement> _viewportElements = [];
+    private readonly List<ICompactClip> _viewportClips = [];
+    private readonly List<UnrealizedClip> _unrealizedClips = [];
+    private readonly Dictionary<Beutl.Media.Color, (IBrush Fill, IPen Border)> _clipPaints = [];
+    private bool _showsUnrealizedClips;
     private readonly Stack<ElementView> _recycledElementViews = [];
     private readonly List<CompactElementLayer> _compactLayers = [];
     private bool _viewportUpdateQueued;
+    private bool _viewportOrderChanged;
+    private bool _realizingElements;
     private bool _compactPaintQueued;
     private ViewportElement? _activeCompactElement;
 
@@ -23,7 +32,7 @@ public sealed partial class TimelineTabView
     // matter: vertical-only virtualization still realizes every clip on a densely populated row.
     internal void InvalidateElementViewport()
     {
-        if (_viewportUpdateQueued || ViewModel is null) return;
+        if (_viewportUpdateQueued || _realizingElements || ViewModel is null) return;
         _viewportUpdateQueued = true;
         Dispatcher.UIThread.Post(() =>
         {
@@ -32,33 +41,39 @@ public sealed partial class TimelineTabView
         }, DispatcherPriority.Render);
     }
 
-    private void AddElement(int index, ElementViewModel model)
+    private void AddElement(ElementViewModel model)
     {
-        _viewportElements.Insert(index, new ViewportElement(model, InvalidateElementViewport, InvalidateCompactPaint));
+        _viewportEntries.Add(model.Model, new ViewportElement(model, InvalidateElementViewport, InvalidateCompactPaint));
+        _viewportOrderChanged = true;
         InvalidateElementViewport();
     }
 
-    private void RemoveElement(int index, ElementViewModel model)
+    private void RemoveElement(ElementViewModel model)
     {
-        ViewportElement entry = _viewportElements[index];
-        _viewportElements.RemoveAt(index);
+        if (!_viewportEntries.Remove(model.Model, out ViewportElement? entry)) return;
         entry.Dispose();
         RecycleElement(entry);
         if (ReferenceEquals(_activeCompactElement, entry)) _activeCompactElement = null;
         RemoveScope(entry);
+        _viewportOrderChanged = true;
         InvalidateElementViewport();
     }
 
     private void ClearElementViewport()
     {
         _activeCompactElement = null;
-        foreach (ViewportElement entry in _viewportElements)
+        foreach (ViewportElement entry in _viewportEntries.Values)
         {
             entry.Dispose();
             RecycleElement(entry);
             RemoveScope(entry);
         }
+        _viewportEntries.Clear();
         _viewportElements.Clear();
+        _viewportClips.Clear();
+        _unrealizedClips.Clear();
+        _showsUnrealizedClips = false;
+        _viewportOrderChanged = false;
         foreach (CompactElementLayer layer in _compactLayers) TimelinePanel.Children.Remove(layer);
         _compactLayers.Clear();
     }
@@ -92,9 +107,32 @@ public sealed partial class TimelineTabView
         }, DispatcherPriority.Render);
     }
 
-    private ElementView? RealizeCompactElement(ViewportElement entry)
+    // A clip in view needs a view model to follow a drag, however narrow it is.
+    internal void RealizeClipsInView(IEnumerable<Element> elements)
     {
-        if (ViewModel is null || !entry.ShowView) return null;
+        if (ViewModel is not { } timeline) return;
+
+        var viewport = new Rect(ContentScroll.Offset.X, ContentScroll.Offset.Y,
+            ContentScroll.Viewport.Width, ContentScroll.Viewport.Height);
+        foreach (Element element in elements)
+        {
+            if (timeline.FindViewModelFor(element) is null && timeline.GetElementBounds(element).Intersects(viewport))
+                timeline.GetViewModelFor(element);
+        }
+    }
+
+    private ElementView? RealizeCompactElement(ICompactClip clip)
+    {
+        if (ViewModel is null) return null;
+        ViewportElement? entry = clip as ViewportElement;
+        if (clip is UnrealizedClip unrealized && ViewModel.GetViewModelFor(unrealized.Element) is { } model)
+        {
+            _viewportEntries.TryGetValue(model.Model, out entry);
+            // It has just got its entry, which is not in the viewport until a pass says so.
+            UpdateElementViewport();
+        }
+
+        if (entry is not { ShowView: true }) return null;
         _activeCompactElement = entry;
         UpdateElementViewport();
         TimelinePanel.UpdateLayout();
@@ -124,6 +162,20 @@ public sealed partial class TimelineTabView
             ContentScroll.Viewport.Width, ContentScroll.Viewport.Height);
         Rect viewport = visibleViewport.Inflate(new Thickness(200, 50));
 
+        // The clips in view may have no view model yet, and those that have none report nothing, so look for them on
+        // every pass.
+        _realizingElements = true;
+        bool leftOutClips = ViewModel.RealizeElements(viewport);
+        _realizingElements = false;
+        UpdateViewportOrder(ViewModel.Scene);
+        _showsUnrealizedClips = leftOutClips;
+        IReadOnlyList<ICompactClip> clips = leftOutClips ? CollectClips(ViewModel.Scene, viewport) : _viewportElements;
+        if (!leftOutClips)
+        {
+            _viewportClips.Clear();
+            _unrealizedClips.Clear();
+        }
+
         foreach (ViewportElement entry in _viewportElements)
         {
             entry.ShowView = entry.Bounds.Intersects(viewport) || entry.View?.KeepRealized == true;
@@ -139,9 +191,15 @@ public sealed partial class TimelineTabView
         // with the same ZIndex must keep the same paint/hit-test order after recycling.
         int childIndex = TimelinePanel.Children.IndexOf(overlay) + 1; // Keep the XAML decorations first.
         int layerIndex = 0;
-        List<ViewportElement>? compactRun = null;
-        foreach (ViewportElement entry in _viewportElements)
+        List<ICompactClip>? compactRun = null;
+        foreach (ICompactClip clip in clips)
         {
+            if (clip is not ViewportElement entry)
+            {
+                (compactRun ??= []).Add(clip);
+                continue;
+            }
+
             if (entry.ShowDetails)
             {
                 FlushCompactRun();
@@ -157,7 +215,7 @@ public sealed partial class TimelineTabView
             }
             else if (entry.ShowView)
             {
-                (compactRun ??= []).Add(entry);
+                (compactRun ??= []).Add(clip);
                 entry.Rename ??= () =>
                 {
                     if (RealizeCompactElement(entry) is { }) entry.Model.RenameRequested();
@@ -193,6 +251,60 @@ public sealed partial class TimelineTabView
         }
     }
 
+    // The clips to show in scene order, keeping overlapping clips in the paint and hit-test order they have once they have
+    // view models. The objects are reused, as a pass runs for every frame of a scroll.
+    private List<ICompactClip> CollectClips(Scene scene, Rect viewport)
+    {
+        _viewportClips.Clear();
+        int used = 0;
+        foreach (Element element in scene.Children)
+        {
+            if (_viewportEntries.TryGetValue(element, out ViewportElement? entry))
+            {
+                _viewportClips.Add(entry);
+                continue;
+            }
+
+            Rect bounds = ViewModel!.GetElementBounds(element);
+            if (!bounds.Intersects(viewport)) continue;
+
+            if (used == _unrealizedClips.Count) _unrealizedClips.Add(new UnrealizedClip());
+            UnrealizedClip clip = _unrealizedClips[used++];
+            (IBrush fill, IPen border) = GetClipPaints(element.AccentColor.Value);
+            clip.Update(element, bounds, fill, border, scene);
+            _viewportClips.Add(clip);
+        }
+
+        // The rest would keep their elements alive.
+        _unrealizedClips.RemoveRange(used, _unrealizedClips.Count - used);
+        return _viewportClips;
+    }
+
+    private (IBrush Fill, IPen Border) GetClipPaints(Beutl.Media.Color color)
+    {
+        if (!_clipPaints.TryGetValue(color, out (IBrush Fill, IPen Border) paints))
+        {
+            Avalonia.Media.Color fill = color.ToAvaColor();
+            paints = (new ImmutableSolidColorBrush(fill),
+                new Pen(new ImmutableSolidColorBrush(ElementViewModel.GetRestBorderColor(fill))));
+            _clipPaints.Add(color, paints);
+        }
+
+        return paints;
+    }
+
+    private void UpdateViewportOrder(Scene scene)
+    {
+        if (!_viewportOrderChanged) return;
+
+        _viewportOrderChanged = false;
+        _viewportElements.Clear();
+        foreach (Element element in scene.Children)
+        {
+            if (_viewportEntries.TryGetValue(element, out ViewportElement? entry)) _viewportElements.Add(entry);
+        }
+    }
+
     private void Place(Control control, int index)
     {
         var children = TimelinePanel.Children;
@@ -204,7 +316,32 @@ public sealed partial class TimelineTabView
         else children.Insert(index, control);
     }
 
-    internal sealed class ViewportElement : IDisposable
+    // A clip too narrow to show its details, painted from its element. A selected clip always has a view model.
+    private sealed class UnrealizedClip : ICompactClip
+    {
+        public Element Element { get; private set; } = null!;
+
+        public Rect Bounds { get; private set; }
+
+        public bool IsSelected => false;
+
+        public double Opacity { get; private set; }
+
+        public IBrush FillBrush { get; private set; } = Brushes.Transparent;
+
+        public IPen RestBorderPen { get; private set; } = null!;
+
+        public void Update(Element element, Rect bounds, IBrush fill, IPen border, Scene scene)
+        {
+            Element = element;
+            Bounds = bounds;
+            FillBrush = fill;
+            RestBorderPen = border;
+            Opacity = scene.IsElementLocked(element) ? 0.6 : !element.IsEnabled.Value ? 0.5 : 1;
+        }
+    }
+
+    internal sealed class ViewportElement : ICompactClip, IDisposable
     {
         private readonly CompositeDisposable _subscriptions = [];
 
@@ -242,6 +379,8 @@ public sealed partial class TimelineTabView
         }
 
         public ElementViewModel Model { get; }
+        public bool IsSelected => Model.IsSelected.Value;
+        public double Opacity => !Model.IsEditable.Value ? 0.6 : !Model.IsEnabled.Value ? 0.5 : 1;
         public Rect Bounds { get; private set; }
         public Rect ScopeBounds { get; private set; }
         public ElementView? View { get; set; }

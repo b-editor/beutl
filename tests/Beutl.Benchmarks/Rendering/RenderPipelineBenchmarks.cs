@@ -663,6 +663,14 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         Rect bounds,
         int variant = 0)
     {
+        return new BenchmarkMaterializedSourceNode(CreateSourceTarget(scene, bounds, variant), bounds);
+    }
+
+    internal static RenderTarget CreateSourceTarget(
+        RenderPipelineBenchmarkSceneDefinition scene,
+        Rect bounds,
+        int variant)
+    {
         var size = new PixelSize((int)bounds.Width, (int)bounds.Height);
         RenderTarget target = RenderTarget.Create(size.Width, size.Height)
             ?? throw new InvalidOperationException(
@@ -686,10 +694,10 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             canvas.Clear();
             canvas.DrawBitmap(bitmap, Brushes.Resource.White, null);
         }
-        return new BenchmarkMaterializedSourceNode(target, bounds);
+        return target;
     }
 
-    private static RenderNode WrapShader(RenderNode child, ShaderDescription description)
+    internal static RenderNode WrapShader(RenderNode child, ShaderDescription description)
     {
         var node = new BenchmarkShaderNode(description);
         node.AddChild(child);

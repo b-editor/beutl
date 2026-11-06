@@ -19,6 +19,9 @@ public sealed partial class SettingsDialog : FAAppWindow
     private readonly ILogger _logger = Log.CreateLogger<SettingsDialog>();
     private object? _pendingNavigation;
 
+    // The open dialog. The macOS application menu stays reachable behind it, so its entries must not open another.
+    internal static SettingsDialog? Current { get; private set; }
+
     public SettingsDialog()
     {
         InitializeComponent();
@@ -64,8 +67,16 @@ public sealed partial class SettingsDialog : FAAppWindow
         }
     }
 
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        Current = this;
+    }
+
     private void OnClosed(object? sender, EventArgs e)
     {
+        if (Current == this)
+            Current = null;
         frame.Loaded -= OnFrameLoaded;
         _pendingNavigation = null;
         frame.SetNavigationState("|\n0\n0");

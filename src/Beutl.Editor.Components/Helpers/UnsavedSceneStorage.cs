@@ -48,15 +48,31 @@ internal static class UnsavedSceneStorage
         private readonly List<ElementRehome> _elements;
         private readonly List<ResourceRehome> _resources;
 
+        // Whether this save moves anything, which changes what the elements save.
+        public bool MovesFiles => _elements.Count > 0 || _resources.Count > 0;
+
         public SaveRelocation(Scene scene, Uri sceneUri)
         {
             _scene = scene;
+            string directory = GetDirectory(scene.Id.Value);
+            // A scene saved before owns nothing here, and resolving every path of a large one takes seconds. An element
+            // of an unsaved scene takes only its URI until this save writes its file, so the folder need not exist yet.
+            string prefix = directory + Path.DirectorySeparatorChar;
+            if (!Directory.Exists(directory)
+                && !scene.Children.Any(element => element.Uri is { IsFile: true } uri
+                    && uri.LocalPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+            {
+                _elements = [];
+                _resources = [];
+                return;
+            }
+
             // Share directory indexes only while preparing this save; the next save needs
             // a fresh snapshot to observe filesystem changes.
             var paths = FilePathComparison.CreateResolutionContext();
             // Resolve the owned root strictly, so ownership lookups can skip listing the
             // ancestors of referenced files that the user can traverse but not list.
-            string ownedRoot = paths.ResolveCanonicalPath(GetDirectory(scene.Id.Value));
+            string ownedRoot = paths.ResolveCanonicalPath(directory);
             _elements = CreateElementRehomes(scene, sceneUri, paths, ownedRoot);
             _resources = CreateResourceRehomes(scene, sceneUri, paths, ownedRoot);
         }

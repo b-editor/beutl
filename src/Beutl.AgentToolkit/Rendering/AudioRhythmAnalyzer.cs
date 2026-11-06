@@ -108,10 +108,7 @@ public sealed class AudioRhythmAnalyzer
 
         using (audio)
         {
-            AudioChannelLayout layout = AudioChannelLayout.ForChannelCount(
-                resource.ChannelLayout, audio.ChannelCount);
-            var matrix = AudioChannelMatrix.Create(layout, AudioChannelLayout.Stereo);
-            using var converted = matrix.IsIdentity ? null : matrix.Apply(audio);
+            using var converted = AudioChannelMatrix.ConvertOrNull(audio, resource.ChannelLayout, AudioChannelLayout.Stereo);
             AudioBuffer stereo = converted ?? audio;
             // The analysis has always used the left channel only.
             float[] samples = stereo.GetChannelData(0).ToArray();

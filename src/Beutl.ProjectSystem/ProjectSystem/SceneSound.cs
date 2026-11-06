@@ -21,13 +21,9 @@ public sealed partial class SceneSound : Sound, ITimeMappedSource
     [Display(Name = nameof(AudioStrings.SceneSound_ReferencedScene), ResourceType = typeof(AudioStrings))]
     public IExpressionProperty<Scene?> ReferencedScene { get; } = Property.CreateReference<Scene?>();
 
-    // Audio plays the stored offset at its speed whichever scene plays. The scene reference is itself an
-    // expression and hides only the scene's length, so a split still follows the speed (#3642).
-    bool ITimeMappedSource.HasDynamicMapping => false;
+    bool ITimeMappedSource.HasDynamicTimeline => SceneReference.IsDynamic(ReferencedScene);
 
-    bool ITimeMappedSource.HasDynamicTimeline => ReferencedScene.HasExpression;
-
-    MediaTime? ITimeMappedSource.GetSourceDuration() => ReferencedScene.Value?.Duration.Value;
+    MediaTime? ITimeMappedSource.GetSourceDuration() => SceneReference.GetDuration(this, ReferencedScene);
 
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
@@ -62,22 +58,7 @@ public sealed partial class SceneSound : Sound, ITimeMappedSource
         var speedNode = context.CreateSpeedNode(Speed);
         context.Connect(shiftNode, speedNode);
 
-        var pannerNode = context.CreatePannerNode(Pan, SurroundPan, CenterLevel, LfeLevel, context.ChannelLayout);
-        context.Connect(speedNode, pannerNode);
-
-        var gainNode = context.CreateGainNode(Gain);
-        context.Connect(pannerNode, gainNode);
-
-        AudioNode currentNode = gainNode;
-
-        if (Effect.Value != null && Effect.Value.IsEnabled.Value)
-        {
-            currentNode = Effect.Value.CreateNode(context, currentNode);
-        }
-
-        var clipNode = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
-        context.Connect(currentNode, clipNode);
-        context.MarkAsOutput(clipNode);
+        ComposeOutputStages(context, speedNode, context.ChannelLayout);
     }
 
     public partial class Resource
@@ -134,6 +115,7 @@ public sealed partial class SceneSound : Sound, ITimeMappedSource
                 // The embed composes the referenced scene's own window from the clip-local request.
                 TimeRange window = context.TimeRange.AddStart(scene.Start.Value);
                 var frame = compositor.EvaluateAudio(window);
+                _composer.MasterGain = scene.MasterGain;
                 var buffer = _composer.Compose(window, frame);
                 if (buffer == null)
                 {
@@ -164,6 +146,7 @@ public sealed partial class SceneSound : Sound, ITimeMappedSource
             {
                 TimeRange window = context.TimeRange.AddStart(scene.Start.Value);
                 CompositionFrame frame = compositor.EvaluateAudio(window);
+                _composer.MasterGain = scene.MasterGain;
                 return _composer.Flush(window, frame.Eligibility)
                     ?? CreateSilentFlush(context);
             }

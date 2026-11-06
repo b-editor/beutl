@@ -463,14 +463,15 @@ public class SoundPannerEditorTests
     public void LayoutAndChannelMapChangesUpdateEnabledControlsWithoutChangingValues()
     {
         using var host = new PannerHost(SpeakerLayout.Surround51, 6);
+        var positionControls = host.Editor.FindControl<StackPanel>("PositionControls")!;
         Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.True);
-        Assert.That(host.ViewModel.CanPosition.Value, Is.False);
+        Assert.That(positionControls.IsEffectivelyEnabled, Is.False);
         using (host.History.SuppressRecording())
         {
             host.Sound.ChannelMap.Value = AudioChannelMap.CreateDefault(AudioChannelFormat.Stereo, AudioChannelLayout.Surround51);
             HeadlessTestHelpers.Render();
             Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.False);
-            Assert.That(host.ViewModel.CanPosition.Value, Is.True);
+            Assert.That(positionControls.IsEffectivelyEnabled, Is.True);
             host.Project.ChannelLayout.Value = SpeakerLayout.Mono;
             HeadlessTestHelpers.Render();
             Assert.That(host.Panner.IsEffectivelyEnabled, Is.False);
@@ -481,16 +482,16 @@ public class SoundPannerEditorTests
             host.Project.ChannelLayout.Value = SpeakerLayout.Stereo;
             HeadlessTestHelpers.Render();
             Assert.That(host.ViewModel.CanPan.Value, Is.True);
-            Assert.That(host.ViewModel.CanPosition.Value, Is.False);
+            Assert.That(positionControls.IsEffectivelyEnabled, Is.False);
             host.Project.ChannelLayout.Value = SpeakerLayout.Surround71;
             HeadlessTestHelpers.Render();
             Assert.That(host.ViewModel.Layout.Value, Is.EqualTo(SpeakerLayout.Surround71));
-            Assert.That(host.ViewModel.CanPosition.Value, Is.True);
+            Assert.That(positionControls.IsEffectivelyEnabled, Is.True);
             var source = host.Sound.Source.Value;
             host.Sound.Source.Value = null;
             Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.True);
             host.Sound.Source.Value = source;
-            Assert.That(host.ViewModel.CanPosition.Value, Is.True);
+            Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.False);
         }
         Assert.That(host.History.UndoCount, Is.Zero);
     }
@@ -509,13 +510,62 @@ public class SoundPannerEditorTests
         HeadlessTestHelpers.Render();
         Assert.That(host.Sound.ChannelMap.Value, Is.EqualTo(AudioChannelMap.Auto));
         Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.False);
-        Assert.That(host.ViewModel.CanPosition.Value, Is.True);
         Assert.That(host.ViewModel.CanDrag.Value, Is.True);
         Assert.That(host.Editor.GetVisualDescendants().OfType<NumberEditor<float>>().All(n => n.IsEffectivelyEnabled), Is.True);
         host.Drag(60, 75);
         Assert.That(host.Sound.Pan.Value, Is.EqualTo(60).Within(0.01));
         Assert.That(host.Sound.SurroundPan.Value, Is.EqualTo(75).Within(0.01));
         Assert.That(host.History.UndoCount, Is.EqualTo(1));
+    }
+
+    [AvaloniaTest]
+    public void SeekingFollowsAChannelMapExpressionAcrossItsChange()
+    {
+        using var host = new PannerHost(SpeakerLayout.Surround51, 6);
+        using (host.History.SuppressRecording())
+        {
+            host.Sound.ChannelMap.Expression = new StringExpression<AudioChannelMap>(
+                "Time < 2 ? Beutl.Audio.AudioChannelMap.Auto : Beutl.Audio.AudioChannelMap.CreateDefault(Beutl.Audio.AudioChannelFormat.Stereo, Beutl.Audio.AudioChannelLayout.Surround51)");
+        }
+        HeadlessTestHelpers.Render();
+        Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.True);
+
+        host.Time.Value = MediaTime.FromSeconds(5);
+        HeadlessTestHelpers.Render();
+        Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.False);
+
+        host.Time.Value = MediaTime.FromSeconds(3);
+        HeadlessTestHelpers.Render();
+        Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.True);
+    }
+
+    // An expression keeps CanDrag false, so locking changes only CanPan, which picks the opacity.
+    [AvaloniaTest]
+    public async Task LockingRedrawsThePannerWhenOnlyItsOpacityChanges()
+    {
+        using var host = new PannerHost(SpeakerLayout.Surround51, 2,
+            sound => sound.Pan.Expression = new StringExpression<float>("0f"));
+        Assert.That(host.ViewModel.CanDrag.Value, Is.False);
+        await WaitForExpansionState(host.Editor);
+        byte[] before = CapturePanner(host);
+
+        host.Sound.FindHierarchicalParent<Element>()!.IsLocked.Value = true;
+        HeadlessTestHelpers.Render();
+
+        Assert.That(host.ViewModel.CanPan.Value, Is.False);
+        Assert.That(CapturePanner(host), Is.Not.EqualTo(before));
+    }
+
+    private static byte[] CapturePanner(PannerHost host)
+    {
+        (byte[] pixels, int rowBytes, _) = HeadlessTestHelpers.CaptureFramePixels(host.Window);
+        Point origin = host.Panner.TranslatePoint(default, host.Window)!.Value;
+        int left = (int)origin.X, top = (int)origin.Y;
+        int width = (int)host.Panner.Bounds.Width, height = (int)host.Panner.Bounds.Height;
+        var region = new byte[width * height * 4];
+        for (int y = 0; y < height; y++)
+            Array.Copy(pixels, (top + y) * rowBytes + left * 4, region, y * width * 4, width * 4);
+        return region;
     }
 
     [AvaloniaTest]
@@ -665,7 +715,6 @@ public class SoundPannerEditorTests
             bool canPan = layout != SpeakerLayout.Mono;
             Assert.That(host.ViewModel.IsHorizontalOnly.Value, Is.EqualTo(horizontalOnly));
             Assert.That(host.ViewModel.CanPan.Value, Is.EqualTo(canPan));
-            Assert.That(host.ViewModel.CanPosition.Value, Is.EqualTo(!horizontalOnly));
             Assert.That(host.ViewModel.CanDrag.Value, Is.EqualTo(canPan));
             Assert.That(host.Panner.IsEffectivelyEnabled, Is.EqualTo(canPan));
             Assert.That(host.Editor.FindControl<StackPanel>("PositionControls")!.IsEffectivelyEnabled, Is.EqualTo(!horizontalOnly));

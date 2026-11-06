@@ -20,6 +20,8 @@ public sealed class ColorScopesTabExtension : ToolTabExtension
 
     public override string DisplayName => Strings.ColorScopes;
 
+    public override DockAnchor DefaultAnchor => DockAnchor.Left;
+
     public override string Header => Strings.ColorScopes;
 
     public override FAIconSource? GetIcon()

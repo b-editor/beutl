@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.PropertyEditors.Views.ListItemEditorHost"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:local="using:Beutl.Editor.Components.PropertyEditors.Views"
@@ -11,17 +12,17 @@
              x:CompileBindings="False"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
-        <Grid Margin="8,0,0,0"
+        <Grid Margin="4,0,0,0"
               ColumnDefinitions="Auto,*,Auto"
               ToolTip.Tip="{Binding HoverInfo.Value}">
             <Border Name="reorderHandle" Theme="{StaticResource PropertyEditorReorderHandle}" />
 
             <TextBlock Grid.Column="1"
-                       Margin="0,4"
+                       Margin="4,4,0,4"
                        Text="{Binding Header}" />
 
             <Button Grid.Column="2"
-                    Margin="4,0"
+                    Margin="4,0,8,0"
                     Padding="0"
                     Classes="size-24x24"
                     Click="DeleteClick"
@@ -30,8 +31,10 @@
             </Button>
         </Grid>
 
+        <controls:TreeLineDecorator Grid.Row="1" Theme="{StaticResource ListItemTreeLine}" />
+
         <ContentControl x:Name="content"
-                        Grid.Row="2"
-                        Margin="16,0,0,0" />
+                        Grid.Row="1"
+                        Margin="{StaticResource ListItemContentMargin}" />
     </Grid>
 </UserControl>

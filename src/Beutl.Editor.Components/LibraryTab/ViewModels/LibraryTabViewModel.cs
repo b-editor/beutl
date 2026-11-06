@@ -33,13 +33,15 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         // Subscribed before the items are read, so that nothing registered in between is missed.
         LibraryService.Current.ItemsChanged += OnLibraryItemsChanged;
         _disposables.Add(Disposable.Create(() => LibraryService.Current.ItemsChanged -= OnLibraryItemsChanged));
+        GraphNodeRegistry.Changed += OnLibraryItemsChanged;
+        _disposables.Add(Disposable.Create(() => GraphNodeRegistry.Changed -= OnLibraryItemsChanged));
 
         IReadOnlyList<LibraryItem> libItems = LibraryService.Current.Items;
         LibraryItems = new CoreList<LibraryItemViewModel>(libItems.Count);
         LibraryItems.AddRange(libItems.Select(x => LibraryItemViewModel.CreateFromLibraryItem(x)));
 
         IList<GraphNodeRegistry.BaseRegistryItem> nodes = GraphNodeRegistry.GetRegistered();
-        Nodes = new List<LibraryItemViewModel>(nodes.Count);
+        Nodes = new CoreList<LibraryItemViewModel>(nodes.Count);
         Nodes.AddRange(nodes.Select(x => LibraryItemViewModel.CreateFromGraphNodeRegistryItem(x)));
 
         AllItems = new(CreateAllItems());
@@ -83,7 +85,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
 
     public CoreList<LibraryItemViewModel> LibraryItems { get; }
 
-    public List<LibraryItemViewModel> Nodes { get; }
+    public CoreList<LibraryItemViewModel> Nodes { get; }
 
     public CoreList<LibraryItemViewModel> AllItems { get; }
 
@@ -130,7 +132,15 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         if (Volatile.Read(ref _disposed) != 0)
             return;
 
-        SyncItems(LibraryItems, LibraryService.Current.Items, null);
+        SyncItems(LibraryItems, LibraryService.Current.Items, null,
+            item => item,
+            LibraryItemViewModel.CreateFromLibraryItem,
+            item => (item as GroupLibraryItem)?.Items);
+        // The registry hands out copies of its groups, so a group is known by its name.
+        SyncItems<GraphNodeRegistry.BaseRegistryItem>(Nodes, [.. GraphNodeRegistry.GetRegistered()], null,
+            item => item is GraphNodeRegistry.GroupableRegistryItem ? item.DisplayName : item,
+            LibraryItemViewModel.CreateFromGraphNodeRegistryItem,
+            item => (item as GraphNodeRegistry.GroupableRegistryItem)?.Items);
         AllItems.Replace(CreateAllItems(AllItems.Count));
         if (_query is { } query)
             _ = SearchCore(query, CancellationToken.None, recordUsage: false);
@@ -138,28 +148,28 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
 
     // Brings `viewModels` in line with `items`. The view models of the items that stay are kept, with their
     // children brought in line the same way, so that their nodes in the tree stay expanded.
-    private static void SyncItems(CoreList<LibraryItemViewModel> viewModels, IReadOnlyList<LibraryItem> items,
-        string? parentFullName)
+    private static void SyncItems<T>(CoreList<LibraryItemViewModel> viewModels, IReadOnlyList<T> items,
+        string? parentFullName, Func<T, object> getKey, Func<T, string?, LibraryItemViewModel> create,
+        Func<T, IReadOnlyList<T>?> getChildren)
     {
-        var existing = new Dictionary<LibraryItem, LibraryItemViewModel>();
+        var existing = new Dictionary<object, LibraryItemViewModel>();
         foreach (LibraryItemViewModel viewModel in viewModels)
         {
-            if (viewModel.Data is LibraryItem item)
-                existing[item] = viewModel;
+            existing[viewModel.Data ?? viewModel.DisplayName] = viewModel;
         }
 
         var next = new LibraryItemViewModel[items.Count];
         for (int i = 0; i < next.Length; i++)
         {
-            LibraryItem item = items[i];
-            if (existing.TryGetValue(item, out LibraryItemViewModel? viewModel))
+            T item = items[i];
+            if (existing.TryGetValue(getKey(item), out LibraryItemViewModel? viewModel))
             {
-                if (item is GroupLibraryItem group)
-                    SyncItems(viewModel.Children, group.Items, viewModel.FullDisplayName);
+                if (getChildren(item) is { } children)
+                    SyncItems(viewModel.Children, children, viewModel.FullDisplayName, getKey, create, getChildren);
             }
             else
             {
-                viewModel = LibraryItemViewModel.CreateFromLibraryItem(item, parentFullName);
+                viewModel = create(item, parentFullName);
             }
 
             next[i] = viewModel;

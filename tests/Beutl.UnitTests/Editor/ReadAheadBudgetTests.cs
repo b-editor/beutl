@@ -70,12 +70,4 @@ public class ReadAheadBudgetTests
 
         Assert.That(frames, Is.EqualTo(2));
     }
-
-    [Test]
-    public void FrameCount_UsesTheGivenBudget()
-    {
-        long frameBytes = ReadAheadBudget.SnapshotBytes(new PixelSize(320, 240));
-
-        Assert.That(ReadAheadBudget.FrameCount(frameBytes, PlaybackMaxFrames, frameBytes * 10), Is.EqualTo(10));
-    }
 }

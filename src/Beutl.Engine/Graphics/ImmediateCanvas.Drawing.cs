@@ -113,6 +113,12 @@ public partial class ImmediateCanvas
     public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
     {
         VerifySourceOperation(source);
+        if (source.Picture is { } picture)
+        {
+            DrawPicture(picture, new Rect(source.FrameSize.ToSize(1)), fill);
+            return;
+        }
+
         var bitmap = source.Bitmap;
         if (bitmap != null)
         {
@@ -121,6 +127,19 @@ public partial class ImmediateCanvas
             else
                 _executionToken.AuthorizeResource(bitmap, () => DrawBitmap(bitmap, fill, pen));
         }
+    }
+
+    private void DrawPicture(SKPicture picture, Rect bounds, Brush.Resource? fill)
+    {
+        VerifyPixelOperation();
+        VerifyCallbackResource(fill, nameof(fill));
+        ConfigureFillPaint(bounds, fill);
+
+        int count = Canvas.Save();
+        Canvas.ClipRect(bounds.ToSKRect());
+        // The paint goes around the whole drawing, so that a blend mode treats it as one image.
+        Canvas.DrawPicture(picture, _sharedFillPaint);
+        Canvas.RestoreToCount(count);
     }
 
     public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)

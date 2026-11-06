@@ -35,7 +35,7 @@ public record CoreSerializerOptions
 
     // An auto-save captures the whole batch before writing it. Scene file patterns must see the
     // element files that this batch will create/delete, just as a synchronous save does.
-    internal IReadOnlyDictionary<string, bool>? PendingFileChanges { get; init; }
+    internal IReadOnlySet<string>? PendingFileChanges { get; init; }
 }
 
 public static partial class CoreSerializer

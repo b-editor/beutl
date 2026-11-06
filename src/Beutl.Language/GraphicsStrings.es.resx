@@ -200,6 +200,15 @@
   <data name="Blur" xml:space="preserve">
     <value>Desenfoque</value>
   </data>
+  <data name="Sharpen" xml:space="preserve">
+    <value>Enfoque</value>
+  </data>
+  <data name="Sharpen_Threshold" xml:space="preserve">
+    <value>Umbral</value>
+  </data>
+  <data name="Sharpen_Threshold_Description" xml:space="preserve">
+    <value>Las diferencias menores que este valor no se realzan, lo que evita que el ruido destaque.</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>Brillo</value>
   </data>
@@ -214,6 +223,18 @@
   </data>
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>Rango de saturación</value>
+  </data>
+  <data name="LumaKey" xml:space="preserve">
+    <value>Clave de luminancia</value>
+  </data>
+  <data name="LumaKey_Lower" xml:space="preserve">
+    <value>Límite inferior (%)</value>
+  </data>
+  <data name="LumaKey_Upper" xml:space="preserve">
+    <value>Límite superior (%)</value>
+  </data>
+  <data name="LumaKey_Softness" xml:space="preserve">
+    <value>Suavidad (%)</value>
   </data>
   <data name="Clipping" xml:space="preserve">
     <value>Recorte</value>
@@ -455,6 +476,39 @@
   <data name="Erode_RadiusY" xml:space="preserve">
     <value>Radio Y</value>
   </data>
+  <data name="EdgeDetection" xml:space="preserve">
+    <value>Detección de bordes</value>
+  </data>
+  <data name="EdgeDetection_Target" xml:space="preserve">
+    <value>Detectar</value>
+  </data>
+  <data name="EdgeDetectionTarget_Luminance" xml:space="preserve">
+    <value>Luminancia</value>
+  </data>
+  <data name="EdgeDetectionTarget_Alpha" xml:space="preserve">
+    <value>Transparencia</value>
+  </data>
+  <data name="EdgeDetection_Thickness" xml:space="preserve">
+    <value>Grosor</value>
+  </data>
+  <data name="EdgeDetection_Threshold" xml:space="preserve">
+    <value>Umbral</value>
+  </data>
+  <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
+    <value>Los cambios menores que este valor no dibujan ninguna línea.</value>
+  </data>
+  <data name="EdgeDetection_Original" xml:space="preserve">
+    <value>Imagen original</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Hidden" xml:space="preserve">
+    <value>No mostrar</value>
+  </data>
+  <data name="EdgeDetectionOriginal_Behind" xml:space="preserve">
+    <value>Detrás</value>
+  </data>
+  <data name="EdgeDetectionOriginal_InFront" xml:space="preserve">
+    <value>Delante</value>
+  </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>Sombra plana</value>
   </data>
@@ -574,6 +628,9 @@
   </data>
   <data name="ParticleEmitter_EmitterWidth" xml:space="preserve">
     <value>Ancho del emisor</value>
+  </data>
+  <data name="ParticleEmitter_EmitterSize" xml:space="preserve">
+    <value>Tamaño del emisor</value>
   </data>
   <data name="ParticleEmitter_EndColor" xml:space="preserve">
     <value>Color final</value>
@@ -698,6 +755,9 @@
   <data name="ScaleTransform_ScaleY" xml:space="preserve">
     <value>Escala Y</value>
   </data>
+  <data name="ScaleTransform_ScaleXY" xml:space="preserve">
+    <value>Escala XY</value>
+  </data>
   <data name="ShakeEffect" xml:space="preserve">
     <value>Sacudida</value>
   </data>
@@ -751,6 +811,39 @@
   </data>
   <data name="SplitEffect_VerticalSpacing" xml:space="preserve">
     <value>Espaciado vertical</value>
+  </data>
+  <data name="RepeatEffect" xml:space="preserve">
+    <value>Repetición</value>
+  </data>
+  <data name="RepeatEffect_Columns" xml:space="preserve">
+    <value>Columnas</value>
+  </data>
+  <data name="RepeatEffect_Rows" xml:space="preserve">
+    <value>Filas</value>
+  </data>
+  <data name="RepeatEffect_Spacing" xml:space="preserve">
+    <value>Espaciado</value>
+  </data>
+  <data name="RepeatEffect_Spacing_Description" xml:space="preserve">
+    <value>El espacio entre las copias. Con 0 quedan juntas.</value>
+  </data>
+  <data name="RepeatEffect_Offset_Description" xml:space="preserve">
+    <value>Mueve las copias dentro de la cuadrícula. La que sale por un extremo vuelve por el otro, así que al animarlo se desplaza sin fin.</value>
+  </data>
+  <data name="RepeatEffect_Mirror" xml:space="preserve">
+    <value>Reflejar</value>
+  </data>
+  <data name="RepeatEffectMirror_None" xml:space="preserve">
+    <value>Ninguno</value>
+  </data>
+  <data name="RepeatEffectMirror_Columns" xml:space="preserve">
+    <value>Columnas alternas</value>
+  </data>
+  <data name="RepeatEffectMirror_Rows" xml:space="preserve">
+    <value>Filas alternas</value>
+  </data>
+  <data name="RepeatEffectMirror_Both" xml:space="preserve">
+    <value>Ambos</value>
   </data>
   <data name="TextAlignment_Center" xml:space="preserve">
     <value>Alinear al centro</value>
@@ -893,6 +986,9 @@
   <data name="DrawableTextureSource_TextureWidth" xml:space="preserve">
     <value>Ancho de textura</value>
   </data>
+  <data name="DrawableTextureSource_TextureSize" xml:space="preserve">
+    <value>Tamaño de textura</value>
+  </data>
   <data name="EllipseGeometry" xml:space="preserve">
     <value>Elipse</value>
   </data>
@@ -904,6 +1000,21 @@
   </data>
   <data name="GradientBrush_SpreadMethod" xml:space="preserve">
     <value>Método de extensión</value>
+  </data>
+  <data name="GradientBrush_InterpolationSpace" xml:space="preserve">
+    <value>Interpolación</value>
+  </data>
+  <data name="GradientBrush_InterpolatePremultiplied" xml:space="preserve">
+    <value>Interpolar con alfa premultiplicado</value>
+  </data>
+  <data name="GradientInterpolationSpace_LinearSrgb" xml:space="preserve">
+    <value>sRGB lineal</value>
+  </data>
+  <data name="GradientInterpolationSpace_Srgb" xml:space="preserve">
+    <value>sRGB</value>
+  </data>
+  <data name="GradientInterpolationSpace_Oklab" xml:space="preserve">
+    <value>OKLab</value>
   </data>
   <data name="Children" xml:space="preserve">
     <value>Elementos secundarios</value>
@@ -1064,6 +1175,9 @@
   <data name="PerlinNoiseBrush_BaseFrequencyY" xml:space="preserve">
     <value>Frecuencia base Y</value>
   </data>
+  <data name="PerlinNoiseBrush_BaseFrequency" xml:space="preserve">
+    <value>Frecuencia base</value>
+  </data>
   <data name="PerlinNoiseBrush_Octaves" xml:space="preserve">
     <value>Octavas</value>
   </data>
@@ -1162,6 +1276,9 @@
   </data>
   <data name="Scene3D_RenderWidth" xml:space="preserve">
     <value>Ancho de renderizado</value>
+  </data>
+  <data name="Scene3D_RenderSize" xml:space="preserve">
+    <value>Tamaño de renderizado</value>
   </data>
   <data name="SolidColorBrush" xml:space="preserve">
     <value>Sólido</value>
@@ -1294,6 +1411,9 @@
   </data>
   <data name="CenterY" xml:space="preserve">
     <value>Centro Y</value>
+  </data>
+  <data name="Center" xml:space="preserve">
+    <value>Centro</value>
   </data>
   <data name="Color" xml:space="preserve">
     <value>Color</value>
@@ -1646,6 +1766,45 @@
   <data name="RadialBlur_Samples" xml:space="preserve">
     <value>Muestras</value>
   </data>
+  <data name="Bokeh" xml:space="preserve">
+    <value>Bokeh</value>
+  </data>
+  <data name="Bokeh_Shape" xml:space="preserve">
+    <value>Forma de la apertura</value>
+  </data>
+  <data name="BokehShape_Circle" xml:space="preserve">
+    <value>Círculo</value>
+  </data>
+  <data name="BokehShape_Polygon" xml:space="preserve">
+    <value>Polígono</value>
+  </data>
+  <data name="Bokeh_Sides" xml:space="preserve">
+    <value>Lados</value>
+  </data>
+  <data name="Bokeh_Rotation" xml:space="preserve">
+    <value>Rotación</value>
+  </data>
+  <data name="Bokeh_Highlight" xml:space="preserve">
+    <value>Realce de luces</value>
+  </data>
+  <data name="Bokeh_Highlight_Description" xml:space="preserve">
+    <value>Hace más brillantes las zonas claras antes de que se extiendan, para que destaquen como formas. El 100 % duplica el brillo.</value>
+  </data>
+  <data name="Bokeh_Quality" xml:space="preserve">
+    <value>Calidad</value>
+  </data>
+  <data name="Bokeh_Quality_Description" xml:space="preserve">
+    <value>Más muestras dibujan la forma con más limpieza y tardan más. Alta tarda unas tres veces más que Baja.</value>
+  </data>
+  <data name="BokehQuality_Low" xml:space="preserve">
+    <value>Baja</value>
+  </data>
+  <data name="BokehQuality_Medium" xml:space="preserve">
+    <value>Media</value>
+  </data>
+  <data name="BokehQuality_High" xml:space="preserve">
+    <value>Alta</value>
+  </data>
   <data name="RadialBlurMode_Zoom" xml:space="preserve">
     <value>Zoom</value>
   </data>
@@ -1756,5 +1915,23 @@
   </data>
   <data name="MotionBlur_End" xml:space="preserve">
     <value>Final</value>
+  </data>
+  <data name="AlphaMode" xml:space="preserve">
+    <value>Modo alfa</value>
+  </data>
+  <data name="AlphaMode_Auto" xml:space="preserve">
+    <value>Automático</value>
+  </data>
+  <data name="AlphaMode_Opaque" xml:space="preserve">
+    <value>Opaco</value>
+  </data>
+  <data name="AlphaMode_Mask" xml:space="preserve">
+    <value>Máscara</value>
+  </data>
+  <data name="AlphaMode_Blend" xml:space="preserve">
+    <value>Mezcla</value>
+  </data>
+  <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
+    <value>Umbral alfa</value>
   </data>
 </root>

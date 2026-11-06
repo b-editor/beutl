@@ -5,19 +5,34 @@ namespace Beutl.ProjectSystem;
 
 public partial class Scene
 {
+    // The layer above every clip in the scene.
+    internal int GetFirstFreeLayer()
+        => Children.Select(item => item.ZIndex.Value).DefaultIfEmpty(-1).Max() + 1;
+
+    // The layer reached by counting up from first, leaving out locked layers.
+    internal int CountUnlockedLayers(int first, int count)
+    {
+        int layer = first;
+        for (int remaining = Math.Max(count, 0); ; layer++)
+        {
+            if (IsLayerLocked(layer)) continue;
+            if (remaining-- == 0) return layer;
+        }
+    }
+
     private int NearestLayerNumber(Element element)
     {
         if (IsOverlapping(element.Range, element.ZIndex.Value))
         {
             int layerMax = Children.Max(i => i.ZIndex.Value);
+            SceneElementIndex index = ElementIndex;
 
             // 使うことができるレイヤー番号。ロックされたレイヤーには自動配置しない。
             var numbers = new List<int>();
 
             for (int l = 0; l <= layerMax; l++)
             {
-                if (!IsLayerLocked(l)
-                    && !Children.Any(i => i.ZIndex.Value == l && i.Range.Intersects(element.Range)))
+                if (!IsLayerLocked(l) && !index.Intersects(l, element.Range))
                 {
                     numbers.Add(l);
                 }
@@ -56,21 +71,7 @@ public partial class Scene
 
     private bool IsOverlapping(TimeRange timeRange, int zindex)
     {
-        return Children.Any(i =>
-        {
-            if (i.ZIndex.Value == zindex)
-            {
-                if (i.Range == timeRange
-                    || i.Range.Intersects(timeRange)
-                    || i.Range.Contains(timeRange)
-                    || timeRange.Contains(i.Range))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        });
+        return ElementIndex.Overlaps(zindex, timeRange);
     }
 
     private bool IsFreeRange(TimeRange range, int zindex)
@@ -151,24 +152,28 @@ public partial class Scene
         return (element.Range, NearestLayerNumber(element));
     }
 
+    // Grows the scene to reach end, when the setting that adjusts its duration is on.
+    internal void ExtendDurationToCover(MediaTime end)
+    {
+        if (GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value && Duration.Value + Start.Value < end)
+        {
+            Duration.Value = end - Start.Value;
+        }
+    }
+
     private void AddChildCore(Element element, ElementOverlapHandling overlapHandling)
     {
-        bool adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value;
         (TimeRange range, int zIndex) = GetCorrectPosition(element, overlapHandling);
         element.Start.Value = range.Start;
         element.Length.Value = range.Duration;
         element.ZIndex.Value = zIndex;
         Children.Add(element);
 
-        if (adjustSceneDuration && Duration.Value + Start.Value < range.End)
-        {
-            Duration.Value = range.End - Start.Value;
-        }
+        ExtendDurationToCover(range.End);
     }
 
     private void MoveChildCore(int zIndex, MediaTime newStart, MediaTime newLength, Element element)
     {
-        bool adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value;
         MediaTime newEnd = newStart + newLength;
         (Element? before, Element? after, Element? cover) =
             element.GetBeforeAndAfterAndCover(zIndex, newStart, newEnd);
@@ -200,21 +205,19 @@ public partial class Scene
             element.ZIndex.Value = zIndex;
         }
 
-        TimeRange range = element.Range;
-        if (adjustSceneDuration && Duration.Value + Start.Value < range.End)
-        {
-            Duration.Value = range.End - Start.Value;
-        }
+        ExtendDurationToCover(element.Range.End);
     }
 
-    private void MoveChildrenCore(Element[] elements, int deltaZIndex, MediaTime deltaTime)
+    // Returns whether the elements moved. A drag fits around what it hits, which can move them further than asked;
+    // without fitAroundConflicts they move by exactly deltaTime or not at all.
+    private bool MoveChildrenCore(Element[] elements, int deltaZIndex, MediaTime deltaTime, bool fitAroundConflicts)
     {
         var selected = elements.ToHashSet();
         var obstacles = new SceneElementIndex(Children.Where(element => !selected.Contains(element)));
         bool conflict = HasConflict(elements, obstacles, deltaZIndex, deltaTime);
         foreach (Element item in elements)
         {
-            if (!conflict)
+            if (!conflict || !fitAroundConflicts)
             {
                 break;
             }
@@ -240,10 +243,17 @@ public partial class Scene
 
         if (!conflict)
         {
+            // A matte follows a source moved with it. Any other layer it names still holds its source.
+            List<(Element Matte, Element Source)> movedMattes = deltaZIndex != 0 ? FindMatteSourcesAmong(elements) : [];
             foreach (Element item in elements)
             {
                 item.Start.Value += deltaTime;
                 item.ZIndex.Value += deltaZIndex;
+            }
+
+            foreach ((Element matte, Element source) in movedMattes)
+            {
+                matte.MatteSourceZIndex.Value = source.ZIndex.Value;
             }
 
             if (adjustSceneDuration)
@@ -251,6 +261,27 @@ public partial class Scene
                 Duration.Value = newSceneDuration;
             }
         }
+
+        return !conflict;
+    }
+
+    // The elements whose matte names a layer where another of them is at the same time, and that other element.
+    internal static List<(Element Matte, Element Source)> FindMatteSourcesAmong(IReadOnlyCollection<Element> elements)
+    {
+        var result = new List<(Element Matte, Element Source)>();
+        foreach (Element element in elements)
+        {
+            if (element.MatteSourceKind.Value == MatteSourceKind.Layer
+                && element.MatteSourceZIndex.Value is { } layer
+                && elements.FirstOrDefault(other => other != element
+                    && other.ZIndex.Value == layer
+                    && other.Range.Intersects(element.Range)) is { } source)
+            {
+                result.Add((element, source));
+            }
+        }
+
+        return result;
     }
 
     private static bool HasConflict(Element[] elements, SceneElementIndex obstacles, int deltaZIndex, MediaTime deltaTime)

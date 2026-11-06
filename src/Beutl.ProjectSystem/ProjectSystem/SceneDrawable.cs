@@ -25,13 +25,9 @@ public sealed partial class SceneDrawable : Drawable, ITimeMappedSource
 
     IExpressionProperty<float>? ITimeMappedSource.Speed => null;
 
-    // Rendering evaluates OffsetPosition. A scene reference leaves ReferencedScene.Value, and so the
-    // length, unknown; Slip and Trim accept that, as they do for offline media (#3844).
-    bool ITimeMappedSource.HasDynamicMapping => OffsetPosition.HasExpression;
+    bool ITimeMappedSource.HasDynamicTimeline => SceneReference.IsDynamic(ReferencedScene);
 
-    bool ITimeMappedSource.HasDynamicTimeline => false;
-
-    MediaTime? ITimeMappedSource.GetSourceDuration() => ReferencedScene.Value?.Duration.Value;
+    MediaTime? ITimeMappedSource.GetSourceDuration() => SceneReference.GetDuration(this, ReferencedScene);
 
     private readonly record struct SceneBitmapParameters(Resource Resource, float OutputScale);
 

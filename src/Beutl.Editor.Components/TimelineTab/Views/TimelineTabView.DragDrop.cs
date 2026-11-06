@@ -6,6 +6,7 @@ using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
+using Beutl.Editor.Services.Captions;
 using Beutl.Editor.VersionControl;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -14,6 +15,8 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class TimelineTabView
 {
+    private CaptionTemplateId? _captionTemplateId;
+
     private async void TimelinePanel_Drop(object? sender, DragEventArgs e)
     {
         var storage = e.DataTransfer.TryGetValue(StorageDragData.Format);
@@ -67,17 +70,67 @@ public sealed partial class TimelineTabView
 
             e.Handled = true;
         }
-        else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
+        else if (TryGetDroppedFiles(e) is { Length: > 0 } files)
         {
-            viewModel.AddElement.Execute(new ElementDescription(
-                viewModel.ClickedFrame, s_defaultElementLength, viewModel.CalculateClickedLayer(),
-                new ElementSource.File(fileName)));
-
             e.Handled = true;
+            await AddDroppedFilesAsync(viewModel, files);
         }
     }
 
-    private static async Task ImportStorageDropAsync(TimelineTabViewModel viewModel, Scene scene, StorageDragData storage)
+    // With only the default look there is nothing to ask. The last choice comes first.
+    private async Task<CaptionTemplate?> ChooseDroppedCaptionTemplateAsync()
+    {
+        IReadOnlyList<CaptionTemplate> templates = CaptionFileDrop.GetTemplates();
+        if (templates.Count == 1) return templates[0];
+
+        CaptionTemplate? chosen = await CaptionTemplateChooser.ShowAsync(
+            TimelinePanel, templates.OrderByDescending(item => item.Descriptor.Id == _captionTemplateId));
+        if (chosen is not null) _captionTemplateId = chosen.Descriptor.Id;
+        return chosen;
+    }
+
+    private static string[]? TryGetDroppedFiles(DragEventArgs e)
+        => e.DataTransfer.TryGetFiles()?
+            .OfType<IStorageFile>()
+            .Select(file => file.TryGetLocalPath())
+            .OfType<string>()
+            .ToArray();
+
+    private async Task AddDroppedFilesAsync(TimelineTabViewModel viewModel, string[] files)
+    {
+        MediaTime frame = viewModel.ClickedFrame;
+        int layer = viewModel.CalculateClickedLayer();
+        try
+        {
+            string[] captions = [.. files.Where(CaptionFileDrop.IsCaptionFile)];
+            CaptionTemplate? template = null;
+            if (captions.Length > 0)
+            {
+                template = await ChooseDroppedCaptionTemplateAsync();
+                // Dismissing the menu gives up the whole drop, along with any files dropped beside the subtitles.
+                if (template is null) return;
+            }
+
+            // The layout can have to open the files.
+            ElementDescription[] descriptions = await Task.Run(
+                () => FileDropLayout.Create(files.Except(captions), frame, s_defaultElementLength, layer));
+            if (descriptions.Length == 0 && captions.Length == 0)
+            {
+                // With no media among them, adding the first says why it cannot be added.
+                await viewModel.AddElementWithResultAsync(
+                    new ElementDescription(frame, s_defaultElementLength, layer, new ElementSource.File(files[0])));
+            }
+            else
+            {
+                await CaptionFileDrop.AddAsync(viewModel, captions, descriptions, template);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (ObjectDisposedException) { }
+        catch (Exception) { NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError); }
+    }
+
+    private async Task ImportStorageDropAsync(TimelineTabViewModel viewModel, Scene scene, StorageDragData storage)
     {
         MediaTime dropFrame = viewModel.ClickedFrame;
         int dropLayer = viewModel.CalculateClickedLayer();
@@ -90,7 +143,16 @@ public sealed partial class TimelineTabView
         try
         {
             using var import = await storage.ImportToSceneAsync(scene);
-            foreach (string path in import.Paths)
+            string[] captions = [.. import.Paths.Where(CaptionFileDrop.IsCaptionFile)];
+            CaptionTemplate? template = null;
+            if (captions.Length > 0)
+            {
+                template = await ChooseDroppedCaptionTemplateAsync();
+                // Dismissing the menu gives up the whole drop, as it does for files from the disk.
+                if (template is null) return;
+            }
+
+            foreach (string path in import.Paths.Except(captions))
             {
                 ElementAddResult result;
                 if (string.Equals(Path.GetExtension(path), ".json", StringComparison.OrdinalIgnoreCase)
@@ -107,6 +169,10 @@ public sealed partial class TimelineTabView
                 }
                 if (result.IsSuccess) dropLayer = checked(result.Elements.Max(element => element.ZIndex.Value) + 1);
             }
+
+            // Their text is copied into the clips, so nothing here needs the files once they are read.
+            if (captions.Length > 0)
+                await CaptionFileDrop.AddAsync(viewModel, captions, [], template);
         }
         catch (OperationCanceledException) { }
         catch (ObjectDisposedException) { }
@@ -167,8 +233,9 @@ public sealed partial class TimelineTabView
         if (element == null)
         {
             int layer = viewModel.ToLayerNumber(position.Y);
-            element = viewModel.Elements.FirstOrDefault(
-                item => item.Model.ZIndex.Value == layer && item.Model.Range.Contains(time));
+            Element? hit = viewModel.Scene.Children.FirstOrDefault(
+                item => item.ZIndex.Value == layer && item.Range.Contains(time));
+            element = hit is null ? null : viewModel.GetViewModelFor(hit);
         }
 
         if (element == null) return null;

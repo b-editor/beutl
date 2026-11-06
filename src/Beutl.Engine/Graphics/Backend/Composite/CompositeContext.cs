@@ -2,6 +2,7 @@
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics3D;
 using Silk.NET.Vulkan;
+using Silk.NET.Vulkan.Extensions.EXT;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Backend.Composite;
@@ -22,20 +23,54 @@ internal sealed class CompositeContext : IGraphicsContext
                 $"{physicalDevice.Name} is not driven by MoltenVK, and Skia on macOS renders only through Metal.");
         }
 
-        Metal = new MetalContext();
+        Vulkan = new VulkanContext(vulkanInstance, physicalDevice);
         try
         {
-            Vulkan = new VulkanContext(vulkanInstance, physicalDevice);
+            Metal = new MetalContext(ExportMetalDevice(Vulkan));
         }
         catch
         {
             // The factory falls back to CPU rendering on this failure and does not retry, so nothing else would
-            // release the Metal device and the Skia context made on it.
-            Metal.Dispose();
+            // release the Vulkan device.
+            Vulkan.Dispose();
             throw;
         }
 
         Timeline = MetalVulkanTimeline.TryCreate(Metal, Vulkan);
+    }
+
+    // Textures and shared events cross between Skia and Vulkan, so Skia has to render on the GPU Vulkan selected, which
+    // on a Mac with two GPUs need not be the system default. A device that cannot say which it is gets refused.
+    internal static unsafe IntPtr ExportMetalDevice(VulkanContext vulkan)
+    {
+        ExtMetalObjects metalObjects = GetMetalObjects(vulkan);
+
+        var deviceInfo = new ExportMetalDeviceInfoEXT
+        {
+            SType = StructureType.ExportMetalDeviceInfoExt,
+        };
+        var objectsInfo = new ExportMetalObjectsInfoEXT
+        {
+            SType = StructureType.ExportMetalObjectsInfoExt,
+            PNext = &deviceInfo,
+        };
+        metalObjects.ExportMetalObjects(vulkan.Device, &objectsInfo);
+
+        return deviceInfo.MtlDevice != IntPtr.Zero
+            ? deviceInfo.MtlDevice
+            : throw new NotSupportedException("The Vulkan device did not report the Metal device behind it.");
+    }
+
+    // The constructor refuses a device without the extension, so everything built on a context can count on it.
+    internal static ExtMetalObjects GetMetalObjects(VulkanContext vulkan)
+    {
+        if (!vulkan.Vk.TryGetDeviceExtension(vulkan.Instance, vulkan.Device, out ExtMetalObjects metalObjects))
+        {
+            throw new NotSupportedException(
+                "VK_EXT_metal_objects is not available, so the Metal device behind the Vulkan device is not known.");
+        }
+
+        return metalObjects;
     }
 
     public GraphicsBackend Backend => GraphicsBackend.Metal;
