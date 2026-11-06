@@ -11,17 +11,12 @@
                          Duration="00:10:00" />
     </Design.PreviewWith>
 
-    <!--  Takes clicks over the seek bar's whole height, and draws only its thin track.  -->
+    <!--  Takes clicks over the seek bar's whole height. The bar draws its track under it.  -->
     <ControlTheme x:Key="PlayerSeekBarTrackButtonTheme" TargetType="RepeatButton">
         <Setter Property="Focusable" Value="False" />
         <Setter Property="Template">
             <ControlTemplate>
-                <Panel Background="Transparent">
-                    <Border Height="4"
-                            VerticalAlignment="Center"
-                            Background="{TemplateBinding Background}"
-                            CornerRadius="2" />
-                </Panel>
+                <Panel Background="Transparent" />
             </ControlTemplate>
         </Setter>
     </ControlTheme>
@@ -50,9 +45,14 @@
 
     <!--  It has a template of its own, because the slider theme ties the height that takes clicks to the size of the thumb.
           Nothing in it takes the focus: a focused slider would take the arrow keys from the editor's frame steps and move
-          the playhead by a whole second.  -->
-    <ControlTheme x:Key="PlayerSeekBarTheme" TargetType="Slider">
+          the playhead by a whole second. The bar draws its track, the played part in Foreground and the rest in
+          Background, and the markers' marks itself, so that the thumb lies over the marks.  -->
+    <ControlTheme x:Key="{x:Type controls:PlayerSeekBar}" TargetType="controls:PlayerSeekBar">
         <Setter Property="Focusable" Value="False" />
+        <Setter Property="Background" Value="{DynamicResource SliderTrackFill}" />
+        <Setter Property="Foreground" Value="{DynamicResource SliderTrackValueFill}" />
+        <Setter Property="ToolTip.Placement" Value="Top" />
+        <Setter Property="ToolTip.VerticalOffset" Value="-4" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Track Name="PART_Track"
@@ -61,14 +61,10 @@
                        Orientation="Horizontal"
                        Value="{TemplateBinding Value, Mode=TwoWay}">
                     <Track.DecreaseButton>
-                        <RepeatButton Name="PART_DecreaseButton"
-                                      Background="{DynamicResource SliderTrackValueFill}"
-                                      Theme="{StaticResource PlayerSeekBarTrackButtonTheme}" />
+                        <RepeatButton Name="PART_DecreaseButton" Theme="{StaticResource PlayerSeekBarTrackButtonTheme}" />
                     </Track.DecreaseButton>
                     <Track.IncreaseButton>
-                        <RepeatButton Name="PART_IncreaseButton"
-                                      Background="{DynamicResource SliderTrackFill}"
-                                      Theme="{StaticResource PlayerSeekBarTrackButtonTheme}" />
+                        <RepeatButton Name="PART_IncreaseButton" Theme="{StaticResource PlayerSeekBarTrackButtonTheme}" />
                     </Track.IncreaseButton>
                     <Thumb Name="thumb" Theme="{StaticResource PlayerSeekBarThumbTheme}" />
                 </Track>
@@ -103,13 +99,13 @@
                         </Grid.Styles>
 
                         <!--  Every pixel here comes out of the frame. The bar reaches 3 px over its neighbors, which keeps it easy to grab.  -->
-                        <Slider Name="PART_Slider"
-                                Height="16"
-                                Margin="0,-3"
-                                Maximum="{TemplateBinding Maximum, Mode=TwoWay}"
-                                Minimum="{TemplateBinding Minimum, Mode=TwoWay}"
-                                Theme="{StaticResource PlayerSeekBarTheme}"
-                                Value="{TemplateBinding Value, Mode=TwoWay}" />
+                        <controls:PlayerSeekBar Name="PART_Slider"
+                                                Height="16"
+                                                Margin="0,-3"
+                                                Markers="{TemplateBinding Markers}"
+                                                Maximum="{TemplateBinding Maximum, Mode=TwoWay}"
+                                                Minimum="{TemplateBinding Minimum, Mode=TwoWay}"
+                                                Value="{TemplateBinding Value, Mode=TwoWay}" />
 
                         <controls:PlayerFooterPanel Name="PART_FooterPanel" Grid.Row="1">
                             <StackPanel Name="PART_TimePanel"

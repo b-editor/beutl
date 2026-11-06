@@ -190,6 +190,7 @@ public partial class Player : RangeBase
         set => SetAndRaise(StartButtonCommandProperty, ref _startButtonCommand, value);
     }
 
+    /// <summary>Gets or sets the markers, which the seek bar marks and the time editor offers after an @.</summary>
     public IReadOnlyList<PlayerMarkerEntry>? Markers
     {
         get => GetValue(MarkersProperty);
