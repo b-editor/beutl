@@ -1,6 +1,8 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
@@ -637,6 +639,82 @@ public sealed class RepeatEffectTests
             effects.Children.Add(Shadow());
             return RenderInFrame(effects, picture, linear: true);
         }
+    }
+
+    // Once the cache keeps the filter, it makes the filter's value instead of drawing it straight into the frame. That
+    // value holds what the frame shows, at the density the cache's entry names, and comes back on the next frame. A node
+    // of its own makes the picture, so that no transform above the filter keeps the cache away.
+    [Test]
+    public void A_wide_grid_stays_sharp_under_a_cached_filter_after_it()
+    {
+        var frame = new Rect(0, 0, 1920, 1080);
+        bool cached = false;
+        List<string> rows = VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using FilterEffect.Resource grid = WideGrid(100).ToResource(CompositionContext.Default);
+            using FilterEffect.Resource shadow = Shadow().ToResource(CompositionContext.Default);
+            var gridNode = new FilterEffectRenderNode(grid);
+            gridNode.AddChild(new PictureSourceNode());
+            using var shadowNode = new FilterEffectRenderNode(shadow);
+            shadowNode.AddChild(gridNode);
+            using var renderer = new RenderNodeRenderer(shadowNode, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                Purpose = RenderRequestPurpose.Frame,
+                TargetDomain = frame,
+                OutputScale = 1,
+                // The default rules keep nothing larger than a million pixels.
+                CacheOptions = new RenderCacheOptions(true, RenderCacheRules.Create(1920 * 1080, 1)),
+            });
+
+            var result = new List<string>();
+            for (int index = 0; index < 3; index++)
+            {
+                using RenderNodeRasterization raster = renderer.Rasterize();
+                Assert.That(raster.Bounds, Is.EqualTo(frame));
+                using Bitmap bytes = raster.Bitmap!.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+                byte[][] frameRows = [.. Enumerable.Range(0, bytes.Height).Select(y => bytes.GetRow(y).ToArray())];
+                result.Add(Across(frameRows, 620, 1000, 1059, 1060, 1119));
+                // The next frame stores the filter's value, and the last one takes it back.
+                if (index == 0)
+                    shadowNode.Cache.RecordStableRequests();
+            }
+
+            cached = shadowNode.Cache.IsCached;
+            return result;
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cached, Is.True, "the filter has to reach the cache");
+            Assert.That(rows, Is.All.EqualTo("RRBB"));
+        });
+    }
+
+    // The picture RenderInFrame draws: red from x = 900 to 960 and blue to 1020, from y = 500 to 580.
+    private sealed class PictureSourceNode : RenderNode
+    {
+        private static readonly Rect s_picture = new(900, 500, 120, 80);
+
+        public override void Process(RenderNodeContext context)
+            => context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+                "red-and-blue",
+                static (session, _) =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(s_picture);
+                    output.Canvas.Use(static canvas =>
+                    {
+                        using (canvas.PushClip(new Rect(900, 500, 60, 80)))
+                            canvas.Clear(Colors.Red);
+                        using (canvas.PushClip(new Rect(960, 500, 60, 80)))
+                            canvas.Clear(Colors.Blue);
+                    });
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(s_picture),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale)));
     }
 
     [TestCase(30)]
