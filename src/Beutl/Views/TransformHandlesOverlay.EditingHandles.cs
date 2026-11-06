@@ -19,7 +19,7 @@ internal sealed partial class TransformHandlesOverlay
         if (ReferenceEquals(_editingHandleProvider, provider) && _editingHandles.SequenceEqual(handles)) return;
         _editingHandleProvider = provider;
         _editingHandles = handles;
-        InvalidateVisual();
+        HdrOverlay.InvalidateVisual(this);
     }
 
     private void ClearEditingHandles()

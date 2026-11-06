@@ -426,7 +426,7 @@
     <comment />
   </data>
   <data name="UseHdrPreview_Description" xml:space="preserve">
-    <value>미리 보기 플레이어에 HDR 렌더링을 사용합니다(마우스 조작 등이 제한됨)</value>
+    <value>미리 보기 플레이어에 HDR 렌더링을 사용합니다</value>
     <comment />
   </data>
   <data name="DisplayPeakLuminance" xml:space="preserve">
@@ -744,7 +744,7 @@
     <value>가이드 표시</value>
   </data>
   <data name="ShowPreviewGuides_Description" xml:space="preserve">
-    <value>편집기 미리보기 위에 세이프 영역과 구도 가이드를 표시합니다. 내보낸 영상에는 포함되지 않으며, HDR 미리보기에서는 표시되지 않습니다.</value>
+    <value>편집기 미리보기 위에 세이프 영역과 구도 가이드를 표시합니다. 내보낸 영상에는 포함되지 않습니다.</value>
   </data>
   <data name="PreviewGuideKinds" xml:space="preserve">
     <value>표시할 가이드</value>

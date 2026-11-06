@@ -35,6 +35,19 @@ public class VulkanSwapchainRendererTests
         Assert.That(VulkanSwapchainRenderer.ShouldRedrawPaused(false, s_view, presented: s_old), Is.True);
     }
 
+    // The player's HDR preview places the frame itself, zoomed and panned past the view's edges, instead of by Stretch.
+    [Test]
+    public void AFrameGivenADestinationGoesThereWhateverTheStretch()
+    {
+        var destination = new Beutl.Graphics.Rect(-0.5f, 0.25f, 2f, 1.5f);
+        var renderParams = new RenderParams(1920, 1080, Stretch.Uniform, UIToneMappingOperator.None, 0f,
+            IsSourceLinear: true, Destination: destination);
+
+        VulkanSwapchainRenderer.ComputeStretchRects(renderParams, s_view, out PresentPushConstants pc);
+
+        Assert.That((pc.DstX, pc.DstY, pc.DstW, pc.DstH), Is.EqualTo((-0.5f, 0.25f, 2f, 1.5f)));
+    }
+
     [Test]
     public void APausedPreviewKeepsAFrameDrawnAtTheSurfacesSize()
     {

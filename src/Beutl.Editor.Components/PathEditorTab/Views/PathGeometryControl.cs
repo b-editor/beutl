@@ -41,7 +41,7 @@ public class PathGeometryControl : Control
             if (value is IBrush brush)
             {
                 _handlePen = new Avalonia.Media.Immutable.ImmutablePen(brush.ToImmutable(), 1);
-                InvalidateVisual();
+                HdrOverlay.InvalidateVisual(this);
             }
         });
     }

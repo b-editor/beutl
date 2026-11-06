@@ -4,6 +4,7 @@ using Beutl.Media;
 using Beutl.Media.Source;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
+using SkiaSharp;
 using VkSemaphore = Silk.NET.Vulkan.Semaphore;
 
 namespace Beutl.Graphics.Backend.Vulkan;
@@ -45,6 +46,33 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
     private CommandBuffer _renderCommandBuffer;
     private CommandBuffer _uploadCommandBuffer;
+    private CommandBuffer _overlayCommandBuffer;
+
+    // What the UI draws over the frame, which the presentation thread draws at the swapchain's size into the overlay
+    // image. The view hands a new one over at any time; only the presentation thread touches the others.
+    private OverlayContent? _overlay;
+    private bool _overlayDirty;
+    private bool _overlayShown;
+    private Extent2D _overlayExtent;
+    private Image _overlayImage;
+    private DeviceMemory _overlayMemory;
+    private ImageView _overlayImageView;
+    private int _overlayWidth;
+    private int _overlayHeight;
+    private ImageLayout _overlayImageLayout = ImageLayout.Undefined;
+    private Silk.NET.Vulkan.Buffer _overlayStagingBuffer;
+    private DeviceMemory _overlayStagingMemory;
+    private ulong _overlayStagingSize;
+    private void* _overlayPixels;
+    private ulong _overlayPixelsSize;
+
+    // What the view asked for and the presentation thread has not taken yet: a new overlay, and parameters to draw the
+    // last frame again with. Requests are stamped in the order the view made them, so the newest parameters win over
+    // a frame queued before them.
+    private readonly Lock _pendingLock = new();
+    private OverlayContent? _pendingOverlay;
+    private (RenderParams Params, long Stamp)? _pendingRedraw;
+    private long _requestStamp;
 
     private VkSemaphore _imageAvailableSemaphore;
     private VkSemaphore _renderFinishedSemaphore;
@@ -101,6 +129,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         _pipeline = new VulkanPresentPipeline(_vk, _device, _swapchain.Format, _swapchain.ImageViews, _swapchain.Extent);
         _renderCommandBuffer = AllocateCommandBuffer();
         _uploadCommandBuffer = AllocateCommandBuffer();
+        _overlayCommandBuffer = AllocateCommandBuffer();
 
         if (OperatingSystem.IsWindows())
             _windowsDisplay = new WindowsDisplayLuminance(nativeHandle);
@@ -129,8 +158,50 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             return;
         }
 
-        if (!_commandQueue.TryAdd(new RenderCommand.DrawCommand(bitmapRef, renderParams)))
+        long stamp = Interlocked.Increment(ref _requestStamp);
+        if (!_commandQueue.TryAdd(new RenderCommand.DrawCommand(bitmapRef, renderParams, stamp)))
             bitmapRef.Dispose();
+    }
+
+    /// <summary>
+    /// Draws the last frame again with other parameters, such as another destination while the preview is zoomed, without
+    /// uploading it again. The newest parameters are kept until the presentation thread takes them, so none is dropped.
+    /// </summary>
+    public void RequestRedraw(RenderParams renderParams)
+    {
+        if (_disposed)
+            return;
+
+        long stamp = Interlocked.Increment(ref _requestStamp);
+        lock (_pendingLock)
+            _pendingRedraw = (renderParams, stamp);
+
+        // A full queue means the thread is busy, and it takes the parameters with its next command.
+        _commandQueue.TryAdd(RenderCommand.WakeCommand.Instance);
+    }
+
+    /// <summary>
+    /// Hands over what the UI draws over the frame, recorded in a view <paramref name="width"/> by
+    /// <paramref name="height"/> in size, or null for nothing. The renderer owns the picture from here on: the
+    /// presentation thread draws it at the swapchain's size and shows it over the frame, a paused frame included.
+    /// </summary>
+    public void SetOverlay(SKPicture? picture, float width, float height)
+    {
+        if (_disposed)
+        {
+            picture?.Dispose();
+            return;
+        }
+
+        OverlayContent? replaced;
+        lock (_pendingLock)
+        {
+            replaced = _pendingOverlay;
+            _pendingOverlay = new OverlayContent(picture, width, height);
+        }
+
+        replaced?.Dispose();
+        _commandQueue.TryAdd(RenderCommand.WakeCommand.Instance);
     }
 
     private void StartPresentThread()
@@ -150,11 +221,21 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         {
             while (_running)
             {
-                if (!_commandQueue.TryTake(out var command, 100))
+                var batch = new CommandBatch();
+                if (_commandQueue.TryTake(out var command, 100))
                 {
-                    // A paused preview gets no new frame when its window moves to another display, the display's
-                    // settings change, or its native view takes a new size after the last frame, so the last one is
-                    // drawn again.
+                    batch.Add(command);
+                    // What queued meanwhile: the newest frame and parameters win, and older frames are released.
+                    while (_commandQueue.TryTake(out var newer))
+                        batch.Add(newer);
+                }
+
+                TakePending(ref batch);
+
+                // A paused preview gets no new frame when its window moves to another display, the display's settings
+                // change, or its native view takes a new size after the last frame, so the last one is drawn again.
+                if (batch.IsEmpty)
+                {
                     if (_lastRenderParams is not { } lastParams
                         || !ShouldRedrawPaused(
                             RefreshDisplay(lastParams.DisplayPeakLuminance),
@@ -164,46 +245,12 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
                         continue;
                     }
 
-                    command = new RenderCommand.RedrawCommand(lastParams);
-                }
-
-                // Drain queue to get latest command, dispose intermediate bitmaps
-                while (_commandQueue.TryTake(out var newer))
-                {
-                    if (command is RenderCommand.DrawCommand oldDraw)
-                        oldDraw.BitmapRef.Dispose();
-
-                    command = newer;
+                    batch.Redraw = true;
                 }
 
                 try
                 {
-                    switch (command)
-                    {
-                        case RenderCommand.DrawCommand draw:
-                            try
-                            {
-                                // The drain above can drop a resize queued just before this frame, which would
-                                // then be drawn at the old size and stay stretched until the idle redraw.
-                                FollowSurfaceSize();
-                                ExecuteRender(draw.BitmapRef, draw.Params);
-                            }
-                            finally
-                            {
-                                draw.BitmapRef.Dispose();
-                            }
-
-                            break;
-
-                        case RenderCommand.RedrawCommand redraw:
-                            FollowSurfaceSize();
-                            ExecuteRender(null, redraw.Params);
-                            break;
-
-                        case RenderCommand.ResizeCommand resize:
-                            ExecuteResize(resize.Width, resize.Height);
-                            break;
-                    }
+                    ExecuteBatch(ref batch);
                 }
                 catch (VulkanPresentException ex)
                 {
@@ -214,6 +261,10 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
                 {
                     s_logger.LogError(ex, "Error in presentation thread");
                 }
+                finally
+                {
+                    batch.Bitmap?.Dispose();
+                }
             }
         }
         catch (InvalidOperationException)
@@ -223,6 +274,56 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         catch (Exception ex)
         {
             s_logger.LogError(ex, "Presentation thread crashed");
+        }
+    }
+
+    private void TakePending(ref CommandBatch batch)
+    {
+        OverlayContent? overlay;
+        (RenderParams Params, long Stamp)? redraw;
+        lock (_pendingLock)
+        {
+            overlay = _pendingOverlay;
+            _pendingOverlay = null;
+            redraw = _pendingRedraw;
+            _pendingRedraw = null;
+        }
+
+        if (overlay != null)
+        {
+            _overlay?.Dispose();
+            _overlay = overlay;
+            _overlayDirty = true;
+            batch.Redraw = true;
+        }
+
+        if (redraw is { } r)
+        {
+            batch.Offer(r.Params, r.Stamp);
+            batch.Redraw = true;
+        }
+    }
+
+    private void ExecuteBatch(ref CommandBatch batch)
+    {
+        if (batch.Bitmap is { } bitmap)
+        {
+            // A resize taken with this frame is not run: the swapchain follows the surface's size before drawing, which
+            // a resize can leave old, and the frame would stay stretched until the idle redraw.
+            FollowSurfaceSize();
+            ExecuteRender(bitmap, batch.Params!.Value);
+        }
+        else if (batch.Redraw)
+        {
+            if ((batch.Params ?? _lastRenderParams) is { } renderParams)
+            {
+                FollowSurfaceSize();
+                ExecuteRender(null, renderParams);
+            }
+        }
+        else if (batch.Resize is { } size)
+        {
+            ExecuteResize(size.Width, size.Height);
         }
     }
 
@@ -248,6 +349,10 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         if (bitmap?.IsDisposed == true)
             return;
 
+        // Drawing again needs a frame uploaded before.
+        if (bitmap == null && _sourceImage.Handle == 0)
+            return;
+
         // The previous frame fence covers its upload and present draw because both use this queue.
         // Wait before rewriting the persistent staging buffer or replacing the source image.
         var fence = _inFlightFence;
@@ -266,8 +371,14 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             // The following render submission is ordered after this upload on the same queue, so it
             // needs no per-operation CPU fence wait.
             UploadBitmap(bitmap);
-            _lastRenderParams = renderParams;
         }
+
+        // What the idle wait draws the frame again with.
+        _lastRenderParams = renderParams;
+
+        // The overlay follows the swapchain's size, so a resize draws it again too.
+        if (_overlayDirty || !SameSize(_overlayExtent, _swapchain.Extent))
+            UploadOverlay();
 
         RefreshDisplay(renderParams.DisplayPeakLuminance);
 
@@ -412,7 +523,85 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         EndAndSubmitUploadCommands(cmdBuf);
 
-        _pipeline!.UpdateDescriptorSet(_descriptorSet, _sourceImageView);
+        _pipeline!.UpdateDescriptorSet(_descriptorSet, VulkanPresentPipeline.SourceBinding, _sourceImageView);
+    }
+
+    // Draws the overlay picture at the swapchain's size, on the CPU as the UI's software renderer would, and uploads it.
+    private void UploadOverlay()
+    {
+        _overlayDirty = false;
+        Extent2D extent = _swapchain!.Extent;
+        _overlayExtent = extent;
+        _overlayShown = false;
+
+        OverlayContent? content = _overlay;
+        if (content?.Picture is not { } picture || !(content.Width > 0 && content.Height > 0)
+            || extent.Width == 0 || extent.Height == 0)
+        {
+            return;
+        }
+
+        int width = (int)extent.Width;
+        int height = (int)extent.Height;
+        int rowBytes = width * 4;
+        ulong size = (ulong)rowBytes * (ulong)height;
+
+        EnsureOverlayPixels(size);
+        var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
+        using (SKSurface? surface = SKSurface.Create(info, (IntPtr)_overlayPixels, rowBytes))
+        {
+            if (surface == null)
+                return;
+
+            SKCanvas canvas = surface.Canvas;
+            canvas.Clear(SKColors.Transparent);
+            canvas.Scale(width / content.Width, height / content.Height);
+            canvas.DrawPicture(picture);
+        }
+
+        if (_overlayImage.Handle == 0 || width != _overlayWidth || height != _overlayHeight)
+        {
+            DestroyOverlayImage();
+            CreateOverlayImage(width, height);
+        }
+
+        EnsureOverlayStagingBuffer(size);
+
+        void* mapped;
+        Check(_vk.MapMemory(_device, _overlayStagingMemory, 0, size, 0, &mapped), "vkMapMemory");
+        System.Buffer.MemoryCopy(_overlayPixels, mapped, (long)size, (long)size);
+        _vk.UnmapMemory(_device, _overlayStagingMemory);
+
+        var cmdBuf = _overlayCommandBuffer;
+        Check(_vk.ResetCommandBuffer(cmdBuf, 0), "vkResetCommandBuffer");
+        BeginCommandBuffer(cmdBuf);
+
+        TransitionImageLayout(cmdBuf, _overlayImage, _overlayImageLayout, ImageLayout.TransferDstOptimal);
+        _overlayImageLayout = ImageLayout.TransferDstOptimal;
+
+        var region = new BufferImageCopy
+        {
+            BufferOffset = 0,
+            BufferRowLength = 0,
+            BufferImageHeight = 0,
+            ImageSubresource = new ImageSubresourceLayers
+            {
+                AspectMask = ImageAspectFlags.ColorBit,
+                MipLevel = 0,
+                BaseArrayLayer = 0,
+                LayerCount = 1
+            },
+            ImageOffset = new Offset3D(0, 0, 0),
+            ImageExtent = new Extent3D((uint)width, (uint)height, 1)
+        };
+
+        _vk.CmdCopyBufferToImage(cmdBuf, _overlayStagingBuffer, _overlayImage, ImageLayout.TransferDstOptimal, 1, &region);
+
+        TransitionImageLayout(cmdBuf, _overlayImage, ImageLayout.TransferDstOptimal, ImageLayout.ShaderReadOnlyOptimal);
+        _overlayImageLayout = ImageLayout.ShaderReadOnlyOptimal;
+
+        EndAndSubmitUploadCommands(cmdBuf);
+        _overlayShown = true;
     }
 
     private void RecordAndSubmit(uint imageIndex, RenderParams renderParams)
@@ -450,7 +639,11 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             : renderParams.DisplayGamut;
         pushConstants.SetGamut(gamut);
 
-        var clearValue = new ClearValue { Color = new ClearColorValue(0f, 0f, 0f, 1f) };
+        pushConstants.Overlay = _overlayShown ? 1 : 0;
+        pushConstants.ComposeInGamma = _swapchain.IsHdr ? 0 : 1;
+
+        // Transparent around the frame, where a layer that is not opaque shows the UI under it.
+        var clearValue = new ClearValue { Color = new ClearColorValue(0f, 0f, 0f, 0f) };
         var renderPassInfo = new RenderPassBeginInfo
         {
             SType = StructureType.RenderPassBeginInfo,
@@ -500,11 +693,20 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         Check(_vk.QueueSubmit(_graphicsQueue, 1, &submitInfo, _inFlightFence), "vkQueueSubmit");
     }
 
-    private static void ComputeStretchRects(RenderParams p, Extent2D extent, out PresentPushConstants pc)
+    internal static void ComputeStretchRects(RenderParams p, Extent2D extent, out PresentPushConstants pc)
     {
         pc = default;
         pc.Exposure = p.Exposure;
         pc.TmOperator = (int)p.ToneMapping;
+
+        if (p.Destination is { } destination)
+        {
+            pc.DstX = destination.X;
+            pc.DstY = destination.Y;
+            pc.DstW = destination.Width;
+            pc.DstH = destination.Height;
+            return;
+        }
 
         float destW = extent.Width;
         float destH = extent.Height;
@@ -568,6 +770,15 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         _commandQueue.Dispose();
 
+        lock (_pendingLock)
+        {
+            _pendingOverlay?.Dispose();
+            _pendingOverlay = null;
+        }
+
+        _overlay?.Dispose();
+        _overlay = null;
+
         if (OperatingSystem.IsWindows())
             _windowsDisplay?.Dispose();
 
@@ -577,6 +788,8 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
             DestroySourceImage();
             DestroyStagingBuffer();
+            DestroyOverlayImage();
+            DestroyOverlayStagingBuffer();
 
             _pipeline?.Dispose();
             _swapchain?.Dispose();
@@ -596,12 +809,74 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
             _vk.DestroyDevice(_device, null);
         }
+
+        FreeOverlayPixels();
     }
 
     private abstract record RenderCommand
     {
-        public sealed record DrawCommand(Ref<Bitmap> BitmapRef, RenderParams Params) : RenderCommand;
-        public sealed record RedrawCommand(RenderParams Params) : RenderCommand;
+        public sealed record DrawCommand(Ref<Bitmap> BitmapRef, RenderParams Params, long Stamp) : RenderCommand;
         public sealed record ResizeCommand(uint Width, uint Height) : RenderCommand;
+
+        // Only wakes the thread, which takes what is pending (TakePending).
+        public sealed record WakeCommand : RenderCommand
+        {
+            public static readonly WakeCommand Instance = new();
+        }
+    }
+
+    /// <summary>What the presentation thread does for the commands it took at once.</summary>
+    private struct CommandBatch
+    {
+        // The newest frame to upload, which the batch owns.
+        public Ref<Bitmap>? Bitmap;
+
+        // The newest parameters, and the stamp of the request that gave them.
+        public RenderParams? Params;
+        private long _stamp;
+
+        public (uint Width, uint Height)? Resize;
+
+        // Draw the last frame again, with Params when the batch has them.
+        public bool Redraw;
+
+        public readonly bool IsEmpty => Bitmap == null && Params == null && Resize == null && !Redraw;
+
+        public void Add(RenderCommand command)
+        {
+            switch (command)
+            {
+                case RenderCommand.DrawCommand draw:
+                    Bitmap?.Dispose();
+                    Bitmap = draw.BitmapRef;
+                    Offer(draw.Params, draw.Stamp);
+                    break;
+
+                case RenderCommand.ResizeCommand resize:
+                    Resize = (resize.Width, resize.Height);
+                    break;
+            }
+        }
+
+        public void Offer(RenderParams renderParams, long stamp)
+        {
+            if (Params == null || stamp >= _stamp)
+            {
+                Params = renderParams;
+                _stamp = stamp;
+            }
+        }
+    }
+
+    // A picture of the UI's overlay and the size of the view it was recorded in.
+    private sealed class OverlayContent(SKPicture? picture, float width, float height) : IDisposable
+    {
+        public SKPicture? Picture { get; } = picture;
+
+        public float Width { get; } = width;
+
+        public float Height { get; } = height;
+
+        public void Dispose() => Picture?.Dispose();
     }
 }

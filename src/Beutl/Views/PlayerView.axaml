@@ -232,14 +232,15 @@
             </StackPanel>
         </Player.FooterRightContent>
         <Player.Content>
-            <Grid>
+            <!--  An HDR preview's native view covers this whole grid, under the transformed frame panel. See SwapImageControl.  -->
+            <Grid Name="previewViewport">
                 <Panel Name="framePanel"
                        Margin="0"
                        Background="Transparent">
                     <!--  Its box shadow, which PlayerView sets, is the outline that shows where the frame ends against the panel.  -->
                     <Border Name="imageBackground" Background="Black" />
 
-                    <!-- BitmapView or HdrBitmapView is created dynamically in code-behind -->
+                    <!-- A BitmapView, or for an HDR preview the PreviewFrameSlot that holds the frame's place, is created in code-behind -->
 
                     <local:PreviewGuideOverlay Name="guideOverlay" />
 
