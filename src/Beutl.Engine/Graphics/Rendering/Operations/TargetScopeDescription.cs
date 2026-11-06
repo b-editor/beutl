@@ -79,7 +79,9 @@ public sealed class TargetScopeDescription
     /// A static execution callback.
     /// </param>
     /// <param name="deviceGridMapping">
-    /// Whether replay preserves the input device grid. The default assumes remapping.
+    /// Whether replay preserves the input device grid. The default assumes remapping, and a remapping scope asks its input
+    /// for a margin of two texels on each side, which filtering reads when it redraws a value onto another grid. Declare
+    /// <see cref="RenderDeviceGridMapping.Preserved"/> when the replay keeps the input where it is.
     /// </param>
     public static TargetScopeDescription Create<TState>(
         TState state,

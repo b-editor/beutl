@@ -736,7 +736,10 @@ public sealed class GpuPassFusionScaleRegionTests
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
                 RenderScaleContract.PreserveInputSupply,
-                deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent);
+                deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
+                // It replays its input where it is. A scope that keeps the default, Remapped, has its input widened
+                // by a filter margin (#4086).
+                deviceGridMapping: RenderDeviceGridMapping.Preserved);
             context.Publish(context.TargetScope(current, scope));
         }
     }
