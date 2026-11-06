@@ -8,6 +8,17 @@ internal interface IFEItem_Skia : IFEItem
 
     bool SupportsDirectReplay { get; }
 
+    /// <summary>
+    /// Gets whether the filter reads positions in the coordinates of <see cref="FilterEffectContext.Bounds"/> that
+    /// moving its input does not move, as a crop's rectangle is.
+    /// </summary>
+    /// <remarks>
+    /// A flush runs a chain at each target's own origin and then moves the result into place. That holds for a filter
+    /// whose output moves with its input: a blur, a shadow's offset, or a matrix, whose move the flush works out from
+    /// the bounds. A chain with any other filter runs in the coordinates of the bounds instead.
+    /// </remarks>
+    bool NeedsBoundsCoordinates { get; }
+
     void AcceptsDirect(SKImageFilterBuilder builder);
 
     /// <summary>
