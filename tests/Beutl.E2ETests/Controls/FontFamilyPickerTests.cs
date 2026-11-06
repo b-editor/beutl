@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
@@ -508,6 +509,34 @@ public class FontFamilyPickerTests
         });
     }
 
+    // Pinning rebuilds the list, and its rows come back holding other fonts, the clicked row among them.
+    [AvaloniaTest]
+    public void Pinning_a_font_shows_a_pin_on_that_font_alone()
+    {
+        using var picker = PickerHost.Open(new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero));
+
+        picker.ClickPin("Noto Sans Arabic");
+        HeadlessCapture.SaveIfRequested(picker.List, nameof(FontFamilyPickerTests), "pinned");
+
+        Assert.That(picker.FontsShownPinned, Is.EqualTo(new[] { "Noto Sans Arabic" }));
+    }
+
+    [AvaloniaTest]
+    public void Unpinning_a_font_keeps_the_pins_of_the_others()
+    {
+        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        foreach (string name in new[] { "Beta Mono", "DejaVu Sans", "Noto Sans", "Noto Sans Arabic" })
+        {
+            viewModel.Pin(Item(viewModel, name));
+        }
+
+        using var picker = PickerHost.Open(viewModel);
+
+        picker.ClickPin("Noto Sans Arabic");
+
+        Assert.That(picker.FontsShownPinned, Is.EqualTo(new[] { "Beta Mono", "DejaVu Sans", "Noto Sans" }));
+    }
+
     private static void OpenPicker(DropDownButton button)
     {
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -598,6 +627,15 @@ public class FontFamilyPickerTests
 
         public string? HighlightedName => (List.SelectedItem as PinnableLibraryItem)?.DisplayName;
 
+        // The fonts whose rows show a checked pin, top to bottom.
+        public string[] FontsShownPinned =>
+        [
+            .. List.GetRealizedContainers()
+                .OrderBy(List.IndexFromContainer)
+                .Where(row => PinOf(row).IsChecked == true)
+                .Select(row => ((PinnableLibraryItem)row.DataContext!).DisplayName)
+        ];
+
         public static PickerHost Open(FontFamilyPickerFlyoutViewModel viewModel)
         {
             var anchor = new Button { Content = "Font" };
@@ -625,6 +663,20 @@ public class FontFamilyPickerTests
         {
             Window.KeyPress(key, RawInputModifiers.None, physicalKey, null);
             HeadlessTestHelpers.Render();
+        }
+
+        // Clicks the pin of a font's row with the pointer, which shows the pin once it is over the row.
+        public void ClickPin(string name)
+        {
+            Control row = List.GetRealizedContainers().Single(row => ((PinnableLibraryItem)row.DataContext!).DisplayName == name);
+            Window.MouseMove(HeadlessTestHelpers.Center(row, Window));
+            HeadlessTestHelpers.Render();
+            HeadlessTestHelpers.Click(PinOf(row));
+        }
+
+        private static ToggleButton PinOf(Control row)
+        {
+            return row.GetVisualDescendants().OfType<ToggleButton>().Single(button => button.Name == "ToggleButton");
         }
 
         public void Dispose()
