@@ -15,11 +15,20 @@ public sealed class TransformRenderNodeRegionTests
     // meets blue, so its outermost pixels read the red texels just past what the scale maps them to.
     [Test]
     public void A_value_scaled_up_draws_the_pixels_of_the_whole_up_to_the_edges_of_a_part()
+        => AssertPartDrawsTheWhole(static () => new TransformRenderNode(Matrix.CreateScale(1.5f, 1.5f), TransformOperator.Prepend));
+
+    // The same scale, pushed by a public scope before it replays its input, as an extension may. The engine cannot see
+    // the matrix, but the scope declares that it replays the input onto a grid of its own, the default (#4086).
+    [Test]
+    public void A_value_scaled_up_by_a_public_scope_draws_the_pixels_of_the_whole_up_to_the_edges_of_a_part()
+        => AssertPartDrawsTheWhole(static () => new PublicScaleNode());
+
+    private static void AssertPartDrawsTheWhole(Func<ContainerRenderNode> createScale)
     {
         var region = new Rect(75, 15, 60, 60);
-        (Rect wholeBounds, ushort[] whole, int wholeWidth) = Rasterize(null);
+        (Rect wholeBounds, ushort[] whole, int wholeWidth) = Rasterize(createScale, null);
 
-        (Rect partBounds, ushort[] part, int partWidth) = Rasterize(region);
+        (Rect partBounds, ushort[] part, int partWidth) = Rasterize(createScale, region);
 
         Assert.That(partBounds, Is.EqualTo(region));
         int offsetX = (int)(partBounds.X - wholeBounds.X);
@@ -43,9 +52,9 @@ public sealed class TransformRenderNodeRegionTests
         Assert.That(largest.Difference, Is.LessThanOrEqualTo(0.01f), $"at ({largest.X}, {largest.Y})");
     }
 
-    private static (Rect Bounds, ushort[] Pixels, int Width) Rasterize(Rect? requestedRegion)
+    private static (Rect Bounds, ushort[] Pixels, int Width) Rasterize(Func<ContainerRenderNode> createScale, Rect? requestedRegion)
     {
-        using var scale = new TransformRenderNode(Matrix.CreateScale(1.5f, 1.5f), TransformOperator.Prepend);
+        using ContainerRenderNode scale = createScale();
         scale.AddChild(new PictureNode());
         using var renderer = new RenderNodeRenderer(scale, new RenderNodeRenderRequest
         {
@@ -59,6 +68,27 @@ public sealed class TransformRenderNodeRegionTests
                         ?? throw new InvalidOperationException("The scaled picture produced no bitmap.");
         Assert.That(bitmap.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
         return (rasterization.Bounds, bitmap.GetPixelSpan<ushort>().ToArray(), bitmap.Width);
+    }
+
+    // Scales its input 1.5 times by pushing the matrix before it replays the input, through the public description.
+    private sealed class PublicScaleNode : ContainerRenderNode
+    {
+        public override void Process(RenderNodeContext context)
+            => context.PublishMappedInputs(
+                TargetScopeDescription.Create(
+                    1.5f,
+                    static (session, scale) => session.Canvas.Use(canvas =>
+                    {
+                        using (canvas.PushTransform(Matrix.CreateScale(scale, scale)))
+                            session.ReplayInput();
+                    }),
+                    RenderBoundsContract.Create(
+                        1.5f,
+                        static (scale, bounds) => bounds.TransformToAABB(Matrix.CreateScale(scale, scale)),
+                        static (scale, bounds) => bounds.TransformToAABB(Matrix.CreateScale(1 / scale, 1 / scale))),
+                    RenderHitTestContract.AnyInput,
+                    RenderScaleContract.PreserveInputSupply),
+                static (context, input, value) => context.TargetScope(input, value));
     }
 
     private sealed class PictureNode : RenderNode
