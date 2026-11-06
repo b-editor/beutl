@@ -128,12 +128,16 @@ public sealed class PlayerViewHdrPreviewTests
     }
 
     // A new frame changes the time in the footer, the seek bar and the player's own properties, none of which lies over
-    // the frame, so playback records no copy and adds nothing to presenting its frames.
+    // the frame, and the guides over it stay as they are, so playback records no copy and adds nothing to presenting its
+    // frames.
     [AvaloniaTest]
-    public async Task New_frames_leave_the_copy_alone_while_nothing_lies_over_the_frame()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task New_frames_leave_the_copy_alone(bool guides)
     {
         TestGpu.RequireAnyDevice();
-        Config.IsPreviewGuideEnabled.Value = false;
+        Config.PreviewGuideKinds.Value = PreviewGuideKinds.RuleOfThirds | PreviewGuideKinds.TitleSafe;
+        Config.IsPreviewGuideEnabled.Value = guides;
         (EditViewModel editor, PlayerView view, Window window) = await Open(hdr: true, 900, 520);
         try
         {
@@ -148,6 +152,13 @@ public sealed class PlayerViewHdrPreviewTests
             }
 
             Assert.That(invalidations, Is.Zero);
+            if (guides)
+            {
+                // The copy does follow the guides.
+                Config.PreviewGuideColor.Value = "#FFFF0000";
+                HeadlessTestHelpers.Render();
+                Assert.That(invalidations, Is.GreaterThan(0));
+            }
         }
         finally
         {

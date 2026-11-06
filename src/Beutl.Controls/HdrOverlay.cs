@@ -15,7 +15,8 @@ namespace Beutl.Controls;
 /// <remarks>
 /// The copy follows the property changes of the visuals under the root, which is how controls change what they draw.
 /// A control whose drawing changes without one calls <see cref="InvalidateVisual"/> instead of
-/// <see cref="Visual.InvalidateVisual"/>.
+/// <see cref="Visual.InvalidateVisual"/>. A control is drawn only where its bounds meet the frame, so one that draws
+/// past them takes the size it draws in.
 /// </remarks>
 internal sealed class HdrOverlay : IDisposable
 {
@@ -132,8 +133,11 @@ internal sealed class HdrOverlay : IDisposable
         if (!slot.TryInvert(out Matrix inverse))
             return;
 
-        // The part of the slot the region covers, which DrawingContextHelper draws from the canvas's top left corner.
-        Rect clip = region.TransformToAABB(inverse);
+        // The part of the slot the region covers, which DrawingContextHelper draws from the canvas's top left corner. It
+        // culls the visual's descendants against a rectangle of the clip's size at the visual's top left corner, not at
+        // the clip, so the clip reaches back to that corner; the canvas's clip drops what lies outside the region.
+        Rect covered = region.TransformToAABB(inverse);
+        var clip = new Rect(new Point(Math.Min(covered.X, 0), Math.Min(covered.Y, 0)), covered.BottomRight);
         using var recorder = new SKPictureRecorder();
         SKCanvas copy = recorder.BeginRecording(SKRect.Create((float)clip.Width, (float)clip.Height));
         DrawingContextHelper.RenderAsync(copy, visual, clip, new Vector(96 * scaling, 96 * scaling))
