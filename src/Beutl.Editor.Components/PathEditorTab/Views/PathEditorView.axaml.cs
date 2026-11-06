@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Beutl.Controls;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Media;
 using FluentAvalonia.UI.Controls;
@@ -41,7 +42,7 @@ public partial class PathEditorView : PathEditorViewBase
         UpdateControlPointVisibility();
         view.SelectedOperations = GetSelectedAnchors().Select(t => t.DataContext).OfType<PathSegment>().ToArray();
         UpdateThumbPosition();
-        view.InvalidateVisual();
+        HdrOverlay.InvalidateVisual(view);
     }
 
     public int SceneWidth

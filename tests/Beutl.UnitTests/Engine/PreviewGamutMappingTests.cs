@@ -65,7 +65,9 @@ public class PreviewGamutMappingTests
         Assert.That(OffsetOf(nameof(PresentPushConstants.Gamut2)), Is.EqualTo(80));
         Assert.That(OffsetOf(nameof(PresentPushConstants.ReferenceWhite)), Is.EqualTo(96));
         Assert.That(OffsetOf(nameof(PresentPushConstants.OutputBt2020)), Is.EqualTo(100));
-        Assert.That(sizeof(PresentPushConstants), Is.EqualTo(104));
+        Assert.That(OffsetOf(nameof(PresentPushConstants.Overlay)), Is.EqualTo(104));
+        Assert.That(OffsetOf(nameof(PresentPushConstants.ComposeInGamma)), Is.EqualTo(108));
+        Assert.That(sizeof(PresentPushConstants), Is.EqualTo(112));
     }
 
     // The shader hands displayMapping's x, y, z and w to displayMapGain's knee, ks, maxLum and sourcePq.

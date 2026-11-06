@@ -422,7 +422,7 @@
     <comment/>
   </data>
   <data name="UseHdrPreview_Description" xml:space="preserve">
-    <value>プレビュープレーヤーにHDRレンダリングを使用します（マウス操作などが制限されます）</value>
+    <value>プレビュープレーヤーにHDRレンダリングを使用します</value>
     <comment/>
   </data>
   <data name="DisplayPeakLuminance" xml:space="preserve">
@@ -759,7 +759,7 @@
     <value>ガイドを表示</value>
   </data>
   <data name="ShowPreviewGuides_Description" xml:space="preserve">
-    <value>エディターのプレビューにセーフエリアや構図のガイドを重ねて表示します。書き出しには含まれず、HDRプレビューでは表示されません。</value>
+    <value>エディターのプレビューにセーフエリアや構図のガイドを重ねて表示します。書き出しには含まれません。</value>
   </data>
   <data name="PreviewGuideKinds" xml:space="preserve">
     <value>表示するガイド</value>

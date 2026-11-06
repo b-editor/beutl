@@ -119,17 +119,20 @@ internal sealed partial class TransformHandlesOverlay : Control
         PivotLocal = pivotLocal;
 
         RecomputeImageGeometry();
-        InvalidateVisual();
+        HdrOverlay.InvalidateVisual(this);
     }
 
     public void Clear()
     {
+        // Every new frame clears the handles again while nothing is selected, and drawing nothing again changes nothing.
+        bool drewNothing = !HasShape;
         ClearEditingHandles();
         _drawable = null;
         _element = null;
         _localBounds = default;
         _userMatrix = BtlMatrix.Identity;
-        InvalidateVisual();
+        if (!drewNothing)
+            HdrOverlay.InvalidateVisual(this);
     }
 
     private void RecomputeImageGeometry()

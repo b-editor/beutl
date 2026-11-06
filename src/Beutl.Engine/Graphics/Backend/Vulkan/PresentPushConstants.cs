@@ -32,6 +32,10 @@ internal struct PresentPushConstants
 
     public int OutputBt2020; // 1 = the swapchain takes linear BT.2020 rather than linear sRGB
 
+    public int Overlay; // 1 = draw the overlay texture, what the UI draws over the frame, on top of the frame
+
+    public int ComposeInGamma; // 1 = blend the frame over black and the overlay over it in sRGB-encoded values
+
     public void SetDisplayMapping(PreviewDisplayMapping m) =>
         DisplayMapping = new Vector4(m.Knee, m.Ks, m.MaxLum, m.SourcePq);
 

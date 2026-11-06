@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Beutl.Composition;
+using Beutl.Controls;
 using Beutl.Editor.Components.PathEditorTab.Services;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -118,7 +119,7 @@ public abstract class PathEditorViewBase : UserControl, IPathEditorView
                 var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
                 PathEditorHelper.UpdateThumbPositions(_canvas, this, new CompositionContext(clock.CurrentTime.Value));
                 _interaction.RefreshOverlays();
-                _view.InvalidateVisual();
+                HdrOverlay.InvalidateVisual(_view);
             }
         }, DispatcherPriority.MaxValue);
     }

@@ -426,7 +426,7 @@
     <comment/>
   </data>
   <data name="UseHdrPreview_Description" xml:space="preserve">
-    <value>Use HDR rendering for the preview player (mouse operations, etc., will be restricted)</value>
+    <value>Use HDR rendering for the preview player</value>
     <comment/>
   </data>
   <data name="DisplayPeakLuminance" xml:space="preserve">
@@ -763,7 +763,7 @@
     <value>Show guides</value>
   </data>
   <data name="ShowPreviewGuides_Description" xml:space="preserve">
-    <value>Draw safe areas and composition guides over the editor's preview. They never appear in exported video, and the HDR preview does not show them.</value>
+    <value>Draw safe areas and composition guides over the editor's preview. They never appear in exported video.</value>
   </data>
   <data name="PreviewGuideKinds" xml:space="preserve">
     <value>Guides to show</value>

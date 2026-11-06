@@ -157,6 +157,26 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
         return format.ToString().Contains("Unorm", StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Alpha that the platform blends with what lies under the view where it can, else opaque. MoltenVK then makes the
+    /// CAMetalLayer not opaque, so the UI shows where the present shader draws nothing: around a frame given a
+    /// destination. The shader writes an alpha of 0 or 1 alone, so premultiplied and post-multiplied alpha show the same,
+    /// and MoltenVK 1.4.0 offers only the latter. A Windows or X11 child window cannot be blended with its parent, so
+    /// HdrBitmapView shapes it to the frame instead.
+    /// </summary>
+    internal static CompositeAlphaFlagsKHR SelectCompositeAlpha(CompositeAlphaFlagsKHR supported, bool blendsWithUnderlay)
+    {
+        if (blendsWithUnderlay)
+        {
+            if (supported.HasFlag(CompositeAlphaFlagsKHR.PreMultipliedBitKhr))
+                return CompositeAlphaFlagsKHR.PreMultipliedBitKhr;
+            if (supported.HasFlag(CompositeAlphaFlagsKHR.PostMultipliedBitKhr))
+                return CompositeAlphaFlagsKHR.PostMultipliedBitKhr;
+        }
+
+        return CompositeAlphaFlagsKHR.OpaqueBitKhr;
+    }
+
     private void Create(uint width, uint height, SwapchainKHR oldSwapchain)
     {
         SurfaceCapabilitiesKHR capabilities;
@@ -186,7 +206,7 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
             ImageUsage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.TransferDstBit,
             ImageSharingMode = SharingMode.Exclusive,
             PreTransform = capabilities.CurrentTransform,
-            CompositeAlpha = CompositeAlphaFlagsKHR.OpaqueBitKhr,
+            CompositeAlpha = SelectCompositeAlpha(capabilities.SupportedCompositeAlpha, OperatingSystem.IsMacOS()),
             PresentMode = presentMode,
             Clipped = Vk.True,
             OldSwapchain = oldSwapchain

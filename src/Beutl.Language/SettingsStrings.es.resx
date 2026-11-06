@@ -426,7 +426,7 @@
     <comment />
   </data>
   <data name="UseHdrPreview_Description" xml:space="preserve">
-    <value>Usa renderizado HDR para el reproductor de vista previa (las operaciones del mouse, etc., estarán restringidas)</value>
+    <value>Usa renderizado HDR para el reproductor de vista previa</value>
     <comment />
   </data>
   <data name="DisplayPeakLuminance" xml:space="preserve">
@@ -744,7 +744,7 @@
     <value>Mostrar guías</value>
   </data>
   <data name="ShowPreviewGuides_Description" xml:space="preserve">
-    <value>Dibuja áreas seguras y guías de composición sobre la vista previa del editor. Nunca aparecen en el video exportado, y la vista previa HDR no las muestra.</value>
+    <value>Dibuja áreas seguras y guías de composición sobre la vista previa del editor. Nunca aparecen en el video exportado.</value>
   </data>
   <data name="PreviewGuideKinds" xml:space="preserve">
     <value>Guías que se muestran</value>

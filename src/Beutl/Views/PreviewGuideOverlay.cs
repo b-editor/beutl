@@ -7,6 +7,7 @@ using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
 
 namespace Beutl.Views;
@@ -107,7 +108,7 @@ internal sealed class PreviewGuideOverlay : Control
         PreviewGuideAspectRatio.TryParseList(config.PreviewGuideAspectRatios.Value, out _aspectRatios);
 
         IsVisible = _kinds != PreviewGuideKinds.None && _opacity > 0;
-        InvalidateVisual();
+        HdrOverlay.InvalidateVisual(this);
     }
 
     public override void Render(DrawingContext context)
