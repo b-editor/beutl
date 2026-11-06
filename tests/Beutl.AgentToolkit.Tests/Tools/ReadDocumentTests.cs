@@ -110,9 +110,10 @@ public sealed class ReadDocumentTests
         });
     }
 
-    // #4012's case: a transform on its own, switched off, moves nothing.
-    [Test]
-    public void Measure_object_bounds_leaves_a_drawable_with_a_disabled_transform_where_it_is()
+    // #4012's case: a transform on its own, switched off, moves nothing, as no transform at all does.
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Measure_object_bounds_leaves_a_drawable_with_a_disabled_transform_where_it_is(bool hasTransform)
     {
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1280, 720, "disabled-transform-measure")
@@ -126,7 +127,7 @@ public sealed class ReadDocumentTests
             Width = { Value = 100 },
             Height = { Value = 100 },
             Fill = { Value = Brushes.White },
-            Transform = { Value = new TranslateTransform(200, 0) { IsEnabled = { Value = false } } },
+            Transform = { Value = hasTransform ? new TranslateTransform(200, 0) { IsEnabled = { Value = false } } : null },
         };
         var element = new Element
         {

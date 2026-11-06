@@ -226,6 +226,13 @@ public class TransformsTests
         Assert.That(resource.Matrix, Is.EqualTo(Matrix.Identity));
     }
 
+    // A presenter with no target yet applies nothing.
+    [Test]
+    public void TransformPresenter_WithoutATargetAppliesNoMatrix()
+    {
+        Assert.That(new TransformPresenter().CreateMatrix(Context), Is.EqualTo(Matrix.Identity));
+    }
+
     // A presenter follows its target's switch, as a drawable's and a filter effect's presenters do.
     [Test]
     public void TransformPresenter_DisabledTargetAppliesNoMatrix()
