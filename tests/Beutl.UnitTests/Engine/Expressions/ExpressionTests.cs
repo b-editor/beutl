@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+﻿using System.Numerics;
+using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics;
@@ -88,6 +89,26 @@ public class ExpressionTests
             Assert.That(component.Component, Is.EqualTo("Y"));
             Assert.That(component.ComponentIndex, Is.EqualTo(1));
             Assert.That(copy!.Evaluate(TestHelper.CreateExpressionContext(MediaTime.Zero)), Is.EqualTo(2f));
+        });
+    }
+
+    // Three properties share a Vector3, which an expression names in full.
+    [Test]
+    public void ComponentExpression_TakesEachComponentOfAVector3AndRoundTripsThroughJson()
+    {
+        Assert.That(ComponentExpression<Vector3, float>.TryParse("new System.Numerics.Vector3(1, 2, 3)", out var expressions,
+            out string? error), Is.True, error);
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
+        Assert.That(expressions!.Select(expression => expression.Evaluate(context)), Is.EqualTo(new[] { 1f, 2f, 3f }));
+
+        var copy = Expression.CreateFromNode<float>(Expression.ToNode(expressions![2]));
+
+        Assert.That(copy, Is.TypeOf<ComponentExpression<Vector3, float>>());
+        Assert.Multiple(() =>
+        {
+            Assert.That(((IComponentExpression)copy!).Component, Is.EqualTo("Z"));
+            Assert.That(((IComponentExpression)copy!).ComponentIndex, Is.EqualTo(2));
+            Assert.That(copy!.Evaluate(context), Is.EqualTo(3f));
         });
     }
 

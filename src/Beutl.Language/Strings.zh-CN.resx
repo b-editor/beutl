@@ -612,7 +612,7 @@
     <value>移除表达式</value>
   </data>
   <data name="Expression_ReturnsBothValues" xml:space="preserve">
-    <value>输入一个同时返回两个值的表达式,例如 {0}。</value>
+    <value>输入一个同时返回所有值的表达式,例如 {0}。</value>
   </data>
   <data name="ExpressionHelp" xml:space="preserve">
     <value>输入数学表达式。可用变量：Time、Start、Duration、Progress。使用 GetProperty&lt;T&gt;("{GUID}.Property") 引用其他属性。</value>
@@ -3595,7 +3595,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>保留当前时间的值，并移除分量的关键帧和表达式。</value>
   </data>
   <data name="UnseparateComponents_SameTiming" xml:space="preserve">
-    <value>仅当两个值的关键帧时间和缓动相同,且共用一个表达式或没有表达式时可用。</value>
+    <value>仅当所有值的关键帧时间和缓动相同,且共用一个表达式或没有表达式时可用。</value>
   </data>
   <data name="RelativeUnit_Relative" xml:space="preserve">
     <value>相对 (1 = 100%)</value>
