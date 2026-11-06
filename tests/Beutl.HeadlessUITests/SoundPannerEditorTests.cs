@@ -556,6 +556,26 @@ public class SoundPannerEditorTests
         Assert.That(CapturePanner(host), Is.Not.EqualTo(before));
     }
 
+    // The canvas paints with the theme, not a fixed dark palette, and repaints when the theme changes.
+    [AvaloniaTest]
+    public async Task CanvasPaintsWithTheTheme()
+    {
+        using var host = new PannerHost(SpeakerLayout.Surround51, 2,
+            sound => { sound.Pan.Value = 20; sound.SurroundPan.Value = 35; });
+        await WaitForExpansionState(host.Editor);
+        using var scope = Assert.EnterMultipleScope();
+        foreach (ThemeVariant theme in ThemePixels.Themes)
+        {
+            host.Window.RequestedThemeVariant = theme;
+            HeadlessTestHelpers.Render();
+            HeadlessCapture.SaveIfRequested(host.Window, nameof(SoundPannerEditorTests), $"theme-{theme}");
+            Rect area = host.Panner.PanningBounds;
+            ThemePixels.AssertBrushOverWindow(host.Panner,
+                new Point(area.X + area.Width / 4, area.Y + area.Height / 4), "ControlFillColorDefaultBrush");
+            ThemePixels.AssertBrushOverWindow(host.Panner, host.Panner.PuckCenter, "AccentFillColorDefaultBrush");
+        }
+    }
+
     private static byte[] CapturePanner(PannerHost host)
     {
         (byte[] pixels, int rowBytes, _) = HeadlessTestHelpers.CaptureFramePixels(host.Window);

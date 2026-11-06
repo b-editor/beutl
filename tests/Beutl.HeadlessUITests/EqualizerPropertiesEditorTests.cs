@@ -74,6 +74,29 @@ public class EqualizerPropertiesEditorTests
         Assert.That(band.Band.Gain.Value, Is.EqualTo(EqualizerCurveEditor.MinGain).Within(0.01));
     }
 
+    // The curve editor paints with the theme, not a fixed dark palette, and repaints when the theme changes.
+    [AvaloniaTest]
+    public void CurvePaintsWithTheTheme()
+    {
+        using var host = new EqualizerHost(400);
+        host.Equalizer.Bands[3].Gain.Value = 9;
+        host.Equalizer.Bands[7].Gain.Value = -6;
+        host.ViewModel.SelectedBandIndex.Value = 3;
+        using var scope = Assert.EnterMultipleScope();
+        foreach (ThemeVariant theme in ThemePixels.Themes)
+        {
+            host.Window.RequestedThemeVariant = theme;
+            HeadlessTestHelpers.Render();
+            HeadlessCapture.SaveIfRequested(host.Window, nameof(EqualizerPropertiesEditorTests), $"theme-{theme}");
+            Rect plot = host.Curve.PlotBounds;
+            // Between the 200 and 500 Hz lines and the +12 and +18 dB lines, clear of the curve.
+            ThemePixels.AssertBrushOverWindow(host.Curve,
+                new Point(plot.X + plot.Width * 0.4, plot.Y + plot.Height * 0.19), "ControlFillColorDefaultBrush");
+            ThemePixels.AssertBrushOverWindow(host.Curve, host.Curve.GetHandleCenter(host.ViewModel.Bands[3]),
+                "AccentFillColorDefaultBrush");
+        }
+    }
+
     private sealed class EqualizerHost : IDisposable
     {
         private readonly List<IPropertyEditorContext> _contexts = [];
