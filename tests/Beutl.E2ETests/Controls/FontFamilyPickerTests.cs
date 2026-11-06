@@ -509,16 +509,22 @@ public class FontFamilyPickerTests
         });
     }
 
-    // Pinning rebuilds the list, and its rows come back holding other fonts, the clicked row among them.
+    // Pinning rebuilds the list, and its rows come back holding other fonts, the clicked row among them. The click
+    // checks its own button whether or not the pin is saved, so the items show that it was.
     [AvaloniaTest]
     public void Pinning_a_font_shows_a_pin_on_that_font_alone()
     {
-        using var picker = PickerHost.Open(new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero));
+        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        using var picker = PickerHost.Open(viewModel);
 
         picker.ClickPin("Noto Sans Arabic");
         HeadlessCapture.SaveIfRequested(picker.List, nameof(FontFamilyPickerTests), "pinned");
 
-        Assert.That(picker.FontsShownPinned, Is.EqualTo(new[] { "Noto Sans Arabic" }));
+        Assert.Multiple(() =>
+        {
+            Assert.That(PinnedNames(viewModel), Is.EqualTo(new[] { "Noto Sans Arabic" }));
+            Assert.That(picker.FontsShownPinned, Is.EqualTo(new[] { "Noto Sans Arabic" }));
+        });
     }
 
     [AvaloniaTest]
@@ -534,7 +540,11 @@ public class FontFamilyPickerTests
 
         picker.ClickPin("Noto Sans Arabic");
 
-        Assert.That(picker.FontsShownPinned, Is.EqualTo(new[] { "Beta Mono", "DejaVu Sans", "Noto Sans" }));
+        Assert.Multiple(() =>
+        {
+            Assert.That(PinnedNames(viewModel), Is.EqualTo(new[] { "Beta Mono", "DejaVu Sans", "Noto Sans" }));
+            Assert.That(picker.FontsShownPinned, Is.EqualTo(new[] { "Beta Mono", "DejaVu Sans", "Noto Sans" }));
+        });
     }
 
     private static void OpenPicker(DropDownButton button)
@@ -551,6 +561,11 @@ public class FontFamilyPickerTests
     private static PinnableLibraryItem Item(FontFamilyPickerFlyoutViewModel viewModel, string name)
     {
         return viewModel.Items.Single(item => item.DisplayName == name);
+    }
+
+    private static string[] PinnedNames(FontFamilyPickerFlyoutViewModel viewModel)
+    {
+        return [.. viewModel.Items.Where(item => item.IsPinned).Select(item => item.DisplayName)];
     }
 
     private static FontFamily FontOf(Control row)
