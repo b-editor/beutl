@@ -1,7 +1,7 @@
 Package: beutl
 Maintainer: Yuto Terada <contact@beditor.net>
 #Architecture: amd64 または arm64 ビルドスクリプトから設定
-#Version: 1.0.0-1ubuntu22.04 ビルドスクリプトから設定
+#Version: 1.0.0-1 ビルドスクリプトから設定
 Depends: libc6 (>= 2.35), libgcc-s1, libstdc++6 (>= 11),
  libicu78 | libicu76 | libicu74 | libicu72 | libicu70, libssl3t64 | libssl3,
  fontconfig, libfontconfig1,

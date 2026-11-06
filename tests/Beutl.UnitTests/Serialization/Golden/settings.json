@@ -48,6 +48,7 @@
     "SwapTimelineScrollDirection": false,
     "SeekOnTimelineClick": false,
     "ClampResizeToOriginalLength": true,
+    "ShowTimelineThumbnailsByDefault": true,
     "IsTimelineSnapEnabled": true,
     "IsRippleEnabled": false,
     "TimelineAutoScrollMode": 1,

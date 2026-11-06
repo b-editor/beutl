@@ -30,23 +30,73 @@ public sealed partial class ElementViewModel
         }
     }
 
+    private static bool ShowThumbnailsByDefault
+        => GlobalConfiguration.Instance.EditorConfig.ShowTimelineThumbnailsByDefault.Value;
+
+    // A clip's own choice is kept only where it differs from the default: in ThumbnailsDisabledElements
+    // while thumbnails are shown by default, and in ThumbnailsEnabledElements while they are not.
+    private bool ComputeIsThumbnailsDisabled()
+    {
+        Guid id = Model.Id.Value;
+        return ShowThumbnailsByDefault
+            ? Timeline.ThumbnailsDisabledElements.Contains(id)
+            : !Timeline.ThumbnailsEnabledElements.Contains(id);
+    }
+
+    // Set while the value follows the lists or the default, so only a user's change is written back to them.
+    private bool _refreshingThumbnailsDisabled;
+
+    internal void RefreshIsThumbnailsDisabled()
+    {
+        bool isDisabled = ComputeIsThumbnailsDisabled();
+        if (IsThumbnailsDisabled.Value != isDisabled)
+        {
+            _refreshingThumbnailsDisabled = true;
+            try
+            {
+                IsThumbnailsDisabled.Value = isDisabled;
+            }
+            finally
+            {
+                _refreshingThumbnailsDisabled = false;
+            }
+        }
+    }
+
+    private static void SetMembership(CoreList<Guid> list, Guid id, bool member)
+    {
+        if (member)
+        {
+            if (!list.Contains(id)) list.Add(id);
+        }
+        else
+        {
+            list.Remove(id);
+        }
+    }
+
     private void InitializeThumbnails()
     {
-        IsThumbnailsDisabled.Value = Timeline.ThumbnailsDisabledElements.Contains(Model.Id.Value);
+        IsThumbnailsDisabled.Value = ComputeIsThumbnailsDisabled();
 
         IsThumbnailsDisabled.Skip(1)
             .Subscribe(isDisabled =>
             {
-                if (isDisabled)
+                if (!_refreshingThumbnailsDisabled)
                 {
-                    if (!Timeline.ThumbnailsDisabledElements.Contains(Model.Id.Value))
+                    // The newer choice replaces one made under the other default, so a later flip cannot revive it.
+                    // The current default's list goes first: each change refreshes this value, which must already agree.
+                    Guid id = Model.Id.Value;
+                    if (ShowThumbnailsByDefault)
                     {
-                        Timeline.ThumbnailsDisabledElements.Add(Model.Id.Value);
+                        SetMembership(Timeline.ThumbnailsDisabledElements, id, isDisabled);
+                        Timeline.ThumbnailsEnabledElements.Remove(id);
                     }
-                }
-                else
-                {
-                    Timeline.ThumbnailsDisabledElements.Remove(Model.Id.Value);
+                    else
+                    {
+                        SetMembership(Timeline.ThumbnailsEnabledElements, id, !isDisabled);
+                        Timeline.ThumbnailsDisabledElements.Remove(id);
+                    }
                 }
 
                 UpdateThumbnailsAsync();
@@ -99,22 +149,6 @@ public sealed partial class ElementViewModel
 
     internal static bool ShouldRefreshThumbnailsForDefaultPresetChange(PreviewSourceMode previewSourceMode)
         => previewSourceMode == PreviewSourceMode.PreferProxy;
-
-    internal void OnThumbnailsDisabledElementsAttached(Guid id)
-    {
-        if (id == Model.Id.Value && !IsThumbnailsDisabled.Value)
-        {
-            IsThumbnailsDisabled.Value = true;
-        }
-    }
-
-    internal void OnThumbnailsDisabledElementsDetached(Guid id)
-    {
-        if (id == Model.Id.Value && IsThumbnailsDisabled.Value)
-        {
-            IsThumbnailsDisabled.Value = false;
-        }
-    }
 
     private void CancelThumbnailsLoading()
     {

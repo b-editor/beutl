@@ -296,6 +296,14 @@
     <value>防止时间轴元素被调整到超出原始媒体时长</value>
     <comment />
   </data>
+  <data name="ShowTimelineThumbnailsByDefault" xml:space="preserve">
+    <value>默认显示时间轴缩略图</value>
+    <comment />
+  </data>
+  <data name="ShowTimelineThumbnailsByDefault_Description" xml:space="preserve">
+    <value>在时间轴片段上显示胶片缩略图和波形。关闭后，可从片段的右键菜单中逐个开启；这样可使包含大量媒体的时间轴缩放保持流畅。</value>
+    <comment />
+  </data>
   <data name="Graphics" xml:space="preserve">
     <value>图形</value>
     <comment />

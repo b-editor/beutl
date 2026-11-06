@@ -358,9 +358,9 @@ MigrationBackup/
 tools/*
 !tools/packages.config
 
-!packages/ubuntu22.04/
-packages/ubuntu22.04/usr/lib/
-packages/ubuntu22.04/usr/bin/
+!packages/debian/
+packages/debian/usr/lib/
+packages/debian/usr/bin/
 !packages/flatpak/
 packages/flatpak/sources/
 packages/flatpak/build-dir/

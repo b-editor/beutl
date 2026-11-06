@@ -20,23 +20,40 @@ public sealed partial class TimelineTabViewModel
             RestoreInlineAnimation(inlinesArray);
         }
 
-        if (json.TryGetPropertyValue(nameof(ThumbnailsDisabledElements), out JsonNode? ThumbnailsDisabledNode)
-            && ThumbnailsDisabledNode is JsonArray thumbnailsDisabledArray)
-        {
-            ThumbnailsDisabledElements.Clear();
-            foreach (JsonNode? item in thumbnailsDisabledArray)
-            {
-                if (item is JsonValue value
-                    && value.TryGetValue(out string? guidStr)
-                    && Guid.TryParse(guidStr, out Guid id)
-                    && Scene.Children.Any(e => e.Id.Value == id))
-                {
-                    ThumbnailsDisabledElements.Add(id);
-                }
-            }
-        }
+        HashSet<Guid>? elementIds = null;
+        ReadElementIds(json, nameof(ThumbnailsDisabledElements), ThumbnailsDisabledElements, ref elementIds);
+        ReadElementIds(json, nameof(ThumbnailsEnabledElements), ThumbnailsEnabledElements, ref elementIds);
 
         _logger.LogInformation("TimelineViewModel state read from JSON successfully.");
+    }
+
+    private void ReadElementIds(JsonObject json, string name, CoreList<Guid> list, ref HashSet<Guid>? elementIds)
+    {
+        if (!json.TryGetPropertyValue(name, out JsonNode? node) || node is not JsonArray array) return;
+
+        elementIds ??= Scene.Children.Select(e => e.Id.Value).ToHashSet();
+        list.Clear();
+        foreach (JsonNode? item in array)
+        {
+            if (item is JsonValue value
+                && value.TryGetValue(out string? guidStr)
+                && Guid.TryParse(guidStr, out Guid id)
+                && elementIds.Contains(id))
+            {
+                list.Add(id);
+            }
+        }
+    }
+
+    private static JsonArray WriteElementIds(CoreList<Guid> list)
+    {
+        var array = new JsonArray();
+        foreach (Guid id in list)
+        {
+            array.Add(id.ToString());
+        }
+
+        return array;
     }
 
     private void RestoreInlineAnimation(JsonArray inlinesArray)
@@ -149,13 +166,8 @@ public sealed partial class TimelineTabViewModel
 
         json[nameof(Inlines)] = inlines;
 
-        var thumbnailsDisabledArray = new JsonArray();
-        foreach (Guid id in ThumbnailsDisabledElements)
-        {
-            thumbnailsDisabledArray.Add(id.ToString());
-        }
-
-        json[nameof(ThumbnailsDisabledElements)] = thumbnailsDisabledArray;
+        json[nameof(ThumbnailsDisabledElements)] = WriteElementIds(ThumbnailsDisabledElements);
+        json[nameof(ThumbnailsEnabledElements)] = WriteElementIds(ThumbnailsEnabledElements);
 
         _logger.LogInformation("TimelineViewModel state written to JSON successfully.");
     }

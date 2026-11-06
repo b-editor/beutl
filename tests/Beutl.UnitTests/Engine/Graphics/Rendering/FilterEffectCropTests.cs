@@ -230,9 +230,117 @@ public sealed class FilterEffectCropTests
         Assert.That(observed, Is.EqualTo(new[] { crop }));
     }
 
+    // A group hands the effect one input per child, and the chain runs on each of them. The crop has to cut each where it
+    // cuts a single input (#4076). The second input lies outside the crop, so it keeps nothing of its own. A tiling mode
+    // is compared inside the crop only: the inputs arrive cut to what the crop reads, and how far its tiles then reach is
+    // a question of its own (#4088).
+    [TestCase(GradientSpreadMethod.Decal)]
+    [TestCase(GradientSpreadMethod.Pad)]
+    [TestCase(GradientSpreadMethod.Repeat)]
+    [TestCase(GradientSpreadMethod.Reflect)]
+    public void Crop_cuts_each_of_several_inputs_where_it_cuts_one(GradientSpreadMethod spreadMethod)
+    {
+        using Brush.Resource gradient = CreateGradient();
+        var one = RasterizeCrop(CreateCropFilter(s_crop, spreadMethod), new RectangleRenderNode(s_sourceBounds, gradient, null));
+        var two = RasterizeCrop(
+            CreateCropFilter(s_crop, spreadMethod),
+            new RectangleRenderNode(s_sourceBounds, gradient, null),
+            new RectangleRenderNode(s_sourceBounds.Translate(new Vector(s_sourceBounds.Width + 8, 0)), gradient, null));
+
+        AssertDrawsTheSame(one, two, spreadMethod == GradientSpreadMethod.Decal ? null : s_crop);
+    }
+
+    // A custom effect before the crop keeps a single input off the direct path, and leaves its target with a frame of its
+    // own. Away from the origin, the crop has to cut it where it cuts the input alone.
+    [TestCase(GradientSpreadMethod.Decal)]
+    [TestCase(GradientSpreadMethod.Repeat)]
+    public void Crop_after_a_custom_effect_cuts_where_it_cuts_alone(GradientSpreadMethod spreadMethod)
+    {
+        var offset = new Vector(200, 100);
+        Rect source = s_sourceBounds.Translate(offset), crop = s_crop.Translate(offset);
+        using Brush.Resource gradient = CreateGradient();
+        var alone = RasterizeCrop(CreateCropFilter(crop, spreadMethod), new RectangleRenderNode(source, gradient, null));
+        var after = RasterizeCrop(
+            CreateCropFilter(crop, spreadMethod, customFirst: true), new RectangleRenderNode(source, gradient, null));
+
+        AssertDrawsTheSame(alone, after);
+    }
+
+    // A rectangle on whole pixels, so that drawing it straight and drawing what it rasterized to agree, with a colour
+    // that changes in both directions, so that a crop off by a pixel shows.
+    private static Brush.Resource CreateGradient()
+    {
+        var gradient = new LinearGradientBrush
+        {
+            StartPoint = { Value = new RelativePoint(0, 0, RelativeUnit.Relative) },
+            EndPoint = { Value = new RelativePoint(1, 1, RelativeUnit.Relative) },
+        };
+        gradient.GradientStops.Add(new GradientStop(Colors.Red, 0));
+        gradient.GradientStops.Add(new GradientStop(Colors.Blue, 1));
+        return (Brush.Resource)gradient.ToResource(CompositionContext.Default);
+    }
+
+    // The bounds and linear premultiplied BGRA bytes, one array per row.
+    private static (Rect Bounds, byte[][] Rows) RasterizeCrop(FilterEffectRenderNode node, params RenderNode[] sources)
+    {
+        using (node)
+        {
+            foreach (RenderNode source in sources)
+                node.AddChild(source);
+            using RenderNodeRenderer renderer = CreateRenderer(node);
+            using RenderNodeRasterization rasterization = renderer.Rasterize();
+            Bitmap bitmap = rasterization.Bitmap ?? throw new AssertionException("The crop rendered no bitmap.");
+            using Bitmap bytes = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+            return (rasterization.Bounds, [.. Enumerable.Range(0, bytes.Height).Select(y => bytes.GetRow(y).ToArray())]);
+        }
+    }
+
+    // Asserts that actual draws what expected draws, within rounding, over both of their bounds, with a pixel outside either
+    // counting as transparent; only inside within when it is given. A result that lost part of the crop fails too.
+    private static void AssertDrawsTheSame(
+        (Rect Bounds, byte[][] Rows) expected, (Rect Bounds, byte[][] Rows) actual, Rect? within = null)
+    {
+        Rect both = expected.Bounds.Union(actual.Bounds);
+        int largest = 0, largestX = 0, largestY = 0, kept = 0;
+        for (int y = (int)MathF.Floor(both.Y); y < (int)MathF.Ceiling(both.Bottom); y++)
+        {
+            for (int x = (int)MathF.Floor(both.X); x < (int)MathF.Ceiling(both.Right); x++)
+            {
+                if (within is { } area && !area.Contains(new Point(x + 0.5f, y + 0.5f)))
+                    continue;
+
+                for (int channel = 0; channel < 4; channel++)
+                {
+                    int difference = Math.Abs(ByteAt(actual, x, y, channel) - ByteAt(expected, x, y, channel));
+                    if (difference > largest)
+                        (largest, largestX, largestY) = (difference, x, y);
+                }
+
+                if (ByteAt(expected, x, y, 3) > 0)
+                    kept++;
+            }
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(kept, Is.Positive, "the crop must keep something");
+            Assert.That(largest, Is.LessThanOrEqualTo(2),
+                $"the result differs by {largest} at ({largestX}, {largestY}); bounds {actual.Bounds}, expected {expected.Bounds}");
+        });
+    }
+
+    // A channel's byte at a position, and 0 outside the raster.
+    private static int ByteAt((Rect Bounds, byte[][] Rows) image, int x, int y, int channel)
+    {
+        int column = x - (int)MathF.Round(image.Bounds.X), row = y - (int)MathF.Round(image.Bounds.Y);
+        return row >= 0 && row < image.Rows.Length && column >= 0 && column < image.Rows[row].Length / 4
+            ? image.Rows[row][(column * 4) + channel]
+            : 0;
+    }
+
     private static FilterEffectRenderNode CreateCropFilter(
-        Rect crop, GradientSpreadMethod spreadMethod, Size blur = default)
-        => new(new CropEffect(crop, spreadMethod, blur).ToResource(CompositionContext.Default));
+        Rect crop, GradientSpreadMethod spreadMethod, Size blur = default, bool customFirst = false)
+        => new(new CropEffect(crop, spreadMethod, blur, customFirst).ToResource(CompositionContext.Default));
 
     private static EllipseRenderNode CreateSource()
         => new(s_sourceBounds, Brushes.Resource.White, null);
@@ -275,10 +383,13 @@ public sealed class FilterEffectCropTests
     }
 
     [SuppressResourceClassGeneration]
-    private sealed partial class CropEffect(Rect crop, GradientSpreadMethod spreadMethod, Size blur) : FilterEffect
+    private sealed partial class CropEffect(Rect crop, GradientSpreadMethod spreadMethod, Size blur, bool customFirst)
+        : FilterEffect
     {
         private void ApplyEffect(FilterEffectContext context)
         {
+            if (customFirst)
+                context.CustomEffect(0, static (_, _) => { }, static (_, bounds) => bounds);
             context.Crop(crop, spreadMethod);
             if (blur.Width > 0 || blur.Height > 0)
                 context.Blur(blur);

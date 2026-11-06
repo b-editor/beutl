@@ -33,6 +33,8 @@ internal record FEItem_Skia<T>(
 
     public bool SupportsDirectReplay => DirectFactory is not null;
 
+    public bool NeedsBoundsCoordinates { get; init; }
+
     public void AcceptsDirect(SKImageFilterBuilder builder)
     {
         builder.AppendSkiaFilter(Data, DirectFactory!);
