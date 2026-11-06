@@ -314,11 +314,11 @@ jobs:
               "  - [Zip (arm64)]($downloads/Beutl.osx_arm64.app.zip)" \
               "  - [Zip (x64)]($downloads/Beutl.osx_x64.app.zip)" \
               "- Linux (x64)" \
-              "  - [Debian package]($downloads/beutl_$SIMPLE_VER-${REVISION}ubuntu22.04_amd64.deb)" \
+              "  - [Debian package]($downloads/beutl_$SIMPLE_VER-${REVISION}_amd64.deb)" \
               "  - [Flatpak]($flatpak_url)" \
               "  - [Zip]($downloads/Beutl-linux-x64-standalone-$SEM_VER.zip)" \
               "- Linux (ARM64)" \
-              "  - [Debian package]($downloads/beutl_$SIMPLE_VER-${REVISION}ubuntu22.04_arm64.deb)" \
+              "  - [Debian package]($downloads/beutl_$SIMPLE_VER-${REVISION}_arm64.deb)" \
               "  - [Flatpak]($downloads/Beutl-arm64-$SEM_VER.flatpak)" \
               "  - [Zip]($downloads/Beutl-linux-arm64-standalone-$SEM_VER.zip)" \
               ""

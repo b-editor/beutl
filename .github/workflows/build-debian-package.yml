@@ -37,7 +37,7 @@ jobs:
 
       - name: Extract zip
         run: |
-          cd packages/ubuntu22.04/usr
+          cd packages/debian/usr
           mkdir -p lib/beutl
           cd lib/beutl
           unzip ${{ github.workspace }}/artifacts/Beutl-linux-${{ matrix.arch }}-standalone-${{ inputs.semVer }}.zip
@@ -45,7 +45,7 @@ jobs:
       - name: Update Metadata
         shell: bash
         run: |
-          cd packages/ubuntu22.04/usr/lib/beutl
+          cd packages/debian/usr/lib/beutl
           ASSET_METADATA_ID=`uuidgen`
           cat asset_metadata.json | jq --arg id "$ASSET_METADATA_ID" '. .id=$id | .type="debian"' > asset_metadata_tmp.json
           mv asset_metadata_tmp.json asset_metadata.json
@@ -53,37 +53,37 @@ jobs:
 
       - name: Change mode
         run: |
-          cd packages/ubuntu22.04/usr/lib/beutl
+          cd packages/debian/usr/lib/beutl
           chmod +x Beutl
           chmod +x Beutl.ExceptionHandler
           chmod +x Beutl.PackageTools.UI
 
       - name: Symbolic Link
         run: |
-          cd packages/ubuntu22.04
+          cd packages/debian
           mkdir usr/bin
           ln -s /usr/lib/beutl/Beutl usr/bin/beutl
 
       - name: Set Architecture and Version
         run: |
-          cd packages/ubuntu22.04/DEBIAN
+          cd packages/debian/DEBIAN
           echo "Architecture: ${{ matrix.deb-arch }}" >> control
-          echo "Version: ${{ inputs.simpleVer }}-${{ inputs.revision }}ubuntu22.04" >> control
+          echo "Version: ${{ inputs.simpleVer }}-${{ inputs.revision }}" >> control
 
       - name: Set Installed-Size
         run: |
-          SizeInKiloBytes=`du -s -k packages/ubuntu22.04 | awk '{print $1}'`
-          cd packages/ubuntu22.04/DEBIAN
+          SizeInKiloBytes=`du -s -k packages/debian | awk '{print $1}'`
+          cd packages/debian/DEBIAN
           echo "Installed-Size: $SizeInKiloBytes" >> control
 
       - name: Build package
         run: |
           cd packages
-          fakeroot dpkg-deb --build ubuntu22.04 .
+          fakeroot dpkg-deb --build debian .
 
       - name: Save package
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: ubuntu22.04_${{ matrix.deb-arch }}
-          path: ./packages/beutl_${{ inputs.simpleVer }}-${{ inputs.revision }}ubuntu22.04_${{ matrix.deb-arch }}.deb
+          name: debian_${{ matrix.deb-arch }}
+          path: ./packages/beutl_${{ inputs.simpleVer }}-${{ inputs.revision }}_${{ matrix.deb-arch }}.deb
           if-no-files-found: error
