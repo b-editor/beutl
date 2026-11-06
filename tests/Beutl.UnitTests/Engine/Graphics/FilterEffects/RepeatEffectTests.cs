@@ -532,6 +532,29 @@ public sealed class RepeatEffectTests
         Assert.That(FrameRow(rows), Is.EqualTo(s_frameRow));
     }
 
+    // A tiling crop draws a group's children into one before it, and two children that each fit a buffer can be too wide
+    // together. The merge lowers its density rather than dropping the group, as a flush does (#4088).
+    [Test]
+    public void A_tiled_crop_over_a_group_wider_than_a_buffer_still_fills_the_frame()
+    {
+        var group = new DrawableGroup();
+        foreach (float x in new[] { -5000f, 5000f })
+        {
+            var half = new RectShape { Width = { Value = 10000 }, Height = { Value = 100 } };
+            half.Fill.Value = new SolidColorBrush(Colors.Red);
+            half.Transform.Value = new TranslateTransform(x, 0);
+            group.Children.Add(half);
+        }
+
+        byte[][] rows = RenderInFrame(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+        {
+            Rect bounds = context.Bounds;
+            context.Crop(new Rect(bounds.X, bounds.Y, 50, 50), GradientSpreadMethod.Repeat);
+        }), group);
+
+        Assert.That(Across(rows, 540, 0, 960, 1919), Is.EqualTo("RRR"));
+    }
+
     // An effect whose bounds are known only when it runs keeps the effects after it in its segment.
     [TestCase(30)]
     [TestCase(100)]
