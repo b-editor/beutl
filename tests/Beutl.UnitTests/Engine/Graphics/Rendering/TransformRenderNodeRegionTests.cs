@@ -15,24 +15,33 @@ public sealed class TransformRenderNodeRegionTests
     // meets blue, so its outermost pixels read the red texels just past what the scale maps them to.
     [Test]
     public void A_value_scaled_up_draws_the_pixels_of_the_whole_up_to_the_edges_of_a_part()
-        => AssertPartDrawsTheWhole(static () => new TransformRenderNode(Matrix.CreateScale(1.5f, 1.5f), TransformOperator.Prepend));
+        => AssertPartDrawsTheWhole(
+            static () => new TransformRenderNode(Matrix.CreateScale(1.5f, 1.5f), TransformOperator.Prepend), s_scaledPart);
 
     // The same scale, pushed by a public scope before it replays its input, as an extension may. The engine cannot see
     // the matrix, but the scope declares that it replays the input onto a grid of its own, the default (#4086).
     [Test]
     public void A_value_scaled_up_by_a_public_scope_draws_the_pixels_of_the_whole_up_to_the_edges_of_a_part()
-        => AssertPartDrawsTheWhole(static () => new PublicScaleNode());
+        => AssertPartDrawsTheWhole(static () => new PublicScaleNode(), s_scaledPart);
 
-    private static void AssertPartDrawsTheWhole(Func<ContainerRenderNode> createScale)
+    // An identity transform declares that it keeps its input's grid, yet drawn 1.5 times as dense, the picture is enlarged
+    // with filtering all the same. The part's left edge at x = 50 is where red meets blue.
+    [Test]
+    public void A_value_drawn_denser_under_an_identity_transform_draws_the_pixels_of_the_whole_up_to_the_edges_of_a_part()
+        => AssertPartDrawsTheWhole(
+            static () => new TransformRenderNode(Matrix.Identity, TransformOperator.Prepend), new Rect(50, 16, 40, 60), 1.5f);
+
+    private static readonly Rect s_scaledPart = new(75, 15, 60, 60);
+
+    private static void AssertPartDrawsTheWhole(Func<ContainerRenderNode> createScale, Rect region, float outputScale = 1)
     {
-        var region = new Rect(75, 15, 60, 60);
-        (Rect wholeBounds, ushort[] whole, int wholeWidth) = Rasterize(createScale, null);
+        (Rect wholeBounds, ushort[] whole, int wholeWidth) = Rasterize(createScale, null, outputScale);
 
-        (Rect partBounds, ushort[] part, int partWidth) = Rasterize(createScale, region);
+        (Rect partBounds, ushort[] part, int partWidth) = Rasterize(createScale, region, outputScale);
 
         Assert.That(partBounds, Is.EqualTo(region));
-        int offsetX = (int)(partBounds.X - wholeBounds.X);
-        int offsetY = (int)(partBounds.Y - wholeBounds.Y);
+        int offsetX = (int)MathF.Round((partBounds.X - wholeBounds.X) * outputScale);
+        int offsetY = (int)MathF.Round((partBounds.Y - wholeBounds.Y) * outputScale);
         (float Difference, int X, int Y) largest = default;
         for (int y = 0; y < part.Length / 4 / partWidth; y++)
         {
@@ -44,15 +53,19 @@ public sealed class TransformRenderNodeRegionTests
                         (float)BitConverter.UInt16BitsToHalf(part[(((y * partWidth) + x) * 4) + channel])
                         - (float)BitConverter.UInt16BitsToHalf(whole[((((y + offsetY) * wholeWidth) + x + offsetX) * 4) + channel]));
                     if (difference > largest.Difference)
-                        largest = (difference, x + (int)partBounds.X, y + (int)partBounds.Y);
+                        largest = (difference, x, y);
                 }
             }
         }
 
-        Assert.That(largest.Difference, Is.LessThanOrEqualTo(0.01f), $"at ({largest.X}, {largest.Y})");
+        Assert.That(
+            largest.Difference,
+            Is.LessThanOrEqualTo(0.01f),
+            $"at ({partBounds.X + (largest.X / outputScale)}, {partBounds.Y + (largest.Y / outputScale)})");
     }
 
-    private static (Rect Bounds, ushort[] Pixels, int Width) Rasterize(Func<ContainerRenderNode> createScale, Rect? requestedRegion)
+    private static (Rect Bounds, ushort[] Pixels, int Width) Rasterize(
+        Func<ContainerRenderNode> createScale, Rect? requestedRegion, float outputScale)
     {
         using ContainerRenderNode scale = createScale();
         scale.AddChild(new PictureNode());
@@ -60,6 +73,7 @@ public sealed class TransformRenderNodeRegionTests
         {
             Intent = RenderIntent.Preview,
             RequestedRegion = requestedRegion,
+            OutputScale = outputScale,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         }, new CpuRenderTargetFactory());
 
