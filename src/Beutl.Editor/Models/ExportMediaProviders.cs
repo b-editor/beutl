@@ -74,17 +74,48 @@ public sealed class ExportMediaProviders : IDisposable
 
     public void Dispose()
     {
-        // The providers read from the renderer and the composer on their own tasks, so they stop first.
-        _sampleProvider?.Dispose();
-        _sampleProvider = null;
-        _composer?.Dispose();
-        _composer = null;
-        _frameProvider?.Dispose();
-        _frameProvider = null;
-        _renderer?.Dispose();
-        _renderer = null;
-        _sampleProgress.Dispose();
-        _frameProgress.Dispose();
+        // The providers read from the renderer and the composer on their own tasks, so they stop first. Each step
+        // runs even when an earlier one throws, as separate using declarations would.
+        try
+        {
+            _sampleProvider?.Dispose();
+            _sampleProvider = null;
+        }
+        finally
+        {
+            try
+            {
+                _composer?.Dispose();
+                _composer = null;
+            }
+            finally
+            {
+                try
+                {
+                    _frameProvider?.Dispose();
+                    _frameProvider = null;
+                }
+                finally
+                {
+                    try
+                    {
+                        _renderer?.Dispose();
+                        _renderer = null;
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            _sampleProgress.Dispose();
+                        }
+                        finally
+                        {
+                            _frameProgress.Dispose();
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private sealed class DisabledMediaProvider : IFrameProvider, ISampleProvider
