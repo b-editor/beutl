@@ -39,10 +39,11 @@
                                           Content="{TemplateBinding Content}"
                                           ContentTemplate="{TemplateBinding ContentTemplate}" />
 
+                        <!--  One-way, so that a row the rebuilt list hands another item drops the toggle its click left (see LibraryItemPicker_ListBoxItem).  -->
                         <ToggleButton Name="PinButton"
                                       Grid.Column="2"
                                       Margin="0,0,2,0"
-                                      IsChecked="{Binding $self.((local:PinnableLibraryItem)DataContext).IsPinned, FallbackValue=False}"
+                                      IsChecked="{Binding $self.((local:PinnableLibraryItem)DataContext).IsPinned, Mode=OneWay, FallbackValue=False}"
                                       IsVisible="False"
                                       Theme="{StaticResource PickerPinToggleButton}">
                             <icons:FluentIcon Icon="Pin" />

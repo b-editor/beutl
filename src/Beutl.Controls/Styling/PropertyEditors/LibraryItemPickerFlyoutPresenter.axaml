@@ -31,10 +31,12 @@
                                           Content="{TemplateBinding Content}"
                                           ContentTemplate="{TemplateBinding ContentTemplate}" />
 
+                        <!--  A click toggles the button, and pinning then rebuilds the list, which can hand this row another item.  -->
+                        <!--  One-way, the binding applies that item's pin; two-way, it skips a pin equal to the last item's and the toggle stays.  -->
                         <ToggleButton Name="ToggleButton"
                                       Grid.Column="2"
                                       Margin="0,0,8,0"
-                                      IsChecked="{Binding $self.((local:PinnableLibraryItem)DataContext).IsPinned, FallbackValue=False}"
+                                      IsChecked="{Binding $self.((local:PinnableLibraryItem)DataContext).IsPinned, Mode=OneWay, FallbackValue=False}"
                                       IsVisible="False"
                                       Theme="{StaticResource PickerPinToggleButton}">
                             <icons:FluentIcon Icon="Pin" />
