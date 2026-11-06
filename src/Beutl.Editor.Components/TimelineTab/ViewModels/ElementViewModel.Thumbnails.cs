@@ -30,23 +30,55 @@ public sealed partial class ElementViewModel
         }
     }
 
+    private static bool ShowThumbnailsByDefault
+        => GlobalConfiguration.Instance.EditorConfig.ShowTimelineThumbnailsByDefault.Value;
+
+    // A clip's own choice is kept only where it differs from the default: in ThumbnailsDisabledElements
+    // while thumbnails are shown by default, and in ThumbnailsEnabledElements while they are not.
+    private bool ComputeIsThumbnailsDisabled()
+    {
+        Guid id = Model.Id.Value;
+        return ShowThumbnailsByDefault
+            ? Timeline.ThumbnailsDisabledElements.Contains(id)
+            : !Timeline.ThumbnailsEnabledElements.Contains(id);
+    }
+
+    internal void RefreshIsThumbnailsDisabled()
+    {
+        bool isDisabled = ComputeIsThumbnailsDisabled();
+        if (IsThumbnailsDisabled.Value != isDisabled)
+        {
+            IsThumbnailsDisabled.Value = isDisabled;
+        }
+    }
+
+    private static void SetMembership(CoreList<Guid> list, Guid id, bool member)
+    {
+        if (member)
+        {
+            if (!list.Contains(id)) list.Add(id);
+        }
+        else
+        {
+            list.Remove(id);
+        }
+    }
+
     private void InitializeThumbnails()
     {
-        IsThumbnailsDisabled.Value = Timeline.ThumbnailsDisabledElements.Contains(Model.Id.Value);
+        IsThumbnailsDisabled.Value = ComputeIsThumbnailsDisabled();
 
         IsThumbnailsDisabled.Skip(1)
             .Subscribe(isDisabled =>
             {
-                if (isDisabled)
+                Guid id = Model.Id.Value;
+                if (ShowThumbnailsByDefault)
                 {
-                    if (!Timeline.ThumbnailsDisabledElements.Contains(Model.Id.Value))
-                    {
-                        Timeline.ThumbnailsDisabledElements.Add(Model.Id.Value);
-                    }
+                    SetMembership(Timeline.ThumbnailsDisabledElements, id, isDisabled);
                 }
                 else
                 {
-                    Timeline.ThumbnailsDisabledElements.Remove(Model.Id.Value);
+                    SetMembership(Timeline.ThumbnailsEnabledElements, id, !isDisabled);
                 }
 
                 UpdateThumbnailsAsync();
@@ -99,22 +131,6 @@ public sealed partial class ElementViewModel
 
     internal static bool ShouldRefreshThumbnailsForDefaultPresetChange(PreviewSourceMode previewSourceMode)
         => previewSourceMode == PreviewSourceMode.PreferProxy;
-
-    internal void OnThumbnailsDisabledElementsAttached(Guid id)
-    {
-        if (id == Model.Id.Value && !IsThumbnailsDisabled.Value)
-        {
-            IsThumbnailsDisabled.Value = true;
-        }
-    }
-
-    internal void OnThumbnailsDisabledElementsDetached(Guid id)
-    {
-        if (id == Model.Id.Value && IsThumbnailsDisabled.Value)
-        {
-            IsThumbnailsDisabled.Value = false;
-        }
-    }
 
     private void CancelThumbnailsLoading()
     {
