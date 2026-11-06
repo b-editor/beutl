@@ -1,6 +1,5 @@
 ﻿using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Globalization;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -609,8 +608,9 @@ public partial class PlayerView : UserControl
                 SceneMarker m = scene.Markers[i];
                 snapshot[i] = new PlayerMarkerEntry(
                     m.Name.Value ?? string.Empty,
-                    // Player の CurrentTime 表示 (hh\:mm\:ss\.ff) と桁を揃える。
-                    m.Time.Value.ToTimeSpan().ToString(@"hh\:mm\:ss\.ff", CultureInfo.InvariantCulture));
+                    PlayerSeekBar.FormatTime(m.Time.Value),
+                    m.Time.Value,
+                    m.Color.Value.ToAvaColor());
             }
             Player.Markers = snapshot;
         }
@@ -620,12 +620,15 @@ public partial class PlayerView : UserControl
             if (markerSubscriptions.ContainsKey(marker)) return;
             void OnNameChanged(object? s, PropertyValueChangedEventArgs<string> e) => Refresh();
             void OnTimeChanged(object? s, PropertyValueChangedEventArgs<MediaTime> e) => Refresh();
+            void OnColorChanged(object? s, PropertyValueChangedEventArgs<Beutl.Media.Color> e) => Refresh();
             marker.Name.ValueChanged += OnNameChanged;
             marker.Time.ValueChanged += OnTimeChanged;
+            marker.Color.ValueChanged += OnColorChanged;
             markerSubscriptions[marker] = Disposable.Create(() =>
             {
                 marker.Name.ValueChanged -= OnNameChanged;
                 marker.Time.ValueChanged -= OnTimeChanged;
+                marker.Color.ValueChanged -= OnColorChanged;
             });
         }
 

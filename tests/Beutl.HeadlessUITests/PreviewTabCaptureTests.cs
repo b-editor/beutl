@@ -1,16 +1,19 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 
+using Beutl.Controls;
 using Beutl.Controls.Styling.Themes;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -215,6 +218,53 @@ public class PreviewTabCaptureTests
             player.IsPreviewGuideEnabled.Value = guides;
             window.Close();
             HeadlessTestHelpers.Settle();
+        }
+    }
+
+    // The seek bar's marks, with its tip over the bar and over a mark.
+    [AvaloniaTest]
+    [TestCase(1, false, "seek-bar")]
+    [TestCase(2, false, "seek-bar-2x")]
+    [TestCase(2, true, "seek-bar-light-2x")]
+    public async Task Capture_seek_bar_markers(double scaling, bool light, string name)
+    {
+        EditViewModel editor = await OpenSampleScene(light ? ThemeVariant.Light : null);
+        var chorus = new SceneMarker(MediaTime.FromSeconds(160), "Chorus", Color.FromArgb(255, 0x22, 0xC5, 0x5E));
+        editor.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(30), "Intro"));
+        editor.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(95), "Verse", Colors.Red));
+        editor.Scene.Markers.Add(chorus);
+        editor.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(250), "Outro"));
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 960, Height = 600 };
+        try
+        {
+            window.SetRenderScaling(scaling);
+            await Prepare(window);
+            PlayerSeekBar seekBar = view.Player.GetVisualDescendants().OfType<PlayerSeekBar>().Single();
+            ToolTip.SetShowDelay(seekBar, 0);
+            IEditorClock clock = editor.GetRequiredService<IEditorClock>();
+            MediaTime playhead = clock.CurrentTime.Value;
+            clock.Seek(chorus.Time.Value);
+            HeadlessTestHelpers.Render(2);
+            Thumb thumb = seekBar.GetVisualDescendants().OfType<Thumb>().Single();
+            Avalonia.Point mark = HeadlessTestHelpers.Center(thumb, window);
+            clock.Seek(playhead);
+            HeadlessTestHelpers.Render(2);
+
+            window.MouseMove(mark - new Avalonia.Vector(120, 0));
+            HeadlessTestHelpers.Render(4);
+            Save(window, $"{name}-time.png");
+
+            window.MouseMove(mark + new Avalonia.Vector(2, 0));
+            HeadlessTestHelpers.Render(4);
+            Save(window, $"{name}-marker.png");
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            if (light)
+                ThemeCaptureTests.UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
         }
     }
 
