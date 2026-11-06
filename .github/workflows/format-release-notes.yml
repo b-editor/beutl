@@ -50,7 +50,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          gh release view "$TAG" -R "$REPO" --json body,isDraft > release.json
+          gh release view "$TAG" -R "$REPO" --json body,isDraft,assets > release.json
           jq -j '.body // ""' release.json > body.raw
           tr -d '\r' < body.raw > body.md
           echo "body-sha256=$(sha256sum < body.raw | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
@@ -234,6 +234,12 @@ jobs:
           set -euo pipefail
           downloads="https://github.com/$REPO/releases/download/$TAG"
           flatpak_url="$downloads/Beutl-$SEM_VER.flatpak"
+          # Link the Debian packages the release carries: releases before #2939 named them for ubuntu22.04.
+          deb_url() {
+            local name
+            name=$(jq -r --arg arch "$1" '[.assets[]?.name | select(test("^beutl_.*_" + $arch + "\\.deb$"))][0] // empty' release.json)
+            echo "$downloads/${name:-beutl_$SIMPLE_VER-${REVISION}_$1.deb}"
+          }
           # Editing a published release must not turn it back into a draft.
           edit_release() {
             local args=(--notes-file release-body.md)
@@ -314,11 +320,11 @@ jobs:
               "  - [Zip (arm64)]($downloads/Beutl.osx_arm64.app.zip)" \
               "  - [Zip (x64)]($downloads/Beutl.osx_x64.app.zip)" \
               "- Linux (x64)" \
-              "  - [Debian package]($downloads/beutl_$SIMPLE_VER-${REVISION}_amd64.deb)" \
+              "  - [Debian package]($(deb_url amd64))" \
               "  - [Flatpak]($flatpak_url)" \
               "  - [Zip]($downloads/Beutl-linux-x64-standalone-$SEM_VER.zip)" \
               "- Linux (ARM64)" \
-              "  - [Debian package]($downloads/beutl_$SIMPLE_VER-${REVISION}_arm64.deb)" \
+              "  - [Debian package]($(deb_url arm64))" \
               "  - [Flatpak]($downloads/Beutl-arm64-$SEM_VER.flatpak)" \
               "  - [Zip]($downloads/Beutl-linux-arm64-standalone-$SEM_VER.zip)" \
               ""
