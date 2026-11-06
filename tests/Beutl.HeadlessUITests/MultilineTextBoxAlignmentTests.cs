@@ -18,7 +18,7 @@ public class MultilineTextBoxAlignmentTests
     public void Multiline_textbox_starts_its_text_where_a_single_line_box_shows_it()
     {
         var single = new TextBox { Text = "Sample" };
-        var text = new TextBox { Text = "Sample", Height = 80, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap };
+        var text = new TextBox { Text = "Sample\nSecond line", Height = 80, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap };
         var placeholder = new TextBox { PlaceholderText = "Sample", Height = 80, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap };
         var window = new Window
         {
