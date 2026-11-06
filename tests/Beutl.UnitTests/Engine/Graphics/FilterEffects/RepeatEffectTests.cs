@@ -593,6 +593,85 @@ public sealed class RepeatEffectTests
         Assert.That(Across(rows, 620, 1000, 1059, 1060, 1119, 1200, 1259, 1260, 1319), Is.EqualTo("RRBBRRBB"));
     }
 
+    [TestCase(30)]
+    [TestCase(60)]
+    [TestCase(100)]
+    public void A_wide_grid_of_a_split_picture_stays_sharp_under_a_shader_graph_after_it(int count)
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(new SplitEffect { HorizontalDivisions = { Value = 2 }, VerticalDivisions = { Value = 1 } });
+        group.Children.Add(WideGrid(count));
+        group.Children.Add(new Sharpen { Amount = { Value = 10 }, Radius = { Value = 2 } });
+
+        byte[][] rows = RenderInFrame(group);
+
+        Assert.That(Across(rows, 620, 1000, 1059, 1060, 1119, 1200, 1259, 1260, 1319), Is.EqualTo("RRBBRRBB"));
+    }
+
+    [TestCase(30)]
+    [TestCase(60)]
+    [TestCase(100)]
+    public void A_wide_grid_of_a_group_stays_sharp_under_a_shader_graph_after_it(int count)
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(WideGrid(count));
+        group.Children.Add(new Sharpen { Amount = { Value = 10 }, Radius = { Value = 2 } });
+
+        byte[][] rows = RenderInFrame(group, Halves());
+
+        Assert.That(Across(rows, 620, 1000, 1059, 1060, 1119, 1200, 1259, 1260, 1319), Is.EqualTo("RRBBRRBB"));
+    }
+
+    // The graph runs over each piece's grid, and sharpens only where red meets blue within a piece. The region starts and
+    // ends 2 pixels past such a meeting, so a part that leaves out what the graph reads around those pixels differs.
+    [TestCase(false, 262)]
+    [TestCase(true, 232)]
+    public void Drawing_part_of_a_grid_of_pieces_under_a_shader_graph_gives_the_same_pixels(bool group, int left)
+    {
+        var region = new PixelRect(left, 500, 600, 300);
+        byte[][] whole = RenderPiecesUnderAGraph(group, null);
+
+        byte[][] part = RenderPiecesUnderAGraph(group, region.ToRect(1));
+
+        (int Difference, int X, int Y) largest = default;
+        for (int y = region.Y; y < region.Bottom; y++)
+            for (int x = region.X * 4; x < region.Right * 4; x++)
+            {
+                int difference = Math.Abs(part[y][x] - whole[y][x]);
+                if (difference > largest.Difference)
+                    largest = (difference, x / 4, y);
+            }
+        Assert.That(largest.Difference, Is.LessThanOrEqualTo(2), $"at ({largest.X}, {largest.Y})");
+    }
+
+    // The split cuts the picture in three, so the middle piece has red and blue. The group has two pictures that are each
+    // red on the left and blue on the right.
+    private static byte[][] RenderPiecesUnderAGraph(bool group, Rect? region)
+    {
+        var effects = new FilterEffectGroup();
+        DrawableGroup? pieces = null;
+        if (group)
+        {
+            pieces = new DrawableGroup();
+            foreach (float x in new[] { -30f, 30f })
+            {
+                RectShape piece = Picture();
+                piece.Width.Value = 60;
+                piece.Height.Value = 80;
+                piece.Transform.Value = new TranslateTransform(x, 0);
+                pieces.Children.Add(piece);
+            }
+        }
+        else
+        {
+            effects.Children.Add(new SplitEffect { HorizontalDivisions = { Value = 3 }, VerticalDivisions = { Value = 1 } });
+        }
+
+        effects.Children.Add(WideGrid(10));
+        effects.Children.Add(new Sharpen { Amount = { Value = 100 }, Radius = { Value = 4 } });
+        return RenderInFrame(effects, pieces, region, linear: true);
+    }
+
     // A full frame of red and blue, which meet in the middle of each copy. An even count puts a join in the middle of
     // the frame, so half of the frame is the blue end of one copy and the rest the red start of the next.
     [TestCase(4)]

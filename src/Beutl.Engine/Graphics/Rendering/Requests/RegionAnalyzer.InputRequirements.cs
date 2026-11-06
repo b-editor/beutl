@@ -77,8 +77,10 @@ internal sealed partial class RegionAnalyzer
     private static ImmutableArray<RequiredRegion> MapShaderGraph(RenderFragmentReference reference,
         RequiredRegion outputRequirement, ShaderGraphRenderFragmentPayload graph)
     {
-        // A collection's union does not describe each value's coordinate frame or raster density.
-        if (outputRequirement.IsFull || reference.Inputs[0].ValueCardinality.Maximum != 1)
+        // A collection's union stands for each of its values only when the graph reads around the points it draws: what a
+        // value reads then lies within what the union reads.
+        if (outputRequirement.IsFull
+            || (reference.Inputs[0].ValueCardinality.Maximum != 1 && !graph.Description.ReadsAroundEachPoint))
             return FullInputs(reference);
         Rect bounds = reference.Inputs[0].Bounds;
         if (bounds.Width == 0 || bounds.Height == 0) return FullInputs(reference);
