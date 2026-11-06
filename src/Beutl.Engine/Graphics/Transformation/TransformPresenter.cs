@@ -20,6 +20,6 @@ public sealed partial class TransformPresenter : Transform, IPresenter<Transform
     public override Matrix CreateMatrix(CompositionContext context)
     {
         var target = context.Get(Target);
-        return target is { IsEnabled.Value: true } ? target.CreateMatrix(context) : Matrix.Identity;
+        return target != null && target.IsEnabled.Value ? target.CreateMatrix(context) : Matrix.Identity;
     }
 }
