@@ -200,7 +200,14 @@ public sealed partial class FilterEffectExecutor : IDisposable
         }
     }
 
-    public void Apply(FilterEffectContext context)
+    public void Apply(FilterEffectContext context) => Apply(context, null);
+
+    /// <param name="requiredOutput">
+    /// The part of the output the caller keeps, or <see langword="null"/> for all of it. A shader graph that only Skia
+    /// filters with a sampling footprint follow then produces only what they read of it. It holds for this call alone:
+    /// nested executors and continuations produce all of their output.
+    /// </param>
+    internal void Apply(FilterEffectContext context, Rect? requiredOutput)
     {
         ArgumentNullException.ThrowIfNull(context);
         if (CurrentTargets.Count == 0) return;
@@ -232,7 +239,11 @@ public sealed partial class FilterEffectExecutor : IDisposable
                 case FEItem_ShaderGraph graph:
                     Flush(false);
                     if (CurrentTargets.Count == 0) return;
-                    FilterEffectStageFallbackExecutor.ApplyShaderGraph(CurrentTargets, graph.Description, _settings);
+                    FilterEffectStageFallbackExecutor.ApplyShaderGraph(CurrentTargets, graph.Description, _settings,
+                        requiredOutput is { } output
+                        && EffectItemSamplingSupport.TryResolveStageOutput(items, index, output, out Rect stageOutput)
+                            ? stageOutput
+                            : null);
                     break;
                 case FEItem_Shader shader:
                     Flush(false);

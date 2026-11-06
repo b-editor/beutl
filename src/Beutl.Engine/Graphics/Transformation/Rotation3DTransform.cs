@@ -32,6 +32,7 @@ public sealed partial class Rotation3DTransform : Transform
     }
 
     [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_RotationX), ResourceType = typeof(GraphicsStrings))]
+    [CombinedEditor(nameof(RotationY), nameof(RotationZ), Name = nameof(GraphicsStrings.Rotation), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> RotationX { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_RotationY), ResourceType = typeof(GraphicsStrings))]
@@ -41,6 +42,7 @@ public sealed partial class Rotation3DTransform : Transform
     public IExpressionProperty<float> RotationZ { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.CenterX), ResourceType = typeof(GraphicsStrings))]
+    [CombinedEditor(nameof(CenterY), nameof(CenterZ), Name = nameof(GraphicsStrings.Center), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> CenterX { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.CenterY), ResourceType = typeof(GraphicsStrings))]

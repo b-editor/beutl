@@ -13,25 +13,29 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-// The row of two properties that CombinedEditorAttribute joins. Each property keeps its own value and keyframes: an
-// editor of each reads and writes the values, and the row's keyframe commands run on both. While PropertyPair says the
-// two stand apart the row cannot stand for both, so each takes a row of its own.
-public sealed class CombinedEditorViewModel<T> : VectorEditorViewModel<(T, T), T, (T, T)>
+// The row of the two or three properties that CombinedEditorAttribute joins, whose values TTuple holds in their order.
+// Each property keeps its own value and keyframes: an editor of each reads and writes the values, and the row's keyframe
+// commands run on all of them. While PropertyPair says they stand apart the row cannot stand for them, so each takes a row
+// of its own.
+public sealed class CombinedEditorViewModel<T, TTuple> : VectorEditorViewModel<TTuple, T, TTuple>
     where T : struct, INumber<T>
+    where TTuple : struct
 {
     private const string KeepsSeparatedKey = "KeepsSeparated";
 
-    private readonly CombinedPropertyAdapter<T> _adapter;
+    private readonly CombinedPropertyAdapter<T, TTuple> _adapter;
     private readonly ReactivePropertySlim<IReadOnlyList<IPropertyAdapter>?> _separatedProperties = new();
     private IServiceProvider? _services;
 
-    public CombinedEditorViewModel(IAnimatablePropertyAdapter<T> first, IAnimatablePropertyAdapter<T> second, string displayName)
-        : this(new CombinedPropertyAdapter<T>(first, second, displayName))
+    // split and compose turn the row's value into the value of each property, in their order, and back.
+    internal CombinedEditorViewModel(IReadOnlyList<IAnimatablePropertyAdapter<T>> properties, string displayName,
+        Func<TTuple, T[]> split, Func<T[], TTuple> compose)
+        : this(new CombinedPropertyAdapter<T, TTuple>(properties, displayName, split, compose))
     {
     }
 
-    private CombinedEditorViewModel(CombinedPropertyAdapter<T> adapter)
-        : base(adapter, value => value, edit => edit, ValueHeader(adapter.Properties[0]), ValueHeader(adapter.Properties[1]))
+    private CombinedEditorViewModel(CombinedPropertyAdapter<T, TTuple> adapter)
+        : base(adapter, value => value, edit => edit, [.. adapter.Properties.Select(ValueHeader)])
     {
         _adapter = adapter;
         Disposables.Add(adapter);
@@ -47,9 +51,8 @@ public sealed class CombinedEditorViewModel<T> : VectorEditorViewModel<(T, T), T
             .AddTo(Disposables);
     }
 
-    internal NumberEditorViewModel<T> First => _adapter.First;
-
-    internal NumberEditorViewModel<T> Second => _adapter.Second;
+    // An editor of each property, in their order.
+    internal IReadOnlyList<NumberEditorViewModel<T>> Components => _adapter.Components;
 
     internal override IReadOnlyList<IPropertyAdapter> EditedProperties => _adapter.Properties;
 
@@ -61,7 +64,8 @@ public sealed class CombinedEditorViewModel<T> : VectorEditorViewModel<(T, T), T
 
     internal override bool UnseparatesFromNestedEditors => !_adapter.IsInNode.Value;
 
-    internal override string? ExpressionError => First.ExpressionError ?? Second.ExpressionError;
+    internal override string? ExpressionError
+        => _adapter.Components.Select(component => component.ExpressionError).FirstOrDefault(error => error != null);
 
     internal override string ExpressionExample => _adapter.Pair.ExpressionExample;
 
@@ -88,10 +92,10 @@ public sealed class CombinedEditorViewModel<T> : VectorEditorViewModel<(T, T), T
         ShowSeparation();
     }
 
-    public override void InsertKeyFrame(MediaTime keyTime) => EditBoth(editor => editor.InsertKeyFrame(keyTime));
+    public override void InsertKeyFrame(MediaTime keyTime) => EditAll(editor => editor.InsertKeyFrame(keyTime));
 
     // Through the joined keyframes: an editor of each property would fit that property's next easing to what remains, and
-    // the two would then differ.
+    // the properties would then differ.
     public override void RemoveKeyFrame(MediaTime keyTime)
     {
         if (!IsElementEditable || GetAnimation() is not { } animation
@@ -104,9 +108,9 @@ public sealed class CombinedEditorViewModel<T> : VectorEditorViewModel<(T, T), T
         Commit();
     }
 
-    public override void PrepareToEditAnimation() => EditBoth(editor => editor.PrepareToEditAnimation());
+    public override void PrepareToEditAnimation() => EditAll(editor => editor.PrepareToEditAnimation());
 
-    public override void RemoveAnimation() => EditBoth(editor => editor.RemoveAnimation());
+    public override void RemoveAnimation() => EditAll(editor => editor.RemoveAnimation());
 
     public override string? GetExpressionString() => (_adapter.Expression as IComponentExpression)?.Source;
 
@@ -117,17 +121,19 @@ public sealed class CombinedEditorViewModel<T> : VectorEditorViewModel<(T, T), T
             return false;
 
         string? failure = null;
-        _adapter.EditBoth(() =>
+        _adapter.EditAll(() =>
         {
-            if (First.SetExpression(expressions[0], out failure))
-                Second.SetExpression(expressions[1], out failure);
+            foreach ((NumberEditorViewModel<T> component, IExpression<T> expression) in _adapter.Components.Zip(expressions))
+            {
+                if (!component.SetExpression(expression, out failure)) break;
+            }
         });
         Commit();
         error = failure;
         return failure == null;
     }
 
-    public override void RemoveExpression() => EditBoth(editor => editor.RemoveExpression());
+    public override void RemoveExpression() => EditAll(editor => editor.RemoveExpression());
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -136,8 +142,8 @@ public sealed class CombinedEditorViewModel<T> : VectorEditorViewModel<(T, T), T
 
         _services = services;
         var child = new ChildVisitor(this);
-        _adapter.First.Accept(child);
-        _adapter.Second.Accept(child);
+        foreach (NumberEditorViewModel<T> component in _adapter.Components)
+            component.Accept(child);
         // Each property of an object in a node has an input port of its own, which needs a row of its own.
         _adapter.IsInNode.Value = services.GetService<IPropertyEditorControlHost>() != null;
         ShowSeparation();
@@ -168,14 +174,14 @@ public sealed class CombinedEditorViewModel<T> : VectorEditorViewModel<(T, T), T
             _separatedProperties.Value = _adapter.IsSeparated.Value ? EditedProperties : null;
     }
 
-    private void EditBoth(Action<PropertyEditorViewModel> edit)
+    private void EditAll(Action<PropertyEditorViewModel> edit)
     {
         if (IsDisposed) return;
 
-        _adapter.EditBoth(() =>
+        _adapter.EditAll(() =>
         {
-            edit(First);
-            edit(Second);
+            foreach (NumberEditorViewModel<T> component in _adapter.Components)
+                edit(component);
         });
         Commit();
     }
@@ -188,28 +194,33 @@ public sealed class CombinedEditorViewModel<T> : VectorEditorViewModel<(T, T), T
         if (name.EndsWith("Height", StringComparison.Ordinal)) return Strings.Height;
         if (name.EndsWith('X')) return "X";
         if (name.EndsWith('Y')) return "Y";
+        if (name.EndsWith('Z')) return "Z";
         return property.DisplayName;
     }
 }
 
-// The two properties as the one value of the row, which is PropertyPair unless the row is in a node.
-internal sealed class CombinedPropertyAdapter<T> : IPropertyAdapter<(T, T)>, IAnimatablePropertyAdapter, IExpressionPropertyAdapter, IDisposable
+// The properties as the one value of the row, which is PropertyPair unless the row is in a node.
+internal sealed class CombinedPropertyAdapter<T, TTuple>
+    : IPropertyAdapter<TTuple>, IAnimatablePropertyAdapter, IExpressionPropertyAdapter, IDisposable
     where T : struct, INumber<T>
+    where TTuple : struct
 {
     private readonly IAnimatablePropertyAdapter<T> _first;
-    private readonly IAnimatablePropertyAdapter<T> _second;
+    private readonly Func<TTuple, T[]> _split;
+    private readonly Func<T[], TTuple> _compose;
     private readonly CompositeDisposable _subscriptions = [];
     private readonly ReactivePropertySlim<bool> _isSeparated = new();
 
-    public CombinedPropertyAdapter(IAnimatablePropertyAdapter<T> first, IAnimatablePropertyAdapter<T> second, string displayName)
+    public CombinedPropertyAdapter(IReadOnlyList<IAnimatablePropertyAdapter<T>> properties, string displayName,
+        Func<TTuple, T[]> split, Func<T[], TTuple> compose)
     {
-        _first = first;
-        _second = second;
+        _first = properties[0];
+        _split = split;
+        _compose = compose;
         DisplayName = displayName;
-        Properties = [first, second];
-        Pair = (PropertyPair<T>)PropertyPair.Find(first)!;
-        First = new NumberEditorViewModel<T>(first);
-        Second = new NumberEditorViewModel<T>(second);
+        Properties = [.. properties];
+        Pair = (PropertyPair<T>)PropertyPair.Find(_first)!;
+        Components = [.. properties.Select(property => new NumberEditorViewModel<T>(property))];
         Pair.IsSeparated.Subscribe(_ => Update()).AddTo(_subscriptions);
         IsInNode.Subscribe(_ => Update()).AddTo(_subscriptions);
     }
@@ -219,13 +230,11 @@ internal sealed class CombinedPropertyAdapter<T> : IPropertyAdapter<(T, T)>, IAn
     public IReadOnlyList<IPropertyAdapter> Properties { get; }
 
     // These read and write the values, so that a value goes where its property's own editor would put it.
-    public NumberEditorViewModel<T> First { get; }
-
-    public NumberEditorViewModel<T> Second { get; }
+    public IReadOnlyList<NumberEditorViewModel<T>> Components { get; }
 
     public ReactivePropertySlim<bool> IsInNode { get; } = new();
 
-    public IReadOnlyReactiveProperty<bool> CanShareRow => Pair.CanStandForBoth;
+    public IReadOnlyReactiveProperty<bool> CanShareRow => Pair.CanStandAsOne;
 
     public IReadOnlyReactiveProperty<bool> IsSeparated => _isSeparated;
 
@@ -238,7 +247,7 @@ internal sealed class CombinedPropertyAdapter<T> : IPropertyAdapter<(T, T)>, IAn
 
     public string? Description => _first.Description;
 
-    public bool IsReadOnly => _first.IsReadOnly || _second.IsReadOnly;
+    public bool IsReadOnly => Properties.Any(property => property.IsReadOnly);
 
     // The row's commands replace each property's keyframes through its editor.
     public IKeyFrameAnimation? Animation
@@ -269,32 +278,45 @@ internal sealed class CombinedPropertyAdapter<T> : IPropertyAdapter<(T, T)>, IAn
     Attribute[] IPropertyAdapter.GetAttributes() => _first.GetAttributes();
 
     public object? GetDefaultValue()
-        => _first.GetDefaultValue() is T first && _second.GetDefaultValue() is T second ? (first, second) : null;
-
-    public (T, T) GetValue() => (First.GetEditingValue(), Second.GetEditingValue());
-
-    public void SetValue((T, T) value)
     {
-        if (First.GetEditingValue() != value.Item1)
-            First.SetCurrentValueAndGetCoerced(value.Item1);
-        if (Second.GetEditingValue() != value.Item2)
-            Second.SetCurrentValueAndGetCoerced(value.Item2);
+        var values = new T[Properties.Count];
+        for (int i = 0; i < values.Length; i++)
+        {
+            if (Properties[i].GetDefaultValue() is not T value) return null;
+            values[i] = value;
+        }
+
+        return _compose(values);
     }
 
-    public IObservable<(T, T)> GetObservable()
-        => First.EditValue.CombineLatest(Second.EditValue, (first, second) => (first, second));
+    public TTuple GetValue() => _compose([.. Components.Select(component => component.GetEditingValue())]);
 
-    public void EditBoth(Action edit)
+    public void SetValue(TTuple value)
+    {
+        T[] values = _split(value);
+        for (int i = 0; i < Components.Count; i++)
+        {
+            if (Components[i].GetEditingValue() != values[i])
+                Components[i].SetCurrentValueAndGetCoerced(values[i]);
+        }
+    }
+
+    public IObservable<TTuple> GetObservable()
+        => Components.Select(component => component.EditValue).CombineLatest(values => _compose([.. values]));
+
+    public void EditAll(Action edit)
     {
         Pair.BeginEdit();
-        First.DefersCommit = Second.DefersCommit = true;
+        foreach (NumberEditorViewModel<T> component in Components)
+            component.DefersCommit = true;
         try
         {
             edit();
         }
         finally
         {
-            First.DefersCommit = Second.DefersCommit = false;
+            foreach (NumberEditorViewModel<T> component in Components)
+                component.DefersCommit = false;
             Pair.EndEdit();
         }
     }
@@ -302,8 +324,8 @@ internal sealed class CombinedPropertyAdapter<T> : IPropertyAdapter<(T, T)>, IAn
     public void Dispose()
     {
         _subscriptions.Dispose();
-        First.Dispose();
-        Second.Dispose();
+        foreach (NumberEditorViewModel<T> component in Components)
+            component.Dispose();
         IsInNode.Dispose();
         _isSeparated.Dispose();
     }

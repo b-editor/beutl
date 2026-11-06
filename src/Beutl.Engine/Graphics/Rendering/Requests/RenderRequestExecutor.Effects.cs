@@ -261,7 +261,8 @@ internal sealed partial class RenderRequestExecutor
                             payload.WorkingScalePolicy.HasValue,
                             executor.WorkingScale,
                             executor.MaxWorkingScale,
-                            target: null);
+                            target: null,
+                            requiredRegion);
 
                         var result = new List<MaterializedRenderValue>(executor.CurrentTargets.Count);
                         foreach (EffectTarget target in executor.CurrentTargets)
@@ -376,21 +377,23 @@ internal sealed partial class RenderRequestExecutor
                 });
 
         // Applies program and completes the executor's working-scale policy boundary. The program's callbacks get a
-        // dependency context at the given scales, reaching target when there is one, that ends on return.
+        // dependency context at the given scales, reaching target when there is one, that ends on return. Only
+        // requiredOutput of the result is kept, so a shader graph at the end produces only that.
         private void ApplyFilterEffects(
             FilterEffectExecutor executor,
             FilterEffectContext program,
             bool materializationRequired,
             float workingScale,
             float maxWorkingScale,
-            ImmediateCanvas? target)
+            ImmediateCanvas? target,
+            Rect requiredOutput)
         {
             var execution = new RenderExecutionContext(_renderDependency,
                 workingScale, maxWorkingScale, target, _cancellationToken);
             executor.ExecutionContext = execution;
             try
             {
-                executor.Apply(program);
+                executor.Apply(program, requiredOutput);
                 executor.CompletePolicyBoundary(materializationRequired);
             }
             finally { execution.End(); }

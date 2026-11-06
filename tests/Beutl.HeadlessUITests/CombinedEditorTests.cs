@@ -39,7 +39,7 @@ using TextBlock = Avalonia.Controls.TextBlock;
 
 namespace Beutl.HeadlessUITests;
 
-// Two properties that one vector editor shows while they share their timing, and that take a row each otherwise.
+// Two or three properties that one vector editor shows while they share their timing, and that take a row each otherwise.
 [TestFixture]
 public sealed class CombinedEditorTests
 {
@@ -51,10 +51,15 @@ public sealed class CombinedEditorTests
         return [.. contexts];
     }
 
-    private static CombinedEditorViewModel<float> CreateCombined(EngineObject owner)
+    private static CombinedEditorViewModel<float, (float, float)> CreateCombined(EngineObject owner)
+        => CreateCombined<(float, float)>(owner);
+
+    // The first row of the owner that joins as many float properties as TTuple holds.
+    private static CombinedEditorViewModel<float, TTuple> CreateCombined<TTuple>(EngineObject owner)
+        where TTuple : struct
     {
         IPropertyEditorContext[] contexts = CreateContexts(owner);
-        var combined = contexts.OfType<CombinedEditorViewModel<float>>().First();
+        var combined = contexts.OfType<CombinedEditorViewModel<float, TTuple>>().First();
         foreach (IPropertyEditorContext context in contexts)
         {
             if (!ReferenceEquals(context, combined)) context.Dispose();
@@ -63,7 +68,7 @@ public sealed class CombinedEditorTests
         return combined;
     }
 
-    private static Control CreateControl(CombinedEditorViewModel<float> context)
+    private static Control CreateControl(PropertyEditorViewModel context)
     {
         Assert.That(PropertyEditorHost.TryCreateControl(context, PropertyEditorSurface.Panel, out Control? control), Is.True);
         control!.DataContext = context;
@@ -99,12 +104,12 @@ public sealed class CombinedEditorTests
         using var scale = new DisposableContexts(CreateContexts(new ScaleTransform()));
         Assert.That(scale.Contexts, Has.Length.EqualTo(2));
         Assert.That(scale.Contexts[0], Is.TypeOf<NumberEditorViewModel<float>>(), "The scale before the pair stays first.");
-        var combined = (CombinedEditorViewModel<float>)scale.Contexts[1];
+        var combined = (CombinedEditorViewModel<float, (float, float)>)scale.Contexts[1];
         Assert.That(combined.EditedProperties.Select(p => p.GetEngineProperty()!.Name), Is.EqualTo(new[] { "ScaleX", "ScaleY" }));
         Assert.That(combined.Header, Is.EqualTo($"{GraphicsStrings.ScaleTransform_ScaleXY} (%)"));
 
         using var shape = new DisposableContexts(CreateContexts(new RectShape()));
-        Assert.That(shape.Contexts[0], Is.TypeOf<CombinedEditorViewModel<float>>());
+        Assert.That(shape.Contexts[0], Is.TypeOf<CombinedEditorViewModel<float, (float, float)>>());
         Assert.That(((PropertyEditorViewModel)shape.Contexts[0]).Header, Is.EqualTo(Strings.Size));
     }
 
@@ -118,7 +123,7 @@ public sealed class CombinedEditorTests
         }
     }
 
-    // A pair that names a missing property, mixes value types or cannot animate would silently keep its two rows.
+    // A row that names a missing property, mixes value types or cannot animate would silently keep a row for each.
     [AvaloniaTest]
     public void Every_marked_property_makes_a_row_with_the_property_it_names()
     {
@@ -144,8 +149,10 @@ public sealed class CombinedEditorTests
                 Assert.That(attribute.GetName(), Is.Not.Null.And.Not.Empty, $"{type.Name}.{property.Name}");
                 var row = contexts.Contexts.OfType<PropertyEditorViewModel>()
                     .SingleOrDefault(context => context.EditedProperties.Any(p => ReferenceEquals(p.GetEngineProperty(), property)));
-                Assert.That(row?.EditedProperties.Select(p => p.GetEngineProperty()!.Name),
-                    Is.EqualTo(new[] { property.Name, attribute.Second }), $"{type.Name}.{property.Name}");
+                string[] names = attribute.Third is { } third
+                    ? [property.Name, attribute.Second, third]
+                    : [property.Name, attribute.Second];
+                Assert.That(row?.EditedProperties.Select(p => p.GetEngineProperty()!.Name), Is.EqualTo(names), $"{type.Name}.{property.Name}");
             }
         }
     }
@@ -155,7 +162,7 @@ public sealed class CombinedEditorTests
     {
         var transform = new ScaleTransform(30, 40);
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         var editor = (Vector2Editor<float>)((StackPanel)CreateControl(combined)).Children[0];
 
@@ -176,7 +183,7 @@ public sealed class CombinedEditorTests
     {
         var shape = new RectShape();
         using PropertyEditorTestHost.HistoryScope history = new(shape);
-        using CombinedEditorViewModel<float> combined = CreateCombined(shape);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(shape);
         combined.Accept(Services(history.History));
         var editor = (Vector2Editor<float>)((StackPanel)CreateControl(combined)).Children[0];
 
@@ -189,7 +196,7 @@ public sealed class CombinedEditorTests
     {
         var transform = new TranslateTransform(1, 2);
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         history.History.Commit();
         int before = history.History.UndoCount;
@@ -208,7 +215,7 @@ public sealed class CombinedEditorTests
     {
         var transform = new TranslateTransform(1, 2);
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         history.History.Commit();
         int before = history.History.UndoCount;
@@ -237,7 +244,7 @@ public sealed class CombinedEditorTests
     {
         var shape = new RectShape();
         using PropertyEditorTestHost.HistoryScope history = new(shape);
-        using CombinedEditorViewModel<float> combined = CreateCombined(shape);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(shape);
         combined.Accept(Services(history.History));
 
         Assert.That(combined.PreviewEdit((-5, 7)), Is.EqualTo((0f, 7f)));
@@ -249,7 +256,7 @@ public sealed class CombinedEditorTests
     {
         var shape = new RectShape { Width = { Value = 5 }, Height = { Value = 6 } };
         using PropertyEditorTestHost.HistoryScope history = new(shape);
-        using CombinedEditorViewModel<float> combined = CreateCombined(shape);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(shape);
         combined.Accept(Services(history.History));
         history.History.Commit();
         int before = history.History.UndoCount;
@@ -265,7 +272,7 @@ public sealed class CombinedEditorTests
     {
         var transform = new TranslateTransform(1, 2);
         using var scope = new AnimatedScope(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(scope.History.History, scope.Time));
         scope.History.History.Commit();
         int before = scope.History.History.UndoCount;
@@ -319,7 +326,7 @@ public sealed class CombinedEditorTests
         transform.X.SetKeyFrameAnimation(Animation(0, 2));
         transform.Y.SetKeyFrameAnimation(Animation(0, 2));
         using var scope = new AnimatedScope(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(scope.History.History, scope.Time));
         scope.History.History.Commit();
         int before = scope.History.History.UndoCount;
@@ -357,7 +364,7 @@ public sealed class CombinedEditorTests
         transform.X.SetKeyFrameAnimation(Animation(0, 2));
         transform.Y.SetKeyFrameAnimation(Animation(0, 2));
         using var scope = new AnimatedScope(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(scope.History.History, scope.Time));
 
         scope.Time.Value = MediaTime.FromSeconds(2);
@@ -378,7 +385,7 @@ public sealed class CombinedEditorTests
         var clock = new Mock<IEditorClock>();
         clock.SetupGet(value => value.CurrentTime).Returns(scope.Time);
         clock.Setup(value => value.Seek(It.IsAny<MediaTime>())).Callback<MediaTime>(time => scope.Time.Value = time);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(new PropertyEditorTestHost.ServiceVisitor(
             (typeof(HistoryManager), scope.History.History), (typeof(IEditorClock), clock.Object)));
 
@@ -416,7 +423,7 @@ public sealed class CombinedEditorTests
     {
         var transform = new TranslateTransform();
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         var window = new Window { Width = 480, Height = 300, Content = CreateControl(combined) };
         try
@@ -456,7 +463,7 @@ public sealed class CombinedEditorTests
         transform.X.SetKeyFrameAnimation(Animation(0, 1));
         transform.Y.SetKeyFrameAnimation(Animation(0, 1));
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         Assert.That(IsSeparated(combined), Is.False);
 
@@ -478,7 +485,7 @@ public sealed class CombinedEditorTests
         var transform = new TranslateTransform();
         transform.X.SetKeyFrameAnimation(Animation(0, 1));
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         history.History.Commit();
         int before = history.History.UndoCount;
@@ -511,7 +518,7 @@ public sealed class CombinedEditorTests
     {
         var transform = new TranslateTransform();
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         history.History.Commit();
         int before = history.History.UndoCount;
@@ -545,7 +552,7 @@ public sealed class CombinedEditorTests
     {
         var shape = new RectShape();
         using PropertyEditorTestHost.HistoryScope history = new(shape);
-        using CombinedEditorViewModel<float> combined = CreateCombined(shape);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(shape);
         combined.Accept(Services(history.History));
         history.History.Commit();
         int before = history.History.UndoCount;
@@ -569,7 +576,7 @@ public sealed class CombinedEditorTests
     {
         var transform = new TranslateTransform();
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         Assert.That(combined.SetExpression("new Point(1, 2)", out string? error), Is.True, error);
         int before = history.History.UndoCount;
@@ -592,7 +599,7 @@ public sealed class CombinedEditorTests
         transform.X.SetKeyFrameAnimation(Animation(0, 1));
         transform.Y.SetKeyFrameAnimation(Animation(0, 1));
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         history.History.Commit();
 
@@ -613,7 +620,7 @@ public sealed class CombinedEditorTests
     {
         var transform = new TranslateTransform();
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using (CombinedEditorViewModel<float> combined = CreateCombined(transform))
+        using (CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform))
         {
             combined.Accept(Services(history.History));
             Assert.That(combined.SetExpression("var size = 30; new Point(size, size * 2)", out string? error), Is.True, error);
@@ -626,7 +633,7 @@ public sealed class CombinedEditorTests
         Assert.That(copy.X.Evaluate(context), Is.EqualTo(30f));
         Assert.That(copy.Y.Evaluate(context), Is.EqualTo(60f));
         using PropertyEditorTestHost.HistoryScope copyHistory = new(copy);
-        using CombinedEditorViewModel<float> restored = CreateCombined(copy);
+        using CombinedEditorViewModel<float, (float, float)> restored = CreateCombined(copy);
         restored.Accept(Services(copyHistory.History));
         Assert.That(IsSeparated(restored), Is.False);
         Assert.That(restored.GetExpressionString(), Is.EqualTo("var size = 30; new Point(size, size * 2)"));
@@ -638,7 +645,7 @@ public sealed class CombinedEditorTests
     {
         var transform = new TranslateTransform();
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         Assert.That(combined.SetExpression("new Point(1, 2)", out string? error), Is.True, error);
         var window = new Window { Width = 480, Height = 300, Content = CreateControl(combined) };
@@ -668,12 +675,12 @@ public sealed class CombinedEditorTests
     {
         var transform = new TranslateTransform();
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         Assert.That(combined.SetExpression("var size = 30; new Point(size, size * 2)", out string? error), Is.True, error);
         combined.SeparateComponents();
 
-        Assert.That(combined.First.SetExpression(combined.First.GetExpressionString()!, out error), Is.True, error);
+        Assert.That(combined.Components[0].SetExpression(combined.Components[0].GetExpressionString()!, out error), Is.True, error);
 
         Assert.That(transform.X.Evaluate(new EvaluationContext(MediaTime.Zero)), Is.EqualTo(30f));
     }
@@ -683,7 +690,7 @@ public sealed class CombinedEditorTests
     {
         var shape = new RectShape();
         using PropertyEditorTestHost.HistoryScope history = new(shape);
-        using CombinedEditorViewModel<float> combined = CreateCombined(shape);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(shape);
         combined.Accept(Services(history.History));
         var window = new Window { Width = 640, Height = 480, Content = CreateControl(combined) };
         try
@@ -737,7 +744,7 @@ public sealed class CombinedEditorTests
         transform.X.SetKeyFrameAnimation(Animation(0, 2));
         transform.Y.SetKeyFrameAnimation(Animation(0, 2));
         using var scope = new AnimatedScope(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(scope.History.History, scope.Time));
         var window = new Window { Width = 480, Height = 300, Content = CreateControl(combined) };
         try
@@ -775,7 +782,7 @@ public sealed class CombinedEditorTests
     {
         var transform = new TranslateTransform(1, 2);
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         history.History.Commit();
         int before = history.History.UndoCount;
@@ -786,12 +793,12 @@ public sealed class CombinedEditorTests
 
         var json = new JsonObject();
         combined.WriteToJson(json);
-        using CombinedEditorViewModel<float> restored = CreateCombined(new TranslateTransform(1, 2));
+        using CombinedEditorViewModel<float, (float, float)> restored = CreateCombined(new TranslateTransform(1, 2));
         Assert.That(IsSeparated(restored), Is.False);
         restored.ReadFromJson(json);
         Assert.That(IsSeparated(restored), Is.True);
 
-        using (CombinedEditorViewModel<float> later = CreateCombined(transform))
+        using (CombinedEditorViewModel<float, (float, float)> later = CreateCombined(transform))
         {
             Assert.That(IsSeparated(later), Is.True, "Every editor of the two shares the choice.");
             later.ReadFromJson(new JsonObject { ["KeepsSeparated"] = false });
@@ -817,7 +824,7 @@ public sealed class CombinedEditorTests
     {
         var transform = new TranslateTransform();
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         var window = new Window { Width = 480, Height = 400, Content = CreateControl(combined) };
         try
@@ -904,7 +911,7 @@ public sealed class CombinedEditorTests
     {
         var shape = new RectShape();
         using PropertyEditorTestHost.HistoryScope history = new(shape);
-        using CombinedEditorViewModel<float> combined = CreateCombined(shape);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(shape);
         combined.Accept(Services(history.History));
         history.History.Commit();
         int before = history.History.UndoCount;
@@ -946,7 +953,7 @@ public sealed class CombinedEditorTests
     {
         var transform = new ScaleTransform();
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         var window = new Window { Width = 480, Height = 400, Content = CreateControl(combined) };
         try
@@ -994,7 +1001,7 @@ public sealed class CombinedEditorTests
         ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).Select(element);
         using var tab = new ElementPropertyTabViewModel(editor);
         tab.Element.Value = element;
-        var combined = tab.Items[0].Properties.OfType<CombinedEditorViewModel<float>>().First();
+        var combined = tab.Items[0].Properties.OfType<CombinedEditorViewModel<float, (float, float)>>().First();
         TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
         var menu = new PropertyEditorMenu { DataContext = combined };
         var window = new Window { Width = 320, Height = 240, Content = menu };
@@ -1032,7 +1039,7 @@ public sealed class CombinedEditorTests
         using var tab = new ElementPropertyTabViewModel(editor);
         tab.Element.Value = element;
         EngineObjectPropertyViewModel item = tab.Items[0];
-        var combined = item.Properties.OfType<CombinedEditorViewModel<float>>().First();
+        var combined = item.Properties.OfType<CombinedEditorViewModel<float, (float, float)>>().First();
 
         Assert.That(item.FindPropertyEditor(shape, nameof(RectShape.Width)), Is.SameAs(combined));
         Assert.That(item.FindPropertyEditor(shape, nameof(RectShape.Height)), Is.SameAs(combined));
@@ -1043,7 +1050,7 @@ public sealed class CombinedEditorTests
     {
         var transform = new TranslateTransform(1, 2);
         using PropertyEditorTestHost.HistoryScope history = new(transform);
-        using CombinedEditorViewModel<float> combined = CreateCombined(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         var host = new Mock<IPropertyEditorControlHost>();
         var childHost = new Mock<IPropertyEditorControlHost>();
         host.Setup(value => value.CreateChildHost(It.IsAny<IPropertyAdapter>())).Returns(childHost.Object);
@@ -1073,6 +1080,195 @@ public sealed class CombinedEditorTests
                 "A row with a port of its own cannot join the other.");
         }
         finally { window.Close(); }
+    }
+
+    private static (float, float, float) Rotation(Rotation3DTransform transform)
+        => (transform.RotationX.Value, transform.RotationY.Value, transform.RotationZ.Value);
+
+    // Three properties take one row, with a box for each that names the axis of its property.
+    [AvaloniaTest]
+    public void Three_properties_take_one_row_with_a_box_for_each()
+    {
+        using var contexts = new DisposableContexts(CreateContexts(new Rotation3DTransform()));
+        PropertyEditorViewModel[] rows = [.. contexts.Contexts.Cast<PropertyEditorViewModel>()];
+        Assert.That(rows.Select(row => string.Join(" ", row.EditedProperties.Select(p => p.GetEngineProperty()!.Name))),
+            Is.EqualTo(new[] { "RotationX RotationY RotationZ", "CenterX CenterY CenterZ", "Depth" }));
+        Assert.That(rows.Take(2).Select(row => row.Header), Is.EqualTo(new[] { GraphicsStrings.Rotation, GraphicsStrings.Center }));
+
+        var transform = new Rotation3DTransform(10, 20, 30, 0, 0, 0);
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using CombinedEditorViewModel<float, (float, float, float)> combined = CreateCombined<(float, float, float)>(transform);
+        combined.Accept(Services(history.History));
+        var editor = (Vector3Editor<float>)((StackPanel)CreateControl(combined)).Children[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(new[] { editor.FirstHeader, editor.SecondHeader, editor.ThirdHeader }, Is.EqualTo(new[] { "X", "Y", "Z" }));
+            Assert.That(new[] { editor.FirstValue, editor.SecondValue, editor.ThirdValue }, Is.EqualTo(new[] { 10f, 20f, 30f }));
+        });
+
+        transform.RotationZ.Value = 75;
+        Assert.That(editor.ThirdValue, Is.EqualTo(75), "An edit made elsewhere shows.");
+    }
+
+    [AvaloniaTest]
+    public void An_edit_of_three_writes_each_value_as_one_history_entry()
+    {
+        var transform = new Rotation3DTransform(1, 2, 3, 0, 0, 0);
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using CombinedEditorViewModel<float, (float, float, float)> combined = CreateCombined<(float, float, float)>(transform);
+        combined.Accept(Services(history.History));
+        history.History.Commit();
+        int before = history.History.UndoCount;
+
+        Assert.That(combined.PreviewEdit((10, 20, 30)), Is.EqualTo((10f, 20f, 30f)));
+        combined.ConfirmEdit((1, 2, 3), (10, 20, 30));
+
+        Assert.That(Rotation(transform), Is.EqualTo((10f, 20f, 30f)));
+        Assert.That(history.History.UndoCount, Is.EqualTo(before + 1));
+        history.History.Undo();
+        Assert.That(Rotation(transform), Is.EqualTo((1f, 2f, 3f)));
+    }
+
+    [AvaloniaTest]
+    public void Keyframe_commands_run_on_all_three_as_one_history_entry()
+    {
+        var transform = new Rotation3DTransform(1, 2, 3, 0, 0, 0);
+        using var scope = new AnimatedScope(transform);
+        using CombinedEditorViewModel<float, (float, float, float)> combined = CreateCombined<(float, float, float)>(transform);
+        combined.Accept(Services(scope.History.History, scope.Time));
+        scope.History.History.Commit();
+        int before = scope.History.History.UndoCount;
+        IExpressionProperty<float>[] properties = [transform.RotationX, transform.RotationY, transform.RotationZ];
+
+        combined.PrepareToEditAnimation();
+        Assert.Multiple(() =>
+        {
+            Assert.That(properties.Select(p => p.GetKeyFrameAnimation()!.KeyFrames.Single().Value), Is.EqualTo(new[] { 1f, 2f, 3f }));
+            Assert.That(scope.History.History.UndoCount, Is.EqualTo(before + 1));
+            Assert.That(IsSeparated(combined), Is.False, "The row stays: each has one keyframe at the same time.");
+        });
+
+        combined.InsertKeyFrame(MediaTime.FromSeconds(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(properties.Select(p => p.GetKeyFrameAnimation()!.KeyFrames.Count), Is.All.EqualTo(2));
+            Assert.That(scope.History.History.UndoCount, Is.EqualTo(before + 2));
+            Assert.That(IsSeparated(combined), Is.False);
+        });
+
+        combined.RemoveKeyFrame(MediaTime.FromSeconds(1));
+        Assert.That(properties.Select(p => p.GetKeyFrameAnimation()!.KeyFrames.Count), Is.All.EqualTo(1));
+        Assert.That(scope.History.History.UndoCount, Is.EqualTo(before + 3));
+
+        combined.RemoveAnimation();
+        Assert.That(properties.Select(p => p.GetKeyFrameAnimation()), Is.All.Null);
+        Assert.That(scope.History.History.UndoCount, Is.EqualTo(before + 4));
+    }
+
+    // One of the three with keyframes of its own gives each a row, named as its property is, until the three match again.
+    [AvaloniaTest]
+    public void A_row_for_each_of_three_shows_while_one_differs()
+    {
+        var transform = new Rotation3DTransform();
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using CombinedEditorViewModel<float, (float, float, float)> combined = CreateCombined<(float, float, float)>(transform);
+        combined.Accept(Services(history.History));
+        var window = new Window { Width = 480, Height = 400, Content = CreateControl(combined) };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            var editor = window.GetVisualDescendants().OfType<Vector3Editor<float>>().Single();
+            Assert.That(editor.IsEffectivelyVisible, Is.True);
+
+            transform.RotationZ.SetKeyFrameAnimation(Animation(0, 1));
+            HeadlessTestHelpers.Render(3);
+
+            NumberEditor<float>[] rows = [.. window.GetVisualDescendants().OfType<NumberEditor<float>>()];
+            Assert.Multiple(() =>
+            {
+                Assert.That(editor.IsEffectivelyVisible, Is.False);
+                Assert.That(rows.Select(row => row.Header), Is.EqualTo(new[]
+                {
+                    GraphicsStrings.Rotation3DTransform_RotationX, GraphicsStrings.Rotation3DTransform_RotationY,
+                    GraphicsStrings.Rotation3DTransform_RotationZ
+                }));
+                Assert.That(rows.All(row => row.IsEffectivelyVisible && row.MenuContent != null), Is.True);
+                Assert.That(combined.CanUnseparateComponents.Value, Is.False);
+            });
+
+            transform.RotationX.SetKeyFrameAnimation(Animation(0, 1));
+            transform.RotationY.SetKeyFrameAnimation(Animation(0, 1));
+            HeadlessTestHelpers.Render(3);
+
+            Assert.That(editor.IsEffectivelyVisible, Is.True, "The row returns once the three match.");
+            Assert.That(window.GetVisualDescendants().OfType<NumberEditor<float>>(), Is.Empty);
+        }
+        finally { window.Close(); }
+    }
+
+    // The last of the three rows joins them as the first does.
+    [AvaloniaTest]
+    public void The_menu_of_the_last_of_three_rows_joins_them_again()
+    {
+        var transform = new Rotation3DTransform();
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using CombinedEditorViewModel<float, (float, float, float)> combined = CreateCombined<(float, float, float)>(transform);
+        combined.Accept(Services(history.History));
+        combined.SeparateComponents();
+        var window = new Window { Width = 480, Height = 600, Content = CreateControl(combined) };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            NumberEditor<float>[] rows = [.. window.GetVisualDescendants().OfType<NumberEditor<float>>()];
+            Assert.That(rows, Has.Length.EqualTo(3));
+            Assert.That(window.GetVisualDescendants().OfType<TextBlock>()
+                .Any(text => text.Text == combined.Header && text.IsEffectivelyVisible), Is.False, "Nothing names the three above them.");
+
+            Button button = ((Control)rows[2].MenuContent!).GetVisualDescendants().OfType<Button>().First();
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render(3);
+            FAMenuFlyoutItem unseparate = RowMenuItem(rows[2], "unseparateComponentsItem");
+            Assert.That(unseparate.IsEffectivelyVisible, Is.True);
+            TimelineTestHost.WaitForHitTest(window, unseparate, HeadlessTestHelpers.Center(unseparate, window));
+            HeadlessTestHelpers.Click(unseparate, move: true, ticks: 3);
+
+            Assert.That(IsSeparated(combined), Is.False);
+            Assert.That(window.GetVisualDescendants().OfType<Vector3Editor<float>>().Single().IsEffectivelyVisible, Is.True);
+            Assert.That(window.GetVisualDescendants().OfType<NumberEditor<float>>(), Is.Empty);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    public void One_expression_reaches_all_three_as_one_history_entry()
+    {
+        var transform = new Rotation3DTransform();
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using CombinedEditorViewModel<float, (float, float, float)> combined = CreateCombined<(float, float, float)>(transform);
+        combined.Accept(Services(history.History));
+        history.History.Commit();
+        int before = history.History.UndoCount;
+        const string source = "new System.Numerics.Vector3((float)Time + 10, 20, 30)";
+
+        Assert.That(combined.SetExpression("new Point(1, 2)", out string? problem), Is.False, "A point is not a vector.");
+        Assert.That(problem, Is.Not.Empty);
+        Assert.That(combined.SetExpression(source, out string? error), Is.True, error);
+
+        var context = new EvaluationContext(MediaTime.FromSeconds(2));
+        Assert.Multiple(() =>
+        {
+            Assert.That(transform.RotationX.Evaluate(context), Is.EqualTo(12f));
+            Assert.That(transform.RotationY.Evaluate(context), Is.EqualTo(20f));
+            Assert.That(transform.RotationZ.Evaluate(context), Is.EqualTo(30f));
+            Assert.That(history.History.UndoCount, Is.EqualTo(before + 1));
+            Assert.That(IsSeparated(combined), Is.False);
+            Assert.That(combined.GetExpressionString(), Is.EqualTo(source));
+        });
+
+        Assert.That(combined.SetExpression(combined.ExpressionExample!, out error), Is.True, $"The example works: {error}");
     }
 
     private sealed class AnimatedScope : IDisposable

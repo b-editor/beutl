@@ -634,7 +634,7 @@
     <value>式を削除</value>
   </data>
   <data name="Expression_ReturnsBothValues" xml:space="preserve">
-    <value>両方の値を返す式を1つ入力します。例: {0}</value>
+    <value>値をまとめて返す式を1つ入力します。例: {0}</value>
   </data>
   <data name="ExpressionHelp" xml:space="preserve">
     <value>数式を入力してください。利用可能な変数: Time, Start, Duration, Progress。GetProperty&lt;T&gt;("{GUID}.Property")形式で他のプロパティを参照できます。</value>
@@ -3590,7 +3590,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>現在時刻の値を保持し、成分のキーフレームと式を削除します。</value>
   </data>
   <data name="UnseparateComponents_SameTiming" xml:space="preserve">
-    <value>両方の値のキーフレーム時刻とイージングが同じで、式が共通か式がないときに使用できます。</value>
+    <value>すべての値でキーフレーム時刻とイージングが同じで、式が共通か式がないときに使用できます。</value>
   </data>
   <data name="RelativeUnit_Relative" xml:space="preserve">
     <value>相対 (1 = 100%)</value>

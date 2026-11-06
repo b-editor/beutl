@@ -50,10 +50,15 @@ internal static class PropertyEditorTestHost
         }
     }
 
-    // The editor that reads and writes a float property, which the row it shares with another property holds.
+    // The editor that reads and writes a float property, which the row it shares with other properties holds.
     public static NumberEditorViewModel<float> FindNumberEditor(IEnumerable<IPropertyEditorContext?> contexts, IProperty property)
         => Flatten(contexts, includeGroups: false)
-            .SelectMany(context => context is CombinedEditorViewModel<float> combined ? [combined.First, combined.Second] : new[] { context })
+            .SelectMany<IPropertyEditorContext?, IPropertyEditorContext?>(context => context switch
+            {
+                CombinedEditorViewModel<float, (float, float)> combined => combined.Components,
+                CombinedEditorViewModel<float, (float, float, float)> combined => combined.Components,
+                _ => [context]
+            })
             .OfType<NumberEditorViewModel<float>>()
             .Single(editor => ReferenceEquals(editor.PropertyAdapter.GetEngineProperty(), property));
 
