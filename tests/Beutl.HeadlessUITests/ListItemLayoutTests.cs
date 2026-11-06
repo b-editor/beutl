@@ -297,8 +297,8 @@ public sealed class ListItemLayoutTests
             window.Show();
             await Settle();
             TransformListItemEditor item = Item(window, move);
-            CombinedEditorViewModel<float> pair = ((TransformEditorViewModel)item.DataContext!).Properties.Value!.Properties
-                .OfType<CombinedEditorViewModel<float>>().Single();
+            CombinedEditorViewModel<float, (float, float)> pair = ((TransformEditorViewModel)item.DataContext!).Properties.Value!
+                .Properties.OfType<CombinedEditorViewModel<float, (float, float)>>().Single();
             pair.SeparateComponents();
             await Settle();
 
