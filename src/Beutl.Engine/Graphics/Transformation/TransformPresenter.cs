@@ -16,9 +16,10 @@ public sealed partial class TransformPresenter : Transform, IPresenter<Transform
     [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<Transform?> Target { get; } = Property.CreateReference<Transform?>();
 
+    // A disabled target applies nothing here either, as a drawable's or a filter effect's presenter draws nothing for one.
     public override Matrix CreateMatrix(CompositionContext context)
     {
         var target = context.Get(Target);
-        return target?.CreateMatrix(context) ?? Matrix.Identity;
+        return target is { IsEnabled.Value: true } ? target.CreateMatrix(context) : Matrix.Identity;
     }
 }

@@ -165,4 +165,63 @@ public class TransformsTests
 
         Assert.That(group.CreateMatrix(Context), Is.EqualTo(Matrix.Identity));
     }
+
+    // A transform on its own leaves its target where it is while disabled, as a disabled child of a group does (#4012).
+    [Test]
+    public void Transform_DisabledResourceAppliesNoMatrix()
+    {
+        var transform = new TranslateTransform(200f, 0f) { IsEnabled = { Value = false } };
+
+        using var resource = transform.ToResource(Context);
+
+        Assert.That(resource.Matrix, Is.EqualTo(Matrix.Identity));
+    }
+
+    [Test]
+    public void Transform_EnabledAgainRestoresItsMatrixAndMovesTheVersion()
+    {
+        var transform = new TranslateTransform(200f, 0f) { IsEnabled = { Value = false } };
+        using var resource = transform.ToResource(Context);
+        int version = resource.Version;
+
+        transform.IsEnabled.Value = true;
+        bool versionBumped = false;
+        resource.Reconcile(transform, Context, ref versionBumped);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resource.Matrix, Is.EqualTo(Matrix.CreateTranslation(200f, 0f)));
+            Assert.That(resource.Version, Is.GreaterThan(version));
+        });
+    }
+
+    // A group at the root is a transform like any other.
+    [Test]
+    public void TransformGroup_DisabledResourceAppliesNoMatrix()
+    {
+        var group = new TransformGroup { IsEnabled = { Value = false } };
+        group.Children.Add(new TranslateTransform(200f, 0f));
+
+        using var resource = group.ToResource(Context);
+
+        Assert.That(resource.Matrix, Is.EqualTo(Matrix.Identity));
+    }
+
+    // A presenter follows its target's switch, as a drawable's and a filter effect's presenters do.
+    [Test]
+    public void TransformPresenter_DisabledTargetAppliesNoMatrix()
+    {
+        var target = new TranslateTransform(200f, 0f);
+        var presenter = new TransformPresenter();
+        presenter.Target.Value = target;
+        Matrix enabled = presenter.CreateMatrix(Context);
+
+        target.IsEnabled.Value = false;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(enabled, Is.EqualTo(Matrix.CreateTranslation(200f, 0f)));
+            Assert.That(presenter.CreateMatrix(Context), Is.EqualTo(Matrix.Identity));
+        });
+    }
 }

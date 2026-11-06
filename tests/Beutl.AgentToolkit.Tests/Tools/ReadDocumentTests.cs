@@ -110,6 +110,49 @@ public sealed class ReadDocumentTests
         });
     }
 
+    // #4012's case: a transform on its own, switched off, moves nothing.
+    [Test]
+    public void Measure_object_bounds_leaves_a_drawable_with_a_disabled_transform_where_it_is()
+    {
+        string dir = TestWorkspace.CreateDirectory();
+        var scene = new Scene(1280, 720, "disabled-transform-measure")
+        {
+            Duration = { Value = MediaTime.FromSeconds(2) },
+            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
+        };
+        var plate = new RectShape
+        {
+            Name = { Value = "Plate" },
+            Width = { Value = 100 },
+            Height = { Value = 100 },
+            Fill = { Value = Brushes.White },
+            Transform = { Value = new TranslateTransform(200, 0) { IsEnabled = { Value = false } } },
+        };
+        var element = new Element
+        {
+            Length = { Value = MediaTime.FromSeconds(2) },
+            Uri = new Uri(Path.Combine(dir, "element.belm"))
+        };
+        element.AddObject(plate);
+        scene.Children.Add(element);
+        using var session = new AgentToolkitTestSession(scene);
+        AgentSessionManager manager = session.CreateManager();
+        var tools = new QueryTools(manager);
+
+        ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(
+            objectId: plate.Id.Value.ToString(),
+            timeSeconds: 0.0);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        ObjectBoundsMeasurement measured = result.Value!.Objects.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(measured.Center.X, Is.EqualTo(640).Within(0.5));
+            Assert.That(measured.Center.Y, Is.EqualTo(360).Within(0.5));
+            Assert.That(measured.UserTranslate, Is.EqualTo(new ObjectBoundsPoint(0, 0)));
+        });
+    }
+
     [Test]
     public void Measure_object_bounds_reports_a_nested_drawable_as_unsupported_even_with_a_time_filter()
     {

@@ -232,7 +232,8 @@ public sealed partial class QueryTools
         AlignmentX alignmentX = context.Get(drawable.AlignmentX);
         AlignmentY alignmentY = context.Get(drawable.AlignmentY);
         Transform? transform = context.Get(drawable.Transform);
-        Matrix userTransform = transform?.CreateMatrix(context) ?? Matrix.Identity;
+        // A disabled transform moves nothing, as in rendering.
+        Matrix userTransform = transform is { IsEnabled.Value: true } ? transform.CreateMatrix(context) : Matrix.Identity;
         ObjectBoundsPoint? userTranslate = userTransform.TryDecomposeTransform(out Vector translate, out _, out _, out _)
             ? new ObjectBoundsPoint(translate.X, translate.Y)
             : null;
