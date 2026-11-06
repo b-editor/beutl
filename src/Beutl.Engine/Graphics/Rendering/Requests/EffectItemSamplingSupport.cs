@@ -23,6 +23,10 @@ internal static class EffectItemSamplingSupport
         return !items.IsDefaultOrEmpty && TryMapBackward(items, 0, output, requireCoverage: false, out input);
     }
 
+    /// <summary>Whether <see cref="TryResolveSampledInput"/> maps <paramref name="output"/> back through these items.</summary>
+    public static bool CanResolveSampledInput(IReadOnlyList<IFEItem> items, Rect output)
+        => items.Count > 0 && TryMapBackward(items, 0, output, requireCoverage: false, out _);
+
     /// <summary>
     /// Maps <paramref name="output"/> backward through the items after <paramref name="index"/>, to the part of its
     /// output the item at <paramref name="index"/> has to produce.

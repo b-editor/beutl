@@ -415,13 +415,14 @@ internal sealed partial class RenderRequestExecutor
 
             // The output is the value the plan compiled for this segment, so it is rasterized at the demand
             // Materialize resolved, not at the density of the target it happens to be drawn onto: a cache
-            // capture of this value is checked against that planned density.
+            // capture of this value is checked against that planned density. It holds only the region the
+            // request needs, which is what the density is fitted to, as the cache's identity fits it.
             float requestedDensity = requestedScale?.Value
                 ?? (fragment.EffectiveScale.IsUnbounded
                     ? currentTarget.Density
                     : fragment.EffectiveScale.Value);
             EffectiveScale scale = ClampToActiveDeviceGrid(
-                fragment.Bounds,
+                requiredRegion,
                 EffectiveScale.At(requestedDensity));
             // The plan gave the replayed input this segment's demand, not the density of the buffer it is
             // drawn into, so the nested replay is checked against the former.
