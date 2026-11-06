@@ -316,6 +316,17 @@ public sealed partial class FilterEffectExecutor
 
         float w = WorkingScale;
         Vector gridOffset = _settings.DeviceGridOffset ?? default;
+        // Targets that each fit the axis limit can be too wide together, so the merge is held to the budget as a flush is.
+        BufferDimensionBudget budget = Budget;
+        float fit = budget.ClampWorkingScaleToExactFootprint(bounds.Translate(gridOffset), w);
+        if (fit < w)
+        {
+            s_logger.LogWarning(
+                "Working scale clamped {From} -> {To} to keep an effect merge buffer within the {Limit} px GPU axis limit (bounds {Bounds}).",
+                w, fit, budget.MaxDimension, bounds);
+            WorkingScale = w = fit;
+        }
+
         PixelRect deviceBounds = CustomFilterEffectContext.DeviceBufferBounds(bounds.Translate(gridOffset), w);
         EffectTarget? merged = RenderScaleUtilities.IsAllocatableBounds(bounds)
             ? EffectTargetAllocation.Allocate(_settings.RenderTargetLeaseSession, bounds, w, deviceBounds, gridOffset)
