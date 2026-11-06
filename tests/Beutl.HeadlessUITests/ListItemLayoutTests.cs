@@ -238,8 +238,10 @@ public sealed class ListItemLayoutTests
                 Assert.That(item.FindControl<ToggleButton>("reorderHandle")!.IsEffectivelyVisible, Is.False);
                 Assert.That(Center(grip, window), Is.EqualTo(GripCenter));
                 Assert.That(Left(label, window), Is.EqualTo(NameStart));
-                // A row that stacks its label over its value has the icon beside the label, cut off by nothing above.
-                Assert.That(Middle(grip, window), Is.EqualTo(Middle(label, window)).Within(2));
+                // A row that stacks its label over its value has the icon beside the label, cut off by nothing above: the
+                // rows move down for the icon instead.
+                Assert.That(Middle(grip, window), Is.EqualTo(Middle(label, window)).Within(1));
+                Assert.That(Top(grip, window), Is.GreaterThanOrEqualTo(Top(item, window)));
                 Assert.That(AutomationProperties.GetName((ToggleButton)item.ReorderHandle!),
                     Is.EqualTo(((TransformEditorViewModel)item.DataContext!).TransformName.Value).And.Not.Empty);
             }
@@ -274,6 +276,76 @@ public sealed class ListItemLayoutTests
             Assert.That(Top(line, window), Is.EqualTo(Top(grip, window) + grip.Bounds.Height));
             Assert.That(Top(line, window) + line.Bounds.Height, Is.EqualTo(Top(content, window) + content.Bounds.Height));
             Assert.That(line.LineBrush, Is.Not.Null);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Apart, the X and the Y of a pair take a row each in one item of the rows.
+    [AvaloniaTest]
+    public async Task A_transforms_line_runs_to_the_second_row_of_a_pair_shown_apart()
+    {
+        var move = new TranslateTransform();
+        var group = new TransformGroup { Children = { move } };
+        using var history = new HistoryScope(group);
+        using var list = CreateList(new EnginePropertyAdapter<ICoreList<Transform>>(group.Children, group), history);
+        var window = new Window { Content = new ListEditor { DataContext = list }, Width = 640, Height = 600 };
+        try
+        {
+            window.Show();
+            await Settle();
+            TransformListItemEditor item = Item(window, move);
+            CombinedEditorViewModel<float, (float, float)> pair = ((TransformEditorViewModel)item.DataContext!).Properties.Value!
+                .Properties.OfType<CombinedEditorViewModel<float, (float, float)>>().Single();
+            pair.SeparateComponents();
+            await Settle();
+
+            TextBlock[] labels = Labels(item).ToArray();
+            Assert.That(labels.Select(l => l.Text), Is.EqualTo(new[] { "X", "Y" }));
+            ContentPresenter grip = Grip((ToggleButton)item.ReorderHandle!);
+            TreeLineDecorator line = Line(item);
+            Panel content = item.FindControl<Panel>("content")!;
+            Assert.That(Middle(grip, window), Is.EqualTo(Middle(labels[0], window)).Within(2));
+            Assert.That(Top(line, window), Is.EqualTo(Top(grip, window) + grip.Bounds.Height));
+            Assert.That(Top(line, window) + line.Bounds.Height, Is.EqualTo(Top(content, window) + content.Bounds.Height));
+
+            pair.UnseparateComponents();
+            await Settle();
+            Assert.That(Line(item).Bounds.Height, Is.Zero);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Too narrow for the boxes of a pair beside its label, the row stacks them under it.
+    [AvaloniaTest]
+    public async Task A_transforms_line_runs_beside_the_value_its_only_row_stacks_under_its_label()
+    {
+        var move = new TranslateTransform();
+        var group = new TransformGroup { Children = { move } };
+        using var history = new HistoryScope(group);
+        using var list = CreateList(new EnginePropertyAdapter<ICoreList<Transform>>(group.Children, group), history);
+        var window = new Window { Content = new ListEditor { DataContext = list }, Width = 300, Height = 600 };
+        try
+        {
+            window.Show();
+            await Settle();
+            TransformListItemEditor item = Item(window, move);
+            TextBlock label = Labels(item).Single();
+            Border box = item.GetVisualDescendants().OfType<Border>()
+                .First(b => b.Name == "PART_BackgroundBorder" && b.IsEffectivelyVisible);
+            Assert.That(Top(box, window), Is.GreaterThanOrEqualTo(Top(label, window) + label.Bounds.Height));
+
+            ContentPresenter grip = Grip((ToggleButton)item.ReorderHandle!);
+            TreeLineDecorator line = Line(item);
+            Panel content = item.FindControl<Panel>("content")!;
+            Assert.That(Middle(grip, window), Is.EqualTo(Middle(label, window)).Within(1));
+            Assert.That(Top(line, window), Is.EqualTo(Top(grip, window) + grip.Bounds.Height));
+            Assert.That(Top(line, window) + line.Bounds.Height, Is.EqualTo(Top(content, window) + content.Bounds.Height));
         }
         finally
         {
