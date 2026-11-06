@@ -254,6 +254,30 @@ public class EditorHostFallbackTests
     }
 
     [AvaloniaTest]
+    public void Only_the_most_recent_projects_are_shown()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "beutl-recent-many");
+        string[] files = [.. Enumerable.Range(0, EditorHostFallback.MaxShownProjects + 5)
+            .Select(i => Path.Combine(directory, $"p{i}.bep"))];
+        using var recent = new RecentProjectsScope(RecentProjectsLayout.List, files);
+        var view = new EditorHostFallback();
+        var window = new Window { Content = view, Width = 1200, Height = 800 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            Assert.That(Shown(view), Is.EqualTo(files.Take(EditorHostFallback.MaxShownProjects)));
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
     public void Scenes_opened_on_their_own_are_not_listed()
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;

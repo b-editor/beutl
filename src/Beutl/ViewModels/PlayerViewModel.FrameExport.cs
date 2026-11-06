@@ -3,6 +3,7 @@ using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 
@@ -130,6 +131,10 @@ public partial class PlayerViewModel
     /// the frame at the playhead, or the middle of the scene's elements when nothing shows there, as after playing
     /// through to the end. Returns <see langword="null"/> when nothing shows at either.
     /// </summary>
+    /// <remarks>
+    /// A render cannot be stopped once started, and the editor's teardown waits for it, so the playhead's frame comes
+    /// from the frame cache whenever the preview already put it there.
+    /// </remarks>
     internal async Task<Bitmap?> DrawThumbnailFrame()
     {
         await Pause();
@@ -141,7 +146,7 @@ public partial class PlayerViewModel
                 return null;
 
             MediaTime playhead = CurrentFrame.Value;
-            if (DrawVisibleFrame(renderer, playhead) is { } frame)
+            if ((ReadCachedVisibleFrame(playhead) ?? DrawVisibleFrame(renderer, playhead)) is { } frame)
                 return frame;
 
             if (scene.Children.Count == 0)
@@ -156,11 +161,29 @@ public partial class PlayerViewModel
         });
     }
 
+    private Bitmap? ReadCachedVisibleFrame(MediaTime time)
+    {
+        FrameCacheManager cache = EditViewModel.FrameCacheManager.Value;
+        int frame = (int)time.ToFrame(GetFrameRate(), MidpointRounding.AwayFromZero);
+        if (cache.IsDisposed || !cache.TryGet(frame, out Ref<Bitmap>? cached))
+            return null;
+
+        using (cached)
+        {
+            return ToVisibleFrame(cached.Value);
+        }
+    }
+
     private static Bitmap? DrawVisibleFrame(SceneRenderer renderer, MediaTime time)
     {
         renderer.Render(renderer.Compositor.EvaluateGraphics(time));
         using Bitmap snapshot = renderer.SnapshotWithoutGizmos() ?? renderer.Snapshot();
-        Bitmap frame = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+        return ToVisibleFrame(snapshot);
+    }
+
+    private static Bitmap? ToVisibleFrame(Bitmap source)
+    {
+        Bitmap frame = source.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
         if (!ObjectTemplatePreviewRenderer.IsBlank(frame))
             return frame;
 

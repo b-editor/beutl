@@ -5,12 +5,10 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-// An entry of the start page's recent projects. What comes from disk arrives later and a few entries at a time, since
-// a project can sit on a slow or disconnected drive.
+// An entry of the start page's recent projects. What comes from disk arrives later, since a project can sit on a slow
+// or disconnected drive. Each entry reads on its own, so a stalled drive holds up only its own entries.
 public sealed class RecentProjectItem : IDisposable
 {
-    private static readonly SemaphoreSlim s_readGate = new(4);
-
     private readonly CancellationTokenSource _disposal = new();
 
     public RecentProjectItem(string fullName)
@@ -38,24 +36,7 @@ public sealed class RecentProjectItem : IDisposable
     public async Task LoadAsync()
     {
         CancellationToken token = _disposal.Token;
-        try
-        {
-            await s_readGate.WaitAsync(token);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-
-        (Bitmap? Thumbnail, DateTime? LastEdited) read;
-        try
-        {
-            read = await Task.Run(() => Read(FullName));
-        }
-        finally
-        {
-            s_readGate.Release();
-        }
+        (Bitmap? Thumbnail, DateTime? LastEdited) read = await Task.Run(() => Read(FullName));
 
         if (token.IsCancellationRequested)
         {

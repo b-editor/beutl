@@ -29,6 +29,10 @@ public partial class EditorHostFallback : UserControl
     public static readonly StyledProperty<string?> OpeningFileProperty =
         AvaloniaProperty.Register<EditorHostFallback, string?>(nameof(OpeningFile));
 
+    // Every picture stays decoded while the page shows (about 0.5 MiB each), and the recent list has no end, so the
+    // page shows the most recent ones only. The File menu still lists them all.
+    internal const int MaxShownProjects = 100;
+
     private const double MinGridCellWidth = 232;
     // The margin of the grid's panel, either side.
     private const double GridSideMargin = 16;
@@ -295,7 +299,7 @@ public partial class EditorHostFallback : UserControl
     private void SyncRecentItems()
     {
         string[] files = this.IsAttachedToVisualTree() && IsVisible
-            ? [.. GlobalConfiguration.Instance.ViewConfig.RecentProjects.Distinct()]
+            ? [.. GlobalConfiguration.Instance.ViewConfig.RecentProjects.Distinct().Take(MaxShownProjects)]
             : [];
 
         for (int i = _recentItems.Count - 1; i >= 0; i--)
