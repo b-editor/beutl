@@ -1,4 +1,5 @@
-﻿using Beutl.Composition;
+﻿using System.Collections.Immutable;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -230,24 +231,45 @@ public sealed class FilterEffectCropTests
         Assert.That(observed, Is.EqualTo(new[] { crop }));
     }
 
-    // A group hands the effect one input per child, and the chain runs on each of them. The crop has to cut each where it
-    // cuts a single input (#4076). The second input lies outside the crop, so it keeps nothing of its own. A tiling mode
-    // is compared inside the crop only: the inputs arrive cut to what the crop reads, and how far its tiles then reach is
-    // a question of its own (#4088).
+    // A group hands the effect one input per child, and the crop treats them as one picture, as it treats one input that
+    // holds them all (#4076, #4088): a tiling mode repeats what it keeps of all of them, across all of them. The crop cuts
+    // across the red and blue halves of the first input and misses the green second one.
     [TestCase(GradientSpreadMethod.Decal)]
     [TestCase(GradientSpreadMethod.Pad)]
     [TestCase(GradientSpreadMethod.Repeat)]
     [TestCase(GradientSpreadMethod.Reflect)]
-    public void Crop_cuts_each_of_several_inputs_where_it_cuts_one(GradientSpreadMethod spreadMethod)
+    public void Crop_cuts_several_inputs_as_one_picture(GradientSpreadMethod spreadMethod)
+    {
+        var one = RasterizeCrop(CreateCropFilter(s_crop, spreadMethod), new PiecesNode(s_pieces));
+        var several = RasterizeCrop(
+            CreateCropFilter(s_crop, spreadMethod),
+            [.. s_pieces.Select(static piece => new PiecesNode([piece]))]);
+
+        AssertDrawsTheSame(one, several);
+    }
+
+    // A color filter has no direct replay, so even one input runs through the effect executor, where tiles reach only as far
+    // as the input it gets. The input has to arrive whole for them to fill it (#4088).
+    [TestCase(GradientSpreadMethod.Pad)]
+    [TestCase(GradientSpreadMethod.Repeat)]
+    [TestCase(GradientSpreadMethod.Reflect)]
+    public void A_tiling_crop_after_a_color_filter_fills_its_input(GradientSpreadMethod spreadMethod)
     {
         using Brush.Resource gradient = CreateGradient();
-        var one = RasterizeCrop(CreateCropFilter(s_crop, spreadMethod), new RectangleRenderNode(s_sourceBounds, gradient, null));
-        var two = RasterizeCrop(
-            CreateCropFilter(s_crop, spreadMethod),
-            new RectangleRenderNode(s_sourceBounds, gradient, null),
-            new RectangleRenderNode(s_sourceBounds.Translate(new Vector(s_sourceBounds.Width + 8, 0)), gradient, null));
+        (Rect bounds, byte[][] rows) = RasterizeCrop(
+            CreateCropFilter(s_crop, spreadMethod, lumaFirst: true), new RectangleRenderNode(s_sourceBounds, gradient, null));
 
-        AssertDrawsTheSame(one, two, spreadMethod == GradientSpreadMethod.Decal ? null : s_crop);
+        int empty = 0;
+        for (int y = 0; y < rows.Length; y++)
+        {
+            for (int x = 0; x < rows[y].Length / 4; x++)
+            {
+                if (s_sourceBounds.Contains(new Point(bounds.X + x + 0.5f, bounds.Y + y + 0.5f)) && rows[y][(x * 4) + 3] == 0)
+                    empty++;
+            }
+        }
+
+        Assert.That(empty, Is.Zero, $"pixels of the input the tiles left empty; bounds {bounds}");
     }
 
     // A custom effect before the crop keeps a single input off the direct path, and leaves its target with a frame of its
@@ -265,6 +287,13 @@ public sealed class FilterEffectCropTests
 
         AssertDrawsTheSame(alone, after);
     }
+
+    private static readonly ImmutableArray<(Rect Rect, Color Color)> s_pieces =
+    [
+        (new Rect(24, 20, 20, 32), Colors.Red),
+        (new Rect(44, 20, 20, 32), Colors.Blue),
+        (new Rect(72, 20, 40, 32), Colors.Green),
+    ];
 
     // A rectangle on whole pixels, so that drawing it straight and drawing what it rasterized to agree, with a colour
     // that changes in both directions, so that a crop off by a pixel shows.
@@ -339,8 +368,8 @@ public sealed class FilterEffectCropTests
     }
 
     private static FilterEffectRenderNode CreateCropFilter(
-        Rect crop, GradientSpreadMethod spreadMethod, Size blur = default, bool customFirst = false)
-        => new(new CropEffect(crop, spreadMethod, blur, customFirst).ToResource(CompositionContext.Default));
+        Rect crop, GradientSpreadMethod spreadMethod, Size blur = default, bool customFirst = false, bool lumaFirst = false)
+        => new(new CropEffect(crop, spreadMethod, blur, customFirst, lumaFirst).ToResource(CompositionContext.Default));
 
     private static EllipseRenderNode CreateSource()
         => new(s_sourceBounds, Brushes.Resource.White, null);
@@ -382,14 +411,41 @@ public sealed class FilterEffectCropTests
         return target.Snapshot();
     }
 
+    // Draws its pieces, each a solid colour on whole pixels, as one value made at a density of 1.
+    private sealed class PiecesNode(ImmutableArray<(Rect Rect, Color Color)> pieces) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+            => context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+                pieces,
+                static (session, pieces) =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+                    output.Canvas.Use(canvas =>
+                    {
+                        foreach ((Rect rect, Color color) in pieces)
+                        {
+                            using (canvas.PushClip(rect))
+                                canvas.Clear(color);
+                        }
+                    });
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(pieces.Aggregate(Rect.Empty, static (bounds, piece) => bounds.Union(piece.Rect))),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.Custom(static _ => 1f))));
+    }
+
     [SuppressResourceClassGeneration]
-    private sealed partial class CropEffect(Rect crop, GradientSpreadMethod spreadMethod, Size blur, bool customFirst)
-        : FilterEffect
+    private sealed partial class CropEffect(
+        Rect crop, GradientSpreadMethod spreadMethod, Size blur, bool customFirst, bool lumaFirst) : FilterEffect
     {
         private void ApplyEffect(FilterEffectContext context)
         {
             if (customFirst)
                 context.CustomEffect(0, static (_, _) => { }, static (_, bounds) => bounds);
+            if (lumaFirst)
+                context.LuminanceToAlpha();
             context.Crop(crop, spreadMethod);
             if (blur.Width > 0 || blur.Height > 0)
                 context.Blur(blur);
