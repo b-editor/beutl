@@ -146,7 +146,7 @@ public partial class PlayerViewModel
                 return null;
 
             MediaTime playhead = CurrentFrame.Value;
-            if ((ReadCachedVisibleFrame(playhead) ?? DrawVisibleFrame(renderer, playhead)) is { } frame)
+            if ((ReadCachedVisibleFrame(renderer, playhead) ?? DrawVisibleFrame(renderer, playhead)) is { } frame)
                 return frame;
 
             if (scene.Children.Count == 0)
@@ -161,7 +161,8 @@ public partial class PlayerViewModel
         });
     }
 
-    private Bitmap? ReadCachedVisibleFrame(MediaTime time)
+    // A cached 3D frame can hold an editor handle, so such a frame is replayed without it, as the clean preview does.
+    private Bitmap? ReadCachedVisibleFrame(SceneRenderer renderer, MediaTime time)
     {
         FrameCacheManager cache = EditViewModel.FrameCacheManager.Value;
         int frame = (int)time.ToFrame(GetFrameRate(), MidpointRounding.AwayFromZero);
@@ -170,6 +171,13 @@ public partial class PlayerViewModel
 
         using (cached)
         {
+            renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(time));
+            if (renderer.SnapshotWithoutGizmos() is { } clean)
+            {
+                using (clean)
+                    return ToVisibleFrame(clean);
+            }
+
             return ToVisibleFrame(cached.Value);
         }
     }
