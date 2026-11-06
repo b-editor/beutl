@@ -31,6 +31,16 @@ public sealed class TransformRenderNodeRegionTests
         => AssertPartDrawsTheWhole(
             static () => new TransformRenderNode(Matrix.Identity, TransformOperator.Prepend), new Rect(50, 16, 40, 60), 1.5f);
 
+    // With nothing above it, the picture is drawn into the destination 1.5 times as dense all the same (#4096).
+    [Test]
+    public void A_value_drawn_denser_with_nothing_above_it_draws_the_pixels_of_the_whole_up_to_the_edges_of_a_part()
+        => AssertPartDrawsTheWhole(static () => new ContainerRenderNode(), new Rect(50, 16, 40, 60), 1.5f);
+
+    // A push declares that it keeps its input's grid, and replays the picture into the destination as it is (#4096).
+    [Test]
+    public void A_value_drawn_denser_under_a_push_draws_the_pixels_of_the_whole_up_to_the_edges_of_a_part()
+        => AssertPartDrawsTheWhole(static () => new PushRenderNode(), new Rect(50, 16, 40, 60), 1.5f);
+
     private static readonly Rect s_scaledPart = new(75, 15, 60, 60);
 
     private static void AssertPartDrawsTheWhole(Func<ContainerRenderNode> createScale, Rect region, float outputScale = 1)

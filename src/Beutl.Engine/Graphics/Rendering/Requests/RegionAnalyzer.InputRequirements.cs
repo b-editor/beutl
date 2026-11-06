@@ -7,14 +7,19 @@ namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed partial class RegionAnalyzer
 {
+    /// <param name="destinationScale">The density the roots' values are drawn into.</param>
     private static RequiredRegion GetRootRequirement(
         RenderFragmentReference root,
         Rect finalCommitBounds,
-        Rect? targetDomain)
+        Rect? targetDomain,
+        float destinationScale)
     {
         RequiredRegion result = RequiredRegion.Empty;
         if (root.ContributesValuesToTarget)
-            result = result.Union(RequiredRegion.Region(finalCommitBounds.Intersect(root.Bounds)));
+        {
+            result = result.Union(RequiredRegion.Region(
+                AddEnlargementMargin(finalCommitBounds, root.EffectiveScale, destinationScale).Intersect(root.Bounds)));
+        }
 
         if (TargetWriteMetadataResolver.Resolve(root, targetDomain) is { } affected)
         {
@@ -23,6 +28,23 @@ internal sealed partial class RegionAnalyzer
         }
 
         return result;
+    }
+
+    // A value of a lower density is enlarged into the destination with filtering, so the outermost pixels read the
+    // texels just past what they cover, as under a transform (#4096). The margin is whole pixels of the destination, so
+    // the region keeps its place on the destination's grid: an effect lays its targets out from their logical origin. A
+    // denser value is reduced, and each pixel's centre then lies past the centre of the value's first texel.
+    private static Rect AddEnlargementMargin(Rect committed, EffectiveScale density, float destinationScale)
+    {
+        if (density.IsUnbounded
+            || density.Value >= destinationScale
+            || committed.Width <= 0
+            || committed.Height <= 0)
+        {
+            return committed;
+        }
+
+        return committed.Inflate(MathF.Ceiling(2 * destinationScale / density.Value) / destinationScale);
     }
 
     private static ImmutableArray<RequiredRegion> GetInputRequirements(

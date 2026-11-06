@@ -54,7 +54,8 @@ internal sealed partial class RegionAnalyzer
             RequiredRegion requirement = GetRootRequirement(
                 root,
                 finalCommitBounds,
-                options.TargetDomain);
+                options.TargetDomain,
+                options.OutputScale);
             UnionRequirement(fragmentRequirements, root, requirement);
         }
 
