@@ -177,6 +177,25 @@ public class TransformsTests
         Assert.That(resource.Matrix, Is.EqualTo(Matrix.Identity));
     }
 
+    // The switch turned off on an object already drawn, whose resource is reconciled again.
+    [Test]
+    public void Transform_DisabledOnAnExistingResourceAppliesNoMatrixAndMovesTheVersion()
+    {
+        var transform = new TranslateTransform(200f, 0f);
+        using var resource = transform.ToResource(Context);
+        int version = resource.Version;
+
+        transform.IsEnabled.Value = false;
+        bool versionBumped = false;
+        resource.Reconcile(transform, Context, ref versionBumped);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resource.Matrix, Is.EqualTo(Matrix.Identity));
+            Assert.That(resource.Version, Is.GreaterThan(version));
+        });
+    }
+
     [Test]
     public void Transform_EnabledAgainRestoresItsMatrixAndMovesTheVersion()
     {
