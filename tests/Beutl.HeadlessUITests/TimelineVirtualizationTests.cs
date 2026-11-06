@@ -595,6 +595,23 @@ public sealed class TimelineVirtualizationTests
                 HeadlessTestHelpers.Settle();
                 Assert.That(chosenModel.IsThumbnailsDisabled.Value, Is.False, "The clip turned on keeps its choice.");
                 Assert.That(otherModel.IsThumbnailsDisabled.Value, Is.True);
+
+                // A choice made under one default replaces the one made under the other.
+                showByDefault.Value = true;
+                HeadlessTestHelpers.Settle();
+                otherModel.IsThumbnailsDisabled.Value = true;
+                showByDefault.Value = false;
+                HeadlessTestHelpers.Settle();
+                otherModel.IsThumbnailsDisabled.Value = false;
+                showByDefault.Value = true;
+                HeadlessTestHelpers.Settle();
+                Assert.That(otherModel.IsThumbnailsDisabled.Value, Is.False, "The newer choice wins after the default flips back.");
+                Assert.That(host.Model.ThumbnailsDisabledElements, Does.Not.Contain(other.Id.Value));
+                otherModel.IsThumbnailsDisabled.Value = true;
+                showByDefault.Value = false;
+                HeadlessTestHelpers.Settle();
+                Assert.That(chosenModel.IsThumbnailsDisabled.Value, Is.False, "Flipping the default keeps saved choices.");
+                Assert.That(otherModel.IsThumbnailsDisabled.Value, Is.True);
                 host.Model.WriteToJson(state);
             }
 

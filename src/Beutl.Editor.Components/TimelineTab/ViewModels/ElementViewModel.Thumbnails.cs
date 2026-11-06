@@ -43,12 +43,23 @@ public sealed partial class ElementViewModel
             : !Timeline.ThumbnailsEnabledElements.Contains(id);
     }
 
+    // Set while the value follows the lists or the default, so only a user's change is written back to them.
+    private bool _refreshingThumbnailsDisabled;
+
     internal void RefreshIsThumbnailsDisabled()
     {
         bool isDisabled = ComputeIsThumbnailsDisabled();
         if (IsThumbnailsDisabled.Value != isDisabled)
         {
-            IsThumbnailsDisabled.Value = isDisabled;
+            _refreshingThumbnailsDisabled = true;
+            try
+            {
+                IsThumbnailsDisabled.Value = isDisabled;
+            }
+            finally
+            {
+                _refreshingThumbnailsDisabled = false;
+            }
         }
     }
 
@@ -71,14 +82,21 @@ public sealed partial class ElementViewModel
         IsThumbnailsDisabled.Skip(1)
             .Subscribe(isDisabled =>
             {
-                Guid id = Model.Id.Value;
-                if (ShowThumbnailsByDefault)
+                if (!_refreshingThumbnailsDisabled)
                 {
-                    SetMembership(Timeline.ThumbnailsDisabledElements, id, isDisabled);
-                }
-                else
-                {
-                    SetMembership(Timeline.ThumbnailsEnabledElements, id, !isDisabled);
+                    // The newer choice replaces one made under the other default, so a later flip cannot revive it.
+                    // The current default's list goes first: each change refreshes this value, which must already agree.
+                    Guid id = Model.Id.Value;
+                    if (ShowThumbnailsByDefault)
+                    {
+                        SetMembership(Timeline.ThumbnailsDisabledElements, id, isDisabled);
+                        Timeline.ThumbnailsEnabledElements.Remove(id);
+                    }
+                    else
+                    {
+                        SetMembership(Timeline.ThumbnailsEnabledElements, id, !isDisabled);
+                        Timeline.ThumbnailsDisabledElements.Remove(id);
+                    }
                 }
 
                 UpdateThumbnailsAsync();
