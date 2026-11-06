@@ -234,6 +234,23 @@ public class AlphaOutlineTracerTests
     }
 
     [Test]
+    public void A_small_island_far_from_the_origin_is_still_outlined()
+    {
+        // Products of coordinates some 4,000 px out outgrow a float, which rounded this island's area to nothing and
+        // dropped it as a stray pixel.
+        using Bitmap bitmap = Pixels(4104, 4104, (pixels, stride) =>
+        {
+            pixels.Slice(4099 * stride + 4099, 2).Fill(255);
+            pixels.Slice(4100 * stride + 4099, 2).Fill(255);
+        });
+
+        List<Vector2[]> contours = Trace(bitmap);
+
+        Assert.That(contours, Has.Count.EqualTo(1));
+        Assert.That(contours[0], Has.All.Matches<Vector2>(p => Vector2.Distance(p, new Vector2(4100, 4100)) < 1.5f));
+    }
+
+    [Test]
     public void Faint_or_single_pixels_are_not_outlined()
     {
         using Bitmap bitmap = Pixels(16, 16, (pixels, stride) =>

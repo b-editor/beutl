@@ -259,18 +259,22 @@ public static class AlphaOutlineTracer
         return polygon;
     }
 
-    // Twice the area is positive for a contour that runs clockwise on screen.
+    // The area, positive for a contour that runs clockwise on screen. It is measured from the contour's first point
+    // and summed in double: products of coordinates thousands of pixels from the origin outgrow a float's precision
+    // and would round a small contour's area away.
     private static float SignedArea(List<Vector2> points)
     {
-        float sum = 0;
-        Vector2 previous = points[^1];
+        Vector2 origin = points[0];
+        double sum = 0;
+        Vector2 previous = points[^1] - origin;
         foreach (Vector2 point in points)
         {
-            sum += previous.X * point.Y - point.X * previous.Y;
-            previous = point;
+            Vector2 current = point - origin;
+            sum += (double)previous.X * current.Y - (double)current.X * previous.Y;
+            previous = current;
         }
 
-        return sum / 2;
+        return (float)(sum / 2);
     }
 
     // Averages each point with its neighbours, weighted 1, 2, 1: cancels the alternating error of crossings on
