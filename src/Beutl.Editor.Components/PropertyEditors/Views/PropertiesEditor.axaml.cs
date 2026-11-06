@@ -10,8 +10,8 @@ public partial class PropertiesEditor : UserControl
         InitializeComponent();
     }
 
-    // The row of the first property, once the rows exist.
-    public Control? FirstRow => items.ContainerFromIndex(0);
+    // What the first property shows, once the rows exist: its row, or a row for each part of a pair kept apart.
+    public Control? FirstItem => items.ContainerFromIndex(0);
 
     // Leaves out the menu of each property editor, as the output settings do.
     public bool HideMenu
