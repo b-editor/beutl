@@ -138,9 +138,14 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         ArgumentNullException.ThrowIfNull(boundsItems);
         // Filters that all have a sampling footprint get only the part of their input a request reads, and make only
         // the part of their output it needs, so none of their buffers is allocated whole. What each request needs
-        // holds them to their budgets.
-        if (EffectItemSamplingSupport.CanResolveSampledInput(boundsItems, fallbackBounds))
+        // holds them to their budgets. The region analysis reads the same footprint, with the same coverage rule.
+        if (EffectItemSamplingSupport.CanResolveSampledInput(
+                boundsItems,
+                fallbackBounds,
+                EffectItemSamplingSupport.RequiresCoverage(inputBounds.Count, boundsItems)))
+        {
             return [];
+        }
 
         var result = new List<Rect>();
         int itemCount = CountItemsAllocatedWhole(boundsItems, fallbackBounds);

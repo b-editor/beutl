@@ -22,6 +22,8 @@ internal record FEItem_SKColorFilter<T>(
 
     public bool NeedsBoundsCoordinates => false;
 
+    public bool NeedsOneTarget => false;
+
     public void AcceptsDirect(SKImageFilterBuilder builder)
         => throw new InvalidOperationException("This color filter has no direct-replay factory.");
 }

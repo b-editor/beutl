@@ -252,8 +252,14 @@ internal sealed partial class RegionAnalyzer
         }
 
         Rect requestedOutput = outputRequirement.Resolve(ResolveSemanticBounds(reference, targetDomain));
-        if (!EffectItemSamplingSupport.TryResolveSampledInput(payload.BoundsItems, requestedOutput, out Rect requested))
+        if (!EffectItemSamplingSupport.TryResolveSampledInput(
+                payload.BoundsItems,
+                requestedOutput,
+                EffectItemSamplingSupport.RequiresCoverage(payload.StreamInputCount, payload.BoundsItems),
+                out Rect requested))
+        {
             return FullInputs(reference);
+        }
 
         var result = ImmutableArray.CreateBuilder<RequiredRegion>(reference.Inputs.Length);
         for (int index = 0; index < reference.Inputs.Length; index++)

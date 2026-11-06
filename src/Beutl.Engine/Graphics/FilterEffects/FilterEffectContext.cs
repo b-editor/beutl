@@ -280,12 +280,14 @@ public sealed partial class FilterEffectContext : IDisposable
     }
 
     /// <param name="needsBoundsCoordinates">See <see cref="IFEItem_Skia.NeedsBoundsCoordinates"/>.</param>
+    /// <param name="needsOneTarget">See <see cref="IFEItem_Skia.NeedsOneTarget"/>.</param>
     private void AppendDirectSkiaFilter<T>(
         T data,
         Func<T, SKImageFilter?, SKImageFilter?> factory,
         Func<T, Rect, Rect> transformBounds,
         Func<T, Rect, Rect>? transformSamplingBounds = null,
-        bool needsBoundsCoordinates = false)
+        bool needsBoundsCoordinates = false,
+        bool needsOneTarget = false)
         where T : IEquatable<T>
     {
         AppendDescription(new FEItem_Skia<T>(
@@ -300,6 +302,7 @@ public sealed partial class FilterEffectContext : IDisposable
             DirectFactory = factory,
             TransformSamplingBounds = transformSamplingBounds,
             NeedsBoundsCoordinates = needsBoundsCoordinates,
+            NeedsOneTarget = needsOneTarget,
         });
     }
 

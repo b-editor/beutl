@@ -35,6 +35,8 @@ internal record FEItem_Skia<T>(
 
     public bool NeedsBoundsCoordinates { get; init; }
 
+    public bool NeedsOneTarget { get; init; }
+
     public void AcceptsDirect(SKImageFilterBuilder builder)
     {
         builder.AppendSkiaFilter(Data, DirectFactory!);
