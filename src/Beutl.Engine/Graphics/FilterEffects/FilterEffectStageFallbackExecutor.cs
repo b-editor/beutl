@@ -44,8 +44,12 @@ internal static class FilterEffectStageFallbackExecutor
             target => ExecuteGeometry(target, description, settings));
     }
 
+    /// <param name="requiredOutput">
+    /// The part of the output the caller keeps, or <see langword="null"/> for all of it. A piece whose output misses it
+    /// is dropped, and the others go into targets of what they cover of it, which leaves the rest undefined.
+    /// </param>
     public static void ApplyShaderGraph(EffectTargets targets, ShaderGraphDescription description,
-        FilterEffectExecutionSettings settings)
+        FilterEffectExecutionSettings settings, Rect? requiredOutput = null)
     {
         ShaderGraphProgramAcquirer acquireProgram = settings.ShaderGraphProgramAcquirer
             ?? throw new ArgumentException("A shader graph stage needs a program acquirer.", nameof(settings));
@@ -63,14 +67,16 @@ internal static class FilterEffectStageFallbackExecutor
             if (input?.RenderTarget is not { } inputTarget)
                 return source.Clone();
             Rect bounds = description.TransformBounds(input.Bounds, referenceBounds);
-            if (IsEmpty(bounds))
+            Rect? part = requiredOutput?.Intersect(bounds);
+            Rect outputBounds = part ?? bounds;
+            if (IsEmpty(outputBounds))
                 return null;
             ITexture2D texture = inputTarget.Texture
                 ?? throw new NotSupportedException("The shader graph input requires a backend texture.");
             float density = description.ClampWorkingScale(input.Bounds,
                 ResolveSupplyDensity(input, settings), input.DeviceGridOffset, referenceBounds,
-                input.DeviceBounds.Size, ((VulkanTexture2D)texture).Usage);
-            EffectTarget? output = AllocateStageOutput(input, bounds, density, settings, native: true);
+                input.DeviceBounds.Size, ((VulkanTexture2D)texture).Usage, part);
+            EffectTarget? output = AllocateStageOutput(input, outputBounds, density, settings, native: true);
             if (output?.RenderTarget is not { } outputTarget)
             {
                 output?.Dispose();
@@ -82,7 +88,7 @@ internal static class FilterEffectStageFallbackExecutor
                 ShaderGraphExecutor.Execute(description, texture,
                     new(input.Bounds, input.RasterBounds, input.DeviceBounds.Size, input.Scale.Value, referenceBounds),
                     outputTarget.Texture ?? throw new NotSupportedException("The shader graph output requires a backend texture."),
-                    output.Scale.Value, input.DeviceGridOffset, acquireProgram, retainedImages: settings.ShaderGraphImages);
+                    output.Scale.Value, input.DeviceGridOffset, acquireProgram, part, settings.ShaderGraphImages);
                 description.ExecutionObserver?.Invoke(null);
                 EffectTarget result = output;
                 output = null;
