@@ -351,8 +351,10 @@ public partial class PlayerView : UserControl
     private void SubscribeTransformOverlay(PlayerViewModel vm)
     {
         // RenderThread.Invoke during playback would stall frame generation, so suppress overlay
-        // updates outside Move mode + paused state.
-        vm.IsMoveMode.CombineLatest(vm.IsPlaying, (move, playing) => move && !playing)
+        // updates outside Move mode + paused state. The path editor shows the shape it edits with its own points, so
+        // the handles give way to it.
+        vm.IsMoveMode.CombineLatest(vm.IsPlaying, vm.PathEditor.IsVisible,
+                (move, playing, editingPath) => move && !playing && !editingPath)
             .DistinctUntilChanged()
             .ObserveOnUIDispatcher()
             .Subscribe(visible =>
@@ -369,7 +371,7 @@ public partial class PlayerView : UserControl
         if (DataContext is not PlayerViewModel vm) return;
         // The overlay is hidden during playback; skip the blocking RenderThread query.
         if (vm.IsPlaybackActive) return;
-        if (!vm.IsMoveMode.Value)
+        if (!vm.IsMoveMode.Value || vm.PathEditor.IsVisible.Value)
         {
             ClearTransformHandleOverlay();
             return;

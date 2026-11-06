@@ -194,29 +194,33 @@ public partial class PlayerViewModel
         if (token.IsCancellationRequested)
             return;
 
-        // Read the onion-skin settings here on the UI thread; reading them on the render thread
-        // would race their UI-thread writes.
+        // Read the onion-skin settings and the path editor's state here on the UI thread; reading them on the render
+        // thread would race their UI-thread writes.
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
         bool onionEnabled = editorConfig.IsOnionSkinEnabled.Value;
         int onionPrevCount = editorConfig.OnionSkinPrevCount.Value;
         int onionNextCount = editorConfig.OnionSkinNextCount.Value;
         float onionPrevOpacity = editorConfig.OnionSkinPrevOpacity.Value;
         float onionNextOpacity = editorConfig.OnionSkinNextOpacity.Value;
+        // The path editor draws the shape it edits, and the selection's boundary would only cover its points.
+        bool drawBoundaries = !PathEditor.IsVisible.Value;
 
         RenderThread.Dispatcher.Dispatch(
             () => RenderPreviewFrame(
-                token, onionEnabled, onionPrevCount, onionNextCount, onionPrevOpacity, onionNextOpacity),
+                token, onionEnabled, onionPrevCount, onionNextCount, onionPrevOpacity, onionNextOpacity,
+                drawBoundaries),
             ct: token);
     }
 
-    // Runs on the render thread, with the onion-skin settings RenderOnRenderThread read on the UI thread.
+    // Runs on the render thread, with the settings RenderOnRenderThread read on the UI thread.
     private void RenderPreviewFrame(
         CancellationToken token,
         bool onionEnabled,
         int onionPrevCount,
         int onionNextCount,
         float onionPrevOpacity,
-        float onionNextOpacity)
+        float onionNextOpacity,
+        bool drawBoundaries)
     {
         int frame = 0;
         bool useOnionSkin = false;
@@ -273,7 +277,8 @@ public partial class PlayerViewModel
             {
                 if (useOnionSkin)
                     DrawOnionSkin(renderer, canvas, time, frame, onionSamples, token);
-                DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height));
+                if (drawBoundaries)
+                    DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height));
             }
 
             if (token.IsCancellationRequested)
