@@ -106,6 +106,7 @@ public sealed class ShaderGraphDescription
                 releases[LastUses[resource.Id]].Add(resource);
         ReleasesAfter = [.. releases.Select(bucket => bucket.ToImmutableArray())];
         UsesGroupOrigin = passes.Any(pass => pass.RuntimeConstants.Any(c => c.Kind == ShaderRuntimeConstantKind.BoundsOrigin));
+        ReadsAroundEachPoint = !UsesGroupOrigin && ResolveReadsAroundEachPoint(resources, passes);
         (PartialImageSets, AcceptsPartialSource) = ResolvePartialImages();
         StructuralIdentity = CreateIdentity(includeValues: false);
         OutputIdentity = new ShaderGraphValueIdentity(CreateIdentity(includeValues: true),
@@ -172,6 +173,10 @@ public sealed class ShaderGraphDescription
     /// <summary>Whether a pass reads an origin in the complete input group's bounds.</summary>
     internal bool UsesGroupOrigin { get; }
 
+    /// <summary>Whether every pass reads either all of an image or around the points it draws, the same way wherever the
+    /// source lies. What a request reads of several pictures' union then covers what it reads of each of them.</summary>
+    internal bool ReadsAroundEachPoint { get; }
+
     /// <summary>The images that can hold only the part of their bounds a request needs, in sets that keep one frame.</summary>
     internal ImmutableArray<ImmutableArray<ShaderImage>> PartialImageSets { get; }
 
@@ -189,6 +194,18 @@ public sealed class ShaderGraphDescription
         RenderRectValidation.ThrowIfInvalidInput(bounds, nameof(sourceBounds));
         return bounds;
     }
+
+    // A group's origin and bounds move with how much of each picture reaches the graph. A footprint that moves or turns
+    // may come from the bounds the graph was recorded with, and a sampler that clamps to an edge reads that edge from any
+    // distance. What either of them reads of one picture can lie outside what it reads of the union.
+    private static bool ResolveReadsAroundEachPoint(ImmutableArray<ShaderResource> resources,
+        ImmutableArray<ShaderPassDescription> passes)
+        => resources.OfType<ShaderImage>().All(image => !image.BoundsFromGroup && image.BoundsTransforms.IsEmpty)
+           && passes.Where(pass => pass.IsLocal).All(pass => pass.Bindings.All(binding =>
+               !pass.InputRegions.TryGetValue(binding.Binding, out ShaderInputRegion region)
+               || (region.Transform.IsIdentity
+                   && binding.Sampler.AddressU != SamplerAddressMode.ClampToEdge
+                   && binding.Sampler.AddressV != SamplerAddressMode.ClampToEdge)));
 
     private (ImmutableArray<ImmutableArray<ShaderImage>> Sets, bool PartialSource) ResolvePartialImages()
     {

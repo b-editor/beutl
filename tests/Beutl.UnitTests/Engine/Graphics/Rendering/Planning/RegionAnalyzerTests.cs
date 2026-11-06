@@ -1,7 +1,9 @@
-﻿using Beutl.Graphics;
+﻿using System.Numerics;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
+using Beutl.Graphics.Shaders;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 
@@ -386,6 +388,67 @@ public sealed class RegionAnalyzerTests
         }
     }
 
+    public enum GraphRead
+    {
+        AroundEachPoint,
+        Shifted,
+        ClampedToTheEdge,
+        AroundTheGroupOrigin,
+    }
+
+    // A graph runs over each picture of a stream on its own. What it reads of the stream's union covers what it reads of
+    // each picture only when it reads around the points it draws, the same way wherever the picture lies.
+    [TestCase(GraphRead.AroundEachPoint, false)]
+    [TestCase(GraphRead.Shifted, true)]
+    [TestCase(GraphRead.ClampedToTheEdge, true)]
+    [TestCase(GraphRead.AroundTheGroupOrigin, true)]
+    public void Analyze_ReadsAStreamBeforeAGraphThroughItsUnionOnlyWhenTheGraphReadsAroundEachPoint(
+        GraphRead read, bool readsTheWholeStream)
+    {
+        var graph = new FragmentGraph();
+        var bounds = new Rect(0, 0, 1000, 100);
+        RenderFragmentReference picture = graph.Source(bounds);
+        RenderFragmentReference stream = graph.Source(bounds, cardinality: RenderValueCardinality.Dynamic);
+        RenderFragmentReference fromPicture = graph.ShaderGraph(picture, ReadingGraph(read));
+        RenderFragmentReference fromStream = graph.ShaderGraph(stream, ReadingGraph(read));
+        var analyzer = new RegionAnalyzer();
+        RenderRequestOptions options = Options(requestedRegion: new Rect(400, 0, 100, 100));
+
+        RegionAnalysis one = analyzer.Analyze(options, [fromPicture]);
+        RegionAnalysis several = analyzer.Analyze(options, [fromStream]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(one.GetFragmentRequirement(picture), Is.Not.EqualTo(RequiredRegion.Full));
+            Assert.That(several.GetFragmentRequirement(stream),
+                Is.EqualTo(readsTheWholeStream ? RequiredRegion.Full : one.GetFragmentRequirement(picture)));
+        });
+    }
+
+    private static ShaderGraphDescription ReadingGraph(GraphRead read)
+        => ShaderGraphBuilder.Build(read, static (graph, read) =>
+        {
+            ShaderImage output = graph.Image2D("output", graph.Source);
+            graph.Fullscreen("read", ShaderProgram.Fullscreen(new ShaderSource("""
+                #version 450
+                layout(binding = 0) uniform sampler2D image;
+                layout(location = 0) out vec4 color;
+                void main() { color = texture(image, vec2(0.5)); }
+                """)), pass =>
+            {
+                pass.SampledImage(0, graph.Source, read == GraphRead.ClampedToTheEdge ? SamplerState.LinearClamp : null);
+                pass.InputRegion(0, new(read == GraphRead.Shifted ? Matrix.CreateTranslation(10, 0) : Matrix.Identity, 2));
+                if (read == GraphRead.AroundTheGroupOrigin)
+                {
+                    pass.PushConstants(Vector2.Zero);
+                    pass.BoundsOriginConstants(RelativePoint.Center, 0);
+                }
+
+                pass.ColorAttachment(0, output);
+            });
+            return graph.Output(output);
+        });
+
     private static RenderRequestOptions Options(
         Rect? targetDomain = null,
         Rect? requestedRegion = null)
@@ -413,19 +476,20 @@ public sealed class RegionAnalyzerTests
         public RenderFragmentReference Source(
             Rect bounds,
             EffectiveScale? scale = null,
-            RenderFragmentBoundsRequirement requirement = RenderFragmentBoundsRequirement.Finite)
+            RenderFragmentBoundsRequirement requirement = RenderFragmentBoundsRequirement.Finite,
+            RenderValueCardinality? cardinality = null)
         {
             OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
                 static _ => { },
                 OpaqueRenderBoundsContract.Source(bounds),
                 RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
+                cardinality ?? RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale);
             return Stamp(new RenderFragmentReference(
                 RenderFragmentKind.OpaqueSource,
                 bounds,
                 scale ?? EffectiveScale.At(1),
-                RenderValueCardinality.Single,
+                cardinality ?? RenderValueCardinality.Single,
                 contributesValuesToTarget: true,
                 canBeUsedAsValueInput: true,
                 hasTargetEffects: false,
@@ -477,6 +541,21 @@ public sealed class RegionAnalyzerTests
                     [RenderInputReadback.None]),
                 RenderFragmentHitTest.Bounds));
         }
+
+        public RenderFragmentReference ShaderGraph(RenderFragmentReference input, ShaderGraphDescription description)
+            => Stamp(new RenderFragmentReference(
+                RenderFragmentKind.ShaderGraph,
+                description.TransformBounds(input.Bounds),
+                ShaderGraphRenderFragmentPayload.ResolvePlannedScale(
+                    description, null, [input], DefaultOutputScale, DefaultMaxWorkingScale),
+                input.ValueCardinality,
+                input.ContributesValuesToTarget,
+                canBeUsedAsValueInput: true,
+                hasTargetEffects: input.HasTargetEffects,
+                hasOpaqueExternalWork: input.HasOpaqueExternalWork,
+                [input],
+                new ShaderGraphRenderFragmentPayload(description),
+                RenderFragmentHitTest.Bounds));
 
         public RenderFragmentReference Capture(Rect bounds, EffectiveScale scale)
         {
