@@ -28,6 +28,7 @@ public partial class PropertyConversionGoldenTests
                 UseCustomAccentColor = { Value = true },
                 CustomAccentColor = { Value = "#FF112233" },
                 ShowExactBoundaries = { Value = true },
+                RecentProjectsLayout = { Value = RecentProjectsLayout.List },
                 RecentFiles = { "/golden/a.belm" },
                 RecentProjects = { "/golden/p.bproj" },
                 PinnedToolTabs = { "Golden.Tab" },

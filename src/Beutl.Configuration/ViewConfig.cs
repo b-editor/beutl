@@ -6,6 +6,13 @@ using Beutl.Serialization;
 
 namespace Beutl.Configuration;
 
+// How the start page shows the recent projects.
+public enum RecentProjectsLayout
+{
+    Grid,
+    List,
+}
+
 // ShowStorageServices is a setting this section no longer has: the file browser always shows the registered storage
 // services, so a stored value is dropped rather than kept as an unknown member.
 [DroppedMembers("ShowStorageServices")]
@@ -41,6 +48,8 @@ public sealed partial class ViewConfig : ConfigurationBase
     public IProperty<string?> CustomAccentColor { get; } = Property.CreateValue<string?>(null);
 
     public IProperty<bool> ShowExactBoundaries { get; } = Property.CreateValue(false);
+
+    public IProperty<RecentProjectsLayout> RecentProjectsLayout { get; } = Property.CreateValue(Configuration.RecentProjectsLayout.Grid);
 
     [NotAutoSerialized]
     public IListProperty<string> RecentFiles { get; } = new ListProperty<string> { AffectsRender = false };
@@ -127,7 +136,7 @@ public sealed partial class ViewConfig : ConfigurationBase
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args.PropertyName is nameof(Theme) or nameof(UICulture) or nameof(UseCustomAccentColor) or nameof(CustomAccentColor) or nameof(ShowExactBoundaries) or nameof(LastOpenedProjectFile))
+        if (args.PropertyName is nameof(Theme) or nameof(UICulture) or nameof(UseCustomAccentColor) or nameof(CustomAccentColor) or nameof(ShowExactBoundaries) or nameof(RecentProjectsLayout) or nameof(LastOpenedProjectFile))
         {
             OnChanged();
         }

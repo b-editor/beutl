@@ -17,9 +17,6 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="StartTutorial" xml:space="preserve">
-    <value>Iniciar tutorial</value>
-  </data>
   <data name="TutorialStep" xml:space="preserve">
     <value>Paso {0} de {1}</value>
   </data>
@@ -57,7 +54,7 @@
     <value>Crear nuevo</value>
   </data>
   <data name="Tutorial_Welcome_Create_Content" xml:space="preserve">
-    <value>Haz clic aquí para crear un nuevo proyecto o escena y comenzar a editar.</value>
+    <value>Haz clic aquí para crear un nuevo proyecto y comenzar a editar.</value>
   </data>
   <data name="Tutorial_SceneEdit_Title" xml:space="preserve">
     <value>Conceptos básicos de edición de escenas</value>

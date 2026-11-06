@@ -1,8 +1,10 @@
 ﻿using Beutl.Composition;
+using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Models;
+using Beutl.ProjectSystem;
 
 namespace Beutl.ViewModels;
 
@@ -122,6 +124,49 @@ public partial class PlayerViewModel
         {
             TargetDomain = new Rect(default, frameSize.ToSize(1)),
         };
+
+    /// <summary>
+    /// Renders the frame the start page shows for this scene on the preview renderer, without the editor's overlays:
+    /// the frame at the playhead, or the middle of the scene's elements when nothing shows there, as after playing
+    /// through to the end. Returns <see langword="null"/> when nothing shows at either.
+    /// </summary>
+    internal async Task<Bitmap?> DrawThumbnailFrame()
+    {
+        await Pause();
+
+        return await RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            if (Scene is not { } scene
+                || EditViewModel.Renderer.Value is not { IsDisposed: false, IsGraphicsRendering: false } renderer)
+                return null;
+
+            MediaTime playhead = CurrentFrame.Value;
+            if (DrawVisibleFrame(renderer, playhead) is { } frame)
+                return frame;
+
+            if (scene.Children.Count == 0)
+                return null;
+
+            MediaTime start = scene.Children.Min(element => element.Range.Start);
+            MediaTime end = scene.Children.Max(element => element.Range.End);
+            frame = DrawVisibleFrame(renderer, start + new MediaTime((end - start).Flicks / 2));
+            // Selection bounds and later queries must use the playhead's geometry if the close is refused.
+            renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(playhead));
+            return frame;
+        });
+    }
+
+    private static Bitmap? DrawVisibleFrame(SceneRenderer renderer, MediaTime time)
+    {
+        renderer.Render(renderer.Compositor.EvaluateGraphics(time));
+        using Bitmap snapshot = renderer.SnapshotWithoutGizmos() ?? renderer.Snapshot();
+        Bitmap frame = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+        if (!ObjectTemplatePreviewRenderer.IsBlank(frame))
+            return frame;
+
+        frame.Dispose();
+        return null;
+    }
 
     /// <summary>
     /// Renders the current frame at full scale on a throwaway renderer, ignoring preview quality.

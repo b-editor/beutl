@@ -180,6 +180,7 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
         File.Delete(target.ProjectFile);
         if (!target.IsFolder)
         {
+            ProjectThumbnailService.Delete(target.ProjectFile);
             return;
         }
 

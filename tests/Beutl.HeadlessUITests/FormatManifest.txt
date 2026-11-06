@@ -78,7 +78,7 @@ Beutl.Utilities
   keys: AutoCommitOnClose, AutoCommitOnSave, EnableForNewProjects, GitExecutablePath, LargeMediaWarningThresholdMb, UseLfsWhenAvailable
 [Beutl.Configuration]:ViewConfig
   sealed
-  keys: CustomAccentColor, IsWindowMaximized, LastOpenedProjectFile, PinnedToolTabs, RecentFiles, RecentProjects, ShowExactBoundaries, Theme, UICulture, UseCustomAccentColor
+  keys: CustomAccentColor, IsWindowMaximized, LastOpenedProjectFile, PinnedToolTabs, RecentFiles, RecentProjects, RecentProjectsLayout, ShowExactBoundaries, Theme, UICulture, UseCustomAccentColor
 [Beutl.Core]Beutl:BeutlApplication
   unsealed
   keys: Id, Name, Project

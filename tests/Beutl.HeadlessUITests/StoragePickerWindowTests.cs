@@ -103,6 +103,12 @@ public class StoragePickerWindowTests
             .ReturnsAsync(new[] { folder.Object });
         var window = new Window { Width = 800, Height = 600 };
         TestStorageProviderFactory.SetProvider(window, storage.Object);
+        if (!project)
+        {
+            // A scene goes into the open project.
+            await TestShell.CreateProjectAsync("picker-scene-" + Guid.NewGuid().ToString("N"));
+        }
+
         FAContentDialog dialog = project
             ? new CreateNewProject { DataContext = new CreateNewProjectViewModel(TestShell.Project, TestShell.VersionControl) }
             : new CreateNewScene { DataContext = new CreateNewSceneViewModel(TestShell.Project, TestShell.Editor) };
@@ -130,6 +136,7 @@ public class StoragePickerWindowTests
                 await closed.WaitAsync(TimeSpan.FromSeconds(5));
             window.Close();
             HeadlessTestHelpers.Settle();
+            await TestReset.ResetShellAsync();
         }
     }
 }
