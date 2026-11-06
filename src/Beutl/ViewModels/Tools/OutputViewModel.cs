@@ -1,7 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
@@ -431,16 +430,16 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             ClearEditViewModelCaches();
 
         float renderScale = Math.Max(1, supersampleFactor);
-        using var renderer = videoEnabled ? ExportRendererFactory.Create(scene, renderScale) : null;
-        using var frameProgress = new Subject<MediaTime>();
-        using IFrameProvider frameProvider = renderer != null
-            ? new FrameProviderImpl(scene, videoSettings.FrameRate.Value, renderer, frameProgress)
-            : DisabledMediaProvider.Instance;
-        using var composer = audioEnabled ? ExportRendererFactory.CreateComposer(scene, audioSettings.SampleRate.Value) : null;
-        using var sampleProgress = new Subject<MediaTime>();
-        using ISampleProvider sampleProvider = composer != null
-            ? new SampleProviderImpl(scene, composer, audioSettings.SampleRate.Value, sampleProgress, audioSettings.GetChannelLayout())
-            : DisabledMediaProvider.Instance;
+        using var providers = ExportMediaProviders.Create(
+            scene,
+            videoEnabled,
+            audioEnabled,
+            renderScale,
+            videoSettings.FrameRate.Value,
+            audioSettings.SampleRate.Value,
+            audioSettings.GetChannelLayout());
+        IObservable<MediaTime> frameProgress = providers.FrameProgress;
+        IObservable<MediaTime> sampleProgress = providers.SampleProgress;
 
         IObservable<MediaTime> progress = videoEnabled && audioEnabled
             ? frameProgress.CombineLatest(sampleProgress, (video, audio) => video + audio)
@@ -464,21 +463,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                        UpdateProgressIndicators(stopwatch.Elapsed, value, ProgressMax.Value, destinationPath);
                    }))
         {
-            await controller.Encode(frameProvider, sampleProvider, cancellationToken);
+            await controller.Encode(providers.FrameProvider, providers.SampleProvider, cancellationToken);
         }
-    }
-
-    private sealed class DisabledMediaProvider : IFrameProvider, ISampleProvider
-    {
-        public static DisabledMediaProvider Instance { get; } = new();
-        public long FrameCount => 0;
-        public Rational FrameRate => new(0, 1);
-        public long SampleCount => 0;
-        public long SampleRate => 0;
-        public ValueTask<Bitmap?> ReadNextFrame() => ValueTask.FromResult<Bitmap?>(null);
-        public ValueTask<AudioBuffer?> ReadNextSamples(int length)
-            => ValueTask.FromResult<AudioBuffer?>(null);
-        public void Dispose() { }
     }
 
     private void ShowCompletedProgress(string destinationPath)

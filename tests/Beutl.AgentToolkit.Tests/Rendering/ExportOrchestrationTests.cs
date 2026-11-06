@@ -4,7 +4,9 @@ using Beutl.Audio;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Encoding;
+using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 
@@ -141,6 +143,78 @@ public sealed class ExportOrchestrationTests
             Assert.That(progress, Has.All.Matches<(long Completed, long Total)>(item => item.Total == 3));
             Assert.That(progress[^1], Is.EqualTo((3L, 3L)));
         });
+    }
+
+    [Test]
+    public async Task Audio_only_output_gets_no_frames_and_ignores_missing_video_sources()
+    {
+        string directory = TestWorkspace.CreateDirectory();
+        long framesSeen = -1;
+        long samplesSeen = -1;
+        var encoder = new DelegateEncoder(".audio-only", async (controller, frames, samples, token) =>
+        {
+            framesSeen = frames.FrameCount;
+            samplesSeen = samples.SampleCount;
+            using Bitmap? frame = await frames.ReadNextFrame();
+            Assert.That(frame, Is.Null);
+            await File.WriteAllTextAsync(controller.OutputFile, "encoded output", token);
+        }, videoEnabled: false);
+        var scene = new Scene(64, 64, "audio-only") { Duration = { Value = MediaTime.FromSeconds(0.1) } };
+        _ = new Project { Items = { scene } };
+        scene.Children.Add(CreateMissingVideoElement(directory));
+        var exporter = new VideoExporter(new EncoderRegistration(encoder));
+
+        ExportVideoResponse response = await exporter.ExportAsync(
+            scene,
+            Path.Combine(directory, "sound.audio-only"),
+            new Rational(30, 1),
+            44100,
+            1,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(framesSeen, Is.Zero);
+            Assert.That(samplesSeen, Is.EqualTo(4410));
+            Assert.That(response.Frames, Is.Zero);
+            Assert.That(response.Samples, Is.EqualTo(4410));
+        });
+    }
+
+    [Test]
+    public async Task Output_with_video_still_rejects_missing_video_sources()
+    {
+        string directory = TestWorkspace.CreateDirectory();
+        var encoder = new DelegateEncoder(".with-video", (_, _, _, _) => Task.CompletedTask);
+        var scene = new Scene(64, 64, "with-video") { Duration = { Value = MediaTime.FromSeconds(0.1) } };
+        _ = new Project { Items = { scene } };
+        scene.Children.Add(CreateMissingVideoElement(directory));
+        var exporter = new VideoExporter(new EncoderRegistration(encoder));
+
+        await Assert.ThrowsAsync<RenderingUnavailableException>(async () =>
+            await exporter.ExportAsync(
+                scene,
+                Path.Combine(directory, "movie.with-video"),
+                new Rational(30, 1),
+                44100,
+                1,
+                CancellationToken.None));
+    }
+
+    private static Element CreateMissingVideoElement(string directory)
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(Path.Combine(directory, "missing.mov")));
+        var drawable = new SourceVideo();
+        drawable.Source.Value = source;
+        var element = new Element
+        {
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(1) },
+            Uri = new Uri(Path.Combine(directory, $"{Guid.NewGuid():N}.layer")),
+        };
+        element.AddObject(drawable);
+        return element;
     }
 
     [Test]
