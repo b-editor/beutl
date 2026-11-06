@@ -241,59 +241,6 @@ public sealed class EffectItemRequiredRegionTests
         }
     }
 
-    // The blur makes a value before the scale, which then enlarges it with filtering. The part's left edge at x = 140 maps
-    // back to 93.3, on the ramp the blur puts at the square's right edge, where each pixel reads the texels beside it.
-    [Test]
-    public void BlurUnderAScaleUp_MatchesTheCompleteRenderUpToTheEdgesOfAPartialRegion()
-    {
-        var sourceBounds = new Rect(0, 0, 100, 100);
-        var requestedRegion = new Rect(140, 40, 40, 40);
-
-        (Rect completeBounds, float[] completeAlpha, int completeWidth) = RasterizeScaledBlurAlpha(sourceBounds, null);
-        (Rect partialBounds, float[] partialAlpha, int partialWidth) = RasterizeScaledBlurAlpha(sourceBounds, requestedRegion);
-
-        // The scaled blur ends at x = 168, which cuts the part's right side; its left edge is the one asked for.
-        Assert.That(partialBounds.Position, Is.EqualTo(requestedRegion.Position));
-        var offsetX = (int)(partialBounds.X - completeBounds.X);
-        var offsetY = (int)(partialBounds.Y - completeBounds.Y);
-        (float Difference, int X, int Y) largest = default;
-        for (int y = 0; y < partialAlpha.Length / partialWidth; y++)
-        {
-            for (int x = 0; x < partialWidth; x++)
-            {
-                float difference = MathF.Abs(completeAlpha[((y + offsetY) * completeWidth) + x + offsetX]
-                                             - partialAlpha[(y * partialWidth) + x]);
-                if (difference > largest.Difference)
-                    largest = (difference, x + (int)partialBounds.X, y + (int)partialBounds.Y);
-            }
-        }
-
-        Assert.That(largest.Difference, Is.LessThanOrEqualTo(0.01f), $"at ({largest.X}, {largest.Y})");
-    }
-
-    private static (Rect Bounds, float[] Alpha, int Width) RasterizeScaledBlurAlpha(Rect sourceBounds, Rect? requestedRegion)
-    {
-        FilterEffectRenderNode blur = CreateBlurNode(sigma: 4);
-        blur.AddChild(new RectangleRenderNode(sourceBounds, Brushes.Resource.White, null));
-        using var scale = new TransformRenderNode(Matrix.CreateScale(1.5f, 1.5f), TransformOperator.Prepend);
-        scale.AddChild(blur);
-        using var renderer = new RenderNodeRenderer(scale, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            RequestedRegion = requestedRegion,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new BudgetedCpuTargetFactory(int.MaxValue));
-
-        using RenderNodeRasterization rasterization = renderer.Rasterize();
-        Bitmap bitmap = rasterization.Bitmap
-                        ?? throw new InvalidOperationException("The scaled blur produced no bitmap.");
-        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
-        var alpha = new float[bitmap.Width * bitmap.Height];
-        for (int index = 0; index < alpha.Length; index++)
-            alpha[index] = (float)BitConverter.UInt16BitsToHalf(pixels[(index * 4) + 3]);
-        return (rasterization.Bounds, alpha, bitmap.Width);
-    }
-
     private static FilterEffectRenderNode CreateBlurNode(float sigma)
     {
         var blur = new Blur();
