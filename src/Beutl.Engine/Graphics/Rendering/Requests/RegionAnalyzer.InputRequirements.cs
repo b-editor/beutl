@@ -47,7 +47,8 @@ internal sealed partial class RegionAnalyzer
                     reference,
                     outputRequirement,
                     scope.Description.Bounds,
-                    targetDomain),
+                    targetDomain,
+                    scope.Description.IsValueReplayMap),
             RawTargetScopeRenderFragmentPayload
                 => FullInputs(reference),
             OpaqueRenderFragmentPayload opaque
@@ -118,11 +119,13 @@ internal sealed partial class RegionAnalyzer
         return [RequiredRegion.Region(required.Intersect(reference.Inputs[0].Bounds))];
     }
 
+    /// <param name="resamplesInput">Whether the scope draws its input under a matrix.</param>
     private static ImmutableArray<RequiredRegion> MapTargetScope(
         RenderFragmentReference reference,
         RequiredRegion outputRequirement,
         RenderBoundsContract bounds,
-        Rect? targetDomain)
+        Rect? targetDomain,
+        bool resamplesInput)
     {
         if (reference.Inputs.Length != 1)
             throw new InvalidOperationException("A target scope requires exactly one input fragment.");
@@ -148,7 +151,13 @@ internal sealed partial class RegionAnalyzer
         else
         {
             Rect requested = outputRequirement.Resolve(ResolveSemanticBounds(reference, targetDomain));
-            required = RequiredRegion.Region(bounds.GetRequiredInputBounds(requested));
+            Rect input = bounds.GetRequiredInputBounds(requested);
+            // A value drawn under the matrix is filtered: the outermost pixels read the texels next to what the matrix
+            // maps them to, and the value's raster can sit off the destination's grid by a phase. A vector input is
+            // drawn again under the matrix and reads nothing past it.
+            if (resamplesInput && reference.Inputs[0].EffectiveScale is { IsUnbounded: false } supply)
+                input = input.Inflate(2 / supply.Value);
+            required = RequiredRegion.Region(input);
         }
 
         Rect? inputTargetDomain = targetDomain is { } domain

@@ -304,22 +304,19 @@ public sealed class RepeatEffectTests
 
         var frame = new PixelSize(1920, 1880);
         Rect region = new(300, 500, 700, 500);
-        byte[][] whole = Render(Moved(), WideGrid(10), frame: frame);
-        byte[][] part = Render(Moved(), WideGrid(10), region: region, frame: frame);
+        byte[][] whole = Render(Moved(), WideGrid(10), frame: frame, linear: true);
+        byte[][] part = Render(Moved(), WideGrid(10), region: region, frame: frame, linear: true);
 
-        // Premultiplied, as a pixel with next to no alpha can hold any color. Under a scale the part's outermost pixels
-        // read past what was asked for, so the comparison stays inside it. Near black, sRGB bytes move 13 for each byte of
-        // linear light, which rounding in a rotation can reach.
-        int largest = 0;
-        for (int y = 502; y < 998; y++)
-            for (int x = 302; x < 998; x++)
+        // Up to its edges: the outermost pixels of the part read past what was asked for, as the whole's do.
+        (int Difference, int X, int Y) largest = default;
+        for (int y = 500; y < 1000; y++)
+            for (int x = 300 * 4; x < 1000 * 4; x++)
             {
-                int alpha = part[y][x * 4 + 3], wholeAlpha = whole[y][x * 4 + 3];
-                largest = Math.Max(largest, Math.Abs(alpha - wholeAlpha));
-                for (int channel = 0; channel < 3; channel++)
-                    largest = Math.Max(largest, Math.Abs(part[y][x * 4 + channel] * alpha - whole[y][x * 4 + channel] * wholeAlpha) / 255);
+                int difference = Math.Abs(part[y][x] - whole[y][x]);
+                if (difference > largest.Difference)
+                    largest = (difference, x / 4, y);
             }
-        Assert.That(largest, Is.LessThanOrEqualTo(16));
+        Assert.That(largest.Difference, Is.LessThanOrEqualTo(2), $"at ({largest.X}, {largest.Y})");
     }
 
     // Past 16384 pixels no single image could hold the whole grid, which leaves nothing to compare with except the pattern.
