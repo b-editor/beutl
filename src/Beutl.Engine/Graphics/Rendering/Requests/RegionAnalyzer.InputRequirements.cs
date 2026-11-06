@@ -48,7 +48,9 @@ internal sealed partial class RegionAnalyzer
                     outputRequirement,
                     scope.Description.Bounds,
                     targetDomain,
-                    scope.Description.IsValueReplayMap),
+                    // A public scope's matrix is hidden in its callback, but its declared grid mapping says whether it
+                    // replays its input onto another grid; a transform scope declares Preserved only for no matrix.
+                    scope.Description.DeviceGridMapping == RenderDeviceGridMapping.Remapped),
             RawTargetScopeRenderFragmentPayload
                 => FullInputs(reference),
             OpaqueRenderFragmentPayload opaque
@@ -119,7 +121,7 @@ internal sealed partial class RegionAnalyzer
         return [RequiredRegion.Region(required.Intersect(reference.Inputs[0].Bounds))];
     }
 
-    /// <param name="resamplesInput">Whether the scope draws its input under a matrix.</param>
+    /// <param name="resamplesInput">Whether the scope replays its input onto another grid, as under a matrix.</param>
     private static ImmutableArray<RequiredRegion> MapTargetScope(
         RenderFragmentReference reference,
         RequiredRegion outputRequirement,
