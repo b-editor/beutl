@@ -35,6 +35,8 @@ public sealed partial class FilterEffectExecutor : IDisposable
     private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
     private ProgramCache<ShaderGraphPipeline>? _ownedGraphProgramCache;
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
+    // Whether an item of the pending chain reads positions in the coordinates of the bounds (IFEItem_Skia.NeedsBoundsCoordinates).
+    private bool _pendingChainNeedsBoundsCoordinates;
     private bool _customEffectBoundaryMaterialized;
 
     /// <param name="drawableBrushMaterializer">
@@ -273,14 +275,23 @@ public sealed partial class FilterEffectExecutor : IDisposable
 
         BeginSkiaChain();
         effectiveItem.Accepts(this, Builder);
+        _pendingChainNeedsBoundsCoordinates |= effectiveItem.NeedsBoundsCoordinates;
 
         foreach (EffectTarget t in CurrentTargets)
         {
             PendingSkiaTarget pending = _pendingSkiaTargets![t];
-            pending.PhysicalBounds = effectiveItem.TransformBounds(pending.PhysicalBounds);
-            pending.AnchorFrame = effectiveItem.TransformBounds(pending.AnchorFrame);
+            // PhysicalBounds shares OriginalBounds' frame, and AnchorFrame has its own. An item that reads positions in
+            // the coordinates of the bounds maps each in those coordinates: these offsets take a frame there.
+            Vector original = effectiveItem.NeedsBoundsCoordinates
+                ? t.Bounds.Position - t.OriginalBounds.Position
+                : default;
+            Vector anchor = effectiveItem.NeedsBoundsCoordinates
+                ? t.Bounds.Position - pending.AnchorFrame.Position
+                : default;
+            pending.PhysicalBounds = TransformBoundsFrom(effectiveItem, pending.PhysicalBounds, original);
+            pending.AnchorFrame = TransformBoundsFrom(effectiveItem, pending.AnchorFrame, anchor);
             t.Bounds = effectiveItem.TransformBounds(t.Bounds);
-            t.OriginalBounds = effectiveItem.TransformBounds(t.OriginalBounds);
+            t.OriginalBounds = TransformBoundsFrom(effectiveItem, t.OriginalBounds, original);
             // The chain's execution frame is anchored at InputBounds.Position, which
             // must stay equal to the displacement this item's accumulated mapping
             // gives the chain-start Bounds.Position. A translation-invariant item
@@ -291,6 +302,12 @@ public sealed partial class FilterEffectExecutor : IDisposable
                 pending.InputBounds.Size);
         }
     }
+
+    // Maps bounds held in a frame that offset takes into the coordinates of the bounds.
+    private static Rect TransformBoundsFrom(IFEItem item, Rect bounds, Vector offset)
+        => offset == default
+            ? item.TransformBounds(bounds)
+            : item.TransformBounds(bounds.Translate(offset)).Translate(-offset);
 
     /// <summary>Hands the materialized targets to author code, and re-anchors what it left behind.</summary>
     private void RunCustomEffectItem(IFEItem_Custom custom, IFEItem[]? continuation)
@@ -363,6 +380,9 @@ public sealed partial class FilterEffectExecutor : IDisposable
         Rect anchorFrame)
     {
         public Rect InputBounds { get; set; } = inputBounds;
+
+        /// <summary>Where the coordinates of the bounds put the input's origin when the chain began.</summary>
+        public Point ChainOrigin { get; } = inputBounds.Position;
 
         public Rect PhysicalBounds { get; set; } = physicalBounds;
 

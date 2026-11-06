@@ -20,6 +20,7 @@ public sealed partial class FilterEffectExecutor
         if (!force && !hasFilter)
         {
             _pendingSkiaTargets = null;
+            _pendingChainNeedsBoundsCoordinates = false;
             return;
         }
 
@@ -38,6 +39,7 @@ public sealed partial class FilterEffectExecutor
         MaterializeFlush(plan, paint, hasFilter);
 
         _pendingSkiaTargets = null;
+        _pendingChainNeedsBoundsCoordinates = false;
         Builder.Clear();
     }
 
@@ -272,17 +274,24 @@ public sealed partial class FilterEffectExecutor
                 w,
                 geometry.RasterBounds.Size);
             canvas.Clear();
+            // The chain runs at the input's origin and InputBounds moves the result into place, unless it reads
+            // positions in the coordinates of the bounds. Then the chain runs in those, with the input where they put it.
+            Point anchor = flushTarget.InputOrigin is null ? flushTarget.InputBounds.Position : default;
+            Point origin = flushTarget.InputOrigin ?? default;
             using (canvas.PushTransform(
                        Matrix.CreateTranslation(
-                           flushTarget.InputBounds.X + rasterTranslation.X,
-                           flushTarget.InputBounds.Y + rasterTranslation.Y)))
+                           anchor.X + rasterTranslation.X,
+                           anchor.Y + rasterTranslation.Y)))
             // The layer must be bounded by the content being filtered. Without explicit
             // bounds Skia sizes the filter's layer from the clip and samples the area
             // outside the drawn content, which is uninitialized device memory — a blur
             // (DropShadow, Blur) then pulls those undefined values into the result as NaN.
             using (paint != null
-                       ? canvas.PushFilterLayer(paint, new Rect(default, flushTarget.InputBounds.Size))
+                       ? canvas.PushFilterLayer(paint, new Rect(origin, flushTarget.InputBounds.Size))
                        : default)
+            using (flushTarget.InputOrigin is null
+                       ? default
+                       : canvas.PushTransform(Matrix.CreateTranslation(origin.X, origin.Y)))
             {
                 source.Draw(canvas);
             }
@@ -309,21 +318,24 @@ public sealed partial class FilterEffectExecutor
             // A forced no-filter flush is the compatibility boundary for imperative CustomEffect
             // callbacks. Materialize semantic input without exposing a renderer-owned apron;
             // callback-created targets keep their separate effect-item local-buffer contract.
-            return new FlushTarget(target.Bounds, target.Bounds);
+            return new FlushTarget(target.Bounds, target.Bounds, null);
         }
 
         Rect inputBounds;
         Rect physicalBounds;
+        Point chainOrigin;
         if (_pendingSkiaTargets?.TryGetValue(target, out PendingSkiaTarget? pending) == true)
         {
             inputBounds = pending.InputBounds;
             physicalBounds = pending.PhysicalBounds;
+            chainOrigin = pending.ChainOrigin;
         }
         else
         {
             inputBounds = target.Bounds;
             physicalBounds = target.RasterBounds.Translate(
                 target.OriginalBounds.Position - target.Bounds.Position);
+            chainOrigin = target.Bounds.Position;
         }
 
         // Skia bounds callbacks are authored in OriginalBounds' local coordinate space. Keep the
@@ -335,7 +347,8 @@ public sealed partial class FilterEffectExecutor
             inputBounds,
             physicalBounds
                 .Union(target.OriginalBounds)
-                .Union(localSemanticBounds));
+                .Union(localSemanticBounds),
+            _pendingChainNeedsBoundsCoordinates ? chainOrigin : null);
     }
 
     // The filtered union is built in OriginalBounds' local space, but device rounding must happen once
@@ -378,7 +391,12 @@ public sealed partial class FilterEffectExecutor
         return renderTarget.Width == width && renderTarget.Height == height;
     }
 
+    /// <param name="InputOrigin">
+    /// Where the coordinates of the bounds put the input's origin, when the chain runs in them; <see langword="null"/>
+    /// when it runs at the input's origin.
+    /// </param>
     private readonly record struct FlushTarget(
         Rect InputBounds,
-        Rect PhysicalBounds);
+        Rect PhysicalBounds,
+        Point? InputOrigin);
 }

@@ -14,6 +14,9 @@ internal sealed record FEItem_SkiaDeferredMatrix<T>(
 {
     public bool SupportsDirectReplay => false;
 
+    // The matrix it resolves to moves with its input, and the flush works that move out from the bounds.
+    public bool NeedsBoundsCoordinates => false;
+
     // Unresolved, the mapping is unknown; a recording-time bounds walk that took a concrete answer here
     // would freeze a matrix built from provisional bounds.
     Rect IFEItem.TransformBounds(Rect bounds) => Rect.Invalid;
