@@ -314,20 +314,25 @@ public sealed partial class FilterEffectExecutor
             return;
         }
 
+        // A target draws all of its raster, which can reach past its bounds by an apron a filtered flush kept.
+        Rect footprint = bounds;
+        foreach (EffectTarget target in CurrentTargets)
+            footprint = footprint.Union(DrawnFootprint(target));
+
         float w = WorkingScale;
         Vector gridOffset = _settings.DeviceGridOffset ?? default;
         // Targets that each fit the axis limit can be too wide together, so the merge is held to the budget as a flush is.
         BufferDimensionBudget budget = Budget;
-        float fit = budget.ClampWorkingScaleToExactFootprint(bounds.Translate(gridOffset), w);
+        float fit = budget.ClampWorkingScaleToExactFootprint(footprint.Translate(gridOffset), w);
         if (fit < w)
         {
             s_logger.LogWarning(
                 "Working scale clamped {From} -> {To} to keep an effect merge buffer within the {Limit} px GPU axis limit (bounds {Bounds}).",
-                w, fit, budget.MaxDimension, bounds);
+                w, fit, budget.MaxDimension, footprint);
             WorkingScale = w = fit;
         }
 
-        PixelRect deviceBounds = CustomFilterEffectContext.DeviceBufferBounds(bounds.Translate(gridOffset), w);
+        PixelRect deviceBounds = CustomFilterEffectContext.DeviceBufferBounds(footprint.Translate(gridOffset), w);
         EffectTarget? merged = RenderScaleUtilities.IsAllocatableBounds(bounds)
             ? EffectTargetAllocation.Allocate(_settings.RenderTargetLeaseSession, bounds, w, deviceBounds, gridOffset)
             : null;
@@ -368,6 +373,15 @@ public sealed partial class FilterEffectExecutor
         CurrentTargets.Clear();
         CurrentTargets.Add(merged);
     }
+
+    // Where EffectTarget.Draw puts a target's raster: at its RasterBounds, or at its Bounds for one that keeps an
+    // imperative placement.
+    private static Rect DrawnFootprint(EffectTarget target)
+        => target.RenderTarget is null
+            ? Rect.Empty
+            : target.PreserveImperativeRasterPlacement
+                ? new Rect(target.Bounds.Position, target.RasterBounds.Size)
+                : target.RasterBounds;
 
     internal void CompletePolicyBoundary(bool materializationRequired)
     {
