@@ -4,7 +4,7 @@ using SkiaSharp;
 namespace Beutl.Graphics.Effects;
 
 /// <summary>
-/// Builds Skia paths from the contours <see cref="ContourTracer"/> traces in a bitmap's alpha.
+/// Builds Skia paths from the contours traced in a bitmap's alpha.
 /// </summary>
 internal static class ContourPaths
 {
@@ -21,14 +21,20 @@ internal static class ContourPaths
         builder.Close();
     }
 
+    /// <summary>
+    /// The outline of <paramref name="src"/>'s alpha at sub-pixel precision, in its pixel space, as
+    /// <see cref="AlphaOutlineTracer"/> traces it.
+    /// </summary>
     public static SKPath CreateOutline(Bitmap src)
     {
-        using var contours = ContourTracer.FindContours(src);
-
         using var builder = new SKPathBuilder();
-        foreach (var contour in contours)
+        foreach (Point[] contour in AlphaOutlineTracer.Trace(src))
         {
-            AddClosedPolyline(builder, contour.Span);
+            builder.MoveTo(contour[0].X, contour[0].Y);
+            for (int i = 1; i < contour.Length; i++)
+                builder.LineTo(contour[i].X, contour[i].Y);
+
+            builder.Close();
         }
 
         return builder.Detach();

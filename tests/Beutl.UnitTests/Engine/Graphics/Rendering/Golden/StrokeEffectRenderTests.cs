@@ -9,8 +9,9 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 // Guards the render half of the StrokeEffect.Offset fix: the Apply() origin rewrite that
 // keeps the source anchored at its bounds while only the stroke moves by Offset. StrokeEffectOffsetBoundsTests
-// does not exercise Apply(), leaving the source-placement origin otherwise untested. White fill = source,
-// red pen = stroke; the two are measured separately by colour.
+// does not exercise Apply(), leaving the source-placement origin otherwise untested. It also holds the stroke to the
+// shape's own pen, where the outline it follows lies. White fill = source, red pen = stroke; the two are measured
+// separately by colour.
 [NonParallelizable]
 [TestFixture]
 public class StrokeEffectRenderTests
@@ -79,6 +80,184 @@ public class StrokeEffectRenderTests
             // (2) the stroke moves by Offset sign-correctly: a non-zero offset leads the red centroid in its direction.
             if (ox > 0) Assert.That(rx, Is.GreaterThan(wx + 5), "stroke did not move right with +offset");
             if (ox < 0) Assert.That(rx, Is.LessThan(wx - 5), "stroke did not move left with -offset");
+        });
+    }
+
+    // The same white shape with a red pen, drawn by StrokeEffect around its alpha or by the shape itself.
+    private static Drawable.Resource Outlined(Shape shape, float thickness, bool viaEffect)
+    {
+        shape.Fill.Value = Brushes.White;
+        var pen = new Pen();
+        pen.Thickness.Value = thickness;
+        pen.Brush.Value = Brushes.Red;
+        if (viaEffect)
+        {
+            var effect = new StrokeEffect();
+            effect.Pen.Value = pen;
+            shape.FilterEffect.Value = effect;
+        }
+        else
+        {
+            shape.Pen.Value = pen;
+        }
+
+        return shape.ToResource(CompositionContext.Default);
+    }
+
+    // How much of each pixel the red pen covers, in linear light: red less green is the pen whether it lies over the
+    // black background or the white fill.
+    private static float[] PenCoverage(Bitmap bitmap)
+    {
+        using Bitmap linear = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        ReadOnlySpan<byte> pixels = linear.GetPixelSpan();
+        var coverage = new float[linear.Width * linear.Height];
+        for (int i = 0; i < coverage.Length; i++)
+            coverage[i] = (pixels[i * 4 + 2] - pixels[i * 4 + 1]) / 255f;
+
+        return coverage;
+    }
+
+    private static EllipseShape Ellipse()
+    {
+        var shape = new EllipseShape();
+        shape.Width.Value = 120;
+        shape.Height.Value = 90;
+        return shape;
+    }
+
+    // The outline used to be traced through whole pixels wherever alpha was above zero, so the stroke stepped around
+    // a curve half a pixel outside it on average and a whole pixel in places. Traced at half coverage, it lies where
+    // the ellipse's own pen draws, give or take the four-sample anti-aliasing both strokes are drawn with.
+    [TestCase(2f)]
+    [TestCase(8f)]
+    public void Stroke_on_an_ellipse_lies_where_its_own_pen_draws(float thickness)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap viaEffect = GoldenImageHarness.RenderAtScale(Outlined(Ellipse(), thickness, true), Frame, 1f);
+            using Bitmap viaPen = GoldenImageHarness.RenderAtScale(Outlined(Ellipse(), thickness, false), Frame, 1f);
+            float[] effectCoverage = PenCoverage(viaEffect);
+            float[] penCoverage = PenCoverage(viaPen);
+
+            double difference = 0;
+            for (int i = 0; i < effectCoverage.Length; i++)
+                difference += Math.Abs(effectCoverage[i] - penCoverage[i]);
+
+            // Spread over both edges of the ring, the difference is how far the edges lie apart on average.
+            const double Perimeter = 331.4; // of a 120 x 90 ellipse
+            double displacement = difference / (2 * Perimeter);
+            Assert.That(displacement, Is.LessThan(0.2), $"the stroke's edges lie {displacement:F3} px from the pen's");
+        });
+    }
+
+    // A mitered pen draws a 36 degree point of the star some ten pixels past it. StrokeEffect's output reaches only
+    // half the pen's thickness past the shape's bounds, so the point is cut there, but only a point put back gets
+    // that far: one that half coverage cut back strokes to under a pixel past the shape.
+    [Test]
+    public void Stroke_on_a_star_reaches_past_its_points()
+    {
+        // GeometryShape centres the path's size in the frame from the path's own origin, so the star starts at it.
+        const string Star = "M 57.063 0 L 71.17 40.584 L 114.126 41.459 L 79.888 67.416 L 92.33 108.541 "
+                            + "L 57.063 84 L 21.796 108.541 L 34.238 67.416 L 0 41.459 L 42.956 40.584 Z";
+        const int Thickness = 6;
+        static Shape Make()
+        {
+            var shape = new GeometryShape();
+            shape.Data.Value = PathGeometry.Parse(Star);
+            return shape;
+        }
+
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            Shape bare = Make();
+            bare.Fill.Value = Brushes.White;
+            using Bitmap shape = GoldenImageHarness.RenderAtScale(
+                bare.ToResource(CompositionContext.Default), Frame, 1f, clearColor: Colors.Transparent);
+            using Bitmap viaEffect = GoldenImageHarness.RenderAtScale(Outlined(Make(), Thickness, true), Frame, 1f);
+            using Bitmap viaPen = GoldenImageHarness.RenderAtScale(Outlined(Make(), Thickness, false), Frame, 1f);
+
+            // Every pixel the star touches, against the pixels the strokes at least half cover.
+            (int Left, int Top, int Right, int Bottom) shapeBounds = Bounds(AlphaOf(shape), shape, 0);
+            (int Left, int Top, int Right, int Bottom) effectBounds = Bounds(PenCoverage(viaEffect), viaEffect, 0.5f);
+            (int Left, int Top, int Right, int Bottom) penBounds = Bounds(PenCoverage(viaPen), viaPen, 0.5f);
+            const int Reach = Thickness / 2;
+            Assert.Multiple(() =>
+            {
+                Assert.That(effectBounds.Left, Is.EqualTo(Math.Max(penBounds.Left, shapeBounds.Left - Reach)).Within(1),
+                    "left point");
+                Assert.That(effectBounds.Top, Is.EqualTo(Math.Max(penBounds.Top, shapeBounds.Top - Reach)).Within(1),
+                    "top point");
+                Assert.That(effectBounds.Right,
+                    Is.EqualTo(Math.Min(penBounds.Right, shapeBounds.Right + Reach)).Within(1), "right point");
+                Assert.That(effectBounds.Bottom,
+                    Is.EqualTo(Math.Min(penBounds.Bottom, shapeBounds.Bottom + Reach)).Within(1), "bottom points");
+            });
+        });
+
+        static float[] AlphaOf(Bitmap bitmap)
+        {
+            using Bitmap converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+            ReadOnlySpan<byte> pixels = converted.GetPixelSpan();
+            var alpha = new float[converted.Width * converted.Height];
+            for (int i = 0; i < alpha.Length; i++)
+                alpha[i] = pixels[i * 4 + 3] / 255f;
+
+            return alpha;
+        }
+
+        static (int Left, int Top, int Right, int Bottom) Bounds(float[] coverage, Bitmap bitmap, float above)
+        {
+            int left = bitmap.Width, top = bitmap.Height, right = -1, bottom = -1;
+            for (int y = 0; y < bitmap.Height; y++)
+            {
+                for (int x = 0; x < bitmap.Width; x++)
+                {
+                    if (coverage[y * bitmap.Width + x] <= above)
+                        continue;
+
+                    left = Math.Min(left, x);
+                    top = Math.Min(top, y);
+                    right = Math.Max(right, x);
+                    bottom = Math.Max(bottom, y);
+                }
+            }
+
+            return (left, top, right, bottom);
+        }
+    }
+
+    // An upright rectangle on whole pixels, such as a picture's frame, traces to exactly its own sides and corners,
+    // where the old outline lay a pixel inside its right and bottom sides.
+    [Test]
+    public void Stroke_on_an_upright_rectangle_matches_its_own_pen()
+    {
+        static Shape Make()
+        {
+            var shape = new RectShape();
+            shape.Width.Value = 120;
+            shape.Height.Value = 80;
+            return shape;
+        }
+
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap viaEffect = GoldenImageHarness.RenderAtScale(Outlined(Make(), 8, true), Frame, 1f);
+            using Bitmap viaPen = GoldenImageHarness.RenderAtScale(Outlined(Make(), 8, false), Frame, 1f);
+            float[] effectCoverage = PenCoverage(viaEffect);
+            float[] penCoverage = PenCoverage(viaPen);
+
+            int worst = 0;
+            for (int i = 1; i < effectCoverage.Length; i++)
+            {
+                if (Math.Abs(effectCoverage[i] - penCoverage[i]) > Math.Abs(effectCoverage[worst] - penCoverage[worst]))
+                    worst = i;
+            }
+
+            Assert.That(effectCoverage[worst], Is.EqualTo(penCoverage[worst]).Within(2 / 255f),
+                $"pen coverage differs most at ({worst % Frame.Width}, {worst / Frame.Width})");
         });
     }
 }
