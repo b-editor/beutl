@@ -532,6 +532,32 @@ public sealed class RepeatEffectTests
         Assert.That(FrameRow(rows), Is.EqualTo(s_frameRow));
     }
 
+    // A tiling crop draws a group's children into one before it, and two children that each fit a buffer can be too wide
+    // together. The merge lowers its density rather than dropping the group, as a flush does (#4088). Each child is
+    // 0.6 of the device's limit wide, which is 8192 px on CI's SwiftShader and 16384 px on MoltenVK.
+    [Test]
+    public void A_tiled_crop_over_a_group_wider_than_a_buffer_still_fills_the_frame()
+    {
+        int width = VulkanTestEnvironment.InvokeOnRenderThread(
+            static () => BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).MaxDimension * 6 / 10);
+        var group = new DrawableGroup();
+        foreach (float x in new[] { -width / 2f, width / 2f })
+        {
+            var half = new RectShape { Width = { Value = width }, Height = { Value = 100 } };
+            half.Fill.Value = new SolidColorBrush(Colors.Red);
+            half.Transform.Value = new TranslateTransform(x, 0);
+            group.Children.Add(half);
+        }
+
+        byte[][] rows = RenderInFrame(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+        {
+            Rect bounds = context.Bounds;
+            context.Crop(new Rect(bounds.X, bounds.Y, 50, 50), GradientSpreadMethod.Repeat);
+        }), group);
+
+        Assert.That(Across(rows, 540, 0, 960, 1919), Is.EqualTo("RRR"));
+    }
+
     // An effect whose bounds are known only when it runs keeps the effects after it in its segment.
     [TestCase(30)]
     [TestCase(100)]

@@ -253,7 +253,9 @@ public sealed partial class FilterEffectContext
             transformSamplingBounds: static (data, region) =>
                 data.spreadMethod == GradientSpreadMethod.Decal ? region.Intersect(data.rect) : data.rect,
             // The rectangle stays where it is when the input moves.
-            needsBoundsCoordinates: true);
+            needsBoundsCoordinates: true,
+            // Tiles repeat what the crop keeps of all the inputs together, across all of them.
+            needsOneTarget: spreadMethod != GradientSpreadMethod.Decal);
     }
 
     public void ColorMatrix(in ColorMatrix matrix)

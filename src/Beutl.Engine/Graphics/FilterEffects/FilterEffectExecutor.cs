@@ -227,6 +227,13 @@ public sealed partial class FilterEffectExecutor : IDisposable
             switch (item)
             {
                 case IFEItem_Skia skia:
+                    if (skia.NeedsOneTarget && CurrentTargets.Count > 1)
+                    {
+                        Flush(false);
+                        MergeTargets();
+                        if (CurrentTargets.Count == 0) return;
+                    }
+
                     AccumulateSkiaItem(skia);
                     break;
                 case IFEItem_Custom custom:

@@ -303,6 +303,86 @@ public sealed partial class FilterEffectExecutor
         }
     }
 
+    /// <summary>Draws every target into one, for a filter that reads its input as one picture.</summary>
+    private void MergeTargets()
+    {
+        Rect bounds = CurrentTargets.CalculateBounds();
+        if (RenderScaleUtilities.IsEmptyBounds(bounds))
+        {
+            // Nothing to draw is not a failure to allocate.
+            CurrentTargets.Clear();
+            return;
+        }
+
+        // A target draws all of its raster, which can reach past its bounds by an apron a filtered flush kept.
+        Rect footprint = bounds;
+        foreach (EffectTarget target in CurrentTargets)
+            footprint = footprint.Union(DrawnFootprint(target));
+
+        float w = WorkingScale;
+        Vector gridOffset = _settings.DeviceGridOffset ?? default;
+        // Targets that each fit the axis limit can be too wide together, so the merge is held to the budget as a flush is.
+        BufferDimensionBudget budget = Budget;
+        float fit = budget.ClampWorkingScaleToExactFootprint(footprint.Translate(gridOffset), w);
+        if (fit < w)
+        {
+            s_logger.LogWarning(
+                "Working scale clamped {From} -> {To} to keep an effect merge buffer within the {Limit} px GPU axis limit (bounds {Bounds}).",
+                w, fit, budget.MaxDimension, footprint);
+            WorkingScale = w = fit;
+        }
+
+        PixelRect deviceBounds = CustomFilterEffectContext.DeviceBufferBounds(footprint.Translate(gridOffset), w);
+        EffectTarget? merged = RenderScaleUtilities.IsAllocatableBounds(bounds)
+            ? EffectTargetAllocation.Allocate(_settings.RenderTargetLeaseSession, bounds, w, deviceBounds, gridOffset)
+            : null;
+        if (merged is null)
+        {
+            s_logger.LogWarning(
+                "Effect merge buffer allocation failed (bounds {Bounds}, w {WorkingScale}); preview drops the targets, delivery render fails fast.",
+                bounds, w);
+            EffectTargetAllocation.FailDeliveryOrDrop(
+                Intent,
+                _settings.RenderTargetLeaseSession,
+                $"Effect merge buffer allocation failed (bounds {bounds}, w {w}).");
+            CurrentTargets.Clear();
+            return;
+        }
+
+        try
+        {
+            Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(deviceBounds, gridOffset, w);
+            using ImmediateCanvas canvas = _settings.CreateCanvas(merged.RenderTarget!, w, deviceBounds.ToRect(w).Size);
+            canvas.Clear();
+            foreach (EffectTarget target in CurrentTargets)
+            {
+                using (canvas.PushTransform(Matrix.CreateTranslation(
+                           target.Bounds.X + rasterTranslation.X,
+                           target.Bounds.Y + rasterTranslation.Y)))
+                {
+                    target.Draw(canvas);
+                }
+            }
+        }
+        catch
+        {
+            merged.Dispose();
+            throw;
+        }
+
+        CurrentTargets.Clear();
+        CurrentTargets.Add(merged);
+    }
+
+    // Where EffectTarget.Draw puts a target's raster: at its RasterBounds, or at its Bounds for one that keeps an
+    // imperative placement.
+    private static Rect DrawnFootprint(EffectTarget target)
+        => target.RenderTarget is null
+            ? Rect.Empty
+            : target.PreserveImperativeRasterPlacement
+                ? new Rect(target.Bounds.Position, target.RasterBounds.Size)
+                : target.RasterBounds;
+
     internal void CompletePolicyBoundary(bool materializationRequired)
     {
         // A CustomEffect already consumed the policy through its forced pre-callback Flush.
