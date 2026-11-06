@@ -221,7 +221,7 @@ public sealed partial class GraphEditorTabViewModel
             ? pair.IsSeparated.Value ? pair.Properties : null
             : (engineProperty?.GetPropertyAnimation() as IComponentAnimation)?.Components;
         item.CanSeparateComponents.Value = pair != null
-            ? canAnimate && pair.CanStandForBoth.Value
+            ? canAnimate && pair.CanStandAsOne.Value
             : canAnimate && ComponentSeparation.CanSeparate(engineProperty);
         item.HasSeparatedComponents.Value = separated != null;
         if (separated != null)

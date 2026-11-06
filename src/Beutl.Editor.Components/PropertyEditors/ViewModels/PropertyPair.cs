@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using Avalonia.Threading;
 using Beutl.Animation;
@@ -14,10 +15,10 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-// Two properties that CombinedEditorAttribute joins, as the property panel, the inline view and the graph editor see them.
-// Each property keeps its own value and keyframes. While the two have the same keyframe times and easings and share one
-// expression or have none they stand as one, unless the user separated them: Animation then gives the keyframes of their
-// one value, which is only a view of the two and is never saved.
+// The two or three properties that CombinedEditorAttribute joins, as the property panel, the inline view and the graph
+// editor see them. Each property keeps its own value and keyframes. While they have the same keyframe times and easings
+// and share one expression or have none they stand as one, unless the user separated them: Animation then gives the
+// keyframes of their one value, which is only a view of the properties and is never saved.
 internal abstract class PropertyPair : IAnimatablePropertyAdapter, IExpressionPropertyAdapter
 {
     private static readonly ConditionalWeakTable<IProperty, object> s_pairs = [];
@@ -45,34 +46,45 @@ internal abstract class PropertyPair : IAnimatablePropertyAdapter, IExpressionPr
         return pair;
     }
 
+    // The names of the properties that the attribute joins to the one it is on, in their order.
+    public static string[] OtherNames(CombinedEditorAttribute attribute)
+        => attribute.Third is { } third ? [attribute.Second, third] : [attribute.Second];
+
     private static PropertyPair? Create(IProperty property, EngineObject owner)
     {
         foreach (IProperty first in owner.Properties)
         {
-            if (first.GetAttributes()?.OfType<CombinedEditorAttribute>().FirstOrDefault() is not { } attribute
-                || (!ReferenceEquals(first, property) && attribute.Second != property.Name)
-                || owner.Properties.FirstOrDefault(other => other.Name == attribute.Second) is not { } second)
-            {
-                continue;
-            }
+            if (first.GetAttributes()?.OfType<CombinedEditorAttribute>().FirstOrDefault() is not { } attribute) continue;
 
+            string[] others = OtherNames(attribute);
+            IProperty?[] members = [first, .. others.Select(name => owner.Properties.FirstOrDefault(other => other.Name == name))];
+            if ((!ReferenceEquals(first, property) && !others.Contains(property.Name)) || members.Contains(null)) continue;
+
+            IPropertyAdapter[] adapters = [.. members.Select(member => PropertyAdapterFactory.CreateAdapter(member!, owner))];
             string name = attribute.GetName() ?? first.Name;
-            // A width and a height are a size; anything else has an axis, which a point has.
+            // A width and a height are a size; two of anything else have an axis, which a point has. Three are a vector,
+            // whose type the namespaces of an expression do not hold, so its example names it in full.
             bool isSize = first.Name.EndsWith("Width", StringComparison.Ordinal);
-            return (PropertyAdapterFactory.CreateAdapter(first, owner), PropertyAdapterFactory.CreateAdapter(second, owner)) switch
+            return adapters switch
             {
-                (IAnimatablePropertyAdapter<float> a, IAnimatablePropertyAdapter<float> b) when isSize
-                    => new PropertyPair<float, Graphics.Size>(a, b, name, v => v.Width, v => v.Height, (x, y) => new Graphics.Size(x, y),
-                        "new Size(Sin(Time) * 100, 100)", ComponentExpression<Graphics.Size, float>.TryParse),
-                (IAnimatablePropertyAdapter<float> a, IAnimatablePropertyAdapter<float> b)
-                    => new PropertyPair<float, Graphics.Point>(a, b, name, v => v.X, v => v.Y, (x, y) => new Graphics.Point(x, y),
-                        "new Point(Sin(Time) * 100, 0)", ComponentExpression<Graphics.Point, float>.TryParse),
-                (IAnimatablePropertyAdapter<int> a, IAnimatablePropertyAdapter<int> b) when isSize
-                    => new PropertyPair<int, PixelSize>(a, b, name, v => v.Width, v => v.Height, (x, y) => new PixelSize(x, y),
-                        "new PixelSize(100, 100)", ComponentExpression<PixelSize, int>.TryParse),
-                (IAnimatablePropertyAdapter<int> a, IAnimatablePropertyAdapter<int> b)
-                    => new PropertyPair<int, PixelPoint>(a, b, name, v => v.X, v => v.Y, (x, y) => new PixelPoint(x, y),
-                        "new PixelPoint(100, 0)", ComponentExpression<PixelPoint, int>.TryParse),
+                [IAnimatablePropertyAdapter<float> a, IAnimatablePropertyAdapter<float> b] when isSize
+                    => new PropertyPair<float, Graphics.Size>([a, b], name, [v => v.Width, v => v.Height],
+                        v => new Graphics.Size(v[0], v[1]), "new Size(Sin(Time) * 100, 100)",
+                        ComponentExpression<Graphics.Size, float>.TryParse),
+                [IAnimatablePropertyAdapter<float> a, IAnimatablePropertyAdapter<float> b]
+                    => new PropertyPair<float, Graphics.Point>([a, b], name, [v => v.X, v => v.Y],
+                        v => new Graphics.Point(v[0], v[1]), "new Point(Sin(Time) * 100, 0)",
+                        ComponentExpression<Graphics.Point, float>.TryParse),
+                [IAnimatablePropertyAdapter<int> a, IAnimatablePropertyAdapter<int> b] when isSize
+                    => new PropertyPair<int, PixelSize>([a, b], name, [v => v.Width, v => v.Height],
+                        v => new PixelSize(v[0], v[1]), "new PixelSize(100, 100)", ComponentExpression<PixelSize, int>.TryParse),
+                [IAnimatablePropertyAdapter<int> a, IAnimatablePropertyAdapter<int> b]
+                    => new PropertyPair<int, PixelPoint>([a, b], name, [v => v.X, v => v.Y],
+                        v => new PixelPoint(v[0], v[1]), "new PixelPoint(100, 0)", ComponentExpression<PixelPoint, int>.TryParse),
+                [IAnimatablePropertyAdapter<float> a, IAnimatablePropertyAdapter<float> b, IAnimatablePropertyAdapter<float> c]
+                    => new PropertyPair<float, Vector3>([a, b, c], name, [v => v.X, v => v.Y, v => v.Z],
+                        v => new Vector3(v[0], v[1], v[2]), "new System.Numerics.Vector3((float)Sin(Time) * 100, 100, 100)",
+                        ComponentExpression<Vector3, float>.TryParse),
                 _ => null
             };
         }
@@ -80,15 +92,15 @@ internal abstract class PropertyPair : IAnimatablePropertyAdapter, IExpressionPr
         return null;
     }
 
-    // The two properties, in the order the attribute names them.
+    // The properties, in the order the attribute names them.
     public abstract IReadOnlyList<IProperty> Properties { get; }
 
-    // An adapter of each property, whose animation shows while the two stand apart.
+    // An adapter of each property, whose animation shows while the properties stand apart.
     public abstract IReadOnlyList<IAnimatablePropertyAdapter> Adapters { get; }
 
     public abstract string ExpressionExample { get; }
 
-    // The user separated the two.
+    // The user separated the properties.
     public ReactivePropertySlim<bool> KeepsSeparated { get; } = new();
 
     public void SetKeepsSeparated(bool keepsSeparated)
@@ -97,7 +109,7 @@ internal abstract class PropertyPair : IAnimatablePropertyAdapter, IExpressionPr
         KeepsSeparated.Value = keepsSeparated;
     }
 
-    public abstract IReadOnlyReactiveProperty<bool> CanStandForBoth { get; }
+    public abstract IReadOnlyReactiveProperty<bool> CanStandAsOne { get; }
 
     public abstract IReadOnlyReactiveProperty<bool> IsSeparated { get; }
 
@@ -121,7 +133,7 @@ internal abstract class PropertyPair : IAnimatablePropertyAdapter, IExpressionPr
 
     public abstract IObservable<IExpression?> ObserveExpression { get; }
 
-    // The panel's saved state of the two, which must not undo a choice made since by an editor that is still open.
+    // The panel's saved state of the properties, which must not undo a choice made since by an editor that is still open.
     public void RestoreSeparation(bool keepsSeparated)
     {
         if (!_restoredSeparation)
@@ -131,7 +143,7 @@ internal abstract class PropertyPair : IAnimatablePropertyAdapter, IExpressionPr
     public bool Contains(IPropertyAdapter adapter)
         => ReferenceEquals(adapter, this) || (adapter.GetEngineProperty() is { } property && Properties.Contains(property));
 
-    // Between the two edits the properties differ, which must not make them stand apart.
+    // Between the edits of the properties they differ, which must not make them stand apart.
     public abstract void BeginEdit();
 
     public abstract void EndEdit();
@@ -158,38 +170,35 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
     where T : struct
     where TValue : struct
 {
-    private readonly IAnimatablePropertyAdapter<T> _first;
-    private readonly IAnimatablePropertyAdapter<T> _second;
-    private readonly Func<TValue, T> _getFirst;
-    private readonly Func<TValue, T> _getSecond;
-    private readonly Func<T, T, TValue> _compose;
+    private readonly IAnimatablePropertyAdapter<T>[] _properties;
+    // Takes each property's component out of the joined value, in the order of the properties.
+    private readonly Func<TValue, T>[] _components;
+    private readonly Func<T[], TValue> _compose;
     private readonly ExpressionParser _parseExpression;
     private readonly KeyFrameAnimation<TValue> _joined = new();
-    private readonly Dictionary<KeyFrame<TValue>, (KeyFrame<T> First, KeyFrame<T> Second)> _links = [];
+    // The key of each property that a joined key stands for, in the order of the properties.
+    private readonly Dictionary<KeyFrame<TValue>, KeyFrame<T>[]> _links = [];
     // Undo brings a key back with its joined key, which the graph editor's selection holds on to.
     private readonly ConditionalWeakTable<KeyFrame<T>, KeyFrame<TValue>> _joinedKeys = [];
     private readonly HashSet<SplineEasing> _watchedEasings = [];
-    private readonly ReactivePropertySlim<bool> _canStandForBoth = new();
+    private readonly ReactivePropertySlim<bool> _canStandAsOne = new();
     private readonly ReactivePropertySlim<bool> _isSeparated = new();
     private readonly ReactivePropertySlim<IKeyFrameAnimation?> _animation = new();
     private int _editDepth;
     private bool _syncing;
     private bool _updatePending;
 
-    public PropertyPair(IAnimatablePropertyAdapter<T> first, IAnimatablePropertyAdapter<T> second, string displayName,
-        Func<TValue, T> getFirst, Func<TValue, T> getSecond, Func<T, T, TValue> compose,
-        string expressionExample, ExpressionParser parseExpression)
+    public PropertyPair(IAnimatablePropertyAdapter<T>[] properties, string displayName, Func<TValue, T>[] components,
+        Func<T[], TValue> compose, string expressionExample, ExpressionParser parseExpression)
     {
-        _first = first;
-        _second = second;
-        _getFirst = getFirst;
-        _getSecond = getSecond;
+        _properties = properties;
+        _components = components;
         _compose = compose;
         _parseExpression = parseExpression;
         DisplayName = displayName;
         ExpressionExample = expressionExample;
-        Properties = [first.GetEngineProperty()!, second.GetEngineProperty()!];
-        Adapters = [first, second];
+        Properties = [.. properties.Select(property => property.GetEngineProperty()!)];
+        Adapters = [.. properties];
 
         // Only its parent is set: the owner gives it the time origin of the properties' keyframes, but does not hold it.
         var owner = (IHierarchical)Properties[0].GetOwnerObject()!;
@@ -200,8 +209,8 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
 
         _joined.Edited += (_, _) => WriteToProperties();
         _joined.KeyFrames.CollectionChanged += (_, _) => WriteToProperties();
-        Observe(first);
-        Observe(second);
+        foreach (IAnimatablePropertyAdapter<T> property in properties)
+            Observe(property);
         KeepsSeparated.Subscribe(_ => Update());
     }
 
@@ -211,19 +220,19 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
 
     public override string ExpressionExample { get; }
 
-    public override IReadOnlyReactiveProperty<bool> CanStandForBoth => _canStandForBoth;
+    public override IReadOnlyReactiveProperty<bool> CanStandAsOne => _canStandAsOne;
 
     public override IReadOnlyReactiveProperty<bool> IsSeparated => _isSeparated;
 
-    public override Type ImplementedType => _first.ImplementedType;
+    public override Type ImplementedType => _properties[0].ImplementedType;
 
     public override Type PropertyType => typeof(TValue);
 
     public override string DisplayName { get; }
 
-    public override string? Description => _first.Description;
+    public override string? Description => _properties[0].Description;
 
-    public override bool IsReadOnly => _first.IsReadOnly || _second.IsReadOnly;
+    public override bool IsReadOnly => _properties.Any(property => property.IsReadOnly);
 
     public override IKeyFrameAnimation? Animation
     {
@@ -234,8 +243,8 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
             try
             {
                 var animation = value as KeyFrameAnimation<TValue>;
-                _first.Animation = animation == null ? null : Split(animation, _getFirst);
-                _second.Animation = animation == null ? null : Split(animation, _getSecond);
+                for (int i = 0; i < _properties.Length; i++)
+                    _properties[i].Animation = animation == null ? null : Split(animation, _components[i]);
             }
             finally
             {
@@ -248,7 +257,7 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
 
     public override IExpression? Expression
     {
-        get => _isSeparated.Value ? null : _first.Expression;
+        get => _isSeparated.Value ? null : _properties[0].Expression;
         set
         {
             if (value != null) throw new NotSupportedException();
@@ -256,8 +265,8 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
             BeginEdit();
             try
             {
-                _first.Expression = null;
-                _second.Expression = null;
+                foreach (IAnimatablePropertyAdapter<T> property in _properties)
+                    property.Expression = null;
             }
             finally
             {
@@ -269,7 +278,7 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
     public override IObservable<IExpression?> ObserveExpression => _isSeparated
         .Select(separated => separated
             ? Observable.ReturnThenNever<IExpression?>(null)
-            : ((IExpressionPropertyAdapter)_first).ObserveExpression)
+            : ((IExpressionPropertyAdapter)_properties[0]).ObserveExpression)
         .Switch()
         .DistinctUntilChanged();
 
@@ -286,20 +295,29 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
         => _parseExpression(source, out expressions, out error);
 
     public override object? GetDefaultValue()
-        => _first.GetDefaultValue() is T first && _second.GetDefaultValue() is T second ? _compose(first, second) : null;
+    {
+        var values = new T[_properties.Length];
+        for (int i = 0; i < values.Length; i++)
+        {
+            if (_properties[i].GetDefaultValue() is not T value) return null;
+            values[i] = value;
+        }
+
+        return _compose(values);
+    }
 
     public override void SetValue(object? value)
     {
         if (value is not TValue typed) return;
 
-        _first.SetValue(_getFirst(typed));
-        _second.SetValue(_getSecond(typed));
+        for (int i = 0; i < _properties.Length; i++)
+            _properties[i].SetValue(_components[i](typed));
     }
 
-    public override object? GetValue() => _compose(_first.GetValue(), _second.GetValue());
+    public override object? GetValue() => _compose([.. _properties.Select(property => property.GetValue())]);
 
     public override IObservable<object?> GetObservable()
-        => _first.GetObservable().CombineLatest(_second.GetObservable(), (first, second) => (object?)_compose(first, second));
+        => _properties.Select(property => property.GetObservable()).CombineLatest(values => (object?)_compose([.. values]));
 
     private void Observe(IAnimatablePropertyAdapter<T> property)
     {
@@ -310,21 +328,31 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
             .Subscribe(_ => OnPropertyEdited());
     }
 
+    // The keyframes of each property, or null while one has none.
+    private KeyFrameAnimation<T>[]? Animations()
+    {
+        var animations = new KeyFrameAnimation<T>[_properties.Length];
+        for (int i = 0; i < animations.Length; i++)
+        {
+            if (_properties[i].Animation is not { } animation) return null;
+            animations[i] = animation;
+        }
+
+        return animations;
+    }
+
     private void OnPropertyEdited()
     {
         if (_syncing || _editDepth > 0) return;
 
-        // Undo can take the keyframes off both before the joined ones go.
-        if (Dispatcher.UIThread.CheckAccess() && _animation.Value != null && CanStand()
-            && _first.Animation is { } first && _second.Animation is { } second)
-        {
-            ReadFromProperties(first, second);
-        }
+        // Undo can take the keyframes off every property before the joined ones go.
+        if (Dispatcher.UIThread.CheckAccess() && _animation.Value != null && CanStand() && Animations() is { } animations)
+            ReadFromProperties(animations);
 
         ScheduleUpdate();
     }
 
-    // Undo restores the two one after the other, so whether they stand as one waits until it has finished.
+    // Undo restores the properties one after the other, so whether they stand as one waits until it has finished.
     private void ScheduleUpdate()
     {
         if (_updatePending) return;
@@ -342,35 +370,62 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
 
         bool canStand = CanStand();
         bool separated = KeepsSeparated.Value || !canStand;
-        _canStandForBoth.Value = canStand;
-        if (!separated && _first.Animation is { } first && _second.Animation is { } second)
-            ReadFromProperties(first, second);
+        _canStandAsOne.Value = canStand;
+        if (!separated && Animations() is { } animations)
+            ReadFromProperties(animations);
         else
             WatchEasings();
 
-        // Whoever shows the joined keyframes hears of the two rows first, and of the joined keyframes before the one row.
+        // Whoever shows the joined keyframes hears of the rows of the properties first, and of the joined keyframes before
+        // the one row.
         if (separated) _isSeparated.Value = true;
-        _animation.Value = !separated && _first.Animation != null ? _joined : null;
+        _animation.Value = !separated && _properties[0].Animation != null ? _joined : null;
         _isSeparated.Value = separated;
     }
 
+    // Each property has what the first has: keyframes at the same times with the same easings and clock, or none.
     private bool CanStand()
     {
-        if ((_first.HasExpression || _second.HasExpression) && !ShareOneExpression()) return false;
+        if (_properties.Any(property => property.HasExpression) && !ShareOneExpression()) return false;
 
-        KeyFrameAnimation<T>? first = _first.Animation;
-        KeyFrameAnimation<T>? second = _second.Animation;
-        if (first == null || second == null) return first == second;
-        if (first.UseGlobalClock.Value != second.UseGlobalClock.Value || first.KeyFrames.Count != second.KeyFrames.Count)
-            return false;
-
-        for (int i = 0; i < first.KeyFrames.Count; i++)
+        KeyFrameAnimation<T>? first = _properties[0].Animation;
+        for (int p = 1; p < _properties.Length; p++)
         {
-            IKeyFrame a = first.KeyFrames[i];
-            IKeyFrame b = second.KeyFrames[i];
-            // The menu of a property's own row is where the user removes an easing that could not be read.
-            if (a.KeyTime.Value != b.KeyTime.Value || !SameEasing(a.Easing.Value, b.Easing.Value)
-                || SceneRecovery.IsRecoveryBlocker(a) || SceneRecovery.IsRecoveryBlocker(b))
+            KeyFrameAnimation<T>? other = _properties[p].Animation;
+            if (first == null || other == null)
+            {
+                if (first != other) return false;
+                continue;
+            }
+
+            if (first.UseGlobalClock.Value != other.UseGlobalClock.Value || first.KeyFrames.Count != other.KeyFrames.Count)
+                return false;
+
+            for (int i = 0; i < first.KeyFrames.Count; i++)
+            {
+                IKeyFrame a = first.KeyFrames[i];
+                IKeyFrame b = other.KeyFrames[i];
+                // The menu of a property's own row is where the user removes an easing that could not be read.
+                if (a.KeyTime.Value != b.KeyTime.Value || !SameEasing(a.Easing.Value, b.Easing.Value)
+                    || SceneRecovery.IsRecoveryBlocker(a) || SceneRecovery.IsRecoveryBlocker(b))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    // Each property has its own component of the one expression.
+    private bool ShareOneExpression()
+    {
+        if (_properties[0].Expression is not IComponentExpression first) return false;
+
+        for (int i = 0; i < _properties.Length; i++)
+        {
+            if (_properties[i].Expression is not IComponentExpression expression || expression.ComponentIndex != i
+                || expression.GetType() != first.GetType() || expression.Source != first.Source)
             {
                 return false;
             }
@@ -378,12 +433,6 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
 
         return true;
     }
-
-    private bool ShareOneExpression()
-        => _first.Expression is IComponentExpression { ComponentIndex: 0 } first
-           && _second.Expression is IComponentExpression { ComponentIndex: 1 } second
-           && first.GetType() == second.GetType()
-           && first.Source == second.Source;
 
     private static bool SameEasing(Easing first, Easing second)
         => first is SplineEasing a && second is SplineEasing b
@@ -409,43 +458,43 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
         return animation;
     }
 
-    // An edit of the joined keyframes, which goes to both properties.
+    // An edit of the joined keyframes, which goes to every property.
     private void WriteToProperties()
     {
-        if (_syncing || _first.Animation is not { } first || _second.Animation is not { } second) return;
+        if (_syncing || Animations() is not { } animations) return;
 
         _syncing = true;
         try
         {
-            foreach ((KeyFrame<TValue> key, (KeyFrame<T> First, KeyFrame<T> Second) link) in _links.ToArray())
+            foreach ((KeyFrame<TValue> key, KeyFrame<T>[] link) in _links.ToArray())
             {
                 if (_joined.KeyFrames.Contains(key)) continue;
 
-                first.KeyFrames.Remove(link.First);
-                second.KeyFrames.Remove(link.Second);
+                for (int i = 0; i < animations.Length; i++)
+                    animations[i].KeyFrames.Remove(link[i]);
                 _links.Remove(key);
             }
 
             foreach (KeyFrame<TValue> key in _joined.KeyFrames.Cast<KeyFrame<TValue>>())
             {
-                bool added = !_links.TryGetValue(key, out (KeyFrame<T> First, KeyFrame<T> Second) link);
+                bool added = !_links.TryGetValue(key, out KeyFrame<T>[]? link);
+                link ??= [.. animations.Select(_ => new KeyFrame<T>())];
                 if (added)
                 {
-                    link = (new KeyFrame<T>(), new KeyFrame<T>());
                     _links[key] = link;
-                    _joinedKeys.AddOrUpdate(link.First, key);
+                    _joinedKeys.AddOrUpdate(link[0], key);
                 }
 
                 WriteKey(key, link);
                 if (added)
                 {
-                    first.KeyFrames.Add(link.First, out _);
-                    second.KeyFrames.Add(link.Second, out _);
+                    for (int i = 0; i < animations.Length; i++)
+                        animations[i].KeyFrames.Add(link[i], out _);
                 }
             }
 
-            first.UseGlobalClock.Value = _joined.UseGlobalClock.Value;
-            second.UseGlobalClock.Value = _joined.UseGlobalClock.Value;
+            foreach (KeyFrameAnimation<T> animation in animations)
+                animation.UseGlobalClock.Value = _joined.UseGlobalClock.Value;
         }
         finally
         {
@@ -456,38 +505,50 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
         Update();
     }
 
-    private void WriteKey(KeyFrame<TValue> key, (KeyFrame<T> First, KeyFrame<T> Second) link)
+    // The first property's key takes the easing object of the joined key, and each other key a copy of it.
+    private void WriteKey(KeyFrame<TValue> key, KeyFrame<T>[] link)
     {
-        link.First.KeyTime.Value = key.KeyTime.Value;
-        link.Second.KeyTime.Value = key.KeyTime.Value;
-        link.First.Easing.Value = key.Easing.Value;
-        if (!SameEasing(link.Second.Easing.Value, key.Easing.Value))
-            link.Second.Easing.Value = CopyOf(key.Easing.Value);
-        link.First.Value.Value = _getFirst(key.Value.Value);
-        link.Second.Value.Value = _getSecond(key.Value.Value);
+        foreach (KeyFrame<T> property in link)
+            property.KeyTime.Value = key.KeyTime.Value;
+        link[0].Easing.Value = key.Easing.Value;
+        for (int i = 1; i < link.Length; i++)
+        {
+            if (!SameEasing(link[i].Easing.Value, key.Easing.Value))
+                link[i].Easing.Value = CopyOf(key.Easing.Value);
+        }
+
+        for (int i = 0; i < link.Length; i++)
+            link[i].Value.Value = _components[i](key.Value.Value);
     }
 
-    // The joined keyframes as the two properties have them. A joined key has the easing object of the first property's key.
-    private void ReadFromProperties(KeyFrameAnimation<T> first, KeyFrameAnimation<T> second)
+    // The joined keyframes as the properties have them. A joined key has the easing object of the first property's key.
+    private void ReadFromProperties(KeyFrameAnimation<T>[] animations)
     {
         _syncing = true;
         try
         {
+            KeyFrameAnimation<T> first = animations[0];
             // What saves and restores an inline layer finds the first property's keyframes by this.
             _joined.Id.Value = first.Id.Value;
             _joined.UseGlobalClock.Value = first.UseGlobalClock.Value;
 
             _links.Clear();
             var keys = new KeyFrame<TValue>[first.KeyFrames.Count];
+            var values = new T[animations.Length];
             for (int i = 0; i < keys.Length; i++)
             {
-                var a = (KeyFrame<T>)first.KeyFrames[i];
-                var b = (KeyFrame<T>)second.KeyFrames[i];
-                KeyFrame<TValue> key = _joinedKeys.GetValue(a, _ => new KeyFrame<TValue>());
-                key.KeyTime.Value = a.KeyTime.Value;
-                key.Easing.Value = a.Easing.Value;
-                key.Value.Value = _compose(a.Value.Value, b.Value.Value);
-                _links[key] = (a, b);
+                var link = new KeyFrame<T>[animations.Length];
+                for (int p = 0; p < link.Length; p++)
+                {
+                    link[p] = (KeyFrame<T>)animations[p].KeyFrames[i];
+                    values[p] = link[p].Value.Value;
+                }
+
+                KeyFrame<TValue> key = _joinedKeys.GetValue(link[0], _ => new KeyFrame<TValue>());
+                key.KeyTime.Value = link[0].KeyTime.Value;
+                key.Easing.Value = link[0].Easing.Value;
+                key.Value.Value = _compose(values);
+                _links[key] = link;
                 keys[i] = key;
             }
 
@@ -515,7 +576,7 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
     // Moving a control point of an easing edits neither its key nor the property.
     private void WatchEasings()
     {
-        HashSet<SplineEasing> easings = [.. Easings(_first.Animation), .. Easings(_second.Animation)];
+        HashSet<SplineEasing> easings = [.. _properties.SelectMany(property => Easings(property.Animation))];
         foreach (SplineEasing easing in _watchedEasings.Except(easings).ToArray())
         {
             easing.Changed -= OnEasingChanged;
@@ -539,10 +600,14 @@ internal sealed class PropertyPair<T, TValue> : PropertyPair<T>
         // The graph editor moves a control point of the easing a joined key has, which is the first property's.
         if (_animation.Value != null)
         {
-            foreach ((KeyFrame<T> first, KeyFrame<T> second) in _links.Values)
+            foreach (KeyFrame<T>[] link in _links.Values)
             {
-                if (ReferenceEquals(first.Easing.Value, source) && second.Easing.Value is SplineEasing target)
+                if (!ReferenceEquals(link[0].Easing.Value, source)) continue;
+
+                for (int i = 1; i < link.Length; i++)
                 {
+                    if (link[i].Easing.Value is not SplineEasing target) continue;
+
                     if (target.X1 != source.X1) target.X1 = source.X1;
                     if (target.Y1 != source.Y1) target.Y1 = source.Y1;
                     if (target.X2 != source.X2) target.X2 = source.X2;

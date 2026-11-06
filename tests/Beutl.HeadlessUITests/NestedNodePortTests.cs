@@ -430,7 +430,7 @@ public class NestedNodePortTests
             item.IsExpanded.Value = true;
             await FinishTransition();
 
-            Assert.That(item.Properties.Value!.Properties.Single(), Is.TypeOf<CombinedEditorViewModel<float>>());
+            Assert.That(item.Properties.Value!.Properties.Single(), Is.TypeOf<CombinedEditorViewModel<float, (float, float)>>());
             Assert.That(view.GetVisualDescendants().OfType<Vector2Editor<float>>().Count(e => e.IsEffectivelyVisible), Is.Zero);
             foreach (IProperty property in new IProperty[] { translate.X, translate.Y })
             {

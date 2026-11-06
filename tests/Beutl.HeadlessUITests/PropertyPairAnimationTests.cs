@@ -1,4 +1,5 @@
-﻿using System.Reactive.Linq;
+﻿using System.Numerics;
+using System.Reactive.Linq;
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
@@ -15,6 +16,7 @@ using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
@@ -24,7 +26,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Beutl.HeadlessUITests;
 
-// The keyframes of two properties that stand as one: one animation of their one value, which is only a view of the two.
+// The keyframes of two or three properties that stand as one: one animation of their one value, which is only a view of
+// the properties.
 [TestFixture]
 public sealed class PropertyPairAnimationTests
 {
@@ -261,7 +264,7 @@ public sealed class PropertyPairAnimationTests
         Assert.Multiple(() =>
         {
             Assert.That(pair.IsSeparated.Value, Is.True);
-            Assert.That(pair.CanStandForBoth.Value, Is.False);
+            Assert.That(pair.CanStandAsOne.Value, Is.False);
             Assert.That(pair.Animation, Is.Null);
         });
 
@@ -283,12 +286,12 @@ public sealed class PropertyPairAnimationTests
         curve.X1 = x1 / 2;
         HeadlessTestHelpers.Settle();
         Assert.That(pair.IsSeparated.Value, Is.True);
-        Assert.That(pair.CanStandForBoth.Value, Is.False);
+        Assert.That(pair.CanStandAsOne.Value, Is.False);
 
         curve.X1 = x1;
         HeadlessTestHelpers.Settle();
         Assert.That(pair.IsSeparated.Value, Is.False);
-        Assert.That(pair.CanStandForBoth.Value, Is.True);
+        Assert.That(pair.CanStandAsOne.Value, Is.True);
         Assert.That(pair.Animation, Is.Not.Null);
     }
 
@@ -306,7 +309,7 @@ public sealed class PropertyPairAnimationTests
         HeadlessTestHelpers.Settle();
 
         Assert.That(second.X1, Is.EqualTo(x1));
-        Assert.That(pair.CanStandForBoth.Value, Is.False);
+        Assert.That(pair.CanStandAsOne.Value, Is.False);
     }
 
     [AvaloniaTest]
@@ -623,5 +626,61 @@ public sealed class PropertyPairAnimationTests
             Assert.That(row.CanSeparateComponents.Value, Is.False, "They cannot rejoin while they differ.");
             Assert.That(row.Children.Select(child => child.Animation != null), Is.EqualTo(new[] { true, false }));
         });
+    }
+
+    // Three properties stand as a vector: an edit of its keyframes reaches each of them as one history entry, the graph
+    // editor has a channel for each, and a key of one at another time parts them.
+    [AvaloniaTest]
+    public async Task Three_properties_stand_as_one_vector()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync($"property-triple-{Guid.NewGuid():N}");
+        var rotation = new Rotation3DTransform();
+        rotation.RotationX.SetKeyFrameAnimation(Keys((0, 10), (2, 20)));
+        rotation.RotationY.SetKeyFrameAnimation(Keys((0, 30), (2, 40)));
+        rotation.RotationZ.SetKeyFrameAnimation(Keys((0, 50), (2, 60)));
+        var shape = new RectShape { Transform = { Value = rotation } };
+        await TestShell.AddElementAsync(editor, () => shape, MediaTime.Zero, MediaTime.FromSeconds(4));
+        Element element = editor.Scene.Children.Single();
+        HistoryManager history = editor.HistoryManager;
+        history.Commit();
+        int before = history.UndoCount;
+        PropertyPair pair = PropertyPair.Find(rotation.RotationY)!;
+        var joined = (KeyFrameAnimation<Vector3>)pair.Animation!;
+        IExpressionProperty<float>[] properties = [rotation.RotationX, rotation.RotationY, rotation.RotationZ];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(PropertyPair.Find(rotation.RotationZ), Is.SameAs(pair));
+            Assert.That(pair.DisplayName, Is.EqualTo(GraphicsStrings.Rotation));
+            Assert.That(joined.KeyFrames.Select(key => key.Value),
+                Is.EqualTo(new object[] { new Vector3(10, 30, 50), new Vector3(20, 40, 60) }));
+        });
+
+        joined.KeyFrames[1].KeyTime.Value = MediaTime.FromSeconds(1);
+        history.Commit();
+        Assert.Multiple(() =>
+        {
+            Assert.That(properties.Select(p => Times(p.GetKeyFrameAnimation()!)), Is.All.EqualTo(new[] { 0d, 1d }));
+            Assert.That(history.UndoCount, Is.EqualTo(before + 1));
+            Assert.That(pair.IsSeparated.Value, Is.False);
+        });
+
+        ((SplineEasing)joined.KeyFrames[1].Easing.Value).X1 = 0.5f;
+        Assert.That(properties.Select(p => ((SplineEasing)p.GetKeyFrameAnimation()!.KeyFrames[1].Easing.Value).X1),
+            Is.All.EqualTo(0.5f));
+
+        using var tab = new GraphEditorTabViewModel(editor);
+        tab.Element.Value = element;
+        HeadlessTestHelpers.Settle();
+        tab.Select(joined);
+        HeadlessTestHelpers.Settle();
+        Assert.That(tab.SelectedTreeItem.Value?.Adapter, Is.SameAs(pair));
+        Assert.That(tab.SelectedAnimation.Value!.Views.Select(view => view.Name), Is.EqualTo(new[] { "X", "Y", "Z" }));
+
+        rotation.RotationZ.GetKeyFrameAnimation()!.KeyFrames[1].KeyTime.Value = MediaTime.FromSeconds(3);
+        HeadlessTestHelpers.Settle();
+        Assert.That(pair.IsSeparated.Value, Is.True, "A key of the third at another time parts the three.");
+        Assert.That(pair.CanStandAsOne.Value, Is.False);
     }
 }

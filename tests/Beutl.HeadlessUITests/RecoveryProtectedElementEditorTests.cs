@@ -435,7 +435,7 @@ public sealed class RecoveryProtectedElementEditorTests
         tab.Element.Value = element;
         HeadlessTestHelpers.Settle();
         var combined = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
-            .OfType<CombinedEditorViewModel<float>>().Single();
+            .OfType<CombinedEditorViewModel<float, (float, float)>>().Single();
         Assert.That(PropertyEditorHost.TryCreateControl(combined, PropertyEditorSurface.Panel, out Control? control), Is.True);
         control!.DataContext = combined;
         var window = new Window { Width = 480, Height = 300, Content = control };
