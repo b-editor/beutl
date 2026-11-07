@@ -149,6 +149,12 @@ public class ToolTabPlacementTests
                 Split(Orientation.Vertical, Pane(DockIds.Right, holdsPreview: true), Pane(DockIds.Bottom)),
                 "V[H[Dock.Left,Dock.Right],Dock.Bottom]")
             .SetArgDisplayNames("landscape, preview moved to the right dock, no left dock");
+        yield return new TestCaseData("landscape-preview-moved-in-row", 640, 480,
+                Split(Orientation.Vertical,
+                    Split(Orientation.Horizontal, Pane("Moved", holdsPreview: true), Pane(DockIds.Right)),
+                    Pane(DockIds.Bottom)),
+                "V[H[Dock.Left,Moved,Dock.Right],Dock.Bottom]")
+            .SetArgDisplayNames("landscape, preview moved to another dock in the top row, no left dock");
         yield return new TestCaseData("portrait-preview", 480, 640,
                 Split(Orientation.Horizontal, Pane(DockIds.Player)),
                 PortraitShape)
