@@ -151,16 +151,15 @@ public class StrokeEffectRenderTests
         });
     }
 
-    // A mitered pen draws a 36 degree point of the star some ten pixels past it. StrokeEffect's output reaches only
-    // half the pen's thickness past the shape's bounds, so the point is cut there, but only a point put back gets
-    // that far: one that half coverage cut back strokes to under a pixel past the shape.
+    // A mitered pen draws a 36 degree point of the star some ten pixels past it, and StrokeEffect draws it as far:
+    // its outline puts back the point that half coverage cut, and its output allows for the miter (#4104). The top
+    // point, which needs a little more than the output allows, loses under a pixel.
     [Test]
-    public void Stroke_on_a_star_reaches_past_its_points()
+    public void Stroke_on_a_star_reaches_as_far_as_its_own_pen()
     {
         // GeometryShape centres the path's size in the frame from the path's own origin, so the star starts at it.
         const string Star = "M 57.063 0 L 71.17 40.584 L 114.126 41.459 L 79.888 67.416 L 92.33 108.541 "
                             + "L 57.063 84 L 21.796 108.541 L 34.238 67.416 L 0 41.459 L 42.956 40.584 Z";
-        const int Thickness = 6;
         static Shape Make()
         {
             var shape = new GeometryShape();
@@ -171,54 +170,30 @@ public class StrokeEffectRenderTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            Shape bare = Make();
-            bare.Fill.Value = Brushes.White;
-            using Bitmap shape = GoldenImageHarness.RenderAtScale(
-                bare.ToResource(CompositionContext.Default), Frame, 1f, clearColor: Colors.Transparent);
-            using Bitmap viaEffect = GoldenImageHarness.RenderAtScale(Outlined(Make(), Thickness, true), Frame, 1f);
-            using Bitmap viaPen = GoldenImageHarness.RenderAtScale(Outlined(Make(), Thickness, false), Frame, 1f);
+            using Bitmap viaEffect = GoldenImageHarness.RenderAtScale(Outlined(Make(), 6, true), Frame, 1f);
+            using Bitmap viaPen = GoldenImageHarness.RenderAtScale(Outlined(Make(), 6, false), Frame, 1f);
 
-            // Every pixel the star touches, against the pixels the strokes at least half cover.
-            (int Left, int Top, int Right, int Bottom) shapeBounds = Bounds(AlphaOf(shape), shape, 0);
-            (int Left, int Top, int Right, int Bottom) effectBounds = Bounds(PenCoverage(viaEffect), viaEffect, 0.5f);
-            (int Left, int Top, int Right, int Bottom) penBounds = Bounds(PenCoverage(viaPen), viaPen, 0.5f);
-            // Each point reaches at least as far as the effect's output allows, or as far as the pen when that is
-            // nearer, and never past the pen. Until #4104 lets the output take in the miter, that is the cut.
-            const int Reach = Thickness / 2;
+            (int Left, int Top, int Right, int Bottom) effectBounds = PenBounds(viaEffect);
+            (int Left, int Top, int Right, int Bottom) penBounds = PenBounds(viaPen);
             Assert.Multiple(() =>
             {
-                Assert.That(effectBounds.Left,
-                    Is.InRange(penBounds.Left - 1, Math.Max(penBounds.Left, shapeBounds.Left - Reach) + 1), "left point");
-                Assert.That(effectBounds.Top,
-                    Is.InRange(penBounds.Top - 1, Math.Max(penBounds.Top, shapeBounds.Top - Reach) + 1), "top point");
-                Assert.That(effectBounds.Right,
-                    Is.InRange(Math.Min(penBounds.Right, shapeBounds.Right + Reach) - 1, penBounds.Right + 1),
-                    "right point");
-                Assert.That(effectBounds.Bottom,
-                    Is.InRange(Math.Min(penBounds.Bottom, shapeBounds.Bottom + Reach) - 1, penBounds.Bottom + 1),
-                    "bottom points");
+                Assert.That(effectBounds.Left, Is.EqualTo(penBounds.Left).Within(1), "left point");
+                Assert.That(effectBounds.Top, Is.EqualTo(penBounds.Top).Within(1), "top point");
+                Assert.That(effectBounds.Right, Is.EqualTo(penBounds.Right).Within(1), "right point");
+                Assert.That(effectBounds.Bottom, Is.EqualTo(penBounds.Bottom).Within(1), "bottom points");
             });
         });
 
-        static float[] AlphaOf(Bitmap bitmap)
+        // The pixels the pen at least half covers.
+        static (int Left, int Top, int Right, int Bottom) PenBounds(Bitmap bitmap)
         {
-            using Bitmap converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
-            ReadOnlySpan<byte> pixels = converted.GetPixelSpan();
-            var alpha = new float[converted.Width * converted.Height];
-            for (int i = 0; i < alpha.Length; i++)
-                alpha[i] = pixels[i * 4 + 3] / 255f;
-
-            return alpha;
-        }
-
-        static (int Left, int Top, int Right, int Bottom) Bounds(float[] coverage, Bitmap bitmap, float above)
-        {
+            float[] coverage = PenCoverage(bitmap);
             int left = bitmap.Width, top = bitmap.Height, right = -1, bottom = -1;
             for (int y = 0; y < bitmap.Height; y++)
             {
                 for (int x = 0; x < bitmap.Width; x++)
                 {
-                    if (coverage[y * bitmap.Width + x] <= above)
+                    if (coverage[y * bitmap.Width + x] < 0.5f)
                         continue;
 
                     left = Math.Min(left, x);

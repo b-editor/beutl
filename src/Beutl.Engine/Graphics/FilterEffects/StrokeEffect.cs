@@ -40,9 +40,25 @@ public partial class StrokeEffect : FilterEffect
         }
     }
 
+    // How far past the outline the output allows a mitered corner to reach, in multiples of what the pen reaches
+    // past a straight side. A miter reaches that far at a corner of about 39 degrees and further at a sharper one,
+    // up to the pen's miter limit. Allowing for all of it would grow the output, and with it the area that selects
+    // the element, by five times the pen's thickness at the default limit, so a sharper corner that points out of
+    // the content's bounds is cut where the output ends. A star's 36 degree points lose next to nothing.
+    private const float MiterReach = 3;
+
     private static Rect TransformBounds((Point Offset, Pen.Resource? Pen) data, Rect rect)
     {
         Rect borderBounds = PenHelper.GetBounds(rect, data.Pen);
+        if (data.Pen is { StrokeJoin: StrokeJoin.Miter } pen)
+        {
+            // GetBounds allows for one reach: the stroke past the outline and a positive pen offset, whose outline
+            // is mitered too.
+            float straight = PenHelper.GetRealThickness(pen.StrokeAlignment, pen.Thickness) + Math.Max(pen.Offset, 0);
+            float reach = pen.MiterLimit > 1 ? Math.Min(pen.MiterLimit, MiterReach) : 1;
+            borderBounds = borderBounds.Inflate(straight * (reach - 1));
+        }
+
         // Inflate symmetrically by offset so the source stays centered.
         return borderBounds.Inflate(new Thickness(
             Math.Abs(data.Offset.X), Math.Abs(data.Offset.Y),
