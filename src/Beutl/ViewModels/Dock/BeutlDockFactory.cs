@@ -246,28 +246,39 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         _anchorCacheDirty = true;
     }
 
-    // Where the default layout has the dock for anchor: beside which dock, on which side.
+    // Where the default layout has the dock for anchor: beside which dock, on which side. An earlier
+    // version also dropped the preview's dock when its tab was moved to another dock, or floated out
+    // under the dock's id; the other docks then stand in for it.
     private (IDockable Beside, DockOperation Side)? FindRestorePlace(
         DockAnchor anchor, IProportionalDock rootSplit, bool portrait)
     {
-        IToolDock? player = GetAnchoredDock(DockAnchor.Player);
+        IDockable? player = FindAnchoredDockInLayout(DockAnchor.Player);
+        IDockable? bottom = FindAnchoredDockInLayout(DockAnchor.Bottom);
+        IDockable[] rows = PanesOf(rootSplit);
         if (!portrait)
         {
             // Left | preview | right, over the bottom dock.
             if (anchor == DockAnchor.Bottom)
+                return rows.Length > 0 ? (rows[^1], DockOperation.Bottom) : null;
+
+            DockOperation side = anchor == DockAnchor.Left ? DockOperation.Left : DockOperation.Right;
+            if (player is not null) return (player, side);
+
+            // Without the preview's dock, the dock goes to that end of the row above the bottom dock.
+            IDockable? row = rows.FirstOrDefault(pane => !ReferenceEquals(pane, bottom));
+            if (row is IProportionalDock { Orientation: Orientation.Horizontal } split
+                && PanesOf(split) is { Length: > 0 } panes)
             {
-                return rootSplit.VisibleDockables?.LastOrDefault(d => d is not IProportionalDockSplitter) is { } top
-                    ? (top, DockOperation.Bottom)
-                    : null;
+                return (side == DockOperation.Left ? panes[0] : panes[^1], side);
             }
 
-            return player is null ? null : (player, anchor == DockAnchor.Left ? DockOperation.Left : DockOperation.Right);
+            if (row is not null) return (row, side);
+            return bottom is null ? null : (bottom, DockOperation.Top);
         }
 
         // The preview, beside a column of left | right over the bottom dock.
-        IToolDock? left = GetAnchoredDock(DockAnchor.Left);
-        IToolDock? right = GetAnchoredDock(DockAnchor.Right);
-        IToolDock? bottom = GetAnchoredDock(DockAnchor.Bottom);
+        IDockable? left = FindAnchoredDockInLayout(DockAnchor.Left);
+        IDockable? right = FindAnchoredDockInLayout(DockAnchor.Right);
         if (anchor == DockAnchor.Left && right is not null) return (right, DockOperation.Left);
         if (anchor == DockAnchor.Right && left is not null) return (left, DockOperation.Right);
         if (anchor != DockAnchor.Bottom && bottom is not null) return (bottom, DockOperation.Top);
@@ -278,7 +289,21 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
             return (tools, DockOperation.Bottom);
         }
 
-        return player is null ? null : (player, DockOperation.Right);
+        // Without the preview's dock, the column starts at the right end.
+        IDockable? beside = player ?? (rows.Length > 0 ? rows[^1] : null);
+        return beside is null ? null : (beside, DockOperation.Right);
+    }
+
+    private IDockable? FindAnchoredDockInLayout(DockAnchor anchor)
+    {
+        return GetAnchoredDock(anchor) is { } dock && ReferenceEquals(FindRoot(dock, _ => true), _rootDock)
+            ? dock
+            : null;
+    }
+
+    private static IDockable[] PanesOf(IDock split)
+    {
+        return split.VisibleDockables?.Where(d => d is not IProportionalDockSplitter).ToArray() ?? [];
     }
 
     // The child of split that is, or holds, dockable.

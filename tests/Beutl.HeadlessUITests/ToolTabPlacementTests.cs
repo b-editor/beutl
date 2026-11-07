@@ -60,6 +60,18 @@ public class ToolTabPlacementTests
         return new Rect(pane.TranslatePoint(default, window)!.Value, pane.Bounds.Size);
     }
 
+    // Gives the dock a share other than its default, as dragging its splitter does, so a dock that
+    // came back at its default size would not pass for one that kept its size.
+    private static Rect ShrinkFromItsDefaultSize(Window window, IToolDock dock)
+    {
+        Rect atDefault = PaneBounds(window, dock);
+        dock.Proportion = 0.3;
+        HeadlessTestHelpers.Render(3);
+        Rect shrunk = PaneBounds(window, dock);
+        Assert.That(shrunk.Height, Is.LessThan(atDefault.Height - 50), "the dock was resized");
+        return shrunk;
+    }
+
     private static void AssertSameBounds(Rect actual, Rect expected, string message)
     {
         Assert.Multiple(() =>
@@ -105,10 +117,10 @@ public class ToolTabPlacementTests
     }
 
     // A dock saved with no tab, except the preview's.
-    private static JsonObject Pane(string id)
+    private static JsonObject Pane(string id, bool holdsPreview = false)
     {
         var pane = new JsonObject { ["$type"] = "tool_dock", ["id"] = id };
-        if (id == DockIds.Player)
+        if (holdsPreview || id == DockIds.Player)
         {
             pane["tools"] = new JsonArray(new JsonObject { ["$type"] = "player" });
         }
@@ -116,31 +128,47 @@ public class ToolTabPlacementTests
         return pane;
     }
 
+    private const string LandscapeShape = "V[H[Dock.Left,Dock.Player,Dock.Right],Dock.Bottom]";
+    private const string PortraitShape = "H[Dock.Player,V[H[Dock.Left,Dock.Right],Dock.Bottom]]";
+
     // Layouts an earlier version saved after every tab of some default docks was closed, which
-    // removed those docks.
+    // removed those docks. Moving the preview's tab to another dock removed the preview's dock too.
     private static IEnumerable<TestCaseData> LayoutsSavedWithoutDefaultDocks()
     {
         yield return new TestCaseData("landscape-preview", 640, 480,
-                Split(Orientation.Vertical, Pane(DockIds.Player)))
+                Split(Orientation.Vertical, Pane(DockIds.Player)),
+                LandscapeShape)
             .SetArgDisplayNames("landscape, preview only");
         yield return new TestCaseData("landscape-no-left", 640, 480,
                 Split(Orientation.Vertical,
                     Split(Orientation.Horizontal, Pane(DockIds.Player), Pane(DockIds.Right)),
-                    Pane(DockIds.Bottom)))
+                    Pane(DockIds.Bottom)),
+                LandscapeShape)
             .SetArgDisplayNames("landscape, no left dock");
+        yield return new TestCaseData("landscape-preview-moved", 640, 480,
+                Split(Orientation.Vertical, Pane(DockIds.Right, holdsPreview: true), Pane(DockIds.Bottom)),
+                "V[H[Dock.Left,Dock.Right],Dock.Bottom]")
+            .SetArgDisplayNames("landscape, preview moved to the right dock, no left dock");
         yield return new TestCaseData("portrait-preview", 480, 640,
-                Split(Orientation.Horizontal, Pane(DockIds.Player)))
+                Split(Orientation.Horizontal, Pane(DockIds.Player)),
+                PortraitShape)
             .SetArgDisplayNames("portrait, preview only");
         yield return new TestCaseData("portrait-no-left", 480, 640,
                 Split(Orientation.Horizontal,
                     Pane(DockIds.Player),
-                    Split(Orientation.Vertical, Pane(DockIds.Right), Pane(DockIds.Bottom))))
+                    Split(Orientation.Vertical, Pane(DockIds.Right), Pane(DockIds.Bottom))),
+                PortraitShape)
             .SetArgDisplayNames("portrait, no left dock");
         yield return new TestCaseData("portrait-no-bottom", 480, 640,
                 Split(Orientation.Horizontal,
                     Pane(DockIds.Player),
-                    Split(Orientation.Horizontal, Pane(DockIds.Left), Pane(DockIds.Right))))
+                    Split(Orientation.Horizontal, Pane(DockIds.Left), Pane(DockIds.Right))),
+                PortraitShape)
             .SetArgDisplayNames("portrait, no bottom dock");
+        yield return new TestCaseData("portrait-preview-moved", 480, 640,
+                Split(Orientation.Horizontal, Pane("Moved", holdsPreview: true)),
+                "H[Moved,V[H[Dock.Left,Dock.Right],Dock.Bottom]]")
+            .SetArgDisplayNames("portrait, preview moved to another dock, no default dock");
     }
 
     [AvaloniaTest]
@@ -225,10 +253,10 @@ public class ToolTabPlacementTests
         {
             window.Show();
             HeadlessTestHelpers.Render(3);
+            HeadlessCapture.SaveIfRequested(window, nameof(ToolTabPlacementTests), "default");
             IToolDock bottom = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
             IToolDock player = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Player)!;
-            Rect before = PaneBounds(window, bottom);
-            HeadlessCapture.SaveIfRequested(window, nameof(ToolTabPlacementTests), "default");
+            Rect before = ShrinkFromItsDefaultSize(window, bottom);
 
             CloseTabsIn(editor, bottom);
             HeadlessTestHelpers.Render(3);
@@ -267,7 +295,7 @@ public class ToolTabPlacementTests
             window.Show();
             HeadlessTestHelpers.Render(3);
             IToolDock bottom = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
-            Rect before = PaneBounds(window, bottom);
+            Rect before = ShrinkFromItsDefaultSize(window, bottom);
             CloseTabsIn(editor, bottom);
             HeadlessTestHelpers.Render(3);
 
@@ -346,10 +374,10 @@ public class ToolTabPlacementTests
     [AvaloniaTest]
     [TestCaseSource(nameof(LayoutsSavedWithoutDefaultDocks))]
     public async Task A_layout_saved_without_default_docks_gets_them_back_where_the_default_layout_has_them(
-        string name, int width, int height, JsonObject rootSplit)
+        string name, int width, int height, JsonObject rootSplit, string expected)
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync($"tab-placement-{name}", width, height);
-        string expected = Shape(editor.DockHost.Layout.Value);
+        Assert.That(Shape(editor.DockHost.Layout.Value), Is.EqualTo(width > height ? LandscapeShape : PortraitShape));
         JsonObject layout = editor.DockHost.CaptureLayout();
         layout["DockLayout"] = new JsonObject
         {
