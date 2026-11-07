@@ -14,7 +14,7 @@ public sealed class PreviewGuideSettingsViewModel : IDisposable
 
     public PreviewGuideSettingsViewModel(EditorConfig config)
     {
-        IsEnabled = SettingBinding.Bind(config.IsPreviewGuideEnabled, v => v, v => v, _disposables);
+        IsEnabled = SettingBinding.Bind(config.IsPreviewGuideEnabled, _disposables);
 
         Kinds =
         [
@@ -38,8 +38,8 @@ public sealed class PreviewGuideSettingsViewModel : IDisposable
         // Written as #AARRGGBB: Color.ToString would write a known color's name instead.
         Color = SettingBinding.Bind(config.PreviewGuideColor, ParseColor, color => $"#{color.ToUInt32():X8}", _disposables);
         Opacity = SettingBinding.Bind(config.PreviewGuideOpacity, v => (double)v, v => (float)v, _disposables);
-        GridColumns = SettingBinding.Bind(config.PreviewGuideGridColumns, v => v, v => v, _disposables);
-        GridRows = SettingBinding.Bind(config.PreviewGuideGridRows, v => v, v => v, _disposables);
+        GridColumns = SettingBinding.Bind(config.PreviewGuideGridColumns, _disposables);
+        GridRows = SettingBinding.Bind(config.PreviewGuideGridRows, _disposables);
 
         // Only a list that reads is saved; the text box keeps one that does not, with its error, while it is edited.
         AspectRatios = new ReactiveProperty<string>(config.PreviewGuideAspectRatios.Value)

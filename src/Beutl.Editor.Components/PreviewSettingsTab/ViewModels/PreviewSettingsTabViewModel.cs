@@ -38,7 +38,7 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
 
         // Each group's "enabled" ToggleSwitch (bound two-way below) gates its dependent rows,
         // which reuse the standard property editors. EditorConfig stays the single source of truth.
-        IsOnionSkinEnabled = BindToggle(config.IsOnionSkinEnabled);
+        IsOnionSkinEnabled = SettingBinding.Bind(config.IsOnionSkinEnabled, _disposables);
         AddEditors(factory, OnionSkinProperties,
             new EnginePropertyAdapter<int>(config.OnionSkinPrevCount, config),
             new EnginePropertyAdapter<int>(config.OnionSkinNextCount, config),
@@ -47,13 +47,13 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
 
         Guides = new PreviewGuideSettingsViewModel(config).DisposeWith(_disposables);
 
-        IsFrameCacheEnabled = BindToggle(config.IsFrameCacheEnabled);
+        IsFrameCacheEnabled = SettingBinding.Bind(config.IsFrameCacheEnabled, _disposables);
         AddEditors(factory, FrameCacheProperties,
             new EnginePropertyAdapter<double>(config.FrameCacheMaxSize, config),
             new EnginePropertyAdapter<FrameCacheConfigScale>(config.FrameCacheScale, config),
             new EnginePropertyAdapter<FrameCacheConfigColorType>(config.FrameCacheColorType, config));
 
-        IsNodeCacheEnabled = BindToggle(config.IsNodeCacheEnabled);
+        IsNodeCacheEnabled = SettingBinding.Bind(config.IsNodeCacheEnabled, _disposables);
         AddEditors(factory, NodeCacheProperties,
             new EnginePropertyAdapter<int>(config.NodeCacheMaxPixels, config),
             new EnginePropertyAdapter<int>(config.NodeCacheMinPixels, config));
@@ -97,9 +97,6 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.PreviewSettings);
-
-    private ReactiveProperty<bool> BindToggle(IProperty<bool> property)
-        => SettingBinding.Bind(property, v => v, v => v, _disposables);
 
     private void AddEditors(
         IPropertyEditorFactory factory, CoreList<IPropertyEditorContext?> destination,

@@ -17,4 +17,7 @@ internal static class SettingBinding
         reactive.Skip(1).Subscribe(value => property.Value = write(value)).DisposeWith(disposables);
         return reactive;
     }
+
+    public static ReactiveProperty<T> Bind<T>(IProperty<T> property, CompositeDisposable disposables)
+        => Bind(property, v => v, v => v, disposables);
 }

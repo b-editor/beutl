@@ -150,13 +150,20 @@ public partial class PlayerView
             hdr.ShowsCheckerboard = checkerboard;
     }
 
-    // Where the frame is in the viewport, for the checkerboard under the frame panel.
-    private void UpdateCheckerboardRect()
+    // Where the frame is in the HDR preview's native view, which the frame panel's transform moves, and in the viewport,
+    // for the checkerboard under the frame panel.
+    private void UpdateFrameRects()
     {
-        checkerboardBackground.FrameRect = image is not null && image.TransformToVisual(previewViewport) is { } transform
+        if (hdrView is { } view)
+            view.FrameRect = GetFrameRectIn(view) ?? default;
+
+        checkerboardBackground.FrameRect = GetFrameRectIn(previewViewport);
+    }
+
+    private Rect? GetFrameRectIn(Visual target)
+        => image is not null && image.TransformToVisual(target) is { } transform
             ? new Rect(image.Bounds.Size).TransformToAABB(transform)
             : null;
-    }
 
     // Scales about a point of framePanel, which stays where it is on screen.
     private static void ZoomFrameAt(PlayerViewModel viewModel, float ratio, AvaPoint point)
