@@ -546,7 +546,8 @@ public sealed class GraphSnapshot : IDisposable
 
         if (!ReferenceEquals(picture.Wire, wire))
         {
-            if (!pictureWire.UpdatePicture(ref picture.Form, _resources[slot].RequireOriginal(), _contexts[slot]))
+            if (!pictureWire.UpdatePicture(
+                    ref picture.Form, _resources[slot].RequireOriginal(), _resources[slot].Members[item], _contexts[slot]))
                 return null;
 
             picture.Wire = wire;

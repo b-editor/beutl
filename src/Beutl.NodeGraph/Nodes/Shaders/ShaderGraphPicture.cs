@@ -4,6 +4,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using Beutl.NodeGraph.Composition;
+using Beutl.NodeGraph.Nodes.Group;
 
 namespace Beutl.NodeGraph.Nodes.Shaders;
 
@@ -54,8 +55,9 @@ internal sealed class ShaderGraphPicture : IWirePicture
 
     public bool HasFailed => _recordingError != null || _executionError != null;
 
-    public void Update(ShaderGraphValue<ShaderImage> image, GraphNode owner, GraphCompositionContext context)
+    public void Update(ShaderGraphValue<ShaderImage> image, GraphNode owner, INodeMember output, GraphCompositionContext context)
     {
+        IShaderPictureOwner? explainer = FindExplainer(owner, output);
         ShaderGraphDescription? description = null;
         RenderNode? source = null;
         IReadOnlyList<RenderNode> externals = [];
@@ -75,12 +77,12 @@ internal sealed class ShaderGraphPicture : IWirePicture
 
         // What a render refused stands until a graph runs, which takes the renderer to find out.
         if (description == null) _executionError = null;
-        Report(owner, _recordingError ?? _executionError);
+        explainer?.ReportPictureFailure(_recordingError ?? _executionError);
 
         // The same graph again keeps what the renderer has cached for it.
         if (description == null || !IsRecorded(description))
         {
-            description?.ExecutionObserver = failure => OnExecuted(owner, failure);
+            description?.ExecutionObserver = failure => OnExecuted(explainer, failure);
             _effect.Description.Value = description;
         }
 
@@ -94,14 +96,24 @@ internal sealed class ShaderGraphPicture : IWirePicture
     private bool IsRecorded(ShaderGraphDescription description)
         => _effect.Description.Value?.OutputIdentity.Equals(description.OutputIdentity) == true;
 
-    private void OnExecuted(GraphNode owner, Exception? failure)
+    private void OnExecuted(IShaderPictureOwner? explainer, Exception? failure)
     {
         _executionError = failure?.Message;
-        Report(owner, _recordingError ?? _executionError);
+        explainer?.ReportPictureFailure(_recordingError ?? _executionError);
     }
 
-    private static void Report(GraphNode owner, string? message)
-        => (owner as IShaderPictureOwner)?.ReportPictureFailure(message);
+    // The node whose output became the picture, or, through a plain group that shows nothing of its own, the node inside
+    // whose output reaches the group's.
+    private static IShaderPictureOwner? FindExplainer(GraphNode node, INodeMember output)
+    {
+        while (node is not IShaderPictureOwner)
+        {
+            if (node is not GroupNode group || group.FindInnerSource(output) is not { } inner) return null;
+            (node, output) = inner;
+        }
+
+        return (IShaderPictureOwner)node;
+    }
 
     public void Dispose()
     {

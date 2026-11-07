@@ -558,7 +558,7 @@ public partial class ShaderDispatchNode : ShaderDynamicNode
 }
 
 /// <summary>How a pass filters and addresses the image coming through this wire.</summary>
-public partial class ShaderSamplerNode : GraphNode
+public partial class ShaderSamplerNode : ShaderImageProducerNode
 {
     public ShaderSamplerNode()
     {
@@ -581,6 +581,7 @@ public partial class ShaderSamplerNode : GraphNode
         MaxLod.Property?.SetValue(1000f);
         UseCompare = AddInput<bool>("UseCompare", ShaderPortDisplays.Get("UseCompare"));
         Compare = AddInput<CompareFunction>("Compare", ShaderPortDisplays.Get("Compare"));
+        AddErrorMonitor();
     }
 
     public OutputPort<ShaderGraphValue<ShaderImage>> Output { get; }
@@ -626,7 +627,7 @@ public partial class ShaderSamplerNode : GraphNode
 }
 
 /// <summary>Declares what part of the image coming through this wire each output pixel reads, so only that part is needed.</summary>
-public partial class ShaderInputRegionNode : GraphNode
+public partial class ShaderInputRegionNode : ShaderImageProducerNode
 {
     public ShaderInputRegionNode()
     {
@@ -635,6 +636,7 @@ public partial class ShaderInputRegionNode : GraphNode
         Transform = AddInput<Matrix>("Transform", ShaderPortDisplays.Get("Transform"));
         Transform.Property?.SetValue(Matrix.Identity);
         Padding = AddInput<float>("Padding", ShaderPortDisplays.Get("Padding"));
+        AddErrorMonitor();
     }
 
     public OutputPort<ShaderGraphValue<ShaderImage>> Output { get; }

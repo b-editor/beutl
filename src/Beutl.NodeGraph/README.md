@@ -57,9 +57,10 @@ value; read that one to see the write.
   body builds wire values, so recording visits iterations in order and a long replay cannot overflow the stack.
   A pass's padding adds to what it reads, so padding inside a loop grows with every iteration; pad before the loop.
 - **Failures stay on the node.** Recording and validation run during evaluation, so the message appears on the pass
-  that failed and on the node whose output became the picture. What only the device can refuse, such as a stage it
-  lacks or an image too large, reaches that node when the graph runs. Either way the wire turns red, that graph draws
-  nothing, and the rest of the frame renders.
+  that failed and on the node whose output became the picture. A plain group shows nothing of its own, so for a
+  picture that comes out of one, the message appears on the node inside whose output reaches the group's. What only
+  the device can refuse, such as a stage it lacks or an image too large, reaches that node when the graph runs. Either
+  way the wire turns red, that graph draws nothing, and the rest of the frame renders.
 
 ## Mandatory rules
 

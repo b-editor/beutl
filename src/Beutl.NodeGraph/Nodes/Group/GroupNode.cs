@@ -76,6 +76,23 @@ public partial class GroupNode : GraphNode
         return index < 0 ? null : Items[(outputSide ? 0 : outputCount) + index];
     }
 
+    /// <summary>The node inside whose output reaches <paramref name="output"/>, one of this group's outputs, and that output.</summary>
+    internal (GraphNode Node, INodeMember Output)? FindInnerSource(INodeMember output)
+    {
+        if (Group.Value.Output.Value is not { } boundary
+            || Items.Count - FixedPortCount != boundary.Items.Count + (Group.Value.Input.Value?.Items.Count ?? 0))
+            return null;
+
+        int index = Items.IndexOf(output);
+        if (index < 0 || index >= boundary.Items.Count
+            || boundary.Items[index] is not IInputPort { Connection.Value.Value: { } connection }
+            || connection.Output.Value.Value is not INodeMember source
+            || source.FindHierarchicalParent<GraphNode>() is not { } node)
+            return null;
+
+        return (node, source);
+    }
+
     /// <summary>Ports a subclass adds of its own, after the ones mirroring the group's boundary.</summary>
     private protected virtual int FixedPortCount => 0;
 
