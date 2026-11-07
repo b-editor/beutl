@@ -901,6 +901,43 @@ public sealed class MobilePreviewTests
         Assert.That(Relayed(), Is.True);
     }
 
+    [Test]
+    public async Task A_paused_frame_is_sent_again_at_the_direct_settings_when_a_hold_ends()
+    {
+        await using var host = await RelayHost.StartAsync();
+        await using var server = await MobilePreviewServer.StartAsync(host.Session);
+        var relay = await host.AcceptAsync();
+        await Roster(relay, ["one"]);
+        await WaitUntil(() => server.GetClients().Length == 1);
+        await SendMessage(relay, new
+        {
+            type = "signal",
+            id = "one",
+            signal = new { type = "offer", connectionId = "direct", sdp = PreviewTransportTests.Offer }
+        });
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var peers = (Dictionary<string, MobilePreviewServer.Viewer>)typeof(MobilePreviewServer).GetField("_peers", flags)!.GetValue(server)!;
+        await WaitUntil(() => peers.Count == 1);
+        object gate = typeof(MobilePreviewServer).GetField("_gate", flags)!.GetValue(server)!;
+        var congestion = (Dictionary<string, MobilePreviewServer.CongestionBackoff>)typeof(MobilePreviewServer)
+            .GetField("_congestion", flags)!.GetValue(server)!;
+        var keyFrame = typeof(MobilePreviewServer).GetField("_keyFrame", flags)!;
+        var usesRelayedSettings = typeof(MobilePreviewServer).GetMethod("UsesRelayedSettings", flags)!;
+        var onKeyFrameRequested = typeof(MobilePreviewServer).GetMethod("OnKeyFrameRequested", flags)!;
+        bool Relayed() { lock (gate) return (bool)usesRelayedSettings.Invoke(server, null)!; }
+
+        // A viewer that connected long enough ago, with a short hold.
+        var backoff = new MobilePreviewServer.CongestionBackoff(TimeSpan.FromSeconds(1));
+        backoff.Connected(-MobilePreviewServer.CongestionBackoff.Settling);
+        lock (gate) congestion["one"] = backoff;
+        // With nothing published, a key frame request stays pending, so it shows the paused frame being asked for again.
+        keyFrame.SetValue(server, 0);
+        for (int i = 0; i < MobilePreviewServer.CongestionBackoff.Requests; i++) onKeyFrameRequested.Invoke(server, ["one"]);
+        Assert.That(Relayed(), Is.True);
+        await WaitUntil(() => (int)keyFrame.GetValue(server)! == 1);
+        Assert.That(Relayed(), Is.False, "The frame is asked for again once the hold has ended, not before.");
+    }
+
     [AvaloniaTest]
     public async Task Closing_during_startup_leaves_no_relay_or_preview_consumer()
     {
