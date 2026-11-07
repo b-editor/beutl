@@ -8,7 +8,7 @@
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
              d:DesignHeight="450"
              d:DesignWidth="800"
@@ -154,16 +154,9 @@
                                                    Text="{x:Static lang:SettingsStrings.CustomColor}" />
 
                                         <!--  An accent names a color, not a translucent overlay: alpha would carry into every shade FluentAvalonia derives from it.  -->
-                                        <ui:ColorPickerButton DockPanel.Dock="Right"
-                                                              IsAlphaEnabled="False"
-                                                              IsCompact="True"
-                                                              IsMoreButtonVisible="True"
-                                                              ShowAcceptDismissButtons="True"
-                                                              UseColorPalette="False"
-                                                              UseColorTriangle="False"
-                                                              UseColorWheel="False"
-                                                              UseSpectrum="True"
-                                                              Color="{Binding CustomAccentColor.Value}" />
+                                        <pe:SimpleColorPickerButton DockPanel.Dock="Right"
+                                                                    IsAlphaEnabled="False"
+                                                                    Color="{Binding CustomAccentColor.Value}" />
                                     </DockPanel>
                                 </StackPanel>
                             </ctrls:OptionsDisplayItem.Content>

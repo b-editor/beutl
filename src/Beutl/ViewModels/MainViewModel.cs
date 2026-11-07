@@ -50,6 +50,8 @@ public sealed partial class MainViewModel : BasePageViewModel
     private Task<bool>? _closeForShutdownTask;
     private Task? _shutdownRequestTask;
     private IClassicDesktopStyleApplicationLifetime? _desktopLifetime;
+    private readonly ProjectColorPaletteHost _projectColorPalettes;
+    private readonly IDisposable _projectColorPalettesAttachment;
 
     public MainViewModel()
         : this(null)
@@ -71,6 +73,9 @@ public sealed partial class MainViewModel : BasePageViewModel
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         // After version control, whose preparation can refuse the close.
         _ = new ProjectThumbnailService(_projectService, _editorService);
+        _projectColorPalettes = new ProjectColorPaletteHost(_projectService, _editorService);
+        _projectColorPalettesAttachment = Beutl.Controls.PropertyEditors.ColorPaletteService.Instance
+            .AttachProjectHost(_projectColorPalettes);
         _captionCatalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             Beutl.Language.Strings.AiSubtitle_DefaultTemplate,
             Beutl.Editor.Services.ObjectTemplateService.Instance.FindByBaseType(

@@ -6,6 +6,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:models="using:Beutl.Models"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.Editor.Components.PreviewSettingsTab.ViewModels"
              d:DesignHeight="600"
@@ -102,16 +103,9 @@
 
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.PreviewGuide_Color}" />
-                    <ui:ColorPickerButton Grid.Column="1"
-                                          IsAlphaEnabled="False"
-                                          IsCompact="True"
-                                          IsMoreButtonVisible="True"
-                                          ShowAcceptDismissButtons="True"
-                                          UseColorPalette="False"
-                                          UseColorTriangle="False"
-                                          UseColorWheel="False"
-                                          UseSpectrum="True"
-                                          Color="{CompiledBinding Guides.Color.Value, Mode=TwoWay}" />
+                    <pe:SimpleColorPickerButton Grid.Column="1"
+                                                IsAlphaEnabled="False"
+                                                Color="{CompiledBinding Guides.Color.Value, Mode=TwoWay}" />
                 </Grid>
 
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">

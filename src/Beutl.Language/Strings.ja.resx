@@ -792,6 +792,60 @@
   <data name="ShowRing" xml:space="preserve">
     <value>リングを表示</value>
   </data>
+  <data name="ColorPalette_RecentColors" xml:space="preserve">
+    <value>最近使った色</value>
+  </data>
+  <data name="ColorPalette_DefaultPalette" xml:space="preserve">
+    <value>デフォルトのパレット</value>
+  </data>
+  <data name="ColorPalette_ProjectPalettes" xml:space="preserve">
+    <value>プロジェクトのパレット</value>
+  </data>
+  <data name="ColorPalette_NewPalette" xml:space="preserve">
+    <value>新しいパレット</value>
+  </data>
+  <data name="ColorPalette_NewPaletteName" xml:space="preserve">
+    <value>パレット {0}</value>
+  </data>
+  <data name="ColorPalette_AddCurrentColor" xml:space="preserve">
+    <value>今の色を追加</value>
+  </data>
+  <data name="ColorPalette_PaletteActions" xml:space="preserve">
+    <value>パレットの操作</value>
+  </data>
+  <data name="ColorPalette_EmptyHint" xml:space="preserve">
+    <value>＋ で今の色を追加できます。</value>
+  </data>
+  <data name="ColorPalette_SavedInProject" xml:space="preserve">
+    <value>このプロジェクトに保存されています</value>
+  </data>
+  <data name="ColorPalette_SaveInProject" xml:space="preserve">
+    <value>このプロジェクトに保存</value>
+  </data>
+  <data name="ColorPalette_UseInAllProjects" xml:space="preserve">
+    <value>すべてのプロジェクトで使う</value>
+  </data>
+  <data name="ColorPalette_MoveUp" xml:space="preserve">
+    <value>上へ移動</value>
+  </data>
+  <data name="ColorPalette_MoveDown" xml:space="preserve">
+    <value>下へ移動</value>
+  </data>
+  <data name="ColorPalette_AddToPalette" xml:space="preserve">
+    <value>パレットに追加</value>
+  </data>
+  <data name="ColorPalette_AddToNewPalette" xml:space="preserve">
+    <value>新しいパレットに追加</value>
+  </data>
+  <data name="ColorPalette_ReplaceWithCurrentColor" xml:space="preserve">
+    <value>今の色に置き換え</value>
+  </data>
+  <data name="ColorPalette_RemoveFromRecent" xml:space="preserve">
+    <value>最近使った色から削除</value>
+  </data>
+  <data name="ColorPalette_ClearRecent" xml:space="preserve">
+    <value>最近使った色を消去</value>
+  </data>
   <data name="Symmetry" xml:space="preserve">
     <value>対称</value>
   </data>
@@ -1170,9 +1224,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="OpenInTab" xml:space="preserve">
     <value>タブで開く</value>
-  </data>
-  <data name="Previous" xml:space="preserve">
-    <value>前</value>
   </data>
   <data name="Current" xml:space="preserve">
     <value>現在</value>

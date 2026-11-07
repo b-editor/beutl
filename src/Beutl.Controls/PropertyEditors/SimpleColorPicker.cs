@@ -34,6 +34,9 @@ public class SimpleColorPicker : TemplatedControl
     public static readonly StyledProperty<SimpleColorPickerInputType> InputTypeProperty =
         AvaloniaProperty.Register<SimpleColorPicker, SimpleColorPickerInputType>(nameof(InputType));
 
+    public static readonly StyledProperty<bool> IsAlphaEnabledProperty =
+        AvaloniaProperty.Register<SimpleColorPicker, bool>(nameof(IsAlphaEnabled), true);
+
     private readonly CompositeDisposable _disposables = [];
     private ColorSpectrum? _spectrum;
     private ColorSpectrum? _ringSpectrum;
@@ -74,17 +77,32 @@ public class SimpleColorPicker : TemplatedControl
         set => SetValue(InputTypeProperty, value);
     }
 
+    // False keeps every color opaque, as a layer's label needs, and the theme hides the opacity.
+    public bool IsAlphaEnabled
+    {
+        get => GetValue(IsAlphaEnabledProperty);
+        set => SetValue(IsAlphaEnabledProperty, value);
+    }
+
     // Whether a spectrum, slider or previewer is being dragged.
     public bool IsDragging => _press.IsPressed;
 
     // Ends the drag in progress without ColorConfirmed, for a host that ended the gesture itself.
     public void StopDrag() => _press.Stop();
 
+    // Applies a color picked elsewhere, as from a palette, as one confirmed edit. The picker shows it too, so that
+    // a drag that follows starts from it.
     public void SetColor(Color2 value)
     {
         Color2 oldValue = Color;
-        ColorChanged?.Invoke(this, (oldValue, value));
+        value = CoerceAlpha(value);
+        UpdateColor(value);
         ColorConfirmed?.Invoke(this, (oldValue, value));
+    }
+
+    private Color2 CoerceAlpha(Color2 color)
+    {
+        return IsAlphaEnabled || color.A == 255 ? color : color.WithAlpha(255);
     }
 
     private ColorSlider?[] GetColorSliders() => [
@@ -254,6 +272,10 @@ public class SimpleColorPicker : TemplatedControl
         else if (change.Property == InputTypeProperty)
         {
             OnInputTypeChanged();
+        }
+        else if (change.Property == IsAlphaEnabledProperty)
+        {
+            UpdateColor(Color);
         }
     }
 
@@ -445,7 +467,7 @@ public class SimpleColorPicker : TemplatedControl
         if (_hexBox != null
             && Color2.TryParse(_hexBox.Text, out Color2 color))
         {
-            ColorConfirmed?.Invoke(this, (_oldColor, color));
+            ColorConfirmed?.Invoke(this, (_oldColor, CoerceAlpha(color)));
         }
     }
 
@@ -502,6 +524,8 @@ public class SimpleColorPicker : TemplatedControl
     private void UpdateColor(Color2 color, bool ignoreOpacity = false, bool ignoreComponents = false, bool ignoreHex = false)
     {
         if (_ignoreColorChange) return;
+
+        color = CoerceAlpha(color);
 
         try
         {

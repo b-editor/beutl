@@ -1,10 +1,12 @@
-﻿// https://github.com/amwx/FluentAvalonia/blob/9e35813b3e3e649ad254ff6be4a35e52ac96d051/src/FluentAvalonia/UI/Controls/ColorPicker/ColorPaletteItem.properties.cs
+﻿// Adapted from FluentAvalonia's ColorPaletteItem:
+// https://github.com/amwx/FluentAvalonia/blob/9e35813b3e3e649ad254ff6be4a35e52ac96d051/src/FluentAvalonia/UI/Controls/ColorPicker/ColorPaletteItem.properties.cs
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 
-namespace FluentAvalonia.UI.Controls;
+namespace Beutl.Controls.PropertyEditors;
 
 public partial class ColorPaletteItem
 {
@@ -44,6 +46,24 @@ public partial class ColorPaletteItem
     /// </summary>
     public static readonly StyledProperty<CornerRadius> CornerRadiusProperty =
         Border.CornerRadiusProperty.AddOwner<ColorPaletteItem>();
+
+    /// <summary>
+    /// Defines the <see cref="IsSelected"/> property
+    /// </summary>
+    public static readonly StyledProperty<bool> IsSelectedProperty =
+        AvaloniaProperty.Register<ColorPaletteItem, bool>(nameof(IsSelected));
+
+    /// <summary>
+    /// Defines the <see cref="SelectionBrush"/> property
+    /// </summary>
+    public static readonly StyledProperty<IBrush?> SelectionBrushProperty =
+        AvaloniaProperty.Register<ColorPaletteItem, IBrush?>(nameof(SelectionBrush));
+
+    /// <summary>
+    /// Defines the <see cref="Click"/> event
+    /// </summary>
+    public static readonly RoutedEvent<RoutedEventArgs> ClickEvent =
+        RoutedEvent.Register<ColorPaletteItem, RoutedEventArgs>(nameof(Click), RoutingStrategies.Bubble);
 
     /// <summary>
     /// Gets or sets the color this item should represent
@@ -108,6 +128,33 @@ public partial class ColorPaletteItem
     {
         get => GetValue(CornerRadiusProperty);
         set => SetValue(CornerRadiusProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets whether the item is the color being edited, which draws a ring around it
+    /// </summary>
+    public bool IsSelected
+    {
+        get => GetValue(IsSelectedProperty);
+        set => SetValue(IsSelectedProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the brush of the ring drawn around a selected item
+    /// </summary>
+    public IBrush? SelectionBrush
+    {
+        get => GetValue(SelectionBrushProperty);
+        set => SetValue(SelectionBrushProperty, value);
+    }
+
+    /// <summary>
+    /// Raised when the item is clicked with the left button
+    /// </summary>
+    public event EventHandler<RoutedEventArgs>? Click
+    {
+        add => AddHandler(ClickEvent, value);
+        remove => RemoveHandler(ClickEvent, value);
     }
 
     private Color _color;

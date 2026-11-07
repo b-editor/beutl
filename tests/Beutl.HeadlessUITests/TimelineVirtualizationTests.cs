@@ -94,8 +94,10 @@ public sealed class TimelineVirtualizationTests
         try
         {
             HeadlessTestHelpers.Render(3);
-            // The color picker and the template flyout both show a picker presenter.
-            Popup popup = host.Window.OpenedPopups.Single(open => open.Child is FluentAvalonia.UI.Controls.FAPickerFlyoutPresenter);
+            // The template flyout shows a picker presenter, and the color picker the presenter of Beutl's picker.
+            Popup popup = host.Window.OpenedPopups.Single(open => open.Child
+                is FluentAvalonia.UI.Controls.FAPickerFlyoutPresenter
+                or Beutl.Controls.PropertyEditors.SimpleColorPickerFlyoutPresenter);
             Assert.That(popup.IsOpen, Is.True);
             host.Scroll(MediaTime.FromSeconds(50).TimeToPixel(0.1f), 0);
             Assert.That(popup.IsOpen, Is.True);

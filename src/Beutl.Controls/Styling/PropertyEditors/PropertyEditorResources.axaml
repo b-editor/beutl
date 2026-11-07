@@ -1,6 +1,5 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:behaviors="using:Beutl.Controls.Behaviors"
                     xmlns:controls="using:Beutl.Controls"
                     xmlns:i="using:Avalonia.Xaml.Interactions.Core"
                     xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -20,20 +19,9 @@
     <x:Double x:Key="PropertyEditorMinWidth">200</x:Double>
     <x:Double x:Key="BrushEditorPreviewWidth">80</x:Double>
     <x:Double x:Key="ColorEditorValueMinWidth">120</x:Double>
-
-    <DataTemplate x:Key="ColorPaletteItemTemplate"
-                  x:CompileBindings="True"
-                  x:DataType="Color">
-        <ui:ColorPaletteItem Height="{Binding $self.Bounds.Width}"
-                             Margin="{DynamicResource ColorPaletteItemMargin}"
-                             BorderBrushPointerOver="{DynamicResource ColorPickerColorPaletteItemBorderBrushPointerOver}"
-                             BorderThicknessPointerOver="1"
-                             Color="{Binding}">
-            <Interaction.Behaviors>
-                <behaviors:ColorPaletteItemBehavior />
-            </Interaction.Behaviors>
-        </ui:ColorPaletteItem>
-    </DataTemplate>
+    <!--  The height and outline of the sliders of SimpleColorPicker and GradingColorPicker.  -->
+    <x:Double x:Key="ColorPickerColorRampSize">20</x:Double>
+    <x:Double x:Key="ColorRampBorderThickness">1</x:Double>
 
     <ControlTheme x:Key="ListEditorMiniExpanderToggleButton" TargetType="ToggleButton">
         <Setter Property="Background" Value="Transparent" />

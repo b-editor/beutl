@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Controls.Primitives;
 
@@ -48,6 +50,22 @@ public abstract class TextInputFlyout : FAPickerFlyoutBase
         };
         pfp.Confirmed += OnFlyoutConfirmed;
         pfp.Dismissed += OnFlyoutDismissed;
+        // As in the other pickers, Enter confirms and Escape cancels. The text box handles Enter itself, so the
+        // keys are taken on their way down to it.
+        pfp.AddHandler(InputElement.KeyDownEvent, (_, e) =>
+        {
+            switch (e.Key)
+            {
+                case Key.Enter:
+                    e.Handled = true;
+                    OnConfirmed();
+                    break;
+                case Key.Escape:
+                    e.Handled = true;
+                    Hide();
+                    break;
+            }
+        }, RoutingStrategies.Tunnel);
 
         return pfp;
     }

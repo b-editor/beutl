@@ -6,7 +6,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Editor.Components.TimelineTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:vm="using:Beutl.Editor.Components.TimelineTab.ViewModels"
              Height="{Binding Height.Value}"
@@ -112,14 +112,12 @@
                               Icon="Star" />
         </ToggleButton>
 
-        <ui:ColorPickerButton Grid.Column="5"
-                              MinHeight="{DynamicResource LayerHeight}"
-                              CustomPaletteColors="{StaticResource PaletteColors}"
-                              FlyoutConfirmed="OnColorChanged"
-                              IsAlphaEnabled="False"
-                              UseColorPalette="True"
-                              Theme="{StaticResource LayerHeaderColorPickerButtonTheme}"
-                              Color="{Binding Color.Value, Mode=OneWay}" />
+        <pe:SimpleColorPickerButton Grid.Column="5"
+                                    MinHeight="{DynamicResource LayerHeight}"
+                                    ColorConfirmed="OnColorConfirmed"
+                                    IsAlphaEnabled="False"
+                                    Theme="{StaticResource LayerHeaderColorPickerButtonTheme}"
+                                    Color="{Binding Color.Value, Mode=OneWay}" />
 
         <TextBox x:Name="NameTextBox"
                  Grid.Column="6"

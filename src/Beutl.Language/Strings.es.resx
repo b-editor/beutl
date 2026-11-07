@@ -770,6 +770,60 @@
   <data name="ShowRing" xml:space="preserve">
     <value>Mostrar anillo</value>
   </data>
+  <data name="ColorPalette_RecentColors" xml:space="preserve">
+    <value>Colores recientes</value>
+  </data>
+  <data name="ColorPalette_DefaultPalette" xml:space="preserve">
+    <value>Paleta predeterminada</value>
+  </data>
+  <data name="ColorPalette_ProjectPalettes" xml:space="preserve">
+    <value>Paletas del proyecto</value>
+  </data>
+  <data name="ColorPalette_NewPalette" xml:space="preserve">
+    <value>Nueva paleta</value>
+  </data>
+  <data name="ColorPalette_NewPaletteName" xml:space="preserve">
+    <value>Paleta {0}</value>
+  </data>
+  <data name="ColorPalette_AddCurrentColor" xml:space="preserve">
+    <value>Añadir el color actual</value>
+  </data>
+  <data name="ColorPalette_PaletteActions" xml:space="preserve">
+    <value>Acciones de la paleta</value>
+  </data>
+  <data name="ColorPalette_EmptyHint" xml:space="preserve">
+    <value>Usa + para añadir el color actual.</value>
+  </data>
+  <data name="ColorPalette_SavedInProject" xml:space="preserve">
+    <value>Guardada en este proyecto</value>
+  </data>
+  <data name="ColorPalette_SaveInProject" xml:space="preserve">
+    <value>Guardar en este proyecto</value>
+  </data>
+  <data name="ColorPalette_UseInAllProjects" xml:space="preserve">
+    <value>Usar en todos los proyectos</value>
+  </data>
+  <data name="ColorPalette_MoveUp" xml:space="preserve">
+    <value>Subir</value>
+  </data>
+  <data name="ColorPalette_MoveDown" xml:space="preserve">
+    <value>Bajar</value>
+  </data>
+  <data name="ColorPalette_AddToPalette" xml:space="preserve">
+    <value>Añadir a la paleta</value>
+  </data>
+  <data name="ColorPalette_AddToNewPalette" xml:space="preserve">
+    <value>Añadir a una paleta nueva</value>
+  </data>
+  <data name="ColorPalette_ReplaceWithCurrentColor" xml:space="preserve">
+    <value>Reemplazar por el color actual</value>
+  </data>
+  <data name="ColorPalette_RemoveFromRecent" xml:space="preserve">
+    <value>Quitar de los colores recientes</value>
+  </data>
+  <data name="ColorPalette_ClearRecent" xml:space="preserve">
+    <value>Borrar los colores recientes</value>
+  </data>
   <data name="Symmetry" xml:space="preserve">
     <value>Simetría</value>
   </data>
@@ -1139,9 +1193,6 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="OpenInTab" xml:space="preserve">
     <value>Abrir en pestaña</value>
-  </data>
-  <data name="Previous" xml:space="preserve">
-    <value>Anterior</value>
   </data>
   <data name="Current" xml:space="preserve">
     <value>Actual</value>

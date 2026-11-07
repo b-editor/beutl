@@ -770,6 +770,60 @@
   <data name="ShowRing" xml:space="preserve">
     <value>링 표시</value>
   </data>
+  <data name="ColorPalette_RecentColors" xml:space="preserve">
+    <value>최근 사용한 색</value>
+  </data>
+  <data name="ColorPalette_DefaultPalette" xml:space="preserve">
+    <value>기본 팔레트</value>
+  </data>
+  <data name="ColorPalette_ProjectPalettes" xml:space="preserve">
+    <value>프로젝트 팔레트</value>
+  </data>
+  <data name="ColorPalette_NewPalette" xml:space="preserve">
+    <value>새 팔레트</value>
+  </data>
+  <data name="ColorPalette_NewPaletteName" xml:space="preserve">
+    <value>팔레트 {0}</value>
+  </data>
+  <data name="ColorPalette_AddCurrentColor" xml:space="preserve">
+    <value>현재 색 추가</value>
+  </data>
+  <data name="ColorPalette_PaletteActions" xml:space="preserve">
+    <value>팔레트 작업</value>
+  </data>
+  <data name="ColorPalette_EmptyHint" xml:space="preserve">
+    <value>+로 현재 색을 추가할 수 있습니다.</value>
+  </data>
+  <data name="ColorPalette_SavedInProject" xml:space="preserve">
+    <value>이 프로젝트에 저장됨</value>
+  </data>
+  <data name="ColorPalette_SaveInProject" xml:space="preserve">
+    <value>이 프로젝트에 저장</value>
+  </data>
+  <data name="ColorPalette_UseInAllProjects" xml:space="preserve">
+    <value>모든 프로젝트에서 사용</value>
+  </data>
+  <data name="ColorPalette_MoveUp" xml:space="preserve">
+    <value>위로 이동</value>
+  </data>
+  <data name="ColorPalette_MoveDown" xml:space="preserve">
+    <value>아래로 이동</value>
+  </data>
+  <data name="ColorPalette_AddToPalette" xml:space="preserve">
+    <value>팔레트에 추가</value>
+  </data>
+  <data name="ColorPalette_AddToNewPalette" xml:space="preserve">
+    <value>새 팔레트에 추가</value>
+  </data>
+  <data name="ColorPalette_ReplaceWithCurrentColor" xml:space="preserve">
+    <value>현재 색으로 바꾸기</value>
+  </data>
+  <data name="ColorPalette_RemoveFromRecent" xml:space="preserve">
+    <value>최근 사용한 색에서 제거</value>
+  </data>
+  <data name="ColorPalette_ClearRecent" xml:space="preserve">
+    <value>최근 사용한 색 지우기</value>
+  </data>
   <data name="Symmetry" xml:space="preserve">
     <value>대칭</value>
   </data>
@@ -1139,9 +1193,6 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="OpenInTab" xml:space="preserve">
     <value>탭에서 열기</value>
-  </data>
-  <data name="Previous" xml:space="preserve">
-    <value>이전</value>
   </data>
   <data name="Current" xml:space="preserve">
     <value>현재</value>

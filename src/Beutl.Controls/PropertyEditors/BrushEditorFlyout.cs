@@ -28,6 +28,9 @@ public enum BrushType
 
 public sealed class BrushEditorFlyout : FAPickerFlyoutBase
 {
+    // The last color this opening of the flyout applied, if any.
+    private Color? _appliedColor;
+
     public static readonly StyledProperty<Brush?> BrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyout, Brush?>(nameof(Brush));
 
@@ -109,11 +112,24 @@ public sealed class BrushEditorFlyout : FAPickerFlyoutBase
             }
         };
         pfp.GradientStopChanged += (_, t) => GradientStopChanged?.Invoke(this, t);
-        pfp.GradientStopConfirmed += (_, t) => GradientStopConfirmed?.Invoke(this, t);
+        pfp.GradientStopConfirmed += (_, t) =>
+        {
+            // A stop moved without changing its color uses no color.
+            if (t.Object.Color != t.OldObject.Color)
+            {
+                _appliedColor = t.Object.Color;
+            }
+
+            GradientStopConfirmed?.Invoke(this, t);
+        };
         pfp.GradientStopDeleted += (_, t) => GradientStopDeleted?.Invoke(this, t);
         pfp.GradientStopAdded += (_, t) => GradientStopAdded?.Invoke(this, t);
         pfp.ColorChanged += (_, t) => ColorChanged?.Invoke(this, t);
-        pfp.ColorConfirmed += (_, t) => ColorConfirmed?.Invoke(this, t);
+        pfp.ColorConfirmed += (_, t) =>
+        {
+            _appliedColor = (Color)t.NewValue;
+            ColorConfirmed?.Invoke(this, t);
+        };
         pfp.BrushTypeChanged += (_, t) => BrushTypeChanged?.Invoke(this, t);
         pfp.ChangeDrawableClicked += (_, t) => ChangeDrawableClicked?.Invoke(this, t);
         pfp.EditDrawableClicked += (_, _) => EditDrawableClicked?.Invoke(this, EventArgs.Empty);
@@ -126,6 +142,23 @@ public sealed class BrushEditorFlyout : FAPickerFlyoutBase
     protected override void OnConfirmed()
     {
         Hide();
+    }
+
+    protected override void OnOpened()
+    {
+        base.OnOpened();
+        _appliedColor = null;
+    }
+
+    // The last color the flyout applied joins the recent colors, rather than each step of a drag.
+    protected override void OnClosed()
+    {
+        base.OnClosed();
+        if (_appliedColor is { } color)
+        {
+            _appliedColor = null;
+            ColorPaletteService.Instance.AddRecentColor(color);
+        }
     }
 
     protected override void OnOpening(CancelEventArgs args)

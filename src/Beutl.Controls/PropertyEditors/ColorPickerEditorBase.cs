@@ -143,12 +143,21 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
         _oldValue = _value;
     }
 
+    // Called when the picker leaves a value it changed: on confirming, or on closing while it previews live.
+    private protected virtual void OnColorApplied(TColor value)
+    {
+    }
+
     private void OnFlyoutConfirmed(DraggablePickerFlyout<TPicker> sender, EventArgs args)
     {
         if (_flyoutActive && _flyout != null)
         {
             Value = GetFlyoutColor(_flyout);
             RaiseEvent(new PropertyEditorValueChangedEventArgs<TColor>(Value, _oldValue, ValueConfirmedEvent));
+            if (!EqualityComparer<TColor>.Default.Equals(Value, _oldValue))
+            {
+                OnColorApplied(Value);
+            }
         }
     }
 
@@ -158,6 +167,10 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
         {
             SetLivePreview(_flyout, false);
             RaiseEvent(new PropertyEditorValueChangedEventArgs<TColor>(Value, _oldValue, ValueConfirmedEvent));
+            if (_flyoutActive && !EqualityComparer<TColor>.Default.Equals(Value, _oldValue))
+            {
+                OnColorApplied(Value);
+            }
         }
 
         _flyoutActive = false;

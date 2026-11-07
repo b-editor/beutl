@@ -165,6 +165,15 @@
             </Style>
         </Style>
 
+        <Style Selector="^[IsAlphaEnabled=False]">
+            <Style Selector="^ /template/ ColorSlider#SpectrumAlphaSlider">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+            <Style Selector="^ /template/ TextBox#OpacityBox">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+        </Style>
+
         <Style Selector="^:disabled /template/ Border#Smoke">
             <Setter Property="IsVisible" Value="True" />
         </Style>

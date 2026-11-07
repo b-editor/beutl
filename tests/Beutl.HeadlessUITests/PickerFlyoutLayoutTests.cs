@@ -131,20 +131,24 @@ public sealed class PickerFlyoutLayoutTests
         Assert.That(root.ClientSize.Height, Is.GreaterThan(height));
     }
 
+    // The sliders of the details are shorter than the spectrum, so the picker grows when they give way to it again.
     [AvaloniaTest]
-    public async Task Clip_color_picker_grows_when_details_expand()
+    public async Task Clip_color_picker_grows_when_the_spectrum_returns()
     {
         using TimelineTestHost host = await TimelineTestHost.CreateAsync("clip-color-picker-layout", MediaTime.FromSeconds(10),
             [new ElementDescription(MediaTime.Zero, MediaTime.FromSeconds(2), 0,
                 new ElementSource.EngineObject(() => new RectShape()))]);
         ElementView element = host.View.GetVisualDescendants().OfType<ElementView>().Single();
         element.FindControl<FAMenuFlyoutItem>("changeColor")!.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
-        var presenter = GetPresenter<ContentControl>(host.Window);
-        double width = TopLevel.GetTopLevel(presenter)!.ClientSize.Width;
-        var picker = presenter.GetVisualDescendants().OfType<FAColorPicker>().Single();
-        picker.IsCompact = false;
-        VerifyFits(presenter, "clip-color-expanded");
-        Assert.That(TopLevel.GetTopLevel(presenter)!.ClientSize.Width, Is.GreaterThan(width));
+        var presenter = GetPresenter<SimpleColorPickerFlyoutPresenter>(host.Window);
+        ToggleButton details = presenter.GetVisualDescendants().OfType<ToggleButton>()
+            .Single(button => button.Name == "ToggleDetailsButton");
+        details.IsChecked = true;
+        VerifyFits(presenter, "clip-color-details");
+        double height = TopLevel.GetTopLevel(presenter)!.ClientSize.Height;
+        details.IsChecked = false;
+        VerifyFits(presenter, "clip-color-spectrum");
+        Assert.That(TopLevel.GetTopLevel(presenter)!.ClientSize.Height, Is.GreaterThan(height));
     }
 
     [AvaloniaTest]

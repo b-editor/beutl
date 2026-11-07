@@ -3,11 +3,11 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
-using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
@@ -214,11 +214,11 @@ public sealed partial class LayerHeader : UserControl
         translate.Y = PositionY;
     }
 
-    private void OnColorChanged(ColorPickerButton sender, ColorButtonColorChangedEventArgs args)
+    private void OnColorConfirmed(SimpleColorPickerButton sender, (Color OldValue, Color NewValue) args)
     {
-        if (DataContext is LayerHeaderViewModel viewModel && args.NewColor.HasValue)
+        if (DataContext is LayerHeaderViewModel viewModel)
         {
-            viewModel.SetColor(args.NewColor.Value);
+            viewModel.SetColor(args.NewValue);
         }
     }
 }

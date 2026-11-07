@@ -2,8 +2,8 @@
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Testing.Headless;
-using FluentAvalonia.UI.Controls;
 
 namespace Beutl.E2ETests.Controls;
 

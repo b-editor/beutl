@@ -54,6 +54,8 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ColorComponentsEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/SimpleColorPicker.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/ColorPaletteView.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/SimpleColorPickerButton.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/DraggablePickerFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/SimpleColorPickerFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/BrushEditorFlyoutPresenter.axaml" />
@@ -64,8 +66,6 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/SearchablePickerFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ExpressionEditorFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ReferenceEditor.axaml" />
-                <ResourceInclude Source="/ColorPicker/ColorPickerStyles.axaml" />
-                <ResourceInclude Source="/ColorPicker/ColorPickerButtonStyles.axaml" />
                 <ResourceInclude Source="/Styling/Dock/DockFluent.axaml" />
                 <!--  Dock also defines WindowDrawnDecorations; keep FluentAvalonia's caption buttons.  -->
                 <ResourceInclude Source="avares://FluentAvalonia/Styling/ControlThemes/BasicControls/WindowDecorations.axaml" />
