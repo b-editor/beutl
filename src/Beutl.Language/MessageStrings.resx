@@ -255,6 +255,9 @@ You can keep editing when this finishes.</value>
   <data name="FlatpakUpdateCompleted" xml:space="preserve">
     <value>The update is complete. Reopen Beutl to use the new version.</value>
   </data>
+  <data name="FlatpakUpdateNeedsAdministrator" xml:space="preserve">
+    <value>Beutl is installed for all users, so this update needs administrator authentication. It was canceled or failed, or no authentication prompt could be shown. Select 'Retry' to try again, or download the update from 'Release notes' and install it yourself.</value>
+  </data>
   <data name="ApplicationRestartRequired" xml:space="preserve">
     <value>The application needs to be restarted.
 Do you want to restart the application?</value>

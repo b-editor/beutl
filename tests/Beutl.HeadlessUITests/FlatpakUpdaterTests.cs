@@ -48,18 +48,40 @@ public sealed class FlatpakUpdaterTests
         string[]? install = null;
         var updater = Updater(scope, (args, _) =>
         {
-            if (args[0] == "install") install = args;
-            if (args[0] == "info") Assert.That(args[^1], Is.EqualTo(reference));
-            return Task.FromResult(args[0] switch
+            if (args.Contains("install")) install = args;
+            if (args[1] == "info") Assert.That(args[^1], Is.EqualTo(reference));
+            return Task.FromResult(args[1] switch
             {
                 "list" => $"{other}\tuser\n{reference}\tuser\n{reference}\tsystem\n{reference}\tsystem (external)\n",
-                "info" => $"/install/{(args[1] == "--user" ? "user" : args[1] == "--system" ? "system" : "external")}/app/{reference}/new",
+                "info" => $"/install/{(args[2] == "--user" ? "user" : args[2] == "--system" ? "system" : "external")}/app/{reference}/new",
                 _ => ""
             });
         }, _ => "app/" + reference, arch);
         await updater.InstallAsync(default);
-        Assert.That(install, Is.EqualTo(new[] { "install", option, "--bundle", "--or-update", "--noninteractive", "--assumeyes", updater.DownloadPath }));
+        // Only a system installation asks for an administrator, through pkexec.
+        string[] flatpak = ["flatpak", "install", option, "--bundle", "--or-update", "--noninteractive", "--assumeyes", updater.DownloadPath];
+        string[] expected = scope == "user" ? flatpak : ["pkexec", .. flatpak];
+        Assert.That(install, Is.EqualTo(expected));
         Assert.That(updater.DownloadPath, Does.StartWith(Path.Combine(_root, "cache")));
+    }
+
+    // pkexec's exit codes for a dismissed prompt and for authorization it could not get, and a failure of
+    // flatpak itself, which keeps its own message.
+    [TestCase(126, "Error executing command as another user: Request dismissed", true)]
+    [TestCase(127, "Error executing command as another user: Not authorized", true)]
+    [TestCase(1, "error: Failed to install bundle net.beditor.Beutl: No space left on device", false)]
+    public async Task RefusedAuthenticationExplainsWhatToDoNext(int exitCode, string error, bool refused)
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("Flatpak uses Unix paths.");
+        var updater = Updater("system", (args, _) => args[1] switch
+        {
+            "list" => Task.FromResult($"{Ref}\tsystem\n"),
+            "info" => Task.FromResult($"/install/system/app/{Ref}/new"),
+            _ => Task.FromException<string>(new FlatpakUpdater.HostCommandException(error, exitCode))
+        }, _ => "app/" + Ref);
+        Exception e = (await Assert.CatchAsync(() => updater.InstallAsync(default)))!;
+        Assert.That(e, refused ? Is.TypeOf<UnauthorizedAccessException>() : Is.TypeOf<FlatpakUpdater.HostCommandException>());
+        Assert.That(e.Message, Is.EqualTo(refused ? MessageStrings.FlatpakUpdateNeedsAdministrator : error));
     }
 
     [TestCase("x86_64", "app/org.example.Other/x86_64/master")]
@@ -140,8 +162,8 @@ public sealed class FlatpakUpdaterTests
         var finish = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var updater = Updater(run: async (args, token) =>
         {
-            if (args[0] == "list") return $"{Ref}\tuser\n";
-            if (args[0] == "info") return $"/install/user/app/{Ref}/new";
+            if (args[1] == "list") return $"{Ref}\tuser\n";
+            if (args[1] == "info") return $"/install/user/app/{Ref}/new";
             Assert.That(await File.ReadAllBytesAsync(args[^1], token), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
             started.SetResult();
             await finish.Task.WaitAsync(token);
@@ -180,8 +202,8 @@ public sealed class FlatpakUpdaterTests
         int installs = 0;
         var updater = Updater(run: (args, _) =>
         {
-            if (args[0] == "list") return Task.FromResult($"{Ref}\tuser\n");
-            if (args[0] == "info") return Task.FromResult($"/install/user/app/{Ref}/new");
+            if (args[1] == "list") return Task.FromResult($"{Ref}\tuser\n");
+            if (args[1] == "info") return Task.FromResult($"/install/user/app/{Ref}/new");
             return ++installs == 1 ? throw new IOException("install failed") : Task.FromResult("");
         }, read: _ => "app/" + Ref);
         using var client = new HttpClient(new FreshResponseHandler());
@@ -234,7 +256,8 @@ public sealed class FlatpakUpdaterTests
         }
         string script = Path.Combine(_root, "host");
         string pidFile = Path.Combine(_root, "pid");
-        File.WriteAllText(script, "#!/bin/sh\ncase \"$6\" in\nok) printf '%s' \"$7\";;\nfail) echo denied >&2; exit 3;;\nwait) echo $$ > \"$7\"; touch \"$7.ready\"; exec sleep 30;;\nesac\n");
+        // flatpak-spawn's four options come first, then the host command.
+        File.WriteAllText(script, "#!/bin/sh\ncase \"$5\" in\nok) printf '%s' \"$6\";;\nfail) echo denied >&2; exit 3;;\nwait) echo $$ > \"$6\"; touch \"$6.ready\"; exec sleep 30;;\nesac\n");
         File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         using var cancellation = new CancellationTokenSource();
         var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -244,7 +267,11 @@ public sealed class FlatpakUpdaterTests
         try
         {
             if (mode == "ok") Assert.That(await operation, Is.EqualTo(pidFile));
-            else if (mode == "fail") Assert.That((await Assert.ThrowsAsync<IOException>(async () => await operation))!.Message, Is.EqualTo("denied"));
+            else if (mode == "fail")
+            {
+                var failure = (await Assert.ThrowsAsync<FlatpakUpdater.HostCommandException>(async () => await operation))!;
+                Assert.That((failure.Message, failure.ExitCode), Is.EqualTo(("denied", 3)));
+            }
             else
             {
                 await ready.Task.WaitAsync(TimeSpan.FromSeconds(5));
