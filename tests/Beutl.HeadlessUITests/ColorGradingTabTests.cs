@@ -305,10 +305,15 @@ public sealed class ColorGradingTabTests
         });
     }
 
+    // A high range between steps, as typed or animated, still stops the low handle: rounding to a whole step must not
+    // carry it past.
     [AvaloniaTest]
-    public async Task The_tonal_range_handles_edit_the_ranges_and_stop_at_each_other()
+    [TestCase(60f)]
+    [TestCase(60.6f)]
+    public async Task The_tonal_range_handles_edit_the_ranges_and_stop_at_each_other(float high)
     {
-        (EditViewModel editor, ColorGrading grading) = await OpenGradingAsync("grading-tonal-range");
+        (EditViewModel editor, ColorGrading grading) = await OpenGradingAsync($"grading-tonal-range-{high}");
+        editor.HistoryManager.ExecuteInTransaction(() => grading.HighRange.Value = high, "Setup");
         int before = editor.HistoryManager.UndoCount;
         using var model = new ColorGradingTabViewModel(editor);
         model.Effect.Value = grading;
@@ -320,7 +325,7 @@ public sealed class ColorGradingTabTests
             window.Show();
             HeadlessTestHelpers.Render(3);
             TonalRangeSlider range = view.FindControl<TonalRangeSlider>("TonalRangeSlider")!;
-            Assert.That((range.Low, range.High), Is.EqualTo((40.0, 60.0)));
+            Assert.That((range.Low, range.High), Is.EqualTo((40.0, (double)high)));
 
             AvaPoint low = range.TranslatePoint(new AvaPoint(range.XOf(40), 18), window)!.Value;
             AvaPoint far = range.TranslatePoint(new AvaPoint(range.XOf(90), 18), window)!.Value;
@@ -330,9 +335,9 @@ public sealed class ColorGradingTabTests
             HeadlessTestHelpers.Render();
             Assert.Multiple(() =>
             {
-                Assert.That(grading.LowRange.Value, Is.EqualTo(60), "The low handle stops at the high one.");
-                Assert.That(grading.HighRange.Value, Is.EqualTo(60));
-                Assert.That(range.Low, Is.EqualTo(60));
+                Assert.That(grading.LowRange.Value, Is.EqualTo(high), "The low handle stops at the high one.");
+                Assert.That(grading.HighRange.Value, Is.EqualTo(high));
+                Assert.That(range.Low, Is.EqualTo(high).Within(1e-5));
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
             });
         }
@@ -343,13 +348,16 @@ public sealed class ColorGradingTabTests
     }
 
     // A tab docked at the bottom is wide and low: the sliders stand in a column beside the wheels, which keep one row
-    // as the tonal wheels do. Elsewhere the sliders stay above. In every shape the wheels stay inside the tab.
+    // as the tonal wheels do. Elsewhere the sliders stay above, and in a low tab too narrow for the column they scroll
+    // so that the wheels stay inside it. In every shape the wheels stay inside the tab.
     [AvaloniaTest]
     [TestCase(1080, 360, 1, true, true)]
     [TestCase(1080, 360, 0, true, true)]
     [TestCase(1920, 360, 1, true, true)]
     [TestCase(420, 900, 0, false, false)]
     [TestCase(560, 720, 1, false, false)]
+    [TestCase(800, 360, 1, false, true)]
+    [TestCase(800, 360, 0, false, true)]
     public async Task The_wheels_and_sliders_fit_the_tab(int width, int height, int mode, bool slidersBeside, bool oneRow)
     {
         (EditViewModel editor, ColorGrading grading) = await OpenGradingAsync($"grading-layout-{width}");

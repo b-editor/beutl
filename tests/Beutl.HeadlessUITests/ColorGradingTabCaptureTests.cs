@@ -6,10 +6,10 @@ using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Controls.Styling.Themes;
-using Beutl.Editor.PropertyEditors;
-using Beutl.Editor.Services;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
 using Beutl.Editor.Components.ColorGradingTab.Views;
+using Beutl.Editor.PropertyEditors;
+using Beutl.Editor.Services;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -37,6 +37,8 @@ public class ColorGradingTabCaptureTests
     [TestCase(1440, 480, 0, Placement.Auto, false, true)]
     [TestCase(560, 720, 1, Placement.Auto, false, true)]
     [TestCase(420, 900, 0, Placement.Auto, false, true)]
+    [TestCase(800, 360, 1, Placement.Auto, false, true)]
+    [TestCase(800, 360, 0, Placement.Auto, false, true)]
     public async Task Capture_color_grading_tab(int width, int height, int mode, Placement placement, bool light, bool adjustments)
     {
         ThemeCaptureTests.UseCaptureTheme(

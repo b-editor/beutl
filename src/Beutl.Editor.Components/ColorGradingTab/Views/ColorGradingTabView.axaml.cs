@@ -14,6 +14,12 @@ public partial class ColorGradingTabView : UserControl
     // sliders beside them than above them, as one docked at the bottom does.
     private const double BesideAspectRatio = 2.4;
     private const double BesideMinWidth = 860;
+    // Above the wheels, the sliders scroll rather than push the wheels out of a low tab. The wheels keep a pad of 96
+    // with their header, jog and boxes and the gap above them, and the tonal range row in its mode; the sliders keep
+    // at least two rows.
+    private const double WheelsMinHeight = 196;
+    private const double TonalRangeHeight = 48;
+    private const double MinAdjustmentsHeight = 72;
     private readonly CompositeDisposable _subscriptions = [];
     private float _rangeStart;
 
@@ -52,6 +58,9 @@ public partial class ColorGradingTabView : UserControl
         Size size = ContentGrid.Bounds.Size;
         bool beside = AdjustmentsBeside ?? (size.Width >= BesideMinWidth && size.Width >= size.Height * BesideAspectRatio);
         ContentGrid.Classes.Set("beside", beside);
+
+        double reserve = WheelsMinHeight + ((DataContext as ColorGradingTabViewModel)?.IsLogMode.Value == true ? TonalRangeHeight : 0);
+        AdjustmentsScroller.MaxHeight = beside ? double.PositiveInfinity : Math.Max(MinAdjustmentsHeight, size.Height - reserve);
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -78,6 +87,7 @@ public partial class ColorGradingTabView : UserControl
             _subscriptions.Add(vm.GammaEditor.Subscribe(v => BindEditor(GammaPicker, v)));
             _subscriptions.Add(vm.GainEditor.Subscribe(v => BindEditor(GainPicker, v)));
             _subscriptions.Add(vm.OffsetEditor.Subscribe(v => BindEditor(OffsetPicker, v)));
+            _subscriptions.Add(vm.IsLogMode.Subscribe(_ => UpdateAdjustmentsPlacement()));
         }
     }
 
@@ -117,6 +127,14 @@ public partial class ColorGradingTabView : UserControl
 
         float step = editor.SmallChange > 0 ? editor.SmallChange : 1;
         float next = MathF.Round((float)e.Value / step) * step;
+        // Rounding must not carry a handle past the other, whose value can lie between steps when typed or animated.
+        if (LowRangeEditor.Value <= HighRangeEditor.Value)
+        {
+            next = e.Handle == TonalRangeHandle.Low
+                ? MathF.Min(next, HighRangeEditor.Value)
+                : MathF.Max(next, LowRangeEditor.Value);
+        }
+
         float previous = editor.Value;
         if (next == previous)
             return;
