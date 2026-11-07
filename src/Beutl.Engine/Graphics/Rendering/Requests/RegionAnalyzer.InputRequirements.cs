@@ -114,7 +114,13 @@ internal sealed partial class RegionAnalyzer
         Rect required = outputRequirement.Resolve(reference.Bounds).Intersect(reference.Bounds);
         float scale = graph.ClampDensity(reference.Inputs[0], reference.EffectiveScale.Value, required);
         float inputScale = ShaderGraphRenderFragmentPayload.InputDensity(reference.Inputs[0], scale);
-        var source = ShaderImageFrame.FromPixels(bounds, PixelRect.FromRect(bounds, inputScale), inputScale, default);
+        var pixels = PixelRect.FromRect(bounds, inputScale);
+        // A graph that keeps its source whole lays the part it reads into all of the source's bounds, at the density the
+        // part comes at. When all of them would not fit at that density, it asks for the whole source, which then comes at
+        // a density that fits, as it does for a graph that does not say what it reads.
+        if (!graph.Description.AcceptsPartialSource && !BufferDimensionBudget.EngineCeiling.Fits(pixels.Size))
+            return FullInputs(reference);
+        var source = ShaderImageFrame.FromPixels(bounds, pixels, inputScale, default);
         var regions = new ShaderGraphRegions(graph.Description, source, scale, default, required);
         // A generated output still needs the incoming value's existence and complete logical bounds.
         return regions.SourceRegion.IsEmpty

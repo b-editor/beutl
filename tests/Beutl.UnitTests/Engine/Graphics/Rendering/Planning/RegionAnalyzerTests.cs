@@ -425,9 +425,28 @@ public sealed class RegionAnalyzerTests
         });
     }
 
-    private static ShaderGraphDescription ReadingGraph(GraphRead read)
-        => ShaderGraphBuilder.Build(read, static (graph, read) =>
+    // A graph that keeps its source whole lays the part it reads into all of the source's bounds, at the density the part
+    // comes at. A source too wide for one buffer at that density is asked for whole, so that it comes at a density that
+    // fits. A graph whose images hold only parts asks for its part however wide the source is.
+    [TestCase(1_000, false, false)]
+    [TestCase(20_000, false, true)]
+    [TestCase(20_000, true, false)]
+    public void Analyze_AsksForAllOfASourceAGraphKeepsWholeOnlyWhenAllOfItWouldNotFit(int width, bool partialImages, bool whole)
+    {
+        var graph = new FragmentGraph();
+        RenderFragmentReference picture = graph.Source(new Rect(0, 0, width, 100));
+        RenderFragmentReference read = graph.ShaderGraph(picture, ReadingGraph(GraphRead.AroundEachPoint, partialImages));
+        var analyzer = new RegionAnalyzer();
+
+        RegionAnalysis analysis = analyzer.Analyze(Options(requestedRegion: new Rect(400, 0, 100, 100)), [read]);
+
+        Assert.That(analysis.GetFragmentRequirement(picture).IsFull, Is.EqualTo(whole));
+    }
+
+    private static ShaderGraphDescription ReadingGraph(GraphRead read, bool partialImages = false)
+        => ShaderGraphBuilder.Build((read, partialImages), static (graph, state) =>
         {
+            (GraphRead read, bool partialImages) = state;
             ShaderImage output = graph.Image2D("output", graph.Source);
             graph.Fullscreen("read", ShaderProgram.Fullscreen(new ShaderSource("""
                 #version 450
@@ -444,6 +463,8 @@ public sealed class RegionAnalyzerTests
                     pass.BoundsOriginConstants(RelativePoint.Center, 0);
                 }
 
+                if (partialImages)
+                    pass.PartialImages();
                 pass.ColorAttachment(0, output);
             });
             return graph.Output(output);
