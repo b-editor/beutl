@@ -2,6 +2,8 @@
 using System.Reactive.Subjects;
 using Avalonia.Headless.NUnit;
 using Beutl.Editor.VersionControl;
+using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 
 namespace Beutl.HeadlessUITests;
@@ -86,6 +88,32 @@ public sealed class ProjectColorPaletteHostTests
         Assert.That(host.TrySetPalettes(s_brand), Is.False);
         Assert.That(writes, Is.Zero);
         Assert.That(project.ColorPalettes.Value, Is.Empty);
+    }
+
+    // A palette edit writes the project file alone; the scenes keep their unsaved edits for the user to save.
+    [AvaloniaTest]
+    public void The_project_file_is_written_without_its_scenes()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "beutl-palette-host-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var scene = new Scene(640, 480, "Saved") { Uri = new Uri(Path.Combine(root, "Scene.scene")) };
+            var project = new Project { Uri = new Uri(Path.Combine(root, "Project.bep")) };
+            project.Items.Add(scene);
+            CoreSerializer.StoreToUri(project, project.Uri!);
+            scene.Name.Value = "Unsaved";
+            project.ColorPalettes.Value = s_brand;
+
+            ProjectColorPaletteHost.StoreProjectFile(project, project.Uri!);
+
+            Assert.That(File.ReadAllText(scene.Uri!.LocalPath), Does.Contain("Saved").And.Not.Contain("Unsaved"));
+            Assert.That(File.ReadAllText(project.Uri!.LocalPath), Does.Contain("\"Brand\""));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     private static Project CreateProject()

@@ -321,9 +321,13 @@ public sealed class ColorPaletteViewTests
         }
     }
 
+    // Moves the pointer onto the control first: a slow frame lets the tooltip of what it rested on before open, and
+    // that tooltip can cover a picker that opened under it.
     private static void ClickWhenReachable(Window window, Control control)
     {
-        TimelineTestHost.WaitForHitTest(window, control, HeadlessTestHelpers.Center(control, window));
+        Point center = HeadlessTestHelpers.Center(control, window);
+        window.MouseMove(center);
+        TimelineTestHost.WaitForHitTest(window, control, center);
         HeadlessTestHelpers.Click(control, ticks: 3);
     }
 

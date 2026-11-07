@@ -20,9 +20,15 @@ internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDispo
     private Project? _project;
 
     public ProjectColorPaletteHost(ProjectService projectService, EditorService editorService)
-        : this(projectService.CurrentProject, editorService.TryBeginProjectFileWrite,
-            static (project, uri) => CoreSerializer.StoreToUri(project, uri))
+        : this(projectService.CurrentProject, editorService.TryBeginProjectFileWrite, StoreProjectFile)
     {
+    }
+
+    // Writes the project file alone. The default mode also writes the scenes it refers to, which would save their
+    // unsaved edits behind the user's back and make each palette edit as slow as saving the whole project.
+    internal static void StoreProjectFile(Project project, Uri uri)
+    {
+        CoreSerializer.StoreToUri(project, uri, CoreSerializationMode.Write);
     }
 
     // A test seam for the project to follow, the write admission and the write itself.

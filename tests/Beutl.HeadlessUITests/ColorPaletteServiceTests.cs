@@ -109,7 +109,7 @@ public sealed class ColorPaletteServiceTests
         Assert.That(service.ProjectPalettes, Is.Empty);
     }
 
-    // The project's write is the one that can fail; a failed one moves nothing, in either direction.
+    // A move writes where the palette goes first; when the project refuses either write, nothing moves.
     [Test]
     public void A_move_the_project_refuses_leaves_both_scopes_as_they_were()
     {
@@ -129,6 +129,43 @@ public sealed class ColorPaletteServiceTests
             Assert.That(service.UserPalettes, Is.EqualTo(new[] { inUser }));
             Assert.That(service.ProjectPalettes, Is.EqualTo(new[] { inProject }));
         });
+    }
+
+    // A move out of the project writes the preferences before the project, so a palette the preferences cannot
+    // keep stays in the project instead of being lost on the next start.
+    [Test]
+    public void A_move_the_preferences_refuse_keeps_the_palette_in_the_project()
+    {
+        var preferences = new TestPreferences();
+        var service = new ColorPaletteService(preferences);
+        ColorPalette inProject = new("Project", [new PaletteColor(0xFF00FF00)]);
+        var project = new TestProjectHost([inProject]);
+        using IDisposable attachment = service.AttachProjectHost(project);
+        service.AddPalette(PaletteScope.User, new ColorPalette("User", []));
+        preferences.Refuses = true;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.MovePaletteToScope(PaletteScope.Project, 0, PaletteScope.User), Is.False);
+            Assert.That(service.MoveColor(PaletteScope.Project, 0, 0, PaletteScope.User, 0), Is.False);
+            Assert.That(service.ProjectPalettes, Is.EqualTo(new[] { inProject }));
+            Assert.That(service.UserPalettes, Is.EqualTo(new[] { new ColorPalette("User", []) }));
+        });
+    }
+
+    [Test]
+    public void An_edit_the_preferences_refuse_does_not_apply()
+    {
+        var preferences = new TestPreferences();
+        var service = new ColorPaletteService(preferences);
+        service.AddPalette(PaletteScope.User, new ColorPalette("Kept", []));
+        preferences.Refuses = true;
+
+        Assert.That(service.AddPalette(PaletteScope.User, new ColorPalette("Lost", [])), Is.False);
+        Assert.That(service.EditPalette(PaletteScope.User, 0, p => p.WithName("Renamed")), Is.False);
+        Assert.That(service.UserPalettes, Is.EqualTo(new[] { new ColorPalette("Kept", []) }));
+        Assert.That(new ColorPaletteService(preferences).UserPalettes, Is.EqualTo(service.UserPalettes),
+            "What the service shows is what the preferences hold.");
     }
 
     [Test]
@@ -192,7 +229,18 @@ public sealed class ColorPaletteServiceTests
     {
         private readonly Dictionary<string, object?> _values = [];
 
-        public void Set<T>(string key, T value) => _values[key] = value;
+        // Fails each write, as a preferences file that cannot be written does.
+        public bool Refuses { get; set; }
+
+        public void Set<T>(string key, T value)
+        {
+            if (Refuses)
+            {
+                throw new IOException("The preferences cannot be written.");
+            }
+
+            _values[key] = value;
+        }
 
         public T Get<T>(string key, T defaultValue)
             => _values.TryGetValue(key, out object? value) && value is T typed ? typed : defaultValue;

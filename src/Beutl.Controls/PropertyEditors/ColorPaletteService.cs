@@ -94,7 +94,8 @@ internal sealed class ColorPaletteService
         return scope == PaletteScope.User || ProjectPalettes.HasValue;
     }
 
-    // Replaces the palettes of a scope. False when the project's palettes could not be written.
+    // Replaces the palettes of a scope. False, and nothing changes, when they could not be written: the project
+    // file for the project's palettes, the preferences for the user's.
     public bool SetPalettes(PaletteScope scope, ImmutableArray<ColorPalette> palettes)
     {
         if (scope == PaletteScope.Project)
@@ -103,8 +104,12 @@ internal sealed class ColorPaletteService
             return _projectHost?.TrySetPalettes(palettes) == true;
         }
 
+        if (!Save(UserPalettesKey, ColorPalette.ToJson(palettes).ToJsonString()))
+        {
+            return false;
+        }
+
         _userPalettes = palettes;
-        Save(UserPalettesKey, ColorPalette.ToJson(palettes).ToJsonString());
         RaiseChanged();
         return true;
     }
@@ -244,8 +249,9 @@ internal sealed class ColorPaletteService
         }
     }
 
-    // Edits two scopes, writing the project first: it is the write that can fail, and a failed one leaves
-    // both scopes as they were.
+    // Moves between scopes, writing the destination before the source, so that a failed write never loses what
+    // moves: a failed first write changes nothing, and a failed second one takes the destination back. Should that
+    // fail too, the moved part is in both scopes rather than in neither.
     private bool Transfer(
         PaletteScope from, Func<ImmutableArray<ColorPalette>, ImmutableArray<ColorPalette>> editFrom,
         PaletteScope to, Func<ImmutableArray<ColorPalette>, ImmutableArray<ColorPalette>> editTo)
@@ -255,11 +261,20 @@ internal sealed class ColorPaletteService
             return false;
         }
 
+        ImmutableArray<ColorPalette> previousTarget = GetPalettes(to);
         ImmutableArray<ColorPalette> source = editFrom(GetPalettes(from));
-        ImmutableArray<ColorPalette> target = editTo(GetPalettes(to));
-        return from == PaletteScope.Project
-            ? SetPalettes(from, source) && SetPalettes(to, target)
-            : SetPalettes(to, target) && SetPalettes(from, source);
+        if (!SetPalettes(to, editTo(previousTarget)))
+        {
+            return false;
+        }
+
+        if (SetPalettes(from, source))
+        {
+            return true;
+        }
+
+        SetPalettes(to, previousTarget);
+        return false;
     }
 
     private void DetachProjectHost()
@@ -334,15 +349,19 @@ internal sealed class ColorPaletteService
         }
     }
 
-    private void Save(string key, string json)
+    // False when the preferences could not be written. Without preferences the service keeps the palettes for
+    // this session only, as CreateDefault says.
+    private bool Save(string key, string json)
     {
         try
         {
             _preferences?.Set(key, json);
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to save the preference {Key}", key);
+            return false;
         }
     }
 
