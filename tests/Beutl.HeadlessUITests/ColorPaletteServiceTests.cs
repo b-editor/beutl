@@ -154,6 +154,29 @@ public sealed class ColorPaletteServiceTests
         });
     }
 
+    // Without preferences the user's palettes last this session only, so what is in the project stays there, while
+    // a palette of this session can still go into the project, which keeps it.
+    [Test]
+    public void Without_preferences_nothing_moves_out_of_the_project()
+    {
+        var service = new ColorPaletteService(preferences: null);
+        ColorPalette inProject = new("Project", [new PaletteColor(0xFF00FF00)]);
+        var project = new TestProjectHost([inProject]);
+        using IDisposable attachment = service.AttachProjectHost(project);
+        ColorPalette ofSession = new("Session", [new PaletteColor(0xFF0000FF)]);
+        service.AddPalette(PaletteScope.User, ofSession);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.MovePaletteToScope(PaletteScope.Project, 0, PaletteScope.User), Is.False);
+            Assert.That(service.MoveColor(PaletteScope.Project, 0, 0, PaletteScope.User, 0), Is.False);
+            Assert.That(service.ProjectPalettes, Is.EqualTo(new[] { inProject }));
+            Assert.That(service.UserPalettes, Is.EqualTo(new[] { ofSession }));
+            Assert.That(service.MovePaletteToScope(PaletteScope.User, 0, PaletteScope.Project), Is.True);
+            Assert.That(service.ProjectPalettes, Is.EqualTo(new[] { inProject, ofSession }));
+        });
+    }
+
     [Test]
     public void An_edit_the_preferences_refuse_does_not_apply()
     {
@@ -230,17 +253,25 @@ public sealed class ColorPaletteServiceTests
     {
         private readonly Dictionary<string, object?> _values = [];
 
-        // Fails each write, as a preferences file that cannot be written does.
+        // Fails each write, as a preferences file that cannot be written does. As DefaultPreferences does, it holds
+        // the value before the write fails, so a later write of any key would write it.
         public bool Refuses { get; set; }
 
         public void Set<T>(string key, T value)
         {
+            if (value is null)
+            {
+                _values.Remove(key);
+            }
+            else
+            {
+                _values[key] = value;
+            }
+
             if (Refuses)
             {
                 throw new IOException("The preferences cannot be written.");
             }
-
-            _values[key] = value;
         }
 
         public T Get<T>(string key, T defaultValue)

@@ -251,12 +251,13 @@ internal sealed class ColorPaletteService
 
     // Moves between scopes, writing the destination before the source, so that a failed write never loses what
     // moves: a failed first write changes nothing, and a failed second one takes the destination back. Should that
-    // fail too, the moved part is in both scopes rather than in neither.
+    // fail too, the moved part is in both scopes rather than in neither. Without preferences the user's palettes
+    // last this session only, so nothing moves out of the project, which would lose it on the next start.
     private bool Transfer(
         PaletteScope from, Func<ImmutableArray<ColorPalette>, ImmutableArray<ColorPalette>> editFrom,
         PaletteScope to, Func<ImmutableArray<ColorPalette>, ImmutableArray<ColorPalette>> editTo)
     {
-        if (!IsAvailable(from) || !IsAvailable(to))
+        if (!IsAvailable(from) || !IsAvailable(to) || (from == PaletteScope.Project && _preferences == null))
         {
             return false;
         }
@@ -349,18 +350,34 @@ internal sealed class ColorPaletteService
         }
     }
 
-    // False when the preferences could not be written. Without preferences the service keeps the palettes for
-    // this session only, as CreateDefault says.
+    // False when the preferences could not be written. They can hold a value they failed to write, as
+    // DefaultPreferences does, and write it with the next key that saves, so a failed write puts the previous value
+    // back. Without preferences the service keeps the palettes for this session only, as CreateDefault says.
     private bool Save(string key, string json)
     {
+        if (_preferences == null)
+        {
+            return true;
+        }
+
+        string? previous = _preferences.Get<string?>(key, null);
         try
         {
-            _preferences?.Set(key, json);
+            _preferences.Set(key, json);
             return true;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to save the preference {Key}", key);
+            try
+            {
+                // Writing it fails too, most likely, but the value is back by then.
+                _preferences.Set(key, previous);
+            }
+            catch (Exception)
+            {
+            }
+
             return false;
         }
     }
