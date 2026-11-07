@@ -7,7 +7,10 @@ internal sealed partial class MobilePreviewServer
 {
     private PreviewTransport? _transport;
     private readonly SemaphoreSlim _transportGate = new(1);
-    private readonly Dictionary<string, bool> _peers = [];
+    private readonly Dictionary<string, Viewer> _peers = [];
+
+    // Relayed: the viewer's current connection attempt allows only a TURN relay.
+    internal readonly record struct Viewer(bool Hdr, bool Relayed);
 
     private void OnTransportMessage(PreviewTransportEvent message)
     {
@@ -59,6 +62,7 @@ internal sealed partial class MobilePreviewServer
                     return;
                 }
                 bool hdr = signal.TryGetProperty("hdr", out var value) && value.ValueKind == JsonValueKind.True;
+                bool relayOnly = signal.TryGetProperty("relayOnly", out var relay) && relay.ValueKind == JsonValueKind.True;
                 lock (_gate)
                 {
                     if (hdr && _hdrUnavailable)
@@ -66,14 +70,13 @@ internal sealed partial class MobilePreviewServer
                         SendToViewer(id, new { type = "error", connectionId, message = "hdr-unavailable" });
                         return;
                     }
-                    _peers[id] = hdr;
+                    SetViewer(id, new Viewer(hdr, relayOnly));
                 }
-                bool relayOnly = signal.TryGetProperty("relayOnly", out var relay) && relay.ValueKind == JsonValueKind.True;
                 // The viewer is registered before its peer exists, so a failed HDR encoder can still reach it. A
                 // rejected offer leaves it without a peer, and nothing may keep encoding video or audio for it.
                 if (!_transport.Offer(id, connectionId, payload.GetString()!, hdr, servers, relayOnly))
                 {
-                    lock (_gate) _peers.Remove(id);
+                    lock (_gate) SetViewer(id, null);
                 }
             }
             else if (payload.ValueKind == JsonValueKind.Object
@@ -95,7 +98,7 @@ internal sealed partial class MobilePreviewServer
         {
             lock (_gate)
             {
-                _peers.Remove(id);
+                SetViewer(id, null);
             }
             if (_transport is not null && !_stop.IsCancellationRequested)
                 _transport.Remove(id);

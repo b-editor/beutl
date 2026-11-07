@@ -228,10 +228,66 @@ public sealed class MobilePreviewTests
         Assert.That(error.GetProperty("message").GetString(), Is.EqualTo("negotiation-failed"));
 
         // The encoders pick their profiles, and the audio loop decides whether to run, from these viewers.
-        var peers = (Dictionary<string, bool>)typeof(MobilePreviewServer)
+        var peers = (Dictionary<string, MobilePreviewServer.Viewer>)typeof(MobilePreviewServer)
             .GetField("_peers", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .GetValue(server)!;
         await WaitUntil(() => peers.Count == 0);
+    }
+
+    [Test]
+    public async Task Viewers_keep_whether_their_offer_allows_only_a_turn_relay()
+    {
+        await using var host = await RelayHost.StartAsync();
+        await using var server = await MobilePreviewServer.StartAsync(host.Session);
+        var relay = await host.AcceptAsync();
+        await Roster(relay, ["one", "two"]);
+        await WaitUntil(() => server.GetClients().Length == 2);
+        var peers = (Dictionary<string, MobilePreviewServer.Viewer>)typeof(MobilePreviewServer)
+            .GetField("_peers", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(server)!;
+
+        foreach (var (id, relayOnly) in new[] { ("one", true), ("two", false) })
+            await SendMessage(relay, new
+            {
+                type = "signal",
+                id,
+                signal = new { type = "offer", connectionId = id, sdp = PreviewTransportTests.Offer, relayOnly }
+            });
+        await WaitUntil(() => peers.Count == 2);
+        Assert.That(peers["one"], Is.EqualTo(new MobilePreviewServer.Viewer(false, true)));
+        Assert.That(peers["two"], Is.EqualTo(new MobilePreviewServer.Viewer(false, false)));
+    }
+
+    [Test]
+    public void Direct_viewers_get_a_larger_picture_than_relayed_ones()
+    {
+        using var bitmap = new Bitmap(2560, 1440);
+        Assert.That(MobilePreviewServer.FrameSize(bitmap, relayed: true), Is.EqualTo((1280, 720)));
+        Assert.That(MobilePreviewServer.FrameSize(bitmap, relayed: false), Is.EqualTo((1920, 1080)));
+    }
+
+    [TestCase(320, 200, 320, 200)]
+    [TestCase(480, 300, 320, 200)]
+    public void Converting_a_frame_in_bands_matches_drawing_it_in_one_piece(int width, int height, int targetWidth, int targetHeight)
+    {
+        using var bitmap = new Bitmap(width, height, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        var random = new Random(1);
+        foreach (ref var pixel in bitmap.GetPixelSpan<RgbaF16>())
+            pixel = new RgbaF16((Half)random.NextSingle(), (Half)random.NextSingle(), (Half)random.NextSingle(), (Half)1);
+        using var converter = new MobilePreviewServer.FrameConverter(targetWidth, targetHeight, hdr: false);
+        byte[] banded = converter.Convert(bitmap, UIToneMappingOperator.None, 0);
+
+        using var whole = new SKBitmap(targetWidth, targetHeight, SKColorType.Bgra8888, SKAlphaType.Premul);
+        using (var canvas = new SKCanvas(whole))
+        {
+            canvas.Clear(SKColors.Black);
+            // The converter skips resampling for a frame already at its size.
+            Beutl.Controls.PreviewFrameRenderer.Draw(canvas, bitmap, SKRect.Create(width, height), SKRect.Create(targetWidth, targetHeight),
+                width == targetWidth ? Avalonia.Media.Imaging.BitmapInterpolationMode.None : Avalonia.Media.Imaging.BitmapInterpolationMode.HighQuality,
+                UIToneMappingOperator.None, 0);
+        }
+        byte[] expected = whole.Bytes;
+        Assert.That(banded.Zip(expected, (a, b) => Math.Abs(a - b)).Max(), Is.LessThanOrEqualTo(1));
     }
 
     [TestCase(1)]
@@ -314,7 +370,7 @@ public sealed class MobilePreviewTests
     public void Hdr_conversion_preserves_highlights_above_reference_white()
     {
         using var bitmap = new Bitmap(32, 32, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
-        var (width, height) = MobilePreviewServer.FrameSize(bitmap);
+        var (width, height) = MobilePreviewServer.FrameSize(bitmap, relayed: true);
         using var converter = new MobilePreviewServer.FrameConverter(width, height, hdr: true);
         bitmap.GetPixelSpan<RgbaF16>().Fill(new RgbaF16((Half)1, (Half)1, (Half)1, (Half)1));
         ushort white = BinaryPrimitives.ReadUInt16LittleEndian(converter.Convert(bitmap, UIToneMappingOperator.ACES, 0));
@@ -840,7 +896,7 @@ public sealed class MobilePreviewTests
 
     private static SKBitmap SdrBitmap(Bitmap image, UIToneMappingOperator mode, float exposure)
     {
-        var (width, height) = MobilePreviewServer.FrameSize(image);
+        var (width, height) = MobilePreviewServer.FrameSize(image, relayed: true);
         var result = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
         using var converter = new MobilePreviewServer.FrameConverter(width, height, hdr: false);
         byte[] pixels = converter.Convert(image, mode, exposure);
