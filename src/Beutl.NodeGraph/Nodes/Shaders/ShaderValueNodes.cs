@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Numerics;
-using System.Runtime.InteropServices;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeGraph.Composition;
@@ -109,29 +108,17 @@ public partial class ShaderPackNode : GraphNode
         public override void Update(GraphCompositionContext context)
         {
             using var stream = new MemoryStream();
+            Span<byte> scratch = stackalloc byte[16];
             foreach (object? value in context.CollectListInputValues(RequireOriginal().Values))
             {
-                switch (value)
-                {
-                    case bool v: Write(stream, v ? 1 : 0); break;
-                    case int v: Write(stream, v); break;
-                    case uint v: Write(stream, v); break;
-                    case long v: Write(stream, v); break;
-                    case ulong v: Write(stream, v); break;
-                    case float v: Write(stream, v); break;
-                    case double v: Write(stream, v); break;
-                    case Vector2 v: Write(stream, v); break;
-                    case Vector3 v: Write(stream, v); break;
-                    case Vector4 v: Write(stream, v); break;
-                    case byte[] v: stream.Write(v); break;
-                }
+                if (value is byte[] bytes)
+                    stream.Write(bytes);
+                else if (value != null)
+                    stream.Write(scratch[..ShaderParameterPacking.WriteValue(scratch, value)]);
             }
 
             Output = stream.ToArray();
         }
-
-        private static void Write<T>(Stream stream, T value) where T : unmanaged
-            => stream.Write(MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref value, 1)));
     }
 }
 
@@ -193,11 +180,7 @@ public partial class ShaderColorNode : GraphNode
         public override void Update(GraphCompositionContext context)
         {
             Color color = Color;
-            Output = new Vector4(
-                Media.Color.SrgbToLinear(color.R / 255f),
-                Media.Color.SrgbToLinear(color.G / 255f),
-                Media.Color.SrgbToLinear(color.B / 255f),
-                color.A / 255f);
+            Output = color.ToLinear();
         }
     }
 }

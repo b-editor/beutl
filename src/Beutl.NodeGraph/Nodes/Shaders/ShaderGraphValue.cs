@@ -116,6 +116,9 @@ public sealed class ShaderGraphRecordingContext
 
     public ShaderGraphBuilder Builder { get; }
 
+    // What an image input with nothing connected reads.
+    internal static ShaderGraphValue<ShaderImage> SourceImage { get; } = new(static recording => recording.Builder.Source);
+
     /// <summary>The image holding what <paramref name="node"/> renders, one however often it is read.</summary>
     /// <remarks>The first picture read is the graph's source, which decides what it covers and is run over piece by
     /// piece. Any other lines up with it, and is cut to what it covers.</remarks>
@@ -171,9 +174,6 @@ public sealed class ShaderGraphRecordingContext
         => value == null
             ? throw new InvalidOperationException(string.Format(NodeGraphStrings.ShaderError_NotConnected, portName))
             : Evaluate(value);
-
-    internal static ShaderGraphDescription Build(ShaderGraphValue<ShaderImage> image)
-        => Build(image, out _, out _);
 
     internal static ShaderGraphDescription Build(ShaderGraphValue<ShaderImage> image, out RenderNode? source,
         out IReadOnlyList<RenderNode> externals)

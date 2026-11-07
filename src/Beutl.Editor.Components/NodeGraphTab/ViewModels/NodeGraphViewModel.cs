@@ -196,19 +196,20 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
     }
 
     public void AddNodePort(Type type, Point point)
-    {
-        var node = (GraphNode)Activator.CreateInstance(type)!;
-        EditorContext.GetRequiredService<INodeGraphMutationService>()
-            .AddNode(NodeGraph, node, point.X, point.Y);
-    }
+        => AddNode((GraphNode)Activator.CreateInstance(type)!, point);
 
     /// <summary>Adds a node with the middle of its top edge under the pointer, whatever its width.</summary>
     public void AddNodeUnderPointer(Type type, Point pointer)
     {
         var node = (GraphNode)Activator.CreateInstance(type)!;
-        EditorContext.GetRequiredService<INodeGraphMutationService>()
-            .AddNode(NodeGraph, node, pointer.X - node.EditorWidth / 2, pointer.Y);
+        AddNode(node, UnderPointer(node, pointer));
     }
+
+    private void AddNode(GraphNode node, Point point)
+        => EditorContext.GetRequiredService<INodeGraphMutationService>()
+            .AddNode(NodeGraph, node, point.X, point.Y);
+
+    private static Point UnderPointer(GraphNode node, Point pointer) => new(pointer.X - node.EditorWidth / 2, pointer.Y);
 
     public bool AddNodeAndConnect(GraphNode node, Point point, INodePort existingPort, INodePort? newPort)
         => EditorContext.GetRequiredService<INodeGraphMutationService>()
@@ -224,7 +225,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
         bool added = false;
         try
         {
-            added = AddNodeAndConnect(node, new Point(pointer.X - node.EditorWidth / 2, pointer.Y), source, port);
+            added = AddNodeAndConnect(node, UnderPointer(node, pointer), source, port);
             return added;
         }
         finally

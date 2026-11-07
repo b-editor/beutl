@@ -146,19 +146,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         GraphModel? graph = owner.FindHierarchicalParent<GraphModel>();
         if (graph is null) return false;
 
-        Reference<Connection>[] connections = port switch
-        {
-            IOutputPort output => [.. output.Connections],
-            IListPort list => [.. list.Connections],
-            IInputPort { Connection.Value: var connection } => [connection],
-            _ => [],
-        };
-
-        foreach (Reference<Connection> connection in connections)
-        {
-            if (connection.Value != null) graph.Disconnect(connection.Value);
-        }
-
+        graph.DisconnectPort(port);
         owner.Items.Remove(dynamicPort);
         _historyManager.Commit(CommandNames.RemovePort);
         return true;
@@ -396,44 +384,10 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(port);
-        if (!IsEditable(graph)) return false;
+        if (!IsEditable(graph) || !graph.DisconnectPort(port)) return false;
 
-        Reference<Connection>[]? connections = port switch
-        {
-            IOutputPort output => [.. output.Connections],
-            IListPort list => [.. list.Connections],
-            _ => null,
-        };
-
-        if (connections is not null)
-        {
-            bool anySevered = false;
-            foreach (Reference<Connection> connection in connections)
-            {
-                if (connection.Value != null)
-                {
-                    graph.Disconnect(connection.Value);
-                    anySevered = true;
-                }
-            }
-
-            if (anySevered)
-            {
-                _historyManager.Commit(CommandNames.DisconnectPort);
-                return true;
-            }
-
-            return false;
-        }
-
-        if (port is IInputPort { Connection.Value.Value: { } singleConnection })
-        {
-            graph.Disconnect(singleConnection);
-            _historyManager.Commit(CommandNames.DisconnectPort);
-            return true;
-        }
-
-        return false;
+        _historyManager.Commit(CommandNames.DisconnectPort);
+        return true;
     }
 
     public void DisconnectConnection(GraphModel graph, Connection connection)

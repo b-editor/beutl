@@ -1,9 +1,7 @@
 ﻿using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using Beutl.Animation;
 using Beutl.Editor;
-using Beutl.Extensibility;
 using Beutl.Graphics.Shaders;
 using Beutl.Language;
 using Beutl.NodeGraph.Composition;
@@ -136,8 +134,6 @@ public abstract partial class ShaderLoopNode : GroupNode, IShaderPictureOwner
                         }
                     }
 
-                    // Recording state by state, in iteration order, keeps the depth of the call
-                    // stack to one iteration; a long replay would otherwise overflow it.
                     for (int i = Math.Min(inputCount, outputCount); i < outputCount; i++)
                     {
                         if (snapshot.GetItemValue(outputSlot, i) is { } last)
@@ -145,10 +141,12 @@ public abstract partial class ShaderLoopNode : GroupNode, IShaderPictureOwner
                     }
                 }
 
+                // Recording state by state, in iteration order, keeps the depth of the call
+                // stack to one iteration; a long replay would otherwise overflow it.
                 for (int i = 0; i < Math.Min(inputCount, outputCount); i++)
                 {
                     ItemValues[i].PropagateFrom(states[i].GetBoxed() is IShaderGraphValue value && ordered.Count > 0
-                        ? (IItemValue)new BoxedValue(value.After(ordered))
+                        ? (IItemValue)new ItemValue<object?> { Value = value.After(ordered) }
                         : states[i]);
                 }
             }
@@ -161,21 +159,6 @@ public abstract partial class ShaderLoopNode : GroupNode, IShaderPictureOwner
 
         private protected virtual MediaTime StepTime(ShaderLoopNode node, GraphCompositionContext context, ShaderLoopStep step)
             => context.Time;
-
-        private sealed class BoxedValue(object value) : IItemValue
-        {
-            public PropagateResult PropagateFrom(IItemValue source) => PropagateResult.Failed;
-
-            public bool TryCopyFrom(IPropertyAdapter source) => false;
-
-            public object GetBoxed() => value;
-
-            public bool TryLoadFromAnimation(IKeyFrameAnimation animation, MediaTime time) => false;
-
-            public void Dispose()
-            {
-            }
-        }
     }
 }
 
@@ -280,8 +263,10 @@ public partial class ShaderReplayNode : ShaderLoopNode
             }
 
             error = null;
-            ShaderTimeStep[] steps = [.. ShaderGraphBuilder.ReplaySteps(time, step, reset)];
-            return [.. steps.Select(s => new ShaderLoopStep(s.Index, steps.Length, s.Time.TotalSeconds, s.Delta.TotalSeconds))];
+            var steps = new ShaderLoopStep[count];
+            foreach (ShaderTimeStep s in ShaderGraphBuilder.ReplaySteps(time, step, reset))
+                steps[s.Index] = new(s.Index, steps.Length, s.Time.TotalSeconds, s.Delta.TotalSeconds);
+            return steps;
         }
 
         // Inner animations read the time the step stands for, not the frame being rendered.
@@ -367,17 +352,7 @@ internal static class ShaderLoopBoundary
     {
         if (partner.Items.Count != remaining + 1 || index >= partner.Items.Count) return;
         INodeMember port = partner.Items[index];
-        Reference<Connection>[] connections = port switch
-        {
-            IOutputPort output => [.. output.Connections],
-            IInputPort { Connection.Value: var connection } => [connection],
-            _ => [],
-        };
-        foreach (Reference<Connection> connection in connections)
-        {
-            if (connection.Value != null) group.Disconnect(connection.Value);
-        }
-
+        group.DisconnectPort(port);
         partner.Items.Remove(port);
     }
 }

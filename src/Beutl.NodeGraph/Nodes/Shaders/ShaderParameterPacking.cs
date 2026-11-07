@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Beutl.Graphics;
 using Beutl.Graphics.Shaders;
@@ -50,21 +51,36 @@ internal static class ShaderParameterPacking
                         throw new ArgumentException(string.Format(NodeGraphStrings.ShaderError_DataSize, member.Name, member.Size, bytes.Length));
                     bytes.CopyTo(destination);
                     break;
-                case bool b: int boolean = b ? 1 : 0; MemoryMarshal.Write(destination, in boolean); break;
-                case int v: MemoryMarshal.Write(destination, in v); break;
-                case uint v: MemoryMarshal.Write(destination, in v); break;
-                case long v: MemoryMarshal.Write(destination, in v); break;
-                case ulong v: MemoryMarshal.Write(destination, in v); break;
-                case float v: MemoryMarshal.Write(destination, in v); break;
-                case double v: MemoryMarshal.Write(destination, in v); break;
-                case Vector2 v: MemoryMarshal.Write(destination, in v); break;
-                case Vector3 v: MemoryMarshal.Write(destination, in v); break;
-                case Vector4 v: MemoryMarshal.Write(destination, in v); break;
                 case Matrix v: WriteMatrix(destination, member, v); break;
-                default: throw new ArgumentException(string.Format(NodeGraphStrings.ShaderError_ValueType, member.Name));
+                case { } other:
+                    if (WriteValue(destination, other) == 0)
+                        throw new ArgumentException(string.Format(NodeGraphStrings.ShaderError_ValueType, member.Name));
+                    break;
             }
         }
         return result;
+    }
+
+    // Writes a number or a vector as a shader reads it, a bool as a 32-bit int, and returns its size; 0 for any other value.
+    public static int WriteValue(Span<byte> destination, object value) => value switch
+    {
+        bool v => Write(destination, v ? 1 : 0),
+        int v => Write(destination, v),
+        uint v => Write(destination, v),
+        long v => Write(destination, v),
+        ulong v => Write(destination, v),
+        float v => Write(destination, v),
+        double v => Write(destination, v),
+        Vector2 v => Write(destination, v),
+        Vector3 v => Write(destination, v),
+        Vector4 v => Write(destination, v),
+        _ => 0
+    };
+
+    private static int Write<T>(Span<byte> destination, T value) where T : unmanaged
+    {
+        MemoryMarshal.Write(destination, in value);
+        return Unsafe.SizeOf<T>();
     }
 
     // A Matrix maps row vectors and GLSL maps column vectors, so its rows are the shader's columns.

@@ -14,9 +14,9 @@ internal sealed record ShaderPassCapture(
     string Label,
     ShaderProgram Program,
     ShaderPassReflection Reflection,
-    ImmutableDictionary<string, object?> Inputs,
-    ShaderPassConfiguration?[] Settings,
-    ShaderGraphValue<ShaderImage>?[] Targets,
+    IReadOnlyDictionary<string, object?> Inputs,
+    IReadOnlyList<ShaderPassConfiguration?> Settings,
+    IReadOnlyList<ShaderGraphValue<ShaderImage>?> Targets,
     TextureFormat Format,
     float Padding,
     float ResolutionScale);
@@ -77,9 +77,37 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
     private protected virtual bool ReadsAcrossItsOutput => true;
 
     // A saved node keeps its ports; code only needs reading when it changes.
-    private protected void OnCodeChanged()
+    private void OnCodeChanged()
     {
         if (!IsRestoring) RefreshPorts();
+    }
+
+    private protected void AddCodeInput(IProperty<string> code)
+    {
+        AddInput(this, code);
+        code.ValueChanged += (_, _) => OnCodeChanged();
+    }
+
+    // The inputs the code declares follow the error monitor.
+    private protected void AddFixedPorts(params ReadOnlySpan<INodeMember> beforeSettings)
+    {
+        Items.Add(Error);
+        Items.Add(Padding);
+        Items.Add(ResolutionScale);
+        foreach (INodeMember item in beforeSettings)
+            Items.Add(item);
+        Items.Add(Settings);
+        SealFixedPorts(Error);
+    }
+
+    // The ports the default code declares, made without compiling it.
+    private protected void InsertDefaultPorts(ReadOnlySpan<string> outputs, ReadOnlySpan<string> inputs)
+    {
+        for (int i = 0; i < outputs.Length; i++)
+            Items.Insert(i, CreateOutput<ShaderGraphValue<ShaderImage>>(OutputPrefix + outputs[i], Label(outputs[i])));
+        int index = Items.IndexOf(Error) + 1;
+        foreach (string input in inputs)
+            Items.Insert(index++, CreateInput<ShaderGraphValue<ShaderImage>>(InputPrefix + input, Label(input)));
     }
 
     /// <summary>Reads the code and shows its declarations as ports. Code that does not compile keeps the ports and connections it had.</summary>
@@ -262,7 +290,7 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
 
         private ShaderPassCapture Capture(ShaderPassNode node, GraphCompositionContext context, ShaderPassReflection reflection)
         {
-            var inputs = ImmutableDictionary.CreateBuilder<string, object?>(StringComparer.Ordinal);
+            var inputs = new Dictionary<string, object?>(StringComparer.Ordinal);
             for (int index = 0; index < Members.Length; index++)
             {
                 if (Members[index] is IInputPort port && port.Name.Value.StartsWith(InputPrefix, StringComparison.Ordinal))
@@ -278,16 +306,16 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
                 _constants = constants;
             }
 
-            (TextureFormat format, ShaderGraphValue<ShaderImage>?[] targets) = ReadColorTargets(context);
-            return new(node.PassLabel, _program, _specialized!, inputs.ToImmutable(),
-                [.. context.CollectListInputValues(node.Settings)], targets, format, Padding, ResolutionScale);
+            (TextureFormat format, IReadOnlyList<ShaderGraphValue<ShaderImage>?> targets) = ReadColorTargets(context);
+            return new(node.PassLabel, _program, _specialized!, inputs,
+                context.CollectListInputValues(node.Settings), targets, format, Padding, ResolutionScale);
         }
 
-        private protected virtual (TextureFormat Format, ShaderGraphValue<ShaderImage>?[] Targets) ReadColorTargets(
+        private protected virtual (TextureFormat Format, IReadOnlyList<ShaderGraphValue<ShaderImage>?> Targets) ReadColorTargets(
             GraphCompositionContext context) => (TextureFormat.RGBA16Float, []);
 
         private static ImmutableArray<SpecializationConstant> ReadConstants(ShaderPassReflection reflection,
-            ImmutableDictionary<string, object?>.Builder inputs)
+            IReadOnlyDictionary<string, object?> inputs)
         {
             if (reflection.Specializations.IsEmpty) return [];
             var constants = ImmutableArray.CreateBuilder<SpecializationConstant>(reflection.Specializations.Length);
@@ -327,7 +355,7 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
                 if (descriptor.Type == DescriptorType.CombinedImageSampler)
                 {
                     ShaderGraphValue<ShaderImage>? wire = Wire<ShaderImage>(descriptor.Name);
-                    ShaderImage image = wire != null ? recording.Evaluate(wire) : builder.Source;
+                    ShaderImage image = recording.Evaluate(wire ?? ShaderGraphRecordingContext.SourceImage);
                     // A table of a set size says nothing about what the pass covers.
                     if (!image.Description.HasValue) firstRead ??= image;
                     samplers.Add((descriptor, image, wire as ShaderSampledImageValue));
@@ -336,13 +364,18 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
                 {
                     int binding = descriptor.Binding;
                     ShaderGraphValue<ShaderImage>? wire = Wire<ShaderImage>(descriptor.Name);
-                    ShaderImage image = wire != null ? recording.Evaluate(wire) : builder.Source;
+                    ShaderImage image = recording.Evaluate(wire ?? ShaderGraphRecordingContext.SourceImage);
                     if (!image.Description.HasValue) firstRead ??= image;
                     bindings.Add(pass => pass.StorageImage(binding, image, ResourceAccess.Read));
                 }
             }
 
-            ShaderImage[] targets = [.. capture.Targets.Where(target => target != null).Select(target => recording.Evaluate(target!))];
+            var targets = new List<ShaderImage>(capture.Targets.Count);
+            for (int i = 0; i < capture.Targets.Count; i++)
+            {
+                if (capture.Targets[i] is { } target) targets.Add(recording.Evaluate(target));
+            }
+
             ShaderImage like = targets.FirstOrDefault() ?? firstRead ?? builder.Source;
             ShaderImage? firstWritten = null;
             foreach (ShaderDescriptorLayout descriptor in reflection.Descriptors)
@@ -441,7 +474,7 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
             foreach (ShaderColorOutputLayout color in reflection.ColorOutputs)
             {
                 ShaderImage image;
-                if (color.Location < targets.Length)
+                if (color.Location < targets.Count)
                 {
                     image = targets[color.Location];
                 }
@@ -449,7 +482,7 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
                 {
                     image = Allocate(recording, capture, color.Name, like, FormatFor(color, capture.Format));
                     // A pass that draws onto a target keeps what is there, and all its outputs load alike.
-                    if (targets.Length > 0) ShaderImageContents.Clear(recording, image);
+                    if (targets.Count > 0) ShaderImageContents.Clear(recording, image);
                 }
 
                 resources[OutputPrefix + color.Name] = image;
@@ -457,7 +490,7 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
             }
 
             // A pass told where its images lie does its own arithmetic, which a copy elsewhere would throw off.
-            bool aligns = node.ReadsAcrossItsOutput && !capture.Inputs.Values.OfType<ShaderImageParametersValue>().Any();
+            bool aligns = node.ReadsAcrossItsOutput && !capture.Inputs.Values.Any(static input => input is ShaderImageParametersValue);
             ShaderImage? frame = !aligns ? null : colors.Count > 0 ? colors[0].Image : firstWritten;
             foreach ((ShaderDescriptorLayout descriptor, ShaderImage image, ShaderSampledImageValue? options) in samplers)
             {
@@ -472,15 +505,19 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
                 });
             }
 
-            Action<ShaderPassRecording>[] settings = [.. capture.Settings.Where(setting => setting != null)
-                .Select(setting => setting!.Prepare(recording))];
+            var settings = new List<Action<ShaderPassRecording>>(capture.Settings.Count);
+            for (int i = 0; i < capture.Settings.Count; i++)
+            {
+                if (capture.Settings[i] is { } setting) settings.Add(setting.Prepare(recording));
+            }
+
             ShaderImage? depth = null;
             node.RecordPass(builder, recording.UniqueName(capture.Label), capture.Program, pass =>
             {
                 foreach (Action<ShaderPassBuilder> bind in bindings) bind(pass);
                 var recorded = new ShaderPassRecording(pass);
                 foreach (Action<ShaderPassRecording> apply in settings) apply(recorded);
-                AttachmentLoadOp load = recorded.Load ?? (targets.Length > 0 ? AttachmentLoadOp.Load : AttachmentLoadOp.Clear);
+                AttachmentLoadOp load = recorded.Load ?? (targets.Count > 0 ? AttachmentLoadOp.Load : AttachmentLoadOp.Clear);
                 foreach ((int location, ShaderImage image) in colors) pass.ColorAttachment(location, image, load);
                 if (recorded.VertexBindings.Count > 0 || recorded.VertexAttributes.Count > 0)
                 {
@@ -579,8 +616,8 @@ public abstract partial class ShaderGraphicsPassNode : ShaderPassNode
 
     public partial class Resource
     {
-        private protected override (TextureFormat Format, ShaderGraphValue<ShaderImage>?[] Targets) ReadColorTargets(
+        private protected override (TextureFormat Format, IReadOnlyList<ShaderGraphValue<ShaderImage>?> Targets) ReadColorTargets(
             GraphCompositionContext context)
-            => (Format, [.. context.CollectListInputValues(RequireOriginal().Targets)]);
+            => (Format, context.CollectListInputValues(RequireOriginal().Targets));
     }
 }

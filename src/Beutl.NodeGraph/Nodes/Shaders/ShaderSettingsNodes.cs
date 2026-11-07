@@ -264,7 +264,7 @@ public partial class ShaderVertexBufferNode : GraphNode
         {
             (ShaderGraphValue<ShaderBuffer>? wire, int binding, int offset, int stride, VertexInputRate rate)
                 = (Buffer, Binding, Offset, Stride, Rate);
-            VertexAttributeDescription[] attributes = [.. context.CollectListInputValues(RequireOriginal().Attributes)];
+            List<VertexAttributeDescription> attributes = context.CollectListInputValues(RequireOriginal().Attributes);
             Output = new(recording =>
             {
                 ShaderBuffer buffer = recording.Require(wire, NodeGraphStrings.ShaderPort_Buffer);
@@ -619,7 +619,7 @@ public partial class ShaderSamplerNode : GraphNode
                 MaxLod = MaxLod,
                 Compare = UseCompare ? Compare : null
             };
-            ShaderGraphValue<ShaderImage> image = Image ?? new(recording => recording.Builder.Source);
+            ShaderGraphValue<ShaderImage> image = Image ?? ShaderGraphRecordingContext.SourceImage;
             Output = new ShaderSampledImageValue(image, sampler, (image as ShaderSampledImageValue)?.Region);
         }
     }
@@ -649,7 +649,7 @@ public partial class ShaderInputRegionNode : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            ShaderGraphValue<ShaderImage> image = Image ?? new(recording => recording.Builder.Source);
+            ShaderGraphValue<ShaderImage> image = Image ?? ShaderGraphRecordingContext.SourceImage;
             Output = new ShaderSampledImageValue(image, (image as ShaderSampledImageValue)?.Sampler, new ShaderInputRegion(Transform, Padding));
         }
     }
@@ -672,7 +672,7 @@ public partial class ShaderImageParametersNode : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            Output = new ShaderImageParametersValue(Image ?? new(recording => recording.Builder.Source));
+            Output = new ShaderImageParametersValue(Image ?? ShaderGraphRecordingContext.SourceImage);
         }
     }
 }

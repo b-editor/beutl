@@ -16,7 +16,6 @@ namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
 public partial class NodeGraphView : UserControl
 {
-    // The width of most nodes, which a new node is centered under the pointer by.
     private readonly CompositeDisposable _disposables = [];
     private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;
     private readonly Func<TopLevel, IDisposable?> _attachNativeInput;
