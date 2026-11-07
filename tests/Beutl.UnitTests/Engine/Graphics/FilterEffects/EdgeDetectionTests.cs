@@ -149,9 +149,11 @@ public sealed class EdgeDetectionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(Covered(lightness), Is.Empty);
-            Assert.That(Covered(color), Is.EqualTo(new[] { Width / 2 - 1, Width / 2 }));
+            Assert.That(Enumerable.Range(0, Width).Select(x => AlphaAt(lightness, x)), Is.All.Zero);
+            Assert.That(AlphaAt(color, Width / 2 - 1), Is.EqualTo(255));
             Assert.That(AlphaAt(color, Width / 2), Is.EqualTo(255));
+            Assert.That(Enumerable.Range(0, Width).Where(x => x is not (Width / 2 - 1 or Width / 2)).Select(x => AlphaAt(color, x)),
+                Is.All.Zero);
         });
     }
 
@@ -188,6 +190,23 @@ public sealed class EdgeDetectionTests
             Assert.That(large, Is.InRange(150, 250));
             Assert.That(small, Is.InRange(1, 60));
             Assert.That(small, Is.LessThan(large));
+        });
+    }
+
+    // The strength fades whatever is measured: the line where two colors meet, and the one along an outline.
+    [TestCase(EdgeDetectionTarget.Color, 20f)]
+    [TestCase(EdgeDetectionTarget.Alpha, 5f)]
+    public void The_strength_fades_the_lines_of_color_and_transparency_too(EdgeDetectionTarget target, float strength)
+    {
+        RectShape Shape() => target == EdgeDetectionTarget.Color ? Box(s_red, s_blue) : Box();
+
+        byte[] full = Render(Shape(), new EdgeDetection { Target = { Value = target } });
+        byte[] faint = Render(Shape(), new EdgeDetection { Target = { Value = target }, Strength = { Value = strength } });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Peak(full), Is.EqualTo(255));
+            Assert.That(Peak(faint), Is.InRange(30, 225));
         });
     }
 
