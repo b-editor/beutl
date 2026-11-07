@@ -8,6 +8,7 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.PropertyEditors;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
@@ -170,9 +171,9 @@ internal static class BuiltInPropertyEditors
         }
 
         string[] others = attribute.OtherNames;
-        if (others.Length + 1 != count) return [];
+        // PropertyPair, which the row is a view of, finds pairs only on an engine object.
+        if (others.Length + 1 != count || first.GetEngineProperty()?.GetOwnerObject() is not EngineObject owner) return [];
 
-        object? owner = first.GetEngineProperty()?.GetOwnerObject();
         var matched = new List<IPropertyAdapter>(count) { first };
         foreach (string name in others)
         {
