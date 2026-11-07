@@ -92,6 +92,7 @@ public partial class PlayerView : UserControl
         Player.TemplateApplied += OnPlayerTemplateApplied;
         ShowShortcutInToolTip(guidesToggle, "editor.togglePreviewGuides");
         ShowShortcutInToolTip(onionSkinToggle, "editor.toggleOnionSkin");
+        ShowShortcutInToolTip(checkerboardToggle, "editor.togglePreviewCheckerboard");
     }
 
     private async void OnPlayerCurrentTimeSubmitted(object? sender, Beutl.Controls.TimecodeSubmittedEventArgs e)

@@ -501,6 +501,39 @@ public sealed class PlayerViewControlsTests
         }
     }
 
+    [AvaloniaTest]
+    [TestCase("guidesToggle", "Alt+G")]
+    [TestCase("onionSkinToggle", "Alt+O")]
+    [TestCase("checkerboardToggle", "Alt+T")]
+    public async Task A_preview_toggles_tip_shows_its_shortcut_as_it_opens(string name, string shortcut)
+    {
+        EditViewModel editor = await OpenEditor();
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 400 };
+        try
+        {
+            await Prepare(view, window);
+            ToggleButton toggle = view.FindControl<ToggleButton>(name)!;
+            string label = (string)ToolTip.GetTip(toggle)!;
+            ToolTip.SetShowDelay(toggle, 0);
+            Point center = HeadlessTestHelpers.Center(toggle, window);
+            TimelineTestHost.WaitForHitTest(window, toggle, center);
+
+            window.MouseMove(center);
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ToolTip.GetIsOpen(toggle), Is.True);
+                Assert.That(ToolTip.GetTip(toggle), Is.EqualTo($"{label} ({KeyGesture.Parse(shortcut).ToString("p", null)})"));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [Test]
     [TestCase(1f, PlaybackDirection.Stopped, null)]
     [TestCase(2f, PlaybackDirection.Stopped, null)]
