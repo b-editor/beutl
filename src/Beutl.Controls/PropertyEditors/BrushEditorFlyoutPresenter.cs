@@ -113,14 +113,27 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         if (Content is SimpleColorPicker cp2)
         {
-            cp2.SetColor(color);
-            if (_lastSelectedTab != null)
-                _lastSelectedTab.IsChecked = true;
-            if (_paletteTabButton != null)
-                _paletteTabButton.IsChecked = false;
+            // Without a brush the color has nothing to go to, so the solid tab makes a brush for it first, as
+            // choosing that tab and then the color does.
+            if (OriginalBrush == null)
+            {
+                _lastSelectedTab = _solidBrushTabButton;
+                ReturnToLastTab();
+            }
 
-            OnTabButtonIsCheckedChanged();
+            cp2.SetColor(color);
+            ReturnToLastTab();
         }
+    }
+
+    private void ReturnToLastTab()
+    {
+        if (_lastSelectedTab != null)
+            _lastSelectedTab.IsChecked = true;
+        if (_paletteTabButton != null)
+            _paletteTabButton.IsChecked = false;
+
+        OnTabButtonIsCheckedChanged();
     }
 
     private void UpdateTabCheckedState()
