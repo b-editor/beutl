@@ -131,6 +131,33 @@ public sealed class ShaderGraphPartialImageTests
         });
     }
 
+    // A footprint names an image the pass samples. Any other binding would leave the image it means read whole, unnoticed.
+    [TestCase(0, false)]
+    [TestCase(1, true)]
+    [TestCase(3, true)]
+    public void AFootprintAboutAnOriginNamesAnImageThePassSamples(int binding, bool throws)
+    {
+        if (throws)
+            Assert.That(() => Build(binding), Throws.InvalidOperationException);
+        else
+            Assert.That(() => Build(binding), Throws.Nothing);
+
+        static ShaderGraphDescription Build(int binding) => ShaderGraphBuilder.Build(binding, static (builder, declared) =>
+        {
+            ShaderImage output = builder.Image2D("output", builder.Source);
+            builder.Fullscreen("footprint", s_fromMetadata, pass =>
+            {
+                pass.SampledImage(0, builder.Source);
+                pass.ImageParameters(1, builder.Source);
+                pass.ImageParameters(2, output);
+                pass.InputRegionAbout(declared, RelativePoint.Center, [Matrix.Identity]);
+                pass.PartialImages();
+                pass.ColorAttachment(0, output);
+            });
+            return builder.Output(output);
+        });
+    }
+
     [TestCaseSource(nameof(Effects))]
     public void EveryEffectDrawsThePartItNeedsLikeTheWhole(FilterEffect effect, float scale)
     {

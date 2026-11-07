@@ -333,7 +333,7 @@ public sealed partial class ShaderPassBuilder
 
     internal ShaderPassDescription Build()
     {
-        foreach (int binding in _inputRegions.Keys)
+        foreach (int binding in _inputRegions.Keys.Concat(_originInputRegions.Keys))
             if (!_bindings.TryGetValue(binding, out ShaderPassBinding? input) || input.Type != DescriptorType.CombinedImageSampler)
                 throw new InvalidOperationException($"Pass '{_name}' has an input region without sampled-image binding {binding}.");
         if (_work is not { } work)
