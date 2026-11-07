@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -155,6 +156,41 @@ public sealed class CombinedEditorTests
                 Assert.That(row?.EditedProperties.Select(p => p.GetEngineProperty()!.Name), Is.EqualTo(names), $"{type.Name}.{property.Name}");
             }
         }
+    }
+
+    // An extension may leave the row unnamed. The panel, the graph editor and the inline view then all name it after
+    // the first property, as the panel names a row of its own.
+    [AvaloniaTest]
+    public void A_row_the_attribute_does_not_name_takes_the_first_property_s_name_everywhere()
+    {
+        var owner = new UnnamedPairOwner();
+        using var contexts = new DisposableContexts(CreateContexts(owner));
+        var row = contexts.Contexts.OfType<CombinedEditorViewModel<float, (float, float)>>().Single();
+
+        Assert.That(row.Header, Is.EqualTo("Offset X"));
+        // The graph editor's tree and the inline view show the pair under its own name.
+        Assert.That(PropertyPair.Find(owner.OffsetX)!.DisplayName, Is.EqualTo("Offset X"));
+    }
+
+    // An extension's properties may belong to an object that is not an engine object, whose properties never stand as
+    // one. An editor that took them as a pair would fail to show them, and the panel would report that as Beutl's own
+    // failure.
+    [AvaloniaTest]
+    public void The_pair_of_an_owner_that_is_not_an_engine_object_takes_a_row_each()
+    {
+        var owner = new NonEnginePairOwner();
+        IPropertyAdapter[] adapters = [PropertyAdapterFactory.CreateAdapter(owner.X, owner), PropertyAdapterFactory.CreateAdapter(owner.Y, owner)];
+
+        foreach (PropertyEditorRegistration registration in PropertyEditorResolver.RegistrationsOf(PropertyEditorExtension.Instance))
+        {
+            if (registration.Tier != PropertyEditorTier.Match || registration.Match!(adapters) is not { Count: > 0 } taken) continue;
+            Assert.DoesNotThrow(() => registration.CreateContext(taken)?.Dispose());
+        }
+
+        var contexts = new List<IPropertyEditorContext>();
+        PropertyEditorResolver.CreateContexts([.. adapters], [PropertyEditorExtension.Instance], PropertyEditorSurface.Panel, contexts.Add);
+        using var rows = new DisposableContexts([.. contexts]);
+        Assert.That(rows.Contexts, Has.Length.EqualTo(2).And.All.TypeOf<NumberEditorViewModel<float>>());
     }
 
     [AvaloniaTest]
@@ -1288,4 +1324,28 @@ public sealed class CombinedEditorTests
             History.Dispose();
         }
     }
+}
+
+// An extension's pair whose attribute gives the row no name.
+public sealed partial class UnnamedPairOwner : EngineObject
+{
+    public UnnamedPairOwner() => ScanProperties<UnnamedPairOwner>();
+
+    [Display(Name = "Offset X")]
+    [CombinedEditor(nameof(OffsetY))]
+    public AnimatableProperty<float> OffsetX { get; } = new(0);
+
+    [Display(Name = "Offset Y")]
+    public AnimatableProperty<float> OffsetY { get; } = new(0);
+}
+
+// An extension's object that is not an engine object, with two properties it marks as one row.
+internal sealed class NonEnginePairOwner : CoreObject
+{
+    public NonEnginePairOwner() => ScanProperties<NonEnginePairOwner>();
+
+    [CombinedEditor(nameof(Y))]
+    public AnimatableProperty<float> X { get; } = new(0);
+
+    public AnimatableProperty<float> Y { get; } = new(0);
 }
