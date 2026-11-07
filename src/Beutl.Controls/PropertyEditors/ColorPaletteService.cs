@@ -170,20 +170,15 @@ internal sealed class ColorPaletteService
         }
 
         PaletteColor color = source[palette].Colors[index];
-        if (scope == newScope)
-        {
-            return IsAvailable(scope) && SetPalettes(scope, MoveWithin(source));
-        }
+        return scope == newScope
+            ? IsAvailable(scope) && SetPalettes(scope, Add(Remove(source)))
+            : Transfer(scope, Remove, newScope, Add);
 
-        return Transfer(
-            scope, palettes => palettes.SetItem(palette, palettes[palette].RemoveColor(index)),
-            newScope, palettes => palettes.SetItem(newPalette, palettes[newPalette].AddColor(color)));
+        ImmutableArray<ColorPalette> Remove(ImmutableArray<ColorPalette> palettes)
+            => palettes.SetItem(palette, palettes[palette].RemoveColor(index));
 
-        ImmutableArray<ColorPalette> MoveWithin(ImmutableArray<ColorPalette> palettes)
-        {
-            palettes = palettes.SetItem(palette, palettes[palette].RemoveColor(index));
-            return palettes.SetItem(newPalette, palettes[newPalette].AddColor(color));
-        }
+        ImmutableArray<ColorPalette> Add(ImmutableArray<ColorPalette> palettes)
+            => palettes.SetItem(newPalette, palettes[newPalette].AddColor(color));
     }
 
     // "Palette 1", "Palette 2" and so on: the first such name that no palette has.

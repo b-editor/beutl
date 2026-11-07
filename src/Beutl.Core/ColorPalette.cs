@@ -117,7 +117,8 @@ public sealed record ColorPalette
         {
             if (item is JsonObject obj)
             {
-                palettes.Add(new ColorPalette(ReadString(obj["Name"]) ?? string.Empty, ReadColors(obj["Colors"])));
+                obj.TryGetPropertyValueAsJsonValue("Name", out string? name);
+                palettes.Add(new ColorPalette(name ?? string.Empty, ReadColors(obj["Colors"])));
             }
         }
 
@@ -158,18 +159,15 @@ public sealed record ColorPalette
         ImmutableArray<PaletteColor>.Builder colors = ImmutableArray.CreateBuilder<PaletteColor>();
         foreach (JsonNode? item in array)
         {
-            if (item is JsonObject obj && TryParseArgb(ReadString(obj["Color"]), out uint argb))
+            if (item is JsonObject obj
+                && obj.TryGetPropertyValueAsJsonValue("Color", out string? hex)
+                && TryParseArgb(hex, out uint argb))
             {
-                string? name = ReadString(obj["Name"]);
+                obj.TryGetPropertyValueAsJsonValue("Name", out string? name);
                 colors.Add(new PaletteColor(argb, string.IsNullOrEmpty(name) ? null : name));
             }
         }
 
         return colors.ToImmutable();
-    }
-
-    private static string? ReadString(JsonNode? node)
-    {
-        return node is JsonValue value && value.TryGetValue(out string? s) ? s : null;
     }
 }

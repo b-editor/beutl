@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Globalization;
+using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -11,6 +12,7 @@ using Avalonia.Media;
 using Beutl.Language;
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Media;
 using FluentIcons.Avalonia.Fluent;
 using FluentIcons.Common;
 
@@ -23,9 +25,6 @@ public sealed class ColorPaletteView : TemplatedControl
 {
     public static readonly StyledProperty<Color> CurrentColorProperty =
         AvaloniaProperty.Register<ColorPaletteView, Color>(nameof(CurrentColor));
-
-    public static readonly StyledProperty<int> ColumnsProperty =
-        AvaloniaProperty.Register<ColorPaletteView, int>(nameof(Columns), 10, validate: v => v > 0);
 
     private readonly List<ColorPaletteItem> _items = [];
     private ColorPaletteService? _service;
@@ -47,12 +46,6 @@ public sealed class ColorPaletteView : TemplatedControl
         set => SetValue(CurrentColorProperty, value);
     }
 
-    public int Columns
-    {
-        get => GetValue(ColumnsProperty);
-        set => SetValue(ColumnsProperty, value);
-    }
-
     // The shared service unless a test gives the view one of its own.
     internal ColorPaletteService Service
     {
@@ -67,6 +60,21 @@ public sealed class ColorPaletteView : TemplatedControl
 
             Rebuild();
         }
+    }
+
+    // Rings the color the picker shows and hands a color picked here to pick, until the result is disposed.
+    internal IDisposable Connect(SimpleColorPicker picker, Action<Color2> pick)
+    {
+        TypedEventHandler<ColorPaletteView, Color> onSelected = (_, color) => pick(color);
+        ColorSelected += onSelected;
+        IDisposable follow = picker.GetObservable(SimpleColorPicker.ColorProperty)
+            .Subscribe(color => CurrentColor = color);
+
+        return Disposable.Create(() =>
+        {
+            ColorSelected -= onSelected;
+            follow.Dispose();
+        });
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -95,10 +103,6 @@ public sealed class ColorPaletteView : TemplatedControl
         if (change.Property == CurrentColorProperty)
         {
             UpdateSelection();
-        }
-        else if (change.Property == ColumnsProperty)
-        {
-            Rebuild();
         }
     }
 
@@ -141,13 +145,9 @@ public sealed class ColorPaletteView : TemplatedControl
                 .Select((c, i) => new Swatch(SwatchKind.Recent, default, -1, i, new PaletteColor(c.ToUInt32()))));
         }
 
-        foreach (PaletteScope scope in (ReadOnlySpan<PaletteScope>)[PaletteScope.Project, PaletteScope.User])
+        foreach ((PaletteScope scope, int index, ColorPalette palette) in GetEditablePalettes())
         {
-            ImmutableArray<ColorPalette> palettes = service.GetPalettes(scope);
-            for (int i = 0; i < palettes.Length; i++)
-            {
-                AddEditablePalette(scope, i, palettes[i]);
-            }
+            AddEditablePalette(scope, index, palette);
         }
 
         ColorPalette defaultPalette = DefaultColorPalette.Palette;
@@ -246,18 +246,15 @@ public sealed class ColorPaletteView : TemplatedControl
 
     private void AddSwatches(IEnumerable<Swatch> swatches)
     {
-        var panel = new ColorSwatchPanel { Columns = Columns };
+        var panel = new ColorSwatchPanel();
         foreach (Swatch swatch in swatches)
         {
             Color color = Color.FromUInt32(swatch.Color.Argb);
-            // The item sets a minimum size of its own, which would overflow a narrow cell.
             var item = new ColorPaletteItem
             {
                 Classes = { "palette-swatch" },
                 Color = color,
-                Tag = swatch,
-                MinWidth = 0,
-                MinHeight = 0
+                Tag = swatch
             };
             string tip = FormatTip(swatch.Color);
             ToolTip.SetTip(item, tip);
@@ -460,14 +457,18 @@ public sealed class ColorPaletteView : TemplatedControl
         flyout.ShowAt(target);
     }
 
-    private static FAMenuFlyoutItem CreateItem(string text, Icon icon, Action action, bool isEnabled = true)
+    private static FAMenuFlyoutItem CreateItem(string text, Icon? icon, Action action, bool isEnabled = true)
     {
         var item = new FAMenuFlyoutItem
         {
             Text = text,
-            IconSource = new FluentIconSource { Icon = icon },
             IsEnabled = isEnabled
         };
+        if (icon is { } value)
+        {
+            item.IconSource = new FluentIconSource { Icon = value };
+        }
+
         item.Click += (_, _) => action();
         return item;
     }
@@ -475,14 +476,8 @@ public sealed class ColorPaletteView : TemplatedControl
     private static FAMenuFlyoutItem CreateDestinationItem(
         (PaletteScope Scope, int Index, ColorPalette Palette) destination, Action action)
     {
-        var item = new FAMenuFlyoutItem { Text = destination.Palette.Name };
-        if (destination.Scope == PaletteScope.Project)
-        {
-            item.IconSource = new FluentIconSource { Icon = Icon.DocumentFolder };
-        }
-
-        item.Click += (_, _) => action();
-        return item;
+        Icon? icon = destination.Scope == PaletteScope.Project ? Icon.DocumentFolder : null;
+        return CreateItem(destination.Palette.Name, icon, action);
     }
 
     // The name, if any, over the color as #RRGGBB, or #AARRGGBB when it is not opaque.

@@ -30,12 +30,6 @@ public partial class ColorPaletteItem : Control
         FocusableProperty.OverrideDefaultValue<ColorPaletteItem>(true);
     }
 
-    public ColorPaletteItem()
-    {
-        MinWidth = 23;
-        MinHeight = 23;
-    }
-
     public override void Render(DrawingContext context)
     {
         base.Render(context);
@@ -45,7 +39,7 @@ public partial class ColorPaletteItem : Control
         if (IsSelected && SelectionBrush is { } selectionBrush)
         {
             Rect ring = rect.Deflate(SelectionThickness * 0.5);
-            context.DrawRectangle(null, new Pen(selectionBrush, SelectionThickness), ToRoundedRect(ring, cornerRadius));
+            context.DrawRectangle(null, new Pen(selectionBrush, SelectionThickness), new RoundedRect(ring, cornerRadius));
             rect = rect.Deflate(SelectionThickness + SelectionGap);
         }
 
@@ -62,7 +56,7 @@ public partial class ColorPaletteItem : Control
         if (!MathUtilities.IsZero(thickness))
             rect = rect.Deflate(thickness * 0.5);
 
-        RoundedRect roundedRect = ToRoundedRect(rect, cornerRadius);
+        RoundedRect roundedRect = new(rect, cornerRadius);
         if (_color.A < 255)
         {
             DrawChecker(context, roundedRect);
@@ -132,12 +126,6 @@ public partial class ColorPaletteItem : Control
             _isPressed = false;
             InvalidateVisual();
         }
-    }
-
-    private static RoundedRect ToRoundedRect(Rect rect, CornerRadius cornerRadius)
-    {
-        return new RoundedRect(rect, cornerRadius.TopLeft, cornerRadius.TopRight,
-            cornerRadius.BottomRight, cornerRadius.BottomLeft);
     }
 
     private static void DrawChecker(DrawingContext context, RoundedRect area)

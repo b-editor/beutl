@@ -5,7 +5,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-using Avalonia.Media;
 
 using Beutl.Reactive;
 
@@ -15,7 +14,7 @@ namespace Beutl.Controls.PropertyEditors;
 public class SimpleColorPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly SerialDisposable _pickerColor = new();
+    private readonly SerialDisposable _paletteConnection = new();
     private const string Palette = ":palette";
     private RadioButton? _spectrumTabButton;
     private RadioButton? _paletteTabButton;
@@ -26,11 +25,6 @@ public class SimpleColorPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         _disposables.Clear();
-        if (_paletteView != null)
-        {
-            _paletteView.ColorSelected -= OnPaletteColorSelected;
-        }
-
         base.OnApplyTemplate(e);
         _spectrumTabButton = e.NameScope.Find<RadioButton>("SpectrumTabButton");
         _paletteTabButton = e.NameScope.Find<RadioButton>("PaletteTabButton");
@@ -43,11 +37,6 @@ public class SimpleColorPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 
         _paletteTabButton?.AddDisposableHandler(ToggleButton.IsCheckedChangedEvent, OnTabButtonIsCheckedChanged)
             .DisposeWith(_disposables);
-
-        if (_paletteView != null)
-        {
-            _paletteView.ColorSelected += OnPaletteColorSelected;
-        }
 
         if (_spectrumTabButton != null)
         {
@@ -70,14 +59,7 @@ public class SimpleColorPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     private void OnContentChanged()
     {
         var picker = Content as SimpleColorPicker;
-        _pickerColor.Disposable = picker?.GetObservable(SimpleColorPicker.ColorProperty)
-            .Subscribe(color =>
-            {
-                if (_paletteView != null)
-                {
-                    _paletteView.CurrentColor = color;
-                }
-            });
+        _paletteConnection.Disposable = picker != null ? _paletteView?.Connect(picker, picker.SetColor) : null;
 
         if (_paletteTabButton != null)
         {
@@ -87,11 +69,6 @@ public class SimpleColorPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
                 _spectrumTabButton.IsChecked = true;
             }
         }
-    }
-
-    private void OnPaletteColorSelected(ColorPaletteView sender, Color color)
-    {
-        (Content as SimpleColorPicker)?.SetColor(color);
     }
 
     private void OnTabButtonIsCheckedChanged(object? sender, RoutedEventArgs e)

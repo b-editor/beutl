@@ -120,7 +120,9 @@
                                     <ComboBoxItem Content="{x:Static lang:Strings.Conical}" />
                                     <ComboBoxItem Content="{x:Static lang:Strings.Radial}" />
                                 </ComboBox>
-                                <local:GradientStopsSlider Name="GradientStopsSlider" Grid.Row="1" />
+                                <local:GradientStopsSlider Name="GradientStopsSlider"
+                                                           Grid.Row="1"
+                                                           BackgroundStops="{TemplateBinding BackgroundStops}" />
                             </Grid>
                             <Grid Name="DrawableOptions"
                                   Margin="6,0,6,6"
