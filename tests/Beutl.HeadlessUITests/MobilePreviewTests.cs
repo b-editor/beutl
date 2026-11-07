@@ -266,6 +266,44 @@ public sealed class MobilePreviewTests
         Assert.That(MobilePreviewServer.FrameSize(bitmap, relayed: false), Is.EqualTo((1920, 1080)));
     }
 
+    [Test]
+    public void A_paused_frame_is_coded_again_until_enough_frames_follow_its_last_key_frame()
+    {
+        const int count = MobilePreviewServer.StillRefinement.Count;
+        var still = new MobilePreviewServer.StillRefinement();
+        // Codes a paused frame for as long as the refinement asks, and returns how often it was coded.
+        int Coded(long frame, bool keyFrames = false, bool firstIsKeyFrame = false)
+        {
+            for (int times = 1; ; times++)
+            {
+                if (!still.Coded(frame, playing: false, keyFrame: keyFrames || (firstIsKeyFrame && times == 1)))
+                    return times;
+            }
+        }
+
+        Assert.That(still.Coded(1, playing: true, keyFrame: false), Is.False, "Playback keeps sending new frames.");
+        Assert.That(Coded(2), Is.EqualTo(count));
+        Assert.That(still.Coded(2, playing: false, keyFrame: false), Is.False, "A refined frame is not coded again.");
+        Assert.That(Coded(3), Is.EqualTo(count), "A new paused frame starts over.");
+        // A key frame, requested or scheduled, falls back to one frame's budget, so the count restarts after it.
+        Assert.That(Coded(3, firstIsKeyFrame: true), Is.EqualTo(count));
+        // A connection that keeps asking for key frames cannot make one frame be coded forever.
+        Assert.That(Coded(4) + Coded(4, keyFrames: true), Is.EqualTo(count * 3));
+    }
+
+    [TestCase(new byte[] { 0x10, 0x02, 0x00 }, false, true)]
+    [TestCase(new byte[] { 0x31, 0x02, 0x00 }, false, false)]
+    [TestCase(new byte[] { 0x92, 0x49, 0x83 }, true, true)]
+    [TestCase(new byte[] { 0x96, 0x00, 0x00 }, true, false)]
+    [TestCase(new byte[] { 0x98, 0x00, 0x00 }, true, false)]
+    [TestCase(new byte[0], false, false)]
+    public void Key_frames_are_read_from_the_first_byte(byte[] data, bool hdr, bool keyFrame)
+    {
+        // VP8: the frame tag's lowest bit is 0 on a key frame. VP9 profile 2: 10 (marker), 0 1 (profile),
+        // then show_existing_frame and frame_type, both 0 on a key frame.
+        Assert.That(MobilePreviewServer.IsKeyFrame(data, hdr), Is.EqualTo(keyFrame));
+    }
+
     [TestCase(320, 200, 320, 200, UIToneMappingOperator.None)]
     [TestCase(480, 300, 320, 200, UIToneMappingOperator.None)]
     [TestCase(320, 200, 320, 200, UIToneMappingOperator.ACES)]

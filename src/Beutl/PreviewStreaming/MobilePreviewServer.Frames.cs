@@ -20,6 +20,8 @@ internal sealed partial class MobilePreviewServer
         new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
     private readonly Stopwatch _mediaClock = Stopwatch.StartNew();
     private PendingFrame? _latest;
+    // Counts published frames, so coding a paused frame again can be told apart from coding a new one.
+    private long _published;
     private bool _hdrUnavailable;
     private int _keyFrame = 1;
 
@@ -55,6 +57,7 @@ internal sealed partial class MobilePreviewServer
                 ? previous.Clock : _mediaClock.Elapsed.TotalSeconds;
             _latest?.Dispose();
             _latest = new(reference, toneMapping, exposure, playing, time, playbackId, clock);
+            _published++;
             _updates.Writer.TryWrite(true);
         }
     }
@@ -62,6 +65,7 @@ internal sealed partial class MobilePreviewServer
     private async Task EncodeFramesAsync()
     {
         var encoders = new Dictionary<bool, (FrameConverter Converter, PreviewEncoder Encoder)>();
+        var still = new StillRefinement();
         bool relayed = true;
         var cadence = Stopwatch.StartNew();
         try
@@ -71,11 +75,13 @@ internal sealed partial class MobilePreviewServer
                 var remaining = TimeSpan.FromSeconds(1d / PreviewEncodingFormat.FrameRate(relayed)) - cadence.Elapsed;
                 if (remaining > TimeSpan.Zero) await Task.Delay(remaining, _stop.Token);
                 PendingFrame? frame;
+                long published;
                 bool[] profiles;
                 lock (_gate)
                 {
                     _updates.Reader.TryRead(out _);
                     frame = _latest?.Snapshot();
+                    published = _published;
                     profiles = _peers.Values.Select(viewer => viewer.Hdr).Distinct().Where(hdr => !hdr || !_hdrUnavailable).ToArray();
                     relayed = IsRelayed();
                 }
@@ -87,6 +93,7 @@ internal sealed partial class MobilePreviewServer
                     // A keyframe requested while paused is a new RTP frame, even with unchanged pixels.
                     uint timestamp = (uint)(_mediaClock.Elapsed.TotalSeconds * 90000);
                     bool keyFrame = Interlocked.Exchange(ref _keyFrame, 0) != 0;
+                    bool keyFrameCoded = false;
                     var (width, height) = FrameSize(frame.Image.Value, relayed);
                     foreach (bool hdr in profiles)
                     {
@@ -112,6 +119,7 @@ internal sealed partial class MobilePreviewServer
                             }
                             byte[] pixels = entry.Converter.Convert(frame.Image.Value, frame.ToneMapping, frame.Exposure);
                             byte[] data = await entry.Encoder.EncodeAsync(pixels, keyFrame || reset, _stop.Token).ConfigureAwait(false);
+                            keyFrameCoded |= IsKeyFrame(data, hdr);
                             if (data.Length != 0 && _transport is { } transport)
                                 transport.SendMedia(data, timestamp, video: true, hdr);
                         }
@@ -132,6 +140,8 @@ internal sealed partial class MobilePreviewServer
                             }
                         }
                     }
+                    if (profiles.Length != 0 && still.Coded(published, frame.Playing, keyFrameCoded))
+                        _updates.Writer.TryWrite(true);
                 }
             }
         }
@@ -234,6 +244,36 @@ internal sealed partial class MobilePreviewServer
         {
             foreach (var band in _bands) band.Dispose();
             _resized?.Dispose();
+        }
+    }
+
+    // VP8 clears the frame tag's lowest bit on a key frame (RFC 6386). In VP9 profile 2's first byte,
+    // a key frame sets neither show_existing_frame nor frame_type, as the packetizer also reads.
+    internal static bool IsKeyFrame(ReadOnlySpan<byte> data, bool hdr)
+        => data.Length != 0 && (data[0] & (hdr ? 0x0c : 0x01)) == 0;
+
+    // libvpx adds detail to an unchanged picture with every frame it codes, while a key frame starts again
+    // from one frame's budget. So a paused frame is coded until Count frames have followed its last key frame,
+    // and at most three times as often in all, since a lost connection can keep asking for key frames.
+    internal sealed class StillRefinement
+    {
+        // Where natural footage stopped improving at both qualities: 36.6 to 43.3 dB at 1080p and 8 Mbps,
+        // and 35.5 to 43.4 dB at 720p and 2 Mbps, after about 0.9 MB and 0.4 MB. The encoder's key frame
+        // interval is at least twice this, so one paused frame meets at most one scheduled key frame.
+        internal const int Count = 30;
+        private long _frame = -1;
+        private int _sinceKeyFrame;
+        private int _coded;
+
+        // Called after a frame is coded; returns whether to code the same paused frame again.
+        internal bool Coded(long frame, bool playing, bool keyFrame)
+        {
+            if (playing || frame != _frame) _sinceKeyFrame = _coded = 0;
+            _frame = frame;
+            if (playing) return false;
+            _coded++;
+            _sinceKeyFrame = keyFrame ? 1 : _sinceKeyFrame + 1;
+            return _sinceKeyFrame < Count && _coded < Count * 3;
         }
     }
 
