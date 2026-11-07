@@ -307,13 +307,20 @@ public sealed partial class BrushEditor : UserControl
 
     private void OnColorConfirmed(object? sender, (Color2 OldValue, Color2 NewValue) e)
     {
-        if (DataContext is not BrushEditorViewModel viewModel) return;
-        if (viewModel.Value.Value is not SolidColorBrush) return;
-        if (viewModel.IsDisposed) return;
+        if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
 
-        // A drag's session holds its writes; SetColor then finds the value in place and commits nothing more.
-        _drag.Confirm();
-        viewModel.SetColor(e.OldValue.ToBtlColor(), e.NewValue.ToBtlColor());
+        switch (viewModel.Value.Value)
+        {
+            // A color confirmed with no brush, as a pick in the palette, becomes a solid brush in one step.
+            case null:
+                viewModel.SetValue(null, new SolidColorBrush { Color = { Value = e.NewValue.ToBtlColor() } });
+                break;
+            case SolidColorBrush:
+                // A drag's session holds its writes; SetColor then finds the value in place and commits nothing more.
+                _drag.Confirm();
+                viewModel.SetColor(e.OldValue.ToBtlColor(), e.NewValue.ToBtlColor());
+                break;
+        }
     }
 
     private void OnColorChanged(object? sender, (Color2 OldValue, Color2 NewValue) e)

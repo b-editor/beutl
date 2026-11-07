@@ -379,7 +379,8 @@ public sealed class ColorPaletteViewTests
         }
     }
 
-    // Without a brush, a pick in the palette makes a solid brush of that color, as the solid tab and a pick in it do.
+    // Without a brush, a pick in the palette makes a solid brush of that color, as the solid tab and a pick in it do,
+    // but as one step, so that one Undo takes the brush away again.
     [AvaloniaTest]
     public void A_color_picked_in_the_palette_tab_without_a_brush_makes_a_solid_brush_of_it()
     {
@@ -420,6 +421,12 @@ public sealed class ColorPaletteViewTests
 
             ClickWhenReachable(window, editor.BrushPreviewButton);
             Assert.That(service.RecentColors, Is.EqualTo(new[] { s_teal }));
+
+            Assert.That(history.History.Undo(), Is.True);
+            Assert.That(shape.Fill.Value, Is.Null, "One Undo takes back the whole pick.");
+            Assert.That(history.History.Redo(), Is.True);
+            Assert.That((shape.Fill.Value as Beutl.Media.SolidColorBrush)?.Color.Value,
+                Is.EqualTo(Beutl.Media.Color.FromUInt32(s_teal.ToUInt32())), "Redo brings the teal brush back.");
         }
         finally
         {

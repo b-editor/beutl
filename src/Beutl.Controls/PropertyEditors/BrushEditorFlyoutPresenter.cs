@@ -111,19 +111,28 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
 
     public void SetColorPaletteItem(Color2 color)
     {
-        if (Content is SimpleColorPicker cp2)
+        if (Content is not SimpleColorPicker cp2)
+            return;
+
+        if (OriginalBrush == null)
         {
-            // Without a brush the color has nothing to go to, so the solid tab makes a brush for it first, as
+            // Without a brush, the color is confirmed as it is, for the host to make a solid brush of it in one
+            // step that one Undo takes back. A host that makes none gets a brush from the solid tab instead, as
             // choosing that tab and then the color does.
+            _lastSelectedTab = _solidBrushTabButton;
+            ColorConfirmed?.Invoke(this, (cp2.Color, color));
             if (OriginalBrush == null)
             {
-                _lastSelectedTab = _solidBrushTabButton;
                 ReturnToLastTab();
+                cp2.SetColor(color);
             }
-
-            cp2.SetColor(color);
-            ReturnToLastTab();
         }
+        else
+        {
+            cp2.SetColor(color);
+        }
+
+        ReturnToLastTab();
     }
 
     private void ReturnToLastTab()
