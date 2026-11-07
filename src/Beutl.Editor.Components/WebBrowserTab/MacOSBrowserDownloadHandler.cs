@@ -4,7 +4,7 @@ using System.Runtime.Versioning;
 
 using Avalonia.Platform;
 
-using static Beutl.Editor.Components.Helpers.ObjCRuntime;
+using static Beutl.Controls.ObjCRuntime;
 
 namespace Beutl.Editor.Components.WebBrowserTab;
 

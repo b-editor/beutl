@@ -9,6 +9,7 @@ using Avalonia.VisualTree;
 using Beutl.Editor.Components.Helpers;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
+using ObjCRuntime = Beutl.Controls.ObjCRuntime;
 
 namespace Beutl.Views;
 
@@ -132,7 +133,7 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
         if (window.TryGetPlatformHandle() is not IMacOSTopLevelPlatformHandle)
             return false;
 
-        nint currentEvent = ObjCRuntime.Send(SharedApplication(), ObjCRuntime.Selector("currentEvent"));
+        nint currentEvent = ObjCRuntime.CurrentEvent();
         return currentEvent != 0 && ObjCRuntime.Send(currentEvent, ObjCRuntime.Selector("type")) == NSEventTypeKeyDown;
     }
 
