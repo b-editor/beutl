@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -615,6 +616,10 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             : PresentLuminance.Unknown;
         pushConstants.ReferenceWhite = luminance.ReferenceWhite;
 
+        // Auto fits the frame to a display that shows HDR and clips it on one that does not, as the SDR preview does.
+        // HdrBitmapView settles it on macOS, where only the view knows its screen.
+        pushConstants.TmOperator = (int)renderParams.ToneMapping.Resolve(luminance.ShowsHdr);
+
         pushConstants.SetDisplayMapping(PreviewDisplayMapping.For(luminance.Headroom));
 
         // Colors outside the gamut go the same way: an SDR format holds sRGB, and an HDR swapchain hands colors to a
@@ -682,7 +687,6 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
     {
         pc = default;
         pc.Exposure = p.Exposure;
-        pc.TmOperator = (int)p.ToneMapping;
         pc.SampleNearest = p.SampleNearest ? 1 : 0;
         if (p.Checkerboard is { } square)
         {

@@ -1,6 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using Avalonia.Headless.NUnit;
 using Avalonia.Platform;
+using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -77,6 +78,48 @@ public class HdrBitmapViewNativeControlTests
         });
     }
 
+    // On macOS the view settles Auto by its screen: Core Animation tone maps on a screen that shows HDR, and one that shows
+    // nothing above SDR white clips as the SDR preview does. A mode chosen outright does not follow the screen.
+    [AvaloniaTest]
+    public void Auto_follows_whether_the_screen_shows_hdr()
+    {
+        RunOnMacOS(() =>
+        {
+            var view = new TestView { ToneMapping = UIToneMappingOperator.Auto };
+            IPlatformHandle control = view.Create();
+            try
+            {
+                // A view without a window has no screen yet, and counts as on one that shows HDR.
+                Assert.That(view.EffectiveToneMapping, Is.EqualTo(UIToneMappingOperator.FitToDisplay));
+                Assert.That(HasEdrMetadata(control), Is.True);
+
+                Assert.That(view.SetScreenHeadroom(1.0), Is.True, "an SDR screen changes what Auto stands for");
+                Assert.That(view.EffectiveToneMapping, Is.EqualTo(UIToneMappingOperator.None));
+                Assert.That(HasEdrMetadata(control), Is.False);
+                Assert.That(view.SetScreenHeadroom(1.0), Is.False, "the same screen again changes nothing");
+
+                view.ToneMapping = UIToneMappingOperator.FitToDisplay;
+                Assert.That(view.EffectiveToneMapping, Is.EqualTo(UIToneMappingOperator.FitToDisplay));
+                Assert.That(HasEdrMetadata(control), Is.True);
+                Assert.That(view.SetScreenHeadroom(2.0), Is.False, "a mode chosen outright does not follow the screen");
+
+                view.ToneMapping = UIToneMappingOperator.Auto;
+                Assert.That(view.EffectiveToneMapping, Is.EqualTo(UIToneMappingOperator.FitToDisplay));
+                Assert.That(HasEdrMetadata(control), Is.True);
+            }
+            finally
+            {
+                view.Destroy(control);
+            }
+        });
+    }
+
+    private static bool HasEdrMetadata(IPlatformHandle control)
+    {
+        IntPtr layer = objc_msgSend(control.Handle, sel_getUid("layer"));
+        return objc_msgSend(layer, sel_getUid("EDRMetadata")) != IntPtr.Zero;
+    }
+
     private static Ref<BtlBitmap> NewSource()
     {
         return Ref<BtlBitmap>.Create(
@@ -108,6 +151,12 @@ public class HdrBitmapViewNativeControlTests
 
         public void Destroy(IPlatformHandle control) => DestroyNativeControlCore(control);
     }
+
+    [DllImport("/usr/lib/libobjc.dylib")]
+    private static extern IntPtr sel_getUid(string selector);
+
+    [DllImport("/usr/lib/libobjc.dylib")]
+    private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
 
     [DllImport("/usr/lib/libobjc.dylib")]
     private static extern IntPtr objc_autoreleasePoolPush();

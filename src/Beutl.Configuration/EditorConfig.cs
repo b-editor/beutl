@@ -39,15 +39,37 @@ public enum TimelineAutoScrollMode
     PageScroll
 }
 
+// The numbers are what settings files hold. Auto took 0 from None, the default before Auto existed, so a preview left at
+// that default follows its display.
 public enum UIToneMappingOperator
 {
-    None,
-    Reinhard,
-    ACES,
-    Hable,
+    // FitToDisplay on a preview that shows HDR, None on any other.
+    Auto = 0,
+    Reinhard = 1,
+    ACES = 2,
+    Hable = 3,
 
     // Rolls off only what the display cannot show, keeping hue, instead of clipping each channel.
-    FitToDisplay
+    FitToDisplay = 4,
+
+    // Clips each channel at what the display shows.
+    None = 5
+}
+
+public static class UIToneMappingOperatorExtensions
+{
+    /// <summary>
+    /// The operator a preview applies for <paramref name="mode"/>: <see cref="UIToneMappingOperator.Auto"/> is
+    /// <see cref="UIToneMappingOperator.FitToDisplay"/> where the preview shows HDR and
+    /// <see cref="UIToneMappingOperator.None"/> where it does not, and any other mode is itself.
+    /// </summary>
+    public static UIToneMappingOperator Resolve(this UIToneMappingOperator mode, bool showsHdr)
+    {
+        if (mode != UIToneMappingOperator.Auto)
+            return mode;
+
+        return showsHdr ? UIToneMappingOperator.FitToDisplay : UIToneMappingOperator.None;
+    }
 }
 
 public sealed partial class EditorConfig : ConfigurationBase
@@ -107,7 +129,7 @@ public sealed partial class EditorConfig : ConfigurationBase
 
     public IProperty<TimelineAutoScrollMode> TimelineAutoScrollMode { get; } = Property.CreateValue(Configuration.TimelineAutoScrollMode.PageScroll);
 
-    public IProperty<UIToneMappingOperator> ToneMappingMode { get; } = Property.CreateValue(UIToneMappingOperator.None);
+    public IProperty<UIToneMappingOperator> ToneMappingMode { get; } = Property.CreateValue(UIToneMappingOperator.Auto);
 
     public IProperty<float> ToneMappingExposure { get; } = Property.CreateValue(0f);
 
@@ -174,6 +196,32 @@ public sealed partial class EditorConfig : ConfigurationBase
     {
         if (Enum.IsDefined(typeof(PreviewSourceMode), index))
             PreviewSourceMode.Value = (PreviewSourceMode)index;
+    }
+
+    // The order the settings page lists the tone mapping modes in: Auto first, then the others as they were listed before
+    // Auto existed. It differs from the modes' numbers, which settings files hold.
+    private static readonly UIToneMappingOperator[] s_toneMappingModeOrder =
+    [
+        UIToneMappingOperator.Auto,
+        UIToneMappingOperator.None,
+        UIToneMappingOperator.Reinhard,
+        UIToneMappingOperator.ACES,
+        UIToneMappingOperator.Hable,
+        UIToneMappingOperator.FitToDisplay
+    ];
+
+    /// <summary>The <c>ComboBox.SelectedIndex</c> that shows <paramref name="mode"/>, or -1 for none.</summary>
+    public static int GetToneMappingModeIndex(UIToneMappingOperator mode)
+    {
+        return Array.IndexOf(s_toneMappingModeOrder, mode);
+    }
+
+    /// <summary>Sets <see cref="ToneMappingMode"/> from a <c>ComboBox.SelectedIndex</c>.</summary>
+    /// <remarks>Out-of-range indices, such as the <c>-1</c> of a transient no-selection, are ignored.</remarks>
+    public void SetToneMappingModeFromIndex(int index)
+    {
+        if ((uint)index < (uint)s_toneMappingModeOrder.Length)
+            ToneMappingMode.Value = s_toneMappingModeOrder[index];
     }
 
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()

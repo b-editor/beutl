@@ -398,7 +398,11 @@
     <comment />
   </data>
   <data name="ToneMappingMode_Description" xml:space="preserve">
-    <value>为预览选择色调映射运算符</value>
+    <value>为预览选择色调映射运算符。“自动”在 HDR 预览位于可显示 HDR 的显示器上时按“适应显示器”工作，否则按“无”工作</value>
+    <comment />
+  </data>
+  <data name="ToneMappingMode_Auto" xml:space="preserve">
+    <value>自动</value>
     <comment />
   </data>
   <data name="ToneMappingMode_None" xml:space="preserve">

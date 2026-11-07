@@ -394,7 +394,11 @@
     <comment/>
   </data>
   <data name="ToneMappingMode_Description" xml:space="preserve">
-    <value>プレビューのトーンマッピングオペレーターを選択します</value>
+    <value>プレビューのトーンマッピングオペレーターを選択します。「自動」は、HDRプレビューをHDR対応のディスプレイに表示しているときは「ディスプレイに合わせる」、それ以外は「なし」として動作します</value>
+    <comment/>
+  </data>
+  <data name="ToneMappingMode_Auto" xml:space="preserve">
+    <value>自動</value>
     <comment/>
   </data>
   <data name="ToneMappingMode_None" xml:space="preserve">

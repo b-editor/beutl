@@ -89,8 +89,8 @@ public sealed class EditorSettingsPageViewModel : IDisposable
 
         ToneMappingMode = CreateSetting(
             _editorConfig.ToneMappingMode.GetObservable()
-                .Select(v => (int)v),
-            b => _editorConfig.ToneMappingMode.Value = (UIToneMappingOperator)b);
+                .Select(EditorConfig.GetToneMappingModeIndex),
+            _editorConfig.SetToneMappingModeFromIndex);
 
         ToneMappingExposure = CreateSetting(
             _editorConfig.ToneMappingExposure.GetObservable()

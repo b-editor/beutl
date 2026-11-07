@@ -357,7 +357,9 @@
 
                         <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ToneMappingMode_Description}" Header="{x:Static lang:SettingsStrings.ToneMappingMode}">
                             <ctrls:OptionsDisplayItem.ActionButton>
+                                <!-- In the order of EditorConfig.SetToneMappingModeFromIndex. -->
                                 <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding ToneMappingMode.Value}">
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.ToneMappingMode_Auto}" />
                                     <ComboBoxItem Content="{x:Static lang:SettingsStrings.ToneMappingMode_None}" />
                                     <ComboBoxItem Content="{x:Static lang:SettingsStrings.ToneMappingMode_Reinhard}" />
                                     <ComboBoxItem Content="{x:Static lang:SettingsStrings.ToneMappingMode_ACES}" />

@@ -398,7 +398,11 @@
     <comment/>
   </data>
   <data name="ToneMappingMode_Description" xml:space="preserve">
-    <value>Select the tone mapping operator for the preview</value>
+    <value>Select the tone mapping operator for the preview. Auto works as Fit to display while the HDR preview is on a display that shows HDR, and as None otherwise</value>
+    <comment/>
+  </data>
+  <data name="ToneMappingMode_Auto" xml:space="preserve">
+    <value>Auto</value>
     <comment/>
   </data>
   <data name="ToneMappingMode_None" xml:space="preserve">

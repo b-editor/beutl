@@ -82,6 +82,65 @@ public sealed class EditorSettingsPageViewModelTests
         }
     }
 
+    // The tone mapping list starts with Auto, then lists the modes as before Auto existed. It shows the mode the settings
+    // hold and writes the one picked, although the list's order differs from the modes' numbers.
+    [AvaloniaTest]
+    public void The_tone_mapping_list_starts_with_auto()
+    {
+        TestGpu.RequireAnyDevice();
+
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        UIToneMappingOperator prior = config.ToneMappingMode.Value;
+        string? priorGpu = GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value;
+        config.ToneMappingMode.Value = UIToneMappingOperator.Auto;
+        using var viewModel = new EditorSettingsPageViewModel();
+        var page = new EditorSettingsPage { DataContext = viewModel };
+        var window = new Window { Content = page, Width = 900, Height = 700, RequestedThemeVariant = ThemeVariant.Dark };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            OptionsDisplayItem row = page.GetVisualDescendants().OfType<OptionsDisplayItem>()
+                .Single(x => Equals(x.Header, SettingsStrings.ToneMappingMode));
+            row.BringIntoView();
+            HeadlessTestHelpers.Render(3);
+            var comboBox = (ComboBox)row.ActionButton!;
+
+            Assert.That(comboBox.Items.Cast<ComboBoxItem>().Select(x => x.Content), Is.EqualTo(new object[]
+            {
+                SettingsStrings.ToneMappingMode_Auto,
+                SettingsStrings.ToneMappingMode_None,
+                SettingsStrings.ToneMappingMode_Reinhard,
+                SettingsStrings.ToneMappingMode_ACES,
+                SettingsStrings.ToneMappingMode_Hable,
+                SettingsStrings.ToneMappingMode_FitToDisplay
+            }));
+            Assert.That(comboBox.SelectedIndex, Is.Zero);
+
+            config.ToneMappingMode.Value = UIToneMappingOperator.None;
+            HeadlessTestHelpers.Render(1);
+            Assert.That(comboBox.SelectedIndex, Is.EqualTo(1));
+
+            comboBox.SelectedIndex = 5;
+            Assert.That(config.ToneMappingMode.Value, Is.EqualTo(UIToneMappingOperator.FitToDisplay));
+
+            comboBox.SelectedIndex = 0;
+            Assert.That(config.ToneMappingMode.Value, Is.EqualTo(UIToneMappingOperator.Auto));
+            HeadlessTestHelpers.Render(3);
+            HeadlessCapture.SaveIfRequested(window, nameof(EditorSettingsPageViewModelTests), "tone-mapping");
+            comboBox.IsDropDownOpen = true;
+            HeadlessTestHelpers.Render(3);
+            HeadlessCapture.SaveIfRequested(window, nameof(EditorSettingsPageViewModelTests), "tone-mapping-list");
+            comboBox.IsDropDownOpen = false;
+        }
+        finally
+        {
+            window.Close();
+            config.ToneMappingMode.Value = prior;
+            GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value = priorGpu;
+        }
+    }
+
     [AvaloniaTest]
     public void Version_control_options_round_trip_through_the_editor_settings_view_model()
     {

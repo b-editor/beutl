@@ -186,13 +186,27 @@ public partial class HdrBitmapView
         objc_msgSend_void_IntPtr(layer, sel_getUid("setEDRMetadata:"), metadata);
     }
 
-    // [[[nsView window] screen] colorSpace]: the NSColorSpace of the screen the view is on, or IntPtr.Zero while the
-    // view has no window or the window no screen.
-    private static IntPtr GetMacOSScreenColorSpace(IntPtr nsView)
+    // [[nsView window] screen]: the NSScreen the view is on, or IntPtr.Zero while the view has no window or the window no
+    // screen.
+    private static IntPtr GetMacOSScreen(IntPtr nsView)
     {
         IntPtr window = objc_msgSend_IntPtr(nsView, sel_getUid("window"));
-        IntPtr screen = window != IntPtr.Zero ? objc_msgSend_IntPtr(window, sel_getUid("screen")) : IntPtr.Zero;
-        return screen != IntPtr.Zero ? objc_msgSend_IntPtr(screen, sel_getUid("colorSpace")) : IntPtr.Zero;
+        return window != IntPtr.Zero ? objc_msgSend_IntPtr(window, sel_getUid("screen")) : IntPtr.Zero;
+    }
+
+    // [screen colorSpace]: the NSColorSpace of a screen.
+    private static IntPtr GetMacOSScreenColorSpace(IntPtr screen)
+    {
+        return objc_msgSend_IntPtr(screen, sel_getUid("colorSpace"));
+    }
+
+    // [screen maximumPotentialExtendedDynamicRangeColorComponentValue]: the most a screen can show in units of SDR white
+    // at any brightness, 1.0 for one that shows no HDR. No screen counts as such.
+    internal static double GetMacOSScreenHeadroom(IntPtr screen)
+    {
+        return screen != IntPtr.Zero
+            ? objc_msgSend_double(screen, sel_getUid("maximumPotentialExtendedDynamicRangeColorComponentValue"))
+            : 1.0;
     }
 
     // The primaries of an NSColorSpace, or null when it is not RGB. ColorSync converts its pure red, green and blue to
@@ -291,6 +305,10 @@ public partial class HdrBitmapView
     // Float arguments travel in floating-point registers on arm64 and x86_64 alike, so plain objc_msgSend serves.
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     private static extern void objc_msgSend_void_double(IntPtr receiver, IntPtr selector, double arg);
+
+    // A double comes back in a floating-point register on both too; only a long double would need objc_msgSend_fpret.
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern double objc_msgSend_double(IntPtr receiver, IntPtr selector);
 
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     private static extern IntPtr objc_msgSend_float3(IntPtr receiver, IntPtr selector, float arg1, float arg2, float arg3);

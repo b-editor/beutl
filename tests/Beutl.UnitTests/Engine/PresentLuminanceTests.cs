@@ -47,6 +47,22 @@ public class PresentLuminanceTests
         Assert.That(PreviewDisplayMapping.For(PresentLuminance.Sdr.Headroom), Is.EqualTo(PreviewDisplayMapping.For(1f)));
     }
 
+    // Auto fits the frame to a display that may show values above reference white and clips it on one that cannot: an
+    // SDR swapchain or display, or an HDR one no brighter than SDR white. A headroom that is not known counts as one
+    // that may.
+    [Test]
+    public void ShowsHdr_FollowsTheHeadroom()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(PresentLuminance.Sdr.ShowsHdr, Is.False);
+            Assert.That(PresentLuminance.Unknown.ShowsHdr, Is.True);
+            Assert.That(PresentLuminance.ForScRgbHdr(240f, 1000f).ShowsHdr, Is.True);
+            Assert.That(PresentLuminance.ForScRgbHdr(240f, 240f).ShowsHdr, Is.False);
+            Assert.That(PresentLuminance.ForScRgbHdr(240f, 0f).ShowsHdr, Is.True);
+        });
+    }
+
     // The editor settings' peak stands in for the one the display reports, against the same SDR white, and fills in
     // a peak the display leaves out.
     [TestCase(240f, 1000f, 600f, 2.5f)]
