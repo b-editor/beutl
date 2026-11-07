@@ -110,14 +110,20 @@ public sealed class ColorGradingTabTests
         });
     }
 
+    // Without live preview the puck moves alone until the drag ends, and the drag ends the same ways.
     [AvaloniaTest]
-    [TestCase(DragEnd.CaptureLoss)]
-    [TestCase(DragEnd.Playback)]
-    [TestCase(DragEnd.Escape)]
-    [TestCase(DragEnd.Undo)]
-    public void A_puck_drag_keeps_on_capture_loss_and_playback_and_reverts_on_Escape_and_Undo(DragEnd end)
+    [TestCase(DragEnd.CaptureLoss, true)]
+    [TestCase(DragEnd.Playback, true)]
+    [TestCase(DragEnd.Escape, true)]
+    [TestCase(DragEnd.Undo, true)]
+    [TestCase(DragEnd.CaptureLoss, false)]
+    [TestCase(DragEnd.Playback, false)]
+    [TestCase(DragEnd.Escape, false)]
+    [TestCase(DragEnd.Undo, false)]
+    public void A_puck_drag_keeps_on_capture_loss_and_playback_and_reverts_on_Escape_and_Undo(DragEnd end, bool live)
     {
         using var host = new WheelHost(effect => effect.Lift);
+        host.IsLivePreviewEnabled.Value = live;
         IPointer? pointer = null;
         host.Pad.AddHandler(InputElement.PointerPressedEvent, (_, e) => pointer = e.Pointer,
             RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -126,8 +132,9 @@ public sealed class ColorGradingTabTests
         host.Window.MouseDown(start, MouseButton.Left);
         host.Window.MouseMove(start + new Vector(30, 0), RawInputModifiers.LeftMouseButton);
         HeadlessTestHelpers.Render();
-        GradingColor reached = host.Property.Value;
+        GradingColor reached = host.Wheel.Color;
         Assert.That(reached, Is.Not.EqualTo(GradingColor.Zero));
+        Assert.That(host.Property.Value, Is.EqualTo(live ? reached : GradingColor.Zero));
         Assert.That(host.History.IsEditing, Is.True, "The drag must hold an edit session.");
 
         switch (end)
@@ -158,6 +165,7 @@ public sealed class ColorGradingTabTests
         Assert.Multiple(() =>
         {
             Assert.That(host.Property.Value, Is.EqualTo(kept ? reached : GradingColor.Zero));
+            Assert.That(host.Wheel.Color, Is.EqualTo(host.Property.Value), "The puck shows what the effect holds.");
             Assert.That(host.History.UndoCount, Is.EqualTo(kept ? 1 : 0));
             Assert.That(host.History.IsEditing, Is.False);
         });
@@ -180,7 +188,6 @@ public sealed class ColorGradingTabTests
         {
             Assert.That(host.Wheel.Color, Is.Not.EqualTo(GradingColor.Zero), "The puck follows the drag.");
             Assert.That(host.Property.Value, Is.EqualTo(GradingColor.Zero));
-            Assert.That(host.History.IsEditing, Is.False);
         });
 
         host.Window.MouseUp(end, MouseButton.Left);
