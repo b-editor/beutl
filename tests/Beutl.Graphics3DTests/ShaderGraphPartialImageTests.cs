@@ -100,7 +100,62 @@ public sealed class ShaderGraphPartialImageTests
             yield return new TestCaseData(new Bokeh { Radius = { Value = 8 }, Highlight = { Value = 50 } }, scale).SetName($"Bokeh({scale})");
             yield return new TestCaseData(new Bokeh { Radius = { Value = 40 } }, scale).SetName($"DownsampledBokeh({scale})");
             yield return new TestCaseData(new RepeatEffect { Columns = { Value = 3 }, Rows = { Value = 2 }, Spacing = { Value = new Size(7, 5) }, Offset = { Value = new Point(3.5f, 1.25f) } }, scale).SetName($"Repeat({scale})");
+            yield return new TestCaseData(new RadialBlur { Amount = { Value = 30 } }, scale).SetName($"ZoomBlur({scale})");
+            yield return new TestCaseData(new RadialBlur { Mode = { Value = RadialBlurMode.Spin }, Amount = { Value = 30 } }, scale).SetName($"SpinBlur({scale})");
+            yield return new TestCaseData(new LightRays { Length = { Value = 100 }, Threshold = { Value = 0.25f } }, scale).SetName($"LightRays({scale})");
         }
+    }
+
+    // A radial blur and light rays read between each point and their center, so a frame around the center of a wide picture
+    // needs only the part of it that the frame shows.
+    private static IEnumerable<TestCaseData> RadialEffects()
+    {
+        yield return new TestCaseData(new RadialBlur { Amount = { Value = 10 } }).SetName("{m}(ZoomBlur)");
+        yield return new TestCaseData(new RadialBlur { Mode = { Value = RadialBlurMode.Spin }, Amount = { Value = 10 } }).SetName("{m}(SpinBlur)");
+        yield return new TestCaseData(new LightRays()).SetName("{m}(LightRays)");
+    }
+
+    [TestCaseSource(nameof(RadialEffects))]
+    public void AFrameOfAWidePictureKeepsItsDensityUnderAnEffectThatReadsTowardACenter(FilterEffect effect)
+    {
+        ShaderGraphDescription graph = ShaderGraphEffectTests.Record(effect);
+        // 100 copies of a 4K picture across and down, and a 4K frame in their middle.
+        Rect picture = new(-192_000, -108_000, 384_000, 216_000);
+        Rect frame = new(-1920, -1080, 3840, 2160);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(graph.ClampWorkingScale(picture, 1, default, required: frame), Is.EqualTo(1));
+            Assert.That(graph.ClampWorkingScale(picture, 1, default, required: Rect.Empty), Is.EqualTo(1), "A plan that does not know it yet.");
+            Assert.That(graph.ClampWorkingScale(picture, 1, default), Is.LessThan(1), "The whole output.");
+        });
+    }
+
+    // A footprint names an image the pass samples. Any other binding would leave the image it means read whole, unnoticed.
+    [TestCase(0, false)]
+    [TestCase(1, true)]
+    [TestCase(3, true)]
+    public void AFootprintAboutAnOriginNamesAnImageThePassSamples(int binding, bool throws)
+    {
+        if (throws)
+            Assert.That(() => Build(binding), Throws.InvalidOperationException);
+        else
+            Assert.That(() => Build(binding), Throws.Nothing);
+
+        static ShaderGraphDescription Build(int binding) => ShaderGraphBuilder.Build(binding, static (builder, declared) =>
+        {
+            ShaderImage output = builder.Image2D("output", builder.Source);
+            builder.Fullscreen("footprint", s_fromMetadata, pass =>
+            {
+                pass.SampledImage(0, builder.Source);
+                pass.ImageParameters(1, builder.Source);
+                pass.ImageParameters(2, output);
+                pass.InputRegionAbout(declared, RelativePoint.Center, [Matrix.Identity]);
+                pass.PartialImages();
+                pass.ColorAttachment(0, output);
+            });
+            return builder.Output(output);
+        });
     }
 
     [TestCaseSource(nameof(Effects))]

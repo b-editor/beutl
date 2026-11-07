@@ -195,17 +195,18 @@ public sealed class ShaderGraphDescription
         return bounds;
     }
 
-    // A group's origin and bounds move with how much of each picture reaches the graph. A footprint that moves or turns
-    // may come from the bounds the graph was recorded with, and a sampler that clamps to an edge reads that edge from any
-    // distance. What either of them reads of one picture can lie outside what it reads of the union.
+    // A group's origin and bounds move with how much of each picture reaches the graph. A footprint that moves, turns or
+    // follows an origin may come from the bounds the graph was recorded with, and a sampler that clamps to an edge reads
+    // that edge from any distance. What either of them reads of one picture can lie outside what it reads of the union.
     private static bool ResolveReadsAroundEachPoint(ImmutableArray<ShaderResource> resources,
         ImmutableArray<ShaderPassDescription> passes)
         => resources.OfType<ShaderImage>().All(image => !image.BoundsFromGroup && image.BoundsTransforms.IsEmpty)
            && passes.Where(pass => pass.IsLocal).All(pass => pass.Bindings.All(binding =>
-               !pass.InputRegions.TryGetValue(binding.Binding, out ShaderInputRegion region)
-               || (region.Transform.IsIdentity
-                   && binding.Sampler.AddressU != SamplerAddressMode.ClampToEdge
-                   && binding.Sampler.AddressV != SamplerAddressMode.ClampToEdge)));
+               !pass.OriginInputRegions.ContainsKey(binding.Binding)
+               && (!pass.InputRegions.TryGetValue(binding.Binding, out ShaderInputRegion region)
+                   || (region.Transform.IsIdentity
+                       && binding.Sampler.AddressU != SamplerAddressMode.ClampToEdge
+                       && binding.Sampler.AddressV != SamplerAddressMode.ClampToEdge))));
 
     private (ImmutableArray<ImmutableArray<ShaderImage>> Sets, bool PartialSource) ResolvePartialImages()
     {
@@ -440,6 +441,21 @@ public sealed class ShaderGraphDescription
                     writer.Write(region.Transform.M21); writer.Write(region.Transform.M22);
                     writer.Write(region.Transform.M31); writer.Write(region.Transform.M32);
                     writer.Write(region.Padding);
+                }
+            }
+            writer.Write(pass.OriginInputRegions.Count);
+            foreach ((int binding, ShaderOriginInputRegion region) in pass.OriginInputRegions.OrderBy(p => p.Key))
+            {
+                writer.Write(binding);
+                writer.Write(region.Transforms.Length);
+                if (!includeValues) continue;
+                writer.Write((int)region.Origin.Unit);
+                writer.Write(region.Origin.Point.X); writer.Write(region.Origin.Point.Y);
+                foreach (Matrix transform in region.Transforms)
+                {
+                    writer.Write(transform.M11); writer.Write(transform.M12);
+                    writer.Write(transform.M21); writer.Write(transform.M22);
+                    writer.Write(transform.M31); writer.Write(transform.M32);
                 }
             }
             writer.Write(pass.Transfer is not null);
