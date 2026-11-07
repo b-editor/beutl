@@ -1,61 +1,244 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="using:Beutl.Controls"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:lang="using:Beutl.Language"
                     xmlns:local="using:Beutl.Controls.PropertyEditors">
     <Design.PreviewWith>
-        <local:ColorGradingWheel Width="420" Height="360" />
+        <local:ColorWheelsPanel Width="640" Height="300">
+            <local:ColorGradingWheel Header="Lift" />
+            <local:ColorGradingWheel Header="Gamma" />
+            <local:ColorGradingWheel Header="Gain" />
+            <local:ColorGradingWheel Header="Offset" />
+        </local:ColorWheelsPanel>
     </Design.PreviewWith>
 
-    <ControlTheme x:Key="{x:Type local:ColorGradingWheel}" TargetType="local:ColorGradingWheel">
-        <Setter Property="Focusable" Value="True" />
-        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
-        <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Default">
+            <SolidColorBrush x:Key="ColorBalancePadCenterBrush" Color="#FFE4E4E4" />
+            <SolidColorBrush x:Key="ColorBalancePadGuideBrush" Color="#66000000" />
+            <SolidColorBrush x:Key="ColorGradingChannelRedBrush" Color="#FFC42B1C" />
+            <SolidColorBrush x:Key="ColorGradingChannelGreenBrush" Color="#FF0F7B0F" />
+            <SolidColorBrush x:Key="ColorGradingChannelBlueBrush" Color="#FF0063B1" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="ColorBalancePadCenterBrush" Color="#FF2C2C2C" />
+            <SolidColorBrush x:Key="ColorBalancePadGuideBrush" Color="#66FFFFFF" />
+            <SolidColorBrush x:Key="ColorGradingChannelRedBrush" Color="#FFFF7A70" />
+            <SolidColorBrush x:Key="ColorGradingChannelGreenBrush" Color="#FF6CCB5F" />
+            <SolidColorBrush x:Key="ColorGradingChannelBlueBrush" Color="#FF6AA8FF" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <ControlTheme x:Key="{x:Type local:ColorBalancePad}" TargetType="local:ColorBalancePad">
+        <Setter Property="Background" Value="{DynamicResource ColorBalancePadCenterBrush}" />
+        <Setter Property="GuideBrush" Value="{DynamicResource ColorBalancePadGuideBrush}" />
+        <Setter Property="PuckBrush" Value="White" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.5" />
+        </Style>
+    </ControlTheme>
+
+    <!--  The R, G and B boxes under a wheel: one box parted in three, each with its channel's letter, which can be dragged.  -->
+    <ControlTheme x:Key="ColorGradingWheelComponentsTheme" TargetType="local:Vector3Editor">
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="MinWidth" Value="0" />
         <Setter Property="Template">
             <ControlTemplate>
-                <Border Padding="{TemplateBinding Padding}"
-                        BorderBrush="{TemplateBinding BorderBrush}"
-                        BorderThickness="{TemplateBinding BorderThickness}"
-                        CornerRadius="{TemplateBinding CornerRadius}">
-                    <Grid RowDefinitions="Auto,*" RowSpacing="12">
-                        <Grid ColumnDefinitions="*,Auto,Auto">
-                            <TextBlock Grid.Column="0"
+                <DataValidationErrors>
+                    <Grid ColumnDefinitions="*,1,*,1,*">
+                        <Border Name="PART_BackgroundBorder"
+                                Grid.ColumnSpan="5"
+                                Background="{DynamicResource TextControlBackground}"
+                                BorderBrush="{DynamicResource TextControlBorderBrush}"
+                                BorderThickness="{DynamicResource TextControlBorderThemeThickness}"
+                                CornerRadius="{DynamicResource ControlCornerRadius}" />
+
+                        <Grid Grid.Column="0" ColumnDefinitions="Auto,*">
+                            <TextBlock Name="PART_HeaderFirstTextBlock"
+                                       Margin="6,0,0,1"
                                        VerticalAlignment="Center"
+                                       Cursor="SizeWestEast"
+                                       FontSize="11"
                                        FontWeight="SemiBold"
-                                       Text="{TemplateBinding Header}" />
-
-                            <StackPanel Name="LeftRightButtons"
-                                        Grid.Column="1"
-                                        Margin="0,0,4,0"
-                                        Orientation="Horizontal">
-                                <Button Name="PART_LeftButton"
-                                        Classes="left"
-                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
-
-                                <Button Name="PART_RightButton"
-                                        Classes="right"
-                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
-                            </StackPanel>
-
-                            <ContentPresenter Name="PART_MenuContentPresenter"
-                                              Grid.Column="2"
-                                              HorizontalAlignment="Right"
-                                              VerticalAlignment="Center"
-                                              Content="{TemplateBinding MenuContent}"
-                                              ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                                       Foreground="{DynamicResource ColorGradingChannelRedBrush}"
+                                       Text="{Binding FirstHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
+                            <TextBox x:Name="PART_InnerFirstTextBox"
+                                     Grid.Column="1"
+                                     controls:TextBoxAttachment.EnterDownBehavior="LostFocus"
+                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                     Text="{TemplateBinding FirstText, Mode=TwoWay}"
+                                     MinWidth="0"
+                                     MinHeight="26"
+                                     Padding="2,3,6,3"
+                                     HorizontalContentAlignment="Right"
+                                     FontSize="12"
+                                     Theme="{StaticResource VectorElementTextBox}" />
                         </Grid>
 
-                        <local:GradingColorPicker Name="PART_GradingColorPicker"
-                                                  Grid.Row="1"
-                                                  MinWidth="1"
-                                                  Classes="wheel"
-                                                  InputType="{TemplateBinding InputType}"
-                                                  ShowDetails="{TemplateBinding ShowDetails}"
-                                                  Color="{Binding Color, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" />
+                        <Separator Grid.Column="1" Theme="{StaticResource VectorComponentSeparator}" />
+
+                        <Grid Grid.Column="2" ColumnDefinitions="Auto,*">
+                            <TextBlock Name="PART_HeaderSecondTextBlock"
+                                       Margin="6,0,0,1"
+                                       VerticalAlignment="Center"
+                                       Cursor="SizeWestEast"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource ColorGradingChannelGreenBrush}"
+                                       Text="{Binding SecondHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
+                            <TextBox x:Name="PART_InnerSecondTextBox"
+                                     Grid.Column="1"
+                                     controls:TextBoxAttachment.EnterDownBehavior="LostFocus"
+                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                     Text="{TemplateBinding SecondText, Mode=TwoWay}"
+                                     MinWidth="0"
+                                     MinHeight="26"
+                                     Padding="2,3,6,3"
+                                     HorizontalContentAlignment="Right"
+                                     FontSize="12"
+                                     Theme="{StaticResource VectorElementTextBox}" />
+                        </Grid>
+
+                        <Separator Grid.Column="3" Theme="{StaticResource VectorComponentSeparator}" />
+
+                        <Grid Grid.Column="4" ColumnDefinitions="Auto,*">
+                            <TextBlock Name="PART_HeaderThirdTextBlock"
+                                       Margin="6,0,0,1"
+                                       VerticalAlignment="Center"
+                                       Cursor="SizeWestEast"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource ColorGradingChannelBlueBrush}"
+                                       Text="{Binding ThirdHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
+                            <TextBox x:Name="PART_InnerThirdTextBox"
+                                     Grid.Column="1"
+                                     controls:TextBoxAttachment.EnterDownBehavior="LostFocus"
+                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                     Text="{TemplateBinding ThirdText, Mode=TwoWay}"
+                                     MinWidth="0"
+                                     MinHeight="26"
+                                     Padding="2,3,6,3"
+                                     HorizontalContentAlignment="Right"
+                                     FontSize="12"
+                                     Theme="{StaticResource VectorElementTextBox}" />
+                        </Grid>
                     </Grid>
-                </Border>
+                </DataValidationErrors>
             </ControlTemplate>
         </Setter>
+
+        <Style Selector="^:border-pointerover /template/ Border#PART_BackgroundBorder">
+            <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushPointerOver}" />
+            <Setter Property="Background" Value="{DynamicResource TextControlBackgroundPointerOver}" />
+        </Style>
+
+        <Style Selector="^[IsReadOnly=True] /template/ Border#PART_BackgroundBorder">
+            <Setter Property="Background" Value="{DynamicResource TextControlBackgroundDisabled}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushDisabled}" />
+        </Style>
+
+        <Style Selector="^:focus-any-textbox /template/ Border#PART_BackgroundBorder">
+            <Setter Property="Background" Value="{DynamicResource TextControlBackgroundFocused}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushFocused}" />
+            <Setter Property="BorderThickness" Value="{DynamicResource TextControlBorderThemeThicknessFocused}" />
+        </Style>
+    </ControlTheme>
+
+    <!--  The parts take their places from styles rather than the template, whose values styles could not change:
+          stacked, the header is above the pad and the jog and the boxes below it; side by side, they stand in the
+          column beside it, 12 apart as ColorWheelsPanel expects. The boxes' style key is Vector3Editor's, so their
+          selector uses :is.  -->
+    <ControlTheme x:Key="{x:Type local:ColorGradingWheel}" TargetType="local:ColorGradingWheel">
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Grid Name="PART_Layout"
+                      ColumnDefinitions="*,Auto"
+                      RowDefinitions="Auto,*,Auto,Auto"
+                      RowSpacing="6">
+                    <Grid Name="PART_Header" ColumnDefinitions="*,Auto,Auto,Auto">
+                        <TextBlock Name="PART_HeaderTextBlock"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Text="{TemplateBinding Header}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{TemplateBinding HeaderTooltip}" />
+
+                        <StackPanel Name="LeftRightButtons"
+                                    Grid.Column="1"
+                                    Height="24"
+                                    Orientation="Horizontal">
+                            <Button Name="PART_LeftButton"
+                                    Classes="left"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                            <Button Name="PART_RightButton"
+                                    Classes="right"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                        </StackPanel>
+
+                        <Button Name="PART_ResetButton"
+                                Grid.Column="2"
+                                Width="24"
+                                Height="24"
+                                Padding="0"
+                                Theme="{StaticResource TransparentButton}"
+                                ToolTip.Tip="{x:Static lang:Strings.Reset}">
+                            <icons:FluentIcon FontSize="14" Icon="ArrowReset" />
+                        </Button>
+
+                        <ContentPresenter Name="PART_MenuContentPresenter"
+                                          Grid.Column="3"
+                                          VerticalAlignment="Center"
+                                          Content="{TemplateBinding MenuContent}"
+                                          ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                    </Grid>
+
+                    <local:ColorBalancePad Name="PART_Pad" IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}" />
+
+                    <local:GradingWheel Name="PART_MasterWheel"
+                                        Height="18"
+                                        MinWidth="0"
+                                        IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}" />
+
+                    <local:GradingColorComponentsEditor Name="PART_Components"
+                                                        MinWidth="160"
+                                                        IsReadOnly="{TemplateBinding IsReadOnly}"
+                                                        Theme="{StaticResource ColorGradingWheelComponentsTheme}" />
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^ /template/ Grid#PART_Header">
+            <Setter Property="Grid.ColumnSpan" Value="2" />
+        </Style>
+        <Style Selector="^ /template/ local|ColorBalancePad#PART_Pad">
+            <Setter Property="Grid.Row" Value="1" />
+            <Setter Property="Grid.ColumnSpan" Value="2" />
+        </Style>
+        <Style Selector="^ /template/ local|GradingWheel#PART_MasterWheel">
+            <Setter Property="Grid.Row" Value="2" />
+            <Setter Property="Grid.ColumnSpan" Value="2" />
+        </Style>
+        <Style Selector="^ /template/ :is(local|Vector3Editor)#PART_Components">
+            <Setter Property="Grid.Row" Value="3" />
+            <Setter Property="Grid.ColumnSpan" Value="2" />
+        </Style>
+
+        <Style Selector="^:side">
+            <Style Selector="^ /template/ Grid#PART_Header, ^ /template/ local|GradingWheel#PART_MasterWheel, ^ /template/ :is(local|Vector3Editor)#PART_Components">
+                <Setter Property="Grid.Column" Value="1" />
+                <Setter Property="Grid.ColumnSpan" Value="1" />
+                <Setter Property="Margin" Value="12,0,0,0" />
+            </Style>
+            <Style Selector="^ /template/ local|ColorBalancePad#PART_Pad">
+                <Setter Property="Grid.Row" Value="0" />
+                <Setter Property="Grid.RowSpan" Value="4" />
+                <Setter Property="Grid.ColumnSpan" Value="1" />
+            </Style>
+        </Style>
 
         <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
             <Setter Property="IsEnabled" Value="False" />
@@ -63,10 +246,11 @@
         <Style Selector="^:not(:visible-right-button) /template/ Button#PART_RightButton">
             <Setter Property="IsEnabled" Value="False" />
         </Style>
-        <Style Selector="^[KeyFrameCount=0]">
-            <Style Selector="^ /template/ StackPanel#LeftRightButtons">
-                <Setter Property="IsVisible" Value="False" />
-            </Style>
+        <Style Selector="^[KeyFrameCount=0] /template/ StackPanel#LeftRightButtons">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^ /template/ Button#PART_ResetButton:disabled">
+            <Setter Property="Opacity" Value="0.4" />
         </Style>
     </ControlTheme>
 </ResourceDictionary>

@@ -45,6 +45,8 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/GradingColorPicker.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/GradingWheel.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ColorGradingWheel.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/NumberSliderEditor.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/TonalRangeSlider.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/CornerRadiusEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ThicknessEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/EnumEditor.axaml" />

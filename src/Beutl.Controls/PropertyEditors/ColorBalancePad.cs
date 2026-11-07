@@ -1,0 +1,299 @@
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+
+namespace Beutl.Controls.PropertyEditors;
+
+// The disk of a color wheel. Hues sit around it where the vectorscope places them and fade to neutral in the middle,
+// and the puck shows Chroma in units of the radius. A drag anywhere moves the puck by the drag, a tenth as far with
+// Alt or Command, and a double click asks to center it.
+public class ColorBalancePad : Control
+{
+    public static readonly StyledProperty<Vector> ChromaProperty =
+        AvaloniaProperty.Register<ColorBalancePad, Vector>(nameof(Chroma));
+
+    // The neutral color in the middle of the disk.
+    public static readonly StyledProperty<IBrush?> BackgroundProperty =
+        Border.BackgroundProperty.AddOwner<ColorBalancePad>();
+
+    public static readonly StyledProperty<IBrush?> PuckBrushProperty =
+        AvaloniaProperty.Register<ColorBalancePad, IBrush?>(nameof(PuckBrush), Brushes.White);
+
+    // The crosshair in the middle.
+    public static readonly StyledProperty<IBrush?> GuideBrushProperty =
+        AvaloniaProperty.Register<ColorBalancePad, IBrush?>(nameof(GuideBrush));
+
+    public static readonly RoutedEvent<VectorEventArgs> DragStartedEvent =
+        RoutedEvent.Register<ColorBalancePad, VectorEventArgs>(nameof(DragStarted), RoutingStrategies.Bubble);
+
+    // Vector is the move since the last one, in units of the radius, with Y up.
+    public static readonly RoutedEvent<VectorEventArgs> DragDeltaEvent =
+        RoutedEvent.Register<ColorBalancePad, VectorEventArgs>(nameof(DragDelta), RoutingStrategies.Bubble);
+
+    public static readonly RoutedEvent<VectorEventArgs> DragCompletedEvent =
+        RoutedEvent.Register<ColorBalancePad, VectorEventArgs>(nameof(DragCompleted), RoutingStrategies.Bubble);
+
+    public static readonly RoutedEvent<RoutedEventArgs> ResetRequestedEvent =
+        RoutedEvent.Register<ColorBalancePad, RoutedEventArgs>(nameof(ResetRequested), RoutingStrategies.Bubble);
+
+    private const double PuckRadius = 5;
+    private WriteableBitmap? _disk;
+    private int _diskPixels;
+    private Color _diskCenter;
+    private Point? _lastPoint;
+
+    static ColorBalancePad()
+    {
+        AffectsRender<ColorBalancePad>(ChromaProperty, BackgroundProperty, PuckBrushProperty, GuideBrushProperty);
+        FocusableProperty.OverrideDefaultValue<ColorBalancePad>(false);
+    }
+
+    public Vector Chroma
+    {
+        get => GetValue(ChromaProperty);
+        set => SetValue(ChromaProperty, value);
+    }
+
+    public IBrush? Background
+    {
+        get => GetValue(BackgroundProperty);
+        set => SetValue(BackgroundProperty, value);
+    }
+
+    public IBrush? PuckBrush
+    {
+        get => GetValue(PuckBrushProperty);
+        set => SetValue(PuckBrushProperty, value);
+    }
+
+    public IBrush? GuideBrush
+    {
+        get => GetValue(GuideBrushProperty);
+        set => SetValue(GuideBrushProperty, value);
+    }
+
+    public bool IsDragging => _lastPoint.HasValue;
+
+    public event EventHandler<VectorEventArgs>? DragStarted
+    {
+        add => AddHandler(DragStartedEvent, value);
+        remove => RemoveHandler(DragStartedEvent, value);
+    }
+
+    public event EventHandler<VectorEventArgs>? DragDelta
+    {
+        add => AddHandler(DragDeltaEvent, value);
+        remove => RemoveHandler(DragDeltaEvent, value);
+    }
+
+    public event EventHandler<VectorEventArgs>? DragCompleted
+    {
+        add => AddHandler(DragCompletedEvent, value);
+        remove => RemoveHandler(DragCompletedEvent, value);
+    }
+
+    public event EventHandler<RoutedEventArgs>? ResetRequested
+    {
+        add => AddHandler(ResetRequestedEvent, value);
+        remove => RemoveHandler(ResetRequestedEvent, value);
+    }
+
+    // The disk, as large as the bounds allow and centered in them.
+    internal Rect DiskBounds
+    {
+        get
+        {
+            double side = Math.Min(Bounds.Width, Bounds.Height);
+            return new Rect((Bounds.Width - side) / 2, (Bounds.Height - side) / 2, side, side);
+        }
+    }
+
+    // How far the puck travels from the middle for a chroma of 1; it stays inside the disk.
+    private double TravelRadius => Math.Max(DiskBounds.Width / 2 - PuckRadius - 1, 1);
+
+    // Where the puck is drawn for a chroma; beyond 1 it stays on the edge, in the chroma's direction.
+    internal Point GetPuckPosition(Vector chroma)
+    {
+        double length = chroma.Length;
+        if (length > 1)
+            chroma /= length;
+
+        Point center = DiskBounds.Center;
+        return new Point(center.X + (chroma.X * TravelRadius), center.Y - (chroma.Y * TravelRadius));
+    }
+
+    // The pad fills the space it is given; the layout sizes it.
+    protected override Size MeasureOverride(Size availableSize) => default;
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        _disk?.Dispose();
+        _disk = null;
+    }
+
+    public override void Render(DrawingContext context)
+    {
+        Rect disk = DiskBounds;
+        if (disk.Width < 8)
+            return;
+
+        double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+        Color center = (Background as ISolidColorBrush)?.Color ?? Color.FromRgb(40, 40, 40);
+        if (GetDisk(disk.Width, scaling, center) is { } bitmap)
+            context.DrawImage(bitmap, disk);
+
+        if (GuideBrush is { } guide)
+        {
+            var pen = new Pen(guide, 1);
+            double arm = Math.Max(4, disk.Width * 0.06);
+            Point middle = disk.Center;
+            context.DrawLine(pen, new Point(middle.X - arm, middle.Y), new Point(middle.X + arm, middle.Y));
+            context.DrawLine(pen, new Point(middle.X, middle.Y - arm), new Point(middle.X, middle.Y + arm));
+        }
+
+        Vector chroma = Chroma;
+        Point puck = GetPuckPosition(chroma);
+        IBrush puckBrush = PuckBrush ?? Brushes.White;
+        if (chroma.Length > 0.01)
+            context.DrawLine(new Pen(puckBrush, 1), disk.Center, puck);
+
+        Color hue = ColorBalance.HueColor(chroma);
+        double strength = Math.Min(chroma.Length, 1);
+        var fill = new SolidColorBrush(Mix(center, hue, strength));
+        context.DrawEllipse(fill, new Pen(new SolidColorBrush(Colors.Black, 0.45), 3), puck, PuckRadius, PuckRadius);
+        context.DrawEllipse(null, new Pen(puckBrush, 1.5), puck, PuckRadius, PuckRadius);
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        PointerPoint point = e.GetCurrentPoint(this);
+        if (!point.Properties.IsLeftButtonPressed || !IsEffectivelyEnabled)
+            return;
+
+        e.Handled = true;
+        if (e.ClickCount == 2)
+        {
+            RaiseEvent(new RoutedEventArgs(ResetRequestedEvent));
+            return;
+        }
+
+        _lastPoint = point.Position;
+        e.Pointer.Capture(this);
+        RaiseEvent(new VectorEventArgs { RoutedEvent = DragStartedEvent, Vector = default });
+    }
+
+    protected override void OnPointerMoved(PointerEventArgs e)
+    {
+        base.OnPointerMoved(e);
+        if (_lastPoint is not { } last)
+            return;
+
+        Point position = e.GetPosition(this);
+        _lastPoint = position;
+        double factor = e.KeyModifiers.HasFlag(KeyModifiers.Alt) || e.KeyModifiers.HasFlag(KeyModifiers.Meta) ? 0.1 : 1;
+        Vector move = position - last;
+        var delta = new Vector(move.X, -move.Y) * (factor / TravelRadius);
+        e.Handled = true;
+        if (delta != default)
+            RaiseEvent(new VectorEventArgs { RoutedEvent = DragDeltaEvent, Vector = delta });
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        if (_lastPoint.HasValue && e.InitialPressMouseButton == MouseButton.Left)
+        {
+            e.Handled = true;
+            EndDrag();
+        }
+    }
+
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+    {
+        base.OnPointerCaptureLost(e);
+        EndDrag();
+    }
+
+    private void EndDrag()
+    {
+        if (!_lastPoint.HasValue)
+            return;
+
+        _lastPoint = null;
+        RaiseEvent(new VectorEventArgs { RoutedEvent = DragCompletedEvent, Vector = default });
+    }
+
+    private WriteableBitmap? GetDisk(double side, double scaling, Color center)
+    {
+        int pixels = (int)Math.Ceiling(side * scaling);
+        if (pixels < 2)
+            return null;
+
+        if (_disk != null && _diskPixels == pixels && _diskCenter == center)
+            return _disk;
+
+        // At 96 DPI the bitmap's size is its pixel size, which DrawImage maps whole onto the disk; a scaled DPI would
+        // shrink the source rectangle to a corner of it.
+        _disk?.Dispose();
+        _disk = new WriteableBitmap(new PixelSize(pixels, pixels), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+        _diskPixels = pixels;
+        _diskCenter = center;
+        using ILockedFramebuffer buffer = _disk.Lock();
+        FillDisk(buffer, pixels, center, scaling);
+        return _disk;
+    }
+
+    // The rim shows each hue in full; inside, a faint tint of it grows from the neutral middle.
+    private static unsafe void FillDisk(ILockedFramebuffer buffer, int pixels, Color center, double scaling)
+    {
+        double half = pixels / 2.0;
+        double rim = Math.Max(2.5 * scaling, pixels * 0.025);
+        for (int y = 0; y < pixels; y++)
+        {
+            uint* row = (uint*)(buffer.Address + (y * buffer.RowBytes));
+            double ny = (half - (y + 0.5)) / half;
+            for (int x = 0; x < pixels; x++)
+            {
+                double nx = ((x + 0.5) - half) / half;
+                double r = Math.Sqrt((nx * nx) + (ny * ny));
+                double fromEdge = (1 - r) * half;
+                double coverage = Math.Clamp(fromEdge + 0.5, 0, 1);
+                if (coverage <= 0)
+                {
+                    row[x] = 0;
+                    continue;
+                }
+
+                Color hue = ColorBalance.HueColor(new Vector(nx, ny));
+                double inner = 0.06 + (0.3 * r * r);
+                double tint = inner + ((1 - inner) * Math.Clamp(rim - fromEdge + 0.5, 0, 1));
+                Color color = Mix(center, hue, tint);
+                row[x] = Premultiply(color, coverage);
+            }
+        }
+    }
+
+    private static Color Mix(Color from, Color to, double amount)
+    {
+        return Color.FromArgb(
+            255,
+            (byte)Math.Round(from.R + ((to.R - from.R) * amount)),
+            (byte)Math.Round(from.G + ((to.G - from.G) * amount)),
+            (byte)Math.Round(from.B + ((to.B - from.B) * amount)));
+    }
+
+    private static uint Premultiply(Color color, double alpha)
+    {
+        uint a = (uint)Math.Round(alpha * 255);
+        uint r = (uint)Math.Round(color.R * alpha);
+        uint g = (uint)Math.Round(color.G * alpha);
+        uint b = (uint)Math.Round(color.B * alpha);
+        return (a << 24) | (r << 16) | (g << 8) | b;
+    }
+}

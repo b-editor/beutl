@@ -36,6 +36,10 @@ public sealed class GradingColorEditorViewModel : ValueEditorViewModel<GradingCo
         }
         if (visitor is ColorGradingWheel wheel && !Disposables.IsDisposed)
         {
+            // The wheel resets to the property's default, which for Gamma and Gain is not zero.
+            if (GetDefaultValue() is GradingColor neutral)
+                wheel.Neutral = neutral;
+
             wheel.Bind(ColorGradingWheel.ColorProperty, Value.ToBinding())
                 .DisposeWith(Disposables);
             wheel.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnWheelValueConfirmed)

@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
@@ -87,6 +88,43 @@ public sealed class ColorGradingTabViewModel : EffectToolTabViewModel<ColorGradi
 
     public void Visit(IPropertyEditorContext context)
     {
+    }
+
+    // Returns every property of the effect to its default as one history entry.
+    public void ResetAll()
+    {
+        PropertyEditorViewModel[] editors =
+        [
+            .. new[]
+            {
+                TemperatureEditor, TintEditor, ExposureEditor, ContrastEditor, ContrastPivotEditor, SaturationEditor,
+                VibranceEditor, HueEditor, LowRangeEditor, HighRangeEditor, ShadowsEditor, MidtonesEditor,
+                HighlightsEditor, LiftEditor, GammaEditor, GainEditor, OffsetEditor,
+            }
+            .Select(editor => editor.Value)
+            .OfType<PropertyEditorViewModel>()
+        ];
+        if (editors.Length == 0)
+            return;
+
+        foreach (PropertyEditorViewModel editor in editors)
+            editor.DefersCommit = true;
+
+        try
+        {
+            foreach (PropertyEditorViewModel editor in editors)
+            {
+                if (editor.CanReset)
+                    editor.Reset();
+            }
+        }
+        finally
+        {
+            foreach (PropertyEditorViewModel editor in editors)
+                editor.DefersCommit = false;
+        }
+
+        EditorContext.GetService<HistoryManager>()?.Commit(CommandNames.EditProperty);
     }
 
     public override void ReadFromJson(JsonObject json)
