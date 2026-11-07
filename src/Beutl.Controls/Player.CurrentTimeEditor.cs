@@ -22,6 +22,7 @@ public partial class Player
         // Playback advances CurrentTime, so SubmitCurrentTimeEdit compares with the text at edit start.
         _editStartText = _currentTime;
         _currentTimeTextBox.IsVisible = true;
+        PseudoClasses.Set(EditingClass, true);
         if (_currentTimeTextBlock != null)
         {
             _currentTimeTextBlock.IsVisible = false;
@@ -35,6 +36,7 @@ public partial class Player
     {
         if (_currentTimeTextBox == null) return;
         _currentTimeTextBox.IsVisible = false;
+        PseudoClasses.Set(EditingClass, false);
         _currentTimeTextBox.Classes.Remove("invalid");
         ToolTip.SetTip(_currentTimeTextBox, null);
         if (_currentTimeTextBlock != null)
@@ -267,6 +269,7 @@ public partial class Player
         if (_currentTimeTextBox != null)
         {
             _currentTimeTextBox.IsVisible = false;
+            PseudoClasses.Set(EditingClass, false);
             _currentTimeTextBox.KeyDown += OnCurrentTimeTextBoxKeyDown;
             _currentTimeTextBox.LostFocus += OnCurrentTimeTextBoxLostFocus;
             _currentTimeTextBoxTextSubscription = _currentTimeTextBox
