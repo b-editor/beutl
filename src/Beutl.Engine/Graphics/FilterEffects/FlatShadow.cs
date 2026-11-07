@@ -124,11 +124,11 @@ public partial class FlatShadow : FilterEffect
         using Bitmap alpha = source.SnapshotAlpha();
         IReadOnlyList<Point[]> outlines = AlphaOutlineTracer.Trace(alpha);
 
-        // The shadow starts a pixel out: from where the content is, it would show through the content's anti-aliased
-        // edge on the side facing away.
-        float start = MathF.Min(1, length);
-        var origin = new Vector(dx * start, dy * start);
-        var sweep = new Vector(dx * (length - start), dy * (length - start));
+        // The shadow starts a pixel out, even when it is shorter than that: any nearer, it would show through the
+        // content's anti-aliased edge on the side facing away, which a length growing from zero would flash for a frame.
+        var origin = new Vector(dx, dy);
+        float travel = MathF.Max(length - 1, 0);
+        var sweep = new Vector(dx * travel, dy * travel);
 
         using var builder = new SKPathBuilder();
         foreach (Point[] outline in outlines)

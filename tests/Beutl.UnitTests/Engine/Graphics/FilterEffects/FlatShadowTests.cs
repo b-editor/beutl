@@ -50,6 +50,40 @@ public sealed class FlatShadowTests
         AssertSame(shadow, Swept(content, 0, 1, 12));
     }
 
+    // Moving right or up, each arm of an L has its own run of edges facing the way, apart from the other's.
+    [TestCase(0f)]
+    [TestCase(90f)]
+    [TestCase(180f)]
+    [TestCase(270f)]
+    public void A_concave_shape_casts_the_shadow_of_every_part(float angle)
+    {
+        byte[,] content = RenderAlpha(LShape(), null);
+
+        byte[,] shadow = RenderAlpha(LShape(), ShadowOnly(angle, 20));
+
+        float radian = angle * MathF.PI / 180;
+        AssertSame(shadow, Swept(content, (int)MathF.Round(MathF.Cos(radian)), (int)MathF.Round(MathF.Sin(radian)), 20));
+    }
+
+    // Any nearer than a pixel, the shadow would show through the content's anti-aliased edge on the side facing away.
+    [Test]
+    public void A_shadow_shorter_than_a_pixel_stays_off_the_edge_facing_away()
+    {
+        byte[,] content = RenderAlpha(Square(), null);
+
+        byte[,] shadow = RenderAlpha(Square(), ShadowOnly(0, 0.5f));
+
+        int left = 0;
+        while (content[Size / 2, left] == 0)
+            left++;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shadow[Size / 2, left], Is.Zero, "the content's first column");
+            Assert.That(shadow[Size / 2, left + 1], Is.EqualTo(255), "the column a pixel out");
+        });
+    }
+
     // A centred square moved from a pixel out to the length sweeps a band as wide as the square across the movement,
     // and stays symmetric about the middle of the way.
     [TestCase(50f)]
@@ -99,6 +133,27 @@ public sealed class FlatShadowTests
         shape.AlignmentY.Value = AlignmentY.Center;
         shape.Width.Value = 32;
         shape.Height.Value = 32;
+        shape.Fill.Value = Brushes.White;
+        return shape;
+    }
+
+    // A 32 x 40 px L in the middle of the frame, on whole pixels: a 12 px wide upright arm and a 12 px tall foot.
+    private static Shape LShape()
+    {
+        var figure = new PathFigure();
+        figure.StartPoint.Value = new Point(0, 0);
+        figure.IsClosed.Value = true;
+        figure.Segments.Add(new LineSegment(12, 0));
+        figure.Segments.Add(new LineSegment(12, 28));
+        figure.Segments.Add(new LineSegment(32, 28));
+        figure.Segments.Add(new LineSegment(32, 40));
+        figure.Segments.Add(new LineSegment(0, 40));
+        var geometry = new PathGeometry();
+        geometry.Figures.Add(figure);
+        var shape = new GeometryShape();
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Data.Value = geometry;
         shape.Fill.Value = Brushes.White;
         return shape;
     }
