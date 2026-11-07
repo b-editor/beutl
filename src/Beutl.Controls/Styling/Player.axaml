@@ -290,6 +290,12 @@
             <Setter Property="IsVisible" Value="False" />
         </Style>
 
+        <!--  The time's editor is wider than the time, so it takes the total's place too, or the footer could take a second
+              row as the edit starts and shrink the frame.  -->
+        <Style Selector="^:editing /template/ StackPanel#PART_DurationPanel">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+
         <Style Selector="^:tiny">
             <Style Selector="^ /template/ ContentPresenter#PART_FooterRightPresenter">
                 <Setter Property="IsVisible" Value="False" />

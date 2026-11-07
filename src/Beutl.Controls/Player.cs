@@ -9,12 +9,15 @@ using Avalonia.Interactivity;
 
 namespace Beutl.Controls;
 
-[PseudoClasses(ShuttlingClass, CompactClass, TinyClass)]
+[PseudoClasses(ShuttlingClass, CompactClass, TinyClass, EditingClass)]
 public partial class Player : RangeBase
 {
     private const string ShuttlingClass = ":shuttling";
     private const string CompactClass = ":compact";
     private const string TinyClass = ":tiny";
+
+    // While the current time is being edited, in a box wider than the time it replaces.
+    private const string EditingClass = ":editing";
 
     // Below this width the total time would push the footer onto a second row.
     private const double CompactWidth = 530;

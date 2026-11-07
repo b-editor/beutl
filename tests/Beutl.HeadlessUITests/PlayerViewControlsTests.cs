@@ -306,13 +306,17 @@ public sealed class PlayerViewControlsTests
         }
     }
 
+    // Each window leaves the frame less room in height than in width, so a taller footer would shrink it. Between about 530
+    // and 583 px the time's editor beside the total time did not fit the footer's single row.
     [AvaloniaTest]
-    public async Task The_frame_does_not_jump_when_the_time_is_edited_or_the_shuttle_runs()
+    [TestCase(1200, 520)]
+    [TestCase(560, 320)]
+    public async Task The_frame_does_not_jump_when_the_time_is_edited_or_the_shuttle_runs(int width, int height)
     {
         EditViewModel editor = await OpenEditor();
         PlayerViewModel player = editor.Player;
         var view = new PlayerView { DataContext = player };
-        var window = new Window { Content = view, Width = 1200, Height = 520 };
+        var window = new Window { Content = view, Width = width, Height = height };
         try
         {
             await Prepare(view, window);
@@ -325,6 +329,7 @@ public sealed class PlayerViewControlsTests
 
             window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
             window.KeyRelease(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Assert.That(Part<StackPanel>(view.Player, "PART_DurationPanel").IsVisible, Is.True, "The total after the edit");
             player.PlaybackDirection.Value = PlaybackDirection.Forward;
             player.PlaybackSpeed.Value = 32f;
             HeadlessTestHelpers.Render();
