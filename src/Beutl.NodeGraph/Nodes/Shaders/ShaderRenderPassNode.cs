@@ -35,20 +35,11 @@ public partial class ShaderRenderPassNode : ShaderGraphicsPassNode
         ScanProperties<ShaderRenderPassNode>();
         DepthOutput = CreateOutput<ShaderGraphValue<ShaderImage>>("DepthOutput", ShaderPortDisplays.Get("DepthOutput"));
         Items.Add(DepthOutput);
-        var color = CreateOutput<ShaderGraphValue<ShaderImage>>("Out.color", new DisplayAttribute { Name = "color" });
-        AddInput(this, Vertex);
-        AddInput(this, Fragment);
+        AddCodeInput(Vertex);
+        AddCodeInput(Fragment);
         AddExtraStagePorts();
-        Items.Add(Error);
-        Items.Add(Padding);
-        Items.Add(ResolutionScale);
-        Items.Add(Format);
-        Items.Add(Targets);
-        Items.Add(Settings);
-        SealFixedPorts(Error);
-        Items.Insert(0, color);
-        Vertex.ValueChanged += (_, _) => OnCodeChanged();
-        Fragment.ValueChanged += (_, _) => OnCodeChanged();
+        AddFixedPorts(Format, Targets);
+        InsertDefaultPorts(["color"], []);
     }
 
     /// <summary>Adds the ports of stages beyond vertex and fragment.</summary>
@@ -102,13 +93,6 @@ public partial class ShaderRenderPassNode : ShaderGraphicsPassNode
 /// <summary>A render pass with geometry and tessellation stages; an empty one is left out.</summary>
 public partial class ShaderExtendedRenderPassNode : ShaderRenderPassNode
 {
-    public ShaderExtendedRenderPassNode()
-    {
-        TessellationControl.ValueChanged += (_, _) => OnCodeChanged();
-        TessellationEvaluation.ValueChanged += (_, _) => OnCodeChanged();
-        Geometry.ValueChanged += (_, _) => OnCodeChanged();
-    }
-
     [DataType(DataType.MultilineText)]
     [Display(Name = nameof(NodeGraphStrings.ShaderPort_TessellationControlCode), ResourceType = typeof(NodeGraphStrings))]
     public IProperty<string> TessellationControl { get; } = new ValueOnlyProperty<string>("");
@@ -125,9 +109,9 @@ public partial class ShaderExtendedRenderPassNode : ShaderRenderPassNode
     private protected override void AddExtraStagePorts()
     {
         ScanProperties<ShaderExtendedRenderPassNode>();
-        AddInput(this, TessellationControl);
-        AddInput(this, TessellationEvaluation);
-        AddInput(this, Geometry);
+        AddCodeInput(TessellationControl);
+        AddCodeInput(TessellationEvaluation);
+        AddCodeInput(Geometry);
     }
 
     private protected override IReadOnlyList<(ShaderStage Stage, string Code)> GetStages()

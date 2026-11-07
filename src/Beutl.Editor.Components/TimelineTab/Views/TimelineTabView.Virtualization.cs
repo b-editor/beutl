@@ -16,6 +16,8 @@ public sealed partial class TimelineTabView
     private readonly Dictionary<Element, ViewportElement> _viewportEntries = [];
     private readonly List<ViewportElement> _viewportElements = [];
     private readonly List<ICompactClip> _viewportClips = [];
+    // The run of narrow clips a pass is gathering for the next pair of layers, which copy it.
+    private readonly List<ICompactClip> _compactRun = [];
     private readonly List<UnrealizedClip> _unrealizedClips = [];
     private readonly Dictionary<Beutl.Media.Color, (IBrush Fill, IPen Border)> _clipPaints = [];
     private bool _showsUnrealizedClips;
@@ -71,6 +73,7 @@ public sealed partial class TimelineTabView
         _viewportEntries.Clear();
         _viewportElements.Clear();
         _viewportClips.Clear();
+        _compactRun.Clear();
         _unrealizedClips.Clear();
         _showsUnrealizedClips = false;
         _viewportOrderChanged = false;
@@ -191,12 +194,12 @@ public sealed partial class TimelineTabView
         // with the same ZIndex must keep the same paint/hit-test order after recycling.
         int childIndex = TimelinePanel.Children.IndexOf(overlay) + 1; // Keep the XAML decorations first.
         int layerIndex = 0;
-        List<ICompactClip>? compactRun = null;
+        _compactRun.Clear();
         foreach (ICompactClip clip in clips)
         {
             if (clip is not ViewportElement entry)
             {
-                (compactRun ??= []).Add(clip);
+                _compactRun.Add(clip);
                 continue;
             }
 
@@ -215,7 +218,7 @@ public sealed partial class TimelineTabView
             }
             else if (entry.ShowView)
             {
-                (compactRun ??= []).Add(clip);
+                _compactRun.Add(clip);
                 entry.Rename ??= () =>
                 {
                     if (RealizeCompactElement(entry) is { }) entry.Model.RenameRequested();
@@ -238,16 +241,16 @@ public sealed partial class TimelineTabView
 
         void FlushCompactRun()
         {
-            if (compactRun is null) return;
+            if (_compactRun.Count == 0) return;
             for (int selection = 0; selection < 2; selection++)
             {
                 if (layerIndex == _compactLayers.Count)
                     _compactLayers.Add(new CompactElementLayer(selection == 1, RealizeCompactElement));
                 CompactElementLayer layer = _compactLayers[layerIndex++];
-                layer.Update(compactRun, visibleViewport);
+                layer.Update(_compactRun, visibleViewport);
                 Place(layer, childIndex++);
             }
-            compactRun = null;
+            _compactRun.Clear();
         }
     }
 
@@ -337,7 +340,7 @@ public sealed partial class TimelineTabView
             Bounds = bounds;
             FillBrush = fill;
             RestBorderPen = border;
-            Opacity = scene.IsElementLocked(element) ? 0.6 : !element.IsEnabled.Value ? 0.5 : 1;
+            Opacity = CompactElementLayer.ClipOpacity(!scene.IsElementLocked(element), element.IsEnabled.Value);
         }
     }
 
@@ -380,7 +383,7 @@ public sealed partial class TimelineTabView
 
         public ElementViewModel Model { get; }
         public bool IsSelected => Model.IsSelected.Value;
-        public double Opacity => !Model.IsEditable.Value ? 0.6 : !Model.IsEnabled.Value ? 0.5 : 1;
+        public double Opacity => CompactElementLayer.ClipOpacity(Model.IsEditable.Value, Model.IsEnabled.Value);
         public Rect Bounds { get; private set; }
         public Rect ScopeBounds { get; private set; }
         public ElementView? View { get; set; }

@@ -37,7 +37,8 @@ public sealed partial class ImageTextureSource : TextureSource
 
         public override ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity, TextureContentKind contentKind)
         {
-            return GetCachedTexture(graphicsContext, (int)contentKind, bitmap => CreateUploadBitmap(bitmap, contentKind));
+            return GetCachedTexture(graphicsContext, (int)contentKind, contentKind,
+                static (bitmap, kind) => CreateUploadBitmap(bitmap, kind));
         }
 
         internal override ITexture2D? GetStraightColorTexture(IGraphicsContext graphicsContext)
@@ -45,9 +46,9 @@ public sealed partial class ImageTextureSource : TextureSource
             if (_versionWithoutStraightColors == Version)
                 return null;
 
-            ITexture2D? texture = GetCachedTexture(graphicsContext, StraightColorSlot, bitmap =>
+            ITexture2D? texture = GetCachedTexture(graphicsContext, StraightColorSlot, this, static (bitmap, self) =>
             {
-                using Bitmap? decoded = Source?.DecodeUnpremultiplied();
+                using Bitmap? decoded = self.Source?.DecodeUnpremultiplied();
                 // A file replaced since it was loaded can hold another size than the texture is made for.
                 return decoded?.Width == bitmap.Width && decoded.Height == bitmap.Height
                     ? CreateStraightColorUploadBitmap(decoded)
@@ -79,7 +80,8 @@ public sealed partial class ImageTextureSource : TextureSource
         private static float ReadAlpha(Bitmap bitmap, int x, int y)
             => bitmap.SKBitmap.GetPixel(Math.Clamp(x, 0, bitmap.Width - 1), Math.Clamp(y, 0, bitmap.Height - 1)).Alpha / 255f;
 
-        private ITexture2D? GetCachedTexture(IGraphicsContext graphicsContext, int slot, Func<Bitmap, Bitmap?> createUpload)
+        private ITexture2D? GetCachedTexture<TState>(
+            IGraphicsContext graphicsContext, int slot, TState state, Func<Bitmap, TState, Bitmap?> createUpload)
         {
             if (Source?.Bitmap == null)
             {
@@ -100,7 +102,7 @@ public sealed partial class ImageTextureSource : TextureSource
                 cached.Texture?.Dispose();
                 cached.Texture = null;
 
-                using Bitmap? uploadBitmap = createUpload(Source.Bitmap);
+                using Bitmap? uploadBitmap = createUpload(Source.Bitmap, state);
                 if (uploadBitmap == null)
                     return null;
 

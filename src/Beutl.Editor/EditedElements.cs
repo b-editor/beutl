@@ -15,26 +15,11 @@ internal sealed class EditedElements(Scene scene)
 
     public void Add(ChangeOperation operation)
     {
-        switch (operation)
-        {
-            case IUpdatePropertyValueOperation update:
-                Add(update.Object);
-                break;
-            case ICollectionChangeOperation collection:
-                Add(collection.Object);
-                // Elements that joined or left the scene. Any other item belongs to the collection's element.
-                foreach (Element element in collection.Items.OfType<Element>()) _elements.Add(element);
-                break;
-            case UpdateNodeMemberOperation member:
-                Add(member.NodeMember);
-                break;
-            case UpdateSplineEasingOperation easing:
-                Add(easing.Parent);
-                break;
-            default:
-                All = true;
-                break;
-        }
+        (object? target, IEnumerable<object?> items) = ChangeOperationTargets.Find(operation);
+        // An operation that names no target cannot be placed, which Add takes as all of them.
+        Add(target);
+        // Elements that joined or left the scene. Any other item belongs to the collection's element.
+        foreach (Element element in items.OfType<Element>()) _elements.Add(element);
     }
 
     // For what an element saves that changes without an operation.

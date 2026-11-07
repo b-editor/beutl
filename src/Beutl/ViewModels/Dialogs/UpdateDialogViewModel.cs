@@ -109,14 +109,7 @@ public class UpdateDialogViewModel
         IsPrimaryButtonEnabled.Value = false;
         try
         {
-            var metadata = await _loadMetadata();
-            if (metadata == null)
-            {
-                ProgressText.Value = MessageStrings.FailedToLoadMetadata;
-                return;
-            }
-
-            if (await CreateInstallerStartInfoAsync(metadata, relaunch: true) is { } startInfo)
+            if (await CreateInstallerStartInfoAsync(relaunch: true) is { } startInfo)
             {
                 await LaunchInstallerAsync(startInfo);
             }
@@ -147,8 +140,7 @@ public class UpdateDialogViewModel
         if (!await main.TryDisposeForUpdateAsync(() =>
             {
                 _cts.Token.ThrowIfCancellationRequested();
-                using Process process = Process.Start(startInfo)
-                    ?? throw new InvalidOperationException(MessageStrings.OperationFailed);
+                StartInstaller(startInfo);
                 return true;
             }))
             return false;
@@ -185,31 +177,20 @@ public class UpdateDialogViewModel
         _isInstalling = true;
         try
         {
-            if (await _loadMetadata() is not { } metadata)
-            {
-                ProgressText.Value = MessageStrings.FailedToLoadMetadata;
-                return false;
-            }
-
-            if (await CreateInstallerStartInfoAsync(metadata, relaunch: false) is not { } startInfo)
+            if (await CreateInstallerStartInfoAsync(relaunch: false) is not { } startInfo)
                 return false;
 
             // The update can be canceled while the script is written, and Cancel had nothing to clear yet.
             if (_cts.IsCancellationRequested)
                 return false;
 
-            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
-                { MainWindow.DataContext: MainViewModel main })
+            if (!MainViewModel.TryGetCurrent(out MainViewModel? main))
             {
                 ProgressText.Value = MessageStrings.OperationFailed;
                 return false;
             }
 
-            main.SetUpdateOnQuit(() =>
-            {
-                using Process process = Process.Start(startInfo)
-                    ?? throw new InvalidOperationException(MessageStrings.OperationFailed);
-            });
+            main.SetUpdateOnQuit(() => StartInstaller(startInfo));
             _installOnQuit = true;
             ProgressText.Value = MessageStrings.UpdateWillInstallOnQuit;
             IsSecondaryButtonEnabled.Value = false;
@@ -228,12 +209,24 @@ public class UpdateDialogViewModel
     }
 
     // How to start the installer for this platform, or null with the reason in ProgressText.
-    private async Task<ProcessStartInfo?> CreateInstallerStartInfoAsync(AssetMetadataJson metadata, bool relaunch)
+    private async Task<ProcessStartInfo?> CreateInstallerStartInfoAsync(bool relaunch)
     {
+        if (await _loadMetadata() is not { } metadata)
+        {
+            ProgressText.Value = MessageStrings.FailedToLoadMetadata;
+            return null;
+        }
+
         if (OperatingSystem.IsMacOS()) return await CreateMacInstallerStartInfoAsync(metadata, relaunch);
         if (OperatingSystem.IsLinux()) return await CreateLinuxInstallerStartInfoAsync(metadata, relaunch);
         if (OperatingSystem.IsWindows()) return CreateWindowsInstallerStartInfo(metadata, relaunch);
         return null;
+    }
+
+    private static void StartInstaller(ProcessStartInfo startInfo)
+    {
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException(MessageStrings.OperationFailed);
     }
 
     private ProcessStartInfo? CreateWindowsInstallerStartInfo(AssetMetadataJson metadata, bool relaunch)
@@ -891,9 +884,7 @@ public class UpdateDialogViewModel
         if (_cts.IsCancellationRequested) return;
         _logger.LogInformation("Canceling update process");
         _cts.Cancel();
-        if (_installOnQuit
-            && Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime
-            { MainWindow.DataContext: MainViewModel main })
+        if (_installOnQuit && MainViewModel.TryGetCurrent(out MainViewModel? main))
         {
             main.SetUpdateOnQuit(null);
         }

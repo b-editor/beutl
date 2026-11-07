@@ -183,8 +183,7 @@ public sealed class ShaderImage : ShaderResource
             : (ExplicitBounds ?? Like!.ResolveBounds(sourceBounds, referenceBounds)).Inflate(Padding);
         if (BoundsTransforms.IsEmpty || bounds.IsEmpty)
             return bounds;
-        Rect reference = referenceBounds ?? sourceBounds;
-        Point origin = reference.Position + BoundsOrigin.ToPixels(reference.Size);
+        Point origin = ShaderImageFrame.ResolveOrigin(BoundsOrigin, referenceBounds ?? sourceBounds);
         Rect result = bounds;
         foreach (Matrix transform in BoundsTransforms)
             result = result.Union(bounds.Translate(-origin).TransformToAABB(transform).Translate(origin));

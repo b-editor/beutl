@@ -1,8 +1,10 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 
-namespace Beutl.Editor.Components.Helpers;
+namespace Beutl.Controls;
 
 // Objective-C runtime plumbing shared by the native macOS integrations.
+[ExcludeFromCodeCoverage(Justification = "Objective-C interop is covered by macOS-only tests; CI collects coverage on Linux.")]
 internal static partial class ObjCRuntime
 {
     private const string LibObjC = "/usr/lib/libobjc.A.dylib";
@@ -17,6 +19,9 @@ internal static partial class ObjCRuntime
 
     internal static string? ToManagedString(nint value) =>
         value == 0 ? null : Marshal.PtrToStringUTF8(Send(value, Selector("UTF8String")));
+
+    internal static nint CurrentEvent() =>
+        Send(Send(GetClass("NSApplication"), Selector("sharedApplication")), Selector("currentEvent"));
 
     [LibraryImport(LibObjC, EntryPoint = "objc_getClass", StringMarshalling = StringMarshalling.Utf8)]
     internal static partial nint GetClass(string name);

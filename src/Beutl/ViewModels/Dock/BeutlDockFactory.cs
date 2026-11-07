@@ -215,7 +215,7 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
     {
         if (dock is IToolDock
             && AnchorFromId(dock.Id) != DockAnchor.None
-            && ReferenceEquals(FindRoot(dock, _ => true), _rootDock))
+            && IsInMainLayout(dock))
         {
             return;
         }
@@ -296,9 +296,14 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 
     private IDockable? FindAnchoredDockInLayout(DockAnchor anchor)
     {
-        return GetAnchoredDock(anchor) is { } dock && ReferenceEquals(FindRoot(dock, _ => true), _rootDock)
+        return GetAnchoredDock(anchor) is { } dock && IsInMainLayout(dock)
             ? dock
             : null;
+    }
+
+    private bool IsInMainLayout(IDockable dockable)
+    {
+        return ReferenceEquals(FindRoot(dockable, _ => true), _rootDock);
     }
 
     private static IDockable[] PanesOf(IDock split)
@@ -323,7 +328,7 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
     private void InsertBeside(IDockable beside, IToolDock dock, DockOperation side)
     {
         if (beside.Owner is not IDock { VisibleDockables: { } siblings } owner
-            || !ReferenceEquals(FindRoot(beside, _ => true), _rootDock))
+            || !IsInMainLayout(beside))
         {
             return;
         }

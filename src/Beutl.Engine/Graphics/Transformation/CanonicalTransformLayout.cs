@@ -27,21 +27,9 @@ internal static class CanonicalTransformLayout
         ArgumentNullException.ThrowIfNull(drawable);
         ArgumentNullException.ThrowIfNull(context);
 
-        bool groupChanged = false;
-        if (drawable.Transform.Value is not TransformGroup tg)
-        {
-            Transform? existing = drawable.Transform.Value;
-            var newGroup = new TransformGroup();
-            // The group takes the transform's place first. Added while the drawable still owned it, the transform
-            // would stay in the group's children but lose its parent when the drawable released it.
-            drawable.Transform.Value = newGroup;
-            if (existing != null)
-            {
-                newGroup.Children.Add(existing);
-            }
-            tg = newGroup;
-            groupChanged = true;
-        }
+        TransformGroup tg = EngineObjectGroups.GetOrCreateGroup<Transform, TransformGroup>(
+            drawable.Transform.Value, group => drawable.Transform.Value = group, group => group.Children,
+            out bool groupChanged);
 
         (int rIdx, int sIdx, int tIdx) = FindFirstEnabledIndices(tg.Children);
 

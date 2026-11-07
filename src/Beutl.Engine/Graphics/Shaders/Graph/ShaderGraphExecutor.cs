@@ -24,6 +24,10 @@ internal readonly record struct ShaderImageFrame(Rect Bounds, Rect RasterBounds,
             pixels.Size, density);
     }
 
+    public static Point ResolveOrigin(RelativePoint origin, Rect group) => group.Position + origin.ToPixels(group.Size);
+
+    public Point GroupOrigin(RelativePoint origin) => ResolveOrigin(origin, ReferenceBounds ?? Bounds);
+
     public Vector4[] GetParameters() =>
     [
         new(Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height),

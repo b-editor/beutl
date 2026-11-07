@@ -9,22 +9,14 @@ namespace Beutl.Controls.PropertyEditors;
 // last, and the arrow keys move between its swatches.
 internal sealed class ColorSwatchPanel : Panel
 {
-    public static readonly StyledProperty<int> ColumnsProperty =
-        AvaloniaProperty.Register<ColorSwatchPanel, int>(nameof(Columns), 10, validate: v => v > 0);
+    private const int Columns = 10;
 
     // The cell size when the width is not bounded.
     private const double UnboundedCellSize = 24;
 
     static ColorSwatchPanel()
     {
-        AffectsMeasure<ColorSwatchPanel>(ColumnsProperty);
         KeyboardNavigation.TabNavigationProperty.OverrideDefaultValue<ColorSwatchPanel>(KeyboardNavigationMode.Once);
-    }
-
-    public int Columns
-    {
-        get => GetValue(ColumnsProperty);
-        set => SetValue(ColumnsProperty, value);
     }
 
     protected override Size MeasureOverride(Size availableSize)

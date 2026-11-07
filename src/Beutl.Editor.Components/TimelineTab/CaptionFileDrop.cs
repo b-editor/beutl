@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Text;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
@@ -47,7 +46,7 @@ internal static class CaptionFileDrop
             if (!s_catalog.Value.Codecs.TryGetByFileName(file, out CaptionCodecInfo? codec)) continue;
 
             byte[]? bytes = await TryReadAsync(file);
-            CaptionImportResult? import = bytes is null ? null : Import(bytes, codec.Format);
+            CaptionImportResult? import = bytes is null ? null : s_catalog.Value.Serializer.ImportFile(bytes, codec.Format);
             if (import?.Document is not { Count: > 0 } document)
             {
                 NotificationService.ShowError(
@@ -101,26 +100,5 @@ internal static class CaptionFileDrop
         {
             return null;
         }
-    }
-
-    // The serializer reads UTF-8, but subtitle tools also write UTF-16 and, on Windows, the system's legacy code page.
-    internal static CaptionImportResult Import(byte[] bytes, CaptionFormatId format)
-    {
-        CaptionDocumentSerializer serializer = s_catalog.Value.Serializer;
-        if (bytes is [0xFF, 0xFE, ..])
-            return serializer.Import(Encoding.Convert(Encoding.Unicode, Encoding.UTF8, bytes, 2, bytes.Length - 2), format);
-        if (bytes is [0xFE, 0xFF, ..])
-            return serializer.Import(Encoding.Convert(Encoding.BigEndianUnicode, Encoding.UTF8, bytes, 2, bytes.Length - 2), format);
-
-        CaptionImportResult result = serializer.Import(bytes, format);
-        if (result.IsSuccess || result.Diagnostics.All(item => item.Kind != CaptionDiagnosticKinds.InvalidUtf8))
-            return result;
-
-        // Code page 0 is the system's on Windows, whatever the regional format says. Elsewhere there is none, and the
-        // locale is the best guess.
-        Encoding legacy = CodePagesEncodingProvider.Instance.GetEncoding(0)
-            ?? CodePagesEncodingProvider.Instance.GetEncoding(CultureInfo.CurrentCulture.TextInfo.ANSICodePage)
-            ?? Encoding.Latin1;
-        return serializer.Import(Encoding.Convert(legacy, Encoding.UTF8, bytes), format);
     }
 }

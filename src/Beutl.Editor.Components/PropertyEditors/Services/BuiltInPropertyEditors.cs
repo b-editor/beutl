@@ -169,7 +169,7 @@ internal static class BuiltInPropertyEditors
             return [];
         }
 
-        string[] others = PropertyPair.OtherNames(attribute);
+        string[] others = attribute.OtherNames;
         if (others.Length + 1 != count) return [];
 
         object? owner = first.GetEngineProperty()?.GetOwnerObject();

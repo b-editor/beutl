@@ -10,8 +10,8 @@ public sealed class PlayerMarkerEntry
         TimeText = timeText;
     }
 
-    public PlayerMarkerEntry(string name, string timeText, MediaTime time, Color color)
-        : this(name, timeText)
+    public PlayerMarkerEntry(string name, MediaTime time, Color color)
+        : this(name, PlayerSeekBar.FormatTime(time))
     {
         Time = time;
         Color = color;

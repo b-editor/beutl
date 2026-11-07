@@ -12,4 +12,6 @@ internal readonly record struct AlphaCutout(TextureSource.Resource Map, float Al
     /// <summary>A map without pixels at hand keeps its whole surface.</summary>
     public bool IsCutOutAt(Vector2 texCoord)
         => Map.TryGetAlpha(texCoord, out float alpha) && AlphaScale * alpha < Cutoff;
+
+    internal Vector4 ShaderParameters => new(AlphaScale, Cutoff, 0, 0);
 }

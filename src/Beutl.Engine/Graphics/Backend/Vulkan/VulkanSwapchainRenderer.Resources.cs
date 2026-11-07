@@ -113,6 +113,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
         _sourceImageLayout = ImageLayout.Undefined;
 
         _descriptorSet = _pipeline!.AllocateDescriptorSet();
+        _pipeline.UpdateDescriptorSet(_descriptorSet, VulkanPresentPipeline.SourceBinding, _sourceImageView);
         // The shader samples the overlay only once there is one, but its binding has to hold an image all along.
         _pipeline.UpdateDescriptorSet(_descriptorSet, VulkanPresentPipeline.OverlayBinding,
             _overlayImageView.Handle != 0 ? _overlayImageView : _sourceImageView);
@@ -131,23 +132,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
 
     private void DestroyOverlayImage()
     {
-        if (_overlayImageView.Handle != 0)
-        {
-            _vk.DestroyImageView(_device, _overlayImageView, null);
-            _overlayImageView = default;
-        }
-
-        if (_overlayImage.Handle != 0)
-        {
-            _vk.DestroyImage(_device, _overlayImage, null);
-            _overlayImage = default;
-        }
-
-        if (_overlayMemory.Handle != 0)
-        {
-            _vk.FreeMemory(_device, _overlayMemory, null);
-            _overlayMemory = default;
-        }
+        DestroySampledImage(ref _overlayImage, ref _overlayMemory, ref _overlayImageView);
 
         _overlayWidth = 0;
         _overlayHeight = 0;
@@ -220,28 +205,33 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
         view = newView;
     }
 
+    private void DestroySampledImage(ref Image image, ref DeviceMemory memory, ref ImageView view)
+    {
+        if (view.Handle != 0)
+        {
+            _vk.DestroyImageView(_device, view, null);
+            view = default;
+        }
+
+        if (image.Handle != 0)
+        {
+            _vk.DestroyImage(_device, image, null);
+            image = default;
+        }
+
+        if (memory.Handle != 0)
+        {
+            _vk.FreeMemory(_device, memory, null);
+            memory = default;
+        }
+    }
+
     private void DestroySourceImage()
     {
         _pipeline?.FreeDescriptorSet(_descriptorSet);
         _descriptorSet = default;
 
-        if (_sourceImageView.Handle != 0)
-        {
-            _vk.DestroyImageView(_device, _sourceImageView, null);
-            _sourceImageView = default;
-        }
-
-        if (_sourceImage.Handle != 0)
-        {
-            _vk.DestroyImage(_device, _sourceImage, null);
-            _sourceImage = default;
-        }
-
-        if (_sourceMemory.Handle != 0)
-        {
-            _vk.FreeMemory(_device, _sourceMemory, null);
-            _sourceMemory = default;
-        }
+        DestroySampledImage(ref _sourceImage, ref _sourceMemory, ref _sourceImageView);
 
         _sourceWidth = 0;
         _sourceHeight = 0;

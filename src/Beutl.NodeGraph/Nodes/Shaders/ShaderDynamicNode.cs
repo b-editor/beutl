@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Nodes;
 using Beutl.Editor;
-using Beutl.NodeGraph.Composition;
 using Beutl.Serialization;
 
 namespace Beutl.NodeGraph.Nodes.Shaders;
@@ -99,20 +98,7 @@ public abstract partial class ShaderDynamicNode : GraphNode
 
     private void RemovePort(INodeMember item)
     {
-        if (this.FindHierarchicalParent<GraphModel>() is { } graph)
-        {
-            Reference<Connection>[] connections = item switch
-            {
-                IOutputPort output => [.. output.Connections],
-                IInputPort { Connection.Value: var connection } => [connection],
-                _ => [],
-            };
-            foreach (Reference<Connection> connection in connections)
-            {
-                if (connection.Value != null) graph.Disconnect(connection.Value);
-            }
-        }
-
+        this.FindHierarchicalParent<GraphModel>()?.DisconnectPort(item);
         Items.Remove(item);
     }
 
@@ -164,7 +150,7 @@ public abstract partial class ShaderDynamicNode : GraphNode
     {
         private Dictionary<string, int>? _indices;
 
-        private protected int IndexOf(string name)
+        private int IndexOf(string name)
         {
             if (_indices == null)
             {
@@ -180,12 +166,6 @@ public abstract partial class ShaderDynamicNode : GraphNode
         {
             int index = IndexOf(name);
             return index >= 0 && ItemValues[index].GetBoxed() is T value ? value : default;
-        }
-
-        private protected void Set<T>(string name, T value)
-        {
-            int index = IndexOf(name);
-            if (index >= 0 && ItemValues[index] is ItemValue<T> item) item.Value = value;
         }
     }
 }

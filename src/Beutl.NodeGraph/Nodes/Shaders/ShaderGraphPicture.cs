@@ -84,18 +84,10 @@ internal sealed class ShaderGraphPicture : IWirePicture
             _effect.Description.Value = description;
         }
 
-        if (_effectResource == null)
-        {
-            _effectResource = _effect.ToResource(context);
-            _renderNode = new ShaderGraphRenderNode(_effectResource);
-        }
-        else
-        {
-            bool changed = false;
-            _effectResource.Reconcile(_effect, context, ref changed);
-        }
-
-        _renderNode!.Update(_effectResource);
+        bool changed = false;
+        ResourceReconciler.ReconcileResource(context, _effect, ref _effectResource, ref changed);
+        _renderNode ??= new ShaderGraphRenderNode(_effectResource!);
+        _renderNode.Update(_effectResource!);
         _renderNode.SetGraph(_effect.Description.Value, _recordingError != null, source, externals);
     }
 
@@ -128,7 +120,7 @@ internal sealed class ShaderGraphRenderNode(FilterEffect.Resource effect) : Filt
     private ShaderGraphDescription? _description;
     private bool _failed;
     private RenderNode? _source;
-    private RenderNode[] _externals = [];
+    private IReadOnlyList<RenderNode> _externals = [];
 
     internal ShaderGraphDescription? Description => _description;
 
@@ -137,7 +129,7 @@ internal sealed class ShaderGraphRenderNode(FilterEffect.Resource effect) : Filt
         bool changed = !ReferenceEquals(_description, description) || _failed != failed;
         _description = description;
         _failed = failed;
-        if (!ReferenceEquals(_source, source) || !_externals.AsSpan().SequenceEqual([.. externals]))
+        if (!ReferenceEquals(_source, source) || !SamePictures(_externals, externals))
         {
             ReplacePictures(source, externals);
             changed = true;
@@ -156,6 +148,17 @@ internal sealed class ShaderGraphRenderNode(FilterEffect.Resource effect) : Filt
         if (changed) MarkChanged();
     }
 
+    private static bool SamePictures(IReadOnlyList<RenderNode> current, IReadOnlyList<RenderNode> next)
+    {
+        if (current.Count != next.Count) return false;
+        for (int i = 0; i < current.Count; i++)
+        {
+            if (!ReferenceEquals(current[i], next[i])) return false;
+        }
+
+        return true;
+    }
+
     // The source stays one child when nothing else is read, for the same path a script effect takes.
     private void ReplacePictures(RenderNode? source, IReadOnlyList<RenderNode> externals)
     {
@@ -164,7 +167,8 @@ internal sealed class ShaderGraphRenderNode(FilterEffect.Resource effect) : Filt
         foreach (RenderNode child in children) child.Dispose();
 
         _source = source;
-        _externals = [.. externals];
+        // The recording that made the list has finished with it.
+        _externals = externals;
         if (source != null)
             AddChild(externals.Count == 0 ? new ReferencesChildRenderNode(source) : new PictureInput(source, single: false));
         foreach (RenderNode external in externals)
@@ -178,18 +182,28 @@ internal sealed class ShaderGraphRenderNode(FilterEffect.Resource effect) : Filt
 
         Rect? frame = context.TargetDomain;
         bool generates = _source == null && frame.HasValue;
-        if (_description is not { } description || (!generates && _externals.Length == 0))
+        if (_description is not { } description || (!generates && _externals.Count == 0))
         {
             base.Process(context);
             return;
         }
 
         IReadOnlyList<RenderFragmentHandle> inputs = context.Inputs;
-        int sourceCount = inputs.Count - _externals.Length;
-        RenderFragmentHandle[] externals = [.. inputs.Skip(sourceCount)];
-        IReadOnlyList<RenderFragmentHandle> sources = generates ? [PictureInput.Empty(context, frame!.Value)] : [.. inputs.Take(sourceCount)];
-        foreach (RenderFragmentHandle source in sources)
-            context.Publish(context.ShaderGraph(source, description, externals));
+        int sourceCount = inputs.Count - _externals.Count;
+        int firstExternal = Math.Max(sourceCount, 0);
+        var externals = new RenderFragmentHandle[inputs.Count - firstExternal];
+        for (int i = 0; i < externals.Length; i++)
+            externals[i] = inputs[firstExternal + i];
+
+        if (generates)
+        {
+            context.Publish(context.ShaderGraph(PictureInput.Empty(context, frame!.Value), description, externals));
+        }
+        else
+        {
+            for (int i = 0; i < sourceCount; i++)
+                context.Publish(context.ShaderGraph(inputs[i], description, externals));
+        }
     }
 
     // Keeps pictures apart among a node's inputs, which arrive as one list: an external image is always one value.

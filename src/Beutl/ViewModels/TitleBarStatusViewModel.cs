@@ -69,16 +69,18 @@ public sealed class TitleBarStatusViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim(AppUpdateStatus.Idle)
             .DisposeWith(_disposables);
 
-        IsBusy = IsRunningStartupTasks
-            .CombineLatest(RunningAiJobCount, RunningOutputs, AppUpdate,
-                (startup, jobs, outputs, update) => startup || jobs > 0 || outputs.Length > 0 || update.IsBusy)
+        IObservable<bool> otherTasksRunning = IsRunningStartupTasks
+            .CombineLatest(RunningAiJobCount, RunningOutputs,
+                (startup, jobs, outputs) => startup || jobs > 0 || outputs.Length > 0);
+
+        IsBusy = otherTasksRunning
+            .CombineLatest(AppUpdate, (others, update) => others || update.IsBusy)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         // A percentage only when the update is all the ring stands for, so it cannot be read as another task's.
-        IObservable<double?> ringProgress = IsRunningStartupTasks
-            .CombineLatest(RunningAiJobCount, RunningOutputs, AppUpdate,
-                (startup, jobs, outputs, update) => !startup && jobs == 0 && outputs.Length == 0 ? update.Progress : null);
+        IObservable<double?> ringProgress = otherTasksRunning
+            .CombineLatest(AppUpdate, (others, update) => others ? null : update.Progress);
 
         RingValue = ringProgress
             .Select(progress => progress ?? 0)

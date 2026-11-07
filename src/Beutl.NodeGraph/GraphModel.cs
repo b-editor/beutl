@@ -90,6 +90,30 @@ public partial class GraphModel : EngineObject
         connection.Disconnect();
     }
 
+    // Severs every connection of the port, and says whether there was any.
+    internal bool DisconnectPort(INodeMember port)
+    {
+        Reference<Connection>[] connections = port switch
+        {
+            IOutputPort output => [.. output.Connections],
+            IListPort list => [.. list.Connections],
+            IInputPort { Connection.Value: var connection } => [connection],
+            _ => [],
+        };
+
+        bool disconnected = false;
+        foreach (Reference<Connection> connection in connections)
+        {
+            if (connection.Value != null)
+            {
+                Disconnect(connection.Value);
+                disconnected = true;
+            }
+        }
+
+        return disconnected;
+    }
+
     protected void RaiseTopologyChanged()
     {
         // Shared properties can invalidate connections in another group. Clear every cache

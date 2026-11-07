@@ -22,8 +22,8 @@ internal static class RenderMaterializationDensityPolicy
 
         if (fragment.Payload is ShaderGraphRenderFragmentPayload graph)
         {
-            return graph.ClampDensity(fragment.Inputs[0], density, regions?.GetFragmentRequirement(fragment)
-                .Resolve(fragment.Bounds).Intersect(fragment.Bounds) ?? Rect.Empty);
+            return graph.ClampDensity(fragment.Inputs[0], density,
+                regions?.GetFragmentRequirement(fragment).ResolveWithin(fragment.Bounds) ?? Rect.Empty);
         }
 
         Rect logicalBounds = fragment.Kind == RenderFragmentKind.Layer
@@ -31,7 +31,7 @@ internal static class RenderMaterializationDensityPolicy
             ? layer.Domain ?? fragment.Bounds
             // A segment makes only the part of its output the request needs.
             : fragment.Payload is FilterEffectSegmentRenderFragmentPayload && regions is not null
-                ? regions.GetFragmentRequirement(fragment).Resolve(fragment.Bounds).Intersect(fragment.Bounds)
+                ? regions.GetFragmentRequirement(fragment).ResolveWithin(fragment.Bounds)
                 : fragment.Bounds;
         return RequiresRasterApron(fragment)
             ? BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToRasterApron(logicalBounds, density)

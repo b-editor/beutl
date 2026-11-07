@@ -198,17 +198,6 @@ public partial class PlayerView : UserControl
         _hdrSourceSizeSubscription = null;
     }
 
-    // Where the slot puts the frame in the HDR preview's native view, which the frame panel's transform moves.
-    private void UpdateHdrFrameRect()
-    {
-        if (hdrView is not { } view)
-            return;
-
-        view.FrameRect = image.TransformToVisual(view) is { } transform
-            ? new Avalonia.Rect(image.Bounds.Size).TransformToAABB(transform)
-            : default(Avalonia.Rect);
-    }
-
     // The layers above the preview take the image's size. The current bounds arrive on subscribing.
     private void SubscribeImageBounds()
     {
@@ -225,8 +214,7 @@ public partial class PlayerView : UserControl
                 transformHandlesOverlay.Width = bounds.Width;
                 transformHandlesOverlay.Height = bounds.Height;
                 UpdateViewportScale();
-                UpdateHdrFrameRect();
-                UpdateCheckerboardRect();
+                UpdateFrameRects();
             });
     }
 
@@ -370,10 +358,8 @@ public partial class PlayerView : UserControl
                 framePanel.RenderTransform = new ImmutableTransform(matrix.ToAvaMatrix());
                 guideOverlay.Zoom = matrix.M11;
                 UpdateFrameOutline(matrix.M11);
-                UpdateFrameBackground();
                 UpdateZoomDisplay();
-                UpdateHdrFrameRect();
-                UpdateCheckerboardRect();
+                UpdateFrameRects();
             })
             .DisposeWith(_disposables);
     }
@@ -604,7 +590,6 @@ public partial class PlayerView : UserControl
                 SceneMarker m = scene.Markers[i];
                 snapshot[i] = new PlayerMarkerEntry(
                     m.Name.Value ?? string.Empty,
-                    PlayerSeekBar.FormatTime(m.Time.Value),
                     m.Time.Value,
                     m.Color.Value.ToAvaColor());
             }

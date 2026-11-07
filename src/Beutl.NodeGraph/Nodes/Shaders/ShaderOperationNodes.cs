@@ -205,7 +205,7 @@ public partial class ShaderConvertColorNode : ShaderImageProducerNode
         {
             (ShaderGraphValue<ShaderImage>? wire, ColorEncoding from, ColorEncoding to) = (Image, From, To);
             Output = new(recording => recording.Builder.ConvertColor(recording.UniqueName("Convert"),
-                wire != null ? recording.Evaluate(wire) : recording.Builder.Source, from, to));
+                recording.Evaluate(wire ?? ShaderGraphRecordingContext.SourceImage), from, to));
         }
     }
 }

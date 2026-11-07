@@ -36,19 +36,7 @@ public sealed partial class FileBrowserTabViewModel
             return;
         }
 
-        try
-        {
-            if (!await LaunchFileManagerAsync(FileManagerLauncher.CreateStartInfo(path, item.IsDirectory)))
-            {
-                _logger.LogWarning("File manager exited unsuccessfully for {Path}", path);
-                NotificationService.ShowError(FileManagerLauncher.MenuHeader, MessageStrings.OperationFailed);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to open {Path} in file manager", path);
-            NotificationService.ShowError(FileManagerLauncher.MenuHeader, MessageStrings.OperationFailed);
-        }
+        await FileManagerLauncher.RevealAsync(path, item.IsDirectory, LaunchFileManagerAsync, _logger);
     }
 
     private bool CanMutateItem(FileSystemItemViewModel item) => CanMutateAll([(item.FullPath, item.IsDirectory)]);

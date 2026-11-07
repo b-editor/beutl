@@ -31,7 +31,7 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         AvaloniaProperty.Register<BrushEditorFlyoutPresenter, bool>(nameof(CanEditDrawable), false);
 
     private readonly CompositeDisposable _disposables = [];
-    private readonly SerialDisposable _pickerColor = new();
+    private readonly SerialDisposable _paletteConnection = new();
     private const string Palette = ":palette";
     private const string Solid = ":solid";
     private const string Gradient = ":gradient";
@@ -191,11 +191,6 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         {
             UpdateTabCheckedState();
         }
-        else if (change.Property == BackgroundStopsProperty)
-        {
-            if (_gradientStopsSlider != null)
-                _gradientStopsSlider.BackgroundStops = BackgroundStops;
-        }
         else if (change.Property == ContentProperty)
         {
             OnContentChanged(change);
@@ -269,25 +264,15 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
             newValue.ColorConfirmed += OnColorPickerColorConfirmed;
         }
 
-        FollowPickerColor();
+        ConnectPalette();
     }
 
     // The palette rings the color of the solid brush or of the selected stop, which the picker shows.
-    private void FollowPickerColor()
+    private void ConnectPalette()
     {
-        _pickerColor.Disposable = (Content as SimpleColorPicker)?.GetObservable(SimpleColorPicker.ColorProperty)
-            .Subscribe(color =>
-            {
-                if (_paletteView != null)
-                {
-                    _paletteView.CurrentColor = color;
-                }
-            });
-    }
-
-    private void OnPaletteColorSelected(ColorPaletteView sender, Color color)
-    {
-        SetColorPaletteItem(color);
+        _paletteConnection.Disposable = Content is SimpleColorPicker picker
+            ? _paletteView?.Connect(picker, SetColorPaletteItem)
+            : null;
     }
 
     private void OnGradientBrushPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -305,11 +290,6 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         _disposables.Clear();
-        if (_paletteView != null)
-        {
-            _paletteView.ColorSelected -= OnPaletteColorSelected;
-        }
-
         base.OnApplyTemplate(e);
         _solidBrushTabButton = e.NameScope.Find<ToggleButton>("SolidBrushTabButton");
         _gradientBrushTabButton = e.NameScope.Find<ToggleButton>("GradientBrushTabButton");
@@ -323,11 +303,7 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         _changeDrawableTypeButton = e.NameScope.Find<Button>("ChangeDrawableButton");
         _editDrawableButton = e.NameScope.Find<Button>("EditDrawableButton");
 
-        if (_paletteView != null)
-        {
-            _paletteView.ColorSelected += OnPaletteColorSelected;
-            FollowPickerColor();
-        }
+        ConnectPalette();
 
         foreach (ToggleButton? item in GetTabButtons())
         {
@@ -380,7 +356,6 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
             slider.SelectedStop = stops.FirstOrDefault();
         }
 
-        slider.BackgroundStops = BackgroundStops;
         slider.GetObservable(GradientStopsSlider.SelectedStopProperty)
             // The preview's color can arrive after the stop is selected.
             .Select(stop => stop?.GetObservable(GradientStop.ColorProperty) ?? Observable.Empty<Color>())

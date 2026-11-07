@@ -19,32 +19,20 @@ internal sealed record ShaderPassReflection(
     ImmutableArray<(ShaderSpecializationLayout Layout, ShaderStage Stages)> Specializations,
     ImmutableArray<(ShaderStage Stage, byte[] Spirv)> Stages)
 {
-    private const int MaximumCachedStages = 256;
-
     // A project's passes, and every frame of each, ask again for code that rarely changes.
-    private static readonly ConcurrentDictionary<(ShaderStage, string), Lazy<byte[]>> s_spirv = new();
+    private static readonly ShaderStageCache s_spirv =
+        new(static (code, stage) => ShaderAuthoringInterface.CompileSpirv(new ShaderSource(code), stage));
 
     /// <summary>Reflects the stages, compiling only code not seen before. Compile errors throw.</summary>
     public static ShaderPassReflection Compile(IReadOnlyList<(ShaderStage Stage, string Code)> stages)
     {
-        if (s_spirv.Count > MaximumCachedStages) s_spirv.Clear();
+        s_spirv.TrimIfFull();
         var compiled = ImmutableArray.CreateBuilder<(ShaderStage, byte[])>(stages.Count);
         foreach ((ShaderStage stage, string code) in stages)
         {
             if (string.IsNullOrWhiteSpace(code))
                 throw new InvalidOperationException(NodeGraphStrings.ShaderError_EmptyCode);
-            Lazy<byte[]> entry = s_spirv.GetOrAdd((stage, code),
-                static key => new(() => ShaderAuthoringInterface.CompileSpirv(new ShaderSource(key.Item2), key.Item1)));
-            try
-            {
-                compiled.Add((stage, entry.Value));
-            }
-            catch
-            {
-                // The cache keeps only code that compiled; a compiler that could not start may recover.
-                s_spirv.TryRemove((stage, code), out _);
-                throw;
-            }
+            compiled.Add((stage, s_spirv.Read(stage, code, static spirv => spirv)));
         }
 
         return Merge(compiled.MoveToImmutable(), default);
@@ -107,9 +95,11 @@ internal sealed record ShaderPassReflection(
 /// <see cref="ShaderGraphDescription.ExecutionObserver"/>.</remarks>
 internal static class ShaderGraphPreflight
 {
-    private const int MaximumCachedStages = 256;
-
-    private static readonly ConcurrentDictionary<(ShaderStage, string), Lazy<byte[]>> s_optimized = new();
+    private static readonly ShaderStageCache s_optimized = new(static (code, stage) =>
+    {
+        using var compiler = new VulkanShaderCompiler();
+        return compiler.CompileToSpirv(code, stage);
+    });
     private static readonly ConditionalWeakTable<ShaderProgram, IReadOnlyDictionary<ShaderStage, ShaderInterface>> s_interfaces = new();
 
     public static void Validate(ShaderGraphDescription graph)
@@ -125,23 +115,36 @@ internal static class ShaderGraphPreflight
 
     private static IReadOnlyDictionary<ShaderStage, ShaderInterface> ReadInterfaces(ShaderProgram program)
     {
-        if (s_optimized.Count > MaximumCachedStages) s_optimized.Clear();
-        return program.Stages.ToDictionary(stage => stage.Key, stage =>
+        s_optimized.TrimIfFull();
+        return program.Stages.ToDictionary(stage => stage.Key, stage => s_optimized.Read(stage.Key, stage.Value.Text,
+            spirv => new ShaderInterface(spirv, stage.Key, program.SpecializationConstants)));
+    }
+}
+
+internal sealed class ShaderStageCache(Func<string, ShaderStage, byte[]> compile)
+{
+    private const int MaximumCachedStages = 256;
+
+    private readonly ConcurrentDictionary<(ShaderStage, string), Lazy<byte[]>> _entries = new();
+
+    public void TrimIfFull()
+    {
+        if (_entries.Count > MaximumCachedStages) _entries.Clear();
+    }
+
+    public T Read<T>(ShaderStage stage, string code, Func<byte[], T> read)
+    {
+        Lazy<byte[]> entry = _entries.GetOrAdd((stage, code),
+            static (key, factory) => new(() => factory(key.Item2, key.Item1)), compile);
+        try
         {
-            Lazy<byte[]> entry = s_optimized.GetOrAdd((stage.Key, stage.Value.Text), static key => new(() =>
-            {
-                using var compiler = new VulkanShaderCompiler();
-                return compiler.CompileToSpirv(key.Item2, key.Item1);
-            }));
-            try
-            {
-                return new ShaderInterface(entry.Value, stage.Key, program.SpecializationConstants);
-            }
-            catch
-            {
-                s_optimized.TryRemove((stage.Key, stage.Value.Text), out _);
-                throw;
-            }
-        });
+            return read(entry.Value);
+        }
+        catch
+        {
+            // The cache keeps only code that compiled; a compiler that could not start may recover.
+            _entries.TryRemove((stage, code), out _);
+            throw;
+        }
     }
 }

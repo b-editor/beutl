@@ -1,6 +1,7 @@
 ﻿using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
 using Beutl.Graphics;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Components.AiWorkspaceTab.Services;
@@ -82,10 +83,8 @@ internal static class AiCaptionSceneImporter
         if (description.Source is not ElementSource.ElementSetTemplate source)
             return [(description.Layer, description.Start, description.Start + (description.Length ?? MediaTime.Zero))];
 
-        IList<Element> elements = source.Factory().Elements;
-        MediaTime length = elements.Max(element => element.Range.End) - elements.Min(element => element.Start.Value);
-        int span = elements.Max(element => element.ZIndex.Value) - elements.Min(element => element.ZIndex.Value) + 1;
-        return Enumerable.Range(description.Layer, span)
-            .Select(layer => (layer, description.Start, description.Start + length));
+        (TimeRange range, int minZIndex, int maxZIndex) = DuplicateHelper.ComputePlacementRange(source.Factory().Elements);
+        return Enumerable.Range(description.Layer, maxZIndex - minZIndex + 1)
+            .Select(layer => (layer, description.Start, description.Start + range.Duration));
     }
 }

@@ -23,19 +23,9 @@ public partial class ShaderFullscreenPassNode : ShaderGraphicsPassNode
     public ShaderFullscreenPassNode()
     {
         ScanProperties<ShaderFullscreenPassNode>();
-        var color = CreateOutput<ShaderGraphValue<ShaderImage>>("Out.color", new DisplayAttribute { Name = "color" });
-        var source = CreateInput<ShaderGraphValue<ShaderImage>>("In.source", new DisplayAttribute { Name = "source" });
-        AddInput(this, Code);
-        Items.Add(Error);
-        Items.Add(Padding);
-        Items.Add(ResolutionScale);
-        Items.Add(Format);
-        Items.Add(Targets);
-        Items.Add(Settings);
-        SealFixedPorts(Error);
-        Items.Insert(0, color);
-        Items.Insert(3, source);
-        Code.ValueChanged += (_, _) => OnCodeChanged();
+        AddCodeInput(Code);
+        AddFixedPorts(Format, Targets);
+        InsertDefaultPorts(["color"], ["source"]);
     }
 
     [DataType(DataType.MultilineText)]

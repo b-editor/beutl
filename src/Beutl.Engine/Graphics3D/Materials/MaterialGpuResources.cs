@@ -64,6 +64,15 @@ internal static class MaterialGpuResources
             SamplerAddressMode.Repeat);
     }
 
+    public static ISampler CreateLinearClampSampler(IGraphicsContext graphicsContext)
+    {
+        return graphicsContext.CreateSampler(
+            SamplerFilter.Linear,
+            SamplerFilter.Linear,
+            SamplerAddressMode.ClampToEdge,
+            SamplerAddressMode.ClampToEdge);
+    }
+
     public static ITexture2D Create1x1Texture(IGraphicsContext graphicsContext, ReadOnlySpan<byte> bgra)
     {
         var texture = graphicsContext.CreateTexture2D(1, 1, TextureFormat.BGRA8Unorm);

@@ -408,8 +408,7 @@ internal readonly record struct ShaderRuntimeConstant(ShaderRuntimeConstantKind 
         }
         else
         {
-            Rect bounds = frames[0].ReferenceBounds ?? frames[0].Bounds;
-            Point value = bounds.Position + Origin.ToPixels(bounds.Size);
+            Point value = frames[0].GroupOrigin(Origin);
             MemoryMarshal.Write(constants[Offset..], in value);
         }
     }

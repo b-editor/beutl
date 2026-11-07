@@ -1,6 +1,7 @@
 ﻿using System.Collections.Specialized;
 using System.Runtime.CompilerServices;
 using Avalonia;
+using Avalonia.Skia;
 using Avalonia.Skia.Helpers;
 using Avalonia.VisualTree;
 using SkiaSharp;
@@ -144,19 +145,11 @@ internal sealed class HdrOverlay : IDisposable
             .GetAwaiter().GetResult();
         using SKPicture picture = recorder.EndRecording();
 
-        SKMatrix placement = ToSKMatrix(Matrix.CreateTranslation(clip.Position) * slot);
+        SKMatrix placement = (Matrix.CreateTranslation(clip.Position) * slot).ToSKMatrix();
         canvas.Save();
         canvas.Concat(in placement);
         canvas.DrawPicture(picture);
         canvas.Restore();
-    }
-
-    private static SKMatrix ToSKMatrix(Matrix m)
-    {
-        return new SKMatrix(
-            (float)m.M11, (float)m.M21, (float)m.M31,
-            (float)m.M12, (float)m.M22, (float)m.M32,
-            (float)m.M13, (float)m.M23, (float)m.M33);
     }
 
     private void Track(Visual visual)

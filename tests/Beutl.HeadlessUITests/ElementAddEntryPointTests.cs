@@ -785,8 +785,9 @@ public class ElementAddEntryPointTests
     {
         const string Srt = "1\n00:00:01,000 --> 00:00:02,000\nこんにちは\n";
         byte[] utf16 = [.. Encoding.Unicode.GetPreamble(), .. Encoding.Unicode.GetBytes(Srt)];
+        CaptionDocumentSerializer serializer = AiTestSupport.CreateCaptionCatalog().Serializer;
 
-        Assert.That(CaptionFileDrop.Import(utf16, CaptionFormats.Srt).Document![0].Text, Is.EqualTo("こんにちは"));
+        Assert.That(serializer.ImportFile(utf16, CaptionFormats.Srt).Document![0].Text, Is.EqualTo("こんにちは"));
     }
 
     // Windows' code page wins over a regional format that disagrees with it. Other systems have only the locale.
@@ -808,8 +809,9 @@ public class ElementAddEntryPointTests
         try
         {
             byte[] bytes = legacy.GetBytes($"1\n00:00:01,000 --> 00:00:02,000\n{text}\n");
+            CaptionDocumentSerializer serializer = AiTestSupport.CreateCaptionCatalog().Serializer;
 
-            Assert.That(CaptionFileDrop.Import(bytes, CaptionFormats.Srt).Document![0].Text, Is.EqualTo(text));
+            Assert.That(serializer.ImportFile(bytes, CaptionFormats.Srt).Document![0].Text, Is.EqualTo(text));
         }
         finally
         {

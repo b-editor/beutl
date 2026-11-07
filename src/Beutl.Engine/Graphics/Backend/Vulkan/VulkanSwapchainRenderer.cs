@@ -237,8 +237,11 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
                 // A frame comes through the queue and a redraw beside it, so a frame requested before a redraw can reach a
                 // later batch than the redraw did. Its older parameters must not move the frame back.
-                if (batch.Params is { } requested)
-                    batch.Params = _newestParams.Take(requested, batch.Stamp);
+                if (batch.Newest.Params is { } requested)
+                {
+                    _newestParams.Take(requested, batch.Newest.Stamp);
+                    batch.Newest = _newestParams;
+                }
 
                 // A paused preview gets no new frame when its window moves to another display, the display's settings
                 // change, or its native view takes a new size after the last frame, so the last one is drawn again.
@@ -307,7 +310,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         if (redraw is { } r)
         {
-            batch.Offer(r.Params, r.Stamp);
+            batch.Newest.Take(r.Params, r.Stamp);
             batch.Redraw = true;
         }
     }
@@ -319,11 +322,11 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             // A resize taken with this frame is not run: the swapchain follows the surface's size before drawing, which
             // a resize can leave old, and the frame would stay stretched until the idle redraw.
             FollowSurfaceSize();
-            ExecuteRender(bitmap, batch.Params!.Value);
+            ExecuteRender(bitmap, batch.Newest.Params!.Value);
         }
         else if (batch.Redraw)
         {
-            if ((batch.Params ?? _lastRenderParams) is { } renderParams)
+            if ((batch.Newest.Params ?? _lastRenderParams) is { } renderParams)
             {
                 FollowSurfaceSize();
                 ExecuteRender(null, renderParams);
@@ -496,42 +499,8 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         ulong dataSize = (ulong)(bitmap.RowBytes * height);
         EnsureStagingBuffer(dataSize);
 
-        void* mapped;
-        Check(_vk.MapMemory(_device, _stagingMemory, 0, dataSize, 0, &mapped), "vkMapMemory");
-        System.Buffer.MemoryCopy((void*)bitmap.Data, mapped, (long)dataSize, (long)dataSize);
-        _vk.UnmapMemory(_device, _stagingMemory);
-
-        var cmdBuf = _uploadCommandBuffer;
-        Check(_vk.ResetCommandBuffer(cmdBuf, 0), "vkResetCommandBuffer");
-        BeginCommandBuffer(cmdBuf);
-
-        TransitionImageLayout(cmdBuf, _sourceImage, _sourceImageLayout, ImageLayout.TransferDstOptimal);
-        _sourceImageLayout = ImageLayout.TransferDstOptimal;
-
-        var region = new BufferImageCopy
-        {
-            BufferOffset = 0,
-            BufferRowLength = (uint)(bitmap.RowBytes / bitmap.BytesPerPixel),
-            BufferImageHeight = 0,
-            ImageSubresource = new ImageSubresourceLayers
-            {
-                AspectMask = ImageAspectFlags.ColorBit,
-                MipLevel = 0,
-                BaseArrayLayer = 0,
-                LayerCount = 1
-            },
-            ImageOffset = new Offset3D(0, 0, 0),
-            ImageExtent = new Extent3D((uint)width, (uint)height, 1)
-        };
-
-        _vk.CmdCopyBufferToImage(cmdBuf, _stagingBuffer, _sourceImage, ImageLayout.TransferDstOptimal, 1, &region);
-
-        TransitionImageLayout(cmdBuf, _sourceImage, ImageLayout.TransferDstOptimal, ImageLayout.ShaderReadOnlyOptimal);
-        _sourceImageLayout = ImageLayout.ShaderReadOnlyOptimal;
-
-        EndAndSubmitUploadCommands(cmdBuf);
-
-        _pipeline!.UpdateDescriptorSet(_descriptorSet, VulkanPresentPipeline.SourceBinding, _sourceImageView);
+        UploadToImage(_uploadCommandBuffer, (void*)bitmap.Data, dataSize, _stagingBuffer, _stagingMemory,
+            _sourceImage, ref _sourceImageLayout, (uint)(bitmap.RowBytes / bitmap.BytesPerPixel), width, height);
     }
 
     // Draws the overlay picture at the swapchain's size, on the CPU as the UI's software renderer would, and uploads it.
@@ -575,22 +544,31 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         EnsureOverlayStagingBuffer(size);
 
-        void* mapped;
-        Check(_vk.MapMemory(_device, _overlayStagingMemory, 0, size, 0, &mapped), "vkMapMemory");
-        System.Buffer.MemoryCopy(_overlayPixels, mapped, (long)size, (long)size);
-        _vk.UnmapMemory(_device, _overlayStagingMemory);
+        UploadToImage(_overlayCommandBuffer, _overlayPixels, size, _overlayStagingBuffer, _overlayStagingMemory,
+            _overlayImage, ref _overlayImageLayout, 0, width, height);
+        _overlayShown = true;
+    }
 
-        var cmdBuf = _overlayCommandBuffer;
+    // Copies size bytes from source through the staging buffer into image, which it leaves ready for the present shader.
+    private void UploadToImage(CommandBuffer cmdBuf, void* source, ulong size,
+        Silk.NET.Vulkan.Buffer stagingBuffer, DeviceMemory stagingMemory,
+        Image image, ref ImageLayout layout, uint rowLength, int width, int height)
+    {
+        void* mapped;
+        Check(_vk.MapMemory(_device, stagingMemory, 0, size, 0, &mapped), "vkMapMemory");
+        System.Buffer.MemoryCopy(source, mapped, (long)size, (long)size);
+        _vk.UnmapMemory(_device, stagingMemory);
+
         Check(_vk.ResetCommandBuffer(cmdBuf, 0), "vkResetCommandBuffer");
         BeginCommandBuffer(cmdBuf);
 
-        TransitionImageLayout(cmdBuf, _overlayImage, _overlayImageLayout, ImageLayout.TransferDstOptimal);
-        _overlayImageLayout = ImageLayout.TransferDstOptimal;
+        TransitionImageLayout(cmdBuf, image, layout, ImageLayout.TransferDstOptimal);
+        layout = ImageLayout.TransferDstOptimal;
 
         var region = new BufferImageCopy
         {
             BufferOffset = 0,
-            BufferRowLength = 0,
+            BufferRowLength = rowLength,
             BufferImageHeight = 0,
             ImageSubresource = new ImageSubresourceLayers
             {
@@ -603,13 +581,12 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             ImageExtent = new Extent3D((uint)width, (uint)height, 1)
         };
 
-        _vk.CmdCopyBufferToImage(cmdBuf, _overlayStagingBuffer, _overlayImage, ImageLayout.TransferDstOptimal, 1, &region);
+        _vk.CmdCopyBufferToImage(cmdBuf, stagingBuffer, image, ImageLayout.TransferDstOptimal, 1, &region);
 
-        TransitionImageLayout(cmdBuf, _overlayImage, ImageLayout.TransferDstOptimal, ImageLayout.ShaderReadOnlyOptimal);
-        _overlayImageLayout = ImageLayout.ShaderReadOnlyOptimal;
+        TransitionImageLayout(cmdBuf, image, ImageLayout.TransferDstOptimal, ImageLayout.ShaderReadOnlyOptimal);
+        layout = ImageLayout.ShaderReadOnlyOptimal;
 
         EndAndSubmitUploadCommands(cmdBuf);
-        _overlayShown = true;
     }
 
     private void RecordAndSubmit(uint imageIndex, RenderParams renderParams)
@@ -846,16 +823,14 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         public Ref<Bitmap>? Bitmap;
 
         // The newest parameters, and the stamp of the request that gave them.
-        public RenderParams? Params;
-
-        public long Stamp { readonly get; private set; }
+        public NewestRenderParams Newest;
 
         public (uint Width, uint Height)? Resize;
 
-        // Draw the last frame again, with Params when the batch has them.
+        // Draw the last frame again, with Newest's parameters when the batch has them.
         public bool Redraw;
 
-        public readonly bool IsEmpty => Bitmap == null && Params == null && Resize == null && !Redraw;
+        public readonly bool IsEmpty => Bitmap == null && Newest.Params == null && Resize == null && !Redraw;
 
         public void Add(RenderCommand command)
         {
@@ -864,7 +839,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
                 case RenderCommand.DrawCommand draw:
                     Bitmap?.Dispose();
                     Bitmap = draw.BitmapRef;
-                    Offer(draw.Params, draw.Stamp);
+                    Newest.Take(draw.Params, draw.Stamp);
                     break;
 
                 case RenderCommand.ResizeCommand resize:
@@ -872,22 +847,14 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
                     break;
             }
         }
-
-        public void Offer(RenderParams renderParams, long stamp)
-        {
-            if (Params == null || stamp >= Stamp)
-            {
-                Params = renderParams;
-                Stamp = stamp;
-            }
-        }
     }
 
     /// <summary>The newest render parameters taken, by the order in which the view requested them.</summary>
     internal struct NewestRenderParams
     {
-        private RenderParams? _params;
-        private long _stamp;
+        public RenderParams? Params { readonly get; private set; }
+
+        public long Stamp { readonly get; private set; }
 
         /// <summary>
         /// Returns the parameters to draw with: <paramref name="renderParams"/> unless a later request's parameters were
@@ -895,13 +862,13 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         /// </summary>
         public RenderParams Take(RenderParams renderParams, long stamp)
         {
-            if (_params == null || stamp >= _stamp)
+            if (Params == null || stamp >= Stamp)
             {
-                _params = renderParams;
-                _stamp = stamp;
+                Params = renderParams;
+                Stamp = stamp;
             }
 
-            return _params.Value;
+            return Params.Value;
         }
     }
 

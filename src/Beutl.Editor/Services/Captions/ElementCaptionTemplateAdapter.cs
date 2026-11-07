@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using Beutl.Engine;
+﻿using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
@@ -34,13 +33,7 @@ internal static class ElementCaptionTemplateAdapter
         if (!holdsText)
             return null;
 
-        return new CaptionTemplate(
-            new CaptionTemplateDescriptor(
-                new CaptionTemplateId($"beutl.user.object-template.{objectTemplate.Id:N}"),
-                CaptionTemplateProviders.User,
-                objectTemplate.Name.Value),
-            factory,
-            PreserveCaptionPlacementPolicy.Instance);
+        return CaptionTemplateDefaults.CreateFromObjectTemplate(objectTemplate, factory);
     }
 
     private static IEnumerable<TextBlock> FindTexts(Element element)
@@ -93,14 +86,7 @@ internal static class ElementCaptionTemplateAdapter
     private static void Remove(ElementSet set, Element element)
     {
         set.Elements.Remove(element);
-        for (int i = set.Groups.Count - 1; i >= 0; i--)
-        {
-            ImmutableHashSet<Guid> rest = set.Groups[i].Remove(element.Id.Value);
-            if (rest.Count < 2)
-                set.Groups.RemoveAt(i);
-            else
-                set.Groups[i] = rest;
-        }
+        ElementGroups.RemoveIds(set.Groups, [element.Id.Value]);
     }
 
     private sealed class ElementFactory(ObjectTemplateItem template) : ICaptionElementFactory

@@ -114,12 +114,10 @@ public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transfor
 
     void ITargetPickerViewModel.SetTarget(CoreObject? target) => SetTarget(target as Transform);
 
-    public void ChangeTransform(Transform instance) => ChangeValue(instance);
-
     public void ChangeType(KnownTransformType type)
     {
         if (Find(type)?.Create() is { } obj)
-            ChangeTransform(obj);
+            ChangeValue(obj);
     }
 
     public void AddItem(KnownTransformType type)

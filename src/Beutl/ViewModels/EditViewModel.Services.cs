@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Beutl.Editor;
+﻿using Beutl.Editor;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.VersionControl;
@@ -26,7 +25,7 @@ public partial class EditViewModel
     internal IReadOnlyCollection<Type> ServiceTypes => _services.Types;
 
     private EditorServiceRegistry CreateServices() => new EditorServiceRegistry()
-        .Add<Beutl.Api.BeutlApiApplication>(() => TryGetMainViewModel(out MainViewModel? main) ? main._beutlClients : null)
+        .Add<Beutl.Api.BeutlApiApplication>(() => MainViewModel.TryGetCurrent(out MainViewModel? main) ? main._beutlClients : null)
         .Add<IEditorFileUsage>(() => EditorService)
         .Add<Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost>(() => EditorService.BrowserSettingsHost)
         .Add<Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry>(() => EditorService.StorageProviders)
@@ -70,11 +69,11 @@ public partial class EditViewModel
         .Add<IProxyStoreCapInfo>(() => ProxyMediaServices.Current?.CapInfoFacade)
         // The API clients live on the main window's view model, as for the AI tool tabs.
         .Add<IGenerativePromptLibrary>(() => _generativePromptLibrary
-            ??= TryGetMainViewModel(out MainViewModel? main) ? main.CreateGenerativePromptLibrary() : null)
+            ??= MainViewModel.TryGetCurrent(out MainViewModel? main) ? main.CreateGenerativePromptLibrary() : null)
         .Add<IGenerativeModelCatalog>(() => _generativeModelCatalog
-            ??= TryGetMainViewModel(out MainViewModel? main) ? main.CreateGenerativeModelCatalog() : null)
+            ??= MainViewModel.TryGetCurrent(out MainViewModel? main) ? main.CreateGenerativeModelCatalog() : null)
         .Add<IGenerativeNodeExecutor>(() => _generativeNodeExecutor
-            ??= TryGetMainViewModel(out MainViewModel? main) ? main.CreateGenerativeNodeExecutor(Scene) : null)
+            ??= MainViewModel.TryGetCurrent(out MainViewModel? main) ? main.CreateGenerativeNodeExecutor(Scene) : null)
         .AddOwned<ISceneTimeRangeService>(() => new SceneTimeRangeService(HistoryManager))
         .AddOwned<IElementResizeService>(() => new ElementResizeService(HistoryManager))
         .AddOwned<IElementSlipService>(() => new ElementSlipService(HistoryManager))
@@ -102,19 +101,6 @@ public partial class EditViewModel
         .AddOwned<IElementObjectService>(() => new ElementObjectService(HistoryManager))
         .AddOwned<IPropertyEditorFactory>(() => new Beutl.Editor.Components.PropertyEditors.Services.PropertyEditorFactoryAdapter(ExtensionProvider))
         .AddOwned<IPropertiesEditorFactory>(() => new Beutl.Editor.Components.PropertyEditors.Services.PropertiesEditorFactoryImpl(ExtensionProvider));
-
-    private static bool TryGetMainViewModel([NotNullWhen(true)] out MainViewModel? main)
-    {
-        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime lifetime
-            && lifetime.MainWindow?.DataContext is MainViewModel found)
-        {
-            main = found;
-            return true;
-        }
-
-        main = null;
-        return false;
-    }
 
     private ElementNudgeService CreateNudgeService()
     {

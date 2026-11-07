@@ -39,12 +39,10 @@ public sealed class FilterEffectEditorViewModel : GroupableEditorViewModel<Filte
 
     void ITargetPickerViewModel.SetTarget(CoreObject? target) => SetTarget(target as FilterEffect);
 
-    public void ChangeFilter(FilterEffect instance) => ChangeValue(instance);
-
     public void ChangeFilterType(Type type)
     {
         if (Activator.CreateInstance(type) is FilterEffect instance)
-            ChangeFilter(instance);
+            ChangeValue(instance);
     }
 
     public void AddItem(Type type)

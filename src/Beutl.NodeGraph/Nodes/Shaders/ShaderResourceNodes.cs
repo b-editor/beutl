@@ -58,7 +58,7 @@ public partial class ShaderImageNode : ShaderImageProducerNode
             {
                 ShaderImage image = like == null && bounds.Width > 0 && bounds.Height > 0
                     ? recording.Builder.Image2D(recording.UniqueName("Image"), Padded(bounds, padding), format, scale)
-                    : ShaderImageContents.Declare(recording, "Image", like != null ? recording.Evaluate(like) : recording.Builder.Source,
+                    : ShaderImageContents.Declare(recording, "Image", recording.Evaluate(like ?? ShaderGraphRecordingContext.SourceImage),
                         format, padding, scale);
                 return ShaderImageContents.Clear(recording, image);
             });

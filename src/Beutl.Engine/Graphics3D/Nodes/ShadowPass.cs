@@ -94,7 +94,7 @@ void main() {
         public Vector4 Cutout;
     }
 
-    private readonly ShadowCasterPipelines _pipelines = new();
+    private readonly ShadowCasterPipelines _pipelines = new(CutoutVertexShader, CutoutFragmentShader);
     private byte[]? _vertexShaderSpirv;
     private byte[]? _fragmentShaderSpirv;
 
@@ -278,10 +278,8 @@ void main() {
         if (obj.Material?.Cutout is { } cutout
             && cutout.Map.GetTexture(Context, SurfaceDensity) is { } map)
         {
-            _pipelines.EnsureCutoutPipelines<CutoutUBO>(
-                Context, RenderPass!, ShaderCompiler, CutoutVertexShader, CutoutFragmentShader);
-            var ubo = new CutoutUBO { Cutout = new Vector4(cutout.AlphaScale, cutout.Cutoff, 0, 0) };
-            _pipelines.BindCutout(RenderPass!, doubleSided, map, in ubo);
+            var ubo = new CutoutUBO { Cutout = cutout.ShaderParameters };
+            _pipelines.BindCutout(Context, ShaderCompiler, RenderPass!, doubleSided, map, in ubo);
         }
         else
         {

@@ -107,11 +107,7 @@ public sealed partial class UnlitMaterial : Material3D
             var graphicsContext = context.GraphicsContext;
             var shaderCompiler = context.ShaderCompiler;
 
-            _sampler = graphicsContext.CreateSampler(
-                SamplerFilter.Linear,
-                SamplerFilter.Linear,
-                SamplerAddressMode.ClampToEdge,
-                SamplerAddressMode.ClampToEdge);
+            _sampler = MaterialGpuResources.CreateLinearClampSampler(graphicsContext);
             _defaultWhiteTexture = MaterialGpuResources.Create1x1Texture(graphicsContext, [255, 255, 255, 255]);
 
             var vertexSpirv = shaderCompiler.CompileToSpirv(VertexShaderSource, ShaderStage.Vertex);

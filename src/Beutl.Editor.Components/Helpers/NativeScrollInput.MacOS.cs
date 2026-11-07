@@ -1,4 +1,4 @@
-﻿using static Beutl.Editor.Components.Helpers.ObjCRuntime;
+﻿using static Beutl.Controls.ObjCRuntime;
 
 namespace Beutl.Editor.Components.Helpers;
 

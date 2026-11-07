@@ -205,28 +205,7 @@ public partial class Scene : ProjectItem, INotifyEdited
     public bool RemoveElementsFromGroups(IReadOnlyCollection<Guid> ids)
     {
         ArgumentNullException.ThrowIfNull(ids);
-        // Look the members up in a set: Overlaps and Except walk their argument, which costs groups × ids.
-        var idSet = new HashSet<Guid>(ids);
-        bool removed = false;
-        for (int i = Groups.Count - 1; i >= 0; i--)
-        {
-            ImmutableHashSet<Guid> group = Groups[i];
-            if (!group.Any(idSet.Contains)) continue;
-
-            ImmutableHashSet<Guid> updated = group.Except(group.Where(idSet.Contains));
-            if (updated.Count >= 2)
-            {
-                Groups[i] = updated;
-            }
-            else
-            {
-                Groups.RemoveAt(i);
-            }
-
-            removed = true;
-        }
-
-        return removed;
+        return ElementGroups.RemoveIds(Groups, ids);
     }
 
     // The first group holding the element, as a scan from the start would find it, without scanning the groups

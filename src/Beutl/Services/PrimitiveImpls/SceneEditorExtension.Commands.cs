@@ -63,13 +63,14 @@ public sealed partial class SceneEditorExtension
             }
         },
         KeyCommand("editor.toggleOnionSkin", Strings.ToggleOnionSkin, Strings.ToggleOnionSkin_Description,
-            [new("Alt+O")], _ => ToggleOnionSkin()),
+            [new("Alt+O")], _ => Toggle(GlobalConfiguration.Instance.EditorConfig.IsOnionSkinEnabled)),
         // Alt+G for Guides, matching Alt+O for onion skin, and clear of the timeline's gap keys on ';'.
         KeyCommand("editor.togglePreviewGuides", Strings.TogglePreviewGuides, Strings.TogglePreviewGuides_Description,
-            [new("Alt+G")], _ => TogglePreviewGuides()),
+            [new("Alt+G")], _ => Toggle(GlobalConfiguration.Instance.EditorConfig.IsPreviewGuideEnabled)),
         // Alt+T for transparency, beside Alt+G and Alt+O.
         KeyCommand("editor.togglePreviewCheckerboard", Strings.TogglePreviewCheckerboard,
-            Strings.TogglePreviewCheckerboard_Description, [new("Alt+T")], _ => TogglePreviewCheckerboard()),
+            Strings.TogglePreviewCheckerboard_Description, [new("Alt+T")],
+            _ => Toggle(GlobalConfiguration.Instance.EditorConfig.IsPreviewCheckerboardEnabled)),
         // Alt, like the other preview keys above: the Ctrl and Cmd forms zoom the timeline. Both Alt+= and Alt++ zoom in,
         // and each reports OemPlus for its character, with Shift for + on a US or JIS layout.
         KeyCommand("editor.previewZoomIn", Strings.PreviewZoomIn, "", [new("Alt+OemPlus"), new("Shift+Alt+OemPlus")],
@@ -127,21 +128,5 @@ public sealed partial class SceneEditorExtension
                 execution.Interaction is { } interaction ? execute(editor, interaction) : Task.CompletedTask
         };
 
-    private static void ToggleOnionSkin()
-    {
-        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
-        editorConfig.IsOnionSkinEnabled.Value = !editorConfig.IsOnionSkinEnabled.Value;
-    }
-
-    private static void TogglePreviewGuides()
-    {
-        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
-        editorConfig.IsPreviewGuideEnabled.Value = !editorConfig.IsPreviewGuideEnabled.Value;
-    }
-
-    private static void TogglePreviewCheckerboard()
-    {
-        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
-        editorConfig.IsPreviewCheckerboardEnabled.Value = !editorConfig.IsPreviewCheckerboardEnabled.Value;
-    }
+    private static void Toggle(IProperty<bool> setting) => setting.Value = !setting.Value;
 }

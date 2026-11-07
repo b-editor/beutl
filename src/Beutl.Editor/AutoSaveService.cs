@@ -196,31 +196,13 @@ public sealed class AutoSaveService : IDisposable
 
     internal static void CollectObjectsToSave(ChangeOperation operation, HashSet<CoreObject> objectsToSave)
     {
-        CoreObject? obj = null;
-
-        if (operation is IUpdatePropertyValueOperation updateOp)
+        (object? target, IEnumerable<object?> items) = ChangeOperationTargets.Find(operation);
+        foreach (CoreObject? item in items.OfType<CoreObject>())
         {
-            obj = updateOp.Object;
-        }
-        else if (operation is ICollectionChangeOperation collectionOp)
-        {
-            obj = collectionOp.Object;
-
-            foreach (CoreObject? item in collectionOp.Items.OfType<CoreObject>())
-            {
-                AddObjectWithAncestors(item, objectsToSave);
-            }
-        }
-        else if (operation is UpdateSplineEasingOperation splineOp)
-        {
-            obj = splineOp.Parent;
-        }
-        else if (operation is UpdateNodeMemberOperation nodeOp)
-        {
-            obj = nodeOp.NodeMember as CoreObject;
+            AddObjectWithAncestors(item, objectsToSave);
         }
 
-        if (obj != null)
+        if (target is CoreObject obj)
         {
             AddObjectWithAncestors(obj, objectsToSave);
         }

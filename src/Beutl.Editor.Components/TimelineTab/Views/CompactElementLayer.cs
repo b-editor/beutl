@@ -27,8 +27,10 @@ internal sealed class CompactElementLayer : Control, ICustomHitTest
 {
     private readonly bool _selected;
     private readonly Func<ICompactClip, ElementView?> _realize;
-    private IReadOnlyList<ICompactClip> _elements = [];
+    // Filled again on every pass, which runs for every frame of a scroll, so the list is kept rather than replaced.
+    private readonly List<ICompactClip> _elements = [];
     private Vector _offset;
+    private Pen? _selectionPen;
 
     public CompactElementLayer(bool selected, Func<ICompactClip, ElementView?> realize)
     {
@@ -46,7 +48,8 @@ internal sealed class CompactElementLayer : Control, ICustomHitTest
 
     public void Update(IReadOnlyList<ICompactClip> elements, Rect viewport)
     {
-        _elements = elements;
+        _elements.Clear();
+        _elements.AddRange(elements);
         _offset = new Vector(viewport.X, viewport.Y);
         Margin = new Thickness(viewport.X, viewport.Y, 0, 0);
         Width = viewport.Width;
@@ -54,11 +57,14 @@ internal sealed class CompactElementLayer : Control, ICustomHitTest
         InvalidateVisual();
     }
 
+    // The opacity of a clip that cannot be edited or is disabled, as ElementView's elm-locked and elm-disabled styles
+    // give it.
+    internal static double ClipOpacity(bool editable, bool enabled) => !editable ? 0.6 : !enabled ? 0.5 : 1;
+
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        var selectionPen = new Pen(this.TryFindResource("TextControlForeground", out object? resource)
-            && resource is IBrush brush ? brush : Brushes.White);
+        IPen? selectionPen = _selected ? GetSelectionPen() : null;
         foreach (ICompactClip entry in _elements)
         {
             if (entry.IsSelected != _selected) continue;
@@ -66,13 +72,23 @@ internal sealed class CompactElementLayer : Control, ICustomHitTest
             if (bounds.Width <= 0 || bounds.Height <= 2 || !bounds.Intersects(new Rect(Bounds.Size))) continue;
             double opacity = entry.Opacity;
             using var state = opacity == 1 ? default : context.PushOpacity(opacity);
-            IPen pen = _selected ? selectionPen : entry.RestBorderPen;
+            IPen pen = selectionPen ?? entry.RestBorderPen;
             if (bounds.Width <= 2)
                 context.FillRectangle(pen.Brush!, new Rect(bounds.X, bounds.Y + 1, bounds.Width, bounds.Height - 2));
             else
                 context.DrawRectangle(entry.FillBrush, pen,
                     new Rect(bounds.X + 0.5, bounds.Y + 1.5, bounds.Width - 1, bounds.Height - 3), 3, 3);
         }
+    }
+
+    // The brush is looked up on every paint, as a theme can replace it, and the pen is made again only then.
+    private Pen GetSelectionPen()
+    {
+        IBrush brush = this.TryFindResource("TextControlForeground", out object? resource)
+            && resource is IBrush found ? found : Brushes.White;
+        if (_selectionPen is null || !ReferenceEquals(_selectionPen.Brush, brush))
+            _selectionPen = new Pen(brush);
+        return _selectionPen;
     }
 
     private ICompactClip? FindElement(Point localPoint)

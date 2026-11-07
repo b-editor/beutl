@@ -26,19 +26,9 @@ public partial class ShaderComputePassNode : ShaderPassNode
     public ShaderComputePassNode()
     {
         ScanProperties<ShaderComputePassNode>();
-        var outResult = CreateOutput<ShaderGraphValue<ShaderImage>>("Out.result", new DisplayAttribute { Name = "result" });
-        var source = CreateInput<ShaderGraphValue<ShaderImage>>("In.source", new DisplayAttribute { Name = "source" });
-        var inResult = CreateInput<ShaderGraphValue<ShaderImage>>("In.result", new DisplayAttribute { Name = "result" });
-        AddInput(this, Code);
-        Items.Add(Error);
-        Items.Add(Padding);
-        Items.Add(ResolutionScale);
-        Items.Add(Settings);
-        SealFixedPorts(Error);
-        Items.Insert(0, outResult);
-        Items.Insert(3, source);
-        Items.Insert(4, inResult);
-        Code.ValueChanged += (_, _) => OnCodeChanged();
+        AddCodeInput(Code);
+        AddFixedPorts();
+        InsertDefaultPorts(["result"], ["source", "result"]);
     }
 
     [DataType(DataType.MultilineText)]

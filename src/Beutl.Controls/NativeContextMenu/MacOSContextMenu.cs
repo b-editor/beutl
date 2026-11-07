@@ -7,6 +7,8 @@ using Avalonia;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
+using static Beutl.Controls.ObjCRuntime;
+
 namespace Beutl.Controls.NativeContextMenu;
 
 // An NSMenu made from the entries. AppKit tracks a menu in a nested run loop until it closes, and the dispatcher keeps
@@ -226,8 +228,7 @@ internal sealed partial class MacOSContextMenu
     private nint CreateContextEvent()
     {
         const ulong RightMouseDown = 3;
-        nint application = Send(GetClass("NSApplication"), Selector("sharedApplication"));
-        nint currentEvent = Send(application, Selector("currentEvent"));
+        nint currentEvent = CurrentEvent();
         return MouseEvent(
             GetClass("NSEvent"),
             Selector("mouseEventWithType:location:modifierFlags:timestamp:windowNumber:context:eventNumber:clickCount:pressure:"),
@@ -287,20 +288,11 @@ internal sealed partial class MacOSContextMenu
         }
     }
 
-    private static nint AutoreleasedString(string value) =>
-        SendString(GetClass("NSString"), Selector("stringWithUTF8String:"), value);
-
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct NativePoint(double X, double Y);
 
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct NativeSize(double Width, double Height);
-
-    [LibraryImport(LibObjC, EntryPoint = "objc_getClass", StringMarshalling = StringMarshalling.Utf8)]
-    private static partial nint GetClass(string name);
-
-    [LibraryImport(LibObjC, EntryPoint = "sel_registerName", StringMarshalling = StringMarshalling.Utf8)]
-    private static partial nint Selector(string name);
 
     [LibraryImport(LibObjC, StringMarshalling = StringMarshalling.Utf8)]
     private static partial nint objc_allocateClassPair(nint superclass, string name, nuint extraBytes);
@@ -313,28 +305,7 @@ internal sealed partial class MacOSContextMenu
     private static partial bool class_addMethod(nint type, nint selector, nint implementation, string signature);
 
     [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
-    private static partial nint Send(nint receiver, nint selector);
-
-    [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
-    private static partial nint Send(nint receiver, nint selector, nint argument);
-
-    [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
-    private static partial nint Send(nint receiver, nint selector, nint first, nint second);
-
-    [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
-    private static partial nint Send(nint receiver, nint selector, nint first, nint second, nint third);
-
-    [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
-    private static partial void SendVoid(nint receiver, nint selector);
-
-    [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
-    private static partial void SendVoid(nint receiver, nint selector, nint argument);
-
-    [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
     private static partial void SendBool(nint receiver, nint selector, [MarshalAs(UnmanagedType.I1)] bool value);
-
-    [LibraryImport(LibObjC, EntryPoint = "objc_msgSend", StringMarshalling = StringMarshalling.Utf8)]
-    private static partial nint SendString(nint receiver, nint selector, string value);
 
     [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
     private static partial NativeSize SendSize(nint receiver, nint selector);
@@ -344,9 +315,6 @@ internal sealed partial class MacOSContextMenu
 
     [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
     private static partial nint InitWithSize(nint receiver, nint selector, NativeSize size);
-
-    [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
-    private static partial double SendDouble(nint receiver, nint selector);
 
     [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
     private static partial NativePoint ConvertPoint(nint receiver, nint selector, NativePoint point, nint view);
