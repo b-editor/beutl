@@ -253,8 +253,9 @@ internal sealed partial class MobilePreviewServer
         => data.Length != 0 && (data[0] & (hdr ? 0x0c : 0x01)) == 0;
 
     // libvpx adds detail to an unchanged picture with every frame it codes, while a key frame starts again
-    // from one frame's budget. So a paused frame is coded until Count frames have followed its last key frame,
-    // and at most three times as often in all, since a lost connection can keep asking for key frames.
+    // from one frame's budget. So a paused frame is coded until it has been coded Count times since its last
+    // key frame, that key frame included. Key frames that keep arriving while it is refined, as from a lossy
+    // connection, stop it after three times as many; a key frame asked for once it has stopped is refined again.
     internal sealed class StillRefinement
     {
         // Where natural footage stopped improving at both qualities: 36.6 to 43.3 dB at 1080p and 8 Mbps,
@@ -264,16 +265,18 @@ internal sealed partial class MobilePreviewServer
         private long _frame = -1;
         private int _sinceKeyFrame;
         private int _coded;
+        private bool _refining;
 
         // Called after a frame is coded; returns whether to code the same paused frame again.
         internal bool Coded(long frame, bool playing, bool keyFrame)
         {
             if (playing || frame != _frame) _sinceKeyFrame = _coded = 0;
             _frame = frame;
-            if (playing) return false;
+            if (playing) return _refining = false;
+            if (keyFrame && !_refining) _coded = 0;
             _coded++;
             _sinceKeyFrame = keyFrame ? 1 : _sinceKeyFrame + 1;
-            return _sinceKeyFrame < Count && _coded < Count * 3;
+            return _refining = _sinceKeyFrame < Count && _coded < Count * 3;
         }
     }
 

@@ -285,10 +285,12 @@ public sealed class MobilePreviewTests
         Assert.That(Coded(2), Is.EqualTo(count));
         Assert.That(still.Coded(2, playing: false, keyFrame: false), Is.False, "A refined frame is not coded again.");
         Assert.That(Coded(3), Is.EqualTo(count), "A new paused frame starts over.");
-        // A key frame, requested or scheduled, falls back to one frame's budget, so the count restarts after it.
-        Assert.That(Coded(3, firstIsKeyFrame: true), Is.EqualTo(count));
-        // A connection that keeps asking for key frames cannot make one frame be coded forever.
-        Assert.That(Coded(4) + Coded(4, keyFrames: true), Is.EqualTo(count * 3));
+        // A key frame, requested or scheduled, falls back to one frame's budget, so the count restarts after it,
+        // however often the frame was refined before.
+        Assert.That(Enumerable.Range(0, 4).Select(_ => Coded(3, firstIsKeyFrame: true)).ToArray(), Is.All.EqualTo(count));
+        // Key frames that keep arriving while a frame is refined cannot make it be coded forever.
+        Assert.That(Coded(4, keyFrames: true), Is.EqualTo(count * 3));
+        Assert.That(Coded(4, firstIsKeyFrame: true), Is.EqualTo(count), "A key frame asked for after that is refined again.");
     }
 
     [TestCase(new byte[] { 0x10, 0x02, 0x00 }, false, true)]
