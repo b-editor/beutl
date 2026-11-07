@@ -489,6 +489,9 @@
   <data name="EdgeDetectionTarget_Alpha" xml:space="preserve">
     <value>Transparency</value>
   </data>
+  <data name="EdgeDetectionTarget_Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
   <data name="EdgeDetection_Thickness" xml:space="preserve">
     <value>Thickness</value>
   </data>
@@ -497,6 +500,9 @@
   </data>
   <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
     <value>Changes smaller than this draw no line.</value>
+  </data>
+  <data name="EdgeDetection_Strength_Description" xml:space="preserve">
+    <value>How dark a change past the threshold draws its line. At 100% the line is solid from a change 10 points past the threshold, at 50% from 20 points past, and at 20% from 50 points past.</value>
   </data>
   <data name="EdgeDetection_Original" xml:space="preserve">
     <value>Original</value>

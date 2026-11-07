@@ -17,6 +17,10 @@ public sealed class EdgeDetectionTests
     private static readonly Color s_dark = Color.FromRgb(64, 64, 64);
     private static readonly Color s_bright = Color.FromRgb(192, 192, 192);
 
+    // A red and a blue of the same luminance, about 0.3 apart in Oklab.
+    private static readonly Color s_red = Color.FromRgb(200, 80, 80);
+    private static readonly Color s_blue = Color.FromRgb(40, 116, 227);
+
     // BGRA bytes in sRGB without premultiplying, on nothing, of the row through the middle.
     private static byte[] Render(Drawable shape, FilterEffect? effect, float scale = 1f, Rect? region = null)
     {
@@ -57,6 +61,17 @@ public sealed class EdgeDetectionTests
         shape.Fill.Value = new SolidColorBrush(s_bright);
         return shape;
     }
+
+    // Two colors side by side, meeting in the middle of the frame, and smaller than the frame on all sides.
+    private static RectShape Box(Color left, Color right)
+    {
+        RectShape shape = Edge(left, right);
+        shape.Width.Value = 32;
+        shape.Height.Value = 16;
+        return shape;
+    }
+
+    private static int Peak(byte[] row) => Enumerable.Range(0, row.Length / 4).Max(x => AlphaAt(row, x));
 
     private static int AlphaAt(byte[] row, int x) => row[x * 4 + 3];
 
@@ -120,6 +135,95 @@ public sealed class EdgeDetectionTests
         {
             Assert.That(AlphaAt(kept, Width / 2), Is.Zero);
             Assert.That(AlphaAt(drawn, Width / 2), Is.GreaterThan(100));
+        });
+    }
+
+    // The two colors look as light as each other, which Luminance cannot tell apart. Inside each the color is flat, and
+    // around them is nothing: neither draws a line.
+    [Test]
+    public void Color_draws_a_line_between_two_hues_of_one_lightness_and_nowhere_else()
+    {
+        byte[] lightness = Render(Box(s_red, s_blue), new EdgeDetection());
+
+        byte[] color = Render(Box(s_red, s_blue), new EdgeDetection { Target = { Value = EdgeDetectionTarget.Color } });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Enumerable.Range(0, Width).Select(x => AlphaAt(lightness, x)), Is.All.Zero);
+            Assert.That(AlphaAt(color, Width / 2 - 1), Is.EqualTo(255));
+            Assert.That(AlphaAt(color, Width / 2), Is.EqualTo(255));
+            Assert.That(Enumerable.Range(0, Width).Where(x => x is not (Width / 2 - 1 or Width / 2)).Select(x => AlphaAt(color, x)),
+                Is.All.Zero);
+        });
+    }
+
+    [Test]
+    public void The_threshold_decides_which_changes_in_color_draw_a_line()
+    {
+        EdgeDetection Detect(float threshold) => new() { Target = { Value = EdgeDetectionTarget.Color }, Threshold = { Value = threshold } };
+
+        byte[] drawn = Render(Edge(s_red, s_blue), Detect(15));
+        byte[] kept = Render(Edge(s_red, s_blue), Detect(35));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(AlphaAt(drawn, Width / 2), Is.EqualTo(255));
+            Assert.That(AlphaAt(kept, Width / 2), Is.Zero);
+        });
+    }
+
+    // A lower strength lengthens the ramp past the threshold, so that a line darkens with the size of its change.
+    [Test]
+    public void A_lower_strength_darkens_a_line_with_the_size_of_its_change()
+    {
+        Color gray = Color.FromRgb(100, 100, 100);
+        Color lighter = Color.FromRgb(140, 140, 140);
+        int Line(Color left, Color right, float strength)
+            => AlphaAt(Render(Edge(left, right), new EdgeDetection { Strength = { Value = strength } }), Width / 2);
+
+        int large = Line(s_dark, s_bright, 20);
+        int small = Line(gray, lighter, 20);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Line(s_dark, s_bright, 100), Is.EqualTo(255), "at 100% a change past the threshold draws a solid line");
+            Assert.That(large, Is.InRange(150, 250));
+            Assert.That(small, Is.InRange(1, 60));
+            Assert.That(small, Is.LessThan(large));
+        });
+    }
+
+    // The strength fades whatever is measured: the line where two colors meet, and the one along an outline.
+    [TestCase(EdgeDetectionTarget.Color, 20f)]
+    [TestCase(EdgeDetectionTarget.Alpha, 5f)]
+    public void The_strength_fades_the_lines_of_color_and_transparency_too(EdgeDetectionTarget target, float strength)
+    {
+        RectShape Shape() => target == EdgeDetectionTarget.Color ? Box(s_red, s_blue) : Box();
+
+        byte[] full = Render(Shape(), new EdgeDetection { Target = { Value = target } });
+        byte[] faint = Render(Shape(), new EdgeDetection { Target = { Value = target }, Strength = { Value = strength } });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Peak(full), Is.EqualTo(255));
+            Assert.That(Peak(faint), Is.InRange(30, 225));
+        });
+    }
+
+    // The strength changes how dark the line is, not how far it reaches.
+    [Test]
+    public void The_strength_leaves_the_thickness_alone()
+    {
+        byte[] full = Render(Edge(s_dark, s_bright), new EdgeDetection { Thickness = { Value = 4 } });
+        byte[] faint = Render(Edge(s_dark, s_bright), new EdgeDetection { Thickness = { Value = 4 }, Strength = { Value = 20 } });
+        double ratio = (double)Peak(faint) / Peak(full);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Peak(faint), Is.InRange(150, 250));
+            Assert.That(Covered(full).Length, Is.EqualTo(8));
+            foreach (int x in Enumerable.Range(0, Width))
+                Assert.That(AlphaAt(faint, x), Is.EqualTo(AlphaAt(full, x) * ratio).Within(2), $"x = {x}");
         });
     }
 
@@ -244,6 +348,25 @@ public sealed class EdgeDetectionTests
             for (int x = Width / 2 + 24; x < Width / 2 + 28; x++)
                 Assert.That(AlphaAt(part, x), Is.EqualTo(AlphaAt(whole, x)).Within(1), $"x={x}");
             Assert.That(AlphaAt(whole, Width / 2 + 24), Is.GreaterThan(127));
+        });
+    }
+
+    // An expression can make any of them not a number.
+    [TestCase(float.NaN, 10f, 100f)]
+    [TestCase(1f, float.PositiveInfinity, 100f)]
+    [TestCase(1f, 10f, float.NaN)]
+    public void A_value_that_is_not_finite_records_nothing(float thickness, float threshold, float strength)
+    {
+        var bounds = new Rect(10, 20, 100, 60);
+        using var resource = new EdgeDetection.Resource { Thickness = thickness, Threshold = threshold, Strength = strength };
+        using var context = new FilterEffectContext(bounds);
+
+        context.ApplyTransactional(resource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(context.GetOrderedItems(), Is.Empty);
+            Assert.That(context.Bounds, Is.EqualTo(bounds));
         });
     }
 

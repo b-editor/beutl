@@ -488,6 +488,9 @@
   <data name="EdgeDetectionTarget_Alpha" xml:space="preserve">
     <value>Transparencia</value>
   </data>
+  <data name="EdgeDetectionTarget_Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
   <data name="EdgeDetection_Thickness" xml:space="preserve">
     <value>Grosor</value>
   </data>
@@ -496,6 +499,9 @@
   </data>
   <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
     <value>Los cambios menores que este valor no dibujan ninguna línea.</value>
+  </data>
+  <data name="EdgeDetection_Strength_Description" xml:space="preserve">
+    <value>Qué tan oscura es la línea de un cambio que supera el umbral. Al 100 %, la línea es sólida desde un cambio 10 puntos mayor que el umbral; al 50 %, desde 20 puntos, y al 20 %, desde 50 puntos.</value>
   </data>
   <data name="EdgeDetection_Original" xml:space="preserve">
     <value>Imagen original</value>

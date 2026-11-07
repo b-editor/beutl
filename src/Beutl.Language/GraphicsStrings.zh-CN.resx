@@ -488,6 +488,9 @@
   <data name="EdgeDetectionTarget_Alpha" xml:space="preserve">
     <value>透明度</value>
   </data>
+  <data name="EdgeDetectionTarget_Color" xml:space="preserve">
+    <value>颜色</value>
+  </data>
   <data name="EdgeDetection_Thickness" xml:space="preserve">
     <value>粗细</value>
   </data>
@@ -496,6 +499,9 @@
   </data>
   <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
     <value>小于此值的变化不会绘制线条。</value>
+  </data>
+  <data name="EdgeDetection_Strength_Description" xml:space="preserve">
+    <value>超过阈值的变化所绘制线条的浓度。为 100% 时，比阈值大 10 个百分点的变化开始绘制实线；为 50% 时需大 20 个百分点，为 20% 时需大 50 个百分点。</value>
   </data>
   <data name="EdgeDetection_Original" xml:space="preserve">
     <value>原图</value>

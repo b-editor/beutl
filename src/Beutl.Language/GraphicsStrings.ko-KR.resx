@@ -488,6 +488,9 @@
   <data name="EdgeDetectionTarget_Alpha" xml:space="preserve">
     <value>투명도</value>
   </data>
+  <data name="EdgeDetectionTarget_Color" xml:space="preserve">
+    <value>색상</value>
+  </data>
   <data name="EdgeDetection_Thickness" xml:space="preserve">
     <value>두께</value>
   </data>
@@ -496,6 +499,9 @@
   </data>
   <data name="EdgeDetection_Threshold_Description" xml:space="preserve">
     <value>이보다 작은 변화에는 선을 그리지 않습니다.</value>
+  </data>
+  <data name="EdgeDetection_Strength_Description" xml:space="preserve">
+    <value>임계값을 넘은 변화가 얼마나 진한 선을 그리는지입니다. 100%에서는 임계값보다 10포인트 큰 변화부터, 50%에서는 20포인트, 20%에서는 50포인트 큰 변화부터 진한 선이 됩니다.</value>
   </data>
   <data name="EdgeDetection_Original" xml:space="preserve">
     <value>원본 이미지</value>

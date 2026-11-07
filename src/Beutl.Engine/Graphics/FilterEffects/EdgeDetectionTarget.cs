@@ -12,4 +12,11 @@ public enum EdgeDetectionTarget
     /// <summary>Lines along the picture's outline, where it fades to transparent.</summary>
     [Display(Name = nameof(GraphicsStrings.EdgeDetectionTarget_Alpha), ResourceType = typeof(GraphicsStrings))]
     Alpha,
+
+    /// <summary>
+    /// Lines inside the picture, where its color changes in lightness, hue or saturation. Its transparent parts count for
+    /// nothing.
+    /// </summary>
+    [Display(Name = nameof(GraphicsStrings.EdgeDetectionTarget_Color), ResourceType = typeof(GraphicsStrings))]
+    Color,
 }
