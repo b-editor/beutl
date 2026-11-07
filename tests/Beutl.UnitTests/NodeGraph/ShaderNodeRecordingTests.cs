@@ -7,7 +7,9 @@ using Beutl.Graphics.Shaders;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
+using Beutl.NodeGraph.Nodes.Group;
 using Beutl.NodeGraph.Nodes.Shaders;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -869,6 +871,52 @@ public class ShaderNodeRecordingTests
 
         Assert.That(pass.Error.Value, Does.Contain("binding 0"));
     }
+
+    // A sampler and an input region pass the image on, so the picture can come out of them; they say why it failed.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AMistakeInAPictureFromASettingsNodeIsShownOnThatNode(bool region)
+    {
+        var (graph, output) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        var image = graph.Add(new ShaderFixedImageNode());
+        image.Kind.Property!.SetValue(ImageKind.Image3D);
+        graph.Connect(pass.In("source"), image.Output);
+        GraphNode settings = region ? graph.Add(new ShaderInputRegionNode()) : graph.Add(new ShaderSamplerNode());
+        graph.Connect(Port<IInputPort>(settings, "Image"), pass.Out("color"));
+        graph.Connect(output.InputPort, Port<IOutputPort>(settings, "Output"));
+        using var snapshot = new GraphSnapshot();
+
+        Evaluate(graph, snapshot);
+
+        Assert.That(settings.Items.OfType<NodeMonitor<string?>>().SingleOrDefault(item => item.Name.Value == "Error")?.Value,
+            Does.Contain("binding 0"));
+    }
+
+    // A plain group shows nothing of its own, so the node inside that made the picture says why it failed.
+    [Test]
+    public void AMistakeInAPictureFromAGroupIsShownOnTheNodeInsideThatMadeIt()
+    {
+        var (graph, output) = NewGraph();
+        ((IModifiableHierarchical)new TestHierarchicalRoot()).AddChild(graph);
+        var group = graph.Add(new GroupNode());
+        GraphGroup body = group.Group.Value;
+        GroupOutput boundary = body.Add(new GroupOutput());
+        var pass = body.Add(new ShaderFullscreenPassNode());
+        var image = body.Add(new ShaderFixedImageNode());
+        image.Kind.Property!.SetValue(ImageKind.Image3D);
+        body.Connect(pass.In("source"), image.Output);
+        Assert.That(boundary.AddNodePort(pass.Out("color"), out _), Is.True);
+        graph.Connect(output.InputPort, group.Items.OfType<IOutputPort>().Single());
+        using var snapshot = new GraphSnapshot();
+
+        Evaluate(graph, snapshot);
+
+        Assert.That(pass.Error.Value, Does.Contain("binding 0"));
+    }
+
+    private static T Port<T>(GraphNode node, string name) where T : INodeMember
+        => node.Items.OfType<T>().Single(item => item.Name.Value == name);
 
     [Test]
     public void TheSameGraphAgainKeepsTheRecordedDescription()

@@ -9,8 +9,9 @@ internal interface IPictureWire
 {
     /// <summary>Brings <paramref name="picture"/> up to date with this value, making it on first use.</summary>
     /// <param name="owner">The node whose output carries this value, which explains a failure if it can.</param>
+    /// <param name="output">That output, which leads a group's failure to the node inside that made the value.</param>
     /// <returns>Whether this value has a picture form at all.</returns>
-    bool UpdatePicture(ref IWirePicture? picture, GraphNode owner, GraphCompositionContext context);
+    bool UpdatePicture(ref IWirePicture? picture, GraphNode owner, INodeMember output, GraphCompositionContext context);
 }
 
 /// <summary>What <see cref="IPictureWire"/> keeps from one evaluation to the next.</summary>

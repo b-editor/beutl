@@ -46,13 +46,13 @@ public class ShaderGraphValue<T> : IShaderGraphValue, IPictureWire
             return context.Evaluate(this);
         });
 
-    bool IPictureWire.UpdatePicture(ref IWirePicture? picture, GraphNode owner, GraphCompositionContext context)
+    bool IPictureWire.UpdatePicture(ref IWirePicture? picture, GraphNode owner, INodeMember output, GraphCompositionContext context)
     {
         if (this is not ShaderGraphValue<ShaderImage> image) return false;
 
         var form = picture as ShaderGraphPicture ?? new ShaderGraphPicture();
         picture = form;
-        form.Update(image, owner, context);
+        form.Update(image, owner, output, context);
         return true;
     }
 }
