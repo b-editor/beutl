@@ -20,9 +20,9 @@ internal sealed unsafe class PreviewEncodingHandler : IDisposable
         Dispose();
         var settings = message.RequirePayload<PreviewEncoderStart>(MessageType.StartPreviewEncoder);
         int expected = PreviewEncodingFormat.BufferBytes(settings.Width, settings.Height, settings.Hdr, settings.Audio);
+        int maxDimension = PreviewEncodingFormat.MaxDimension(settings.Relayed);
         if (settings.Capacity != expected || (!settings.Audio &&
-            (settings.Width < 2 || settings.Height < 2
-             || settings.Width > PreviewEncodingFormat.MaxDimension || settings.Height > PreviewEncodingFormat.MaxDimension)))
+            (settings.Width < 2 || settings.Height < 2 || settings.Width > maxDimension || settings.Height > maxDimension)))
             throw new ArgumentException("Invalid preview encoder dimensions.");
         _settings = settings;
         try
@@ -51,11 +51,18 @@ internal sealed unsafe class PreviewEncodingHandler : IDisposable
                 _codec->height = settings.Height;
                 _codec->pix_fmt = settings.Hdr ? AVPixelFormat.AV_PIX_FMT_YUV420P10LE : AVPixelFormat.AV_PIX_FMT_YUV420P;
                 _codec->profile = settings.Hdr ? 2 : 0;
-                _codec->time_base = new AVRational { num = 1, den = PreviewEncodingFormat.FrameRate };
-                _codec->framerate = new AVRational { num = PreviewEncodingFormat.FrameRate, den = 1 };
-                _codec->gop_size = 30;
+                int frameRate = PreviewEncodingFormat.FrameRate(settings.Relayed);
+                _codec->time_base = new AVRational { num = 1, den = frameRate };
+                _codec->framerate = new AVRational { num = frameRate, den = 1 };
+                _codec->gop_size = frameRate * 2;
                 _codec->max_b_frames = 0;
-                _codec->bit_rate = settings.Hdr ? 4_000_000 : 2_000_000;
+                _codec->bit_rate = (settings.Hdr, settings.Relayed) switch
+                {
+                    (false, true) => 2_000_000,
+                    (true, true) => 4_000_000,
+                    (false, false) => 8_000_000,
+                    (true, false) => 12_000_000
+                };
                 _codec->color_primaries = settings.Hdr ? AVColorPrimaries.AVCOL_PRI_BT2020 : AVColorPrimaries.AVCOL_PRI_BT709;
                 _codec->color_trc = settings.Hdr ? AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084 : AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_1;
                 _codec->colorspace = settings.Hdr ? AVColorSpace.AVCOL_SPC_BT2020_NCL : AVColorSpace.AVCOL_SPC_BT709;

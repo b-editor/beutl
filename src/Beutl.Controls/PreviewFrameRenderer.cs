@@ -11,10 +11,9 @@ namespace Beutl.Controls;
 // 8-bit surface: the shader already produces sRGB values.
 internal static class PreviewFrameRenderer
 {
-    private static readonly SKPaint s_linearPaint =
-        BitmapView.CreatePreviewPaint(SKColorFilter.CreateLinearToSrgbGamma());
-
-    private static readonly SKPaint s_gammaPaint = BitmapView.CreatePreviewPaint(null);
+    // A color filter is immutable and may be shared, but SkiaSharp paints must stay on one thread, and the
+    // mobile preview draws bands in parallel, so each draw makes its own paint.
+    private static readonly SKColorFilter s_linearToSrgb = SKColorFilter.CreateLinearToSrgbGamma();
 
     private static readonly SKRuntimeEffect? s_toneMappingEffect;
 
@@ -156,8 +155,8 @@ internal static class PreviewFrameRenderer
         }
         else
         {
-            canvas.DrawImage(image, sourceRect, destRect, sampling,
-                isLinear ? s_linearPaint : s_gammaPaint);
+            using var paint = BitmapView.CreatePreviewPaint(isLinear ? s_linearToSrgb : null);
+            canvas.DrawImage(image, sourceRect, destRect, sampling, paint);
         }
     }
 }

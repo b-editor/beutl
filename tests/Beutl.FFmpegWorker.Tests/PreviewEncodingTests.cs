@@ -60,6 +60,17 @@ public sealed unsafe class PreviewEncodingTests
     }
 
     [Test]
+    public void OnlyDirectVideoTakesAFullHdPicture()
+    {
+        const int width = 1920, height = 1080;
+        byte[] pixels = new byte[width * height * 4];
+        Array.Fill(pixels, (byte)200);
+        Assert.That(() => Encode(pixels, width, height, false, false, relayed: true),
+            Throws.ArgumentException.With.Message.EqualTo("Invalid preview encoder dimensions."));
+        Assert.That(Encode(pixels, width, height, false, false, relayed: false), Is.Not.Empty);
+    }
+
+    [Test]
     public void AudioProducesOneOpusPacketWithoutBufferingASecondOfPlayback()
     {
         float[] samples = Enumerable.Range(0, 960 * 2).Select(i => 0.1f * MathF.Sin((i / 2) * MathF.Tau * 440 / 48000)).ToArray();
@@ -67,11 +78,11 @@ public sealed unsafe class PreviewEncodingTests
         Assert.That(packet.Length, Is.InRange(2, 1200));
     }
 
-    private static byte[] Encode(byte[] pixels, int width, int height, bool hdr, bool audio)
+    private static byte[] Encode(byte[] pixels, int width, int height, bool hdr, bool audio, bool relayed = true)
     {
         using var buffer = SharedMemoryBuffer.Create($"preview-test-{Guid.NewGuid():N}", pixels.Length);
         using var handler = new PreviewEncodingHandler();
-        var settings = new PreviewEncoderStart(buffer.Name, pixels.Length, width, height, hdr, audio);
+        var settings = new PreviewEncoderStart(buffer.Name, pixels.Length, width, height, hdr, audio, relayed);
         handler.Start(IpcMessage.Create(1, MessageType.StartPreviewEncoder, settings));
         buffer.Write(pixels);
         var result = handler.Encode(IpcMessage.Create(2, MessageType.EncodePreviewFrame, new PreviewEncoderFrame(true)));

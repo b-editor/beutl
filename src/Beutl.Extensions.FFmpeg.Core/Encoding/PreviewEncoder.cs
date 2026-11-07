@@ -11,12 +11,14 @@ public sealed class PreviewEncoder : IDisposable
     private readonly PreviewEncoderStart _settings;
     private bool _started;
 
-    public PreviewEncoder(int width, int height, bool hdr, bool audio = false)
+    public PreviewEncoder(int width, int height, bool hdr, bool audio = false, bool relayed = true)
     {
         int capacity = PreviewEncodingFormat.BufferBytes(width, height, hdr, audio);
         _buffer = SharedMemoryBuffer.Create($"beutl-preview-{Guid.NewGuid():N}", capacity);
-        _settings = new(_buffer.Name, capacity, width, height, hdr, audio);
+        _settings = new(_buffer.Name, capacity, width, height, hdr, audio, relayed);
     }
+
+    public bool Relayed => _settings.Relayed;
 
     // Serialized by the caller; the worker consumes the buffer before acknowledging each request.
     public async Task<byte[]> EncodeAsync(ReadOnlyMemory<byte> pixels, bool keyFrame, CancellationToken ct)
