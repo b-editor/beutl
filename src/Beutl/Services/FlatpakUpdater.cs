@@ -48,7 +48,7 @@ internal sealed class FlatpakUpdater
         cancellationToken.ThrowIfCancellationRequested();
         if (_readBundleRef(DownloadPath) != "app/" + _appRef)
             throw new InvalidDataException(MessageStrings.DownloadFailed);
-        string installations = await _runHost(["list", "--app", "--columns=ref,installation"], cancellationToken);
+        string installations = await _runHost(["flatpak", "list", "--app", "--columns=ref,installation"], cancellationToken);
         foreach (string line in installations.Split('\n'))
         {
             string[] fields = line.Split('\t', StringSplitOptions.TrimEntries);
@@ -60,10 +60,24 @@ internal sealed class FlatpakUpdater
                 var name when name.StartsWith("system (", StringComparison.Ordinal) && name.EndsWith(')') => "--installation=" + name[8..^1],
                 _ => throw new InvalidDataException(MessageStrings.DownloadFailed)
             };
-            string location = (await _runHost(["info", option, "--show-location", _appRef], cancellationToken)).Trim();
+            string location = (await _runHost(["flatpak", "info", option, "--show-location", _appRef], cancellationToken)).Trim();
             if (Path.GetDirectoryName(location) != Path.GetDirectoryName(Path.GetDirectoryName(_appPath))) continue;
             cancellationToken.ThrowIfCancellationRequested();
-            await _runHost(["install", option, "--bundle", "--or-update", "--noninteractive", "--assumeyes", DownloadPath], cancellationToken);
+            string[] install = ["flatpak", "install", option, "--bundle", "--or-update", "--noninteractive", "--assumeyes", DownloadPath];
+            // A system installation needs an administrator, whom flatpak itself cannot ask for here: up to
+            // 1.18 both --noninteractive and --assumeyes forbid the polkit prompt, and without them it answers
+            // its own "Proceed?" with no, having no terminal. pkexec asks instead and runs it as root.
+            if (option != "--user") install = ["pkexec", .. install];
+            try
+            {
+                await _runHost(install, cancellationToken);
+            }
+            // pkexec's codes for a dismissed prompt (126) and for authorization it could not get (127).
+            catch (HostCommandException e) when (e.ExitCode is 126 or 127)
+            {
+                throw new UnauthorizedAccessException(MessageStrings.FlatpakUpdateNeedsAdministrator, e);
+            }
+
             return;
         }
         throw new InvalidOperationException(MessageStrings.DownloadFailed);
@@ -79,7 +93,8 @@ internal sealed class FlatpakUpdater
         _ => throw new InvalidDataException(MessageStrings.DownloadFailed)
     });
 
-    internal static async Task<string> RunHostAsync(string[] arguments, CancellationToken cancellationToken,
+    // Runs a command line on the host, outside the sandbox.
+    internal static async Task<string> RunHostAsync(string[] command, CancellationToken cancellationToken,
         string executable = "/usr/bin/flatpak-spawn")
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -89,9 +104,9 @@ internal sealed class FlatpakUpdater
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            ArgumentList = { "--host", "--watch-bus", "--directory=/", "--env=LC_ALL=C", "flatpak" }
+            ArgumentList = { "--host", "--watch-bus", "--directory=/", "--env=LC_ALL=C" }
         };
-        foreach (string argument in arguments) startInfo.ArgumentList.Add(argument);
+        foreach (string argument in command) startInfo.ArgumentList.Add(argument);
         using var process = Process.Start(startInfo)!;
         process.StandardInput.Close();
         Task<string> output = process.StandardOutput.ReadToEndAsync(cancellationToken);
@@ -101,12 +116,14 @@ internal sealed class FlatpakUpdater
             await process.WaitForExitAsync(cancellationToken);
             await Task.WhenAll(output, error);
             string message = (await error).Trim();
-            if (process.ExitCode != 0) throw new IOException(message.Length > 0 ? message : MessageStrings.DownloadFailed);
+            if (process.ExitCode != 0)
+                throw new HostCommandException(message.Length > 0 ? message : MessageStrings.DownloadFailed, process.ExitCode);
             return await output;
         }
         finally
         {
-            // Closing flatpak-spawn's connection also stops the host installer (--watch-bus).
+            // Closing flatpak-spawn's connection also stops the host command (--watch-bus), unless pkexec
+            // already runs it as root.
             if (!process.HasExited)
             {
                 try { process.Kill(entireProcessTree: true); }
@@ -116,5 +133,11 @@ internal sealed class FlatpakUpdater
             try { await Task.WhenAll(output, error); }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         }
+    }
+
+    // A host command that failed, with the exit code that tells pkexec's outcomes apart.
+    internal sealed class HostCommandException(string message, int exitCode) : IOException(message)
+    {
+        public int ExitCode { get; } = exitCode;
     }
 }

@@ -250,6 +250,9 @@
   <data name="FlatpakUpdateCompleted" xml:space="preserve">
     <value>更新が完了しました。Beutlを開き直すと新しいバージョンが使われます。</value>
   </data>
+  <data name="FlatpakUpdateNeedsAdministrator" xml:space="preserve">
+    <value>Beutlはすべてのユーザー向けにインストールされているため、この更新には管理者の認証が必要です。認証がキャンセルされたか失敗したか、認証画面を表示できませんでした。「再試行」でもう一度試すか、「リリースノート」から更新をダウンロードして手動でインストールしてください。</value>
+  </data>
   <data name="ApplicationRestartRequired" xml:space="preserve">
     <value>アプリケーションの再起動が必要です。
 再起動しますか？</value>

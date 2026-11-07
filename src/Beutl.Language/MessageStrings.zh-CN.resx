@@ -255,6 +255,9 @@
   <data name="FlatpakUpdateCompleted" xml:space="preserve">
     <value>更新已完成。重新打开 Beutl 即可使用新版本。</value>
   </data>
+  <data name="FlatpakUpdateNeedsAdministrator" xml:space="preserve">
+    <value>Beutl 是为所有用户安装的，因此此更新需要管理员身份验证。身份验证已被取消或失败，或者无法显示身份验证提示。请选择“重试”再试一次，或从“发行说明”下载更新并手动安装。</value>
+  </data>
   <data name="ApplicationRestartRequired" xml:space="preserve">
     <value>需要重新启动应用程序。
 是否要重新启动应用程序？</value>
