@@ -837,13 +837,27 @@ public sealed class MobilePreviewTests
         var usesRelayedSettings = typeof(MobilePreviewServer).GetMethod("UsesRelayedSettings", flags)!;
         var onTransportMessage = typeof(MobilePreviewServer).GetMethod("OnTransportMessage", flags)!;
         bool Relayed() { lock (gate) return (bool)usesRelayedSettings.Invoke(server, null)!; }
-        void RequestKeyFrame() => onTransportMessage.Invoke(server,
-            [new PreviewTransportEvent(PreviewTransportEventKind.KeyFrame, "one", "direct", false, "")]);
+        void Report(PreviewTransportEventKind kind, string value = "") => onTransportMessage.Invoke(server,
+            [new PreviewTransportEvent(kind, "one", "direct", false, value)]);
+        void RequestKeyFrames(int count)
+        {
+            for (int i = 0; i < count; i++) Report(PreviewTransportEventKind.KeyFrame);
+        }
 
-        RequestKeyFrame();
-        RequestKeyFrame();
+        // A browser asks for key frames to start decoding, both before and right after its connection is up.
+        RequestKeyFrames(3);
+        Assert.That(Relayed(), Is.False, "Requests before connecting do not count.");
+        Report(PreviewTransportEventKind.State, "connected");
+        RequestKeyFrames(3);
+        Assert.That(Relayed(), Is.False, "Requests right after connecting do not count.");
+
+        // As if the viewer had connected long enough ago.
+        var congestion = (Dictionary<string, MobilePreviewServer.CongestionBackoff>)typeof(MobilePreviewServer)
+            .GetField("_congestion", flags)!.GetValue(server)!;
+        lock (gate) congestion["one"].Connected(-MobilePreviewServer.CongestionBackoff.Settling);
+        RequestKeyFrames(2);
         Assert.That(Relayed(), Is.False, "One lost key frame can bring two requests.");
-        RequestKeyFrame();
+        RequestKeyFrames(1);
         Assert.That(Relayed(), Is.True);
     }
 

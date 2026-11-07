@@ -5,7 +5,7 @@ namespace Beutl.PreviewStreaming;
 
 internal sealed partial class MobilePreviewServer
 {
-    // Only direct viewers, the ones a narrow path can push off the direct settings.
+    // Direct viewers that have connected, the only ones a narrow path can push off the direct settings.
     private readonly Dictionary<string, CongestionBackoff> _congestion = [];
 
     private void OnConnected(string id)
@@ -23,8 +23,10 @@ internal sealed partial class MobilePreviewServer
         TimeSpan? hold;
         lock (_gate)
         {
-            if (!_peers.TryGetValue(id, out var viewer) || viewer.Relayed) return;
-            if (!_congestion.TryGetValue(id, out var backoff)) _congestion[id] = backoff = new CongestionBackoff();
+            // Requests count from the time a viewer connects. Video can reach the browser, and the browser ask for
+            // a key frame to start decoding, before the connection reports connected, which waits for the data channel.
+            if (!_peers.TryGetValue(id, out var viewer) || viewer.Relayed
+                || !_congestion.TryGetValue(id, out var backoff)) return;
             hold = backoff.KeyFrameRequested(_mediaClock.Elapsed);
         }
         if (hold is { } duration)
