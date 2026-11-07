@@ -1046,8 +1046,10 @@ public sealed class PlayerViewControlsTests
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
         bool guides = config.IsPreviewGuideEnabled.Value;
         bool onion = config.IsOnionSkinEnabled.Value;
+        bool checkerboard = config.IsPreviewCheckerboardEnabled.Value;
         config.IsPreviewGuideEnabled.Value = false;
         config.IsOnionSkinEnabled.Value = false;
+        config.IsPreviewCheckerboardEnabled.Value = false;
         EditViewModel editor = await OpenEditor();
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
@@ -1057,20 +1059,24 @@ public sealed class PlayerViewControlsTests
 
             view.guidesToggle.IsChecked = true;
             view.onionSkinToggle.IsChecked = true;
+            view.checkerboardToggle.IsChecked = true;
             HeadlessTestHelpers.Render();
             Assert.Multiple(() =>
             {
                 Assert.That(config.IsPreviewGuideEnabled.Value, Is.True);
                 Assert.That(config.IsOnionSkinEnabled.Value, Is.True);
+                Assert.That(config.IsPreviewCheckerboardEnabled.Value, Is.True);
             });
 
             config.IsPreviewGuideEnabled.Value = false;
             config.IsOnionSkinEnabled.Value = false;
+            config.IsPreviewCheckerboardEnabled.Value = false;
             HeadlessTestHelpers.Render();
             Assert.Multiple(() =>
             {
                 Assert.That(view.guidesToggle.IsChecked, Is.False);
                 Assert.That(view.onionSkinToggle.IsChecked, Is.False);
+                Assert.That(view.checkerboardToggle.IsChecked, Is.False);
             });
         }
         finally
@@ -1078,6 +1084,7 @@ public sealed class PlayerViewControlsTests
             window.Close();
             config.IsPreviewGuideEnabled.Value = guides;
             config.IsOnionSkinEnabled.Value = onion;
+            config.IsPreviewCheckerboardEnabled.Value = checkerboard;
         }
     }
 }

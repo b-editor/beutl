@@ -14,6 +14,8 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// null to place it by <paramref name="Stretch"/>. It can reach past the swapchain, as a zoomed-in frame does.</param>
 /// <param name="SampleNearest">Whether each pixel takes the texel it falls in rather than filtering the texels around
 /// it, so the frame's pixels show as sharp squares when it is zoomed in.</param>
+/// <param name="Checkerboard">The size of a square of <see cref="PreviewCheckerboard"/>, shown behind the frame's
+/// transparent parts, in fractions of the swapchain's size; or null to show them over black.</param>
 internal readonly record struct RenderParams(
     float SourceWidth,
     float SourceHeight,
@@ -24,4 +26,5 @@ internal readonly record struct RenderParams(
     PreviewGamutMapping DisplayGamut = default,
     float DisplayPeakLuminance = 0f,
     Rect? Destination = null,
-    bool SampleNearest = false);
+    bool SampleNearest = false,
+    Size? Checkerboard = null);

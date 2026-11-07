@@ -171,6 +171,15 @@
                               ToolTip.Tip="{x:Static lang:Strings.ToggleOnionSkin}">
                     <icons:FluentIcon Icon="Layer" />
                 </ToggleButton>
+                <ToggleButton Name="checkerboardToggle"
+                              Padding="5,6,5,6"
+                              usage:UsageTracking.Feature="Preview.ToggleCheckerboard"
+                              IsChecked="{Binding IsPreviewCheckerboardEnabled.Value}"
+                              Theme="{StaticResource TransparentToggleButton}"
+                              AutomationProperties.Name="{x:Static lang:Strings.PreviewCheckerboard}"
+                              ToolTip.Tip="{x:Static lang:Strings.TogglePreviewCheckerboard}">
+                    <icons:FluentIcon Icon="TransparencySquare" />
+                </ToggleButton>
             </StackPanel>
         </Player.InnerRightContent>
         <Player.FooterRightContent>
@@ -234,10 +243,14 @@
         <Player.Content>
             <!--  An HDR preview's native view covers this whole grid, under the transformed frame panel. See SwapImageControl.  -->
             <Grid Name="previewViewport">
+                <!--  Under the frame panel and outside its transform, so its squares keep their size at any zoom.  -->
+                <local:PreviewCheckerboardBackground Name="checkerboardBackground" IsVisible="False" />
+
                 <Panel Name="framePanel"
                        Margin="0"
                        Background="Transparent">
                     <!--  Its box shadow, which PlayerView sets, is the outline that shows where the frame ends against the panel.  -->
+                    <!--  Black, or transparent over checkerboardBackground.  -->
                     <Border Name="imageBackground" Background="Black" />
 
                     <!-- A BitmapView, or for an HDR preview the PreviewFrameSlot that holds the frame's place, is created in code-behind -->

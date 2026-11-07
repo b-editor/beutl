@@ -10,7 +10,9 @@ using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Media.Source;
 using BtlBitmap = Beutl.Media.Bitmap;
 using BtlRect = Beutl.Graphics.Rect;
+using BtlSize = Beutl.Graphics.Size;
 using BtlStretch = Beutl.Media.Stretch;
+using PreviewCheckerboard = Beutl.Media.PreviewCheckerboard;
 using PreviewGamutMapping = Beutl.Media.PreviewGamutMapping;
 
 namespace Beutl.Controls;
@@ -43,6 +45,10 @@ public partial class HdrBitmapView : NativeControlHost
 
     internal static readonly StyledProperty<Rect?> FrameRectProperty =
         AvaloniaProperty.Register<HdrBitmapView, Rect?>(nameof(FrameRect));
+
+    // Shows the frame over the editor's checkerboard rather than black (#4066).
+    internal static readonly StyledProperty<bool> ShowsCheckerboardProperty =
+        AvaloniaProperty.Register<HdrBitmapView, bool>(nameof(ShowsCheckerboard));
 
     internal static readonly StyledProperty<HdrOverlay?> OverlayProperty =
         AvaloniaProperty.Register<HdrBitmapView, HdrOverlay?>(nameof(Overlay));
@@ -85,6 +91,12 @@ public partial class HdrBitmapView : NativeControlHost
     {
         get => GetValue(InterpolationModeProperty);
         set => SetValue(InterpolationModeProperty, value);
+    }
+
+    internal bool ShowsCheckerboard
+    {
+        get => GetValue(ShowsCheckerboardProperty);
+        set => SetValue(ShowsCheckerboardProperty, value);
     }
 
     public UIToneMappingOperator ToneMapping
@@ -245,7 +257,8 @@ public partial class HdrBitmapView : NativeControlHost
         else if (change.Property == ToneMappingExposureProperty ||
                  change.Property == DisplayPeakLuminanceProperty ||
                  change.Property == StretchProperty ||
-                 change.Property == InterpolationModeProperty)
+                 change.Property == InterpolationModeProperty ||
+                 change.Property == ShowsCheckerboardProperty)
         {
             // Presents the frame again, so a paused preview follows too.
             RequestRender();
@@ -456,7 +469,19 @@ public partial class HdrBitmapView : NativeControlHost
             DisplayGamut: _displayGamut,
             DisplayPeakLuminance: DisplayPeakLuminance,
             Destination: GetDestination(),
-            SampleNearest: InterpolationMode == BitmapInterpolationMode.None);
+            SampleNearest: InterpolationMode == BitmapInterpolationMode.None,
+            Checkerboard: GetCheckerboardSquare());
+    }
+
+    // A checkerboard square in fractions of the view's size, which the swapchain covers.
+    private BtlSize? GetCheckerboardSquare()
+    {
+        if (!ShowsCheckerboard || !(Bounds.Width > 0 && Bounds.Height > 0))
+            return null;
+
+        return new BtlSize(
+            (float)(PreviewCheckerboard.SquareSize / Bounds.Width),
+            (float)(PreviewCheckerboard.SquareSize / Bounds.Height));
     }
 
     // FrameRect in fractions of the view's size.

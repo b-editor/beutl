@@ -3594,6 +3594,15 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="TogglePreviewGuides_Description" xml:space="preserve">
     <value>在预览中显示或隐藏安全区域和构图参考线。</value>
   </data>
+  <data name="PreviewCheckerboard" xml:space="preserve">
+    <value>棋盘格</value>
+  </data>
+  <data name="TogglePreviewCheckerboard" xml:space="preserve">
+    <value>切换棋盘格</value>
+  </data>
+  <data name="TogglePreviewCheckerboard_Description" xml:space="preserve">
+    <value>在预览中将透明部分显示在棋盘格上，而不是黑色上。</value>
+  </data>
   <data name="PreviewZoom" xml:space="preserve">
     <value>预览缩放</value>
   </data>

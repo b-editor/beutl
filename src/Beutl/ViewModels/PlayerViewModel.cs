@@ -257,6 +257,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
         IsPreviewGuideEnabled = SettingBinding.Bind(editorConfig.IsPreviewGuideEnabled, v => v, v => v, _disposables);
         IsOnionSkinEnabled = SettingBinding.Bind(editorConfig.IsOnionSkinEnabled, v => v, v => v, _disposables);
+        IsPreviewCheckerboardEnabled = SettingBinding.Bind(
+            editorConfig.IsPreviewCheckerboardEnabled, v => v, v => v, _disposables);
 
         // Re-render when an onion-skin setting changes.
         editorConfig.IsOnionSkinEnabled.GetObservable()
@@ -421,6 +423,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     public ReactiveProperty<bool> IsPreviewGuideEnabled { get; }
 
     public ReactiveProperty<bool> IsOnionSkinEnabled { get; }
+
+    public ReactiveProperty<bool> IsPreviewCheckerboardEnabled { get; }
 
     public AsyncReactiveCommand PlayPause { get; }
 
