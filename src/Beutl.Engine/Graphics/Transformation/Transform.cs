@@ -27,6 +27,7 @@ public abstract class Transform : EngineObject
 
     public new sealed class Resource : EngineObject.Resource
     {
+        /// <summary>The matrix the transform applies, which is the identity while it is disabled.</summary>
         public Matrix Matrix { get; set; } = Matrix.Identity;
 
         public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
@@ -35,7 +36,8 @@ public abstract class Transform : EngineObject
             var transform = (Transform)obj;
 
             var oldMatrix = Matrix;
-            Matrix = transform.CreateMatrix(context);
+            // A disabled transform leaves its target where it is, as a disabled child of a group does (#4012).
+            Matrix = IsEnabled ? transform.CreateMatrix(context) : Matrix.Identity;
             if (versionBumped) return;
 
             if (oldMatrix != Matrix)
