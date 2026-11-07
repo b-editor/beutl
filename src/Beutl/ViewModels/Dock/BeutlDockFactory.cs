@@ -1,6 +1,7 @@
 ﻿using Beutl.Editor.Components.WebBrowserTab;
 
 using Dock.Avalonia.Controls;
+using Dock.Model;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 using Dock.Model.Core.Events;
@@ -181,6 +182,14 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 
     public override void InitLayout(IDockable layout)
     {
+        HostWindowLocator = new Dictionary<string, Func<IHostWindow?>>
+        {
+            [nameof(IDockWindow)] = () => new HostWindow(),
+        };
+
+        base.InitLayout(layout);
+        RestoreMissingAnchoredDocks();
+
         DockableLocator = new Dictionary<string, Func<IDockable?>>();
 
         if (_rootDock is not null)
@@ -195,14 +204,129 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
             }
         }
 
-        HostWindowLocator = new Dictionary<string, Func<IHostWindow?>>
-        {
-            [nameof(IDockWindow)] = () => new HostWindow(),
-        };
+        _anchorCacheDirty = true;
+    }
 
-        base.InitLayout(layout);
+    // A dock a tool opens into by default stays in the layout when its last tab goes, so the next
+    // tab opened for one of its tools finds it where the user left it, at its size. Dock draws an
+    // empty, collapsable dock at no size, so nothing shows meanwhile. A copy floated out to a
+    // window under the same id still closes with that window.
+    public override void CollapseDock(IDock dock)
+    {
+        if (dock is IToolDock
+            && AnchorFromId(dock.Id) != DockAnchor.None
+            && ReferenceEquals(FindRoot(dock, _ => true), _rootDock))
+        {
+            return;
+        }
+
+        base.CollapseDock(dock);
+    }
+
+    // Layouts saved before anchored docks were kept lack the ones that were emptied then. Each
+    // goes back empty, so out of sight, where the default layout has it beside the docks that
+    // remain. In this order each one finds the ones before it.
+    private void RestoreMissingAnchoredDocks()
+    {
+        if (_rootDock?.VisibleDockables?.FirstOrDefault() is not IProportionalDock rootSplit) return;
+
+        bool portrait = rootSplit.Orientation == Orientation.Horizontal;
+        DockAnchor[] order = portrait
+            ? [DockAnchor.Bottom, DockAnchor.Left, DockAnchor.Right]
+            : [DockAnchor.Left, DockAnchor.Right, DockAnchor.Bottom];
+        foreach (DockAnchor anchor in order)
+        {
+            _anchorCacheDirty = true;
+            if (GetAnchoredDock(anchor) is null && FindRestorePlace(anchor, rootSplit, portrait) is { } place)
+            {
+                InsertBeside(place.Beside, CreateAnchoredDock(anchor), place.Side);
+            }
+        }
 
         _anchorCacheDirty = true;
+    }
+
+    // Where the default layout has the dock for anchor: beside which dock, on which side.
+    private (IDockable Beside, DockOperation Side)? FindRestorePlace(
+        DockAnchor anchor, IProportionalDock rootSplit, bool portrait)
+    {
+        IToolDock? player = GetAnchoredDock(DockAnchor.Player);
+        if (!portrait)
+        {
+            // Left | preview | right, over the bottom dock.
+            if (anchor == DockAnchor.Bottom)
+            {
+                return rootSplit.VisibleDockables?.LastOrDefault(d => d is not IProportionalDockSplitter) is { } top
+                    ? (top, DockOperation.Bottom)
+                    : null;
+            }
+
+            return player is null ? null : (player, anchor == DockAnchor.Left ? DockOperation.Left : DockOperation.Right);
+        }
+
+        // The preview, beside a column of left | right over the bottom dock.
+        IToolDock? left = GetAnchoredDock(DockAnchor.Left);
+        IToolDock? right = GetAnchoredDock(DockAnchor.Right);
+        IToolDock? bottom = GetAnchoredDock(DockAnchor.Bottom);
+        if (anchor == DockAnchor.Left && right is not null) return (right, DockOperation.Left);
+        if (anchor == DockAnchor.Right && left is not null) return (left, DockOperation.Right);
+        if (anchor != DockAnchor.Bottom && bottom is not null) return (bottom, DockOperation.Top);
+        if (anchor == DockAnchor.Bottom
+            && ChildHolding(rootSplit, left ?? right) is { } tools
+            && !ReferenceEquals(tools, ChildHolding(rootSplit, player)))
+        {
+            return (tools, DockOperation.Bottom);
+        }
+
+        return player is null ? null : (player, DockOperation.Right);
+    }
+
+    // The child of split that is, or holds, dockable.
+    private static IDockable? ChildHolding(IDock split, IDockable? dockable)
+    {
+        for (IDockable? node = dockable; node is not null; node = node.Owner)
+        {
+            if (ReferenceEquals(node.Owner, split)) return node;
+        }
+
+        return null;
+    }
+
+    // Puts dock beside the given dockable: in the split holding it when that split runs the right
+    // way, else in a new split that takes its place. The dock gets its default share, and the other
+    // panes keep their ratios.
+    private void InsertBeside(IDockable beside, IToolDock dock, DockOperation side)
+    {
+        if (beside.Owner is not IDock { VisibleDockables: { } siblings } owner
+            || !ReferenceEquals(FindRoot(beside, _ => true), _rootDock))
+        {
+            return;
+        }
+
+        int index = siblings.IndexOf(beside);
+        Orientation orientation = side is DockOperation.Left or DockOperation.Right
+            ? Orientation.Horizontal
+            : Orientation.Vertical;
+        if (owner is not IProportionalDock split || split.Orientation != orientation)
+        {
+            split = CreateProportionalDock();
+            split.Orientation = orientation;
+            split.Proportion = beside.Proportion;
+            split.CollapsedProportion = beside.CollapsedProportion;
+            split.VisibleDockables = CreateList<IDockable>();
+            beside.Proportion = double.NaN;
+            beside.CollapsedProportion = double.NaN;
+            RemoveVisibleDockableAt(owner, index);
+            InsertDockable(owner, split, index);
+            if (ReferenceEquals(owner.ActiveDockable, beside)) owner.ActiveDockable = split;
+            if (ReferenceEquals(owner.DefaultDockable, beside)) owner.DefaultDockable = split;
+            AddDockable(split, beside);
+            index = 0;
+        }
+
+        InsertDockable(split, dock, side is DockOperation.Left or DockOperation.Top ? index : index + 1);
+        InsertDockable(split, CreateProportionalDockSplitter(), index + 1);
+        DockSplitProportion.Apply(dock, dock.Proportion);
     }
 
     public IToolDock? GetAnchoredDock(DockAnchor anchor)
@@ -236,6 +360,34 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
             if (def.Id == id) return anchor;
         }
         return DockAnchor.None;
+    }
+
+    /// <summary>
+    /// Finds a dock holding a tab of a tool that opens in <paramref name="anchor"/>'s dock by default:
+    /// that dock when it holds one, else the dock of the one used last.
+    /// </summary>
+    /// <remarks>The user may have moved such tools out of their dock.</remarks>
+    internal IToolDock? FindDockOfAnchoredTools(DockAnchor anchor)
+    {
+        if (anchor == DockAnchor.None) return null;
+
+        IToolDock? anchored = GetAnchoredDock(anchor);
+        IToolDock? latest = null;
+        long latestOrder = -1;
+        foreach (BeutlToolDockable tool in EnumerateTools())
+        {
+            if (tool.Owner is not IToolDock dock || tool.ToolContext.Extension.DefaultAnchor != anchor) continue;
+            if (ReferenceEquals(dock, anchored)) return dock;
+
+            long order = GetActivationOrder(tool);
+            if (order > latestOrder)
+            {
+                latest = dock;
+                latestOrder = order;
+            }
+        }
+
+        return latest;
     }
 
     public BeutlToolDockable? AddTool(IToolContext context, IToolDock? target = null, bool activate = true)
