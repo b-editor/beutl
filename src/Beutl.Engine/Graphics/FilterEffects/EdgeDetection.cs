@@ -31,8 +31,9 @@ public sealed partial class EdgeDetection : FilterEffect
     public IExpressionProperty<float> Threshold { get; } = Property.CreateAnimatable(10f);
 
     /// <summary>
-    /// How dark a change past the threshold draws its line, in percent. At 100 a change just past the threshold draws a
-    /// solid line, and lower, the line darkens with the size of the change.
+    /// How dark a change past the threshold draws its line, in percent. The line is solid from a change
+    /// 10 / (Strength / 100) points past the threshold: 10 at 100, 20 at 50 and 50 at 20, so that lower, the line
+    /// darkens with the size of the change.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Strength), Description = nameof(GraphicsStrings.EdgeDetection_Strength_Description),
         ResourceType = typeof(GraphicsStrings))]

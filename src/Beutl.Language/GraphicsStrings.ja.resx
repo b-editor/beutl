@@ -497,7 +497,7 @@
     <value>これより小さな変化には線を引きません。</value>
   </data>
   <data name="EdgeDetection_Strength_Description" xml:space="preserve">
-    <value>しきい値を超えた変化が、どれだけ濃い線になるかです。100% ではしきい値をわずかに超えただけで濃い線になり、下げると変化が大きいほど濃い線になります。</value>
+    <value>しきい値を超えた変化が、どれだけ濃い線になるかです。100% ではしきい値より 10 ポイント大きい変化から、50% では 20 ポイント、20% では 50 ポイント大きい変化から濃い線になります。</value>
   </data>
   <data name="EdgeDetection_Original" xml:space="preserve">
     <value>元画像</value>

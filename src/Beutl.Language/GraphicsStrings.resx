@@ -502,7 +502,7 @@
     <value>Changes smaller than this draw no line.</value>
   </data>
   <data name="EdgeDetection_Strength_Description" xml:space="preserve">
-    <value>How dark a change past the threshold draws its line. At 100%, a change just past the threshold draws a solid line; lower, the line darkens with the size of the change.</value>
+    <value>How dark a change past the threshold draws its line. At 100% the line is solid from a change 10 points past the threshold, at 50% from 20 points past, and at 20% from 50 points past.</value>
   </data>
   <data name="EdgeDetection_Original" xml:space="preserve">
     <value>Original</value>

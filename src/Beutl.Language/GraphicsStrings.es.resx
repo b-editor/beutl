@@ -501,7 +501,7 @@
     <value>Los cambios menores que este valor no dibujan ninguna línea.</value>
   </data>
   <data name="EdgeDetection_Strength_Description" xml:space="preserve">
-    <value>Qué tan oscura es la línea de un cambio que supera el umbral. Al 100 %, un cambio apenas mayor que el umbral dibuja una línea sólida; con menos, la línea se oscurece según el tamaño del cambio.</value>
+    <value>Qué tan oscura es la línea de un cambio que supera el umbral. Al 100 %, la línea es sólida desde un cambio 10 puntos mayor que el umbral; al 50 %, desde 20 puntos, y al 20 %, desde 50 puntos.</value>
   </data>
   <data name="EdgeDetection_Original" xml:space="preserve">
     <value>Imagen original</value>
