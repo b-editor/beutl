@@ -467,7 +467,8 @@ public sealed class AiSubtitleAdvancedTests
             Rejected caption
 
             """), CaptionFormats.Srt);
-        bool malformed = viewModel.ImportCaptionBytes([0xff, 0xfe], CaptionFormats.Srt);
+        // Bytes that are not UTF-8 are read in the system's code page, so only text that is no caption fails.
+        bool malformed = viewModel.ImportCaptionBytes(Encoding.UTF8.GetBytes("Not a caption"), CaptionFormats.Srt);
 
         Assert.Multiple(() =>
         {
@@ -478,6 +479,20 @@ public sealed class AiSubtitleAdvancedTests
             Assert.That(malformed, Is.False);
             Assert.That(viewModel.Error.Value, Is.Not.Null);
         });
+    }
+
+    // The dialog reads a subtitle file as a drop on the timeline does, and subtitle tools also write UTF-16.
+    [Test]
+    public async Task CaptionBytes_InUtf16AreImported()
+    {
+        using var httpClient = new HttpClient();
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        using var viewModel = CreateViewModel(clients);
+        const string Srt = "1\n00:00:01,000 --> 00:00:02,000\nこんにちは\n";
+        byte[] utf16 = [.. Encoding.Unicode.GetPreamble(), .. Encoding.Unicode.GetBytes(Srt)];
+
+        Assert.That(viewModel.ImportCaptionBytes(utf16, CaptionFormats.Srt), Is.True, viewModel.Error.Value);
+        Assert.That(viewModel.Cues.Select(cue => cue.Text), Is.EqualTo(new[] { "こんにちは" }));
     }
 
     [Test]
