@@ -4,7 +4,9 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 
+using Beutl.Controls;
 using Beutl.Editor.Components.Converters;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Models;
@@ -32,6 +34,10 @@ public partial class PlayerView
 
     // A level counts as reached within this ratio, so a step never lands on what rounds to the same percentage.
     private const double ZoomLevelTolerance = 0.005;
+
+    // At a zoom the user chose, a frame pixel this many device pixels wide or more is drawn as a sharp square. Below it,
+    // nearest sampling would draw the pixels at uneven sizes, one device pixel wide or two (#4082).
+    private const double SharpPixelsMinScreenZoom = 2;
 
     // The range of FrameMatrix's scale, which keeps the frame findable and the numbers sane.
     private const float MinFrameMatrixScale = 0.05f;
@@ -103,6 +109,24 @@ public partial class PlayerView
             : Array.Find(s_zoomOptions, option => option.Level is { } level && zoom is { } current
                 && Math.Abs((current / level) - 1) < ZoomLevelTolerance);
         _isSyncingZoomOption = false;
+
+        UpdatePreviewInterpolation(zoom);
+    }
+
+    // The frame stays smooth at fit, whatever its size, and at a zoom the user chose its pixels turn sharp once each is
+    // SharpPixelsMinScreenZoom device pixels wide. Fit's scale is exactly 1, which panning keeps. Any other scale is a
+    // zoom, as the zoom box also takes it, even a level that lands right next to fit.
+    private void UpdatePreviewInterpolation(double? zoom)
+    {
+        bool zoomed = DataContext is PlayerViewModel viewModel && viewModel.FrameMatrix.Value.M11 != 1;
+        // A zoom the box counts as the level, which rounding can leave just under it, reaches it here too.
+        BitmapInterpolationMode mode = zoomed && zoom >= SharpPixelsMinScreenZoom * (1 - ZoomLevelTolerance)
+            ? BitmapInterpolationMode.None
+            : BitmapInterpolationMode.HighQuality;
+        if (image is BitmapView sdr)
+            sdr.InterpolationMode = mode;
+        if (hdrView is { } hdr)
+            hdr.InterpolationMode = mode;
     }
 
     private static string FormatZoom(double zoom)
