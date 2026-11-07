@@ -167,7 +167,8 @@ internal sealed partial class MobilePreviewServer
         private readonly SKSurface[] _bands = [];
         private readonly Bitmap? _resized;
 
-        internal FrameConverter(int width, int height, bool hdr)
+        // bands overrides the per-machine band count, so tests cover band edges on any processor count.
+        internal FrameConverter(int width, int height, bool hdr, int bands = 0)
         {
             Width = width;
             Height = height;
@@ -180,7 +181,8 @@ internal sealed partial class MobilePreviewServer
             {
                 nint address = Marshal.UnsafeAddrOfPinnedArrayElement(_pixels, 0);
                 int rowBytes = width * PreviewEncodingFormat.BytesPerPixel(hdr: false);
-                int count = height >= 64 ? s_bands : 1;
+                // At least 16 rows per band keeps every band non-empty after rounding its top down to 8 rows.
+                int count = Math.Clamp(bands > 0 ? bands : s_bands, 1, Math.Max(1, height / 16));
                 _bands = new SKSurface[count];
                 for (int band = 0; band < count; band++)
                 {

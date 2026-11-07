@@ -266,16 +266,21 @@ public sealed class MobilePreviewTests
         Assert.That(MobilePreviewServer.FrameSize(bitmap, relayed: false), Is.EqualTo((1920, 1080)));
     }
 
-    [TestCase(320, 200, 320, 200)]
-    [TestCase(480, 300, 320, 200)]
-    public void Converting_a_frame_in_bands_matches_drawing_it_in_one_piece(int width, int height, int targetWidth, int targetHeight)
+    [TestCase(320, 200, 320, 200, UIToneMappingOperator.None)]
+    [TestCase(480, 300, 320, 200, UIToneMappingOperator.None)]
+    [TestCase(320, 200, 320, 200, UIToneMappingOperator.ACES)]
+    [TestCase(480, 300, 320, 200, UIToneMappingOperator.ACES)]
+    public void Converting_a_frame_in_bands_matches_drawing_it_in_one_piece(int width, int height, int targetWidth, int targetHeight,
+        UIToneMappingOperator toneMapping)
     {
         using var bitmap = new Bitmap(width, height, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
         var random = new Random(1);
+        // Values up to 4 give the tone mapper highlights to compress.
         foreach (ref var pixel in bitmap.GetPixelSpan<RgbaF16>())
-            pixel = new RgbaF16((Half)random.NextSingle(), (Half)random.NextSingle(), (Half)random.NextSingle(), (Half)1);
-        using var converter = new MobilePreviewServer.FrameConverter(targetWidth, targetHeight, hdr: false);
-        byte[] banded = converter.Convert(bitmap, UIToneMappingOperator.None, 0);
+            pixel = new RgbaF16((Half)(random.NextSingle() * 4), (Half)(random.NextSingle() * 4), (Half)(random.NextSingle() * 4), (Half)1);
+        // Four bands whatever the processor count, so every machine checks the band edges.
+        using var converter = new MobilePreviewServer.FrameConverter(targetWidth, targetHeight, hdr: false, bands: 4);
+        byte[] banded = converter.Convert(bitmap, toneMapping, 0);
 
         using var whole = new SKBitmap(targetWidth, targetHeight, SKColorType.Bgra8888, SKAlphaType.Premul);
         using (var canvas = new SKCanvas(whole))
@@ -284,7 +289,7 @@ public sealed class MobilePreviewTests
             // The converter skips resampling for a frame already at its size.
             Beutl.Controls.PreviewFrameRenderer.Draw(canvas, bitmap, SKRect.Create(width, height), SKRect.Create(targetWidth, targetHeight),
                 width == targetWidth ? Avalonia.Media.Imaging.BitmapInterpolationMode.None : Avalonia.Media.Imaging.BitmapInterpolationMode.HighQuality,
-                UIToneMappingOperator.None, 0);
+                toneMapping, 0);
         }
         byte[] expected = whole.Bytes;
         Assert.That(banded.Zip(expected, (a, b) => Math.Abs(a - b)).Max(), Is.LessThanOrEqualTo(1));
