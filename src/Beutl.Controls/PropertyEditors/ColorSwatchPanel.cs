@@ -1,10 +1,12 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 
 namespace Beutl.Controls.PropertyEditors;
 
 // Lays its children out as square cells, Columns to a row, each cell the width divided by Columns, so that
-// palettes of any length line their swatches up under each other.
+// palettes of any length line their swatches up under each other. Tab stops once in it, at the swatch focused
+// last, and the arrow keys move between its swatches.
 internal sealed class ColorSwatchPanel : Panel
 {
     public static readonly StyledProperty<int> ColumnsProperty =
@@ -16,6 +18,7 @@ internal sealed class ColorSwatchPanel : Panel
     static ColorSwatchPanel()
     {
         AffectsMeasure<ColorSwatchPanel>(ColumnsProperty);
+        KeyboardNavigation.TabNavigationProperty.OverrideDefaultValue<ColorSwatchPanel>(KeyboardNavigationMode.Once);
     }
 
     public int Columns
@@ -47,6 +50,37 @@ internal sealed class ColorSwatchPanel : Panel
         }
 
         return finalSize;
+    }
+
+    // Left and Right step through the swatches in order, Up and Down a row at a time. At an edge the key does
+    // nothing, rather than scroll the palettes.
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Handled || e.KeyModifiers != KeyModifiers.None || e.Source is not Control source)
+        {
+            return;
+        }
+
+        int index = Children.IndexOf(source);
+        int? target = e.Key switch
+        {
+            Key.Left => index - 1,
+            Key.Right => index + 1,
+            Key.Up => index - Columns,
+            Key.Down => index + Columns,
+            _ => null
+        };
+        if (index < 0 || target is not { } next)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        if (next >= 0 && next < Children.Count)
+        {
+            Children[next].Focus(NavigationMethod.Directional);
+        }
     }
 
     private double GetCellSize(double width)

@@ -67,6 +67,19 @@
                             <Setter Property="BorderBrushPointerOver" Value="{DynamicResource ControlStrongStrokeColorDefaultBrush}" />
                             <Setter Property="BorderThicknessPointerOver" Value="1" />
                             <Setter Property="SelectionBrush" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <!--  The focus ring goes around the swatch, in the room between swatches, so that it shows on any color and apart from the selection ring inside.  -->
+                            <Setter Property="FocusAdorner">
+                                <FocusAdornerTemplate>
+                                    <Border Margin="-3"
+                                            BorderBrush="{DynamicResource FocusStrokeColorOuterBrush}"
+                                            BorderThickness="{DynamicResource SystemControlFocusVisualPrimaryThickness}"
+                                            CornerRadius="3">
+                                        <Border BorderBrush="{DynamicResource FocusStrokeColorInnerBrush}"
+                                                BorderThickness="{DynamicResource SystemControlFocusVisualSecondaryThickness}"
+                                                CornerRadius="1" />
+                                    </Border>
+                                </FocusAdornerTemplate>
+                            </Setter>
                         </Style>
                     </ScrollViewer.Styles>
 

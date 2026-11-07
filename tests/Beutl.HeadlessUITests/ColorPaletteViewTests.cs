@@ -62,6 +62,63 @@ public sealed class ColorPaletteViewTests
         Assert.That(selected, Is.EqualTo(new[] { s_teal }));
     }
 
+    // Tab stops once in each palette, the arrow keys move between its colors in rows of ten, and Enter or Space
+    // picks the focused color, which a focus ring marks.
+    [AvaloniaTest]
+    [TestCase("Dark")]
+    [TestCase("Light")]
+    public void The_keyboard_moves_between_the_colors_and_picks_one(string theme)
+    {
+        var view = new ColorPaletteView { Service = CreateService() };
+        var selected = new List<Color>();
+        view.ColorSelected += (_, color) => selected.Add(color);
+        using var host = new ControlHost(view, 240, 760);
+        Window window = host.Window;
+        window.RequestedThemeVariant = theme == "Dark" ? ThemeVariant.Dark : ThemeVariant.Light;
+        ColorSwatchPanel[] panels = Panels(view);
+        Button newPalette = view.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "NewPaletteButton");
+
+        newPalette.Focus(NavigationMethod.Tab);
+        Press(window, Key.Tab);
+        Assert.That(Focused(window), Is.SameAs(panels[0].Children[0]), "Tab enters the recent colors at the first.");
+
+        Press(window, Key.Right);
+        HeadlessTestHelpers.Render(3);
+        HeadlessCapture.SaveIfRequested(view, nameof(ColorPaletteViewTests), $"keyboard-focus-{theme}");
+        Assert.That(Focused(window), Is.SameAs(panels[0].Children[1]));
+        Press(window, Key.Enter);
+        Press(window, Key.Space);
+        Assert.That(selected, Is.EqualTo(new[] { s_teal, s_teal }));
+
+        Press(window, Key.Tab);
+        Assert.That(panels[0].Children, Does.Not.Contain(Focused(window)), "The next Tab leaves the palette.");
+
+        panels[3].Children[0].Focus(NavigationMethod.Tab);
+        Press(window, Key.Down);
+        Assert.That(Focused(window), Is.SameAs(panels[3].Children[10]));
+        Press(window, Key.Left);
+        Assert.That(Focused(window), Is.SameAs(panels[3].Children[9]));
+        Press(window, Key.Up);
+        Assert.That(Focused(window), Is.SameAs(panels[3].Children[9]), "The first row has nothing above it.");
+    }
+
+    // The menu key opens the focused color's menu.
+    [AvaloniaTest]
+    public void The_menu_key_opens_the_focused_colors_menu()
+    {
+        var view = new ColorPaletteView { Service = CreateService() };
+        using var host = new ControlHost(view, 240, 760);
+        var blue = (ColorPaletteItem)Panels(view)[2].Children[0];
+
+        blue.Focus(NavigationMethod.Tab);
+        Press(host.Window, Key.Apps);
+        HeadlessTestHelpers.Render(3);
+        HeadlessCapture.SaveIfRequested(view, nameof(ColorPaletteViewTests), "keyboard-menu");
+
+        Assert.That(host.Window.GetVisualDescendants().OfType<FAMenuFlyoutItem>().Select(i => i.Text),
+            Does.Contain(Strings.Rename));
+    }
+
     [AvaloniaTest]
     public void The_colors_equal_to_the_current_one_are_ringed()
     {
@@ -180,6 +237,14 @@ public sealed class ColorPaletteViewTests
 
     private static FAMenuFlyoutItem MenuItem(Window window, string text)
         => window.GetVisualDescendants().OfType<FAMenuFlyoutItem>().Single(i => i.Text == text);
+
+    private static IInputElement? Focused(Window window) => window.FocusManager?.GetFocusedElement();
+
+    private static void Press(Window window, Key key)
+    {
+        window.KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
+        window.KeyRelease(key, RawInputModifiers.None, PhysicalKey.None, null);
+    }
 
     // The name box opens focused with its name chosen, so that what is typed replaces the name.
     private static void AssertTakesTyping(Window window, TextBox name)

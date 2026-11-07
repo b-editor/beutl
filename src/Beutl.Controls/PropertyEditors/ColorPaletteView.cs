@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Globalization;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -258,7 +259,9 @@ public sealed class ColorPaletteView : TemplatedControl
                 MinWidth = 0,
                 MinHeight = 0
             };
-            ToolTip.SetTip(item, FormatTip(swatch.Color));
+            string tip = FormatTip(swatch.Color);
+            ToolTip.SetTip(item, tip);
+            AutomationProperties.SetName(item, tip.Replace('\n', ' '));
             panel.Children.Add(item);
             _items.Add(item);
         }
@@ -298,9 +301,10 @@ public sealed class ColorPaletteView : TemplatedControl
             if (menu != null)
             {
                 e.Handled = true;
+                // The menu key asks without a pointer, so its menu opens at the element instead.
                 if (menu.Items.Count > 0)
                 {
-                    menu.ShowAt(element, showAtPointer: true);
+                    menu.ShowAt(element, showAtPointer: e.TryGetPosition(element, out _));
                 }
 
                 return;
