@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Globalization;
+using System.Text;
 
 namespace Beutl.Editor.Services.Captions;
 
@@ -37,6 +38,27 @@ public sealed class CaptionDocumentSerializer
             content = content[1..];
 
         return _codecs.Decode(format, content);
+    }
+
+    // The bytes of a subtitle file. Import reads UTF-8, but subtitle tools also write UTF-16 and, on Windows, the
+    // system's legacy code page.
+    internal CaptionImportResult ImportFile(byte[] bytes, CaptionFormatId format)
+    {
+        if (bytes is [0xFF, 0xFE, ..])
+            return Import(Encoding.Convert(Encoding.Unicode, Encoding.UTF8, bytes, 2, bytes.Length - 2), format);
+        if (bytes is [0xFE, 0xFF, ..])
+            return Import(Encoding.Convert(Encoding.BigEndianUnicode, Encoding.UTF8, bytes, 2, bytes.Length - 2), format);
+
+        CaptionImportResult result = Import(bytes, format);
+        if (result.IsSuccess || result.Diagnostics.All(item => item.Kind != CaptionDiagnosticKinds.InvalidUtf8))
+            return result;
+
+        // Code page 0 is the system's on Windows, whatever the regional format says. Elsewhere there is none, and the
+        // locale is the best guess.
+        Encoding legacy = CodePagesEncodingProvider.Instance.GetEncoding(0)
+            ?? CodePagesEncodingProvider.Instance.GetEncoding(CultureInfo.CurrentCulture.TextInfo.ANSICodePage)
+            ?? Encoding.Latin1;
+        return Import(Encoding.Convert(legacy, Encoding.UTF8, bytes), format);
     }
 
     public byte[] Export(CaptionDocument document, CaptionFormatId format)

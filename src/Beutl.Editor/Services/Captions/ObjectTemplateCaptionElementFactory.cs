@@ -66,14 +66,9 @@ public static class TextBlockCaptionTemplateAdapter
         if (!typeof(TextBlock).IsAssignableFrom(objectTemplate.ActualType))
             return null;
 
-        var descriptor = new CaptionTemplateDescriptor(
-            new CaptionTemplateId($"beutl.user.object-template.{objectTemplate.Id:N}"),
-            CaptionTemplateProviders.User,
-            objectTemplate.Name.Value);
-        return new CaptionTemplate(
-            descriptor,
-            new ObjectTemplateCaptionElementFactory<TextBlock>(objectTemplate, ApplyCue),
-            PreserveCaptionPlacementPolicy.Instance);
+        return CaptionTemplateDefaults.CreateFromObjectTemplate(
+            objectTemplate,
+            new ObjectTemplateCaptionElementFactory<TextBlock>(objectTemplate, ApplyCue));
     }
 
     internal static void ApplyCue(TextBlock textBlock, CaptionCue cue)

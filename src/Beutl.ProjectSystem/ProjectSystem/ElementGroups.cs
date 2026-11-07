@@ -2,9 +2,37 @@
 
 namespace Beutl.ProjectSystem;
 
-// How a scene and an element set save their groups: each group as its element ids joined by ':'.
+// How a scene and an element set save their groups, each group as its element ids joined by ':', and prune them.
 internal static class ElementGroups
 {
+    // Prunes ids from every group and disbands any group left with fewer than two members. Returns true if any group
+    // changed.
+    public static bool RemoveIds(IListProperty<ImmutableHashSet<Guid>> groups, IReadOnlyCollection<Guid> ids)
+    {
+        // Look the members up in a set: Overlaps and Except walk their argument, which costs groups × ids.
+        var idSet = new HashSet<Guid>(ids);
+        bool removed = false;
+        for (int i = groups.Count - 1; i >= 0; i--)
+        {
+            ImmutableHashSet<Guid> group = groups[i];
+            if (!group.Any(idSet.Contains)) continue;
+
+            ImmutableHashSet<Guid> updated = group.Except(group.Where(idSet.Contains));
+            if (updated.Count >= 2)
+            {
+                groups[i] = updated;
+            }
+            else
+            {
+                groups.RemoveAt(i);
+            }
+
+            removed = true;
+        }
+
+        return removed;
+    }
+
     public static string[] Write(IEnumerable<ImmutableHashSet<Guid>> groups)
         => groups.Select(ids => string.Join(':', ids)).ToArray();
 

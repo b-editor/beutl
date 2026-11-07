@@ -185,15 +185,12 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             }
             preflightLeases.Add(preflight.Preflight);
 
-            foreach (int layer in preflight.TargetLayers)
+            if (FindLockedTargetLayer(scene, description, preflight.TargetLayers) is { } lockedLayer)
             {
-                if (!description.StacksAboveScene && scene.IsLayerLocked(layer))
-                {
-                    _logger.LogInformation(
-                        "Refusing element batch because target layer {Layer} is locked.",
-                        layer);
-                    return ElementAddResult.Failed(new LockedElementLayerFailure(layer));
-                }
+                _logger.LogInformation(
+                    "Refusing element batch because target layer {Layer} is locked.",
+                    lockedLayer);
+                return ElementAddResult.Failed(new LockedElementLayerFailure(lockedLayer));
             }
 
             plans.Add(new ElementCreationPlan(
@@ -425,6 +422,20 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         ElementPlacementHelper.MoveTogether(elements, placement.StartDelta, placement.LayerDelta);
     }
 
+    // The first locked layer among a request's layers, which refuses it. A request that stacks above the scene counts
+    // past locked layers itself, so none refuses it.
+    private static int? FindLockedTargetLayer(Scene scene, ElementDescription description, IEnumerable<int> layers)
+    {
+        if (description.StacksAboveScene) return null;
+
+        foreach (int layer in layers)
+        {
+            if (scene.IsLayerLocked(layer)) return layer;
+        }
+
+        return null;
+    }
+
     private CommitValidationFailure? RevalidateBeforeCommit(
         Scene scene,
         Guid expectedSceneId,
@@ -442,13 +453,10 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         for (int index = 0; index < plans.Count; index++)
         {
             ElementCreationPlan plan = plans[index];
-            foreach (int layer in plan.TargetLayers)
+            if (FindLockedTargetLayer(scene, plan.Description, plan.TargetLayers) is { } lockedLayer)
             {
-                if (!plan.Description.StacksAboveScene && scene.IsLayerLocked(layer))
-                {
-                    return new CommitValidationFailure(
-                        new LockedElementLayerFailure(layer));
-                }
+                return new CommitValidationFailure(
+                    new LockedElementLayerFailure(lockedLayer));
             }
 
             if (itemResults[index].Elements.Any(element => !plan.TargetLayers.Contains(element.ZIndex.Value)))

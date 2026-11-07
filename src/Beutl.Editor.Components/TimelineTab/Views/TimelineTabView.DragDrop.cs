@@ -77,16 +77,24 @@ public sealed partial class TimelineTabView
         }
     }
 
-    // With only the default look there is nothing to ask. The last choice comes first.
-    private async Task<CaptionTemplate?> ChooseDroppedCaptionTemplateAsync()
+    // The subtitle files among paths and the look to give them, or null when the menu is dismissed: that gives up the
+    // whole drop, along with any files dropped beside the subtitles. With no subtitle files, or only the default look,
+    // there is nothing to ask. The last choice comes first.
+    private async Task<(string[] Captions, CaptionTemplate? Template)?> ChooseDroppedCaptionsAsync(
+        IEnumerable<string> paths)
     {
+        string[] captions = [.. paths.Where(CaptionFileDrop.IsCaptionFile)];
+        if (captions.Length == 0) return (captions, null);
+
         IReadOnlyList<CaptionTemplate> templates = CaptionFileDrop.GetTemplates();
-        if (templates.Count == 1) return templates[0];
+        if (templates.Count == 1) return (captions, templates[0]);
 
         CaptionTemplate? chosen = await CaptionTemplateChooser.ShowAsync(
             TimelinePanel, templates.OrderByDescending(item => item.Descriptor.Id == _captionTemplateId));
-        if (chosen is not null) _captionTemplateId = chosen.Descriptor.Id;
-        return chosen;
+        if (chosen is null) return null;
+
+        _captionTemplateId = chosen.Descriptor.Id;
+        return (captions, chosen);
     }
 
     private static string[]? TryGetDroppedFiles(DragEventArgs e)
@@ -102,14 +110,8 @@ public sealed partial class TimelineTabView
         int layer = viewModel.CalculateClickedLayer();
         try
         {
-            string[] captions = [.. files.Where(CaptionFileDrop.IsCaptionFile)];
-            CaptionTemplate? template = null;
-            if (captions.Length > 0)
-            {
-                template = await ChooseDroppedCaptionTemplateAsync();
-                // Dismissing the menu gives up the whole drop, along with any files dropped beside the subtitles.
-                if (template is null) return;
-            }
+            if (await ChooseDroppedCaptionsAsync(files) is not { } choice) return;
+            (string[] captions, CaptionTemplate? template) = choice;
 
             // The layout can have to open the files.
             ElementDescription[] descriptions = await Task.Run(
@@ -143,14 +145,9 @@ public sealed partial class TimelineTabView
         try
         {
             using var import = await storage.ImportToSceneAsync(scene);
-            string[] captions = [.. import.Paths.Where(CaptionFileDrop.IsCaptionFile)];
-            CaptionTemplate? template = null;
-            if (captions.Length > 0)
-            {
-                template = await ChooseDroppedCaptionTemplateAsync();
-                // Dismissing the menu gives up the whole drop, as it does for files from the disk.
-                if (template is null) return;
-            }
+            // Dismissing the menu gives up the whole drop, as it does for files from the disk.
+            if (await ChooseDroppedCaptionsAsync(import.Paths) is not { } choice) return;
+            (string[] captions, CaptionTemplate? template) = choice;
 
             foreach (string path in import.Paths.Except(captions))
             {

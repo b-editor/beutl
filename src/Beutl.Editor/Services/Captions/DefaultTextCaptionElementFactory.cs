@@ -61,4 +61,16 @@ public static class CaptionTemplateDefaults
             order: int.MinValue);
         return new CaptionTemplate(descriptor, elementFactory, DefaultCaptionPlacementPolicy.Instance);
     }
+
+    // Every kind of saved template shares one identifier scheme, and keeps the placement it was saved with.
+    internal static CaptionTemplate CreateFromObjectTemplate(
+        ObjectTemplateItem objectTemplate,
+        ICaptionElementFactory elementFactory)
+    {
+        var descriptor = new CaptionTemplateDescriptor(
+            new CaptionTemplateId($"beutl.user.object-template.{objectTemplate.Id:N}"),
+            CaptionTemplateProviders.User,
+            objectTemplate.Name.Value);
+        return new CaptionTemplate(descriptor, elementFactory, PreserveCaptionPlacementPolicy.Instance);
+    }
 }
