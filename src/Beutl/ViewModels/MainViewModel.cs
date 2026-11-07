@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -290,5 +291,18 @@ public sealed partial class MainViewModel : BasePageViewModel
         }
 
         _agentHostEndpoint.StartInBackground();
+    }
+
+    internal static bool TryGetCurrent([NotNullWhen(true)] out MainViewModel? main)
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime
+            && lifetime.MainWindow?.DataContext is MainViewModel found)
+        {
+            main = found;
+            return true;
+        }
+
+        main = null;
+        return false;
     }
 }

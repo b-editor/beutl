@@ -1,4 +1,6 @@
 ﻿using System.Runtime.InteropServices;
+using Beutl.Services;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
@@ -65,6 +67,24 @@ internal static class FileManagerLauncher
         }
 
         return process.ExitCode == 0;
+    }
+
+    internal static async Task RevealAsync(
+        string path, bool isDirectory, Func<ProcessStartInfo, Task<bool>> launch, ILogger logger)
+    {
+        try
+        {
+            if (!await launch(CreateStartInfo(path, isDirectory)))
+            {
+                logger.LogWarning("File manager exited unsuccessfully for {Path}", path);
+                NotificationService.ShowError(MenuHeader, MessageStrings.OperationFailed);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to open {Path} in file manager", path);
+            NotificationService.ShowError(MenuHeader, MessageStrings.OperationFailed);
+        }
     }
 
     private static OSPlatform CurrentPlatform => OperatingSystem.IsMacOS() ? OSPlatform.OSX

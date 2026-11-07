@@ -1,6 +1,5 @@
 ﻿using System.Reactive.Subjects;
 using Beutl.Api.Clients;
-using Beutl.Services.StartupTasks;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 using Reactive.Bindings;
@@ -80,6 +79,8 @@ internal sealed class AppUpdateController
         }
     }
 
+    internal static string GetVersionLabel(string version) => $"Beutl {version}";
+
     private bool Start(AppUpdateResponse update, Action? beforeStart = null)
     {
         if (_current.Value != null)
@@ -123,7 +124,7 @@ internal sealed class AppUpdateController
             case AppUpdatePhase.Ready:
                 NotificationService.Show(new Notification(
                     MessageStrings.UpdateReady_Title,
-                    CheckForUpdatesTask.GetVersionLabel(viewModel.Update.LatestVersion),
+                    GetVersionLabel(viewModel.Update.LatestVersion),
                     NotificationType.Success,
                     s_readyNotificationDuration,
                     Actions:
@@ -148,7 +149,7 @@ internal sealed class AppUpdateController
                 break;
             case AppUpdatePhase.Completed:
                 NotificationService.ShowSuccess(
-                    CheckForUpdatesTask.GetVersionLabel(viewModel.Update.LatestVersion),
+                    GetVersionLabel(viewModel.Update.LatestVersion),
                     viewModel.ProgressText.Value);
                 break;
         }

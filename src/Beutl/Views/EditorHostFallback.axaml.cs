@@ -197,19 +197,7 @@ public partial class EditorHostFallback : UserControl
             return;
         }
 
-        try
-        {
-            if (!await LaunchFileManagerAsync(FileManagerLauncher.CreateStartInfo(item.FullName, isDirectory: false)))
-            {
-                s_logger.LogWarning("File manager exited unsuccessfully for {Path}", item.FullName);
-                NotificationService.ShowError(FileManagerMenuHeader, MessageStrings.OperationFailed);
-            }
-        }
-        catch (Exception ex)
-        {
-            s_logger.LogError(ex, "Failed to open {Path} in file manager", item.FullName);
-            NotificationService.ShowError(FileManagerMenuHeader, MessageStrings.OperationFailed);
-        }
+        await FileManagerLauncher.RevealAsync(item.FullName, isDirectory: false, LaunchFileManagerAsync, s_logger);
     }
 
     // One click opens a project. The press and the release must land on the same entry, so moving off it before

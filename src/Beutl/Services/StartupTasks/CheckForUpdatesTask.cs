@@ -38,10 +38,7 @@ public sealed class CheckForUpdatesTask : StartupTask
                     else if (result == UpdateCheckResult.UpdateAvailable)
                     {
                         _logger.LogInformation("A new version is available: {VersionUrl}", v1.Url);
-                        NotificationService.ShowInformation(
-                            MessageStrings.NewVersionAvailable,
-                            GetVersionLabel(v1.LatestVersion),
-                            actions: [new(MessageStrings.ReleaseNotes, () => OpenUrl(v1.Url))]);
+                        ShowUpdateAvailable(v1.LatestVersion, v1.Url, inAppUpdate: null);
                     }
                 }
                 else if (v3 != null)
@@ -56,14 +53,8 @@ public sealed class CheckForUpdatesTask : StartupTask
                     else if (result == UpdateCheckResult.UpdateAvailable)
                     {
                         _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
-                        string releaseUrl = GetReleaseUrl(v3, activity);
-                        NotificationAction releaseNotes = new(MessageStrings.ReleaseNotes, () => OpenUrl(releaseUrl));
-                        NotificationService.ShowInformation(
-                            MessageStrings.NewVersionAvailable,
-                            GetVersionLabel(v3.LatestVersion),
-                            actions: FlatpakUpdater.RequiresManualUpdate
-                                ? [releaseNotes]
-                                : [new(ExtensionsStrings.Install, () => AppUpdateController.Instance.StartInBackground(v3)), releaseNotes]);
+                        ShowUpdateAvailable(
+                            v3.LatestVersion, GetReleaseUrl(v3, activity), FlatpakUpdater.RequiresManualUpdate ? null : v3);
                     }
                 }
             }
@@ -95,7 +86,16 @@ public sealed class CheckForUpdatesTask : StartupTask
         }
     }
 
-    internal static string GetVersionLabel(string version) => $"Beutl {version}";
+    private void ShowUpdateAvailable(string latestVersion, string releaseUrl, AppUpdateResponse? inAppUpdate)
+    {
+        NotificationAction releaseNotes = new(MessageStrings.ReleaseNotes, () => OpenUrl(releaseUrl));
+        NotificationService.ShowInformation(
+            MessageStrings.NewVersionAvailable,
+            AppUpdateController.GetVersionLabel(latestVersion),
+            actions: inAppUpdate is { } update
+                ? [new(ExtensionsStrings.Install, () => AppUpdateController.Instance.StartInBackground(update)), releaseNotes]
+                : [releaseNotes]);
+    }
 
     private string GetReleaseUrl(AppUpdateResponse v3, Activity? activity)
     {

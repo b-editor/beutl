@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
 using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
@@ -30,8 +28,7 @@ public sealed class ExtensionsToolWindowExtension : ToolWindowExtension
 
     public override bool TryCreateContext([NotNullWhen(true)] out IToolWindowContext? context)
     {
-        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime lifetime
-            || lifetime.MainWindow?.DataContext is not MainViewModel mainViewModel)
+        if (!MainViewModel.TryGetCurrent(out MainViewModel? mainViewModel))
         {
             context = null;
             return false;
