@@ -415,14 +415,16 @@ public sealed class RepeatEffectTests
 
     // At the most copies a 4K picture makes a grid about 1.5 million pixels wide, where a float is precise to an eighth of
     // a pixel. Two copies meet in the middle of the frame, across and down, so its left half shows the right half of the
-    // picture and its right half the left half, pixel for pixel.
-    [Test]
-    public void The_most_copies_of_a_4K_picture_keep_its_pixels()
+    // picture and its top half the bottom half, pixel for pixel. The picture changes across in one case and down in the
+    // other, so that rows taken from the wrong place would show.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void The_most_copies_of_a_4K_picture_keep_its_pixels(bool vertical)
     {
         var frame = new PixelSize(3840, 2160);
         RectShape Picture4K()
         {
-            RectShape picture = Picture();
+            RectShape picture = Picture(vertical);
             picture.Width.Value = 3840;
             picture.Height.Value = 2160;
             return picture;
@@ -433,7 +435,7 @@ public sealed class RepeatEffectTests
 
         Assert.Multiple(() =>
         {
-            foreach (int y in new[] { 0, 1079, 1080, 2159 })
+            foreach (int y in new[] { 0, 540, 1079, 1080, 1620, 2159 })
             {
                 byte[] source = alone[(y + 1080) % 2160];
                 Assert.That(rows[y], Is.EqualTo((byte[])[.. source[(1920 * 4)..], .. source[..(1920 * 4)]]), $"y = {y}");
