@@ -24,6 +24,12 @@ public partial class ColorPaletteItem : Control
     private static readonly IImmutableSolidColorBrush s_checkerLight = new ImmutableSolidColorBrush(0xFFFFFFFF);
     private static readonly IImmutableSolidColorBrush s_checkerDark = new ImmutableSolidColorBrush(0xFFCCCCCC);
 
+    static ColorPaletteItem()
+    {
+        // The keyboard reaches the colors too: Tab or the arrow keys focus one, and Enter or Space picks it.
+        FocusableProperty.OverrideDefaultValue<ColorPaletteItem>(true);
+    }
+
     public ColorPaletteItem()
     {
         MinWidth = 23;
@@ -77,6 +83,16 @@ public partial class ColorPaletteItem : Control
             change.Property == SelectionBrushProperty)
         {
             InvalidateVisual();
+        }
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (!e.Handled && e.KeyModifiers == KeyModifiers.None && e.Key is Key.Enter or Key.Space)
+        {
+            e.Handled = true;
+            RaiseEvent(new RoutedEventArgs(ClickEvent, this));
         }
     }
 
