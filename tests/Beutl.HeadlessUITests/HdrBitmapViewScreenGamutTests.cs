@@ -39,6 +39,39 @@ public class HdrBitmapViewScreenGamutTests
         }
     }
 
+    // Auto reads whether a screen shows HDR from its potential EDR headroom, which a screen reports as 1.0 or more. No
+    // screen counts as one that shows none.
+    [Test]
+    public void Screen_headroom_comes_from_the_nsscreen()
+    {
+        if (!OperatingSystem.IsMacOS())
+            Assert.Ignore("NSScreen exists only on macOS.");
+
+        NativeLibrary.Load("/System/Library/Frameworks/AppKit.framework/AppKit");
+        IntPtr pool = objc_autoreleasePoolPush();
+        try
+        {
+            Assert.That(HdrBitmapView.GetMacOSScreenHeadroom(IntPtr.Zero), Is.EqualTo(1.0));
+
+            IntPtr screens = objc_msgSend(objc_getClass("NSScreen"), sel_getUid("screens"));
+            long count = (long)objc_msgSend(screens, sel_getUid("count"));
+            if (count == 0)
+                Assert.Ignore("No screen is attached.");
+
+            for (long i = 0; i < count; i++)
+            {
+                IntPtr screen = objc_msgSend_index(screens, sel_getUid("objectAtIndex:"), (nuint)i);
+                double headroom = HdrBitmapView.GetMacOSScreenHeadroom(screen);
+                TestContext.Out.WriteLine($"Screen {i}: potential EDR headroom {headroom}");
+                Assert.That(headroom, Is.GreaterThanOrEqualTo(1.0).And.LessThan(1000.0));
+            }
+        }
+        finally
+        {
+            objc_autoreleasePoolPop(pool);
+        }
+    }
+
     private static void AssertPrimaries(DisplayPrimaries? actual, DisplayPrimaries expected)
     {
         Assert.That(actual, Is.Not.Null);
@@ -59,6 +92,9 @@ public class HdrBitmapViewScreenGamutTests
 
     [DllImport("/usr/lib/libobjc.dylib")]
     private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern IntPtr objc_msgSend_index(IntPtr receiver, IntPtr selector, nuint index);
 
     [DllImport("/usr/lib/libobjc.dylib")]
     private static extern IntPtr objc_autoreleasePoolPush();

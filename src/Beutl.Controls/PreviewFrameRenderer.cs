@@ -124,6 +124,8 @@ internal static class PreviewFrameRenderer
             _ => new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear)
         };
 
+        // Nothing here shows HDR, so Auto clips as SDR exports do.
+        tmOperator = tmOperator.Resolve(showsHdr: false);
         bool isLinear = image.ColorSpace?.GammaIsLinear == true;
         bool needsToneMapping = isLinear && tmOperator != UIToneMappingOperator.None && s_toneMappingEffect != null;
 

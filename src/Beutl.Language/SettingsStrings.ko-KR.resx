@@ -398,7 +398,11 @@
     <comment />
   </data>
   <data name="ToneMappingMode_Description" xml:space="preserve">
-    <value>미리 보기에 사용할 톤 매핑 연산자를 선택하세요</value>
+    <value>미리 보기에 사용할 톤 매핑 연산자를 선택하세요. 자동은 HDR 미리 보기가 HDR을 표시하는 디스플레이에 있을 때는 디스플레이에 맞춤으로, 그 외에는 없음으로 동작합니다</value>
+    <comment />
+  </data>
+  <data name="ToneMappingMode_Auto" xml:space="preserve">
+    <value>자동</value>
     <comment />
   </data>
   <data name="ToneMappingMode_None" xml:space="preserve">

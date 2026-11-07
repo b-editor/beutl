@@ -69,6 +69,9 @@ public partial class HdrBitmapView : NativeControlHost
     private IntPtr _macOSView;
     private IntPtr _macOSScreenColorSpace;
     private PreviewGamutMapping _displayGamut;
+    // Whether the macOS screen the view is on can show HDR, which decides what Auto stands for there. A view without a
+    // screen yet counts as on one that can.
+    private bool _screenShowsHdr = true;
 
     static HdrBitmapView()
     {
@@ -138,6 +141,13 @@ public partial class HdrBitmapView : NativeControlHost
     // The size of the frame in pixels, or null while there is none.
     internal Size? SourceSize => _lastSourceSize;
 
+    // The operator the frame is presented with. On macOS only the view knows its screen, and the EDR metadata has to agree
+    // with the shader, so Auto is settled here; elsewhere the renderer settles it by the display it presents to.
+    internal UIToneMappingOperator EffectiveToneMapping =>
+        _macOSView != IntPtr.Zero
+            ? ToneMapping.Resolve(_screenShowsHdr && _renderer?.IsHdrActive == true)
+            : ToneMapping;
+
     // The part of the view the frame takes.
     internal Rect FrameRegion => FrameRect is { } frame ? frame.Intersect(new Rect(Bounds.Size)) : new Rect(Bounds.Size);
 
@@ -190,10 +200,10 @@ public partial class HdrBitmapView : NativeControlHost
     }
 
     // A paused preview gets no new frame when its window moves to another screen, so the move presents it again if
-    // that screen's gamut differs.
+    // that screen's gamut differs, or whether it shows HDR does under Auto.
     private void OnWindowPositionChanged(object? sender, PixelPointEventArgs e)
     {
-        if (UpdateDisplayGamut())
+        if (UpdateDisplay())
             RequestRender();
     }
 
@@ -448,7 +458,7 @@ public partial class HdrBitmapView : NativeControlHost
             return;
         }
 
-        UpdateDisplayGamut();
+        UpdateDisplay();
         _renderer.RequestRender(bitmapRef, CreateRenderParams(bitmap));
     }
 
@@ -461,7 +471,7 @@ public partial class HdrBitmapView : NativeControlHost
             return;
         }
 
-        UpdateDisplayGamut();
+        UpdateDisplay();
         _renderer.RequestRedraw(CreateRenderParams(bitmap));
     }
 
@@ -471,7 +481,7 @@ public partial class HdrBitmapView : NativeControlHost
             SourceWidth: bitmap.Width,
             SourceHeight: bitmap.Height,
             Stretch: (BtlStretch)(int)Stretch,
-            ToneMapping: ToneMapping,
+            ToneMapping: EffectiveToneMapping,
             Exposure: ToneMappingExposure,
             IsSourceLinear: bitmap.ColorSpace?.GammaIsLinear == true,
             DisplayGamut: _displayGamut,
@@ -600,21 +610,44 @@ public partial class HdrBitmapView : NativeControlHost
         if (_macOSView == IntPtr.Zero)
             return;
 
-        SetMacOSEdrMetadata(GetMacOSLayer(_macOSView), ToneMapping == UIToneMappingOperator.FitToDisplay);
+        SetMacOSEdrMetadata(GetMacOSLayer(_macOSView), EffectiveToneMapping == UIToneMappingOperator.FitToDisplay);
     }
 
-    // Follows the gamut FitToDisplay maps colors into on an HDR swapchain to the screen the view is on, and returns
-    // whether it changed. Core Animation applies the EDR metadata only after clipping the layer to its color space,
-    // which holds every screen's colors when the swapchain is in BT.2020; with an extended linear sRGB one, colors have
-    // to fit sRGB as well as the screen. On Windows the renderer reads the display's gamut itself, and elsewhere it is
-    // not known.
-    private bool UpdateDisplayGamut()
+    // Follows the screen the view is on, and returns whether that changes how the frame is presented. On Windows the
+    // renderer reads the display itself, and elsewhere it is not known.
+    private bool UpdateDisplay()
     {
         if (_macOSView == IntPtr.Zero)
             return false;
 
+        IntPtr screen = GetMacOSScreen(_macOSView);
+        if (screen == IntPtr.Zero)
+            return false;
+
+        bool changed = SetScreenHeadroom(GetMacOSScreenHeadroom(screen));
+        return UpdateDisplayGamut(GetMacOSScreenColorSpace(screen)) || changed;
+    }
+
+    // Takes the headroom the macOS screen the view is on can reach at its brightest, and returns whether that changes
+    // what Auto stands for. A screen that shows nothing above SDR white gets None, as the SDR preview does.
+    internal bool SetScreenHeadroom(double headroom)
+    {
+        bool showsHdr = headroom > 1.0;
+        if (showsHdr == _screenShowsHdr)
+            return false;
+
+        _screenShowsHdr = showsHdr;
+        UpdateEdrMetadata();
+        return ToneMapping == UIToneMappingOperator.Auto;
+    }
+
+    // Follows the gamut FitToDisplay maps colors into on an HDR swapchain to the screen's color space, and returns
+    // whether it changed. Core Animation applies the EDR metadata only after clipping the layer to its color space,
+    // which holds every screen's colors when the swapchain is in BT.2020; with an extended linear sRGB one, colors have
+    // to fit sRGB as well as the screen.
+    private bool UpdateDisplayGamut(IntPtr colorSpace)
+    {
         // The cached NSColorSpace stays retained, so a new one cannot reuse its address.
-        IntPtr colorSpace = GetMacOSScreenColorSpace(_macOSView);
         if (colorSpace == IntPtr.Zero || colorSpace == _macOSScreenColorSpace)
             return false;
 

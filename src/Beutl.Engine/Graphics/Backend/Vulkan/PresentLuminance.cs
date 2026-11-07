@@ -19,6 +19,12 @@ internal readonly record struct PresentLuminance(float ReferenceWhite, float Hea
     public static PresentLuminance Sdr { get; } = new(1f, 1f);
 
     /// <summary>
+    /// Whether the display may show values above reference white: its headroom is above 1.0, or not known. An HDR
+    /// swapchain's display is not known on macOS, where Core Animation fits values into the screen's headroom.
+    /// </summary>
+    public bool ShowsHdr => Headroom is 0f or > 1f;
+
+    /// <summary>
     /// An scRGB swapchain on a Windows HDR display, which shows 1.0 at 80 nit and the UI's white at
     /// <paramref name="sdrWhiteNits"/>. An unknown white level (0 or less) counts as 80 nit, and an unknown peak leaves
     /// the headroom unknown.

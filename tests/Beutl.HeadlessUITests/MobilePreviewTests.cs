@@ -427,6 +427,10 @@ public sealed class MobilePreviewTests
     }
 
     [TestCase(UIToneMappingOperator.None, 0f, 0.25f, 137)]
+    [TestCase(UIToneMappingOperator.None, 0f, 2f, 255)]
+    // An SDR preview shows no HDR, so Auto clips as None does where FitToDisplay rolls off.
+    [TestCase(UIToneMappingOperator.Auto, 0f, 1f, 255)]
+    [TestCase(UIToneMappingOperator.Auto, 0f, 2f, 255)]
     [TestCase(UIToneMappingOperator.Reinhard, 0f, 0.25f, 124)]
     [TestCase(UIToneMappingOperator.Reinhard, 1f, 0.25f, 156)]
     [TestCase(UIToneMappingOperator.Reinhard, 0f, 4f, 231)]

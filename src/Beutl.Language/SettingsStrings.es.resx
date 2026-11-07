@@ -398,7 +398,11 @@
     <comment />
   </data>
   <data name="ToneMappingMode_Description" xml:space="preserve">
-    <value>Selecciona el operador de mapeo de tonos para la vista previa</value>
+    <value>Selecciona el operador de mapeo de tonos para la vista previa. Automático funciona como Ajustar a la pantalla mientras la vista previa HDR está en una pantalla que muestra HDR, y como Ninguno en los demás casos</value>
+    <comment />
+  </data>
+  <data name="ToneMappingMode_Auto" xml:space="preserve">
+    <value>Automático</value>
     <comment />
   </data>
   <data name="ToneMappingMode_None" xml:space="preserve">
