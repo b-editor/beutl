@@ -379,7 +379,8 @@ public sealed class ColorPaletteViewTests
         }
     }
 
-    // Without a brush, a pick in the palette makes a solid brush of that color, as the solid tab and a pick in it do.
+    // Without a brush, a pick in the palette makes a solid brush of that color, as the solid tab and a pick in it do,
+    // but as one step, so that one Undo takes the brush away again.
     [AvaloniaTest]
     public void A_color_picked_in_the_palette_tab_without_a_brush_makes_a_solid_brush_of_it()
     {
@@ -420,11 +421,66 @@ public sealed class ColorPaletteViewTests
 
             ClickWhenReachable(window, editor.BrushPreviewButton);
             Assert.That(service.RecentColors, Is.EqualTo(new[] { s_teal }));
+
+            Assert.That(history.History.Undo(), Is.True);
+            Assert.That(shape.Fill.Value, Is.Null, "One Undo takes back the whole pick.");
+            Assert.That(history.History.Redo(), Is.True);
+            Assert.That((shape.Fill.Value as Beutl.Media.SolidColorBrush)?.Color.Value,
+                Is.EqualTo(Beutl.Media.Color.FromUInt32(s_teal.ToUInt32())), "Redo brings the teal brush back.");
         }
         finally
         {
             window.Close();
             ColorPaletteService.Instance = previous;
+        }
+    }
+
+    // A host that colors only a brush it has, as the brush editor did before, makes no brush of a color picked without
+    // one. The pick then goes through the solid tab, as choosing that tab and then the color does.
+    [AvaloniaTest]
+    public void A_host_that_makes_no_brush_of_a_picked_color_gets_one_from_the_solid_tab()
+    {
+        var flyout = new BrushEditorFlyout();
+        var target = new Border { Width = 40, Height = 24 };
+        var window = new Window { Content = target, Width = 900, Height = 900 };
+        var brushTypes = new List<BrushType>();
+        var colors = new List<Color>();
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            flyout.ShowAt(target);
+            HeadlessTestHelpers.Render();
+            var presenter = window.GetVisualDescendants().OfType<BrushEditorFlyoutPresenter>().Single();
+
+            // Opened without a brush, the flyout already asked for none; only what the pick asks for counts.
+            flyout.BrushTypeChanged += (_, type) =>
+            {
+                brushTypes.Add(type);
+                if (type != BrushType.SolidColorBrush)
+                    return;
+
+                flyout.Brush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Colors.White);
+                flyout.OriginalBrush = new Beutl.Media.SolidColorBrush { Color = { Value = Beutl.Media.Colors.White } };
+            };
+            flyout.ColorConfirmed += (_, e) =>
+            {
+                if (flyout.OriginalBrush is Beutl.Media.SolidColorBrush)
+                    colors.Add((Color)e.NewValue);
+            };
+
+            presenter.SetColorPaletteItem(s_teal);
+
+            Assert.That(brushTypes, Is.EqualTo(new[] { BrushType.SolidColorBrush }), "The solid tab asks for a brush once.");
+            Assert.That(colors, Is.EqualTo(new[] { s_teal }), "The color goes to the brush the host made.");
+            Assert.That((Color)((SimpleColorPicker)presenter.Content!).Color, Is.EqualTo(s_teal));
+            Assert.That(presenter.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>()
+                .Single(b => b.Name == "SolidBrushTabButton").IsChecked, Is.True);
+        }
+        finally
+        {
+            flyout.Hide();
+            window.Close();
         }
     }
 
