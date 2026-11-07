@@ -332,6 +332,115 @@ public sealed class RepeatEffectTests
         Assert.That(Across(rows, 620 * 2, 2000, 2118, 2119, 2120, 2121, 2238, 2239, 2240), Is.EqualTo("RRRBBBB."));
     }
 
+    // A 10 x 10 tile, which the frame puts in its middle, red on its left half and blue on its right.
+    private static RectShape Tile()
+    {
+        RectShape tile = Picture();
+        tile.Width.Value = 10;
+        tile.Height.Value = 10;
+        return tile;
+    }
+
+    // What a row through a grid of tiles that fills the frame shows at each x, moved by the offset, with every other
+    // column flipped if asked.
+    private static string TileRow(int width, float offset = 0, bool flipped = false)
+        => new([.. Enumerable.Range(0, width).Select(x =>
+        {
+            double position = x + 0.5 - offset;
+            double index = Math.Floor(position / 10);
+            double local = position - index * 10;
+            if (flipped && Math.Abs(index % 2) == 1)
+                local = 10 - local;
+            return local < 5 ? 'R' : 'B';
+        })]);
+
+    private static RepeatEffect TileGrid(PixelSize frame, float offset = 0, RepeatEffectMirror mirror = RepeatEffectMirror.None) => new()
+    {
+        Columns = { Value = frame.Width / 10 },
+        Rows = { Value = frame.Height / 10 },
+        Offset = { Value = new Point(offset, 0) },
+        Mirror = { Value = mirror },
+    };
+
+    // With no spacing a 10 x 10 tile fills a 1080p frame with 192 x 108 copies and a 4K frame with 384 x 216, as long as
+    // the grid stays centered on the tile.
+    [TestCase(1920, 1080)]
+    [TestCase(3840, 2160)]
+    public void Small_tiles_fill_the_frame_from_its_middle(int width, int height)
+    {
+        var frame = new PixelSize(width, height);
+        RepeatEffect grid = TileGrid(frame);
+        int[] across = [.. Enumerable.Range(0, width)];
+        int[] down = [.. Enumerable.Range(0, height)];
+
+        byte[][] rows = Render(Tile(), grid, frame: frame);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((grid.Columns.Value, grid.Rows.Value), Is.EqualTo((width / 10, height / 10)));
+            Assert.That(Across(rows, 0, across), Is.EqualTo(TileRow(width)), "the top row");
+            Assert.That(Across(rows, height - 1, across), Is.EqualTo(TileRow(width)), "the bottom row");
+            Assert.That(Down(rows, 2, down), Is.EqualTo(new string('R', height)), "the left column");
+            Assert.That(Down(rows, width - 3, down), Is.EqualTo(new string('B', height)), "the right column");
+        });
+    }
+
+    [TestCase(RepeatEffectMirror.None)]
+    [TestCase(RepeatEffectMirror.Columns)]
+    public void Small_tiles_move_with_the_offset_and_flip_across_their_boundaries(RepeatEffectMirror mirror)
+    {
+        var frame = new PixelSize(1920, 1080);
+
+        byte[][] rows = Render(Tile(), TileGrid(frame, 3, mirror), frame: frame);
+
+        Assert.That(Across(rows, 540, [.. Enumerable.Range(0, 1920)]), Is.EqualTo(TileRow(1920, 3, mirror == RepeatEffectMirror.Columns)));
+    }
+
+    [Test]
+    public void Drawing_part_of_a_grid_of_small_tiles_gives_the_same_pixels()
+    {
+        var frame = new PixelSize(3840, 2160);
+        var region = new Rect(1003, 597, 400, 300);
+        byte[][] whole = Render(Tile(), TileGrid(frame, 3, RepeatEffectMirror.Columns), frame: frame);
+
+        byte[][] part = Render(Tile(), TileGrid(frame, 3, RepeatEffectMirror.Columns), region: region, frame: frame);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Across(part, 600, [.. Enumerable.Range(1003, 400)]), Is.EqualTo(TileRow(3840, 3, true)[1003..1403]));
+            for (int y = 597; y < 897; y += 37)
+                Assert.That(part[y][(1003 * 4)..(1403 * 4)], Is.EqualTo(whole[y][(1003 * 4)..(1403 * 4)]), $"y = {y}");
+        });
+    }
+
+    // At the most copies a 4K picture makes a grid about 1.5 million pixels wide, where a float is precise to an eighth of
+    // a pixel. Two copies meet in the middle of the frame, across and down, so its left half shows the right half of the
+    // picture and its right half the left half, pixel for pixel.
+    [Test]
+    public void The_most_copies_of_a_4K_picture_keep_its_pixels()
+    {
+        var frame = new PixelSize(3840, 2160);
+        RectShape Picture4K()
+        {
+            RectShape picture = Picture();
+            picture.Width.Value = 3840;
+            picture.Height.Value = 2160;
+            return picture;
+        }
+
+        byte[][] alone = Render(Picture4K(), null, frame: frame);
+        byte[][] rows = Render(Picture4K(), new RepeatEffect { Columns = { Value = 400 }, Rows = { Value = 400 } }, frame: frame);
+
+        Assert.Multiple(() =>
+        {
+            foreach (int y in new[] { 0, 1079, 1080, 2159 })
+            {
+                byte[] source = alone[(y + 1080) % 2160];
+                Assert.That(rows[y], Is.EqualTo((byte[])[.. source[(1920 * 4)..], .. source[..(1920 * 4)]]), $"y = {y}");
+            }
+        });
+    }
+
     // Any pixel of the grid can read any of the picture, which is outside the part being drawn here.
     [Test]
     public void Drawing_part_of_the_grid_gives_the_same_pixels()
@@ -449,6 +558,7 @@ public sealed class RepeatEffectTests
     [TestCase(60)]
     [TestCase(82)]
     [TestCase(100)]
+    [TestCase(400)]
     public void A_wide_grid_stays_sharp_in_the_frame(int count)
     {
         byte[][] rows = RenderInFrame(WideGrid(count));
@@ -912,7 +1022,7 @@ public sealed class RepeatEffectTests
         Assert.Multiple(() =>
         {
             Assert.That(effect.Columns.Value, Is.EqualTo(1));
-            Assert.That(effect.Rows.Value, Is.EqualTo(100));
+            Assert.That(effect.Rows.Value, Is.EqualTo(400));
             Assert.That(effect.Spacing.Value, Is.EqualTo(new Size(0, 0)));
         });
     }
