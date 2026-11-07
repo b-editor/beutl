@@ -58,9 +58,15 @@ public sealed partial class EdgeDetection : FilterEffect
                 static (graph, values) =>
                 {
                     float offset = Math.Min(values.Thickness, 1);
+                    // What is measured, for each pixel of the source. A read between pixels then blends what is
+                    // measured, not the colors, which would measure as more than their share of a change.
+                    ShaderImage measures = graph.Image2D("measures", graph.Source);
+                    measures.RasterSource = graph.Source;
+                    LightEffectPasses.ImagePass(graph, "measures", s_measures, graph.Source, measures,
+                        configure: pass => pass.PushConstants((float)values.Target));
                     // The line reaches past the picture on an outline. One more for filtering.
                     ShaderImage edges = graph.Image2D("edges", graph.Source, TextureFormat.R16Float, padding: values.Thickness + 1);
-                    LightEffectPasses.ImagePass(graph, "edges", s_edges, graph.Source, edges, offset,
+                    LightEffectPasses.ImagePass(graph, "edges", s_edges, measures, edges, offset,
                         pass => pass.PushConstants(new Vector4(offset, values.Threshold, (float)values.Target, values.Gain)));
 
                     // Doubling the steps keeps a thick line cheap, and each stays within how wide the line already is,
@@ -99,17 +105,17 @@ public sealed partial class EdgeDetection : FilterEffect
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct CompositeValues(Vector4 Line, float Original);
 
-    // Sobel filter, scaled so that a full step gives 1. Lightness is gamma encoded, so that a threshold means the same
-    // in the shadows and the highlights. Color is measured in Oklab, where black to white is a full step and two hues of
-    // one lightness differ about as much as they look. A transparent neighbour has nothing to differ from, which keeps
-    // the frame of a picture from drawing a line around it.
-    private static readonly ShaderProgram s_edges = ShaderProgram.Fullscreen(new ShaderSource($$"""
+    // Lightness or transparency in the first component, or the color, premultiplied like a color, with the alpha in the
+    // last. Lightness is gamma encoded, so that a threshold means the same in the shadows and the highlights. Color is
+    // measured in Oklab, where black to white is a full step and two hues of one lightness differ about as much as they
+    // look. Neither is linear in the color, so the colors of two pixels blended measure as more than their share.
+    private static readonly ShaderProgram s_measures = ShaderProgram.Fullscreen(new ShaderSource($$"""
         #version 450
         layout(binding = 0) uniform sampler2D image;
         layout(binding = 1, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
         layout(binding = 2, std140) uniform Destination { vec4 logical; vec4 raster; vec4 size; } dst;
-        layout(push_constant) uniform Values { float offset; float threshold; float target; float gain; } pc;
-        layout(location = 0) out float coverage;
+        layout(push_constant) uniform Values { float target; } pc;
+        layout(location = 0) out vec4 measured;
 
         {{GlslSnippets.Luminance}}
 
@@ -127,24 +133,37 @@ public sealed partial class EdgeDetection : FilterEffect
                 -0.0040720468, 0.4505937099, -0.8086757660) * lms;
         }
 
+        void main() {
+            vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
+            vec4 color = texture(image, (position - src.raster.xy) / src.raster.zw);
+            vec3 value = pc.target == 2 ? oklab(color) : vec3(pc.target == 1 ? 1 : gammaLightness(color), 0, 0);
+            measured = vec4(value * color.a, color.a);
+        }
+        """));
+
+    // Sobel filter over what is measured, scaled so that a full step gives 1. A transparent neighbour has nothing to differ
+    // from, which keeps the frame of a picture from drawing a line around it.
+    private static readonly ShaderProgram s_edges = ShaderProgram.Fullscreen(new ShaderSource("""
+        #version 450
+        layout(binding = 0) uniform sampler2D image;
+        layout(binding = 1, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
+        layout(binding = 2, std140) uniform Destination { vec4 logical; vec4 raster; vec4 size; } dst;
+        layout(push_constant) uniform Values { float offset; float threshold; float target; float gain; } pc;
+        layout(location = 0) out float coverage;
+
         vec4 read(vec2 position) {
             return texture(image, (position - src.raster.xy) / src.raster.zw);
         }
 
-        // Lightness or transparency in the first component, or the color.
-        vec3 measure(vec4 color) {
-            return pc.target == 2 ? oklab(color) : vec3(pc.target == 1 ? color.a : gammaLightness(color), 0, 0);
-        }
-
         vec3 value(vec2 position, vec3 own) {
-            vec4 color = read(position);
-            return pc.target == 1 ? vec3(color.a, 0, 0) : mix(own, measure(color), color.a);
+            vec4 measured = read(position);
+            return pc.target == 1 ? measured.xyz : own * (1 - measured.a) + measured.xyz;
         }
 
         void main() {
             vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
             vec4 center = read(position);
-            vec3 own = measure(center);
+            vec3 own = pc.target == 1 || center.a <= 0 ? center.xyz : center.xyz / center.a;
             float d = pc.offset;
             vec3 tl = value(position + vec2(-d, -d), own);
             vec3 t = value(position + vec2(0, -d), own);
@@ -158,7 +177,8 @@ public sealed partial class EdgeDetection : FilterEffect
             vec3 gy = bl + 2 * b + br - tl - 2 * t - tr;
 
             // Filtering takes a share of a change as small as the fraction of a pixel measured over, which would lose
-            // the lines in a small preview. A short ramp above the threshold keeps them smooth. A lower strength
+            // the lines in a small preview. It blends what is measured, so dividing by that fraction gives back the
+            // change a full step makes. A short ramp above the threshold keeps the lines smooth. A lower strength
             // lengthens the ramp, so that a line darkens with the size of its change.
             float change = sqrt(dot(gx, gx) + dot(gy, gy)) / 4 / clamp(d * src.size.z, 0.001, 1);
             coverage = clamp((change - pc.threshold) / 0.1 * pc.gain, 0, 1);

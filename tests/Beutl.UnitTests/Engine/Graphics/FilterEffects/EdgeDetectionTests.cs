@@ -287,6 +287,36 @@ public sealed class EdgeDetectionTests
         Assert.That(Covered(row), Is.Not.Empty);
     }
 
+    // The peak alpha of the line along a step from black, in the full render, at half its size and at a quarter.
+    private static int[] PeaksAtEachScale(EdgeDetectionTarget target, byte gray)
+        => [.. new[] { 1f, 0.5f, 0.25f }.Select(scale => Peak(Render(Edge(Colors.Black, Color.FromRgb(gray, gray, gray)),
+            new EdgeDetection { Target = { Value = target } }, scale)))];
+
+    // A small preview reads between its pixels. Neither measure is linear in the color, and near black half of two colors
+    // blended measures as far more than half of their difference, so a change just below the threshold drew a line there.
+    [TestCase(EdgeDetectionTarget.Luminance, 14)]
+    [TestCase(EdgeDetectionTarget.Color, 2)]
+    [TestCase(EdgeDetectionTarget.Color, 3)]
+    public void A_change_below_the_threshold_draws_no_line_in_a_small_preview_either(EdgeDetectionTarget target, byte gray)
+    {
+        int[] peaks = PeaksAtEachScale(target, gray);
+
+        Assert.That(peaks, Is.All.Zero);
+    }
+
+    [TestCase(EdgeDetectionTarget.Luminance, 30)]
+    [TestCase(EdgeDetectionTarget.Color, 8)]
+    public void A_change_past_the_threshold_draws_as_dark_a_line_in_a_small_preview(EdgeDetectionTarget target, byte gray)
+    {
+        int[] peaks = PeaksAtEachScale(target, gray);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(peaks[0], Is.InRange(64, 192), "a line short of solid, which shows a difference");
+            Assert.That(peaks, Is.All.EqualTo(peaks[0]).Within(3));
+        });
+    }
+
     [Test]
     public void No_thickness_draws_nothing()
     {
