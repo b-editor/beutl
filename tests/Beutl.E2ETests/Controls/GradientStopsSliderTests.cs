@@ -84,6 +84,39 @@ public class GradientStopsSliderTests
         Assert.That(stops.IndexOf(added.Single()), Is.EqualTo(1));
     }
 
+    // An element that cannot be edited refuses the stop. Neither a click past the last stop nor one between two stops
+    // moves the selection then.
+    [AvaloniaTest]
+    [TestCase(0.4)]
+    [TestCase(0.9)]
+    public void A_stop_the_host_refuses_leaves_the_selection_where_it_was(double offset)
+    {
+        var stops = new GradientStops
+        {
+            new GradientStop(Colors.Black, 0.2),
+            new GradientStop(Colors.White, 0.6),
+        };
+        var slider = new GradientStopsSlider { Stops = stops, SelectedStop = stops[0] };
+        int refused = 0;
+        slider.Added += (_, _) => refused++;
+        using var host = new ControlHost(slider, 420, 120);
+        Window window = host.Window;
+        ItemsControl items = slider.GetVisualDescendants().OfType<ItemsControl>().Single(c => c.Name == "ItemsControl");
+        double dragWidth = items.Bounds.Width - 18;
+        Point click = items.TranslatePoint(new Point(dragWidth * offset, items.Bounds.Height / 2), window)!.Value;
+
+        window.MouseDown(click, MouseButton.Left);
+        window.MouseUp(click, MouseButton.Left);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(refused, Is.EqualTo(1));
+            Assert.That(stops, Has.Count.EqualTo(2));
+            Assert.That(slider.SelectedStop, Is.SameAs(stops[0]));
+        });
+    }
+
     // A click there lands on the stops' thumbs, so the color is resolved directly.
     [AvaloniaTest]
     public void A_stop_added_where_two_stops_overlap_takes_the_earlier_stops_color()
