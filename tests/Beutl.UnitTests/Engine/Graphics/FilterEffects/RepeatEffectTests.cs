@@ -396,27 +396,38 @@ public sealed class RepeatEffectTests
         Assert.That(Across(rows, 540, [.. Enumerable.Range(0, 1920)]), Is.EqualTo(TileRow(1920, 3, mirror == RepeatEffectMirror.Columns)));
     }
 
+    // The part's images have other sizes, so CI's SwiftShader can round a sampling position differently: linear
+    // premultiplied bytes, within 2, as the other comparisons of a part with the whole.
     [Test]
     public void Drawing_part_of_a_grid_of_small_tiles_gives_the_same_pixels()
     {
         var frame = new PixelSize(3840, 2160);
         var region = new Rect(1003, 597, 400, 300);
-        byte[][] whole = Render(Tile(), TileGrid(frame, 3, RepeatEffectMirror.Columns), frame: frame);
+        byte[][] whole = Render(Tile(), TileGrid(frame, 3, RepeatEffectMirror.Columns), frame: frame, linear: true);
 
-        byte[][] part = Render(Tile(), TileGrid(frame, 3, RepeatEffectMirror.Columns), region: region, frame: frame);
+        byte[][] part = Render(Tile(), TileGrid(frame, 3, RepeatEffectMirror.Columns), region: region, frame: frame, linear: true);
+
+        (int Difference, int X, int Y) largest = default;
+        for (int y = 597; y < 897; y++)
+            for (int x = 1003 * 4; x < 1403 * 4; x++)
+            {
+                int difference = Math.Abs(part[y][x] - whole[y][x]);
+                if (difference > largest.Difference)
+                    largest = (difference, x / 4, y);
+            }
 
         Assert.Multiple(() =>
         {
             Assert.That(Across(part, 600, [.. Enumerable.Range(1003, 400)]), Is.EqualTo(TileRow(3840, 3, true)[1003..1403]));
-            for (int y = 597; y < 897; y += 37)
-                Assert.That(part[y][(1003 * 4)..(1403 * 4)], Is.EqualTo(whole[y][(1003 * 4)..(1403 * 4)]), $"y = {y}");
+            Assert.That(largest.Difference, Is.LessThanOrEqualTo(2), $"at ({largest.X}, {largest.Y})");
         });
     }
 
     // At the most copies a 4K picture makes a grid about 1.5 million pixels wide, where a float is precise to an eighth of
     // a pixel. Two copies meet in the middle of the frame, across and down, so its left half shows the right half of the
     // picture and its top half the bottom half, pixel for pixel. The picture changes across in one case and down in the
-    // other, so that rows taken from the wrong place would show.
+    // other, so that rows taken from the wrong place would show. Linear premultiplied bytes within 2 leave room for CI's
+    // SwiftShader to round differently, while a pixel read an eighth of a pixel off where red meets blue still shows.
     [TestCase(false)]
     [TestCase(true)]
     public void The_most_copies_of_a_4K_picture_keep_its_pixels(bool vertical)
@@ -430,15 +441,18 @@ public sealed class RepeatEffectTests
             return picture;
         }
 
-        byte[][] alone = Render(Picture4K(), null, frame: frame);
-        byte[][] rows = Render(Picture4K(), new RepeatEffect { Columns = { Value = 400 }, Rows = { Value = 400 } }, frame: frame);
+        byte[][] alone = Render(Picture4K(), null, frame: frame, linear: true);
+        byte[][] rows = Render(Picture4K(), new RepeatEffect { Columns = { Value = 400 }, Rows = { Value = 400 } }, frame: frame,
+            linear: true);
 
         Assert.Multiple(() =>
         {
             foreach (int y in new[] { 0, 540, 1079, 1080, 1620, 2159 })
             {
                 byte[] source = alone[(y + 1080) % 2160];
-                Assert.That(rows[y], Is.EqualTo((byte[])[.. source[(1920 * 4)..], .. source[..(1920 * 4)]]), $"y = {y}");
+                byte[] expected = [.. source[(1920 * 4)..], .. source[..(1920 * 4)]];
+                int largest = Enumerable.Range(0, expected.Length).Max(i => Math.Abs(rows[y][i] - expected[i]));
+                Assert.That(largest, Is.LessThanOrEqualTo(2), $"y = {y}");
             }
         });
     }
