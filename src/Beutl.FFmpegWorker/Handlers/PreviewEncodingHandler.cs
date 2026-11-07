@@ -54,7 +54,9 @@ internal sealed unsafe class PreviewEncodingHandler : IDisposable
                 int frameRate = PreviewEncodingFormat.FrameRate(settings.Relayed);
                 _codec->time_base = new AVRational { num = 1, den = frameRate };
                 _codec->framerate = new AVRational { num = frameRate, den = 1 };
-                _codec->gop_size = frameRate * 2;
+                // A key frame every 4 s lets a viewer recover if its request is lost, and leaves a paused frame
+                // room to refine first (MobilePreviewServer.StillRefinement codes 30 frames after a key frame).
+                _codec->gop_size = frameRate * 4;
                 _codec->max_b_frames = 0;
                 _codec->bit_rate = (settings.Hdr, settings.Relayed) switch
                 {
