@@ -20,12 +20,10 @@ public sealed class AudioEffectEditorViewModel : GroupableEditorViewModel<AudioE
 
     public ReadOnlyReactivePropertySlim<string?> FilterName { get; }
 
-    public void ChangeAudioEffect(AudioEffect instance) => ChangeValue(instance);
-
     public void ChangeFilterType(Type type)
     {
         if (Activator.CreateInstance(type) is AudioEffect instance)
-            ChangeAudioEffect(instance);
+            ChangeValue(instance);
     }
 
     public void AddItem(Type type)

@@ -40,7 +40,7 @@ public sealed class CombinedEditorViewModel<T, TTuple> : VectorEditorViewModel<T
         _adapter = adapter;
         Disposables.Add(adapter);
         CanUnseparateComponents = CanEditProperty
-            .CombineLatest(adapter.CanShareRow, (canEdit, canShareRow) => canEdit && canShareRow)
+            .CombineLatest(adapter.Pair.CanStandAsOne, (canEdit, canShareRow) => canEdit && canShareRow)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
         _separatedProperties.AddTo(Disposables);
@@ -218,7 +218,7 @@ internal sealed class CombinedPropertyAdapter<T, TTuple>
         _split = split;
         _compose = compose;
         DisplayName = displayName;
-        Properties = [.. properties];
+        Properties = properties;
         Pair = (PropertyPair<T>)PropertyPair.Find(_first)!;
         Components = [.. properties.Select(property => new NumberEditorViewModel<T>(property))];
         Pair.IsSeparated.Subscribe(_ => Update()).AddTo(_subscriptions);
@@ -233,8 +233,6 @@ internal sealed class CombinedPropertyAdapter<T, TTuple>
     public IReadOnlyList<NumberEditorViewModel<T>> Components { get; }
 
     public ReactivePropertySlim<bool> IsInNode { get; } = new();
-
-    public IReadOnlyReactiveProperty<bool> CanShareRow => Pair.CanStandAsOne;
 
     public IReadOnlyReactiveProperty<bool> IsSeparated => _isSeparated;
 
@@ -256,10 +254,7 @@ internal sealed class CombinedPropertyAdapter<T, TTuple>
         set => throw new NotSupportedException();
     }
 
-    public IObservable<IKeyFrameAnimation?> ObserveAnimation => _isSeparated
-        .Select(separated => separated ? Observable.ReturnThenNever<IKeyFrameAnimation?>(null) : Pair.ObserveAnimation)
-        .Switch()
-        .DistinctUntilChanged();
+    public IObservable<IKeyFrameAnimation?> ObserveAnimation => PropertyPair.NullWhile(_isSeparated, Pair.ObserveAnimation);
 
     // The row's commands replace each property's expression through its editor.
     public IExpression? Expression
@@ -270,24 +265,11 @@ internal sealed class CombinedPropertyAdapter<T, TTuple>
 
     public bool HasExpression => Expression != null;
 
-    public IObservable<IExpression?> ObserveExpression => _isSeparated
-        .Select(separated => separated ? Observable.ReturnThenNever<IExpression?>(null) : Pair.ObserveExpression)
-        .Switch()
-        .DistinctUntilChanged();
+    public IObservable<IExpression?> ObserveExpression => PropertyPair.NullWhile(_isSeparated, Pair.ObserveExpression);
 
     Attribute[] IPropertyAdapter.GetAttributes() => _first.GetAttributes();
 
-    public object? GetDefaultValue()
-    {
-        var values = new T[Properties.Count];
-        for (int i = 0; i < values.Length; i++)
-        {
-            if (Properties[i].GetDefaultValue() is not T value) return null;
-            values[i] = value;
-        }
-
-        return _compose(values);
-    }
+    public object? GetDefaultValue() => PropertyPair.DefaultValues<T>(Properties) is { } values ? _compose(values) : null;
 
     public TTuple GetValue() => _compose([.. Components.Select(component => component.GetEditingValue())]);
 

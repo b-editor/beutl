@@ -175,7 +175,8 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
             return;
         }
 
-        TGroup group = GetOrCreateGroup();
+        TGroup group = EngineObjectGroups.GetOrCreateGroup<T, TGroup>(
+            Value.Value, group => PropertyAdapter.SetValue(group), ChildrenOf, out _);
         IsExpanded.Value = true;
         IListProperty<T> children = ChildrenOf(group);
         int index = GetInsertionIndex(children, instance);
@@ -186,23 +187,6 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
         {
             vm.IsExpanded.Value = true;
         }
-    }
-
-    private TGroup GetOrCreateGroup()
-    {
-        if (Value.Value is TGroup existingGroup) return existingGroup;
-
-        T? existing = Value.Value;
-        var group = new TGroup();
-        // The group takes the value's place first. Added while the property still owned it, the value would stay in
-        // the group's children but lose its parent when the property released it.
-        PropertyAdapter.SetValue(group);
-        if (existing != null)
-        {
-            ChildrenOf(group).Add(existing);
-        }
-
-        return group;
     }
 
     // Where a new item goes in the group.

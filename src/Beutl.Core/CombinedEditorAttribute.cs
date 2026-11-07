@@ -24,4 +24,7 @@ public sealed class CombinedEditorAttribute(string second) : Attribute
     public Type? ResourceType { get; set; }
 
     public string? GetName() => new DisplayAttribute { Name = Name, ResourceType = ResourceType }.GetName();
+
+    // The names of the properties that this joins to the one it is on, in their order.
+    internal string[] OtherNames => Third is { } third ? [Second, third] : [Second];
 }
