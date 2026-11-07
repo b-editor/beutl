@@ -393,6 +393,14 @@
         <Setter Property="WindowDecorations" Value="BorderOnly" />
         <Setter Property="Background" Value="{DynamicResource DockSurfaceWorkbenchBrush}" />
         <Setter Property="Topmost" Value="True" />
+        <!--
+            Dock's theme gives the window its tab strip's text (DockFontSizeNormal in DockTabForegroundBrush, with
+            no font family), so a floated tool's labels shrank and dimmed. Give it the main window's text, as
+            FluentAvalonia's Window theme does.
+        -->
+        <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
+        <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
     </Style>
     <Style Selector="HostWindow:toolwindow">
         <Setter Property="Background" Value="{DynamicResource DockSurfaceWorkbenchBrush}" />
@@ -438,6 +446,8 @@
             <Setter Property="Opacity" Value="1" />
             <Setter Property="IsVisible" Value="True" />
             <Setter Property="ZIndex" Value="0" />
+            <!--  The grip's title inherited Dock's tab color from the window; keep it dim while the tool is inactive.  -->
+            <Setter Property="(TextElement.Foreground)" Value="{DynamicResource DockTabForegroundBrush}" />
         </Style>
         <Style Selector="^ /template/ Button#PART_MenuButton,
                          ^ /template/ Button#PART_PinButton,
