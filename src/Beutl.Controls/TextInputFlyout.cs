@@ -51,12 +51,12 @@ public abstract class TextInputFlyout : FAPickerFlyoutBase
         pfp.Confirmed += OnFlyoutConfirmed;
         pfp.Dismissed += OnFlyoutDismissed;
         // As in the other pickers, Enter confirms and Escape cancels. The text box handles Enter itself, so the
-        // keys are taken on their way down to it.
+        // keys are taken on their way down to it. A focused button takes Enter itself, as cancel does to cancel.
         pfp.AddHandler(InputElement.KeyDownEvent, (_, e) =>
         {
             switch (e.Key)
             {
-                case Key.Enter:
+                case Key.Enter when ReferenceEquals(e.Source, _textBox):
                     e.Handled = true;
                     OnConfirmed();
                     break;
@@ -81,11 +81,20 @@ public abstract class TextInputFlyout : FAPickerFlyoutBase
         base.OnOpening(args);
         _textBox ??= CreateTextBox();
         _textBox.Text = Text;
-        if (_selectAllOnOpening)
+    }
+
+    // The flyout moves the focus itself once it is open, and not to the text box, so the text box takes the focus
+    // after that, for what is typed to replace the text.
+    protected override bool ShowAtCore(Control placementTarget, bool showAtPointer = false)
+    {
+        bool shown = base.ShowAtCore(placementTarget, showAtPointer);
+        if (shown && _selectAllOnOpening && _textBox != null)
         {
-            _textBox.SelectAll();
             _textBox.Focus();
+            _textBox.SelectAll();
         }
+
+        return shown;
     }
 
     private TextBox CreateTextBox() => new() { PlaceholderText = _placeholderText };

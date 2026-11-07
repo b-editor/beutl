@@ -40,7 +40,7 @@ public sealed class ColorPaletteViewTests
             {
                 Strings.ColorPalette_RecentColors, "Brand", "Mine", Strings.ColorPalette_DefaultPalette
             }));
-            Assert.That(Panels(view).Select(p => p.Children.Count), Is.EqualTo(new[] { 2, 2, 1, 139 }));
+            Assert.That(Panels(view).Select(p => p.Children.Count), Is.EqualTo(new[] { 2, 2, 1, 140 }));
             Assert.That(ProjectIcons(view), Is.EqualTo(new[] { "Brand" }),
                 "Only the project's palette is marked as kept in the project.");
             Assert.That(view.GetVisualDescendants().OfType<Button>().Count(b => b.Name == "NewPaletteButton"), Is.EqualTo(1));
@@ -90,7 +90,7 @@ public sealed class ColorPaletteViewTests
 
         Assert.That(service.UserPalettes[0].Colors.Select(c => c.Argb),
             Is.EqualTo(new[] { 0xFF0000FFu, s_teal.ToUInt32() }));
-        Assert.That(Panels(view).Select(p => p.Children.Count), Is.EqualTo(new[] { 2, 2, 2, 139 }),
+        Assert.That(Panels(view).Select(p => p.Children.Count), Is.EqualTo(new[] { 2, 2, 2, 140 }),
             "The view shows the color it added.");
     }
 
@@ -109,8 +109,7 @@ public sealed class ColorPaletteViewTests
         Assert.That(name.Text, Is.EqualTo(
             string.Format(CultureInfo.CurrentCulture, Strings.ColorPalette_NewPaletteName, 1)));
 
-        name.Focus();
-        name.SelectAll();
+        AssertTakesTyping(host.Window, name);
         host.Window.KeyTextInput("Skin tones");
         host.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
         HeadlessTestHelpers.Render(3);
@@ -118,6 +117,26 @@ public sealed class ColorPaletteViewTests
         Assert.That(service.UserPalettes.Select(p => p.Name), Is.EqualTo(new[] { "Mine", "Skin tones" }));
         Assert.That(host.Window.GetVisualDescendants().OfType<TextBox>(), Is.Empty, "Enter closes the name box.");
         Assert.That(HeaderNames(view), Does.Contain("Skin tones"));
+    }
+
+    // Enter in the name box confirms it, but a focused button takes Enter itself, as cancel does to cancel.
+    [AvaloniaTest]
+    public void Enter_on_the_cancel_button_of_the_name_box_cancels()
+    {
+        ColorPaletteService service = CreateService();
+        var view = new ColorPaletteView { Service = service };
+        using var host = new ControlHost(view, 240, 760);
+        Button button = view.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "NewPaletteButton");
+
+        TimelineTestHost.WaitForHitTest(host.Window, button, HeadlessTestHelpers.Center(button, host.Window));
+        HeadlessTestHelpers.Click(button, ticks: 3);
+        Button cancel = host.Window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "DismissButton");
+        cancel.Focus();
+        host.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+        HeadlessTestHelpers.Render(3);
+
+        Assert.That(service.UserPalettes.Select(p => p.Name), Is.EqualTo(new[] { "Mine" }));
+        Assert.That(host.Window.GetVisualDescendants().OfType<TextBox>(), Is.Empty, "Cancel closes the name box.");
     }
 
     [AvaloniaTest]
@@ -162,13 +181,22 @@ public sealed class ColorPaletteViewTests
     private static FAMenuFlyoutItem MenuItem(Window window, string text)
         => window.GetVisualDescendants().OfType<FAMenuFlyoutItem>().Single(i => i.Text == text);
 
+    // The name box opens focused with its name chosen, so that what is typed replaces the name.
+    private static void AssertTakesTyping(Window window, TextBox name)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(window.FocusManager?.GetFocusedElement(), Is.SameAs(name));
+            Assert.That((name.SelectionStart, name.SelectionEnd), Is.EqualTo((0, name.Text?.Length ?? 0)));
+        });
+    }
+
     // Types a name into the open name box, which shows the expected name first, and confirms it with Enter.
     private static void Rename(Window window, string expected, string typed)
     {
         TextBox name = window.GetVisualDescendants().OfType<TextBox>().Single();
         Assert.That(name.Text, Is.EqualTo(expected));
-        name.Focus();
-        name.SelectAll();
+        AssertTakesTyping(window, name);
         window.KeyTextInput(typed);
         window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
         HeadlessTestHelpers.Render(3);

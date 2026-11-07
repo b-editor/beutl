@@ -105,7 +105,8 @@ public class ColorPaletteTests
 
         Assert.That(edited, Is.EqualTo(new ColorPalette("Renamed",
             [new PaletteColor(0xFF000000, "Black"), new PaletteColor(0xFF00FF00, "Green")])));
-        Assert.That(palette, Is.EqualTo(s_palettes[0]));
+        Assert.That(palette, Is.EqualTo(new ColorPalette("Brand",
+            [new PaletteColor(0xFF3366FF, "Primary"), new PaletteColor(0x80FF0000)])));
     }
 
     [Test]

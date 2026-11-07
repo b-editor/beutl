@@ -21,7 +21,8 @@ public sealed class ColorPaletteServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(colors, Has.Length.EqualTo(139));
+            Assert.That(colors, Has.Length.EqualTo(140));
+            Assert.That(colors, Does.Contain(new PaletteColor(0xFF663399, "RebeccaPurple")));
             Assert.That(colors.Select(c => c.Argb), Is.Unique);
             Assert.That(colors.Select(c => c.Name), Is.Unique);
             Assert.That(colors.Select(c => c.Name), Has.All.Not.Empty);

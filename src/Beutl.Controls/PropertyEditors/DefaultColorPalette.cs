@@ -138,6 +138,7 @@ internal static class DefaultColorPalette
         new(0xFF9932CC, "DarkOrchid"),
         new(0xFF8A2BE2, "BlueViolet"),
         new(0xFF9400D3, "DarkViolet"),
+        new(0xFF663399, "RebeccaPurple"),
         new(0xFF4B0082, "Indigo"),
         new(0xFFD8BFD8, "Thistle"),
         new(0xFFDDA0DD, "Plum"),
