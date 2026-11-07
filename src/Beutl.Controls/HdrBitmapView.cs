@@ -302,6 +302,9 @@ public partial class HdrBitmapView : NativeControlHost
             (uint)(Bounds.Height * scaling));
 
         RequestRender();
+        // A full queue drops that frame, and a paused preview would then be drawn again with the old size's frame place
+        // and checkerboard squares. A redraw's parameters wait until the presentation thread takes them.
+        RequestRedraw();
     }
 
     protected override Size MeasureOverride(Size availableSize)
