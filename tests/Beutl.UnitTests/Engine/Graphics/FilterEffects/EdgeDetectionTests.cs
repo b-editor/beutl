@@ -332,6 +332,25 @@ public sealed class EdgeDetectionTests
         });
     }
 
+    // An expression can make any of them not a number.
+    [TestCase(float.NaN, 10f, 100f)]
+    [TestCase(1f, float.PositiveInfinity, 100f)]
+    [TestCase(1f, 10f, float.NaN)]
+    public void A_value_that_is_not_finite_records_nothing(float thickness, float threshold, float strength)
+    {
+        var bounds = new Rect(10, 20, 100, 60);
+        using var resource = new EdgeDetection.Resource { Thickness = thickness, Threshold = threshold, Strength = strength };
+        using var context = new FilterEffectContext(bounds);
+
+        context.ApplyTransactional(resource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(context.GetOrderedItems(), Is.Empty);
+            Assert.That(context.Bounds, Is.EqualTo(bounds));
+        });
+    }
+
     [Test]
     public void The_bounds_grow_as_far_as_the_line_can_reach()
     {
