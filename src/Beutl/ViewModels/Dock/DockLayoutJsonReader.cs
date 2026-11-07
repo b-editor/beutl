@@ -130,7 +130,7 @@ internal sealed class DockLayoutJsonReader
             ? Orientation.Horizontal
             : Orientation.Vertical;
         if (obj["proportion"] is JsonValue pv && pv.TryGetValue(out double prop))
-            dock.Proportion = prop;
+            RestoreProportion(dock, prop);
 
         var children = RestoreNodes(obj, "children");
         dock.VisibleDockables = Factory.CreateList<IDockable>(children.ToArray());
@@ -147,6 +147,7 @@ internal sealed class DockLayoutJsonReader
         var minWidth = obj["minWidth"] is JsonValue mwVal && mwVal.TryGetValue(out double mw) ? mw : 0.0;
         var minHeight = obj["minHeight"] is JsonValue mhVal && mhVal.TryGetValue(out double mh) ? mh : 0.0;
         var dock = Factory.CreateStyledToolDock(id, alignment, proportion, minWidth, minHeight);
+        RestoreProportion(dock, proportion);
 
         int activeDockableIndex = -1;
         if (obj["activeDockableIndex"] is JsonValue aiVal)
@@ -171,6 +172,15 @@ internal sealed class DockLayoutJsonReader
         }
 
         return dock;
+    }
+
+    // A split keeps a pane's collapsed proportion as its share with every pane shown, and lays it out
+    // from that while another pane is collapsed. Without one, a pane first laid out beside an empty
+    // dock would keep the room it took from that dock once the dock fills again.
+    private static void RestoreProportion(IDockable dock, double proportion)
+    {
+        dock.Proportion = proportion;
+        dock.CollapsedProportion = proportion;
     }
 
     private BeutlToolDockable? RestoreBeutlTool(JsonObject obj)

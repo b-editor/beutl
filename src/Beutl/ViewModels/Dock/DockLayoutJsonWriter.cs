@@ -80,8 +80,7 @@ internal static class DockLayoutJsonWriter
             ["id"] = prop.Id,
             ["orientation"] = prop.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",
         };
-        if (!double.IsNaN(prop.Proportion))
-            obj["proportion"] = prop.Proportion;
+        WriteProportion(obj, prop);
 
         SaveDockableList(obj, "children", prop.VisibleDockables, includeToolState);
 
@@ -98,8 +97,7 @@ internal static class DockLayoutJsonWriter
             ["minWidth"] = toolDock.MinWidth,
             ["minHeight"] = toolDock.MinHeight,
         };
-        if (!double.IsNaN(toolDock.Proportion))
-            obj["proportion"] = toolDock.Proportion;
+        WriteProportion(obj, toolDock);
 
         if (toolDock.VisibleDockables is { Count: > 0 } visible)
         {
@@ -119,6 +117,19 @@ internal static class DockLayoutJsonWriter
         }
 
         return obj;
+    }
+
+    // While a split draws an empty dock collapsed, Dock sets that dock's proportion to 0 and scales
+    // the other panes up to fill its room, keeping each pane's share with every pane shown as its
+    // collapsed proportion. Saving those shares brings the dock back at its size once it fills
+    // again; a saved 0 would leave it no room.
+    private static void WriteProportion(JsonObject obj, IDockable dock)
+    {
+        double proportion = double.IsFinite(dock.CollapsedProportion) && dock.CollapsedProportion > 0
+            ? dock.CollapsedProportion
+            : dock.Proportion;
+        if (!double.IsNaN(proportion))
+            obj["proportion"] = proportion;
     }
 
     private static JsonObject SaveBeutlTool(BeutlToolDockable dockable, bool includeToolState)
