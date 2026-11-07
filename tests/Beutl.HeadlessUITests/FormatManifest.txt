@@ -1035,6 +1035,9 @@ Beutl.Utilities
 [Beutl.NodeGraph].Nodes.Shaders:ShaderPackNode
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Shaders:ShaderPartialImagesNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderPartialRenderingNode
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
