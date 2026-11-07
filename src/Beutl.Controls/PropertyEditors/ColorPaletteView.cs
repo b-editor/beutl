@@ -301,10 +301,12 @@ public sealed class ColorPaletteView : TemplatedControl
             if (menu != null)
             {
                 e.Handled = true;
-                // The menu key asks without a pointer, so its menu opens at the element instead.
+                // The menu key asks without a pointer, so its menu opens at the focused control instead, such as
+                // a header's button.
                 if (menu.Items.Count > 0)
                 {
-                    menu.ShowAt(element, showAtPointer: e.TryGetPosition(element, out _));
+                    bool atPointer = e.TryGetPosition(element, out _);
+                    menu.ShowAt(atPointer ? element : e.Source as Control ?? element, showAtPointer: atPointer);
                 }
 
                 return;

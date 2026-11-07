@@ -1,9 +1,11 @@
 ﻿using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.LogicalTree;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Controls.PropertyEditors;
@@ -102,21 +104,38 @@ public sealed class ColorPaletteViewTests
         Assert.That(Focused(window), Is.SameAs(panels[3].Children[9]), "The first row has nothing above it.");
     }
 
-    // The menu key opens the focused color's menu.
+    // The menu key opens the focused control's menu at that control, wherever the pointer is: a color's own menu,
+    // or for a header's button, its palette's menu.
     [AvaloniaTest]
-    public void The_menu_key_opens_the_focused_colors_menu()
+    [TestCase("color")]
+    [TestCase("header button")]
+    public void The_menu_key_opens_a_menu_at_the_focused_control(string target)
     {
         var view = new ColorPaletteView { Service = CreateService() };
         using var host = new ControlHost(view, 240, 760);
-        var blue = (ColorPaletteItem)Panels(view)[2].Children[0];
+        Control focused = target == "color"
+            ? Panels(view)[2].Children[0]
+            : Header(view, "Mine").GetVisualDescendants().OfType<Button>()
+                .Single(b => (string?)ToolTip.GetTip(b) == Strings.ColorPalette_AddCurrentColor);
+        host.Window.MouseMove(new Point(230, 750));
 
-        blue.Focus(NavigationMethod.Tab);
+        focused.Focus(NavigationMethod.Tab);
         Press(host.Window, Key.Apps);
         HeadlessTestHelpers.Render(3);
-        HeadlessCapture.SaveIfRequested(view, nameof(ColorPaletteViewTests), "keyboard-menu");
+        if (target == "color")
+        {
+            HeadlessCapture.SaveIfRequested(view, nameof(ColorPaletteViewTests), "keyboard-menu");
+        }
 
-        Assert.That(host.Window.GetVisualDescendants().OfType<FAMenuFlyoutItem>().Select(i => i.Text),
-            Does.Contain(Strings.Rename));
+        FAMenuFlyoutPresenter menu = host.Window.GetVisualDescendants().OfType<FAMenuFlyoutPresenter>().Single();
+        Popup? popup = menu.FindLogicalAncestorOfType<Popup>();
+        Assert.Multiple(() =>
+        {
+            Assert.That(menu.GetVisualDescendants().OfType<FAMenuFlyoutItem>().Select(i => i.Text), Does.Contain(
+                target == "color" ? Strings.ColorPalette_ReplaceWithCurrentColor : Strings.ColorPalette_SaveInProject));
+            Assert.That(popup?.PlacementTarget, Is.SameAs(focused));
+            Assert.That(popup?.Placement, Is.Not.EqualTo(PlacementMode.Pointer));
+        });
     }
 
     [AvaloniaTest]
