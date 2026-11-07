@@ -33,13 +33,16 @@ public sealed partial class RenderNodeContext
         foreach (RenderFragmentReference external in externals)
             EnsureValueInput(external, nameof(externalImages));
         Rect bounds = description.TransformBounds(reference.Bounds);
+        ImmutableArray<RenderFragmentReference> inputs = [reference, .. externals];
+        // The region analysis resolves the density over all of the inputs, so the plan reads them too: a picture denser
+        // than the source raises the density the graph runs at.
         EffectiveScale scale = ShaderGraphRenderFragmentPayload.ResolvePlannedScale(
-            description, workingScalePolicy, [reference], OutputScale, MaxWorkingScale);
+            description, workingScalePolicy, inputs, OutputScale, MaxWorkingScale);
         return transaction.CreateFragment(RenderFragmentKind.ShaderGraph, bounds, scale,
             reference.ValueCardinality, reference.ContributesValuesToTarget, canBeUsedAsValueInput: true,
             reference.HasTargetEffects || externals.Any(static external => external.HasTargetEffects),
             reference.HasOpaqueExternalWork || externals.Any(static external => external.HasOpaqueExternalWork),
-            [reference, .. externals],
+            inputs,
             new ShaderGraphRenderFragmentPayload(description, workingScalePolicy), RenderFragmentHitTest.Bounds);
     }
 }
