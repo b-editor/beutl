@@ -163,6 +163,38 @@ public sealed class ColorGradingTabTests
         });
     }
 
+    // The wheel's menu offers the live preview setting; with it off, the puck follows a drag but the effect takes
+    // the color only on release, as one undo step.
+    [AvaloniaTest]
+    public void Without_live_preview_a_puck_drag_applies_on_release()
+    {
+        using var host = new WheelHost(effect => effect.Lift);
+        host.IsLivePreviewEnabled.Value = false;
+        AvaPoint start = host.PadCenter();
+        AvaPoint end = start + new Vector(30, 0);
+        host.Window.MouseMove(start);
+        host.Window.MouseDown(start, MouseButton.Left);
+        host.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Wheel.Color, Is.Not.EqualTo(GradingColor.Zero), "The puck follows the drag.");
+            Assert.That(host.Property.Value, Is.EqualTo(GradingColor.Zero));
+            Assert.That(host.History.IsEditing, Is.False);
+        });
+
+        host.Window.MouseUp(end, MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Property.Value, Is.Not.EqualTo(GradingColor.Zero));
+            Assert.That(host.Property.Value, Is.EqualTo(host.Wheel.Color));
+            Assert.That(host.History.UndoCount, Is.EqualTo(1));
+        });
+        Assert.That(host.History.Undo(), Is.True);
+        Assert.That(host.Property.Value, Is.EqualTo(GradingColor.Zero));
+    }
+
     // The old wheel turned a color into hue, saturation and value, which made every channel negative when one was.
     [AvaloniaTest]
     public void The_jog_moves_r_g_and_b_alike_and_keeps_a_color_of_mixed_signs()
@@ -464,6 +496,8 @@ public sealed class ColorGradingTabTests
         public IProperty<GradingColor> Property { get; }
 
         public HistoryManager History => _history.History;
+
+        public ReactivePropertySlim<bool> IsLivePreviewEnabled => _viewModel.IsLivePreviewEnabled;
 
         public ReactivePropertySlim<bool> Playing { get; } = new(false);
 

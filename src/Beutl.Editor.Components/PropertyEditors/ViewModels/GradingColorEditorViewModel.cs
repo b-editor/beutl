@@ -51,7 +51,8 @@ public sealed class GradingColorEditorViewModel : ValueEditorViewModel<GradingCo
 
     private void OnWheelValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (sender is ColorGradingWheel wheel)
+        // Without live preview only the wheel shows the color, and its confirmation writes it.
+        if (sender is ColorGradingWheel wheel && IsLivePreviewEnabled.Value)
         {
             // Only a drag on the wheel opens a session; typed values are confirmed as before.
             GradingColor coerced = default;
