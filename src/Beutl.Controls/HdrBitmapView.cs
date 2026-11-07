@@ -257,11 +257,16 @@ public partial class HdrBitmapView : NativeControlHost
         else if (change.Property == ToneMappingExposureProperty ||
                  change.Property == DisplayPeakLuminanceProperty ||
                  change.Property == StretchProperty ||
-                 change.Property == InterpolationModeProperty ||
-                 change.Property == ShowsCheckerboardProperty)
+                 change.Property == InterpolationModeProperty)
         {
             // Presents the frame again, so a paused preview follows too.
             RequestRender();
+        }
+        else if (change.Property == ShowsCheckerboardProperty)
+        {
+            // Only what the shader draws behind the frame changes, so the frame uploaded last is drawn again. A redraw's
+            // parameters wait for the presentation thread when its queue is full, where a render would be dropped.
+            RequestRedraw();
         }
     }
 
