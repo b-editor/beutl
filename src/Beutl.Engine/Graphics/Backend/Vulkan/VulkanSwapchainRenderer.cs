@@ -707,6 +707,11 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         pc.Exposure = p.Exposure;
         pc.TmOperator = (int)p.ToneMapping;
         pc.SampleNearest = p.SampleNearest ? 1 : 0;
+        if (p.Checkerboard is { } square)
+        {
+            pc.CheckerWidth = square.Width;
+            pc.CheckerHeight = square.Height;
+        }
 
         if (p.Destination is { } destination)
         {

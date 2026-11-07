@@ -3594,6 +3594,15 @@ when history recording is enabled.</value>
   <data name="TogglePreviewGuides_Description" xml:space="preserve">
     <value>Show or hide the safe areas and composition guides in the preview.</value>
   </data>
+  <data name="PreviewCheckerboard" xml:space="preserve">
+    <value>Checkerboard</value>
+  </data>
+  <data name="TogglePreviewCheckerboard" xml:space="preserve">
+    <value>Toggle checkerboard</value>
+  </data>
+  <data name="TogglePreviewCheckerboard_Description" xml:space="preserve">
+    <value>Show the preview's transparent parts over a checkerboard instead of black.</value>
+  </data>
   <data name="PreviewZoom" xml:space="preserve">
     <value>Preview zoom</value>
   </data>

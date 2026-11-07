@@ -164,6 +164,10 @@ public sealed partial class EditorConfig : ConfigurationBase
     // A list PreviewGuideAspectRatio.TryParseList reads, such as "9:16, 1:1".
     public IProperty<string> PreviewGuideAspectRatios { get; } = Property.CreateValue("9:16, 1:1, 4:5, 2.39:1");
 
+    // Shows the preview's transparent parts over a checkerboard instead of black. Only the editor's preview draws it: the
+    // presentation window, exports and saved images keep what the frame holds (#4066).
+    public IProperty<bool> IsPreviewCheckerboardEnabled { get; } = Property.CreateValue(false);
+
     /// <summary>Sets <see cref="PreviewSourceMode"/> from a <c>ComboBox.SelectedIndex</c>.</summary>
     /// <remarks>Out-of-range indices, such as the <c>-1</c> of a transient no-selection, are ignored.</remarks>
     public void SetPreviewSourceModeFromIndex(int index)

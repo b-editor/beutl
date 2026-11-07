@@ -59,6 +59,8 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             int overlay;
             int composeInGamma;
             int sampleNearest;
+            float checkerWidth;
+            float checkerHeight;
         } pc;
 
         vec3 reinhard(vec3 c) { return c / (1.0 + c); }
@@ -80,6 +82,15 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         {{PreviewDisplayMapping.ShaderSource}}
 
         {{PreviewGamutMapping.ShaderSource}}
+
+        {{PreviewCheckerboard.ShaderSource}}
+
+        // The sRGB-encoded gray behind the frame at pos: black, or the checkerboard's squares from the frame's corner.
+        float backdrop(vec2 pos) {
+            if (!(pc.checkerWidth > 0.0 && pc.checkerHeight > 0.0)) return 0.0;
+            vec2 cell = floor((pos - pc.dstRect.xy) / vec2(pc.checkerWidth, pc.checkerHeight));
+            return mod(cell.x + cell.y, 2.0) < 0.5 ? checkerLight : checkerDark;
+        }
 
         vec3 fitGamut(vec3 c) {
             if (pc.gamut0.w == 0.0) return c;
@@ -145,17 +156,20 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
                 rgb *= pc.referenceWhite;
             }
 
-            // The frame lies over black, as the SDR preview's does, and is opaque wherever it is drawn.
+            // The frame lies over black, or over the checkerboard the editor can show, as the SDR preview's does, and is
+            // opaque wherever it is drawn.
+            float behind = backdrop(pos);
             if (pc.composeInGamma == 1) {
                 // An SDR swapchain shows what an SDR window does: both blends in sRGB-encoded values.
-                vec3 g = linearToSrgb(clamp(rgb, 0.0, 1.0)) * alpha;
+                vec3 g = linearToSrgb(clamp(rgb, 0.0, 1.0)) * alpha + behind * (1.0 - alpha);
                 if (pc.overlay == 1) {
                     vec4 o = texture(overlayTexture, pos);
                     g = o.rgb + (1.0 - o.a) * g;
                 }
                 rgb = pc.linearToSrgb == 1 ? g : srgbToLinear(g);
             } else {
-                rgb *= alpha;
+                // The checkerboard is part of the UI, as bright as the UI's white.
+                rgb = rgb * alpha + srgbToLinear(vec3(behind)) * pc.referenceWhite * (1.0 - alpha);
                 if (pc.overlay == 1) {
                     vec4 o = texture(overlayTexture, pos);
                     vec3 overlayLinear = o.a > 0.0 ? srgbToLinear(o.rgb / o.a) * o.a : vec3(0.0);

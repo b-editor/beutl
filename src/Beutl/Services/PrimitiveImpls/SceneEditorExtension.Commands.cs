@@ -67,6 +67,9 @@ public sealed partial class SceneEditorExtension
         // Alt+G for Guides, matching Alt+O for onion skin, and clear of the timeline's gap keys on ';'.
         KeyCommand("editor.togglePreviewGuides", Strings.TogglePreviewGuides, Strings.TogglePreviewGuides_Description,
             [new("Alt+G")], _ => TogglePreviewGuides()),
+        // Alt+T for transparency, beside Alt+G and Alt+O.
+        KeyCommand("editor.togglePreviewCheckerboard", Strings.TogglePreviewCheckerboard,
+            Strings.TogglePreviewCheckerboard_Description, [new("Alt+T")], _ => TogglePreviewCheckerboard()),
         // Alt, like the other preview keys above: the Ctrl and Cmd forms zoom the timeline. Both Alt+= and Alt++ zoom in,
         // and each reports OemPlus for its character, with Shift for + on a US or JIS layout.
         KeyCommand("editor.previewZoomIn", Strings.PreviewZoomIn, "", [new("Alt+OemPlus"), new("Shift+Alt+OemPlus")],
@@ -134,5 +137,11 @@ public sealed partial class SceneEditorExtension
     {
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
         editorConfig.IsPreviewGuideEnabled.Value = !editorConfig.IsPreviewGuideEnabled.Value;
+    }
+
+    private static void TogglePreviewCheckerboard()
+    {
+        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+        editorConfig.IsPreviewCheckerboardEnabled.Value = !editorConfig.IsPreviewCheckerboardEnabled.Value;
     }
 }

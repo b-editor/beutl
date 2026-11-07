@@ -3594,6 +3594,15 @@ cuando el registro del historial está activado.</value>
   <data name="TogglePreviewGuides_Description" xml:space="preserve">
     <value>Muestra u oculta las áreas seguras y las guías de composición en la vista previa.</value>
   </data>
+  <data name="PreviewCheckerboard" xml:space="preserve">
+    <value>Cuadrícula de transparencia</value>
+  </data>
+  <data name="TogglePreviewCheckerboard" xml:space="preserve">
+    <value>Alternar cuadrícula de transparencia</value>
+  </data>
+  <data name="TogglePreviewCheckerboard_Description" xml:space="preserve">
+    <value>Muestra las partes transparentes de la vista previa sobre una cuadrícula en lugar de negro.</value>
+  </data>
   <data name="PreviewZoom" xml:space="preserve">
     <value>Zoom de la vista previa</value>
   </data>

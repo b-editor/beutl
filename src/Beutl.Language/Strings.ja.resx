@@ -3589,6 +3589,15 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="TogglePreviewGuides_Description" xml:space="preserve">
     <value>プレビューのセーフエリアと構図ガイドの表示を切り替えます。</value>
   </data>
+  <data name="PreviewCheckerboard" xml:space="preserve">
+    <value>市松模様</value>
+  </data>
+  <data name="TogglePreviewCheckerboard" xml:space="preserve">
+    <value>市松模様を切り替え</value>
+  </data>
+  <data name="TogglePreviewCheckerboard_Description" xml:space="preserve">
+    <value>プレビューの透明な部分を、黒ではなく市松模様の上に表示します。</value>
+  </data>
   <data name="PreviewZoom" xml:space="preserve">
     <value>プレビューの拡大率</value>
   </data>

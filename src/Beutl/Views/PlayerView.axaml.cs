@@ -92,6 +92,7 @@ public partial class PlayerView : UserControl
         Player.TemplateApplied += OnPlayerTemplateApplied;
         ShowShortcutInToolTip(guidesToggle, "editor.togglePreviewGuides");
         ShowShortcutInToolTip(onionSkinToggle, "editor.toggleOnionSkin");
+        ShowShortcutInToolTip(checkerboardToggle, "editor.togglePreviewCheckerboard");
     }
 
     private async void OnPlayerCurrentTimeSubmitted(object? sender, Beutl.Controls.TimecodeSubmittedEventArgs e)
@@ -177,6 +178,8 @@ public partial class PlayerView : UserControl
         }
 
         SubscribeImageBounds();
+        // An HDR view draws the checkerboard itself, over the one under the frame panel.
+        UpdateFrameBackground();
     }
 
     private void RemoveHdrView()
@@ -223,6 +226,7 @@ public partial class PlayerView : UserControl
                 transformHandlesOverlay.Height = bounds.Height;
                 UpdateViewportScale();
                 UpdateHdrFrameRect();
+                UpdateCheckerboardRect();
             });
     }
 
@@ -329,6 +333,11 @@ public partial class PlayerView : UserControl
 
             SubscribeFrameMatrix(vm);
 
+            vm.IsPreviewCheckerboardEnabled
+                .ObserveOnUIDispatcher()
+                .Subscribe(_ => UpdateFrameBackground())
+                .DisposeWith(_disposables);
+
             SubscribeCursor(vm);
 
             var selection = vm.EditViewModel.GetRequiredService<Beutl.Editor.Services.IEditorSelection>();
@@ -361,8 +370,10 @@ public partial class PlayerView : UserControl
                 framePanel.RenderTransform = new ImmutableTransform(matrix.ToAvaMatrix());
                 guideOverlay.Zoom = matrix.M11;
                 UpdateFrameOutline(matrix.M11);
+                UpdateFrameBackground();
                 UpdateZoomDisplay();
                 UpdateHdrFrameRect();
+                UpdateCheckerboardRect();
             })
             .DisposeWith(_disposables);
     }

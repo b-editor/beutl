@@ -139,6 +139,25 @@ public partial class PlayerView
         imageBackground.BoxShadow = new BoxShadows(new BoxShadow { Spread = 1.0 / zoom, Color = s_frameOutlineColor });
     }
 
+    // Black behind the frame, or the checkerboard, which checkerboardBackground draws under the frame panel and the HDR
+    // preview in its present shader (#4066). The frame outline, imageBackground's box shadow, lies outside the frame.
+    private void UpdateFrameBackground()
+    {
+        bool checkerboard = DataContext is PlayerViewModel viewModel && viewModel.IsPreviewCheckerboardEnabled.Value;
+        imageBackground.Background = checkerboard ? Brushes.Transparent : Brushes.Black;
+        checkerboardBackground.IsVisible = checkerboard && hdrView is null;
+        if (hdrView is { } hdr)
+            hdr.ShowsCheckerboard = checkerboard;
+    }
+
+    // Where the frame is in the viewport, for the checkerboard under the frame panel.
+    private void UpdateCheckerboardRect()
+    {
+        checkerboardBackground.FrameRect = image is not null && image.TransformToVisual(previewViewport) is { } transform
+            ? new Rect(image.Bounds.Size).TransformToAABB(transform)
+            : null;
+    }
+
     // Scales about a point of framePanel, which stays where it is on screen.
     private static void ZoomFrameAt(PlayerViewModel viewModel, float ratio, AvaPoint point)
     {

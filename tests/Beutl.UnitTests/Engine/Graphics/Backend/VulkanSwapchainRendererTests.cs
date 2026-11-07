@@ -48,6 +48,25 @@ public class VulkanSwapchainRendererTests
         Assert.That((pc.DstX, pc.DstY, pc.DstW, pc.DstH), Is.EqualTo((-0.5f, 0.25f, 2f, 1.5f)));
     }
 
+    // The checkerboard behind the frame reaches the shader as a square in fractions of the swapchain, and black as none
+    // (#4066).
+    [Test]
+    public void ACheckerboardSquareReachesTheShaderAsAFractionOfTheSwapchain()
+    {
+        var placed = new RenderParams(1920, 1080, Stretch.Uniform, UIToneMappingOperator.None, 0f,
+            IsSourceLinear: true, Destination: new Beutl.Graphics.Rect(0f, 0f, 1f, 1f),
+            Checkerboard: new Beutl.Graphics.Size(0.01f, 0.02f));
+
+        VulkanSwapchainRenderer.ComputeStretchRects(placed, s_view, out PresentPushConstants checkerboard);
+        VulkanSwapchainRenderer.ComputeStretchRects(placed with { Checkerboard = null }, s_view, out PresentPushConstants black);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((checkerboard.CheckerWidth, checkerboard.CheckerHeight), Is.EqualTo((0.01f, 0.02f)));
+            Assert.That((black.CheckerWidth, black.CheckerHeight), Is.EqualTo((0f, 0f)));
+        });
+    }
+
     // A zoomed-in frame shows its pixels sharp, whether the player places it or Stretch does (#4082).
     [Test]
     public void AFrameAskedForSharpPixelsTellsTheShaderSo()

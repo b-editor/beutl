@@ -14,6 +14,7 @@ using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Models;
@@ -493,6 +494,39 @@ public sealed class PlayerViewControlsTests
             {
                 Assert.That(ToolTip.GetIsOpen(play), Is.True);
                 Assert.That(ToolTip.GetTip(play), Is.EqualTo($"{Strings.PlayPause} (Space)"));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase("guidesToggle", "Alt+G")]
+    [TestCase("onionSkinToggle", "Alt+O")]
+    [TestCase("checkerboardToggle", "Alt+T")]
+    public async Task A_preview_toggles_tip_shows_its_shortcut_as_it_opens(string name, string shortcut)
+    {
+        EditViewModel editor = await OpenEditor();
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 400 };
+        try
+        {
+            await Prepare(view, window);
+            ToggleButton toggle = view.FindControl<ToggleButton>(name)!;
+            string label = (string)ToolTip.GetTip(toggle)!;
+            ToolTip.SetShowDelay(toggle, 0);
+            Point center = HeadlessTestHelpers.Center(toggle, window);
+            TimelineTestHost.WaitForHitTest(window, toggle, center);
+
+            window.MouseMove(center);
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ToolTip.GetIsOpen(toggle), Is.True);
+                Assert.That(ToolTip.GetTip(toggle), Is.EqualTo($"{label} ({KeyGesture.Parse(shortcut).ToString("p", null)})"));
             });
         }
         finally
@@ -1041,13 +1075,41 @@ public sealed class PlayerViewControlsTests
     }
 
     [AvaloniaTest]
+    public async Task The_checkerboard_command_turns_the_setting_on_and_off()
+    {
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        bool saved = config.IsPreviewCheckerboardEnabled.Value;
+        config.IsPreviewCheckerboardEnabled.Value = false;
+        EditViewModel editor = await OpenEditor();
+        var toggle = new ContextCommandExecution("editor.togglePreviewCheckerboard");
+        try
+        {
+            await SceneEditorExtension.Instance.RunAsync(editor, toggle);
+            bool on = config.IsPreviewCheckerboardEnabled.Value;
+            await SceneEditorExtension.Instance.RunAsync(editor, toggle);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(on, Is.True);
+                Assert.That(config.IsPreviewCheckerboardEnabled.Value, Is.False);
+            });
+        }
+        finally
+        {
+            config.IsPreviewCheckerboardEnabled.Value = saved;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task The_view_toggles_and_the_settings_stay_in_step()
     {
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
         bool guides = config.IsPreviewGuideEnabled.Value;
         bool onion = config.IsOnionSkinEnabled.Value;
+        bool checkerboard = config.IsPreviewCheckerboardEnabled.Value;
         config.IsPreviewGuideEnabled.Value = false;
         config.IsOnionSkinEnabled.Value = false;
+        config.IsPreviewCheckerboardEnabled.Value = false;
         EditViewModel editor = await OpenEditor();
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
@@ -1057,20 +1119,24 @@ public sealed class PlayerViewControlsTests
 
             view.guidesToggle.IsChecked = true;
             view.onionSkinToggle.IsChecked = true;
+            view.checkerboardToggle.IsChecked = true;
             HeadlessTestHelpers.Render();
             Assert.Multiple(() =>
             {
                 Assert.That(config.IsPreviewGuideEnabled.Value, Is.True);
                 Assert.That(config.IsOnionSkinEnabled.Value, Is.True);
+                Assert.That(config.IsPreviewCheckerboardEnabled.Value, Is.True);
             });
 
             config.IsPreviewGuideEnabled.Value = false;
             config.IsOnionSkinEnabled.Value = false;
+            config.IsPreviewCheckerboardEnabled.Value = false;
             HeadlessTestHelpers.Render();
             Assert.Multiple(() =>
             {
                 Assert.That(view.guidesToggle.IsChecked, Is.False);
                 Assert.That(view.onionSkinToggle.IsChecked, Is.False);
+                Assert.That(view.checkerboardToggle.IsChecked, Is.False);
             });
         }
         finally
@@ -1078,6 +1144,7 @@ public sealed class PlayerViewControlsTests
             window.Close();
             config.IsPreviewGuideEnabled.Value = guides;
             config.IsOnionSkinEnabled.Value = onion;
+            config.IsPreviewCheckerboardEnabled.Value = checkerboard;
         }
     }
 }
