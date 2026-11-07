@@ -25,6 +25,12 @@ public partial class ShaderNodeRenderingTests
 
         byte[][] partial = RenderAfterAWideGrid(partial: true);
 
+        // The reference shows the copies: one covers x from 800 to 920 and y from 600 to 680, red on its left half.
+        Assert.Multiple(() =>
+        {
+            Assert.That(plain[640][830 * 4 + 2], Is.GreaterThan(250), "red");
+            Assert.That(plain[640][830 * 4 + 3], Is.GreaterThan(250), "alpha");
+        });
         (int Difference, int X, int Y) largest = default;
         for (int y = 0; y < partial.Length; y++)
             for (int x = 0; x < partial[y].Length; x++)
