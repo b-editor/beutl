@@ -783,6 +783,84 @@ public sealed class MobilePreviewTests
         finally { release.TrySetResult(); }
     }
 
+    [Test]
+    public void Repeated_key_frame_requests_hold_the_relayed_settings_longer_each_time()
+    {
+        var backoff = new MobilePreviewServer.CongestionBackoff();
+        TimeSpan? Request(double seconds) => backoff.KeyFrameRequested(TimeSpan.FromSeconds(seconds));
+        TimeSpan? Burst(double seconds) => Request(seconds) ?? Request(seconds + 1) ?? Request(seconds + 2);
+
+        // Requests further apart than the window never add up; three within it start a hold.
+        Assert.That(new[] { 0, 11, 22, 25 }.Select(time => Request(time)).ToArray(), Is.All.Null);
+        Assert.That(Request(27), Is.EqualTo(TimeSpan.FromSeconds(30)));
+        Assert.That(backoff.IsCongested(TimeSpan.FromSeconds(56)), Is.True);
+        Assert.That(backoff.IsCongested(TimeSpan.FromSeconds(57)), Is.False);
+        Assert.That(Burst(40), Is.Null, "Requests during a hold neither count nor extend it.");
+
+        // Losing packets again soon after a hold doubles the next one, up to five minutes.
+        Assert.That(Burst(60), Is.EqualTo(TimeSpan.FromSeconds(60)));
+        Assert.That(Burst(130), Is.EqualTo(TimeSpan.FromSeconds(120)));
+        Assert.That(Burst(260), Is.EqualTo(TimeSpan.FromSeconds(240)));
+        Assert.That(Burst(510), Is.EqualTo(TimeSpan.FromMinutes(5)));
+        // Five quiet minutes after the last hold start over.
+        Assert.That(Burst(1112), Is.EqualTo(TimeSpan.FromSeconds(30)));
+    }
+
+    [Test]
+    public void Key_frame_requests_right_after_connecting_do_not_count()
+    {
+        var backoff = new MobilePreviewServer.CongestionBackoff();
+        backoff.Connected(TimeSpan.FromSeconds(100));
+        Assert.That(new[] { 100.5, 101, 104.9 }.Select(time => backoff.KeyFrameRequested(TimeSpan.FromSeconds(time))).ToArray(), Is.All.Null);
+        Assert.That(new[] { 106, 107 }.Select(time => backoff.KeyFrameRequested(TimeSpan.FromSeconds(time))).ToArray(), Is.All.Null);
+        Assert.That(backoff.KeyFrameRequested(TimeSpan.FromSeconds(108)), Is.EqualTo(TimeSpan.FromSeconds(30)));
+    }
+
+    [Test]
+    public async Task A_direct_viewer_that_keeps_asking_for_key_frames_moves_the_stream_to_the_relayed_settings()
+    {
+        await using var host = await RelayHost.StartAsync();
+        await using var server = await MobilePreviewServer.StartAsync(host.Session);
+        var relay = await host.AcceptAsync();
+        await Roster(relay, ["one"]);
+        await WaitUntil(() => server.GetClients().Length == 1);
+        await SendMessage(relay, new
+        {
+            type = "signal",
+            id = "one",
+            signal = new { type = "offer", connectionId = "direct", sdp = PreviewTransportTests.Offer }
+        });
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var peers = (Dictionary<string, MobilePreviewServer.Viewer>)typeof(MobilePreviewServer).GetField("_peers", flags)!.GetValue(server)!;
+        await WaitUntil(() => peers.Count == 1);
+        object gate = typeof(MobilePreviewServer).GetField("_gate", flags)!.GetValue(server)!;
+        var usesRelayedSettings = typeof(MobilePreviewServer).GetMethod("UsesRelayedSettings", flags)!;
+        var onTransportMessage = typeof(MobilePreviewServer).GetMethod("OnTransportMessage", flags)!;
+        bool Relayed() { lock (gate) return (bool)usesRelayedSettings.Invoke(server, null)!; }
+        void Report(PreviewTransportEventKind kind, string value = "") => onTransportMessage.Invoke(server,
+            [new PreviewTransportEvent(kind, "one", "direct", false, value)]);
+        void RequestKeyFrames(int count)
+        {
+            for (int i = 0; i < count; i++) Report(PreviewTransportEventKind.KeyFrame);
+        }
+
+        // A browser asks for key frames to start decoding, both before and right after its connection is up.
+        RequestKeyFrames(3);
+        Assert.That(Relayed(), Is.False, "Requests before connecting do not count.");
+        Report(PreviewTransportEventKind.State, "connected");
+        RequestKeyFrames(3);
+        Assert.That(Relayed(), Is.False, "Requests right after connecting do not count.");
+
+        // As if the viewer had connected long enough ago.
+        var congestion = (Dictionary<string, MobilePreviewServer.CongestionBackoff>)typeof(MobilePreviewServer)
+            .GetField("_congestion", flags)!.GetValue(server)!;
+        lock (gate) congestion["one"].Connected(-MobilePreviewServer.CongestionBackoff.Settling);
+        RequestKeyFrames(2);
+        Assert.That(Relayed(), Is.False, "One lost key frame can bring two requests.");
+        RequestKeyFrames(1);
+        Assert.That(Relayed(), Is.True);
+    }
+
     [AvaloniaTest]
     public async Task Closing_during_startup_leaves_no_relay_or_preview_consumer()
     {

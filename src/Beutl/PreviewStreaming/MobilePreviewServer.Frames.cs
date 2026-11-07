@@ -30,17 +30,26 @@ internal sealed partial class MobilePreviewServer
     }
 
     // Called with _gate held. Every viewer shares one encoder per dynamic range, so while any viewer can be reached
-    // only through a TURN relay, all of them get the relayed stream.
-    private bool IsRelayed() => _peers.Values.Any(viewer => viewer.Relayed);
+    // only through a TURN relay, or keeps losing packets on a direct path, all of them get the relayed stream.
+    private bool UsesRelayedSettings()
+    {
+        var now = _mediaClock.Elapsed;
+        return _peers.Any(peer => peer.Value.Relayed
+            || (_congestion.TryGetValue(peer.Key, out var backoff) && backoff.IsCongested(now)));
+    }
 
     // Called with _gate held; null removes the viewer.
     private void SetViewer(string id, Viewer? viewer)
     {
-        bool relayed = IsRelayed();
+        bool relayed = UsesRelayedSettings();
         if (viewer is { } value) _peers[id] = value;
-        else _peers.Remove(id);
+        else
+        {
+            _peers.Remove(id);
+            _congestion.Remove(id);
+        }
         // A paused frame is sent again at the direct quality once the last relayed viewer has gone.
-        if (relayed && !IsRelayed()) _updates.Writer.TryWrite(true);
+        if (relayed && !UsesRelayedSettings()) _updates.Writer.TryWrite(true);
     }
 
     internal void Publish(Ref<Bitmap>? image, UIToneMappingOperator toneMapping, float exposure, bool playing, double time = 0, long playbackId = 0)
@@ -77,7 +86,7 @@ internal sealed partial class MobilePreviewServer
                     _updates.Reader.TryRead(out _);
                     frame = _latest?.Snapshot();
                     profiles = _peers.Values.Select(viewer => viewer.Hdr).Distinct().Where(hdr => !hdr || !_hdrUnavailable).ToArray();
-                    relayed = IsRelayed();
+                    relayed = UsesRelayedSettings();
                 }
                 if (frame is null) continue;
                 // Pace from the start of each frame, so the time spent converting and encoding it does not lower the rate.
