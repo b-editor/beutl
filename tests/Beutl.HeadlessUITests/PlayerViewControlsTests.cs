@@ -14,6 +14,7 @@ using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Models;
@@ -1070,6 +1071,32 @@ public sealed class PlayerViewControlsTests
         {
             await player.Pause();
             window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task The_checkerboard_command_turns_the_setting_on_and_off()
+    {
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        bool saved = config.IsPreviewCheckerboardEnabled.Value;
+        config.IsPreviewCheckerboardEnabled.Value = false;
+        EditViewModel editor = await OpenEditor();
+        var toggle = new ContextCommandExecution("editor.togglePreviewCheckerboard");
+        try
+        {
+            await SceneEditorExtension.Instance.RunAsync(editor, toggle);
+            bool on = config.IsPreviewCheckerboardEnabled.Value;
+            await SceneEditorExtension.Instance.RunAsync(editor, toggle);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(on, Is.True);
+                Assert.That(config.IsPreviewCheckerboardEnabled.Value, Is.False);
+            });
+        }
+        finally
+        {
+            config.IsPreviewCheckerboardEnabled.Value = saved;
         }
     }
 
