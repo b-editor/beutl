@@ -108,8 +108,9 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
         e.Handled = true;
         if (e.ClickCount == 2)
         {
+            // The default is applied as it is, even when it does not fall on a step.
             TValue before = Value;
-            Slide(Origin);
+            Apply(TValue.CreateTruncating(Origin));
             Confirm(before);
             return;
         }
@@ -180,9 +181,10 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
         Confirm(_slideStart);
     }
 
-    private void Slide(double value)
+    private void Slide(double value) => Apply(ToStep(value));
+
+    private void Apply(TValue next)
     {
-        TValue next = ToStep(value);
         TValue previous = Value;
         if (!Differs(next, previous))
             return;

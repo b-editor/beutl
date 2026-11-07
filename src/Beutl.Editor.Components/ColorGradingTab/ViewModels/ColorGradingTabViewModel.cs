@@ -90,7 +90,8 @@ public sealed class ColorGradingTabViewModel : EffectToolTabViewModel<ColorGradi
     {
     }
 
-    // Returns every property of the effect to its default as one history entry.
+    // Resets every property of the effect as one history entry, as each property's own Reset does: it writes the
+    // default to the value, or to the keyframe being edited, and leaves expressions and other keyframes in place.
     public void ResetAll()
     {
         PropertyEditorViewModel[] editors =

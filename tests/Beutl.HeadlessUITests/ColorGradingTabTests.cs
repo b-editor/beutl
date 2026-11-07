@@ -175,7 +175,7 @@ public sealed class ColorGradingTabTests
         float delta = value.R - 0.05f;
         Assert.Multiple(() =>
         {
-            Assert.That(delta, Is.GreaterThan(0f));
+            Assert.That(delta, Is.EqualTo(40 / jog.Bounds.Width).Within(1e-4), "A drag across the whole jog adds 1.");
             Assert.That(value.G, Is.EqualTo(delta).Within(1e-6));
             Assert.That(value.B, Is.EqualTo(-0.05f + delta).Within(1e-6));
             Assert.That(host.History.UndoCount, Is.EqualTo(1));
@@ -264,6 +264,26 @@ public sealed class ColorGradingTabTests
                 Assert.That(effect.ContrastPivot.Value, Is.EqualTo(0.5f));
                 Assert.That(history.History.UndoCount, Is.EqualTo(2));
             });
+
+            // A drag of the thumb follows the pointer in several moves and is one undo step.
+            AvaPoint ThumbAt(double ratio)
+                => slider.TranslatePoint(
+                    new AvaPoint(ValueSlider.ThumbRadius + ((slider.Bounds.Width - (2 * ValueSlider.ThumbRadius)) * ratio), slider.Bounds.Height / 2),
+                    window)!.Value;
+            window.MouseMove(ThumbAt(0.5));
+            window.MouseDown(ThumbAt(0.5), MouseButton.Left);
+            window.MouseMove(ThumbAt(0.6), RawInputModifiers.LeftMouseButton);
+            window.MouseMove(ThumbAt(0.7), RawInputModifiers.LeftMouseButton);
+            window.MouseMove(ThumbAt(0.75), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(ThumbAt(0.75), MouseButton.Left);
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(effect.ContrastPivot.Value, Is.EqualTo(0.75f).Within(0.006));
+                Assert.That(history.History.UndoCount, Is.EqualTo(3));
+            });
+            Assert.That(history.History.Undo(), Is.True);
+            Assert.That(effect.ContrastPivot.Value, Is.EqualTo(0.5f));
         }
         finally
         {
@@ -388,7 +408,8 @@ public sealed class ColorGradingTabTests
                 AvaPoint bottomRight = wheel.TranslatePoint(new AvaPoint(wheel.Bounds.Width, wheel.Bounds.Height), view)!.Value;
                 Assert.Multiple(() =>
                 {
-                    Assert.That(pad.DiskBounds.Width, Is.GreaterThanOrEqualTo(80), wheel.Header);
+                    // Font metrics move this by tens of pixels between platforms; it only rules out a collapsed pad.
+                    Assert.That(pad.DiskBounds.Width, Is.GreaterThanOrEqualTo(60), wheel.Header);
                     Assert.That(bottomRight.X, Is.LessThanOrEqualTo(view.Bounds.Width + 0.5), wheel.Header);
                     Assert.That(bottomRight.Y, Is.LessThanOrEqualTo(view.Bounds.Height + 0.5), wheel.Header);
                 });
