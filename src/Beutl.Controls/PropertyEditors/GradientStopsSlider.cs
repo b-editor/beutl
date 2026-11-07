@@ -432,9 +432,12 @@ public class GradientStopsSlider : TemplatedControl
                 color = ResolveInsertedStop(BackgroundStops, offset).Color;
 
             var stop = new GradientStop(color, offset);
+            int count = Stops.Count;
             Added?.Invoke(this, (index, stop));
 
-            SelectedStop = Stops[index];
+            // The host refuses the stop for an element it cannot edit, and then nothing is selected in its place.
+            if (Stops.Count > count)
+                SelectedStop = Stops[index];
         }
     }
 
