@@ -148,9 +148,10 @@ public sealed partial class AiSubtitleDialogViewModel
         RefreshCaptionState();
     }
 
-    internal bool ImportCaptionBytes(ReadOnlySpan<byte> bytes, CaptionFormatId format)
+    // The bytes of a subtitle file, which the dialog reads as a drop on the timeline does.
+    internal bool ImportCaptionBytes(byte[] bytes, CaptionFormatId format)
     {
-        CaptionImportResult result = _captionSerializer.Import(bytes, format);
+        CaptionImportResult result = _captionSerializer.ImportFile(bytes, format);
         if (result.Document is null)
         {
             Error.Value = result.Diagnostics.FirstOrDefault()?.Message ?? Strings.AiSubtitle_ImportFailed;

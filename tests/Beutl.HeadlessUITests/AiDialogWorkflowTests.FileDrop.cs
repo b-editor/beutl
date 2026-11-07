@@ -684,7 +684,8 @@ public sealed partial class AiDialogWorkflowTests
         await using var subtitles = CreateSubtitleDialog(scope.Clients);
         subtitles.SelectedSubtitlePageIndex.Value = 1;
         subtitles.ImportCaptionBytes(Encoding.UTF8.GetBytes("1\n00:00:01,000 --> 00:00:02,000\nExisting caption\n"), Beutl.Editor.Services.Captions.CaptionFormats.Srt);
-        string path = scope.File("invalid.srt", [0xff, 0xfe]);
+        // Bytes that are not UTF-8 are read in the system's code page, so only text that is no caption fails.
+        string path = scope.File("invalid.srt", Encoding.UTF8.GetBytes("Not a caption"));
         var view = new AiSubtitleView { DataContext = subtitles };
         var window = ShowFileDropView(view);
         try
