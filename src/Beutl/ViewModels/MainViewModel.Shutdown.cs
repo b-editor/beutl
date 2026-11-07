@@ -242,6 +242,8 @@ public partial class MainViewModel
         try
         {
             _menuSubscriptions.Dispose();
+            _projectColorPalettesAttachment.Dispose();
+            _projectColorPalettes.Dispose();
             _aiJobCompletionNotifier.Dispose();
             CommandPalette.Dispose();
             TabSwitcher.Dispose();

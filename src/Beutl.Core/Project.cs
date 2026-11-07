@@ -1,5 +1,7 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Globalization;
+using System.Text.Json.Nodes;
 using Beutl.JsonConverters;
 using Beutl.Serialization;
 
@@ -34,6 +36,11 @@ public sealed partial class Project : Hierarchical
     public IProperty<int> SampleRate { get; } = Property.CreateValue(44100);
 
     public IProperty<SpeakerLayout> ChannelLayout { get; } = Property.CreateValue(SpeakerLayout.Stereo);
+
+    // The palettes kept with this project, which the color pickers offer beside the user's own. Serialize and
+    // Deserialize write and read them, and a project without palettes writes nothing for them.
+    [NotAutoSerialized]
+    public IProperty<ImmutableArray<ColorPalette>> ColorPalettes { get; } = Property.CreateValue(ImmutableArray<ColorPalette>.Empty);
 
     /// <summary>
     /// Gets the version of Beutl that last saved the project file, as the file records it, or the running
@@ -91,6 +98,8 @@ public sealed partial class Project : Hierarchical
             }
         }
 
+        ColorPalettes.Value = ColorPalette.ReadList(context.GetValue<JsonNode>(nameof(ColorPalettes)));
+
         activity?.SetTag("appVersion", AppVersion);
         activity?.SetTag("minAppVersion", MinAppVersion);
         activity?.SetTag("itemsCount", Items.Count);
@@ -108,5 +117,10 @@ public sealed partial class Project : Hierarchical
         context.SetValue("items", Items);
 
         context.SetValue("variables", Variables.Value);
+
+        if (!ColorPalettes.Value.IsDefaultOrEmpty)
+        {
+            context.SetValue(nameof(ColorPalettes), ColorPalette.ToJson(ColorPalettes.Value));
+        }
     }
 }

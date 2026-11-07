@@ -10,6 +10,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SilenceSplitTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -33,7 +34,7 @@ public sealed partial class ElementView : UserControl
     private readonly CompositeDisposable _disposables = [];
     private TimelineTabView? _timeline;
     private MediaTime _pointerPosition;
-    private static ColorPickerFlyout? s_colorPickerFlyout;
+    private static SimpleColorPickerFlyout? s_colorPickerFlyout;
     private _ResizeBehavior? _resizeBehavior;
     // The width of an element's edge that counts as its boundary with the element beside it; the same zone
     // the edge resize uses.
@@ -435,19 +436,17 @@ public sealed partial class ElementView : UserControl
     {
         if (DataContext is not ElementViewModel { IsEditable.Value: true } viewModel) return;
 
-        s_colorPickerFlyout ??= new ColorPickerFlyout();
-        s_colorPickerFlyout.ColorPicker.Color = viewModel.Color.Value;
-        s_colorPickerFlyout.ColorPicker.IsAlphaEnabled = false;
-        s_colorPickerFlyout.ColorPicker.UseColorPalette = true;
-        s_colorPickerFlyout.ColorPicker.IsCompact = true;
-        s_colorPickerFlyout.ColorPicker.IsMoreButtonVisible = true;
-        s_colorPickerFlyout.Placement = PlacementMode.Top;
-
-        if (this.TryFindResource("PaletteColors", out object? colors)
-            && colors is IEnumerable<Color> tcolors)
+        s_colorPickerFlyout ??= new SimpleColorPickerFlyout();
+        // The picker stays open while another clip is chosen; closing it first lets its clip let go of it before
+        // this one takes it.
+        if (s_colorPickerFlyout.IsOpen)
         {
-            s_colorPickerFlyout.ColorPicker.CustomPaletteColors = tcolors;
+            s_colorPickerFlyout.Hide();
         }
+
+        s_colorPickerFlyout.ColorPicker.IsAlphaEnabled = false;
+        s_colorPickerFlyout.ColorPicker.Color = viewModel.Color.Value;
+        s_colorPickerFlyout.Placement = PlacementMode.Top;
 
         s_colorPickerFlyout.Confirmed += OnColorPickerFlyoutConfirmed;
         s_colorPickerFlyout.Closed += OnColorPickerFlyoutClosed;
@@ -462,13 +461,19 @@ public sealed partial class ElementView : UserControl
         s_colorPickerFlyout.Closed -= OnColorPickerFlyoutClosed;
     }
 
-    private void OnColorPickerFlyoutConfirmed(ColorPickerFlyout sender, EventArgs args)
+    private void OnColorPickerFlyoutConfirmed(DraggablePickerFlyout<SimpleColorPicker> sender, EventArgs args)
     {
         // Re-check editability at confirm time: the clip or its layer may have been locked while the
         // picker was open, and the open-time guard alone would let the confirm persist onto locked content.
         if (DataContext is ElementViewModel { IsEditable.Value: true } viewModel)
         {
-            viewModel.Color.Value = sender.ColorPicker.Color;
+            Color color = sender.ColorPicker.Color;
+            if (viewModel.Color.Value != color)
+            {
+                ColorPaletteService.Instance.AddRecentColor(color);
+            }
+
+            viewModel.Color.Value = color;
         }
     }
 

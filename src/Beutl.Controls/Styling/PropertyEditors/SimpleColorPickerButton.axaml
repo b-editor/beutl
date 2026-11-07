@@ -1,18 +1,14 @@
-﻿<ResourceDictionary xmlns="https://github.com/avaloniaui"
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:media="clr-namespace:FluentAvalonia.UI.Media;assembly=FluentAvalonia"
-                    xmlns:sys="clr-namespace:System;assembly=netstandard"
                     xmlns:icons="using:FluentIcons.Avalonia.Fluent"
-                    xmlns:ui="using:FluentAvalonia.UI.Controls"
-                    x:CompileBindings="True">
-
+                    xmlns:local="using:Beutl.Controls.PropertyEditors">
     <Design.PreviewWith>
         <Border Padding="50">
-            <ui:ColorPickerButton />
+            <local:SimpleColorPickerButton Color="Teal" />
         </Border>
     </Design.PreviewWith>
 
-    <ControlTheme x:Key="{x:Type ui:ColorPickerButton}" TargetType="ui:ColorPickerButton">
+    <ControlTheme x:Key="{x:Type local:SimpleColorPickerButton}" TargetType="local:SimpleColorPickerButton">
         <Setter Property="MinHeight" Value="40" />
         <Setter Property="MinWidth" Value="50" />
         <Setter Property="HorizontalAlignment" Value="Left" />
@@ -20,7 +16,7 @@
         <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
         <Setter Property="Template">
             <ControlTemplate>
-                <Button Name="ShowFlyoutButton"
+                <Button Name="PART_Button"
                         Padding="0"
                         HorizontalContentAlignment="Stretch"
                         CornerRadius="{TemplateBinding CornerRadius}">
@@ -30,8 +26,7 @@
                                 Margin="8,6,4,6"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Center"
-                                Background="{TemplateBinding Color,
-                                                             Converter={StaticResource ColorBrushConv}}"
+                                Background="{TemplateBinding PreviewBrush}"
                                 BorderBrush="{DynamicResource ColorPickerButtonOutline}"
                                 BorderThickness="1"
                                 CornerRadius="{TemplateBinding CornerRadius}" />
@@ -46,5 +41,4 @@
             </ControlTemplate>
         </Setter>
     </ControlTheme>
-
 </ResourceDictionary>

@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:local="using:Beutl.Editor.Components.TimelineTab.Views"
-                    xmlns:ui="using:FluentAvalonia.UI.Controls">
+                    xmlns:pe="using:Beutl.Controls.PropertyEditors">
     <!--
         Elements are only LayerHeight tall and sit edge to edge, so the shell's ControlCornerRadius
         reads as too round on them. This is a deliberate exception, not a spot that fell out of sync.
@@ -10,11 +10,11 @@
     <CornerRadius x:Key="TimelineElementCornerRadius">4</CornerRadius>
 
     <ControlTheme x:Key="LayerHeaderColorPickerButtonTheme"
-                  TargetType="ui:ColorPickerButton"
-                  BasedOn="{StaticResource {x:Type ui:ColorPickerButton}}">
+                  TargetType="pe:SimpleColorPickerButton"
+                  BasedOn="{StaticResource {x:Type pe:SimpleColorPickerButton}}">
         <Setter Property="Template">
             <ControlTemplate>
-                <Button Name="ShowFlyoutButton"
+                <Button Name="PART_Button"
                         Padding="0"
                         HorizontalContentAlignment="Stretch"
                         BorderThickness="0"
@@ -26,7 +26,7 @@
                                 Margin="5,4"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Center"
-                                Background="{TemplateBinding Color, Converter={StaticResource ColorBrushConv}}"
+                                Background="{TemplateBinding PreviewBrush}"
                                 BorderBrush="{DynamicResource ColorPickerButtonOutline}"
                                 BorderThickness="1"
                                 CornerRadius="{TemplateBinding CornerRadius}" />

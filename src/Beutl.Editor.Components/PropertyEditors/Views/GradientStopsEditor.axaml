@@ -6,7 +6,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.Editor.Components.PropertyEditors.ViewModels"
              Padding="4,0"
              d:DesignWidth="300"
@@ -43,10 +42,8 @@
                 <icons:FluentIcon FontSize="16" Icon="Delete" />
             </Button>
 
-            <ui:ColorPickerButton x:Name="colorPicker"
-                                  CustomPaletteColors="{StaticResource PaletteColors}"
-                                  UseColorPalette="True"
-                                  Color="{Binding SelectedItem.Value.Color}" />
+            <pe:SimpleColorPickerButton x:Name="colorPicker"
+                                        Color="{Binding SelectedItem.Value.Color}" />
         </StackPanel>
         <Panel Grid.Row="3"
                Grid.ColumnSpan="2"

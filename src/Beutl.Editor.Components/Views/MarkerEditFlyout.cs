@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Controls.Primitives;
@@ -25,7 +26,7 @@ public sealed class MarkerEditFlyout : FAPickerFlyoutBase
 
     private TextBox? _nameBox;
     private TextBox? _noteBox;
-    private ColorPickerButton? _colorButton;
+    private SimpleColorPickerButton? _colorButton;
     private Button? _deleteButton;
     private MarkerEditValues _initial;
 
@@ -55,12 +56,11 @@ public sealed class MarkerEditFlyout : FAPickerFlyoutBase
         _nameBox = new TextBox();
         _nameBox.TextChanged += (_, _) => RaiseValuesChanged();
 
-        _colorButton = new ColorPickerButton
+        _colorButton = new SimpleColorPickerButton
         {
-            UseColorPalette = true,
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
-        _colorButton.ColorChanged += (_, _) => RaiseValuesChanged();
+        _colorButton.ColorConfirmed += (_, _) => RaiseValuesChanged();
 
         _noteBox = new TextBox
         {
@@ -162,8 +162,8 @@ public sealed class MarkerEditFlyout : FAPickerFlyoutBase
             MarkerName = _nameBox.Text ?? string.Empty;
         if (_noteBox != null)
             Note = _noteBox.Text ?? string.Empty;
-        if (_colorButton?.Color is { } c)
-            Color = c;
+        if (_colorButton != null)
+            Color = _colorButton.Color;
     }
 
     private void RaiseValuesChanged()

@@ -168,17 +168,7 @@
                                Grid.Row="1"
                                MaxHeight="450"
                                IsVisible="False">
-                            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                                <ItemsRepeater Margin="5"
-                                               ItemTemplate="{StaticResource ColorPaletteItemTemplate}"
-                                               ItemsSource="{DynamicResource PaletteColors}">
-                                    <ItemsRepeater.Layout>
-                                        <UniformGridLayout ItemsStretch="Fill"
-                                                           MaximumRowsOrColumns="10"
-                                                           Orientation="Horizontal" />
-                                    </ItemsRepeater.Layout>
-                                </ItemsRepeater>
-                            </ScrollViewer>
+                            <local:ColorPaletteView Name="PaletteView" />
                         </Panel>
                     </Grid>
                 </Border>

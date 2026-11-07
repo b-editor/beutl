@@ -770,6 +770,60 @@
   <data name="ShowRing" xml:space="preserve">
     <value>显示圆环</value>
   </data>
+  <data name="ColorPalette_RecentColors" xml:space="preserve">
+    <value>最近使用的颜色</value>
+  </data>
+  <data name="ColorPalette_DefaultPalette" xml:space="preserve">
+    <value>默认调色板</value>
+  </data>
+  <data name="ColorPalette_ProjectPalettes" xml:space="preserve">
+    <value>项目调色板</value>
+  </data>
+  <data name="ColorPalette_NewPalette" xml:space="preserve">
+    <value>新建调色板</value>
+  </data>
+  <data name="ColorPalette_NewPaletteName" xml:space="preserve">
+    <value>调色板 {0}</value>
+  </data>
+  <data name="ColorPalette_AddCurrentColor" xml:space="preserve">
+    <value>添加当前颜色</value>
+  </data>
+  <data name="ColorPalette_PaletteActions" xml:space="preserve">
+    <value>调色板操作</value>
+  </data>
+  <data name="ColorPalette_EmptyHint" xml:space="preserve">
+    <value>使用 + 添加当前颜色。</value>
+  </data>
+  <data name="ColorPalette_SavedInProject" xml:space="preserve">
+    <value>保存在此项目中</value>
+  </data>
+  <data name="ColorPalette_SaveInProject" xml:space="preserve">
+    <value>保存到此项目</value>
+  </data>
+  <data name="ColorPalette_UseInAllProjects" xml:space="preserve">
+    <value>在所有项目中使用</value>
+  </data>
+  <data name="ColorPalette_MoveUp" xml:space="preserve">
+    <value>上移</value>
+  </data>
+  <data name="ColorPalette_MoveDown" xml:space="preserve">
+    <value>下移</value>
+  </data>
+  <data name="ColorPalette_AddToPalette" xml:space="preserve">
+    <value>添加到调色板</value>
+  </data>
+  <data name="ColorPalette_AddToNewPalette" xml:space="preserve">
+    <value>添加到新调色板</value>
+  </data>
+  <data name="ColorPalette_ReplaceWithCurrentColor" xml:space="preserve">
+    <value>替换为当前颜色</value>
+  </data>
+  <data name="ColorPalette_RemoveFromRecent" xml:space="preserve">
+    <value>从最近使用的颜色中移除</value>
+  </data>
+  <data name="ColorPalette_ClearRecent" xml:space="preserve">
+    <value>清除最近使用的颜色</value>
+  </data>
   <data name="Symmetry" xml:space="preserve">
     <value>对称</value>
   </data>
@@ -1139,9 +1193,6 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="OpenInTab" xml:space="preserve">
     <value>在选项卡中打开</value>
-  </data>
-  <data name="Previous" xml:space="preserve">
-    <value>上一个</value>
   </data>
   <data name="Current" xml:space="preserve">
     <value>当前</value>

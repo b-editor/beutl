@@ -1,0 +1,78 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors">
+    <Design.PreviewWith>
+        <Border Width="240" Height="480">
+            <local:ColorPaletteView />
+        </Border>
+    </Design.PreviewWith>
+
+    <Thickness x:Key="ColorPaletteItemMargin">2</Thickness>
+
+    <ControlTheme x:Key="{x:Type local:ColorPaletteView}" TargetType="local:ColorPaletteView">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ScrollViewer Name="PART_ScrollViewer"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto">
+                    <!--  The view builds its sections in code, so these styles reach them, which the theme's template styles do not.  -->
+                    <ScrollViewer.Styles>
+                        <Style Selector="Grid.palette-header">
+                            <Setter Property="Margin" Value="2,6,0,2" />
+                            <Setter Property="MinHeight" Value="24" />
+                            <Setter Property="Background" Value="Transparent" />
+                        </Style>
+                        <Style Selector="Grid.palette-header > TextBlock.palette-name">
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                        </Style>
+                        <Style Selector="Grid.palette-header > icons|FluentIcon.palette-project-icon">
+                            <Setter Property="FontSize" Value="14" />
+                            <Setter Property="Margin" Value="0,0,4,0" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </Style>
+                        <Style Selector="Button.palette-header-button">
+                            <Setter Property="Theme" Value="{StaticResource TransparentButton}" />
+                            <Setter Property="Width" Value="24" />
+                            <Setter Property="Height" Value="24" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="HorizontalContentAlignment" Value="Center" />
+                            <Setter Property="VerticalContentAlignment" Value="Center" />
+                            <Setter Property="FontSize" Value="14" />
+                        </Style>
+                        <Style Selector="Button.palette-new-button">
+                            <Setter Property="Theme" Value="{StaticResource TransparentButton}" />
+                            <Setter Property="Margin" Value="0,6,0,0" />
+                            <Setter Property="Padding" Value="6,4" />
+                            <Setter Property="HorizontalAlignment" Value="Left" />
+                            <Setter Property="FontSize" Value="12" />
+                            <Style Selector="^ icons|FluentIcon">
+                                <Setter Property="FontSize" Value="14" />
+                            </Style>
+                        </Style>
+                        <Style Selector="TextBlock.palette-hint">
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="Margin" Value="2,0,2,4" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+                        </Style>
+                        <!--  The outline keeps a color near the background's apart from it, as white is on the light theme.  -->
+                        <Style Selector="local|ColorPaletteItem.palette-swatch">
+                            <Setter Property="Margin" Value="{DynamicResource ColorPaletteItemMargin}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+                            <Setter Property="BorderThickness" Value="1" />
+                            <Setter Property="BorderBrushPointerOver" Value="{DynamicResource ControlStrongStrokeColorDefaultBrush}" />
+                            <Setter Property="BorderThicknessPointerOver" Value="1" />
+                            <Setter Property="SelectionBrush" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                        </Style>
+                    </ScrollViewer.Styles>
+
+                    <StackPanel Name="PART_Sections" Margin="5,0,5,5" />
+                </ScrollViewer>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+</ResourceDictionary>

@@ -31,6 +31,7 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         AvaloniaProperty.Register<BrushEditorFlyoutPresenter, bool>(nameof(CanEditDrawable), false);
 
     private readonly CompositeDisposable _disposables = [];
+    private readonly SerialDisposable _pickerColor = new();
     private const string Palette = ":palette";
     private const string Solid = ":solid";
     private const string Gradient = ":gradient";
@@ -40,6 +41,7 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     private ToggleButton? _drawableBrushTabButton;
     private ToggleButton? _paletteTabButton;
     private Control? _paletteContent;
+    private ColorPaletteView? _paletteView;
     private ContentPresenter? _contentPresenter;
     private ComboBox? _gradientTypeBox;
     private GradientStopsSlider? _gradientStopsSlider;
@@ -244,6 +246,26 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
             newValue.ColorChanged += OnColorPickerColorChanged;
             newValue.ColorConfirmed += OnColorPickerColorConfirmed;
         }
+
+        FollowPickerColor();
+    }
+
+    // The palette rings the color of the solid brush or of the selected stop, which the picker shows.
+    private void FollowPickerColor()
+    {
+        _pickerColor.Disposable = (Content as SimpleColorPicker)?.GetObservable(SimpleColorPicker.ColorProperty)
+            .Subscribe(color =>
+            {
+                if (_paletteView != null)
+                {
+                    _paletteView.CurrentColor = color;
+                }
+            });
+    }
+
+    private void OnPaletteColorSelected(ColorPaletteView sender, Color color)
+    {
+        SetColorPaletteItem(color);
     }
 
     private void OnGradientBrushPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -261,17 +283,29 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         _disposables.Clear();
+        if (_paletteView != null)
+        {
+            _paletteView.ColorSelected -= OnPaletteColorSelected;
+        }
+
         base.OnApplyTemplate(e);
         _solidBrushTabButton = e.NameScope.Find<ToggleButton>("SolidBrushTabButton");
         _gradientBrushTabButton = e.NameScope.Find<ToggleButton>("GradientBrushTabButton");
         _drawableBrushTabButton = e.NameScope.Find<ToggleButton>("DrawableBrushTabButton");
         _paletteTabButton = e.NameScope.Find<ToggleButton>("PaletteTabButton");
         _paletteContent = e.NameScope.Find<Control>("PaletteContent");
+        _paletteView = e.NameScope.Find<ColorPaletteView>("PaletteView");
         _contentPresenter = e.NameScope.Find<ContentPresenter>("ContentPresenter");
         _gradientTypeBox = e.NameScope.Find<ComboBox>("GradientTypeBox");
         _gradientStopsSlider = e.NameScope.Find<GradientStopsSlider>("GradientStopsSlider");
         _changeDrawableTypeButton = e.NameScope.Find<Button>("ChangeDrawableButton");
         _editDrawableButton = e.NameScope.Find<Button>("EditDrawableButton");
+
+        if (_paletteView != null)
+        {
+            _paletteView.ColorSelected += OnPaletteColorSelected;
+            FollowPickerColor();
+        }
 
         foreach (ToggleButton? item in GetTabButtons())
         {

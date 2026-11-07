@@ -17,6 +17,8 @@ public class ColorEditor : ColorPickerEditorBase<Color, SimpleColorPicker, Simpl
 
     private protected override void SetFlyoutColor(SimpleColorPickerFlyout flyout, Color color) => flyout.ColorPicker.Color = color;
 
+    private protected override void OnColorApplied(Color value) => ColorPaletteService.Instance.AddRecentColor(value);
+
     private protected override void SetLivePreview(SimpleColorPickerFlyout flyout, bool enabled)
     {
         if (enabled)

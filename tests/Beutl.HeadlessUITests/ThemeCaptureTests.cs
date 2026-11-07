@@ -142,7 +142,7 @@ public class ThemeCaptureTests
                         {
                             new FluentAvalonia.UI.Controls.FANumberBox { Value = 1920, Width = 140 },
                             new AutoCompleteBox { Text = "1920", Width = 160 },
-                            new FluentAvalonia.UI.Controls.ColorPickerButton(),
+                            new Beutl.Controls.PropertyEditors.SimpleColorPickerButton(),
                             new Button
                             {
                                 Name = "GalleryMenuButton",

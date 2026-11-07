@@ -66,7 +66,6 @@ public sealed class App : Application
         _startUp = GetMainViewModel().RunStartupTask();
         _sideloadExtensionTask = _startUp.GetTask<LoadSideloadExtensionTask>();
         _startUp.WaitAll().ContinueWith(_ => _startUp = null);
-        Resources["PaletteColors"] = AppHelpers.GetPaletteColors();
         ApplyDockStringOverrides();
 
         _theme = (FluentAvaloniaTheme)Styles[0];

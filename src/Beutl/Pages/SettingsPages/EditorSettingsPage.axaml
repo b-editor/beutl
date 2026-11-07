@@ -9,6 +9,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:proxy="using:Beutl.Media.Proxy"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
              d:DesignHeight="450"
@@ -437,15 +438,8 @@
 
                         <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.PreviewGuide_Color}" IsEnabled="{CompiledBinding PreviewGuides.IsEnabled.Value}">
                             <ctrls:OptionsDisplayItem.ActionButton>
-                                <ui:ColorPickerButton IsAlphaEnabled="False"
-                                                      IsCompact="True"
-                                                      IsMoreButtonVisible="True"
-                                                      ShowAcceptDismissButtons="True"
-                                                      UseColorPalette="False"
-                                                      UseColorTriangle="False"
-                                                      UseColorWheel="False"
-                                                      UseSpectrum="True"
-                                                      Color="{CompiledBinding PreviewGuides.Color.Value, Mode=TwoWay}" />
+                                <pe:SimpleColorPickerButton IsAlphaEnabled="False"
+                                                            Color="{CompiledBinding PreviewGuides.Color.Value, Mode=TwoWay}" />
                             </ctrls:OptionsDisplayItem.ActionButton>
                         </ctrls:OptionsDisplayItem>
 

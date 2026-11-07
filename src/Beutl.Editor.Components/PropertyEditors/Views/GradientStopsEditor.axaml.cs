@@ -2,10 +2,10 @@
 using Avalonia.Interactivity;
 using Avalonia.Media.Immutable;
 using Beutl.Controls;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Media;
-using FluentAvalonia.UI.Controls;
 using AM = Avalonia.Media;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
@@ -18,7 +18,7 @@ public sealed partial class GradientStopsEditor : UserControl
     {
         InitializeComponent();
 
-        colorPicker.FlyoutConfirmed += ColorPicker_FlyoutConfirmed;
+        colorPicker.ColorConfirmed += ColorPicker_ColorConfirmed;
 
         slider.Changed += OnSliderChanged;
         slider.Confirmed += OnSliderConfirmed;
@@ -65,16 +65,14 @@ public sealed partial class GradientStopsEditor : UserControl
         }
     }
 
-    private void ColorPicker_FlyoutConfirmed(ColorPickerButton sender, ColorButtonColorChangedEventArgs args)
+    private void ColorPicker_ColorConfirmed(SimpleColorPickerButton sender, (AM.Color OldValue, AM.Color NewValue) args)
     {
         if (DataContext is GradientStopsEditorViewModel { IsElementEditable: true } viewModel
-            && viewModel.SelectedItem.Value is AM.GradientStop astop
-            && args.NewColor.HasValue
-            && args.OldColor.HasValue)
+            && viewModel.SelectedItem.Value is AM.GradientStop astop)
         {
             int index = viewModel.Stops.Value.IndexOf(astop);
             var bstop = viewModel.Value.Value[index];
-            bstop.Color.Value = args.NewColor.Value.ToBtlColor();
+            bstop.Color.Value = args.NewValue.ToBtlColor();
             viewModel.ConfirmeGradientStop(index, index);
         }
     }

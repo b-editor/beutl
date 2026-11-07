@@ -86,9 +86,6 @@
     <StaticResource x:Key="CommandBarBorderBrushOpen" ResourceKey="CardStrokeColorDefaultSolidBrush" />
     <StaticResource x:Key="CommandBarOverflowPresenterBackground" ResourceKey="AcrylicInAppFillColorDefaultBrush" />
     <StaticResource x:Key="FlyoutPresenterBackground" ResourceKey="AcrylicInAppFillColorDefaultBrush" />
-    <StaticResource x:Key="ColorPickerBackground" ResourceKey="SolidBackgroundFillColorBaseBrush" />
-    <StaticResource x:Key="ColorPickerTabsBackground" ResourceKey="LayerFillColorDefaultBrush" />
-    <StaticResource x:Key="ColorPickerColorTypeButtonBackground" ResourceKey="AcrylicBackgroundFillColorDefaultBrush" />
     <StaticResource x:Key="ToolTipBackgroundBrush" ResourceKey="AcrylicBackgroundFillColorDefaultBrush" />
     <StaticResource x:Key="InfoBarErrorSeverityBackgroundBrush" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
     <StaticResource x:Key="InfoBarWarningSeverityBackgroundBrush" ResourceKey="SystemFillColorCautionBackgroundBrush" />
