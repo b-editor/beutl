@@ -21,7 +21,11 @@ internal sealed partial class MobilePreviewServer
         }
         if (message.Kind == PreviewTransportEventKind.KeyFrame
             || (message.Kind == PreviewTransportEventKind.State && message.Value == "connected"))
+        {
+            if (message.Kind == PreviewTransportEventKind.KeyFrame) OnKeyFrameRequested(message.Id);
+            else OnConnected(message.Id);
             RequestKeyFrame();
+        }
 
         string id = message.Id;
         string connectionId = message.ConnectionId;
