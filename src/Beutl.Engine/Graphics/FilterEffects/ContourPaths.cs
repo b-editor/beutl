@@ -21,6 +21,15 @@ internal static class ContourPaths
         builder.Close();
     }
 
+    public static void AddClosedPolyline(SKPathBuilder builder, ReadOnlySpan<Point> points, Vector offset)
+    {
+        builder.MoveTo(points[0].X + offset.X, points[0].Y + offset.Y);
+        for (int i = 1; i < points.Length; i++)
+            builder.LineTo(points[i].X + offset.X, points[i].Y + offset.Y);
+
+        builder.Close();
+    }
+
     /// <summary>
     /// The outline of <paramref name="src"/>'s alpha at sub-pixel precision, in its pixel space, as
     /// <see cref="AlphaOutlineTracer"/> traces it.
@@ -29,13 +38,7 @@ internal static class ContourPaths
     {
         using var builder = new SKPathBuilder();
         foreach (Point[] contour in AlphaOutlineTracer.Trace(src))
-        {
-            builder.MoveTo(contour[0].X, contour[0].Y);
-            for (int i = 1; i < contour.Length; i++)
-                builder.LineTo(contour[i].X, contour[i].Y);
-
-            builder.Close();
-        }
+            AddClosedPolyline(builder, contour, default);
 
         return builder.Detach();
     }

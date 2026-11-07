@@ -317,7 +317,7 @@ public sealed partial class FilterEffectExecutor
         // A target draws all of its raster, which can reach past its bounds by an apron a filtered flush kept.
         Rect footprint = bounds;
         foreach (EffectTarget target in CurrentTargets)
-            footprint = footprint.Union(DrawnFootprint(target));
+            footprint = footprint.Union(target.DrawnBounds);
 
         float w = WorkingScale;
         Vector gridOffset = _settings.DeviceGridOffset ?? default;
@@ -373,15 +373,6 @@ public sealed partial class FilterEffectExecutor
         CurrentTargets.Clear();
         CurrentTargets.Add(merged);
     }
-
-    // Where EffectTarget.Draw puts a target's raster: at its RasterBounds, or at its Bounds for one that keeps an
-    // imperative placement.
-    private static Rect DrawnFootprint(EffectTarget target)
-        => target.RenderTarget is null
-            ? Rect.Empty
-            : target.PreserveImperativeRasterPlacement
-                ? new Rect(target.Bounds.Position, target.RasterBounds.Size)
-                : target.RasterBounds;
 
     internal void CompletePolicyBoundary(bool materializationRequired)
     {

@@ -71,6 +71,8 @@ internal readonly record struct RequiredRegion
         };
     }
 
+    public Rect ResolveWithin(Rect completeBounds) => Resolve(completeBounds).Intersect(completeBounds);
+
     private void ThrowIfUninitialized()
     {
         if (_kind == RequiredRegionKind.Uninitialized)

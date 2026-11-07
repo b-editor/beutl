@@ -58,8 +58,7 @@ internal sealed partial class RenderRequestExecutor
                             input.EffectiveScale.Value);
                         if (input.DeviceBounds != footprint || input.Bounds != sourceBounds)
                             sourceValue = CropValue(input, sourceBounds, allowPreviewDrop: true);
-                        ITexture2D source = sourceValue.Target.Texture
-                            ?? throw new NotSupportedException("Shader graphs require backend textures; CPU rendering is not a compatible fallback.");
+                        ITexture2D source = RequireTexture(sourceValue);
                         float density = graph.ClampWorkingScale(input.CompleteBounds, scale.Value, _activeDeviceGridOffset,
                             referenceBounds, sourceValue.DeviceBounds.Size, ((VulkanTexture2D)source).Usage, required);
                         output = CreateOwnedValue(required, EffectiveScale.At(density), bounds, allowPreviewDrop: true);
@@ -72,8 +71,7 @@ internal sealed partial class RenderRequestExecutor
                             MaterializedRenderValue aligned = AlignExternalImage(externals[index], sourceValue);
                             externalValues.Add(aligned);
                             aligned.Target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
-                            externalImages[index] = (aligned.Target.Texture
-                                ?? throw new NotSupportedException("Shader graphs require backend textures; CPU rendering is not a compatible fallback."),
+                            externalImages[index] = (RequireTexture(aligned),
                                 new(aligned.CompleteBounds, aligned.RasterBounds, aligned.DeviceBounds.Size, aligned.EffectiveScale.Value, referenceBounds));
                         }
 
@@ -133,11 +131,8 @@ internal sealed partial class RenderRequestExecutor
             bool succeeded = false;
             try
             {
-                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
-                    aligned.DeviceBounds, aligned.DeviceGridOffset, aligned.EffectiveScale.Value);
-                using var canvas = CreateExecutorCanvas(aligned.Target, aligned.EffectiveScale.Value, _options.MaxWorkingScale,
-                    aligned.RasterBounds.Size, _options.Intent, aligned.DeviceBounds.Position);
-                using (canvas.PushTransform(Matrix.CreateTranslation(rasterTranslation.X, rasterTranslation.Y)))
+                using var canvas = CreateValueCanvas(aligned);
+                using (canvas.PushTransform(aligned.RasterAlignmentTransform))
                 {
                     canvas.ClipRect(source.CompleteBounds);
                     foreach (MaterializedRenderValue value in values)
@@ -153,5 +148,9 @@ internal sealed partial class RenderRequestExecutor
                     ReleaseUnpublished(aligned);
             }
         }
+
+        private static ITexture2D RequireTexture(MaterializedRenderValue value)
+            => value.Target.Texture
+                ?? throw new NotSupportedException("Shader graphs require backend textures; CPU rendering is not a compatible fallback.");
     }
 }

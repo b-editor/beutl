@@ -132,13 +132,7 @@ public partial class FlatShadow : FilterEffect
 
         using var builder = new SKPathBuilder();
         foreach (Point[] outline in outlines)
-        {
-            builder.MoveTo(outline[0].X + origin.X, outline[0].Y + origin.Y);
-            for (int i = 1; i < outline.Length; i++)
-                builder.LineTo(outline[i].X + origin.X, outline[i].Y + origin.Y);
-
-            builder.Close();
-        }
+            ContourPaths.AddClosedPolyline(builder, outline, origin);
 
         // A point the moving content reaches is first reached by an edge that faces the way it moves, so the content at
         // its first position and the strips those edges sweep make up the whole shadow. The non-zero fill unites them.

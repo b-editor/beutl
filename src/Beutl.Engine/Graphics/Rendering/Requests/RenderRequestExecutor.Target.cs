@@ -318,16 +318,12 @@ internal sealed partial class RenderRequestExecutor
         private Rect ResolveFragmentRequirement(
             RenderFragmentReference fragment,
             Rect completeBounds)
-            => _regions.GetFragmentRequirement(fragment)
-                .Resolve(completeBounds)
-                .Intersect(completeBounds);
+            => _regions.GetFragmentRequirement(fragment).ResolveWithin(completeBounds);
 
         private Rect ResolveTargetAccessRequirement(
             RenderFragmentReference fragment,
             Rect completeBounds)
-            => _regions.GetTargetAccessRequirement(fragment)
-                .Resolve(completeBounds)
-                .Intersect(completeBounds);
+            => _regions.GetTargetAccessRequirement(fragment).ResolveWithin(completeBounds);
 
         private Rect ResolveTargetRegion(
             TargetRegion region,

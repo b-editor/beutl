@@ -151,6 +151,14 @@ public sealed class EffectTarget : IDisposable
     public Rect RasterBounds
         => _allocationRasterBounds.Translate(Bounds.Position - _allocationBounds.Position);
 
+    // Where Draw puts the raster: at RasterBounds, or at Bounds for a target that keeps an imperative placement.
+    internal Rect DrawnBounds
+        => RenderTarget is null
+            ? Rect.Empty
+            : PreserveImperativeRasterPlacement
+                ? new Rect(Bounds.Position, RasterBounds.Size)
+                : RasterBounds;
+
     public RenderTarget? RenderTarget => _target switch
     {
         RenderTarget renderTarget => renderTarget,

@@ -110,8 +110,7 @@ internal sealed class ShaderGraphRegions
         if (pass.InputRegions.TryGetValue(binding, out ShaderInputRegion contract))
             return contract.Map(output);
         // The origin a pass's constants receive, so that what is required is what the pass reads.
-        ShaderImageFrame source = Frames[0];
-        return pass.OriginInputRegions[binding].Map(output, source.ReferenceBounds ?? source.Bounds);
+        return pass.OriginInputRegions[binding].Map(output, Frames[0]);
     }
 
     private void FitToRequired(ImmutableArray<ShaderImage> images, Dictionary<int, Rect> required, Vector gridOffset)

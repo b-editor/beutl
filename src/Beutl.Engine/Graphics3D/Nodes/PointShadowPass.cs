@@ -139,7 +139,7 @@ void main() {
         (-Vector3.UnitZ, -Vector3.UnitY)   // -Z (Back)
     ];
 
-    private readonly ShadowCasterPipelines _pipelines = new();
+    private readonly ShadowCasterPipelines _pipelines = new(PointShadowCutoutVertexShader, PointShadowCutoutFragmentShader);
     private IDescriptorSet? _descriptorSet;
     private IDescriptorSet? _doubleSidedDescriptorSet;
     private IBuffer? _lightDataBuffer;
@@ -391,15 +391,13 @@ void main() {
         if (obj.Material?.Cutout is { } cutout
             && cutout.Map.GetTexture(Context, SurfaceDensity) is { } map)
         {
-            _pipelines.EnsureCutoutPipelines<CutoutUBO>(
-                Context, RenderPass!, ShaderCompiler, PointShadowCutoutVertexShader, PointShadowCutoutFragmentShader);
             var ubo = new CutoutUBO
             {
                 LightPos = _lightPosition,
                 FarPlane = _farPlane,
-                Cutout = new Vector4(cutout.AlphaScale, cutout.Cutoff, 0, 0),
+                Cutout = cutout.ShaderParameters,
             };
-            _pipelines.BindCutout(RenderPass!, doubleSided, map, in ubo);
+            _pipelines.BindCutout(Context, ShaderCompiler, RenderPass!, doubleSided, map, in ubo);
         }
         else if (_pipelines.Bind(RenderPass!, doubleSided, out IPipeline3D pipeline))
         {

@@ -111,7 +111,7 @@ internal sealed partial class RegionAnalyzer
             return FullInputs(reference);
         Rect bounds = reference.Inputs[0].Bounds;
         if (bounds.Width == 0 || bounds.Height == 0) return FullInputs(reference);
-        Rect required = outputRequirement.Resolve(reference.Bounds).Intersect(reference.Bounds);
+        Rect required = outputRequirement.ResolveWithin(reference.Bounds);
         float scale = graph.ClampDensity(reference.Inputs[0], reference.EffectiveScale.Value, required);
         float inputScale = ShaderGraphRenderFragmentPayload.InputDensity(reference.Inputs[0], scale);
         var pixels = PixelRect.FromRect(bounds, inputScale);
@@ -286,8 +286,8 @@ internal sealed partial class RegionAnalyzer
         Rect requestedOutput = outputRequirement.Resolve(ResolveSemanticBounds(reference, targetDomain));
         if (!EffectItemSamplingSupport.TryResolveSampledInput(
                 payload.BoundsItems,
+                payload.StreamInputCount,
                 requestedOutput,
-                EffectItemSamplingSupport.RequiresCoverage(payload.StreamInputCount, payload.BoundsItems),
                 out Rect requested))
         {
             return FullInputs(reference);

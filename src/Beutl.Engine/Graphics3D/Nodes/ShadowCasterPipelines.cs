@@ -21,10 +21,18 @@ internal sealed class ShadowCasterPipelines : IDisposable
         public Matrix4x4 LightViewProjection;
     }
 
+    private readonly string _cutoutVertexShader;
+    private readonly string _cutoutFragmentShader;
     private readonly IPipeline3D?[] _cutoutPipelines = new IPipeline3D?[2];
     private readonly MaterialDrawBindingPool?[] _cutoutBindings = new MaterialDrawBindingPool?[2];
     private ISampler? _cutoutSampler;
     private IPipeline3D? _boundPipeline;
+
+    public ShadowCasterPipelines(string cutoutVertexShader, string cutoutFragmentShader)
+    {
+        _cutoutVertexShader = cutoutVertexShader;
+        _cutoutFragmentShader = cutoutFragmentShader;
+    }
 
     public IPipeline3D? OneSided { get; private set; }
 
@@ -74,19 +82,17 @@ internal sealed class ShadowCasterPipelines : IDisposable
     /// Creates the pipelines for casters with holes in them, whose fragment shader reads a uniform buffer of
     /// <typeparamref name="TUbo"/> at binding 0 and the color map at binding 1. Most scenes have no such caster.
     /// </summary>
-    public void EnsureCutoutPipelines<TUbo>(
+    private void EnsureCutoutPipelines<TUbo>(
         IGraphicsContext context,
         IRenderPass3D renderPass,
-        IShaderCompiler shaderCompiler,
-        string vertexShader,
-        string fragmentShader)
+        IShaderCompiler shaderCompiler)
         where TUbo : struct
     {
         if (_cutoutSampler != null)
             return;
 
-        byte[] vertexSpirv = shaderCompiler.CompileToSpirv(vertexShader, ShaderStage.Vertex);
-        byte[] fragmentSpirv = shaderCompiler.CompileToSpirv(fragmentShader, ShaderStage.Fragment);
+        byte[] vertexSpirv = shaderCompiler.CompileToSpirv(_cutoutVertexShader, ShaderStage.Vertex);
+        byte[] fragmentSpirv = shaderCompiler.CompileToSpirv(_cutoutFragmentShader, ShaderStage.Fragment);
         DescriptorBinding[] descriptorBindings = MaterialGpuResources.CreateDescriptorBindings(textureCount: 1);
         for (int variant = 0; variant < _cutoutPipelines.Length; variant++)
         {
@@ -107,17 +113,20 @@ internal sealed class ShadowCasterPipelines : IDisposable
             _cutoutBindings[variant] = MaterialDrawBindingPool.Create<TUbo>(context, pipeline, 1);
         }
 
-        _cutoutSampler = context.CreateSampler(
-            SamplerFilter.Linear,
-            SamplerFilter.Linear,
-            SamplerAddressMode.ClampToEdge,
-            SamplerAddressMode.ClampToEdge);
+        _cutoutSampler = MaterialGpuResources.CreateLinearClampSampler(context);
     }
 
     /// <summary>Binds the pipeline and the bindings for a caster with holes in it.</summary>
-    public void BindCutout<TUbo>(IRenderPass3D renderPass, bool doubleSided, ITexture2D map, in TUbo ubo)
+    public void BindCutout<TUbo>(
+        IGraphicsContext context,
+        IShaderCompiler shaderCompiler,
+        IRenderPass3D renderPass,
+        bool doubleSided,
+        ITexture2D map,
+        in TUbo ubo)
         where TUbo : unmanaged
     {
+        EnsureCutoutPipelines<TUbo>(context, renderPass, shaderCompiler);
         int variant = doubleSided ? DoubleSidedVariant : 0;
         IPipeline3D pipeline = _cutoutPipelines[variant]!;
         MaterialDrawBindingPool pool = _cutoutBindings[variant]!;

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 
@@ -90,10 +91,7 @@ internal sealed record FilterEffectSegmentRenderFragmentPayload(
         }
     }
 
-    public bool SupportsDirectReplay
-        => StreamInputCount == 1
-           && !BoundsItems.IsDefaultOrEmpty
-           && BoundsItems.All(static item => item is IFEItem_Skia { SupportsDirectReplay: true });
+    public bool SupportsDirectReplay => !EffectItemSamplingSupport.RequiresCoverage(StreamInputCount, BoundsItems);
 }
 
 internal sealed record MaterializedInputRenderFragmentPayload(

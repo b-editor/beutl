@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics.Effects;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
@@ -17,16 +16,15 @@ internal static class EffectItemSamplingSupport
     /// input. A footprint is never inferred from the forward bounds items, which may be narrower than what
     /// the filter reads, as Erode is behind its identity forward map.
     /// </returns>
-    /// <param name="requireCoverage">Whether what each filter reads has to give it bounds that cover what is needed of it.</param>
-    public static bool TryResolveSampledInput(ImmutableArray<IFEItem> items, Rect output, bool requireCoverage, out Rect input)
+    /// <param name="streamInputCount">How many stream inputs the segment has, which with the items decides whether what
+    /// each filter reads has to give it bounds that cover what is needed of it (<see cref="RequiresCoverage{TItems}"/>).</param>
+    public static bool TryResolveSampledInput<TItems>(TItems items, int streamInputCount, Rect output, out Rect input)
+        where TItems : IReadOnlyList<IFEItem>
     {
         input = default;
-        return !items.IsDefaultOrEmpty && TryMapBackward(items, 0, output, requireCoverage, out input);
+        return items.Count > 0
+               && TryMapBackward(items, 0, output, RequiresCoverage(streamInputCount, items), out input);
     }
-
-    /// <summary>Whether <see cref="TryResolveSampledInput"/> maps <paramref name="output"/> back through these items.</summary>
-    public static bool CanResolveSampledInput(IReadOnlyList<IFEItem> items, Rect output, bool requireCoverage)
-        => items.Count > 0 && TryMapBackward(items, 0, output, requireCoverage, out _);
 
     /// <summary>
     /// Whether a segment with these items and this many stream inputs runs through the effect executor, where each filter's

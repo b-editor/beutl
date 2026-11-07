@@ -190,9 +190,15 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 || shader.SharedMemorySize > limits.MaxComputeSharedMemorySize)
                 throw new NotSupportedException($"Pass '{pass.Name}' exceeds compute local-size or shared-memory limits.");
             (uint gx, uint gy, uint gz) = pass.Draw.Indirect is null ? ResolveGroups(pass, pass.Work) : (0u, 0u, 0u);
-            if (gx > limits.MaxComputeWorkGroupCount[0] || gy > limits.MaxComputeWorkGroupCount[1] || gz > limits.MaxComputeWorkGroupCount[2])
-                throw new NotSupportedException($"Pass '{pass.Name}' exceeds maxComputeWorkGroupCount.");
+            ThrowIfTooManyGroups(pass, gx, gy, gz);
         }
+    }
+
+    private void ThrowIfTooManyGroups(ShaderPassDescription pass, uint x, uint y, uint z)
+    {
+        PhysicalDeviceLimits limits = _limits;
+        if (x > limits.MaxComputeWorkGroupCount[0] || y > limits.MaxComputeWorkGroupCount[1] || z > limits.MaxComputeWorkGroupCount[2])
+            throw new NotSupportedException($"Pass '{pass.Name}' exceeds maxComputeWorkGroupCount.");
     }
 
     private void ValidateGraphicsStages(ShaderPassDescription pass)
@@ -365,9 +371,7 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                     work = (pixels.Width, pixels.Height, Math.Max(workImage.Depth, workImage.ArrayLayers));
                 }
                 (uint x, uint y, uint z) = ResolveGroups(pass, work);
-                PhysicalDeviceLimits limits = _limits;
-                if (x > limits.MaxComputeWorkGroupCount[0] || y > limits.MaxComputeWorkGroupCount[1] || z > limits.MaxComputeWorkGroupCount[2])
-                    throw new NotSupportedException($"Pass '{pass.Name}' exceeds maxComputeWorkGroupCount.");
+                ThrowIfTooManyGroups(pass, x, y, z);
                 _context.Vk.CmdDispatch(command, x, y, z);
             }
         }

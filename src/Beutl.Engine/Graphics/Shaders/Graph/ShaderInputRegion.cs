@@ -43,9 +43,9 @@ internal readonly record struct ShaderOriginInputRegion(RelativePoint Origin, Im
             new ShaderInputRegion(transform).Validate();
     }
 
-    internal Rect Map(Rect output, Rect groupBounds)
+    internal Rect Map(Rect output, ShaderImageFrame source)
     {
-        Point origin = groupBounds.Position + Origin.ToPixels(groupBounds.Size);
+        Point origin = source.GroupOrigin(Origin);
         Rect centered = output.Translate(-origin);
         Rect result = centered.TransformToAABB(Transforms[0]);
         for (int index = 1; index < Transforms.Length; index++)
