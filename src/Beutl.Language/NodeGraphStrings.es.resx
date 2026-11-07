@@ -165,6 +165,9 @@
   <data name="ShaderPartialRenderingNode" xml:space="preserve">
     <value>Renderizado parcial</value>
   </data>
+  <data name="ShaderPartialImagesNode" xml:space="preserve">
+    <value>Imágenes parciales</value>
+  </data>
   <data name="ShaderDrawMode_Vertices" xml:space="preserve">
     <value>Vértices</value>
   </data>

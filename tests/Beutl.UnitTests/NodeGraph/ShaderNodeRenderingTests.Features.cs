@@ -1,6 +1,8 @@
 ﻿using System.Numerics;
+using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Shapes;
@@ -10,6 +12,7 @@ using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Shaders;
 using Beutl.NodeGraph.Nodes.Utilities;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.NodeGraph;
@@ -732,6 +735,73 @@ public partial class ShaderNodeRenderingTests
             // The last step read what the step before it wrote, and the loop hands out what the last one wrote.
             Assert.That(Channel(pixels, 0), Is.EqualTo(0.8f).Within(1e-3f));
             Assert.That(Channel(pixels, 1), Is.EqualTo(1f).Within(1e-3f));
+        }
+    }
+
+    // A pass whose images hold only what the frame shows draws a grid too wide for one buffer like one that fits. Its own
+    // target shares its source's frame, so the code a pass starts with reads the right place.
+    [Test]
+    public void APassWithPartialImagesDrawsAWideGridLikeASmallOne()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+
+        byte[][] small = RenderGrid(10);
+
+        byte[][] wide = RenderGrid(100);
+
+        (int Difference, int X, int Y) largest = default;
+        for (int y = 0; y < wide.Length; y++)
+            for (int x = 0; x < wide[y].Length; x++)
+            {
+                int difference = Math.Abs(wide[y][x] - small[y][x]);
+                if (difference > largest.Difference)
+                    largest = (difference, x / 4, y);
+            }
+        Assert.That(largest.Difference, Is.LessThanOrEqualTo(2), $"at ({largest.X}, {largest.Y})");
+
+        // A red and blue picture 120 x 80 repeated every 200 units, then a pass over it, in a 1920 x 1080 frame. Linear
+        // premultiplied BGRA bytes, one array per row.
+        static byte[][] RenderGrid(int count)
+        {
+            var effect = new NodeGraphFilterEffect();
+            GraphModel graph = effect.Model.Value!;
+            var input = graph.Add(new FilterEffectInputNode());
+            var region = graph.Add(new ShaderInputRegionNode());
+            graph.Connect(region.Image, input.Output);
+            var pass = graph.Add(new ShaderFullscreenPassNode());
+            graph.Connect(pass.In("source"), region.Output);
+            graph.Connect(pass.Settings, graph.Add(new ShaderPartialImagesNode()).Output);
+            var output = graph.Add(new OutputNode());
+            graph.Connect(output.InputPort, pass.Out("color"));
+
+            var effects = new FilterEffectGroup();
+            effects.Children.Add(new RepeatEffect
+            {
+                Columns = { Value = count },
+                Rows = { Value = count },
+                Spacing = { Value = new Size(80, 120) },
+            });
+            effects.Children.Add(effect);
+            var gradient = new LinearGradientBrush
+            {
+                StartPoint = { Value = new RelativePoint(0, 0.5f, RelativeUnit.Relative) },
+                EndPoint = { Value = new RelativePoint(1, 0.5f, RelativeUnit.Relative) },
+            };
+            gradient.GradientStops.Add(new GradientStop(Colors.Red, 0));
+            gradient.GradientStops.Add(new GradientStop(Colors.Red, 0.5f));
+            gradient.GradientStops.Add(new GradientStop(Colors.Blue, 0.5f));
+            gradient.GradientStops.Add(new GradientStop(Colors.Blue, 1));
+            var picture = new RectShape { Width = { Value = 120 }, Height = { Value = 80 } };
+            picture.Fill.Value = gradient;
+            picture.FilterEffect.Value = effects;
+
+            return VulkanTestEnvironment.InvokeOnRenderThread(() =>
+            {
+                using var resource = (Drawable.Resource)picture.ToResource(CompositionContext.Default);
+                using Bitmap rendered = GoldenImageHarness.RenderAtScale(resource, new PixelSize(1920, 1080), 1, null, Colors.Transparent);
+                using Bitmap bytes = rendered.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+                return Enumerable.Range(0, bytes.Height).Select(y => bytes.GetRow(y).ToArray()).ToArray();
+            });
         }
     }
 }

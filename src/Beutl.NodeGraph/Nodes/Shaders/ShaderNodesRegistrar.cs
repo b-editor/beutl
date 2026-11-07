@@ -54,6 +54,7 @@ internal static class ShaderNodesRegistrar
                 .Add<ShaderIndexBufferNode>(NodeGraphStrings.ShaderIndexBufferNode)
                 .Add<ShaderLoadNode>(NodeGraphStrings.ShaderLoadNode)
                 .Add<ShaderPartialRenderingNode>(NodeGraphStrings.ShaderPartialRenderingNode)
+                .Add<ShaderPartialImagesNode>(NodeGraphStrings.ShaderPartialImagesNode)
                 .Register())
             .Register();
     }
