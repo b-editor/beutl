@@ -15,7 +15,8 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.RepeatEffect), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class RepeatEffect : FilterEffect
 {
-    private const int MaxCount = 100;
+    // Enough for a 10 x 10 tile with no spacing to fill a 4K frame, which takes 384 x 216.
+    private const int MaxCount = 400;
 
     public RepeatEffect() => ScanProperties<RepeatEffect>();
 
