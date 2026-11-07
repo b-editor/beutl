@@ -78,8 +78,8 @@ public sealed class FilterEffectAlphaReadbackTests
         });
     }
 
-    // FlatShadow and StrokeEffect outline these contours, and PartsSplitEffect splits by the hierarchy, so
-    // identical contours from both readbacks give identical effect output.
+    // PartsSplitEffect splits by these contours and their hierarchy, so identical contours from both readbacks give
+    // identical effect output.
     [Test]
     public void FindContours_DirectAlphaReadbackMatchesLegacyContoursExactly()
     {
