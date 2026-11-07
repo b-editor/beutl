@@ -361,6 +361,34 @@ public partial class ShaderPartialRenderingNode : GraphNode
     }
 }
 
+/// <summary>
+/// Lets the images a pass uses hold only the part of their bounds something needs, so that a picture far larger than the
+/// frame keeps its resolution. The pass also renders only that part of its output, as with partial rendering.
+/// </summary>
+/// <remarks>
+/// The pass has to find every pixel through the images' parameters, since their raster bounds then describe the part they
+/// hold and the UVs cover the part its target holds. A target that shares its source's frame, as a pass's own target does
+/// when it has no padding, reads its source at the UVs as before. An input region says what part of an input each output
+/// pixel reads; without one the input stays whole.
+/// </remarks>
+public partial class ShaderPartialImagesNode : GraphNode
+{
+    public ShaderPartialImagesNode()
+    {
+        Output = AddOutput<ShaderPassConfiguration>("Output", ShaderPortDisplays.Get("Settings"));
+    }
+
+    public OutputPort<ShaderPassConfiguration> Output { get; }
+
+    public partial class Resource
+    {
+        public override void Update(GraphCompositionContext context)
+        {
+            Output = new(_ => static recorded => recorded.Pass.PartialImages());
+        }
+    }
+}
+
 public enum ShaderDrawMode
 {
     [Display(Name = nameof(NodeGraphStrings.ShaderDrawMode_Vertices), ResourceType = typeof(NodeGraphStrings))]

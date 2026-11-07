@@ -286,6 +286,46 @@ public class ShaderNodeRecordingTests
     }
 
     [Test]
+    public void PartialImagesReachThePass()
+    {
+        var (graph, output) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        graph.Connect(pass.Settings, graph.Add(new ShaderPartialImagesNode()).Output);
+        graph.Connect(output.InputPort, pass.Out("color"));
+
+        ShaderPassDescription recorded = ShaderNodeTestHelpers.Record(graph).Passes.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recorded.PartialImages, Is.True);
+            Assert.That(recorded.PartialRendering, Is.True);
+        });
+    }
+
+    // A frame in the middle of a picture far wider than one buffer keeps its resolution only when the pass's images can
+    // hold the part it shows. Partial rendering alone keeps them whole.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void PartialImagesKeepTheResolutionOfAFrameOfAWidePicture(bool partialImages)
+    {
+        var (graph, output) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        graph.Connect(pass.In("source"), graph.Add(new ShaderInputRegionNode()).Output);
+        graph.Connect(pass.Settings, partialImages
+            ? graph.Add(new ShaderPartialImagesNode()).Output
+            : graph.Add(new ShaderPartialRenderingNode()).Output);
+        graph.Connect(output.InputPort, pass.Out("color"));
+        ShaderGraphDescription recorded = ShaderNodeTestHelpers.Record(graph);
+        // 100 copies of a 4K picture across and down, and a 4K frame in their middle.
+        var picture = new Rect(-192_000, -108_000, 384_000, 216_000);
+        var frame = new Rect(-1920, -1080, 3840, 2160);
+
+        float density = recorded.ClampWorkingScale(picture, 1, default, required: frame);
+
+        Assert.That(density, partialImages ? Is.EqualTo(1) : Is.LessThan(0.1f));
+    }
+
+    [Test]
     public void HalfATessellationPairReportsOnItsNode()
     {
         var (graph, output) = NewGraph();
