@@ -295,6 +295,55 @@ public sealed class ColorPaletteViewTests
         }
     }
 
+    // Without a brush, a pick in the palette makes a solid brush of that color, as the solid tab and a pick in it do.
+    [AvaloniaTest]
+    public void A_color_picked_in_the_palette_tab_without_a_brush_makes_a_solid_brush_of_it()
+    {
+        ColorPaletteService previous = ColorPaletteService.Instance;
+        var service = new ColorPaletteService(new TestPreferences());
+        ColorPaletteService.Instance = service;
+        var shape = new Beutl.Graphics.Shapes.RectShape { Fill = { Value = null } };
+        using var history = new PropertyEditorTestHost.HistoryScope(shape);
+        using var viewModel = new Beutl.Editor.Components.PropertyEditors.ViewModels.BrushEditorViewModel(
+            new Beutl.PropertyAdapters.SimplePropertyAdapter<Beutl.Media.Brush?>(
+                (Beutl.SimpleProperty<Beutl.Media.Brush?>)shape.Fill, shape));
+        viewModel.Accept(PropertyEditorTestHost.ServiceVisitor.For(history.History));
+        var editor = new Beutl.Editor.Components.PropertyEditors.Views.BrushEditor
+        {
+            DataContext = viewModel,
+            Width = 360,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
+        };
+        var window = new Window { Content = editor, Width = 900, Height = 900 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            ClickWhenReachable(window, editor.BrushPreviewButton);
+            var presenter = window.GetVisualDescendants().OfType<BrushEditorFlyoutPresenter>().Single();
+            ClickWhenReachable(window, presenter.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>()
+                .Single(b => b.Name == "PaletteTabButton"));
+            ColorPaletteItem teal = presenter.GetVisualDescendants().OfType<ColorPaletteItem>().First(i => i.Color == s_teal);
+            teal.BringIntoView();
+            ClickWhenReachable(window, teal);
+
+            Assert.That(shape.Fill.Value, Is.TypeOf<Beutl.Media.SolidColorBrush>());
+            Assert.That(((Beutl.Media.SolidColorBrush)shape.Fill.Value!).Color.Value,
+                Is.EqualTo(Beutl.Media.Color.FromUInt32(s_teal.ToUInt32())));
+            Assert.That(presenter.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>()
+                .Single(b => b.Name == "SolidBrushTabButton").IsChecked, Is.True);
+
+            ClickWhenReachable(window, editor.BrushPreviewButton);
+            Assert.That(service.RecentColors, Is.EqualTo(new[] { s_teal }));
+        }
+        finally
+        {
+            window.Close();
+            ColorPaletteService.Instance = previous;
+        }
+    }
+
     // The color buttons of layers, markers, gradient stops and settings open Beutl's picker, palettes included. A
     // layer's color is opaque, and the button applies the color confirmed, not the one picked before.
     [AvaloniaTest]
