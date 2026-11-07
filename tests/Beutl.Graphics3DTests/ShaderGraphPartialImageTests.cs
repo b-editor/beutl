@@ -100,7 +100,35 @@ public sealed class ShaderGraphPartialImageTests
             yield return new TestCaseData(new Bokeh { Radius = { Value = 8 }, Highlight = { Value = 50 } }, scale).SetName($"Bokeh({scale})");
             yield return new TestCaseData(new Bokeh { Radius = { Value = 40 } }, scale).SetName($"DownsampledBokeh({scale})");
             yield return new TestCaseData(new RepeatEffect { Columns = { Value = 3 }, Rows = { Value = 2 }, Spacing = { Value = new Size(7, 5) }, Offset = { Value = new Point(3.5f, 1.25f) } }, scale).SetName($"Repeat({scale})");
+            yield return new TestCaseData(new RadialBlur { Amount = { Value = 30 } }, scale).SetName($"ZoomBlur({scale})");
+            yield return new TestCaseData(new RadialBlur { Mode = { Value = RadialBlurMode.Spin }, Amount = { Value = 30 } }, scale).SetName($"SpinBlur({scale})");
+            yield return new TestCaseData(new LightRays { Length = { Value = 100 }, Threshold = { Value = 0.25f } }, scale).SetName($"LightRays({scale})");
         }
+    }
+
+    // A radial blur and light rays read between each point and their center, so a frame around the center of a wide picture
+    // needs only the part of it that the frame shows.
+    private static IEnumerable<TestCaseData> RadialEffects()
+    {
+        yield return new TestCaseData(new RadialBlur { Amount = { Value = 10 } }).SetName("{m}(ZoomBlur)");
+        yield return new TestCaseData(new RadialBlur { Mode = { Value = RadialBlurMode.Spin }, Amount = { Value = 10 } }).SetName("{m}(SpinBlur)");
+        yield return new TestCaseData(new LightRays()).SetName("{m}(LightRays)");
+    }
+
+    [TestCaseSource(nameof(RadialEffects))]
+    public void AFrameOfAWidePictureKeepsItsDensityUnderAnEffectThatReadsTowardACenter(FilterEffect effect)
+    {
+        ShaderGraphDescription graph = ShaderGraphEffectTests.Record(effect);
+        // 100 copies of a 4K picture across and down, and a 4K frame in their middle.
+        Rect picture = new(-192_000, -108_000, 384_000, 216_000);
+        Rect frame = new(-1920, -1080, 3840, 2160);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(graph.ClampWorkingScale(picture, 1, default, required: frame), Is.EqualTo(1));
+            Assert.That(graph.ClampWorkingScale(picture, 1, default, required: Rect.Empty), Is.EqualTo(1), "A plan that does not know it yet.");
+            Assert.That(graph.ClampWorkingScale(picture, 1, default), Is.LessThan(1), "The whole output.");
+        });
     }
 
     [TestCaseSource(nameof(Effects))]

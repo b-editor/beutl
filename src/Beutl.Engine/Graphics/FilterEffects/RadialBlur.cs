@@ -89,11 +89,13 @@ public sealed partial class RadialBlur : FilterEffect
             {
                 var samples = new Vector2[state.Samples];
                 var transforms = new Matrix[state.Samples];
+                var reads = new Matrix[state.Samples];
                 for (int i = 0; i < samples.Length; i++)
                 {
                     Vector2 inverse = samples[i] = state.GetSampleTransform(i);
                     var forward = new Vector2(inverse.X, -inverse.Y) / inverse.LengthSquared();
                     transforms[i] = new Matrix(forward.X, forward.Y, -forward.Y, forward.X, 0, 0);
+                    reads[i] = new Matrix(inverse.X, inverse.Y, -inverse.Y, inverse.X, 0, 0);
                 }
                 ShaderBuffer sampleBuffer = graph.Buffer<Vector2>("samples", samples);
                 ShaderImage output = graph.Image2D("radial-blur", graph.Source);
@@ -107,6 +109,10 @@ public sealed partial class RadialBlur : FilterEffect
                     pass.StorageBuffer(3, sampleBuffer, ResourceAccess.Read);
                     pass.PushConstants(Vector2.Zero);
                     pass.BoundsOriginConstants(state.Center, 0);
+                    // A sample turns and scales a point's offset from the center, so a part of the output reads only
+                    // its copies under those transforms. The shader finds every pixel through the frames.
+                    pass.InputRegionAbout(0, state.Center, reads);
+                    pass.PartialImages();
                     pass.ColorAttachment(0, output);
                 });
                 return graph.Output(output);

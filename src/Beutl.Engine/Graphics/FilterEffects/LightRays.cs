@@ -43,7 +43,10 @@ public sealed partial class LightRays : FilterEffect
     [Range(0, 100)]
     public IExpressionProperty<float> SoftKnee { get; } = Property.CreateAnimatable(50f);
 
-    private static readonly ShaderProgram s_rays = ShaderProgram.Fullscreen(new ShaderSource("""
+    // Each ray pass reads this many points between a pixel and the center.
+    private const int RaySamples = 8;
+
+    private static readonly ShaderProgram s_rays = ShaderProgram.Fullscreen(new ShaderSource($$"""
         #version 450
         layout(binding = 0) uniform sampler2D image;
         layout(binding = 1, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
@@ -56,7 +59,7 @@ public sealed partial class LightRays : FilterEffect
             float total = 0;
             float factor = pc.step.z;
             float weight = 1;
-            for (int i = 0; i < 8; i++) {
+            for (int i = 0; i < {{RaySamples}}; i++) {
                 vec2 p = pc.center.xy + (position - pc.center.xy) * factor;
                 color += textureLod(image, (p - src.raster.xy) / src.raster.zw, 0) * weight;
                 total += weight;
@@ -101,6 +104,11 @@ public sealed partial class LightRays : FilterEffect
                         float logStep = MathF.Log(stretch) * step;
                         var constants = new Vector4(MathF.Exp(-logStep), MathF.Exp(-values.Decay * step),
                             level == 0 ? MathF.Exp(-logStep / 2) : 1, 0);
+                        // The shader's zooms toward the center, each of which can reach outside a requested part.
+                        var reads = new Matrix[RaySamples];
+                        float factor = constants.Z;
+                        for (int i = 0; i < reads.Length; i++, factor *= constants.X)
+                            reads[i] = Matrix.CreateScale(factor, factor);
                         graph.Fullscreen(rays.Name, s_rays, pass =>
                         {
                             pass.SampledImage(0, source);
@@ -108,7 +116,8 @@ public sealed partial class LightRays : FilterEffect
                             pass.ImageParameters(2, rays);
                             pass.PushConstants((Vector4.Zero, constants));
                             pass.BoundsOriginConstants(values.Center, 0);
-                            // Keep the whole input: intermediate zooms can reach outside a requested output tile.
+                            pass.InputRegionAbout(0, values.Center, reads);
+                            pass.PartialImages();
                             pass.ColorAttachment(0, rays);
                         });
                         previous = rays;

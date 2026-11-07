@@ -879,6 +879,47 @@ public sealed class RepeatEffectTests
         Assert.That(Across(rows, 620, 1000, 1059, 1060, 1119, 1200, 1259, 1260, 1319), Is.EqualTo("RRBBRRBB"));
     }
 
+    // A radial blur and light rays read between each point and the grid's middle, which is the frame's here, so the copies
+    // outside the frame add nothing to it, and a grid too wide for one buffer has to draw like one that fits.
+    [TestCase(RadialBlurMode.Zoom)]
+    [TestCase(RadialBlurMode.Spin)]
+    public void A_wide_grid_under_a_radial_blur_draws_like_a_small_one(RadialBlurMode mode)
+        => AssertAWideGridDrawsLikeASmallOne(() => new RadialBlur
+        {
+            Mode = { Value = mode },
+            // A spin of 4 degrees keeps what the corners of the frame read on the small grid.
+            Amount = { Value = mode == RadialBlurMode.Spin ? 4 : 10 },
+        });
+
+    [Test]
+    public void A_wide_grid_under_light_rays_draws_like_a_small_one()
+        => AssertAWideGridDrawsLikeASmallOne(() => new LightRays { Threshold = { Value = 0.1f } });
+
+    private static void AssertAWideGridDrawsLikeASmallOne(Func<FilterEffect> effect)
+    {
+        byte[][] small = RenderUnder(10);
+
+        byte[][] wide = RenderUnder(100);
+
+        (int Difference, int X, int Y) largest = default;
+        for (int y = 0; y < wide.Length; y++)
+            for (int x = 0; x < wide[y].Length; x++)
+            {
+                int difference = Math.Abs(wide[y][x] - small[y][x]);
+                if (difference > largest.Difference)
+                    largest = (difference, x / 4, y);
+            }
+        Assert.That(largest.Difference, Is.LessThanOrEqualTo(2), $"at ({largest.X}, {largest.Y})");
+
+        byte[][] RenderUnder(int count)
+        {
+            var effects = new FilterEffectGroup();
+            effects.Children.Add(WideGrid(count));
+            effects.Children.Add(effect());
+            return RenderInFrame(effects, linear: true);
+        }
+    }
+
     [TestCase(30)]
     [TestCase(60)]
     [TestCase(100)]

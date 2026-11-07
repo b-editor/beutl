@@ -33,6 +33,7 @@ public sealed partial class ShaderPassBuilder
     private bool _partialRendering;
     private bool _partialImages;
     private readonly Dictionary<int, ShaderInputRegion> _inputRegions = [];
+    private readonly Dictionary<int, ShaderOriginInputRegion> _originInputRegions = [];
 
     internal ShaderPassBuilder(ShaderGraphBuilder graph, string name, ShaderProgram program, bool fullscreen)
     {
@@ -82,7 +83,22 @@ public sealed partial class ShaderPassBuilder
         PartialRendering();
         ArgumentOutOfRangeException.ThrowIfNegative(binding);
         region.Validate();
+        _originInputRegions.Remove(binding);
         _inputRegions[binding] = region;
+    }
+
+    /// <summary>Declares that a sampled-image binding is read at each output point moved by every one of
+    /// <paramref name="transforms"/> about <paramref name="origin"/>, and enables partial rendering.</summary>
+    /// <remarks>The origin is resolved in the complete input group's bounds, as <see cref="BoundsOriginConstants"/> resolves it.
+    /// This replaces an <see cref="InputRegion"/> of the binding, as that replaces this.</remarks>
+    internal void InputRegionAbout(int binding, RelativePoint origin, ReadOnlySpan<Matrix> transforms)
+    {
+        PartialRendering();
+        ArgumentOutOfRangeException.ThrowIfNegative(binding);
+        var region = new ShaderOriginInputRegion(origin, [.. transforms]);
+        region.Validate();
+        _inputRegions.Remove(binding);
+        _originInputRegions[binding] = region;
     }
 
     public void StorageBuffer(int binding, ShaderBuffer buffer, ResourceAccess access)
@@ -359,6 +375,7 @@ public sealed partial class ShaderPassBuilder
             PartialRendering = _partialRendering,
             PartialImages = _partialImages,
             InputRegions = _inputRegions.ToImmutableDictionary(),
+            OriginInputRegions = _originInputRegions.ToImmutableDictionary(),
             RuntimeConstants = [.. runtimeConstants],
             WorkImage = _workImage
         };
@@ -413,6 +430,8 @@ internal sealed record ShaderPassDescription(string Name, ShaderProgram? Program
     public bool PartialRendering { get; init; }
     public bool PartialImages { get; init; }
     public ImmutableDictionary<int, ShaderInputRegion> InputRegions { get; init; } = ImmutableDictionary<int, ShaderInputRegion>.Empty;
+    public ImmutableDictionary<int, ShaderOriginInputRegion> OriginInputRegions { get; init; }
+        = ImmutableDictionary<int, ShaderOriginInputRegion>.Empty;
     public ShaderImage? WorkImage { get; init; }
 
     /// <summary>Whether each output pixel can be evaluated on its own, from inputs the pass only reads.</summary>

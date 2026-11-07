@@ -70,12 +70,12 @@ internal sealed class ShaderGraphRegions
             {
                 if (binding.Metadata || binding.Resource is not ShaderImage image || (binding.Access & ResourceAccess.Read) == 0) continue;
                 Rect input = Frames[image.Id].Bounds;
-                if (local && pass.InputRegions.TryGetValue(binding.Binding, out ShaderInputRegion contract)
+                if (local && (pass.InputRegions.ContainsKey(binding.Binding) || pass.OriginInputRegions.ContainsKey(binding.Binding))
                     && binding.Sampler.AddressU is SamplerAddressMode.ClampToEdge or SamplerAddressMode.ClampToBorder
                     && binding.Sampler.AddressV is SamplerAddressMode.ClampToEdge or SamplerAddressMode.ClampToBorder)
                 {
                     if (output.IsEmpty) continue;
-                    input = contract.Map(output);
+                    input = MapInput(pass, binding.Binding, output);
                     Rect bounds = Frames[image.Id].RasterBounds;
                     float left = input.X, right = input.Right, top = input.Y, bottom = input.Bottom;
                     if (binding.Sampler.AddressU == SamplerAddressMode.ClampToEdge)
@@ -103,6 +103,15 @@ internal sealed class ShaderGraphRegions
             region = region.Intersect(Frames[image.Id].Bounds);
             required[image.Root.Id] = Union(required.GetValueOrDefault(image.Root.Id), region);
         }
+    }
+
+    private Rect MapInput(ShaderPassDescription pass, int binding, Rect output)
+    {
+        if (pass.InputRegions.TryGetValue(binding, out ShaderInputRegion contract))
+            return contract.Map(output);
+        // The origin a pass's constants receive, so that what is required is what the pass reads.
+        ShaderImageFrame source = Frames[0];
+        return pass.OriginInputRegions[binding].Map(output, source.ReferenceBounds ?? source.Bounds);
     }
 
     private void FitToRequired(ImmutableArray<ShaderImage> images, Dictionary<int, Rect> required, Vector gridOffset)

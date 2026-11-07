@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using System.Collections.Immutable;
+using Beutl.Graphics.Rendering;
 
 namespace Beutl.Graphics.Shaders;
 
@@ -23,6 +24,33 @@ public readonly record struct ShaderInputRegion(Matrix Transform, float Padding 
     internal Rect Map(Rect output)
     {
         Rect result = output.TransformToAABB(Transform).Inflate(Padding);
+        RenderRectValidation.ThrowIfInvalidResult(result, "The shader input region exceeds finite coordinates.");
+        return result;
+    }
+}
+
+/// <summary>A footprint read at each output point moved by every one of several transforms about an origin, as a zoom or
+/// spin toward a center reads.</summary>
+/// <remarks>The origin is resolved in the complete input group's bounds, as a pass's bounds origin is. No single affine
+/// mapping covers several such reads: one that is far from the origin moves far.</remarks>
+internal readonly record struct ShaderOriginInputRegion(RelativePoint Origin, ImmutableArray<Matrix> Transforms)
+{
+    internal void Validate()
+    {
+        if (!float.IsFinite(Origin.Point.X) || !float.IsFinite(Origin.Point.Y) || Transforms.IsDefaultOrEmpty)
+            throw new ArgumentException("An input region about an origin requires a finite origin and at least one mapping.");
+        foreach (Matrix transform in Transforms)
+            new ShaderInputRegion(transform).Validate();
+    }
+
+    internal Rect Map(Rect output, Rect groupBounds)
+    {
+        Point origin = groupBounds.Position + Origin.ToPixels(groupBounds.Size);
+        Rect centered = output.Translate(-origin);
+        Rect result = centered.TransformToAABB(Transforms[0]);
+        for (int index = 1; index < Transforms.Length; index++)
+            result = result.Union(centered.TransformToAABB(Transforms[index]));
+        result = result.Translate(origin);
         RenderRectValidation.ThrowIfInvalidResult(result, "The shader input region exceeds finite coordinates.");
         return result;
     }
