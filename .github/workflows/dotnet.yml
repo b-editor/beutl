@@ -271,9 +271,16 @@ jobs:
         if: matrix.suite == 'other'
         env:
           FFMPEG_URL: https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-n8.1.3-9-g29e619e767-linux64-gpl-shared-8.1.tar.xz
+          # The same file through the API, which kept serving it while the download page above answered 504.
+          FFMPEG_ASSET_API_URL: https://api.github.com/repos/FFmpeg-Builds/FFmpeg-Builds/releases/assets/600951445
           FFMPEG_SHA256: 76649c19a7a4615b367251ba4a8adc643f65831278a00e7a0c38398f7f06484b
+          GH_TOKEN: ${{ github.token }}
         run: |
-          curl -fsSL --retry 3 -o "$RUNNER_TEMP/ffmpeg.tar.xz" "$FFMPEG_URL"
+          if ! curl -fsSL --retry 3 -o "$RUNNER_TEMP/ffmpeg.tar.xz" "$FFMPEG_URL"; then
+            echo "::warning::The FFmpeg download page failed; fetching the same file through the API."
+            curl -fsSL --retry 3 -H "Accept: application/octet-stream" -H "Authorization: Bearer $GH_TOKEN" \
+              -o "$RUNNER_TEMP/ffmpeg.tar.xz" "$FFMPEG_ASSET_API_URL"
+          fi
           echo "$FFMPEG_SHA256  $RUNNER_TEMP/ffmpeg.tar.xz" | sha256sum --check --strict
           mkdir "$RUNNER_TEMP/ffmpeg"
           tar -xJf "$RUNNER_TEMP/ffmpeg.tar.xz" -C "$RUNNER_TEMP/ffmpeg" --strip-components=1
