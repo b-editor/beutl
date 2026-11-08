@@ -552,6 +552,27 @@
   <data name="ColorGrading" xml:space="preserve">
     <value>カラーグレーディング</value>
   </data>
+  <data name="ColorGrading_WhiteBalance" xml:space="preserve">
+    <value>ホワイトバランス</value>
+  </data>
+  <data name="ColorGrading_Tone" xml:space="preserve">
+    <value>トーン</value>
+  </data>
+  <data name="ColorGrading_Color" xml:space="preserve">
+    <value>カラー</value>
+  </data>
+  <data name="ColorGrading_Pivot" xml:space="preserve">
+    <value>ピボット</value>
+  </data>
+  <data name="ColorGrading_TonalRange" xml:space="preserve">
+    <value>輝度範囲</value>
+  </data>
+  <data name="ColorGrading_ShowAdjustments" xml:space="preserve">
+    <value>調整スライダーを表示</value>
+  </data>
+  <data name="ColorGrading_ResetAll" xml:space="preserve">
+    <value>すべてリセット</value>
+  </data>
   <data name="Number_of_Layers" xml:space="preserve">
     <value>レイヤーの数</value>
   </data>

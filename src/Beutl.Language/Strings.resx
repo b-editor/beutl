@@ -557,6 +557,27 @@
   <data name="ColorGrading" xml:space="preserve">
     <value>Color Grading</value>
   </data>
+  <data name="ColorGrading_WhiteBalance" xml:space="preserve">
+    <value>White Balance</value>
+  </data>
+  <data name="ColorGrading_Tone" xml:space="preserve">
+    <value>Tone</value>
+  </data>
+  <data name="ColorGrading_Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="ColorGrading_Pivot" xml:space="preserve">
+    <value>Pivot</value>
+  </data>
+  <data name="ColorGrading_TonalRange" xml:space="preserve">
+    <value>Tonal Range</value>
+  </data>
+  <data name="ColorGrading_ShowAdjustments" xml:space="preserve">
+    <value>Show Adjustments</value>
+  </data>
+  <data name="ColorGrading_ResetAll" xml:space="preserve">
+    <value>Reset All</value>
+  </data>
   <data name="Number_of_Layers" xml:space="preserve">
     <value>Number of Layers</value>
   </data>

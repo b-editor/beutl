@@ -1,0 +1,659 @@
+﻿using System.Globalization;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Headless.NUnit;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Styling;
+using Avalonia.VisualTree;
+using Beutl.Configuration;
+using Beutl.Controls.PropertyEditors;
+using Beutl.Editor;
+using Beutl.Editor.Components.ColorGradingTab.ViewModels;
+using Beutl.Editor.Components.ColorGradingTab.Views;
+using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Services;
+using Beutl.Engine;
+using Beutl.Graphics.Effects;
+using Beutl.Graphics.Shapes;
+using Beutl.Media;
+using Beutl.PropertyAdapters;
+using Beutl.Testing.Headless;
+using Beutl.ViewModels;
+using Moq;
+using Reactive.Bindings;
+using static Beutl.HeadlessUITests.PropertyEditorTestHost;
+using AvaPoint = Avalonia.Point;
+
+namespace Beutl.HeadlessUITests;
+
+[TestFixture]
+public sealed class ColorGradingTabTests
+{
+    public enum DragEnd { CaptureLoss, Playback, Escape, Undo }
+
+    // Cb and Cr as the vectorscope plots them (BT.709).
+    private static Vector ScopeChroma(GradingColor c)
+        => new((-0.11457 * c.R) - (0.38543 * c.G) + (0.5 * c.B), (0.5 * c.R) - (0.45415 * c.G) - (0.04585 * c.B));
+
+    [Test]
+    [TestCase(1f, 0f, 0f)]
+    [TestCase(0f, 1f, 0f)]
+    [TestCase(0f, 0f, 1f)]
+    [TestCase(0.05f, 0f, -0.05f)]
+    [TestCase(-0.2f, 0.3f, 0.1f)]
+    public void The_chroma_follows_the_vectorscope_axes(float r, float g, float b)
+    {
+        var offset = new GradingColor(r, g, b);
+        Vector chroma = ColorBalance.GetChroma(offset + GradingColor.One, GradingColor.One);
+        Vector expected = ScopeChroma(offset);
+        Assert.Multiple(() =>
+        {
+            Assert.That(chroma.X, Is.EqualTo(expected.X).Within(1e-4));
+            Assert.That(chroma.Y, Is.EqualTo(expected.Y).Within(1e-4));
+        });
+    }
+
+    [Test]
+    public void A_chroma_shift_keeps_the_luma_and_splitting_a_color_loses_nothing()
+    {
+        var random = new Random(4242);
+        for (int i = 0; i < 200; i++)
+        {
+            var neutral = new GradingColor(Next(), Next(), Next());
+            var color = new GradingColor(Next(), Next(), Next());
+            Vector chroma = ColorBalance.GetChroma(color, neutral);
+            GradingColor gray = ColorBalance.WithoutChroma(color, neutral);
+            GradingColor rebuilt = gray + ColorBalance.ChromaOffset(chroma);
+            GradingColor grayOffset = gray - neutral;
+            Assert.Multiple(() =>
+            {
+                Assert.That(ColorBalance.Luma(ColorBalance.ChromaOffset(chroma)), Is.EqualTo(0).Within(1e-5));
+                Assert.That(rebuilt.R, Is.EqualTo(color.R).Within(1e-5));
+                Assert.That(rebuilt.G, Is.EqualTo(color.G).Within(1e-5));
+                Assert.That(rebuilt.B, Is.EqualTo(color.B).Within(1e-5));
+                Assert.That(grayOffset.G, Is.EqualTo(grayOffset.R).Within(1e-5));
+                Assert.That(grayOffset.B, Is.EqualTo(grayOffset.R).Within(1e-5));
+            });
+        }
+
+        float Next() => (float)((random.NextDouble() * 2) - 1);
+    }
+
+    [AvaloniaTest]
+    public void Dragging_the_puck_right_pushes_gain_toward_blue_and_up_toward_red_keeping_the_luma()
+    {
+        using var host = new WheelHost(effect => effect.Gain);
+        AvaPoint start = host.PadCenter();
+        host.Drag(start, start + new Vector(30, 0));
+        GradingColor right = host.Property.Value;
+        Vector chroma = ColorBalance.GetChroma(right, GradingColor.One);
+        Assert.Multiple(() =>
+        {
+            Assert.That(right.B, Is.GreaterThan(1f));
+            Assert.That(chroma.X, Is.GreaterThan(0.01));
+            Assert.That(chroma.Y, Is.EqualTo(0).Within(1e-6));
+            Assert.That(ColorBalance.Luma(right - GradingColor.One), Is.EqualTo(0).Within(1e-6));
+            Assert.That(host.History.UndoCount, Is.EqualTo(1));
+        });
+
+        // Start a little off the last press, which would otherwise count as a double click.
+        AvaPoint next = host.PadCenter() + new Vector(6, 0);
+        host.Drag(next, next + new Vector(0, -30));
+        GradingColor up = host.Property.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(up.R, Is.GreaterThan(right.R));
+            Assert.That(ColorBalance.GetChroma(up, GradingColor.One).Y, Is.GreaterThan(0.01));
+            Assert.That(ColorBalance.Luma(up - GradingColor.One), Is.EqualTo(0).Within(1e-6));
+            Assert.That(host.History.UndoCount, Is.EqualTo(2));
+        });
+    }
+
+    // Without live preview the puck moves alone until the drag ends, and the drag ends the same ways.
+    [AvaloniaTest]
+    [TestCase(DragEnd.CaptureLoss, true)]
+    [TestCase(DragEnd.Playback, true)]
+    [TestCase(DragEnd.Escape, true)]
+    [TestCase(DragEnd.Undo, true)]
+    [TestCase(DragEnd.CaptureLoss, false)]
+    [TestCase(DragEnd.Playback, false)]
+    [TestCase(DragEnd.Escape, false)]
+    [TestCase(DragEnd.Undo, false)]
+    public void A_puck_drag_keeps_on_capture_loss_and_playback_and_reverts_on_Escape_and_Undo(DragEnd end, bool live)
+    {
+        using var host = new WheelHost(effect => effect.Lift);
+        host.IsLivePreviewEnabled.Value = live;
+        IPointer? pointer = null;
+        host.Pad.AddHandler(InputElement.PointerPressedEvent, (_, e) => pointer = e.Pointer,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        AvaPoint start = host.PadCenter();
+        host.Window.MouseMove(start);
+        host.Window.MouseDown(start, MouseButton.Left);
+        host.Window.MouseMove(start + new Vector(30, 0), RawInputModifiers.LeftMouseButton);
+        HeadlessTestHelpers.Render();
+        GradingColor reached = host.Wheel.Color;
+        Assert.That(reached, Is.Not.EqualTo(GradingColor.Zero));
+        Assert.That(host.Property.Value, Is.EqualTo(live ? reached : GradingColor.Zero));
+        Assert.That(host.History.IsEditing, Is.True, "The drag must hold an edit session.");
+
+        switch (end)
+        {
+            case DragEnd.CaptureLoss:
+                pointer!.Capture(null);
+                break;
+            case DragEnd.Playback:
+                host.Playing.Value = true;
+                host.Playing.Value = false;
+                break;
+            case DragEnd.Escape:
+                host.Window.KeyPress(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+                host.Window.KeyRelease(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+                break;
+            case DragEnd.Undo:
+                Assert.That(host.History.TryCancelGesture(), Is.True);
+                break;
+        }
+
+        HeadlessTestHelpers.Render();
+        Assert.That(host.History.IsEditing, Is.False, "The end closes the session before any release.");
+        Assert.That(host.Pad.IsDragging, Is.False, "The pad's drag, and the cursor it hid, end before the release.");
+        host.Window.MouseMove(start + new Vector(60, 0), RawInputModifiers.LeftMouseButton);
+        host.Window.MouseUp(start + new Vector(60, 0), MouseButton.Left);
+        HeadlessTestHelpers.Render();
+
+        bool kept = end is DragEnd.CaptureLoss or DragEnd.Playback;
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Property.Value, Is.EqualTo(kept ? reached : GradingColor.Zero));
+            Assert.That(host.Wheel.Color, Is.EqualTo(host.Property.Value), "The puck shows what the effect holds.");
+            Assert.That(host.History.UndoCount, Is.EqualTo(kept ? 1 : 0));
+            Assert.That(host.History.IsEditing, Is.False);
+        });
+    }
+
+    // The wheel's menu offers the live preview setting; with it off, the puck follows a drag but the effect takes
+    // the color only on release, as one undo step.
+    [AvaloniaTest]
+    public void Without_live_preview_a_puck_drag_applies_on_release()
+    {
+        using var host = new WheelHost(effect => effect.Lift);
+        host.IsLivePreviewEnabled.Value = false;
+        AvaPoint start = host.PadCenter();
+        AvaPoint end = start + new Vector(30, 0);
+        host.Window.MouseMove(start);
+        host.Window.MouseDown(start, MouseButton.Left);
+        host.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Wheel.Color, Is.Not.EqualTo(GradingColor.Zero), "The puck follows the drag.");
+            Assert.That(host.Property.Value, Is.EqualTo(GradingColor.Zero));
+        });
+
+        host.Window.MouseUp(end, MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Property.Value, Is.Not.EqualTo(GradingColor.Zero));
+            Assert.That(host.Property.Value, Is.EqualTo(host.Wheel.Color));
+            Assert.That(host.History.UndoCount, Is.EqualTo(1));
+        });
+        Assert.That(host.History.Undo(), Is.True);
+        Assert.That(host.Property.Value, Is.EqualTo(GradingColor.Zero));
+    }
+
+    // The old wheel turned a color into hue, saturation and value, which made every channel negative when one was.
+    [AvaloniaTest]
+    public void The_jog_moves_r_g_and_b_alike_and_keeps_a_color_of_mixed_signs()
+    {
+        using var host = new WheelHost(effect => effect.Shadows, new GradingColor(0.05f, 0f, -0.05f));
+        GradingWheel jog = host.Wheel.GetVisualDescendants().OfType<GradingWheel>().Single();
+        AvaPoint start = HeadlessTestHelpers.Center(jog, host.Window);
+        host.Drag(start, start + new Vector(40, 0));
+        GradingColor value = host.Property.Value;
+        float delta = value.R - 0.05f;
+        Assert.Multiple(() =>
+        {
+            Assert.That(delta, Is.EqualTo(40 / jog.Bounds.Width).Within(1e-4), "A drag across the whole jog adds 1.");
+            Assert.That(value.G, Is.EqualTo(delta).Within(1e-6));
+            Assert.That(value.B, Is.EqualTo(-0.05f + delta).Within(1e-6));
+            Assert.That(host.History.UndoCount, Is.EqualTo(1));
+        });
+    }
+
+    [AvaloniaTest]
+    public void The_reset_button_returns_gain_to_one_in_one_step()
+    {
+        using var host = new WheelHost(effect => effect.Gain, new GradingColor(1.1f, 1.02f, 0.95f));
+        Button reset = host.Wheel.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "PART_ResetButton");
+        Assert.That(reset.IsEnabled, Is.True);
+        HeadlessTestHelpers.Click(reset);
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Property.Value, Is.EqualTo(GradingColor.One));
+            Assert.That(host.History.UndoCount, Is.EqualTo(1));
+            Assert.That(reset.IsEnabled, Is.False, "Nothing is left to reset.");
+        });
+    }
+
+    [AvaloniaTest]
+    public void A_double_click_on_the_pad_removes_only_the_chroma()
+    {
+        var start = new GradingColor(0.05f, 0f, -0.05f);
+        using var host = new WheelHost(effect => effect.Lift, start);
+        AvaPoint center = host.PadCenter() + new Vector(10, 10);
+        host.Window.MouseDown(center, MouseButton.Left);
+        host.Window.MouseUp(center, MouseButton.Left);
+        host.Window.MouseDown(center, MouseButton.Left);
+        host.Window.MouseUp(center, MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        GradingColor value = host.Property.Value;
+        float luma = ColorBalance.Luma(start);
+        Assert.Multiple(() =>
+        {
+            Assert.That(value.R, Is.EqualTo(luma).Within(1e-6));
+            Assert.That(value.G, Is.EqualTo(luma).Within(1e-6));
+            Assert.That(value.B, Is.EqualTo(luma).Within(1e-6));
+            Assert.That(host.History.UndoCount, Is.EqualTo(1));
+        });
+    }
+
+    [AvaloniaTest]
+    public void A_slider_spans_the_range_from_the_default_and_a_double_click_returns_there()
+    {
+        using var host = new SliderHost(effect => effect.ContrastPivot);
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Editor.Minimum, Is.Zero);
+            Assert.That(host.Editor.Maximum, Is.EqualTo(1));
+            Assert.That(host.Editor.Origin, Is.EqualTo(0.5));
+        });
+
+        AvaPoint quarter = host.PointAt(0.25);
+        host.Window.MouseDown(quarter, MouseButton.Left);
+        host.Window.MouseUp(quarter, MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Property.Value, Is.EqualTo(0.25f).Within(0.006));
+            Assert.That(host.Property.Value * 100, Is.EqualTo(MathF.Round(host.Property.Value * 100)).Within(1e-3),
+                "The slider moves in steps of the property's small change.");
+            Assert.That(host.History.UndoCount, Is.EqualTo(1));
+        });
+
+        // The press right after the last one at the same point is the second of a double click.
+        host.Window.MouseDown(quarter, MouseButton.Left);
+        host.Window.MouseUp(quarter, MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Property.Value, Is.EqualTo(0.5f));
+            Assert.That(host.History.UndoCount, Is.EqualTo(2));
+        });
+
+        // A drag of the thumb follows the pointer in several moves and is one undo step.
+        host.Window.MouseMove(host.PointAt(0.5));
+        host.Window.MouseDown(host.PointAt(0.5), MouseButton.Left);
+        host.Window.MouseMove(host.PointAt(0.6), RawInputModifiers.LeftMouseButton);
+        host.Window.MouseMove(host.PointAt(0.7), RawInputModifiers.LeftMouseButton);
+        host.Window.MouseMove(host.PointAt(0.75), RawInputModifiers.LeftMouseButton);
+        host.Window.MouseUp(host.PointAt(0.75), MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Property.Value, Is.EqualTo(0.75f).Within(0.006));
+            Assert.That(host.History.UndoCount, Is.EqualTo(3));
+        });
+        Assert.That(host.History.Undo(), Is.True);
+        Assert.That(host.Property.Value, Is.EqualTo(0.5f));
+    }
+
+    // A press just below zero rounds to -0, which the box used to show as "-0".
+    [AvaloniaTest]
+    public void A_slider_stopped_just_below_zero_shows_zero()
+    {
+        using var host = new SliderHost(effect => effect.Temperature, start: -20);
+        AvaPoint below = host.PointAt(-0.2 * host.Editor.SmallChange);
+        host.Window.MouseDown(below, MouseButton.Left);
+        host.Window.MouseUp(below, MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Property.Value, Is.Zero);
+            Assert.That(float.IsNegative(host.Property.Value), Is.False);
+            Assert.That(host.Editor.Text, Is.EqualTo("0"));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Reset_all_returns_every_property_in_one_undo_step()
+    {
+        (EditViewModel editor, ColorGrading grading) = await OpenGradingAsync("grading-reset-all");
+        editor.HistoryManager.ExecuteInTransaction(() =>
+        {
+            grading.Temperature.Value = 20;
+            grading.Exposure.Value = 1;
+            grading.Gain.Value = new GradingColor(1.2f, 1f, 0.9f);
+            grading.LowRange.Value = 25;
+        }, "Setup");
+        int before = editor.HistoryManager.UndoCount;
+        using var model = new ColorGradingTabViewModel(editor);
+        model.Effect.Value = grading;
+
+        model.ResetAll();
+        Assert.Multiple(() =>
+        {
+            Assert.That(grading.Temperature.Value, Is.Zero);
+            Assert.That(grading.Exposure.Value, Is.Zero);
+            Assert.That(grading.Gain.Value, Is.EqualTo(GradingColor.One));
+            Assert.That(grading.LowRange.Value, Is.EqualTo(40));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
+        });
+
+        Assert.That(await editor.UndoAsync(), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(grading.Temperature.Value, Is.EqualTo(20));
+            Assert.That(grading.Gain.Value, Is.EqualTo(new GradingColor(1.2f, 1f, 0.9f)));
+            Assert.That(grading.LowRange.Value, Is.EqualTo(25));
+        });
+    }
+
+    // A high range between steps, as typed or animated, still stops the low handle: rounding to a whole step must not
+    // carry it past.
+    [AvaloniaTest]
+    [TestCase(60f)]
+    [TestCase(60.6f)]
+    public async Task The_tonal_range_handles_edit_the_ranges_and_stop_at_each_other(float high)
+    {
+        using TabHost host = await TabHost.OpenAsync(
+            $"grading-tonal-range-{high}", 960, 640, mode: 0,
+            setup: (editor, grading) => editor.HistoryManager.ExecuteInTransaction(() => grading.HighRange.Value = high, "Setup"));
+        int before = host.Editor.HistoryManager.UndoCount;
+        TonalRangeSlider range = host.View.FindControl<TonalRangeSlider>("TonalRangeSlider")!;
+        Assert.That((range.Low, range.High), Is.EqualTo((40.0, (double)high)));
+
+        AvaPoint low = range.TranslatePoint(new AvaPoint(range.XOf(40), 18), host.Window)!.Value;
+        AvaPoint far = range.TranslatePoint(new AvaPoint(range.XOf(90), 18), host.Window)!.Value;
+        host.Window.MouseDown(low, MouseButton.Left);
+        host.Window.MouseMove(far, RawInputModifiers.LeftMouseButton);
+        host.Window.MouseUp(far, MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Grading.LowRange.Value, Is.EqualTo(high), "The low handle stops at the high one.");
+            Assert.That(host.Grading.HighRange.Value, Is.EqualTo(high));
+            Assert.That(range.Low, Is.EqualTo(high).Within(1e-5));
+            Assert.That(host.Editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    // A tab docked at the bottom is wide and low: the sliders stand in a column beside the wheels, which keep one row
+    // as the tonal wheels do. In a low tab too narrow for that column only the sliders' names and boxes stand beside
+    // the wheels, and elsewhere the sliders stay above. In every shape the wheels stay inside the tab.
+    [AvaloniaTest]
+    [TestCase(1080, 360, 1, "Beside", true)]
+    [TestCase(1080, 360, 0, "Beside", true)]
+    [TestCase(1920, 360, 1, "Beside", true)]
+    [TestCase(420, 900, 0, "Above", false)]
+    [TestCase(560, 720, 1, "Above", false)]
+    [TestCase(800, 360, 1, "Compact", false)]
+    [TestCase(800, 360, 0, "Compact", true)]
+    [TestCase(767, 410, 0, "Compact", true)]
+    public async Task The_wheels_and_sliders_fit_the_tab(int width, int height, int mode, string placement, bool oneRow)
+    {
+        using TabHost host = await TabHost.OpenAsync($"grading-layout-{width}", width, height, mode);
+        ColorGradingTabView view = host.View;
+        ColorWheelsPanel wheels = host.Wheels;
+        ColorGradingWheel[] shown = [.. wheels.Children.OfType<ColorGradingWheel>()];
+        GradingAdjustmentsPanel groups = view.GetVisualDescendants().OfType<GradingAdjustmentsPanel>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(view.CurrentPlacement.ToString(), Is.EqualTo(placement));
+            if (placement != "Above")
+                Assert.That(groups.UsedColumns, Is.EqualTo(1), "Beside the wheels, the groups stack.");
+            if (oneRow)
+                Assert.That(wheels.Columns, Is.EqualTo(shown.Length), "The wheels keep one row.");
+        });
+
+        foreach (TextBox box in groups.GetVisualDescendants().OfType<TextBox>())
+        {
+            AvaPoint right = box.TranslatePoint(new AvaPoint(box.Bounds.Width, 0), view)!.Value;
+            Assert.That(right.X, Is.LessThanOrEqualTo(view.Bounds.Width + 0.5), "Every number stays inside the tab.");
+        }
+
+        ValueSlider[] sliders = [.. groups.GetVisualDescendants().OfType<ValueSlider>()];
+        if (placement == "Compact")
+            Assert.That(sliders.Where(slider => slider.IsEffectivelyVisible), Is.Empty, "Only the names and boxes stand beside the wheels.");
+        else
+            Assert.That(sliders.Select(slider => slider.Bounds.Width), Has.All.GreaterThanOrEqualTo(48));
+
+        foreach (ColorGradingWheel wheel in shown)
+        {
+            ColorBalancePad pad = wheel.GetVisualDescendants().OfType<ColorBalancePad>().Single();
+            AvaPoint bottomRight = wheel.TranslatePoint(new AvaPoint(wheel.Bounds.Width, wheel.Bounds.Height), view)!.Value;
+            Assert.Multiple(() =>
+            {
+                // Font metrics move this by tens of pixels between platforms; it only rules out a collapsed pad.
+                Assert.That(pad.DiskBounds.Width, Is.GreaterThanOrEqualTo(60), wheel.Header);
+                Assert.That(bottomRight.X, Is.LessThanOrEqualTo(view.Bounds.Width + 0.5), wheel.Header);
+                Assert.That(bottomRight.Y, Is.LessThanOrEqualTo(view.Bounds.Height + 0.5), wheel.Header);
+            });
+        }
+    }
+
+    // A drag that lengthened a wheel's numbers used to widen its boxes and break the row of wheels. The wheels now stay
+    // where they are, in the middle of the height they have, and the numbers are whole.
+    [AvaloniaTest]
+    public async Task Long_numbers_leave_the_wheels_in_place_and_the_wheels_stand_in_the_middle()
+    {
+        using TabHost host = await TabHost.OpenAsync("grading-long-numbers", 745, 409, mode: 1, adjustments: false);
+        ColorWheelsPanel wheels = host.Wheels;
+        ColorGradingWheel[] shown = [.. wheels.Children.OfType<ColorGradingWheel>()];
+        Rect[] before = [.. shown.Select(wheel => wheel.Bounds)];
+        var area = (Control)wheels.GetVisualParent()!.GetVisualParent()!;
+        AvaPoint top = wheels.TranslatePoint(default, area)!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(wheels.Columns, Is.EqualTo(shown.Length));
+            Assert.That(top.Y, Is.GreaterThan(1), "A row lower than the tab leaves room above it.");
+            Assert.That(area.Bounds.Height - wheels.Bounds.Height - top.Y, Is.EqualTo(top.Y).Within(1), "The row stands in the middle.");
+        });
+
+        host.Grading.Lift.Value = new GradingColor(-0.38806236f, 0.12035069f, -0.049484196f);
+        HeadlessTestHelpers.Render(3);
+        GradingColorComponentsEditor boxes = shown[0].GetVisualDescendants().OfType<GradingColorComponentsEditor>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(wheels.Columns, Is.EqualTo(shown.Length));
+            Assert.That(shown.Select(wheel => wheel.Bounds), Is.EqualTo(before));
+            Assert.That(boxes.FirstText, Is.EqualTo((-39).ToString(CultureInfo.CurrentCulture)));
+            Assert.That(boxes.ThirdText, Is.EqualTo((-5).ToString(CultureInfo.CurrentCulture)));
+        });
+
+        // Numbers too long for the boxes, as typed ones can be, leave the wheels in place too.
+        host.Grading.Lift.Value = new GradingColor(-12.3456f, 9.8765f, -10.5f);
+        HeadlessTestHelpers.Render(3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(wheels.Columns, Is.EqualTo(shown.Length));
+            Assert.That(shown.Select(wheel => wheel.Bounds), Is.EqualTo(before));
+        });
+
+        // A value that rounds to zero shows no sign.
+        host.Grading.Lift.Value = new GradingColor(-0.0004f, 0, 0);
+        HeadlessTestHelpers.Render();
+        Assert.That(boxes.FirstText, Is.EqualTo("0"));
+    }
+
+    // A new scene with a shape that has a ColorGrading, for the tab and its captures.
+    internal static async Task<(EditViewModel Editor, ColorGrading Grading)> OpenGradingAsync(string name)
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync(name);
+        var grading = new ColorGrading();
+        var shape = new RectShape();
+        shape.FilterEffect.Value = grading;
+        await TestShell.AddElementAsync(editor, () => shape, MediaTime.Zero, MediaTime.FromSeconds(2));
+        return (editor, grading);
+    }
+
+    // The tab on a ColorGrading of its own, in a dark window; setup runs on the effect before the tab opens, and mode
+    // indexes AvailableWheelModes.
+    private sealed class TabHost : IDisposable
+    {
+        private TabHost(EditViewModel editor, ColorGrading grading, ColorGradingTabViewModel model, int width, int height)
+        {
+            Editor = editor;
+            Grading = grading;
+            Model = model;
+            View = new ColorGradingTabView { DataContext = model };
+            Window = new Window { Content = View, Width = width, Height = height, RequestedThemeVariant = ThemeVariant.Dark };
+            Window.Show();
+            HeadlessTestHelpers.Render(3);
+        }
+
+        public EditViewModel Editor { get; }
+
+        public ColorGrading Grading { get; }
+
+        public ColorGradingTabViewModel Model { get; }
+
+        public ColorGradingTabView View { get; }
+
+        public Window Window { get; }
+
+        public ColorWheelsPanel Wheels => View.GetVisualDescendants().OfType<ColorWheelsPanel>().Single(panel => panel.IsEffectivelyVisible);
+
+        public static async Task<TabHost> OpenAsync(
+            string name, int width, int height, int mode, bool adjustments = true, Action<EditViewModel, ColorGrading>? setup = null)
+        {
+            (EditViewModel editor, ColorGrading grading) = await OpenGradingAsync(name);
+            setup?.Invoke(editor, grading);
+            var model = new ColorGradingTabViewModel(editor);
+            model.Effect.Value = grading;
+            model.WheelMode.Value = model.AvailableWheelModes[mode];
+            model.IsNumberEditorsVisible.Value = adjustments;
+            return new TabHost(editor, grading, model, width, height);
+        }
+
+        public void Dispose()
+        {
+            Window.Close();
+            Model.Dispose();
+        }
+    }
+
+    // A slider row on one number of a ColorGrading, with a history.
+    private sealed class SliderHost : IDisposable
+    {
+        private readonly HistoryScope _history;
+        private readonly NumberEditorViewModel<float> _viewModel;
+
+        public SliderHost(Func<ColorGrading, IProperty<float>> pick, float? start = null)
+        {
+            var effect = new ColorGrading();
+            Property = pick(effect);
+            if (start is { } value)
+                Property.Value = value;
+
+            _history = new HistoryScope(effect);
+            _viewModel = new NumberEditorViewModel<float>(new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)Property, effect));
+            _viewModel.Accept(ServiceVisitor.For(_history.History));
+            Editor = new NumberSliderEditor<float> { Theme = (ControlTheme)Application.Current!.FindResource("NumberSliderEditorTheme")! };
+            PropertyEditorControls.Attach(_viewModel, Editor);
+            Window = new Window { Content = Editor, Width = 420, Height = 80 };
+            Window.Show();
+            HeadlessTestHelpers.Render(3);
+            Slider = Editor.GetVisualDescendants().OfType<ValueSlider>().Single();
+        }
+
+        public IProperty<float> Property { get; }
+
+        public HistoryManager History => _history.History;
+
+        public NumberSliderEditor<float> Editor { get; }
+
+        public ValueSlider Slider { get; }
+
+        public Window Window { get; }
+
+        // Where in the window the slider shows value.
+        public AvaPoint PointAt(double value)
+            => Slider.TranslatePoint(new AvaPoint(Slider.XOf(value), Slider.Bounds.Height / 2), Window)!.Value;
+
+        public void Dispose()
+        {
+            Window.Close();
+            _viewModel.Dispose();
+            _history.Dispose();
+        }
+    }
+
+    // A wheel on one property of a ColorGrading, with a history and a player that can start. The pointer lock is off,
+    // since a drag on the pad would otherwise hide the real cursor and read the real mouse instead of the test's moves.
+    private sealed class WheelHost : IDisposable
+    {
+        private readonly HistoryScope _history;
+        private readonly GradingColorEditorViewModel _viewModel;
+        private readonly bool _pointerLock = GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value;
+
+        public WheelHost(Func<ColorGrading, IProperty<GradingColor>> pick, GradingColor? start = null)
+        {
+            GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = false;
+            var effect = new ColorGrading();
+            Property = pick(effect);
+            if (start is { } value)
+                Property.Value = value;
+
+            _history = new HistoryScope(effect);
+            var player = new Mock<IPreviewPlayer>();
+            player.SetupGet(x => x.IsPlaying).Returns(Playing);
+            _viewModel = new GradingColorEditorViewModel(
+                new AnimatablePropertyAdapter<GradingColor>((AnimatableProperty<GradingColor>)Property, effect));
+            _viewModel.Accept(new ServiceVisitor((typeof(HistoryManager), _history.History), (typeof(IPreviewPlayer), player.Object)));
+            Wheel = new ColorGradingWheel();
+            _viewModel.Accept(Wheel);
+            Window = new Window { Content = Wheel, Width = 260, Height = 380 };
+            Window.Show();
+            HeadlessTestHelpers.Render(3);
+            Pad = Wheel.GetVisualDescendants().OfType<ColorBalancePad>().Single();
+        }
+
+        public IProperty<GradingColor> Property { get; }
+
+        public HistoryManager History => _history.History;
+
+        public ReactivePropertySlim<bool> IsLivePreviewEnabled => _viewModel.IsLivePreviewEnabled;
+
+        public ReactivePropertySlim<bool> Playing { get; } = new(false);
+
+        public ColorGradingWheel Wheel { get; }
+
+        public ColorBalancePad Pad { get; }
+
+        public Window Window { get; }
+
+        public AvaPoint PadCenter() => Pad.TranslatePoint(Pad.DiskBounds.Center, Window)!.Value;
+
+        public void Drag(AvaPoint from, AvaPoint to)
+        {
+            Window.MouseMove(from);
+            Window.MouseDown(from, MouseButton.Left);
+            Window.MouseMove(from + ((to - from) / 2), RawInputModifiers.LeftMouseButton);
+            Window.MouseMove(to, RawInputModifiers.LeftMouseButton);
+            Window.MouseUp(to, MouseButton.Left);
+            HeadlessTestHelpers.Render();
+        }
+
+        public void Dispose()
+        {
+            Window.Close();
+            _viewModel.Dispose();
+            _history.Dispose();
+            GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = _pointerLock;
+        }
+    }
+}

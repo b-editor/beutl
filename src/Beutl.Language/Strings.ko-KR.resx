@@ -530,6 +530,27 @@
   <data name="ColorGrading" xml:space="preserve">
     <value>색상 그레이딩</value>
   </data>
+  <data name="ColorGrading_WhiteBalance" xml:space="preserve">
+    <value>화이트 밸런스</value>
+  </data>
+  <data name="ColorGrading_Tone" xml:space="preserve">
+    <value>톤</value>
+  </data>
+  <data name="ColorGrading_Color" xml:space="preserve">
+    <value>색상</value>
+  </data>
+  <data name="ColorGrading_Pivot" xml:space="preserve">
+    <value>피벗</value>
+  </data>
+  <data name="ColorGrading_TonalRange" xml:space="preserve">
+    <value>톤 범위</value>
+  </data>
+  <data name="ColorGrading_ShowAdjustments" xml:space="preserve">
+    <value>조정 슬라이더 표시</value>
+  </data>
+  <data name="ColorGrading_ResetAll" xml:space="preserve">
+    <value>모두 재설정</value>
+  </data>
   <data name="Number_of_Layers" xml:space="preserve">
     <value>레이어 수</value>
   </data>

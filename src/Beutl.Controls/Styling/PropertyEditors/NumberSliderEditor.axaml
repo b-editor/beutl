@@ -1,0 +1,111 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="using:Beutl.Controls"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors">
+    <Design.PreviewWith>
+        <StackPanel Width="360" Grid.IsSharedSizeScope="True" Spacing="4">
+            <local:ValueSlider Maximum="100" Minimum="-100" Origin="0" Value="30" />
+        </StackPanel>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="{x:Type local:ValueSlider}" TargetType="local:ValueSlider">
+        <Setter Property="Background" Value="{DynamicResource SliderTrackFill}" />
+        <Setter Property="Foreground" Value="{DynamicResource SliderTrackValueFill}" />
+        <Setter Property="ThumbBrush" Value="{DynamicResource SliderThumbBackground}" />
+        <Setter Property="ThumbBorderBrush" Value="{DynamicResource SliderThumbBorderBrush}" />
+        <Setter Property="TickBrush" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.5" />
+        </Style>
+    </ControlTheme>
+
+    <!--  A number in one row: its header, a slider, the box and its keyframe buttons. Rows that share a
+          Grid.IsSharedSizeScope line up: their sliders start at one place, and once any row shows keyframe buttons
+          the others keep room for them, so that the sliders also end at one place. With the compact class a row
+          drops its slider and its box takes the slider's place, at the end of the room the row is given. The box's
+          column comes from styles, since a value the template sets would beat them.  -->
+    <ControlTheme x:Key="NumberSliderEditorTheme" TargetType="local:StringEditorBase">
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Padding="{TemplateBinding Padding}" Background="Transparent">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="NumberSliderEditorHeader" />
+                            <ColumnDefinition Width="*" MinWidth="32" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="NumberSliderEditorKeyFrames" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Name="PART_HeaderTextBlock"
+                                   Margin="0,0,8,0"
+                                   VerticalAlignment="Center"
+                                   Cursor="SizeWestEast"
+                                   Text="{TemplateBinding Header}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{TemplateBinding HeaderTooltip}" />
+
+                        <local:ValueSlider Name="PART_Slider"
+                                           Grid.Column="1"
+                                           VerticalAlignment="Center"
+                                           IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}" />
+
+                        <TextBox x:Name="PART_InnerTextBox"
+                                 Width="64"
+                                 MinHeight="26"
+                                 Margin="8,2,0,2"
+                                 Padding="6,3,6,3"
+                                 HorizontalContentAlignment="Right"
+                                 controls:TextBoxAttachment.EnterDownBehavior="LostFocus"
+                                 IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                 Text="{TemplateBinding Text, Mode=TwoWay}" />
+
+                        <StackPanel Name="LeftRightButtons"
+                                    Grid.Column="3"
+                                    Margin="2,0,0,0"
+                                    Orientation="Horizontal">
+                            <Button Name="PART_LeftButton"
+                                    Classes="left"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                            <Button Name="PART_RightButton"
+                                    Classes="right"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                        </StackPanel>
+
+                        <ContentPresenter Name="PART_MenuContentPresenter"
+                                          Grid.Column="4"
+                                          VerticalAlignment="Center"
+                                          Content="{TemplateBinding MenuContent}"
+                                          ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^ /template/ TextBox#PART_InnerTextBox">
+            <Setter Property="Grid.Column" Value="2" />
+        </Style>
+        <Style Selector="^.compact">
+            <Style Selector="^ /template/ local|ValueSlider#PART_Slider">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+            <Style Selector="^ /template/ TextBox#PART_InnerTextBox">
+                <Setter Property="Grid.Column" Value="1" />
+                <Setter Property="HorizontalAlignment" Value="Right" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^:not(:visible-right-button) /template/ Button#PART_RightButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^[KeyFrameCount=0] /template/ StackPanel#LeftRightButtons">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

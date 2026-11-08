@@ -8,10 +8,27 @@ namespace Beutl;
 
 public static class NumberEditorHelper
 {
+    // Alt or Command makes a drag fine, a tenth as fast.
+    internal static bool IsFineModifier(KeyModifiers modifiers)
+        => modifiers.HasFlag(KeyModifiers.Alt) || modifiers.HasFlag(KeyModifiers.Meta);
+
+    // The value rounded to a multiple of step, with no more decimals than the step has; a step of zero or less leaves
+    // it as it is. A small negative value that rounds to zero gives 0, since a box would show -0 as "-0".
+    internal static double RoundToStep(double value, double step)
+    {
+        if (step > 0 && double.IsFinite(step))
+        {
+            value = Math.Round(value / step) * step;
+            value = Math.Round(value, Math.Min((int)((decimal)step).Scale, 15));
+        }
+
+        return value == 0 ? 0 : value;
+    }
+
     private static double GetScrubModifierCoefficient(KeyModifiers modifiers)
     {
         bool shift = modifiers.HasFlag(KeyModifiers.Shift);
-        bool fine = modifiers.HasFlag(KeyModifiers.Alt) || modifiers.HasFlag(KeyModifiers.Meta);
+        bool fine = IsFineModifier(modifiers);
         if (shift && fine)
         {
             return 1.0;

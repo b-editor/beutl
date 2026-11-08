@@ -1,0 +1,116 @@
+﻿using Avalonia;
+using Avalonia.Controls;
+
+namespace Beutl.Editor.Components.ColorGradingTab.Views;
+
+// Puts the groups of adjustments in rows of up to Columns equal cells, each as high as its tallest group. When a cell
+// would be narrower than MinColumnWidth it uses fewer columns, down to one, which stacks the groups; with no width to
+// share, as in a column as wide as what it holds, the groups stack too.
+public sealed class GradingAdjustmentsPanel : Panel
+{
+    public static readonly StyledProperty<int> ColumnsProperty =
+        AvaloniaProperty.Register<GradingAdjustmentsPanel, int>(nameof(Columns), 3);
+
+    public static readonly StyledProperty<double> MinColumnWidthProperty =
+        AvaloniaProperty.Register<GradingAdjustmentsPanel, double>(nameof(MinColumnWidth), 280);
+
+    public static readonly StyledProperty<double> ColumnSpacingProperty =
+        AvaloniaProperty.Register<GradingAdjustmentsPanel, double>(nameof(ColumnSpacing), 24);
+
+    public static readonly StyledProperty<double> RowSpacingProperty =
+        AvaloniaProperty.Register<GradingAdjustmentsPanel, double>(nameof(RowSpacing), 12);
+
+    static GradingAdjustmentsPanel()
+    {
+        AffectsMeasure<GradingAdjustmentsPanel>(ColumnsProperty, MinColumnWidthProperty, ColumnSpacingProperty, RowSpacingProperty);
+    }
+
+    public int Columns
+    {
+        get => GetValue(ColumnsProperty);
+        set => SetValue(ColumnsProperty, value);
+    }
+
+    public double MinColumnWidth
+    {
+        get => GetValue(MinColumnWidthProperty);
+        set => SetValue(MinColumnWidthProperty, value);
+    }
+
+    public double ColumnSpacing
+    {
+        get => GetValue(ColumnSpacingProperty);
+        set => SetValue(ColumnSpacingProperty, value);
+    }
+
+    public double RowSpacing
+    {
+        get => GetValue(RowSpacingProperty);
+        set => SetValue(RowSpacingProperty, value);
+    }
+
+    // The columns of the last layout, for tests.
+    internal int UsedColumns { get; private set; } = 1;
+
+    // The height the groups take at a width, from their heights in the last layout, which no width changes since each
+    // of their rows keeps one line. The tab uses it to know whether they fit above the wheels before putting them there.
+    internal double HeightAt(double width) => HeightOf(VisibleItems(), ColumnsFor(width));
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        Control[] items = VisibleItems();
+        int columns = ColumnsFor(availableSize.Width);
+        double cellWidth = CellWidth(availableSize.Width, columns);
+        foreach (Control item in items)
+            item.Measure(new Size(cellWidth, double.PositiveInfinity));
+
+        UsedColumns = columns;
+        double width = double.IsFinite(availableSize.Width)
+            ? availableSize.Width
+            : (columns * items.Select(item => item.DesiredSize.Width).DefaultIfEmpty().Max()) + ((columns - 1) * ColumnSpacing);
+        return new Size(width, HeightOf(items, columns));
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        int columns = ColumnsFor(finalSize.Width);
+        double cellWidth = CellWidth(finalSize.Width, columns);
+        double y = 0;
+        foreach (Control[] row in VisibleItems().Chunk(columns))
+        {
+            double rowHeight = RowHeight(row);
+            for (int column = 0; column < row.Length; column++)
+                row[column].Arrange(new Rect(column * (cellWidth + ColumnSpacing), y, cellWidth, rowHeight));
+
+            y += rowHeight + RowSpacing;
+        }
+
+        return finalSize;
+    }
+
+    private static double RowHeight(Control[] row) => row.Max(item => item.DesiredSize.Height);
+
+    private Control[] VisibleItems() => [.. Children.Where(child => child.IsVisible)];
+
+    private double HeightOf(Control[] items, int columns)
+    {
+        Control[][] rows = [.. items.Chunk(columns)];
+        return rows.Sum(RowHeight) + (Math.Max(rows.Length - 1, 0) * RowSpacing);
+    }
+
+    private int ColumnsFor(double width)
+    {
+        if (!double.IsFinite(width))
+            return 1;
+
+        int columns = Math.Max(Columns, 1);
+
+        while (columns > 1 && CellWidth(width, columns) < MinColumnWidth)
+            columns--;
+
+        return columns;
+    }
+
+    private double CellWidth(double width, int columns)
+        => double.IsFinite(width) ? Math.Max((width - (ColumnSpacing * (columns - 1))) / columns, 0) : double.PositiveInfinity;
+}

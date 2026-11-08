@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
@@ -85,8 +86,44 @@ public sealed class ColorGradingTabViewModel : EffectToolTabViewModel<ColorGradi
 
     public ReactivePropertySlim<IPropertyEditorContext?> OffsetEditor { get; } = new();
 
+    // Every editor the tab shows, for what applies to them all.
+    private ReactivePropertySlim<IPropertyEditorContext?>[] AllEditors =>
+    [
+        TemperatureEditor, TintEditor, ExposureEditor, ContrastEditor, ContrastPivotEditor, SaturationEditor,
+        VibranceEditor, HueEditor, LowRangeEditor, HighRangeEditor, ShadowsEditor, MidtonesEditor,
+        HighlightsEditor, LiftEditor, GammaEditor, GainEditor, OffsetEditor,
+    ];
+
     public void Visit(IPropertyEditorContext context)
     {
+    }
+
+    // Resets every property of the effect as one history entry, as each property's own Reset does: it writes the
+    // default to the value, or to the keyframe being edited, and leaves expressions and other keyframes in place.
+    public void ResetAll()
+    {
+        PropertyEditorViewModel[] editors = [.. AllEditors.Select(editor => editor.Value).OfType<PropertyEditorViewModel>()];
+        if (editors.Length == 0)
+            return;
+
+        foreach (PropertyEditorViewModel editor in editors)
+            editor.DefersCommit = true;
+
+        try
+        {
+            foreach (PropertyEditorViewModel editor in editors)
+            {
+                if (editor.CanReset)
+                    editor.Reset();
+            }
+        }
+        finally
+        {
+            foreach (PropertyEditorViewModel editor in editors)
+                editor.DefersCommit = false;
+        }
+
+        EditorContext.GetService<HistoryManager>()?.Commit(CommandNames.EditProperty);
     }
 
     public override void ReadFromJson(JsonObject json)
@@ -164,24 +201,8 @@ public sealed class ColorGradingTabViewModel : EffectToolTabViewModel<ColorGradi
 
     private protected override void ClearEditors()
     {
-        TemperatureEditor.Value = null;
-        TintEditor.Value = null;
-        ExposureEditor.Value = null;
-        ContrastEditor.Value = null;
-        ContrastPivotEditor.Value = null;
-        SaturationEditor.Value = null;
-        VibranceEditor.Value = null;
-        HueEditor.Value = null;
-        LowRangeEditor.Value = null;
-        HighRangeEditor.Value = null;
-
-        ShadowsEditor.Value = null;
-        MidtonesEditor.Value = null;
-        HighlightsEditor.Value = null;
-        LiftEditor.Value = null;
-        GammaEditor.Value = null;
-        GainEditor.Value = null;
-        OffsetEditor.Value = null;
+        foreach (ReactivePropertySlim<IPropertyEditorContext?> editor in AllEditors)
+            editor.Value = null;
 
         EffectDisposables.Clear();
     }

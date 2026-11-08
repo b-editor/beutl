@@ -1,61 +1,133 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:lang="using:Beutl.Language"
                     xmlns:local="using:Beutl.Controls.PropertyEditors">
     <Design.PreviewWith>
-        <local:ColorGradingWheel Width="420" Height="360" />
+        <local:ColorWheelsPanel Width="640" Height="300">
+            <local:ColorGradingWheel Header="Lift" />
+            <local:ColorGradingWheel Header="Gamma" />
+            <local:ColorGradingWheel Header="Gain" />
+            <local:ColorGradingWheel Header="Offset" />
+        </local:ColorWheelsPanel>
     </Design.PreviewWith>
 
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Default">
+            <SolidColorBrush x:Key="ColorBalancePadCenterBrush" Color="#FFE4E4E4" />
+            <SolidColorBrush x:Key="ColorBalancePadGuideBrush" Color="#66000000" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="ColorBalancePadCenterBrush" Color="#FF2C2C2C" />
+            <SolidColorBrush x:Key="ColorBalancePadGuideBrush" Color="#66FFFFFF" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <ControlTheme x:Key="{x:Type local:ColorBalancePad}" TargetType="local:ColorBalancePad">
+        <Setter Property="Background" Value="{DynamicResource ColorBalancePadCenterBrush}" />
+        <Setter Property="GuideBrush" Value="{DynamicResource ColorBalancePadGuideBrush}" />
+        <Setter Property="PuckBrush" Value="White" />
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.5" />
+        </Style>
+    </ControlTheme>
+
+    <!--  The parts take their places from styles rather than the template, whose values styles could not change:
+          stacked, the header is above the pad and the jog and the boxes below it; side by side, they stand in the
+          column beside it, 12 apart as ColorWheelsPanel expects. The boxes' style key is Vector3Editor's, so their
+          selector uses :is.  -->
     <ControlTheme x:Key="{x:Type local:ColorGradingWheel}" TargetType="local:ColorGradingWheel">
-        <Setter Property="Focusable" Value="True" />
-        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
-        <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
+        <Setter Property="Margin" Value="0" />
         <Setter Property="Template">
             <ControlTemplate>
-                <Border Padding="{TemplateBinding Padding}"
-                        BorderBrush="{TemplateBinding BorderBrush}"
-                        BorderThickness="{TemplateBinding BorderThickness}"
-                        CornerRadius="{TemplateBinding CornerRadius}">
-                    <Grid RowDefinitions="Auto,*" RowSpacing="12">
-                        <Grid ColumnDefinitions="*,Auto,Auto">
-                            <TextBlock Grid.Column="0"
-                                       VerticalAlignment="Center"
-                                       FontWeight="SemiBold"
-                                       Text="{TemplateBinding Header}" />
+                <Grid Name="PART_Layout"
+                      ColumnDefinitions="*,Auto"
+                      RowDefinitions="Auto,*,Auto,Auto"
+                      RowSpacing="6">
+                    <Grid Name="PART_Header" ColumnDefinitions="*,Auto,Auto,Auto">
+                        <TextBlock Name="PART_HeaderTextBlock"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Text="{TemplateBinding Header}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{TemplateBinding HeaderTooltip}" />
 
-                            <StackPanel Name="LeftRightButtons"
-                                        Grid.Column="1"
-                                        Margin="0,0,4,0"
-                                        Orientation="Horizontal">
-                                <Button Name="PART_LeftButton"
-                                        Classes="left"
-                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                        <StackPanel Name="LeftRightButtons"
+                                    Grid.Column="1"
+                                    Height="24"
+                                    Orientation="Horizontal">
+                            <Button Name="PART_LeftButton"
+                                    Classes="left"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
 
-                                <Button Name="PART_RightButton"
-                                        Classes="right"
-                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
-                            </StackPanel>
+                            <Button Name="PART_RightButton"
+                                    Classes="right"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                        </StackPanel>
 
-                            <ContentPresenter Name="PART_MenuContentPresenter"
-                                              Grid.Column="2"
-                                              HorizontalAlignment="Right"
-                                              VerticalAlignment="Center"
-                                              Content="{TemplateBinding MenuContent}"
-                                              ContentTemplate="{TemplateBinding MenuContentTemplate}" />
-                        </Grid>
+                        <Button Name="PART_ResetButton"
+                                Grid.Column="2"
+                                Width="24"
+                                Height="24"
+                                Padding="0"
+                                Theme="{StaticResource TransparentButton}"
+                                ToolTip.Tip="{x:Static lang:Strings.Reset}">
+                            <icons:FluentIcon FontSize="14" Icon="ArrowReset" />
+                        </Button>
 
-                        <local:GradingColorPicker Name="PART_GradingColorPicker"
-                                                  Grid.Row="1"
-                                                  MinWidth="1"
-                                                  Classes="wheel"
-                                                  InputType="{TemplateBinding InputType}"
-                                                  ShowDetails="{TemplateBinding ShowDetails}"
-                                                  Color="{Binding Color, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" />
+                        <ContentPresenter Name="PART_MenuContentPresenter"
+                                          Grid.Column="3"
+                                          VerticalAlignment="Center"
+                                          Content="{TemplateBinding MenuContent}"
+                                          ContentTemplate="{TemplateBinding MenuContentTemplate}" />
                     </Grid>
-                </Border>
+
+                    <local:ColorBalancePad Name="PART_Pad" IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}" />
+
+                    <local:GradingWheel Name="PART_MasterWheel"
+                                        Height="18"
+                                        MinWidth="0"
+                                        IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}" />
+
+                    <!--  Three numbers share the width of a wheel, so they are whole, in steps of 0.01 of the color as
+                          other grading tools show them, and a drag cannot lengthen them past what the boxes hold.  -->
+                    <local:GradingColorComponentsEditor Name="PART_Components"
+                                                        MinWidth="160"
+                                                        IsReadOnly="{TemplateBinding IsReadOnly}"
+                                                        NumberFormat="0;-0;0"
+                                                        Theme="{StaticResource ColorComponentsEditorStyle}" />
+                </Grid>
             </ControlTemplate>
         </Setter>
+
+        <Style Selector="^ /template/ Grid#PART_Header">
+            <Setter Property="Grid.ColumnSpan" Value="2" />
+        </Style>
+        <Style Selector="^ /template/ local|ColorBalancePad#PART_Pad">
+            <Setter Property="Grid.Row" Value="1" />
+            <Setter Property="Grid.ColumnSpan" Value="2" />
+        </Style>
+        <Style Selector="^ /template/ local|GradingWheel#PART_MasterWheel">
+            <Setter Property="Grid.Row" Value="2" />
+            <Setter Property="Grid.ColumnSpan" Value="2" />
+        </Style>
+        <Style Selector="^ /template/ :is(local|Vector3Editor)#PART_Components">
+            <Setter Property="Grid.Row" Value="3" />
+            <Setter Property="Grid.ColumnSpan" Value="2" />
+        </Style>
+
+        <Style Selector="^[IsSideBySide=True]">
+            <Style Selector="^ /template/ Grid#PART_Header, ^ /template/ local|GradingWheel#PART_MasterWheel, ^ /template/ :is(local|Vector3Editor)#PART_Components">
+                <Setter Property="Grid.Column" Value="1" />
+                <Setter Property="Grid.ColumnSpan" Value="1" />
+                <Setter Property="Margin" Value="12,0,0,0" />
+            </Style>
+            <Style Selector="^ /template/ local|ColorBalancePad#PART_Pad">
+                <Setter Property="Grid.Row" Value="0" />
+                <Setter Property="Grid.RowSpan" Value="4" />
+                <Setter Property="Grid.ColumnSpan" Value="1" />
+            </Style>
+        </Style>
 
         <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
             <Setter Property="IsEnabled" Value="False" />
@@ -63,10 +135,11 @@
         <Style Selector="^:not(:visible-right-button) /template/ Button#PART_RightButton">
             <Setter Property="IsEnabled" Value="False" />
         </Style>
-        <Style Selector="^[KeyFrameCount=0]">
-            <Style Selector="^ /template/ StackPanel#LeftRightButtons">
-                <Setter Property="IsVisible" Value="False" />
-            </Style>
+        <Style Selector="^[KeyFrameCount=0] /template/ StackPanel#LeftRightButtons">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^ /template/ Button#PART_ResetButton:disabled">
+            <Setter Property="Opacity" Value="0.4" />
         </Style>
     </ControlTheme>
 </ResourceDictionary>

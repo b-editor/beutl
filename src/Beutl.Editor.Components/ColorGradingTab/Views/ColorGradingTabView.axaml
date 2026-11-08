@@ -3,30 +3,47 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:icons="clr-namespace:FluentIcons.Avalonia.Fluent;assembly=FluentIcons.Avalonia.Fluent"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Editor.Components.ColorGradingTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:vm="using:Beutl.Editor.Components.ColorGradingTab.ViewModels"
-             d:DesignHeight="720"
+             d:DesignHeight="360"
              d:DesignWidth="1080"
              x:CompileBindings="True"
              x:DataType="vm:ColorGradingTabViewModel"
              mc:Ignorable="d">
-    <Grid RowDefinitions="Auto,Auto,*">
+    <Grid RowDefinitions="Auto,*">
         <controls:ToolTabBar x:Name="ToolBar" Grid.Row="0">
-            <controls:ToolTabBarPanel>
-                <TextBlock Text="{x:Static lang:Strings.ColorGrading}"
-                           Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
+            <controls:ToolTabBarPanel ItemSpacing="4">
+                <TextBlock Text="{x:Static lang:Strings.ColorGrading}" Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
 
                 <ToggleButton x:Name="NumberEditorsButton"
                               Width="32"
                               Height="32"
                               Padding="{DynamicResource ToolTabBarIconButtonPadding}"
                               VerticalAlignment="Center"
-                              FontSize="16"
+                              AutomationProperties.Name="{x:Static lang:Strings.ColorGrading_ShowAdjustments}"
                               IsChecked="{Binding IsNumberEditorsVisible.Value, Mode=TwoWay}"
-                              Theme="{StaticResource PropertiesVisibilityToggleButtonStyle}" />
+                              Theme="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}"
+                              ToolTip.Tip="{x:Static lang:Strings.ColorGrading_ShowAdjustments}">
+                    <icons:FluentIcon FontSize="16" Icon="Options" />
+                </ToggleButton>
+
+                <Button x:Name="ResetAllButton"
+                        Width="32"
+                        Height="32"
+                        VerticalAlignment="Center"
+                        usage:UsageTracking.Feature="ColorGrading.ResetAll"
+                        AutomationProperties.Name="{x:Static lang:Strings.ColorGrading_ResetAll}"
+                        Click="OnResetAllClick"
+                        IsEnabled="{Binding HasEffect.Value}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                        ToolTip.Tip="{x:Static lang:Strings.ColorGrading_ResetAll}">
+                    <icons:FluentIcon FontSize="16" Icon="ArrowReset" />
+                </Button>
 
                 <ComboBox x:Name="WheelModeComboBox"
                           HorizontalAlignment="Right"
@@ -44,77 +61,166 @@
             </controls:ToolTabBarPanel>
         </controls:ToolTabBar>
 
-        <WrapPanel Grid.Row="1" Margin="8,0">
-            <WrapPanel.IsVisible>
-                <MultiBinding Converter="{x:Static BoolConverters.And}">
-                    <Binding Path="HasEffect.Value" />
-                    <Binding Path="IsNumberEditorsVisible.Value" />
-                </MultiBinding>
-            </WrapPanel.IsVisible>
-            <pe:NumberEditor x:Name="TemperatureEditor"
-                             x:TypeArguments="x:Single"
-                             Theme="{StaticResource MinimalNumberEditor}" />
-            <pe:NumberEditor x:Name="TintEditor"
-                             x:TypeArguments="x:Single"
-                             Theme="{StaticResource MinimalNumberEditor}" />
+        <!--  In a wide, low tab the sliders stand in a column to the right of the wheels (the beside class), which
+              leaves the wheels the whole height and lets the column scroll. Where the sliders would not fit above the
+              wheels and the tab is too narrow for that column, only their names and boxes stand there (beside and
+              compact), in a column as wide as they need.  -->
+        <Grid x:Name="ContentGrid"
+              Grid.Row="1"
+              Margin="12,8,12,10"
+              Grid.IsSharedSizeScope="True"
+              ColumnDefinitions="*,Auto"
+              IsVisible="{Binding HasEffect.Value}"
+              RowDefinitions="Auto,*">
+            <Grid.Styles>
+                <Style Selector="Grid#ContentGrid > ScrollViewer#AdjustmentsScroller">
+                    <Setter Property="Grid.ColumnSpan" Value="2" />
+                    <Setter Property="Margin" Value="0,0,0,12" />
+                </Style>
+                <Style Selector="Grid#ContentGrid > Panel#WheelsArea">
+                    <Setter Property="Grid.Row" Value="1" />
+                    <Setter Property="Grid.ColumnSpan" Value="2" />
+                </Style>
+                <Style Selector="Grid#ContentGrid.beside > ScrollViewer#AdjustmentsScroller">
+                    <Setter Property="Grid.Column" Value="1" />
+                    <Setter Property="Grid.RowSpan" Value="2" />
+                    <Setter Property="Grid.ColumnSpan" Value="1" />
+                    <Setter Property="Margin" Value="16,0,0,0" />
+                </Style>
+                <Style Selector="Grid#ContentGrid.beside:not(.compact) > ScrollViewer#AdjustmentsScroller">
+                    <Setter Property="Width" Value="330" />
+                </Style>
+                <Style Selector="Grid#ContentGrid.beside > Panel#WheelsArea">
+                    <Setter Property="Grid.Row" Value="0" />
+                    <Setter Property="Grid.RowSpan" Value="2" />
+                    <Setter Property="Grid.ColumnSpan" Value="1" />
+                </Style>
+            </Grid.Styles>
 
-            <pe:NumberEditor x:Name="ExposureEditor"
-                             x:TypeArguments="x:Single"
-                             Theme="{StaticResource MinimalNumberEditor}" />
-            <pe:NumberEditor x:Name="ContrastEditor"
-                             x:TypeArguments="x:Single"
-                             Theme="{StaticResource MinimalNumberEditor}" />
+            <ScrollViewer x:Name="AdjustmentsScroller"
+                          HorizontalScrollBarVisibility="Disabled"
+                          IsVisible="{Binding IsNumberEditorsVisible.Value}"
+                          VerticalScrollBarVisibility="Auto">
+                <!--  Each group's name stands above its sliders. The groups share a row while each gets a slider of some
+                      length, and stack otherwise, as they do beside the wheels.  -->
+                <local:GradingAdjustmentsPanel x:Name="AdjustmentGroups">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="{x:Static lang:Strings.ColorGrading_WhiteBalance}" Theme="{StaticResource GradingGroupLabelTheme}" />
+                        <pe:NumberSliderEditor x:Name="TemperatureEditor"
+                                               x:TypeArguments="x:Single"
+                                               Theme="{StaticResource NumberSliderEditorTheme}" />
+                        <pe:NumberSliderEditor x:Name="TintEditor"
+                                               x:TypeArguments="x:Single"
+                                               Theme="{StaticResource NumberSliderEditorTheme}" />
+                    </StackPanel>
 
-            <pe:NumberEditor x:Name="ContrastPivotEditor"
-                             x:TypeArguments="x:Single"
-                             Theme="{StaticResource MinimalNumberEditor}" />
-            <pe:NumberEditor x:Name="SaturationEditor"
-                             x:TypeArguments="x:Single"
-                             Theme="{StaticResource MinimalNumberEditor}" />
-            <pe:NumberEditor x:Name="VibranceEditor"
-                             x:TypeArguments="x:Single"
-                             Theme="{StaticResource MinimalNumberEditor}" />
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="{x:Static lang:Strings.ColorGrading_Tone}" Theme="{StaticResource GradingGroupLabelTheme}" />
+                        <pe:NumberSliderEditor x:Name="ExposureEditor"
+                                               x:TypeArguments="x:Single"
+                                               Theme="{StaticResource NumberSliderEditorTheme}" />
+                        <pe:NumberSliderEditor x:Name="ContrastEditor"
+                                               x:TypeArguments="x:Single"
+                                               Theme="{StaticResource NumberSliderEditorTheme}" />
+                        <pe:NumberSliderEditor x:Name="ContrastPivotEditor"
+                                               x:TypeArguments="x:Single"
+                                               Theme="{StaticResource NumberSliderEditorTheme}" />
+                    </StackPanel>
 
-            <pe:NumberEditor x:Name="HueEditor"
-                             x:TypeArguments="x:Single"
-                             Theme="{StaticResource MinimalNumberEditor}" />
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="{x:Static lang:Strings.ColorGrading_Color}" Theme="{StaticResource GradingGroupLabelTheme}" />
+                        <pe:NumberSliderEditor x:Name="SaturationEditor"
+                                               x:TypeArguments="x:Single"
+                                               Theme="{StaticResource NumberSliderEditorTheme}" />
+                        <pe:NumberSliderEditor x:Name="VibranceEditor"
+                                               x:TypeArguments="x:Single"
+                                               Theme="{StaticResource NumberSliderEditorTheme}" />
+                        <pe:NumberSliderEditor x:Name="HueEditor"
+                                               x:TypeArguments="x:Single"
+                                               Theme="{StaticResource NumberSliderEditorTheme}" />
+                    </StackPanel>
+                </local:GradingAdjustmentsPanel>
+            </ScrollViewer>
 
-            <pe:NumberEditor x:Name="LowRangeEditor"
-                             x:TypeArguments="x:Single"
-                             Theme="{StaticResource MinimalNumberEditor}" />
-            <pe:NumberEditor x:Name="HighRangeEditor"
-                             x:TypeArguments="x:Single"
-                             Theme="{StaticResource MinimalNumberEditor}" />
-        </WrapPanel>
+            <!--  The wheels stand in the middle of the height they are given, with the tonal range row under them.  -->
+            <Panel x:Name="WheelsArea">
+                <Grid x:Name="LiftControls"
+                      VerticalAlignment="Center"
+                      IsVisible="{Binding IsLiftGammaGainMode.Value}">
+                    <pe:ColorWheelsPanel x:Name="LiftWheels">
+                        <pe:ColorGradingWheel x:Name="LiftPicker" />
+                        <pe:ColorGradingWheel x:Name="GammaPicker" />
+                        <pe:ColorGradingWheel x:Name="GainPicker" />
+                        <pe:ColorGradingWheel x:Name="OffsetPicker" />
+                    </pe:ColorWheelsPanel>
+                </Grid>
 
-        <Panel Grid.Row="2" IsVisible="{Binding HasEffect.Value}">
-            <Grid x:Name="LogControls"
-                  VerticalAlignment="Stretch"
-                  ColumnDefinitions="*,*,*"
-                  ColumnSpacing="8"
-                  IsVisible="{Binding IsLogMode.Value}">
-                <pe:ColorGradingWheel x:Name="ShadowsPicker" Grid.Column="0" />
-                <pe:ColorGradingWheel x:Name="MidtonesPicker" Grid.Column="1" />
-                <pe:ColorGradingWheel x:Name="HighlightsPicker" Grid.Column="2" />
-            </Grid>
+                <Grid x:Name="LogControls"
+                      VerticalAlignment="Center"
+                      IsVisible="{Binding IsLogMode.Value}"
+                      RowDefinitions="*,Auto"
+                      RowSpacing="12">
+                    <pe:ColorWheelsPanel x:Name="LogWheels">
+                        <pe:ColorGradingWheel x:Name="ShadowsPicker" />
+                        <pe:ColorGradingWheel x:Name="MidtonesPicker" />
+                        <pe:ColorGradingWheel x:Name="HighlightsPicker" />
+                    </pe:ColorWheelsPanel>
 
-            <Grid x:Name="LiftControls"
-                  VerticalAlignment="Stretch"
-                  ColumnDefinitions="*,*,*,*"
-                  ColumnSpacing="8"
-                  IsVisible="{Binding IsLiftGammaGainMode.Value}">
-                <pe:ColorGradingWheel x:Name="LiftPicker" Grid.Column="0" />
-                <pe:ColorGradingWheel x:Name="GammaPicker" Grid.Column="1" />
-                <pe:ColorGradingWheel x:Name="GainPicker" Grid.Column="2" />
-                <pe:ColorGradingWheel x:Name="OffsetPicker" Grid.Column="3" />
-            </Grid>
-        </Panel>
+                    <!--  Narrow, the range's boxes go under the slider so that it keeps its length, and wrap if they must.  -->
+                    <Grid x:Name="TonalRangeRow"
+                          Grid.Row="1"
+                          Container.Name="TonalRangeRow"
+                          Container.Sizing="Width"
+                          RowDefinitions="Auto,Auto">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.Styles>
+                            <Style Selector="WrapPanel#TonalRangeEditors">
+                                <Setter Property="Grid.Column" Value="2" />
+                                <Setter Property="Margin" Value="16,0,0,0" />
+                            </Style>
+                            <ContainerQuery Name="TonalRangeRow" Query="max-width:600">
+                                <Style Selector="WrapPanel#TonalRangeEditors">
+                                    <Setter Property="Grid.Row" Value="1" />
+                                    <Setter Property="Grid.Column" Value="0" />
+                                    <Setter Property="Grid.ColumnSpan" Value="3" />
+                                    <Setter Property="Margin" Value="0,6,0,0" />
+                                    <Setter Property="HorizontalAlignment" Value="Right" />
+                                </Style>
+                            </ContainerQuery>
+                        </Grid.Styles>
 
-        <TextBlock Grid.RowSpan="3"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   IsVisible="{Binding !HasEffect.Value}"
-                   Text="{x:Static lang:MessageStrings.ColorGradingMissing}"
-                   TextWrapping="Wrap" />
+                        <TextBlock Margin="0,0,16,0"
+                                   VerticalAlignment="Center"
+                                   Text="{x:Static lang:Strings.ColorGrading_TonalRange}"
+                                   Theme="{StaticResource GradingGroupLabelTheme}" />
+                        <pe:TonalRangeSlider x:Name="TonalRangeSlider"
+                                             Grid.Column="1"
+                                             VerticalAlignment="Center" />
+                        <WrapPanel x:Name="TonalRangeEditors"
+                                   ItemSpacing="16"
+                                   LineSpacing="4">
+                            <pe:NumberEditor x:Name="LowRangeEditor"
+                                             x:TypeArguments="x:Single"
+                                             Theme="{StaticResource GradingCompactNumberEditor}" />
+                            <pe:NumberEditor x:Name="HighRangeEditor"
+                                             x:TypeArguments="x:Single"
+                                             Theme="{StaticResource GradingCompactNumberEditor}" />
+                        </WrapPanel>
+                    </Grid>
+                </Grid>
+            </Panel>
+        </Grid>
+
+        <controls:EmptyState Grid.Row="1"
+                             Title="{x:Static lang:MessageStrings.ColorGradingMissing}"
+                             IsVisible="{Binding !HasEffect.Value}">
+            <controls:EmptyState.Icon>
+                <icons:FluentIcon Icon="ColorBackground" />
+            </controls:EmptyState.Icon>
+        </controls:EmptyState>
     </Grid>
 </UserControl>
