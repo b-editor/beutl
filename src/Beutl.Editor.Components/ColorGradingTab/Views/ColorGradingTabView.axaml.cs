@@ -1,7 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Services;
@@ -15,28 +14,34 @@ public partial class ColorGradingTabView : UserControl
     // sliders beside them than above them, as one docked at the bottom does.
     private const double BesideAspectRatio = 2.4;
     private const double BesideMinWidth = 860;
-    // Above the wheels, the sliders scroll rather than push the wheels out of a low tab. The wheels keep a pad of 96
-    // with their header, jog and boxes and the gap above them, and the tonal range row in its mode; the sliders keep
-    // at least two rows.
-    private const double WheelsMinHeight = 202;
+    // Above the wheels, the sliders scroll rather than push the wheels out of a low tab. The wheels keep a pad of
+    // MinPadSize with their header, jog and boxes, as the wheels measure them, the gap above them (the scroller's
+    // bottom margin) and the tonal range row in its mode; the sliders keep at least two rows.
+    private const double MinPadSize = 96;
+    private const double AdjustmentsGap = 12;
     private const double TonalRangeHeight = 48;
     private const double MinAdjustmentsHeight = 72;
     private readonly CompositeDisposable _subscriptions = [];
+    private readonly Control[] _sliderRows;
     private float _rangeStart;
 
     public ColorGradingTabView()
     {
         InitializeComponent();
+        _sliderRows = [TemperatureEditor, TintEditor, ExposureEditor, ContrastEditor, ContrastPivotEditor, SaturationEditor, VibranceEditor, HueEditor];
 
         DataContextChanged += OnDataContextChanged;
-        ContentGrid.GetObservable(BoundsProperty).Subscribe(_ => UpdateAdjustmentsPlacement());
-        // Whether the sliders fit above the wheels is known once they are laid out, as when they are first shown.
-        AdjustmentGroups.GetObservable(BoundsProperty).Subscribe(_ => UpdateAdjustmentsPlacement());
+        // The placement follows the content's size and, since whether the sliders fit above the wheels is known once
+        // they are laid out, theirs; a scroll that only moves the sliders changes neither.
+        ContentGrid.SizeChanged += (_, _) => UpdateAdjustmentsPlacement();
+        AdjustmentGroups.SizeChanged += (_, _) => UpdateAdjustmentsPlacement();
+        UpdateAdjustmentsPlacement();
 
         // The tonal range slider shows the two editors' values and edits through them, so that its drags preview,
-        // confirm and undo as a scrub of either header does.
+        // confirm and undo as a scrub of either header does. Both ranges step alike.
         LowRangeEditor.GetObservable(NumberEditor<float>.ValueProperty).Subscribe(value => TonalRangeSlider.Low = value);
         HighRangeEditor.GetObservable(NumberEditor<float>.ValueProperty).Subscribe(value => TonalRangeSlider.High = value);
+        LowRangeEditor.GetObservable(NumberEditor<float>.SmallChangeProperty).Subscribe(step => TonalRangeSlider.Step = step);
         TonalRangeSlider.DragStarted += OnRangeDragStarted;
         TonalRangeSlider.DragDelta += OnRangeDragDelta;
         TonalRangeSlider.DragCompleted += OnRangeDragCompleted;
@@ -67,15 +72,18 @@ public partial class ColorGradingTabView : UserControl
     private void UpdateAdjustmentsPlacement()
     {
         Size size = ContentGrid.Bounds.Size;
-        double reserve = WheelsMinHeight + ((DataContext as ColorGradingTabViewModel)?.IsLogMode.Value == true ? TonalRangeHeight : 0);
+        // Both modes' wheels have the same header, jog and boxes, so whichever were laid out tell their height.
+        double chrome = Math.Max(LiftWheels.ChromeHeight, LogWheels.ChromeHeight);
+        bool log = (DataContext as ColorGradingTabViewModel)?.IsLogMode.Value == true;
+        double reserve = MinPadSize + chrome + AdjustmentsGap + (log ? TonalRangeHeight : 0);
         double aboveHeight = Math.Max(MinAdjustmentsHeight, size.Height - reserve);
         AdjustmentsPlacement placement = Placement ?? ChoosePlacement(size, aboveHeight);
         bool compact = placement == AdjustmentsPlacement.Compact;
         CurrentPlacement = placement;
         ContentGrid.Classes.Set("beside", placement != AdjustmentsPlacement.Above);
         ContentGrid.Classes.Set("compact", compact);
-        foreach (StringEditorBase editor in AdjustmentGroups.GetLogicalDescendants().OfType<StringEditorBase>())
-            editor.Classes.Set("compact", compact);
+        foreach (Control row in _sliderRows)
+            row.Classes.Set("compact", compact);
 
         AdjustmentsScroller.MaxHeight = placement == AdjustmentsPlacement.Above ? aboveHeight : double.PositiveInfinity;
     }
@@ -121,18 +129,15 @@ public partial class ColorGradingTabView : UserControl
     }
 
     // The menu gives the tab what the properties panel offers: keyframes, reset and expressions.
-    private static void BindEditor(Control editor, IPropertyEditorContext? context, string? header = null)
+    private static void BindEditor(PropertyEditor editor, IPropertyEditorContext? context, string? header = null)
     {
         if (context == null)
             return;
 
         PropertyEditorControls.Attach(context, editor);
-        if (editor is PropertyEditor propertyEditor)
-        {
-            propertyEditor.MenuContent = new PropertyEditorMenu { DataContext = context };
-            if (header != null)
-                propertyEditor.Header = header;
-        }
+        editor.MenuContent = new PropertyEditorMenu { DataContext = context };
+        if (header != null)
+            editor.Header = header;
     }
 
     private void OnResetAllClick(object? sender, RoutedEventArgs e)
@@ -148,36 +153,18 @@ public partial class ColorGradingTabView : UserControl
         _rangeStart = RangeEditor(e.Handle).Value;
     }
 
+    // The slider has already put the value on a step and stopped it at the other handle.
     private void OnRangeDragDelta(object? sender, TonalRangeEventArgs e)
     {
         NumberEditor<float> editor = RangeEditor(e.Handle);
-        if (editor.IsReadOnly)
-            return;
-
-        float step = editor.SmallChange > 0 ? editor.SmallChange : 1;
-        float next = MathF.Round((float)e.Value / step) * step;
-        // Rounding must not carry a handle past the other, whose value can lie between steps when typed or animated.
-        if (LowRangeEditor.Value <= HighRangeEditor.Value)
-        {
-            next = e.Handle == TonalRangeHandle.Low
-                ? MathF.Min(next, HighRangeEditor.Value)
-                : MathF.Max(next, LowRangeEditor.Value);
-        }
-
-        float previous = editor.Value;
-        if (next == previous)
-            return;
-
-        editor.Value = next;
-        editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<float>(next, previous, PropertyEditor.ValueChangedEvent));
+        if (!editor.IsReadOnly)
+            editor.ApplyValue((float)e.Value);
     }
 
     private void OnRangeDragCompleted(object? sender, TonalRangeEventArgs e)
     {
         NumberEditor<float> editor = RangeEditor(e.Handle);
-        if (editor.IsReadOnly || editor.Value == _rangeStart)
-            return;
-
-        editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<float>(editor.Value, _rangeStart, PropertyEditor.ValueConfirmedEvent));
+        if (!editor.IsReadOnly)
+            editor.ConfirmValue(_rangeStart);
     }
 }

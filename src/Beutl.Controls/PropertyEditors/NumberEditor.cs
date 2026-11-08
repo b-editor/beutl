@@ -58,6 +58,25 @@ public class NumberEditor<TValue> : ValueStringEditor<TValue>
 
     internal TValue HapticReferenceValue { get; set; } = TValue.Zero;
 
+    // Writes next to Value with ValueChanged, as a scrub of the header does; for a slider or a bar that edits the
+    // number in this editor's place.
+    internal void ApplyValue(TValue next)
+    {
+        TValue previous = Value;
+        if (!Differs(next, previous))
+            return;
+
+        Value = next;
+        RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(next, previous, ValueChangedEvent));
+    }
+
+    // Raises ValueConfirmed when Value has moved away from oldValue, as the end of a scrub does.
+    internal void ConfirmValue(TValue oldValue)
+    {
+        if (Differs(Value, oldValue))
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, oldValue, ValueConfirmedEvent));
+    }
+
     private protected override void OnScrubbed(TValue oldValue, ulong timestamp)
     {
         // ValueChanged has already applied the property's coercion to Value.

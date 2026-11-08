@@ -19,7 +19,6 @@ namespace Beutl.Controls.PropertyEditors;
 [TemplatePart("PART_MasterWheel", typeof(GradingWheel))]
 [TemplatePart("PART_Components", typeof(GradingColorComponentsEditor))]
 [TemplatePart("PART_ResetButton", typeof(Button))]
-[PseudoClasses(":neutral", ":side")]
 public class ColorGradingWheel : PropertyEditor
 {
     public static readonly DirectProperty<ColorGradingWheel, GradingColor> ColorProperty =
@@ -140,11 +139,7 @@ public class ColorGradingWheel : PropertyEditor
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == IsSideBySideProperty)
-        {
-            PseudoClasses.Set(":side", change.GetNewValue<bool>());
-        }
-        else if (change.Property == ColorProperty
+        if (change.Property == ColorProperty
             || change.Property == NeutralProperty
             || change.Property == MaxChromaProperty
             || change.Property == IsReadOnlyProperty)
@@ -216,7 +211,6 @@ public class ColorGradingWheel : PropertyEditor
             _components?.Color = color;
 
         _resetButton?.IsEnabled = !neutral && !IsReadOnly;
-        PseudoClasses.Set(":neutral", neutral);
     }
 
     private void OnPadDragStarted(object? sender, VectorEventArgs e)

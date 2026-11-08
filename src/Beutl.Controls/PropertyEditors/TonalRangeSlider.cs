@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -17,13 +18,14 @@ public sealed class TonalRangeEventArgs(RoutedEvent routedEvent, TonalRangeHandl
 {
     public TonalRangeHandle Handle { get; } = handle;
 
-    // The handle's value when the drag started, or the one the drag asks for.
+    // The handle's value when the drag starts or ends, or the one the drag asks for.
     public double Value { get; } = value;
 }
 
 // Where the tonal wheels act, over a bar of luminance from black to white: shadows fade out up to Low and highlights
-// fade in from High. A press on a handle grabs it and one on the bar brings the nearer handle there; the handles do
-// not pass each other. The slider asks for values through its events and shows the Low and High it is given.
+// fade in from High. A press on a handle grabs it and one on the bar brings the nearer handle there; the handles move
+// in steps of Step and do not pass each other. The slider asks for values through its events and shows the Low and
+// High it is given.
 public class TonalRangeSlider : Control
 {
     public static readonly StyledProperty<double> LowProperty =
@@ -37,6 +39,10 @@ public class TonalRangeSlider : Control
 
     public static readonly StyledProperty<double> MaximumProperty =
         AvaloniaProperty.Register<TonalRangeSlider, double>(nameof(Maximum), 100);
+
+    // The step the handles move in, such as the ranges' SmallChange; zero moves them freely.
+    public static readonly StyledProperty<double> StepProperty =
+        AvaloniaProperty.Register<TonalRangeSlider, double>(nameof(Step));
 
     public static readonly StyledProperty<IBrush?> BorderBrushProperty =
         Border.BorderBrushProperty.AddOwner<TonalRangeSlider>();
@@ -68,6 +74,7 @@ public class TonalRangeSlider : Control
 
     private TonalRangeHandle? _dragging;
     private double _grabOffset;
+    private StreamGeometry? _grip;
 
     static TonalRangeSlider()
     {
@@ -99,6 +106,12 @@ public class TonalRangeSlider : Control
     {
         get => GetValue(MaximumProperty);
         set => SetValue(MaximumProperty, value);
+    }
+
+    public double Step
+    {
+        get => GetValue(StepProperty);
+        set => SetValue(StepProperty, value);
     }
 
     public IBrush? BorderBrush
@@ -139,22 +152,9 @@ public class TonalRangeSlider : Control
 
     private Rect Bar => new(Inset, 2, Math.Max(Bounds.Width - (2 * Inset), 0), BarHeight);
 
-    internal double XOf(double value)
-    {
-        Rect bar = Bar;
-        double ratio = Maximum > Minimum ? Math.Clamp((value - Minimum) / (Maximum - Minimum), 0, 1) : 0;
-        return bar.Left + (ratio * bar.Width);
-    }
+    internal double XOf(double value) => SliderTrack.XOf(value, Minimum, Maximum, Inset, Bar.Width);
 
-    private double ValueAt(double x)
-    {
-        Rect bar = Bar;
-        if (bar.Width <= 0)
-            return Minimum;
-
-        double ratio = Math.Clamp((x - bar.Left) / bar.Width, 0, 1);
-        return Minimum + (ratio * (Maximum - Minimum));
-    }
+    private double ValueAt(double x) => SliderTrack.ValueAt(x, Minimum, Maximum, Inset, Bar.Width);
 
     protected override Size MeasureOverride(Size availableSize) => new(2 * Inset, 2 + BarHeight + GripSize + 2);
 
@@ -164,31 +164,40 @@ public class TonalRangeSlider : Control
         if (bar.Width <= 0)
             return;
 
-        Pen? border = BorderBrush is { } borderBrush ? new Pen(borderBrush, 1) : null;
+        // Immutable pens skip the compositor's per-frame resources, which a drag redraws every frame.
+        IImmutableBrush fill = (HandleBrush ?? Brushes.White).ToImmutable();
+        IImmutableBrush edge = (HandleBorderBrush ?? Brushes.Black).ToImmutable();
+        var handle = new HandlePens(new ImmutablePen(edge, 3), new ImmutablePen(fill, 1), new ImmutablePen(edge, 1), fill);
+        var border = BorderBrush is { } borderBrush ? new ImmutablePen(borderBrush.ToImmutable(), 1) : null;
         context.DrawRectangle(s_luminance, border, new RoundedRect(bar, 3));
-        DrawHandle(context, bar, XOf(Low));
-        DrawHandle(context, bar, XOf(High));
+        DrawHandle(context, bar, XOf(Low), handle);
+        DrawHandle(context, bar, XOf(High), handle);
     }
 
-    private void DrawHandle(DrawingContext context, Rect bar, double x)
+    private void DrawHandle(DrawingContext context, Rect bar, double x, HandlePens pens)
     {
-        var outline = new Pen(HandleBorderBrush ?? Brushes.Black, 3);
-        var line = new Pen(HandleBrush ?? Brushes.White, 1);
         var top = new Point(x, bar.Top - 1);
         var bottom = new Point(x, bar.Bottom + 1);
-        context.DrawLine(outline, top, bottom);
-        context.DrawLine(line, top, bottom);
+        context.DrawLine(pens.Outline, top, bottom);
+        context.DrawLine(pens.Line, top, bottom);
 
-        var grip = new StreamGeometry();
-        using (StreamGeometryContext geometry = grip.Open())
+        // The grip hangs under the bar at every handle alike, so one geometry at x = 0 serves both.
+        _grip ??= CreateGrip(bar.Bottom + 1);
+        using (context.PushTransform(Matrix.CreateTranslation(x, 0)))
         {
-            geometry.BeginFigure(new Point(x, bar.Bottom + 1), true);
-            geometry.LineTo(new Point(x + (GripSize / 2), bar.Bottom + GripSize + 1));
-            geometry.LineTo(new Point(x - (GripSize / 2), bar.Bottom + GripSize + 1));
-            geometry.EndFigure(true);
+            context.DrawGeometry(pens.Fill, pens.GripEdge, _grip);
         }
+    }
 
-        context.DrawGeometry(HandleBrush ?? Brushes.White, new Pen(HandleBorderBrush ?? Brushes.Black, 1), grip);
+    private static StreamGeometry CreateGrip(double top)
+    {
+        var grip = new StreamGeometry();
+        using StreamGeometryContext geometry = grip.Open();
+        geometry.BeginFigure(new Point(0, top), true);
+        geometry.LineTo(new Point(GripSize / 2, top + GripSize));
+        geometry.LineTo(new Point(-GripSize / 2, top + GripSize));
+        geometry.EndFigure(true);
+        return grip;
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -253,16 +262,21 @@ public class TonalRangeSlider : Control
 
     private double ValueOf(TonalRangeHandle handle) => handle == TonalRangeHandle.Low ? Low : High;
 
-    // A handle stops at the other one, unless they were crossed to begin with.
+    // A handle moves in steps and stops at the other one, unless they were crossed to begin with. It stops again
+    // after the rounding, which could carry it past another that lies between steps.
     private void RaiseDelta(TonalRangeHandle handle, double value)
     {
-        bool ordered = Low <= High;
-        value = handle switch
-        {
-            TonalRangeHandle.Low when ordered => Math.Min(value, High),
-            TonalRangeHandle.High when ordered => Math.Max(value, Low),
-            _ => value,
-        };
-        RaiseEvent(new TonalRangeEventArgs(DragDeltaEvent, handle, value));
+        double next = StopAtOther(handle, NumberEditorHelper.RoundToStep(StopAtOther(handle, value), Step));
+        RaiseEvent(new TonalRangeEventArgs(DragDeltaEvent, handle, next));
     }
+
+    private double StopAtOther(TonalRangeHandle handle, double value)
+    {
+        if (Low > High)
+            return value;
+
+        return handle == TonalRangeHandle.Low ? Math.Min(value, High) : Math.Max(value, Low);
+    }
+
+    private readonly record struct HandlePens(IPen Outline, IPen Line, IPen GripEdge, IImmutableBrush Fill);
 }

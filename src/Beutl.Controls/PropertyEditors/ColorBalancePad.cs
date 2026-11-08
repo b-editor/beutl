@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Media.Immutable;
 using Avalonia.Platform;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -42,9 +43,11 @@ public class ColorBalancePad : Control
         RoutedEvent.Register<ColorBalancePad, RoutedEventArgs>(nameof(ResetRequested), RoutingStrategies.Bubble);
 
     private const double PuckRadius = 5;
-    private WriteableBitmap? _disk;
-    private int _diskPixels;
-    private Color _diskCenter;
+    private static readonly IPen s_puckShadow = new ImmutablePen(new ImmutableSolidColorBrush(Colors.Black, 0.45), 3);
+    // Pads of one size, center color and scaling draw the same disk, as the wheels of a row do, so they share it and
+    // fill it once; the last pad to let go of a disk disposes it.
+    private static readonly Dictionary<DiskKey, SharedDisk> s_disks = [];
+    private DiskKey? _diskKey;
     private bool _dragging;
     private Point _dragPoint;
 
@@ -138,8 +141,7 @@ public class ColorBalancePad : Control
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
-        _disk?.Dispose();
-        _disk = null;
+        ReleaseDisk();
     }
 
     public override void Render(DrawingContext context)
@@ -155,7 +157,7 @@ public class ColorBalancePad : Control
 
         if (GuideBrush is { } guide)
         {
-            var pen = new Pen(guide, 1);
+            var pen = new ImmutablePen(guide.ToImmutable(), 1);
             double arm = Math.Max(4, disk.Width * 0.06);
             Point middle = disk.Center;
             context.DrawLine(pen, new Point(middle.X - arm, middle.Y), new Point(middle.X + arm, middle.Y));
@@ -164,15 +166,15 @@ public class ColorBalancePad : Control
 
         Vector chroma = Chroma;
         Point puck = GetPuckPosition(chroma);
-        IBrush puckBrush = PuckBrush ?? Brushes.White;
+        IImmutableBrush puckBrush = (PuckBrush ?? Brushes.White).ToImmutable();
         if (chroma.Length > 0.01)
-            context.DrawLine(new Pen(puckBrush, 1), disk.Center, puck);
+            context.DrawLine(new ImmutablePen(puckBrush, 1), disk.Center, puck);
 
         Color hue = ColorBalance.HueColor(chroma);
         double strength = Math.Min(chroma.Length, 1);
-        var fill = new SolidColorBrush(Mix(center, hue, strength));
-        context.DrawEllipse(fill, new Pen(new SolidColorBrush(Colors.Black, 0.45), 3), puck, PuckRadius, PuckRadius);
-        context.DrawEllipse(null, new Pen(puckBrush, 1.5), puck, PuckRadius, PuckRadius);
+        var fill = new ImmutableSolidColorBrush(Mix(center, hue, strength));
+        context.DrawEllipse(fill, s_puckShadow, puck, PuckRadius, PuckRadius);
+        context.DrawEllipse(null, new ImmutablePen(puckBrush, 1.5), puck, PuckRadius, PuckRadius);
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -210,7 +212,7 @@ public class ColorBalancePad : Control
         }
 
         Point move = PointerLockHelper.Moved(this, e.GetPosition(this), ref _dragPoint);
-        double factor = e.KeyModifiers.HasFlag(KeyModifiers.Alt) || e.KeyModifiers.HasFlag(KeyModifiers.Meta) ? 0.1 : 1;
+        double factor = NumberEditorHelper.IsFineModifier(e.KeyModifiers) ? 0.1 : 1;
         var delta = new Vector(move.X, -move.Y) * (factor / TravelRadius);
         e.Handled = true;
         if (delta != default)
@@ -249,18 +251,41 @@ public class ColorBalancePad : Control
         if (pixels < 2)
             return null;
 
-        if (_disk != null && _diskPixels == pixels && _diskCenter == center)
-            return _disk;
+        var key = new DiskKey(pixels, center, scaling);
+        if (_diskKey == key)
+            return s_disks[key].Bitmap;
 
-        // At 96 DPI the bitmap's size is its pixel size, which DrawImage maps whole onto the disk; a scaled DPI would
-        // shrink the source rectangle to a corner of it.
-        _disk?.Dispose();
-        _disk = new WriteableBitmap(new PixelSize(pixels, pixels), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
-        _diskPixels = pixels;
-        _diskCenter = center;
-        using ILockedFramebuffer buffer = _disk.Lock();
-        FillDisk(buffer, pixels, center, scaling);
-        return _disk;
+        ReleaseDisk();
+        if (!s_disks.TryGetValue(key, out SharedDisk? disk))
+        {
+            // At 96 DPI the bitmap's size is its pixel size, which DrawImage maps whole onto the disk; a scaled DPI
+            // would shrink the source rectangle to a corner of it.
+            var bitmap = new WriteableBitmap(new PixelSize(pixels, pixels), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+            using (ILockedFramebuffer buffer = bitmap.Lock())
+            {
+                FillDisk(buffer, pixels, center, scaling);
+            }
+
+            s_disks[key] = disk = new SharedDisk(bitmap);
+        }
+
+        disk.Users++;
+        _diskKey = key;
+        return disk.Bitmap;
+    }
+
+    private void ReleaseDisk()
+    {
+        if (_diskKey is not { } key)
+            return;
+
+        _diskKey = null;
+        SharedDisk disk = s_disks[key];
+        if (--disk.Users == 0)
+        {
+            s_disks.Remove(key);
+            disk.Bitmap.Dispose();
+        }
     }
 
     // The rim shows each hue in full; inside, a faint tint of it grows from the neutral middle.
@@ -309,5 +334,14 @@ public class ColorBalancePad : Control
         uint g = (uint)Math.Round(color.G * alpha);
         uint b = (uint)Math.Round(color.B * alpha);
         return (a << 24) | (r << 16) | (g << 8) | b;
+    }
+
+    private readonly record struct DiskKey(int Pixels, Color Center, double Scaling);
+
+    private sealed class SharedDisk(WriteableBitmap bitmap)
+    {
+        public WriteableBitmap Bitmap { get; } = bitmap;
+
+        public int Users { get; set; }
     }
 }

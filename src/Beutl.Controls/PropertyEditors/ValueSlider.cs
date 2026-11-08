@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -103,32 +104,15 @@ public class ValueSlider : Control
     }
 
     // The value under x, clamped to the range.
-    public double ValueAt(double x)
-    {
-        double travel = Bounds.Width - (2 * ThumbRadius);
-        if (travel <= 0 || Maximum <= Minimum)
-            return Minimum;
-
-        double ratio = Math.Clamp((x - ThumbRadius) / travel, 0, 1);
-        return Minimum + (ratio * (Maximum - Minimum));
-    }
+    public double ValueAt(double x) => SliderTrack.ValueAt(x, Minimum, Maximum, ThumbRadius, Travel);
 
     // How much the value changes per device-independent pixel.
-    public double ValuePerPixel
-    {
-        get
-        {
-            double travel = Bounds.Width - (2 * ThumbRadius);
-            return travel > 0 ? (Maximum - Minimum) / travel : 0;
-        }
-    }
+    public double ValuePerPixel => Travel > 0 ? (Maximum - Minimum) / Travel : 0;
 
-    internal double XOf(double value)
-    {
-        double travel = Math.Max(Bounds.Width - (2 * ThumbRadius), 0);
-        double ratio = Maximum > Minimum ? Math.Clamp((value - Minimum) / (Maximum - Minimum), 0, 1) : 0;
-        return ThumbRadius + (ratio * travel);
-    }
+    // How far the thumb's center travels from Minimum to Maximum.
+    private double Travel => Bounds.Width - (2 * ThumbRadius);
+
+    internal double XOf(double value) => SliderTrack.XOf(value, Minimum, Maximum, ThumbRadius, Travel);
 
     protected override Size MeasureOverride(Size availableSize) => new(2 * ThumbRadius, (2 * ThumbRadius) + 4);
 
@@ -138,7 +122,7 @@ public class ValueSlider : Control
             return;
 
         double centerY = Bounds.Height / 2;
-        var rail = new Rect(ThumbRadius, centerY - (RailThickness / 2), Bounds.Width - (2 * ThumbRadius), RailThickness);
+        var rail = new Rect(ThumbRadius, centerY - (RailThickness / 2), Travel, RailThickness);
         context.DrawRectangle(Background, null, new RoundedRect(rail, RailThickness / 2));
 
         double valueX = XOf(Value);
@@ -157,7 +141,29 @@ public class ValueSlider : Control
         }
 
         var thumbCenter = new Point(valueX, centerY);
-        Pen? border = ThumbBorderBrush is { } borderBrush ? new Pen(borderBrush, 1) : null;
+        // An immutable pen skips the compositor's per-frame resources, which a drag redraws every frame.
+        var border = ThumbBorderBrush is { } borderBrush ? new ImmutablePen(borderBrush.ToImmutable(), 1) : null;
         context.DrawEllipse(ThumbBrush, border, thumbCenter, ThumbRadius - 0.5, ThumbRadius - 0.5);
+    }
+}
+
+// The mapping between a value and an x along a track, which starts at left and runs over width; ValueSlider and
+// TonalRangeSlider share it.
+internal static class SliderTrack
+{
+    public static double XOf(double value, double minimum, double maximum, double left, double width)
+    {
+        double ratio = maximum > minimum ? Math.Clamp((value - minimum) / (maximum - minimum), 0, 1) : 0;
+        return left + (ratio * Math.Max(width, 0));
+    }
+
+    // The value under x, clamped to the range; the minimum on a track with no length or no range.
+    public static double ValueAt(double x, double minimum, double maximum, double left, double width)
+    {
+        if (width <= 0 || maximum <= minimum)
+            return minimum;
+
+        double ratio = Math.Clamp((x - left) / width, 0, 1);
+        return minimum + (ratio * (maximum - minimum));
     }
 }

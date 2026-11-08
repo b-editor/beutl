@@ -11,7 +11,6 @@ using Beutl.Editor.Components.ColorGradingTab.Views;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -48,8 +47,7 @@ public class ColorGradingTabCaptureTests
         ThemeCaptureTests.UseCaptureTheme(
             light ? ThemeVariant.Light : ThemeVariant.Dark,
             light ? null : BeutlDarkBorderTheme.AccentColor);
-        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync($"grading-capture-{width}-{height}-{mode}");
-        var grading = new ColorGrading();
+        (EditViewModel editor, ColorGrading grading) = await ColorGradingTabTests.OpenGradingAsync($"grading-capture-{width}-{height}-{mode}");
         // Shadows and Lift take the longest numbers a drag gives, as in a recording of one.
         grading.Shadows.Value = new GradingColor(-0.38806236f, 0.12035069f, -0.049484196f);
         grading.Highlights.Value = new GradingColor(0.1f, 0.06f, 0f);
@@ -58,9 +56,6 @@ public class ColorGradingTabCaptureTests
         grading.Contrast.Value = 12;
         grading.Temperature.Value = -18;
         grading.Exposure.Value = 0.35f;
-        var shape = new RectShape();
-        shape.FilterEffect.Value = grading;
-        await TestShell.AddElementAsync(editor, () => shape, MediaTime.Zero, MediaTime.FromSeconds(2));
         using var model = new ColorGradingTabViewModel(editor);
         model.Effect.Value = grading;
         model.WheelMode.Value = model.AvailableWheelModes[mode];
@@ -108,8 +103,7 @@ public class ColorGradingTabCaptureTests
     public async Task Capture_color_grading_tab_animated(int width, int height, int mode, bool atKeyFrame)
     {
         ThemeCaptureTests.UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
-        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync($"grading-animated-{width}-{mode}-{atKeyFrame}");
-        var grading = new ColorGrading();
+        (EditViewModel editor, ColorGrading grading) = await ColorGradingTabTests.OpenGradingAsync($"grading-animated-{width}-{mode}-{atKeyFrame}");
         grading.Temperature.SetKeyFrameAnimation(Animate(-30f, 20f));
         grading.Exposure.SetKeyFrameAnimation(Animate(0f, 0.6f));
         grading.Gain.SetKeyFrameAnimation(Animate(GradingColor.One, new GradingColor(1.15f, 1f, 0.9f)));
@@ -117,9 +111,6 @@ public class ColorGradingTabCaptureTests
         grading.Shadows.SetKeyFrameAnimation(Animate(GradingColor.Zero, new GradingColor(0.02f, 0.03f, 0.1f)));
         grading.LowRange.SetKeyFrameAnimation(Animate(30f, 50f));
         grading.Contrast.Value = 12;
-        var shape = new RectShape();
-        shape.FilterEffect.Value = grading;
-        await TestShell.AddElementAsync(editor, () => shape, MediaTime.Zero, MediaTime.FromSeconds(2));
         editor.GetRequiredService<IEditorClock>().Seek(atKeyFrame ? MediaTime.Zero : MediaTime.FromSeconds(0.5));
         using var model = new ColorGradingTabViewModel(editor);
         model.Effect.Value = grading;

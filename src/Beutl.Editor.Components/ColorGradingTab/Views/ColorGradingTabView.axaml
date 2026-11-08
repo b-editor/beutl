@@ -147,7 +147,7 @@
                 <Grid x:Name="LiftControls"
                       VerticalAlignment="Center"
                       IsVisible="{Binding IsLiftGammaGainMode.Value}">
-                    <pe:ColorWheelsPanel>
+                    <pe:ColorWheelsPanel x:Name="LiftWheels">
                         <pe:ColorGradingWheel x:Name="LiftPicker" />
                         <pe:ColorGradingWheel x:Name="GammaPicker" />
                         <pe:ColorGradingWheel x:Name="GainPicker" />
@@ -160,7 +160,7 @@
                       IsVisible="{Binding IsLogMode.Value}"
                       RowDefinitions="*,Auto"
                       RowSpacing="12">
-                    <pe:ColorWheelsPanel>
+                    <pe:ColorWheelsPanel x:Name="LogWheels">
                         <pe:ColorGradingWheel x:Name="ShadowsPicker" />
                         <pe:ColorGradingWheel x:Name="MidtonesPicker" />
                         <pe:ColorGradingWheel x:Name="HighlightsPicker" />

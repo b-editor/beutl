@@ -49,8 +49,6 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
         set => SetValue(OriginProperty, value);
     }
 
-    internal bool IsSliding => _sliding;
-
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         if (_slider != null)
@@ -110,8 +108,8 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
         {
             // The default is applied as it is, even when it does not fall on a step.
             TValue before = Value;
-            Apply(TValue.CreateTruncating(Origin));
-            Confirm(before);
+            ApplyValue(TValue.CreateTruncating(Origin));
+            ConfirmValue(before);
             return;
         }
 
@@ -146,7 +144,7 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
 
         e.Handled = true;
         double x = point.Position.X;
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Alt) || e.KeyModifiers.HasFlag(KeyModifiers.Meta))
+        if (NumberEditorHelper.IsFineModifier(e.KeyModifiers))
         {
             _slideValue = Math.Clamp(_slideValue + ((x - _lastX) * _slider.ValuePerPixel * 0.1), Minimum, Maximum);
             // A plain drag goes on from here rather than jumping back under the pointer.
@@ -178,41 +176,9 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
             return;
 
         _sliding = false;
-        Confirm(_slideStart);
+        ConfirmValue(_slideStart);
     }
 
-    private void Slide(double value) => Apply(ToStep(value));
-
-    private void Apply(TValue next)
-    {
-        TValue previous = Value;
-        if (!Differs(next, previous))
-            return;
-
-        Value = next;
-        RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(next, previous, ValueChangedEvent));
-    }
-
-    private void Confirm(TValue oldValue)
-    {
-        if (Differs(Value, oldValue))
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, oldValue, ValueConfirmedEvent));
-    }
-
-    // The value rounded to a multiple of SmallChange, with no more decimals than the step has.
-    private TValue ToStep(double value)
-    {
-        double step = double.CreateTruncating(SmallChange);
-        if (step > 0 && double.IsFinite(step))
-        {
-            value = Math.Round(value / step) * step;
-            value = Math.Round(value, Math.Min((int)((decimal)step).Scale, 15));
-        }
-
-        // A small negative value rounds to -0, which the box would show as "-0".
-        if (value == 0)
-            value = 0;
-
-        return TValue.CreateTruncating(value);
-    }
+    private void Slide(double value)
+        => ApplyValue(TValue.CreateTruncating(NumberEditorHelper.RoundToStep(value, double.CreateTruncating(SmallChange))));
 }

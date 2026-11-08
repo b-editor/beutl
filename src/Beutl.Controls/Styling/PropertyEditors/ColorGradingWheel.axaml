@@ -116,7 +116,7 @@
             <Setter Property="Grid.ColumnSpan" Value="2" />
         </Style>
 
-        <Style Selector="^:side">
+        <Style Selector="^[IsSideBySide=True]">
             <Style Selector="^ /template/ Grid#PART_Header, ^ /template/ local|GradingWheel#PART_MasterWheel, ^ /template/ :is(local|Vector3Editor)#PART_Components">
                 <Setter Property="Grid.Column" Value="1" />
                 <Setter Property="Grid.ColumnSpan" Value="1" />

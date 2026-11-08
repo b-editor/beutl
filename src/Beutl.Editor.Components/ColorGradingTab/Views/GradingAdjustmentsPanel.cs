@@ -54,67 +54,48 @@ public sealed class GradingAdjustmentsPanel : Panel
 
     // The height the groups take at a width, from their heights in the last layout, which no width changes since each
     // of their rows keeps one line. The tab uses it to know whether they fit above the wheels before putting them there.
-    internal double HeightAt(double width)
-    {
-        Control[] items = [.. Children.Where(child => child.IsVisible)];
-        int columns = ColumnsFor(width);
-        double height = 0;
-        for (int row = 0; row * columns < items.Length; row++)
-        {
-            double rowHeight = items.Skip(row * columns).Take(columns).Max(item => item.DesiredSize.Height);
-            height += rowHeight + (row > 0 ? RowSpacing : 0);
-        }
-
-        return height;
-    }
+    internal double HeightAt(double width) => HeightOf(VisibleItems(), ColumnsFor(width));
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        Control[] items = [.. Children.Where(child => child.IsVisible)];
+        Control[] items = VisibleItems();
         int columns = ColumnsFor(availableSize.Width);
         double cellWidth = CellWidth(availableSize.Width, columns);
-        double height = 0;
-        double widest = 0;
-        for (int row = 0; row * columns < items.Length; row++)
-        {
-            double rowHeight = 0;
-            foreach (Control item in items.Skip(row * columns).Take(columns))
-            {
-                item.Measure(new Size(cellWidth, double.PositiveInfinity));
-                rowHeight = Math.Max(rowHeight, item.DesiredSize.Height);
-                widest = Math.Max(widest, item.DesiredSize.Width);
-            }
-
-            height += rowHeight + (row > 0 ? RowSpacing : 0);
-        }
+        foreach (Control item in items)
+            item.Measure(new Size(cellWidth, double.PositiveInfinity));
 
         UsedColumns = columns;
         double width = double.IsFinite(availableSize.Width)
             ? availableSize.Width
-            : (columns * widest) + ((columns - 1) * ColumnSpacing);
-        return new Size(width, height);
+            : (columns * items.Select(item => item.DesiredSize.Width).DefaultIfEmpty().Max()) + ((columns - 1) * ColumnSpacing);
+        return new Size(width, HeightOf(items, columns));
     }
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        Control[] items = [.. Children.Where(child => child.IsVisible)];
         int columns = ColumnsFor(finalSize.Width);
         double cellWidth = CellWidth(finalSize.Width, columns);
         double y = 0;
-        for (int row = 0; row * columns < items.Length; row++)
+        foreach (Control[] row in VisibleItems().Chunk(columns))
         {
-            Control[] cells = [.. items.Skip(row * columns).Take(columns)];
-            double rowHeight = cells.Max(item => item.DesiredSize.Height);
-            for (int column = 0; column < cells.Length; column++)
-            {
-                double x = column * (cellWidth + ColumnSpacing);
-                cells[column].Arrange(new Rect(x, y, cellWidth, rowHeight));
-            }
+            double rowHeight = RowHeight(row);
+            for (int column = 0; column < row.Length; column++)
+                row[column].Arrange(new Rect(column * (cellWidth + ColumnSpacing), y, cellWidth, rowHeight));
 
             y += rowHeight + RowSpacing;
         }
 
         return finalSize;
+    }
+
+    private static double RowHeight(Control[] row) => row.Max(item => item.DesiredSize.Height);
+
+    private Control[] VisibleItems() => [.. Children.Where(child => child.IsVisible)];
+
+    private double HeightOf(Control[] items, int columns)
+    {
+        Control[][] rows = [.. items.Chunk(columns)];
+        return rows.Sum(RowHeight) + (Math.Max(rows.Length - 1, 0) * RowSpacing);
     }
 
     private int ColumnsFor(double width)

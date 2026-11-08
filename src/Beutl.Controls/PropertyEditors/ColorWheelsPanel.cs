@@ -24,6 +24,7 @@ public sealed class ColorWheelsPanel : Panel
     private const double SidePreference = 1.15;
     private const double RowPreference = 1.2;
     private Arrangement _arrangement = new(1, MinPadSize, false);
+    private ColorGradingWheel? _chromeSource;
     private double _chromeHeight;
     private double _chromeWidth;
 
@@ -51,6 +52,9 @@ public sealed class ColorWheelsPanel : Panel
 
     internal double PadSize => _arrangement.Pad;
 
+    // The height a wheel needs besides its pad, as the last measure found it.
+    internal double ChromeHeight => _chromeHeight;
+
     protected override Size MeasureOverride(Size availableSize)
     {
         ColorGradingWheel[] wheels = VisibleWheels();
@@ -62,9 +66,17 @@ public sealed class ColorWheelsPanel : Panel
             ? availableSize.Width
             : (wheels.Length * (MaxPadSize + spacing)) - spacing;
 
-        wheels[0].Measure(Size.Infinity);
-        _chromeHeight = wheels[0].ChromeHeight;
-        _chromeWidth = wheels[0].ChromeWidth;
+        // Measured with no limits only when its parts may have changed, the first wheel keeps its measure cached across
+        // passes that only resize the panel.
+        ColorGradingWheel first = wheels[0];
+        if (first != _chromeSource || !first.IsMeasureValid)
+        {
+            first.Measure(Size.Infinity);
+            _chromeHeight = first.ChromeHeight;
+            _chromeWidth = first.ChromeWidth;
+            _chromeSource = first;
+        }
+
         _arrangement = Choose(wheels.Length, width, availableSize.Height);
 
         Size wheelSize = WheelSize();
