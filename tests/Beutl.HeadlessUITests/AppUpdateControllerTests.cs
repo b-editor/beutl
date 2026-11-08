@@ -22,9 +22,14 @@ public sealed class AppUpdateControllerTests
     private INotificationServiceHandler? _previous;
     private string _fileName = null!;
 
-    private sealed class RecordingHandler(List<Notification> shown) : INotificationServiceHandler
+    // onUIThread, when given, records for each notification whether it was shown from the UI thread.
+    private sealed class RecordingHandler(List<Notification> shown, List<bool>? onUIThread = null) : INotificationServiceHandler
     {
-        public void Show(Notification notification) => shown.Add(notification);
+        public void Show(Notification notification)
+        {
+            onUIThread?.Add(Avalonia.Threading.Dispatcher.UIThread.CheckAccess());
+            shown.Add(notification);
+        }
     }
 
     [SetUp]
@@ -73,6 +78,7 @@ public sealed class AppUpdateControllerTests
 
         controller.StartInBackground(Update());
         await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+        HeadlessTestHelpers.Settle();
 
         // Starting the download says nothing, so the only notification is the one that asks for a decision.
         Notification ready = _shown.Single();
@@ -85,6 +91,24 @@ public sealed class AppUpdateControllerTests
                 MessageStrings.UpdateAction_StartInstaller, MessageStrings.UpdateAction_UpdateOnQuit,
             }));
         });
+    }
+
+    // The update prepares on the thread pool, while its dialog opens and closes on the UI thread. Whether the outcome
+    // is notified depends on the dialog, so it is decided on the UI thread, in order with the dialog.
+    [AvaloniaTest]
+    public async Task AnUpdateThatBecomesReadyBehindTheEditorIsDecidedOnTheUIThread()
+    {
+        var onUIThread = new List<bool>();
+        NotificationService.Handler = new RecordingHandler(_shown, onUIThread);
+        UpdateDialogViewModel? vm = null;
+        var controller = new AppUpdateController(update => vm = ViewModel(update, new Handler(HttpStatusCode.OK)));
+
+        controller.StartInBackground(Update());
+        await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(_shown.Single().Title, Is.EqualTo(MessageStrings.UpdateReady_Title));
+        Assert.That(onUIThread, Is.EqualTo(new[] { true }));
     }
 
     [AvaloniaTest]
@@ -111,6 +135,7 @@ public sealed class AppUpdateControllerTests
 
         controller.StartInBackground(Update());
         await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+        HeadlessTestHelpers.Settle();
 
         Notification failed = _shown[^1];
         Assert.That(failed.Type, Is.EqualTo(NotificationType.Error));
@@ -118,6 +143,7 @@ public sealed class AppUpdateControllerTests
 
         failed.Actions!.Single().Callback();
         await vm.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+        HeadlessTestHelpers.Settle();
 
         Assert.That(vm.Phase.Value, Is.EqualTo(AppUpdatePhase.Ready));
         Assert.That(_shown[^1].Title, Is.EqualTo(MessageStrings.UpdateReady_Title));
@@ -138,6 +164,7 @@ public sealed class AppUpdateControllerTests
 
         controller.StartInBackground(Update());
         await created[0].UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+        HeadlessTestHelpers.Settle();
         Assert.That(status!.IsActive, Is.True);
         CancellationToken offer = _shown[^1].CancellationToken;
 
