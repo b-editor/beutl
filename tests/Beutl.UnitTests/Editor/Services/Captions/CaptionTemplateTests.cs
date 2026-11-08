@@ -230,6 +230,28 @@ public class CaptionTemplateTests
         Assert.That(description.Position, Is.EqualTo(new Point(0, 0)));
     }
 
+    // Placement decides when and where an element goes, not how the batch places it, so what the factory asked of the
+    // batch stays.
+    [Test]
+    public void DefaultPlacement_KeepsWhatTheFactoryAskedOfTheBatch()
+    {
+        CaptionTemplate template = CaptionTemplateRegistryTests.CreateTemplate(
+            new CaptionTemplateId("beutl.tests.batch-placement"),
+            "Batch placement",
+            new BatchPlacementFactory(),
+            DefaultCaptionPlacementPolicy.Instance);
+
+        ElementDescription description = CreateElements(template,
+            new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), "Text"),
+            new CaptionElementContext(0, "Caption")).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(description.FollowsPrevious, Is.True);
+            Assert.That(description.StacksAboveScene, Is.True);
+        });
+    }
+
     [Test]
     public void CreateElements_RejectsNullFactoryAndPlacementResults()
     {
@@ -300,6 +322,21 @@ public class CaptionTemplateTests
                     cue,
                     () => new TextBlock(),
                     position: new Point(0, 0)),
+            ];
+    }
+
+    private sealed class BatchPlacementFactory : ICaptionElementFactory
+    {
+        public IReadOnlyList<ElementDescription> CreateElements(
+            CaptionCue cue,
+            CaptionElementContext context)
+            =>
+            [
+                context.CreateDescription(cue, () => new TextBlock()) with
+                {
+                    FollowsPrevious = true,
+                    StacksAboveScene = true,
+                },
             ];
     }
 
