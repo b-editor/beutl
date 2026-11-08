@@ -263,7 +263,7 @@ internal sealed partial class DeclarativeDocumentApplier
         List<(CoreObject Value, JsonObject Desired)> changedValues = TakeChangedValuesOfTheSameObject(target, payload);
         CoreSerializer.PopulateFromJsonObject(target, target.GetType(), payload, CreateOptions(target));
         ClearAbsentRegisteredObjectProperties(target, desired, payload);
-        ClearAbsentObjectProperties(target, desired, payload);
+        ResetAbsentObjectProperties(target, desired, payload);
         foreach ((CoreObject value, JsonObject valueDesired) in changedValues)
         {
             ApplyCoreObject(value, valueDesired);
@@ -404,7 +404,9 @@ internal sealed partial class DeclarativeDocumentApplier
         }
     }
 
-    private static void ClearAbsentObjectProperties(
+    // A merge patch's null deletes the member, so an absent member is how a property is cleared. It returns the
+    // property to its default, not to null: a new object starts from this path too, and some defaults are not null.
+    private static void ResetAbsentObjectProperties(
         EngineObject target,
         JsonObject desired,
         JsonObject serializedPayload)
@@ -420,7 +422,7 @@ internal sealed partial class DeclarativeDocumentApplier
                 continue;
             }
 
-            property.Value = null;
+            property.Value = property.DefaultValue;
         }
     }
 
