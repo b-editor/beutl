@@ -24,9 +24,13 @@ namespace Beutl.HeadlessUITests;
 [Explicit("Produces PNG captures for manual design review; not a regression test.")]
 public class ColorGradingTabCaptureTests
 {
-    public enum Placement { Auto, Above, Beside }
+    public enum Placement { Auto, Above, Beside, Compact }
 
     [AvaloniaTest]
+    [TestCase(745, 409, 1, Placement.Auto, false, false)]
+    [TestCase(745, 409, 1, Placement.Auto, false, true)]
+    [TestCase(767, 410, 0, Placement.Auto, false, true)]
+    [TestCase(767, 410, 1, Placement.Auto, false, true)]
     [TestCase(1080, 360, 1, Placement.Auto, false, true)]
     [TestCase(1080, 360, 1, Placement.Above, false, true)]
     [TestCase(1080, 360, 0, Placement.Auto, false, true)]
@@ -46,10 +50,11 @@ public class ColorGradingTabCaptureTests
             light ? null : BeutlDarkBorderTheme.AccentColor);
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync($"grading-capture-{width}-{height}-{mode}");
         var grading = new ColorGrading();
-        grading.Shadows.Value = new GradingColor(0.02f, 0.04f, 0.12f);
+        // Shadows and Lift take the longest numbers a drag gives, as in a recording of one.
+        grading.Shadows.Value = new GradingColor(-0.38806236f, 0.12035069f, -0.049484196f);
         grading.Highlights.Value = new GradingColor(0.1f, 0.06f, 0f);
         grading.Gain.Value = new GradingColor(1.1f, 1.02f, 0.95f);
-        grading.Lift.Value = new GradingColor(-0.03f, 0f, 0.05f);
+        grading.Lift.Value = new GradingColor(-0.0326f, 0.0012f, 0.0538f);
         grading.Contrast.Value = 12;
         grading.Temperature.Value = -18;
         grading.Exposure.Value = 0.35f;
@@ -63,7 +68,13 @@ public class ColorGradingTabCaptureTests
         var view = new ColorGradingTabView
         {
             DataContext = model,
-            AdjustmentsBeside = placement switch { Placement.Above => false, Placement.Beside => true, _ => null },
+            Placement = placement switch
+            {
+                Placement.Above => ColorGradingTabView.AdjustmentsPlacement.Above,
+                Placement.Beside => ColorGradingTabView.AdjustmentsPlacement.Beside,
+                Placement.Compact => ColorGradingTabView.AdjustmentsPlacement.Compact,
+                _ => null,
+            },
         };
         var window = new Window { Content = view, Width = width, Height = height };
         try
@@ -77,7 +88,7 @@ public class ColorGradingTabCaptureTests
             // Hidden sliders are never laid out, so their panel may not be in the tree.
             GradingAdjustmentsPanel? groups = view.GetVisualDescendants().OfType<GradingAdjustmentsPanel>().SingleOrDefault();
             TestContext.Out.WriteLine(
-                $"{width}x{height} mode {mode} {placement}: beside={view.IsAdjustmentsBeside} wheels={wheels.Columns} " +
+                $"{width}x{height} mode {mode} {placement}: placement={view.CurrentPlacement} wheels={wheels.Columns} " +
                 $"side={wheels.IsSideBySide} pad={wheels.PadSize:F0} groups={groups?.UsedColumns.ToString() ?? "-"}");
         }
         finally

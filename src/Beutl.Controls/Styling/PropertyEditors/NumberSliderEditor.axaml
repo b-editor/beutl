@@ -14,7 +14,6 @@
         <Setter Property="ThumbBrush" Value="{DynamicResource SliderThumbBackground}" />
         <Setter Property="ThumbBorderBrush" Value="{DynamicResource SliderThumbBorderBrush}" />
         <Setter Property="TickBrush" Value="{DynamicResource TextFillColorTertiaryBrush}" />
-        <Setter Property="Cursor" Value="Hand" />
         <Style Selector="^:disabled">
             <Setter Property="Opacity" Value="0.5" />
         </Style>
@@ -22,7 +21,9 @@
 
     <!--  A number in one row: its header, a slider, the box and its keyframe buttons. Rows that share a
           Grid.IsSharedSizeScope line up: their sliders start at one place, and once any row shows keyframe buttons
-          the others keep room for them, so that the sliders also end at one place.  -->
+          the others keep room for them, so that the sliders also end at one place. With the compact class a row
+          drops its slider and its box takes the slider's place, at the end of the room the row is given. The box's
+          column comes from styles, since a value the template sets would beat them.  -->
     <ControlTheme x:Key="NumberSliderEditorTheme" TargetType="local:StringEditorBase">
         <Setter Property="Margin" Value="0" />
         <Setter Property="MinWidth" Value="0" />
@@ -52,7 +53,6 @@
                                            IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}" />
 
                         <TextBox x:Name="PART_InnerTextBox"
-                                 Grid.Column="2"
                                  Width="64"
                                  MinHeight="26"
                                  Margin="8,2,0,2"
@@ -84,6 +84,19 @@
                 </Border>
             </ControlTemplate>
         </Setter>
+
+        <Style Selector="^ /template/ TextBox#PART_InnerTextBox">
+            <Setter Property="Grid.Column" Value="2" />
+        </Style>
+        <Style Selector="^.compact">
+            <Style Selector="^ /template/ local|ValueSlider#PART_Slider">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+            <Style Selector="^ /template/ TextBox#PART_InnerTextBox">
+                <Setter Property="Grid.Column" Value="1" />
+                <Setter Property="HorizontalAlignment" Value="Right" />
+            </Style>
+        </Style>
 
         <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
             <Setter Property="IsEnabled" Value="False" />

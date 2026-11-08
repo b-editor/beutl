@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Services;
@@ -17,7 +18,7 @@ public partial class ColorGradingTabView : UserControl
     // Above the wheels, the sliders scroll rather than push the wheels out of a low tab. The wheels keep a pad of 96
     // with their header, jog and boxes and the gap above them, and the tonal range row in its mode; the sliders keep
     // at least two rows.
-    private const double WheelsMinHeight = 196;
+    private const double WheelsMinHeight = 202;
     private const double TonalRangeHeight = 48;
     private const double MinAdjustmentsHeight = 72;
     private readonly CompositeDisposable _subscriptions = [];
@@ -29,6 +30,8 @@ public partial class ColorGradingTabView : UserControl
 
         DataContextChanged += OnDataContextChanged;
         ContentGrid.GetObservable(BoundsProperty).Subscribe(_ => UpdateAdjustmentsPlacement());
+        // Whether the sliders fit above the wheels is known once they are laid out, as when they are first shown.
+        AdjustmentGroups.GetObservable(BoundsProperty).Subscribe(_ => UpdateAdjustmentsPlacement());
 
         // The tonal range slider shows the two editors' values and edits through them, so that its drags preview,
         // confirm and undo as a scrub of either header does.
@@ -39,8 +42,16 @@ public partial class ColorGradingTabView : UserControl
         TonalRangeSlider.DragCompleted += OnRangeDragCompleted;
     }
 
-    // Whether the sliders stand beside the wheels; null decides by the shape of the tab, and tests fix it.
-    internal bool? AdjustmentsBeside
+    // Where the sliders stand: above the wheels, in a column beside them, or beside them as names and boxes only.
+    internal enum AdjustmentsPlacement
+    {
+        Above,
+        Beside,
+        Compact,
+    }
+
+    // Where the sliders stand; null decides by the shape of the tab, and tests fix it.
+    internal AdjustmentsPlacement? Placement
     {
         get;
         set
@@ -50,17 +61,35 @@ public partial class ColorGradingTabView : UserControl
         }
     }
 
-    internal bool IsAdjustmentsBeside => ContentGrid.Classes.Contains("beside");
+    internal AdjustmentsPlacement CurrentPlacement { get; private set; }
 
     // The content's size comes from the tab rather than from what it holds, so moving the sliders does not change it.
     private void UpdateAdjustmentsPlacement()
     {
         Size size = ContentGrid.Bounds.Size;
-        bool beside = AdjustmentsBeside ?? (size.Width >= BesideMinWidth && size.Width >= size.Height * BesideAspectRatio);
-        ContentGrid.Classes.Set("beside", beside);
-
         double reserve = WheelsMinHeight + ((DataContext as ColorGradingTabViewModel)?.IsLogMode.Value == true ? TonalRangeHeight : 0);
-        AdjustmentsScroller.MaxHeight = beside ? double.PositiveInfinity : Math.Max(MinAdjustmentsHeight, size.Height - reserve);
+        double aboveHeight = Math.Max(MinAdjustmentsHeight, size.Height - reserve);
+        AdjustmentsPlacement placement = Placement ?? ChoosePlacement(size, aboveHeight);
+        bool compact = placement == AdjustmentsPlacement.Compact;
+        CurrentPlacement = placement;
+        ContentGrid.Classes.Set("beside", placement != AdjustmentsPlacement.Above);
+        ContentGrid.Classes.Set("compact", compact);
+        foreach (StringEditorBase editor in AdjustmentGroups.GetLogicalDescendants().OfType<StringEditorBase>())
+            editor.Classes.Set("compact", compact);
+
+        AdjustmentsScroller.MaxHeight = placement == AdjustmentsPlacement.Above ? aboveHeight : double.PositiveInfinity;
+    }
+
+    private AdjustmentsPlacement ChoosePlacement(Size size, double aboveHeight)
+    {
+        if (size.Width >= BesideMinWidth && size.Width >= size.Height * BesideAspectRatio)
+            return AdjustmentsPlacement.Beside;
+
+        // A tab no higher than wide that cannot show all the sliders above the wheels shows their names and boxes
+        // beside the wheels instead, which leaves the wheels the whole height and the numbers in view.
+        return size.Width >= size.Height && AdjustmentGroups.HeightAt(size.Width) > aboveHeight
+            ? AdjustmentsPlacement.Compact
+            : AdjustmentsPlacement.Above;
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)

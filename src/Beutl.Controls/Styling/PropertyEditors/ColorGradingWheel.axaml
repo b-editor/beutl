@@ -1,6 +1,5 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:controls="using:Beutl.Controls"
                     xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:lang="using:Beutl.Language"
                     xmlns:local="using:Beutl.Controls.PropertyEditors">
@@ -17,16 +16,10 @@
         <ResourceDictionary x:Key="Default">
             <SolidColorBrush x:Key="ColorBalancePadCenterBrush" Color="#FFE4E4E4" />
             <SolidColorBrush x:Key="ColorBalancePadGuideBrush" Color="#66000000" />
-            <SolidColorBrush x:Key="ColorGradingChannelRedBrush" Color="#FFC42B1C" />
-            <SolidColorBrush x:Key="ColorGradingChannelGreenBrush" Color="#FF0F7B0F" />
-            <SolidColorBrush x:Key="ColorGradingChannelBlueBrush" Color="#FF0063B1" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
             <SolidColorBrush x:Key="ColorBalancePadCenterBrush" Color="#FF2C2C2C" />
             <SolidColorBrush x:Key="ColorBalancePadGuideBrush" Color="#66FFFFFF" />
-            <SolidColorBrush x:Key="ColorGradingChannelRedBrush" Color="#FFFF7A70" />
-            <SolidColorBrush x:Key="ColorGradingChannelGreenBrush" Color="#FF6CCB5F" />
-            <SolidColorBrush x:Key="ColorGradingChannelBlueBrush" Color="#FF6AA8FF" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
@@ -34,115 +27,8 @@
         <Setter Property="Background" Value="{DynamicResource ColorBalancePadCenterBrush}" />
         <Setter Property="GuideBrush" Value="{DynamicResource ColorBalancePadGuideBrush}" />
         <Setter Property="PuckBrush" Value="White" />
-        <Setter Property="Cursor" Value="Hand" />
         <Style Selector="^:disabled">
             <Setter Property="Opacity" Value="0.5" />
-        </Style>
-    </ControlTheme>
-
-    <!--  The R, G and B boxes under a wheel: one box parted in three, each with its channel's letter, which can be dragged.  -->
-    <ControlTheme x:Key="ColorGradingWheelComponentsTheme" TargetType="local:Vector3Editor">
-        <Setter Property="Margin" Value="0" />
-        <Setter Property="MinWidth" Value="0" />
-        <Setter Property="Template">
-            <ControlTemplate>
-                <DataValidationErrors>
-                    <Grid ColumnDefinitions="*,1,*,1,*">
-                        <Border Name="PART_BackgroundBorder"
-                                Grid.ColumnSpan="5"
-                                Background="{DynamicResource TextControlBackground}"
-                                BorderBrush="{DynamicResource TextControlBorderBrush}"
-                                BorderThickness="{DynamicResource TextControlBorderThemeThickness}"
-                                CornerRadius="{DynamicResource ControlCornerRadius}" />
-
-                        <Grid Grid.Column="0" ColumnDefinitions="Auto,*">
-                            <TextBlock Name="PART_HeaderFirstTextBlock"
-                                       Margin="6,0,0,1"
-                                       VerticalAlignment="Center"
-                                       Cursor="SizeWestEast"
-                                       FontSize="11"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource ColorGradingChannelRedBrush}"
-                                       Text="{Binding FirstHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
-                            <TextBox x:Name="PART_InnerFirstTextBox"
-                                     Grid.Column="1"
-                                     controls:TextBoxAttachment.EnterDownBehavior="LostFocus"
-                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                     Text="{TemplateBinding FirstText, Mode=TwoWay}"
-                                     MinWidth="0"
-                                     MinHeight="26"
-                                     Padding="2,3,6,3"
-                                     HorizontalContentAlignment="Right"
-                                     FontSize="12"
-                                     Theme="{StaticResource VectorElementTextBox}" />
-                        </Grid>
-
-                        <Separator Grid.Column="1" Theme="{StaticResource VectorComponentSeparator}" />
-
-                        <Grid Grid.Column="2" ColumnDefinitions="Auto,*">
-                            <TextBlock Name="PART_HeaderSecondTextBlock"
-                                       Margin="6,0,0,1"
-                                       VerticalAlignment="Center"
-                                       Cursor="SizeWestEast"
-                                       FontSize="11"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource ColorGradingChannelGreenBrush}"
-                                       Text="{Binding SecondHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
-                            <TextBox x:Name="PART_InnerSecondTextBox"
-                                     Grid.Column="1"
-                                     controls:TextBoxAttachment.EnterDownBehavior="LostFocus"
-                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                     Text="{TemplateBinding SecondText, Mode=TwoWay}"
-                                     MinWidth="0"
-                                     MinHeight="26"
-                                     Padding="2,3,6,3"
-                                     HorizontalContentAlignment="Right"
-                                     FontSize="12"
-                                     Theme="{StaticResource VectorElementTextBox}" />
-                        </Grid>
-
-                        <Separator Grid.Column="3" Theme="{StaticResource VectorComponentSeparator}" />
-
-                        <Grid Grid.Column="4" ColumnDefinitions="Auto,*">
-                            <TextBlock Name="PART_HeaderThirdTextBlock"
-                                       Margin="6,0,0,1"
-                                       VerticalAlignment="Center"
-                                       Cursor="SizeWestEast"
-                                       FontSize="11"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource ColorGradingChannelBlueBrush}"
-                                       Text="{Binding ThirdHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
-                            <TextBox x:Name="PART_InnerThirdTextBox"
-                                     Grid.Column="1"
-                                     controls:TextBoxAttachment.EnterDownBehavior="LostFocus"
-                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                     Text="{TemplateBinding ThirdText, Mode=TwoWay}"
-                                     MinWidth="0"
-                                     MinHeight="26"
-                                     Padding="2,3,6,3"
-                                     HorizontalContentAlignment="Right"
-                                     FontSize="12"
-                                     Theme="{StaticResource VectorElementTextBox}" />
-                        </Grid>
-                    </Grid>
-                </DataValidationErrors>
-            </ControlTemplate>
-        </Setter>
-
-        <Style Selector="^:border-pointerover /template/ Border#PART_BackgroundBorder">
-            <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushPointerOver}" />
-            <Setter Property="Background" Value="{DynamicResource TextControlBackgroundPointerOver}" />
-        </Style>
-
-        <Style Selector="^[IsReadOnly=True] /template/ Border#PART_BackgroundBorder">
-            <Setter Property="Background" Value="{DynamicResource TextControlBackgroundDisabled}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushDisabled}" />
-        </Style>
-
-        <Style Selector="^:focus-any-textbox /template/ Border#PART_BackgroundBorder">
-            <Setter Property="Background" Value="{DynamicResource TextControlBackgroundFocused}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushFocused}" />
-            <Setter Property="BorderThickness" Value="{DynamicResource TextControlBorderThemeThicknessFocused}" />
         </Style>
     </ControlTheme>
 
@@ -203,10 +89,13 @@
                                         MinWidth="0"
                                         IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}" />
 
+                    <!--  Three numbers share the width of a wheel, so they are whole, in steps of 0.01 of the color as
+                          other grading tools show them, and a drag cannot lengthen them past what the boxes hold.  -->
                     <local:GradingColorComponentsEditor Name="PART_Components"
                                                         MinWidth="160"
                                                         IsReadOnly="{TemplateBinding IsReadOnly}"
-                                                        Theme="{StaticResource ColorGradingWheelComponentsTheme}" />
+                                                        NumberFormat="0;-0;0"
+                                                        Theme="{StaticResource ColorComponentsEditorStyle}" />
                 </Grid>
             </ControlTemplate>
         </Setter>

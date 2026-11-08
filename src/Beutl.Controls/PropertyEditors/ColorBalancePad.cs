@@ -10,7 +10,8 @@ namespace Beutl.Controls.PropertyEditors;
 
 // The disk of a color wheel. Hues sit around it where the vectorscope places them and fade to neutral in the middle,
 // and the puck shows Chroma in units of the radius. A drag anywhere moves the puck by the drag, a tenth as far with
-// Alt or Command, and a double click asks to center it.
+// Alt or Command, and a double click asks to center it. As a scrub of a property's header does, the drag hides the
+// cursor and shows it again where the drag began, so that the cursor does not wander off the puck it moves.
 public class ColorBalancePad : Control
 {
     public static readonly StyledProperty<Vector> ChromaProperty =
@@ -44,7 +45,8 @@ public class ColorBalancePad : Control
     private WriteableBitmap? _disk;
     private int _diskPixels;
     private Color _diskCenter;
-    private Point? _lastPoint;
+    private bool _dragging;
+    private Point _dragPoint;
 
     static ColorBalancePad()
     {
@@ -76,7 +78,7 @@ public class ColorBalancePad : Control
         set => SetValue(GuideBrushProperty, value);
     }
 
-    public bool IsDragging => _lastPoint.HasValue;
+    public bool IsDragging => _dragging;
 
     public event EventHandler<VectorEventArgs>? DragStarted
     {
@@ -183,21 +185,28 @@ public class ColorBalancePad : Control
             return;
         }
 
-        _lastPoint = point.Position;
+        _dragging = true;
+        _dragPoint = point.Position;
         e.Pointer.Capture(this);
+        PointerLockHelper.Pressed(this, _dragPoint);
         RaiseEvent(new VectorEventArgs { RoutedEvent = DragStartedEvent, Vector = default });
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if (_lastPoint is not { } last)
+        if (!_dragging)
             return;
 
-        Point position = e.GetPosition(this);
-        _lastPoint = position;
+        // A move with the button up means the release never reached the pad.
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            EndDrag();
+            return;
+        }
+
+        Point move = PointerLockHelper.Moved(this, e.GetPosition(this), ref _dragPoint);
         double factor = e.KeyModifiers.HasFlag(KeyModifiers.Alt) || e.KeyModifiers.HasFlag(KeyModifiers.Meta) ? 0.1 : 1;
-        Vector move = position - last;
         var delta = new Vector(move.X, -move.Y) * (factor / TravelRadius);
         e.Handled = true;
         if (delta != default)
@@ -207,7 +216,7 @@ public class ColorBalancePad : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
-        if (_lastPoint.HasValue && e.InitialPressMouseButton == MouseButton.Left)
+        if (_dragging && e.InitialPressMouseButton == MouseButton.Left)
         {
             e.Handled = true;
             EndDrag();
@@ -222,10 +231,11 @@ public class ColorBalancePad : Control
 
     private void EndDrag()
     {
-        if (!_lastPoint.HasValue)
+        if (!_dragging)
             return;
 
-        _lastPoint = null;
+        _dragging = false;
+        PointerLockHelper.Released();
         RaiseEvent(new VectorEventArgs { RoutedEvent = DragCompletedEvent, Vector = default });
     }
 

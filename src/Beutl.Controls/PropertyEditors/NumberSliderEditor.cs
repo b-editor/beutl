@@ -209,6 +209,10 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
             value = Math.Round(value, Math.Min((int)((decimal)step).Scale, 15));
         }
 
+        // A small negative value rounds to -0, which the box would show as "-0".
+        if (value == 0)
+            value = 0;
+
         return TValue.CreateTruncating(value);
     }
 }

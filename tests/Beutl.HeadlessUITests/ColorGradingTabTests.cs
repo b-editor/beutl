@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Globalization;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -6,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
@@ -330,6 +332,41 @@ public sealed class ColorGradingTabTests
         }
     }
 
+    // A press just below zero rounds to -0, which the box used to show as "-0".
+    [AvaloniaTest]
+    public void A_slider_stopped_just_below_zero_shows_zero()
+    {
+        var effect = new ColorGrading();
+        effect.Temperature.Value = -20;
+        using var history = new HistoryScope(effect);
+        using var viewModel = new NumberEditorViewModel<float>(
+            new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)effect.Temperature, effect));
+        viewModel.Accept(ServiceVisitor.For(history.History));
+        var editor = new NumberSliderEditor<float> { Theme = (ControlTheme)Application.Current!.FindResource("NumberSliderEditorTheme")! };
+        PropertyEditorControls.Attach(viewModel, editor);
+        var window = new Window { Content = editor, Width = 420, Height = 80 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            ValueSlider slider = editor.GetVisualDescendants().OfType<ValueSlider>().Single();
+            AvaPoint below = slider.TranslatePoint(new AvaPoint(slider.XOf(-0.2 * editor.SmallChange), slider.Bounds.Height / 2), window)!.Value;
+            window.MouseDown(below, MouseButton.Left);
+            window.MouseUp(below, MouseButton.Left);
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(effect.Temperature.Value, Is.Zero);
+                Assert.That(float.IsNegative(effect.Temperature.Value), Is.False);
+                Assert.That(editor.Text, Is.EqualTo("0"));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTest]
     public async Task Reset_all_returns_every_property_in_one_undo_step()
     {
@@ -407,17 +444,18 @@ public sealed class ColorGradingTabTests
     }
 
     // A tab docked at the bottom is wide and low: the sliders stand in a column beside the wheels, which keep one row
-    // as the tonal wheels do. Elsewhere the sliders stay above, and in a low tab too narrow for the column they scroll
-    // so that the wheels stay inside it. In every shape the wheels stay inside the tab.
+    // as the tonal wheels do. In a low tab too narrow for that column only the sliders' names and boxes stand beside
+    // the wheels, and elsewhere the sliders stay above. In every shape the wheels stay inside the tab.
     [AvaloniaTest]
-    [TestCase(1080, 360, 1, true, true)]
-    [TestCase(1080, 360, 0, true, true)]
-    [TestCase(1920, 360, 1, true, true)]
-    [TestCase(420, 900, 0, false, false)]
-    [TestCase(560, 720, 1, false, false)]
-    [TestCase(800, 360, 1, false, true)]
-    [TestCase(800, 360, 0, false, true)]
-    public async Task The_wheels_and_sliders_fit_the_tab(int width, int height, int mode, bool slidersBeside, bool oneRow)
+    [TestCase(1080, 360, 1, "Beside", true)]
+    [TestCase(1080, 360, 0, "Beside", true)]
+    [TestCase(1920, 360, 1, "Beside", true)]
+    [TestCase(420, 900, 0, "Above", false)]
+    [TestCase(560, 720, 1, "Above", false)]
+    [TestCase(800, 360, 1, "Compact", false)]
+    [TestCase(800, 360, 0, "Compact", true)]
+    [TestCase(767, 410, 0, "Compact", true)]
+    public async Task The_wheels_and_sliders_fit_the_tab(int width, int height, int mode, string placement, bool oneRow)
     {
         (EditViewModel editor, ColorGrading grading) = await OpenGradingAsync($"grading-layout-{width}");
         using var model = new ColorGradingTabViewModel(editor);
@@ -432,14 +470,27 @@ public sealed class ColorGradingTabTests
             ColorWheelsPanel wheels = view.GetVisualDescendants().OfType<ColorWheelsPanel>().Single(panel => panel.IsEffectivelyVisible);
             ColorGradingWheel[] shown = [.. wheels.Children.OfType<ColorGradingWheel>()];
             GradingAdjustmentsPanel groups = view.GetVisualDescendants().OfType<GradingAdjustmentsPanel>().Single();
+            bool compact = placement == "Compact";
             Assert.Multiple(() =>
             {
-                Assert.That(view.IsAdjustmentsBeside, Is.EqualTo(slidersBeside));
-                if (slidersBeside)
+                Assert.That(view.CurrentPlacement.ToString(), Is.EqualTo(placement));
+                if (placement != "Above")
                     Assert.That(groups.UsedColumns, Is.EqualTo(1), "Beside the wheels, the groups stack.");
                 if (oneRow)
                     Assert.That(wheels.Columns, Is.EqualTo(shown.Length), "The wheels keep one row.");
             });
+
+            foreach (TextBox box in groups.GetVisualDescendants().OfType<TextBox>())
+            {
+                AvaPoint right = box.TranslatePoint(new AvaPoint(box.Bounds.Width, 0), view)!.Value;
+                Assert.That(right.X, Is.LessThanOrEqualTo(view.Bounds.Width + 0.5), "Every number stays inside the tab.");
+            }
+
+            ValueSlider[] sliders = [.. groups.GetVisualDescendants().OfType<ValueSlider>()];
+            if (compact)
+                Assert.That(sliders.Where(slider => slider.IsEffectivelyVisible), Is.Empty, "Only the names and boxes stand beside the wheels.");
+            else
+                Assert.That(sliders.Select(slider => slider.Bounds.Width), Has.All.GreaterThanOrEqualTo(48));
 
             foreach (ColorGradingWheel wheel in shown)
             {
@@ -453,9 +504,65 @@ public sealed class ColorGradingTabTests
                     Assert.That(bottomRight.Y, Is.LessThanOrEqualTo(view.Bounds.Height + 0.5), wheel.Header);
                 });
             }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
 
-            foreach (ValueSlider slider in view.GetVisualDescendants().OfType<ValueSlider>())
-                Assert.That(slider.Bounds.Width, Is.GreaterThanOrEqualTo(48));
+    // A drag that lengthened a wheel's numbers used to widen its boxes and break the row of wheels. The wheels now stay
+    // where they are, in the middle of the height they have, and the numbers are whole.
+    [AvaloniaTest]
+    public async Task Long_numbers_leave_the_wheels_in_place_and_the_wheels_stand_in_the_middle()
+    {
+        (EditViewModel editor, ColorGrading grading) = await OpenGradingAsync("grading-long-numbers");
+        using var model = new ColorGradingTabViewModel(editor);
+        model.Effect.Value = grading;
+        model.WheelMode.Value = model.AvailableWheelModes[1];
+        model.IsNumberEditorsVisible.Value = false;
+        var view = new ColorGradingTabView { DataContext = model };
+        var window = new Window { Content = view, Width = 745, Height = 409, RequestedThemeVariant = ThemeVariant.Dark };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            ColorWheelsPanel wheels = view.GetVisualDescendants().OfType<ColorWheelsPanel>().Single(panel => panel.IsEffectivelyVisible);
+            ColorGradingWheel[] shown = [.. wheels.Children.OfType<ColorGradingWheel>()];
+            Rect[] before = [.. shown.Select(wheel => wheel.Bounds)];
+            var area = (Control)wheels.GetVisualParent()!.GetVisualParent()!;
+            AvaPoint top = wheels.TranslatePoint(default, area)!.Value;
+            Assert.Multiple(() =>
+            {
+                Assert.That(wheels.Columns, Is.EqualTo(shown.Length));
+                Assert.That(top.Y, Is.GreaterThan(1), "A row lower than the tab leaves room above it.");
+                Assert.That(area.Bounds.Height - wheels.Bounds.Height - top.Y, Is.EqualTo(top.Y).Within(1), "The row stands in the middle.");
+            });
+
+            grading.Lift.Value = new GradingColor(-0.38806236f, 0.12035069f, -0.049484196f);
+            HeadlessTestHelpers.Render(3);
+            GradingColorComponentsEditor boxes = shown[0].GetVisualDescendants().OfType<GradingColorComponentsEditor>().Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(wheels.Columns, Is.EqualTo(shown.Length));
+                Assert.That(shown.Select(wheel => wheel.Bounds), Is.EqualTo(before));
+                Assert.That(boxes.FirstText, Is.EqualTo((-39).ToString(CultureInfo.CurrentCulture)));
+                Assert.That(boxes.ThirdText, Is.EqualTo((-5).ToString(CultureInfo.CurrentCulture)));
+            });
+
+            // Numbers too long for the boxes, as typed ones can be, leave the wheels in place too.
+            grading.Lift.Value = new GradingColor(-12.3456f, 9.8765f, -10.5f);
+            HeadlessTestHelpers.Render(3);
+            Assert.Multiple(() =>
+            {
+                Assert.That(wheels.Columns, Is.EqualTo(shown.Length));
+                Assert.That(shown.Select(wheel => wheel.Bounds), Is.EqualTo(before));
+            });
+
+            // A value that rounds to zero shows no sign.
+            grading.Lift.Value = new GradingColor(-0.0004f, 0, 0);
+            HeadlessTestHelpers.Render();
+            Assert.That(boxes.FirstText, Is.EqualTo("0"));
         }
         finally
         {
@@ -473,14 +580,17 @@ public sealed class ColorGradingTabTests
         return (editor, grading);
     }
 
-    // A wheel on one property of a ColorGrading, with a history and a player that can start.
+    // A wheel on one property of a ColorGrading, with a history and a player that can start. The pointer lock is off,
+    // since a drag on the pad would otherwise hide the real cursor and read the real mouse instead of the test's moves.
     private sealed class WheelHost : IDisposable
     {
         private readonly HistoryScope _history;
         private readonly GradingColorEditorViewModel _viewModel;
+        private readonly bool _pointerLock = GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value;
 
         public WheelHost(Func<ColorGrading, IProperty<GradingColor>> pick, GradingColor? start = null)
         {
+            GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = false;
             var effect = new ColorGrading();
             Property = pick(effect);
             if (start is { } value)
@@ -531,6 +641,7 @@ public sealed class ColorGradingTabTests
             Window.Close();
             _viewModel.Dispose();
             _history.Dispose();
+            GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = _pointerLock;
         }
     }
 }

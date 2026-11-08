@@ -62,7 +62,9 @@
         </controls:ToolTabBar>
 
         <!--  In a wide, low tab the sliders stand in a column to the right of the wheels (the beside class), which
-              leaves the wheels the whole height and lets the column scroll.  -->
+              leaves the wheels the whole height and lets the column scroll. Where the sliders would not fit above the
+              wheels and the tab is too narrow for that column, only their names and boxes stand there (beside and
+              compact), in a column as wide as they need.  -->
         <Grid x:Name="ContentGrid"
               Grid.Row="1"
               Margin="12,8,12,10"
@@ -83,8 +85,10 @@
                     <Setter Property="Grid.Column" Value="1" />
                     <Setter Property="Grid.RowSpan" Value="2" />
                     <Setter Property="Grid.ColumnSpan" Value="1" />
-                    <Setter Property="Width" Value="330" />
                     <Setter Property="Margin" Value="16,0,0,0" />
+                </Style>
+                <Style Selector="Grid#ContentGrid.beside:not(.compact) > ScrollViewer#AdjustmentsScroller">
+                    <Setter Property="Width" Value="330" />
                 </Style>
                 <Style Selector="Grid#ContentGrid.beside > Panel#WheelsArea">
                     <Setter Property="Grid.Row" Value="0" />
@@ -138,9 +142,10 @@
                 </local:GradingAdjustmentsPanel>
             </ScrollViewer>
 
+            <!--  The wheels stand in the middle of the height they are given, with the tonal range row under them.  -->
             <Panel x:Name="WheelsArea">
                 <Grid x:Name="LiftControls"
-                      VerticalAlignment="Top"
+                      VerticalAlignment="Center"
                       IsVisible="{Binding IsLiftGammaGainMode.Value}">
                     <pe:ColorWheelsPanel>
                         <pe:ColorGradingWheel x:Name="LiftPicker" />
@@ -151,7 +156,7 @@
                 </Grid>
 
                 <Grid x:Name="LogControls"
-                      VerticalAlignment="Top"
+                      VerticalAlignment="Center"
                       IsVisible="{Binding IsLogMode.Value}"
                       RowDefinitions="*,Auto"
                       RowSpacing="12">

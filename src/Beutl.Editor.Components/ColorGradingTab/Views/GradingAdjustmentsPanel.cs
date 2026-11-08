@@ -4,7 +4,8 @@ using Avalonia.Controls;
 namespace Beutl.Editor.Components.ColorGradingTab.Views;
 
 // Puts the groups of adjustments in rows of up to Columns equal cells, each as high as its tallest group. When a cell
-// would be narrower than MinColumnWidth it uses fewer columns, down to one, which stacks the groups.
+// would be narrower than MinColumnWidth it uses fewer columns, down to one, which stacks the groups; with no width to
+// share, as in a column as wide as what it holds, the groups stack too.
 public sealed class GradingAdjustmentsPanel : Panel
 {
     public static readonly StyledProperty<int> ColumnsProperty =
@@ -50,6 +51,22 @@ public sealed class GradingAdjustmentsPanel : Panel
 
     // The columns of the last layout, for tests.
     internal int UsedColumns { get; private set; } = 1;
+
+    // The height the groups take at a width, from their heights in the last layout, which no width changes since each
+    // of their rows keeps one line. The tab uses it to know whether they fit above the wheels before putting them there.
+    internal double HeightAt(double width)
+    {
+        Control[] items = [.. Children.Where(child => child.IsVisible)];
+        int columns = ColumnsFor(width);
+        double height = 0;
+        for (int row = 0; row * columns < items.Length; row++)
+        {
+            double rowHeight = items.Skip(row * columns).Take(columns).Max(item => item.DesiredSize.Height);
+            height += rowHeight + (row > 0 ? RowSpacing : 0);
+        }
+
+        return height;
+    }
 
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -102,9 +119,10 @@ public sealed class GradingAdjustmentsPanel : Panel
 
     private int ColumnsFor(double width)
     {
-        int columns = Math.Max(Columns, 1);
         if (!double.IsFinite(width))
-            return columns;
+            return 1;
+
+        int columns = Math.Max(Columns, 1);
 
         while (columns > 1 && CellWidth(width, columns) < MinColumnWidth)
             columns--;

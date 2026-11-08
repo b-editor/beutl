@@ -90,7 +90,8 @@ public class ColorGradingWheel : PropertyEditor
 
     // What the wheel needs besides its pad, whether stacked or side by side: the height of the header, the jog and
     // the boxes with the spacing between them, and the width they would like. Measured with no limits, they are what
-    // ColorWheelsPanel lays wheels out by.
+    // ColorWheelsPanel lays wheels out by. The boxes count at their MinWidth rather than at the width of the numbers
+    // in them, so that a number that grows during a drag does not move the wheels.
     internal double ChromeHeight { get; private set; }
 
     internal double ChromeWidth { get; private set; }
@@ -122,7 +123,7 @@ public class ColorGradingWheel : PropertyEditor
         {
             ChromeHeight = _header.DesiredSize.Height + _master.DesiredSize.Height + _components.DesiredSize.Height
                            + (3 * _layout.RowSpacing);
-            ChromeWidth = Math.Max(Inner(_header), Inner(_components));
+            ChromeWidth = Math.Max(Inner(_header), _components.MinWidth);
         }
 
         return size;
