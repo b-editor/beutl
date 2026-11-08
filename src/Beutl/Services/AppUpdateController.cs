@@ -1,4 +1,5 @@
 ﻿using System.Reactive.Subjects;
+using Avalonia.Threading;
 using Beutl.Api.Clients;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
@@ -111,6 +112,14 @@ internal sealed class AppUpdateController
 
     private void OnPhaseChanged(UpdateDialogViewModel viewModel, AppUpdatePhase phase)
     {
+        // The update prepares on the thread pool, while the dialog opens and closes on the UI thread. Deciding there
+        // keeps the decision in order with the dialog, so the outcome is neither lost nor shown twice.
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => OnPhaseChanged(viewModel, phase));
+            return;
+        }
+
         if (phase is AppUpdatePhase.Canceled or AppUpdatePhase.Completed && _current.Value == viewModel)
         {
             _current.OnNext(null);
