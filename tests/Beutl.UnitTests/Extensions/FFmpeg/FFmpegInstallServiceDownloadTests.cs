@@ -62,6 +62,34 @@ public sealed class FFmpegInstallServiceDownloadTests
         Assert.That(handler.Requests[1].UserAgent, Is.Not.Empty);
     }
 
+    // HttpClient reports its own timeout as a TaskCanceledException while the caller's token is still live.
+    [Test]
+    public async Task Download_FetchesTheAssetThroughTheApiAfterATimeout()
+    {
+        var handler = new RecordingHandler(request => request.RequestUri!.AbsoluteUri == DownloadUrl
+            ? throw new TaskCanceledException("The request timed out.")
+            : Archive("from the api"));
+
+        string? file = await DownloadAsync(handler, Asset());
+
+        Assert.That(File.ReadAllText(file!), Is.EqualTo("from the api"));
+        Assert.That(handler.Requests.Select(r => r.Uri), Is.EqualTo(new[] { DownloadUrl, ApiUrl }));
+    }
+
+    [Test]
+    public void Download_StopsWithoutTheApiWhenTheUserCancels()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var handler = new RecordingHandler(_ =>
+        {
+            cancellation.Cancel();
+            throw new OperationCanceledException(cancellation.Token);
+        });
+
+        Assert.CatchAsync<OperationCanceledException>(() => DownloadAsync(handler, Asset(), cancellation.Token));
+        Assert.That(handler.Requests.Select(r => r.Uri), Is.EqualTo(new[] { DownloadUrl }));
+    }
+
     [Test]
     public async Task Download_FailsWhenTheApiFailsToo()
     {
@@ -90,12 +118,12 @@ public sealed class FFmpegInstallServiceDownloadTests
     private static HttpResponseMessage Archive(string content)
         => new(HttpStatusCode.OK) { Content = new ByteArrayContent(Encoding.UTF8.GetBytes(content)) };
 
-    private async Task<string?> DownloadAsync(HttpMessageHandler handler, GitHubAsset asset)
+    private async Task<string?> DownloadAsync(HttpMessageHandler handler, GitHubAsset asset, CancellationToken ct = default)
     {
         MethodInfo download = typeof(FFmpegInstallService).GetMethod(
             "DownloadFileAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
         using var client = new HttpClient(handler);
-        string? file = await (Task<string?>)download.Invoke(new FFmpegInstallService(), [client, asset, CancellationToken.None])!;
+        string? file = await (Task<string?>)download.Invoke(new FFmpegInstallService(), [client, asset, ct])!;
         if (file != null)
             _downloaded.Add(file);
         return file;
