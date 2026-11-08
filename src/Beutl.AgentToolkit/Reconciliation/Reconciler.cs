@@ -39,6 +39,7 @@ public sealed partial class Reconciler
     private static ReconcilePlan PlanPrepared(IEditingSession session, JsonObject desiredDocument, IReadOnlySet<Guid>? knownNewIds)
     {
         JsonObject currentDocument = session.Documents.Read(session.Root);
+        ExpandNewObjectAnimationShorthand(desiredDocument);
         ThrowIfMalformedTypedObjects(desiredDocument, currentDocument);
 
         HashSet<Guid> newIds = CollectionReconciler.MintMissingIds(

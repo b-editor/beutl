@@ -11,7 +11,10 @@ using Beutl.AgentToolkit.Tools;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Engine;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Reconciliation;
@@ -66,6 +69,161 @@ public sealed class KeyFrameShorthandTests
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
             Assert.That(animation.KeyFrames[1].KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(animation.KeyFrames[1].Easing.Value, Is.TypeOf<BackEaseOut>());
+        });
+    }
+
+    [Test]
+    public void Shorthand_expands_on_a_transform_nested_in_a_new_drawable()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        using var session = new AgentToolkitTestSession(scene);
+
+        ToolResult<ApplyEditResponse> apply = session.CreateEditTools().ApplyEdit(
+            patch: InsertElementWith(new JsonObject
+            {
+                ["$type"] = IdentityHelper.WriteDiscriminator(typeof(RectShape)),
+                [nameof(RectShape.Transform)] = TranslateYShorthand()
+            }),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+        var rect = (RectShape)scene.Children.Single().Objects.Single();
+        IKeyFrameAnimation animation = ((TranslateTransform)rect.Transform.Value!).Y.GetKeyFrameAnimation()!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
+            Assert.That(animation.KeyFrames[1].Easing.Value, Is.TypeOf<CubicEaseOut>());
+            Assert.That(apply.Value!.AppliedChangeSet!.ToJsonString(), Does.Not.Contain(KeyFrameShorthand.PropertyName));
+        });
+    }
+
+    [Test]
+    public void Shorthand_expands_on_a_new_transform_given_to_an_existing_drawable()
+    {
+        (EditTools tools, Scene scene, Element element) = CreateSceneWithRect();
+        var rect = (RectShape)element.Objects.Single();
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: new JsonObject
+            {
+                ["Elements"] = new JsonArray(new JsonObject
+                {
+                    [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
+                    ["Objects"] = new JsonArray(new JsonObject
+                    {
+                        [nameof(CoreObject.Id)] = rect.Id.Value.ToString(),
+                        [nameof(RectShape.Transform)] = TranslateYShorthand()
+                    })
+                })
+            },
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+        Assert.That(scene.Children.Single().Objects.Single(), Is.SameAs(rect));
+        Assert.That(((TranslateTransform)rect.Transform.Value!).Y.GetKeyFrameAnimation(), Is.Not.Null);
+    }
+
+    [Test]
+    public void Shorthand_takes_the_value_type_of_a_nested_list_item()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        using var session = new AgentToolkitTestSession(scene);
+
+        ToolResult<ApplyEditResponse> apply = session.CreateEditTools().ApplyEdit(
+            patch: InsertElementWith(new JsonObject
+            {
+                ["$type"] = IdentityHelper.WriteDiscriminator(typeof(RectShape)),
+                [nameof(RectShape.FilterEffect)] = new JsonObject
+                {
+                    ["$type"] = IdentityHelper.WriteDiscriminator(typeof(FilterEffectGroup)),
+                    [nameof(FilterEffectGroup.Children)] = new JsonArray(new JsonObject
+                    {
+                        ["$type"] = IdentityHelper.WriteDiscriminator(typeof(ColorShift)),
+                        ["Animations"] = new JsonObject
+                        {
+                            [nameof(ColorShift.RedOffset)] = new JsonObject
+                            {
+                                [KeyFrameShorthand.PropertyName] = new JsonArray(
+                                    new JsonArray(0, "30, 0"),
+                                    new JsonArray(0.4, "0, 0"))
+                            }
+                        }
+                    })
+                }
+            }),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+        var rect = (RectShape)scene.Children.Single().Objects.Single();
+        var shift = (ColorShift)((FilterEffectGroup)rect.FilterEffect.Value!).Children.Single();
+        IKeyFrameAnimation animation = shift.RedOffset.GetKeyFrameAnimation()!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(animation.ValueType, Is.EqualTo(typeof(PixelPoint)));
+            Assert.That(animation.KeyFrames[0].Value, Is.EqualTo(new PixelPoint(30, 0)));
+        });
+    }
+
+    [Test]
+    public void Shorthand_expands_on_a_nested_object_written_without_a_type()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        using var session = new AgentToolkitTestSession(scene);
+
+        // Pen is sealed, so its nodes carry no $type and only the property holding it names the type.
+        ToolResult<ApplyEditResponse> apply = session.CreateEditTools().ApplyEdit(
+            patch: InsertElementWith(new JsonObject
+            {
+                ["$type"] = IdentityHelper.WriteDiscriminator(typeof(RectShape)),
+                [nameof(RectShape.Pen)] = new JsonObject
+                {
+                    ["Animations"] = new JsonObject
+                    {
+                        [nameof(Pen.TrimEnd)] = new JsonObject
+                        {
+                            [KeyFrameShorthand.PropertyName] = new JsonArray(new JsonArray(0, 0), new JsonArray(0.5, 100))
+                        }
+                    }
+                }
+            }),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+        var rect = (RectShape)scene.Children.Single().Objects.Single();
+        Assert.That(rect.Pen.Value!.TrimEnd.GetKeyFrameAnimation()!.KeyFrames, Has.Count.EqualTo(2));
+    }
+
+    [Test]
+    public void Out_of_range_values_on_a_nested_object_written_without_a_type_are_coerced()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        using var session = new AgentToolkitTestSession(scene);
+
+        ToolResult<ApplyEditResponse> apply = session.CreateEditTools().ApplyEdit(
+            patch: InsertElementWith(new JsonObject
+            {
+                ["$type"] = IdentityHelper.WriteDiscriminator(typeof(RectShape)),
+                [nameof(RectShape.Pen)] = new JsonObject
+                {
+                    ["Animations"] = new JsonObject
+                    {
+                        [nameof(Pen.Thickness)] = new JsonObject
+                        {
+                            [KeyFrameShorthand.PropertyName] = new JsonArray(new JsonArray(0, -25), new JsonArray(0.5, 4))
+                        }
+                    }
+                }
+            }),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+        var rect = (RectShape)scene.Children.Single().Objects.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                rect.Pen.Value!.Thickness.GetKeyFrameAnimation()!.KeyFrames.Select(keyFrame => keyFrame.Value),
+                Is.EqualTo(new object[] { 0f, 4f }));
+            Assert.That(apply.Value!.Validation!.Count(outcome => outcome.Status == ValidationStatus.Coerced), Is.EqualTo(1));
         });
     }
 
@@ -544,6 +702,37 @@ public sealed class KeyFrameShorthandTests
                     }
                 })
             })
+        };
+    }
+
+    private static JsonObject InsertElementWith(JsonObject drawable)
+    {
+        return new JsonObject
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Element)),
+                [nameof(Element.Start)] = "00:00:00",
+                [nameof(Element.Length)] = "00:00:01",
+                ["Objects"] = new JsonArray(drawable)
+            })
+        };
+    }
+
+    private static JsonObject TranslateYShorthand()
+    {
+        return new JsonObject
+        {
+            ["$type"] = IdentityHelper.WriteDiscriminator(typeof(TranslateTransform)),
+            ["Animations"] = new JsonObject
+            {
+                [nameof(TranslateTransform.Y)] = new JsonObject
+                {
+                    [KeyFrameShorthand.PropertyName] = new JsonArray(
+                        new JsonArray(0, 0),
+                        new JsonArray(0.5, 100, "CubicEaseOut"))
+                }
+            }
         };
     }
 
