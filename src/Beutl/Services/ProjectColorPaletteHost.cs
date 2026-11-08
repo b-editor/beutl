@@ -68,6 +68,7 @@ internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDispo
         {
             _palettes = current;
             PalettesChanged?.Invoke(this, EventArgs.Empty);
+            NotificationService.ShowWarning(Strings.ColorPalette_ProjectPalettes, MessageStrings.OperationFailed);
             return false;
         }
 

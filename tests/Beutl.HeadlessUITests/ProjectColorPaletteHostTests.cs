@@ -216,6 +216,29 @@ public sealed class ProjectColorPaletteHostTests
         });
     }
 
+    // The same number of palettes, changed outside Beutl after the project opened.
+    [AvaloniaTest]
+    public void An_edit_on_palettes_changed_outside_shows_the_file_instead()
+    {
+        Project project = CreateProject("Project");
+        ProjectColorPaletteFile.Write(PalettePath(project), s_brand);
+        int writes = 0;
+        using var host = new ProjectColorPaletteHost(
+            new BehaviorSubject<Project?>(project),
+            () => new Lease(),
+            (_, _) => writes++);
+        ImmutableArray<ColorPalette> outside = [new ColorPalette("Brand", [new PaletteColor(0xFF00FF00)])];
+        ProjectColorPaletteFile.Write(PalettePath(project), outside);
+
+        Assert.That(host.TrySetPalettes([]), Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(writes, Is.Zero);
+            Assert.That(host.Palettes, Is.EqualTo(outside));
+            Assert.That(ProjectColorPaletteFile.Read(PalettePath(project), out _), Is.EqualTo(outside));
+        });
+    }
+
     private Project CreateProject(string name)
     {
         string folder = Path.Combine(_root, name);
