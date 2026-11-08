@@ -194,6 +194,40 @@ public sealed class KeyFrameShorthandTests
     }
 
     [Test]
+    public void Out_of_range_values_on_a_nested_object_written_without_a_type_are_coerced()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        using var session = new AgentToolkitTestSession(scene);
+
+        ToolResult<ApplyEditResponse> apply = session.CreateEditTools().ApplyEdit(
+            patch: InsertElementWith(new JsonObject
+            {
+                ["$type"] = IdentityHelper.WriteDiscriminator(typeof(RectShape)),
+                [nameof(RectShape.Pen)] = new JsonObject
+                {
+                    ["Animations"] = new JsonObject
+                    {
+                        [nameof(Pen.Thickness)] = new JsonObject
+                        {
+                            [KeyFrameShorthand.PropertyName] = new JsonArray(new JsonArray(0, -25), new JsonArray(0.5, 4))
+                        }
+                    }
+                }
+            }),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+        var rect = (RectShape)scene.Children.Single().Objects.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                rect.Pen.Value!.Thickness.GetKeyFrameAnimation()!.KeyFrames.Select(keyFrame => keyFrame.Value),
+                Is.EqualTo(new object[] { 0f, 4f }));
+            Assert.That(apply.Value!.Validation!.Count(outcome => outcome.Status == ValidationStatus.Coerced), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public void An_unknown_easing_is_rejected_by_name_with_the_accepted_form()
     {
         (EditTools tools, _, Element element) = CreateSceneWithRect();

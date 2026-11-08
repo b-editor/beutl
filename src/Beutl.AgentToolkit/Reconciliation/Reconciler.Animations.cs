@@ -282,9 +282,13 @@ public sealed partial class Reconciler
         }
 
         EngineObject? prototype = FindPrototype(obj, declaredType, prototypes);
-        if (prototype is not null)
+        if (prototype is not null
+            && ExpandOwnAnimationShorthand(prototype, obj)
+            && !obj.ContainsKey("$type")
+            && !CollectionReconciler.TryGetId(obj, out _))
         {
-            ExpandOwnAnimationShorthand(prototype, obj);
+            // A new object gets its Id from its $type, and the owning properties check its keyframe values through that Id.
+            obj["$type"] = IdentityHelper.WriteDiscriminator(prototype.GetType());
         }
 
         foreach ((string name, JsonNode? child) in obj.ToArray())
