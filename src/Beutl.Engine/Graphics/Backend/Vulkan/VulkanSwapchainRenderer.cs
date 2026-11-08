@@ -761,7 +761,12 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         _commandQueue.CompleteAdding();
         // A thread that has still not stopped keeps what it uses: leaking it beats freeing it under the thread.
         if (_presentThread is { } presentThread && !presentThread.Join(PresentThreadStopTimeoutMilliseconds))
+        {
+            s_logger.LogWarning(
+                "The presentation thread did not stop within {Timeout} ms, so the preview's resources are left to it",
+                PresentThreadStopTimeoutMilliseconds);
             return;
+        }
 
         while (_commandQueue.TryTake(out var cmd))
         {
