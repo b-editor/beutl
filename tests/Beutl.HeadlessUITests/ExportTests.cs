@@ -550,6 +550,75 @@ public class ExportTests
         });
     }
 
+    // Writes a file, reads a frame, which reports the progress, and writes another.
+    private sealed class SizedSequenceEncoderExtension : ControllableEncodingExtension
+    {
+        public Func<string>? ReadSize { get; set; }
+
+        public string? SizeAfterTheFirstFile { get; set; }
+
+        public override IEnumerable<string> SupportExtensions()
+        {
+            yield return ".png";
+        }
+
+        public override EncodingController CreateController(string file) => new SizedSequenceController(file, this);
+    }
+
+    private sealed class SizedSequenceController(string outputFile, SizedSequenceEncoderExtension owner) : EncodingController(outputFile)
+    {
+        private string Frame(int index) => Path.Combine(
+            Path.GetDirectoryName(OutputFile)!, $"{Path.GetFileNameWithoutExtension(OutputFile)}_{index}.png");
+
+        public override VideoEncoderSettings VideoSettings { get; } = new();
+
+        public override AudioEncoderSettings AudioSettings { get; } = new();
+
+        // Only frames report the progress then, and the first is read once a file is written.
+        public override bool IsAudioEnabled => false;
+
+        public override IReadOnlyList<string> OutputFiles => [Frame(0), Frame(1)];
+
+        public override async ValueTask Encode(
+            IFrameProvider frameProvider,
+            ISampleProvider sampleProvider,
+            CancellationToken cancellationToken)
+        {
+            await File.WriteAllBytesAsync(Frame(0), new byte[2048], cancellationToken);
+            using (await frameProvider.ReadNextFrame())
+            {
+            }
+
+            owner.SizeAfterTheFirstFile = owner.ReadSize?.Invoke();
+            await File.WriteAllBytesAsync(Frame(1), new byte[2048], cancellationToken);
+        }
+    }
+
+    // The encoder never writes the file the user named, so the size is that of the files it does write.
+    [AvaloniaTest]
+    public async Task An_encoder_that_writes_several_files_shows_the_size_of_all_of_them()
+    {
+        await TestReset.ResetShellAsync();
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await OpenEditorWithRectangle("export-sequence-size");
+        string folder = TestShell.NewWorkspace("export-sequence-size");
+
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(folder, "frame.png");
+        var encoder = new SizedSequenceEncoderExtension { ReadSize = () => output.CurrentSize.Value };
+        output.SelectedEncoder.Value = encoder;
+        HeadlessTestHelpers.Settle();
+
+        using var notifications = new NotificationCapture();
+        await output.RunAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(encoder.SizeAfterTheFirstFile, Is.EqualTo($"{2.0:0.0} KB"), "while writing");
+            Assert.That(output.CurrentSize.Value, Is.EqualTo($"{4.0:0.0} KB"), "once published");
+        });
+    }
+
     private sealed class ThrowingMp4EncoderExtension : ControllableEncodingExtension
     {
         public static ThrowingMp4EncoderExtension Instance { get; } = new();
