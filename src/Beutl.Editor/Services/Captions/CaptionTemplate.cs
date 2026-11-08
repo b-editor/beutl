@@ -108,8 +108,13 @@ public sealed record CaptionElementPlacement
             description.Name,
             description.Position);
 
+    // Placement decides when and where the element goes. How the batch places it is the factory's to ask for.
     internal ElementDescription ApplyTo(ElementDescription description)
-        => new(Start, Length, Layer, description.Source, Name, Position);
+        => new(Start, Length, Layer, description.Source, Name, Position)
+        {
+            FollowsPrevious = description.FollowsPrevious,
+            StacksAboveScene = description.StacksAboveScene,
+        };
 }
 
 /// <summary>
