@@ -239,6 +239,25 @@ public sealed class ProjectColorPaletteHostTests
         });
     }
 
+    // What the host writes reads back the same, so its own edits never look like a change outside.
+    [AvaloniaTest]
+    public void Consecutive_edits_all_write()
+    {
+        Project project = CreateProject("Project");
+        using var host = new ProjectColorPaletteHost(
+            new BehaviorSubject<Project?>(project),
+            () => new Lease(),
+            ProjectColorPaletteFile.Write);
+        ImmutableArray<ColorPalette> named =
+            [new ColorPalette("Brand", [new PaletteColor(0xFF3366FF, "Primary"), new PaletteColor(0x80FF0000)])];
+        ImmutableArray<ColorPalette> last = [.. named, new ColorPalette("", [])];
+
+        Assert.That(host.TrySetPalettes(s_brand), Is.True);
+        Assert.That(host.TrySetPalettes(named), Is.True);
+        Assert.That(host.TrySetPalettes(last), Is.True);
+        Assert.That(ProjectColorPaletteFile.Read(PalettePath(project), out _), Is.EqualTo(last));
+    }
+
     private Project CreateProject(string name)
     {
         string folder = Path.Combine(_root, name);
