@@ -37,8 +37,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private readonly EditViewModel _editViewModel;
     private readonly ILogger _logger = Log.CreateLogger<OutputViewModel>();
     private readonly ReadOnlyObservableCollection<ControllableEncodingExtension> _encoders;
+    // Reading the size takes a file operation for each file written, of which an image sequence writes many.
+    private static readonly TimeSpan s_sizeReadInterval = TimeSpan.FromMilliseconds(500);
     private readonly CompositeDisposable _disposable = [];
     private long _totalFrames;
+    private TimeSpan? _sizeReadAt;
+    private long _writtenBytes;
 
     public OutputViewModel(EditViewModel editViewModel)
     {
@@ -335,10 +339,14 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 cancellationToken));
 
             // On a worker: a long image sequence takes many file operations, and Cancel has to stay clickable.
-            IReadOnlyList<string> published = await Task.Run(() => output.Commit(controller.OutputFiles, cancellationToken));
+            (IReadOnlyList<string> published, long publishedBytes) = await Task.Run(() =>
+            {
+                IReadOnlyList<string> files = output.Commit(controller.OutputFiles, cancellationToken);
+                return (files, files.Sum(GetFileSize));
+            });
             // An encoder that writes several files may not write the file the user named.
             publishedPath = published.Count > 0 ? published[0] : output.DestinationPath;
-            ShowCompletedProgress(output.DestinationPath);
+            ShowCompletedProgress(publishedBytes);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -398,6 +406,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         CurrentSize.Value = "0 MB";
         ClearEstimates();
         _totalFrames = 0;
+        _sizeReadAt = null;
         FrameProgressText.Value = "0 / 0";
     }
 
@@ -445,7 +454,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             ? frameProgress.CombineLatest(sampleProgress, (video, audio) => video + audio)
             : videoEnabled ? frameProgress : sampleProgress;
 
-        string destinationPath = output.TemporaryPath;
+        // The folder is the export's own, and an encoder writes each of its files there (EncodingController.OutputFiles).
+        string stagingDirectory = Path.GetDirectoryName(output.TemporaryPath)!;
 
         using (frameProgress
                    .Subscribe(t =>
@@ -460,14 +470,16 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                    {
                        double value = t.ToSeconds();
                        ProgressValue.Value = value;
-                       UpdateProgressIndicators(stopwatch.Elapsed, value, ProgressMax.Value, destinationPath);
+                       UpdateProgressIndicators(stopwatch.Elapsed, value, ProgressMax.Value, stagingDirectory);
                    }))
         {
             await controller.Encode(providers.FrameProvider, providers.SampleProvider, cancellationToken);
         }
     }
 
-    private void ShowCompletedProgress(string destinationPath)
+    // publishedBytes is the size of every file the export published, read once they were in place: an encoder goes on
+    // writing after its last sample, such as the container's index.
+    private void ShowCompletedProgress(long publishedBytes)
     {
         ProgressValue.Value = ProgressMax.Value;
         FrameProgressText.Value = _totalFrames > 0
@@ -475,8 +487,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             : FrameProgressText.Value;
         ProgressText.Value = Strings.Completed;
         Eta.Value = "00:00:00";
-        // An encoder goes on writing after its last sample, such as the container's index.
-        string size = FormatBytes(GetFileSize(destinationPath));
+        string size = FormatBytes(publishedBytes);
         CurrentSize.Value = size;
         EstimatedSize.Value = size;
         _logger.LogInformation("Encoding process completed successfully.");
@@ -577,11 +588,17 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         EstimatedSize.Value = "-- MB";
     }
 
-    private void UpdateProgressIndicators(TimeSpan elapsed, double value, double max, string destinationPath)
+    private void UpdateProgressIndicators(TimeSpan elapsed, double value, double max, string stagingDirectory)
     {
         Elapsed.Value = FormatDuration(elapsed);
 
-        long currentBytes = GetFileSize(destinationPath);
+        if (_sizeReadAt is not { } readAt || elapsed - readAt >= s_sizeReadInterval)
+        {
+            _writtenBytes = GetWrittenSize(stagingDirectory);
+            _sizeReadAt = elapsed;
+        }
+
+        long currentBytes = _writtenBytes;
 
         CurrentSize.Value = FormatBytes(currentBytes);
 
@@ -619,6 +636,20 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Failed to read the size of the output file.");
+            return 0;
+        }
+    }
+
+    // What an encoder has written so far, whether one file or several.
+    private long GetWrittenSize(string stagingDirectory)
+    {
+        try
+        {
+            return new DirectoryInfo(stagingDirectory).EnumerateFiles().Sum(file => file.Length);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to read the size of the output files.");
             return 0;
         }
     }
