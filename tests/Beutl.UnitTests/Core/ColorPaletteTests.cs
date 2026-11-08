@@ -129,7 +129,7 @@ public class ColorPaletteTests
         try
         {
             string path = ProjectColorPaletteFile.GetPath(Path.Combine(root, "Project.bep"));
-            Assert.That(path, Is.EqualTo(Path.Combine(root, "color-palettes.json")));
+            Assert.That(path, Is.EqualTo(Path.Combine(root, "Project.palettes.json")));
             Assert.That(ProjectColorPaletteFile.Read(path, out bool canWriteMissing), Is.Empty);
             Assert.That(canWriteMissing, Is.True);
 
@@ -146,10 +146,13 @@ public class ColorPaletteTests
         }
     }
 
-    // A later version's file, one without a version, or one a merge left conflict markers in.
+    // A later version's file, one without a version, one a merge left conflict markers in, and hand edits that repeat
+    // a key, which parse and throw only when the key is read.
     [TestCase("{\"Version\":2,\"Palettes\":[]}")]
     [TestCase("{\"Palettes\":[]}")]
     [TestCase("<<<<<<< ours\n{\"Version\":1}\n=======\n{\"Version\":1}\n>>>>>>> theirs\n")]
+    [TestCase("{\"Version\":1,\"Version\":1,\"Palettes\":[]}")]
+    [TestCase("{\"Version\":1,\"Palettes\":[{\"Name\":\"A\",\"Name\":\"B\",\"Colors\":[]}]}")]
     public void A_project_palette_file_this_version_cannot_read_gives_no_palettes_and_no_write(string content)
     {
         string path = Path.Combine(Path.GetTempPath(), "beutl-palette-file-" + Guid.NewGuid().ToString("N") + ".json");
@@ -162,6 +165,34 @@ public class ColorPaletteTests
         finally
         {
             File.Delete(path);
+        }
+    }
+
+    // A copy saved beside its source gets a file of its own, and a copy of a project without palettes gets none.
+    [Test]
+    public void A_project_saved_under_another_name_takes_its_palettes_along()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "beutl-palette-file-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            string source = Path.Combine(root, "Source.bep");
+            string copy = Path.Combine(root, "Copy.bep");
+            ProjectColorPaletteFile.Write(ProjectColorPaletteFile.GetPath(source), s_palettes);
+
+            ProjectColorPaletteFile.CopyForSaveAs(source, copy);
+            ProjectColorPaletteFile.Write(ProjectColorPaletteFile.GetPath(copy), [s_palettes[0]]);
+
+            Assert.That(ProjectColorPaletteFile.Read(ProjectColorPaletteFile.GetPath(source), out _), Is.EqualTo(s_palettes));
+            Assert.That(ProjectColorPaletteFile.Read(ProjectColorPaletteFile.GetPath(copy), out _), Is.EqualTo(new[] { s_palettes[0] }));
+
+            string plain = Path.Combine(root, "Plain.bep");
+            ProjectColorPaletteFile.CopyForSaveAs(plain, copy);
+            Assert.That(File.Exists(ProjectColorPaletteFile.GetPath(copy)), Is.False);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
         }
     }
 }

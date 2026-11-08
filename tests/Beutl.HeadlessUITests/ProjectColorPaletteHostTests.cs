@@ -171,6 +171,25 @@ public sealed class ProjectColorPaletteHostTests
         }
     }
 
+    // A merge outside Beutl can leave conflict markers in the file while the project is open.
+    [AvaloniaTest]
+    public void A_file_that_stopped_reading_after_the_project_opened_is_left_as_it_is()
+    {
+        Project project = CreateProject("Project");
+        ProjectColorPaletteFile.Write(PalettePath(project), s_brand);
+        int writes = 0;
+        using var host = new ProjectColorPaletteHost(
+            new BehaviorSubject<Project?>(project),
+            () => new Lease(),
+            (_, _) => writes++);
+        const string conflicted = "<<<<<<< ours\n{\"Version\":1}\n=======\n{\"Version\":1}\n>>>>>>> theirs\n";
+        File.WriteAllText(PalettePath(project), conflicted);
+
+        Assert.That(host.TrySetPalettes([]), Is.False);
+        Assert.That(writes, Is.Zero);
+        Assert.That(File.ReadAllText(PalettePath(project)), Is.EqualTo(conflicted));
+    }
+
     private Project CreateProject(string name)
     {
         string folder = Path.Combine(_root, name);

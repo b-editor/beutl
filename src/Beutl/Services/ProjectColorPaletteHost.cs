@@ -18,7 +18,6 @@ internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDispo
     // The open project's palette file, or null without a project.
     private string? _path;
     private ImmutableArray<ColorPalette> _palettes = [];
-    private bool _canWrite;
 
     public ProjectColorPaletteHost(ProjectService projectService, EditorService editorService)
         : this(projectService.CurrentProject, editorService.TryBeginProjectFileWrite, ProjectColorPaletteFile.Write)
@@ -47,18 +46,20 @@ internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDispo
             return false;
         }
 
-        // A file this version could not read stays as it is, for a later version or the user to deal with.
-        if (!_canWrite)
-        {
-            NotificationService.ShowWarning(Strings.ColorPalette_ProjectPalettes, MessageStrings.OperationFailed);
-            return false;
-        }
-
         // Taken right before the write, so that it cannot land on a tree a branch switch, pull or restore is replacing.
         using IProjectFileWriteLease? lease = _beginWrite();
         if (lease is null)
         {
             NotificationService.ShowWarning(Strings.ColorPalette_ProjectPalettes, Strings.FileBrowser_WorkspaceBusy);
+            return false;
+        }
+
+        // Checked again under the lease, as a merge or a later version may have changed the file since it was read.
+        // A file this version cannot read stays as it is, for that version or the user to deal with.
+        ProjectColorPaletteFile.Read(path, out bool canWrite);
+        if (!canWrite)
+        {
+            NotificationService.ShowWarning(Strings.ColorPalette_ProjectPalettes, MessageStrings.OperationFailed);
             return false;
         }
 
@@ -89,11 +90,14 @@ internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDispo
     private void OnProjectChanged(Project? project)
     {
         _path = project?.Uri is { IsFile: true } uri ? ProjectColorPaletteFile.GetPath(uri.LocalPath) : null;
-        _canWrite = false;
-        _palettes = _path != null ? ProjectColorPaletteFile.Read(_path, out _canWrite) : [];
-        if (_path != null && !_canWrite)
+        _palettes = [];
+        if (_path != null)
         {
-            _logger.LogWarning("The project's color palette file {Path} cannot be read, so it is left as it is.", _path);
+            _palettes = ProjectColorPaletteFile.Read(_path, out bool canWrite);
+            if (!canWrite)
+            {
+                _logger.LogWarning("The project's color palette file {Path} cannot be read, so it is left as it is.", _path);
+            }
         }
 
         PalettesChanged?.Invoke(this, EventArgs.Empty);

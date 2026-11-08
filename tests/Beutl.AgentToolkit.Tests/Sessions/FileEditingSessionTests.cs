@@ -105,6 +105,30 @@ public sealed class FileEditingSessionTests
         Assert.That(sceneDirs, Is.Unique);
     }
 
+    // The palettes live beside the project file rather than in it, so Save As takes them along, and a copy saved
+    // beside its source keeps palettes of its own.
+    [Test]
+    public void SaveAs_gives_the_copy_its_own_palettes()
+    {
+        string root = TestWorkspace.CreateDirectory();
+        using var source = new FileSessionSource();
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
+        var palette = new ColorPalette("Brand", [new PaletteColor(0xFF3366FF)]);
+        string sourcePalettes = ProjectColorPaletteFile.GetPath(Path.Combine(root, "demo.bep"));
+        ProjectColorPaletteFile.Write(sourcePalettes, [palette]);
+
+        session.SaveAs(Path.Combine(root, "copy.bep"), skipConflictCheck: true);
+
+        string copyPalettes = ProjectColorPaletteFile.GetPath(Path.Combine(root, "copy.bep"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(copyPalettes, Is.Not.EqualTo(sourcePalettes));
+            Assert.That(ProjectColorPaletteFile.Read(copyPalettes, out _), Is.EqualTo(new[] { palette }));
+            Assert.That(ProjectColorPaletteFile.Read(sourcePalettes, out _), Is.EqualTo(new[] { palette }));
+        });
+    }
+
     [Test]
     public void SaveAs_does_not_overwrite_existing_sidecar_file()
     {

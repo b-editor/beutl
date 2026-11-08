@@ -1,13 +1,16 @@
 ﻿using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.Editor;
+using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.AgentToolkit.Sessions;
 
 public sealed class FileEditingSession : IEditingSession, IDisposable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger(typeof(FileEditingSession));
     private RecordingPipeline _recording;
     // Attach-driven engine invariants (TimeRange/ZIndex mirroring, animation parent
     // capture) require an IHierarchicalRoot, which headless sessions otherwise lack.
@@ -179,6 +182,7 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
             }
 
             UriState original = CaptureUriState();
+            string? sourceProjectPath = Project.Uri is { IsFile: true } sourceUri ? sourceUri.LocalPath : null;
             SetProjectPathCore(projectPath);
             try
             {
@@ -190,6 +194,20 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
                 // URIs rewritten; restore the originals so a later plain save still targets the source.
                 RestoreUriState(original);
                 throw;
+            }
+
+            // The palettes live beside the project file rather than in it, so the copy takes them from there. The
+            // project is saved either way.
+            if (sourceProjectPath != null)
+            {
+                try
+                {
+                    ProjectColorPaletteFile.CopyForSaveAs(sourceProjectPath, Project.Uri!.LocalPath);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    s_logger.LogWarning(e, "The project's color palettes were not copied to {Path}.", Project.Uri!.LocalPath);
+                }
             }
         }
     }

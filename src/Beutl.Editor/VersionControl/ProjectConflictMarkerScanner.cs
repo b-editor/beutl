@@ -330,21 +330,21 @@ internal static class ProjectConflictMarkerScanner
             return true;
         }
 
-        // A scene's media fingerprints and a project's color palettes are project documents too, though their
+        // A project's color palettes and a scene's media fingerprints are project documents too, though their
         // extension is the common .json.
         string name = Path.GetFileName(file);
-        return IsNamed(file, name, Beutl.ProjectSystem.MediaFingerprintFile.FileName)
-               || IsNamed(file, name, ProjectColorPaletteFile.FileName);
-    }
+        if (name.EndsWith(ProjectColorPaletteFile.Suffix, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
 
-    // The name is compared like a pruned folder's, by the rules of the volume that holds it.
-    private static bool IsNamed(string file, string name, string documentName)
-    {
-        return string.Equals(name, documentName, StringComparison.OrdinalIgnoreCase)
+        // The fingerprints' name is compared like a pruned folder's, by the rules of the volume that holds it.
+        const string fingerprints = Beutl.ProjectSystem.MediaFingerprintFile.FileName;
+        return string.Equals(name, fingerprints, StringComparison.OrdinalIgnoreCase)
                && FilePathComparison.TryAreSameChildPath(
                    Path.GetDirectoryName(file) ?? file,
                    name,
-                   documentName,
+                   fingerprints,
                    out bool areSame)
                && areSame;
     }
