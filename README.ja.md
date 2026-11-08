@@ -18,11 +18,11 @@ Beutl（ビュートル）は、**Windows・macOS・Linux** で使える無料�
 
 [ダウンロード](https://beutl.beditor.net/ja#download) · [公式サイト](https://beutl.beditor.net/ja) · [ドキュメント](https://docs.beutl.beditor.net/ja) · [拡張機能](https://beutl.beditor.net/ja/store)
 
+## 📖 機能
+
 ![タイポグラフィのプレビューとレイヤーを並べたタイムラインが見えるBeutlの編集画面](assets/screenshots/screenshot-light-dark.png)
 
-_Beutlで制作したタイポグラフィ。[編集デモを見る](https://beutl.beditor.net/ja)。画像は開発中のバージョンです。_
-
-## 📖 機能
+_Beutlで制作したタイポグラフィ。画像は開発中のバージョンです。_
 
 ### タイムライン & 合成
 

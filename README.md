@@ -18,11 +18,11 @@ Beutl (pronounced /bjútəl/) is free and open source video editing and composit
 
 [Download](https://beutl.beditor.net/en#download) · [Website](https://beutl.beditor.net/en) · [Documentation](https://docs.beutl.beditor.net) · [Extensions](https://beutl.beditor.net/en/store)
 
+## 📖 Features
+
 ![Beutl editor showing a typographic animation preview and its layered timeline](assets/screenshots/screenshot-light-dark.png)
 
-_A typographic animation in Beutl. [Watch the editing demo](https://beutl.beditor.net/en). The image is from a development version._
-
-## 📖 Features
+_A typographic animation in Beutl. The image is from a development version._
 
 ### Timeline & Compositing
 
