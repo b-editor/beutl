@@ -94,26 +94,46 @@ internal sealed class ShadowCasterPipelines : IDisposable
         byte[] vertexSpirv = shaderCompiler.CompileToSpirv(_cutoutVertexShader, ShaderStage.Vertex);
         byte[] fragmentSpirv = shaderCompiler.CompileToSpirv(_cutoutFragmentShader, ShaderStage.Fragment);
         DescriptorBinding[] descriptorBindings = MaterialGpuResources.CreateDescriptorBindings(textureCount: 1);
-        for (int variant = 0; variant < _cutoutPipelines.Length; variant++)
+        try
         {
-            var options = new PipelineOptions
+            for (int variant = 0; variant < _cutoutPipelines.Length; variant++)
             {
-                DepthTestEnabled = true,
-                DepthWriteEnabled = true,
-                CullMode = variant == DoubleSidedVariant ? CullMode.None : CullMode.Back,
-            };
-            IPipeline3D pipeline = context.CreatePipeline3D(
-                renderPass,
-                vertexSpirv,
-                fragmentSpirv,
-                descriptorBindings,
-                Vertex3D.GetVertexInputDescription(),
-                options);
-            _cutoutPipelines[variant] = pipeline;
-            _cutoutBindings[variant] = MaterialDrawBindingPool.Create<TUbo>(context, pipeline, 1);
-        }
+                var options = new PipelineOptions
+                {
+                    DepthTestEnabled = true,
+                    DepthWriteEnabled = true,
+                    CullMode = variant == DoubleSidedVariant ? CullMode.None : CullMode.Back,
+                };
+                IPipeline3D pipeline = context.CreatePipeline3D(
+                    renderPass,
+                    vertexSpirv,
+                    fragmentSpirv,
+                    descriptorBindings,
+                    Vertex3D.GetVertexInputDescription(),
+                    options);
+                _cutoutPipelines[variant] = pipeline;
+                _cutoutBindings[variant] = MaterialDrawBindingPool.Create<TUbo>(context, pipeline, 1);
+            }
 
-        _cutoutSampler = MaterialGpuResources.CreateLinearClampSampler(context);
+            _cutoutSampler = MaterialGpuResources.CreateLinearClampSampler(context);
+        }
+        catch (Exception failure)
+        {
+            // The next caster tries again and would write over what was made before the failure.
+            IDisposable?[] made = [_cutoutBindings[0], _cutoutBindings[1], _cutoutPipelines[0], _cutoutPipelines[1]];
+            Array.Clear(_cutoutBindings);
+            Array.Clear(_cutoutPipelines);
+            try
+            {
+                RenderNode3D.DisposeResources(made);
+            }
+            catch (Exception disposal)
+            {
+                throw new AggregateException(failure, disposal);
+            }
+
+            throw;
+        }
     }
 
     /// <summary>Binds the pipeline and the bindings for a caster with holes in it.</summary>
