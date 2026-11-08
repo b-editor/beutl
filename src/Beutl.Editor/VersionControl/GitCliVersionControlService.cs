@@ -52,8 +52,10 @@ internal sealed partial class GitCliVersionControlService :
     private static readonly string[] s_textAttributeLines =
     [
         .. ProjectPathRules.DocumentAttributeLines,
-        // The media fingerprints a scene keeps in its folder; without a slash, the pattern matches in every folder.
+        // The media fingerprints a scene keeps in its folder and the palettes a project keeps in its own; without a
+        // slash, a pattern matches in every folder.
         $"{Beutl.ProjectSystem.MediaFingerprintFile.FileName} text eol=lf",
+        $"{ProjectColorPaletteFile.FileName} text eol=lf",
         ".gitignore text eol=lf",
         ".gitattributes text eol=lf",
     ];

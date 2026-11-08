@@ -109,23 +109,59 @@ public class ColorPaletteTests
             [new PaletteColor(0xFF3366FF, "Primary"), new PaletteColor(0x80FF0000)])));
     }
 
+    // Development builds kept a project's palettes in its project file, which holds only what the project renders.
     [Test]
-    public void A_project_keeps_its_palettes_through_a_save()
+    public void A_project_drops_the_palettes_development_builds_wrote_into_it()
     {
-        var project = new Project();
-        project.ColorPalettes.Value = s_palettes;
+        JsonObject json = CoreSerializer.SerializeToJsonObject(new Project());
+        json["ColorPalettes"] = ColorPalette.ToJson(s_palettes);
 
-        JsonObject json = CoreSerializer.SerializeToJsonObject(project);
         var read = (Project)CoreSerializer.DeserializeFromJsonObject(json, typeof(Project));
 
-        Assert.That(read.ColorPalettes.Value, Is.EqualTo(s_palettes));
+        Assert.That(CoreSerializer.SerializeToJsonObject(read).ContainsKey("ColorPalettes"), Is.False);
     }
 
     [Test]
-    public void A_project_without_palettes_writes_nothing_for_them()
+    public void A_project_palette_file_reads_back_what_it_writes_and_goes_with_its_last_palette()
     {
-        JsonObject json = CoreSerializer.SerializeToJsonObject(new Project());
+        string root = Path.Combine(Path.GetTempPath(), "beutl-palette-file-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            string path = ProjectColorPaletteFile.GetPath(Path.Combine(root, "Project.bep"));
+            Assert.That(path, Is.EqualTo(Path.Combine(root, "color-palettes.json")));
+            Assert.That(ProjectColorPaletteFile.Read(path, out bool canWriteMissing), Is.Empty);
+            Assert.That(canWriteMissing, Is.True);
 
-        Assert.That(json.ContainsKey(nameof(Project.ColorPalettes)), Is.False);
+            ProjectColorPaletteFile.Write(path, s_palettes);
+            Assert.That(ProjectColorPaletteFile.Read(path, out bool canWrite), Is.EqualTo(s_palettes));
+            Assert.That(canWrite, Is.True);
+
+            ProjectColorPaletteFile.Write(path, []);
+            Assert.That(File.Exists(path), Is.False);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    // A later version's file, one without a version, or one a merge left conflict markers in.
+    [TestCase("{\"Version\":2,\"Palettes\":[]}")]
+    [TestCase("{\"Palettes\":[]}")]
+    [TestCase("<<<<<<< ours\n{\"Version\":1}\n=======\n{\"Version\":1}\n>>>>>>> theirs\n")]
+    public void A_project_palette_file_this_version_cannot_read_gives_no_palettes_and_no_write(string content)
+    {
+        string path = Path.Combine(Path.GetTempPath(), "beutl-palette-file-" + Guid.NewGuid().ToString("N") + ".json");
+        File.WriteAllText(path, content);
+        try
+        {
+            Assert.That(ProjectColorPaletteFile.Read(path, out bool canWrite), Is.Empty);
+            Assert.That(canWrite, Is.False);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 }
