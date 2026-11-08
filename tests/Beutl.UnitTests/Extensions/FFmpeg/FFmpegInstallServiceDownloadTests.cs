@@ -77,7 +77,7 @@ public sealed class FFmpegInstallServiceDownloadTests
     }
 
     [Test]
-    public void Download_StopsWithoutTheApiWhenTheUserCancels()
+    public async Task Download_StopsWithoutTheApiWhenTheUserCancels()
     {
         using var cancellation = new CancellationTokenSource();
         var handler = new RecordingHandler(_ =>
@@ -86,8 +86,25 @@ public sealed class FFmpegInstallServiceDownloadTests
             throw new OperationCanceledException(cancellation.Token);
         });
 
-        Assert.CatchAsync<OperationCanceledException>(() => DownloadAsync(handler, Asset(), cancellation.Token));
+        await Assert.CatchAsync<OperationCanceledException>(() => DownloadAsync(handler, Asset(), cancellation.Token));
         Assert.That(handler.Requests.Select(r => r.Uri), Is.EqualTo(new[] { DownloadUrl }));
+    }
+
+    // A dropped connection leaves part of the archive behind, and the API's copy has to replace all of it.
+    [Test]
+    public async Task Download_ReplacesAPartialDownloadWithTheApiCopy()
+    {
+        var handler = new RecordingHandler(request => request.RequestUri!.AbsoluteUri == DownloadUrl
+            ? new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StreamContent(new DroppingStream(Encoding.UTF8.GetBytes("a longer partial archive")))
+            }
+            : Archive("from the api"));
+
+        string? file = await DownloadAsync(handler, Asset());
+
+        Assert.That(File.ReadAllText(file!), Is.EqualTo("from the api"));
+        Assert.That(handler.Requests.Select(r => r.Uri), Is.EqualTo(new[] { DownloadUrl, ApiUrl }));
     }
 
     [Test]
@@ -127,6 +144,47 @@ public sealed class FFmpegInstallServiceDownloadTests
         if (file != null)
             _downloaded.Add(file);
         return file;
+    }
+
+    // Serves its bytes, then fails the next read.
+    private sealed class DroppingStream(byte[] bytes) : Stream
+    {
+        private int _position;
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => _position;
+            set => throw new NotSupportedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (_position == bytes.Length)
+                throw new IOException("The connection dropped.");
+
+            int read = Math.Min(count, bytes.Length - _position);
+            Array.Copy(bytes, _position, buffer, offset, read);
+            _position += read;
+            return read;
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     private sealed class RecordingHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
