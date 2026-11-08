@@ -3,52 +3,45 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.VersionControl;
 using Beutl.Language;
 using Beutl.Logging;
-using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
 
-// Gives the color pickers the open project's palettes and writes their edits into the project file at once,
-// as a change of the project's channel layout is: the project file has no unsaved state of its own.
+// Gives the color pickers the open project's palettes and writes their edits at once to the project's palette file
+// (ProjectColorPaletteFile), which keeps them out of the project file: that file holds only what the project renders.
 internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<ProjectColorPaletteHost>();
     private readonly Func<IProjectFileWriteLease?> _beginWrite;
-    private readonly Action<Project, Uri> _storeProject;
+    private readonly Action<string, ImmutableArray<ColorPalette>> _store;
     private readonly IDisposable _projectSubscription;
-    private IDisposable? _palettesSubscription;
-    private Project? _project;
+    // The open project's palette file, or null without a project.
+    private string? _path;
+    private ImmutableArray<ColorPalette> _palettes = [];
 
     public ProjectColorPaletteHost(ProjectService projectService, EditorService editorService)
-        : this(projectService.CurrentProject, editorService.TryBeginProjectFileWrite, StoreProjectFile)
+        : this(projectService.CurrentProject, editorService.TryBeginProjectFileWrite, ProjectColorPaletteFile.Write)
     {
-    }
-
-    // Writes the project file alone. The default mode also writes the scenes it refers to, which would save their
-    // unsaved edits behind the user's back and make each palette edit as slow as saving the whole project.
-    internal static void StoreProjectFile(Project project, Uri uri)
-    {
-        CoreSerializer.StoreToUri(project, uri, CoreSerializationMode.Write);
     }
 
     // A test seam for the project to follow, the write admission and the write itself.
     internal ProjectColorPaletteHost(
         IObservable<Project?> currentProject,
         Func<IProjectFileWriteLease?> beginWrite,
-        Action<Project, Uri> storeProject)
+        Action<string, ImmutableArray<ColorPalette>> store)
     {
         _beginWrite = beginWrite;
-        _storeProject = storeProject;
+        _store = store;
         _projectSubscription = currentProject.Subscribe(OnProjectChanged);
     }
 
-    public ImmutableArray<ColorPalette>? Palettes => _project?.ColorPalettes.Value;
+    public ImmutableArray<ColorPalette>? Palettes => _path != null ? _palettes : null;
 
     public event EventHandler? PalettesChanged;
 
     public bool TrySetPalettes(ImmutableArray<ColorPalette> palettes)
     {
-        if (_project is not { Uri: { } uri } project)
+        if (_path is not { } path)
         {
             return false;
         }
@@ -61,14 +54,27 @@ internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDispo
             return false;
         }
 
-        ImmutableArray<ColorPalette> previous = project.ColorPalettes.Value;
+        // Checked again under the lease, as a merge, a hand edit or a later version may have changed the file since it
+        // was read. A file this version cannot read stays as it is, for that version or the user to deal with.
+        ImmutableArray<ColorPalette> current = ProjectColorPaletteFile.Read(path, out bool canWrite);
+        if (!canWrite)
+        {
+            NotificationService.ShowWarning(Strings.ColorPalette_ProjectPalettes, MessageStrings.OperationFailed);
+            return false;
+        }
+
+        // The edit was made on palettes the file no longer holds, so the pickers are shown what it holds instead.
+        if (!current.SequenceEqual(_palettes))
+        {
+            _palettes = current;
+            PalettesChanged?.Invoke(this, EventArgs.Empty);
+            NotificationService.ShowWarning(Strings.ColorPalette_ProjectPalettes, MessageStrings.OperationFailed);
+            return false;
+        }
+
         try
         {
-            project.ColorPalettes.Value = palettes;
-            ProjectPersistence.PersistOrRollback(
-                () => _storeProject(project, uri),
-                () => project.ColorPalettes.Value = previous);
-            return true;
+            _store(path, palettes);
         }
         catch (Exception ex)
         {
@@ -76,30 +82,33 @@ internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDispo
             NotificationService.ShowError(Strings.ColorPalette_ProjectPalettes, MessageStrings.OperationFailed);
             return false;
         }
+
+        _palettes = palettes;
+        PalettesChanged?.Invoke(this, EventArgs.Empty);
+        return true;
     }
 
     public void Dispose()
     {
         _projectSubscription.Dispose();
-        _palettesSubscription?.Dispose();
-        _palettesSubscription = null;
-        _project = null;
+        _path = null;
+        _palettes = [];
     }
 
+    // A pull, restore or branch switch reopens the project, and with it this read.
     private void OnProjectChanged(Project? project)
     {
-        _palettesSubscription?.Dispose();
-        _palettesSubscription = null;
-        _project = project;
-        if (project != null)
+        _path = project?.Uri is { IsFile: true } uri ? ProjectColorPaletteFile.GetPath(uri.LocalPath) : null;
+        _palettes = [];
+        if (_path != null)
         {
-            // The first value is the palettes the project opened with, which also announces the project.
-            _palettesSubscription = project.ColorPalettes.GetObservable()
-                .Subscribe(_ => PalettesChanged?.Invoke(this, EventArgs.Empty));
+            _palettes = ProjectColorPaletteFile.Read(_path, out bool canWrite);
+            if (!canWrite)
+            {
+                _logger.LogWarning("The project's color palette file {Path} cannot be read, so it is left as it is.", _path);
+            }
         }
-        else
-        {
-            PalettesChanged?.Invoke(this, EventArgs.Empty);
-        }
+
+        PalettesChanged?.Invoke(this, EventArgs.Empty);
     }
 }

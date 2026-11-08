@@ -926,6 +926,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                     + "*.[sS][cC][eE][nN][eE] text eol=lf\n"
                     + "*.[bB][eE][lL][mM] text eol=lf\n"
                     + $"{MediaFingerprintFile.FileName} text eol=lf\n"
+                    + $"*{ProjectColorPaletteFile.Suffix} text eol=lf\n"
                     + ".gitignore text eol=lf\n"
                     + ".gitattributes text eol=lf\n"));
             Assert.That(

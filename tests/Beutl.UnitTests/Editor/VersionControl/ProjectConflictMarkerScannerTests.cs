@@ -75,6 +75,21 @@ public class ProjectConflictMarkerScannerTests
     }
 
     [Test]
+    public async Task FindFirstAsync_scans_the_projects_color_palette_file()
+    {
+        string projectFile = Path.Combine(_root, "project.bep");
+        string paletteFile = ProjectColorPaletteFile.GetPath(projectFile);
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+        await File.WriteAllTextAsync(paletteFile, LfConflict);
+
+        string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
+            projectFile,
+            CancellationToken.None);
+
+        Assert.That(result, Is.EqualTo(paletteFile));
+    }
+
+    [Test]
     public async Task FindFirstAsync_applies_the_per_file_budget_at_the_marker_boundary()
     {
         string projectFile = Path.Combine(_root, "project.bep");
