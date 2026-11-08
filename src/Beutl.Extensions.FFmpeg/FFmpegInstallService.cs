@@ -17,6 +17,9 @@ internal sealed class GitHubAsset
 
     [JsonPropertyName("browser_download_url")]
     public string? BrowserDownloadUrl { get; set; }
+
+    // The asset's API endpoint, which serves the file itself when asked for application/octet-stream.
+    [JsonPropertyName("url")] public string? Url { get; set; }
 }
 
 public enum FFmpegInstallMethod
@@ -29,7 +32,7 @@ public partial class FFmpegInstallService
 {
     private readonly ILogger _logger = Log.CreateLogger<FFmpegInstallService>();
     private readonly CancellationTokenSource _cts = new();
-    private const string GitHubReleasesApiUrl = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases";
+    private const string GitHubReleasesApiUrl = "https://api.github.com/repos/FFmpeg-Builds/FFmpeg-Builds/releases";
 
     public event Action<string>? ProgressTextChanged;
     public event Action<double, double>? ProgressChanged;

@@ -34,7 +34,7 @@ public partial class FFmpegInstallService
         return null;
     }
 
-    private async Task<string?> GetDownloadUrlAsync(HttpClient client, CancellationToken ct = default)
+    private async Task<GitHubAsset?> FindAssetAsync(HttpClient client, CancellationToken ct = default)
     {
         Regex? regex = GetAssetNameRegex();
         if (regex == null)
@@ -61,7 +61,7 @@ public partial class FFmpegInstallService
                     {
                         _logger.LogInformation("Found FFmpeg asset: {Name}, URL: {Url}", asset.Name,
                             asset.BrowserDownloadUrl);
-                        return asset.BrowserDownloadUrl;
+                        return asset;
                     }
                 }
             }
@@ -89,8 +89,8 @@ public partial class FFmpegInstallService
         ProgressTextChanged?.Invoke(Strings.Fetching_release_information);
         IndeterminateChanged?.Invoke(true);
 
-        string? downloadUrl = await GetDownloadUrlAsync(client, ct);
-        if (downloadUrl == null)
+        GitHubAsset? asset = await FindAssetAsync(client, ct);
+        if (asset?.BrowserDownloadUrl == null)
         {
             _logger.LogError("Failed to get download URL for FFmpeg");
             ProgressTextChanged?.Invoke(Strings.Failed_to_find_FFmpeg_release);
@@ -99,7 +99,7 @@ public partial class FFmpegInstallService
         }
 
         // 2. Download
-        string? downloadedFile = await DownloadFileAsync(client, downloadUrl, ct);
+        string? downloadedFile = await DownloadFileAsync(client, asset, ct);
         if (downloadedFile == null)
         {
             Completed?.Invoke(false);
@@ -129,25 +129,61 @@ public partial class FFmpegInstallService
         await VerifyAndCompleteAsync();
     }
 
-    private async Task<string?> DownloadFileAsync(HttpClient client, string url, CancellationToken ct)
+    private async Task<string?> DownloadFileAsync(HttpClient client, GitHubAsset asset, CancellationToken ct)
     {
         try
         {
-            ProgressChanged?.Invoke(0, 1);
-            IndeterminateChanged?.Invoke(false);
             ProgressTextChanged?.Invoke(Language.MessageStrings.Downloading);
-
-            _logger.LogInformation("Downloading FFmpeg from {Url}", url);
-            using HttpResponseMessage response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
-            response.EnsureSuccessStatusCode();
-
-            long? contentLength = response.Content.Headers.ContentLength;
-            string fileName = Path.GetFileName(new Uri(url).LocalPath);
 
             string tempDir = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp");
             Directory.CreateDirectory(tempDir);
-            string filePath = Path.Combine(tempDir, fileName);
+            // Named after the asset, as the API's URL ends in its id rather than its name.
+            string filePath = Path.Combine(tempDir, Path.GetFileName(asset.Name!));
 
+            _logger.LogInformation("Downloading FFmpeg from {Url}", asset.BrowserDownloadUrl);
+            try
+            {
+                await DownloadToFileAsync(client, new HttpRequestMessage(HttpMethod.Get, asset.BrowserDownloadUrl), filePath, ct);
+            }
+            catch (Exception ex) when (asset.Url != null && !ct.IsCancellationRequested)
+            {
+                // GitHub's download pages can fail while its API still serves the same file (#4179).
+                _logger.LogWarning(ex, "FFmpeg download failed, retrying through the GitHub API from {Url}", asset.Url);
+                var request = new HttpRequestMessage(HttpMethod.Get, asset.Url);
+                request.Headers.Accept.ParseAdd("application/octet-stream");
+                request.Headers.UserAgent.ParseAdd("Beutl");
+                await DownloadToFileAsync(client, request, filePath, ct);
+            }
+
+            ProgressTextChanged?.Invoke(Language.MessageStrings.DownloadComplete);
+            IndeterminateChanged?.Invoke(false);
+            _logger.LogInformation("Downloaded FFmpeg to {FilePath}", filePath);
+
+            return filePath;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to download FFmpeg");
+            ProgressTextChanged?.Invoke(ex.Message);
+            return null;
+        }
+    }
+
+    private async Task DownloadToFileAsync(HttpClient client, HttpRequestMessage request, string filePath, CancellationToken ct)
+    {
+        using (request)
+        {
+            ProgressChanged?.Invoke(0, 1);
+            IndeterminateChanged?.Invoke(false);
+
+            using HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            response.EnsureSuccessStatusCode();
+
+            long? contentLength = response.Content.Headers.ContentLength;
             await using FileStream destination = File.Create(filePath);
             await using Stream download = await response.Content.ReadAsStreamAsync(ct);
 
@@ -169,22 +205,6 @@ public partial class FFmpegInstallService
                     ProgressChanged?.Invoke(totalBytesRead, contentLength.Value);
                 }
             }
-
-            ProgressTextChanged?.Invoke(Language.MessageStrings.DownloadComplete);
-            IndeterminateChanged?.Invoke(false);
-            _logger.LogInformation("Downloaded FFmpeg to {FilePath}", filePath);
-
-            return filePath;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to download FFmpeg");
-            ProgressTextChanged?.Invoke(ex.Message);
-            return null;
         }
     }
 
