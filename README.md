@@ -20,7 +20,7 @@ Beutl (pronounced /bjútəl/) is free and open source video editing and composit
 
 https://github.com/user-attachments/assets/fb259985-06c1-48a4-8e35-baf43ec21ea9
 
-_Refine the reveal, motion, and layout to finish a typographic animation._
+_The Beutl editor: refining a prepared typographic animation with a clipping reveal, keyframes, symmetric spline handles, an eased zoom, and text alignment, then playing the finished result._
 
 ## 📖 Features
 
