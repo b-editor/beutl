@@ -54,12 +54,20 @@ internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDispo
             return false;
         }
 
-        // Checked again under the lease, as a merge or a later version may have changed the file since it was read.
-        // A file this version cannot read stays as it is, for that version or the user to deal with.
-        ProjectColorPaletteFile.Read(path, out bool canWrite);
+        // Checked again under the lease, as a merge, a hand edit or a later version may have changed the file since it
+        // was read. A file this version cannot read stays as it is, for that version or the user to deal with.
+        ImmutableArray<ColorPalette> current = ProjectColorPaletteFile.Read(path, out bool canWrite);
         if (!canWrite)
         {
             NotificationService.ShowWarning(Strings.ColorPalette_ProjectPalettes, MessageStrings.OperationFailed);
+            return false;
+        }
+
+        // The edit was made on palettes the file no longer holds, so the pickers are shown what it holds instead.
+        if (!current.SequenceEqual(_palettes))
+        {
+            _palettes = current;
+            PalettesChanged?.Invoke(this, EventArgs.Empty);
             return false;
         }
 

@@ -190,6 +190,32 @@ public sealed class ProjectColorPaletteHostTests
         Assert.That(File.ReadAllText(PalettePath(project)), Is.EqualTo(conflicted));
     }
 
+    // A project opened on a conflicted file shows no palettes; once the file is fixed outside Beutl, an edit made on
+    // that empty list must not replace what the file holds.
+    [AvaloniaTest]
+    public void An_edit_on_palettes_the_file_no_longer_holds_shows_the_file_instead()
+    {
+        Project project = CreateProject("Project");
+        File.WriteAllText(PalettePath(project), "<<<<<<< ours\n{\"Version\":1}\n=======\n{\"Version\":1}\n>>>>>>> theirs\n");
+        int writes = 0;
+        using var host = new ProjectColorPaletteHost(
+            new BehaviorSubject<Project?>(project),
+            () => new Lease(),
+            (_, _) => writes++);
+        int changes = 0;
+        host.PalettesChanged += (_, _) => changes++;
+        ProjectColorPaletteFile.Write(PalettePath(project), s_brand);
+
+        Assert.That(host.TrySetPalettes([new ColorPalette("New", [])]), Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(writes, Is.Zero);
+            Assert.That(host.Palettes, Is.EqualTo(s_brand));
+            Assert.That(changes, Is.EqualTo(1));
+            Assert.That(ProjectColorPaletteFile.Read(PalettePath(project), out _), Is.EqualTo(s_brand));
+        });
+    }
+
     private Project CreateProject(string name)
     {
         string folder = Path.Combine(_root, name);
