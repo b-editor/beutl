@@ -80,6 +80,10 @@ public class ColorBalancePad : Control
 
     public bool IsDragging => _dragging;
 
+    // Ends the drag in progress and gives the cursor back, for a host that ended the gesture before the release; the
+    // release then does nothing.
+    public void StopDrag() => EndDrag();
+
     public event EventHandler<VectorEventArgs>? DragStarted
     {
         add => AddHandler(DragStartedEvent, value);

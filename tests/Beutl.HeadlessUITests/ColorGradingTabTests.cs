@@ -159,6 +159,7 @@ public sealed class ColorGradingTabTests
 
         HeadlessTestHelpers.Render();
         Assert.That(host.History.IsEditing, Is.False, "The end closes the session before any release.");
+        Assert.That(host.Pad.IsDragging, Is.False, "The pad's drag, and the cursor it hid, end before the release.");
         host.Window.MouseMove(start + new Vector(60, 0), RawInputModifiers.LeftMouseButton);
         host.Window.MouseUp(start + new Vector(60, 0), MouseButton.Left);
         HeadlessTestHelpers.Render();

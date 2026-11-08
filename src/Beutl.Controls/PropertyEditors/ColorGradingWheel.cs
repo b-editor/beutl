@@ -99,8 +99,13 @@ public class ColorGradingWheel : PropertyEditor
     // Whether the pad or the jog is being dragged; a stopped drag no longer counts.
     public bool IsDragging => (_padDragging || _masterDragging) && !_dragStopped;
 
-    // Ends the drag in progress without ValueConfirmed, for a host that ended the gesture itself.
-    public void StopDrag() => _dragStopped = _padDragging || _masterDragging;
+    // Ends the drag in progress without ValueConfirmed, for a host that ended the gesture itself. The pad's drag ends
+    // with it, so that the cursor its pointer lock hid comes back without waiting for the release.
+    public void StopDrag()
+    {
+        _dragStopped = _padDragging || _masterDragging;
+        _pad?.StopDrag();
+    }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
