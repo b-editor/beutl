@@ -28,7 +28,7 @@ SOFTWARE.
 
 ## .NET Runtime
 https://github.com/dotnet/runtime
-Packages: `Microsoft.DotNet.PlatformAbstractions`, `Microsoft.Extensions.*`, `Microsoft.Win32.SystemEvents`, `System.ComponentModel.Annotations`, `System.Drawing.Common`, `System.Numerics.Tensors`, `System.Security.Cryptography.Pkcs`, `System.Security.Cryptography.ProtectedData`
+Packages: `Microsoft.DotNet.PlatformAbstractions`, `Microsoft.Extensions.*`, `Microsoft.Win32.SystemEvents`, `System.ComponentModel.Annotations`, `System.Diagnostics.EventLog`, `System.Drawing.Common`, `System.Numerics.Tensors`, `System.Security.Cryptography.Pkcs`, `System.Security.Cryptography.ProtectedData`
 
 The MIT License (MIT)
 
