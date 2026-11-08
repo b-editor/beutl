@@ -91,6 +91,10 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
     // presentation thread; a lost device still fails the wait and stops presenting.
     private const ulong FenceTimeoutNanoseconds = 5_000_000_000;
 
+    // How long Dispose waits for the presentation thread to stop. After waiting the fence's timeout, the thread still
+    // uploads, draws and presents that frame with what Dispose frees, so it gets that long and a second more.
+    private const int PresentThreadStopTimeoutMilliseconds = (int)(FenceTimeoutNanoseconds / 1_000_000) + 1_000;
+
     // Set on the presentation thread once a Vulkan call fails. A failed submit leaves the in-flight fence
     // unsignaled, so later frames are dropped instead of waiting on it; recreating the view recovers.
     private bool _faulted;
@@ -755,7 +759,14 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         _running = false;
         _commandQueue.CompleteAdding();
-        _presentThread?.Join(2000);
+        // A thread that has still not stopped keeps what it uses: leaking it beats freeing it under the thread.
+        if (_presentThread is { } presentThread && !presentThread.Join(PresentThreadStopTimeoutMilliseconds))
+        {
+            s_logger.LogWarning(
+                "The presentation thread did not stop within {Timeout} ms, so the preview's resources are left to it",
+                PresentThreadStopTimeoutMilliseconds);
+            return;
+        }
 
         while (_commandQueue.TryTake(out var cmd))
         {
