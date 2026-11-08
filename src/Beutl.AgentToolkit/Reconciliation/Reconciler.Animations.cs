@@ -198,19 +198,9 @@ public sealed partial class Reconciler
         if (node is JsonObject obj)
         {
             if (CollectionReconciler.TryGetId(obj, out Guid id)
-                && sandbox.Find(id) is EngineObject engineObject
-                && obj["Animations"] is JsonObject animations)
+                && sandbox.Find(id) is EngineObject engineObject)
             {
-                foreach ((string propertyName, JsonNode? animationNode) in animations.ToArray())
-                {
-                    if (animationNode is JsonObject animationJson
-                        && KeyFrameShorthand.IsShorthand(animationJson)
-                        && FindAnimationTarget(engineObject, propertyName) is { } property)
-                    {
-                        animations[propertyName] = KeyFrameShorthand.Expand(animationJson, property.ValueType);
-                        expanded = true;
-                    }
-                }
+                expanded |= ExpandOwnAnimationShorthand(engineObject, obj);
             }
 
             foreach ((_, JsonNode? child) in obj.ToArray())
@@ -227,6 +217,105 @@ public sealed partial class Reconciler
         }
 
         return expanded;
+    }
+
+    private static bool ExpandOwnAnimationShorthand(EngineObject owner, JsonObject ownerJson)
+    {
+        if (ownerJson["Animations"] is not JsonObject animations)
+        {
+            return false;
+        }
+
+        bool expanded = false;
+        foreach ((string propertyName, JsonNode? animationNode) in animations.ToArray())
+        {
+            if (animationNode is JsonObject animationJson
+                && KeyFrameShorthand.IsShorthand(animationJson)
+                && FindAnimationTarget(owner, propertyName) is { } property)
+            {
+                animations[propertyName] = KeyFrameShorthand.Expand(animationJson, property.ValueType);
+                expanded = true;
+            }
+        }
+
+        return expanded;
+    }
+
+    // A new object nested in a property has no Id for the sandbox to find it by, and the serializer that reads it
+    // does not know the shorthand. The document says what it is, by its $type or by the property holding it.
+    private static void ExpandNewObjectAnimationShorthand(JsonObject document)
+    {
+        if (ContainsAnimationShorthand(document))
+        {
+            ExpandAnimationShorthandByType(document, null, new Dictionary<Type, EngineObject?>());
+        }
+    }
+
+    private static bool ContainsAnimationShorthand(JsonNode? node)
+    {
+        return node switch
+        {
+            JsonObject obj => KeyFrameShorthand.IsShorthand(obj) || obj.Any(pair => ContainsAnimationShorthand(pair.Value)),
+            JsonArray array => array.Any(ContainsAnimationShorthand),
+            _ => false
+        };
+    }
+
+    private static void ExpandAnimationShorthandByType(
+        JsonNode? node,
+        Type? declaredType,
+        Dictionary<Type, EngineObject?> prototypes)
+    {
+        if (node is JsonArray array)
+        {
+            foreach (JsonNode? item in array)
+            {
+                ExpandAnimationShorthandByType(item, declaredType, prototypes);
+            }
+
+            return;
+        }
+
+        if (node is not JsonObject obj)
+        {
+            return;
+        }
+
+        EngineObject? prototype = FindPrototype(obj, declaredType, prototypes);
+        if (prototype is not null)
+        {
+            ExpandOwnAnimationShorthand(prototype, obj);
+        }
+
+        foreach ((string name, JsonNode? child) in obj.ToArray())
+        {
+            IProperty? property = prototype?.Properties.FirstOrDefault(item => item.Name == name);
+            ExpandAnimationShorthandByType(
+                child,
+                property is IListProperty list ? list.ElementType : property?.ValueType,
+                prototypes);
+        }
+    }
+
+    // An instance of the object's type, to name the types of its properties; null for what has none to offer.
+    private static EngineObject? FindPrototype(
+        JsonObject obj,
+        Type? declaredType,
+        Dictionary<Type, EngineObject?> prototypes)
+    {
+        Type? type = declaredType is null ? obj.GetDiscriminator() : CoreSerializer.ResolveActualType(obj, declaredType);
+        if (type is null || type.IsAbstract || !typeof(EngineObject).IsAssignableFrom(type))
+        {
+            return null;
+        }
+
+        if (!prototypes.TryGetValue(type, out EngineObject? prototype))
+        {
+            prototype = type.GetConstructor(Type.EmptyTypes) is null ? null : (EngineObject?)Activator.CreateInstance(type);
+            prototypes[type] = prototype;
+        }
+
+        return prototype;
     }
 
     private static void ValidateChangedAnimationValues(
