@@ -10,6 +10,7 @@ using Beutl.Audio.Effects;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Shapes;
@@ -86,6 +87,51 @@ public sealed class SchemaGenerationTests
             .ToArray();
 
         Assert.That(listedTypes, Is.SupersetOf(builtinTypes));
+    }
+
+    [Test]
+    public void A_visualizer_shape_property_names_every_builtin_shape()
+    {
+        CapabilitySchema schema = new SchemaGenerator().Generate(
+            typeFilter: $"{nameof(AudioSpectrumDrawable)},{nameof(AudioWaveformDrawable)}",
+            includeExamples: false);
+
+        static string[] Builtin<TShape>() =>
+        [
+            .. typeof(TShape).Assembly.GetExportedTypes()
+                .Where(type => !type.IsAbstract
+                               && type.IsSubclassOf(typeof(TShape))
+                               && !typeof(IFallback).IsAssignableFrom(type))
+                .Select(type => type.Name)
+        ];
+
+        IReadOnlyList<string>? Fits<TDrawable>() => schema.Types.Single(type => type.Type == typeof(TDrawable).FullName)
+            .Properties.Single(property => property.Name == nameof(AudioSpectrumDrawable.Shape)).ConcreteTypes;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Builtin<SpectrumShape>(), Is.Not.Empty);
+            Assert.That(Fits<AudioSpectrumDrawable>(), Is.EquivalentTo(Builtin<SpectrumShape>()));
+            Assert.That(Builtin<WaveformShape>(), Is.Not.Empty);
+            Assert.That(Fits<AudioWaveformDrawable>(), Is.EquivalentTo(Builtin<WaveformShape>()));
+        });
+    }
+
+    [Test]
+    public void An_element_is_described_with_the_names_its_enum_fields_take()
+    {
+        CapabilitySchema schema = new SchemaGenerator().Generate(typeFilter: nameof(Element), includeExamples: false);
+        TypeDescriptor element = schema.Types.Single();
+        FieldDescriptor Field(string name) => element.BaseFields.Single(field => field.Name == name);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Discriminator, Is.EqualTo(IdentityHelper.WriteDiscriminator(typeof(Element))));
+            Assert.That(Field(nameof(Element.MatteMode)).EnumValues, Is.EqualTo(Enum.GetNames<MatteMode>()));
+            Assert.That(Field(nameof(Element.MatteSourceKind)).EnumValues, Is.EqualTo(Enum.GetNames<MatteSourceKind>()));
+            Assert.That(Field(nameof(Element.IsVisibleInOutput)).ValueType, Is.EqualTo(typeof(bool).FullName));
+            Assert.That(Field(nameof(Element.Start)).EnumValues, Is.Null);
+        });
     }
 
     [Test]

@@ -307,16 +307,20 @@ public sealed class ReadDocumentTests
     {
         var tools = new QueryTools(new AgentSessionManager());
 
-        ToolResult<CapabilitySchema> result = tools.GetSchema(type: "Element", includeProperties: false);
+        ToolResult<CapabilitySchema> described = tools.GetSchema(type: "Element", includeProperties: false);
+        ToolResult<CapabilitySchema> misnamed = tools.GetSchema(type: "timeline element", includeProperties: false);
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.UnknownType));
-            Assert.That(result.Error.Hint, Does.Contain("[Beutl.ProjectSystem]:Element"));
-            Assert.That(result.Error.Hint, Does.Contain("Objects"));
-            Assert.That(result.Error.Hint, Does.Contain("insert-new-element-skeleton"));
-            Assert.That(result.Error.Hint, Does.Contain(nameof(Element.EnterTransition)));
+            Assert.That(described.IsSuccess, Is.True, described.Error?.Message);
+            string description = described.Value!.Types.Single().Description!;
+            Assert.That(description, Does.Contain("[Beutl.ProjectSystem]:Element"));
+            Assert.That(description, Does.Contain("Objects"));
+            Assert.That(description, Does.Contain("insert-new-element-skeleton"));
+            Assert.That(description, Does.Contain(nameof(Element.EnterTransition)));
+            Assert.That(misnamed.IsSuccess, Is.False);
+            Assert.That(misnamed.Error!.Code, Is.EqualTo(ErrorCode.UnknownType));
+            Assert.That(misnamed.Error.Hint, Does.Contain("get_schema(type: 'Element')"));
         });
     }
 

@@ -94,7 +94,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
             if ((type is not null || category is not null) && schema.Types.Count == 0)
             {
                 string? hint = IsElementSchemaRequest(type, category)
-                    ? "Timeline Element is a project-system container, not a capability-schema EngineObject. Use '$type': '[Beutl.ProjectSystem]:Element' only for new entries in Elements; put concrete drawable/effect/brush/transform objects under Objects using discriminators returned by get_schema. EnterTransition and ExitTransition take a ClipTransition from get_schema(category=transition). For structure, call get_examples(name: 'insert-new-element-skeleton')."
+                    ? "For the fields of a timeline Element, call get_schema(type: 'Element'). For its structure, call get_examples(name: 'insert-new-element-skeleton')."
                     : null;
                 throw new ReconcileException(new ToolError(
                     ErrorCode.UnknownType,

@@ -199,7 +199,7 @@ public sealed partial class SchemaGenerator
         ConcreteTypeLookup? concreteTypes = null)
     {
         LibraryItem? item = LibraryService.Current.FindItem(type);
-        string? description = item?.Description;
+        string? description = item?.Description ?? TypeRegistration.FindDescription(type);
         if (typeof(IFlowOperator).IsAssignableFrom(type))
         {
             const string flowHint = "IFlowOperator: prefer supplying input objects through flow instead of adding them directly to Children or similar nested content properties. Give each input its own timeline Element below the operator's Element, within its PortalObject.Count span (ZIndex z+1 through z+Count), so a person can retime it. A single input may instead come earlier in the same Element.Objects. Keep a PortalObject immediately before the operator: for a same-Element input use [input, PortalObject(Count=0, Clear=false), operator]. Earlier compatible objects can also be consumed. When grouping a subset, isolate its input/operator chain in its own Element and keep unrelated content in separate Elements outside the portal span, preserving timing and draw order. Existing nested content remains supported. See get_examples insert-camera-rig-push-in and insert-camera-rig-portal.";
@@ -249,7 +249,11 @@ public sealed partial class SchemaGenerator
         ];
 
         static FieldDescriptor ToField(IProperty property)
-            => new(property.Name, property.ValueType.FullName ?? property.ValueType.Name, DocumentDefault(property));
+            => new(
+                property.Name,
+                property.ValueType.FullName ?? property.ValueType.Name,
+                DocumentDefault(property),
+                EnumJsonValueNormalizer.GetEnumNames(property.ValueType));
     }
 
     // Documents show times as TimeSpan strings, while files hold flicks. A Vector3 only has fields,

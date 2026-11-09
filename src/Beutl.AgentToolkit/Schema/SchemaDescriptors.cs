@@ -60,7 +60,11 @@ public sealed record TypeDescriptor(
     string? DisplayName = null,
     string? Description = null);
 
-public sealed record FieldDescriptor(string Name, string ValueType, object? Default = null);
+public sealed record FieldDescriptor(
+    string Name,
+    string ValueType,
+    object? Default = null,
+    IReadOnlyList<string>? EnumValues = null);
 
 public sealed record PropertyDescriptor(
     string Name,
