@@ -7,7 +7,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
 
 using Beutl.Reactive;
 
@@ -292,12 +291,7 @@ public abstract class VectorEditorBase : PropertyEditor
         PointerPoint pointerPoint = e.GetCurrentPoint(box);
         if (!pointerPoint.Properties.IsLeftButtonPressed) return;
 
-        // The press goes no further, so it has to end the editing of another box itself, as it would by taking the focus.
-        foreach (InputElement ancestor in this.GetLogicalAncestors().OfType<InputElement>())
-        {
-            if (ancestor.Focus(NavigationMethod.Pointer)) break;
-        }
-
+        EndTextEditing();
         _scrub.Arm(pointerPoint.Position);
         e.Pointer.Capture(box);
         e.Handled = true;

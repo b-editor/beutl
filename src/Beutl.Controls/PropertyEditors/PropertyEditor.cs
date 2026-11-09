@@ -5,8 +5,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.VisualTree;
 
 using Beutl.Extensibility;
 using Beutl.Reactive;
@@ -189,6 +191,21 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         Bind(valueProperty, context.EditValue.ToBinding()).DisposeWith(connection);
         ConfirmEdits(context, connection, () => SetValue(valueProperty, shown));
         return connection;
+    }
+
+    // Ends the typing in a text box, for a press on a box that starts a drag, so that what was typed is confirmed in an
+    // undo step of its own. The focus goes to the nearest parent that takes it, as for a press on anything else; with
+    // none, as in a floated property tab, it goes nowhere rather than stay in the text box.
+    private protected void EndTextEditing()
+    {
+        foreach (InputElement ancestor in this.GetVisualAncestors().OfType<InputElement>())
+        {
+            if (ancestor.Focus(NavigationMethod.Pointer))
+                return;
+        }
+
+        if (TopLevel.GetTopLevel(this)?.FocusManager is { } focusManager && focusManager.GetFocusedElement() is TextBox)
+            focusManager.Focus(null);
     }
 
     // Ends the earlier connection and returns the one that holds the new connection's subscriptions.

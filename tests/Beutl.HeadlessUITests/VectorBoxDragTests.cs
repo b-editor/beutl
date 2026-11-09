@@ -209,11 +209,14 @@ public class VectorBoxDragTests
         Assert.That(editor.FirstValue, Is.EqualTo(0.8f).Within(1e-4));
     }
 
+    // Also in a window with no focusable parent to take the focus, as a floated property tab is.
     [AvaloniaTest]
-    public void A_drag_ends_the_editing_of_the_box_beside_it()
+    [TestCase(true)]
+    [TestCase(false)]
+    public void A_drag_ends_the_editing_of_the_box_beside_it(bool focusableParent)
     {
         var editor = new Vector2Editor<float> { Header = "H", FirstValue = 10, SecondValue = 20 };
-        using var host = new BoxHost(editor);
+        using var host = new BoxHost(editor, focusableParent);
         TextBox first = host.Box("First");
         host.Click(host.Over(first));
         Assert.That(first.IsKeyboardFocusWithin, Is.True);
@@ -298,12 +301,12 @@ public class VectorBoxDragTests
     {
         private readonly bool _pointerLock = GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value;
 
-        public BoxHost(VectorEditorBase editor)
+        public BoxHost(VectorEditorBase editor, bool focusableParent = true)
         {
             GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = false;
             Editor = editor;
             editor.ValueConfirmed += (_, _) => Confirmed++;
-            Window = new Window { Content = new Border { Focusable = true, Child = editor }, Width = 520, Height = 120 };
+            Window = new Window { Content = new Border { Focusable = focusableParent, Child = editor }, Width = 520, Height = 120 };
             Window.Show();
             HeadlessTestHelpers.Render(3);
         }

@@ -114,6 +114,7 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
         e.Handled = true;
         if (_slider.EditsOnClick)
         {
+            EndTextEditing();
             _scrub.Arm(point.Position);
             e.Pointer.Capture(_slider);
             return;

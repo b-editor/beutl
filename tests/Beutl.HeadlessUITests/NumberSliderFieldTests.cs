@@ -303,6 +303,75 @@ public class NumberSliderFieldTests
         TimelineTestHost.WaitForHitTest(host.Window, host.Slider, point);
     }
 
+    // What was typed goes in an undo step of its own, also in a window with no focusable parent to take the focus, as a
+    // floated property tab is.
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public void A_drag_ends_the_typing_in_another_box(bool focusableParent)
+    {
+        bool pointerLock = GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value;
+        GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = false;
+        var effect = new ColorGrading();
+        using var history = new HistoryScope(effect);
+        (PropertyEditorViewModel firstModel, Control first) = CreateControl(
+            new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)effect.Temperature, effect));
+        (PropertyEditorViewModel secondModel, Control second) = CreateControl(
+            new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)effect.Contrast, effect));
+        firstModel.Accept(ServiceVisitor.For(history.History));
+        secondModel.Accept(ServiceVisitor.For(history.History));
+        var window = new Window
+        {
+            Content = new Border { Focusable = focusableParent, Child = new StackPanel { Children = { first, second } } },
+            Width = 420,
+            Height = 160,
+        };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            ValueSliderField firstSlider = first.GetVisualDescendants().OfType<ValueSliderField>().Single();
+            ValueSliderField secondSlider = second.GetVisualDescendants().OfType<ValueSliderField>().Single();
+            TextBox firstBox = first.GetVisualDescendants().OfType<TextBox>().Single(box => box.Name == "PART_InnerTextBox");
+            AvaPoint typeAt = HeadlessTestHelpers.Center(firstSlider, window);
+            AvaPoint press = HeadlessTestHelpers.Center(secondSlider, window);
+            TimelineTestHost.WaitForHitTest(window, firstSlider, typeAt);
+            TimelineTestHost.WaitForHitTest(window, secondSlider, press);
+            window.MouseMove(typeAt);
+            window.MouseDown(typeAt, MouseButton.Left);
+            window.MouseUp(typeAt, MouseButton.Left);
+            HeadlessTestHelpers.Render();
+            window.KeyTextInput("42");
+
+            window.MouseMove(press);
+            window.MouseDown(press, MouseButton.Left);
+            Assert.Multiple(() =>
+            {
+                Assert.That(firstBox.IsKeyboardFocusWithin, Is.False);
+                Assert.That(history.History.UndoCount, Is.EqualTo(1), "The press confirms what was typed.");
+            });
+
+            window.MouseMove(press + new AvaPoint(4, 0), RawInputModifiers.LeftMouseButton);
+            AvaPoint end = press + new AvaPoint(24, 0);
+            window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(end, MouseButton.Left);
+            HeadlessTestHelpers.Render();
+            Assert.That(history.History.Undo(), Is.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That(effect.Contrast.Value, Is.Zero, "The undo takes back the drag.");
+                Assert.That(effect.Temperature.Value, Is.EqualTo(42f), "It leaves what was typed.");
+            });
+        }
+        finally
+        {
+            window.Close();
+            firstModel.Dispose();
+            secondModel.Dispose();
+            GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = pointerLock;
+        }
+    }
+
     [AvaloniaTest]
     public void A_right_click_opens_the_menu_of_the_text_box_under_the_slider()
     {
