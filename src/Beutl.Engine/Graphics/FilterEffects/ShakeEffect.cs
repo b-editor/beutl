@@ -40,6 +40,9 @@ public partial class ShakeEffect : FilterEffect
         _offset = new Random(hash).NextSingle() * 1000 - 500;
     }
 
+    // ClampOffset turns the offset of a non-finite strength into 0.
+    private static bool MovesNothing(float strength) => strength == 0 || !float.IsFinite(strength);
+
     private static float ClampOffset(float value)
     {
         const float maxOffset = 100_000f;
@@ -93,6 +96,13 @@ public partial class ShakeEffect : FilterEffect
 
         protected override void ApplyTo(FilterEffectContext context)
         {
+            // Even a shake of nothing would send its input through a render target and draw it back,
+            // which resamples the edges of content at a fractional position, such as text.
+            if (MovesNothing(StrengthX) && MovesNothing(StrengthY))
+            {
+                return;
+            }
+
             var effect = (ShakeEffect)RequireOriginal();
             context.CustomEffect(
                 (time: Time, speed: Speed, strengthX: StrengthX, strengthY: StrengthY, random: effect._random, offset: effect._offset),
