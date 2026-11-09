@@ -32,23 +32,23 @@ public sealed class NumberEditorViewModel<T>(IPropertyAdapter<T> property) : Val
         }
     }
 
-    // The slider spans the property's RangeAttribute and starts its fill at the default value. A property with no range
-    // for a slider has its two ends meet, and its box takes a drag without showing a fill or a thumb.
+    // The slider spans the property's RangeAttribute and starts its fill at the default value.
     private void ApplyRange(NumberSliderEditor<T> slider)
     {
-        bool hasRange = TryGetSliderRange(out double minimum, out double maximum);
-        slider.Minimum = hasRange ? minimum : 0;
-        slider.Maximum = hasRange ? maximum : 0;
+        bool hasRange = TryGetRange(out double minimum, out double maximum);
+        if (hasRange)
+        {
+            slider.Minimum = minimum;
+            slider.Maximum = maximum;
+        }
+
+        slider.ShowsRange = hasRange && CanShowRange(minimum, maximum);
         slider.Origin = GetDefaultValue() is T value ? double.CreateTruncating(value) : 0;
     }
 
-    // Whether a slider suits the property: its RangeAttribute gives both ends, with room between them for a few steps
-    // and not for more than a slider can show.
-    private bool TryGetSliderRange(out double minimum, out double maximum)
+    // Whether a slider can show the range: with room between its ends for a few steps and not for more than that.
+    private bool CanShowRange(double minimum, double maximum)
     {
-        if (!TryGetRange(out minimum, out maximum))
-            return false;
-
         double step = PropertyAdapter.GetAttributes().OfType<NumberStepAttribute>().FirstOrDefault()?.SmallChange ?? 1;
         double steps = (maximum - minimum) / step;
         return steps is >= 2 and <= MaxSliderSteps;

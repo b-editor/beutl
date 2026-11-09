@@ -6,9 +6,8 @@ using Avalonia.Media.Immutable;
 namespace Beutl.Controls.PropertyEditors;
 
 // A ValueSlider laid over a number's text box, which makes the box the slider: the box fills up to the value and a slim
-// upright thumb stands at it, for a number with a range, which is one whose Maximum is above its Minimum. Its theme keeps
-// it see-through until the pointer comes, so that a row at rest looks like any other box. A click on it edits the text,
-// and only a drag moves the value.
+// upright thumb stands at it, for a number with a range to show. Its theme keeps it see-through until the pointer comes,
+// so that a row at rest looks like any other box. A click on it edits the text, and only a drag moves the value.
 public class ValueSliderField : ValueSlider
 {
     public static readonly StyledProperty<CornerRadius> CornerRadiusProperty =
@@ -17,13 +16,16 @@ public class ValueSliderField : ValueSlider
     public static readonly StyledProperty<IBrush?> BorderBrushProperty =
         Border.BorderBrushProperty.AddOwner<ValueSliderField>();
 
+    public static readonly StyledProperty<bool> ShowsValueProperty =
+        AvaloniaProperty.Register<ValueSliderField, bool>(nameof(ShowsValue), true);
+
     private const double BorderThickness = 1;
     private const double ThumbWidth = 3;
     private const double ThumbHeightRatio = 0.6;
 
     static ValueSliderField()
     {
-        AffectsRender<ValueSliderField>(CornerRadiusProperty, BorderBrushProperty);
+        AffectsRender<ValueSliderField>(CornerRadiusProperty, BorderBrushProperty, ShowsValueProperty);
     }
 
     public CornerRadius CornerRadius
@@ -36,6 +38,13 @@ public class ValueSliderField : ValueSlider
     {
         get => GetValue(BorderBrushProperty);
         set => SetValue(BorderBrushProperty, value);
+    }
+
+    // Whether the fill and the thumb show where the value sits in the range.
+    public bool ShowsValue
+    {
+        get => GetValue(ShowsValueProperty);
+        set => SetValue(ShowsValueProperty, value);
     }
 
     internal override bool EditsOnClick => true;
@@ -52,7 +61,7 @@ public class ValueSliderField : ValueSlider
         // Drawn even when transparent, since the pointer reaches only what is drawn and this takes it across the box.
         context.DrawRectangle(Background ?? Brushes.Transparent, null, box);
 
-        if (Maximum > Minimum)
+        if (ShowsValue)
             DrawValue(context, box);
 
         if (BorderBrush is { } border)

@@ -34,6 +34,7 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
     private double _grabOffset;
     private double _lastX;
     private bool _sliding;
+    private bool _showsRange = true;
 
     public double Minimum
     {
@@ -51,6 +52,18 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
     {
         get => GetValue(OriginProperty);
         set => SetValue(OriginProperty, value);
+    }
+
+    // Whether a slider over the box shows where the value sits. The box of a number with no range to show takes a drag
+    // all the same.
+    internal bool ShowsRange
+    {
+        get => _showsRange;
+        set
+        {
+            _showsRange = value;
+            UpdateSlider();
+        }
     }
 
     private bool IsPressed => _sliding || _scrub.IsArmed;
@@ -100,6 +113,8 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
         _slider.Maximum = Maximum;
         _slider.Origin = Origin;
         _slider.Value = double.CreateTruncating(Value);
+        if (_slider is ValueSliderField field)
+            field.ShowsValue = ShowsRange;
     }
 
     private void OnSliderPointerPressed(object? sender, PointerPressedEventArgs e)

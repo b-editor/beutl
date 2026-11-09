@@ -9,6 +9,7 @@ using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
@@ -82,8 +83,9 @@ public class NumberSliderFieldTests
         var slider = new ValueSliderField
         {
             Minimum = 0,
-            Maximum = 0,
+            Maximum = 100,
             Value = 50,
+            ShowsValue = false,
             Foreground = Brushes.White,
             ThumbBrush = Brushes.White,
             BorderBrush = null,
@@ -104,6 +106,24 @@ public class NumberSliderFieldTests
         {
             window.Close();
         }
+    }
+
+    // Showing no range is for the box. A slider beside the box still has to reach the whole of the property.
+    [AvaloniaTest]
+    public void A_slider_beside_the_box_keeps_a_range_too_wide_for_a_box_to_show()
+    {
+        var scene = new Scene3D();
+        using var model = new NumberEditorViewModel<float>(new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)scene.RenderWidth, scene));
+        var editor = new NumberSliderEditor<float> { Theme = (ControlTheme)Application.Current!.FindResource("NumberSliderEditorTheme")! };
+
+        model.Accept(editor);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(editor.Minimum, Is.EqualTo(1));
+            Assert.That(editor.Maximum, Is.EqualTo(8192));
+            Assert.That(editor.ShowsRange, Is.False);
+        });
     }
 
     [AvaloniaTest]
@@ -548,8 +568,7 @@ public class NumberSliderFieldTests
             new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)property, owner));
         using (model)
         {
-            var editor = (NumberSliderEditor<float>)control;
-            return editor.Maximum > editor.Minimum;
+            return ((NumberSliderEditor<float>)control).ShowsRange;
         }
     }
 

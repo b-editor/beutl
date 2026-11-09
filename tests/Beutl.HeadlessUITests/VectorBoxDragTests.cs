@@ -193,6 +193,22 @@ public class VectorBoxDragTests
     }
 
     [AvaloniaTest]
+    public void A_relative_value_gives_a_pulse_when_it_crosses_zero()
+    {
+        var editor = new RelativePointEditor { Header = "P", Unit = RelativeUnit.Absolute, FirstValue = -10, SecondValue = 5 };
+        using var host = new BoxHost(editor);
+        using var feedback = new HapticFeedbackRecorder();
+
+        host.Drag(host.Box("First"), 20);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(editor.FirstValue, Is.EqualTo(10f));
+            Assert.That(feedback.Pulses, Has.Count.EqualTo(1));
+        });
+    }
+
+    [AvaloniaTest]
     public void The_header_of_a_relative_component_drags_it_too()
     {
         var editor = new RelativePointEditor { Header = "P", Unit = RelativeUnit.Relative, FirstValue = 0.5f, SecondValue = 0.5f };
@@ -228,6 +244,27 @@ public class VectorBoxDragTests
             Assert.That(first.IsKeyboardFocusWithin, Is.False);
             Assert.That(editor.SecondValue, Is.EqualTo(50f));
         });
+    }
+
+    // The border is held lit during a press, whatever the pointer is over. Over the box it stays lit, and it goes out when
+    // the release comes away from the box, which only a pointer that is not locked can do.
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public void The_border_stays_lit_after_a_drag_only_if_the_pointer_is_still_over_the_box(bool overTheBox)
+    {
+        var editor = new Vector2Editor<float> { Header = "H" };
+        using var host = new BoxHost(editor);
+        AvaPoint press = host.Over(host.Box("First"));
+        AvaPoint end = overTheBox ? press + new AvaPoint(10, 0) : new AvaPoint(1, 1);
+        host.Press(press);
+        host.DragTo(press + new AvaPoint(4, 0));
+        host.DragTo(end);
+        Assert.That(editor.Classes, Does.Contain(":border-pointerover"));
+
+        host.Release(end);
+
+        Assert.That(editor.Classes.Contains(":border-pointerover"), Is.EqualTo(overTheBox));
     }
 
     [AvaloniaTest]

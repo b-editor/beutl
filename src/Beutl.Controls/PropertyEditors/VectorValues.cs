@@ -320,6 +320,16 @@ internal sealed class RelativeVectorValues : VectorValues
             Set(i, newValues[i]);
 
         _editor.RaiseEvent(_createEventArgs(newValues, _unit, oldValues, _unit, PropertyEditor.ValueChangedEvent));
+
+        // The handlers have written the accepted values back.
+        for (int i = 0; i < _values.Length; i++)
+        {
+            if (NumberEditorHelper.CrossedHapticReference(oldValues[i], _values[i], 0f))
+            {
+                NativeHapticFeedback.PerformAlignment(_editor, e.Timestamp);
+                break; // A uniform or whole-vector scrub produces one pulse per pointer event.
+            }
+        }
     }
 
     private void ApplyValueChange(int index, float value, RelativeUnit unit, float[] oldValues, RelativeUnit oldUnit)

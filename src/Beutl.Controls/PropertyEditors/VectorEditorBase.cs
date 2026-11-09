@@ -304,7 +304,7 @@ public abstract class VectorEditorBase : PropertyEditor
         // A move with the button up means the release never reached the box.
         if (!e.Properties.IsLeftButtonPressed)
         {
-            EndBoxPress();
+            AbandonBoxPress();
             return;
         }
 
@@ -327,16 +327,32 @@ public abstract class VectorEditorBase : PropertyEditor
         e.Handled = true;
         bool clicked = _scrub.IsArmed;
         EndBoxPress();
-        if (clicked && sender is TextBox box && box.Focus())
+        if (sender is not TextBox box) return;
+
+        if (clicked && box.Focus())
             box.SelectAll();
+
+        // Only an unlocked pointer can be released away from the box, and then nothing else says that it has left.
+        if (!new Rect(box.Bounds.Size).Contains(e.GetPosition(box)))
+            IsPointerOverChanged(false);
     }
 
-    private void OnBoxPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e) => EndBoxPress();
+    private void OnBoxPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e) => AbandonBoxPress();
 
     private void EndBoxPress()
     {
         _scrub.Disarm();
         CompleteScrub();
+    }
+
+    // Ends a press whose release was lost, after which nothing else says where the pointer went. It is not one when the
+    // capture goes after a release, which has ended the press already.
+    private void AbandonBoxPress()
+    {
+        if (!_scrub.IsArmed && !_scrub.IsActive) return;
+
+        EndBoxPress();
+        IsPointerOverChanged(false);
     }
 
     private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
