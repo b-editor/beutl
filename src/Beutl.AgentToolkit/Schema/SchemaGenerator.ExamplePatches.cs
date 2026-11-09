@@ -173,13 +173,6 @@ public sealed partial class SchemaGenerator
     private static DeclarativeExample CreateCameraRigPushInExample()
     {
         DrawableGroup rig = CreateCameraRigGroup("[role:camera-rig] Shot 1 camera");
-        var plate = new RectShape
-        {
-            Name = { Value = "[role:text-backing] Shot 1 title plate" },
-            Width = { Value = 760 },
-            Height = { Value = 240 },
-            Fill = { Value = CreateLinearGradient("#ff1c2a4a", "#ff2f4a7a") }
-        };
         var title = new TextBlock
         {
             Name = { Value = "Shot 1 hero title" },
@@ -188,15 +181,14 @@ public sealed partial class SchemaGenerator
             Fill = { Value = new SolidColorBrush(Colors.White) }
         };
 
-        Element element = CreateElement("[role:camera-rig] Shot 1 rig", zIndex: 10, s_exampleElementLength, plate);
-        element.AddObject(title);
+        Element element = CreateElement("[role:camera-rig] Shot 1 rig", zIndex: 10, s_exampleElementLength, title);
         element.AddObject(rig);
         JsonObject elementJson = SerializeWithoutIds(element);
         AddCameraRigPushInAnimations(GetFlowGroupJson(elementJson));
 
         return new DeclarativeExample(
             "insert-camera-rig-push-in",
-            "Camera move for a 2D shot using same-Element flow, for a shot this small; with more objects use insert-camera-rig-portal so each keeps its own timeline row. Element.Objects contains the title plate, title, PortalObject(Count=0, Clear=false), then the [role:camera-rig] DrawableGroup with empty Children. The group consumes the earlier drawables; author new input in Element.Objects rather than in the group's Children. Keep the portal immediately before the group. Count=0 pulls no timeline rows and Clear=false retains the earlier objects. Animate the rig's TransformGroup for a slow eased push-in (ScaleTransform.Scale 100 -> 106, in percent) and slight pan (TranslateTransform.X; camera-left = rig-right). All inputs share the Element's Start/Length; use insert-camera-rig-portal when they need independent timing or timeline rows. Keep locked background plates outside the rig in their own Elements.",
+            "Camera move for a 2D shot with a single input, using same-Element flow; with more than one object use insert-camera-rig-portal so each keeps its own timeline row. Element.Objects contains the title, PortalObject(Count=0, Clear=false), then the [role:camera-rig] DrawableGroup with empty Children. The group consumes the earlier drawable; author the input in Element.Objects rather than in the group's Children. Keep the portal immediately before the group. Count=0 pulls no timeline rows and Clear=false retains the earlier object. Animate the rig's TransformGroup for a slow eased push-in (ScaleTransform.Scale 100 -> 106, in percent) and slight pan (TranslateTransform.X; camera-left = rig-right). The input shares the Element's Start/Length. Keep locked background plates outside the rig in their own Elements.",
             new JsonObject
             {
                 ["Elements"] = new JsonArray(elementJson)

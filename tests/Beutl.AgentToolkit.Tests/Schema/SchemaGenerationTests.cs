@@ -297,15 +297,14 @@ public sealed class SchemaGenerationTests
         Element rigElement = scene.Children.Single();
         Assert.Multiple(() =>
         {
-            Assert.That(rigElement.Objects, Has.Count.EqualTo(4));
-            Assert.That(rigElement.Objects[0], Is.InstanceOf<RectShape>());
-            Assert.That(rigElement.Objects[1], Is.InstanceOf<TextBlock>());
-            Assert.That(rigElement.Objects[2], Is.InstanceOf<PortalObject>());
-            var portal = (PortalObject)rigElement.Objects[2];
+            Assert.That(rigElement.Objects, Has.Count.EqualTo(3));
+            Assert.That(rigElement.Objects[0], Is.InstanceOf<TextBlock>());
+            Assert.That(rigElement.Objects[1], Is.InstanceOf<PortalObject>());
+            var portal = (PortalObject)rigElement.Objects[1];
             Assert.That(portal.Count.Value, Is.EqualTo(0));
             Assert.That(portal.Clear.Value, Is.False);
-            Assert.That(rigElement.Objects[3], Is.InstanceOf<DrawableGroup>());
-            var group = (DrawableGroup)rigElement.Objects[3];
+            Assert.That(rigElement.Objects[2], Is.InstanceOf<DrawableGroup>());
+            var group = (DrawableGroup)rigElement.Objects[2];
             Assert.That(group.Children, Is.Empty);
             var transformGroup = (TransformGroup)group.Transform.Value!;
             Assert.That(transformGroup.Children.OfType<ScaleTransform>().Count(), Is.EqualTo(1));
