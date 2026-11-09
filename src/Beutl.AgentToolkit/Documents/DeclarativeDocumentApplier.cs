@@ -260,6 +260,7 @@ internal sealed partial class DeclarativeDocumentApplier
 
         NormalizeRegisteredPropertyValues(target, payload);
         NormalizeEnginePropertyValues(target, payload);
+        LeaveOutUnchangedValuesSavedAsText(target, payload);
         List<(CoreObject Value, JsonObject Desired)> changedValues = TakeChangedValuesOfTheSameObject(target, payload);
         CoreSerializer.PopulateFromJsonObject(target, target.GetType(), payload, CreateOptions(target));
         ClearAbsentRegisteredObjectProperties(target, desired, payload);
@@ -272,6 +273,28 @@ internal sealed partial class DeclarativeDocumentApplier
         ApplyListProperties(target, desired);
         ApplyAnimations(target, desired);
         ApplyExpressions(target, desired);
+    }
+
+    // A value saved as text, like a media source's file reference, has no members to merge, so the populate would
+    // replace it with a new object even when the text is unchanged, and record that as an edit.
+    private void LeaveOutUnchangedValuesSavedAsText(EngineObject target, JsonObject payload)
+    {
+        JsonObject? current = null;
+        foreach (IProperty property in target.Properties)
+        {
+            if (!CoreObject.IsAutoSerialized(property)
+                || property.Value is not CoreObject
+                || payload[property.Name] is not JsonValue text)
+            {
+                continue;
+            }
+
+            current ??= SerializeCurrent(target);
+            if (JsonNode.DeepEquals(current[property.Name], text))
+            {
+                payload.Remove(property.Name);
+            }
+        }
     }
 
     // Takes the changed values of the same type and Id, to apply in place as the editor does and keep unknown members.

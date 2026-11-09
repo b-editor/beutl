@@ -6,6 +6,7 @@ using Avalonia.VisualTree;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
 using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Configuration;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
@@ -15,6 +16,7 @@ using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -67,6 +69,40 @@ public sealed class AgentEditFollowerTests
                 Assert.That(options.Offset.X, Is.GreaterThan(0), "The timeline scrolls to the element.");
                 Assert.That(options.Offset.Y, Is.GreaterThan(0), "The timeline scrolls to the element's layer.");
             });
+        }
+        finally
+        {
+            fixture.Window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task An_edit_goes_to_its_own_element_when_a_sound_comes_first()
+    {
+        Fixture fixture = await CreateFixtureAsync(follow: true);
+        try
+        {
+            var sound = new Element
+            {
+                Name = { Value = "sound" },
+                Start = { Value = MediaTime.Zero },
+                Length = { Value = MediaTime.FromSeconds(2) },
+                ZIndex = { Value = 1 },
+                Uri = new Uri(Path.Combine(fixture.Directory, "sound.belm"))
+            };
+            sound.AddObject(new SourceSound { Source = { Value = SoundSource.Open(Path.Combine(fixture.Directory, "beat.wav")) } });
+            fixture.Editor.Scene.Children.Insert(0, sound);
+            HeadlessTestHelpers.Settle();
+
+            await using AgentHostEndpoint host = fixture.CreateHost();
+            await host.StartAsync();
+            await using McpClient client = await ConnectAsync(host);
+
+            Success(await client.CallToolAsync("apply_edit", Patch(fixture, new JsonObject { ["Width"] = 200 })));
+            await HeadlessTestHelpers.WaitUntilAsync(() => fixture.Selection.Value is not null);
+
+            Assert.That(fixture.Selection.Value, Is.SameAs(fixture.Far));
         }
         finally
         {
