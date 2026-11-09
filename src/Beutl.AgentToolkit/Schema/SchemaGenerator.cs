@@ -121,6 +121,7 @@ public sealed partial class SchemaGenerator
 
         List<TypeDescriptor> types = [];
         var concreteTypes = new ConcreteTypeLookup();
+        List<string> unmatched = typeFilter?.Contains(',') == true ? [.. SplitTypeList(typeFilter)] : [];
         foreach ((string category, Type type) in EnumerateRegisteredTypes()
                      .Where(item => MatchesCategory(categoryFilter, item.Category))
                      .DistinctBy(item => item.Type))
@@ -131,13 +132,17 @@ public sealed partial class SchemaGenerator
                 continue;
             }
 
+            unmatched.RemoveAll(name => MatchesName(name, type, discriminator));
             types.Add(CreateDescriptor(category, type, discriminator, includeProperties, concreteTypes));
         }
 
         return new CapabilitySchema(
             SchemaVersion.Current,
             types.OrderBy(type => type.Type, StringComparer.Ordinal).ToArray(),
-            includeExamples ? CreateExamples(typeFilter, categoryFilter) : []);
+            includeExamples ? CreateExamples(typeFilter, categoryFilter) : [])
+        {
+            UnmatchedTypes = unmatched.Count > 0 ? unmatched : null
+        };
     }
 
     private static IEnumerable<(string Category, Type Type)> EnumerateRegisteredTypes()
@@ -379,9 +384,11 @@ public sealed partial class SchemaGenerator
         return string.IsNullOrWhiteSpace(typeFilter)
                || MatchesName(typeFilter, type, discriminator)
                || (typeFilter.Contains(',')
-                   && typeFilter.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                       .Any(name => MatchesName(name, type, discriminator)));
+                   && SplitTypeList(typeFilter).Any(name => MatchesName(name, type, discriminator)));
     }
+
+    private static string[] SplitTypeList(string typeFilter)
+        => typeFilter.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private static bool MatchesName(string name, Type type, string discriminator)
     {

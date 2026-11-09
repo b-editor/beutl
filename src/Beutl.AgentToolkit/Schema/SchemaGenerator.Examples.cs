@@ -252,9 +252,9 @@ public sealed partial class SchemaGenerator
             return true;
         }
 
-        string trimmed = typeFilter.Trim();
-        return spec.TypeTokens.Contains(trimmed, StringComparer.Ordinal)
-               || (s_typeAliases.TryGetValue(trimmed, out string[]? aliases)
-                   && aliases.Any(alias => spec.TypeTokens.Contains(alias, StringComparer.Ordinal)));
+        return SplitTypeList(typeFilter).Any(name =>
+            spec.TypeTokens.Contains(name, StringComparer.Ordinal)
+            || (s_typeAliases.TryGetValue(name, out string[]? aliases)
+                && aliases.Any(alias => spec.TypeTokens.Contains(alias, StringComparer.Ordinal))));
     }
 }

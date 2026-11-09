@@ -5,7 +5,11 @@ namespace Beutl.AgentToolkit.Schema;
 public sealed record CapabilitySchema(
     string SchemaVersion,
     IReadOnlyList<TypeDescriptor> Types,
-    IReadOnlyList<DeclarativeExample> Examples);
+    IReadOnlyList<DeclarativeExample> Examples)
+{
+    // Entries of a comma-separated type list that matched nothing. Null when every entry matched.
+    public IReadOnlyList<string>? UnmatchedTypes { get; init; }
+}
 
 public sealed record DeclarativeExample(string Name, string Description, JsonObject Patch);
 

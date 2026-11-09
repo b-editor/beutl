@@ -246,6 +246,36 @@ public sealed class ReadDocumentTests
     }
 
     [Test]
+    public void Get_schema_examples_follow_every_type_in_a_list()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<CapabilitySchema> single = tools.GetSchema(type: nameof(TextBlock), includeExamples: true);
+        ToolResult<CapabilitySchema> list = tools.GetSchema(type: $"{nameof(RectShape)}, {nameof(TextBlock)}", includeExamples: true);
+
+        Assert.That(single.Value!.Examples, Is.Not.Empty);
+        Assert.That(
+            list.Value!.Examples.Select(example => example.Name),
+            Is.SupersetOf(single.Value.Examples.Select(example => example.Name)));
+    }
+
+    [Test]
+    public void Get_schema_names_list_entries_that_matched_nothing()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<CapabilitySchema> partly = tools.GetSchema(type: $"{nameof(TextBlock)}, PerspectveCamera");
+        ToolResult<CapabilitySchema> fully = tools.GetSchema(type: $"{nameof(TextBlock)}, {nameof(RectShape)}");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(partly.Value!.Types.Select(type => type.Type), Is.EqualTo(new[] { typeof(TextBlock).FullName }));
+            Assert.That(partly.Value.UnmatchedTypes, Is.EqualTo(new[] { "PerspectveCamera" }));
+            Assert.That(fully.Value!.UnmatchedTypes, Is.Null);
+        });
+    }
+
+    [Test]
     public void Get_schema_accepts_common_low_context_type_aliases()
     {
         var tools = new QueryTools(new AgentSessionManager());
