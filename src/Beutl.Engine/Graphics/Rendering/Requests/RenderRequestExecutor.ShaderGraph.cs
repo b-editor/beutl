@@ -7,6 +7,22 @@ namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed partial class RenderRequestExecutor
 {
+    /// <summary>Whether a shader graph has to read a copy of its source cut to <paramref name="footprint"/>.</summary>
+    /// <remarks>
+    /// A pass that finds its source through metadata only needs a raster apron taken off. Rounding alone can
+    /// make the footprint a pixel wider than the source's own target, and a copy of that size goes over the
+    /// device's limit when the target already fills it.
+    /// </remarks>
+    internal static bool RequiresSourceCrop(
+        bool acceptsPartialSource,
+        PixelRect deviceBounds,
+        PixelRect footprint,
+        Rect bounds,
+        Rect sourceBounds)
+        => acceptsPartialSource
+            ? !footprint.Contains(deviceBounds)
+            : deviceBounds != footprint || bounds != sourceBounds;
+
     private sealed partial class RenderRequestExecutionState
     {
         private ProgramCacheLease<ShaderGraphPipeline> AcquireShaderGraphProgram(VulkanContext context, ShaderPassDescription pass,
@@ -56,7 +72,7 @@ internal sealed partial class RenderRequestExecutor
                         Rect sourceBounds = graph.AcceptsPartialSource ? input.Bounds : input.CompleteBounds;
                         PixelRect footprint = PixelRect.FromRect(sourceBounds.Translate(input.DeviceGridOffset),
                             input.EffectiveScale.Value);
-                        if (input.DeviceBounds != footprint || input.Bounds != sourceBounds)
+                        if (RequiresSourceCrop(graph.AcceptsPartialSource, input.DeviceBounds, footprint, input.Bounds, sourceBounds))
                             sourceValue = CropValue(input, sourceBounds, allowPreviewDrop: true);
                         ITexture2D source = RequireTexture(sourceValue);
                         float density = graph.ClampWorkingScale(input.CompleteBounds, scale.Value, _activeDeviceGridOffset,
