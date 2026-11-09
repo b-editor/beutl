@@ -109,6 +109,9 @@ public class ValueSlider : Control
     // How much the value changes per device-independent pixel.
     public double ValuePerPixel => Travel > 0 ? (Maximum - Minimum) / Travel : 0;
 
+    // Whether a click on the slider edits the number as text, so that only a drag moves the value.
+    internal virtual bool EditsOnClick => false;
+
     // How far the thumb's center travels from Minimum to Maximum.
     private double Travel => Bounds.Width - (2 * ThumbRadius);
 

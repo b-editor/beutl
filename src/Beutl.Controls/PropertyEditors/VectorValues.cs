@@ -27,7 +27,7 @@ internal abstract class VectorValues
     // Returns false when the text does not parse.
     public abstract bool Step(int index, string? text, PointerWheelEventArgs e);
 
-    // index is -1 for the editor's header, which scrubs every component.
+    // index is -1 for what scrubs every component: the editor's header, or the one box of a uniform value.
     public virtual void Scrub(int index, ref HeaderScrubGesture scrub, Visual header, PointerEventArgs e)
     {
     }
@@ -216,6 +216,8 @@ internal sealed class RelativeVectorValues : VectorValues
         _oldValues = new float[properties.Length];
     }
 
+    public override bool CanScrub => true;
+
     public float this[int index] => _values[index];
 
     public RelativeUnit Unit => _unit;
@@ -299,6 +301,25 @@ internal sealed class RelativeVectorValues : VectorValues
             ApplyValueChange(index, value, _unit, [.. _values], _unit);
 
         return true;
+    }
+
+    // A pixel is a percent of a relative value and a whole unit of an absolute one, the small step of the wheel.
+    public override void Scrub(int index, ref HeaderScrubGesture scrub, Visual header, PointerEventArgs e)
+    {
+        float delta = scrub.NextDelta<float>(header, e) * (_unit == RelativeUnit.Relative ? 0.01f : 1f);
+
+        float[] newValues = [.. _values];
+        float[] oldValues = [.. _values];
+        for (int i = 0; i < newValues.Length; i++)
+        {
+            if (index < 0 || index == i)
+                newValues[i] = NumberEditorHelper.AddPreservingScale(newValues[i], delta);
+        }
+
+        for (int i = 0; i < newValues.Length; i++)
+            Set(i, newValues[i]);
+
+        _editor.RaiseEvent(_createEventArgs(newValues, _unit, oldValues, _unit, PropertyEditor.ValueChangedEvent));
     }
 
     private void ApplyValueChange(int index, float value, RelativeUnit unit, float[] oldValues, RelativeUnit oldUnit)

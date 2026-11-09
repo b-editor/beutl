@@ -191,9 +191,24 @@ internal static class BuiltInPropertyEditors
         return matched;
     }
 
+    // In the panel a number's box also takes a drag, and is a slider where the number has a range; elsewhere it is plain.
     private static void Number<T>(PropertyEditorRegistry registry)
         where T : struct, INumber<T>
-        => registry.RegisterValue<T, T>(p => new NumberEditorViewModel<T>(p), () => new NumberEditor<T>());
+    {
+        registry.Add(new PropertyEditorRegistration
+        {
+            ValueType = typeof(T),
+            CreateContext = properties => properties[0] is IPropertyAdapter<T> property
+                ? new NumberEditorViewModel<T>(property)
+                : null,
+            CreateControl = (_, surface) => surface == PropertyEditorSurface.Panel
+                ? new NumberSliderEditor<T> { Theme = FindTheme("NumberSliderFieldEditorTheme") }
+                : new NumberEditor<T>(),
+            Connect = Connect,
+            IsStandard = true,
+            Owner = registry.Owner,
+        });
+    }
 
     private static void Add<T>(PropertyEditorRegistry registry, Func<IPropertyAdapter<T>, IPropertyEditorContext> createContext, Func<Control> createControl)
         => Add(registry, typeof(T), p => p is IPropertyAdapter<T> typed ? createContext(typed) : null, _ => createControl());
