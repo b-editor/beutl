@@ -64,6 +64,14 @@ Use Vulkan-based GPU rendering, with MoltenVK on macOS and a software fallback w
 - **Expressions:** Link properties and compute parameters from other values.
 - **3D scenes (experimental):** Combine 2D compositions with cameras, lighting, meshes, and PBR materials.
 
+### AI Agents
+
+An AI agent can build an edit in the project you have open while you watch. Everything it makes lands on the timeline as ordinary layers, keyframes, and effects, so you can take over at any point and keep going. Its edits and yours share one undo history.
+
+https://github.com/user-attachments/assets/30d412f5-4e6e-405b-988d-342a406f595a
+
+_Claude Code in Beutl's Terminal tab replaying recorded agent edits, sped up. The agent fixes a defect it found in its own render, then the same project is refined by hand in the Graph Editor._
+
 ### Extensions
 
 Add effects, objects, codecs, and UI through the [extension store](https://beutl.beditor.net/en/store). You can also develop and publish your own extensions.
