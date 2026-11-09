@@ -43,6 +43,61 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
+    public void A_property_declared_as_a_base_class_names_the_types_that_fit()
+    {
+        CapabilitySchema schema = new SchemaGenerator().Generate(typeFilter: nameof(Scene3D), includeExamples: false);
+        IReadOnlyList<PropertyDescriptor> properties = schema.Types.Single().Properties;
+        IReadOnlyList<string>? Fits(string name) => properties.Single(property => property.Name == name).ConcreteTypes;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Fits(nameof(Scene3D.Objects)), Does.Contain("Cube3D"));
+            Assert.That(Fits(nameof(Scene3D.Lights)), Does.Contain("PointLight3D"));
+            Assert.That(Fits(nameof(Scene3D.Camera)), Does.Contain("PerspectiveCamera"));
+            Assert.That(Fits(nameof(Scene3D.AmbientIntensity)), Is.Null, "not a base class");
+            Assert.That(Fits(nameof(Drawable.FilterEffect)), Is.Null, "too many to repeat on every drawable");
+        });
+    }
+
+    [Test]
+    public void Schema_exposes_every_builtin_3d_type_a_document_can_create()
+    {
+        // Reflect over the engine, so a camera or material that no registration lists fails too.
+        Type[] bases =
+        [
+            typeof(Object3D),
+            typeof(Beutl.Graphics3D.Camera.Camera3D),
+            typeof(Beutl.Graphics3D.Lighting.Light3D),
+            typeof(Beutl.Graphics3D.Materials.Material3D),
+        ];
+        string[] builtinTypes = typeof(Object3D).Assembly
+            .GetExportedTypes()
+            .Where(type => !type.IsAbstract
+                           && bases.Any(type.IsSubclassOf)
+                           // Only a loaded Model3D makes these.
+                           && type != typeof(Beutl.Graphics3D.Models.MeshObject3D)
+                           && !typeof(IFallback).IsAssignableFrom(type))
+            .Select(type => type.FullName!)
+            .ToArray();
+
+        string[] listedTypes = new SchemaGenerator()
+            .Generate(includeProperties: false, includeExamples: false)
+            .Types.Select(type => type.Type)
+            .ToArray();
+
+        Assert.That(listedTypes, Is.SupersetOf(builtinTypes));
+    }
+
+    [Test]
+    public void A_vector_default_is_written_the_way_documents_write_it()
+    {
+        CapabilitySchema schema = new SchemaGenerator().Generate(typeFilter: "Cube3D", includeExamples: false);
+        PropertyDescriptor position = schema.Types.Single().Properties.Single(property => property.Name == "Position");
+
+        Assert.That(position.Default, Is.EqualTo("0,0,0"));
+    }
+
+    [Test]
     public void DiagonalClipping_ExposesSignedWidthAndAnimatedParametersWithoutMode()
     {
         var generator = new SchemaGenerator();

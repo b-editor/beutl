@@ -73,6 +73,9 @@ public sealed record PropertyDescriptor(
     string? UsageHint = null)
 {
     public string? Unit { get; init; }
+
+    // Set on a property declared as a base class: the short names of the registered types that fit it.
+    public IReadOnlyList<string>? ConcreteTypes { get; init; }
 }
 
 public sealed record DisplayDescriptor(string? Name, string? Description, string? GroupName);

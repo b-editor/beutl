@@ -50,8 +50,8 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
     private static IReadOnlyList<RecommendedSkill> CreateRecommendedSkills()
         =>
         [
-            new("beutl-agent-timeline-from-shotlist", "Editing timeline structure, timing, transforms, groups, and keyframes.", "Read the installed SKILL.md for the editing API contract."),
-            new("beutl-agent-look-effect-chain", "Editing effect chains, masks, and shader properties.", "Read the installed SKILL.md for effect and shader mechanics."),
+            new("beutl-agent-timeline-from-shotlist", "Making a video from a brief, even a one-line request such as a teaser, trailer, promo, or title sequence, or editing timeline structure, timing, transforms, groups, and keyframes.", "Read the installed SKILL.md before the first edit, for the editing API contract."),
+            new("beutl-agent-look-effect-chain", "Adding or editing effect chains, masks, and shader properties.", "Read the installed SKILL.md before adding effects, for effect and shader mechanics."),
             new("beutl-agent-source-grounding", "Checking coordinates, units, bounds, and runtime behavior.", "Read the installed SKILL.md; source inspection is optional.")
         ];
 
@@ -66,23 +66,26 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Use apply_edit with schemaVersion=1 and an Id-based merge patch. Unmentioned siblings are preserved; full desired documents are authoritative. undo/redo operate on the session history.",
                 "Use natural, content-based element names in the user's language and compact ZIndex values. PortalObject.Count is a relative inclusive layer span and must remain consistent when layers move.",
                 "For a dissolve, wipe, push or dip at a clip boundary, set Element.EnterTransition or ExitTransition to a ClipTransition from get_schema(category=transition); null clears a side. Adjacent Elements on a layer blend through the boundary without overlapping.",
+                "A higher Element ZIndex draws on top. TransformGroup.Children apply from the last child to the first, so list TranslateTransform first to keep an offset in screen space; listed after a rotation or scale, the offset is rotated and scaled too. A keyframe's Easing shapes the segment arriving at that keyframe.",
+                $"Keyframe easing names: {string.Join(", ", Documents.KeyFrameShorthand.EasingNames)}. A long-form KeyFrames entry also takes a custom curve as a spline object such as {{\"X1\": 0.2, \"Y1\": 0, \"X2\": 0, \"Y2\": 1}}.",
                 "Use measure_object_bounds for actual bounds and transforms. Start with Drawable AlignmentX/AlignmentY at Center, then choose Left/Right and Top/Bottom independently when they better suit the object, layout, or motion. TranslateTransform.X/Y offsets the chosen alignment; check animation for unintended anchor shifts. ScaleTransform uses percentages. Beutl source code is not required.",
                 "Call validate_shader to check compilation. A successful compilation does not verify rendered output; render_still and render_storyboard return rendered evidence.",
                 "measure_frame_differences reports numerical changes between frames; analyze_audio_rhythm reports estimated beats and onsets. Measurements are data, not quality or completion verdicts.",
                 "For file-backed sessions, save_project persists edits. In LiveEditor sessions, use the editor's normal save behavior as reported by read_operation_status.",
-                "export_video writes to the requested path. Successful validation, rendering, saving, or exporting confirms that operation only; the agent evaluates the result against the user's request."
+                "export_video writes to the requested path. Exported pixels follow the file's declared transfer, BT.709 by default, so a tool that decodes without converting reads dark sRGB colors darker (#09 as #03); that is correct and needs no grading afterwards. Successful validation, rendering, saving, or exporting confirms that operation only; the agent evaluates the result against the user's request."
             ],
             CreateRecommendedSkills(),
             SchemaGenerator.CreateListedCategoryAliases(),
             RawHttpNote));
 
     [McpServerTool(Name = "get_schema")]
-    [Description("Returns the capability schema for registered editable building blocks. After deciding the intended result, prefer type to check an unfamiliar type; use category when the type is unknown. A full catalog is optional, and the listed types can be composed into expressions with no named recipe. Category aliases such as visualEffect, effect, filter, videoEffect, text, typography, label, fill, stroke, ease, and transition are accepted. Examples are opt-in; set includeExamples=true when snippets are needed.")]
+    [Description("Returns the capability schema for registered editable building blocks. After deciding the intended result, prefer type to check an unfamiliar type; use category when the type is unknown. type also takes a comma-separated list, and includeUsageHints=false returns only names, value types, defaults, ranges and enum values, which is the compact way to survey several types. A full catalog is optional, and the listed types can be composed into expressions with no named recipe. Category aliases such as visualEffect, effect, filter, videoEffect, text, typography, label, fill, stroke, ease, and transition are accepted. Examples are opt-in; set includeExamples=true when snippets are needed.")]
     public ToolResult<CapabilitySchema> GetSchema(
         string? type = null,
         string? category = null,
         bool includeProperties = true,
-        bool includeExamples = false)
+        bool includeExamples = false,
+        bool includeUsageHints = true)
     {
         return Execute(() =>
         {
@@ -99,8 +102,45 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
                     hint));
             }
 
-            return schema;
+            return schema with
+            {
+                Types = includeUsageHints ? WithRepeatedUsageHintsShortened(schema.Types) : WithoutUsageHints(schema.Types),
+                // A starter is a whole scene of tens of kilobytes, too much to come back with one type's schema.
+                Examples = FilterExamples(schema.Examples, includeStarters: false)
+            };
         });
+    }
+
+    // The same hint on every animatable property made a five-type answer 55,000 characters, 32,000
+    // of them repeats, and clients refuse a result that long.
+    private static IReadOnlyList<Beutl.AgentToolkit.Schema.TypeDescriptor> WithRepeatedUsageHintsShortened(IReadOnlyList<Beutl.AgentToolkit.Schema.TypeDescriptor> types)
+    {
+        var firstSeenOn = new Dictionary<string, string>(StringComparer.Ordinal);
+        return types
+            .Select(type => type with
+            {
+                Properties = type.Properties.Select(property =>
+                {
+                    if (property.UsageHint is not { } hint
+                        || firstSeenOn.TryAdd(hint, $"{type.Type.Split('.')[^1]}.{property.Name}"))
+                    {
+                        return property;
+                    }
+
+                    return property with { UsageHint = $"Same as {firstSeenOn[hint]}." };
+                }).ToArray()
+            })
+            .ToArray();
+    }
+
+    private static IReadOnlyList<Beutl.AgentToolkit.Schema.TypeDescriptor> WithoutUsageHints(IReadOnlyList<Beutl.AgentToolkit.Schema.TypeDescriptor> types)
+    {
+        return types
+            .Select(type => type with
+            {
+                Properties = type.Properties.Select(property => property with { UsageHint = null, Display = null }).ToArray()
+            })
+            .ToArray();
     }
 
     [McpServerTool(Name = "list_examples")]
@@ -139,7 +179,9 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
     [Description("Returns the font families this Beutl runtime has actually registered, with each available weight/style typeface pair. Font family resolution is by typographic family name: a subfamily such as \"Inter 28pt\" is not a family and will not match, and a family that is present may still lack the typeface pair you asked for. Call this before setting FontFamily/FontWeight/FontStyle rather than guessing from what is installed on the machine.")]
     public ToolResult<FontListResponse> ListFonts(
         [Description("Optional case-insensitive substring filter on the family name.")]
-        string? nameFilter = null)
+        string? nameFilter = null,
+        [Description("When false, returns family names only. A machine can have hundreds of families, so browse with false, then pass nameFilter for the weights of the ones you choose.")]
+        bool includeTypefaces = true)
     {
         return Execute(() =>
         {
@@ -149,6 +191,11 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
                 .OrderBy(family => family.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(family =>
                 {
+                    if (!includeTypefaces)
+                    {
+                        return new FontFamilySummary(family.Name, []);
+                    }
+
                     ImmutableArray<Typeface> typefaces = FontManager.Instance.GetTypefaces(family);
                     return new FontFamilySummary(
                         family.Name,

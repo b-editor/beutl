@@ -191,6 +191,61 @@ public sealed class ReadDocumentTests
     }
 
     [Test]
+    public void Get_schema_examples_leave_out_full_scene_starters()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<CapabilitySchema> result = tools.GetSchema(type: nameof(TextBlock), includeExamples: true);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value!.Examples, Is.Not.Empty);
+            Assert.That(result.Value.Examples.Select(example => example.Name), Has.None.StartsWith("create-empty-scene-"));
+        });
+    }
+
+    [Test]
+    public void Get_schema_surveys_several_types_without_their_usage_hints()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<CapabilitySchema> result = tools.GetSchema(
+            type: $"{nameof(TextBlock)}, {nameof(RectShape)}",
+            includeUsageHints: false);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                result.Value!.Types.Select(type => type.Type),
+                Is.EquivalentTo(new[] { typeof(TextBlock).FullName, typeof(RectShape).FullName }));
+            Assert.That(result.Value.Types.SelectMany(type => type.Properties), Is.Not.Empty);
+            Assert.That(result.Value.Types.SelectMany(type => type.Properties).Where(property => property.UsageHint != null), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Get_schema_states_a_repeated_usage_hint_once()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<CapabilitySchema> result = tools.GetSchema(type: $"{nameof(TextBlock)}, {nameof(RectShape)}");
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        string[] hints = result.Value!.Types
+            .SelectMany(type => type.Properties)
+            .Select(property => property.UsageHint)
+            .OfType<string>()
+            .ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(hints.Where(hint => hint.StartsWith("Same as ", StringComparison.Ordinal)), Is.Not.Empty);
+            Assert.That(hints.Where(hint => !hint.StartsWith("Same as ", StringComparison.Ordinal)), Is.Unique);
+        });
+    }
+
+    [Test]
     public void Get_schema_accepts_common_low_context_type_aliases()
     {
         var tools = new QueryTools(new AgentSessionManager());
@@ -249,7 +304,7 @@ public sealed class ReadDocumentTests
             Assert.That(defaultSchema.Value!.Types, Is.Not.Empty);
             Assert.That(defaultSchema.Value.Examples, Is.Empty);
             Assert.That(schemaWithExamples.IsSuccess, Is.True, schemaWithExamples.Error?.Message);
-            Assert.That(schemaWithExamples.Value!.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-kinetic-ribbon-title"));
+            Assert.That(schemaWithExamples.Value!.Examples.Select(example => example.Name), Does.Contain("insert-new-animated-text-keyframes"));
         });
     }
 

@@ -19,6 +19,22 @@ public sealed class FontToolsTests
     private static readonly string UnregisteredFamilyName = $"Beutl Test Missing {Guid.NewGuid():N}";
 
     [Test]
+    public void List_fonts_can_leave_out_typefaces_to_browse_names()
+    {
+        RequireRegisteredFamilies();
+        var tools = new QueryTools(new AgentSessionManager());
+
+        FontListResponse full = tools.ListFonts().Value!;
+        FontListResponse names = tools.ListFonts(includeTypefaces: false).Value!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(names.Families.Select(family => family.Name), Is.EqualTo(full.Families.Select(family => family.Name)));
+            Assert.That(names.Families.SelectMany(family => family.Typefaces), Is.Empty);
+        });
+    }
+
+    [Test]
     public void List_fonts_projects_the_registered_font_registry()
     {
         FontFamily[] registered = RequireRegisteredFamilies();

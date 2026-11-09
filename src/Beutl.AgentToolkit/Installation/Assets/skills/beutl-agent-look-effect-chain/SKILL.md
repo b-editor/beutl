@@ -1,6 +1,6 @@
 ---
 name: beutl-agent-look-effect-chain
-description: Edit Beutl effect chains, masks, and shader properties through the Agent Editing Toolkit MCP tools.
+description: Add and edit Beutl effect chains, masks, and shader properties through the Agent Editing Toolkit MCP tools. Read this before adding effects or writing a shader.
 ---
 
 # Beutl Effects and Shaders
@@ -22,6 +22,8 @@ For effects such as additive bloom, inspect the source location first. For a dir
 A matte uses drawable blend/compositing behavior, not a generic `Mask` property. `Clipping` provides an animatable rectangular crop. Scope compositing with a group/decorator and verify its actual rendered bounds. `measure_object_bounds` measures direct `Element.Objects`; nested drawables require measuring their containing group or an isolated probe.
 
 ## Shader contracts
+
+SKSL shaders run in linear, premultiplied-alpha space, and the sRGB encode happens after the effect, so an sRGB constant pasted in reads far too bright: convert it first, roughly `pow(c, 2.2)`. `time` and `duration` are in seconds and `progress` runs from 0 to 1, all measured over the Element's own time range.
 
 Honor explicit language and implementation constraints. Built-in effects and declarative shaders can be combined directly. The current multi-input/multi-pass GLSL route requires `CSharpScriptEffect` and `Context.CustomEffect`; it cannot satisfy a no-C# or no-CustomEffect requirement. Beutl source code is not required; use the runtime's documented script examples and schemas instead of guessing internal APIs.
 

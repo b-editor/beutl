@@ -4,6 +4,9 @@ using Beutl.Audio.Effects.Equalizer;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics3D;
+using Beutl.Graphics3D.Camera;
+using Beutl.Graphics3D.Materials;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.Services;
@@ -139,6 +142,13 @@ public static class TypeRegistration
         Register<DisplacementMapScaleTransform>(KnownLibraryItemFormats.EngineObject);
         Register<DisplacementMapRotationTransform>(KnownLibraryItemFormats.EngineObject);
         Register<GraphModel>(KnownLibraryItemFormats.EngineObject);
+        Register<Group3D>(KnownLibraryItemFormats.EngineObject);
+        Register<PerspectiveCamera>(KnownLibraryItemFormats.EngineObject);
+        Register<OrthographicCamera>(KnownLibraryItemFormats.EngineObject);
+        Register<BasicMaterial>(KnownLibraryItemFormats.EngineObject);
+        Register<PBRMaterial>(KnownLibraryItemFormats.EngineObject);
+        Register<UnlitMaterial>(KnownLibraryItemFormats.EngineObject);
+        Register<TransparentMaterial>(KnownLibraryItemFormats.EngineObject);
     }
 
     private static void Register<T>(string format) => s_types.Add((format, typeof(T)));

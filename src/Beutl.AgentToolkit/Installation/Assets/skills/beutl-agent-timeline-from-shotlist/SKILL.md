@@ -1,16 +1,21 @@
 ---
 name: beutl-agent-timeline-from-shotlist
-description: Edit Beutl timeline elements, timing, transforms, groups, and keyframes through the Agent Editing Toolkit MCP tools.
+description: Make a video in Beutl from a brief or a shot list, even a one-line request such as a teaser, trailer, promo, or title sequence, and edit timeline elements, timing, transforms, groups, and keyframes through the Agent Editing Toolkit MCP tools. Read this before the first edit.
 ---
 
 # Beutl Timeline Editing
 
 Beutl provides editing operations and rendered output. The agent decides the visual design and evaluates the result against the user's request. Operation success and numerical measurements do not establish visual quality or completion.
 
+## Reviewing renders
+
+Look at frames at full size as well as on the contact sheet, including frames in the middle of transitions, and say what is wrong before what works: text that collides or clips, plates and boxes nobody designed, a damaged logo. Fix what you find and render again.
+
 ## Session and document mechanics
 
 - The `beutl-agent` server edits either a running Beutl editor or project files. To edit a running editor, use `list_instances` and `list_scenes`, then pass `instanceId` and `sceneId` on each scene read, edit, history, or render call. Calls preserve the visible editor selection; no attach or previous call selects a target. To work headlessly on files, omit `instanceId` and use `create_project`/`open_project` for a file-backed session. `read_operation_status` reports persistence behavior. File sessions use `save_project`; live edits use the editor's normal save behavior.
 - `read_document_summary` returns compact handles. `read_document` returns serialized data. Query `get_schema(type=...)` for unfamiliar types or properties; enumerating catalogs is optional. Examples and presets are syntax aids and reusable edits, not the range of possible expressions.
+- To survey several types, pass `get_schema` a comma-separated `type` with `includeUsageHints:false`. Browse fonts with `list_fonts(includeTypefaces:false)`, then pass `nameFilter` for the families you choose. These describe the running build, so use them before reading Beutl's source, and keep the source for behavior they do not cover.
 - `apply_edit` accepts `schemaVersion: "1"`. An Id-based merge patch preserves unmentioned siblings; a full desired document is authoritative. Use PascalCase property names and the `$type` discriminators returned by the runtime. Read `validation` and `createdIds` to resolve technical errors and target newly created objects.
 - New timeline entries use `$type: "[Beutl.ProjectSystem]:Element"` with drawables under `Objects`. Read `get_examples(name: "insert-new-element-skeleton")` when the container shape is unfamiliar.
 - Element `Start` and `Length` define its time range; the end is exclusive. Tool sample times are relative to the scene's visible window. Keyframe `UseGlobalClock=false` means Element-local `KeyTime`; `true` uses the scene clock. Do not add the Element's Start to local keyframes.

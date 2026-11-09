@@ -19,6 +19,8 @@ internal static class KeyFrameShorthand
         .Where(type => !type.IsAbstract && typeof(Easing).IsAssignableFrom(type))
         .ToDictionary(type => type.Name, type => type, StringComparer.OrdinalIgnoreCase);
 
+    public static IEnumerable<string> EasingNames => s_easings.Keys.Order(StringComparer.Ordinal);
+
     public static bool IsShorthand(JsonObject animationJson)
     {
         ArgumentNullException.ThrowIfNull(animationJson);
