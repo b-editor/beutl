@@ -352,7 +352,7 @@ public sealed class RenderTargetPoolTests
         {
             Assert.That(
                 () => delivery.TryAcquire(new PixelSize(9, 9)),
-                Throws.InvalidOperationException.With.Message.Contains("could not allocate 9x9 pixels"));
+                Throws.TypeOf<RenderTargetAllocationException>().With.Message.Contains("could not allocate 9x9 pixels"));
             Assert.DoesNotThrow(() => delivery.Acquire(new PixelSize(4, 4)).Dispose());
         });
     }

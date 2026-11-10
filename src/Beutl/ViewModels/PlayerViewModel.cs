@@ -204,6 +204,23 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
+        FrameRate = (Project?.FrameRate.GetObservable() ?? Observable.Return(default(Rational)))
+            .Select(_ => GetFrameRate())
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        TimeDisplayFormat = SettingBinding.Bind(GlobalConfiguration.Instance.EditorConfig.TimeDisplayFormat, _disposables);
+
+        CurrentTimeText = CurrentFrame
+            .CombineLatest(FrameRate, TimeDisplayFormat, TimeDisplayFormatter.Format)
+            .ToReadOnlyReactivePropertySlim(string.Empty)
+            .DisposeWith(_disposables);
+
+        EndTimeText = EndTime
+            .CombineLatest(FrameRate, TimeDisplayFormat, TimeDisplayFormatter.Format)
+            .ToReadOnlyReactivePropertySlim(string.Empty)
+            .DisposeWith(_disposables);
+
         PlaybackRateText = PlaybackSpeed
             .CombineLatest(PlaybackDirection, FormatPlaybackRate)
             .ToReadOnlyReactivePropertySlim()
@@ -419,6 +436,15 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     // Where the scene ends: its length when it starts at zero. The seek slider's maximum can lie further,
     // because it also reaches a playhead or an element past the end.
     public ReadOnlyReactiveProperty<MediaTime> EndTime { get; }
+
+    public ReadOnlyReactivePropertySlim<Rational> FrameRate { get; }
+
+    // How the player, the timeline and the marker lists write times. The time's menu sets it for every editor.
+    public ReactiveProperty<TimeDisplayFormat> TimeDisplayFormat { get; }
+
+    public ReadOnlyReactivePropertySlim<string> CurrentTimeText { get; }
+
+    public ReadOnlyReactivePropertySlim<string> EndTimeText { get; }
 
     // The shuttle's rate, or null while there is nothing to tell: playing at normal speed looks the part.
     public ReadOnlyReactivePropertySlim<string?> PlaybackRateText { get; }
@@ -729,6 +755,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     }
 
     public Rational GetFrameRate() => Project.GetFrameRate();
+
+    // Writes a time as the player writes the current time.
+    public string FormatTime(MediaTime time) => TimeDisplayFormatter.Format(time, FrameRate.Value, TimeDisplayFormat.Value);
 
     // The scene's first and last frames, where a start or end within a tick of a frame counts as that frame.
     private (MediaTime First, MediaTime Last) GetFirstAndLastFrames()

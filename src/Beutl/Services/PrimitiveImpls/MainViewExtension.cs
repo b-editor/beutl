@@ -15,6 +15,7 @@ public class MainViewExtension : ViewExtension
     public const string CreateToolTabCommandId = "main.createToolTab";
     public const string ShowSettingsCommandId = "main.showSettings";
     public const string CloseTabCommandId = "main.closeTab";
+    public const string ExitCommandId = "main.exit";
 
     public static readonly MainViewExtension Instance = new();
 
@@ -77,7 +78,7 @@ public class MainViewExtension : ViewExtension
             [new("Cmd+M", OSPlatform.OSX)], menuBar => menuBar.MinimizeWindow),
         Menu("main.toggleFullScreen", Strings.ToggleFullScreen, "",
             [new("Cmd+Ctrl+F", OSPlatform.OSX)], menuBar => menuBar.ToggleFullScreen),
-        Menu("main.exit", Strings.Exit, Strings.Exit_Description,
+        Menu(ExitCommandId, Strings.Exit, Strings.Exit_Description,
             [new("Alt+F4"), new("Cmd+Q", OSPlatform.OSX)], menuBar => menuBar.Exit),
         new ContextCommandDefinition<MainViewModel>(ShowCommandPaletteCommandId, Strings.ShowCommandPalette,
             Strings.ShowCommandPalette_Description, [new("Ctrl+Shift+P"), new("Cmd+Shift+P", OSPlatform.OSX)])

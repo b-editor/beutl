@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.TextFormatting;
+using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Models;
@@ -57,6 +58,13 @@ public sealed class TimelineScale : TimelineBarsControl
     public static readonly StyledProperty<IBrush?> MarkerLabelForegroundProperty
         = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(MarkerLabelForeground));
 
+    public static readonly StyledProperty<Rational> FrameRateProperty
+        = AvaloniaProperty.Register<TimelineScale, Rational>(
+            nameof(FrameRate), new Rational(30), validate: rate => rate is { Numerator: > 0, Denominator: > 0 });
+
+    public static readonly StyledProperty<TimeDisplayFormat> TimeDisplayFormatProperty
+        = AvaloniaProperty.Register<TimelineScale, TimeDisplayFormat>(nameof(TimeDisplayFormat));
+
     private const int FramesPerTick = 30;
     private static readonly Typeface s_typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
     private float _scale = 1;
@@ -84,7 +92,9 @@ public sealed class TimelineScale : TimelineBarsControl
             BufferBrushProperty,
             MarkersProperty,
             MarkerLabelBackgroundProperty,
-            MarkerLabelForegroundProperty);
+            MarkerLabelForegroundProperty,
+            FrameRateProperty,
+            TimeDisplayFormatProperty);
     }
 
     public TimelineScale()
@@ -168,6 +178,20 @@ public sealed class TimelineScale : TimelineBarsControl
     {
         get => GetValue(MarkerLabelForegroundProperty);
         set => SetValue(MarkerLabelForegroundProperty, value);
+    }
+
+    /// <summary>Gets or sets the rate that the ruler's timecodes and frame numbers count frames at. It must be positive.</summary>
+    public Rational FrameRate
+    {
+        get => GetValue(FrameRateProperty);
+        set => SetValue(FrameRateProperty, value);
+    }
+
+    /// <summary>Gets or sets how the ruler writes the times of its ticks.</summary>
+    public TimeDisplayFormat TimeDisplayFormat
+    {
+        get => GetValue(TimeDisplayFormatProperty);
+        set => SetValue(TimeDisplayFormatProperty, value);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -309,7 +333,7 @@ public sealed class TimelineScale : TimelineBarsControl
                 context.DrawLine(pen, new(x, 5), new(x, height));
             }
 
-            using var text = new TextLayout(time.ToTimeSpan().ToString("hh\\:mm\\:ss\\.ff"), s_typeface, 13, ScaleBrush);
+            using var text = new TextLayout(TimeDisplayFormatter.Format(time, FrameRate, TimeDisplayFormat), s_typeface, 13, ScaleBrush);
             var textbounds = new Rect(x + 8, 0, text.Width, text.Height);
 
             if (viewport.Intersects(textbounds) && (recentPix == 0d || (x + 8) > recentPix))

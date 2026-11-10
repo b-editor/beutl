@@ -53,6 +53,7 @@
     "IsTimelineSnapEnabled": true,
     "IsRippleEnabled": false,
     "TimelineAutoScrollMode": 1,
+    "TimeDisplayFormat": 1,
     "ToneMappingMode": 2,
     "ToneMappingExposure": 0.5,
     "UseHdrPreview": false,

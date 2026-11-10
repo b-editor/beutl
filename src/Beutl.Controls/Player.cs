@@ -7,6 +7,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 
+using Beutl.Configuration;
+
 namespace Beutl.Controls;
 
 [PseudoClasses(ShuttlingClass, CompactClass, TinyClass, EditingClass)]
@@ -81,6 +83,12 @@ public partial class Player : RangeBase
 
     public static readonly StyledProperty<IReadOnlyList<PlayerMarkerEntry>?> MarkersProperty =
         AvaloniaProperty.Register<Player, IReadOnlyList<PlayerMarkerEntry>?>(nameof(Markers));
+
+    public static readonly StyledProperty<Rational> FrameRateProperty =
+        PlayerSeekBar.FrameRateProperty.AddOwner<Player>();
+
+    public static readonly StyledProperty<TimeDisplayFormat> TimeDisplayFormatProperty =
+        PlayerSeekBar.TimeDisplayFormatProperty.AddOwner<Player>();
 
     private string _currentTime = string.Empty;
     private string _editStartText = string.Empty;
@@ -198,6 +206,23 @@ public partial class Player : RangeBase
     {
         get => GetValue(MarkersProperty);
         set => SetValue(MarkersProperty, value);
+    }
+
+    /// <summary>Gets or sets the rate that the seek bar's tip counts frames at. It must be positive.</summary>
+    public Rational FrameRate
+    {
+        get => GetValue(FrameRateProperty);
+        set => SetValue(FrameRateProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets how the seek bar's tip writes times. <see cref="CurrentTime"/> and <see cref="Duration"/> come
+    /// written, and should be written the same way.
+    /// </summary>
+    public TimeDisplayFormat TimeDisplayFormat
+    {
+        get => GetValue(TimeDisplayFormatProperty);
+        set => SetValue(TimeDisplayFormatProperty, value);
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)

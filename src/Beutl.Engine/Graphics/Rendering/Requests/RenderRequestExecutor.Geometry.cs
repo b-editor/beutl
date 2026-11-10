@@ -178,9 +178,10 @@ internal sealed partial class RenderRequestExecutor
             Rect selectedBounds,
             bool allowPreviewDrop)
         {
+            EffectiveScale scale = ClampToDeviceGrid(selectedBounds, source.EffectiveScale, source.DeviceGridOffset);
             MaterializedRenderValue cropped = CreateOwnedValue(
                 selectedBounds,
-                source.EffectiveScale,
+                scale,
                 source.CompleteBounds,
                 deviceGridOffset: source.DeviceGridOffset,
                 allowPreviewDrop: allowPreviewDrop);

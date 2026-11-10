@@ -22,8 +22,9 @@
     <!--  The dock leaves 2 px below the view, which makes the space under the buttons match the 3 px above them.  -->
     <Player x:Name="Player"
             Margin="4,4,4,1"
-            CurrentTime="{Binding CurrentFrame.Value, Converter={x:Static converters:MediaTimeToTimeSpanConverter.Instance}, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
+            CurrentTime="{Binding CurrentTimeText.Value}"
             EndButtonCommand="{Binding End}"
+            FrameRate="{Binding FrameRate.Value}"
             IsPlaying="{Binding IsPlaying.Value, Mode=OneWay}"
             IsLoopEnabled="{Binding IsLoopEnabled.Value, Mode=TwoWay}"
             Maximum="{Binding Duration.Value, Converter={x:Static converters:MediaTimeToSecondsConverter.Instance}}"
@@ -32,8 +33,9 @@
             PlaybackRateText="{Binding PlaybackRateText.Value}"
             PreviousButtonCommand="{Binding Previous}"
             StartButtonCommand="{Binding Start}"
+            TimeDisplayFormat="{Binding TimeDisplayFormat.Value}"
             Value="{Binding CurrentFrame.Value, Converter={x:Static converters:MediaTimeToSecondsConverter.Instance}}"
-            Duration="{Binding EndTime.Value, Converter={x:Static converters:MediaTimeToTimeSpanConverter.Instance}, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}">
+            Duration="{Binding EndTimeText.Value}">
         <Player.InnerLeftContent>
             <StackPanel>
                 <StackPanel.Styles>

@@ -1,4 +1,6 @@
-﻿using Avalonia.Media;
+﻿using System.Globalization;
+
+using Avalonia.Media;
 
 namespace Beutl.Controls;
 
@@ -10,8 +12,15 @@ public sealed class PlayerMarkerEntry
         TimeText = timeText;
     }
 
+    // Written as times were before the editor could show them as timecodes or frame numbers.
     public PlayerMarkerEntry(string name, MediaTime time, Color color)
-        : this(name, PlayerSeekBar.FormatTime(time))
+        : this(name, time.ToTimeSpan().ToString(@"hh\:mm\:ss\.ff", CultureInfo.InvariantCulture), time, color)
+    {
+    }
+
+    /// <summary>Creates a marker that the seek bar marks at <paramref name="time"/> and the list shows at <paramref name="timeText"/>.</summary>
+    public PlayerMarkerEntry(string name, string timeText, MediaTime time, Color color)
+        : this(name, timeText)
     {
         Time = time;
         Color = color;

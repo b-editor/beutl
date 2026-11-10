@@ -284,6 +284,26 @@
     <value>ページスクロール</value>
     <comment/>
   </data>
+  <data name="TimeDisplayFormat" xml:space="preserve">
+    <value>時刻の表示形式</value>
+    <comment/>
+  </data>
+  <data name="TimeDisplayFormat_Description" xml:space="preserve">
+    <value>プレビュー、タイムライン、マーカーの一覧で時刻を表示する形式です。プレビューの時刻を右クリックしても切り替えられます。</value>
+    <comment/>
+  </data>
+  <data name="TimeDisplayFormat_Time" xml:space="preserve">
+    <value>時間 (00:00:02.50)</value>
+    <comment/>
+  </data>
+  <data name="TimeDisplayFormat_Timecode" xml:space="preserve">
+    <value>タイムコード (00:00:02:15)</value>
+    <comment/>
+  </data>
+  <data name="TimeDisplayFormat_Frames" xml:space="preserve">
+    <value>フレーム番号 (75)</value>
+    <comment/>
+  </data>
   <data name="ClampResizeToOriginalLength" xml:space="preserve">
     <value>リサイズをメディアの元の長さに制限する</value>
     <comment/>

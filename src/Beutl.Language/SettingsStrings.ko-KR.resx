@@ -288,6 +288,26 @@
     <value>페이지 스크롤</value>
     <comment />
   </data>
+  <data name="TimeDisplayFormat" xml:space="preserve">
+    <value>시간 표시 형식</value>
+    <comment />
+  </data>
+  <data name="TimeDisplayFormat_Description" xml:space="preserve">
+    <value>미리 보기, 타임라인, 마커 목록에서 시간을 표시하는 형식입니다. 미리 보기의 시간을 마우스 오른쪽 버튼으로 클릭해도 바꿀 수 있습니다.</value>
+    <comment />
+  </data>
+  <data name="TimeDisplayFormat_Time" xml:space="preserve">
+    <value>시간 (00:00:02.50)</value>
+    <comment />
+  </data>
+  <data name="TimeDisplayFormat_Timecode" xml:space="preserve">
+    <value>타임코드 (00:00:02:15)</value>
+    <comment />
+  </data>
+  <data name="TimeDisplayFormat_Frames" xml:space="preserve">
+    <value>프레임 번호 (75)</value>
+    <comment />
+  </data>
   <data name="ClampResizeToOriginalLength" xml:space="preserve">
     <value>원본 미디어 길이로 크기 조정 제한</value>
     <comment />

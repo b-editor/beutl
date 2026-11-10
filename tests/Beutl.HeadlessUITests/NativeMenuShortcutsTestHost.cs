@@ -70,6 +70,7 @@ internal static partial class NativeTimelineTestHost
             await CheckTextBoxAsync(window, root, editor);
             await CheckSceneUndoAsync(window, view, editor);
             await CheckTimelineAsync(window, view, editor);
+            await CheckFloatingWindowAsync(handle, editor);
             await CheckCloseTabAsync(window, editor);
             await CheckSettingsAsync(window, handle, lifetime);
             await CheckTutorialsAsync(window, view);
@@ -234,6 +235,40 @@ internal static partial class NativeTimelineTestHost
         Press(window, 7, "x", Command);
         await Task.Delay(200);
         Assert.That(editor.Scene.Children, Does.Contain(clip), "Cmd+X outside a panel leaves the clip.");
+    }
+
+    // A floated tool's window shows the main window's menu bar, and a key that its tool leaves reaches the editor.
+    private static async Task CheckFloatingWindowAsync(IMacOSTopLevelPlatformHandle mainHandle, EditViewModel editor)
+    {
+        BeutlDockFactory factory = editor.DockHost.Factory;
+        BeutlToolDockable tool = factory.EnumerateTools().First(t => t.ToolContext is not TimelineTabViewModel);
+        factory.SplitToWindow((IDock)tool.Owner!, tool, 20, 20, 500, 400, null);
+        await Task.Delay(500);
+        var floating = (Window)factory.FindRoot(tool, _ => true)!.Window!.Host!;
+        var handle = (IMacOSTopLevelPlatformHandle)floating.TryGetPlatformHandle()!;
+        SetAlpha(handle.NSWindow, Selector("setAlphaValue:"), 0);
+        try
+        {
+            Send(handle.NSWindow, Selector("showWindowMenuWithAppMenu"));
+            await Task.Delay(200);
+            AssertKeyEquivalents();
+
+            ((Control)floating.GetVisualDescendants().OfType<ToolTabContent>()
+                .Single(content => ReferenceEquals(content.DataContext, tool)).Content!).Focus();
+            int markers = editor.Scene.Markers.Count;
+            Press(floating, 46, "m", 0);
+            await Task.Delay(200);
+            Assert.That(editor.Scene.Markers.Count, Is.Not.EqualTo(markers), "M in a floating window toggles a marker.");
+            Assert.That(Press(floating, 6, "z", Command), Is.True, "The floating window's menu takes Cmd+Z.");
+            await Task.Delay(300);
+            Assert.That(editor.Scene.Markers.Count, Is.EqualTo(markers), "Cmd+Z in a floating window undoes the scene.");
+        }
+        finally
+        {
+            floating.Close();
+            Send(mainHandle.NSWindow, Selector("showWindowMenuWithAppMenu"));
+            await Task.Delay(200);
+        }
     }
 
     private static async Task CheckCloseTabAsync(Window window, EditViewModel editor)

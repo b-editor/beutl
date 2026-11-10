@@ -1017,7 +1017,7 @@
     <value>Ir al código de tiempo</value>
   </data>
   <data name="GotoTimecode_Description" xml:space="preserve">
-    <value>Edita el código de tiempo actual para ir a una posición. Acepta absoluto (00:01:23.45), fotogramas (60f o #60), relativo (+5s/-10f/+1m) o nombre de marcador (@Intro).</value>
+    <value>Edita el código de tiempo actual para ir a una posición. Acepta absoluto (00:01:23.45), código de tiempo (00:01:23:15), fotogramas (60f o #60), relativo (+5s/-10f/+1m) o nombre de marcador (@Intro).</value>
   </data>
   <data name="GotoTimecode_InputHint" xml:space="preserve">
     <value>00:01:23 / 60f / +5s / @marcador</value>

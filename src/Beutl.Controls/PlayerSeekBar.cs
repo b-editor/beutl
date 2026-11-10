@@ -1,12 +1,12 @@
-﻿using System.Globalization;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+
+using Beutl.Configuration;
 
 namespace Beutl.Controls;
 
@@ -20,8 +20,12 @@ public sealed class PlayerSeekBar : Slider
     public static readonly StyledProperty<IReadOnlyList<PlayerMarkerEntry>?> MarkersProperty =
         AvaloniaProperty.Register<PlayerSeekBar, IReadOnlyList<PlayerMarkerEntry>?>(nameof(Markers));
 
-    // The format in which the player shows the current time.
-    private const string TimeFormat = @"hh\:mm\:ss\.ff";
+    public static readonly StyledProperty<Rational> FrameRateProperty =
+        AvaloniaProperty.Register<PlayerSeekBar, Rational>(
+            nameof(FrameRate), new Rational(30), validate: rate => rate is { Numerator: > 0, Denominator: > 0 });
+
+    public static readonly StyledProperty<TimeDisplayFormat> TimeDisplayFormatProperty =
+        AvaloniaProperty.Register<PlayerSeekBar, TimeDisplayFormat>(nameof(TimeDisplayFormat));
 
     private const double TrackThickness = 4;
     private const double MarkWidth = 2;
@@ -62,8 +66,19 @@ public sealed class PlayerSeekBar : Slider
         set => SetValue(MarkersProperty, value);
     }
 
-    internal static string FormatTime(MediaTime time)
-        => time.ToTimeSpan().ToString(TimeFormat, CultureInfo.InvariantCulture);
+    /// <summary>Gets or sets the rate that the tip counts frames at. It must be positive.</summary>
+    public Rational FrameRate
+    {
+        get => GetValue(FrameRateProperty);
+        set => SetValue(FrameRateProperty, value);
+    }
+
+    /// <summary>Gets or sets how the tip writes times, which is as the player writes the current time.</summary>
+    public TimeDisplayFormat TimeDisplayFormat
+    {
+        get => GetValue(TimeDisplayFormatProperty);
+        set => SetValue(TimeDisplayFormatProperty, value);
+    }
 
     public override void Render(DrawingContext context)
     {
@@ -105,7 +120,10 @@ public sealed class PlayerSeekBar : Slider
             _heldMarker = null;
             RefreshTip();
         }
-        else if (change.Property == MinimumProperty || change.Property == MaximumProperty)
+        else if (change.Property == MinimumProperty
+            || change.Property == MaximumProperty
+            || change.Property == FrameRateProperty
+            || change.Property == TimeDisplayFormatProperty)
         {
             RefreshTip();
         }
@@ -204,7 +222,7 @@ public sealed class PlayerSeekBar : Slider
 
         _tipName.Text = marker?.Name;
         _tipName.IsVisible = !string.IsNullOrEmpty(marker?.Name);
-        _tipTime.Text = FormatTime(marker?.Time ?? MediaTime.FromSeconds(value));
+        _tipTime.Text = TimeDisplayFormatter.Format(marker?.Time ?? MediaTime.FromSeconds(value), FrameRate, TimeDisplayFormat);
         double anchor = marker != null && TryGetX(value, out double markX) ? markX : x;
         ToolTip.SetHorizontalOffset(this, anchor - (Bounds.Width / 2));
     }

@@ -84,6 +84,8 @@ public sealed class RenderExecutionContext
         return RenderDependency(root, (sample, availableSize), domain);
     }
 
+    internal Matrix GetTargetTransform() => RequireTarget().Transform;
+
     internal RenderTargetImageLease CaptureTarget()
     {
         ImmediateCanvas target = RequireTarget();

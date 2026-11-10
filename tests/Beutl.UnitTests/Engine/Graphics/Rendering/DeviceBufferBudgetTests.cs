@@ -14,6 +14,7 @@ using Beutl.Helpers;
 using Beutl.Media;
 using Beutl.Models;
 using Beutl.Threading;
+using Beutl.Utilities;
 
 using Moq;
 
@@ -430,7 +431,7 @@ public sealed class DeviceBufferBudgetTests
             new RenderTargetPoolOptions { Budget = BufferDimensionBudget.Named(DeviceBudget) });
         using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Delivery, destination);
 
-        InvalidOperationException? refusal = Assert.Throws<InvalidOperationException>(
+        InvalidOperationException? refusal = Assert.Throws<RenderTargetAllocationException>(
             () => new RenderRequestExecutor(targets).Execute(compiled, canvas));
 
         Assert.Multiple(() =>
@@ -614,7 +615,7 @@ public sealed class DeviceBufferBudgetTests
         using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession delivery = registry.BeginSession(RenderIntent.Delivery);
 
-        InvalidOperationException? refusal = Assert.Throws<InvalidOperationException>(
+        InvalidOperationException? refusal = Assert.Throws<RenderTargetAllocationException>(
             () => delivery.Acquire(declined));
 
         Assert.Multiple(() =>
@@ -717,6 +718,28 @@ public sealed class DeviceBufferBudgetTests
         {
             Assert.That(created, Is.Null, "a refused allocation must not hand back a target");
             AssertNeverAttached(device);
+        });
+    }
+
+    [Test]
+    public void ARootSurfaceAllocationFailure_ReportsItsSizeAndPreservesTheBackendReason()
+    {
+        Mock<IGraphicsContext> device = MockAttaching(DeviceBudget);
+        var reason = new InvalidOperationException("The device ran out of memory.");
+        device.Setup(c => c.CreateTexture2D(4, 4, TextureFormat.RGBA16Float)).Throws(reason);
+
+        Exception? failure = Assert.Catch(() => WithAllocationDevice(device.Object, () =>
+        {
+            using var renderer = new Renderer(4, 4, RenderIntent.Delivery);
+            return 0;
+        }));
+        RenderTargetAllocationException? allocation = ExceptionHelpers.Find<RenderTargetAllocationException>(failure!);
+        Assert.That(allocation, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(allocation!.DeviceSize, Is.EqualTo(new PixelSize(4, 4)));
+            Assert.That(allocation.MaxDimension, Is.Null);
+            Assert.That(allocation.InnerException, Is.SameAs(reason));
         });
     }
 

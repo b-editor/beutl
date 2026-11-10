@@ -229,8 +229,8 @@ public readonly record struct BufferDimensionBudget
         int budget = maxDimension - apronPixels;
         double left = Math.Floor((double)logicalBounds.Left * workingScale);
         double top = Math.Floor((double)logicalBounds.Top * workingScale);
-        double right = Math.Ceiling((double)logicalBounds.Right * workingScale);
-        double bottom = Math.Ceiling((double)logicalBounds.Bottom * workingScale);
+        double right = Math.Ceiling(((double)logicalBounds.X + logicalBounds.Width) * workingScale);
+        double bottom = Math.Ceiling(((double)logicalBounds.Y + logicalBounds.Height) * workingScale);
         double width = right - left;
         double height = bottom - top;
 

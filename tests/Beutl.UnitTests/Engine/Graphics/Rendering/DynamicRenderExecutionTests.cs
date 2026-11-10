@@ -252,6 +252,30 @@ public sealed class DynamicRenderExecutionTests
     }
 
     [Test]
+    public void TargetCoordinatesLocateTheTransformedPixelInTheCapture()
+    {
+        using var root = new ContainerRenderNode();
+        root.AddChild(new RectangleRenderNode(new Rect(5, 3, 4, 4), Brushes.Resource.Red, null));
+        var moved = new TransformRenderNode(Matrix.CreateTranslation(5, 3), TransformOperator.Prepend);
+        root.AddChild(moved);
+        CompositionTargetAccess? access = null;
+        moved.AddChild(Effect(context => context.TargetEffect(0, (_, _, target) =>
+        {
+            access = target;
+            Point point = new Point(1, 1) * target.LocalToDevice;
+            Assert.That(point, Is.EqualTo(new Point(12, 8)));
+            using var captured = target.Capture();
+            using var pixels = SKBitmap.FromImage(captured.Image);
+            Assert.That(pixels.GetPixel((int)point.X, (int)point.Y), Is.EqualTo(SKColors.Red));
+        })));
+        using var renderer = Renderer(root);
+        using var output = new CpuRenderTarget(new PixelSize(64, 48));
+        using var canvas = new ImmediateCanvas(output, RenderIntent.Delivery, logicalSize: Domain.Size, density: 2);
+        renderer.Render(canvas);
+        Assert.That(() => access!.LocalToDevice, Throws.TypeOf<ObjectDisposedException>());
+    }
+
+    [Test]
     public void DeclaredTargetEffectSamplesAndErasesPrecedingContent()
     {
         CompositionTargetAccess? captured = null;

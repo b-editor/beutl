@@ -2,6 +2,7 @@
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Graphics.Rendering;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Beutl.Serialization;
@@ -28,6 +29,18 @@ internal static class ToolErrorMapper
                 unsupported.DisplayVersion is { } version
                     ? $"Open it with Beutl {version} or later."
                     : "The file's minAppVersion is not a version string. Restore the file from a backup.");
+        }
+
+        if (ExceptionHelpers.Find<RenderTargetAllocationException>(exception) is { } allocation)
+        {
+            // This sealed exception builds its message from sizes only. Keep its backend cause and any wrapper text
+            // in the server log; those may contain paths or other details unrelated to the allocation size.
+            s_logger.LogWarning(exception, "Render-target allocation failed.");
+            return new ToolError(
+                ErrorCode.RenderTargetAllocationFailed,
+                allocation.Message,
+                null,
+                "Reduce the render scale or the affected content's size, then retry.");
         }
 
         return exception switch

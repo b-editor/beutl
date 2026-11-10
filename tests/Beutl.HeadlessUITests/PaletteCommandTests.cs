@@ -97,35 +97,50 @@ public class PaletteCommandTests
     [AvaloniaTest]
     public async Task Goto_timecode_asks_for_the_timecode_in_the_palette()
     {
-        EditViewModel editor = await OpenEditorForNewScene("palette-goto-timecode");
-        var interaction = new ScriptedInteraction().Input(options =>
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        TimeDisplayFormat format = config.TimeDisplayFormat.Value;
+        config.TimeDisplayFormat.Value = TimeDisplayFormat.Timecode;
+        try
         {
-            Assert.Multiple(() =>
+            EditViewModel editor = await OpenEditorForNewScene("palette-goto-timecode");
+            var interaction = new ScriptedInteraction().Input(options =>
             {
-                Assert.That(options.Value, Is.EqualTo("00:00:00.000"));
-                Assert.That(options.Validate!("nonsense"), Is.EqualTo(Strings.GotoTimecode_InvalidFormat));
-                Assert.That(options.Validate!("@missing"), Is.EqualTo(Strings.GotoTimecode_MarkerNotFound));
+                Assert.Multiple(() =>
+                {
+                    Assert.That(options.Value, Is.EqualTo("00:00:00:00"));
+                    Assert.That(options.Validate!("nonsense"), Is.EqualTo(Strings.GotoTimecode_InvalidFormat));
+                    Assert.That(options.Validate!("@missing"), Is.EqualTo(Strings.GotoTimecode_MarkerNotFound));
+                });
+                return "60f";
             });
-            return "60f";
-        });
 
-        await RunAsync(editor, Execution("editor.gotoTimecode", editor, interaction));
+            await RunAsync(editor, Execution("editor.gotoTimecode", editor, interaction));
 
-        Assert.That(Playhead(editor), Is.EqualTo(MediaTime.FromSeconds(2)));
-        Assert.That(interaction.IsDone, Is.True);
+            Assert.That(Playhead(editor), Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(interaction.IsDone, Is.True);
+        }
+        finally
+        {
+            config.TimeDisplayFormat.Value = format;
+        }
     }
 
-    [TestCase(0, 30, "00:00:00.000")]
-    [TestCase(1, 120, "00:00:00.008")]
-    [TestCase(119, 120, "00:00:00.991")]
-    [TestCase(30 * 3600 * 23 + 15, 30, "23:00:00.500")]
-    [TestCase(30 * 3600 * 25, 30, "1.01:00:00.000")]
-    public void Palette_timecodes_parse_back_to_the_same_frame(long frame, int rate, string expected)
+    // A time gets milliseconds, and a timecode or a frame number is the frame itself.
+    [TestCase(0, 30, TimeDisplayFormat.Time, "00:00:00.000")]
+    [TestCase(1, 120, TimeDisplayFormat.Time, "00:00:00.008")]
+    [TestCase(119, 120, TimeDisplayFormat.Time, "00:00:00.991")]
+    [TestCase(30 * 3600 * 23 + 15, 30, TimeDisplayFormat.Time, "23:00:00.500")]
+    [TestCase(30 * 3600 * 25, 30, TimeDisplayFormat.Time, "1.01:00:00.000")]
+    [TestCase(119, 120, TimeDisplayFormat.Timecode, "00:00:00:119")]
+    [TestCase(30 * 3600 * 25, 30, TimeDisplayFormat.Timecode, "25:00:00:00")]
+    [TestCase(501, 999, TimeDisplayFormat.Timecode, "00:00:00:501")]
+    [TestCase(501, 999, TimeDisplayFormat.Frames, "501")]
+    public void Palette_timecodes_parse_back_to_the_same_frame(long frame, int rate, TimeDisplayFormat format, string expected)
     {
         MediaTime time = MediaTime.FromSeconds(frame / (double)rate).RoundToFrame(new Rational(rate), MidpointRounding.AwayFromZero);
-        string text = CommandPaletteInput.FormatTimecode(time);
+        string text = CommandPaletteInput.FormatTimecode(time, new Rational(rate), format);
 
-        bool parsed = GotoTimecodeParser.TryParse(text, new Rational(rate), MediaTime.Zero, [], out MediaTime result, out _);
+        bool parsed = GotoTimecodeParser.TryParse(text, new Rational(rate), MediaTime.Zero, [], format, out MediaTime result, out _);
 
         Assert.That((text, parsed, result.RoundToFrame(new Rational(rate), MidpointRounding.AwayFromZero)), Is.EqualTo((expected, true, time)));
     }
@@ -133,17 +148,27 @@ public class PaletteCommandTests
     [AvaloniaTest]
     public async Task Accepting_the_prefilled_timecode_keeps_a_frame_milliseconds_cannot_name()
     {
-        EditViewModel editor = await OpenEditorForNewScene("palette-goto-999fps", frameRate: 999);
-        // 501 / 999 s prints as 00:00:00.501, which snaps back to frame 500.
-        MediaTime frame501 = MediaTime.FromSeconds(501 / 999d).RoundToFrame(new Rational(999), MidpointRounding.AwayFromZero);
-        editor.GetService<IEditorClock>()!.Seek(frame501);
-        HeadlessTestHelpers.Settle();
-        string? prefilled = null;
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        TimeDisplayFormat format = config.TimeDisplayFormat.Value;
+        config.TimeDisplayFormat.Value = TimeDisplayFormat.Time;
+        try
+        {
+            EditViewModel editor = await OpenEditorForNewScene("palette-goto-999fps", frameRate: 999);
+            // 501 / 999 s prints as 00:00:00.501, which snaps back to frame 500.
+            MediaTime frame501 = MediaTime.FromSeconds(501 / 999d).RoundToFrame(new Rational(999), MidpointRounding.AwayFromZero);
+            editor.GetService<IEditorClock>()!.Seek(frame501);
+            HeadlessTestHelpers.Settle();
+            string? prefilled = null;
 
-        await RunAsync(editor, Execution("editor.gotoTimecode", editor,
-            new ScriptedInteraction().Input(options => prefilled = options.Value)));
+            await RunAsync(editor, Execution("editor.gotoTimecode", editor,
+                new ScriptedInteraction().Input(options => prefilled = options.Value)));
 
-        Assert.That((prefilled, Playhead(editor)), Is.EqualTo(("00:00:00.501", frame501)));
+            Assert.That((prefilled, Playhead(editor)), Is.EqualTo(("00:00:00.501", frame501)));
+        }
+        finally
+        {
+            config.TimeDisplayFormat.Value = format;
+        }
     }
 
     [AvaloniaTest]
@@ -160,6 +185,21 @@ public class PaletteCommandTests
 
     [AvaloniaTest]
     public async Task Marker_commands_add_rename_and_seek_without_the_timeline()
+    {
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        TimeDisplayFormat format = config.TimeDisplayFormat.Value;
+        config.TimeDisplayFormat.Value = TimeDisplayFormat.Timecode;
+        try
+        {
+            await MarkerCommandsAddRenameAndSeek();
+        }
+        finally
+        {
+            config.TimeDisplayFormat.Value = format;
+        }
+    }
+
+    private async Task MarkerCommandsAddRenameAndSeek()
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-markers");
         Scene scene = editor.Scene;
@@ -192,8 +232,8 @@ public class PaletteCommandTests
             Assert.That(Playhead(editor), Is.EqualTo(MediaTime.FromSeconds(3)));
             Assert.That(goTo.PickedFrom<SceneMarker>().Select(i => (i.Label, i.Description)), Is.EqualTo(new[]
             {
-                ("Intro", "00:00:01.000"),
-                ("Outro", "00:00:03.000"),
+                ("Intro", "00:00:01:00"),
+                ("Outro", "00:00:03:00"),
             }));
         });
 

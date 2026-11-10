@@ -130,7 +130,7 @@ public sealed class RadialBlurBackendTests
             if (intent == RenderIntent.Preview)
                 Assert.DoesNotThrow(() => executor.Apply(context));
             else
-                Assert.That(() => executor.Apply(context), Throws.TypeOf<InvalidOperationException>()
+                Assert.That(() => executor.Apply(context), Throws.TypeOf<RenderTargetAllocationException>()
                     .With.Message.Contains("could not allocate"));
 
             Assert.Multiple(() =>

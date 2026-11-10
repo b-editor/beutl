@@ -8,6 +8,7 @@ public static class ErrorCode
     public const string UnknownType = "unknown_type";
     public const string StaleHandle = "stale_handle";
     public const string RenderingUnavailable = "rendering_unavailable";
+    public const string RenderTargetAllocationFailed = "render_target_allocation_failed";
     public const string CodecUnavailable = "codec_unavailable";
     public const string SchemaVersionMismatch = "schema_version_mismatch";
     public const string UnsupportedFileVersion = "unsupported_file_version";

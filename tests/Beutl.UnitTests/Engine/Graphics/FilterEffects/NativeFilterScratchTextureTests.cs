@@ -99,7 +99,7 @@ public sealed class NativeFilterScratchTextureTests
 
         Assert.That(
             () => context.TryAcquireNativeScratchTexture(graphicsContext.Object, 8, 6),
-            Throws.TypeOf<InvalidOperationException>().With.Message.Contains("could not allocate"));
+            Throws.TypeOf<RenderTargetAllocationException>().With.Message.Contains("could not allocate"));
         Assert.That(session.ContentDropObserved, Is.False);
     }
 

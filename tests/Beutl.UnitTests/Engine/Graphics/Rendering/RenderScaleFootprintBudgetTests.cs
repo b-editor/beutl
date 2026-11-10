@@ -9,10 +9,10 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 public class RenderScaleFootprintBudgetTests
 {
     private static readonly float[] s_origins =
-        [-40000.5f, -16384.5f, -1.5f, -0.75f, -0.5f, 0f, 0.1f, 0.5f, 0.75f, 1.5f, 1000.3f];
+        [-40000.5f, -16384.5f, -1.5f, -0.75f, -0.5f, 0f, 0.1f, 0.5f, 0.50048828125f, 0.75f, 1.5f, 1000.3f, 16384f];
 
     private static readonly float[] s_extents =
-        [0f, 0.25f, 1f, 16383.5f, 16384f, 16384.5f, 20000.7f, 40000f, 100000f];
+        [0f, 0.25f, 1f, 16383.5f, 16384f, 16384.001953125f, 16384.5f, 20000.7f, 40000f, 100000f];
 
     private static readonly float[] s_scales = [0.5f, 1f, 1.7f, 4f, 7.9f, 8f, 12.5f];
 

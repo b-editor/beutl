@@ -398,7 +398,7 @@ public sealed class PlayerViewControlsTests
         {
             await Prepare(view, window);
             Scene scene = editor.Scene;
-            string expected = (scene.Start.Value + scene.Duration.Value).ToTimeSpan().ToString(@"hh\:mm\:ss\.ff");
+            string expected = editor.Player.FormatTime(scene.Start.Value + scene.Duration.Value);
 
             Assert.That(Part<TextBlock>(view.Player, "PART_DurationTextBlock").Text, Is.EqualTo(expected));
         }
@@ -420,7 +420,7 @@ public sealed class PlayerViewControlsTests
             await Prepare(view, window);
             Scene scene = editor.Scene;
             MediaTime end = scene.Start.Value + scene.Duration.Value;
-            string expected = end.ToTimeSpan().ToString(@"hh\:mm\:ss\.ff");
+            string expected = editor.Player.FormatTime(end);
             TextBlock total = Part<TextBlock>(view.Player, "PART_DurationTextBlock");
 
             MediaTime playhead = end + MediaTime.FromSeconds(10);

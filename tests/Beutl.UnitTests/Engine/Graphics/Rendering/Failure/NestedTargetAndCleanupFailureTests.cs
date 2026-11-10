@@ -70,7 +70,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         var factory = new FailureTestTargetFactory(failAt: 1);
         using var renderer = FailureTestSupport.CreateRenderer(node, factory, useRenderCache: false);
 
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
+        InvalidOperationException? failure = Assert.Throws<RenderTargetAllocationException>(() => renderer.Rasterize());
 
         Assert.Multiple(() =>
         {
@@ -286,7 +286,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         var factory = new FailureTestTargetFactory(failAt: 0);
         using FailureTestExecution execution = FailureTestSupport.BeginExecution(factory, RenderIntent.Delivery);
 
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+        InvalidOperationException? failure = Assert.Throws<RenderTargetAllocationException>(
             () => execution.Execute(compiled));
 
         Assert.Multiple(() =>

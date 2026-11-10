@@ -35,7 +35,9 @@ internal sealed partial class DeclarativeDocumentApplier
         }
     }
 
-    private void ApplyCoreObject(CoreObject target, JsonObject desired)
+    // isNew is true for an object created for the document: a member the document leaves out keeps what the
+    // constructor assigned, where an existing object clears it.
+    private void ApplyCoreObject(CoreObject target, JsonObject desired, bool isNew = false)
     {
         if (target is IFallback fallback)
         {
@@ -49,10 +51,10 @@ internal sealed partial class DeclarativeDocumentApplier
                 ApplyScene(scene, desired);
                 break;
             case Element element:
-                ApplyElement(element, desired);
+                ApplyElement(element, desired, isNew);
                 break;
             case EngineObject engineObject:
-                ApplyEngineObject(engineObject, desired);
+                ApplyEngineObject(engineObject, desired, isNew);
                 break;
             case IKeyFrameAnimation animation:
                 ApplyKeyFrameAnimation(animation, desired);
@@ -223,7 +225,7 @@ internal sealed partial class DeclarativeDocumentApplier
         }
     }
 
-    private void ApplyElement(Element element, JsonObject desired)
+    private void ApplyElement(Element element, JsonObject desired, bool isNew)
     {
         JsonObject payload = (JsonObject)desired.DeepClone();
         payload.Remove(nameof(Element.Objects));
@@ -233,7 +235,10 @@ internal sealed partial class DeclarativeDocumentApplier
         NormalizeRegisteredPropertyValues(element, payload);
 
         CoreSerializer.PopulateFromJsonObject(element, element.GetType(), payload, CreateOptions(element));
-        ClearAbsentRegisteredObjectProperties(element, desired, payload);
+        if (!isNew)
+        {
+            ClearAbsentRegisteredObjectProperties(element, desired, payload);
+        }
 
         if (desired.TryGetPropertyValue(nameof(Element.Objects), out JsonNode? objectsNode))
         {
@@ -245,7 +250,7 @@ internal sealed partial class DeclarativeDocumentApplier
         }
     }
 
-    private void ApplyEngineObject(EngineObject target, JsonObject desired)
+    private void ApplyEngineObject(EngineObject target, JsonObject desired, bool isNew)
     {
         JsonObject payload = (JsonObject)desired.DeepClone();
         payload.Remove("Animations");
@@ -263,14 +268,19 @@ internal sealed partial class DeclarativeDocumentApplier
         LeaveOutUnchangedValuesSavedAsText(target, payload);
         List<(CoreObject Value, JsonObject Desired)> changedValues = TakeChangedValuesOfTheSameObject(target, payload);
         CoreSerializer.PopulateFromJsonObject(target, target.GetType(), payload, CreateOptions(target));
-        ClearAbsentRegisteredObjectProperties(target, desired, payload);
-        ResetAbsentObjectProperties(target, desired, payload);
-        foreach ((CoreObject value, JsonObject valueDesired) in changedValues)
+        if (!isNew)
         {
-            ApplyCoreObject(value, valueDesired);
+            ClearAbsentRegisteredObjectProperties(target, desired, payload);
+            ResetAbsentObjectProperties(target, desired, payload);
         }
 
-        ApplyListProperties(target, desired);
+        // The values of a new object, like the brush a TextBlock's constructor creates, are new as well.
+        foreach ((CoreObject value, JsonObject valueDesired) in changedValues)
+        {
+            ApplyCoreObject(value, valueDesired, isNew);
+        }
+
+        ApplyListProperties(target, desired, isNew);
         ApplyAnimations(target, desired);
         ApplyExpressions(target, desired);
     }
@@ -428,7 +438,7 @@ internal sealed partial class DeclarativeDocumentApplier
     }
 
     // A merge patch's null deletes the member, so an absent member is how a property is cleared. It returns the
-    // property to its default, not to null: a new object starts from this path too, and some defaults are not null.
+    // property to its default, not to null, since some defaults are not null.
     private static void ResetAbsentObjectProperties(
         EngineObject target,
         JsonObject desired,
@@ -520,15 +530,15 @@ internal sealed partial class DeclarativeDocumentApplier
                || typeNode?.GetValue<string>() == IdentityHelper.WriteDiscriminator(current.GetType());
     }
 
-    // Applies a subtree whose relative file sources were written against a base other than the
-    // document root's, for objects that cannot reach that base through HierarchicalParent.
-    private void ApplyDetached(CoreObject target, JsonObject desired, Uri? baseUri)
+    // Applies an object created for the document. It is populated before it is inserted, so it cannot reach the
+    // base its relative file sources were written against through HierarchicalParent, and baseUri stands in.
+    private void ApplyNewObject(CoreObject target, JsonObject desired, Uri? baseUri)
     {
         Uri? previous = _documentBaseUri;
         _documentBaseUri = baseUri ?? previous;
         try
         {
-            ApplyCoreObject(target, desired);
+            ApplyCoreObject(target, desired, isNew: true);
         }
         finally
         {

@@ -1017,7 +1017,7 @@
     <value>타임코드로 이동</value>
   </data>
   <data name="GotoTimecode_Description" xml:space="preserve">
-    <value>현재 타임코드를 편집하여 이동합니다. 절대(00:01:23.45), 프레임(60f 또는 #60), 상대(+5s/-10f/+1m) 또는 마커 이름(@Intro)을 허용합니다.</value>
+    <value>현재 타임코드를 편집하여 이동합니다. 절대(00:01:23.45), 타임코드(00:01:23:15), 프레임(60f 또는 #60), 상대(+5s/-10f/+1m) 또는 마커 이름(@Intro)을 허용합니다.</value>
   </data>
   <data name="GotoTimecode_InputHint" xml:space="preserve">
     <value>00:01:23 / 60f / +5s / @marker</value>

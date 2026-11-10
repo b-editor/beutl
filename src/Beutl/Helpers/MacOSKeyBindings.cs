@@ -100,9 +100,9 @@ internal static class MacOSKeyBindings
         });
     }
 
-    // Only the main window has a menu bar with Close Tab. The others show just the application menu, so the key
-    // reaches them as a key. A floating dock window closes its focused tab, and the dock closes it with the last one.
-    // A tab that cannot close stays, as in the main window.
+    // Only the main window and the floating tool windows have a menu bar with Close Tab. The others show just the
+    // application menu, so the key reaches them as a key. A floating dock window without that menu bar closes its
+    // focused tab, and the dock closes it with the last one. A tab that cannot close stays, as in the main window.
     internal static void CloseSecondaryWindow(Window window, KeyEventArgs e)
     {
         if (window.DataContext is MainViewModel

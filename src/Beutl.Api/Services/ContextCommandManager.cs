@@ -162,12 +162,28 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
                 if (sender is not InputElement { DataContext: { } context })
                     return;
 
-                await ExecuteSafelyAsync(
-                    () => ExtensionGuard.CallAsync(extension, () => DispatchAsync(context, args, entries)),
-                    logger);
+                await HandleKeyDownAsync(extension, context, args, entries, logger);
             };
         }
     }
+
+    /// <summary>
+    /// Runs the first of <paramref name="extension"/>'s commands that the key matches on <paramref name="context"/>,
+    /// as for a key that reaches an element attached with <see cref="Attach"/>.
+    /// </summary>
+    /// <remarks>A command that runs marks the key handled before it awaits anything, so a key that none took can be
+    /// passed on right after this returns.</remarks>
+    internal void HandleKeyDown(ViewExtension extension, object context, KeyEventArgs args)
+    {
+        if (_entries.TryGetValue(extension.GetType(), out var entries))
+            _ = HandleKeyDownAsync(extension, context, args, entries, _logger);
+    }
+
+    private static Task HandleKeyDownAsync(
+        ViewExtension extension, object context, KeyEventArgs args, ContextCommandEntry[] entries, ILogger logger)
+        => ExecuteSafelyAsync(
+            () => ExtensionGuard.CallAsync(extension, () => DispatchAsync(context, args, entries)),
+            logger);
 
     internal static async Task ExecuteSafelyAsync(Func<Task> execute, ILogger logger)
     {

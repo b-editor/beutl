@@ -46,7 +46,7 @@ public sealed class DegradedPreviewCachePurityTests
 
         Assert.That(
             () => renderer.Render(delivery),
-            Throws.InvalidOperationException,
+            Throws.TypeOf<RenderTargetAllocationException>(),
             "A preview request must not be allowed to drop content into a delivery surface.");
     }
 

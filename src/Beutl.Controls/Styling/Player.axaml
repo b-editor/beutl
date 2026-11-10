@@ -102,7 +102,9 @@
                         <controls:PlayerSeekBar Name="PART_Slider"
                                                 Height="16"
                                                 Margin="0,-3"
+                                                FrameRate="{TemplateBinding FrameRate}"
                                                 Markers="{TemplateBinding Markers}"
+                                                TimeDisplayFormat="{TemplateBinding TimeDisplayFormat}"
                                                 Maximum="{TemplateBinding Maximum, Mode=TwoWay}"
                                                 Minimum="{TemplateBinding Minimum, Mode=TwoWay}"
                                                 Value="{TemplateBinding Value, Mode=TwoWay}" />
@@ -113,8 +115,21 @@
                                         Orientation="Horizontal"
                                         Spacing="4">
                                 <Panel VerticalAlignment="Center">
+                                    <!--  Keeps the time as wide as the total, so that a frame number does not move what follows it as
+                                          it gains a digit. The time's figures all have one width, which is why the time stays put
+                                          in the other formats.  -->
+                                    <TextBlock Name="PART_CurrentTimeSizer"
+                                               VerticalAlignment="Center"
+                                               AutomationProperties.AccessibilityView="Raw"
+                                               FontFeatures="+tnum"
+                                               FontWeight="SemiBold"
+                                               IsHitTestVisible="False"
+                                               Opacity="0"
+                                               Text="{TemplateBinding Duration}" />
+
                                     <TextBlock Name="PART_CurrentTimeTextBlock"
                                                VerticalAlignment="Center"
+                                               TextAlignment="Right"
                                                Cursor="IBeam"
                                                FontFeatures="+tnum"
                                                FontWeight="SemiBold"
