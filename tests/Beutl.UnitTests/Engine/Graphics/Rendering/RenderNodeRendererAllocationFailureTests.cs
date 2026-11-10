@@ -94,7 +94,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
         var factory = new FailNthTargetFactory(2);
         using var renderer = CreateRenderer(node, RenderIntent.Delivery, factory);
 
-        InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(() =>
+        InvalidOperationException? exception = Assert.Throws<RenderTargetAllocationException>(() =>
         {
             using RenderNodeRasterization unexpected = renderer.Rasterize();
         });
@@ -141,7 +141,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
         var factory = new FailSpecificSizeTargetFactory(new PixelSize(98, 98));
         using var renderer = CreateRenderer(node, RenderIntent.Delivery, factory);
 
-        InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(() =>
+        InvalidOperationException? exception = Assert.Throws<RenderTargetAllocationException>(() =>
         {
             using RenderNodeRasterization unexpected = renderer.Rasterize();
         });
@@ -196,7 +196,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
         using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, logicalSize: s_domain.Size);
         canvas.Clear(Colors.OrangeRed);
 
-        InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(
+        InvalidOperationException? exception = Assert.Throws<RenderTargetAllocationException>(
             () => renderer.Render(canvas));
 
         Assert.Multiple(() =>

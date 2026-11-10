@@ -1,6 +1,9 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Tests.Helpers;
+using Beutl.Graphics.Rendering;
+using Beutl.Media;
 
 namespace Beutl.AgentToolkit.Tests.Rendering;
 
@@ -79,6 +82,25 @@ public sealed class RenderJobManagerTests
             // only the exception type reaches the client.
             Assert.That(snapshot.Error.Message, Does.Contain(nameof(InvalidOperationException)));
             Assert.That(snapshot.Error.Message, Does.Not.Contain("boom"));
+        });
+    }
+
+    [TestCase("render_still")]
+    [TestCase("export_video")]
+    public async Task Allocation_failure_keeps_its_size_and_limit_in_the_failed_job(string kind)
+    {
+        using var manager = new RenderJobManager();
+        string jobId = manager.Enqueue(kind,
+            (_, _) => throw new RenderTargetAllocationException(new PixelSize(16385, 9216), 16384),
+            new CountingLease());
+
+        RenderJobSnapshot snapshot = await WaitForTerminalAsync(manager, jobId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.State, Is.EqualTo("failed"));
+            Assert.That(snapshot.Error!.Code, Is.EqualTo(ErrorCode.RenderTargetAllocationFailed));
+            Assert.That(snapshot.Error.Message, Does.Contain("16385x9216").And.Contain("16384 pixels"));
         });
     }
 

@@ -102,7 +102,7 @@ public class RenderNodeRendererExceptionSafetyTests
         var factory = new FailureTestTargetFactory(failAt: 0);
         using var renderer = CreateRenderer(node, factory);
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
+        var ex = Assert.Throws<RenderTargetAllocationException>(() => Execute(entryPoint, renderer));
 
         Assert.That(
             ex!.Message,

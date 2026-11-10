@@ -158,7 +158,7 @@ public sealed class RenderTargetFactoryReachTests
         {
             Assert.That(
                 () => context.CreateNativeTargetLike(targets[0]),
-                Throws.TypeOf<InvalidOperationException>()
+                Throws.TypeOf<RenderTargetAllocationException>()
                     .With.Message.Contains("could not allocate"));
             Assert.That(
                 session.ContentDropObserved,

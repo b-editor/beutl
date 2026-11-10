@@ -185,8 +185,7 @@ public class Renderer : IRenderer
             throw RenderTargetPool.CreateAllocationFailure(deviceSize, budget.MaxDimension);
 
         return RenderTarget.Create(deviceSize.Width, deviceSize.Height)
-               ?? throw new InvalidOperationException(
-                   $"Could not create a canvas of this size. (width: {deviceSize.Width}, height: {deviceSize.Height})");
+               ?? throw RenderTargetPool.CreateAllocationFailure(deviceSize);
     }
 
     ~Renderer()
