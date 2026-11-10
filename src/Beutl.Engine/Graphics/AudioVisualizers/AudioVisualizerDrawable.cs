@@ -247,6 +247,22 @@ public abstract partial class AudioVisualizerDrawable : Drawable
                 default,
                 new CompositionEligibility([sound]));
 
+            if (retained == 0)
+            {
+                // A delay or feedback effect can remember audio older than the visible spectrum release.
+                // Rebuild that state from the sound's start, retaining only the requested display window.
+                MediaTime cursor = MediaTime.FromSamples(
+                    GetCompositionStart(_source).ToSamples(rate, MidpointRounding.ToNegativeInfinity), rate);
+                MediaTime batch = MediaTime.FromSamples(4096, rate);
+                while (cursor < composeStart)
+                {
+                    MediaTime end = cursor + batch;
+                    if (end > composeStart) end = composeStart;
+                    using AudioBuffer? warmup = _composer.Compose(new TimeRange(cursor, end - cursor), frame);
+                    cursor = end;
+                }
+            }
+
             AudioBuffer? buffer = _composer.Compose(new TimeRange(composeStart, targetRange.End - composeStart), frame);
             try
             {
@@ -290,6 +306,21 @@ public abstract partial class AudioVisualizerDrawable : Drawable
             _cachedSourceVersion = _source.Version;
             _sourceEdited = false;
             Version++;
+        }
+
+        private static MediaTime GetCompositionStart(Sound.Resource source)
+        {
+            MediaTime start = source.RequireOriginal().Start;
+            // Groups pass through children outside their own range, including reconciled flow inputs.
+            if (source is SoundGroup.Resource group)
+            {
+                foreach (Sound.Resource child in group.Children)
+                {
+                    MediaTime childStart = GetCompositionStart(child);
+                    if (childStart < start) start = childStart;
+                }
+            }
+            return start;
         }
     }
 }

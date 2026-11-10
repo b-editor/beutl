@@ -208,6 +208,54 @@ public class AudioVisualizerDrawableTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Spectrum_AStatefulEffectHasTheSameHistoryInStillsPlaybackAndSeeks(bool inGroup)
+    {
+        WithBurstSpectrum(drawable =>
+        {
+            Sound sound = drawable.Source.Value!;
+            sound.TimeRange.Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(6));
+            sound.Effect.Value = new DelayEffect
+            {
+                DelayTime = { Value = 3000 },
+                DryMix = { Value = 0 },
+                WetMix = { Value = 100 },
+                Feedback = { Value = 0 }
+            };
+            if (inGroup)
+            {
+                drawable.Source.Value = null;
+                sound.IsTimeAnchor.Value = true;
+                var group = new SoundGroup
+                {
+                    TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(5)) }
+                };
+                group.Children.Add(sound);
+                drawable.Source.Value = group;
+            }
+
+            var target = new CompositionContext(MediaTime.FromSeconds(4.2));
+            using var direct = (AudioSpectrumDrawable.Resource)drawable.ToResource(target);
+            using var sequence = (AudioSpectrumDrawable.Resource)drawable.ToResource(CompositionContext.Default);
+            bool changed = false;
+            for (int frame = 1; frame <= 126; frame++)
+                sequence.Reconcile(drawable, new CompositionContext(MediaTime.FromFrames(frame, new Rational(30))), ref changed);
+            float[] expected = sequence.GetNormalizedBars().ToArray();
+            Assert.That(expected.Max(), Is.GreaterThan(0.1f), "The delayed beat must remain audible.");
+            Assert.That(direct.GetNormalizedBars().ToArray(), Is.EqualTo(expected));
+
+            var seek = new CompositionContext(MediaTime.FromSeconds(3.9));
+            sequence.Reconcile(drawable, seek, ref changed);
+            using var fresh = (AudioSpectrumDrawable.Resource)drawable.ToResource(seek);
+            Assert.That(sequence.GetNormalizedBars().ToArray(), Is.EqualTo(fresh.GetNormalizedBars().ToArray()));
+
+            sound.Gain.Value = 0;
+            sequence.Reconcile(drawable, target, ref changed);
+            Assert.That(sequence.GetNormalizedBars().ToArray(), Is.All.Zero, "An edit also rebuilds the delay's state.");
+        });
+    }
+
     private static void WithBurstSpectrum(Action<AudioSpectrumDrawable> body)
     {
         const int rate = 44100;
