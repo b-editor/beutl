@@ -12,7 +12,7 @@ namespace Beutl.AgentToolkit.Documents;
 
 internal sealed partial class DeclarativeDocumentApplier
 {
-    private void ApplyListProperties(EngineObject target, JsonObject desired)
+    private void ApplyListProperties(EngineObject target, JsonObject desired, bool isNew)
     {
         foreach (IListProperty listProperty in target.Properties.OfType<IListProperty>().Where(list => !target.IsBaseField(list)))
         {
@@ -20,7 +20,7 @@ internal sealed partial class DeclarativeDocumentApplier
             {
                 ApplyIdentityList(listProperty, listProperty.ElementType, listProperty.Name, RequireArrayMember(node, listProperty.Name), target);
             }
-            else
+            else if (!isNew)
             {
                 listProperty.Clear();
             }
@@ -110,7 +110,7 @@ internal sealed partial class DeclarativeDocumentApplier
                     // path only survives in the JSON: the element is still detached here, and
                     // AssignNewElementUri later rehomes it directly under the scene.
                     Uri? incomingBaseUri = ResolveIncomingBaseUri(scene.Uri, itemJson);
-                    ApplyDetached(element, elementJson, incomingBaseUri);
+                    ApplyNewObject(element, elementJson, incomingBaseUri);
                     // Flow operators have a leading PortalObject; use the actual content type for its color.
                     if (!elementJson.ContainsKey(nameof(Element.AccentColor))
                         && element.Objects.FirstOrDefault(obj => obj is not PortalObject) is { } content)
@@ -125,7 +125,7 @@ internal sealed partial class DeclarativeDocumentApplier
                 {
                     // Same detachment as above: the item is populated before insertion, so it
                     // cannot reach the owner through HierarchicalParent.
-                    ApplyDetached(item, itemJson, ResolveBaseUri(owner));
+                    ApplyNewObject(item, itemJson, ResolveBaseUri(owner));
                 }
             }
         }
