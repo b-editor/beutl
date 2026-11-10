@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
@@ -88,7 +89,10 @@ public partial class FilterEffectEditor : UserControl
     {
         return PickerGuard.RunAsync(this, button, () =>
         {
-            var selectVm = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
+            var selectVm = new SelectLibraryItemDialogViewModel(
+                KnownLibraryItemFormats.FilterEffect,
+                typeof(FilterEffect),
+                LibraryThumbnailCapture.ForObject(DataContext as IServiceProvider));
 
             if (DataContext is FilterEffectEditorViewModel { IsDisposed: false } vm
                 && PresenterTypeAttribute.GetPresenterType(typeof(FilterEffect)) != null)

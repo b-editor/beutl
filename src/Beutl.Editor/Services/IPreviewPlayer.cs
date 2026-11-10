@@ -1,4 +1,5 @@
 ﻿using System.Reactive;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Beutl.Editor.Models;
 using Beutl.Media;
@@ -10,6 +11,19 @@ namespace Beutl.Editor.Services;
 public interface IPreviewPlayer
 {
     IReadOnlyReactiveProperty<Ref<Bitmap>?> PreviewImage { get; }
+
+    /// <summary>
+    /// Gets the frame the preview shows without what the editor draws over it, such as the selection's outline,
+    /// onion skins and 3D gizmos, while <see cref="AcquireCleanPreview"/> is held. A player that draws nothing over
+    /// its frames gives <see cref="PreviewImage"/>.
+    /// </summary>
+    IReadOnlyReactiveProperty<Ref<Bitmap>?> CleanPreviewImage => PreviewImage;
+
+    /// <summary>
+    /// Keeps <see cref="CleanPreviewImage"/> up to date until the returned handle is disposed. Copying each frame
+    /// clean costs the preview a little, so it is held only while something shows it.
+    /// </summary>
+    IDisposable AcquireCleanPreview() => Disposable.Empty;
 
     IObservable<Unit> AfterRendered { get; }
 

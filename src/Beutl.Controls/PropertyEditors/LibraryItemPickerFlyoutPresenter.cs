@@ -21,6 +21,9 @@ public class PinnableLibraryItem(string displayName, bool isPinned, object userD
 
     public string? Description { get; } = description;
 
+    // The moving picture a tile of the picker shows, or null for an item without one.
+    public IAnimatedThumbnailSource? Thumbnail { get; init; }
+
     public bool Equals(PinnableLibraryItem? other)
     {
         if (ReferenceEquals(null, other)) return false;
@@ -75,15 +78,27 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     public static readonly StyledProperty<IDataTemplate?> ItemTemplateProperty =
         AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, IDataTemplate?>(nameof(ItemTemplate));
 
+    public static readonly StyledProperty<bool> CanShowTilesProperty =
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, bool>(nameof(CanShowTiles));
+
+    public static readonly StyledProperty<bool> ShowTilesProperty =
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, bool>(nameof(ShowTiles));
+
+    // How many tiles a row of the tile view holds, which the arrow keys move by.
+    internal const int TileColumns = 2;
+
     private const string SearchBoxPseudoClass = ":search-box";
     private const string IsBusyPseudoClass = ":busy";
     private const string ShowReferencesPseudoClass = ":show-references";
     private const string ShowReferencesTabPseudoClass = ":show-references-tab";
     private const string NoResultsPseudoClass = ":no-results";
+    private const string CanShowTilesPseudoClass = ":can-show-tiles";
+    private const string TilesPseudoClass = ":tiles";
 
     private readonly CompositeDisposable _keyboardDisposables = [];
     private TextBox? _searchTextBox;
     private ListBox? _listBox;
+    private ListBox? _tileListBox;
     private ListBox? _referenceListBox;
 
     public LibraryItemPickerFlyoutPresenter()
@@ -165,6 +180,23 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         set => SetValue(ItemTemplateProperty, value);
     }
 
+    // Whether the items have moving thumbnails, so the picker offers to show them as tiles and opens big enough
+    // for tiles in either view: a picker keeps the size it opened with.
+    public bool CanShowTiles
+    {
+        get => GetValue(CanShowTilesProperty);
+        set => SetValue(CanShowTilesProperty, value);
+    }
+
+    // Whether the items show as tiles with their thumbnails rather than as a list, when they have thumbnails.
+    public bool ShowTiles
+    {
+        get => GetValue(ShowTilesProperty);
+        set => SetValue(ShowTilesProperty, value);
+    }
+
+    private bool IsShowingTiles => CanShowTiles && ShowTiles && !ShowReferences;
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         _keyboardDisposables.Clear();
@@ -172,8 +204,10 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 
         _searchTextBox = e.NameScope.Find<TextBox>("SearchTextBox");
         _listBox = e.NameScope.Find<ListBox>("PART_ListBox");
+        _tileListBox = e.NameScope.Find<ListBox>("PART_TileListBox");
         _referenceListBox = e.NameScope.Find<ListBox>("PART_ReferenceListBox");
         _listBox?.Focusable = true;
+        _tileListBox?.Focusable = true;
         _referenceListBox?.Focusable = true;
 
         this.AddDisposableHandler(KeyDownEvent, OnPresenterKeyDown, RoutingStrategies.Tunnel)
@@ -188,10 +222,17 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         _listBox?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
             .DisposeWith(_keyboardDisposables);
 
+        _tileListBox?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
+            .DisposeWith(_keyboardDisposables);
+
         _referenceListBox?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
             .DisposeWith(_keyboardDisposables);
 
         _listBox?.GetObservable(ItemsControl.ItemCountProperty)
+            .Subscribe(_ => UpdateNoResults())
+            .DisposeWith(_keyboardDisposables);
+
+        _tileListBox?.GetObservable(ItemsControl.ItemCountProperty)
             .Subscribe(_ => UpdateNoResults())
             .DisposeWith(_keyboardDisposables);
 
@@ -224,7 +265,10 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         if (sender is not ListBox listBox) return;
 
-        PickerListNavigation.MoveSelection(listBox, e);
+        if (ReferenceEquals(listBox, _tileListBox))
+            PickerListNavigation.MoveSelectionInGrid(listBox, e, TileColumns);
+        else
+            PickerListNavigation.MoveSelection(listBox, e);
 
         FocusListBox();
     }
@@ -235,10 +279,13 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         {
             case Key.Up:
             case Key.Down:
-                // 検索ボックスにフォーカスを残したまま、結果の選択を移動する
+                // 検索ボックスにフォーカスを残したまま、結果の選択を移動する（タイルは行ごと）
                 if (GetCurrentListBox() is { } listBox)
                 {
-                    PickerListNavigation.MoveSelection(listBox, e);
+                    if (ReferenceEquals(listBox, _tileListBox))
+                        PickerListNavigation.MoveSelectionInGrid(listBox, e, TileColumns);
+                    else
+                        PickerListNavigation.MoveSelection(listBox, e);
                 }
 
                 e.Handled = true;
@@ -287,7 +334,13 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         PickerListNavigation.FocusList(GetCurrentListBox());
     }
 
-    private ListBox? GetCurrentListBox() => ShowReferences ? _referenceListBox : _listBox;
+    private ListBox? GetCurrentListBox()
+    {
+        if (ShowReferences)
+            return _referenceListBox;
+
+        return IsShowingTiles ? _tileListBox : _listBox;
+    }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -307,8 +360,24 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         else if (change.Property == ShowReferencesProperty)
         {
             PseudoClasses.Set(ShowReferencesPseudoClass, ShowReferences);
+            PseudoClasses.Set(TilesPseudoClass, IsShowingTiles);
             SelectedItem = null;
             UpdateNoResults();
+        }
+        else if (change.Property == CanShowTilesProperty || change.Property == ShowTilesProperty)
+        {
+            PseudoClasses.Set(CanShowTilesPseudoClass, CanShowTiles);
+            bool listFocused = GetCurrentListBox()?.IsKeyboardFocusWithin == true
+                               || _listBox?.IsKeyboardFocusWithin == true
+                               || _tileListBox?.IsKeyboardFocusWithin == true;
+            PseudoClasses.Set(TilesPseudoClass, IsShowingTiles);
+            UpdateNoResults();
+            // The other view shows the same selection; the keys move it there now.
+            if (listFocused)
+                FocusListBox();
+
+            if (GetCurrentListBox() is { SelectedItem: { } selected } shown)
+                shown.ScrollIntoView(selected);
         }
         else if (change.Property == ShowReferencesTabProperty)
         {

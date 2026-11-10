@@ -390,6 +390,10 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
     IReadOnlyReactiveProperty<Ref<Bitmap>?> IPreviewPlayer.PreviewImage => PreviewImage;
 
+    IReadOnlyReactiveProperty<Ref<Bitmap>?> IPreviewPlayer.CleanPreviewImage => CleanPreviewImage;
+
+    IDisposable IPreviewPlayer.AcquireCleanPreview() => AcquireCleanPreview();
+
     IObservable<Unit> IPreviewPlayer.AfterRendered => AfterRendered;
 
     IReadOnlyReactiveProperty<bool> IPreviewPlayer.IsPlaying => IsPlaying;

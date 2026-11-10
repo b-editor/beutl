@@ -7,11 +7,13 @@ using Avalonia.Threading;
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Services;
 using Beutl.NodeGraph;
 using Beutl.Services;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.LibraryTab.ViewModels;
 
@@ -20,6 +22,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     private readonly CompositeDisposable _disposables = [];
     private readonly SemaphoreSlim _asyncLock = new(1, 1);
     private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private readonly LibraryPreviewCapture? _preview;
     private readonly CancellationToken _lifetimeToken;
     private int _disposed;
     private int _searchVersion;
@@ -27,8 +30,18 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     private string? _query;
 
     public LibraryTabViewModel()
+        : this(null)
+    {
+    }
+
+    // The editor gives the gallery's thumbnails the frame its preview shows; without one they show the samples.
+    public LibraryTabViewModel(IServiceProvider? editor)
     {
         _lifetimeToken = _lifetimeCancellation.Token;
+        _preview = LibraryPreviewCapture.Create(editor);
+        Thumbnails = new LibraryThumbnailSet(_preview == null ? null : _preview.CaptureAsync);
+        _disposables.Add(Thumbnails);
+        ObservePreview();
 
         // Subscribed before the items are read, so that nothing registered in between is missed.
         LibraryService.Current.ItemsChanged += OnLibraryItemsChanged;
@@ -45,7 +58,42 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         Nodes.AddRange(nodes.Select(x => LibraryItemViewModel.CreateFromGraphNodeRegistryItem(x)));
 
         AllItems = new(CreateAllItems());
+        Effects = new(LibraryGalleryItemViewModel.Collect(LibraryItems, KnownLibraryItemFormats.FilterEffect, Thumbnails));
+        Transitions = new(LibraryGalleryItemViewModel.Collect(LibraryItems, KnownLibraryItemFormats.ClipTransition, Thumbnails));
     }
+
+    // The thumbnails take the preview's frame again once it has drawn a new one and stopped playing for a moment;
+    // until then each keeps what it shows, and one off screen is drawn when it comes back. The frame the preview
+    // draws when a gallery starts holding it is the one the thumbnails were first drawn on, so it is not taken again.
+    private void ObservePreview()
+    {
+        if (_preview is not { } preview)
+            return;
+
+        IPreviewPlayer player = preview.Player;
+        player.CleanPreviewImage
+            .Skip(1)
+            .Where(frame => frame != null)
+            .Throttle(PreviewSettleTime)
+            .ObserveOnUIDispatcher()
+            .Where(frame => !player.IsPlaying.Value && preview.IsNew(frame!))
+            .Subscribe(_ => Thumbnails.Refresh())
+            .DisposeWith(_disposables);
+    }
+
+    /// <summary>
+    /// Keeps the preview drawing the clean frame the galleries show effects on, until the returned handle is disposed.
+    /// A gallery holds one while it is on screen.
+    /// </summary>
+    public IDisposable AcquirePreview()
+    {
+        return _preview?.Player.AcquireCleanPreview() ?? Disposable.Empty;
+    }
+
+    private static readonly TimeSpan PreviewSettleTime = TimeSpan.FromMilliseconds(400);
+
+    // The thumbnails of the galleries, on the frame the preview shows.
+    internal LibraryThumbnailSet Thumbnails { get; }
 
     public ReactiveCollection<Easing> Easings { get; } =
     [
@@ -88,6 +136,11 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     public CoreList<LibraryItemViewModel> Nodes { get; }
 
     public CoreList<LibraryItemViewModel> AllItems { get; }
+
+    // The tiles of the effect and transition galleries, in the library's order.
+    public CoreList<LibraryGalleryItemViewModel> Effects { get; }
+
+    public CoreList<LibraryGalleryItemViewModel> Transitions { get; }
 
     public ReactiveCollection<LibraryItemViewModel> SearchResult { get; } = [];
 
@@ -142,6 +195,10 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
             LibraryItemViewModel.CreateFromGraphNodeRegistryItem,
             item => (item as GraphNodeRegistry.GroupableRegistryItem)?.Items);
         AllItems.Replace(CreateAllItems(AllItems.Count));
+        Effects.Replace(
+            LibraryGalleryItemViewModel.Collect(LibraryItems, KnownLibraryItemFormats.FilterEffect, Thumbnails, Effects));
+        Transitions.Replace(
+            LibraryGalleryItemViewModel.Collect(LibraryItems, KnownLibraryItemFormats.ClipTransition, Thumbnails, Transitions));
         if (_query is { } query)
             _ = SearchCore(query, CancellationToken.None, recordUsage: false);
     }
@@ -306,6 +363,8 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         LibraryItems.Clear();
         Nodes.Clear();
         AllItems.Clear();
+        Effects.Clear();
+        Transitions.Clear();
         SearchResult.Clear();
     }
 

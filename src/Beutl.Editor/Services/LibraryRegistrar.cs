@@ -1,5 +1,6 @@
 ﻿using Beutl.Audio;
 using Beutl.Audio.Effects;
+using Beutl.Editor.Services.LibraryThumbnails;
 using Beutl.Graphics;
 using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Effects;
@@ -272,5 +273,7 @@ internal static class LibraryRegistrar
                 .AddAudioEffect<VibratoEffect>(AudioStrings.VibratoEffect)
                 .AddAudioEffect<RingModulatorEffect>(AudioStrings.RingModulatorEffect)
             );
+
+        BuiltInLibraryThumbnailRecipes.Register();
     }
 }

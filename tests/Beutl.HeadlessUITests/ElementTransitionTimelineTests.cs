@@ -268,7 +268,9 @@ public class ElementTransitionTimelineTests
             window.Show();
             HeadlessTestHelpers.Render(3);
             LibraryItemPickerFlyoutPresenter picker = await OpenPicker();
-            ListBox list = picker.GetVisualDescendants().OfType<ListBox>().Single(control => control.Name == "PART_ListBox");
+            // Transitions have thumbnails, so the picker shows them as tiles or as a list, whichever was last chosen.
+            ListBox list = picker.GetVisualDescendants().OfType<ListBox>()
+                .Single(control => control.Name is "PART_ListBox" or "PART_TileListBox" && control.IsEffectivelyVisible);
             Assert.That(list.SelectedItem, Is.SameAs(picker.SelectedItem));
             Assert.That((picker.SelectedItem?.UserData as SingleTypeLibraryItem)?.ImplementationType, Is.EqualTo(initialType));
             Assert.That((list.ContainerFromItem(list.SelectedItem!) as ListBoxItem)?.IsSelected, Is.True);

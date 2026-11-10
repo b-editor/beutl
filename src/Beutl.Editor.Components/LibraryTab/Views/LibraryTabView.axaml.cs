@@ -11,6 +11,7 @@ using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Editor.Components.LibraryTab.Views.LibraryViews;
+using Beutl.Services;
 using Beutl.Utilities;
 
 using FluentAvalonia.UI.Controls;
@@ -26,6 +27,8 @@ public sealed partial class LibraryTabView : UserControl
         (Icon.Search, Strings.Search, "Search", () => new SearchView()),
         (Icon.BezierCurveSquare, Strings.Easings, "Easings", () => new EasingsView()),
         (Icon.Library, Strings.Library, "Library", () => new LibraryView()),
+        (Icon.Wand, GraphicsStrings.FilterEffect, "Effects", () => new LibraryGalleryView(KnownLibraryItemFormats.FilterEffect)),
+        (Icon.SlideTransition, GraphicsStrings.ClipTransition, "Transitions", () => new LibraryGalleryView(KnownLibraryItemFormats.ClipTransition)),
         (Icon.Flow, Strings.NodeGraph, "Nodes", () => new NodesView()),
     ];
 

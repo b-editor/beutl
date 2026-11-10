@@ -10,6 +10,82 @@
         <controls:MarqueeTextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" ToolTip.Tip="{Binding Description}" />
     </DataTemplate>
 
+    <!--  The thumbnail plays while the pointer is over the tile or it is selected, from a style in Styles.axaml.  -->
+    <!--  The name leaves room on the right for the pin, which the tile's template puts there.  -->
+    <DataTemplate x:Key="LibraryItemPicker_TileTemplate" x:DataType="local:PinnableLibraryItem">
+        <StackPanel Spacing="4" ToolTip.Tip="{Binding Description}">
+            <Border Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    ClipToBounds="True"
+                    CornerRadius="{DynamicResource ControlCornerRadius}">
+                <controls:AnimatedThumbnail Source="{Binding Thumbnail}" />
+            </Border>
+            <TextBlock Margin="24,0"
+                       HorizontalAlignment="Center"
+                       Text="{Binding DisplayName}"
+                       TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+    </DataTemplate>
+
+    <ControlTheme x:Key="LibraryItemPicker_TileListBoxItem"
+                  BasedOn="{StaticResource PickerListBoxItemBase}"
+                  TargetType="ListBoxItem">
+        <Setter Property="Padding" Value="6,6,6,4" />
+        <Setter Property="Margin" Value="2" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="Root"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Panel>
+                        <ContentPresenter Name="PART_ContentPresenter"
+                                          Padding="{TemplateBinding Padding}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}" />
+
+                        <!--  One-way for the same reason as the list's pin: a rebuilt list can hand this tile another item.  -->
+                        <ToggleButton Name="ToggleButton"
+                                      Margin="0,0,4,1"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Bottom"
+                                      IsChecked="{Binding $self.((local:PinnableLibraryItem)DataContext).IsPinned, Mode=OneWay, FallbackValue=False}"
+                                      IsVisible="False"
+                                      Theme="{StaticResource PickerPinToggleButton}">
+                            <icons:FluentIcon FontSize="14" Icon="Pin" />
+                        </ToggleButton>
+
+                        <Rectangle Name="SelectionIndicator"
+                                   Width="16"
+                                   Height="3"
+                                   Margin="0,0,0,1"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Bottom"
+                                   Fill="{DynamicResource AccentFillColorDefaultBrush}"
+                                   IsVisible="False"
+                                   RadiusX="2"
+                                   RadiusY="2"
+                                   RenderTransform="scaleY(0)"
+                                   UseLayoutRounding="False" />
+                    </Panel>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ ToggleButton#ToggleButton">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^ /template/ ToggleButton#ToggleButton:checked">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+    </ControlTheme>
+
     <ControlTheme x:Key="LibraryItemPicker_ListBoxItem"
                   BasedOn="{StaticResource PickerListBoxItemBase}"
                   TargetType="ListBoxItem">
@@ -107,6 +183,11 @@
                                               IsChecked="{TemplateBinding ShowReferences, Mode=TwoWay}">
                                     <icons:FluentIcon Icon="Link" />
                                 </ToggleButton>
+                                <ToggleButton Name="ShowTilesButton"
+                                              IsVisible="False"
+                                              IsChecked="{TemplateBinding ShowTiles, Mode=TwoWay}">
+                                    <icons:FluentIcon Icon="Grid" />
+                                </ToggleButton>
                             </WrapPanel>
 
                             <Button Name="CloseButton"
@@ -152,8 +233,9 @@
                         </Border>
 
                         <!--  A native popup at the pointer keeps the size it opened with, so the search box takes its row from the list.  -->
-                        <Grid Grid.Row="1"
-                              Height="254"
+                        <!--  Its height comes from the styles below, which a value set here would override.  -->
+                        <Grid Name="PART_ListArea"
+                              Grid.Row="1"
                               RowDefinitions="Auto,*">
                             <!--  Enter confirms the picker, so it must not move the focus out of the search box first.  -->
                             <TextBox x:Name="SearchTextBox"
@@ -171,6 +253,21 @@
                                          ItemTemplate="{TemplateBinding ItemTemplate}"
                                          ItemsSource="{TemplateBinding Items}"
                                          SelectedItem="{Binding $parent[local:LibraryItemPickerFlyoutPresenter].SelectedItem, Mode=TwoWay}" />
+
+                                <ListBox x:Name="PART_TileListBox"
+                                         Margin="4,4,4,0"
+                                         IsVisible="False"
+                                         ItemContainerTheme="{StaticResource LibraryItemPicker_TileListBoxItem}"
+                                         ItemTemplate="{StaticResource LibraryItemPicker_TileTemplate}"
+                                         ItemsSource="{TemplateBinding Items}"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         SelectedItem="{Binding $parent[local:LibraryItemPickerFlyoutPresenter].SelectedItem, Mode=TwoWay}">
+                                    <ListBox.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Columns="2" />
+                                        </ItemsPanelTemplate>
+                                    </ListBox.ItemsPanel>
+                                </ListBox>
 
                                 <ListBox x:Name="PART_ReferenceListBox"
                                          Margin="4,4,4,0"
@@ -201,6 +298,28 @@
                 </Border>
             </ControlTemplate>
         </Setter>
+
+        <Style Selector="^ /template/ Grid#PART_ListArea">
+            <Setter Property="Height" Value="254" />
+        </Style>
+
+        <!--  Items with thumbnails open the picker big enough for two columns of tiles, in either view.  -->
+        <Style Selector="^:can-show-tiles">
+            <Setter Property="Width" Value="352" />
+        </Style>
+        <Style Selector="^:can-show-tiles /template/ Grid#PART_ListArea">
+            <Setter Property="Height" Value="380" />
+        </Style>
+        <Style Selector="^:can-show-tiles /template/ ToggleButton#ShowTilesButton">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:tiles /template/ ListBox#PART_ListBox">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:tiles /template/ ListBox#PART_TileListBox">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
 
         <Style Selector="^:search-box /template/ TextBox#SearchTextBox">
             <Setter Property="IsVisible" Value="True" />

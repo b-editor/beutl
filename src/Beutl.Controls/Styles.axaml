@@ -164,6 +164,11 @@
         <Setter Property="IsMarqueeActive" Value="True" />
     </Style>
 
+    <!--  A tile's thumbnail plays while the pointer is over it or it is selected, for the same reason.  -->
+    <Style Selector="ListBoxItem:pointerover local|AnimatedThumbnail, ListBoxItem:selected local|AnimatedThumbnail">
+        <Setter Property="IsPlaying" Value="True" />
+    </Style>
+
     <Style Selector="Border.OverlayCard">
         <Setter Property="Background" Value="{DynamicResource SolidBackgroundFillColorBaseBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />

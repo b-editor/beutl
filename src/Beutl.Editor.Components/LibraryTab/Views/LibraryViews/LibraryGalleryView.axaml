@@ -1,0 +1,56 @@
+<UserControl x:Class="Beutl.Editor.Components.LibraryTab.Views.LibraryViews.LibraryGalleryView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModel="using:Beutl.Editor.Components.LibraryTab.ViewModels"
+             d:DesignHeight="450"
+             d:DesignWidth="320"
+             x:CompileBindings="True"
+             mc:Ignorable="d">
+    <UserControl.Styles>
+        <Style Selector="Border.galleryTile">
+            <Setter Property="Background" Value="Transparent" />
+
+            <Style Selector="^ Border.galleryFrame">
+                <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+                <Setter Property="ClipToBounds" Value="True" />
+            </Style>
+
+            <Style Selector="^:pointerover Border.galleryFrame">
+                <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+            </Style>
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <ItemsRepeater x:Name="Repeater" Margin="0,0,0,8">
+            <ItemsRepeater.Layout>
+                <controls:HorizontalGridLayout ColumnSpacing="8"
+                                               MinItemWidth="144"
+                                               RowSpacing="12" />
+            </ItemsRepeater.Layout>
+
+            <ItemsRepeater.ItemTemplate>
+                <DataTemplate x:DataType="viewModel:LibraryGalleryItemViewModel">
+                    <Border x:Name="Tile"
+                            Classes="galleryTile"
+                            ToolTip.Tip="{Binding Description}">
+                        <StackPanel Spacing="4">
+                            <Border Classes="galleryFrame">
+                                <controls:AnimatedThumbnail IsPlaying="{Binding #Tile.IsPointerOver}" Source="{Binding Thumbnail}" />
+                            </Border>
+                            <TextBlock HorizontalAlignment="Center"
+                                       Text="{Binding DisplayName}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsRepeater.ItemTemplate>
+        </ItemsRepeater>
+    </ScrollViewer>
+</UserControl>
