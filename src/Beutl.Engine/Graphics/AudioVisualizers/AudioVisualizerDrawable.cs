@@ -144,6 +144,14 @@ public abstract partial class AudioVisualizerDrawable : Drawable
             _cachedSamples = [];
         }
 
+        /// <summary>
+        /// Returns the time range of audio this visualizer draws at <paramref name="currentTime"/>.
+        /// </summary>
+        /// <remarks>
+        /// The base resource calls this while it reconciles, before a derived resource has reconciled its own
+        /// properties, so those still hold the previous reconcile's values, or <see langword="default"/> on a new
+        /// resource. Evaluate the properties the window depends on in the derived resource's <c>PreReconcile</c>.
+        /// </remarks>
         protected abstract (MediaTime Start, MediaTime Duration) ComputeSampleWindow(MediaTime currentTime);
 
         internal void RenderToCanvas(ImmediateCanvas canvas, Rect bounds)

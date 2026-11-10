@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Audio.Graph;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
@@ -59,10 +60,17 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
         private float[] _normalizedBars = [];
         private int? _renderedSpectrumVersion;
         private int _renderedBarCount;
+        private int _sampleWindowFftSize;
+
+        // The base composes the sample window before this class reconciles FftSize.
+        partial void PreReconcile(AudioSpectrumDrawable obj, CompositionContext context)
+        {
+            _sampleWindowFftSize = context.Get(obj.FftSize);
+        }
 
         protected override (MediaTime Start, MediaTime Duration) ComputeSampleWindow(MediaTime currentTime)
         {
-            int effectiveFftSize = Fft.ClampToPowerOfTwo(FftSize);
+            int effectiveFftSize = Fft.ClampToPowerOfTwo(_sampleWindowFftSize);
             MediaTime duration = MediaTime.FromSeconds((double)effectiveFftSize / ComposerSampleRate);
             return (currentTime - duration, duration);
         }

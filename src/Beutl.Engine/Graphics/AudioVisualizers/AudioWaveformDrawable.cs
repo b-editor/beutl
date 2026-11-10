@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Audio;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
@@ -41,10 +42,17 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
     {
         private float[] _minBuf = [];
         private float[] _maxBuf = [];
+        private float _sampleWindowSeconds;
+
+        // The base composes the sample window before this class reconciles WindowSeconds.
+        partial void PreReconcile(AudioWaveformDrawable obj, CompositionContext context)
+        {
+            _sampleWindowSeconds = context.Get(obj.WindowSeconds);
+        }
 
         protected override (MediaTime Start, MediaTime Duration) ComputeSampleWindow(MediaTime currentTime)
         {
-            MediaTime window = MediaTime.FromSeconds(Math.Max(0.01, WindowSeconds));
+            MediaTime window = MediaTime.FromSeconds(Math.Max(0.01, _sampleWindowSeconds));
             return (currentTime - new MediaTime(window.Flicks / 2), window);
         }
 

@@ -6,6 +6,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.Source;
+using Beutl.UnitTests.Engine.Audio;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
@@ -54,6 +55,95 @@ public class AudioVisualizerDrawableTests
             using Bitmap first = GoldenImageHarness.RenderAtScale(resource, new PixelSize(320, 80), 1);
             using Bitmap second = GoldenImageHarness.RenderAtScale(resource, new PixelSize(320, 80), 1);
             Assert.That(second.GetPixelSpan<ushort>().ToArray(), Is.EqualTo(first.GetPixelSpan<ushort>().ToArray()));
+        });
+    }
+
+    private const int WindowTestRate = 44100;
+    private const int WindowTestFrames = WindowTestRate * 4;
+    // Far enough from both ends of the ramp for every window below.
+    private const int WindowTestFrame = WindowTestRate * 5 / 2;
+
+    // The FftSize samples that end at the current time.
+    [Test]
+    public void Spectrum_NewResource_ComposesTheWindowOfItsFftSize()
+    {
+        var drawable = CreateSpectrum();
+        drawable.FftSize.Value = 4096;
+        AssertComposedWindow(drawable, WindowTestFrame - 4096, 4096);
+    }
+
+    // WindowSeconds centered on the current time.
+    [Test]
+    public void Waveform_NewResource_ComposesTheWindowOfItsWindowSeconds()
+    {
+        var drawable = CreateWaveform();
+        drawable.WindowSeconds.Value = 1f;
+        AssertComposedWindow(drawable, WindowTestFrame - WindowTestRate / 2, WindowTestRate);
+    }
+
+    // WindowSeconds that end at the current time.
+    [Test]
+    public void Spectrogram_NewResource_ComposesTheWindowOfItsWindowSeconds()
+    {
+        var drawable = CreateSpectrogram();
+        drawable.WindowSeconds.Value = 1.5f;
+        AssertComposedWindow(drawable, WindowTestFrame - WindowTestRate * 3 / 2, WindowTestRate * 3 / 2);
+    }
+
+    // The same order made an edit reach the window one reconcile late, after the base had composed the old one.
+    [Test]
+    public void Spectrum_EditedFftSize_ComposesTheNewWindowOnTheNextReconcile()
+    {
+        var drawable = CreateSpectrum();
+        drawable.FftSize.Value = 4096;
+        AssertComposedWindow(drawable, WindowTestFrame - 2048, 2048, edit: () => drawable.FftSize.Value = 2048);
+    }
+
+    [Test]
+    public void Waveform_EditedWindowSeconds_ComposesTheNewWindowOnTheNextReconcile()
+    {
+        var drawable = CreateWaveform();
+        drawable.WindowSeconds.Value = 1f;
+        AssertComposedWindow(drawable, WindowTestFrame - WindowTestRate / 4, WindowTestRate / 2,
+            edit: () => drawable.WindowSeconds.Value = 0.5f);
+    }
+
+    // render_still builds a new resource for every frame, and the base used to compose the window before the derived
+    // resource had set the property that sizes it (#4203). With an edit, the resource reconciles again at the same
+    // time, so only the edit can change the window. A ramp gives every sample its own value, so the cache shows
+    // where the window starts as well as how long it is.
+    private static void AssertComposedWindow(
+        AudioVisualizerDrawable drawable, int firstFrame, int frameCount, Action? edit = null)
+    {
+        static float Ramp(int i) => (float)i / WindowTestFrames;
+        AudioTestWaves.WithTemporaryWave(WindowTestRate, WindowTestFrames, i => (Ramp(i), Ramp(i)), source =>
+        {
+            drawable.Source.Value = new SourceSound
+            {
+                Source = { Value = source },
+                TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSamples(WindowTestFrames, WindowTestRate)) },
+            };
+            var context = new CompositionContext(MediaTime.FromSamples(WindowTestFrame, WindowTestRate));
+            using var resource = (AudioVisualizerDrawable.Resource)drawable.ToResource(context);
+            if (edit != null)
+            {
+                edit();
+                bool versionBumped = false;
+                resource.Reconcile(drawable, context, ref versionBumped);
+            }
+
+            // CachedSampleSpan is protected, so read the array behind it.
+            float[] cache = (float[])typeof(AudioVisualizerDrawable.Resource)
+                .GetField("_cachedSamples", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .GetValue(resource)!;
+            float[] samples = cache[..resource.CachedSampleLength];
+            Assert.That(samples, Is.Not.Empty);
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(samples.Length, Is.EqualTo(frameCount).Within(1));
+                Assert.That(samples[0] * WindowTestFrames, Is.EqualTo(firstFrame).Within(1));
+                Assert.That(samples[^1] * WindowTestFrames, Is.EqualTo(firstFrame + frameCount - 1).Within(1));
+            }
         });
     }
 
