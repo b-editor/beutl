@@ -238,7 +238,7 @@
     <value>Channel assignment</value>
   </data>
   <data name="SourceSound_ChannelMap_Description" xml:space="preserve">
-    <value>Assign source channels to this element. JSON: {"Format":"Stereo","Sources":[2,3],"SourceLayout":{"ChannelCount":4,"Speakers":51}}. Format: Auto, Mono, Stereo, Surround51 or Surround71. Sources contains one 0-based index per element channel, or -1 for silence. SourceLayout records the source channel count and numeric speaker mask (0 for discrete channels). A changed source layout falls back to Auto. Auto: {"Format":"Auto","Sources":[]}.</value>
+    <value>Assign source channels to this sound. JSON: {"Format":"Stereo","Sources":[2,3],"SourceLayout":{"ChannelCount":4,"Speakers":51}}. Format: Auto, Mono, Stereo, Surround51 or Surround71. Sources contains one 0-based index per sound channel, or -1 for silence. SourceLayout records the source channel count and numeric speaker mask (0 for discrete channels). A changed source layout falls back to Auto. Auto: {"Format":"Auto","Sources":[]}.</value>
   </data>
   <data name="ChannelMap_Format" xml:space="preserve">
     <value>Format</value>

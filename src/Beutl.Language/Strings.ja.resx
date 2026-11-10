@@ -1598,10 +1598,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>上限</value>
   </data>
   <data name="ProxyClipCountSingular" xml:space="preserve">
-    <value>1 要素</value>
+    <value>動画ソース 1 件</value>
   </data>
   <data name="ProxyClipCountPlural" xml:space="preserve">
-    <value>{0} 要素</value>
+    <value>動画ソース {0} 件</value>
   </data>
   <data name="ProxyMoreActions" xml:space="preserve">
     <value>その他の操作</value>
@@ -1616,7 +1616,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>プロジェクトに動画を追加すると、ここで軽量なプレビュー用ファイルを作成できます。</value>
   </data>
   <data name="ProxyClips" xml:space="preserve">
-    <value>要素</value>
+    <value>動画ソース</value>
   </data>
   <data name="ProxyQueue" xml:space="preserve">
     <value>キュー</value>
@@ -1670,7 +1670,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>プロキシキューを利用できません。</value>
   </data>
   <data name="ProxyBulkNoEligibleClips" xml:space="preserve">
-    <value>一括生成のしきい値を満たす要素がありません。個別に生成してください。</value>
+    <value>一括生成のしきい値を満たす動画ソースがありません。個別に生成してください。</value>
   </data>
   <data name="ProxyDeleteFailedSingular" xml:space="preserve">
     <value>ファイルが使用中のため、プロキシを1件削除できませんでした。</value>
@@ -1679,7 +1679,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>ファイルが使用中のため、プロキシを{0}件削除できませんでした。</value>
   </data>
   <data name="ProxyClipSummaryFormat" xml:space="preserve">
-    <value>{0} 要素 / 準備完了 {1} / 期限切れ {2} / 失敗 {3} / 未生成 {4}</value>
+    <value>動画ソース {0} 件 / 準備完了 {1} / 期限切れ {2} / 失敗 {3} / 未生成 {4}</value>
   </data>
   <data name="ProxySelectedSingular" xml:space="preserve">
     <value>1 件選択</value>
