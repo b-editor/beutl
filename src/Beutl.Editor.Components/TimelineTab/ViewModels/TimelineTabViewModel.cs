@@ -58,6 +58,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         (StartingBarMargin, EndingBarMargin, PanelWidth) = TimelineHelper.CreateSceneBarMargins(
             Scene, _editorClock, Scale, _disposables);
 
+        TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(_disposables);
+
         AddElement.WithSubscribe(AddElementCore).AddTo(_disposables);
 
         Paste = new AsyncReactiveCommand()
@@ -307,6 +309,11 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     public ReadOnlyReactivePropertySlim<Thickness> StartingBarMargin { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
+
+    // The rate and the format that the ruler writes times in, which are the player's.
+    public Rational FrameRate => SceneTimeRangeService.GetFrameRate(Scene);
+
+    public ReadOnlyReactivePropertySlim<TimeDisplayFormat> TimeDisplayFormat { get; }
 
     public AsyncReactiveCommand<ElementDescription> AddElement { get; } = new();
 

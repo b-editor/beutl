@@ -36,7 +36,8 @@ public partial class PlayerViewModel
         }
 
         Rational rate = GetFrameRate();
-        if (!GotoTimecodeParser.TryParse(input, rate, _editorClock.CurrentTime.Value, Scene.Markers, out MediaTime parsed, out error))
+        if (!GotoTimecodeParser.TryParse(
+                input, rate, _editorClock.CurrentTime.Value, Scene.Markers, TimeDisplayFormat.Value, out MediaTime parsed, out error))
         {
             _logger.LogDebug(
                 "Goto-timecode parse failed. ({SceneId}, Input={Input}, Error={Error})",

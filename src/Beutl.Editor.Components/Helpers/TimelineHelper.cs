@@ -24,6 +24,12 @@ public static class TimelineHelper
         return -delta * 50;
     }
 
+    // How the timeline's and the graph editor's rulers write times: as the player writes them.
+    internal static ReadOnlyReactivePropertySlim<TimeDisplayFormat> ObserveTimeDisplayFormat(CompositeDisposable disposables)
+        => GlobalConfiguration.Instance.EditorConfig.TimeDisplayFormat.GetObservable()
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(disposables);
+
     // The timeline and the graph editor place the scene's start and end bars and size the panel the same way.
     internal static (ReadOnlyReactivePropertySlim<Thickness> StartingBarMargin,
         ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin,

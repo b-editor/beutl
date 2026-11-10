@@ -1,4 +1,5 @@
 ﻿using Beutl;
+using Beutl.Configuration;
 using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.ProjectSystem;
@@ -53,6 +54,85 @@ public class GotoTimecodeParserTests
         Assert.That(ok, Is.True);
         Assert.That(error, Is.EqualTo(GotoTimecodeError.None));
         Assert.That(result, Is.EqualTo(MediaTime.FromFrames(frame, FrameRate)));
+    }
+
+    [TestCase("00:00:02:15", 30, 1, 75)]
+    [TestCase("1:00:00:00", 25, 1, 25 * 3600)]
+    [TestCase("25:00:00:00", 30, 1, 30 * 3600 * 25)]
+    [TestCase("00:01:00:00", 30, 1, 1800)]
+    [TestCase("00:00:00:119", 120, 1, 119)]
+    [TestCase("00:01:00:00", 24000, 1001, 1440)]
+    // At 29.97 and 59.94 fps a timecode is drop-frame whichever separators it has.
+    [TestCase("00:01:00;02", 30000, 1001, 1800)]
+    [TestCase("00:01:00:02", 30000, 1001, 1800)]
+    [TestCase("00;01;00;02", 30000, 1001, 1800)]
+    [TestCase("00:10:00;00", 30000, 1001, 17982)]
+    [TestCase("01:00:00;00", 30000, 1001, 107892)]
+    [TestCase("00:01:00;04", 60000, 1001, 3600)]
+    // A number that drop-frame skips names the first frame of its minute.
+    [TestCase("00:01:00;00", 30000, 1001, 1800)]
+    [TestCase("00:01:00;01", 30000, 1001, 1800)]
+    [TestCase("00:01:00;00", 60000, 1001, 3600)]
+    public void TryParse_Timecode_ReturnsItsFrameInEveryFormat(string input, long numerator, long denominator, long frame)
+    {
+        var rate = new Rational(numerator, denominator);
+        foreach (TimeDisplayFormat format in Enum.GetValues<TimeDisplayFormat>())
+        {
+            bool ok = GotoTimecodeParser.TryParse(
+                input, rate, MediaTime.Zero, EmptyMarkers, format, out MediaTime result, out GotoTimecodeError error);
+
+            Assert.That((ok, error, result), Is.EqualTo((true, GotoTimecodeError.None, MediaTime.FromFrames(frame, rate))), format.ToString());
+        }
+    }
+
+    [TestCase("00:00:00:30", 30, 1)]
+    [TestCase("00:60:00:00", 30, 1)]
+    [TestCase("00:00:60:00", 30, 1)]
+    [TestCase("00:00:00;30", 30000, 1001)]
+    [TestCase("00:00:00:00:00", 30, 1)]
+    [TestCase("00:00:02:", 30, 1)]
+    [TestCase(":00:02:15", 30, 1)]
+    [TestCase("00:00:02:1a", 30, 1)]
+    [TestCase("00:00:02 :15", 30, 1)]
+    public void TryParse_InvalidTimecode_ReturnsInvalidFormat(string input, long numerator, long denominator)
+    {
+        bool ok = GotoTimecodeParser.TryParse(
+            input, new Rational(numerator, denominator), MediaTime.Zero, EmptyMarkers, TimeDisplayFormat.Timecode, out _, out GotoTimecodeError error);
+
+        Assert.That((ok, error), Is.EqualTo((false, GotoTimecodeError.InvalidFormat)));
+    }
+
+    [TestCase("99999999999999999999:00:00:00")]
+    [TestCase("99999999999999:00:00:00")]
+    [TestCase("9999999999999:00:00:00")]
+    public void TryParse_TimecodeBeyondTheRangeOfMediaTime_ReturnsOutOfRange(string input)
+    {
+        bool ok = GotoTimecodeParser.TryParse(
+            input, FrameRate, MediaTime.Zero, EmptyMarkers, TimeDisplayFormat.Timecode, out _, out GotoTimecodeError error);
+
+        Assert.That((ok, error), Is.EqualTo((false, GotoTimecodeError.OutOfRange)));
+    }
+
+    [TestCase("75", 75)]
+    [TestCase("0075", 75)]
+    [TestCase("0", 0)]
+    public void TryParse_BareNumber_IsAFrameWhileFramesAreShown(string input, int frame)
+    {
+        bool ok = GotoTimecodeParser.TryParse(
+            input, FrameRate, MediaTime.Zero, EmptyMarkers, TimeDisplayFormat.Frames, out MediaTime result, out _);
+
+        Assert.That((ok, result), Is.EqualTo((true, MediaTime.FromFrames(frame, FrameRate))));
+    }
+
+    // A bare number could as well be seconds.
+    [TestCase(TimeDisplayFormat.Time)]
+    [TestCase(TimeDisplayFormat.Timecode)]
+    public void TryParse_BareNumber_IsInvalidWhileTimesAreShown(TimeDisplayFormat format)
+    {
+        bool ok = GotoTimecodeParser.TryParse(
+            "75", FrameRate, MediaTime.Zero, EmptyMarkers, format, out _, out GotoTimecodeError error);
+
+        Assert.That((ok, error), Is.EqualTo((false, GotoTimecodeError.InvalidFormat)));
     }
 
     [Test]

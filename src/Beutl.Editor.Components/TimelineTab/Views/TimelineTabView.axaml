@@ -51,6 +51,7 @@
                                ContextRequested="Scale_ContextRequested"
                                EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                                EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
+                               FrameRate="{CompiledBinding FrameRate}"
                                HoveredCacheBlock="{Binding HoveredCacheBlock.Value}"
                                LockedCacheBlockBrush="{DynamicResource AccentFillColorTertiaryBrush}"
                                MarkerLabelBackground="{DynamicResource SolidBackgroundFillColorTertiaryBrush}"
@@ -62,6 +63,7 @@
                                SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
                                StartingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                                StartingBarMargin="{CompiledBinding StartingBarMargin.Value}"
+                               TimeDisplayFormat="{CompiledBinding TimeDisplayFormat.Value}"
                                Offset="{Binding #ContentScroll.Offset, Mode=OneWay}">
                 <ecv:TimelineScale.ContextFlyout>
                     <ui:FAMenuFlyout>

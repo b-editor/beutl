@@ -42,12 +42,14 @@
                                  VerticalAlignment="Bottom"
                                  EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                                  EndingBarMargin="{Binding EndingBarMargin.Value}"
+                                 FrameRate="{Binding FrameRate}"
                                  Scale="{Binding Options.Value.Scale}"
                                  ScaleBrush="{DynamicResource TextControlForeground}"
                                  SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
                                  SeekBarMargin="{Binding SeekBarMargin.Value}"
                                  StartingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                                  StartingBarMargin="{Binding StartingBarMargin.Value}"
+                                 TimeDisplayFormat="{Binding TimeDisplayFormat.Value}"
                                  Offset="{Binding #scroll.Offset, Mode=OneWay}" />
         </Border>
 

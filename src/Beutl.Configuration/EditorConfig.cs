@@ -129,6 +129,9 @@ public sealed partial class EditorConfig : ConfigurationBase
 
     public IProperty<TimelineAutoScrollMode> TimelineAutoScrollMode { get; } = Property.CreateValue(Configuration.TimelineAutoScrollMode.PageScroll);
 
+    // How the preview and the timeline write times. Timecode tells the frame, which an editor works in.
+    public IProperty<TimeDisplayFormat> TimeDisplayFormat { get; } = Property.CreateValue(Configuration.TimeDisplayFormat.Timecode);
+
     public IProperty<UIToneMappingOperator> ToneMappingMode { get; } = Property.CreateValue(UIToneMappingOperator.Auto);
 
     public IProperty<float> ToneMappingExposure { get; } = Property.CreateValue(0f);

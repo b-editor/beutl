@@ -96,6 +96,17 @@
                             </ctrls:OptionsDisplayItem.ActionButton>
                         </ctrls:OptionsDisplayItem>
 
+                        <!--  In the order of TimeDisplayFormat's values.  -->
+                        <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.TimeDisplayFormat_Description}" Header="{x:Static lang:SettingsStrings.TimeDisplayFormat}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding TimeDisplayFormat.Value}">
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.TimeDisplayFormat_Time}" />
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.TimeDisplayFormat_Timecode}" />
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.TimeDisplayFormat_Frames}" />
+                                </ComboBox>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+
                         <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ClampResizeToOriginalLength_Description}" Header="{x:Static lang:SettingsStrings.ClampResizeToOriginalLength}">
                             <ctrls:OptionsDisplayItem.ActionButton>
                                 <ToggleSwitch Classes="left"
