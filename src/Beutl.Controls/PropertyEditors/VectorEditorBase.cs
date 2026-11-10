@@ -28,6 +28,7 @@ public abstract class VectorEditorBase : PropertyEditor
     private const string FocusAnyTextBox = ":focus-any-textbox";
     private const string BorderPointerOver = ":border-pointerover";
     private const string Uniform = ":uniform";
+    private const string ScrubBox = "scrub-box";
 
     private readonly CompositeDisposable _disposables = [];
     private readonly DirectPropertyBase<string>[] _textProperties;
@@ -109,9 +110,28 @@ public abstract class VectorEditorBase : PropertyEditor
                 headerHandlers.Subscribe(header, _disposables);
 
             headerHandlers.Subscribe(e.NameScope.Find<TextBlock>("PART_HeaderTextBlock"), _disposables);
+
+            if (EditorStyle == PropertyEditorStyle.Normal)
+                SubscribeBoxes();
         }
 
         UpdateErrors();
+    }
+
+    // A drag on a box scrubs its component as a drag of its header does, and a click edits its text. The press is taken
+    // on its way to the text box, so that the many layouts of these editors need only the cursor of their boxes' theme.
+    private void SubscribeBoxes()
+    {
+        var boxHandlers = new ScrubHeaderHandlers(
+            OnBoxPointerPressed, OnBoxPointerReleased, OnBoxPointerMoved, OnBoxPointerCaptureLost, RoutingStrategies.Tunnel);
+        foreach (TextBox? box in _textBoxes)
+        {
+            if (box == null) continue;
+
+            boxHandlers.SubscribePointer(box, _disposables);
+            box.Classes.Add(ScrubBox);
+            TextBoxAttachment.SetEnterDownBehavior(box, TextBoxAttachment.EnterBehaviorMode.LostFocus);
+        }
     }
 
     // Shows one component of the context's value in property.
@@ -143,7 +163,10 @@ public abstract class VectorEditorBase : PropertyEditor
 
     private void IsPointerOverChanged(bool obj)
     {
-        bool isPointerOver = _backgroundBorder?.IsPointerOver == true
+        // A pressed box holds the pointer, which leaves it and all the rest not over anything until the release.
+        bool isPointerOver = _scrub.IsArmed
+            || _scrub.IsActive
+            || _backgroundBorder?.IsPointerOver == true
             || Array.Exists(_textBoxes, textBox => textBox?.IsPointerOver == true)
             || Array.Exists(_componentHeaders, header => header?.IsPointerOver == true);
         PseudoClasses.Set(BorderPointerOver, isPointerOver);
@@ -253,6 +276,83 @@ public abstract class VectorEditorBase : PropertyEditor
         // Ended before confirming, so a confirmation that rebuilds the header cannot end it twice.
         _scrub.End();
         Values!.RaiseConfirmedIfChanged();
+    }
+
+    private void OnBoxPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not TextBox box
+            || box.IsKeyboardFocusWithin
+            || IsReadOnly
+            || DataValidationErrors.GetHasErrors(this))
+        {
+            return;
+        }
+
+        PointerPoint pointerPoint = e.GetCurrentPoint(box);
+        if (!pointerPoint.Properties.IsLeftButtonPressed) return;
+
+        EndTextEditing();
+        _scrub.Arm(pointerPoint.Position);
+        e.Pointer.Capture(box);
+        e.Handled = true;
+    }
+
+    private void OnBoxPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (sender is not TextBox box || (!_scrub.IsArmed && !_scrub.IsActive)) return;
+
+        // A move with the button up means the release never reached the box.
+        if (!e.Properties.IsLeftButtonPressed)
+        {
+            AbandonBoxPress();
+            return;
+        }
+
+        e.Handled = true;
+        if (_scrub.IsArmed)
+        {
+            if (!_scrub.TryBegin(box, e.GetPosition(box))) return;
+
+            Values!.Snapshot();
+        }
+
+        Values!.Scrub(IsUniformValue ? -1 : Array.IndexOf(_textBoxes, box), ref _scrub, box, e);
+        UpdateErrors();
+    }
+
+    private void OnBoxPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (!_scrub.IsArmed && !_scrub.IsActive) return;
+
+        e.Handled = true;
+        bool clicked = _scrub.IsArmed;
+        EndBoxPress();
+        if (sender is not TextBox box) return;
+
+        if (clicked && box.Focus())
+            box.SelectAll();
+
+        // Only an unlocked pointer can be released away from the box, and then nothing else says that it has left.
+        if (!new Rect(box.Bounds.Size).Contains(e.GetPosition(box)))
+            IsPointerOverChanged(false);
+    }
+
+    private void OnBoxPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e) => AbandonBoxPress();
+
+    private void EndBoxPress()
+    {
+        _scrub.Disarm();
+        CompleteScrub();
+    }
+
+    // Ends a press whose release was lost, after which nothing else says where the pointer went. It is not one when the
+    // capture goes after a release, which has ended the press already.
+    private void AbandonBoxPress()
+    {
+        if (!_scrub.IsArmed && !_scrub.IsActive) return;
+
+        EndBoxPress();
+        IsPointerOverChanged(false);
     }
 
     private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs e)

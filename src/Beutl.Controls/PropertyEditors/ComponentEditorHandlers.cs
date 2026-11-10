@@ -79,16 +79,22 @@ internal readonly struct ScrubHeaderHandlers(
     {
         if (header != null)
         {
-            header.AddDisposableHandler(InputElement.PointerPressedEvent, pressed, routes)
-                .DisposeWith(disposables);
-            header.AddDisposableHandler(InputElement.PointerReleasedEvent, released, routes)
-                .DisposeWith(disposables);
-            header.AddDisposableHandler(InputElement.PointerMovedEvent, moved, routes)
-                .DisposeWith(disposables);
-            // Raised directly on each element that loses the capture, including when it leaves the tree.
-            header.AddDisposableHandler(InputElement.PointerCaptureLostEvent, captureLost, RoutingStrategies.Direct)
-                .DisposeWith(disposables);
+            SubscribePointer(header, disposables);
             header.Cursor = PointerLockHelper.SizeWestEast;
         }
+    }
+
+    // For a control whose theme sets its cursor.
+    public void SubscribePointer(Control control, CompositeDisposable disposables)
+    {
+        control.AddDisposableHandler(InputElement.PointerPressedEvent, pressed, routes)
+            .DisposeWith(disposables);
+        control.AddDisposableHandler(InputElement.PointerReleasedEvent, released, routes)
+            .DisposeWith(disposables);
+        control.AddDisposableHandler(InputElement.PointerMovedEvent, moved, routes)
+            .DisposeWith(disposables);
+        // Raised directly on each element that loses the capture, including when it leaves the tree.
+        control.AddDisposableHandler(InputElement.PointerCaptureLostEvent, captureLost, RoutingStrategies.Direct)
+            .DisposeWith(disposables);
     }
 }

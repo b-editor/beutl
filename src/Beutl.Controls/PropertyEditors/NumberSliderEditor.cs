@@ -7,11 +7,14 @@ using Avalonia.Input;
 
 namespace Beutl.Controls.PropertyEditors;
 
-// A NumberEditor with a slider beside its box, raising the same ValueChanged and ValueConfirmed as a scrub of the
-// header. A press on the rail puts the value there, one on the thumb grabs it where it is, and a drag follows the
-// pointer, a tenth as fast with Alt or Command. A double click returns to Origin, the property's default. The value
-// moves in steps of SmallChange.
+// A NumberEditor with a slider, raising the same ValueChanged and ValueConfirmed as a scrub of the header.
+// A ValueSlider beside the box follows the pointer in steps of SmallChange: a press on the thumb grabs it where it is,
+// one elsewhere puts the value there, Alt or Command make a drag a tenth as fast, and a double click returns to Origin,
+// the property's default.
+// A ValueSliderField over the box is dragged as the header is, by how far the pointer moves and with the pointer
+// locked, wherever in the box the drag starts. A press that does not travel edits the text instead.
 [TemplatePart("PART_Slider", typeof(ValueSlider))]
+[PseudoClasses(":sliding")]
 public class NumberSliderEditor<TValue> : NumberEditor<TValue>
     where TValue : INumber<TValue>
 {
@@ -25,11 +28,13 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
         AvaloniaProperty.Register<NumberSliderEditor<TValue>, double>(nameof(Origin));
 
     private ValueSlider? _slider;
+    private HeaderScrubGesture _scrub;
     private TValue _slideStart = TValue.Zero;
     private double _slideValue;
     private double _grabOffset;
     private double _lastX;
     private bool _sliding;
+    private bool _showsRange = true;
 
     public double Minimum
     {
@@ -49,6 +54,20 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
         set => SetValue(OriginProperty, value);
     }
 
+    // Whether a slider over the box shows where the value sits. The box of a number with no range to show takes a drag
+    // all the same.
+    internal bool ShowsRange
+    {
+        get => _showsRange;
+        set
+        {
+            _showsRange = value;
+            UpdateSlider();
+        }
+    }
+
+    private bool IsPressed => _sliding || _scrub.IsArmed;
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         if (_slider != null)
@@ -57,6 +76,7 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
             _slider.PointerMoved -= OnSliderPointerMoved;
             _slider.PointerReleased -= OnSliderPointerReleased;
             _slider.PointerCaptureLost -= OnSliderPointerCaptureLost;
+            _slider.ContextRequested -= OnSliderContextRequested;
         }
 
         base.OnApplyTemplate(e);
@@ -67,6 +87,7 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
             _slider.PointerMoved += OnSliderPointerMoved;
             _slider.PointerReleased += OnSliderPointerReleased;
             _slider.PointerCaptureLost += OnSliderPointerCaptureLost;
+            _slider.ContextRequested += OnSliderContextRequested;
             UpdateSlider();
         }
     }
@@ -92,6 +113,8 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
         _slider.Maximum = Maximum;
         _slider.Origin = Origin;
         _slider.Value = double.CreateTruncating(Value);
+        if (_slider is ValueSliderField field)
+            field.ShowsValue = ShowsRange;
     }
 
     private void OnSliderPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -104,6 +127,14 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
             return;
 
         e.Handled = true;
+        if (_slider.EditsOnClick)
+        {
+            EndTextEditing();
+            _scrub.Arm(point.Position);
+            e.Pointer.Capture(_slider);
+            return;
+        }
+
         if (e.ClickCount == 2)
         {
             // The default is applied as it is, even when it does not fall on a step.
@@ -113,46 +144,79 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
             return;
         }
 
-        double x = point.Position.X;
-        double thumbX = _slider.XOf(double.CreateTruncating(Value));
-        bool onThumb = Math.Abs(x - thumbX) <= ValueSlider.ThumbRadius + 2;
+        e.Pointer.Capture(_slider);
+        GrabThumb(_slider, point.Position.X);
+    }
+
+    private void BeginSlide()
+    {
         _sliding = true;
+        PseudoClasses.Set(":sliding", true);
         _slideStart = Value;
+    }
+
+    private void GrabThumb(ValueSlider slider, double x)
+    {
+        BeginSlide();
+        double thumbX = slider.XOf(double.CreateTruncating(Value));
+        bool onThumb = Math.Abs(x - thumbX) <= ValueSlider.ThumbRadius + 2;
+        _lastX = x;
         _slideValue = double.CreateTruncating(Value);
         _grabOffset = onThumb ? x - thumbX : 0;
-        _lastX = x;
-        e.Pointer.Capture(_slider);
         if (!onThumb)
         {
-            _slideValue = _slider.ValueAt(x);
+            _slideValue = slider.ValueAt(x);
             Slide(_slideValue);
         }
     }
 
     private void OnSliderPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (!_sliding || _slider == null)
+        if (!IsPressed || _slider == null)
             return;
 
         PointerPoint point = e.GetCurrentPoint(_slider);
         if (!point.Properties.IsLeftButtonPressed)
         {
             // The release never reached the slider.
-            EndSlide();
+            EndPress();
             return;
         }
 
         e.Handled = true;
-        double x = point.Position.X;
-        if (NumberEditorHelper.IsFineModifier(e.KeyModifiers))
+        if (_slider.EditsOnClick)
+            ScrubBox(_slider, point.Position, e);
+        else
+            FollowPointer(_slider, point.Position.X, e.KeyModifiers);
+    }
+
+    // Moves the value as a drag of the header does, once the press has travelled.
+    private void ScrubBox(ValueSlider slider, Point position, PointerEventArgs e)
+    {
+        if (_scrub.IsArmed)
         {
-            _slideValue = Math.Clamp(_slideValue + ((x - _lastX) * _slider.ValuePerPixel * 0.1), Minimum, Maximum);
+            if (!_scrub.TryBegin(slider, position))
+                return;
+
+            BeginSlide();
+        }
+
+        TValue previous = Value;
+        ApplyValue(Scrub(previous, ref _scrub, slider, e));
+        OnScrubbed(previous, e.Timestamp);
+    }
+
+    private void FollowPointer(ValueSlider slider, double x, KeyModifiers modifiers)
+    {
+        if (NumberEditorHelper.IsFineModifier(modifiers))
+        {
+            _slideValue = Math.Clamp(_slideValue + ((x - _lastX) * slider.ValuePerPixel * 0.1), Minimum, Maximum);
             // A plain drag goes on from here rather than jumping back under the pointer.
-            _grabOffset = x - _slider.XOf(_slideValue);
+            _grabOffset = x - slider.XOf(_slideValue);
         }
         else
         {
-            _slideValue = _slider.ValueAt(x - _grabOffset);
+            _slideValue = slider.ValueAt(x - _grabOffset);
         }
 
         _lastX = x;
@@ -161,21 +225,47 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
 
     private void OnSliderPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (_sliding && e.InitialPressMouseButton == MouseButton.Left)
-        {
-            e.Handled = true;
-            EndSlide();
-        }
+        if (!IsPressed || e.InitialPressMouseButton != MouseButton.Left)
+            return;
+
+        e.Handled = true;
+        bool clicked = _scrub.IsArmed;
+        EndPress();
+        if (clicked)
+            EditText();
     }
 
-    private void OnSliderPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e) => EndSlide();
-
-    private void EndSlide()
+    // A slider over the box stands in front of the box's own menu of cut, copy and paste, so it opens that.
+    private void OnSliderContextRequested(object? sender, ContextRequestedEventArgs e)
     {
+        if (_slider is not { EditsOnClick: true } || InnerTextBox is not { ContextFlyout: PopupFlyoutBase flyout } textBox)
+            return;
+
+        e.Handled = true;
+        EditText();
+        flyout.ShowAt(textBox, showAtPointer: true);
+    }
+
+    private void EditText()
+    {
+        if (InnerTextBox is { } textBox && textBox.Focus())
+            textBox.SelectAll();
+    }
+
+    private void OnSliderPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e) => EndPress();
+
+    private void EndPress()
+    {
+        _scrub.Disarm();
         if (!_sliding)
             return;
 
         _sliding = false;
+        PseudoClasses.Set(":sliding", false);
+        // Ended before confirming, so a confirmation that rebuilds the slider cannot end it twice.
+        if (_scrub.IsActive)
+            _scrub.End();
+
         ConfirmValue(_slideStart);
     }
 

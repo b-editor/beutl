@@ -5,12 +5,15 @@ using Avalonia.Input;
 
 namespace Beutl.Controls.PropertyEditors;
 
-// Drag-to-scrub state of a header text block. Editors keep it in a non-readonly field and call the
-// methods on that field, so the state is updated in place rather than on a copy.
+// Drag-to-scrub state of a header text block, or of a number box that is also a slider. Editors keep it in a
+// non-readonly field and call the methods on that field, so the state is updated in place rather than on a copy.
 // A scrub hides the cursor until End; editors also end it when the header loses the pointer capture
 // or sees a move with the button up, since the release then never reaches the header.
 internal struct HeaderScrubGesture
 {
+    // How far an armed press travels before it is a scrub.
+    private const double ClickTolerance = 3;
+
     private Point _dragStart;
     private double _accumulator;
 
@@ -18,6 +21,30 @@ internal struct HeaderScrubGesture
     internal static int ActiveCount { get; private set; }
 
     public bool IsActive { get; private set; }
+
+    // Whether a press on a box has yet to travel, so that it can still be a click.
+    public bool IsArmed { get; private set; }
+
+    // Waits for the press to travel, on a box where a click edits the text. The pointer locks only once it has, so that
+    // a click does not make the cursor blink.
+    public void Arm(Point position)
+    {
+        _dragStart = position;
+        IsArmed = true;
+    }
+
+    public void Disarm() => IsArmed = false;
+
+    // Begins the scrub once the armed press has travelled, and says whether it has.
+    public bool TryBegin(Visual header, Point position)
+    {
+        if (Math.Abs(position.X - _dragStart.X) < ClickTolerance)
+            return false;
+
+        IsArmed = false;
+        Begin(header, position);
+        return true;
+    }
 
     public void Begin(Visual header, Point position)
     {
