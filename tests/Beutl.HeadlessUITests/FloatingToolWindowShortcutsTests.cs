@@ -70,6 +70,58 @@ public sealed class FloatingToolWindowShortcutsTests
         }
     }
 
+    [AvaloniaTest]
+    [TestCase("scene")]
+    [TestCase("project")]
+    [TestCase("remove")]
+    [TestCase("tutorials")]
+    public async Task A_main_dialog_opens_in_the_main_window_which_gets_the_keyboard(string kind)
+    {
+        await using Floated floated = await Floated.CreateAsync($"floating-dialog-{kind}");
+        MenuBarViewModel menu = TestShell.MainViewModel.MenuBar;
+        int activations = 0;
+        floated.Window.Activated += (_, _) => activations++;
+        Task operation = Task.CompletedTask;
+        try
+        {
+            switch (kind)
+            {
+                case "scene":
+                    operation = menu.NewScene.ExecuteAsync();
+                    break;
+                case "project":
+                    operation = menu.CreateNewProject.ExecuteAsync();
+                    break;
+                case "remove":
+                    menu.RemoveFromProject.Execute(null);
+                    break;
+                case "tutorials":
+                    menu.ShowTutorials.Execute();
+                    break;
+            }
+
+            HeadlessTestHelpers.Render(3);
+            if (operation.IsFaulted)
+                await operation;
+            FAContentDialog? dialog = floated.Window.GetVisualDescendants().OfType<FAContentDialog>().SingleOrDefault();
+            Assert.Multiple(() =>
+            {
+                Assert.That(dialog, Is.Not.Null, "The main window hosts the dialog.");
+                Assert.That(floated.Floating.GetVisualDescendants().OfType<FAContentDialog>(), Is.Empty);
+                Assert.That(activations, Is.EqualTo(1), "The dialog's window gets the keyboard.");
+            });
+            HeadlessCapture.SaveIfRequested(floated.Window, nameof(FloatingToolWindowShortcutsTests), $"main-dialog-{kind}");
+        }
+        finally
+        {
+            foreach (FAContentDialog open in floated.Window.GetVisualDescendants()
+                         .Concat(floated.Floating.GetVisualDescendants()).OfType<FAContentDialog>().ToArray())
+                open.Hide();
+            HeadlessTestHelpers.Settle();
+            await operation;
+        }
+    }
+
     // As in the main window, where neither a dialog nor a suspended editor's view passes keys on to these commands.
     [AvaloniaTest]
     public async Task A_dialog_in_a_floating_window_and_a_suspended_editor_keep_the_keys()
