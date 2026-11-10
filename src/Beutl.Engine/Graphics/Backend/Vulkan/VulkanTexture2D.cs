@@ -117,6 +117,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        ImageLayout previousLayout = _currentLayout;
         TransitionTo(ImageLayout.TransferSrcOptimal);
 
         int bytesPerPixel = _format.BytesPerTexel();
@@ -139,7 +140,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
                 BufferImageHeight = 0,
                 ImageSubresource = new ImageSubresourceLayers
                 {
-                    AspectMask = ImageAspectFlags.ColorBit,
+                    AspectMask = _format.IsDepthFormat() ? ImageAspectFlags.DepthBit : ImageAspectFlags.ColorBit,
                     MipLevel = 0,
                     BaseArrayLayer = 0,
                     LayerCount = 1
@@ -154,7 +155,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         });
 
         // Restore the sampled layout in the same batch, then wait before mapping the staging buffer.
-        TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+        TransitionTo(_format.IsDepthFormat() && previousLayout != ImageLayout.Undefined ? previousLayout : ImageLayout.ShaderReadOnlyOptimal);
         _context.FlushCommands(waitForCompletion: true);
 
         var srcPtr = stagingBuffer.Map();
