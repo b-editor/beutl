@@ -17,10 +17,12 @@ namespace Beutl.Views.Dock;
 // which AppKit otherwise replaces with the application menu alone while this window has the keyboard.
 internal sealed class FloatingToolWindow : HostWindow
 {
-    private readonly IEditorContext _editor;
+    private readonly EditViewModel _editor;
     private readonly CompositeDisposable _menuSubscriptions = [];
+    private IDisposable? _selectionSubscription;
+    private Window? _ownerBeforeHide;
 
-    public FloatingToolWindow(IEditorContext editor)
+    public FloatingToolWindow(EditViewModel editor)
     {
         _editor = editor;
         // After this window's own handlers, so that Tab keeps moving the focus within it and the key that closes a
@@ -31,6 +33,8 @@ internal sealed class FloatingToolWindow : HostWindow
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        _selectionSubscription ??= _editor.EditorService.IsSelectedEditor(_editor)
+            .Subscribe(UpdateSceneVisibility);
         if (OperatingSystem.IsMacOS()
             && NativeMenu.GetMenu(this) is null
             && AppHelper.GetTopLevel()?.DataContext is MainViewModel main)
@@ -44,9 +48,39 @@ internal sealed class FloatingToolWindow : HostWindow
 
     protected override void OnClosed(EventArgs e)
     {
+        _selectionSubscription?.Dispose();
+        _selectionSubscription = null;
+        _ownerBeforeHide = null;
         // The menus follow lists that outlive the window.
         _menuSubscriptions.Dispose();
         base.OnClosed(e);
+    }
+
+    private void UpdateSceneVisibility(bool selected)
+    {
+        if (!selected)
+        {
+            _ownerBeforeHide = Owner as Window;
+            Hide();
+        }
+        else if (!IsVisible)
+        {
+            // Keep the focus in the main window during keyboard tab switching. Avalonia clears Owner
+            // on Hide; use the saved owner while the main DockControl is detached for the scene switch.
+            bool showActivated = ShowActivated;
+            SetCurrentValue(ShowActivatedProperty, false);
+            try
+            {
+                if (_ownerBeforeHide is { } owner)
+                    Show(owner);
+                else
+                    Show();
+            }
+            finally
+            {
+                SetCurrentValue(ShowActivatedProperty, showActivated);
+            }
+        }
     }
 
     private void OnKeyDownLeftByTools(object? sender, KeyEventArgs e)

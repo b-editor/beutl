@@ -29,16 +29,6 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         base.OnFocusedDockableChanged(dockable);
     }
 
-    public override void OnWindowActivated(IDockWindow? window)
-    {
-        // A floating window keeps its scene's tools when another scene tab is selected.
-        // Bring its scene back too, so the menu and main-window commands act on those tools' editor.
-        if (window is not null && editViewModel.EditorService.TryGetTabItem(editViewModel.Scene, out _))
-            editViewModel.EditorService.ActivateTabItem(editViewModel.Scene);
-
-        base.OnWindowActivated(window);
-    }
-
     private readonly record struct AnchorDefinition(
         string Id,
         Alignment Alignment,

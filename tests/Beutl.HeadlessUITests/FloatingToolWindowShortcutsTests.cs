@@ -38,23 +38,45 @@ public sealed class FloatingToolWindowShortcutsTests
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
-    public async Task Activating_a_floating_window_selects_its_scene_for_editor_and_main_commands(bool useMenu)
+    public async Task Switching_scenes_hides_and_restores_their_floating_tools(bool useMenu)
     {
-        await using Floated floated = await Floated.CreateAsync($"floating-scene-selection-{useMenu}");
+        await using Floated floated = await Floated.CreateAsync($"floating-scene-visibility-{useMenu}");
+        var tool = (BeutlToolDockable)floated.Floating.GetVisualDescendants().OfType<ToolTabContent>().Single().DataContext!;
+        var position = floated.Floating.Position;
+        var size = floated.Floating.ClientSize;
+        var owner = floated.Floating.Owner;
+        int closed = 0;
+        floated.Floating.Closed += (_, _) => closed++;
+        HeadlessCapture.SaveIfRequested(floated.Floating, nameof(FloatingToolWindowShortcutsTests), "scene-a-floating");
         EditViewModel other = OpenAnotherScene(floated);
         other.ToggleMarkerAtCurrentTime();
+        Assert.That(floated.Floating.IsVisible, Is.False, "An inactive scene's floating tools are hidden.");
+        Assert.That(closed, Is.Zero, "Hiding a window preserves its tools and layout.");
+        (Window otherWindow, _) = FloatTool(other);
         floated.Window.Activate();
         HeadlessTestHelpers.Render(2);
         HeadlessCapture.SaveIfRequested(floated.Window, nameof(FloatingToolWindowShortcutsTests), "other-scene-selected");
-        var tool = (BeutlToolDockable)floated.Floating.GetVisualDescendants().OfType<ToolTabContent>().Single().DataContext!;
         int otherTools = other.DockHost.Factory.EnumerateTools().Count();
+        int activations = 0;
+        floated.Floating.Activated += (_, _) => activations++;
 
-        floated.Floating.Activate();
-        floated.Inside.Focus();
+        TestShell.Editor.ActivateTabItem(floated.Editor.Scene);
         HeadlessTestHelpers.Render(2);
 
-        Assert.That(TestShell.Editor.SelectedTabItem.Value!.Context.Value, Is.SameAs(floated.Editor));
-        Assert.That(floated.Floating.IsVisible, Is.True, "Selecting its scene preserves the floating window.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(TestShell.Editor.SelectedTabItem.Value!.Context.Value, Is.SameAs(floated.Editor));
+            Assert.That(floated.Floating.IsVisible, Is.True);
+            Assert.That(otherWindow.IsVisible, Is.False);
+            Assert.That(floated.Floating.Position, Is.EqualTo(position));
+            Assert.That(floated.Floating.ClientSize, Is.EqualTo(size));
+            Assert.That(floated.Floating.Owner, Is.SameAs(owner));
+            Assert.That(activations, Is.Zero, "Restoring a window must not take focus from the scene switcher.");
+            Assert.That(closed, Is.Zero);
+        });
+        HeadlessCapture.SaveIfRequested(floated.Floating, nameof(FloatingToolWindowShortcutsTests), "scene-a-restored");
+        floated.Floating.Activate();
+        floated.Inside.Focus();
         floated.Press(EditorGesture("editor.toggleMarker"));
         Assert.That(floated.Editor.Scene.Markers, Has.Count.EqualTo(1));
         if (useMenu)
@@ -92,8 +114,12 @@ public sealed class FloatingToolWindowShortcutsTests
     public async Task Closing_an_unselected_scene_closes_its_floating_window_without_selecting_it()
     {
         await using Floated floated = await Floated.CreateAsync("floating-scene-close");
+        int closed = 0;
+        floated.Floating.Closed += (_, _) => closed++;
         EditViewModel other = OpenAnotherScene(floated);
         floated.Window.Activate();
+        Assert.That(floated.Floating.IsVisible, Is.False);
+        Assert.That(closed, Is.Zero);
 
         await TestShell.Editor.CloseTabItem(floated.Editor.Scene);
         HeadlessTestHelpers.Settle();
@@ -101,9 +127,27 @@ public sealed class FloatingToolWindowShortcutsTests
         Assert.Multiple(() =>
         {
             Assert.That(floated.Floating.IsVisible, Is.False);
+            Assert.That(closed, Is.EqualTo(1), "Closing a hidden scene still closes its host window.");
             Assert.That(TestShell.Editor.SelectedTabItem.Value!.Context.Value, Is.SameAs(other));
             Assert.That(TestShell.Editor.TabItems, Has.Count.EqualTo(1));
         });
+    }
+
+    [AvaloniaTest]
+    public async Task A_closed_floating_window_is_not_restored_by_later_scene_switches()
+    {
+        await using Floated floated = await Floated.CreateAsync("floating-scene-closed-window");
+        int closed = 0;
+        floated.Floating.Closed += (_, _) => closed++;
+        floated.Floating.Close();
+        HeadlessTestHelpers.Settle();
+
+        _ = OpenAnotherScene(floated);
+        TestShell.Editor.ActivateTabItem(floated.Editor.Scene);
+        HeadlessTestHelpers.Render(2);
+
+        Assert.That(floated.Floating.IsVisible, Is.False);
+        Assert.That(closed, Is.EqualTo(1));
     }
 
     private static EditViewModel OpenAnotherScene(Floated floated)
@@ -116,6 +160,18 @@ public sealed class FloatingToolWindowShortcutsTests
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Render(2);
         return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+    }
+
+    private static (Window Window, Control Inside) FloatTool(EditViewModel editor)
+    {
+        BeutlDockFactory factory = editor.DockHost.Factory;
+        BeutlToolDockable tool = factory.EnumerateTools().First();
+        factory.SplitToWindow((IDock)tool.Owner!, tool, 20, 20, 500, 400, null);
+        HeadlessTestHelpers.Render(2);
+        var window = (Window)factory.FindRoot(tool, _ => true)!.Window!.Host!;
+        var inside = (Control)window.GetVisualDescendants().OfType<ToolTabContent>()
+            .Single(content => ReferenceEquals(content.DataContext, tool)).Content!;
+        return (window, inside);
     }
 
     // Exit stands for closing the main window, and Alt+F4 closes the window it is pressed in.
@@ -259,13 +315,7 @@ public sealed class FloatingToolWindowShortcutsTests
             AppHelper.OverrideTopLevel = window;
             window.Show();
             HeadlessTestHelpers.Render(2);
-            BeutlDockFactory factory = editor.DockHost.Factory;
-            BeutlToolDockable tool = factory.EnumerateTools().First();
-            factory.SplitToWindow((IDock)tool.Owner!, tool, 20, 20, 500, 400, null);
-            HeadlessTestHelpers.Render(2);
-            var floating = (Window)factory.FindRoot(tool, _ => true)!.Window!.Host!;
-            var inside = (Control)floating.GetVisualDescendants().OfType<ToolTabContent>()
-                .Single(content => ReferenceEquals(content.DataContext, tool)).Content!;
+            (Window floating, Control inside) = FloatTool(editor);
             floating.Activate();
             inside.Focus();
             HeadlessTestHelpers.Settle();
