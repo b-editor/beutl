@@ -10,9 +10,9 @@ internal static class SpirvShaderProgramCache
 {
     private const long DefaultRetainedByteBudget = 16 * 1024 * 1024;
     private static readonly object s_defaultCompileOptions = new();
-    // The programs that failed in each renderer's cache; they stay on the SkSL path for that renderer.
+    // Compile failures belong to a renderer, even when successful programs are shared across renderers.
     private static readonly ConditionalWeakTable<
-        ProgramCache<GLSLFilterPipeline>,
+        object,
         HashSet<(ShaderProgramIdentity Program, ProgramCacheContextKey Context)>> s_failures = new();
 
     public static ProgramCache<GLSLFilterPipeline> Create()
@@ -37,7 +37,8 @@ internal static class SpirvShaderProgramCache
         ProgramCache<GLSLFilterPipeline> cache,
         ShaderDescription description,
         IGraphicsContext graphicsContext,
-        ProgramCacheContextKey context)
+        ProgramCacheContextKey context,
+        object? failureScope = null)
     {
         ArgumentNullException.ThrowIfNull(cache);
         ArgumentNullException.ThrowIfNull(description);
@@ -51,7 +52,7 @@ internal static class SpirvShaderProgramCache
         }
         SpirvShaderLowering lowering = description.SpirvLowering
             ?? throw new ArgumentException("The shader description has no SPIR-V lowering.", nameof(description));
-        HashSet<(ShaderProgramIdentity, ProgramCacheContextKey)> failures = s_failures.GetValue(cache, static _ => []);
+        HashSet<(ShaderProgramIdentity, ProgramCacheContextKey)> failures = s_failures.GetValue(failureScope ?? cache, static _ => []);
         var key = (lowering.ProgramIdentity, context);
         lock (failures)
         {

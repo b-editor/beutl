@@ -509,7 +509,7 @@ internal static class FailureTestSupport
             MaxWorkingScale = 1,
             CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
             Purpose = purpose,
-        }, factory);
+        }, factory, RenderProgramCaches.Create());
 
     public static RenderRequestOptions CreateOptions(
         RenderRequestPurpose purpose,

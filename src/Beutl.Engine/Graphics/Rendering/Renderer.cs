@@ -993,6 +993,7 @@ public class Renderer : IRenderer
         return released;
     }
 
+    /// <summary>Clears this renderer's owned caches. Shared compiled programs remain available to other renderers.</summary>
     public void ClearAllCaches()
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);

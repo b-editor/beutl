@@ -61,6 +61,8 @@ internal sealed class RenderTargetLeaseSession : IDisposable
 
     internal RenderCacheDeviceContextIdentity CacheDeviceContextIdentity => _cacheDeviceContextIdentity;
 
+    internal RenderCacheDeviceContextIdentity ProgramCacheDeviceContextIdentity => _pool.ResolveProgramCacheContext(this);
+
     internal void MarkContentDropped() => ContentDropObserved = true;
 
     internal RenderTargetCleanupFailureCheckpoint CaptureCleanupFailureCheckpoint()

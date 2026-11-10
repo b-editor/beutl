@@ -66,7 +66,8 @@ internal sealed partial class RenderRequestExecutor
                     _programCaches.Spirv,
                     stageDescription!,
                     graphicsContext!,
-                    contextKey);
+                    contextKey,
+                    failureScope: _programCaches);
             }
             catch (InvalidOperationException) when (_shaderBackendPreference == ShaderBackendPreference.Auto)
             {

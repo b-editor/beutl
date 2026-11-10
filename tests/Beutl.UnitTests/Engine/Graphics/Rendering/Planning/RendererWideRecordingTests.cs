@@ -471,7 +471,7 @@ public sealed class RendererWideRecordingTests
     }
 
     [Test]
-    public void ProductionFrameRenderer_ClearAllCachesColdResetsFrameCachesWithoutChangingPolicy()
+    public void ProductionFrameRenderer_ClearAllCachesResetsOwnedCachesAndKeepsSharedPrograms()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -502,13 +502,14 @@ public sealed class RendererWideRecordingTests
                 Assert.That(renderer.FrameTargetPoolStatistics.RetainedBytes, Is.GreaterThan(0));
             });
 
+            ProgramCacheStatistics sharedPrograms = renderer.FrameProgramCacheStatistics;
             renderer.ClearAllCaches();
 
             Assert.Multiple(() =>
             {
                 Assert.That(renderer.CacheOptions, Is.SameAs(expectedOptions));
                 Assert.That(renderer.FrameStructuralPlanCacheStatistics, Is.EqualTo(default(StructuralPlanCacheStatistics)));
-                Assert.That(renderer.FrameProgramCacheStatistics, Is.EqualTo(default(ProgramCacheStatistics)));
+                Assert.That(renderer.FrameProgramCacheStatistics, Is.EqualTo(sharedPrograms));
                 Assert.That(renderer.FrameTargetPoolStatistics, Is.EqualTo(default(RenderTargetPoolStatistics)));
             });
 

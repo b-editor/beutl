@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Shaders;
 using Beutl.Media;
 
 using SkiaSharp;
@@ -87,6 +88,27 @@ internal sealed partial class RenderTargetPool : IDisposable
         _peakLiveTargets);
 
     public bool HasTargetFactory => _factory is not null;
+
+    internal RenderCacheDeviceContextIdentity ResolveProgramCacheContext(RenderTargetLeaseSession request)
+    {
+        GRRecordingContext? graphicsContext;
+        if (_hasContext)
+        {
+            graphicsContext = _graphicsContext;
+        }
+        else if (_factory is null && request.ContextIdentity is ImplicitContextBinding { Context: { } backend })
+        {
+            graphicsContext = backend.SkiaContext;
+        }
+        else
+        {
+            // A caller-owned allocator has not supplied a surface yet, so its context is still unknown.
+            return request.CacheDeviceContextIdentity;
+        }
+
+        object identity = SkRuntimeEffectProgramCache.GetDestinationContextIdentity(graphicsContext);
+        return new RenderCacheDeviceContextIdentity(identity, identity);
+    }
 
     public RenderTargetLeaseSession BeginSession(
         RenderIntent intent,

@@ -526,7 +526,7 @@ public sealed class CrossNodeShaderFusionTests
             CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
             FusionMode = fusionMode,
             Purpose = RenderRequestPurpose.Frame,
-        });
+        }, targetFactory: null, programCaches: RenderProgramCaches.Create());
 
     private static RenderNodeRenderer CreateCpuRenderer(
         RenderNode node,
@@ -541,7 +541,7 @@ public sealed class CrossNodeShaderFusionTests
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             FusionMode = fusionMode,
             Purpose = RenderRequestPurpose.Frame,
-        }, targetFactory);
+        }, targetFactory, RenderProgramCaches.Create());
 
     private static Bitmap CreateActiveDestinationBackground()
     {

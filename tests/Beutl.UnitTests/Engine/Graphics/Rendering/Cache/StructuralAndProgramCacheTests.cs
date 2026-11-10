@@ -18,6 +18,32 @@ public sealed class StructuralAndProgramCacheTests
         "uniform float gain; half4 apply(half4 color) { return half4(color.rgb * gain, color.a); }";
 
     [Test]
+    public void ShortLivedRenderersShareCompiledEffectsAndKeepTheirCurrentUniforms()
+    {
+        using var source = new CpuRenderTarget(8, 8);
+        source.Value.Canvas.Clear(new SKColor(160, 96, 32, 224));
+        using Bitmap reference = source.Snapshot();
+        foreach (float gain in new[] { 0.25f, 0.75f, 0.5f })
+        {
+            using var node = new ExecutableParameterShaderNode(source) { Value = gain };
+            using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Delivery,
+                TargetDomain = new Rect(0, 0, 8, 8),
+                CacheOptions = RenderCacheOptions.Disabled
+            }, new CpuRenderTargetFactory());
+            long misses = renderer.ProgramCacheStatistics.Misses;
+            using RenderNodeRasterization result = renderer.Rasterize();
+            Assert.That(MaximumScaledDifference(reference, result.Bitmap!.GetPixelSpan<ushort>().ToArray(), gain), Is.LessThan(0.002));
+            if (gain != 0.25f)
+            {
+                Assert.That(renderer.LastExecutionStatistics.ProgramCacheHits, Is.GreaterThan(0));
+                Assert.That(renderer.ProgramCacheStatistics.Misses, Is.EqualTo(misses));
+            }
+        }
+    }
+
+    [Test]
     public void ParameterOnlyAnimation_ReusesOneStructuralPlanForOneHundredFrames()
     {
         using var source = new CpuRenderTarget(8, 8);
@@ -31,7 +57,7 @@ public sealed class StructuralAndProgramCacheTests
             OutputScale = 1,
             MaxWorkingScale = 1,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuRenderTargetFactory());
+        }, new CpuRenderTargetFactory(), RenderProgramCaches.Create());
         ushort[]? firstPixels = null;
         ushort[]? finalPixels = null;
 

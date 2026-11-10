@@ -18,6 +18,11 @@ internal static class SkRuntimeEffectProgramCache
             retainedByteSize: static program => program.RetainedBytes,
             maxRetainedBytes: DefaultRetainedByteBudget);
 
+    internal static object GetDestinationContextIdentity(GRRecordingContext? graphicsContext)
+        => graphicsContext is null
+            ? s_cpuDestinationContext
+            : s_destinationContextIdentities.GetValue(graphicsContext, static _ => new object());
+
     public static ProgramCacheContextKey CreateContextKey(
         RenderCacheDeviceContextIdentity context,
         SkslBackendBudget budget)
@@ -60,11 +65,7 @@ internal static class SkRuntimeEffectProgramCache
         ArgumentNullException.ThrowIfNull(destination);
         destination.VerifyAccess();
         GRRecordingContext? graphicsContext = destination.RawValue.Context;
-        object contextIdentity = graphicsContext is null
-            ? s_cpuDestinationContext
-            : s_destinationContextIdentities.GetValue(
-                graphicsContext,
-                static _ => new object());
+        object contextIdentity = GetDestinationContextIdentity(graphicsContext);
         cache.SynchronizeContext(cache, contextIdentity);
         SkslBackendBudget budget = SkslBackendBudgetResolver.Resolve(graphicsContext?.Backend);
         ProgramCacheContextKey contextKey = CreateContextKey(

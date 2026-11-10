@@ -136,7 +136,7 @@ public sealed class ShaderFallbackTests
             TargetDomain = s_bounds,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             FusionMode = FusionMode.Disabled,
-        }, new CpuRenderTargetFactory());
+        }, new CpuRenderTargetFactory(), RenderProgramCaches.Create());
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         ProgramCacheStatistics coldStatistics = renderer.ProgramCacheStatistics;
@@ -185,7 +185,7 @@ public sealed class ShaderFallbackTests
             TargetDomain = s_bounds,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             FusionMode = FusionMode.Disabled,
-        }, new CpuRenderTargetFactory());
+        }, new CpuRenderTargetFactory(), RenderProgramCaches.Create());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         ProgramCacheStatistics statistics = renderer.ProgramCacheStatistics;
