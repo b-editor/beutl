@@ -2,6 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
+using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
@@ -44,6 +45,8 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
         private Composer? _composer;
         private Sound.Resource? _source;
+        private Sound? _observedSource;
+        private bool _sourceEdited = true;
 
         private float[] _cachedSamples = [];
         private int _cachedSampleLength;
@@ -114,6 +117,15 @@ public abstract partial class AudioVisualizerDrawable : Drawable
             bool sourceVersionBumped = true;
             ResourceReconciler.ReconcileChild(this, audioContext, obj.Source, ref _source, ref sourceVersionBumped);
 
+            Sound? sound = _source is { IsDisposed: false } ? _source.RequireOriginal() : null;
+            if (!ReferenceEquals(_observedSource, sound))
+            {
+                if (_observedSource != null) _observedSource.Edited -= OnSourceEdited;
+                _observedSource = sound;
+                if (sound != null) sound.Edited += OnSourceEdited;
+                _sourceEdited = true;
+            }
+
             if (_source == null || _source.IsDisposed)
             {
                 if (_cachedSampleLength != 0)
@@ -134,6 +146,8 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
         partial void PostDispose(bool disposing)
         {
+            if (_observedSource != null) _observedSource.Edited -= OnSourceEdited;
+            _observedSource = null;
             if (disposing)
             {
                 _composer?.Dispose();
@@ -143,6 +157,8 @@ public abstract partial class AudioVisualizerDrawable : Drawable
             _source = null;
             _cachedSamples = [];
         }
+
+        private void OnSourceEdited(object? sender, EventArgs e) => _sourceEdited = true;
 
         /// <summary>
         /// Returns the time range of audio this visualizer draws at <paramref name="currentTime"/>.
@@ -180,7 +196,9 @@ public abstract partial class AudioVisualizerDrawable : Drawable
                 return;
             }
 
-            bool needsRecompose = _cachedSourceVersion != _source!.Version
+            bool sourceChanged = _sourceEdited || _cachedSourceVersion != _source!.Version
+                || !ReferenceEquals(_frameObjectsSource, _source);
+            bool needsRecompose = sourceChanged
                 || _cachedStart != targetStart
                 || _cachedDuration != targetDuration
                 || _cachedSampleRate != rate;
@@ -189,6 +207,33 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
             var targetRange = new TimeRange(targetStart, targetDuration);
             Sound sound = _source.RequireOriginal();
+            MediaTime composeStart = targetStart;
+            int retained = 0;
+            long skip = (targetStart - _cachedStart).ToSamples(rate, MidpointRounding.AwayFromZero);
+            int targetCount = AudioProcessContext.GetSampleCount(targetRange, rate);
+            // Reuse only a forward, sample-aligned overlap. A backwards/disjoint seek, changed source or
+            // unaligned window rebuilds the graph and history just like a fresh resource.
+            if (!sourceChanged && _cachedSampleRate == rate
+                && skip >= 0 && skip < _cachedSampleLength
+                && targetRange.End > _cachedStart + _cachedDuration
+                && targetStart - _cachedStart == MediaTime.FromSamples(skip, rate)
+                && _cachedDuration == MediaTime.FromSamples(_cachedSampleLength, rate)
+                && targetDuration == MediaTime.FromSamples(targetCount, rate))
+            {
+                retained = _cachedSampleLength - (int)skip;
+                composeStart = _cachedStart + _cachedDuration;
+            }
+            else if (_frameObjectsSource != null)
+            {
+                _composer.Dispose();
+                _composer = new Composer { SampleRate = rate };
+            }
+
+            // If composing throws, retry with a full window rather than a partially moved cache.
+            _sourceEdited = true;
+            if (_cachedSamples.Length < targetCount) Array.Resize(ref _cachedSamples, targetCount);
+            if (retained > 0)
+                _cachedSamples.AsSpan((int)skip, retained).CopyTo(_cachedSamples);
 
             if (!ReferenceEquals(_frameObjectsSource, _source))
             {
@@ -202,21 +247,21 @@ public abstract partial class AudioVisualizerDrawable : Drawable
                 default,
                 new CompositionEligibility([sound]));
 
-            AudioBuffer? buffer = _composer.Compose(targetRange, frame);
+            AudioBuffer? buffer = _composer.Compose(new TimeRange(composeStart, targetRange.End - composeStart), frame);
             try
             {
                 if (buffer == null || buffer.SampleCount == 0)
                 {
-                    _cachedSampleLength = 0;
+                    _cachedSampleLength = retained;
                 }
                 else
                 {
                     int n = buffer.SampleCount;
-                    if (_cachedSamples.Length < n)
+                    if (_cachedSamples.Length < retained + n)
                     {
-                        _cachedSamples = new float[n];
+                        Array.Resize(ref _cachedSamples, retained + n);
                     }
-                    Span<float> dst = _cachedSamples.AsSpan(0, n);
+                    Span<float> dst = _cachedSamples.AsSpan(retained, n);
                     Span<float> leftChannel = buffer.GetChannelData(0);
                     if (buffer.ChannelCount >= 2)
                     {
@@ -230,7 +275,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
                     {
                         leftChannel.CopyTo(dst);
                     }
-                    _cachedSampleLength = n;
+                    _cachedSampleLength = retained + n;
                     rate = buffer.SampleRate;
                 }
             }
@@ -243,6 +288,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
             _cachedStart = targetStart;
             _cachedDuration = targetDuration;
             _cachedSourceVersion = _source.Version;
+            _sourceEdited = false;
             Version++;
         }
     }

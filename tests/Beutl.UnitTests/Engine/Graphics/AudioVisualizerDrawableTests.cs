@@ -1,4 +1,6 @@
 ﻿using Beutl.Audio;
+using Beutl.Audio.Effects;
+using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.AudioVisualizers;
@@ -94,8 +96,9 @@ public class AudioVisualizerDrawableTests
         });
     }
 
-    [Test]
-    public void Spectrum_CachedWindowsFollowEditsToTheAudioSamples()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Spectrum_CachedWindowsFollowEditsToTheAudioSamples(bool sameTime)
     {
         WithBurstSpectrum(drawable =>
         {
@@ -103,7 +106,7 @@ public class AudioVisualizerDrawableTests
             Assert.That(resource.GetNormalizedBars().ToArray().Max(), Is.GreaterThan(0));
 
             drawable.Source.Value!.Gain.Value = 0;
-            var context = new CompositionContext(MediaTime.FromSeconds(1.3));
+            var context = new CompositionContext(MediaTime.FromSeconds(sameTime ? 1.2 : 1.3));
             bool changed = false;
             resource.Reconcile(drawable, context, ref changed);
             using var fresh = (AudioSpectrumDrawable.Resource)drawable.ToResource(context);
@@ -149,6 +152,60 @@ public class AudioVisualizerDrawableTests
             using Bitmap reference = GoldenImageHarness.RenderAtScale(fresh, new PixelSize(320, 80), 1);
             GoldenImageHarness.AssertByteIdentical(reference, sought);
         }));
+    }
+
+    [TestCase(85f)]
+    [TestCase(99f)]
+    public void Spectrum_SequentialPlaybackProcessesOnlyTheNewAudio(float smoothing)
+    {
+        WithBurstSpectrum(drawable =>
+        {
+            var counter = new VisualizerSampleCountingEffect();
+            drawable.Source.Value!.Effect.Value = counter;
+            drawable.Smoothing.Value = smoothing;
+            MediaTime time = MediaTime.FromSeconds(1.2);
+            using var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(new CompositionContext(time));
+            long initialSamples = counter.ProcessedSamples;
+            Assert.That(initialSamples, Is.GreaterThan(44100 / 2));
+
+            bool changed = false;
+            for (int frame = 1; frame <= 2; frame++)
+                resource.Reconcile(drawable, new CompositionContext(time + MediaTime.FromFrames(frame, new Rational(30))), ref changed);
+
+            Assert.That(counter.ProcessedSamples - initialSamples, Is.EqualTo(2 * 44100 / 30),
+                "Overlapping history must not be decoded and processed again on every frame.");
+        });
+    }
+
+    [Test]
+    public void Spectrum_GroupRetainsTheReleaseOfAChildBeforeTheGroupStart()
+    {
+        WithBurstSpectrum(drawable =>
+        {
+            var context = new CompositionContext(MediaTime.FromSeconds(1.2));
+            float[] expected;
+            using (var direct = (AudioSpectrumDrawable.Resource)drawable.ToResource(context))
+                expected = direct.GetNormalizedBars().ToArray();
+            Assert.That(expected.Max(), Is.GreaterThan(0.1f));
+
+            Sound child = drawable.Source.Value!;
+            drawable.Source.Value = null;
+            child.IsTimeAnchor.Value = true;
+            var group = new SoundGroup
+            {
+                TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(1.1), MediaTime.FromSeconds(1)) }
+            };
+            group.Children.Add(child);
+            drawable.Source.Value = group;
+            using var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(context);
+            Assert.That(resource.GetNormalizedBars().ToArray(), Is.EqualTo(expected));
+
+            child.Gain.Value = 0;
+            bool changed = false;
+            resource.Reconcile(drawable, context, ref changed);
+            Assert.That(resource.GetNormalizedBars().ToArray(), Is.All.Zero,
+                "Editing a group's child also invalidates the composed history.");
+        });
     }
 
     private static void WithBurstSpectrum(Action<AudioSpectrumDrawable> body)
@@ -500,5 +557,26 @@ public class AudioVisualizerDrawableTests
                 return RenderWithSamples(drawable, new PixelSize(320, 80), 2f);
             }
         });
+    }
+}
+
+internal sealed partial class VisualizerSampleCountingEffect : AudioEffect
+{
+    public long ProcessedSamples { get; private set; }
+
+    public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
+    {
+        var node = context.AddNode(new CountingNode(this));
+        context.Connect(inputNode, node);
+        return node;
+    }
+
+    private sealed class CountingNode(VisualizerSampleCountingEffect owner) : AudioNode
+    {
+        public override AudioBuffer Process(AudioProcessContext context)
+        {
+            owner.ProcessedSamples += context.GetSampleCount();
+            return Inputs[0].Process(context);
+        }
     }
 }

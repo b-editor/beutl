@@ -86,9 +86,7 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             int hop = effectiveFftSize / 2;
             _sampleEnd = currentTime.ToSamples(rate, MidpointRounding.AwayFromZero);
             long history = (long)Math.Ceiling(ReleaseSeconds(_sampleWindowSmoothing, _sampleWindowFloorDb) * rate);
-            // The composer clips the source to this range; before its start every analysis window is silent.
-            long sourceStart = Source!.RequireOriginal().Start.ToSamples(rate, MidpointRounding.ToNegativeInfinity);
-            long firstSample = Math.Max(_sampleEnd - history, sourceStart);
+            long firstSample = _sampleEnd - history;
             _firstHistoryFrame = (long)Math.Ceiling((double)firstSample / hop);
             _lastHistoryFrame = (long)Math.Floor((double)_sampleEnd / hop);
             long start = Math.Min(_sampleEnd, _firstHistoryFrame * hop) - effectiveFftSize;
