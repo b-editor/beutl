@@ -1,6 +1,6 @@
 ---
 name: beutl-agent-look-effect-chain
-description: Edit Beutl effect chains, masks, and shader properties through the Agent Editing Toolkit MCP tools.
+description: Add and edit Beutl effect chains, masks, and shader properties through the Agent Editing Toolkit MCP tools. Read this before adding effects or writing a shader.
 ---
 
 # Beutl Effects and Shaders
@@ -13,15 +13,17 @@ Inspect the target with `read_document` and query unfamiliar properties with `ge
 
 Patch the target through `apply_edit` with PascalCase properties and runtime `$type` discriminators. Id-keyed arrays preserve unmentioned entries. Effect order matters; inspect the existing chain before changing it. Preserve unrelated timing and media bindings. Use natural content-based names in the user's language.
 
-When scoping effects with an `IFlowOperator` such as `DrawableGroup` or `DrawableDecorator`, prefer input through flow over directly populating its `Children`. For shared timing, use `Element.Objects = [sources..., PortalObject(Count=0, Clear=false), operator]`. For separate timing or timeline rows, place sources at `ZIndex = z+1` through `z+Count`, where `z` is the operator Element's `ZIndex`, and keep a `PortalObject` immediately before the operator. Ordinary effect/transform collections such as `FilterEffectGroup.Children` still use direct children.
+When scoping effects with an `IFlowOperator` such as `DrawableGroup` or `DrawableDecorator`, prefer input through flow over directly populating its `Children`. For one source, use `Element.Objects = [source, PortalObject(Count=0, Clear=false), operator]`. For several sources, give each its own Element and place them at `ZIndex = z+1` through `z+Count`, where `z` is the operator Element's `ZIndex`, and keep a `PortalObject` immediately before the operator. Ordinary effect/transform collections such as `FilterEffectGroup.Children` still use direct children.
 
 Groups consume all compatible upstream inputs, including an earlier background. When applying an effect to only a subset, give its input/operator chain its own Element and keep unrelated content in separate Elements outside the portal span, preserving timing and draw order.
 
 For effects such as additive bloom, inspect the source location first. For a direct `Element.Objects` drawable, use `duplicate_object(wrapInGroup:false)` and feed the original and copy into the group through one of those arrangements. For a drawable already nested in `DrawableGroup.Children`, use `wrapInGroup:true` to append the copy to its existing group; the false path searches only direct objects. Preserve the group hierarchy and apply the recipe's drawable patch at the copy's actual nested `Children` path from `read_document`, using the returned copy ID. `LayerEffect` on a group flattens its content before group opacity, avoiding overlapping inputs showing through one another during a group fade.
 
-A matte uses drawable blend/compositing behavior, not a generic `Mask` property. `Clipping` provides an animatable rectangular crop. Scope compositing with a group/decorator and verify its actual rendered bounds. `measure_object_bounds` measures direct `Element.Objects`; nested drawables require measuring their containing group or an isolated probe.
+A track matte is set on the Element that receives it, through `MatteMode` and `MatteSourceKind`. `MatteSourceZIndex` names the source row and is read only when `MatteSourceKind` is `Layer`. Set `IsVisibleInOutput:false` on an Element that should only supply the matte, and see `get_schema(type: "Element")` for the values. Other mattes use drawable blend/compositing behavior; there is no generic `Mask` property. `Clipping` provides an animatable rectangular crop. Scope compositing with a group/decorator and verify its actual rendered bounds. `measure_object_bounds` measures direct `Element.Objects`; nested drawables require measuring their containing group or an isolated probe.
 
 ## Shader contracts
+
+SKSL shaders run in linear, premultiplied-alpha space, and the sRGB encode happens after the effect, so an sRGB constant pasted in reads far too bright: convert it first with the sRGB transfer function. `pow(c, 2.2)` is close only above the darkest values, where it comes out too dark. `time` and `duration` are in seconds and `progress` runs from 0 to 1, all measured over the Element's own time range.
 
 Honor explicit language and implementation constraints. Built-in effects and declarative shaders can be combined directly. The current multi-input/multi-pass GLSL route requires `CSharpScriptEffect` and `Context.CustomEffect`; it cannot satisfy a no-C# or no-CustomEffect requirement. Beutl source code is not required; use the runtime's documented script examples and schemas instead of guessing internal APIs.
 

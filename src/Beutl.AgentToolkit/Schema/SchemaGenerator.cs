@@ -120,6 +120,8 @@ public sealed partial class SchemaGenerator
         (typeFilter, categoryFilter) = NormalizeFilters(typeFilter, categoryFilter);
 
         List<TypeDescriptor> types = [];
+        var concreteTypes = new ConcreteTypeLookup();
+        List<string> unmatched = typeFilter?.Contains(',') == true ? [.. SplitTypeList(typeFilter)] : [];
         foreach ((string category, Type type) in EnumerateRegisteredTypes()
                      .Where(item => MatchesCategory(categoryFilter, item.Category))
                      .DistinctBy(item => item.Type))
@@ -130,13 +132,17 @@ public sealed partial class SchemaGenerator
                 continue;
             }
 
-            types.Add(CreateDescriptor(category, type, discriminator, includeProperties));
+            unmatched.RemoveAll(name => MatchesName(name, type, discriminator));
+            types.Add(CreateDescriptor(category, type, discriminator, includeProperties, concreteTypes));
         }
 
         return new CapabilitySchema(
             SchemaVersion.Current,
             types.OrderBy(type => type.Type, StringComparer.Ordinal).ToArray(),
-            includeExamples ? CreateExamples(typeFilter, categoryFilter) : []);
+            includeExamples ? CreateExamples(typeFilter, categoryFilter) : [])
+        {
+            UnmatchedTypes = unmatched.Count > 0 ? unmatched : null
+        };
     }
 
     private static IEnumerable<(string Category, Type Type)> EnumerateRegisteredTypes()
@@ -185,13 +191,18 @@ public sealed partial class SchemaGenerator
         }
     }
 
-    private static TypeDescriptor CreateDescriptor(string category, Type type, string discriminator, bool includeProperties)
+    private static TypeDescriptor CreateDescriptor(
+        string category,
+        Type type,
+        string discriminator,
+        bool includeProperties,
+        ConcreteTypeLookup? concreteTypes = null)
     {
         LibraryItem? item = LibraryService.Current.FindItem(type);
-        string? description = item?.Description;
+        string? description = item?.Description ?? TypeRegistration.FindDescription(type);
         if (typeof(IFlowOperator).IsAssignableFrom(type))
         {
-            const string flowHint = "IFlowOperator: prefer supplying input objects through flow instead of adding them directly to Children or similar nested content properties. Use separate timeline Elements below the operator's Element, within its PortalObject.Count span (ZIndex z+1 through z+Count), or put inputs earlier in the same Element.Objects. Keep a PortalObject immediately before the operator: for same-Element input use [inputs..., PortalObject(Count=0, Clear=false), operator]. Earlier compatible objects can also be consumed. When grouping a subset, isolate its input/operator chain in its own Element and keep unrelated content in separate Elements outside the portal span, preserving timing and draw order. Existing nested content remains supported. See get_examples insert-camera-rig-push-in and insert-camera-rig-portal.";
+            const string flowHint = "IFlowOperator: prefer supplying input objects through flow instead of adding them directly to Children or similar nested content properties. Give each input its own timeline Element below the operator's Element, within its PortalObject.Count span (ZIndex z+1 through z+Count), so a person can retime it. A single input may instead come earlier in the same Element.Objects. Keep a PortalObject immediately before the operator: for a same-Element input use [input, PortalObject(Count=0, Clear=false), operator]. Earlier compatible objects can also be consumed. When grouping a subset, isolate its input/operator chain in its own Element and keep unrelated content in separate Elements outside the portal span, preserving timing and draw order. Existing nested content remains supported. See get_examples insert-camera-rig-push-in and insert-camera-rig-portal.";
             description = string.IsNullOrWhiteSpace(description) ? flowHint : $"{description} {flowHint}";
             if (type == typeof(DrawableTimeController))
             {
@@ -204,7 +215,7 @@ public sealed partial class SchemaGenerator
             discriminator,
             category,
             includeProperties ? CreateBaseFields(type) : [],
-            includeProperties ? CreateProperties(type) : [],
+            includeProperties ? CreateProperties(type, concreteTypes) : [],
             item?.DisplayName ?? (TypeRegistration.Types.Any(entry => entry.Type == type) ? type.Name : null),
             description);
     }
@@ -238,14 +249,24 @@ public sealed partial class SchemaGenerator
         ];
 
         static FieldDescriptor ToField(IProperty property)
-            => new(property.Name, property.ValueType.FullName ?? property.ValueType.Name, DocumentDefault(property));
+            => new(
+                property.Name,
+                property.ValueType.FullName ?? property.ValueType.Name,
+                DocumentDefault(property),
+                EnumJsonValueNormalizer.GetEnumNames(property.ValueType));
     }
 
-    // Documents show times as TimeSpan strings, while files hold flicks.
+    // Documents show times as TimeSpan strings, while files hold flicks. A Vector3 only has fields,
+    // so without its converter it would print as {} and hide the "x,y,z" form documents take.
     private static object? DocumentDefault(IProperty property)
-        => property.DefaultValue is MediaTime time ? time.ToTimeSpan().ToString("c") : property.DefaultValue;
+        => property.DefaultValue switch
+        {
+            MediaTime time => time.ToTimeSpan().ToString("c"),
+            System.Numerics.Vector3 vector => System.Text.Json.JsonSerializer.SerializeToElement(vector, JsonHelper.SerializerOptions).GetString(),
+            var value => value,
+        };
 
-    private static IReadOnlyList<PropertyDescriptor> CreateProperties(Type type)
+    private static IReadOnlyList<PropertyDescriptor> CreateProperties(Type type, ConcreteTypeLookup? concreteTypes)
     {
         if (!typeof(EngineObject).IsAssignableFrom(type)
             || Activator.CreateInstance(type) is not EngineObject engineObject)
@@ -255,13 +276,14 @@ public sealed partial class SchemaGenerator
 
         return engineObject.Properties
             .Where(property => !engineObject.IsBaseField(property))
-            .Select(property => CreateProperty(type, property))
+            .Select(property => CreateProperty(type, property, concreteTypes))
             .ToArray();
     }
 
-    private static PropertyDescriptor CreateProperty(Type ownerType, IProperty property)
+    private static PropertyDescriptor CreateProperty(Type ownerType, IProperty property, ConcreteTypeLookup? concreteTypes)
     {
         Attribute[] attributes = property.GetAttributes() ?? [];
+        bool isReference = Common.ReferenceProperties.Describe(property) is not null;
         DisplayAttribute? display = attributes.OfType<DisplayAttribute>().FirstOrDefault();
         RangeAttribute? range = attributes.OfType<RangeAttribute>().FirstOrDefault();
         NumberStepAttribute? step = attributes.OfType<NumberStepAttribute>().FirstOrDefault();
@@ -281,9 +303,13 @@ public sealed partial class SchemaGenerator
                 ? listProperty.ElementType.FullName ?? listProperty.ElementType.Name
                 : null,
             EnumValues: EnumJsonValueNormalizer.GetEnumNames(property.ValueType),
-            UsageHint: CreatePropertyUsageHint(ownerType, property.Name, property.ValueType, property is IExpressionProperty { IsAnimatable: true }, Common.ReferenceProperties.Describe(property) is not null))
+            UsageHint: CreatePropertyUsageHint(ownerType, property.Name, property.ValueType, property is IExpressionProperty { IsAnimatable: true }, isReference))
         {
-            Unit = attributes.OfType<UnitAttribute>().FirstOrDefault()?.Unit.ToString().ToLowerInvariant()
+            Unit = attributes.OfType<UnitAttribute>().FirstOrDefault()?.Unit.ToString().ToLowerInvariant(),
+            // A reference points at an existing object, so nothing is created to fit it.
+            ConcreteTypes = isReference
+                ? null
+                : concreteTypes?.Find(property is IListProperty list ? list.ElementType : property.ValueType)
         };
     }
 
@@ -298,7 +324,7 @@ public sealed partial class SchemaGenerator
         }
         else if (ownerType == typeof(PortalObject) && propertyName == nameof(PortalObject.Count))
         {
-            hints.Add("Portal flow intake. A PortalObject immediately before an IFlowOperator in Element.Objects pulls every active timeline Element in the inclusive ZIndex span portalZIndex+1..portalZIndex+Count (rows below the portal's Element) out of normal composition and feeds its output to the operator, preserving each source's Start/Length. Prefer these source layers or upstream Element.Objects over directly populating the operator's Children. Count is a layer span, not an object count; empty rows contribute nothing. Count=0 pulls no timeline rows and preserves earlier same-Element flow when Clear=false; put same-Element sources before the portal. Update Count when moving source layers. Pulled Elements render ungrouped when the operator's Element is inactive. See get_examples insert-camera-rig-portal and insert-camera-rig-push-in.");
+            hints.Add("Portal flow intake. A PortalObject immediately before an IFlowOperator in Element.Objects pulls every active timeline Element in the inclusive ZIndex span portalZIndex+1..portalZIndex+Count (rows below the portal's Element) out of normal composition and feeds its output to the operator, preserving each source's Start/Length. Prefer these source layers or upstream Element.Objects over directly populating the operator's Children. Count is a layer span, not an object count; empty rows contribute nothing. Count=0 pulls no timeline rows and preserves earlier same-Element flow when Clear=false; put same-Element sources before the portal. Update Count when moving source layers. Pulled drawables render ungrouped when the operator's Element is inactive; Object3D sources are not drawn without an active Scene3D. See get_examples insert-camera-rig-portal and insert-camera-rig-push-in.");
         }
         else if (ownerType == typeof(PortalObject) && propertyName == nameof(PortalObject.Clear))
         {
@@ -310,7 +336,11 @@ public sealed partial class SchemaGenerator
             hints.Add("Start with AlignmentX=Center and AlignmentY=Center, then choose each axis independently to suit the object, layout, and intended motion: Left/Center/Right on X and Top/Center/Bottom on Y. Preserve existing intentional alignment. Use TranslateTransform.X/Y to offset the chosen alignment. When animating alignment or drawable size, check for unintended shifts of the placement anchor. For a normal drawable with both axes centered and only translation, an intended center (cx, cy) uses X=cx-frameWidth/2 and Y=cy-frameHeight/2. Check measure_object_bounds for geometry offsets or compound transforms.");
         }
 
-        if (type == typeof(Color))
+        if (type == typeof(FontWeight))
+        {
+            hints.Add("Also takes the integer list_fonts reports: 100 Thin, 200 UltraLight, 300 Light, 350 SemiLight, 400 Regular, 500 Medium, 600 SemiBold, 700 Bold, 800 UltraBold, 900 Black, 950 UltraBlack. A variable font lists one typeface but renders any weight along its axis.");
+        }
+        else if (type == typeof(Color))
         {
             hints.Add("Use serialized Beutl color values such as '#ffffb34d' or copy the exact shape returned by read_document/get_schema; do not use palette names such as 'Amber'.");
         }
@@ -356,10 +386,20 @@ public sealed partial class SchemaGenerator
     private static bool Matches(string? typeFilter, Type type, string discriminator)
     {
         return string.IsNullOrWhiteSpace(typeFilter)
-               || string.Equals(typeFilter, discriminator, StringComparison.Ordinal)
-               || string.Equals(typeFilter, type.FullName, StringComparison.Ordinal)
-               || string.Equals(typeFilter, type.Name, StringComparison.Ordinal)
-               || (s_typeAliases.TryGetValue(typeFilter.Trim(), out string[]? aliases)
+               || MatchesName(typeFilter, type, discriminator)
+               || (typeFilter.Contains(',')
+                   && SplitTypeList(typeFilter).Any(name => MatchesName(name, type, discriminator)));
+    }
+
+    private static string[] SplitTypeList(string typeFilter)
+        => typeFilter.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    private static bool MatchesName(string name, Type type, string discriminator)
+    {
+        return string.Equals(name, discriminator, StringComparison.Ordinal)
+               || string.Equals(name, type.FullName, StringComparison.Ordinal)
+               || string.Equals(name, type.Name, StringComparison.Ordinal)
+               || (s_typeAliases.TryGetValue(name.Trim(), out string[]? aliases)
                    && aliases.Contains(type.Name, StringComparer.Ordinal));
     }
 
@@ -441,6 +481,38 @@ public sealed partial class SchemaGenerator
         {
             result = default;
             return false;
+        }
+    }
+
+    // A property declared as a base class says nothing about what can go in it, and agents went to
+    // Beutl's source to find names such as Cube3D. Families too large to repeat on every property
+    // (effects, drawables) have listings of their own.
+    private sealed class ConcreteTypeLookup
+    {
+        private const int MaxListed = 24;
+
+        private readonly Type[] _types =
+        [
+            .. EnumerateRegisteredTypes().Select(item => item.Type).Where(type => !type.IsAbstract).Distinct(),
+        ];
+
+        private readonly Dictionary<Type, IReadOnlyList<string>?> _byBase = [];
+
+        public IReadOnlyList<string>? Find(Type declaredType)
+        {
+            if (!declaredType.IsAbstract)
+            {
+                return null;
+            }
+
+            if (!_byBase.TryGetValue(declaredType, out IReadOnlyList<string>? names))
+            {
+                string[] matches = [.. _types.Where(declaredType.IsAssignableFrom).Select(type => type.Name).Order(StringComparer.Ordinal)];
+                names = matches.Length is > 0 and <= MaxListed ? matches : null;
+                _byBase[declaredType] = names;
+            }
+
+            return names;
         }
     }
 

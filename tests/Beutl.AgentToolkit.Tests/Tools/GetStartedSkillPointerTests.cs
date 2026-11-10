@@ -22,6 +22,16 @@ public sealed class GetStartedSkillPointerTests
     }
 
     [Test]
+    public void Get_started_names_the_easings_keyframes_accept()
+    {
+        var queryTools = new QueryTools(new AgentSessionManager());
+
+        string essentials = string.Join(" ", queryTools.GetStarted().Value!.Essentials);
+
+        Assert.That(essentials, Does.Contain("CubicEaseOut").And.Contain("HoldEasing").And.Contain("LinearEasing"));
+    }
+
+    [Test]
     public void Get_started_skill_names_match_the_bundled_skill_set()
     {
         var queryTools = new QueryTools(new AgentSessionManager());

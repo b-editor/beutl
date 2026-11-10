@@ -10,6 +10,7 @@ using Beutl.Audio.Effects;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Shapes;
@@ -40,6 +41,106 @@ public sealed class SchemaGenerationTests
             Assert.That(offset.ValueType, Is.EqualTo(typeof(MediaTime).FullName));
             Assert.That(System.Text.Json.JsonSerializer.Serialize(offset.Default), Is.EqualTo("\"00:00:00\""));
         });
+    }
+
+    [Test]
+    public void A_property_declared_as_a_base_class_names_the_types_that_fit()
+    {
+        CapabilitySchema schema = new SchemaGenerator().Generate(typeFilter: nameof(Scene3D), includeExamples: false);
+        IReadOnlyList<PropertyDescriptor> properties = schema.Types.Single().Properties;
+        IReadOnlyList<string>? Fits(string name) => properties.Single(property => property.Name == name).ConcreteTypes;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Fits(nameof(Scene3D.Objects)), Does.Contain("Cube3D"));
+            Assert.That(Fits(nameof(Scene3D.Lights)), Does.Contain("PointLight3D"));
+            Assert.That(Fits(nameof(Scene3D.Camera)), Does.Contain("PerspectiveCamera"));
+            Assert.That(Fits(nameof(Scene3D.AmbientIntensity)), Is.Null, "not a base class");
+            Assert.That(Fits(nameof(Drawable.FilterEffect)), Is.Null, "too many to repeat on every drawable");
+        });
+    }
+
+    [Test]
+    public void Schema_exposes_every_builtin_3d_type_a_document_can_create()
+    {
+        // Reflect over the engine, so a camera or material that no registration lists fails too.
+        Type[] bases =
+        [
+            typeof(Object3D),
+            typeof(Beutl.Graphics3D.Camera.Camera3D),
+            typeof(Beutl.Graphics3D.Lighting.Light3D),
+            typeof(Beutl.Graphics3D.Materials.Material3D),
+        ];
+        string[] builtinTypes = typeof(Object3D).Assembly
+            .GetExportedTypes()
+            .Where(type => !type.IsAbstract
+                           && bases.Any(type.IsSubclassOf)
+                           // Only a loaded Model3D makes these.
+                           && type != typeof(Beutl.Graphics3D.Models.MeshObject3D)
+                           && !typeof(IFallback).IsAssignableFrom(type))
+            .Select(type => type.FullName!)
+            .ToArray();
+
+        string[] listedTypes = new SchemaGenerator()
+            .Generate(includeProperties: false, includeExamples: false)
+            .Types.Select(type => type.Type)
+            .ToArray();
+
+        Assert.That(listedTypes, Is.SupersetOf(builtinTypes));
+    }
+
+    [Test]
+    public void A_visualizer_shape_property_names_every_builtin_shape()
+    {
+        CapabilitySchema schema = new SchemaGenerator().Generate(
+            typeFilter: $"{nameof(AudioSpectrumDrawable)},{nameof(AudioWaveformDrawable)}",
+            includeExamples: false);
+
+        static string[] Builtin<TShape>() =>
+        [
+            .. typeof(TShape).Assembly.GetExportedTypes()
+                .Where(type => !type.IsAbstract
+                               && type.IsSubclassOf(typeof(TShape))
+                               && !typeof(IFallback).IsAssignableFrom(type))
+                .Select(type => type.Name)
+        ];
+
+        IReadOnlyList<string>? Fits<TDrawable>() => schema.Types.Single(type => type.Type == typeof(TDrawable).FullName)
+            .Properties.Single(property => property.Name == nameof(AudioSpectrumDrawable.Shape)).ConcreteTypes;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Builtin<SpectrumShape>(), Is.Not.Empty);
+            Assert.That(Fits<AudioSpectrumDrawable>(), Is.EquivalentTo(Builtin<SpectrumShape>()));
+            Assert.That(Builtin<WaveformShape>(), Is.Not.Empty);
+            Assert.That(Fits<AudioWaveformDrawable>(), Is.EquivalentTo(Builtin<WaveformShape>()));
+        });
+    }
+
+    [Test]
+    public void An_element_is_described_with_the_names_its_enum_fields_take()
+    {
+        CapabilitySchema schema = new SchemaGenerator().Generate(typeFilter: nameof(Element), includeExamples: false);
+        TypeDescriptor element = schema.Types.Single();
+        FieldDescriptor Field(string name) => element.BaseFields.Single(field => field.Name == name);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Discriminator, Is.EqualTo(IdentityHelper.WriteDiscriminator(typeof(Element))));
+            Assert.That(Field(nameof(Element.MatteMode)).EnumValues, Is.EqualTo(Enum.GetNames<MatteMode>()));
+            Assert.That(Field(nameof(Element.MatteSourceKind)).EnumValues, Is.EqualTo(Enum.GetNames<MatteSourceKind>()));
+            Assert.That(Field(nameof(Element.IsVisibleInOutput)).ValueType, Is.EqualTo(typeof(bool).FullName));
+            Assert.That(Field(nameof(Element.Start)).EnumValues, Is.Null);
+        });
+    }
+
+    [Test]
+    public void A_vector_default_is_written_the_way_documents_write_it()
+    {
+        CapabilitySchema schema = new SchemaGenerator().Generate(typeFilter: "Cube3D", includeExamples: false);
+        PropertyDescriptor position = schema.Types.Single().Properties.Single(property => property.Name == "Position");
+
+        Assert.That(position.Default, Is.EqualTo("0,0,0"));
     }
 
     [Test]
@@ -242,15 +343,14 @@ public sealed class SchemaGenerationTests
         Element rigElement = scene.Children.Single();
         Assert.Multiple(() =>
         {
-            Assert.That(rigElement.Objects, Has.Count.EqualTo(4));
-            Assert.That(rigElement.Objects[0], Is.InstanceOf<RectShape>());
-            Assert.That(rigElement.Objects[1], Is.InstanceOf<TextBlock>());
-            Assert.That(rigElement.Objects[2], Is.InstanceOf<PortalObject>());
-            var portal = (PortalObject)rigElement.Objects[2];
+            Assert.That(rigElement.Objects, Has.Count.EqualTo(3));
+            Assert.That(rigElement.Objects[0], Is.InstanceOf<TextBlock>());
+            Assert.That(rigElement.Objects[1], Is.InstanceOf<PortalObject>());
+            var portal = (PortalObject)rigElement.Objects[1];
             Assert.That(portal.Count.Value, Is.EqualTo(0));
             Assert.That(portal.Clear.Value, Is.False);
-            Assert.That(rigElement.Objects[3], Is.InstanceOf<DrawableGroup>());
-            var group = (DrawableGroup)rigElement.Objects[3];
+            Assert.That(rigElement.Objects[2], Is.InstanceOf<DrawableGroup>());
+            var group = (DrawableGroup)rigElement.Objects[2];
             Assert.That(group.Children, Is.Empty);
             var transformGroup = (TransformGroup)group.Transform.Value!;
             Assert.That(transformGroup.Children.OfType<ScaleTransform>().Count(), Is.EqualTo(1));

@@ -191,6 +191,91 @@ public sealed class ReadDocumentTests
     }
 
     [Test]
+    public void Get_schema_examples_leave_out_full_scene_starters()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<CapabilitySchema> result = tools.GetSchema(type: nameof(TextBlock), includeExamples: true);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value!.Examples, Is.Not.Empty);
+            Assert.That(result.Value.Examples.Select(example => example.Name), Has.None.StartsWith("create-empty-scene-"));
+        });
+    }
+
+    [Test]
+    public void Get_schema_surveys_several_types_without_their_usage_hints()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<CapabilitySchema> result = tools.GetSchema(
+            type: $"{nameof(TextBlock)}, {nameof(RectShape)}",
+            includeUsageHints: false);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                result.Value!.Types.Select(type => type.Type),
+                Is.EquivalentTo(new[] { typeof(TextBlock).FullName, typeof(RectShape).FullName }));
+            Assert.That(result.Value.Types.SelectMany(type => type.Properties), Is.Not.Empty);
+            Assert.That(result.Value.Types.SelectMany(type => type.Properties).Where(property => property.UsageHint != null), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Get_schema_states_a_repeated_usage_hint_once()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<CapabilitySchema> result = tools.GetSchema(type: $"{nameof(TextBlock)}, {nameof(RectShape)}");
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        string[] hints = result.Value!.Types
+            .SelectMany(type => type.Properties)
+            .Select(property => property.UsageHint)
+            .OfType<string>()
+            .ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(hints.Where(hint => hint.StartsWith("Same as ", StringComparison.Ordinal)), Is.Not.Empty);
+            Assert.That(hints.Where(hint => !hint.StartsWith("Same as ", StringComparison.Ordinal)), Is.Unique);
+        });
+    }
+
+    [Test]
+    public void Get_schema_examples_follow_every_type_in_a_list()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<CapabilitySchema> single = tools.GetSchema(type: nameof(TextBlock), includeExamples: true);
+        ToolResult<CapabilitySchema> list = tools.GetSchema(type: $"{nameof(RectShape)}, {nameof(TextBlock)}", includeExamples: true);
+
+        Assert.That(single.Value!.Examples, Is.Not.Empty);
+        Assert.That(
+            list.Value!.Examples.Select(example => example.Name),
+            Is.SupersetOf(single.Value.Examples.Select(example => example.Name)));
+    }
+
+    [Test]
+    public void Get_schema_names_list_entries_that_matched_nothing()
+    {
+        var tools = new QueryTools(new AgentSessionManager());
+
+        ToolResult<CapabilitySchema> partly = tools.GetSchema(type: $"{nameof(TextBlock)}, PerspectveCamera");
+        ToolResult<CapabilitySchema> fully = tools.GetSchema(type: $"{nameof(TextBlock)}, {nameof(RectShape)}");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(partly.Value!.Types.Select(type => type.Type), Is.EqualTo(new[] { typeof(TextBlock).FullName }));
+            Assert.That(partly.Value.UnmatchedTypes, Is.EqualTo(new[] { "PerspectveCamera" }));
+            Assert.That(fully.Value!.UnmatchedTypes, Is.Null);
+        });
+    }
+
+    [Test]
     public void Get_schema_accepts_common_low_context_type_aliases()
     {
         var tools = new QueryTools(new AgentSessionManager());
@@ -222,16 +307,20 @@ public sealed class ReadDocumentTests
     {
         var tools = new QueryTools(new AgentSessionManager());
 
-        ToolResult<CapabilitySchema> result = tools.GetSchema(type: "Element", includeProperties: false);
+        ToolResult<CapabilitySchema> described = tools.GetSchema(type: "Element", includeProperties: false);
+        ToolResult<CapabilitySchema> misnamed = tools.GetSchema(type: "timeline element", includeProperties: false);
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.UnknownType));
-            Assert.That(result.Error.Hint, Does.Contain("[Beutl.ProjectSystem]:Element"));
-            Assert.That(result.Error.Hint, Does.Contain("Objects"));
-            Assert.That(result.Error.Hint, Does.Contain("insert-new-element-skeleton"));
-            Assert.That(result.Error.Hint, Does.Contain(nameof(Element.EnterTransition)));
+            Assert.That(described.IsSuccess, Is.True, described.Error?.Message);
+            string description = described.Value!.Types.Single().Description!;
+            Assert.That(description, Does.Contain("[Beutl.ProjectSystem]:Element"));
+            Assert.That(description, Does.Contain("Objects"));
+            Assert.That(description, Does.Contain("insert-new-element-skeleton"));
+            Assert.That(description, Does.Contain(nameof(Element.EnterTransition)));
+            Assert.That(misnamed.IsSuccess, Is.False);
+            Assert.That(misnamed.Error!.Code, Is.EqualTo(ErrorCode.UnknownType));
+            Assert.That(misnamed.Error.Hint, Does.Contain("get_schema(type: 'Element')"));
         });
     }
 
@@ -249,7 +338,7 @@ public sealed class ReadDocumentTests
             Assert.That(defaultSchema.Value!.Types, Is.Not.Empty);
             Assert.That(defaultSchema.Value.Examples, Is.Empty);
             Assert.That(schemaWithExamples.IsSuccess, Is.True, schemaWithExamples.Error?.Message);
-            Assert.That(schemaWithExamples.Value!.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-kinetic-ribbon-title"));
+            Assert.That(schemaWithExamples.Value!.Examples.Select(example => example.Name), Does.Contain("insert-new-animated-text-keyframes"));
         });
     }
 

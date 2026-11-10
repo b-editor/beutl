@@ -2,10 +2,15 @@
 using Beutl.Audio.Effects;
 using Beutl.Audio.Effects.Equalizer;
 using Beutl.Editor.Services;
+using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics3D;
+using Beutl.Graphics3D.Camera;
+using Beutl.Graphics3D.Materials;
 using Beutl.Media;
 using Beutl.NodeGraph;
+using Beutl.ProjectSystem;
 using Beutl.Services;
 
 namespace Beutl.AgentToolkit.Schema;
@@ -16,6 +21,7 @@ public static class TypeRegistration
 {
     private static readonly object s_lock = new();
     private static readonly List<(string Format, Type Type)> s_types = [];
+    private static readonly Dictionary<Type, string> s_descriptions = [];
     private static bool s_registered;
 
     internal static IReadOnlyList<(string Format, Type Type)> Types
@@ -26,6 +32,8 @@ public static class TypeRegistration
             return s_types;
         }
     }
+
+    internal static string? FindDescription(Type type) => s_descriptions.GetValueOrDefault(type);
 
     public static void EnsureRegistered()
     {
@@ -46,6 +54,7 @@ public static class TypeRegistration
             RegisterGeometries();
             RegisterEasings();
             RegisterEngineObjects();
+            RegisterElement();
 
             s_registered = true;
         }
@@ -139,6 +148,33 @@ public static class TypeRegistration
         Register<DisplacementMapScaleTransform>(KnownLibraryItemFormats.EngineObject);
         Register<DisplacementMapRotationTransform>(KnownLibraryItemFormats.EngineObject);
         Register<GraphModel>(KnownLibraryItemFormats.EngineObject);
+        Register<Group3D>(KnownLibraryItemFormats.EngineObject);
+        Register<PerspectiveCamera>(KnownLibraryItemFormats.EngineObject);
+        Register<OrthographicCamera>(KnownLibraryItemFormats.EngineObject);
+        Register<BasicMaterial>(KnownLibraryItemFormats.EngineObject);
+        Register<PBRMaterial>(KnownLibraryItemFormats.EngineObject);
+        Register<UnlitMaterial>(KnownLibraryItemFormats.EngineObject);
+        Register<TransparentMaterial>(KnownLibraryItemFormats.EngineObject);
+        Register<BarSpectrumShape>(KnownLibraryItemFormats.EngineObject);
+        Register<FilledAreaSpectrumShape>(KnownLibraryItemFormats.EngineObject);
+        Register<LineSpectrumShape>(KnownLibraryItemFormats.EngineObject);
+        Register<MirroredBarsSpectrumShape>(KnownLibraryItemFormats.EngineObject);
+        Register<RadialSpectrumShape>(KnownLibraryItemFormats.EngineObject);
+        Register<BlockWaveformShape>(KnownLibraryItemFormats.EngineObject);
+        Register<DotsWaveformShape>(KnownLibraryItemFormats.EngineObject);
+        Register<FilledEnvelopeWaveformShape>(KnownLibraryItemFormats.EngineObject);
+        Register<FilledMirrorWaveformShape>(KnownLibraryItemFormats.EngineObject);
+        Register<LineWaveformShape>(KnownLibraryItemFormats.EngineObject);
+        Register<MinMaxBarWaveformShape>(KnownLibraryItemFormats.EngineObject);
+        Register<RadialWaveformShape>(KnownLibraryItemFormats.EngineObject);
+    }
+
+    // Not an engine object, but documents write its timing and track matte fields directly.
+    private static void RegisterElement()
+    {
+        Register<Element>(typeof(Element).FullName!);
+        s_descriptions[typeof(Element)] =
+            "A timeline clip. Use '$type': '[Beutl.ProjectSystem]:Element' only for new entries in Elements; put concrete drawable/effect/brush/transform objects under Objects using discriminators returned by get_schema. EnterTransition and ExitTransition take a ClipTransition from get_schema(category=transition). For structure, call get_examples(name: 'insert-new-element-skeleton').";
     }
 
     private static void Register<T>(string format) => s_types.Add((format, typeof(T)));

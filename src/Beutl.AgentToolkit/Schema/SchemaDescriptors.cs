@@ -5,7 +5,11 @@ namespace Beutl.AgentToolkit.Schema;
 public sealed record CapabilitySchema(
     string SchemaVersion,
     IReadOnlyList<TypeDescriptor> Types,
-    IReadOnlyList<DeclarativeExample> Examples);
+    IReadOnlyList<DeclarativeExample> Examples)
+{
+    // Entries of a comma-separated type list that matched nothing. Null when every entry matched.
+    public IReadOnlyList<string>? UnmatchedTypes { get; init; }
+}
 
 public sealed record DeclarativeExample(string Name, string Description, JsonObject Patch);
 
@@ -56,7 +60,11 @@ public sealed record TypeDescriptor(
     string? DisplayName = null,
     string? Description = null);
 
-public sealed record FieldDescriptor(string Name, string ValueType, object? Default = null);
+public sealed record FieldDescriptor(
+    string Name,
+    string ValueType,
+    object? Default = null,
+    IReadOnlyList<string>? EnumValues = null);
 
 public sealed record PropertyDescriptor(
     string Name,
@@ -73,6 +81,9 @@ public sealed record PropertyDescriptor(
     string? UsageHint = null)
 {
     public string? Unit { get; init; }
+
+    // Set on a property declared as a base class: the short names of the registered types that fit it.
+    public IReadOnlyList<string>? ConcreteTypes { get; init; }
 }
 
 public sealed record DisplayDescriptor(string? Name, string? Description, string? GroupName);
