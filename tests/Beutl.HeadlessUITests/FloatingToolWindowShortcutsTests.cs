@@ -6,6 +6,7 @@ using Avalonia.VisualTree;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Language;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -32,6 +33,89 @@ public sealed class FloatingToolWindowShortcutsTests
         floated.Press(MainGesture("main.undo"));
         // Undo runs asynchronously.
         await HeadlessTestHelpers.WaitUntilAsync(() => scene.Markers.Count == 0, message: "The main window's key undoes it.");
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Activating_a_floating_window_selects_its_scene_for_editor_and_main_commands(bool useMenu)
+    {
+        await using Floated floated = await Floated.CreateAsync($"floating-scene-selection-{useMenu}");
+        EditViewModel other = OpenAnotherScene(floated);
+        other.ToggleMarkerAtCurrentTime();
+        floated.Window.Activate();
+        HeadlessTestHelpers.Render(2);
+        HeadlessCapture.SaveIfRequested(floated.Window, nameof(FloatingToolWindowShortcutsTests), "other-scene-selected");
+        var tool = (BeutlToolDockable)floated.Floating.GetVisualDescendants().OfType<ToolTabContent>().Single().DataContext!;
+        int otherTools = other.DockHost.Factory.EnumerateTools().Count();
+
+        floated.Floating.Activate();
+        floated.Inside.Focus();
+        HeadlessTestHelpers.Render(2);
+
+        Assert.That(TestShell.Editor.SelectedTabItem.Value!.Context.Value, Is.SameAs(floated.Editor));
+        Assert.That(floated.Floating.IsVisible, Is.True, "Selecting its scene preserves the floating window.");
+        floated.Press(EditorGesture("editor.toggleMarker"));
+        Assert.That(floated.Editor.Scene.Markers, Has.Count.EqualTo(1));
+        if (useMenu)
+        {
+            if (OperatingSystem.IsMacOS())
+            {
+                NativeMenuItem undo = NativeMenu.GetMenu(floated.Floating)!.Items.OfType<NativeMenuItem>()
+                    .Single(item => item.Header == Strings.Edit).Menu!.Items.OfType<NativeMenuItem>()
+                    .Single(item => item.Header == Strings.Undo);
+                undo.Command!.Execute(null);
+            }
+            else
+            {
+                await TestShell.MainViewModel.MenuBar.Undo.ExecuteAsync();
+            }
+        }
+        else
+        {
+            floated.Press(MainGesture("main.undo"));
+        }
+
+        await HeadlessTestHelpers.WaitUntilAsync(() => floated.Editor.Scene.Markers.Count == 0);
+        Assert.That(other.Scene.Markers, Has.Count.EqualTo(1), "The other scene's history is untouched.");
+        HeadlessCapture.SaveIfRequested(floated.Window, nameof(FloatingToolWindowShortcutsTests), "floating-scene-selected");
+
+        floated.Press(MainGesture(MainViewExtension.CloseTabCommandId));
+        Assert.Multiple(() =>
+        {
+            Assert.That(floated.Editor.DockHost.Factory.EnumerateTools(), Does.Not.Contain(tool));
+            Assert.That(other.DockHost.Factory.EnumerateTools().Count(), Is.EqualTo(otherTools));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Closing_an_unselected_scene_closes_its_floating_window_without_selecting_it()
+    {
+        await using Floated floated = await Floated.CreateAsync("floating-scene-close");
+        EditViewModel other = OpenAnotherScene(floated);
+        floated.Window.Activate();
+
+        await TestShell.Editor.CloseTabItem(floated.Editor.Scene);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(floated.Floating.IsVisible, Is.False);
+            Assert.That(TestShell.Editor.SelectedTabItem.Value!.Context.Value, Is.SameAs(other));
+            Assert.That(TestShell.Editor.TabItems, Has.Count.EqualTo(1));
+        });
+    }
+
+    private static EditViewModel OpenAnotherScene(Floated floated)
+    {
+        var scene = new Scene(640, 480, "Other scene")
+        {
+            Uri = new Uri(Path.Combine(TestShell.ProjectRoot(floated.Editor), "other.scene"))
+        };
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        TestShell.Editor.ActivateTabItem(scene);
+        HeadlessTestHelpers.Render(2);
+        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
     }
 
     // Exit stands for closing the main window, and Alt+F4 closes the window it is pressed in.
