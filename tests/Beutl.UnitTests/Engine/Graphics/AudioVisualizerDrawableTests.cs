@@ -6,6 +6,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.Source;
+using Beutl.UnitTests.Engine.Audio;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
@@ -54,6 +55,69 @@ public class AudioVisualizerDrawableTests
             using Bitmap first = GoldenImageHarness.RenderAtScale(resource, new PixelSize(320, 80), 1);
             using Bitmap second = GoldenImageHarness.RenderAtScale(resource, new PixelSize(320, 80), 1);
             Assert.That(second.GetPixelSpan<ushort>().ToArray(), Is.EqualTo(first.GetPixelSpan<ushort>().ToArray()));
+        });
+    }
+
+    private const int WindowTestRate = 44100;
+    private const int WindowTestFrames = WindowTestRate * 4;
+    // Far enough from both ends of the ramp for every window below.
+    private const int WindowTestFrame = WindowTestRate * 5 / 2;
+
+    // The FftSize samples that end at the current time.
+    [Test]
+    public void Spectrum_NewResource_ComposesTheWindowOfItsFftSize()
+    {
+        var drawable = CreateSpectrum();
+        drawable.FftSize.Value = 4096;
+        AssertNewResourceComposes(drawable, WindowTestFrame - 4096, 4096);
+    }
+
+    // WindowSeconds centered on the current time.
+    [Test]
+    public void Waveform_NewResource_ComposesTheWindowOfItsWindowSeconds()
+    {
+        var drawable = CreateWaveform();
+        drawable.WindowSeconds.Value = 1f;
+        AssertNewResourceComposes(drawable, WindowTestFrame - WindowTestRate / 2, WindowTestRate);
+    }
+
+    // WindowSeconds that end at the current time.
+    [Test]
+    public void Spectrogram_NewResource_ComposesTheWindowOfItsWindowSeconds()
+    {
+        var drawable = CreateSpectrogram();
+        drawable.WindowSeconds.Value = 1.5f;
+        AssertNewResourceComposes(drawable, WindowTestFrame - WindowTestRate * 3 / 2, WindowTestRate * 3 / 2);
+    }
+
+    // render_still builds a new resource for every frame, and the base used to compose the window before the derived
+    // resource had set the property that sizes it (#4203). A ramp gives every sample its own value, so the cache
+    // shows where the window starts as well as how long it is.
+    private static void AssertNewResourceComposes(AudioVisualizerDrawable drawable, int firstFrame, int frameCount)
+    {
+        static float Ramp(int i) => (float)i / WindowTestFrames;
+        AudioTestWaves.WithTemporaryWave(WindowTestRate, WindowTestFrames, i => (Ramp(i), Ramp(i)), source =>
+        {
+            drawable.Source.Value = new SourceSound
+            {
+                Source = { Value = source },
+                TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSamples(WindowTestFrames, WindowTestRate)) },
+            };
+            using var resource = (AudioVisualizerDrawable.Resource)drawable.ToResource(
+                new CompositionContext(MediaTime.FromSamples(WindowTestFrame, WindowTestRate)));
+
+            // CachedSampleSpan is protected, so read the array behind it.
+            float[] cache = (float[])typeof(AudioVisualizerDrawable.Resource)
+                .GetField("_cachedSamples", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .GetValue(resource)!;
+            float[] samples = cache[..resource.CachedSampleLength];
+            Assert.That(samples, Is.Not.Empty);
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(samples.Length, Is.EqualTo(frameCount).Within(1));
+                Assert.That(samples[0] * WindowTestFrames, Is.EqualTo(firstFrame).Within(1));
+                Assert.That(samples[^1] * WindowTestFrames, Is.EqualTo(firstFrame + frameCount - 1).Within(1));
+            }
         });
     }
 

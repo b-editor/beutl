@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using Beutl.Audio;
 using Beutl.Audio.Graph;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
@@ -56,10 +57,17 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
         private int[] _rowBinLo = [];
         private int[] _rowBinHi = [];
         private SKPaint? _paint;
+        private float _sampleWindowSeconds;
+
+        // The base composes the sample window before this class reconciles WindowSeconds.
+        partial void PreReconcile(AudioSpectrogramDrawable obj, CompositionContext context)
+        {
+            _sampleWindowSeconds = context.Get(obj.WindowSeconds);
+        }
 
         protected override (MediaTime Start, MediaTime Duration) ComputeSampleWindow(MediaTime currentTime)
         {
-            MediaTime window = MediaTime.FromSeconds(Math.Max(0.01, WindowSeconds));
+            MediaTime window = MediaTime.FromSeconds(Math.Max(0.01, _sampleWindowSeconds));
             return (currentTime - window, window);
         }
 
