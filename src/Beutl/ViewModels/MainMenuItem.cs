@@ -15,7 +15,8 @@ public enum StandardEditAction
     SelectAll
 }
 
-// An entry of the main menu. MainView shows the entries as a Menu and MacWindow as a NativeMenu.
+// An entry of the main menu. MainView shows the entries as a Menu, and MacWindow and the floating tool windows as a
+// NativeMenu.
 public sealed class MainMenuItem(string? header)
 {
     public static MainMenuItem Separator { get; } = new(null);

@@ -1,6 +1,6 @@
 ﻿using Beutl.Editor.Components.WebBrowserTab;
+using Beutl.Views.Dock;
 
-using Dock.Avalonia.Controls;
 using Dock.Model;
 using Dock.Model.Controls;
 using Dock.Model.Core;
@@ -184,7 +184,7 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
     {
         HostWindowLocator = new Dictionary<string, Func<IHostWindow?>>
         {
-            [nameof(IDockWindow)] = () => new HostWindow(),
+            [nameof(IDockWindow)] = () => new FloatingToolWindow(editViewModel),
         };
 
         base.InitLayout(layout);
