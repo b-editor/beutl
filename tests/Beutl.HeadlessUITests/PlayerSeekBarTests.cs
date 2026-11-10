@@ -186,7 +186,7 @@ public sealed class PlayerSeekBarTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(overTheMark, Is.EqualTo(new[] { MarkerName, s_markerTime.ToTimeSpan().ToString(@"hh\:mm\:ss\.ff") }));
+                Assert.That(overTheMark, Is.EqualTo(new[] { MarkerName, editor.Player.FormatTime(s_markerTime) }));
                 Assert.That(shown.Center.X, Is.EqualTo(mark.X).Within(1), "The tip stands over the mark.");
                 Assert.That(pastTheMark, Has.Length.EqualTo(1).And.No.Member(MarkerName));
             });

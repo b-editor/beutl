@@ -272,6 +272,7 @@ public partial class PlayerView
         ShowShortcutInToolTip(e.NameScope.Find<Control>("PART_EndButton"), "editor.seekEnd");
         ShowShortcutInToolTip(e.NameScope.Find<Control>("PART_LoopButton"), "editor.toggleLoop");
         ShowShortcutInToolTip(e.NameScope.Find<Control>("PART_CurrentTimeTextBlock"), "editor.gotoTimecode");
+        ConfigureTimeDisplayFormatMenu(e.NameScope.Find<Control>("PART_TimePanel"));
     }
 
     // Written as the tip opens, because a shortcut can change in the key map while the view lives.

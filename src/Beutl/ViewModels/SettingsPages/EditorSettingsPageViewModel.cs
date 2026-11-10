@@ -87,6 +87,16 @@ public sealed class EditorSettingsPageViewModel : IDisposable
                 .Select(v => (int)v),
             b => _editorConfig.TimelineAutoScrollMode.Value = (TimelineAutoScrollMode)b);
 
+        TimeDisplayFormat = CreateSetting(
+            _editorConfig.TimeDisplayFormat.GetObservable()
+                .Select(v => (int)v),
+            index =>
+            {
+                // The -1 of a transient no-selection is no format.
+                if (Enum.IsDefined((TimeDisplayFormat)index))
+                    _editorConfig.TimeDisplayFormat.Value = (TimeDisplayFormat)index;
+            });
+
         ToneMappingMode = CreateSetting(
             _editorConfig.ToneMappingMode.GetObservable()
                 .Select(EditorConfig.GetToneMappingModeIndex),
@@ -306,6 +316,8 @@ public sealed class EditorSettingsPageViewModel : IDisposable
     public ReactiveProperty<bool> ShowTimelineThumbnailsByDefault { get; }
 
     public ReactiveProperty<int> TimelineAutoScrollMode { get; }
+
+    public ReactiveProperty<int> TimeDisplayFormat { get; }
 
     public ReactiveProperty<int> ToneMappingMode { get; }
 

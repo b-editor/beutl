@@ -1017,7 +1017,7 @@
     <value>转到时间码</value>
   </data>
   <data name="GotoTimecode_Description" xml:space="preserve">
-    <value>编辑当前时间码以跳转。接受绝对 (00:01:23.45)、帧 (60f 或 #60)、相对 (+5s/-10f/+1m) 或标记名称 (@Intro)。</value>
+    <value>编辑当前时间码以跳转。接受绝对 (00:01:23.45)、时间码 (00:01:23:15)、帧 (60f 或 #60)、相对 (+5s/-10f/+1m) 或标记名称 (@Intro)。</value>
   </data>
   <data name="GotoTimecode_InputHint" xml:space="preserve">
     <value>00:01:23 / 60f / +5s / @marker</value>

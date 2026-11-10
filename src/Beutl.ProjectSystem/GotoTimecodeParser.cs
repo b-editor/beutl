@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using Beutl.Configuration;
 using Beutl.ProjectSystem;
 
 namespace Beutl;
@@ -22,10 +23,15 @@ public enum GotoTimecodeError
 /// <item><c>#&lt;int&gt;</c> or <c>&lt;int&gt;f</c> — absolute frame number.</item>
 /// <item><c>+&lt;num&gt;{s|m|f}</c> or <c>-&lt;num&gt;{s|m|f}</c> — relative seek in seconds, minutes, or frames.</item>
 /// <item><c>hh:mm:ss[.fff]</c> or <c>mm:ss[.fff]</c> — absolute time.</item>
+/// <item><c>hh:mm:ss:ff</c> or <c>hh:mm:ss;ff</c> — timecode, in drop-frame at 29.97 and 59.94 fps whichever separators
+/// it has, as <see cref="TimeDisplayFormatter"/> writes it.</item>
+/// <item><c>&lt;int&gt;</c> — absolute frame number, while times are shown as <see cref="TimeDisplayFormat.Frames"/>.</item>
 /// </list>
 /// </remarks>
 public static class GotoTimecodeParser
 {
+    private static readonly char[] s_timecodeSeparators = [':', ';'];
+
     private static readonly string[] s_absoluteFormats =
     [
         // d.hh:mm:ss[.f...] — needed for >=24h timelines, since hh wraps to 0-23.
@@ -61,12 +67,41 @@ public static class GotoTimecodeParser
     /// <param name="result">On success, the resolved time (clamped to <see cref="MediaTime.Zero"/>).</param>
     /// <param name="error">On failure, the reason for the failure.</param>
     /// <returns><see langword="true"/> if <paramref name="input"/> resolved successfully.</returns>
+    /// <remarks>Reads the input as times shown as <see cref="TimeDisplayFormat.Time"/>, where a bare number is invalid.</remarks>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="frameRate"/> is zero or negative.</exception>
     public static bool TryParse(
         string? input,
         Rational frameRate,
         MediaTime currentTime,
         IReadOnlyList<SceneMarker> markers,
+        out MediaTime result,
+        out GotoTimecodeError error)
+    {
+        return TryParse(input, frameRate, currentTime, markers, TimeDisplayFormat.Time, out result, out error);
+    }
+
+    /// <summary>
+    /// Resolves a goto-timecode expression, typed where times are shown in <paramref name="format"/>, to a non-negative
+    /// <see cref="MediaTime"/> relative to the timeline origin.
+    /// </summary>
+    /// <param name="input">The user-entered expression (see class remarks for accepted forms).</param>
+    /// <param name="frameRate">Frame rate used for frame-based, timecode and relative-frame inputs; must be positive.</param>
+    /// <param name="currentTime">Current playhead time used as the base for relative expressions.</param>
+    /// <param name="markers">Markers searched for <c>@</c>-prefixed inputs.</param>
+    /// <param name="format">
+    /// How the editor shows times, so that a time can be typed as it is shown: a bare number is a frame number under
+    /// <see cref="TimeDisplayFormat.Frames"/>, and invalid under the others.
+    /// </param>
+    /// <param name="result">On success, the resolved time (clamped to <see cref="MediaTime.Zero"/>).</param>
+    /// <param name="error">On failure, the reason for the failure.</param>
+    /// <returns><see langword="true"/> if <paramref name="input"/> resolved successfully.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="frameRate"/> is zero or negative.</exception>
+    public static bool TryParse(
+        string? input,
+        Rational frameRate,
+        MediaTime currentTime,
+        IReadOnlyList<SceneMarker> markers,
+        TimeDisplayFormat format,
         out MediaTime result,
         out GotoTimecodeError error)
     {
@@ -104,7 +139,55 @@ public static class GotoTimecodeParser
             return true;
         }
 
+        if (format == TimeDisplayFormat.Frames && text.All(char.IsAsciiDigit))
+        {
+            return TryParseFrame(text, frameRate, out result, out error);
+        }
+
+        if (IsTimecode(text))
+        {
+            return TryParseTimecode(text, frameRate, out result, out error);
+        }
+
         return TryParseAbsolute(text, out result, out error);
+    }
+
+    // Four fields of digits that colons or semicolons part, which no time has.
+    private static bool IsTimecode(string text)
+    {
+        string[] fields = text.Split(s_timecodeSeparators);
+        return fields.Length == 4 && fields.All(field => field.Length > 0 && field.All(char.IsAsciiDigit));
+    }
+
+    private static bool TryParseTimecode(string text, Rational frameRate, out MediaTime result, out GotoTimecodeError error)
+    {
+        result = MediaTime.Zero;
+        string[] fields = text.Split(s_timecodeSeparators);
+        var values = new ulong[fields.Length];
+        for (int i = 0; i < fields.Length; i++)
+        {
+            // Digits past the range of a ulong.
+            if (!ulong.TryParse(fields[i], NumberStyles.None, CultureInfo.InvariantCulture, out values[i]))
+            {
+                error = GotoTimecodeError.OutOfRange;
+                return false;
+            }
+        }
+
+        if (!TimecodeCounting.For(frameRate).TryGetFrame(values[0], values[1], values[2], values[3], out long frame, out error))
+            return false;
+
+        try
+        {
+            result = MediaTime.FromFrames(frame, frameRate);
+        }
+        catch (OverflowException)
+        {
+            error = GotoTimecodeError.OutOfRange;
+            return false;
+        }
+
+        return true;
     }
 
     private static bool TryParseAbsolute(string text, out MediaTime result, out GotoTimecodeError error)

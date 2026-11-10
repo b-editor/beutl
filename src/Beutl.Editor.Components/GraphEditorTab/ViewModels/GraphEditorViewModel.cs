@@ -7,6 +7,7 @@ using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
@@ -99,6 +100,8 @@ public sealed partial class GraphEditorViewModel : IDisposable
         (StartingBarMargin, EndingBarMargin, PanelWidth) = TimelineHelper.CreateSceneBarMargins(
             Scene, _editorClock, timelineOptions.Scale, _disposables);
 
+        TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(_disposables);
+
         Factory = GraphEditorViewViewModelFactory.GetFactory(this);
         Views = GraphEditorViewViewModelFactory.CreateViews(this, Factory);
         foreach (GraphEditorViewViewModel item in Views)
@@ -160,6 +163,11 @@ public sealed partial class GraphEditorViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<Thickness> StartingBarMargin { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
+
+    // The rate and the format that the ruler writes times in, which are the player's.
+    public Rational FrameRate => SceneTimeRangeService.GetFrameRate(Scene);
+
+    public ReadOnlyReactivePropertySlim<TimeDisplayFormat> TimeDisplayFormat { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> ElementMargin { get; }
 

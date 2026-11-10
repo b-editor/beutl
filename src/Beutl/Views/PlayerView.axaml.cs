@@ -308,7 +308,7 @@ public partial class PlayerView : UserControl
 
             if (vm.Scene is { } scene)
             {
-                WirePlayerMarkers(scene).DisposeWith(_disposables);
+                WirePlayerMarkers(vm, scene).DisposeWith(_disposables);
                 scene.FrameSize.GetObservable()
                     .ObserveOnUIDispatcher()
                     .Subscribe(_ => UpdateViewportScale())
@@ -577,7 +577,7 @@ public partial class PlayerView : UserControl
         });
     }
 
-    private IDisposable WirePlayerMarkers(Scene scene)
+    private IDisposable WirePlayerMarkers(PlayerViewModel viewModel, Scene scene)
     {
         var disposables = new CompositeDisposable();
         var markerSubscriptions = new Dictionary<SceneMarker, IDisposable>();
@@ -590,6 +590,7 @@ public partial class PlayerView : UserControl
                 SceneMarker m = scene.Markers[i];
                 snapshot[i] = new PlayerMarkerEntry(
                     m.Name.Value ?? string.Empty,
+                    viewModel.FormatTime(m.Time.Value),
                     m.Time.Value,
                     m.Color.Value.ToAvaColor());
             }
@@ -656,6 +657,13 @@ public partial class PlayerView : UserControl
             }
             markerSubscriptions.Clear();
         }));
+
+        // The list writes the markers' times as the player writes the current time.
+        viewModel.FrameRate
+            .CombineLatest(viewModel.TimeDisplayFormat)
+            .Skip(1)
+            .Subscribe(_ => Refresh())
+            .DisposeWith(disposables);
 
         Refresh();
         return disposables;
