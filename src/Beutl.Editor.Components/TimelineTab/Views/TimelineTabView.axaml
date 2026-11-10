@@ -241,6 +241,8 @@
                                                                                   ExtensionType={x:Type p:TimelineTabExtension}}"
                                                  Text="{x:Static lang:Strings.GoToPreviousGap}" />
                         </ui:FAMenuFlyoutSubItem>
+                        <ui:FAMenuFlyoutSubItem x:Name="BulkSelectionMenu" Text="{x:Static lang:Strings.BulkSelection}" />
+                        <ui:FAMenuFlyoutSeparator />
                         <ui:FAToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsStrings.AutoAdjustSceneDuration}" />
                         <ui:FAToggleMenuFlyoutItem IsChecked="{Binding IsSnapEnabled.Value, Mode=TwoWay}" Text="{x:Static lang:Strings.TimelineSnap}" />
                         <ui:FAMenuFlyoutSeparator />
