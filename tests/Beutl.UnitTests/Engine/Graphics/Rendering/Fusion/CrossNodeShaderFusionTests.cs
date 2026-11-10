@@ -264,6 +264,41 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
+    public void ChangingOneRenderersDestinationKeepsAnotherRenderersProgramsWarm()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget gpu = RenderTarget.Create(24, 16)!;
+            using var gpuCanvas = new ImmediateCanvas(gpu, RenderIntent.Delivery);
+            using var cpu = new CpuRenderTarget(24, 16);
+            using var cpuCanvas = new ImmediateCanvas(cpu, RenderIntent.Delivery);
+            using var source = new CpuRenderTarget(12, 8);
+            source.Value.Canvas.Clear(new SKColor(48, 112, 216, 176));
+            using var node = new PrimaryChainNode(source, s_bounds);
+            var request = new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Delivery,
+                TargetDomain = new Rect(0, 0, 24, 16),
+                CacheOptions = RenderCacheOptions.Disabled,
+                FusionMode = FusionMode.Enabled
+            };
+            using var peer = new RenderNodeRenderer(node, request);
+            using var empty = new ContainerRenderNode();
+            using var changing = new RenderNodeRenderer(empty, request);
+            peer.Render(gpuCanvas);
+            changing.Render(gpuCanvas);
+            changing.Render(cpuCanvas);
+            long misses = peer.ProgramCacheStatistics.Misses;
+
+            peer.Render(gpuCanvas);
+
+            Assert.That(peer.ProgramCacheStatistics.Misses, Is.EqualTo(misses));
+            Assert.That(peer.LastExecutionStatistics.ProgramCacheHits, Is.GreaterThan(0));
+        });
+    }
+
+    [Test]
     public void PublishedIntermediateFanOut_IsAnExplicitDeterministicBoundary()
     {
         using CompiledRenderRequest compiled = CompilePrimaryChain(

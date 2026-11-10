@@ -70,12 +70,16 @@ internal sealed class RenderProgramCaches(
             family.ShaderGraphImages?.Clear();
         }, "One or more program caches failed to release what they retain.");
 
-    /// <summary>Invalidates every program compiled for one device context, and the images allocated on it.</summary>
+    /// <summary>Releases this family's state when its renderer changes context.</summary>
     public void EvictContext(object deviceIdentity, object contextIdentity)
     {
-        Sksl.EvictContext(deviceIdentity, contextIdentity);
-        ShaderGraph.EvictContext(deviceIdentity, contextIdentity);
-        Spirv.EvictContext(deviceIdentity, contextIdentity);
+        // A shared program may still be in use by another renderer on the previous, live context.
+        if (_ownsPrograms)
+        {
+            Sksl.EvictContext(deviceIdentity, contextIdentity);
+            ShaderGraph.EvictContext(deviceIdentity, contextIdentity);
+            Spirv.EvictContext(deviceIdentity, contextIdentity);
+        }
         // The pool matches images by context instance, not by these identities, so it drops them all.
         ShaderGraphImages?.Clear();
     }

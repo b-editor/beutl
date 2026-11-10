@@ -20,7 +20,7 @@ public sealed class RadialBlurBackendTests
 {
     [TestCase(RadialBlurMode.Zoom)]
     [TestCase(RadialBlurMode.Spin)]
-    public void ShaderCache_RecreatesForReplacementContextAndReusesWithinContext(RadialBlurMode mode)
+    public void ShaderCache_SeparatesContextsAndReusesAStillLiveContext(RadialBlurMode mode)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -48,7 +48,7 @@ public sealed class RadialBlurBackendTests
                 Assert.That(renderer.ProgramCacheStatistics.Misses, Is.EqualTo(misses));
             }
             Assert.That(Render(), Is.EqualTo(expected));
-            Assert.That(renderer.ProgramCacheStatistics.Misses, Is.GreaterThan(misses));
+            Assert.That(renderer.ProgramCacheStatistics.Misses, Is.EqualTo(misses));
 
             ushort[] Render()
             {
