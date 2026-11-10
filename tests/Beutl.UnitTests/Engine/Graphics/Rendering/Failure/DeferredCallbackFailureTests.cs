@@ -83,7 +83,7 @@ public sealed class DeferredCallbackFailureTests
         using var renderer = FailureTestSupport.CreateRenderer(
             node, factory, useRenderCache: false, intent: RenderIntent.Delivery);
 
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
+        InvalidOperationException? failure = Assert.Throws<RenderTargetAllocationException>(() => renderer.Rasterize());
 
         Assert.Multiple(() =>
         {

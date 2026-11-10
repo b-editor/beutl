@@ -147,7 +147,7 @@ public sealed class ShaderAndAllocationFailureTests
         var factory = new FailureTestTargetFactory(failAt: 1);
         var renderer = FailureTestSupport.CreateRenderer(node, factory, intent: RenderIntent.Delivery);
 
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+        InvalidOperationException? failure = Assert.Throws<RenderTargetAllocationException>(
             () => renderer.Rasterize());
 
         Assert.Multiple(() =>
