@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Engine;
@@ -56,114 +57,171 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
         private float[] _fftReal = [];
         private float[] _fftImag = [];
         private float[] _fftMagnitudes = [];
-        private float[] _smoothedMagnitudes = [];
         private float[] _normalizedBars = [];
         private int? _renderedSpectrumVersion;
         private int _renderedBarCount;
         private int _sampleWindowFftSize;
+        private float _sampleWindowSmoothing;
+        private float _sampleWindowFloorDb;
+        private long _sampleEnd;
+        private long _firstHistoryFrame;
+        private long _lastHistoryFrame;
+        private long[] _historyFrames = [];
+        private float[] _historySamples = [];
+        private float[] _historyBars = [];
+        private (int FftSize, int BarCount, int SampleRate, FrequencyScale Scale, float Gain, float FloorDb) _historySettings;
 
         // The base composes the sample window before this class reconciles FftSize.
         partial void PreReconcile(AudioSpectrumDrawable obj, CompositionContext context)
         {
             _sampleWindowFftSize = context.Get(obj.FftSize);
+            _sampleWindowSmoothing = context.Get(obj.Smoothing);
+            _sampleWindowFloorDb = context.Get(obj.FloorDb);
         }
 
         protected override (MediaTime Start, MediaTime Duration) ComputeSampleWindow(MediaTime currentTime)
         {
             int effectiveFftSize = Fft.ClampToPowerOfTwo(_sampleWindowFftSize);
-            MediaTime duration = MediaTime.FromSeconds((double)effectiveFftSize / ComposerSampleRate);
-            return (currentTime - duration, duration);
+            int rate = ComposerSampleRate;
+            int hop = effectiveFftSize / 2;
+            _sampleEnd = currentTime.ToSamples(rate, MidpointRounding.AwayFromZero);
+            long history = (long)Math.Ceiling(ReleaseSeconds(_sampleWindowSmoothing, _sampleWindowFloorDb) * rate);
+            // The composer clips the source to this range; before its start every analysis window is silent.
+            long sourceStart = Source!.RequireOriginal().Start.ToSamples(rate, MidpointRounding.ToNegativeInfinity);
+            long firstSample = Math.Max(_sampleEnd - history, sourceStart);
+            _firstHistoryFrame = (long)Math.Ceiling((double)firstSample / hop);
+            _lastHistoryFrame = (long)Math.Floor((double)_sampleEnd / hop);
+            long start = Math.Min(_sampleEnd, _firstHistoryFrame * hop) - effectiveFftSize;
+            return (MediaTime.FromSamples(start, rate), MediaTime.FromSamples(_sampleEnd - start, rate));
         }
 
         protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)
         {
             if (CachedSampleLength == 0 || Fill is null || CachedSampleRate <= 0) return;
+            Shape?.Render(new SpectrumRenderContext(canvas, bounds, GetNormalizedBars(), Fill));
+        }
 
-            SpectrumShape.Resource? shapeResource = Shape;
-            if (shapeResource is null) return;
+        internal ReadOnlySpan<float> GetNormalizedBars()
+        {
+            if (CachedSampleLength == 0 || CachedSampleRate <= 0) return [];
             if (_renderedSpectrumVersion == Version)
-            {
-                shapeResource.Render(new SpectrumRenderContext(canvas, bounds,
-                    _normalizedBars.AsSpan(0, _renderedBarCount), Fill));
-                return;
-            }
+                return _normalizedBars.AsSpan(0, _renderedBarCount);
 
             int fftSize = Fft.ClampToPowerOfTwo(FftSize);
-            if (fftSize < 2) return;
-
-            int bins = fftSize / 2;
-            Span<float> mags = ComputeMagnitudes(fftSize, bins);
-
-            float reference = fftSize * 0.5f;
-            float gain = Math.Max(0f, Gain);
-            // FloorDb は Range(-200, 0) だが、0 に設定されると (0 - floorDb) が 0 除算になるため -0.001 以下にクランプする
-            float floorDb = MathF.Min(FloorDb, -0.001f);
-
-            int barCount = Math.Min(Math.Max(1, BarCount), bins);
-            FrequencyScale freqScale = FrequencyScale;
-
-            if (_smoothedMagnitudes.Length < barCount)
-            {
-                _smoothedMagnitudes = new float[barCount];
-            }
+            int barCount = Math.Clamp(BarCount, 1, fftSize / 2);
             if (_normalizedBars.Length < barCount)
-            {
                 _normalizedBars = new float[barCount];
-            }
-            Span<float> smoothed = _smoothedMagnitudes.AsSpan(0, barCount);
             Span<float> normalized = _normalizedBars.AsSpan(0, barCount);
-            float smoothing = Math.Clamp(Smoothing / 100f, 0f, 0.99f);
+            CalculateBars(PrepareWindow(fftSize, _sampleEnd), normalized);
 
-            FrequencyAxis axis = FrequencyAxis.Create(freqScale, CachedSampleRate, bins);
-
-            for (int i = 0; i < barCount; i++)
+            double releaseSeconds = ReleaseSeconds(Smoothing, FloorDb);
+            if (releaseSeconds > 0 && _firstHistoryFrame <= _lastHistoryFrame)
             {
-                ResolveBarBins(i, barCount, bins, freqScale, in axis, out int binLow, out int binHigh);
-
-                // バンド内は RMS で集計するとピーク値より滑らかに変化する
-                float rawMag = BandRms(mags, binLow, binHigh);
-
-                // 高速アタック + 緩やかリリース (ピークメーター方式)
-                float prev = smoothed[i];
-                float smoothedMag = rawMag > prev
-                    ? rawMag
-                    : prev * smoothing + rawMag * (1f - smoothing);
-                smoothed[i] = smoothedMag;
-
-                float db = Fft.MagnitudeToDb(smoothedMag * gain, reference);
-                float n = (db - floorDb) / (0f - floorDb);
-                normalized[i] = Math.Clamp(n, 0f, 1f);
+                PrepareHistory(fftSize, barCount, releaseSeconds);
+                int hop = fftSize / 2;
+                for (long frame = _firstHistoryFrame; frame <= _lastHistoryFrame; frame++)
+                {
+                    long end = frame * hop;
+                    ReadOnlySpan<float> bars = GetHistoryBars(frame, end, fftSize, barCount);
+                    float release = (float)((_sampleEnd - end) / (CachedSampleRate * releaseSeconds));
+                    for (int i = 0; i < barCount; i++)
+                        normalized[i] = Math.Max(normalized[i], bars[i] - release);
+                }
             }
 
             _renderedBarCount = barCount;
             _renderedSpectrumVersion = Version;
-            shapeResource.Render(new SpectrumRenderContext(canvas, bounds, normalized, Fill));
+            return normalized;
         }
 
-        /// <summary>Runs a Hann-windowed FFT over the newest samples and returns the bin magnitudes.</summary>
-        private Span<float> ComputeMagnitudes(int fftSize, int bins)
+        // Keep the release speed of the old 30 fps peak hold, expressed in seconds. A full-height bar reaches
+        // the display floor in this time, so older audio cannot affect it. No previously rendered frame is input.
+        private static double ReleaseSeconds(float smoothing, float floorDb)
+        {
+            double factor = Math.Clamp(smoothing / 100.0, 0, 0.99);
+            return factor <= 0 ? 0 : Math.Min(floorDb, -0.001f) / (20 * Math.Log10(factor) * 30);
+        }
+
+        private void PrepareHistory(int fftSize, int barCount, double releaseSeconds)
+        {
+            var settings = (fftSize, barCount, CachedSampleRate, FrequencyScale, Gain, FloorDb);
+            // Reserve the whole release window at once, including while playback is still near the source start.
+            int frames = (int)Math.Ceiling(releaseSeconds * CachedSampleRate / (fftSize / 2)) + 2;
+            if (settings != _historySettings || _historyFrames.Length < frames)
+            {
+                _historySettings = settings;
+                _historyFrames = new long[frames];
+                Array.Fill(_historyFrames, long.MinValue);
+                _historySamples = new float[frames * fftSize];
+                _historyBars = new float[frames * barCount];
+            }
+        }
+
+        private ReadOnlySpan<float> GetHistoryBars(long frame, long end, int fftSize, int barCount)
+        {
+            int slot = (int)(frame % _historyFrames.Length);
+            if (slot < 0) slot += _historyFrames.Length;
+            Span<float> samples = PrepareWindow(fftSize, end);
+            Span<float> previous = _historySamples.AsSpan(slot * fftSize, fftSize);
+            Span<float> bars = _historyBars.AsSpan(slot * barCount, barCount);
+            // Compare the actual audio as well as its position: source gains, effects and expressions can change
+            // the samples without changing the FFT settings. Unchanged overlapping windows reuse their FFT.
+            if (_historyFrames[slot] != frame || !samples.SequenceEqual(previous))
+            {
+                samples.CopyTo(previous);
+                CalculateBars(samples, bars);
+                _historyFrames[slot] = frame;
+            }
+            return bars;
+        }
+
+        private Span<float> PrepareWindow(int fftSize, long end)
         {
             if (_fftReal.Length < fftSize) _fftReal = new float[fftSize];
             if (_fftImag.Length < fftSize) _fftImag = new float[fftSize];
-            if (_fftMagnitudes.Length < bins) _fftMagnitudes = new float[bins];
+            if (_fftMagnitudes.Length < fftSize / 2) _fftMagnitudes = new float[fftSize / 2];
             Span<float> real = _fftReal.AsSpan(0, fftSize);
+            long start = CachedStart.ToSamples(CachedSampleRate, MidpointRounding.AwayFromZero);
+            SoundSamplingHelper.ExtractWindow(CachedSampleSpan, (int)(end - start) - fftSize / 2, real);
+            return real;
+        }
+
+        private void CalculateBars(Span<float> real, Span<float> bars)
+        {
+            // Silent windows need no transform, and must stay at the baseline even below -160 dB.
+            bool hasSignal = false;
+            foreach (float sample in real)
+            {
+                if (sample == 0) continue;
+                hasSignal = true;
+                break;
+            }
+            if (!hasSignal)
+            {
+                bars.Clear();
+                return;
+            }
+
+            int fftSize = real.Length;
+            int bins = fftSize / 2;
             Span<float> imag = _fftImag.AsSpan(0, fftSize);
             Span<float> mags = _fftMagnitudes.AsSpan(0, bins);
-
-            real.Clear();
             imag.Clear();
-
-            ReadOnlySpan<float> samples = CachedSampleSpan;
-            int sampleCount = samples.Length;
-            int copy = Math.Min(sampleCount, fftSize);
-            int srcStart = Math.Max(0, sampleCount - copy);
-            int dstStart = fftSize - copy;
-            samples.Slice(srcStart, copy).CopyTo(real.Slice(dstStart, copy));
-
             Fft.ApplyHann(real);
             Fft.Forward(real, imag);
             Fft.Magnitudes(real, imag, mags);
-            return mags;
+
+            float reference = fftSize * 0.5f;
+            float gain = Math.Max(0f, Gain);
+            float floorDb = MathF.Min(FloorDb, -0.001f);
+            FrequencyScale scale = FrequencyScale;
+            FrequencyAxis axis = FrequencyAxis.Create(scale, CachedSampleRate, bins);
+            for (int i = 0; i < bars.Length; i++)
+            {
+                ResolveBarBins(i, bars.Length, bins, scale, in axis, out int binLow, out int binHigh);
+                float db = Fft.MagnitudeToDb(BandRms(mags, binLow, binHigh) * gain, reference);
+                bars[i] = Math.Clamp((db - floorDb) / -floorDb, 0, 1);
+            }
         }
 
         /// <summary>Resolves the bin range <c>[binLow, binHigh)</c> bar <paramref name="i"/> covers on the chosen scale.</summary>

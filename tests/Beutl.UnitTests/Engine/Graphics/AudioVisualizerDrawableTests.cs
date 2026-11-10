@@ -43,19 +43,143 @@ public class AudioVisualizerDrawableTests
     public void Spectrum_ReplayingOneResourceDoesNotAdvancePeakRelease()
     {
         VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        VulkanTestEnvironment.InvokeOnRenderThread(() => WithBurstSpectrum(drawable =>
         {
-            var drawable = CreateSpectrum();
-            AttachSyntheticSource(drawable);
-            using var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(new CompositionContext(MediaTime.FromSeconds(0.5)));
-            Assert.That(resource.CachedSampleLength, Is.GreaterThan(0));
-            typeof(AudioSpectrumDrawable.Resource).GetField("_smoothedMagnitudes",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-                .SetValue(resource, Enumerable.Repeat(100f, 2048).ToArray());
+            using var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(new CompositionContext(MediaTime.FromSeconds(1.2)));
+            Assert.That(resource.GetNormalizedBars().ToArray().Max(), Is.GreaterThan(0));
             using Bitmap first = GoldenImageHarness.RenderAtScale(resource, new PixelSize(320, 80), 1);
             using Bitmap second = GoldenImageHarness.RenderAtScale(resource, new PixelSize(320, 80), 1);
             Assert.That(second.GetPixelSpan<ushort>().ToArray(), Is.EqualTo(first.GetPixelSpan<ushort>().ToArray()));
+        }));
+    }
+
+    [Test]
+    public void Spectrum_ReleaseComesFromPastAudioAndEndsAtTheDisplayFloor()
+    {
+        WithBurstSpectrum(drawable =>
+        {
+            using var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(new CompositionContext(MediaTime.FromSeconds(1.2)));
+            Assert.That(resource.GetNormalizedBars().ToArray().Max(), Is.GreaterThan(0.1f), "A fresh resource shows the beat's release.");
+
+            bool changed = false;
+            resource.Reconcile(drawable, new CompositionContext(MediaTime.FromSeconds(3.2)), ref changed);
+            Assert.That(resource.GetNormalizedBars().ToArray(), Is.All.Zero, "The release ends instead of retaining a rendered peak.");
+
+            drawable.Smoothing.Value = 0;
+            resource.Reconcile(drawable, new CompositionContext(MediaTime.FromSeconds(1.2)), ref changed);
+            Assert.That(resource.GetNormalizedBars().ToArray(), Is.All.Zero, "Smoothing zero draws only the current FFT window.");
         });
+    }
+
+    [TestCase(64, 7, FrequencyScale.Linear)]
+    [TestCase(4096, 200, FrequencyScale.Mel)]
+    public void Spectrum_AnEditRecomputesTheSameHistoryAsAFreshResource(int fftSize, int bars, FrequencyScale scale)
+    {
+        WithBurstSpectrum(drawable =>
+        {
+            var context = new CompositionContext(MediaTime.FromSeconds(1.2));
+            using var edited = (AudioSpectrumDrawable.Resource)drawable.ToResource(context);
+            _ = edited.GetNormalizedBars();
+
+            drawable.FftSize.Value = fftSize;
+            drawable.BarCount.Value = bars;
+            drawable.FrequencyScale.Value = scale;
+            drawable.Gain.Value = 2;
+            drawable.FloorDb.Value = -60;
+            drawable.Smoothing.Value = 95;
+            bool changed = false;
+            edited.Reconcile(drawable, context, ref changed);
+            using var fresh = (AudioSpectrumDrawable.Resource)drawable.ToResource(context);
+            Assert.That(edited.GetNormalizedBars().ToArray(), Is.EqualTo(fresh.GetNormalizedBars().ToArray()));
+        });
+    }
+
+    [Test]
+    public void Spectrum_CachedWindowsFollowEditsToTheAudioSamples()
+    {
+        WithBurstSpectrum(drawable =>
+        {
+            using var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(new CompositionContext(MediaTime.FromSeconds(1.2)));
+            Assert.That(resource.GetNormalizedBars().ToArray().Max(), Is.GreaterThan(0));
+
+            drawable.Source.Value!.Gain.Value = 0;
+            var context = new CompositionContext(MediaTime.FromSeconds(1.3));
+            bool changed = false;
+            resource.Reconcile(drawable, context, ref changed);
+            using var fresh = (AudioSpectrumDrawable.Resource)drawable.ToResource(context);
+            Assert.Multiple(() =>
+            {
+                Assert.That(resource.GetNormalizedBars().ToArray(), Is.All.Zero);
+                Assert.That(resource.GetNormalizedBars().ToArray(), Is.EqualTo(fresh.GetNormalizedBars().ToArray()));
+            });
+        });
+    }
+
+    [TestCase(30)]
+    [TestCase(60)]
+    public void Spectrum_ReleaseDoesNotDependOnRenderOrderOrFrameRate(int frameRate)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() => WithBurstSpectrum(drawable =>
+        {
+            MediaTime target = MediaTime.FromSeconds(1.2);
+            using var direct = (AudioSpectrumDrawable.Resource)drawable.ToResource(new CompositionContext(target));
+            using Bitmap still = GoldenImageHarness.RenderAtScale(direct, new PixelSize(320, 80), 1);
+            SaveSpectrumCapture(still, $"direct-{frameRate}");
+
+            using var sequence = (AudioSpectrumDrawable.Resource)drawable.ToResource(CompositionContext.Default);
+            for (int frame = 0; frame < frameRate * 6 / 5; frame++)
+            {
+                bool changed = false;
+                sequence.Reconcile(drawable, new CompositionContext(MediaTime.FromFrames(frame, new Rational(frameRate))), ref changed);
+                using Bitmap rendered = GoldenImageHarness.RenderAtScale(sequence, new PixelSize(320, 80), 1);
+            }
+
+            bool versionBumped = false;
+            sequence.Reconcile(drawable, new CompositionContext(target), ref versionBumped);
+            using Bitmap last = GoldenImageHarness.RenderAtScale(sequence, new PixelSize(320, 80), 1);
+            SaveSpectrumCapture(last, $"sequence-{frameRate}");
+            GoldenImageHarness.AssertByteIdentical(still, last);
+
+            // A backwards seek must not retain the later beat's release either.
+            var beforeBeat = new CompositionContext(MediaTime.FromSeconds(0.4));
+            sequence.Reconcile(drawable, beforeBeat, ref versionBumped);
+            using Bitmap sought = GoldenImageHarness.RenderAtScale(sequence, new PixelSize(320, 80), 1);
+            using var fresh = (AudioSpectrumDrawable.Resource)drawable.ToResource(beforeBeat);
+            using Bitmap reference = GoldenImageHarness.RenderAtScale(fresh, new PixelSize(320, 80), 1);
+            GoldenImageHarness.AssertByteIdentical(reference, sought);
+        }));
+    }
+
+    private static void WithBurstSpectrum(Action<AudioSpectrumDrawable> body)
+    {
+        const int rate = 44100;
+        AudioTestWaves.WithTemporaryWave(rate, rate * 2, i =>
+        {
+            float sample = i >= rate * 4 / 5 && i < rate
+                ? 0.5f * MathF.Sin(2 * MathF.PI * 440 * i / rate)
+                : 0f;
+            return (sample, sample);
+        }, source =>
+        {
+            AudioSpectrumDrawable drawable = CreateSpectrum();
+            drawable.Source.Value = new SourceSound
+            {
+                Source = { Value = source },
+                TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(2)) }
+            };
+            body(drawable);
+        });
+    }
+
+    private static void SaveSpectrumCapture(Bitmap bitmap, string name)
+    {
+        if (Environment.GetEnvironmentVariable("BEUTL_HEADLESS_CAPTURE_DIR") is not { Length: > 0 } root)
+            return;
+
+        string directory = Path.Combine(root, nameof(AudioVisualizerDrawableTests));
+        Directory.CreateDirectory(directory);
+        bitmap.Save(Path.Combine(directory, name + ".png"));
     }
 
     private const int WindowTestRate = 44100;
@@ -68,6 +192,7 @@ public class AudioVisualizerDrawableTests
     public void Spectrum_NewResource_ComposesTheWindowOfItsFftSize()
     {
         var drawable = CreateSpectrum();
+        drawable.Smoothing.Value = 0;
         drawable.FftSize.Value = 4096;
         AssertComposedWindow(drawable, WindowTestFrame - 4096, 4096);
     }
@@ -95,6 +220,7 @@ public class AudioVisualizerDrawableTests
     public void Spectrum_EditedFftSize_ComposesTheNewWindowOnTheNextReconcile()
     {
         var drawable = CreateSpectrum();
+        drawable.Smoothing.Value = 0;
         drawable.FftSize.Value = 4096;
         AssertComposedWindow(drawable, WindowTestFrame - 2048, 2048, edit: () => drawable.FftSize.Value = 2048);
     }
