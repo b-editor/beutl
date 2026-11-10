@@ -34,7 +34,7 @@ public partial class MainView
             dialog.DataContext = new CreateNewProjectViewModel(
                 viewModel.ProjectService,
                 viewModel.VersionControlCoordinator);
-            await dialog.ShowAsync();
+            await ShowMainDialogAsync(dialog);
         }).AddTo(_disposables);
 
         viewModel.MenuBar.OpenProject.Subscribe(OnOpenProject).AddTo(_disposables);
@@ -50,7 +50,7 @@ public partial class MainView
         {
             var dialog = new CreateNewScene();
             dialog.DataContext = new CreateNewSceneViewModel(viewModel.ProjectService, viewModel.EditorService);
-            await dialog.ShowAsync();
+            await ShowMainDialogAsync(dialog);
         }).AddTo(_disposables);
 
         viewModel.MenuBar.Exit.Subscribe(() =>
@@ -185,7 +185,7 @@ public partial class MainView
                 Content = MessageStrings.ConfirmExcludeItem + "\n" + filePath
             };
 
-            if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
+            if (await ShowMainDialogAsync(dialog) == FAContentDialogResult.Primary)
             {
                 try
                 {

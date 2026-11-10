@@ -180,7 +180,7 @@ public sealed partial class MainView : UserControl
         }
     }
 
-    private static async Task CheckDifferentVersion()
+    private async Task CheckDifferentVersion()
     {
         if (NuGetVersion.TryParse(GlobalConfiguration.Instance.LastStartedVersion, out var lastStartedVersion) &&
             NuGetVersion.TryParse(BeutlApplication.Version, out var currentVersion))
@@ -195,7 +195,7 @@ public sealed partial class MainView : UserControl
                         Content = MessageStrings.CheckDifferentVersion_Content,
                         PrimaryButtonText = Strings.Close
                     };
-                    await dialog.ShowAsync();
+                    await ShowMainDialogAsync(dialog);
                 }
             }
         }
@@ -255,7 +255,16 @@ public sealed partial class MainView : UserControl
     internal async Task ShowTutorialsDialogAsync()
     {
         var dialog = new TutorialListDialog();
-        await dialog.ShowAsync();
+        await ShowMainDialogAsync(dialog);
+    }
+
+    private Task<FAContentDialogResult> ShowMainDialogAsync(FAContentDialog dialog)
+    {
+        TopLevel? topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is WindowBase window)
+            window.Activate();
+
+        return dialog.ShowAsync(topLevel!);
     }
 
     private bool IsDialogOpen() => TopLevel.GetTopLevel(this) is { } topLevel && FocusedEditCommand.IsDialogOpen(topLevel);
