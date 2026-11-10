@@ -7,8 +7,9 @@ using Reactive.Bindings;
 namespace Beutl.HeadlessUITests;
 
 // The editor a browser tab test runs in. Media the tab adds is recorded in Imported, and the browser
-// settings host is offered when one is given.
-internal sealed class BrowserEditorContext(CoreObject? document = null, IBrowserSettingsHost? settingsHost = null)
+// settings host and the extensions are offered when they are given.
+internal sealed class BrowserEditorContext(
+    CoreObject? document = null, IBrowserSettingsHost? settingsHost = null, IExtensionProvider? extensions = null)
     : IEditorContext, IElementAdder
 {
     public List<ElementDescription> Imported { get; } = [];
@@ -35,6 +36,8 @@ internal sealed class BrowserEditorContext(CoreObject? document = null, IBrowser
     {
         if (serviceType == typeof(IElementAdder))
             return this;
+        if (serviceType == typeof(IExtensionProvider))
+            return extensions;
 
         return serviceType == typeof(IBrowserSettingsHost) ? settingsHost : null;
     }

@@ -1,7 +1,9 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Editor.Services;
+using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.WebBrowserTab.ViewModels;
@@ -11,6 +13,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
     internal static readonly Uri BlankPage = new("about:blank");
     private const int MaxAddressSuggestions = 100;
 
+    private static readonly ILogger s_logger = Log.CreateLogger<WebBrowserTabViewModel>();
     private static int s_lastInstanceNumber;
 
     private readonly IEditorContext _editorContext;
@@ -108,6 +111,69 @@ internal sealed class WebBrowserTabViewModel : IToolContext
             [new ElementDescription(start, MediaTime.FromSeconds(5), layer, new ElementSource.File(fileName))], cancellationToken);
         if (!result.IsSuccess)
             throw new InvalidOperationException(result.Failure!.Message, result.Failure.Exception);
+    }
+
+    private IExtensionProvider? Extensions => _editorContext.GetService(typeof(IExtensionProvider)) as IExtensionProvider;
+
+    // Offers a file to the extensions while it can go straight into the project. The page script of the claim starts
+    // now, while the page still shows what produced the file.
+    internal BrowserDownloadHandling? ClaimDownload(BrowserDownloadOffer offer, Func<string, Task<string?>> runPageScript)
+    {
+        if (!CanAddDownloadedMedia || ProjectDownloadDirectory == null || Extensions is not { } extensions) return null;
+        foreach (ExtensionDescriptor descriptor in extensions.GetDescriptors<BrowserDownloadExtension>())
+        {
+            if (!extensions.TryAcquire(descriptor.Id, out IExtensionLease<BrowserDownloadExtension>? lease)) continue;
+            BrowserDownloadClaim? claim;
+            using (lease)
+            {
+                try
+                {
+                    claim = lease.Extension.Claim(offer);
+                }
+                catch (Exception ex)
+                {
+                    s_logger.LogWarning(ex, "{ExtensionType} failed to consider a download.", descriptor.TypeName);
+                    continue;
+                }
+            }
+
+            if (claim == null) continue;
+            Task<string?> pageData = string.IsNullOrWhiteSpace(claim.PageScript)
+                ? Task.FromResult<string?>(null)
+                : RunPageScript(runPageScript, claim.PageScript);
+            return new BrowserDownloadHandling(descriptor.Id, offer, claim.Description, pageData);
+        }
+
+        return null;
+    }
+
+    private static Task<string?> RunPageScript(Func<string, Task<string?>> runPageScript, string script)
+    {
+        try
+        {
+            return runPageScript(script);
+        }
+        catch (Exception ex)
+        {
+            return Task.FromException<string?>(ex);
+        }
+    }
+
+    // False when the extension is gone or declines the file, which the browser then adds as one element.
+    internal async Task<bool> ImportClaimedDownloadAsync(BrowserDownloadHandling handling, string fileName,
+        CancellationToken cancellationToken)
+    {
+        if (_disposed || Extensions is not { } extensions
+            || !extensions.TryAcquire(handling.Extension, out IExtensionLease<BrowserDownloadExtension>? lease))
+            return false;
+
+        using (lease)
+        {
+            string? pageData = await handling.ReadPageDataAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            return await lease.Extension.ImportAsync(
+                new BrowserDownloadImportContext(_editorContext, fileName, handling.Offer, pageData), cancellationToken);
+        }
     }
 
     public IReadOnlyReactiveProperty<bool> CanGoBack => _canGoBack;

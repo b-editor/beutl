@@ -12,6 +12,7 @@ package name, shows one notice and turns the extension off until it restarts.
   filter effects, brushes, shaders, or render nodes.
 - [Tool tabs](tool-tabs.md): adding a dockable editor tool.
 - [MCP tools](mcp-tools.md): giving AI agents tools through Beutl's live MCP endpoint.
+- [Browser downloads](browser-downloads.md): taking over files that pages in the browser tab offer for download.
 - [File source properties](file-source-properties.md): file pickers for custom file-source and `FileInfo`
   properties.
 - [Element recovery](element-recovery.md): completing repairs of recovered elements from a plugin.

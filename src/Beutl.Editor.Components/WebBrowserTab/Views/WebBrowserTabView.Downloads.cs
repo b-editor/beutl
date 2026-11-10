@@ -23,10 +23,14 @@ internal partial class WebBrowserTabView
     private bool _mediaNavigationIntercepted;
     private Uri? _latestNavigationRequest;
     private readonly List<(Uri? Navigation, Uri Download)> _nativeDownloadFailures = [];
-    private readonly LinkedList<(Uri Uri, string? SuggestedName, IBrowserDownloadSource Source)> _deferredNativeDownloads = new();
+    private readonly LinkedList<DeferredDownload> _deferredNativeDownloads = new();
+
+    // An extension's claim is settled when the file arrives, while the page that offered it is still on display.
+    private sealed record DeferredDownload(Uri Uri, string? SuggestedName, IBrowserDownloadSource Source,
+        BrowserDownloadHandling? Handling);
 
     private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId,
-        BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source);
+        BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source, BrowserDownloadHandling? Handling);
 
     internal BrowserMediaDownload MediaDownloader { get; set; } = BrowserMediaDownload.Default;
     internal Func<Uri, CancellationToken, Task<BrowserDownloadOptions?>>? DownloadOptionsSelector { get; set; }
@@ -112,30 +116,37 @@ internal partial class WebBrowserTabView
         }
         Uri page = document ?? vm.CommittedUri;
         Uri credited = creator == null || BrowserMediaDownload.IsSameOrigin(creator, page) ? page : creator;
-        if (IsPageDownloadOfferBlocked) DeferNativeDownload(credited, suggestedName, source);
-        else QueuePageDownloadRequest(credited, suggestedName, BrowserReferrerPolicy.NoReferrer, source);
+        if (IsPageDownloadOfferBlocked) DeferNativeDownload(credited, suggestedName, source, page);
+        else QueuePageDownloadRequest(credited, suggestedName, BrowserReferrerPolicy.NoReferrer, source, page);
     }
 
     // One offer at a time, and none while a page loads, a download runs or the user dismissed this page's offers.
     private bool IsPageDownloadOfferBlocked => _disposed || _viewModel == null || _pageDownloadRequestsSuppressed
         || _pageDownloadNavigationPending || _pendingPageDownloadRequest != null || _downloadCancellation != null;
 
+    // The page on display offered the file unless the caller knows the document that did.
+    private BrowserDownloadHandling? ClaimDownload(Uri uri, string? suggestedName, bool isGenerated, Uri? page)
+        => _viewModel is { } vm
+            ? vm.ClaimDownload(new BrowserDownloadOffer(uri, page ?? vm.CommittedUri, suggestedName, isGenerated), RunPageScriptAsync)
+            : null;
+
     private void OfferNextDeferredNativeDownload()
     {
         if (_deferredNativeDownloads.Count == 0 || IsPageDownloadOfferBlocked) return;
         var deferred = _deferredNativeDownloads.First!.Value;
         _deferredNativeDownloads.RemoveFirst();
-        QueuePageDownloadRequest(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source);
+        OfferPageDownload(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source, deferred.Handling);
     }
 
-    private void DeferNativeDownload(Uri uri, string? suggestedName, IBrowserDownloadSource source)
+    private void DeferNativeDownload(Uri uri, string? suggestedName, IBrowserDownloadSource source, Uri? page = null)
     {
         if (_pageDownloadRequestsSuppressed || _deferredNativeDownloads.Count >= MaxDeferredNativeDownloads)
         {
             source.Dispose();
             return;
         }
-        _deferredNativeDownloads.AddLast((uri, suggestedName, source));
+        _deferredNativeDownloads.AddLast(new DeferredDownload(uri, suggestedName, source,
+            ClaimDownload(uri, suggestedName, source.IsGenerated, page)));
     }
 
     private void PreservePendingNativeDownload()
@@ -147,7 +158,7 @@ internal partial class WebBrowserTabView
             _deferredNativeDownloads.Last!.Value.Source.Dispose();
             _deferredNativeDownloads.RemoveLast();
         }
-        _deferredNativeDownloads.AddFirst((pending.Uri, pending.SuggestedName, source));
+        _deferredNativeDownloads.AddFirst(new DeferredDownload(pending.Uri, pending.SuggestedName, source, pending.Handling));
     }
 
     private void ClearDeferredNativeDownloads()
@@ -264,7 +275,19 @@ internal partial class WebBrowserTabView
     }
 
     private void QueuePageDownloadRequest(Uri uri, string? suggestedName, BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin,
-        IBrowserDownloadSource? downloadSource = null)
+        IBrowserDownloadSource? downloadSource = null, Uri? page = null)
+    {
+        if (IsPageDownloadOfferBlocked)
+        {
+            downloadSource?.Dispose();
+            return;
+        }
+        OfferPageDownload(uri, suggestedName, referrerPolicy, downloadSource,
+            ClaimDownload(uri, suggestedName, downloadSource?.IsGenerated == true, page));
+    }
+
+    private void OfferPageDownload(Uri uri, string? suggestedName, BrowserReferrerPolicy referrerPolicy,
+        IBrowserDownloadSource? downloadSource, BrowserDownloadHandling? handling)
     {
         if (IsPageDownloadOfferBlocked)
         {
@@ -277,9 +300,11 @@ internal partial class WebBrowserTabView
         // BlankPage deliberately prevents the downloader's direct-navigation fallback from
         // using destination cookies when the surviving document's origin is unknown.
         Uri? referrer = DocumentReferrer;
-        var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId, referrerPolicy, downloadSource);
+        var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId, referrerPolicy, downloadSource, handling);
         // A generated file's address is the site credited with it, which says less than the file's name.
         string shown = downloadSource?.IsGenerated == true && !string.IsNullOrEmpty(suggestedName) ? suggestedName : uri.AbsoluteUri;
+        // An extension that takes the file over says what confirming does; the name stays in the tooltip.
+        string detail = string.IsNullOrWhiteSpace(handling?.Description) ? shown : handling.Description;
         _pendingPageDownloadRequest = request;
         Dispatcher.UIThread.Post(() =>
         {
@@ -292,7 +317,7 @@ internal partial class WebBrowserTabView
             DownloadStatusText.MaxLines = 1;
             DownloadStatusText.TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis;
             DownloadStatusText.Text = Strings.BrowserPageDownloadRequest;
-            DownloadProgressText.Text = shown;
+            DownloadProgressText.Text = detail;
             DownloadProgressText.IsVisible = true;
             ToolTip.SetTip(DownloadStatusText, uri.AbsoluteUri);
             ToolTip.SetTip(DownloadProgressText, shown);
@@ -358,7 +383,8 @@ internal partial class WebBrowserTabView
             request.Source?.Dispose();
             return;
         }
-        await DownloadMediaAsync(request.Uri, request.SuggestedName, request.Referrer, request.ReferrerPolicy, request.Source);
+        await DownloadMediaAsync(request.Uri, request.SuggestedName, request.Referrer, request.ReferrerPolicy, request.Source,
+            request.Handling);
     }
 
     private void OnDownloadMediaClick(object? sender, RoutedEventArgs e)
@@ -437,7 +463,8 @@ internal partial class WebBrowserTabView
     }
 
     internal async Task DownloadMediaAsync(Uri uri, string? suggestedName, Uri? referrer = null,
-        BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin, IBrowserDownloadSource? source = null)
+        BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin, IBrowserDownloadSource? source = null,
+        BrowserDownloadHandling? handling = null)
     {
         if (_disposed || _downloadCancellation != null || _viewModel is not { } vm)
         {
@@ -450,9 +477,14 @@ internal partial class WebBrowserTabView
         _downloadCancellation = cancellation;
         try
         {
-            BrowserDownloadOptions? options = DownloadOptionsSelector is { } selector
-                ? await selector(uri, cancellation.Token)
-                : await ChooseDownloadOptionsAsync(uri, cancellation.Token, suggestedName);
+            // A claimed file goes into the project without asking where, as long as the editor can still take it.
+            string? claimedDirectory = handling != null && vm.CanAddDownloadedMedia ? vm.ProjectDownloadDirectory : null;
+            if (claimedDirectory == null) handling = null;
+            BrowserDownloadOptions? options = claimedDirectory != null
+                ? new BrowserDownloadOptions(claimedDirectory, AddToTimeline: true)
+                : DownloadOptionsSelector is { } selector
+                    ? await selector(uri, cancellation.Token)
+                    : await ChooseDownloadOptionsAsync(uri, cancellation.Token, suggestedName);
             if (options == null || cancellation.IsCancellationRequested) return;
             ShowDownloadRunning(uri);
             Progress<(long Received, long? Total)> progress = CreateDownloadProgress(cancellation);
@@ -473,9 +505,13 @@ internal partial class WebBrowserTabView
             DownloadStatusText.Text = string.Format(Strings.WebDownloadComplete, Path.GetFileName(file));
             ToolTip.SetTip(DownloadStatusText, file);
             CheckProfileSave(vm.Profile.AddDownload(uri, file, referrer, referrerPolicy, source?.IsGenerated == true));
-            if (options.AddToTimeline && vm.CanAddDownloadedFile(file))
+            if (options.AddToTimeline && (handling != null || vm.CanAddDownloadedFile(file)))
             {
-                try { await vm.AddDownloadedMediaAsync(file, cancellation.Token); }
+                try
+                {
+                    bool imported = handling != null && await vm.ImportClaimedDownloadAsync(handling, file, cancellation.Token);
+                    if (!imported && vm.CanAddDownloadedFile(file)) await vm.AddDownloadedMediaAsync(file, cancellation.Token);
+                }
                 catch (Exception ex)
                 {
                     if (!_disposed && ReferenceEquals(_viewModel, vm))
