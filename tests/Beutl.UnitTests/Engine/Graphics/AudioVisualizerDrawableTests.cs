@@ -69,7 +69,7 @@ public class AudioVisualizerDrawableTests
     {
         var drawable = CreateSpectrum();
         drawable.FftSize.Value = 4096;
-        AssertNewResourceComposes(drawable, WindowTestFrame - 4096, 4096);
+        AssertComposedWindow(drawable, WindowTestFrame - 4096, 4096);
     }
 
     // WindowSeconds centered on the current time.
@@ -78,7 +78,7 @@ public class AudioVisualizerDrawableTests
     {
         var drawable = CreateWaveform();
         drawable.WindowSeconds.Value = 1f;
-        AssertNewResourceComposes(drawable, WindowTestFrame - WindowTestRate / 2, WindowTestRate);
+        AssertComposedWindow(drawable, WindowTestFrame - WindowTestRate / 2, WindowTestRate);
     }
 
     // WindowSeconds that end at the current time.
@@ -87,13 +87,33 @@ public class AudioVisualizerDrawableTests
     {
         var drawable = CreateSpectrogram();
         drawable.WindowSeconds.Value = 1.5f;
-        AssertNewResourceComposes(drawable, WindowTestFrame - WindowTestRate * 3 / 2, WindowTestRate * 3 / 2);
+        AssertComposedWindow(drawable, WindowTestFrame - WindowTestRate * 3 / 2, WindowTestRate * 3 / 2);
+    }
+
+    // The same order made an edit reach the window one reconcile late, after the base had composed the old one.
+    [Test]
+    public void Spectrum_EditedFftSize_ComposesTheNewWindowOnTheNextReconcile()
+    {
+        var drawable = CreateSpectrum();
+        drawable.FftSize.Value = 4096;
+        AssertComposedWindow(drawable, WindowTestFrame - 2048, 2048, edit: () => drawable.FftSize.Value = 2048);
+    }
+
+    [Test]
+    public void Waveform_EditedWindowSeconds_ComposesTheNewWindowOnTheNextReconcile()
+    {
+        var drawable = CreateWaveform();
+        drawable.WindowSeconds.Value = 1f;
+        AssertComposedWindow(drawable, WindowTestFrame - WindowTestRate / 4, WindowTestRate / 2,
+            edit: () => drawable.WindowSeconds.Value = 0.5f);
     }
 
     // render_still builds a new resource for every frame, and the base used to compose the window before the derived
-    // resource had set the property that sizes it (#4203). A ramp gives every sample its own value, so the cache
-    // shows where the window starts as well as how long it is.
-    private static void AssertNewResourceComposes(AudioVisualizerDrawable drawable, int firstFrame, int frameCount)
+    // resource had set the property that sizes it (#4203). With an edit, the resource reconciles again at the same
+    // time, so only the edit can change the window. A ramp gives every sample its own value, so the cache shows
+    // where the window starts as well as how long it is.
+    private static void AssertComposedWindow(
+        AudioVisualizerDrawable drawable, int firstFrame, int frameCount, Action? edit = null)
     {
         static float Ramp(int i) => (float)i / WindowTestFrames;
         AudioTestWaves.WithTemporaryWave(WindowTestRate, WindowTestFrames, i => (Ramp(i), Ramp(i)), source =>
@@ -103,8 +123,14 @@ public class AudioVisualizerDrawableTests
                 Source = { Value = source },
                 TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSamples(WindowTestFrames, WindowTestRate)) },
             };
-            using var resource = (AudioVisualizerDrawable.Resource)drawable.ToResource(
-                new CompositionContext(MediaTime.FromSamples(WindowTestFrame, WindowTestRate)));
+            var context = new CompositionContext(MediaTime.FromSamples(WindowTestFrame, WindowTestRate));
+            using var resource = (AudioVisualizerDrawable.Resource)drawable.ToResource(context);
+            if (edit != null)
+            {
+                edit();
+                bool versionBumped = false;
+                resource.Reconcile(drawable, context, ref versionBumped);
+            }
 
             // CachedSampleSpan is protected, so read the array behind it.
             float[] cache = (float[])typeof(AudioVisualizerDrawable.Resource)
