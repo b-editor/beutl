@@ -393,7 +393,7 @@ public class GLSLShaderTests
             }
             else
             {
-                Assert.Throws<InvalidOperationException>(() =>
+                Assert.Throws<RenderTargetAllocationException>(() =>
                     shader.Render(context, [input], new Rect(-1, -1, 6, 6), new DummyPush()));
             }
             Assert.That(pool.Statistics.LeasedTargets, Is.Zero);

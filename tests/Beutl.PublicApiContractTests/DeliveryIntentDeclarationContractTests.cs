@@ -152,7 +152,7 @@ public sealed class DeliveryIntentDeclarationContractTests
                 {
                     using RenderNodeRasterization unexpected = deliveryRenderer.Rasterize();
                 },
-                Throws.InvalidOperationException);
+                Throws.TypeOf<RenderTargetAllocationException>());
         });
     }
 
