@@ -33,6 +33,7 @@ internal sealed class Renderer3D : IRenderer3D
 
     private ITexture2D? _outputTexture;
 
+    private bool _hasRenderedDepth;
     private Camera3D.Resource? _lastCamera;
     private IReadOnlyList<Object3D.Resource>? _lastObjects;
 
@@ -126,6 +127,7 @@ internal sealed class Renderer3D : IRenderer3D
         _outputTexture = outputTexture;
         Width = width;
         Height = height;
+        _hasRenderedDepth = false;
     }
 
     /// <summary>
@@ -197,6 +199,7 @@ internal sealed class Renderer3D : IRenderer3D
         _outputTexture = outputTexture;
         Width = width;
         Height = height;
+        _hasRenderedDepth = false;
 
         RenderNode3D.DisposeResources([oldFlipPass, oldGizmoPass, oldTransparentPass, oldLightingPass, oldGeometryPass, oldOutputTexture]);
     }
@@ -214,6 +217,7 @@ internal sealed class Renderer3D : IRenderer3D
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        _hasRenderedDepth = false;
         if (_geometryPass == null || _lightingPass == null || _transparentPass == null ||
             _gizmoPass == null || _flipPass == null || _shadowManager == null)
             return;
@@ -273,6 +277,7 @@ internal sealed class Renderer3D : IRenderer3D
         _flipPass.PrepareForSampling();
 
         CopyToOutputTexture();
+        _hasRenderedDepth = true;
     }
 
     /// <summary>
@@ -486,6 +491,20 @@ internal sealed class Renderer3D : IRenderer3D
     {
         _outputTexture?.PrepareForSkiaSampling(requireCompletion: false);
         return _outputTexture?.CreateSkiaSurface();
+    }
+
+    internal bool TryCopyDepth(Span<float> destination, out PixelSize size)
+    {
+        size = default;
+        if (_disposed || !_hasRenderedDepth || _geometryPass?.DepthTexture is not { } depth) return false;
+        size = new PixelSize(depth.Width, depth.Height);
+        if (destination.Length < (long)size.Width * size.Height) return false;
+
+        var data = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, float>(depth.DownloadPixels());
+        // Mirror the final color pass, which flips the offscreen framebuffer vertically.
+        for (int y = 0; y < size.Height; y++)
+            data.Slice((size.Height - 1 - y) * size.Width, size.Width).CopyTo(destination.Slice(y * size.Width));
+        return true;
     }
 
     public byte[] DownloadPixels()

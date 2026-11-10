@@ -40,6 +40,68 @@ public class HitTestRenderScaleTests
         return (cameraResource, sphereResource);
     }
 
+    [Test]
+    public void CapturedDepthAlignsWithTheVisibleForwardPass()
+    {
+        var graphics = VulkanTestEnvironment.EnsureAvailable();
+        if (!graphics.Supports3DRendering) Assert.Ignore("3D rendering is unavailable.");
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var context = CompositionContext.Default;
+            var scene = new Scene3D();
+            var sphere = new Sphere3D
+            {
+                Radius = { Value = 0.55f },
+                Position = { Value = new Vector3(0, 0.9f, 0) },
+                Material = { Value = new Beutl.Graphics3D.Materials.UnlitMaterial { AlphaMode = { Value = Beutl.Graphics3D.Materials.AlphaMode.Opaque } } }
+            };
+            scene.Camera.Value = new PerspectiveCamera { Position = { Value = new Vector3(0, 0, 5) } };
+            scene.Objects.Add(sphere);
+            using var resource = scene.ToResource(context);
+            Assert.That(resource.TryCopyDepth([], out var size), Is.False);
+            Assert.That(size, Is.EqualTo(default(PixelSize)));
+            var renderer = resource.Renderer = new Renderer3D(graphics);
+            renderer.Initialize(64, 48);
+            Assert.That(resource.TryCopyDepth([], out size), Is.False);
+            Assert.That(size, Is.EqualTo(default(PixelSize)));
+            renderer.Render(context, resource.Camera!, resource.Objects, [], Colors.Black, Colors.White, 1);
+            Assert.That(resource.TryCopyDepth([], out size), Is.False);
+            Assert.That(size, Is.EqualTo(new PixelSize(64, 48)));
+            var depth = new float[size.Width * size.Height];
+            Assert.That(resource.TryCopyDepth(depth, out _), Is.True);
+            float[] tooSmall = [-1];
+            Assert.That(resource.TryCopyDepth(tooSmall, out size), Is.False);
+            Assert.That(tooSmall, Is.EqualTo(new[] { -1f }));
+            var repeated = new float[depth.Length];
+            Assert.That(resource.TryCopyDepth(repeated, out _), Is.True);
+            Assert.That(repeated, Is.EqualTo(depth));
+            using (var surface = renderer.CreateSkiaSurface())
+            using (var image = surface!.Snapshot())
+            using (var pixels = SkiaSharp.SKBitmap.FromImage(image))
+            {
+                var visible = Enumerable.Range(0, depth.Length).Where(i => pixels.GetPixel(i % size.Width, i / size.Width).Red > 200).ToArray();
+                Assert.That(visible.Length, Is.GreaterThan(8));
+                Assert.That(visible.All(i => depth[i] < 1), Is.True, "Even the forward material's depth must line up with the color output.");
+                int interior = visible[visible.Length / 2];
+                Assert.That(depth[(size.Height - 1 - interior / size.Width) * size.Width + interior % size.Width], Is.EqualTo(1));
+            }
+
+            renderer.Resize(64, 48);
+            Assert.That(resource.TryCopyDepth(repeated, out _), Is.True);
+            Assert.That(repeated, Is.EqualTo(depth));
+            renderer.Resize(80, 60);
+            Assert.That(resource.TryCopyDepth([], out size), Is.False);
+            Assert.That(size, Is.EqualTo(default(PixelSize)));
+            renderer.Render(context, resource.Camera!, resource.Objects, [], Colors.Black, Colors.White, 1);
+            Assert.That(resource.TryCopyDepth([], out size), Is.False);
+            Assert.That(size, Is.EqualTo(new PixelSize(80, 60)));
+            Assert.That(resource.TryCopyDepth(new float[size.Width * size.Height], out _), Is.True);
+            renderer.Dispose();
+            Assert.That(resource.TryCopyDepth([], out size), Is.False);
+            Assert.That(size, Is.EqualTo(default(PixelSize)));
+        });
+    }
+
     // End-to-end through the real Renderer3D.HitTestWithPath. Requires a 3D-capable GPU.
     [TestCase(0.5f)]
     [TestCase(1.0f)]

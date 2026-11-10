@@ -9,6 +9,9 @@ public sealed class CompositionTargetAccess
 
     internal CompositionTargetAccess(RenderExecutionContext execution) => _execution = execution;
 
+    /// <summary>Maps effect-local coordinates to pixel coordinates in the captured image.</summary>
+    public Matrix LocalToDevice => _execution.GetTargetTransform();
+
     /// <summary>Samples the preceding composition target without a CPU pixel readback.</summary>
     public RenderTargetImageLease Capture() => _execution.CaptureTarget();
 

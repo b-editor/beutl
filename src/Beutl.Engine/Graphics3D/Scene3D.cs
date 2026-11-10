@@ -106,6 +106,19 @@ public partial class Scene3D : Drawable, IFlowOperator
 
         internal Renderer3D? Renderer { get; set; }
 
+        /// <summary>
+        /// Copies the last rendered depth attachment, in the same top-down pixel order as the color output.
+        /// Values are device depth in [0, 1]; one is the far-plane clear value. Content that does not write
+        /// depth is absent. On the render thread, pass an empty span to query the required dimensions.
+        /// Returns false without reading the GPU if no usable frame exists or the destination is too small.
+        /// </summary>
+        public bool TryCopyDepth(Span<float> destination, out PixelSize size)
+        {
+            RenderThread.Dispatcher.VerifyAccess();
+            size = default;
+            return Renderer?.TryCopyDepth(destination, out size) == true;
+        }
+
         public MediaTime Time { get; set; } = MediaTime.Zero;
 
         public bool DisableResourceShare { get; set; }
