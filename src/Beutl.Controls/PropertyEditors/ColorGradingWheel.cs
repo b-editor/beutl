@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Reactive.Disposables;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
@@ -6,6 +7,7 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Media;
+using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -43,6 +45,7 @@ public class ColorGradingWheel : PropertyEditor
     public static readonly StyledProperty<bool> IsSideBySideProperty =
         AvaloniaProperty.Register<ColorGradingWheel, bool>(nameof(IsSideBySide));
 
+    private readonly CompositeDisposable _partHandlers = [];
     private Grid? _layout;
     private Control? _header;
     private ColorBalancePad? _pad;
@@ -108,7 +111,7 @@ public class ColorGradingWheel : PropertyEditor
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
-        Unhook();
+        _partHandlers.Clear();
         base.OnApplyTemplate(e);
         _layout = e.NameScope.Find<Grid>("PART_Layout");
         _header = e.NameScope.Find<Control>("PART_Header");
@@ -116,7 +119,16 @@ public class ColorGradingWheel : PropertyEditor
         _master = e.NameScope.Find<GradingWheel>("PART_MasterWheel");
         _components = e.NameScope.Find<GradingColorComponentsEditor>("PART_Components");
         _resetButton = e.NameScope.Find<Button>("PART_ResetButton");
-        Hook();
+        _pad?.AddDisposableHandler(ColorBalancePad.DragStartedEvent, OnPadDragStarted).DisposeWith(_partHandlers);
+        _pad?.AddDisposableHandler(ColorBalancePad.DragDeltaEvent, OnPadDragDelta).DisposeWith(_partHandlers);
+        _pad?.AddDisposableHandler(ColorBalancePad.DragCompletedEvent, OnPadDragCompleted).DisposeWith(_partHandlers);
+        _pad?.AddDisposableHandler(ColorBalancePad.ResetRequestedEvent, OnPadResetRequested).DisposeWith(_partHandlers);
+        _master?.AddDisposableHandler(Thumb.DragStartedEvent, OnMasterDragStarted).DisposeWith(_partHandlers);
+        _master?.AddDisposableHandler(Thumb.DragDeltaEvent, OnMasterDragDelta).DisposeWith(_partHandlers);
+        _master?.AddDisposableHandler(Thumb.DragCompletedEvent, OnMasterDragCompleted).DisposeWith(_partHandlers);
+        _components?.AddDisposableHandler(ValueChangedEvent, OnComponentsValueChanged).DisposeWith(_partHandlers);
+        _components?.AddDisposableHandler(ValueConfirmedEvent, OnComponentsValueConfirmed).DisposeWith(_partHandlers);
+        _resetButton?.AddDisposableHandler(Button.ClickEvent, OnResetClick).DisposeWith(_partHandlers);
         UpdateParts();
     }
 
@@ -146,60 +158,6 @@ public class ColorGradingWheel : PropertyEditor
         {
             UpdateParts();
         }
-    }
-
-    private void Hook()
-    {
-        if (_pad != null)
-        {
-            _pad.DragStarted += OnPadDragStarted;
-            _pad.DragDelta += OnPadDragDelta;
-            _pad.DragCompleted += OnPadDragCompleted;
-            _pad.ResetRequested += OnPadResetRequested;
-        }
-
-        if (_master != null)
-        {
-            _master.DragStarted += OnMasterDragStarted;
-            _master.DragDelta += OnMasterDragDelta;
-            _master.DragCompleted += OnMasterDragCompleted;
-        }
-
-        if (_components != null)
-        {
-            _components.ValueChanged += OnComponentsValueChanged;
-            _components.ValueConfirmed += OnComponentsValueConfirmed;
-        }
-
-        if (_resetButton != null)
-            _resetButton.Click += OnResetClick;
-    }
-
-    private void Unhook()
-    {
-        if (_pad != null)
-        {
-            _pad.DragStarted -= OnPadDragStarted;
-            _pad.DragDelta -= OnPadDragDelta;
-            _pad.DragCompleted -= OnPadDragCompleted;
-            _pad.ResetRequested -= OnPadResetRequested;
-        }
-
-        if (_master != null)
-        {
-            _master.DragStarted -= OnMasterDragStarted;
-            _master.DragDelta -= OnMasterDragDelta;
-            _master.DragCompleted -= OnMasterDragCompleted;
-        }
-
-        if (_components != null)
-        {
-            _components.ValueChanged -= OnComponentsValueChanged;
-            _components.ValueConfirmed -= OnComponentsValueConfirmed;
-        }
-
-        if (_resetButton != null)
-            _resetButton.Click -= OnResetClick;
     }
 
     private void UpdateParts()
@@ -256,12 +214,7 @@ public class ColorGradingWheel : PropertyEditor
     private void OnPadResetRequested(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        if (IsReadOnly)
-            return;
-
-        GradingColor oldColor = Color;
-        SetColor(ColorBalance.WithoutChroma(oldColor, Neutral));
-        Confirm(oldColor);
+        Replace(ColorBalance.WithoutChroma(Color, Neutral));
     }
 
     private void OnMasterDragStarted(object? sender, VectorEventArgs e)
@@ -323,13 +276,16 @@ public class ColorGradingWheel : PropertyEditor
             RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(newValue, oldValue, ValueConfirmedEvent));
     }
 
-    private void OnResetClick(object? sender, RoutedEventArgs e)
+    private void OnResetClick(object? sender, RoutedEventArgs e) => Replace(Neutral);
+
+    // Sets value and confirms it against the color it replaces, as one edit.
+    private void Replace(GradingColor value)
     {
         if (IsReadOnly)
             return;
 
         GradingColor oldColor = Color;
-        SetColor(Neutral);
+        SetColor(value);
         Confirm(oldColor);
     }
 
