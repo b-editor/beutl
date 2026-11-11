@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.Services;
+﻿using Beutl.Animation;
+using Beutl.Editor.Services;
 using Beutl.Editor.Services.LibraryThumbnails;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -11,6 +12,7 @@ using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -259,6 +261,53 @@ public class LibraryThumbnailTests
             Assert.That(after!.TransitionFrom, Is.Not.Null);
             Assert.That(after.TransitionTo, Is.Null);
         });
+    }
+
+    // Replacing a transition, each side is captured without the transitions it has, which would fade it in or out at
+    // the edge it is drawn at.
+    [Test]
+    public async Task An_edge_is_captured_without_the_transitions_it_has()
+    {
+        TestGpu.RequireAnyDevice();
+        Scene scene = CreateScene();
+        Element first = AddElement(scene, CreateRect(1920, 1080, Colors.Red), 0, 2, 0);
+        Element second = AddElement(scene, CreateRect(1920, 1080, Colors.Blue), 2, 2, 0);
+        first.ExitTransition.Value = new FadeTransition();
+        second.EnterTransition.Value = new CrossDissolveTransition();
+
+        using LibraryThumbnailSubject? edge = await LibraryThumbnailSubject.CaptureEdgeAsync(second, ElementEdge.Start);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(edge!.TransitionFrom, Is.Not.Null, "The outgoing side is not faded out.");
+            Assert.That(edge.TransitionTo, Is.Not.Null, "The incoming side is not faded in.");
+        });
+        Bgra8888 from = Read(edge!.TransitionFrom!.Image, 10, 10);
+        Bgra8888 to = Read(edge.TransitionTo!.Image, 10, 10);
+        Assert.Multiple(() =>
+        {
+            Assert.That(from.R, Is.GreaterThan(240), "The clip before.");
+            Assert.That(from.A, Is.GreaterThan(250), "Whole, not part of the way out.");
+            Assert.That(to.B, Is.GreaterThan(240), "The clip after.");
+            Assert.That(to.A, Is.GreaterThan(250), "Whole, not part of the way in.");
+        });
+    }
+
+    // An element is captured at the time the project shows it, so an animation on the scene's clock reads that time
+    // rather than one counted from the element's start.
+    [Test]
+    public async Task An_element_is_captured_at_the_time_the_project_shows()
+    {
+        TestGpu.RequireAnyDevice();
+        Scene scene = CreateScene();
+        RectShape rect = CreateRect(100, 200, Colors.Red);
+        rect.Width.SetKeyFrameAnimation(TestAnimations.Linear(100f, 1100f, MediaTime.FromSeconds(10), useGlobalClock: true));
+        Element element = AddElement(scene, rect, 2, 2, 0);
+
+        using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.CaptureElementAsync(element, MediaTime.FromSeconds(3));
+
+        // At 3 seconds on the scene's clock the rectangle is 400 units wide; 1 second from its start would make it 200.
+        Assert.That(subject!.EffectPicture!.Size.Width, Is.EqualTo(400).Within(4));
     }
 
     // Where nothing is drawn, the thumbnails fall back to the samples.

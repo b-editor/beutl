@@ -205,8 +205,10 @@ internal sealed class LibraryThumbnailSubject : IDisposable
         return (TrySave(bitmap, size, found), new Size(size.Width + (2 * margin), size.Height + (2 * margin)));
     }
 
-    // A copy of element alone in a scene of its scene's size, starting at zero, and the time to draw it at. The
-    // copy keeps the live element out of a second scene.
+    // A copy of element alone in a scene of its scene's size, and the time to draw it at, inside the element. The
+    // copy keeps the live element out of a second scene. It drops the element's transitions, which would fade it in or
+    // out at the edge it is drawn at, and keeps its times, so an animation on the scene's clock reads the time the
+    // project shows.
     private static Copy? CopyAlone(Element element, MediaTime time)
     {
         try
@@ -220,23 +222,23 @@ internal sealed class LibraryThumbnailSubject : IDisposable
             if (CoreSerializer.DeserializeFromJsonObject(json, typeof(Element)) is not Element copy)
                 return null;
 
-            MediaTime length = element.Length.Value;
-            MediaTime local = time - element.Start.Value;
-            if (local < MediaTime.Zero)
-                local = MediaTime.Zero;
-            if (local >= length)
-                local = length > EdgeInset ? length - EdgeInset : MediaTime.Zero;
+            copy.EnterTransition.Value = null;
+            copy.ExitTransition.Value = null;
+            MediaTime start = element.Start.Value;
+            MediaTime end = element.Range.End;
+            MediaTime at = time < start ? start : time;
+            if (at >= end)
+                at = end - start > EdgeInset ? end - EdgeInset : start;
 
-            copy.Start.Value = MediaTime.Zero;
             string directory = Path.Combine(Path.GetTempPath(), "beutl-library-thumbnail");
             var scene = new Scene(frameSize.Width, frameSize.Height, string.Empty)
             {
-                Duration = { Value = length > MediaTime.Zero ? length : MediaTime.FromSeconds(1) },
+                Duration = { Value = end > MediaTime.Zero ? end : MediaTime.FromSeconds(1) },
                 Uri = ObjectTemplateItem.ToFileUri(Path.Combine(directory, "subject.scene")),
             };
             copy.Uri = ObjectTemplateItem.ToFileUri(Path.Combine(directory, $"{copy.Id.Value}.belm"));
             scene.Children.Add(copy);
-            return new Copy(scene, local);
+            return new Copy(scene, at);
         }
         catch (Exception ex)
         {
