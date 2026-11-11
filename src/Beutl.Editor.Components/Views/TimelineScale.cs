@@ -59,11 +59,10 @@ public sealed class TimelineScale : TimelineBarsControl
         = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(MarkerLabelForeground));
 
     public static readonly StyledProperty<Rational> FrameRateProperty
-        = AvaloniaProperty.Register<TimelineScale, Rational>(
-            nameof(FrameRate), new Rational(30), validate: rate => rate is { Numerator: > 0, Denominator: > 0 });
+        = PlayerSeekBar.FrameRateProperty.AddOwner<TimelineScale>();
 
     public static readonly StyledProperty<TimeDisplayFormat> TimeDisplayFormatProperty
-        = AvaloniaProperty.Register<TimelineScale, TimeDisplayFormat>(nameof(TimeDisplayFormat));
+        = PlayerSeekBar.TimeDisplayFormatProperty.AddOwner<TimelineScale>();
 
     private const int FramesPerTick = 30;
     private static readonly Typeface s_typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
