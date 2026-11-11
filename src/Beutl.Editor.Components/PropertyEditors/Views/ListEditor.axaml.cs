@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls.Behaviors;
+using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Engine;
@@ -80,7 +81,8 @@ public partial class ListEditor : UserControl
         {
             Type propertyType = viewModel.ItemType;
             string format = propertyType.FullName!;
-            var selectVm = new SelectLibraryItemDialogViewModel(format, propertyType);
+            var selectVm = new SelectLibraryItemDialogViewModel(
+                format, propertyType, LibraryThumbnailCapture.ForObject(viewModel as IServiceProvider));
 
             return LibraryItemPickerHelper.ShowAsync(this, selectVm, format);
         });

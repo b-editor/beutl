@@ -31,4 +31,8 @@
       <PackageReference Include="System.Reactive" />
     </ItemGroup>
 
+    <ItemGroup>
+      <EmbeddedResource Include="Assets\LibraryThumbnailSamples\*.webp" LogicalName="LibraryThumbnailSamples/%(Filename)%(Extension)" />
+    </ItemGroup>
+
 </Project>

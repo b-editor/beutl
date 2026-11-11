@@ -1,9 +1,12 @@
 ﻿using System.Text.Json;
 using System.Text.RegularExpressions;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
+using Beutl.Editor.Components.LibraryThumbnails;
+using Beutl.Editor.Services.LibraryThumbnails;
 using Beutl.Services;
 using DynamicData;
 using Reactive.Bindings;
@@ -28,12 +31,25 @@ public class SelectLibraryItemDialogViewModel
     {
     }
 
+    // `thumbnailContent` captures what the tiles show each type on: the object or edge the picked type is added to.
+    // Without it, they show the samples.
     internal SelectLibraryItemDialogViewModel(string format, Type baseType,
-        Task<PinnableLibraryItem[]>? itemsTask, Task<PinnableLibraryItem[]>? allItemsTask)
+        Func<CancellationToken, Task<LibraryThumbnailSubject?>>? thumbnailContent)
+        : this(format, baseType, null, null, thumbnailContent)
+    {
+    }
+
+    internal SelectLibraryItemDialogViewModel(string format, Type baseType,
+        Task<PinnableLibraryItem[]>? itemsTask, Task<PinnableLibraryItem[]>? allItemsTask,
+        Func<CancellationToken, Task<LibraryThumbnailSubject?>>? thumbnailContent = null)
     {
         _format = format;
         _baseType = baseType;
         _allItemsTask = allItemsTask;
+        HasThumbnails = LibraryThumbnailRenderer.HasThumbnails(baseType);
+        Thumbnails = HasThumbnails ? new LibraryThumbnailSet(thumbnailContent) : null;
+        ShowTiles.Value = Preferences.Default.Get(ShowTilesKey, bool.TrueString) != bool.FalseString;
+        ShowTiles.Skip(1).Subscribe(value => Preferences.Default.Set(ShowTilesKey, value.ToString()));
         IReadOnlySet<Type> items = LibraryService.Current.GetTypesFromFormat(_format);
         if (items.Count == 0)
         {
@@ -81,6 +97,14 @@ public class SelectLibraryItemDialogViewModel
 
         InitializeReferences(targets);
     }
+
+    private const string ShowTilesKey = "LibraryItemPicker.ShowTiles";
+
+    // Whether the listed types have moving thumbnails, which the picker can show as tiles.
+    public bool HasThumbnails { get; }
+
+    // Whether the picker shows the items as tiles, remembered across pickers.
+    public ReactiveProperty<bool> ShowTiles { get; } = new();
 
     public ReactiveCollection<PinnableLibraryItem> Items { get; } = [];
 
@@ -205,6 +229,22 @@ public class SelectLibraryItemDialogViewModel
         };
     }
 
+    private IAnimatedThumbnailSource? GetThumbnail(LibraryItem item)
+    {
+        return Thumbnails != null && GetImplementationType(item) is { } type
+            ? Thumbnails.GetSource(type)
+            : null;
+    }
+
+    // The tiles' thumbnails, while the picker is open.
+    internal LibraryThumbnailSet? Thumbnails { get; }
+
+    // Frees the thumbnails once the picker has closed.
+    internal void ReleaseThumbnails()
+    {
+        Thumbnails?.Dispose();
+    }
+
     private bool IsPinned(LibraryItem item)
     {
         Type? type = GetImplementationType(item);
@@ -234,7 +274,10 @@ public class SelectLibraryItemDialogViewModel
 
         // Read after the wait, so this is the text the results are for, whichever path asked for them.
         _appliedSearchText = SearchText.Value;
-        items = items.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData, i.Description))
+        items = items.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData, i.Description)
+        {
+            Thumbnail = GetThumbnail((LibraryItem)i.UserData),
+        })
             .OrderByDescending(t => t.IsPinned)
             .ToArray();
 
@@ -252,7 +295,10 @@ public class SelectLibraryItemDialogViewModel
                 .Where(v => v.score > 0)
                 .OrderByDescending(t => t.IsPinned)
                 .ThenByDescending(v => v.score)
-                .Select(v => new PinnableLibraryItem(((LibraryItem)v.item.Data!).DisplayName, v.IsPinned, v.item.Data, ((LibraryItem)v.item.Data!).Description))
+                .Select(v => new PinnableLibraryItem(((LibraryItem)v.item.Data!).DisplayName, v.IsPinned, v.item.Data, ((LibraryItem)v.item.Data!).Description)
+                {
+                    Thumbnail = GetThumbnail((LibraryItem)v.item.Data!),
+                })
                 .ToArray();
             Items.AddRange(newItems);
         }

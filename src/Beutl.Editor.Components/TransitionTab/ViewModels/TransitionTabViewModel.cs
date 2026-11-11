@@ -111,6 +111,11 @@ public sealed class TransitionTabViewModel : IPinnableToolContext
             retargetAnyOpen: true);
     }
 
+    // The edge open in the tab, which the type picker's thumbnails show transitions on.
+    internal Element? ShownElement => _element;
+
+    internal ElementEdge ShownEdge => _edge;
+
     public bool IsShowing(Element element, ElementEdge edge)
     {
         return _element == element && _edge == edge;

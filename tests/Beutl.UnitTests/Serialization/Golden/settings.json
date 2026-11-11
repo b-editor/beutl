@@ -76,6 +76,8 @@
       "Search": 0,
       "Easings": 0,
       "Library": 0,
+      "Effects": 0,
+      "Transitions": 0,
       "Nodes": 1
     },
     "$type": "[Beutl.Configuration]:EditorConfig"

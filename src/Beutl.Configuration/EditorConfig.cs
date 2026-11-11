@@ -232,6 +232,8 @@ public sealed partial class EditorConfig : ConfigurationBase
         ["Search"] = LibraryTabDisplayMode.Show,
         ["Easings"] = LibraryTabDisplayMode.Show,
         ["Library"] = LibraryTabDisplayMode.Show,
+        ["Effects"] = LibraryTabDisplayMode.Show,
+        ["Transitions"] = LibraryTabDisplayMode.Show,
         ["Nodes"] = LibraryTabDisplayMode.Hide,
     };
 

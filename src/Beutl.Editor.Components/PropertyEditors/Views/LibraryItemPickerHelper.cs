@@ -16,9 +16,14 @@ public static class LibraryItemPickerHelper
         var tcs = new TaskCompletionSource<object?>();
         dialog.Pinned += (_, item) => selectVm.Pin(item);
         dialog.Unpinned += (_, item) => selectVm.Unpin(item);
-        dialog.Dismissed += (_, _) => tcs.TrySetResult(null);
+        dialog.Dismissed += (_, _) =>
+        {
+            selectVm.ReleaseThumbnails();
+            tcs.TrySetResult(null);
+        };
         dialog.Confirmed += (_, _) =>
         {
+            selectVm.ReleaseThumbnails();
             switch (selectVm.SelectedItem.Value?.UserData)
             {
                 case TargetObjectInfo target:

@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Components.TransitionTab.ViewModels;
@@ -23,7 +24,10 @@ public partial class TransitionTabView : UserControl
         {
             try
             {
-                var selectVm = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.ClipTransition, typeof(ClipTransition));
+                var selectVm = new SelectLibraryItemDialogViewModel(
+                    KnownLibraryItemFormats.ClipTransition,
+                    typeof(ClipTransition),
+                    LibraryThumbnailCapture.ForEdge(viewModel.ShownElement, viewModel.ShownEdge));
                 await selectVm.SelectTypeAsync(viewModel.Transition.Value?.GetType());
                 Type? type = await LibraryItemPickerHelper.ShowAsync(
                     typeEditor,
