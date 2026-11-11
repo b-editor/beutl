@@ -319,7 +319,7 @@
     <value>レーザーモード</value>
   </data>
   <data name="RazorTool_Description" xml:space="preserve">
-    <value>レーザー(分割)ツールを切り替えます。クリップ上をクリックして分割します。</value>
+    <value>レーザー(分割)ツールを切り替えます。要素上をクリックして分割します。</value>
   </data>
   <data name="ExitRazorTool" xml:space="preserve">
     <value>レーザーモードを終了</value>
@@ -331,7 +331,7 @@
     <value>スリップツール</value>
   </data>
   <data name="SlipTool_Description" xml:space="preserve">
-    <value>スリップツールを切り替えます。クリップをドラッグして、クリップを移動せずにソースメディアの表示位置をずらします。</value>
+    <value>スリップツールを切り替えます。要素をドラッグして、要素を移動せずにソースメディアの表示位置をずらします。</value>
   </data>
   <data name="ExitSlipTool" xml:space="preserve">
     <value>スリップツールを終了</value>
@@ -343,7 +343,7 @@
     <value>ロールツール</value>
   </data>
   <data name="RollTool_Description" xml:space="preserve">
-    <value>ロールツールを切り替えます。クリップの端をドラッグして隣接クリップとの境界を移動し、全体の長さを保ちます。</value>
+    <value>ロールツールを切り替えます。要素の端をドラッグして隣接要素との境界を移動し、全体の長さを保ちます。</value>
   </data>
   <data name="ExitRollTool" xml:space="preserve">
     <value>ロールツールを終了</value>
@@ -355,7 +355,7 @@
     <value>スライドツール</value>
   </data>
   <data name="SlideTool_Description" xml:space="preserve">
-    <value>スライドツールを切り替えます。クリップをドラッグして移動し、両隣のクリップが補正して全体の長さを保ちます。</value>
+    <value>スライドツールを切り替えます。要素をドラッグして移動し、両隣の要素が補正して全体の長さを保ちます。</value>
   </data>
   <data name="ExitSlideTool" xml:space="preserve">
     <value>スライドツールを終了</value>
@@ -1111,22 +1111,22 @@
     <value>複製に失敗しました</value>
   </data>
   <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
-    <value>クリップを複製する前にプロジェクトを保存してください。</value>
+    <value>要素を複製する前にプロジェクトを保存してください。</value>
   </data>
   <data name="Duplicate_IOFailed" xml:space="preserve">
     <value>複製した要素のディスクへの書き込みに失敗しました。</value>
   </data>
   <data name="Duplicate_NoEmptySlot" xml:space="preserve">
-    <value>タイムラインに空きが見つからなかったため、既存のクリップと重なる位置に複製を配置しました。</value>
+    <value>タイムラインに空きが見つからなかったため、既存の要素と重なる位置に複製を配置しました。</value>
   </data>
   <data name="Duplicate_FallbackToMove" xml:space="preserve">
-    <value>複製に失敗したため、元のクリップを移動だけ行いました。</value>
+    <value>複製に失敗したため、元の要素を移動だけ行いました。</value>
   </data>
   <data name="Duplicate_FallbackFailed" xml:space="preserve">
     <value>移動のフォールバックも失敗しました。タイムラインの状態と表示が一致しない可能性があります。</value>
   </data>
   <data name="ElementAdder_ProjectNotSaved" xml:space="preserve">
-    <value>クリップを追加する前にプロジェクトを保存してください。</value>
+    <value>要素を追加する前にプロジェクトを保存してください。</value>
   </data>
   <data name="AboutBeutl" xml:space="preserve">
     <value>Beutlについて</value>
@@ -1625,10 +1625,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>上限</value>
   </data>
   <data name="ProxyClipCountSingular" xml:space="preserve">
-    <value>1 クリップ</value>
+    <value>動画ソース 1 件</value>
   </data>
   <data name="ProxyClipCountPlural" xml:space="preserve">
-    <value>{0} クリップ</value>
+    <value>動画ソース {0} 件</value>
   </data>
   <data name="ProxyMoreActions" xml:space="preserve">
     <value>その他の操作</value>
@@ -1643,7 +1643,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>プロジェクトに動画を追加すると、ここで軽量なプレビュー用ファイルを作成できます。</value>
   </data>
   <data name="ProxyClips" xml:space="preserve">
-    <value>クリップ</value>
+    <value>動画ソース</value>
   </data>
   <data name="ProxyQueue" xml:space="preserve">
     <value>キュー</value>
@@ -1697,7 +1697,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>プロキシキューを利用できません。</value>
   </data>
   <data name="ProxyBulkNoEligibleClips" xml:space="preserve">
-    <value>一括生成のしきい値を満たすクリップがありません。個別に生成してください。</value>
+    <value>一括生成のしきい値を満たす動画ソースがありません。個別に生成してください。</value>
   </data>
   <data name="ProxyDeleteFailedSingular" xml:space="preserve">
     <value>ファイルが使用中のため、プロキシを1件削除できませんでした。</value>
@@ -1706,7 +1706,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>ファイルが使用中のため、プロキシを{0}件削除できませんでした。</value>
   </data>
   <data name="ProxyClipSummaryFormat" xml:space="preserve">
-    <value>{0} クリップ / 準備完了 {1} / 期限切れ {2} / 失敗 {3} / 未生成 {4}</value>
+    <value>動画ソース {0} 件 / 準備完了 {1} / 期限切れ {2} / 失敗 {3} / 未生成 {4}</value>
   </data>
   <data name="ProxySelectedSingular" xml:space="preserve">
     <value>1 件選択</value>
@@ -3806,10 +3806,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>音声要素を右クリックして「無音区間で自動分割」を選択してください。</value>
   </data>
   <data name="SilenceSplit_ShortSegment" xml:space="preserve">
-    <value>検出した位置で分割すると、グループ内のクリップに1フレーム未満の区間ができます。無音の設定を調整するか、グループ編集をオフにしてください。</value>
+    <value>検出した位置で分割すると、グループ内の要素に1フレーム未満の区間ができます。無音の設定を調整するか、グループ編集をオフにしてください。</value>
   </data>
   <data name="SilenceSplit_Preparing" xml:space="preserve">
-    <value>クリップを準備中…</value>
+    <value>要素を準備中…</value>
   </data>
   <data name="SilenceSplit_Applying" xml:space="preserve">
     <value>分割を反映中…</value>
@@ -3842,6 +3842,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>プロジェクトの音声チャンネル</value>
   </data>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
-    <value>クリップを貼り付ける前にプロジェクトを保存してください。</value>
+    <value>要素を貼り付ける前にプロジェクトを保存してください。</value>
   </data>
 </root>

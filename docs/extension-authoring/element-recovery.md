@@ -17,7 +17,7 @@ Saving does not write a protected element's edits, so the editor treats it as re
 `Scene.IsElementLocked` returns `true` for it, and the built-in editors refuse its edits.
 They still allow deleting the element, and removing or replacing an object or value that
 holds a blocker, because that is the repair. Custom editors should refuse other edits
-while `Scene.IsElementLocked` is `true`, the same way they respect a locked clip.
+while `Scene.IsElementLocked` is `true`, the same way they respect a locked element.
 
 Use the `HistoryManager` already observing the edited scene. Apply the repair through
 the normal public property, keyframe, or collection APIs, call `TryCompleteRepair`,

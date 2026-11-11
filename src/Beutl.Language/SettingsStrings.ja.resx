@@ -317,7 +317,7 @@
     <comment/>
   </data>
   <data name="ShowTimelineThumbnailsByDefault_Description" xml:space="preserve">
-    <value>タイムラインのクリップにフィルムストリップと波形を表示します。オフにすると、クリップの右クリックメニューから個別にオンにできます。メディアの多いタイムラインの拡大縮小が軽くなります。</value>
+    <value>タイムラインの要素にフィルムストリップと波形を表示します。オフにすると、要素の右クリックメニューから個別にオンにできます。メディアの多いタイムラインの拡大縮小が軽くなります。</value>
     <comment/>
   </data>
   <data name="Graphics" xml:space="preserve">
@@ -800,6 +800,6 @@
     <value>タイムラインのクリックで再生位置を移動</value>
   </data>
   <data name="SeekOnTimelineClick_Description" xml:space="preserve">
-    <value>オフにすると、再生位置は目盛りの操作かバーのドラッグでのみ移動し、タイムラインの何もない場所をドラッグすると修飾キーなしでクリップを範囲選択します。</value>
+    <value>オフにすると、再生位置は目盛りの操作かバーのドラッグでのみ移動し、タイムラインの何もない場所をドラッグすると修飾キーなしで要素を範囲選択します。</value>
   </data>
 </root>

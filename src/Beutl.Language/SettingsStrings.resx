@@ -321,7 +321,7 @@
     <comment/>
   </data>
   <data name="ShowTimelineThumbnailsByDefault_Description" xml:space="preserve">
-    <value>Show filmstrips and waveforms on timeline clips. When off, turn them on per clip from its context menu; this keeps zooming a timeline full of media responsive.</value>
+    <value>Show filmstrips and waveforms on timeline elements. When off, turn them on per element from its context menu; this keeps zooming a timeline full of media responsive.</value>
     <comment/>
   </data>
   <data name="Graphics" xml:space="preserve">
@@ -804,6 +804,6 @@
     <value>Move the playhead with a click on the timeline</value>
   </data>
   <data name="SeekOnTimelineClick_Description" xml:space="preserve">
-    <value>When off, the playhead moves only from the ruler or by dragging its line, and dragging an empty part of the timeline selects clips without a modifier key.</value>
+    <value>When off, the playhead moves only from the ruler or by dragging its line, and dragging an empty part of the timeline selects elements without a modifier key.</value>
   </data>
 </root>

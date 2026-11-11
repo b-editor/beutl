@@ -234,7 +234,7 @@
     <value>Razor Tool</value>
   </data>
   <data name="RazorTool_Description" xml:space="preserve">
-    <value>Toggle razor (split) tool. Click on a clip to split it.</value>
+    <value>Toggle razor (split) tool. Click on an element to split it.</value>
   </data>
   <data name="ExitRazorTool" xml:space="preserve">
     <value>Exit Razor Tool</value>
@@ -246,7 +246,7 @@
     <value>Slip Tool</value>
   </data>
   <data name="SlipTool_Description" xml:space="preserve">
-    <value>Toggle slip tool. Drag a clip to shift its source-media window without moving the clip.</value>
+    <value>Toggle slip tool. Drag an element to shift its source-media window without moving the element.</value>
   </data>
   <data name="ExitSlipTool" xml:space="preserve">
     <value>Exit Slip Tool</value>
@@ -258,7 +258,7 @@
     <value>Roll Tool</value>
   </data>
   <data name="RollTool_Description" xml:space="preserve">
-    <value>Toggle roll tool. Drag a clip edge to shift the boundary with its neighbor, preserving total length.</value>
+    <value>Toggle roll tool. Drag an element edge to shift the boundary with its neighbor, preserving total length.</value>
   </data>
   <data name="ExitRollTool" xml:space="preserve">
     <value>Exit Roll Tool</value>
@@ -270,7 +270,7 @@
     <value>Slide Tool</value>
   </data>
   <data name="SlideTool_Description" xml:space="preserve">
-    <value>Toggle slide tool. Drag a clip to shift it while neighbors compensate, preserving total length.</value>
+    <value>Toggle slide tool. Drag an element to shift it while neighbors compensate, preserving total length.</value>
   </data>
   <data name="ExitSlideTool" xml:space="preserve">
     <value>Exit Slide Tool</value>
@@ -1116,22 +1116,22 @@
     <value>Failed to duplicate</value>
   </data>
   <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
-    <value>Save the project before duplicating clips.</value>
+    <value>Save the project before duplicating elements.</value>
   </data>
   <data name="Duplicate_IOFailed" xml:space="preserve">
     <value>Could not write the duplicated element to disk.</value>
   </data>
   <data name="Duplicate_NoEmptySlot" xml:space="preserve">
-    <value>Could not find an empty slot on the timeline; the duplicate was placed where it may overlap an existing clip.</value>
+    <value>Could not find an empty slot on the timeline; the duplicate was placed where it may overlap an existing element.</value>
   </data>
   <data name="Duplicate_FallbackToMove" xml:space="preserve">
-    <value>Duplicate failed; falling back to a plain move of the original clips.</value>
+    <value>Duplicate failed; falling back to a plain move of the original elements.</value>
   </data>
   <data name="Duplicate_FallbackFailed" xml:space="preserve">
     <value>The move fallback also failed; the timeline state may not match what you see.</value>
   </data>
   <data name="ElementAdder_ProjectNotSaved" xml:space="preserve">
-    <value>Save the project before adding clips.</value>
+    <value>Save the project before adding elements.</value>
   </data>
   <data name="AboutBeutl" xml:space="preserve">
     <value>About Beutl</value>
@@ -1631,10 +1631,10 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Cap</value>
   </data>
   <data name="ProxyClipCountSingular" xml:space="preserve">
-    <value>1 clip</value>
+    <value>1 video source</value>
   </data>
   <data name="ProxyClipCountPlural" xml:space="preserve">
-    <value>{0} clips</value>
+    <value>{0} video sources</value>
   </data>
   <data name="ProxyMoreActions" xml:space="preserve">
     <value>More actions</value>
@@ -1649,7 +1649,7 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Add video to the project to create lighter files for preview playback here.</value>
   </data>
   <data name="ProxyClips" xml:space="preserve">
-    <value>Clips</value>
+    <value>Video sources</value>
   </data>
   <data name="ProxyQueue" xml:space="preserve">
     <value>Queue</value>
@@ -1703,7 +1703,7 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Proxy queue is not available.</value>
   </data>
   <data name="ProxyBulkNoEligibleClips" xml:space="preserve">
-    <value>No clips met the bulk-generation threshold; use per-clip generate.</value>
+    <value>No video sources met the bulk-generation threshold; use per-source generate.</value>
   </data>
   <data name="ProxyDeleteFailedSingular" xml:space="preserve">
     <value>1 proxy could not be deleted because its file is in use.</value>
@@ -1712,7 +1712,7 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>{0} proxies could not be deleted because their files are in use.</value>
   </data>
   <data name="ProxyClipSummaryFormat" xml:space="preserve">
-    <value>{0} clips / {1} ready / {2} stale / {3} failed / {4} missing</value>
+    <value>{0} video sources / {1} ready / {2} stale / {3} failed / {4} missing</value>
   </data>
   <data name="ProxySelectedSingular" xml:space="preserve">
     <value>1 selected</value>
@@ -3787,7 +3787,7 @@ when history recording is enabled.</value>
     <value>Include grouped elements</value>
   </data>
   <data name="SilenceSplit_Apply" xml:space="preserve">
-    <value>Apply to entire clip</value>
+    <value>Apply to entire element</value>
   </data>
   <data name="SilenceSplit_Analyzing" xml:space="preserve">
     <value>Analyzing waveform…</value>
@@ -3811,10 +3811,10 @@ when history recording is enabled.</value>
     <value>Right-click an audio element and choose Auto Split by Silence.</value>
   </data>
   <data name="SilenceSplit_ShortSegment" xml:space="preserve">
-    <value>A detected cut would create a segment shorter than one frame in a grouped clip. Adjust the silence settings or turn off grouped editing.</value>
+    <value>A detected cut would create a segment shorter than one frame in a grouped element. Adjust the silence settings or turn off grouped editing.</value>
   </data>
   <data name="SilenceSplit_Preparing" xml:space="preserve">
-    <value>Preparing clips…</value>
+    <value>Preparing elements…</value>
   </data>
   <data name="SilenceSplit_Applying" xml:space="preserve">
     <value>Applying cuts…</value>
@@ -3847,6 +3847,6 @@ when history recording is enabled.</value>
     <value>Project audio channels</value>
   </data>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
-    <value>Save the project before pasting clips.</value>
+    <value>Save the project before pasting elements.</value>
   </data>
 </root>
