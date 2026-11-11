@@ -78,10 +78,10 @@ internal sealed class LibraryThumbnailSet : IDisposable
             if (_sources.TryGetValue(type, out LibraryThumbnailSource? source))
                 return source;
 
-            if (LibraryThumbnailRenderer.GetLayout(type) is not { } layout)
+            if (!LibraryThumbnailRenderer.CanRender(type))
                 return null;
 
-            source = new LibraryThumbnailSource(this, type, layout);
+            source = new LibraryThumbnailSource(this, type);
             _sources.Add(type, source);
             return source;
         }
@@ -105,8 +105,6 @@ internal sealed class LibraryThumbnailSet : IDisposable
         foreach (LibraryThumbnailSource source in Sources())
         {
             source.MarkStale();
-            if (source.WantsStill || source.WantsFrames)
-                Schedule(source);
         }
     }
 
@@ -180,7 +178,7 @@ internal sealed class LibraryThumbnailSet : IDisposable
     // The thumbnails being played first; one no longer asked for leaves the queue.
     private LibraryThumbnailSource? TakeNext()
     {
-        _queue.RemoveAll(source => !source.WantsStill && !source.WantsFrames);
+        _queue.RemoveAll(source => !source.WantsDrawing);
         LibraryThumbnailSource? next = _queue.FirstOrDefault(source => source.WantsFrames) ?? _queue.FirstOrDefault();
         if (next != null)
             _queue.Remove(next);
@@ -225,7 +223,7 @@ internal sealed class LibraryThumbnailSet : IDisposable
         }
 
         // Playing can start, or the content change, while a drawing is under way.
-        if (source.WantsStill || source.WantsFrames)
+        if (source.WantsDrawing)
             Schedule(source);
     }
 
@@ -292,12 +290,7 @@ internal sealed class LibraryThumbnailSet : IDisposable
                 _sources.TryGetValue(type, out source);
             }
 
-            if (source == null)
-                continue;
-
-            source.MarkStale();
-            if (source.WantsStill || source.WantsFrames)
-                Schedule(source);
+            source?.MarkStale();
         }
     }
 

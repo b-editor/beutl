@@ -48,8 +48,8 @@ public class SelectLibraryItemDialogViewModel
         _allItemsTask = allItemsTask;
         HasThumbnails = LibraryThumbnailRenderer.HasThumbnails(baseType);
         Thumbnails = HasThumbnails ? new LibraryThumbnailSet(thumbnailContent) : null;
-        ShowTiles.Value = Preferences.Default.Get(ShowTilesKey, bool.TrueString) != bool.FalseString;
-        ShowTiles.Skip(1).Subscribe(value => Preferences.Default.Set(ShowTilesKey, value.ToString()));
+        ShowTiles.Value = Preferences.Default.Get(ShowTilesKey, true);
+        ShowTiles.Skip(1).Subscribe(value => Preferences.Default.Set(ShowTilesKey, value));
         IReadOnlySet<Type> items = LibraryService.Current.GetTypesFromFormat(_format);
         if (items.Count == 0)
         {
@@ -290,15 +290,11 @@ public class SelectLibraryItemDialogViewModel
             Regex[] regexes = RegexHelper.CreateRegexes(SearchText.Value);
 
             var newItems = items
-                .Select(v => (ViewModel: LibraryItemViewModel.CreateFromLibraryItem((LibraryItem)v.UserData), IsPinned: v.IsPinned))
-                .Select(v => (score: v.ViewModel.Match(regexes), item: v.ViewModel, IsPinned: v.IsPinned))
+                .Select(v => (score: LibraryItemViewModel.CreateFromLibraryItem((LibraryItem)v.UserData).Match(regexes), item: v))
                 .Where(v => v.score > 0)
-                .OrderByDescending(t => t.IsPinned)
+                .OrderByDescending(t => t.item.IsPinned)
                 .ThenByDescending(v => v.score)
-                .Select(v => new PinnableLibraryItem(((LibraryItem)v.item.Data!).DisplayName, v.IsPinned, v.item.Data, ((LibraryItem)v.item.Data!).Description)
-                {
-                    Thumbnail = GetThumbnail((LibraryItem)v.item.Data!),
-                })
+                .Select(v => v.item)
                 .ToArray();
             Items.AddRange(newItems);
         }

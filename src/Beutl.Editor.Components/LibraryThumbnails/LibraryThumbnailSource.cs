@@ -9,7 +9,7 @@ namespace Beutl.Editor.Components.LibraryThumbnails;
 // The moving thumbnail of one library type in a set, as the views see it. It counts who asks for its still and its
 // frames, and its set draws what is asked for and drops the frames no one plays. Once the set's content changes it
 // keeps showing what it has until it is drawn again. Used on the UI thread.
-internal sealed class LibraryThumbnailSource(LibraryThumbnailSet set, Type type, LibraryThumbnailLayout layout)
+internal sealed class LibraryThumbnailSource(LibraryThumbnailSet set, Type type)
     : IAnimatedThumbnailSource
 {
     private int _stillRequests;
@@ -22,8 +22,6 @@ internal sealed class LibraryThumbnailSource(LibraryThumbnailSet set, Type type,
     private int _failedGeneration = -1;
 
     public Type Type => type;
-
-    public LibraryThumbnailLayout Layout => layout;
 
     public IImage? Still => _still;
 
@@ -38,6 +36,9 @@ internal sealed class LibraryThumbnailSource(LibraryThumbnailSet set, Type type,
     public bool WantsStill => !Failed && _stillRequests > 0 && (_still == null || _stillGeneration != Generation);
 
     public bool WantsFrames => !Failed && _framesRequests > 0 && (_sheet == null || _sheetGeneration != Generation);
+
+    // Whether the set has anything to draw for it.
+    public bool WantsDrawing => WantsStill || WantsFrames;
 
     public bool IsPlayed => _framesRequests > 0;
 
@@ -113,10 +114,12 @@ internal sealed class LibraryThumbnailSource(LibraryThumbnailSet set, Type type,
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    // The set's content changed: what is shown stays until it is drawn again.
+    // The set's content changed: what is shown stays until it is drawn again, which starts if it is asked for.
     public void MarkStale()
     {
         Generation++;
+        if (WantsDrawing)
+            set.Schedule(this);
     }
 
     // Frees the frames once nothing plays them; the still stays, and playing again draws them again.
