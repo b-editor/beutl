@@ -73,7 +73,16 @@ public sealed partial class TimelineTabView : UserControl
 
         if (TimelinePanel.ContextFlyout is FAMenuFlyout contextFlyout)
         {
-            contextFlyout.Opening += (_, _) => PopulateAddFromTemplateSubMenu();
+            contextFlyout.Opening += (_, _) =>
+            {
+                PopulateAddFromTemplateSubMenu();
+                if (ViewModel is { } timeline)
+                {
+                    TimelineSelectionMenu.Populate(BulkSelectionMenu, timeline,
+                        timeline.ClickedPosition.X.PixelToTime(timeline.Options.Value.Scale),
+                        timeline.CalculateClickedLayer());
+                }
+            };
         }
     }
 

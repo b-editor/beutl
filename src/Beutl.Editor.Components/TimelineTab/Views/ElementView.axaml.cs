@@ -54,7 +54,12 @@ public sealed partial class ElementView : UserControl
     public ElementView()
     {
         InitializeComponent();
-        AddHandler(PointerPressedEvent, (_, e) => _interactionPointer = e.Pointer, RoutingStrategies.Tunnel, true);
+        AddHandler(PointerPressedEvent, (_, e) =>
+        {
+            _interactionPointer = e.Pointer;
+            if (DataContext is ElementViewModel viewModel && e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
+                _pointerPosition = e.GetPosition(this).X.PixelToTime(viewModel.Timeline.Options.Value.Scale);
+        }, RoutingStrategies.Tunnel, true);
         LostFocus += (_, _) => _timeline?.InvalidateElementViewport();
         TimelineEditingModeMenu.Populate(editingModeMenu, "Timeline.");
 
@@ -113,6 +118,8 @@ public sealed partial class ElementView : UserControl
     {
         if (DataContext is not ElementViewModel viewModel) return;
 
+        TimelineSelectionMenu.Populate(bulkSelectionMenu, viewModel.Timeline,
+            _pointerPosition, viewModel.Model.ZIndex.Value, viewModel.Model);
         bool editable = viewModel.IsEditable.Value;
         change2OriginalDuration.IsEnabled = editable && viewModel.HasOriginalDuration();
         splitByCurrent.IsEnabled = editable && viewModel.Model.Range.Contains(viewModel.Timeline.EditorContext.GetRequiredService<IEditorClock>().CurrentTime.Value);
@@ -299,6 +306,7 @@ public sealed partial class ElementView : UserControl
 
     private void OnDataContextAttached(ElementViewModel obj)
     {
+        _pointerPosition = obj.Model.Start.Value;
         obj.InitializeViewState();
         obj.AnimationRequested = async (args, token) =>
         {

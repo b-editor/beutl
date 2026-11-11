@@ -203,6 +203,33 @@
   <data name="EditingMode" xml:space="preserve">
     <value>Editing Mode</value>
   </data>
+  <data name="BulkSelection" xml:space="preserve">
+    <value>Select Multiple</value>
+  </data>
+  <data name="SelectFollowingElements" xml:space="preserve">
+    <value>Following Elements</value>
+  </data>
+  <data name="SelectFollowingElementsAllLayers" xml:space="preserve">
+    <value>Following Elements on All Layers</value>
+  </data>
+  <data name="SelectPrecedingElements" xml:space="preserve">
+    <value>Preceding Elements</value>
+  </data>
+  <data name="SelectPrecedingElementsAllLayers" xml:space="preserve">
+    <value>Preceding Elements on All Layers</value>
+  </data>
+  <data name="SelectLayerElements" xml:space="preserve">
+    <value>Elements on the Same Layer</value>
+  </data>
+  <data name="SelectElementsAtPosition" xml:space="preserve">
+    <value>Elements at This Position (All Layers)</value>
+  </data>
+  <data name="SelectGroupElements" xml:space="preserve">
+    <value>Elements in the Same Group</value>
+  </data>
+  <data name="InvertSelection" xml:space="preserve">
+    <value>Invert Selection</value>
+  </data>
   <data name="RazorTool" xml:space="preserve">
     <value>Razor Tool</value>
   </data>

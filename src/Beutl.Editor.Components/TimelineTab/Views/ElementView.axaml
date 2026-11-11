@@ -137,6 +137,7 @@
                         <icons:FluentIconSource Icon="DeleteDismiss" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutSubItem x:Name="bulkSelectionMenu" Text="{x:Static lang:Strings.BulkSelection}" />
                 <ui:FAMenuFlyoutItem x:Name="groupSelectedElements"
                                      usage:UsageTracking.Feature="Timeline.GroupSelectedElements"
                                      Command="{Binding GroupSelectedElements}"
