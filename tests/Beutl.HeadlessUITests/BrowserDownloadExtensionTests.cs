@@ -371,7 +371,10 @@ public sealed class BrowserDownloadExtensionTests
             Assert.That(BrowserDownloadHandling.ReadPageScriptResult("not an envelope"), Is.Null);
             Assert.That(BrowserDownloadHandling.ReadPageScriptResult("\"text\""), Is.Null);
             // A trailing semicolon still makes an expression of the extension's script.
-            Assert.That(BrowserDownloadHandling.WrapPageScript("JSON.stringify({ a: 1 }); "), Does.Contain("JSON.stringify({ a: 1 })\n);"));
+            Assert.That(BrowserDownloadHandling.WrapPageScript("JSON.stringify({ a: 1 }); "), Does.EndWith("(\nJSON.stringify({ a: 1 })\n)"));
+            // The expression is an argument, not inside the function that names the envelope's value, so it can read
+            // a page global of the same name.
+            Assert.That(BrowserDownloadHandling.WrapPageScript("value"), Does.StartWith("((value) => ").And.EndWith("))(\nvalue\n)"));
         });
     }
 

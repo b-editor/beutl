@@ -33,10 +33,11 @@ internal sealed class BrowserDownloadHandling(
 
     // WebView2 returns a script's value as JSON, so a string arrives quoted, while WebKit returns the string itself.
     // A value that is itself quoted cannot tell the two apart, so the extension's expression goes into an envelope
-    // that always starts with a brace, and its string comes back as it was on every engine.
+    // that always starts with a brace, and its string comes back as it was on every engine. The expression is the
+    // argument of the function that builds the envelope, so it runs in the page's scope and sees the page's globals.
     internal static string WrapPageScript(string expression) =>
-        "(() => { const value = (\n" + expression.TrimEnd().TrimEnd(';') + "\n);\n"
-        + "return JSON.stringify({ value: typeof value === 'string' ? value : null }); })()";
+        "((value) => JSON.stringify({ value: typeof value === 'string' ? value : null }))(\n"
+        + expression.TrimEnd().TrimEnd(';') + "\n)";
 
     internal static string? ReadPageScriptResult(string? result)
     {
