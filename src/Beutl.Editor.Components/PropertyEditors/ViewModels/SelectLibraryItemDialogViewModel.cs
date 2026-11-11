@@ -275,9 +275,9 @@ public class SelectLibraryItemDialogViewModel
         // Read after the wait, so this is the text the results are for, whichever path asked for them.
         _appliedSearchText = SearchText.Value;
         items = items.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData, i.Description)
-            {
-                Thumbnail = GetThumbnail((LibraryItem)i.UserData),
-            })
+        {
+            Thumbnail = GetThumbnail((LibraryItem)i.UserData),
+        })
             .OrderByDescending(t => t.IsPinned)
             .ToArray();
 
