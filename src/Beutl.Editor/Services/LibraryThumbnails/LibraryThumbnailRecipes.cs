@@ -9,8 +9,9 @@ namespace Beutl.Editor.Services.LibraryThumbnails;
 /// </summary>
 /// <remarks>
 /// A filter effect plays over the project's content, such as the frame the preview shows or the object it is added to,
-/// and a transition between the project's clips; where there is no content, over the sample picture and clips. A type
-/// without a recipe plays with its default values, and many effects change nothing at theirs, so an extension
+/// and a transition between the project's clips; where there is no content, over the
+/// <see cref="LibraryThumbnailSample">sample picture</see> its recipe picks and between sample clips. A type without a
+/// recipe plays with its default values over the landscape, and many effects change nothing at theirs, so an extension
 /// registers a recipe for each of its effects when it loads. A recipe of an unloaded assembly is removed with it.
 /// </remarks>
 public static class LibraryThumbnailRecipes
@@ -30,7 +31,8 @@ public static class LibraryThumbnailRecipes
     public static event Action<IReadOnlyList<Type>>? Changed;
 
     /// <summary>
-    /// Sets how the thumbnail of <typeparamref name="T"/> is shown, replacing any recipe registered before.
+    /// Sets how the thumbnail of <typeparamref name="T"/> is shown, replacing any recipe registered before. A filter
+    /// effect is shown on the landscape where there is no content.
     /// </summary>
     /// <param name="recipe">
     /// Called with a new instance each time the thumbnail is drawn, before its first frame. It sets the values to
@@ -39,10 +41,31 @@ public static class LibraryThumbnailRecipes
     public static void Register<T>(Action<T, LibraryThumbnailContext> recipe)
         where T : EngineObject
     {
+        Register(LibraryThumbnailSample.Landscape, recipe);
+    }
+
+    /// <summary>
+    /// Sets how the thumbnail of <typeparamref name="T"/> is shown, and the sample picture a filter effect is shown on
+    /// where there is no content, replacing any recipe registered before.
+    /// </summary>
+    /// <param name="sample">
+    /// The sample picture that shows the effect best. A transition goes between sample clips of its own, whatever
+    /// this is.
+    /// </param>
+    /// <param name="recipe">
+    /// Called with a new instance each time the thumbnail is drawn, before its first frame. It sets the values to
+    /// show, and makes values move through <see cref="LibraryThumbnailContext.Animate"/>.
+    /// </param>
+    public static void Register<T>(LibraryThumbnailSample sample, Action<T, LibraryThumbnailContext> recipe)
+        where T : EngineObject
+    {
         ArgumentNullException.ThrowIfNull(recipe);
+        if (!Enum.IsDefined(sample))
+            throw new ArgumentOutOfRangeException(nameof(sample), sample, null);
+
         lock (s_lock)
         {
-            s_recipes[typeof(T)] = new Recipe(recipe.Method.Module, (obj, context) => recipe((T)obj, context));
+            s_recipes[typeof(T)] = new Recipe(recipe.Method.Module, sample, (obj, context) => recipe((T)obj, context));
         }
 
         Changed?.Invoke([typeof(T)]);
@@ -94,5 +117,6 @@ public static class LibraryThumbnailRecipes
     }
 
     // The module is the one whose code the recipe runs, so a new build of it draws the thumbnail again.
-    internal sealed record Recipe(Module Module, Action<EngineObject, LibraryThumbnailContext> Apply);
+    internal sealed record Recipe(
+        Module Module, LibraryThumbnailSample Sample, Action<EngineObject, LibraryThumbnailContext> Apply);
 }

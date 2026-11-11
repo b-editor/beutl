@@ -57,8 +57,8 @@ internal sealed record LibraryThumbnailSheet(Bitmap Bitmap, LibraryThumbnailLayo
 
 /// <summary>
 /// Draws the moving thumbnails of filter effects and transitions: an effect, with its
-/// <see cref="LibraryThumbnailRecipes">recipe</see>, over the project's content or the sample picture, and a transition
-/// between the project's content or the sample clips.
+/// <see cref="LibraryThumbnailRecipes">recipe</see>, over the project's content or the sample picture the recipe picks,
+/// and a transition between the project's content or the sample clips.
 /// </summary>
 /// <remarks>
 /// Content keeps the size it has in the project: an effect applies to it at that size, in the units a project
@@ -171,21 +171,6 @@ internal static class LibraryThumbnailRenderer
         }
     }
 
-    // Gives one object to a property without making it the property owner's child, so several scenes can hold it.
-    // Thumbnails are never saved, so it is never written out.
-    private sealed class SharedValueExpression<T>(T value) : IExpression<T>
-    {
-        public string ExpressionString => string.Empty;
-
-        public T Evaluate(ExpressionContext context) => value;
-
-        public bool Validate(out string? error)
-        {
-            error = null;
-            return true;
-        }
-    }
-
     private static int ToFrames(MediaTime time)
     {
         return (int)Math.Round(time.ToSeconds() * LibraryThumbnailLayout.FrameRate.ToDouble());
@@ -194,6 +179,7 @@ internal static class LibraryThumbnailRenderer
     private static Scene CreateEffectScene(Type type, LibraryThumbnailSubject? subject)
     {
         var effect = (FilterEffect)Activator.CreateInstance(type)!;
+        LibraryThumbnailRecipes.Recipe? recipe = LibraryThumbnailRecipes.Find(type);
         // The effect goes on a group around the picture, so a recipe can move the picture as a whole.
         DrawableGroup target;
         PixelSize frame;
@@ -209,11 +195,11 @@ internal static class LibraryThumbnailRenderer
         {
             frame = LibraryThumbnailSamples.FrameSize;
             content = frame.ToSize(1);
-            target = LibraryThumbnailSamples.CreateEffectSubject();
+            target = LibraryThumbnailSamples.CreateEffectSubject(recipe?.Sample ?? LibraryThumbnailSample.Landscape);
         }
 
         target.FilterEffect.Value = effect;
-        LibraryThumbnailRecipes.Find(type)?.Apply(effect, new LibraryThumbnailContext(target, EffectLength, content));
+        recipe?.Apply(effect, new LibraryThumbnailContext(target, EffectLength, content));
 
         return CreateScene(
             frame,
@@ -379,7 +365,8 @@ internal static class LibraryThumbnailRenderer
         private Bitmap? _sheet;
 
         // The scene is drawn at the scale that makes its frame a thumbnail's width. Resources are shared, so the
-        // captured pictures, which stay decoded, are not decoded again; nothing else in the scene is shared.
+        // captured pictures, which stay decoded, are not decoded again, and a sample picture is decoded once for the
+        // thumbnails drawing it; nothing else in the scene is shared.
         private Session(Type type, Scene scene, Func<int, MediaTime>? timeOf, PixelSize sheetSize)
         {
             _type = type;

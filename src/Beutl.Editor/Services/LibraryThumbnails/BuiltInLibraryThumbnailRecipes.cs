@@ -6,10 +6,10 @@ using Beutl.Media;
 namespace Beutl.Editor.Services.LibraryThumbnails;
 
 // The recipes of the built-in filter effects. Each moves the value that shows what the effect does, from none at
-// the start of the thumbnail to the most at its middle, the frame shown at rest. Sizes are given for a full HD frame
-// and scaled to what the effect applies to. An effect left out shows its own
-// look at its defaults, such as a shake, or needs what the samples do not have, such as a LUT file, a script or
-// another effect to hold.
+// the start of the thumbnail to the most at its middle, the frame shown at rest, and picks the sample picture that
+// shows the effect best where the project has no content. Sizes are given for a full HD frame and scaled to what the
+// effect applies to. An effect left out needs what the samples do not have, such as a LUT file, a script or another
+// effect to hold, and is shown at its defaults on the landscape.
 internal static class BuiltInLibraryThumbnailRecipes
 {
     public static void Register()
@@ -27,18 +27,19 @@ internal static class BuiltInLibraryThumbnailRecipes
         LibraryThumbnailRecipes.Register<Blur>((effect, context) =>
             context.Animate(effect.Sigma, p => Square(context.Scale(36) * Wave(p))));
 
-        // A thumbnail is a sixth of the frame, so the radius is wide enough to leave a halo there.
+        // A thumbnail is a sixth of the frame, so the radius is wide enough to leave a halo there, and the amount no
+        // more than a photograph takes before its edges glow.
         LibraryThumbnailRecipes.Register<Sharpen>((effect, context) =>
         {
             effect.Radius.Value = context.Scale(24);
-            context.Animate(effect.Amount, p => 500 * Wave(p));
+            context.Animate(effect.Amount, p => 250 * Wave(p));
         });
 
         LibraryThumbnailRecipes.Register<RadialBlur>((effect, context) =>
             context.Animate(effect.Amount, p => 40 * Wave(p)));
 
-        // A motion blur only shows on moving content, so the sample sweeps from side to side, fastest at the middle.
-        LibraryThumbnailRecipes.Register<MotionBlur>((effect, context) =>
+        // A motion blur only shows on moving content, so the picture sweeps from side to side, fastest at the middle.
+        LibraryThumbnailRecipes.Register<MotionBlur>(LibraryThumbnailSample.Object, (effect, context) =>
         {
             effect.ShutterAngle.Value = 360;
             effect.Samples.Value = 24;
@@ -47,20 +48,22 @@ internal static class BuiltInLibraryThumbnailRecipes
             context.Subject?.Transform.Value = move;
         });
 
-        LibraryThumbnailRecipes.Register<Bokeh>((effect, context) =>
+        LibraryThumbnailRecipes.Register<Bokeh>(LibraryThumbnailSample.NightLights, (effect, context) =>
         {
             effect.Highlight.Value = 1;
             context.Animate(effect.Radius, p => context.Scale(32) * Wave(p));
         });
 
-        LibraryThumbnailRecipes.Register<Bloom>((effect, context) =>
+        // The lights of a night picture are small in a thumbnail, so they glow wide.
+        LibraryThumbnailRecipes.Register<Bloom>(LibraryThumbnailSample.NightLights, (effect, context) =>
         {
-            effect.Radius.Value = context.Scale(48);
-            effect.Threshold.Value = 0.45f;
-            context.Animate(effect.Intensity, p => 3 * Wave(p));
+            effect.Radius.Value = context.Scale(96);
+            effect.Threshold.Value = 0.3f;
+            context.Animate(effect.Intensity, p => 4 * Wave(p));
         });
 
-        LibraryThumbnailRecipes.Register<LightRays>((effect, context) =>
+        // Rays need bright shapes against dark around them, as letters are.
+        LibraryThumbnailRecipes.Register<LightRays>(LibraryThumbnailSample.Text, (effect, context) =>
         {
             effect.Intensity.Value = 1.5f;
             context.Animate(effect.Length, p => 90 * Wave(p));
@@ -69,28 +72,28 @@ internal static class BuiltInLibraryThumbnailRecipes
 
     private static void RegisterShadows()
     {
-        LibraryThumbnailRecipes.Register<DropShadow>((effect, context) =>
+        LibraryThumbnailRecipes.Register<DropShadow>(LibraryThumbnailSample.Object, (effect, context) =>
         {
             effect.Color.Value = Color.FromArgb(0xD0, 0x00, 0x00, 0x00);
             context.Animate(effect.Position, p => new Point(context.Scale(48) * Wave(p), context.Scale(48) * Wave(p)));
             context.Animate(effect.Sigma, p => Square(context.Scale(28) * Wave(p)));
         });
 
-        LibraryThumbnailRecipes.Register<InnerShadow>((effect, context) =>
+        LibraryThumbnailRecipes.Register<InnerShadow>(LibraryThumbnailSample.Text, (effect, context) =>
         {
             effect.Color.Value = Color.FromArgb(0xE0, 0x00, 0x00, 0x00);
             effect.Sigma.Value = Square(context.Scale(18));
             context.Animate(effect.Position, p => new Point(context.Scale(40) * Wave(p), context.Scale(40) * Wave(p)));
         });
 
-        LibraryThumbnailRecipes.Register<FlatShadow>((effect, context) =>
+        LibraryThumbnailRecipes.Register<FlatShadow>(LibraryThumbnailSample.Text, (effect, context) =>
         {
             effect.Angle.Value = 45;
             effect.Brush.Value = new SolidColorBrush(Color.FromRgb(0x0B, 0x12, 0x20));
             context.Animate(effect.Length, p => context.Scale(180) * Wave(p));
         });
 
-        LibraryThumbnailRecipes.Register<StrokeEffect>((effect, context) =>
+        LibraryThumbnailRecipes.Register<StrokeEffect>(LibraryThumbnailSample.Text, (effect, context) =>
         {
             var pen = new Pen
             {
@@ -116,13 +119,13 @@ internal static class BuiltInLibraryThumbnailRecipes
         LibraryThumbnailRecipes.Register<DiagonalClipping>((effect, context) =>
             context.Animate(effect.Width, p => context.Scale(2400 - (2000 * Wave(p)))));
 
-        LibraryThumbnailRecipes.Register<Dilate>((effect, context) =>
+        LibraryThumbnailRecipes.Register<Dilate>(LibraryThumbnailSample.Text, (effect, context) =>
         {
             context.Animate(effect.RadiusX, p => context.Scale(20) * Wave(p));
             context.Animate(effect.RadiusY, p => context.Scale(20) * Wave(p));
         });
 
-        LibraryThumbnailRecipes.Register<Erode>((effect, context) =>
+        LibraryThumbnailRecipes.Register<Erode>(LibraryThumbnailSample.Text, (effect, context) =>
         {
             context.Animate(effect.RadiusX, p => context.Scale(20) * Wave(p));
             context.Animate(effect.RadiusY, p => context.Scale(20) * Wave(p));
@@ -135,15 +138,19 @@ internal static class BuiltInLibraryThumbnailRecipes
             context.Animate(effect.VerticalSpacing, p => context.Scale(80) * Wave(p));
         });
 
-        LibraryThumbnailRecipes.Register<RepeatEffect>((effect, context) =>
+        LibraryThumbnailRecipes.Register<RepeatEffect>(LibraryThumbnailSample.Object, (effect, context) =>
             context.Animate(effect.Spacing, p => Square(context.Scale(120) * Wave(p))));
 
-        LibraryThumbnailRecipes.Register<TransformEffect>((effect, context) =>
+        LibraryThumbnailRecipes.Register<TransformEffect>(LibraryThumbnailSample.Object, (effect, context) =>
         {
             var rotation = new RotationTransform();
             context.Animate(rotation.Rotation, p => 30 * Wave(p));
             effect.Transform.Value = rotation;
         });
+
+        // A shake shows at its defaults. An object shakes with room around it, where a whole frame would show its
+        // edges.
+        LibraryThumbnailRecipes.Register<ShakeEffect>(LibraryThumbnailSample.Object, (_, _) => { });
 
         LibraryThumbnailRecipes.Register<MosaicEffect>((effect, context) =>
             context.Animate(effect.TileSize, p => Square(context.Scale(8 + (72 * Wave(p))))));
@@ -151,7 +158,7 @@ internal static class BuiltInLibraryThumbnailRecipes
 
     private static void RegisterColors()
     {
-        LibraryThumbnailRecipes.Register<HueRotate>((effect, context) =>
+        LibraryThumbnailRecipes.Register<HueRotate>(LibraryThumbnailSample.Shapes, (effect, context) =>
             context.Animate(effect.Angle, p => 360 * p));
 
         LibraryThumbnailRecipes.Register<Saturate>((effect, context) =>
@@ -174,8 +181,9 @@ internal static class BuiltInLibraryThumbnailRecipes
             context.Animate(effect.Strength, p => 100 * Wave(p));
         });
 
+        // The value is of linear light, where a quarter leaves the brighter part of a picture.
         LibraryThumbnailRecipes.Register<Threshold>((effect, context) =>
-            context.Animate(effect.Value, p => 25 + (50 * Wave(p))));
+            context.Animate(effect.Value, p => 10 + (15 * Wave(p))));
 
         LibraryThumbnailRecipes.Register<HighContrast>((effect, context) =>
             context.Animate(effect.Contrast, p => 90 * Wave(p)));
@@ -206,7 +214,7 @@ internal static class BuiltInLibraryThumbnailRecipes
                 ]);
             }));
 
-        LibraryThumbnailRecipes.Register<ColorShift>((effect, context) =>
+        LibraryThumbnailRecipes.Register<ColorShift>(LibraryThumbnailSample.Shapes, (effect, context) =>
         {
             context.Animate(effect.RedOffset, p => new PixelPoint((int)MathF.Round(context.Scale(36) * Wave(p)), 0));
             context.Animate(effect.BlueOffset, p => new PixelPoint(-(int)MathF.Round(context.Scale(36) * Wave(p)), 0));
@@ -234,20 +242,23 @@ internal static class BuiltInLibraryThumbnailRecipes
 
     private static void RegisterKeys()
     {
-        LibraryThumbnailRecipes.Register<ChromaKey>((effect, context) =>
+        LibraryThumbnailRecipes.Register<ChromaKey>(LibraryThumbnailSample.GreenScreen, (effect, context) =>
         {
-            effect.Color.Value = GreenScreen;
+            effect.Color.Value = ScreenKey;
             context.Animate(effect.HueRange, p => 40 * Wave(p));
             context.Animate(effect.SaturationRange, p => 60 * Wave(p));
         });
 
-        LibraryThumbnailRecipes.Register<ColorKey>((effect, context) =>
+        // A color key removes what is as bright as its color. The yellow of the shapes is as bright as nothing else
+        // there, so it goes alone, where a green screen would take a subject as bright as the green with it. The key
+        // is a little brighter than the yellow, which a key at no range would otherwise remove in part.
+        LibraryThumbnailRecipes.Register<ColorKey>(LibraryThumbnailSample.Shapes, (effect, context) =>
         {
-            effect.Color.Value = GreenScreen;
+            effect.Color.Value = Color.FromRgb(0xFF, 0xD7, 0x28);
             context.Animate(effect.Range, p => 12 * Wave(p));
         });
 
-        LibraryThumbnailRecipes.Register<LumaKey>((effect, context) =>
+        LibraryThumbnailRecipes.Register<LumaKey>(LibraryThumbnailSample.NightLights, (effect, context) =>
         {
             effect.Softness.Value = 10;
             context.Animate(effect.Lower, p => 40 * Wave(p));
@@ -256,7 +267,7 @@ internal static class BuiltInLibraryThumbnailRecipes
 
     private static void RegisterDistortions()
     {
-        LibraryThumbnailRecipes.Register<WaveRefraction>((effect, context) =>
+        LibraryThumbnailRecipes.Register<WaveRefraction>(LibraryThumbnailSample.Shapes, (effect, context) =>
         {
             effect.Amount.Value = context.Scale(12);
             effect.Wavelength.Value = context.Scale(180);
@@ -270,7 +281,7 @@ internal static class BuiltInLibraryThumbnailRecipes
         });
 
         // The map pushes the middle of the picture aside, most where the map is most opaque.
-        LibraryThumbnailRecipes.Register<DisplacementMapEffect>((effect, context) =>
+        LibraryThumbnailRecipes.Register<DisplacementMapEffect>(LibraryThumbnailSample.Shapes, (effect, context) =>
         {
             effect.DisplacementMap.Value = new RadialGradientBrush
             {
@@ -287,7 +298,7 @@ internal static class BuiltInLibraryThumbnailRecipes
         });
 
         // The picture travels once around an ellipse.
-        LibraryThumbnailRecipes.Register<PathFollowEffect>((effect, context) =>
+        LibraryThumbnailRecipes.Register<PathFollowEffect>(LibraryThumbnailSample.Object, (effect, context) =>
         {
             effect.Geometry.Value = new EllipseGeometry
             {
@@ -297,12 +308,14 @@ internal static class BuiltInLibraryThumbnailRecipes
             context.Animate(effect.Progress, p => 100 * p);
         });
 
-        LibraryThumbnailRecipes.Register<EdgeDetection>((effect, context) =>
+        LibraryThumbnailRecipes.Register<EdgeDetection>(LibraryThumbnailSample.Shapes, (effect, context) =>
             context.Animate(effect.Thickness, p => context.Scale(1 + (3 * Wave(p)))));
     }
 
-    // The green of a green screen, which the key effects remove; the sample's ground is close to it.
-    private static readonly Color GreenScreen = Color.FromRgb(0x00, 0xB1, 0x40);
+    // A green screen's green, which a chroma key removes. The green screen sample's backdrop is #01B03C, 11 degrees of
+    // hue from this: a key at no range removes what is within a degree or so of its color, which would take the
+    // backdrop in part from the first frame, and a range that widens takes it whole.
+    private static readonly Color ScreenKey = Color.FromRgb(0x00, 0xB1, 0x5C);
 
     private static float Wave(float progress) => LibraryThumbnailContext.Wave(progress);
 

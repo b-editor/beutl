@@ -1,32 +1,29 @@
 ﻿using Beutl.Graphics;
-using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using Beutl.Media.Source;
+using Beutl.Serialization;
 
 namespace Beutl.Editor.Services.LibraryThumbnails;
 
-// The pictures the library's thumbnails are made of. They are drawn in a 1920 x 1080 frame, the size most projects
-// use, so a recipe's sizes look in a thumbnail as they would in a project.
+// The pictures the library's thumbnails show types on where the project has no content: a sample of each
+// LibraryThumbnailSample for filter effects, and two clips for transitions. They were generated for Beutl with an
+// image model. They are drawn in a 1920 x 1080 frame, the size most projects use, so a recipe's sizes look in a
+// thumbnail as they would in a project.
 internal static class LibraryThumbnailSamples
 {
     public static readonly PixelSize FrameSize = new(1920, 1080);
 
-    // Half the size of the card the effect sample draws, which recipes position other things against.
-    public const float CardHalfWidth = 600;
-    public const float CardHalfHeight = 340;
+    // The pictures are kept at two thirds of the size they cover in the frame: a whole frame is 1280 x 720 pixels,
+    // four times a thumbnail's width, as captured content is at most.
+    private const float PixelsPerUnit = 2f / 3;
 
-    // The green of the effect sample's ground, close to a green screen's, which the key effects remove.
-    private static readonly Color GroundColor = Color.FromRgb(0x22, 0xC5, 0x5E);
+    private static readonly Lock s_lock = new();
+    private static readonly Dictionary<string, ImageSource> s_sources = [];
 
-    private static readonly Point SunOffset = new(300, -110);
-
-    private static readonly (float X, float Y, float Size)[] s_highlights =
-        [(-470, -230, 22), (-360, -270, 14), (-120, -250, 18), (40, -200, 12)];
-
-    // What the samples are shown over: a dark ground the effect leaves alone, so what an effect adds around the
-    // sample, such as a shadow or an outline, shows against it, and a transition that fades through nothing fades
-    // through it.
+    // What the samples are shown over: a dark ground the effect leaves alone, so what an effect adds around a cut-out,
+    // such as a shadow or an outline, shows against it, and a transition that fades through nothing fades through it.
     public static Drawable CreateBackdrop(PixelSize frameSize)
     {
         return new RectShape
@@ -37,134 +34,91 @@ internal static class LibraryThumbnailSamples
         };
     }
 
-    // The picture a filter effect applies to: a card of smooth gradients with a bright sun, a green ground, small
-    // highlights and white text, in a transparent margin. Color, blur, key, edge and shadow effects all find
-    // something there to change.
-    //
-    // The effect goes on the outer group, whose one child is the picture flattened by a layer effect, so the effect
-    // sees one picture as it would on an image. On the shapes themselves an effect that works per target, such as a
-    // split, would treat each shape on its own.
-    public static DrawableGroup CreateEffectSubject()
+    // The picture a filter effect applies to, centred, in a group the effect goes on, so a recipe can move it as a
+    // whole and the effect sees one picture.
+    public static DrawableGroup CreateEffectSubject(LibraryThumbnailSample sample)
     {
         var subject = new DrawableGroup();
-        subject.Children.Add(CreatePicture());
+        subject.Children.Add(CreateImage(GetFileName(sample)));
         return subject;
     }
 
-    private static DrawableGroup CreatePicture()
-    {
-        var group = new DrawableGroup { FilterEffect = { Value = new LayerEffect() } };
-        group.Children.Add(new RoundedRectShape
-        {
-            Width = { Value = CardHalfWidth * 2 },
-            Height = { Value = CardHalfHeight * 2 },
-            CornerRadius = { Value = new CornerRadius(56) },
-            Fill =
-            {
-                Value = CreateVerticalGradient(
-                    (Color.FromRgb(0x25, 0x63, 0xEB), 0f),
-                    (Color.FromRgb(0x7C, 0x3A, 0xED), 0.55f),
-                    (Color.FromRgb(0xFB, 0x92, 0x3C), 1f))
-            },
-        });
-        group.Children.Add(new RoundedRectShape
-        {
-            Width = { Value = CardHalfWidth * 2 },
-            Height = { Value = 180 },
-            CornerRadius = { Value = new CornerRadius(0, 0, 56, 56) },
-            Fill = { Value = new SolidColorBrush(GroundColor) },
-            Transform = { Value = new TranslateTransform(0, CardHalfHeight - 90) },
-        });
-        group.Children.Add(new EllipseShape
-        {
-            Width = { Value = 230 },
-            Height = { Value = 230 },
-            Fill =
-            {
-                Value = new RadialGradientBrush
-                {
-                    Radius = { Value = 50 },
-                    GradientStops =
-                    {
-                        new GradientStop(Color.FromRgb(0xFF, 0xFB, 0xEB), 0f),
-                        new GradientStop(Color.FromRgb(0xFA, 0xCC, 0x15), 1f),
-                    },
-                }
-            },
-            Transform = { Value = new TranslateTransform(SunOffset.X, SunOffset.Y) },
-        });
-        foreach ((float x, float y, float size) in s_highlights)
-        {
-            group.Children.Add(new EllipseShape
-            {
-                Width = { Value = size },
-                Height = { Value = size },
-                Fill = { Value = new SolidColorBrush(Colors.White) },
-                Transform = { Value = new TranslateTransform(x, y) },
-            });
-        }
-
-        group.Children.Add(new TextBlock
-        {
-            Text = { Value = "Beutl" },
-            Size = { Value = 210 },
-            FontWeight = { Value = FontWeight.Bold },
-            Fill = { Value = new SolidColorBrush(Colors.White) },
-            Transform = { Value = new TranslateTransform(-170, 10) },
-        });
-        return group;
-    }
-
-    // One side of a transition: a full frame with a color and a letter of its own, so where each side is and which
-    // way a transition moves read at a glance.
+    // One side of a transition: a whole frame of colors of its own, so where each side is and which way a transition
+    // moves read at a glance.
     public static Drawable CreateClip(bool incoming)
     {
-        var group = new DrawableGroup();
-        group.Children.Add(new RectShape
+        return CreateImage(incoming ? "transition-b.webp" : "transition-a.webp");
+    }
+
+    // The source of a sample's picture, for tests.
+    internal static ImageSource GetSource(LibraryThumbnailSample sample) => GetSource(GetFileName(sample));
+
+    // The source of a transition's clip, for tests.
+    internal static ImageSource GetClipSource(bool incoming)
+    {
+        return GetSource(incoming ? "transition-b.webp" : "transition-a.webp");
+    }
+
+    private static string GetFileName(LibraryThumbnailSample sample)
+    {
+        return sample switch
         {
-            Width = { Value = FrameSize.Width },
-            Height = { Value = FrameSize.Height },
-            Fill =
+            LibraryThumbnailSample.NightLights => "night.webp",
+            LibraryThumbnailSample.GreenScreen => "greenscreen.webp",
+            LibraryThumbnailSample.Object => "object.webp",
+            LibraryThumbnailSample.Text => "text.webp",
+            LibraryThumbnailSample.Shapes => "shapes.webp",
+            _ => "landscape.webp",
+        };
+    }
+
+    // A picture at the size it covers in the frame, centred. Its source comes through an expression, which does not
+    // make it a child of the scene, so every thumbnail shares it and one decoded copy of it while any draws it.
+    private static SourceImage CreateImage(string fileName)
+    {
+        return new SourceImage
+        {
+            Source = { Expression = new SharedValueExpression<ImageSource?>(GetSource(fileName)) },
+            Transform =
             {
-                Value = incoming
-                    ? CreateVerticalGradient(Color.FromRgb(0xFD, 0xBA, 0x74), Color.FromRgb(0xDB, 0x27, 0x77))
-                    : CreateVerticalGradient(Color.FromRgb(0x38, 0xBD, 0xF8), Color.FromRgb(0x1E, 0x3A, 0x8A))
+                Value = new ScaleTransform
+                {
+                    ScaleX = { Value = 100 / PixelsPerUnit },
+                    ScaleY = { Value = 100 / PixelsPerUnit },
+                }
             },
-        });
-        group.Children.Add(new EllipseShape
+        };
+    }
+
+    // The picture is read into memory once, and thumbnails decode it from there, as captured content is.
+    private static ImageSource GetSource(string fileName)
+    {
+        lock (s_lock)
         {
-            Width = { Value = 380 },
-            Height = { Value = 380 },
-            Fill = { Value = new SolidColorBrush(incoming ? Color.FromRgb(0xFE, 0xF0, 0x8A) : Color.FromArgb(0xD9, 0xFF, 0xFF, 0xFF)) },
-            Transform = { Value = new TranslateTransform(incoming ? -560 : 560, -230) },
-        });
-        group.Children.Add(new TextBlock
-        {
-            Text = { Value = incoming ? "B" : "A" },
-            Size = { Value = 560 },
-            FontWeight = { Value = FontWeight.Bold },
-            Fill = { Value = new SolidColorBrush(Colors.White) },
-        });
-        return group;
+            if (!s_sources.TryGetValue(fileName, out ImageSource? source))
+            {
+                using Stream stream = typeof(LibraryThumbnailSamples).Assembly.GetManifestResourceStream(
+                        $"LibraryThumbnailSamples/{fileName}")
+                    ?? throw new InvalidOperationException($"The sample picture {fileName} is not in the assembly.");
+                using var bytes = new MemoryStream();
+                stream.CopyTo(bytes);
+                source = ImageSource.Open(UriHelper.CreateBase64DataUri("image/webp", bytes.ToArray()));
+                s_sources.Add(fileName, source);
+            }
+
+            return source;
+        }
     }
 
     private static LinearGradientBrush CreateVerticalGradient(Color top, Color bottom)
-    {
-        return CreateVerticalGradient((top, 0f), (bottom, 1f));
-    }
-
-    private static LinearGradientBrush CreateVerticalGradient(params ReadOnlySpan<(Color Color, float Offset)> stops)
     {
         var brush = new LinearGradientBrush
         {
             StartPoint = { Value = new RelativePoint(0.5f, 0, RelativeUnit.Relative) },
             EndPoint = { Value = new RelativePoint(0.5f, 1, RelativeUnit.Relative) },
         };
-        foreach ((Color color, float offset) in stops)
-        {
-            brush.GradientStops.Add(new GradientStop(color, offset));
-        }
-
+        brush.GradientStops.Add(new GradientStop(top, 0));
+        brush.GradientStops.Add(new GradientStop(bottom, 1));
         return brush;
     }
 }

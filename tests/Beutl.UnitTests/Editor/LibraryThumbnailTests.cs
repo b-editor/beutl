@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.LibraryThumbnails;
 using Beutl.Engine;
@@ -53,6 +54,70 @@ public class LibraryThumbnailTests
         Assert.That(failed, Is.Empty);
     }
 
+    // Every sample picture is in the assembly and decodes: a photograph or a clip covers the whole 1920 x 1080 frame at
+    // two thirds of its size, and a cut-out fits in it, clear at its corners.
+    [Test]
+    public void Every_sample_picture_opens()
+    {
+        var pictures = Enum.GetValues<LibraryThumbnailSample>()
+            .Select(sample => (Name: sample.ToString(), Source: LibraryThumbnailSamples.GetSource(sample),
+                IsCutOut: sample is LibraryThumbnailSample.Object or LibraryThumbnailSample.Text))
+            .Append(("Outgoing clip", LibraryThumbnailSamples.GetClipSource(incoming: false), false))
+            .Append(("Incoming clip", LibraryThumbnailSamples.GetClipSource(incoming: true), false));
+
+        Assert.Multiple(() =>
+        {
+            foreach ((string name, ImageSource source, bool isCutOut) in pictures)
+            {
+                using ImageSource.Resource resource = source.ToResource(new CompositionContext(MediaTime.Zero));
+                Assert.That(resource.IsOffline, Is.False, name);
+                Bitmap bitmap = resource.Bitmap!;
+                if (isCutOut)
+                {
+                    Assert.That(bitmap.Width, Is.LessThanOrEqualTo(1280), name);
+                    Assert.That(bitmap.Height, Is.LessThanOrEqualTo(720), name);
+                    Assert.That(Read(bitmap, 0, 0).A, Is.LessThan(16), $"{name} is clear around what it shows.");
+                }
+                else
+                {
+                    Assert.That((bitmap.Width, bitmap.Height), Is.EqualTo((1280, 720)), name);
+                }
+            }
+        });
+    }
+
+    // A recipe picks the sample its effect shows best on. A chroma key removes its sample's green screen, none of it
+    // at first and all of it by the still.
+    [Test]
+    public async Task A_recipe_picks_the_sample_its_effect_is_shown_on()
+    {
+        TestGpu.RequireAnyDevice();
+        LibraryThumbnailRecipes.Register<LibraryThumbnailTestEffect>(LibraryThumbnailSample.GreenScreen, (_, _) => { });
+        try
+        {
+            using LibraryThumbnailSheet plain = (await LibraryThumbnailRenderer.RenderAsync(
+                typeof(LibraryThumbnailTestEffect), null, stillOnly: true))!;
+            using LibraryThumbnailSheet keyed = (await LibraryThumbnailRenderer.RenderAsync(
+                typeof(ChromaKey), null, stillOnly: false))!;
+            using Bitmap first = keyed.Bitmap.ExtractSubset(keyed.Layout.GetFrameRect(0));
+            using Bitmap still = keyed.Bitmap.ExtractSubset(keyed.Layout.GetFrameRect(keyed.Layout.StillIndex));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(CountScreenGreen(plain.Bitmap), Is.EqualTo(CornerSize * CornerSize),
+                    "The green screen shows in the corner.");
+                Assert.That(CountScreenGreen(first), Is.EqualTo(CornerSize * CornerSize), "The key removes none of it at first.");
+                Assert.That(CountScreenGreen(still), Is.Zero, "By the still the key has removed all of it.");
+                Assert.That(LibraryThumbnailRecipes.Find(typeof(Blur))!.Sample, Is.EqualTo(LibraryThumbnailSample.Landscape),
+                    "A recipe registered without a sample is shown on the landscape.");
+            });
+        }
+        finally
+        {
+            LibraryThumbnailRecipes.Unregister<LibraryThumbnailTestEffect>();
+        }
+    }
+
     // A recipe moves the effect from nothing at the start to the most at the frame shown at rest.
     [Test]
     public async Task A_recipe_moves_the_effect_between_the_first_frame_and_the_still()
@@ -85,28 +150,22 @@ public class LibraryThumbnailTests
         });
     }
 
-    // A captured picture is decoded once, and every thumbnail drawn from it shares that: its file is gone by the time
-    // any is drawn.
+    // A motion blur draws its input again at other times, in sessions that share no resources, so the picture opens
+    // there too: the thumbnail shows the frame rather than the placeholder of media that cannot be read.
     [Test]
-    public async Task Thumbnails_draw_a_picture_without_reading_its_file_again()
+    public async Task A_motion_blur_draws_the_picture_it_samples_again()
     {
         TestGpu.RequireAnyDevice();
         using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.FromFrameAsync(
-            Ref<Bitmap>.Create(CreateFrame(64, 36, Colors.Red)), new PixelSize(1920, 1080));
-        Assert.That(File.Exists(subject!.EffectPicture!.Source.Uri!.LocalPath), Is.False);
+            Ref<Bitmap>.Create(CreateFrame(64, 36, Colors.Blue)), new PixelSize(1920, 1080));
+        using LibraryThumbnailSheet still = (await LibraryThumbnailRenderer.RenderAsync(typeof(MotionBlur), subject, stillOnly: true))!;
+        Bgra8888 center = Read(still.Bitmap, 160, 90);
 
-        foreach (Type type in new[] { typeof(Invert), typeof(Negaposi) })
+        Assert.Multiple(() =>
         {
-            using LibraryThumbnailSheet still = (await LibraryThumbnailRenderer.RenderAsync(type, subject, stillOnly: true))!;
-            Bgra8888 center = Read(still.Bitmap, 160, 90);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(center.R, Is.LessThan(60), $"{type.Name} draws the red frame inverted to cyan.");
-                Assert.That(center.G, Is.GreaterThan(200), type.Name);
-                Assert.That(center.B, Is.GreaterThan(200), type.Name);
-            });
-        }
+            Assert.That(center.B, Is.GreaterThan(200), "The blue frame, moving.");
+            Assert.That(center.R, Is.LessThan(60), "Not the dark and red placeholder.");
+        });
     }
 
     // A transition goes out and comes back in, so its loop has no jump: with one side, the preview's frame leaves for
@@ -326,24 +385,14 @@ public class LibraryThumbnailTests
         });
     }
 
-    // A picture passes through a file in a folder of its own, which only the user can open, and both are gone once it
-    // is decoded, so the project's content is not left in the shared temp folder.
+    // A picture is kept in memory, so the project's content is never written to disk, not even to the temp folder.
     [Test]
-    public async Task A_capture_leaves_no_file_behind()
+    public async Task A_capture_is_kept_in_memory()
     {
         using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.FromFrameAsync(
             Ref<Bitmap>.Create(CreateFrame(64, 36, Colors.Red)), new PixelSize(1920, 1080));
-        string path = subject!.EffectPicture!.Source.Uri!.LocalPath;
-        string folder = Path.GetDirectoryName(path)!;
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(File.Exists(path), Is.False);
-            Assert.That(Directory.Exists(folder), Is.False);
-            Assert.That(Path.GetDirectoryName(folder), Is.EqualTo(Path.TrimEndingDirectorySeparator(Path.GetTempPath())),
-                "The folder is a new one in the temp folder, not a shared one of a fixed name.");
-            Assert.That(Path.GetFileName(folder), Is.Not.EqualTo("beutl-library-thumbnail"));
-        });
+        Assert.That(subject!.EffectPicture!.Source.Uri.Scheme, Is.EqualTo("data"));
     }
 
     [Test]
@@ -428,6 +477,26 @@ public class LibraryThumbnailTests
         }
 
         return bitmap;
+    }
+
+    private const int CornerSize = 32;
+
+    // The pixels of a green screen's green in the top left corner of a thumbnail, where the green screen sample shows
+    // its backdrop alone.
+    private static int CountScreenGreen(Bitmap bitmap)
+    {
+        using Bitmap converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+        int count = 0;
+        for (int y = 0; y < CornerSize; y++)
+        {
+            foreach (Bgra8888 pixel in converted.GetRow<Bgra8888>(y)[..CornerSize])
+            {
+                if (pixel.G > pixel.R + 100 && pixel.G > pixel.B + 60)
+                    count++;
+            }
+        }
+
+        return count;
     }
 
     // The red pixels on row `y`.
