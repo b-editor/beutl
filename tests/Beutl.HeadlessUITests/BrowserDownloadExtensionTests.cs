@@ -283,6 +283,37 @@ public sealed class BrowserDownloadExtensionTests
         });
     }
 
+    [AvaloniaTest]
+    public void AFileFromAFrameOfAPageThatFailedToLoadIsNotClaimedForThePageStillShown()
+    {
+        var next = new Uri("https://other.example/");
+        var file = new Uri("https://other.example/files/song.mp3");
+        using var temporary = new TemporaryDirectory();
+        using var browser = Browser.Open(temporary.Path, s_speechPage, includesSubframes: false);
+        var scripts = new List<string>();
+        // The browser runs scripts of its own when a page loads; only the extension's matter here.
+        browser.View.PageScriptRunner = script =>
+        {
+            if (script.Contains(SpeechSiteExtension.Script, StringComparison.Ordinal)) scripts.Add(script);
+            return Task.FromResult<string?>(null);
+        };
+
+        browser.View.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+        browser.View.OnWindowsNativeDownloadRequested(file, "song.mp3", new ResponseSource("song.mp3"));
+        // The next page never loads, so the speech page stays on display while its frame's file is offered.
+        browser.View.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(browser.ViewModel.CommittedUri, Is.EqualTo(s_speechPage));
+            Assert.That(browser.Extension.Offers, Is.Empty);
+            Assert.That(scripts, Is.Empty);
+            Assert.That(browser.View.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+            Assert.That(browser.View.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo(file.AbsoluteUri));
+        });
+    }
+
     [Test]
     public void ResultsTheBrowserDidNotWrapGiveNoPageData()
     {

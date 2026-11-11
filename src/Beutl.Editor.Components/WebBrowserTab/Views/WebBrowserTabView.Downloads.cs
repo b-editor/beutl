@@ -26,9 +26,10 @@ internal partial class WebBrowserTabView
     private readonly LinkedList<DeferredDownload> _deferredNativeDownloads = new();
 
     // An extension's claim is settled when the file arrives, while the page that offered it is still on display. A
-    // file from a frame of a page that is still loading belongs to that page, so it is claimed once the page is shown.
+    // file from a frame of a page that is still loading belongs to that page: it is claimed once that page is the one
+    // on display, and offered without a claim if the page failed to load or another one is shown by then.
     private sealed record DeferredDownload(Uri Uri, string? SuggestedName, IBrowserDownloadSource Source,
-        BrowserDownloadHandling? Handling, bool ClaimWhenOffered);
+        BrowserDownloadHandling? Handling, bool ClaimWhenOffered = false, Uri? LoadingPage = null);
 
     private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId,
         BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source, BrowserDownloadHandling? Handling);
@@ -80,7 +81,7 @@ internal partial class WebBrowserTabView
         if (trackNavigationFailure && _pageDownloadNavigationPending && !mainFrameDownload)
         {
             // An iframe's response belongs to the page that is still loading. Offer it after that page commits.
-            DeferNativeDownload(uri, suggestedName, source!, claimWhenOffered: true);
+            DeferLoadingPageDownload(uri, suggestedName, source!);
             return;
         }
         if (mainFrameDownload)
@@ -137,13 +138,14 @@ internal partial class WebBrowserTabView
         var deferred = _deferredNativeDownloads.First!.Value;
         _deferredNativeDownloads.RemoveFirst();
         BrowserDownloadHandling? handling = deferred.ClaimWhenOffered
-            ? ClaimDownload(deferred.Uri, deferred.SuggestedName, deferred.Source.IsGenerated, null)
+            ? deferred.LoadingPage is { } loading && loading == _viewModel!.CommittedUri
+                ? ClaimDownload(deferred.Uri, deferred.SuggestedName, deferred.Source.IsGenerated, loading)
+                : null
             : deferred.Handling;
         OfferPageDownload(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source, handling);
     }
 
-    private void DeferNativeDownload(Uri uri, string? suggestedName, IBrowserDownloadSource source, Uri? page = null,
-        bool claimWhenOffered = false)
+    private void DeferNativeDownload(Uri uri, string? suggestedName, IBrowserDownloadSource source, Uri? page = null)
     {
         if (_pageDownloadRequestsSuppressed || _deferredNativeDownloads.Count >= MaxDeferredNativeDownloads)
         {
@@ -151,7 +153,19 @@ internal partial class WebBrowserTabView
             return;
         }
         _deferredNativeDownloads.AddLast(new DeferredDownload(uri, suggestedName, source,
-            claimWhenOffered ? null : ClaimDownload(uri, suggestedName, source.IsGenerated, page), claimWhenOffered));
+            ClaimDownload(uri, suggestedName, source.IsGenerated, page)));
+    }
+
+    // The page a frame's file belongs to is the main-frame request still loading, if the engine reported one.
+    private void DeferLoadingPageDownload(Uri uri, string? suggestedName, IBrowserDownloadSource source)
+    {
+        if (_pageDownloadRequestsSuppressed || _deferredNativeDownloads.Count >= MaxDeferredNativeDownloads)
+        {
+            source.Dispose();
+            return;
+        }
+        _deferredNativeDownloads.AddLast(new DeferredDownload(uri, suggestedName, source, null,
+            ClaimWhenOffered: true, LoadingPage: _latestNavigationRequest));
     }
 
     private void PreservePendingNativeDownload()
@@ -163,8 +177,7 @@ internal partial class WebBrowserTabView
             _deferredNativeDownloads.Last!.Value.Source.Dispose();
             _deferredNativeDownloads.RemoveLast();
         }
-        _deferredNativeDownloads.AddFirst(new DeferredDownload(pending.Uri, pending.SuggestedName, source, pending.Handling,
-            ClaimWhenOffered: false));
+        _deferredNativeDownloads.AddFirst(new DeferredDownload(pending.Uri, pending.SuggestedName, source, pending.Handling));
     }
 
     private void ClearDeferredNativeDownloads()
