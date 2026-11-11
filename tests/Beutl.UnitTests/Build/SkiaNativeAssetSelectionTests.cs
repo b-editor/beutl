@@ -141,7 +141,7 @@ public class SkiaNativeAssetSelectionTests
 
                 var project = new XElement("Project", new XAttribute("Sdk", "Microsoft.NET.Sdk"),
                     new XElement("PropertyGroup",
-                        new XElement("TargetFramework", "net10.0"),
+                        new XElement("TargetFramework", "net11.0"),
                         new XElement("NETCoreSdkRuntimeIdentifier", "linux-x64"),
                         new XElement("UseAppHost", "false"),
                         new XElement("BeutlSkiaSharpNativeRoot", nativeRoot + Path.DirectorySeparatorChar)),

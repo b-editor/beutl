@@ -5,7 +5,7 @@
     <IsTestProject>true</IsTestProject>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- This test project exercises the AVFoundation dylib, which only loads on macOS. -->
-    <TargetFrameworks>net10.0</TargetFrameworks>
+    <TargetFrameworks>net11.0</TargetFrameworks>
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
 

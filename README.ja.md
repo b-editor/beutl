@@ -102,7 +102,7 @@ Windows (PowerShell):
 .\build.ps1 dev
 ```
 
-`src/Beutl` をDebug構成で実行します。TFMはWindowsでは `net10.0-windows`、macOS/Linuxでは `net10.0` を自動選択します。Nukeのグローバルツールをインストール済みの場合は、`nuke dev` も使用できます。
+`src/Beutl` をDebug構成で実行します。TFMはWindowsでは `net11.0-windows`、macOS/Linuxでは `net11.0` を自動選択します。Nukeのグローバルツールをインストール済みの場合は、`nuke dev` も使用できます。
 
 [古いバージョン（BEditor）のソースコード](https://github.com/b-editor/beutl/tree/old/develop)
 

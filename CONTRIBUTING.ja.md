@@ -4,17 +4,17 @@
 
 ### 前提条件
 
-- **.NET SDK** — [`global.json`](global.json) で `10.0.100` 以上に固定されています（`rollForward: latestFeature`）。CI と同じバージョンが解決されるよう、対応する SDK をインストールしてください。
+- **.NET SDK** — [`global.json`](global.json) で `11.0.100` 以上に固定されています（`rollForward: latestFeature`）。CI と同じバージョンが解決されるよう、対応する SDK をインストールしてください。
 - 機能ブランチをプッシュできる **Git**。
 - FFmpeg はビルドの前提条件では**ありません**。`Beutl.FFmpegWorker` という別プロセスとして IPC 経由で動作し、実行時にインストールされます。
 
-Beutl は `net10.0` と `net10.0-windows` をデュアルターゲットにしています。Windows 専用ターゲットは Windows でビルドされます。Linux/macOS で単一フレームワークが必要な場合は `-f net10.0` を使ってください。
+Beutl は `net11.0` と `net11.0-windows` をデュアルターゲットにしています。Windows 専用ターゲットは Windows でビルドされます。Linux/macOS で単一フレームワークが必要な場合は `-f net11.0` を使ってください。
 
 ### ビルド / テスト / フォーマット
 
 ```bash
 dotnet build Beutl.slnx                                            # ビルド
-dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings  # テスト
+dotnet test Beutl.slnx -f net11.0 --settings coverlet.runsettings  # テスト
 dotnet format Beutl.slnx                                           # フォーマット
 ./build.sh <Target>                                                # Nuke (CI と同等)
 ```
@@ -23,7 +23,7 @@ dotnet format Beutl.slnx                                           # フォー�
 
 ### 実行 / デバッグ
 
-アプリのエントリーポイントは `src/Beutl` プロジェクトです。現在のプラットフォームに合うターゲットフレームワークを選ぶ `./build.sh dev`（Windows では `.\build.ps1 dev`）、または `dotnet run --project src/Beutl -f net10.0`（Windows では `-f net10.0-windows`）で実行できます。IDE でスタートアッププロジェクトに設定することもできます。
+アプリのエントリーポイントは `src/Beutl` プロジェクトです。現在のプラットフォームに合うターゲットフレームワークを選ぶ `./build.sh dev`（Windows では `.\build.ps1 dev`）、または `dotnet run --project src/Beutl -f net11.0`（Windows では `-f net11.0-windows`）で実行できます。IDE でスタートアッププロジェクトに設定することもできます。
 
 ### Pull request
 

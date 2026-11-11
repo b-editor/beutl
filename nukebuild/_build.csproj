@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <RootNamespace></RootNamespace>
     <NoWarn>CS0649;CS0169</NoWarn>
     <NukeRootDirectory>..</NukeRootDirectory>
@@ -17,7 +17,7 @@
          version in Directory.Packages.props. -->
     <PackageReference Include="NuGet.Packaging" />
     <!-- Nuke.Common -> Microsoft.Build.Tasks.Core pulls System.Security.Cryptography.Xml 9.0.0,
-         which has known high-severity advisories (NU1903). Lift it to a patched 10.x. -->
+         which has known high-severity advisories (NU1903). Lift it to a patched 11.x. -->
     <PackageReference Include="System.Security.Cryptography.Xml" />
   </ItemGroup>
 

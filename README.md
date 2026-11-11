@@ -102,7 +102,7 @@ Windows (PowerShell):
 .\build.ps1 dev
 ```
 
-This runs `src/Beutl` in Debug configuration, automatically selecting `net10.0-windows` on Windows and `net10.0` on macOS/Linux. If the global Nuke tool is already installed, you can also use `nuke dev`.
+This runs `src/Beutl` in Debug configuration, automatically selecting `net11.0-windows` on Windows and `net11.0` on macOS/Linux. If the global Nuke tool is already installed, you can also use `nuke dev`.
 
 [Source code of the old version (BEditor)](https://github.com/b-editor/beutl/tree/old/develop)
 

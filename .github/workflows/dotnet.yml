@@ -408,15 +408,15 @@ jobs:
 
       - name: Build
         run: |
-          dotnet build tests/Beutl.UnitTests/Beutl.UnitTests.csproj -f net10.0
-          dotnet build tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj -f net10.0
+          dotnet build tests/Beutl.UnitTests/Beutl.UnitTests.csproj -f net11.0
+          dotnet build tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj -f net11.0
 
       - name: Test native dependencies on Linux ARM64
         timeout-minutes: 45
         run: |
           status=0
           for project in Beutl.UnitTests Beutl.Graphics3DTests; do
-            dotnet test "tests/$project/$project.csproj" --no-build -f net10.0 --filter "$NATIVE_TEST_FILTER" \
+            dotnet test "tests/$project/$project.csproj" --no-build -f net11.0 --filter "$NATIVE_TEST_FILTER" \
               --logger trx --results-directory TestResults/linux-arm64 \
               --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini \
               --blame-crash --blame-crash-dump-type mini || status=1
@@ -472,21 +472,21 @@ jobs:
       - name: Test shortcut fonts and emoji on macOS
         run: >-
           dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj
-          --configuration Release -f net10.0
+          --configuration Release -f net11.0
           --filter "FullyQualifiedName~UIFontResourceTests|FullyQualifiedName~CommandPaletteViewLayoutTests.Shortcut_font"
           --logger trx --results-directory TestResults/macos-fonts
 
       - name: Test shared font configuration on macOS
         run: >-
           dotnet test tests/Beutl.E2ETests/Beutl.E2ETests.csproj
-          --configuration Release -f net10.0 --filter FullyQualifiedName~Controls.UiFontsTests
+          --configuration Release -f net11.0 --filter FullyQualifiedName~Controls.UiFontsTests
           --logger trx --results-directory TestResults/macos-fonts
 
       # The AVFoundation fixtures are [Platform("MacOSX")], so the Linux shards skip them.
       - name: Test AVFoundation on macOS
         run: >-
           dotnet test tests/Beutl.Extensions.AVFoundation.Tests/Beutl.Extensions.AVFoundation.Tests.csproj
-          --configuration Release -f net10.0
+          --configuration Release -f net11.0
           --logger trx --results-directory TestResults/macos-avfoundation
           --blame-hang --blame-hang-timeout 2m --blame-hang-dump-type mini
           --blame-crash --blame-crash-dump-type mini
@@ -523,7 +523,7 @@ jobs:
       - name: Test Media Foundation on Windows x64
         run: >-
           dotnet test tests/Beutl.Extensions.MediaFoundation.Tests/Beutl.Extensions.MediaFoundation.Tests.csproj
-          --configuration Release -f net10.0 -p:PlatformTarget=x64
+          --configuration Release -f net11.0 -p:PlatformTarget=x64
           --logger trx --results-directory TestResults/mediafoundation
           --blame-hang --blame-hang-timeout 2m --blame-hang-dump-type mini
           --blame-crash --blame-crash-dump-type mini

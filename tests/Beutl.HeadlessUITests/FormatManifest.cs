@@ -69,7 +69,7 @@ internal static partial class FormatManifest
         # FormatManifestTests builds this file from the assemblies built from src/ and fails when it differs. After
         # an intentional change, regenerate it and commit it with the change:
         #
-        #   BEUTL_UPDATE_FORMAT_MANIFEST=1 dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj -f net10.0 --filter "FullyQualifiedName~FormatManifestTests"
+        #   BEUTL_UPDATE_FORMAT_MANIFEST=1 dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj -f net11.0 --filter "FullyQualifiedName~FormatManifestTests"
         """;
 
     public static string Build()

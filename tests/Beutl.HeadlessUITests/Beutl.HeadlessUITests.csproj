@@ -5,7 +5,7 @@
     <IsTestProject>true</IsTestProject>
     <OutputType>Exe</OutputType>
     <StartupObject>Beutl.HeadlessUITests.NativeTimelineTestHost</StartupObject>
-    <TargetFrameworks>net10.0</TargetFrameworks>
+    <TargetFrameworks>net11.0</TargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup>

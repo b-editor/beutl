@@ -17,7 +17,7 @@ public sealed class ColorPaletteServiceTests
     [Test]
     public void The_default_palette_has_each_named_color_once()
     {
-        ImmutableArray<PaletteColor> colors = DefaultColorPalette.Palette.Colors;
+        ImmutableArray<PaletteColor> colors = DefaultColorPalette.Create().Colors;
 
         Assert.Multiple(() =>
         {

@@ -47,7 +47,7 @@ Vulkan validation job with the layer installed. Neither pass filters by category
 remembered, and a GPU test that forgets one is exactly the test the gate would then not cover. Locally:
 
 ```bash
-BEUTL_VULKAN_VALIDATION=1 dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj -f net10.0
+BEUTL_VULKAN_VALIDATION=1 dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj -f net11.0
 ```
 
 `VulkanValidationGateTests.WhenTheJobAsksForValidation_TheInstanceEnabledIt` fails when the variable is set
@@ -84,7 +84,7 @@ so a rename shows up in the diff of the pull request that makes it.
 When the change is intended, regenerate the file and commit it with the change:
 
 ```bash
-BEUTL_UPDATE_FORMAT_MANIFEST=1 dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj -f net10.0 \
+BEUTL_UPDATE_FORMAT_MANIFEST=1 dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj -f net11.0 \
   --filter "FullyQualifiedName~FormatManifestTests"
 ```
 
@@ -124,7 +124,7 @@ there.
 ## Running
 
 ```bash
-dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings              # all
+dotnet test Beutl.slnx -f net11.0 --settings coverlet.runsettings              # all
 dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj --filter "FullyQualifiedName~<substring>"
 dotnet test tests/SourceGeneratorTest/SourceGeneratorTest.csproj
 ```

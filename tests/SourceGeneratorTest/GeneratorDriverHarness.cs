@@ -97,8 +97,9 @@ internal static class GeneratorDriverHarness
         };
         sources.AddRange(extraSources);
 
-        // Parse at the repo's LangVersion so generated sources that use preview features (collection
-        // expressions, etc.) bind the same way in the verified output compilation as in the real build.
+        // Parse at the repo's LangVersion (C# 15) so generated sources bind the same way in the verified
+        // output compilation as in the real build. Microsoft.CodeAnalysis.CSharp 5.9 predates
+        // LanguageVersion.CSharp15, so Preview stands in for it.
         var parseOptions = new CSharpParseOptions(LanguageVersion.Preview);
 
         var syntaxTrees = sources

@@ -57,10 +57,10 @@ public class PluginDependencyResolutionTests
     {
         var (root, current) = CreateDiamond(reverse);
         using var reader = new PackageFolderReader(root);
-        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
+        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net11.0"), reader);
 
         Assert.That(Path.GetFullPath(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common"))!),
-            Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net10.0", _prefix + "Common.dll"))));
+            Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net11.0", _prefix + "Common.dll"))));
     }
 
     [Test]
@@ -71,10 +71,10 @@ public class PluginDependencyResolutionTests
         string root = CreatePackage("Root", "1.0.0", ("Common", "1.0.0"));
         ResolvedPackageDependencies.Save(root, Helper.GetFrameworkName(), [Identity("Root", "1.0.0"), Identity("Common", "2.0.0")]);
         using var reader = new PackageFolderReader(root);
-        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
+        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net11.0"), reader);
 
         Assert.That(Path.GetFullPath(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common"))!),
-            Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net10.0", _prefix + "Common.dll"))));
+            Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net11.0", _prefix + "Common.dll"))));
     }
 
     [Test]
@@ -91,9 +91,9 @@ public class PluginDependencyResolutionTests
         Assert.That(File.Exists(Path.Combine(root, ResolvedPackageDependencies.FileName)), Is.True);
         using var reader = new PackageFolderReader(root);
         Assert.That(ResolvedPackageDependencies.Load(reader, Helper.GetFrameworkName()), Does.Contain(Identity("Common", "2.0.0")));
-        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
+        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net11.0"), reader);
         Assert.That(Path.GetFullPath(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common"))!),
-            Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net10.0", _prefix + "Common.dll"))));
+            Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net11.0", _prefix + "Common.dll"))));
     }
 
     // SDKs up to 2.0.0-preview.8 packed the build-time source generator as a dependency of every
@@ -276,10 +276,10 @@ public class PluginDependencyResolutionTests
             File.WriteAllText(snapshot, json.ToJsonString());
         }
         using var reader = new PackageFolderReader(root);
-        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
+        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net11.0"), reader);
 
         Assert.That(Path.GetFullPath(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common"))!),
-            Is.EqualTo(Path.GetFullPath(Path.Combine(failure == "missing-dependency" ? current : dependency, "lib", "net10.0", _prefix + "Common.dll"))));
+            Is.EqualTo(Path.GetFullPath(Path.Combine(failure == "missing-dependency" ? current : dependency, "lib", "net11.0", _prefix + "Common.dll"))));
     }
 
     [Test]
@@ -335,7 +335,7 @@ public class PluginDependencyResolutionTests
         WriteAsset(root, $"runtimes/{foreign}/native/{fileName}");
         string expected = WriteAsset(root, $"runtimes/{(generic ? "any" : runtime)}/native/{fileName}");
         using var reader = new PackageFolderReader(root);
-        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
+        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net11.0"), reader);
 
         Assert.That(resolver.ResolveUnmanagedDllToPath("beutl-test"), Is.EqualTo(expected));
     }
@@ -344,9 +344,9 @@ public class PluginDependencyResolutionTests
     public void Satellite_assets_are_resolved_without_repeating_the_culture_directory()
     {
         string root = CreatePackage("Localized", "1.0.0");
-        string expected = WriteAsset(root, "lib/net10.0/ja/Localized.resources.dll");
+        string expected = WriteAsset(root, "lib/net11.0/ja/Localized.resources.dll");
         using var reader = new PackageFolderReader(root);
-        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
+        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net11.0"), reader);
 
         Assert.That(resolver.ResolveAssemblyToPath(new AssemblyName("Localized.resources") { CultureName = "ja" }), Is.EqualTo(expected));
         Assert.That(resolver.ResolveAssemblyToPath(new AssemblyName("Localized.resources") { CultureName = "fr" }), Is.Null);
@@ -405,11 +405,11 @@ public class PluginDependencyResolutionTests
         Directory.CreateDirectory(directory);
         new XElement("package", new XElement("metadata", new XElement("id", identity.Id), new XElement("version", version),
             new XElement("authors", "tests"), new XElement("description", "Package resolution fixture"),
-            new XElement("dependencies", new XElement("group", new XAttribute("targetFramework", "net10.0"),
+            new XElement("dependencies", new XElement("group", new XAttribute("targetFramework", "net11.0"),
                 dependencies.Select(dependency => new XElement("dependency", new XAttribute("id", dependency.Id),
                     new XAttribute("version", $"[{dependency.Version},)")))))))
             .Save(Path.Combine(directory, identity.Id + ".nuspec"));
-        WriteAsset(directory, $"lib/net10.0/{identity.Id}.dll");
+        WriteAsset(directory, $"lib/net11.0/{identity.Id}.dll");
         string archive = Path.Combine(Helper.LocalSourcePath, Helper.PackagePathResolver.GetPackageFileName(identity));
         _archives.Add(archive);
         ZipFile.CreateFromDirectory(directory, archive);
