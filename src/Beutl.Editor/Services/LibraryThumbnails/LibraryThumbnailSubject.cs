@@ -83,6 +83,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
         if (frame == null)
             return Task.FromResult<LibraryThumbnailSubject?>(null);
 
+        // Started without the token: a task cancelled before it starts would never dispose the frame it took.
         return Task.Run(() =>
         {
             using (frame)
@@ -93,7 +94,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
                 // way played backwards.
                 return (LibraryThumbnailSubject?)new LibraryThumbnailSubject(picture, frameSize.ToSize(1), from: null, to: picture);
             }
-        }, cancellationToken);
+        });
     }
 
     /// <summary>
