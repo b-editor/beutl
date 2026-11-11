@@ -83,15 +83,15 @@ public class LibraryThumbnailTests
         });
     }
 
-    // A captured picture is decoded once, and every thumbnail drawn from it shares that rather than reading its file
-    // again.
+    // A captured picture is decoded once, and every thumbnail drawn from it shares that: its file is gone by the time
+    // any is drawn.
     [Test]
     public async Task Thumbnails_draw_a_picture_without_reading_its_file_again()
     {
         TestGpu.RequireAnyDevice();
         using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.FromFrameAsync(
             Ref<Bitmap>.Create(CreateFrame(64, 36, Colors.Red)), new PixelSize(1920, 1080));
-        File.Delete(subject!.EffectPicture!.Path);
+        Assert.That(File.Exists(subject!.EffectPicture!.Source.Uri!.LocalPath), Is.False);
 
         foreach (Type type in new[] { typeof(Invert), typeof(Negaposi) })
         {
@@ -177,7 +177,7 @@ public class LibraryThumbnailTests
 
         using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.CaptureElementAsync(small, MediaTime.FromSeconds(1));
         LibraryThumbnailSubject.Picture picture = subject!.EffectPicture!;
-        using Bitmap captured = Bitmap.FromFile(picture.Path);
+        Bitmap captured = picture.Image;
         Bgra8888 center = Read(captured, captured.Width / 2, captured.Height / 2);
         Bgra8888 corner = Read(captured, 1, 1);
 
@@ -247,8 +247,8 @@ public class LibraryThumbnailTests
         using LibraryThumbnailSubject? before = await LibraryThumbnailSubject.CaptureEdgeAsync(first, ElementEdge.Start);
         using LibraryThumbnailSubject? after = await LibraryThumbnailSubject.CaptureEdgeAsync(second, ElementEdge.End);
 
-        using Bitmap from = Bitmap.FromFile(between!.TransitionFrom!.Path);
-        using Bitmap to = Bitmap.FromFile(between.TransitionTo!.Path);
+        Bitmap from = between!.TransitionFrom!.Image;
+        Bitmap to = between.TransitionTo!.Image;
         Assert.Multiple(() =>
         {
             Assert.That(Read(from, 10, 10).R, Is.GreaterThan(200), "The outgoing side is the clip before.");
@@ -277,17 +277,24 @@ public class LibraryThumbnailTests
         });
     }
 
+    // A picture passes through a file in a folder of its own, which only the user can open, and both are gone once it
+    // is decoded, so the project's content is not left in the shared temp folder.
     [Test]
-    public async Task Disposing_removes_the_captured_files()
+    public async Task A_capture_leaves_no_file_behind()
     {
-        LibraryThumbnailSubject subject = (await LibraryThumbnailSubject.FromFrameAsync(
-            Ref<Bitmap>.Create(CreateFrame(64, 36, Colors.Red)), new PixelSize(1920, 1080)))!;
-        string path = subject.EffectPicture!.Path;
-        Assert.That(File.Exists(path), Is.True);
+        using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.FromFrameAsync(
+            Ref<Bitmap>.Create(CreateFrame(64, 36, Colors.Red)), new PixelSize(1920, 1080));
+        string path = subject!.EffectPicture!.Source.Uri!.LocalPath;
+        string folder = Path.GetDirectoryName(path)!;
 
-        subject.Dispose();
-
-        Assert.That(File.Exists(path), Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(path), Is.False);
+            Assert.That(Directory.Exists(folder), Is.False);
+            Assert.That(Path.GetDirectoryName(folder), Is.EqualTo(Path.TrimEndingDirectorySeparator(Path.GetTempPath())),
+                "The folder is a new one in the temp folder, not a shared one of a fixed name.");
+            Assert.That(Path.GetFileName(folder), Is.Not.EqualTo("beutl-library-thumbnail"));
+        });
     }
 
     [Test]

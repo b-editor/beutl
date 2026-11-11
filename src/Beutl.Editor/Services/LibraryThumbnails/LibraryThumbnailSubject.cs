@@ -18,8 +18,8 @@ namespace Beutl.Editor.Services.LibraryThumbnails;
 /// <summary>
 /// The project's own content the thumbnails show types on: the picture a filter effect applies to, and the sides
 /// a transition goes between. Each picture keeps the size it has in the project, so an effect is applied to it at
-/// that size and only the result is scaled down to the thumbnail. The pictures are kept as image files, decoded once
-/// for every thumbnail drawn from them, until the subject is disposed.
+/// that size and only the result is scaled down to the thumbnail. Each picture is decoded once for every thumbnail
+/// drawn from it and kept until the subject is disposed.
 /// </summary>
 /// <remarks>
 /// A thumbnail without a picture to show falls back to the samples: nothing was drawn where the content was taken.
@@ -295,13 +295,18 @@ internal sealed class LibraryThumbnailSubject : IDisposable
         }
     }
 
-    // Saves what was drawn as an image file, cropped when asked, or returns null when nothing was drawn. `size` is
-    // what the saved pixels cover in the project's units. Takes the bitmap.
+    // Makes what was drawn the picture thumbnails draw, cropped when asked, or returns null when nothing was drawn.
+    // `size` is what the pixels cover in the project's units. Takes the bitmap.
+    //
+    // An image source only opens files, so the pixels pass through one: written to a folder of its own that only the
+    // user can open, decoded, and removed with the folder at once. The project's content never sits in the shared
+    // temp folder, which on Linux is /tmp, and nothing is left behind.
     private static Picture? TrySave(Bitmap? bitmap, Size size, PixelRect? crop)
     {
         if (bitmap == null)
             return null;
 
+        string? directory = null;
         try
         {
             if (FindCovered(bitmap) == null)
@@ -309,9 +314,8 @@ internal sealed class LibraryThumbnailSubject : IDisposable
 
             using Bitmap? cropped = crop is { } rect ? bitmap.ExtractSubset(rect) : null;
             Bitmap picture = cropped ?? bitmap;
-            string directory = Path.Combine(Path.GetTempPath(), "beutl-library-thumbnail");
-            Directory.CreateDirectory(directory);
-            string path = Path.Combine(directory, $"{Guid.NewGuid():N}.png");
+            directory = Directory.CreateTempSubdirectory("beutl-library-thumbnail-").FullName;
+            string path = Path.Combine(directory, "picture.png");
             // The fastest compression, a quarter of the time the default takes: the file is read only once.
             using (SKPixmap pixmap = picture.SKBitmap.PeekPixels())
             using (SKData? data = pixmap.Encode(new SKPngEncoderOptions(SKPngEncoderFilterFlags.AllFilters, 1)))
@@ -319,7 +323,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
                 if (data == null)
                     return null;
 
-                using FileStream file = File.Create(path);
+                using FileStream file = new(path, FileMode.CreateNew, FileAccess.Write);
                 data.SaveTo(file);
             }
 
@@ -333,6 +337,24 @@ internal sealed class LibraryThumbnailSubject : IDisposable
         finally
         {
             bitmap.Dispose();
+            if (directory != null)
+                TryDeleteDirectory(directory);
+        }
+    }
+
+    private static void TryDeleteDirectory(string directory)
+    {
+        try
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+        catch (IOException ex)
+        {
+            s_logger.LogDebug(ex, "Could not remove a picture's folder for the library thumbnails.");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            s_logger.LogDebug(ex, "Could not remove a picture's folder for the library thumbnails.");
         }
     }
 
@@ -360,65 +382,50 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     }
 
     /// <summary>
-    /// An image file of captured content: its size in pixels, the size it covers in the project's units, at which a
-    /// thumbnail draws it, and the image a thumbnail draws, decoded once for all of them.
+    /// Captured content, decoded once for every thumbnail drawn from it: its size in pixels, the size it covers in the
+    /// project's units, at which a thumbnail draws it, and the image a thumbnail draws.
     /// </summary>
     internal sealed class Picture : IDisposable
     {
-        // Holds the image decoded while the picture lives, so a thumbnail shares it rather than reading the file.
+        // Holds the image decoded while the picture lives, so a thumbnail shares it; its file is gone by then.
         private readonly ImageSource.Resource _decoded;
 
-        private Picture(string path, PixelSize pixels, Size size, ImageSource source, ImageSource.Resource decoded)
+        private Picture(PixelSize pixels, Size size, ImageSource source, ImageSource.Resource decoded)
         {
-            Path = path;
             Pixels = pixels;
             Size = size;
             Source = source;
             _decoded = decoded;
         }
 
-        public string Path { get; }
-
         public PixelSize Pixels { get; }
 
         public Size Size { get; }
 
         /// <summary>
-        /// The image of the file, decoded. A renderer that shares resources draws it without decoding it again.
+        /// The image, decoded. A renderer that shares resources draws it without opening its file, which is removed
+        /// once it has been decoded.
         /// </summary>
         public ImageSource Source { get; }
 
-        // Decodes the file, or deletes it and returns null when it cannot be read.
+        // The decoded pixels, for tests.
+        internal Bitmap Image => _decoded.Bitmap!;
+
+        // Decodes the file, or returns null when it cannot be read.
         public static Picture? TryOpen(string path, PixelSize pixels, Size size)
         {
             var source = ImageSource.Open(path);
             ImageSource.Resource decoded = source.ToResource(new CompositionContext(MediaTime.Zero));
-            if (!decoded.IsOffline)
-                return new Picture(path, pixels, size, source, decoded);
+            if (!decoded.IsOffline && decoded.Bitmap != null)
+                return new Picture(pixels, size, source, decoded);
 
             decoded.Dispose();
-            Delete(path);
             return null;
         }
 
         public void Dispose()
         {
             _decoded.Dispose();
-            Delete(Path);
-        }
-
-        private static void Delete(string path)
-        {
-            try
-            {
-                File.Delete(path);
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
         }
     }
 
