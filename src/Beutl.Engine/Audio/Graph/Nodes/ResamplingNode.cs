@@ -17,7 +17,7 @@ namespace Beutl.Audio.Graph.Nodes;
 /// </remarks>
 public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
 {
-    private const int MaxReadFrames = 4096;
+    private const int MaxReadFrames = 16384;
 
     private int _sampleRate;
     private AudioSourceStream? _stream;
@@ -231,6 +231,14 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
         int count = output.SampleCount;
         Span<float> raw = output.GetRawSpan();
         long position = _outputPosition;
+
+        // The whole block's input at once: read as each output needs it, it would reach every node above, and a
+        // decoder, thousands of times a second.
+        double last = PositionInInput(position + count - 1);
+        EnsureInput(stretched
+            ? (long)Math.Ceiling(last + kernel.Radius / _cutoff)
+            : (long)Math.Floor(last) + kernel.Last + 1);
+
         for (int i = 0; i < count; i++, position++)
         {
             double at = PositionInInput(position);

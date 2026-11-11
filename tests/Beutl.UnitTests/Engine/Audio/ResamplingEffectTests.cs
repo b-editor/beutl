@@ -267,6 +267,18 @@ public class ResamplingEffectTests
         Assert.That(rates, Is.Not.Empty.And.All.EqualTo(SourceRate));
     }
 
+    // Read as each output needs it, an 8 kHz source would be asked for one sample about every sixth output, and a
+    // decoder above it would get thousands of requests a second.
+    [TestCaseSource(nameof(s_methods))]
+    public void The_source_is_read_a_block_at_a_time(ResamplingMethod method)
+    {
+        var reads = new List<int>();
+
+        Run(Create(method), SourceRate, Signal, Window * 4, rates: reads);
+
+        Assert.That(reads, Has.Count.EqualTo(4), "One read for each block of output.");
+    }
+
     [TestCaseSource(nameof(s_methods))]
     public void Reading_stops_at_the_end_it_is_told_of(ResamplingMethod method)
     {
