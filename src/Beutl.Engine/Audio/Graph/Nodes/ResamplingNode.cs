@@ -157,7 +157,7 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
         bool endMoved = _liveEnd is { } liveEnd
             ? inputEnd != liveEnd
             : inputEnd is { } value && value < _input.End;
-        if (!contiguous || _draining || endMoved || method != _method)
+        if (!contiguous || _draining || endMoved)
         {
             // Truncate like SourceNode and ResampleNode, so a start between samples maps to the sample the upstream
             // delivers there.
@@ -166,6 +166,14 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
         else
         {
             _inputEnd = inputEnd;
+
+            // The input keeps what the widest kernel reaches back to, so a new method takes over without reading it
+            // again, which an echo or a limiter above would take for a seek.
+            if (method != _method)
+            {
+                _method = method;
+                _kernel = ResamplingKernel.For(method);
+            }
         }
 
         _lastTimeRangeEnd = context.TimeRange.End;
@@ -183,9 +191,10 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
         _draining = false;
         _outputPosition = outputStart;
 
-        // Converting to a lower rate, a sinc narrows to the output's Nyquist frequency by stretching.
+        // Converting to a lower rate, a sinc narrows to the output's Nyquist frequency by stretching. The input is kept
+        // as far back as Sinc 64, the widest kernel, reaches whatever the method, for a method that changes mid-stream.
         _cutoff = Math.Min(1, _sampleRate / (double)SourceSampleRate);
-        _reach = _kernel.IsSinc ? (long)Math.Ceiling(_kernel.Radius / _cutoff) : -_kernel.First;
+        _reach = (long)Math.Ceiling(ResamplingKernel.For(ResamplingMethod.Sinc64).Radius / _cutoff);
 
         // Nothing is read before the timeline origin, as playback from the start has nothing behind it.
         long readStart = Math.Max((long)Math.Floor(PositionInInput(outputStart)) - _reach - 1, 0);

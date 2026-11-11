@@ -279,6 +279,29 @@ public class ResamplingEffectTests
         Assert.That(reads, Has.Count.EqualTo(4), "One read for each block of output.");
     }
 
+    // An expression can change the method from one block to the next. Reading the input again from before the output
+    // would look like a seek to what is above, and an echo or a limiter there would lose what it holds.
+    [Test]
+    public void A_new_method_takes_over_without_reading_the_input_again()
+    {
+        var reads = new List<(long Start, int Count)>();
+        ResamplingEffect effect = Create(ResamplingMethod.Hold);
+        using var context = new AudioContext(SampleRate, 2) { ChainSampleRate = SourceRate };
+        AudioNode node = effect.CreateNode(context, context.AddNode(new FunctionSource(Signal, reads: reads)));
+        using (node.Process(AudioTestContexts.AtSample(0, Window, SampleRate))) { }
+
+        effect.Method.Value = ResamplingMethod.Sinc64;
+        using AudioBuffer after = node.Process(AudioTestContexts.AtSample(Window, Window, SampleRate));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reads.Skip(1).Select((read, i) => read.Start - (reads[i].Start + reads[i].Count)), Is.All.Zero,
+                "Each read starts where the one before it ended.");
+            Assert.That(after.GetChannelData(0).ToArray(),
+                Is.EqualTo(Run(Create(ResamplingMethod.Sinc64), SourceRate, Signal, Window * 2)[Window..]));
+        });
+    }
+
     // Read whole, a long block, such as a two-minute waveform window of a 192 kHz source, would hold all of its input.
     [Test]
     public void A_long_block_is_read_a_portion_at_a_time()
@@ -509,13 +532,15 @@ public class ResamplingEffectTests
     }
 
     // The right channel carries half the left, inverted, so a channel mixed up with another shows.
-    private sealed class FunctionSource(Func<long, float> sample, List<int>? rates = null) : AudioNode
+    private sealed class FunctionSource(
+        Func<long, float> sample, List<int>? rates = null, List<(long Start, int Count)>? reads = null) : AudioNode
     {
         public override AudioBuffer Process(AudioProcessContext context)
         {
             rates?.Add(context.SampleRate);
             long start = (long)Math.Round(context.TimeRange.Start.ToSeconds() * context.SampleRate);
             int count = context.GetSampleCount();
+            reads?.Add((start, count));
             var buffer = new AudioBuffer(context.SampleRate, 2, count);
             Span<float> left = buffer.GetChannelData(0);
             Span<float> right = buffer.GetChannelData(1);
