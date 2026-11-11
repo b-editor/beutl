@@ -26,10 +26,10 @@ internal partial class WebBrowserTabView
     private readonly LinkedList<DeferredDownload> _deferredNativeDownloads = new();
 
     // An extension's claim is settled when the file arrives, while the page that offered it is still on display. A
-    // file from a frame of a page that is still loading belongs to that page: it is claimed once that page is the one
-    // on display, and offered without a claim if the page failed to load or another one is shown by then.
+    // file from a frame of a page that is still loading belongs to that page, its LoadingPage: it is claimed when that
+    // page finishes loading, and offered without a claim if the page fails to load or never becomes the one shown.
     private sealed record DeferredDownload(Uri Uri, string? SuggestedName, IBrowserDownloadSource Source,
-        BrowserDownloadHandling? Handling, bool ClaimWhenOffered = false, Uri? LoadingPage = null);
+        BrowserDownloadHandling? Handling, Uri? LoadingPage = null);
 
     private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId,
         BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source, BrowserDownloadHandling? Handling);
@@ -137,12 +137,23 @@ internal partial class WebBrowserTabView
         if (_deferredNativeDownloads.Count == 0 || IsPageDownloadOfferBlocked) return;
         var deferred = _deferredNativeDownloads.First!.Value;
         _deferredNativeDownloads.RemoveFirst();
-        BrowserDownloadHandling? handling = deferred.ClaimWhenOffered
-            ? deferred.LoadingPage is { } loading && loading == _viewModel!.CommittedUri
-                ? ClaimDownload(deferred.Uri, deferred.SuggestedName, deferred.Source.IsGenerated, loading)
-                : null
-            : deferred.Handling;
+        // A file whose page never finished loading is offered without a claim.
+        BrowserDownloadHandling? handling = deferred.LoadingPage == null ? deferred.Handling : null;
         OfferPageDownload(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source, handling);
+    }
+
+    // The files that frames of the page offered while it loaded are claimed as soon as it is the page on display, even
+    // while their prompts wait behind an earlier one, so their scripts read the page that produced them.
+    private void SettleLoadingPageClaims(Uri page, bool committed)
+    {
+        for (LinkedListNode<DeferredDownload>? node = _deferredNativeDownloads.First; node != null; node = node.Next)
+        {
+            if (node.Value is not { LoadingPage: { } loading } deferred || loading != page) continue;
+            BrowserDownloadHandling? handling = committed && loading == _viewModel?.CommittedUri
+                ? ClaimDownload(deferred.Uri, deferred.SuggestedName, deferred.Source.IsGenerated, loading)
+                : null;
+            node.Value = deferred with { Handling = handling, LoadingPage = null };
+        }
     }
 
     private void DeferNativeDownload(Uri uri, string? suggestedName, IBrowserDownloadSource source, Uri? page = null)
@@ -165,7 +176,7 @@ internal partial class WebBrowserTabView
             return;
         }
         _deferredNativeDownloads.AddLast(new DeferredDownload(uri, suggestedName, source, null,
-            ClaimWhenOffered: true, LoadingPage: _latestNavigationRequest));
+            LoadingPage: _latestNavigationRequest));
     }
 
     private void PreservePendingNativeDownload()

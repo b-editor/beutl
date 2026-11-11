@@ -155,6 +155,7 @@ internal partial class WebBrowserTabView
         _findRequest?.Cancel();
         _viewModel.CompleteNavigation(uri, e.IsSuccess, _webView.CanGoBack, _webView.CanGoForward);
         UpdateBlankPageState();
+        SettleLoadingPageClaims(uri, e.IsSuccess);
         OfferNextDeferredNativeDownload();
         if (e.IsSuccess && uri != WebBrowserTabViewModel.BlankPage)
         {

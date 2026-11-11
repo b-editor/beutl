@@ -314,6 +314,52 @@ public sealed class BrowserDownloadExtensionTests
         });
     }
 
+    [AvaloniaTest]
+    public async Task AFrameFileIsClaimedWhenItsPageLoadsEvenWhileAnEarlierDownloadRuns()
+    {
+        var frameFile = new Uri("https://speech.example/files/frame.mp3");
+        using var temporary = new TemporaryDirectory();
+        using var browser = Browser.Open(temporary.Path, s_speechPage, includesSubframes: false);
+        int reads = 0;
+        // The browser runs scripts of its own when a page loads; only the extension's matter here.
+        browser.View.PageScriptRunner = script => script.Contains(SpeechSiteExtension.Script, StringComparison.Ordinal)
+            ? Task.FromResult<string?>(JsonSerializer.Serialize(new { value = $"read {++reads}" }))
+            : Task.FromResult<string?>(null);
+        var importing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        browser.Extension.Import = async (_, _) =>
+        {
+            importing.TrySetResult();
+            return await release.Task;
+        };
+
+        browser.View.OnGeneratedDownloadRequested(null, "first.mp3", new GeneratedSource("first.mp3"));
+        Dispatcher.UIThread.RunJobs();
+        browser.Confirm();
+        await importing.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        // The page reloads while the first file is still being imported, and a frame of it offers another file.
+        browser.View.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = s_speechPage });
+        browser.View.OnWindowsNativeDownloadRequested(frameFile, "frame.mp3", new ResponseSource("frame.mp3"));
+        browser.View.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = s_speechPage, IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+        // Its prompt waits for the first import, but the page was read as soon as it had loaded.
+        Assert.That(reads, Is.EqualTo(2));
+
+        var second = browser.ImportCompletion();
+        release.SetResult(true);
+        await WaitUntilAsync(() => browser.View.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible);
+        browser.Confirm();
+        await second.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(browser.Extension.Imports.Select(import => import.PageData), Is.EqualTo(new[] { "read 1", "read 2" }));
+            Assert.That(browser.Extension.Imports[1].Offer.Source, Is.EqualTo(frameFile));
+            Assert.That(browser.Extension.Imports[1].Offer.Page, Is.EqualTo(s_speechPage));
+            Assert.That(reads, Is.EqualTo(2));
+        });
+    }
+
     [Test]
     public void ResultsTheBrowserDidNotWrapGiveNoPageData()
     {
