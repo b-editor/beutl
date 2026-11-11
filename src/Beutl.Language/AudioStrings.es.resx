@@ -266,6 +266,33 @@
   <data name="PitchShiftEffect_Semitones" xml:space="preserve">
     <value>Semitonos</value>
   </data>
+  <data name="ResamplingEffect" xml:space="preserve">
+    <value>Remuestreo</value>
+  </data>
+  <data name="ResamplingEffect_Method" xml:space="preserve">
+    <value>Método</value>
+  </data>
+  <data name="ResamplingEffect_Method_Description" xml:space="preserve">
+    <value>Cómo se rellenan los huecos entre muestras al convertir el audio a la frecuencia de muestreo del proyecto. Retención es el más áspero, seguido de Lineal y de Catmull–Rom y Lagrange de 4 puntos. Sinc 16 y Sinc 64 también eliminan las frecuencias que la conversión añadiría o reflejaría, para obtener el resultado más limpio. Los efectos anteriores a este se procesan a la frecuencia de muestreo de la fuente y los posteriores, a la del proyecto.</value>
+  </data>
+  <data name="ResamplingMethod_Hold" xml:space="preserve">
+    <value>Retención</value>
+  </data>
+  <data name="ResamplingMethod_Linear" xml:space="preserve">
+    <value>Lineal</value>
+  </data>
+  <data name="ResamplingMethod_CatmullRom" xml:space="preserve">
+    <value>Catmull–Rom</value>
+  </data>
+  <data name="ResamplingMethod_Lagrange" xml:space="preserve">
+    <value>Lagrange de 4 puntos</value>
+  </data>
+  <data name="ResamplingMethod_Sinc16" xml:space="preserve">
+    <value>Sinc 16</value>
+  </data>
+  <data name="ResamplingMethod_Sinc64" xml:space="preserve">
+    <value>Sinc 64</value>
+  </data>
   <data name="VibratoEffect" xml:space="preserve">
     <value>Vibrato</value>
   </data>

@@ -135,16 +135,16 @@ public partial class Composer
             int nextDownstreamLatency = AudioLatency.SaturatingAdd(downstreamLatency, ownLatency);
             int nextSampleRate = sampleRate;
             double nextOutputScale = outputScale;
-            if (node is ResampleNode resampleNode)
+            if (node is IAudioSampleRateConversionNode converter)
             {
                 nextDownstreamLatency = AudioLatency.ScaleSampleCount(
                     nextDownstreamLatency,
                     sampleRate,
-                    resampleNode.SourceSampleRate);
-                nextSampleRate = resampleNode.SourceSampleRate;
+                    converter.SourceSampleRate);
+                nextSampleRate = converter.SourceSampleRate;
                 nextOutputScale = MultiplyScale(
                     outputScale,
-                    sampleRate / (double)resampleNode.SourceSampleRate);
+                    sampleRate / (double)converter.SourceSampleRate);
             }
             else if (node is IAudioTimeMappingNode speedNode)
             {

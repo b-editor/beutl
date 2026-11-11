@@ -412,8 +412,18 @@ public class TimeStretchEffectTests
 
             Assert.That(output, Is.Not.Null);
             int expected = (int)Math.Ceiling(sourceFrames / (double)sourceRate * outputRate / (speed / 100d));
-            Assert.That(output!.GetChannelData(0).Slice(expected).ToArray(), Is.All.Zero,
-                "Silence padding in SourceNode must not extend the real input budget.");
+            // A source at another rate is converted after the effects, and the converter's filter rings on for a few
+            // samples past the end of the stretched audio. It is far below 1e-6 within a millisecond.
+            if (sourceRate == outputRate)
+            {
+                Assert.That(output!.GetChannelData(0).Slice(expected).ToArray(), Is.All.Zero,
+                    "Silence padding in SourceNode must not extend the real input budget.");
+            }
+            else
+            {
+                Assert.That(output!.GetChannelData(0).Slice(expected + outputRate / 1000).ToArray(), Is.All.EqualTo(0).Within(1e-6f),
+                    "Silence padding in SourceNode must not extend the real input budget.");
+            }
             if (speed < 100)
             {
                 for (int start = 0; start < expected; start += 240)

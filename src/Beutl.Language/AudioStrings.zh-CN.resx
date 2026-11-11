@@ -266,6 +266,33 @@
   <data name="PitchShiftEffect_Semitones" xml:space="preserve">
     <value>半音</value>
   </data>
+  <data name="ResamplingEffect" xml:space="preserve">
+    <value>重采样</value>
+  </data>
+  <data name="ResamplingEffect_Method" xml:space="preserve">
+    <value>方式</value>
+  </data>
+  <data name="ResamplingEffect_Method_Description" xml:space="preserve">
+    <value>将音频转换为项目采样率时填补采样点之间空隙的方式。保持最粗糙，线性次之，Catmull–Rom 和 4 点 Lagrange 更平滑。Sinc 16 和 Sinc 64 还会去除转换产生或折叠的多余频率，结果最干净。此效果之前的效果以源采样率处理，之后的效果以项目采样率处理。</value>
+  </data>
+  <data name="ResamplingMethod_Hold" xml:space="preserve">
+    <value>保持</value>
+  </data>
+  <data name="ResamplingMethod_Linear" xml:space="preserve">
+    <value>线性</value>
+  </data>
+  <data name="ResamplingMethod_CatmullRom" xml:space="preserve">
+    <value>Catmull–Rom</value>
+  </data>
+  <data name="ResamplingMethod_Lagrange" xml:space="preserve">
+    <value>4 点 Lagrange</value>
+  </data>
+  <data name="ResamplingMethod_Sinc16" xml:space="preserve">
+    <value>Sinc 16</value>
+  </data>
+  <data name="ResamplingMethod_Sinc64" xml:space="preserve">
+    <value>Sinc 64</value>
+  </data>
   <data name="VibratoEffect" xml:space="preserve">
     <value>颤音</value>
   </data>

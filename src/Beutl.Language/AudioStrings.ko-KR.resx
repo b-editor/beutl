@@ -266,6 +266,33 @@
   <data name="PitchShiftEffect_Semitones" xml:space="preserve">
     <value>반음</value>
   </data>
+  <data name="ResamplingEffect" xml:space="preserve">
+    <value>리샘플링</value>
+  </data>
+  <data name="ResamplingEffect_Method" xml:space="preserve">
+    <value>방식</value>
+  </data>
+  <data name="ResamplingEffect_Method_Description" xml:space="preserve">
+    <value>오디오를 프로젝트의 샘플 속도로 변환할 때 샘플 사이를 채우는 방법입니다. 홀드가 가장 거칠고, 선형, Catmull–Rom과 4점 Lagrange 순으로 부드러워집니다. Sinc 16과 Sinc 64는 변환으로 생기거나 접히는 불필요한 주파수도 제거해 가장 깨끗한 결과를 냅니다. 이 효과보다 앞의 효과는 원본의 샘플 속도로, 뒤의 효과는 프로젝트의 샘플 속도로 처리됩니다.</value>
+  </data>
+  <data name="ResamplingMethod_Hold" xml:space="preserve">
+    <value>홀드</value>
+  </data>
+  <data name="ResamplingMethod_Linear" xml:space="preserve">
+    <value>선형</value>
+  </data>
+  <data name="ResamplingMethod_CatmullRom" xml:space="preserve">
+    <value>Catmull–Rom</value>
+  </data>
+  <data name="ResamplingMethod_Lagrange" xml:space="preserve">
+    <value>4점 Lagrange</value>
+  </data>
+  <data name="ResamplingMethod_Sinc16" xml:space="preserve">
+    <value>Sinc 16</value>
+  </data>
+  <data name="ResamplingMethod_Sinc64" xml:space="preserve">
+    <value>Sinc 64</value>
+  </data>
   <data name="VibratoEffect" xml:space="preserve">
     <value>비브라토</value>
   </data>
