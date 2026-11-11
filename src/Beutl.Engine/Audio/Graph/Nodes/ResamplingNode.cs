@@ -1,6 +1,5 @@
 ﻿using System.Buffers;
 using System.Numerics;
-using Beutl.Animation;
 using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Media;
@@ -26,11 +25,9 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
     private AudioSourceStream? _stream;
     private SlidingWindow<float>? _input;
     private MediaTime? _lastTimeRangeEnd;
-    private AudioProcessContext? _context;
     private float[] _weights = [];
 
     private ResamplingKernel _kernel = ResamplingKernel.For(ResamplingMethod.Hold);
-    private ResamplingMethod _method;
     private long _outputPosition;
 
     // A sinc's cutoff as a fraction of the input's Nyquist frequency, and how far before an output's position in the
@@ -99,11 +96,10 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
         if (count == 0)
             return output;
 
-        _context = context;
         try
         {
             if (Prepare(context, draining))
-                Render(output);
+                Render(output, context);
 
             return output;
         }
@@ -113,10 +109,6 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
             _lastTimeRangeEnd = null;
             output.Dispose();
             throw;
-        }
-        finally
-        {
-            _context = null;
         }
     }
 
@@ -147,9 +139,7 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
         }
 
         // A method has nothing to interpolate, so it holds for the block.
-        ResamplingMethod method = AnimationSampler.IsAnimated(Method)
-            ? context.AnimationSampler.SampleAt(Method, context.TimeRange.Start, sampleRate)
-            : Method.Value;
+        ResamplingMethod method = context.AnimationSampler.SampleAt(Method, context.TimeRange.Start, sampleRate);
         long? inputEnd = _stream!.GetInputEnd(Inputs[0], context);
 
         // An edit can move the end without replacing the node: input read past a nearer end must go, and input that
@@ -161,30 +151,23 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
         {
             // Truncate like SourceNode and ResampleNode, so a start between samples maps to the sample the upstream
             // delivers there.
-            Restart(context.TimeRange.Start.ToSamples(sampleRate, MidpointRounding.ToZero), method, inputEnd);
+            Restart(context.TimeRange.Start.ToSamples(sampleRate, MidpointRounding.ToZero), inputEnd);
         }
         else
         {
             _inputEnd = inputEnd;
-
-            // The input keeps what the widest kernel reaches back to, so a new method takes over without reading it
-            // again, which an echo or a limiter above would take for a seek.
-            if (method != _method)
-            {
-                _method = method;
-                _kernel = ResamplingKernel.For(method);
-            }
         }
 
+        // The input keeps what the widest kernel reaches back to, so a new method takes over without reading it
+        // again, which an echo or a limiter above would take for a seek.
+        _kernel = ResamplingKernel.For(method);
         _lastTimeRangeEnd = context.TimeRange.End;
         return true;
     }
 
     // Rereads the input from far enough before the output for every sample the output depends on.
-    private void Restart(long outputStart, ResamplingMethod method, long? inputEnd)
+    private void Restart(long outputStart, long? inputEnd)
     {
-        _method = method;
-        _kernel = ResamplingKernel.For(method);
         _inputEnd = inputEnd;
         _liveEnd = null;
         _drainEnd = null;
@@ -194,7 +177,7 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
         // Converting to a lower rate, a sinc narrows to the output's Nyquist frequency by stretching. The input is kept
         // as far back as Sinc 64, the widest kernel, reaches whatever the method, for a method that changes mid-stream.
         _cutoff = Math.Min(1, _sampleRate / (double)SourceSampleRate);
-        _reach = (long)Math.Ceiling(ResamplingKernel.For(ResamplingMethod.Sinc64).Radius / _cutoff);
+        _reach = (long)Math.Ceiling(ResamplingKernel.MaxRadius / _cutoff);
 
         // Nothing is read before the timeline origin, as playback from the start has nothing behind it.
         long readStart = Math.Max((long)Math.Floor(PositionInInput(outputStart)) - _reach - 1, 0);
@@ -235,7 +218,7 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
         }
     }
 
-    private void Render(AudioBuffer output)
+    private void Render(AudioBuffer output, AudioProcessContext context)
     {
         ResamplingKernel kernel = _kernel;
         SlidingWindow<float> input = _input!;
@@ -250,9 +233,10 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
             if (i % PortionFrames == 0)
             {
                 double last = PositionInInput(position + Math.Min(PortionFrames, count - i) - 1);
-                EnsureInput(stretched
+                long end = stretched
                     ? (long)Math.Ceiling(last + kernel.Radius / _cutoff)
-                    : (long)Math.Floor(last) + kernel.Last + 1);
+                    : (long)Math.Floor(last) + kernel.Last + 1;
+                EnsureInput(end, context);
             }
 
             double at = PositionInInput(position);
@@ -264,19 +248,7 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
                 double reach = kernel.Radius / _cutoff;
                 first = (long)Math.Floor(at - reach) + 1;
                 taps = checked((int)((long)Math.Ceiling(at + reach) - first));
-                Span<float> weights = RentWeights(taps);
-                double sum = 0;
-                for (int j = 0; j < taps; j++)
-                {
-                    float weight = kernel.Value(Math.Abs(at - (first + j)) * _cutoff);
-                    weights[j] = weight;
-                    sum += weight;
-                }
-
-                // The window leaves the sum a little off one between samples, which would ripple a constant.
-                float scale = (float)(1 / sum);
-                foreach (ref float weight in weights)
-                    weight *= scale;
+                kernel.GetSincWeights(at, first, _cutoff, RentWeights(taps));
             }
             else
             {
@@ -285,7 +257,7 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
                 kernel.GetWeights(at - whole, RentWeights(taps));
             }
 
-            EnsureInput(first + taps);
+            EnsureInput(first + taps, context);
 
             // Input before the first read is silence.
             long from = Math.Max(first, input.Start);
@@ -314,7 +286,7 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
     }
 
     // Live input up to the end, then the upstream's held tail, then silence.
-    private void EnsureInput(long end)
+    private void EnsureInput(long end, AudioProcessContext context)
     {
         SlidingWindow<float> input = _input!;
         while (input.End < end)
@@ -323,15 +295,18 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
             int frames = (int)Math.Min(end - position, MaxReadFrames);
             if (_liveEnd is null)
             {
-                if ((_inputEnd is not { } inputEnd || position < inputEnd) && Read(frames, draining: false, _inputEnd) > 0)
+                if ((_inputEnd is not { } inputEnd || position < inputEnd)
+                    && Read(frames, draining: false, _inputEnd, context) > 0)
+                {
                     continue;
+                }
 
                 EndLiveInput(position);
             }
 
             if (_drainEnd is not { } drainEnd || position < drainEnd)
             {
-                if (Read(frames, draining: true, _drainEnd) > 0)
+                if (Read(frames, draining: true, _drainEnd, context) > 0)
                     continue;
 
                 _drainEnd = position;
@@ -350,14 +325,14 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
         _drainEnd = latency == int.MaxValue ? null : position + latency;
     }
 
-    private int Read(int frames, bool draining, long? end)
+    private int Read(int frames, bool draining, long? end, AudioProcessContext context)
     {
         int channels = ChannelCount;
         int length = frames * channels;
         float[] buffer = ArrayPool<float>.Shared.Rent(length);
         try
         {
-            int read = _stream!.Read(buffer.AsSpan(0, length), Inputs[0], _context!, draining, end) / channels;
+            int read = _stream!.Read(buffer.AsSpan(0, length), Inputs[0], context, draining, end) / channels;
             if (read > 0)
             {
                 SlidingWindow<float> input = _input!;
@@ -401,7 +376,6 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
     {
         _stream = null;
         _input = null;
-        _context = null;
         base.Dispose(disposing);
     }
 }
