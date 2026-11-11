@@ -61,6 +61,8 @@ public partial class EditViewModel
         .Add<FrameCacheManager>(() => FrameCacheManager.Value)
         .Add<IBufferStatus>(() => BufferStatus)
         .Add<Beutl.Api.Services.ExtensionProvider>(() => ExtensionProvider)
+        // The lease-backed view, for editor components that offer work to extensions.
+        .Add<IExtensionProvider>(() => ExtensionProvider)
         // The swap-stable facades, so a cached reference survives a store-root or cap change.
         .Add<IProxyStore>(() => ProxyMediaServices.Current?.StoreFacade)
         .Add<IProxyResolver>(() => ProxyMediaServices.Current?.ResolverFacade)
