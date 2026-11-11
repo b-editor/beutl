@@ -25,9 +25,10 @@ internal partial class WebBrowserTabView
     private readonly List<(Uri? Navigation, Uri Download)> _nativeDownloadFailures = [];
     private readonly LinkedList<DeferredDownload> _deferredNativeDownloads = new();
 
-    // An extension's claim is settled when the file arrives, while the page that offered it is still on display.
+    // An extension's claim is settled when the file arrives, while the page that offered it is still on display. A
+    // file from a frame of a page that is still loading belongs to that page, so it is claimed once the page is shown.
     private sealed record DeferredDownload(Uri Uri, string? SuggestedName, IBrowserDownloadSource Source,
-        BrowserDownloadHandling? Handling);
+        BrowserDownloadHandling? Handling, bool ClaimWhenOffered);
 
     private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId,
         BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source, BrowserDownloadHandling? Handling);
@@ -79,7 +80,7 @@ internal partial class WebBrowserTabView
         if (trackNavigationFailure && _pageDownloadNavigationPending && !mainFrameDownload)
         {
             // An iframe's response belongs to the page that is still loading. Offer it after that page commits.
-            DeferNativeDownload(uri, suggestedName, source!);
+            DeferNativeDownload(uri, suggestedName, source!, claimWhenOffered: true);
             return;
         }
         if (mainFrameDownload)
@@ -135,10 +136,14 @@ internal partial class WebBrowserTabView
         if (_deferredNativeDownloads.Count == 0 || IsPageDownloadOfferBlocked) return;
         var deferred = _deferredNativeDownloads.First!.Value;
         _deferredNativeDownloads.RemoveFirst();
-        OfferPageDownload(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source, deferred.Handling);
+        BrowserDownloadHandling? handling = deferred.ClaimWhenOffered
+            ? ClaimDownload(deferred.Uri, deferred.SuggestedName, deferred.Source.IsGenerated, null)
+            : deferred.Handling;
+        OfferPageDownload(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source, handling);
     }
 
-    private void DeferNativeDownload(Uri uri, string? suggestedName, IBrowserDownloadSource source, Uri? page = null)
+    private void DeferNativeDownload(Uri uri, string? suggestedName, IBrowserDownloadSource source, Uri? page = null,
+        bool claimWhenOffered = false)
     {
         if (_pageDownloadRequestsSuppressed || _deferredNativeDownloads.Count >= MaxDeferredNativeDownloads)
         {
@@ -146,7 +151,7 @@ internal partial class WebBrowserTabView
             return;
         }
         _deferredNativeDownloads.AddLast(new DeferredDownload(uri, suggestedName, source,
-            ClaimDownload(uri, suggestedName, source.IsGenerated, page)));
+            claimWhenOffered ? null : ClaimDownload(uri, suggestedName, source.IsGenerated, page), claimWhenOffered));
     }
 
     private void PreservePendingNativeDownload()
@@ -158,7 +163,8 @@ internal partial class WebBrowserTabView
             _deferredNativeDownloads.Last!.Value.Source.Dispose();
             _deferredNativeDownloads.RemoveLast();
         }
-        _deferredNativeDownloads.AddFirst(new DeferredDownload(pending.Uri, pending.SuggestedName, source, pending.Handling));
+        _deferredNativeDownloads.AddFirst(new DeferredDownload(pending.Uri, pending.SuggestedName, source, pending.Handling,
+            ClaimWhenOffered: false));
     }
 
     private void ClearDeferredNativeDownloads()
@@ -512,7 +518,9 @@ internal partial class WebBrowserTabView
                     bool imported = handling != null && await vm.ImportClaimedDownloadAsync(handling, file, cancellation.Token);
                     if (!imported && vm.CanAddDownloadedFile(file)) await vm.AddDownloadedMediaAsync(file, cancellation.Token);
                 }
-                catch (Exception ex)
+                // The user canceling in the prompt, possibly while the extension asks something, is not a failure;
+                // the saved file stays either way.
+                catch (Exception ex) when (ex is not OperationCanceledException || !cancellation.IsCancellationRequested)
                 {
                     if (!_disposed && ReferenceEquals(_viewModel, vm))
                         DownloadStatusText.Text = string.Format(Strings.WebDownloadImportFailed, Path.GetFileName(file), ex.Message);

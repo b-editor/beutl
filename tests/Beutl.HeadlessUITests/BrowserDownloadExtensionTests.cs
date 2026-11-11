@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using System.Text.Json;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -27,11 +28,17 @@ public sealed class BrowserDownloadExtensionTests
     public void UnregisterAudioDecoder() => DecoderRegistry.Unregister(_decoder);
 
     [AvaloniaTest]
-    [TestCase("\"{\\\"text\\\":\\\"こんにちは\\\"}\"", "{\"text\":\"こんにちは\"}", TestName = "A quoted result, as WebView2 returns it")]
-    [TestCase("{\"text\":\"こんにちは\"}", "{\"text\":\"こんにちは\"}", TestName = "The string itself, as WebKit returns it")]
-    [TestCase("null", null, TestName = "A script that found nothing")]
-    public async Task AClaimedFileSkipsTheOptionsAndReachesTheExtensionWithWhatThePageShowed(string scriptResult, string? pageData)
+    // The browser reads the expression's value back from an envelope of its own. WebView2 returns that envelope as a
+    // JSON string and WebKit as it is; either way the extension gets the page's string untouched.
+    [TestCase("{\"text\":\"こんにちは\"}", true, TestName = "A JSON string from the page, quoted as WebView2 returns it")]
+    [TestCase("{\"text\":\"こんにちは\"}", false, TestName = "A JSON string from the page, as WebKit returns it")]
+    [TestCase("\"hello\"", false, TestName = "A string that starts and ends with quotation marks")]
+    [TestCase("null", true, TestName = "The string null")]
+    [TestCase(null, false, TestName = "An expression whose value is not a string")]
+    public async Task AClaimedFileSkipsTheOptionsAndReachesTheExtensionWithWhatThePageShowed(string? pageData, bool quotedByWebView2)
     {
+        string envelope = JsonSerializer.Serialize(new { value = pageData });
+        string scriptResult = quotedByWebView2 ? JsonSerializer.Serialize(envelope) : envelope;
         using var temporary = new TemporaryDirectory();
         using var browser = Browser.Open(temporary.Path, s_speechPage);
         var scripts = new List<string>();
@@ -48,7 +55,7 @@ public sealed class BrowserDownloadExtensionTests
         Assert.Multiple(() =>
         {
             // The page was read when it offered the file, before the user confirmed it.
-            Assert.That(scripts, Is.EqualTo(new[] { SpeechSiteExtension.Script }));
+            Assert.That(scripts.Single(), Does.Contain(SpeechSiteExtension.Script));
             Assert.That(progressText.Text, Is.EqualTo(SpeechSiteExtension.Description));
             Assert.That(ToolTip.GetTip(progressText), Is.EqualTo("speech.mp3"));
         });
@@ -80,7 +87,7 @@ public sealed class BrowserDownloadExtensionTests
     {
         using var temporary = new TemporaryDirectory();
         using var browser = Browser.Open(temporary.Path, s_speechPage);
-        browser.Extension.Import = _ => ValueTask.FromResult(false);
+        browser.Extension.Import = (_, _) => ValueTask.FromResult(false);
         var added = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         browser.Context.OnImport = () => added.TrySetResult();
 
@@ -157,7 +164,7 @@ public sealed class BrowserDownloadExtensionTests
     {
         using var temporary = new TemporaryDirectory();
         using var browser = Browser.Open(temporary.Path, s_speechPage);
-        browser.Extension.Import = _ => throw new InvalidOperationException("No character for this voice.");
+        browser.Extension.Import = (_, _) => throw new InvalidOperationException("No character for this voice.");
         browser.View.PageScriptRunner = _ => throw new InvalidOperationException("The page has gone.");
 
         browser.View.OnGeneratedDownloadRequested(null, "speech.mp3", new GeneratedSource("speech.mp3"));
@@ -177,12 +184,127 @@ public sealed class BrowserDownloadExtensionTests
     }
 
     [AvaloniaTest]
+    public async Task CancelingWhileTheExtensionImportsReportsACancellationAndKeepsTheFile()
+    {
+        using var temporary = new TemporaryDirectory();
+        using var browser = Browser.Open(temporary.Path, s_speechPage);
+        var asking = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        // An extension that asks the user something waits until the prompt's Cancel cancels it.
+        browser.Extension.Import = async (_, token) =>
+        {
+            asking.TrySetResult();
+            await Task.Delay(Timeout.Infinite, token);
+            return true;
+        };
+
+        browser.View.OnGeneratedDownloadRequested(null, "speech.mp3", new GeneratedSource("speech.mp3"));
+        Dispatcher.UIThread.RunJobs();
+        browser.Confirm();
+        await asking.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var cancel = browser.View.FindControl<Button>("DownloadCancelButton")!;
+        cancel.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await WaitUntilAsync(() => !cancel.IsVisible);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(browser.View.FindControl<TextBlock>("DownloadStatusText")!.Text,
+                Is.EqualTo(Beutl.Language.Strings.WebDownloadCanceled));
+            Assert.That(File.Exists(browser.Extension.Imports.Single().FileName), Is.True);
+            Assert.That(browser.Context.Imported, Is.Empty);
+        });
+    }
+
+    [AvaloniaTest]
+    public void AFileFromAFrameOfTheNextPageIsNotClaimedForThePageBeingLeft()
+    {
+        var next = new Uri("https://other.example/");
+        using var temporary = new TemporaryDirectory();
+        using var browser = Browser.Open(temporary.Path, s_speechPage, includesSubframes: false);
+        var scripts = new List<string>();
+        // The browser runs scripts of its own when a page loads; only the extension's matter here.
+        browser.View.PageScriptRunner = script =>
+        {
+            if (script.Contains(SpeechSiteExtension.Script, StringComparison.Ordinal)) scripts.Add(script);
+            return Task.FromResult<string?>(null);
+        };
+
+        // WebView2 can hand over a frame's file of the next page before that page is the committed one.
+        browser.View.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+        browser.View.OnWindowsNativeDownloadRequested(new Uri("https://other.example/files/song.mp3"), "song.mp3",
+            new ResponseSource("song.mp3"));
+        Assert.That(browser.Extension.Offers, Is.Empty);
+        browser.View.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(browser.Extension.Offers.Single().Page, Is.EqualTo(next));
+            Assert.That(scripts, Is.Empty);
+            Assert.That(browser.View.FindControl<TextBlock>("DownloadProgressText")!.Text,
+                Is.EqualTo("https://other.example/files/song.mp3"));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task AFileFromAFrameOfAPageStillLoadingIsClaimedOnceThatPageIsShown()
+    {
+        var file = new Uri("https://speech.example/files/line.mp3");
+        using var temporary = new TemporaryDirectory();
+        using var browser = Browser.Open(temporary.Path, new Uri("https://other.example/"), includesSubframes: false);
+        bool committed = false;
+        var readsAfterCommit = new List<bool>();
+        browser.View.PageScriptRunner = script =>
+        {
+            // The browser runs scripts of its own when a page loads; only the extension's matter here.
+            if (!script.Contains(SpeechSiteExtension.Script, StringComparison.Ordinal)) return Task.FromResult<string?>(null);
+            readsAfterCommit.Add(committed);
+            return Task.FromResult<string?>(JsonSerializer.Serialize(new { value = "line" }));
+        };
+        var imported = browser.ImportCompletion();
+
+        browser.View.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = s_speechPage });
+        browser.View.OnWindowsNativeDownloadRequested(file, "line.mp3", new ResponseSource("line.mp3"));
+        committed = true;
+        browser.View.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = s_speechPage, IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(browser.View.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo(SpeechSiteExtension.Description));
+        browser.Confirm();
+        await imported.WaitAsync(TimeSpan.FromSeconds(5));
+
+        BrowserDownloadImportContext import = browser.Extension.Imports.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(import.Offer.Page, Is.EqualTo(s_speechPage));
+            Assert.That(import.Offer.Source, Is.EqualTo(file));
+            Assert.That(import.Offer.IsGenerated, Is.False);
+            Assert.That(import.PageData, Is.EqualTo("line"));
+            // The page was read once it was the one on display.
+            Assert.That(readsAfterCommit, Is.EqualTo(new[] { true }));
+        });
+    }
+
+    [Test]
+    public void ResultsTheBrowserDidNotWrapGiveNoPageData()
+    {
+        Assert.Multiple(() =>
+        {
+            // WebView2 answers null for a script that threw.
+            Assert.That(BrowserDownloadHandling.ReadPageScriptResult("null"), Is.Null);
+            Assert.That(BrowserDownloadHandling.ReadPageScriptResult(null), Is.Null);
+            Assert.That(BrowserDownloadHandling.ReadPageScriptResult("not an envelope"), Is.Null);
+            Assert.That(BrowserDownloadHandling.ReadPageScriptResult("\"text\""), Is.Null);
+            // A trailing semicolon still makes an expression of the extension's script.
+            Assert.That(BrowserDownloadHandling.WrapPageScript("JSON.stringify({ a: 1 }); "), Does.Contain("JSON.stringify({ a: 1 })\n);"));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task AFileOfferedWhileAnotherWaitsKeepsWhatThePageShowedWhenItArrived()
     {
         using var temporary = new TemporaryDirectory();
         using var browser = Browser.Open(temporary.Path, s_speechPage);
         int reads = 0;
-        browser.View.PageScriptRunner = _ => Task.FromResult<string?>($"line {++reads}");
+        browser.View.PageScriptRunner = _ => Task.FromResult<string?>(JsonSerializer.Serialize(new { value = $"line {++reads}" }));
 
         browser.View.OnGeneratedDownloadRequested(null, "first.mp3", new GeneratedSource("first.mp3"));
         Dispatcher.UIThread.RunJobs();
@@ -207,8 +329,11 @@ public sealed class BrowserDownloadExtensionTests
         });
     }
 
-    private static WebBrowserTabView CreateView(WebBrowserTabViewModel vm)
-        => new(uri => new NativeWebView { Source = uri }, () => (true, null, false)) { DataContext = vm };
+    // A view that reports only main-frame navigation starts models WebView2 on Windows.
+    private static WebBrowserTabView CreateView(WebBrowserTabViewModel vm, bool? includesSubframes = null)
+        => new(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: includesSubframes)
+        { DataContext = vm };
 
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
@@ -226,7 +351,7 @@ public sealed class BrowserDownloadExtensionTests
     {
         private readonly Window _window;
 
-        private Browser(string root, Uri page)
+        private Browser(string root, Uri page, bool? includesSubframes)
         {
             var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
             var scene = new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) };
@@ -235,7 +360,7 @@ public sealed class BrowserDownloadExtensionTests
             provider.AddExtensions(-47001, [Extension]);
             Context = new BrowserEditorContext(scene, extensions: provider);
             ViewModel = new WebBrowserTabViewModel(Context, page, new BrowserProfile(Path.Combine(root, "profile.json")));
-            View = CreateView(ViewModel);
+            View = CreateView(ViewModel, includesSubframes);
             View.PageScriptRunner = _ => Task.FromResult<string?>(null);
             _window = new Window { Content = View };
             _window.Show();
@@ -250,16 +375,16 @@ public sealed class BrowserDownloadExtensionTests
 
         public WebBrowserTabView View { get; }
 
-        public static Browser Open(string root, Uri page) => new(root, page);
+        public static Browser Open(string root, Uri page, bool? includesSubframes = null) => new(root, page, includesSubframes);
 
         public Task ImportCompletion()
         {
             var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            Func<BrowserDownloadImportContext, ValueTask<bool>> import = Extension.Import;
-            Extension.Import = context =>
+            Func<BrowserDownloadImportContext, CancellationToken, ValueTask<bool>> import = Extension.Import;
+            Extension.Import = (context, token) =>
             {
                 completion.TrySetResult();
-                return import(context);
+                return import(context, token);
             };
             return completion.Task;
         }
@@ -289,7 +414,8 @@ public sealed class BrowserDownloadExtensionTests
 
         public List<BrowserDownloadImportContext> Imports { get; } = [];
 
-        public Func<BrowserDownloadImportContext, ValueTask<bool>> Import { get; set; } = _ => ValueTask.FromResult(true);
+        public Func<BrowserDownloadImportContext, CancellationToken, ValueTask<bool>> Import { get; set; } =
+            (_, _) => ValueTask.FromResult(true);
 
         public override BrowserDownloadClaim? Claim(BrowserDownloadOffer offer)
         {
@@ -300,7 +426,21 @@ public sealed class BrowserDownloadExtensionTests
         public override ValueTask<bool> ImportAsync(BrowserDownloadImportContext context, CancellationToken cancellationToken)
         {
             Imports.Add(context);
-            return Import(context);
+            return Import(context, cancellationToken);
+        }
+    }
+
+    // A response the engine holds, as WebView2 hands over a frame's file.
+    private sealed class ResponseSource(string name) : IBrowserDownloadSource
+    {
+        public async Task<string> SaveAsync(string directory, IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken)
+        {
+            await using var input = new MemoryStream([0x49, 0x44, 0x33]);
+            return await BrowserMediaDownload.SaveAsync(input, directory, name, progress, cancellationToken, input.Length);
+        }
+
+        public void Dispose()
+        {
         }
     }
 

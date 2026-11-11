@@ -37,9 +37,10 @@ public sealed record BrowserDownloadOffer
 public sealed record BrowserDownloadClaim
 {
     /// <summary>
-    /// A script the browser evaluates in the offering page as soon as the page offers the file, while the page still
-    /// shows what produced it. It should evaluate to a string, such as <c>JSON.stringify(...)</c>, which
-    /// <see cref="BrowserDownloadImportContext.PageData"/> passes on. <see langword="null"/> runs nothing.
+    /// A JavaScript expression the browser evaluates in the offering page as soon as the page offers the file, while
+    /// the page still shows what produced it, such as <c>JSON.stringify({ text: ... })</c> or an immediately invoked
+    /// function. <see cref="BrowserDownloadImportContext.PageData"/> passes its value on exactly when it is a string,
+    /// on every platform. <see langword="null"/> runs nothing.
     /// </summary>
     public string? PageScript { get; init; }
 
@@ -80,8 +81,9 @@ public sealed class BrowserDownloadImportContext
     public BrowserDownloadOffer Offer { get; }
 
     /// <summary>
-    /// The string <see cref="BrowserDownloadClaim.PageScript"/> evaluated to, or <see langword="null"/> when the
-    /// claim had no script, the script failed or returned nothing, or the page did not answer in time.
+    /// The string <see cref="BrowserDownloadClaim.PageScript"/> evaluated to, exactly as the page made it, or
+    /// <see langword="null"/> when the claim had no script, the script failed or its value was not a string, or the
+    /// page did not answer in time.
     /// </summary>
     public string? PageData { get; }
 }

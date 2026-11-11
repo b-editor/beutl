@@ -23,7 +23,7 @@ internal sealed class BrowserDownloadHandling(
     {
         try
         {
-            return NormalizeScriptResult(await pageData.WaitAsync(PageDataTimeout, cancellationToken));
+            return ReadPageScriptResult(await pageData.WaitAsync(PageDataTimeout, cancellationToken));
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -31,22 +31,29 @@ internal sealed class BrowserDownloadHandling(
         }
     }
 
-    // WebView2 returns a script's value as JSON, so a string arrives quoted; WebKit returns the string itself.
-    internal static string? NormalizeScriptResult(string? result)
-    {
-        if (string.IsNullOrEmpty(result) || result is "null" or "undefined") return null;
-        if (result.Length >= 2 && result[0] == '"' && result[^1] == '"')
-        {
-            try
-            {
-                return JsonSerializer.Deserialize<string>(result);
-            }
-            catch (JsonException)
-            {
-                // A WebKit string can itself start and end with quotation marks.
-            }
-        }
+    // WebView2 returns a script's value as JSON, so a string arrives quoted, while WebKit returns the string itself.
+    // A value that is itself quoted cannot tell the two apart, so the extension's expression goes into an envelope
+    // that always starts with a brace, and its string comes back as it was on every engine.
+    internal static string WrapPageScript(string expression) =>
+        "(() => { const value = (\n" + expression.TrimEnd().TrimEnd(';') + "\n);\n"
+        + "return JSON.stringify({ value: typeof value === 'string' ? value : null }); })()";
 
-        return result;
+    internal static string? ReadPageScriptResult(string? result)
+    {
+        if (string.IsNullOrEmpty(result)) return null;
+        try
+        {
+            string envelope = result[0] == '"' ? JsonSerializer.Deserialize<string>(result) ?? "" : result;
+            using var document = JsonDocument.Parse(envelope);
+            return document.RootElement.ValueKind == JsonValueKind.Object
+                && document.RootElement.TryGetProperty("value", out JsonElement value)
+                && value.ValueKind == JsonValueKind.String
+                    ? value.GetString()
+                    : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 }

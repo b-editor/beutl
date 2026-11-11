@@ -140,7 +140,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
             if (claim == null) continue;
             Task<string?> pageData = string.IsNullOrWhiteSpace(claim.PageScript)
                 ? Task.FromResult<string?>(null)
-                : RunPageScript(runPageScript, claim.PageScript);
+                : RunPageScript(runPageScript, BrowserDownloadHandling.WrapPageScript(claim.PageScript));
             return new BrowserDownloadHandling(descriptor.Id, offer, claim.Description, pageData);
         }
 

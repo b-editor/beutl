@@ -53,14 +53,14 @@ public sealed class SpeechSiteExtension : BrowserDownloadExtension
 
 ## Reading the page
 
-`PageScript` runs in the page's main frame. Make it evaluate to a string; `JSON.stringify` of an object is the safest choice, because WebView2 returns script values as JSON and WebKit returns the string itself, and the browser decodes either into the same `PageData`. `PageData` is `null` when the claim had no script, the script failed or evaluated to `null`, or the page did not answer within five seconds of the user confirming.
+`PageScript` is a JavaScript expression, such as `JSON.stringify({ ... })` or an immediately invoked function, evaluated in the page's main frame. When its value is a string, `PageData` is that string exactly, on every platform: the browser wraps the expression and reads its value back from an envelope of its own, so the difference between WebView2, which returns script values as JSON, and WebKit, which returns strings as they are, never reaches the extension. `PageData` is `null` when the claim had no script, the script failed or its value was not a string, or the page did not answer within five seconds of the user confirming. Statements, such as `const` declarations, belong inside a function the expression invokes.
 
-The script reads the page when the file arrives. A file the browser holds back while the user has not answered an earlier prompt keeps what its own page showed, so read the inputs that produced the file rather than state that changes afterwards. Treat `PageData` as input from the page: it is whatever the page's document holds.
+The script reads the page when the file arrives. A file the browser holds back while the user has not answered an earlier prompt keeps what its own page showed, so read the inputs that produced the file rather than state that changes afterwards. A file that a frame of a page still loading offers belongs to that page, so it is offered to extensions, and its script runs, once that page is on display. Treat `PageData` as input from the page: it is whatever the page's document holds.
 
 ## Importing
 
 - `ImportAsync` runs on the UI thread after the file is saved. `FileName` is its full path. Resolve editor services through `EditorContext`, such as `Scene`, `HistoryManager`, and `IEditorClock`, and add everything in one history transaction so the user can undo it as one step.
 - Return `false` to have the browser add the file to the timeline as one element, as it does without the extension, for example when the scene has no place for it.
 - An exception is shown in the download prompt as a failure to add the saved file; the file stays in the download folder.
-- The token is canceled when the user cancels in the prompt. The prompt stays busy until `ImportAsync` completes, and the browser offers no other download meanwhile, so a dialog that asks the user something is fine.
+- The token is canceled when the user cancels in the prompt. Let the `OperationCanceledException` through: the prompt then reports the download as canceled instead of as a failure to add the file. The prompt stays busy until `ImportAsync` completes, and the browser offers no other download meanwhile, so a dialog that asks the user something is fine.
 - The import leases your extension, so uninstalling the package waits until it completes.
