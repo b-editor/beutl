@@ -63,6 +63,34 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
 
     private protected virtual void OnScrubbed(TValue oldValue, ulong timestamp) { }
 
+    // Writes next to Value with ValueChanged, as a scrub of the header does, and says whether Value moved; for a
+    // slider or a bar that edits the value in this editor's place.
+    internal bool ApplyValue(TValue next)
+    {
+        TValue previous = Value;
+        if (!Differs(next, previous))
+            return false;
+
+        Value = next;
+        RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(next, previous, ValueChangedEvent));
+        return true;
+    }
+
+    // Raises ValueConfirmed when Value has moved away from oldValue, as the end of a scrub does.
+    internal void ConfirmValue(TValue oldValue)
+    {
+        if (Differs(Value, oldValue))
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, oldValue, ValueConfirmedEvent));
+    }
+
+    // One step of a scrub of target, the header or a box that is also a slider.
+    private protected void ApplyScrub(ref HeaderScrubGesture scrub, Visual target, PointerEventArgs e)
+    {
+        TValue oldValue = Value;
+        if (ApplyValue(Scrub(oldValue, ref scrub, target, e)))
+            OnScrubbed(oldValue, e.Timestamp);
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         _disposables.Clear();
@@ -93,15 +121,7 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
         if (_headerText is not { } headerText) return;
         if (!InnerTextBox.IsKeyboardFocusWithin && _scrub.IsActive)
         {
-            TValue oldValue = Value;
-            TValue newValue = Scrub(oldValue, ref _scrub, headerText, e);
-            if (Differs(newValue, oldValue))
-            {
-                Value = newValue;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue, oldValue, ValueChangedEvent));
-                OnScrubbed(oldValue, e.Timestamp);
-            }
-
+            ApplyScrub(ref _scrub, headerText, e);
             e.Handled = true;
 
             UpdateErrors();
@@ -129,10 +149,7 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
 
         // Ended before confirming, so a confirmation that rebuilds the header cannot end it twice.
         _scrub.End();
-        if (Differs(Value, _oldValue))
-        {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueConfirmedEvent));
-        }
+        ConfirmValue(_oldValue);
     }
 
     private void OnTextBlockPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -165,10 +182,7 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
         if (!DataValidationErrors.GetHasErrors(InnerTextBox))
         {
             Text = Format(Value);
-            if (Differs(Value, _oldValue))
-            {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueConfirmedEvent));
-            }
+            ConfirmValue(_oldValue);
         }
     }
 
@@ -222,11 +236,7 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
             && TryParse(InnerTextBox.Text, out _))
         {
             using var edit = new PropertyEditorEditScope(ref _editSource, this);
-            TValue oldValue = Value;
-            TValue newValue = StepByWheel(oldValue, e);
-            Value = newValue;
-            if (Differs(newValue, oldValue))
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue, oldValue, ValueChangedEvent));
+            ApplyValue(StepByWheel(Value, e));
             Text = Format(Value);
             e.Handled = true;
         }

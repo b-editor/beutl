@@ -25,6 +25,9 @@ internal struct HeaderScrubGesture
     // Whether a press on a box has yet to travel, so that it can still be a click.
     public bool IsArmed { get; private set; }
 
+    // Whether a press is armed or scrubbing.
+    public bool IsHeld => IsArmed || IsActive;
+
     // Waits for the press to travel, on a box where a click edits the text. The pointer locks only once it has, so that
     // a click does not make the cursor blink.
     public void Arm(Point position)
@@ -55,12 +58,14 @@ internal struct HeaderScrubGesture
         ActiveCount++;
     }
 
+    // The pointer's move since the last one, with the pointer held where the scrub began.
+    public Point NextMove(Visual header, PointerEventArgs e)
+        => PointerLockHelper.Moved(header, e.GetPosition(header), ref _dragStart);
+
     public TValue NextDelta<TValue>(Visual header, PointerEventArgs e)
         where TValue : INumber<TValue>
     {
-        Point point = e.GetPosition(header);
-
-        Point move = PointerLockHelper.Moved(header, point, ref _dragStart);
+        Point move = NextMove(header, e);
         double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
         return NumberEditorHelper.ConsumeScrubAccumulator<TValue>(ref _accumulator, scaledX);
     }
