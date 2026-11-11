@@ -65,9 +65,10 @@ public class NavigationToolTabBarTests
             var menu = (FAMenuFlyout)more.ContextFlyout!;
             Assert.That(menu.IsOpen, Is.True);
             var nodesMenuItem = menu.ItemsSource!.Cast<FAToggleMenuFlyoutItem>().Last();
-            bool nodesWereVisible = libraryItems[3].IsVisible;
+            // Nodes is the last section, in the menu and in the strip.
+            bool nodesWereVisible = libraryItems[^1].IsVisible;
             HeadlessTestHelpers.Click(nodesMenuItem);
-            Assert.That(libraryItems[3].IsVisible, Is.EqualTo(!nodesWereVisible));
+            Assert.That(libraryItems[^1].IsVisible, Is.EqualTo(!nodesWereVisible));
             menu.Hide();
 
             foreach (string key in library.LibraryTabDisplayModes.Keys.ToArray())
