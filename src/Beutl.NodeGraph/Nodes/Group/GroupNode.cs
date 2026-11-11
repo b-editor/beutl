@@ -68,19 +68,23 @@ public partial class GroupNode : GraphNode
 
     private INodeMember? FindMirror(INodeMember source, bool outputSide)
     {
-        int outputCount = Group.Value.Output.Value?.Items.Count ?? 0;
-        int inputCount = Group.Value.Input.Value?.Items.Count ?? 0;
-        if (Items.Count - FixedPortCount != outputCount + inputCount) return null;
+        if (!MirrorsBoundary(out int outputCount)) return null;
 
         int index = (outputSide ? Group.Value.Output.Value?.Items : Group.Value.Input.Value?.Items)?.IndexOf(source) ?? -1;
         return index < 0 ? null : Items[(outputSide ? 0 : outputCount) + index];
     }
 
+    // Whether Items mirrors the boundary nodes; history restores the two lists in separate operations.
+    private bool MirrorsBoundary(out int outputCount)
+    {
+        outputCount = Group.Value.Output.Value?.Items.Count ?? 0;
+        return Items.Count - FixedPortCount == outputCount + (Group.Value.Input.Value?.Items.Count ?? 0);
+    }
+
     /// <summary>The node inside whose output reaches <paramref name="output"/>, one of this group's outputs, and that output.</summary>
     internal (GraphNode Node, INodeMember Output)? FindInnerSource(INodeMember output)
     {
-        if (Group.Value.Output.Value is not { } boundary
-            || Items.Count - FixedPortCount != boundary.Items.Count + (Group.Value.Input.Value?.Items.Count ?? 0))
+        if (Group.Value.Output.Value is not { } boundary || !MirrorsBoundary(out _))
             return null;
 
         int index = Items.IndexOf(output);

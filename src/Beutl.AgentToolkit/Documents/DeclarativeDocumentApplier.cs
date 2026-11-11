@@ -265,7 +265,6 @@ internal sealed partial class DeclarativeDocumentApplier
 
         NormalizeRegisteredPropertyValues(target, payload);
         NormalizeEnginePropertyValues(target, payload);
-        LeaveOutUnchangedValuesSavedAsText(target, payload);
         List<(CoreObject Value, JsonObject Desired)> changedValues = TakeChangedValuesOfTheSameObject(target, payload);
         CoreSerializer.PopulateFromJsonObject(target, target.GetType(), payload, CreateOptions(target));
         if (!isNew)
@@ -285,49 +284,39 @@ internal sealed partial class DeclarativeDocumentApplier
         ApplyExpressions(target, desired);
     }
 
-    // A value saved as text, like a media source's file reference, has no members to merge, so the populate would
-    // replace it with a new object even when the text is unchanged, and record that as an edit.
-    private void LeaveOutUnchangedValuesSavedAsText(EngineObject target, JsonObject payload)
-    {
-        JsonObject? current = null;
-        foreach (IProperty property in target.Properties)
-        {
-            if (!CoreObject.IsAutoSerialized(property)
-                || property.Value is not CoreObject
-                || payload[property.Name] is not JsonValue text)
-            {
-                continue;
-            }
-
-            current ??= SerializeCurrent(target);
-            if (JsonNode.DeepEquals(current[property.Name], text))
-            {
-                payload.Remove(property.Name);
-            }
-        }
-    }
-
-    // Takes the changed values of the same type and Id, to apply in place as the editor does and keep unknown members.
+    // The populate would replace these values with new objects. A value saved as text is left out when unchanged, so no
+    // edit is recorded; a changed value of the same type and Id is taken out to apply in place and keep unknown members.
     private List<(CoreObject Value, JsonObject Desired)> TakeChangedValuesOfTheSameObject(
         EngineObject target, JsonObject payload)
     {
         var values = new List<(CoreObject, JsonObject)>();
+        JsonObject? current = null;
         foreach (IProperty property in target.Properties)
         {
-            // A member its type reads itself may be set even when left out of the payload, so the populate reads it.
-            if (!CoreObject.IsAutoSerialized(property)
-                || property.Value is not CoreObject value
-                || value is IFallback or IEnumerable
-                || payload[property.Name] is not JsonObject json
-                || CoreSerializer.ResolveActualType(json, property.ValueType) != value.GetType()
-                || !IdentityMatches(value, json)
-                || JsonNode.DeepEquals(SerializeCurrent(value), json))
+            if (!CoreObject.IsAutoSerialized(property) || property.Value is not CoreObject value)
             {
                 continue;
             }
 
-            payload.Remove(property.Name);
-            values.Add((value, json));
+            switch (payload[property.Name])
+            {
+                case JsonValue text:
+                    current ??= SerializeCurrent(target);
+                    if (JsonNode.DeepEquals(current[property.Name], text))
+                    {
+                        payload.Remove(property.Name);
+                    }
+
+                    break;
+                // A member its type reads itself may be set even when left out of the payload, so the populate reads it.
+                case JsonObject json when value is not (IFallback or IEnumerable)
+                                          && CoreSerializer.ResolveActualType(json, property.ValueType) == value.GetType()
+                                          && IdentityMatches(value, json)
+                                          && !JsonNode.DeepEquals(SerializeCurrent(value), json):
+                    payload.Remove(property.Name);
+                    values.Add((value, json));
+                    break;
+            }
         }
 
         return values;
