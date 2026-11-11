@@ -279,6 +279,18 @@ public class ResamplingEffectTests
         Assert.That(reads, Has.Count.EqualTo(4), "One read for each block of output.");
     }
 
+    // Read whole, a long block, such as a two-minute waveform window of a 192 kHz source, would hold all of its input.
+    [Test]
+    public void A_long_block_is_read_a_portion_at_a_time()
+    {
+        const int Count = SampleRate * 4;
+        var reads = new List<int>();
+
+        Run(Create(ResamplingMethod.Sinc64), SourceRate, Signal, Count, block: Count, rates: reads);
+
+        Assert.That(reads, Has.Count.EqualTo((Count + ResamplingNode.PortionFrames - 1) / ResamplingNode.PortionFrames));
+    }
+
     [TestCaseSource(nameof(s_methods))]
     public void Reading_stops_at_the_end_it_is_told_of(ResamplingMethod method)
     {
