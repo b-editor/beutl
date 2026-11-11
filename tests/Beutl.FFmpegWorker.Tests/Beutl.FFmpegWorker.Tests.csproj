@@ -9,7 +9,7 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <TargetFrameworks>net10.0</TargetFrameworks>
+    <TargetFrameworks>net11.0</TargetFrameworks>
     <DefineConstants>$(DefineConstants);BEUTL_FFMPEG_WORKER</DefineConstants>
   </PropertyGroup>
 

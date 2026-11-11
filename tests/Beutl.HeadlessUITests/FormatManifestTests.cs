@@ -50,7 +50,7 @@ public sealed class FormatManifestTests
              A rename, or a change to a type's keys or to whether it is sealed, changes the format: what was saved under
              the old names no longer resolves. If the change is intended, regenerate the file and commit it with the change:
 
-               {UpdateVariable}=1 dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj -f net10.0 --filter "FullyQualifiedName~FormatManifestTests"
+               {UpdateVariable}=1 dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj -f net11.0 --filter "FullyQualifiedName~FormatManifestTests"
 
              Lines marked - are in the file, and lines marked + are what the code writes now:
 

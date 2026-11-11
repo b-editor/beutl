@@ -23,7 +23,7 @@ internal static class TestPackages
         Directory.CreateDirectory(directory);
         string[] tags = data ? [PackageKinds.MaterialTag, PackageKinds.TemplateTag] : ["effects"];
         File.WriteAllText(Path.Combine(directory, $"{identity.Id}.{version}.nupkg"), "");
-        string dependencies = loadable ? "<dependencies><group targetFramework=\"net10.0\" /></dependencies>" : "";
+        string dependencies = loadable ? "<dependencies><group targetFramework=\"net11.0\" /></dependencies>" : "";
         if (loadable) Directory.CreateDirectory(Path.Combine(directory, "lib", Helper.GetFrameworkName().ToString()));
         File.WriteAllText(Path.Combine(directory, identity.Id + ".nuspec"),
             $"<package><metadata><id>{identity.Id}</id><version>{version}</version><authors>test</authors><description>test</description><tags>{string.Join(' ', tags)}</tags>{dependencies}</metadata></package>");

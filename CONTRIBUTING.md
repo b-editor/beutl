@@ -5,21 +5,21 @@ local build, how to test and format your changes, and the conventions we follow.
 
 ### Prerequisites
 
-- **.NET SDK** — version `10.0.100` or newer is pinned in
+- **.NET SDK** — version `11.0.100` or newer is pinned in
   [`global.json`](global.json) (`rollForward: latestFeature`). Install the
   matching SDK so the build resolves the same version CI uses.
 - **Git** with the ability to push a feature branch.
 - FFmpeg is **not** a build prerequisite: it runs as a separate
   `Beutl.FFmpegWorker` process reached over IPC, and is installed at runtime.
 
-Beutl dual-targets `net10.0` and `net10.0-windows`. Windows-only targets build
-on Windows; on Linux/macOS use `-f net10.0` where a single framework is needed.
+Beutl dual-targets `net11.0` and `net11.0-windows`. Windows-only targets build
+on Windows; on Linux/macOS use `-f net11.0` where a single framework is needed.
 
 ### Build / Test / Format
 
 ```bash
 dotnet build Beutl.slnx                                            # build
-dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings  # test
+dotnet test Beutl.slnx -f net11.0 --settings coverlet.runsettings  # test
 dotnet format Beutl.slnx                                           # format
 ./build.sh <Target>                                                # Nuke (same as CI)
 ```
@@ -32,7 +32,7 @@ so run it before pushing.
 The application entry point is the `src/Beutl` project. Run it with
 `./build.sh dev` (`.\build.ps1 dev` on Windows), which selects the target
 framework for the current platform, or with
-`dotnet run --project src/Beutl -f net10.0` (`-f net10.0-windows` on Windows).
+`dotnet run --project src/Beutl -f net11.0` (`-f net11.0-windows` on Windows).
 You can also set it as the startup project in your IDE.
 
 ### Pull request

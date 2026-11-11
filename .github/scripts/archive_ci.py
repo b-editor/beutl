@@ -47,7 +47,7 @@ def compatible_rids(graph, rid):
 
 def prepare_outputs(root, compatible, group):
     outputs = [root / ".ci-tools"]
-    outputs.extend(project.parent / "bin" / "Debug" / "net10.0" for project in test_projects(root)
+    outputs.extend(project.parent / "bin" / "Debug" / "net11.0" for project in test_projects(root)
                    if archive_group(project) == group)
     for output in outputs:
         if not output.is_dir():

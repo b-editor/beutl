@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using System.Xml;
 using NuGet.Common;
 using NuGet.Frameworks;
 using NuGet.Packaging;
@@ -71,7 +72,7 @@ internal static class ResolvedPackageDependencies
                     ?? throw new InvalidDataException("The package dependency snapshot is empty.");
                 if (!PackageIdentityComparer.Default.Equals(ReadIdentity(snapshot.Root), root))
                     throw new InvalidDataException("The dependency snapshot belongs to another package.");
-                if (snapshot.Framework == framework.GetShortFolderName())
+                if (snapshot.Framework is { } savedFramework)
                 {
                     PackageIdentity[] packages = snapshot.Packages?.Select(ReadIdentity).ToArray()
                         ?? throw new InvalidDataException("The package dependency list is missing.");
@@ -79,14 +80,17 @@ internal static class ResolvedPackageDependencies
                         || packages.Select(package => package.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() != packages.Length)
                         throw new InvalidDataException("The package dependency snapshot is inconsistent.");
                     if (packages.All(package => PackageIdentityComparer.Default.Equals(package, root)
-                                                || Directory.Exists(Helper.ResolveInstalledDirectory(package))))
+                                                || Directory.Exists(Helper.ResolveInstalledDirectory(package)))
+                        && (savedFramework == framework.GetShortFolderName()
+                            || SelectSameDependencies(reader, root, packages, NuGetFramework.ParseFolder(savedFramework), framework)))
                     {
                         snapshotPackages = packages;
                         return true;
                     }
                 }
             }
-            catch (Exception ex) when (ex is JsonException or InvalidDataException or IOException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex is JsonException or InvalidDataException or IOException or UnauthorizedAccessException
+                                           or PackagingException or XmlException)
             {
                 // A copied, incomplete, or stale cache must not disable a usable
                 // installation or prevent cleanup of every other package.
@@ -95,6 +99,38 @@ internal static class ResolvedPackageDependencies
 
         snapshotPackages = null;
         return false;
+    }
+
+    // A snapshot saved under another framework, as by a Beutl built for an older .NET, still holds when every
+    // package in it picks the same dependency group under both frameworks, as packages built for the older one do.
+    private static bool SelectSameDependencies(
+        PackageFolderReader rootReader,
+        PackageIdentity root,
+        PackageIdentity[] packages,
+        NuGetFramework savedFramework,
+        NuGetFramework framework)
+    {
+        if (savedFramework.IsUnsupported) return false;
+
+        foreach (PackageIdentity package in packages)
+        {
+            if (PackageIdentityComparer.Default.Equals(package, root))
+            {
+                if (!SameGroup(rootReader)) return false;
+                continue;
+            }
+
+            using var reader = new PackageFolderReader(Helper.ResolveInstalledDirectory(package));
+            if (!SameGroup(reader)) return false;
+        }
+
+        return true;
+
+        bool SameGroup(PackageFolderReader reader)
+        {
+            NuGetFramework[] groups = reader.GetPackageDependencies().Select(group => group.TargetFramework).ToArray();
+            return Helper.FrameworkReducer.GetNearest(savedFramework, groups) == Helper.FrameworkReducer.GetNearest(framework, groups);
+        }
     }
 
     private static IReadOnlyList<PackageIdentity> ResolveInstalledGraph(

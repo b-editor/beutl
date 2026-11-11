@@ -7,14 +7,14 @@ import check_extension_package as check
 
 
 VERSION = "0.0.0-ci"
-DLL = f"lib/net10.0/{check.NAME}.dll"
+DLL = f"lib/net11.0/{check.NAME}.dll"
 
 
 def nuspec(*dependencies):
     elements = "".join(f'<dependency id="{package_id}" version="{version}" />' for package_id, version in dependencies)
     return (
         '<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd"><metadata><dependencies>'
-        f'<group targetFramework="net10.0">{elements}</group></dependencies></metadata></package>'
+        f'<group targetFramework="net11.0">{elements}</group></dependencies></metadata></package>'
     )
 
 
@@ -57,11 +57,11 @@ class CheckPackageTests(unittest.TestCase):
         ])
 
     def test_reports_a_missing_extension_assembly_and_copies_of_host_libraries(self):
-        problems = self.check([("Beutl.Extensibility", VERSION)], files=("lib/net10.0/Beutl.Engine.dll",))
+        problems = self.check([("Beutl.Extensibility", VERSION)], files=("lib/net11.0/Beutl.Engine.dll",))
 
         self.assertEqual(problems, [
             f"no lib/*/{check.NAME}.dll",
-            "lib/net10.0/Beutl.Engine.dll, a copy of a library that the host provides",
+            "lib/net11.0/Beutl.Engine.dll, a copy of a library that the host provides",
         ])
 
 

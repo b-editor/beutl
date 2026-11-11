@@ -2,13 +2,16 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <RootNamespace></RootNamespace>
     <NoWarn>CS0649;CS0169</NoWarn>
     <NukeRootDirectory>..</NukeRootDirectory>
     <NukeScriptDirectory>..</NukeScriptDirectory>
     <NukeTelemetryVersion>1</NukeTelemetryVersion>
     <ImplicitUsings>true</ImplicitUsings>
+    <!-- Nuke 10.1.0 requires Environment.GetCommandLineArgs()[0] to be this assembly's path. Since .NET 11 an
+         apphost launch keeps the invocation name there instead, so let `dotnet run` start the DLL through dotnet. -->
+    <UseAppHost>false</UseAppHost>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,7 +20,7 @@
          version in Directory.Packages.props. -->
     <PackageReference Include="NuGet.Packaging" />
     <!-- Nuke.Common -> Microsoft.Build.Tasks.Core pulls System.Security.Cryptography.Xml 9.0.0,
-         which has known high-severity advisories (NU1903). Lift it to a patched 10.x. -->
+         which has known high-severity advisories (NU1903). Lift it to a patched 11.x. -->
     <PackageReference Include="System.Security.Cryptography.Xml" />
   </ItemGroup>
 

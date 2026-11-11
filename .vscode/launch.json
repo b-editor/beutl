@@ -6,7 +6,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/src/Beutl/bin/Debug/net10.0/Beutl.dll",
+            "program": "${workspaceFolder}/src/Beutl/bin/Debug/net11.0/Beutl.dll",
             "args": [],
             "cwd": "${workspaceFolder}/src/Beutl",
             "console": "internalConsole",

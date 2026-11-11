@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Xml.Linq;
 using Beutl.Api.Services;
 using Beutl.Testing.Headless;
+using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -15,6 +16,8 @@ namespace Beutl.HeadlessUITests;
 public class PluginDependencyResolutionTests
 {
     private string _prefix = null!;
+    // The framework the fixture packages are built for.
+    private string _packageFramework = null!;
     private readonly List<string> _directories = [];
     private readonly List<string> _archives = [];
     private readonly Dictionary<string, byte[]?> _originalFiles = [];
@@ -24,6 +27,7 @@ public class PluginDependencyResolutionTests
     {
         Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
         _prefix = "Beutl.PluginTest." + Guid.NewGuid().ToString("N") + ".";
+        _packageFramework = "net11.0";
         Directory.CreateDirectory(Helper.LocalSourcePath);
         foreach (string name in new[] { "nuget.config", "installedPackages.json" })
         {
@@ -57,10 +61,10 @@ public class PluginDependencyResolutionTests
     {
         var (root, current) = CreateDiamond(reverse);
         using var reader = new PackageFolderReader(root);
-        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
+        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net11.0"), reader);
 
         Assert.That(Path.GetFullPath(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common"))!),
-            Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net10.0", _prefix + "Common.dll"))));
+            Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net11.0", _prefix + "Common.dll"))));
     }
 
     [Test]
@@ -71,10 +75,43 @@ public class PluginDependencyResolutionTests
         string root = CreatePackage("Root", "1.0.0", ("Common", "1.0.0"));
         ResolvedPackageDependencies.Save(root, Helper.GetFrameworkName(), [Identity("Root", "1.0.0"), Identity("Common", "2.0.0")]);
         using var reader = new PackageFolderReader(root);
+        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net11.0"), reader);
+
+        Assert.That(Path.GetFullPath(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common"))!),
+            Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net11.0", _prefix + "Common.dll"))));
+    }
+
+    // Beutl built for .NET 10 saved its snapshots under net10.0.
+    [Test]
+    public void Snapshot_saved_under_an_older_framework_keeps_the_selected_version()
+    {
+        _packageFramework = "net10.0";
+        CreatePackage("Common", "1.0.0");
+        string current = CreatePackage("Common", "2.0.0");
+        string root = CreatePackage("Root", "1.0.0", ("Common", "1.0.0"));
+        SaveSelection(root, NuGetFramework.Parse("net10.0"), ("Common", "2.0.0"));
+        using var reader = new PackageFolderReader(root);
         var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
 
         Assert.That(Path.GetFullPath(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common"))!),
             Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net10.0", _prefix + "Common.dll"))));
+    }
+
+    // A package built for this framework too can depend on other packages under it.
+    [Test]
+    public void Snapshot_saved_under_another_framework_is_ignored_when_a_package_picks_another_dependency_group()
+    {
+        _packageFramework = "net10.0";
+        string older = CreatePackage("Common", "1.0.0");
+        CreatePackage("Common", "2.0.0");
+        string root = CreatePackage("Root", "1.0.0", ("Common", "1.0.0"));
+        AddDependencyGroup(root, "net11.0", ("Common", "1.0.0"));
+        SaveSelection(root, NuGetFramework.Parse("net10.0"), ("Common", "2.0.0"));
+        using var reader = new PackageFolderReader(root);
+        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
+
+        Assert.That(Path.GetFullPath(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common"))!),
+            Is.EqualTo(Path.GetFullPath(Path.Combine(older, "lib", "net10.0", _prefix + "Common.dll"))));
     }
 
     [Test]
@@ -91,9 +128,9 @@ public class PluginDependencyResolutionTests
         Assert.That(File.Exists(Path.Combine(root, ResolvedPackageDependencies.FileName)), Is.True);
         using var reader = new PackageFolderReader(root);
         Assert.That(ResolvedPackageDependencies.Load(reader, Helper.GetFrameworkName()), Does.Contain(Identity("Common", "2.0.0")));
-        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
+        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net11.0"), reader);
         Assert.That(Path.GetFullPath(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common"))!),
-            Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net10.0", _prefix + "Common.dll"))));
+            Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net11.0", _prefix + "Common.dll"))));
     }
 
     // SDKs up to 2.0.0-preview.8 packed the build-time source generator as a dependency of every
@@ -154,6 +191,27 @@ public class PluginDependencyResolutionTests
         CreatePackage("Right", "1.0.0", ("Common", "2.0.0"));
         string root = CreatePackage("Root", "1.0.0", ("Left", "1.0.0"), ("Right", "1.0.0"));
         SaveSelection(root, ("Left", "1.0.0"), ("Right", "1.0.0"), ("Common", "2.0.0"));
+        DeleteDownloads();
+        AddUnreachableSource();
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
+
+        await installer.ReResolveDependencies(Identity("Root", "1.0.0"), NuGet.Common.NullLogger.Instance);
+
+        using var reader = new PackageFolderReader(root);
+        Assert.That(ResolvedPackageDependencies.Load(reader, Helper.GetFrameworkName()), Does.Contain(Identity("Common", "2.0.0")));
+    }
+
+    // The first start after Beutl moved to .NET 11 re-resolves every extension from what a .NET 10 Beutl saved.
+    [Test]
+    public async Task Re_resolution_uses_a_selection_saved_under_an_older_framework()
+    {
+        _packageFramework = "net10.0";
+        CreatePackage("Common", "2.0.0");
+        CreatePackage("Left", "1.0.0", ("Common", "1.0.0"));
+        CreatePackage("Right", "1.0.0", ("Common", "2.0.0"));
+        string root = CreatePackage("Root", "1.0.0", ("Left", "1.0.0"), ("Right", "1.0.0"));
+        SaveSelection(root, NuGetFramework.Parse("net10.0"), ("Left", "1.0.0"), ("Right", "1.0.0"), ("Common", "2.0.0"));
         DeleteDownloads();
         AddUnreachableSource();
         using var client = new HttpClient();
@@ -276,10 +334,10 @@ public class PluginDependencyResolutionTests
             File.WriteAllText(snapshot, json.ToJsonString());
         }
         using var reader = new PackageFolderReader(root);
-        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
+        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net11.0"), reader);
 
         Assert.That(Path.GetFullPath(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common"))!),
-            Is.EqualTo(Path.GetFullPath(Path.Combine(failure == "missing-dependency" ? current : dependency, "lib", "net10.0", _prefix + "Common.dll"))));
+            Is.EqualTo(Path.GetFullPath(Path.Combine(failure == "missing-dependency" ? current : dependency, "lib", "net11.0", _prefix + "Common.dll"))));
     }
 
     [Test]
@@ -335,7 +393,7 @@ public class PluginDependencyResolutionTests
         WriteAsset(root, $"runtimes/{foreign}/native/{fileName}");
         string expected = WriteAsset(root, $"runtimes/{(generic ? "any" : runtime)}/native/{fileName}");
         using var reader = new PackageFolderReader(root);
-        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
+        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net11.0"), reader);
 
         Assert.That(resolver.ResolveUnmanagedDllToPath("beutl-test"), Is.EqualTo(expected));
     }
@@ -344,9 +402,9 @@ public class PluginDependencyResolutionTests
     public void Satellite_assets_are_resolved_without_repeating_the_culture_directory()
     {
         string root = CreatePackage("Localized", "1.0.0");
-        string expected = WriteAsset(root, "lib/net10.0/ja/Localized.resources.dll");
+        string expected = WriteAsset(root, "lib/net11.0/ja/Localized.resources.dll");
         using var reader = new PackageFolderReader(root);
-        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
+        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net11.0"), reader);
 
         Assert.That(resolver.ResolveAssemblyToPath(new AssemblyName("Localized.resources") { CultureName = "ja" }), Is.EqualTo(expected));
         Assert.That(resolver.ResolveAssemblyToPath(new AssemblyName("Localized.resources") { CultureName = "fr" }), Is.Null);
@@ -366,10 +424,24 @@ public class PluginDependencyResolutionTests
     private PackageIdentity Identity(string name, string version) => new(_prefix + name, NuGetVersion.Parse(version));
 
     private void SaveSelection(string root, params (string Name, string Version)[] packages)
+        => SaveSelection(root, Helper.GetFrameworkName(), packages);
+
+    private void SaveSelection(string root, NuGetFramework framework, params (string Name, string Version)[] packages)
     {
         using var reader = new PackageFolderReader(root);
-        ResolvedPackageDependencies.Save(root, Helper.GetFrameworkName(),
+        ResolvedPackageDependencies.Save(root, framework,
             [reader.GetIdentity(), .. packages.Select(package => Identity(package.Name, package.Version))]);
+    }
+
+    private void AddDependencyGroup(string directory, string framework, params (string Name, string Version)[] dependencies)
+    {
+        string nuspec = Directory.GetFiles(directory, "*.nuspec").Single();
+        XDocument document = XDocument.Load(nuspec);
+        document.Root!.Element("metadata")!.Element("dependencies")!.Add(new XElement("group",
+            new XAttribute("targetFramework", framework),
+            dependencies.Select(dependency => new XElement("dependency", new XAttribute("id", _prefix + dependency.Name),
+                new XAttribute("version", $"[{dependency.Version},)")))));
+        document.Save(nuspec);
     }
 
     // Removes the nupkgs these tests put in the local source; the installed package folders keep their copies.
@@ -405,11 +477,11 @@ public class PluginDependencyResolutionTests
         Directory.CreateDirectory(directory);
         new XElement("package", new XElement("metadata", new XElement("id", identity.Id), new XElement("version", version),
             new XElement("authors", "tests"), new XElement("description", "Package resolution fixture"),
-            new XElement("dependencies", new XElement("group", new XAttribute("targetFramework", "net10.0"),
+            new XElement("dependencies", new XElement("group", new XAttribute("targetFramework", _packageFramework),
                 dependencies.Select(dependency => new XElement("dependency", new XAttribute("id", dependency.Id),
                     new XAttribute("version", $"[{dependency.Version},)")))))))
             .Save(Path.Combine(directory, identity.Id + ".nuspec"));
-        WriteAsset(directory, $"lib/net10.0/{identity.Id}.dll");
+        WriteAsset(directory, $"lib/{_packageFramework}/{identity.Id}.dll");
         string archive = Path.Combine(Helper.LocalSourcePath, Helper.PackagePathResolver.GetPackageFileName(identity));
         _archives.Add(archive);
         ZipFile.CreateFromDirectory(directory, archive);

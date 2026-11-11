@@ -158,7 +158,7 @@ public class PackageInstallerCleanupTests : PackageInstallerFixture
     private (string Directory, long Size) CreateInstalledDirectory(PackageIdentity package)
     {
         string directory = Path.Combine(Helper.InstallPath, $"{package.Id}.{package.Version}");
-        string libDirectory = Path.Combine(directory, "lib", "net10.0");
+        string libDirectory = Path.Combine(directory, "lib", "net11.0");
         Directory.CreateDirectory(libDirectory);
         Track(directory);
 

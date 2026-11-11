@@ -78,7 +78,7 @@ class CiTestsTests(unittest.TestCase):
             root = Path(temporary)
             (root / ".ci-tools").mkdir()
             project = root / "tests" / "ExampleTests" / "ExampleTests.csproj"
-            output = project.parent / "bin" / "Debug" / "net10.0"
+            output = project.parent / "bin" / "Debug" / "net11.0"
             for subdir in ["runtimes", "FFmpegWorker/runtimes"]:
                 for rid in ["linux-x64", "unix", "win-x64", "linux-arm64"]:
                     (output / subdir / rid / "native").mkdir(parents=True)
@@ -96,7 +96,7 @@ class CiTestsTests(unittest.TestCase):
             names = ["Beutl.UnitTests", "Beutl.HeadlessUITests", "Beutl.Graphics3DTests", "NewTests"]
             for name in names:
                 project = root / "tests" / name / f"{name}.csproj"
-                output = project.parent / "bin" / "Debug" / "net10.0"
+                output = project.parent / "bin" / "Debug" / "net11.0"
                 output.mkdir(parents=True)
                 project.write_text("<Project><PropertyGroup><IsTestProject>true</IsTestProject></PropertyGroup></Project>")
                 (output / f"{name}.dll").touch()
@@ -114,7 +114,7 @@ class CiTestsTests(unittest.TestCase):
                     self.assertEqual(downloaded, needed | {tools})
             self.assertEqual(archive_ci.artifact_pattern(root, "validation-rendering"),
                              "TestBinaries-{graphics3d,unit}.tar.zst")
-            self.assertEqual(groups["other"], {tools, root / "tests/NewTests/bin/Debug/net10.0"})
+            self.assertEqual(groups["other"], {tools, root / "tests/NewTests/bin/Debug/net11.0"})
 
     def test_archive_fails_when_a_selected_output_is_missing(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -173,7 +173,7 @@ class CiTestsTests(unittest.TestCase):
 
     def test_validation_reuses_filters_without_collecting_coverage(self):
         root = Path("/repo")
-        assembly = root / "tests/Beutl.UnitTests/bin/Debug/net10.0/Beutl.UnitTests.dll"
+        assembly = root / "tests/Beutl.UnitTests/bin/Debug/net11.0/Beutl.UnitTests.dll"
         normal = ci_tests.test_command(root, assembly, "unit-engine", False)
         validation = ci_tests.test_command(root, assembly, "unit-engine", True)
         self.assertEqual(normal[-3:], validation[-3:])
@@ -355,7 +355,7 @@ class CiTestsTests(unittest.TestCase):
             directory = Path(temporary)
             (directory / "a.trx").write_text(trx([("Ran", "Passed", "")], assembly="Beutl.UnitTests"))
             # dotnet test exits with 0 for a run that finds no tests; its TRX has no test definitions.
-            empty = directory / "_runner_2026-10-12_03_10_08_net10.0.trx"
+            empty = directory / "_runner_2026-10-12_03_10_08_net11.0.trx"
             empty.write_text(trx([]))
             self.assertEqual(ci_tests.check_results(directory), 1)
             self.assertIn(f"::error::No tests ran for {empty.stem}", self.output.getvalue())

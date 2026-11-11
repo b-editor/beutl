@@ -72,4 +72,4 @@ beutl-web's `/[lang]/admin/usage` page aggregates these spans; its
 `docs/deployment.md` describes the server-side settings. Sum
 `span.beutl.usage.count`, not the number of summary spans.
 
-Run `dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj -f net10.0 --filter FullyQualifiedName~UsageTelemetryTests`.
+Run `dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj -f net11.0 --filter FullyQualifiedName~UsageTelemetryTests`.

@@ -150,7 +150,7 @@ public sealed class ColorPaletteView : TemplatedControl
             AddEditablePalette(scope, index, palette);
         }
 
-        ColorPalette defaultPalette = DefaultColorPalette.Palette;
+        ColorPalette defaultPalette = DefaultColorPalette.Create();
         AddHeader(defaultPalette.Name, new PaletteHeader(SwatchKind.Default, default, -1));
         AddSwatches(defaultPalette.Colors.Select((c, i) => new Swatch(SwatchKind.Default, default, -1, i, c)));
 

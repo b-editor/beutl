@@ -102,7 +102,7 @@ def assemblies(root, suite):
     else:
         names = [project.stem for project in test_projects(root)
                  if project.stem not in SHARDED_PROJECTS]
-    return [root / "tests" / name / "bin" / "Debug" / "net10.0" / f"{name}.dll"
+    return [root / "tests" / name / "bin" / "Debug" / "net11.0" / f"{name}.dll"
             for name in names]
 
 

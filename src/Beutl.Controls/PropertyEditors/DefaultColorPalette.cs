@@ -152,5 +152,6 @@ internal static class DefaultColorPalette
         new(0xFF800080, "Purple"),
     ];
 
-    public static ColorPalette Palette => new(Strings.ColorPalette_DefaultPalette, s_colors);
+    // A method rather than a property: each call builds a new palette, named in the current UI language.
+    public static ColorPalette Create() => new(Strings.ColorPalette_DefaultPalette, s_colors);
 }
