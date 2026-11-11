@@ -91,6 +91,9 @@ internal sealed class WebBrowserTabViewModel : IToolContext
     internal bool CanAddDownloadedMedia => !_disposed && _editorContext.Object is Scene { Uri.IsFile: true }
         && _editorContext.GetService(typeof(IElementAdder)) is IElementAdder;
 
+    // Where a file an extension took over goes without asking, while the editor can still add it.
+    internal string? ClaimedDownloadDirectory => CanAddDownloadedMedia ? ProjectDownloadDirectory : null;
+
     internal bool CanAddDownloadedFile(string fileName) => CanAddDownloadedMedia
         && (Graphics.Image.SupportedExtensions.Contains(Path.GetExtension(fileName), StringComparer.OrdinalIgnoreCase)
             || DecoderRegistry.EnumerateDecoder().SelectMany(decoder => decoder.VideoExtensions().Concat(decoder.AudioExtensions()))
@@ -119,7 +122,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
     // now, while the page still shows what produced the file.
     internal BrowserDownloadHandling? ClaimDownload(BrowserDownloadOffer offer, Func<string, Task<string?>> runPageScript)
     {
-        if (!CanAddDownloadedMedia || ProjectDownloadDirectory == null || Extensions is not { } extensions) return null;
+        if (ClaimedDownloadDirectory == null || Extensions is not { } extensions) return null;
         foreach (ExtensionDescriptor descriptor in extensions.GetDescriptors<BrowserDownloadExtension>())
         {
             if (!extensions.TryAcquire(descriptor.Id, out IExtensionLease<BrowserDownloadExtension>? lease)) continue;

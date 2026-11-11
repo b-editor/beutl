@@ -234,6 +234,10 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
     private static bool HasMatchingGesture(ContextCommandEntry entry, OSPlatform platform, KeyEventArgs args)
         => !entry.KeyGestures.Where(gesture => gesture.Platform == platform)
             .All(gesture => gesture.KeyGesture?.Matches(args) != true);
+
+    // Whether the key is one of the entry's gestures on this platform, as dispatch decides it.
+    internal static bool Matches(ContextCommandEntry entry, KeyEventArgs args)
+        => HasMatchingGesture(entry, CurrentPlatform(), args);
 }
 
 public sealed class ContextCommandSettingsStore : IBeutlApiResource

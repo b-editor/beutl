@@ -7,7 +7,6 @@ using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
-using Beutl.ViewModels.SettingsPages;
 using Dock.Avalonia.Controls;
 
 namespace Beutl.Views.Dock;
@@ -114,9 +113,8 @@ internal sealed class FloatingToolWindow : HostWindow
     // Exit stands for closing the main window. In this window its key, Alt+F4 on Windows, closes this window instead.
     private static bool IsExitKey(ContextCommandManager commands, KeyEventArgs e)
         => commands.GetDefinitions<MainViewExtension>()
-            .FirstOrDefault(entry => entry.Definition.Id == MainViewExtension.ExitCommandId)?.KeyGestures
-            .Any(gesture => gesture.Platform == KeyMapSettingsItem.CurrentPlatform && gesture.KeyGesture?.Matches(e) == true)
-            == true;
+                .FirstOrDefault(entry => entry.Definition.Id == MainViewExtension.ExitCommandId) is { } exit
+            && ContextCommandManager.Matches(exit, e);
 
     private static bool IsOverlayOpen(MainViewModel main)
         => main.TabSwitcher.IsOpen.Value || main.CommandPalette.IsOpen.Value;
