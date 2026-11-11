@@ -22,6 +22,19 @@ public sealed class AudioContext : IDisposable
 
     public int ChannelCount => ChannelLayout.ChannelCount;
 
+    // The sample rate of the audio at the end of the chain being composed. A sound whose source runs at another rate
+    // sets it before its effects, and a node that converts to SampleRate sets it back, so that the next stage knows
+    // what it is given.
+    internal int ChainSampleRate
+    {
+        get;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
+            field = value;
+        }
+    }
+
     public AudioContext(int sampleRate, int channelCount)
         : this(sampleRate, AudioChannelLayout.GetDefault(channelCount))
     {
@@ -35,6 +48,7 @@ public sealed class AudioContext : IDisposable
 
         SampleRate = sampleRate;
         ChannelLayout = layout;
+        ChainSampleRate = sampleRate;
     }
 
     /// <summary>

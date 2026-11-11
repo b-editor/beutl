@@ -262,6 +262,33 @@
   <data name="PitchShiftEffect_Semitones" xml:space="preserve">
     <value>半音</value>
   </data>
+  <data name="ResamplingEffect" xml:space="preserve">
+    <value>リサンプリング</value>
+  </data>
+  <data name="ResamplingEffect_Method" xml:space="preserve">
+    <value>方式</value>
+  </data>
+  <data name="ResamplingEffect_Method_Description" xml:space="preserve">
+    <value>音声をプロジェクトのサンプルレートに変換するときに、サンプルの間を埋める方法です。ホールドが最も荒く、線形、Catmull–Romと4点Lagrangeの順になめらかになります。Sinc 16とSinc 64は変換で生じる余分な周波数も取り除き、最もきれいに変換します。このエフェクトより前のエフェクトはソースのサンプルレートで、後のエフェクトはプロジェクトのサンプルレートで処理されます。</value>
+  </data>
+  <data name="ResamplingMethod_Hold" xml:space="preserve">
+    <value>ホールド</value>
+  </data>
+  <data name="ResamplingMethod_Linear" xml:space="preserve">
+    <value>線形</value>
+  </data>
+  <data name="ResamplingMethod_CatmullRom" xml:space="preserve">
+    <value>Catmull–Rom</value>
+  </data>
+  <data name="ResamplingMethod_Lagrange" xml:space="preserve">
+    <value>4点Lagrange</value>
+  </data>
+  <data name="ResamplingMethod_Sinc16" xml:space="preserve">
+    <value>Sinc 16</value>
+  </data>
+  <data name="ResamplingMethod_Sinc64" xml:space="preserve">
+    <value>Sinc 64</value>
+  </data>
   <data name="VibratoEffect" xml:space="preserve">
     <value>ビブラート</value>
   </data>

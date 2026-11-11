@@ -98,18 +98,19 @@ public abstract partial class Sound : EngineObject
         var shiftNode = context.CreateShiftNode(OffsetPosition);
         context.Connect(sourceNode, shiftNode);
 
-        var resampleNode = context.CreateResampleNode(soundSource.SampleRate);
-        context.Connect(shiftNode, resampleNode);
-
         var speedNode = context.CreateSpeedNode(Speed, clipLayout.ChannelCount);
-        context.Connect(resampleNode, speedNode);
+        context.Connect(shiftNode, speedNode);
 
-        ComposeOutputStages(context, speedNode, clipLayout);
+        ComposeOutputStages(context, speedNode, clipLayout, soundSource.SampleRate);
     }
 
-    // What every kind of sound ends with, after input delivers its audio in inputLayout.
-    private protected void ComposeOutputStages(AudioContext context, AudioNode input, AudioChannelLayout inputLayout)
+    // What every kind of sound ends with, after input delivers its audio in inputLayout. Input at a source's own rate
+    // keeps it through the effects, so that a ResamplingEffect can convert it the way it is asked to, and whatever is
+    // left at the source's rate is converted after them.
+    private protected void ComposeOutputStages(
+        AudioContext context, AudioNode input, AudioChannelLayout inputLayout, int? sourceSampleRate = null)
     {
+        context.ChainSampleRate = sourceSampleRate ?? context.SampleRate;
         var pannerNode = context.CreatePannerNode(Pan, SurroundPan, CenterLevel, LfeLevel, inputLayout);
         context.Connect(input, pannerNode);
 
@@ -121,6 +122,15 @@ public abstract partial class Sound : EngineObject
         if (Effect.Value != null && Effect.Value.IsEnabled.Value)
         {
             currentNode = Effect.Value.CreateNode(context, currentNode);
+        }
+
+        if (sourceSampleRate.HasValue)
+        {
+            // After a ResamplingEffect the audio is at the project's rate already, and this passes it through.
+            var resampleNode = context.CreateResampleNode(context.ChainSampleRate);
+            context.Connect(currentNode, resampleNode);
+            currentNode = resampleNode;
+            context.ChainSampleRate = context.SampleRate;
         }
 
         // ClipNodeを作成（EffectがローカルTimeRangeを前提としているため）

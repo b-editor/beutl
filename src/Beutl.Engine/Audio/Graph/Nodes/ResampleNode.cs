@@ -5,7 +5,7 @@ using NAudio.Wave.SampleProviders;
 
 namespace Beutl.Audio.Graph.Nodes;
 
-public sealed class ResampleNode : AudioNode
+public sealed class ResampleNode : AudioNode, IAudioSampleRateConversionNode
 {
     private readonly List<(AudioNode Node, int InputCount)> _inputTopology = [];
     private int _sourceSampleRate = 44100;

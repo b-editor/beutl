@@ -314,6 +314,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Audio.Effects:PitchShiftEffect
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Semitones
+[Beutl.Engine]Beutl.Audio.Effects:ResamplingEffect
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Method, Name
 [Beutl.Engine]Beutl.Audio.Effects:RingModulatorEffect
   sealed
   keys: Animations, Expressions, Frequency, Id, IsEnabled, Mix, Name

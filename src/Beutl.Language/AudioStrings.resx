@@ -267,6 +267,33 @@
   <data name="PitchShiftEffect_Semitones" xml:space="preserve">
     <value>Semitones</value>
   </data>
+  <data name="ResamplingEffect" xml:space="preserve">
+    <value>Resampling</value>
+  </data>
+  <data name="ResamplingEffect_Method" xml:space="preserve">
+    <value>Method</value>
+  </data>
+  <data name="ResamplingEffect_Method_Description" xml:space="preserve">
+    <value>How the gaps between samples are filled when the audio is converted to the project's sample rate. Hold is the harshest, then Linear, then Catmull–Rom and 4-point Lagrange. Sinc 16 and Sinc 64 also take out the frequencies the conversion would add or fold back, for the cleanest result. Effects before this one run at the source's sample rate, and those after it at the project's.</value>
+  </data>
+  <data name="ResamplingMethod_Hold" xml:space="preserve">
+    <value>Hold</value>
+  </data>
+  <data name="ResamplingMethod_Linear" xml:space="preserve">
+    <value>Linear</value>
+  </data>
+  <data name="ResamplingMethod_CatmullRom" xml:space="preserve">
+    <value>Catmull–Rom</value>
+  </data>
+  <data name="ResamplingMethod_Lagrange" xml:space="preserve">
+    <value>4-point Lagrange</value>
+  </data>
+  <data name="ResamplingMethod_Sinc16" xml:space="preserve">
+    <value>Sinc 16</value>
+  </data>
+  <data name="ResamplingMethod_Sinc64" xml:space="preserve">
+    <value>Sinc 64</value>
+  </data>
   <data name="VibratoEffect" xml:space="preserve">
     <value>Vibrato</value>
   </data>
