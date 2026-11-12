@@ -362,6 +362,30 @@ public sealed class ColorGradingTabTests
         });
     }
 
+    // A press on the tonal range bar brings a handle under the pointer, as a press beside a slider's thumb does, so the
+    // bar keeps the default arrow as the sliders do; a resize cursor marks a drag that moves by the pointer's travel.
+    [AvaloniaTest]
+    public void The_tonal_range_bar_keeps_the_default_arrow_as_the_sliders_do()
+    {
+        var range = new TonalRangeSlider();
+        var slider = new ValueSlider();
+        var window = new Window { Content = new StackPanel { Children = { range, slider } }, Width = 360, Height = 120 };
+        window.Show();
+        try
+        {
+            HeadlessTestHelpers.Render(2);
+            Assert.Multiple(() =>
+            {
+                Assert.That(range.Cursor, Is.Null);
+                Assert.That(slider.Cursor, Is.Null);
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // A high range between steps, as typed or animated, still stops the low handle: rounding to a whole step must not
     // carry it past.
     [AvaloniaTest]
