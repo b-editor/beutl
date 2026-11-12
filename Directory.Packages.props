@@ -92,7 +92,7 @@
     <PackageVersion Include="SkiaSharp" Version="4.152.1" />
     <PackageVersion Include="SkiaSharp.HarfBuzz" Version="4.152.1" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="4.152.1" />
-    <PackageVersion Include="System.CommandLine" Version="2.0.15" />
+    <PackageVersion Include="System.CommandLine" Version="3.0.0" />
     <PackageVersion Include="System.Interactive" Version="7.0.1" />
     <PackageVersion Include="System.Reactive" Version="7.0.0" />
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="11.0.0" />
