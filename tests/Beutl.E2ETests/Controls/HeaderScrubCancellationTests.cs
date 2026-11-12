@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Testing.Headless;
 
@@ -34,21 +33,19 @@ public class HeaderScrubCancellationTests
                 ((Vector4Editor<float>)e).ThirdValue, ((Vector4Editor<float>)e).FourthValue)),
     ];
 
-    private bool _pointerLock;
+    private PointerLockScope? _pointerLock;
 
     // Pointer lock reads the real mouse on macOS and Windows, which a headless drag never moves.
     [SetUp]
     public void DisablePointerLock()
     {
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        _pointerLock = config.EnablePointerLockInProperty.Value;
-        config.EnablePointerLockInProperty.Value = false;
+        _pointerLock = PointerLockScope.Off();
     }
 
     [TearDown]
     public void RestorePointerLock()
     {
-        GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = _pointerLock;
+        _pointerLock?.Dispose();
     }
 
     // A read-only editor disables its text box, but not its header. A drag wrote past that to a value nothing showed,

@@ -6,7 +6,6 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
-using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
@@ -330,8 +329,7 @@ public class NumberSliderFieldTests
     [TestCase(false)]
     public void A_drag_ends_the_typing_in_another_box(bool focusableParent)
     {
-        bool pointerLock = GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value;
-        GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = false;
+        using var pointerLock = PointerLockScope.Off();
         var effect = new ColorGrading();
         using var history = new HistoryScope(effect);
         (PropertyEditorViewModel firstModel, Control first) = CreateControl(
@@ -388,7 +386,6 @@ public class NumberSliderFieldTests
             window.Close();
             firstModel.Dispose();
             secondModel.Dispose();
-            GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = pointerLock;
         }
     }
 
@@ -632,7 +629,7 @@ public class NumberSliderFieldTests
     {
         private readonly HistoryScope _history;
         private readonly PropertyEditorViewModel _model;
-        private readonly bool _pointerLock = GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value;
+        private readonly PointerLockScope _pointerLock = PointerLockScope.Off();
 
         public FieldHost(Func<ColorGrading, IExpressionProperty<float>> pick, float? start = null, ThemeVariant? theme = null)
             : this(new ColorGrading(), pick, start, theme)
@@ -646,7 +643,6 @@ public class NumberSliderFieldTests
 
         public FieldHost(EngineObject owner, IExpressionProperty<float> property, float? start = null, ThemeVariant? theme = null)
         {
-            GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = false;
             Property = property;
             if (start is { } value)
                 Property.Value = value;
@@ -702,7 +698,7 @@ public class NumberSliderFieldTests
             Window.Close();
             _model.Dispose();
             _history.Dispose();
-            GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = _pointerLock;
+            _pointerLock.Dispose();
         }
     }
 }

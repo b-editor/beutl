@@ -9,4 +9,8 @@
     <PackageReference Include="Avalonia.Headless" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Beutl.Configuration\Beutl.Configuration.csproj" />
+  </ItemGroup>
+
 </Project>
