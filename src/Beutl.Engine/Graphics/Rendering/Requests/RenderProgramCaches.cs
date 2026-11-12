@@ -74,17 +74,20 @@ internal sealed class RenderProgramCaches(
         }, "One or more program caches failed to release what they retain.");
 
     /// <summary>
-    /// Disposes the programs every live family keeps for one recording context while its device is still installed.
+    /// Disposes the programs and images every live family keeps for one recording context while its device is still
+    /// installed.
     /// </summary>
     /// <remarks>
     /// Shared programs outlive the renderers that compiled them, so a context torn down on its own, rather than by a
-    /// full teardown, releases its programs here instead of leaving them on a destroyed device.
+    /// full teardown, releases its programs here instead of leaving them on a destroyed device. Image pools hold
+    /// images of any context and drop them all; those of a live context are allocated again on their next use.
     /// </remarks>
     internal static void RetireContextBeforeTeardown(GRRecordingContext graphicsContext)
     {
         object identity = SkRuntimeEffectProgramCache.GetDestinationContextIdentity(graphicsContext);
         CleanupFailures.RetireLive(s_owning, family =>
         {
+            family.ShaderGraphImages?.Clear();
             if (!family.OwnsPrograms)
                 return;
 
