@@ -11,7 +11,6 @@
         <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
         <Setter Property="HandleBrush" Value="White" />
         <Setter Property="HandleBorderBrush" Value="#B3000000" />
-        <Setter Property="Cursor" Value="SizeWestEast" />
         <Style Selector="^:disabled">
             <Setter Property="Opacity" Value="0.5" />
         </Style>
