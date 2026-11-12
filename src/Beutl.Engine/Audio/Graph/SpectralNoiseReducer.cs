@@ -15,7 +15,7 @@ internal readonly record struct NoiseReductionSettings(
 // statistics track the noise floor, and a two-step decision-directed Wiener rule turns it into gains no
 // lower than the requested reduction. The filtered difference is added to the dry input, so unity gain
 // reproduces the input exactly.
-internal sealed class SpectralNoiseReducer
+internal sealed class SpectralNoiseReducer : IReadAheadInput
 {
     // The noise floor is the bias-corrected minimum of the smoothed power over this many sub-windows,
     // which together span the adaptation time.
@@ -129,6 +129,12 @@ internal sealed class SpectralNoiseReducer
 
     /// <summary>The absolute position after the last written input sample.</summary>
     public long InputEnd => _inputEnd;
+
+    long IReadAheadInput.End => _inputEnd;
+
+    void IReadAheadInput.WriteSilence(int frames) => WritePadding(frames);
+
+    void IReadAheadInput.TruncateAt(long position) => EndInputAt(position);
 
     /// <summary>The absolute position of the next output sample <see cref="Read"/> produces.</summary>
     public long OutputPosition => _outputPosition;
