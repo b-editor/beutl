@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Media;
@@ -16,27 +15,19 @@ public sealed class NoiseReductionNode : AudioNode
     // The input format is supplied when the graph is built, without pulling upstream audio.
     public int ChannelCount { get; set; } = 2;
 
-    private const int MaxReadFrames = 16384;
-
     // Audio around a restart that seeds the noise floor. At most half of it precedes the restart, so a
     // seek warms the analysis up on audio the output never plays.
     private const double SeedSeconds = 1;
 
     private readonly Func<long, NoiseReductionSettings> _settingsAt;
     private SpectralNoiseReducer? _reducer;
-    private AudioSourceStream? _stream;
+    private ReadAheadFeed? _feed;
     private List<AudioNode>? _upstreamSnapshot;
     private int _sampleRate;
     private MediaTime? _lastTimeRangeEnd;
     private AnimationSampler? _sampler;
     private NoiseReductionSettings _staticSettings;
     private bool _animated;
-
-    // Live input stops at the terminal, or where a drain began. The upstream's held tail follows until
-    // _drainEnd (null when the upstream reports an unbounded tail), and silence after that.
-    private long? _terminal;
-    private long? _liveEnd;
-    private long? _drainEnd;
 
     // Set when a graph update reuses this node: reused upstream nodes may now produce different
     // audio, so the input read ahead of the output and the noise floor learned from it are renewed.
@@ -89,7 +80,7 @@ public sealed class NoiseReductionNode : AudioNode
             if (Prepare(context, draining))
             {
                 SpectralNoiseReducer reducer = _reducer!;
-                FillInput(reducer.GetRequiredInputEnd(reducer.OutputPosition + count), context);
+                _feed!.Fill(reducer, reducer.GetRequiredInputEnd(reducer.OutputPosition + count), context);
                 reducer.Read(output, _settingsAt);
                 _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
             }
@@ -117,7 +108,7 @@ public sealed class NoiseReductionNode : AudioNode
         if (_reducer is null || _sampleRate != sampleRate || _reducer.ChannelCount != ChannelCount || upstreamChanged)
         {
             _reducer = new SpectralNoiseReducer(sampleRate, ChannelCount);
-            _stream = new AudioSourceStream(sampleRate, ChannelCount, static time => time);
+            _feed = new ReadAheadFeed(this, sampleRate, ChannelCount);
             _sampleRate = sampleRate;
             _lastTimeRangeEnd = null;
         }
@@ -130,38 +121,15 @@ public sealed class NoiseReductionNode : AudioNode
             if (!contiguous)
                 return false;
 
-            // The source is exhausted where the last block ended, so only the upstream's held tail
-            // may follow. The upstream has already run past that boundary and cannot be rewound
-            // without losing its state, such as a delay line's echoes. The live input read over the
-            // tail's span stands in for the tail, and anything read beyond it becomes silence.
-            long boundary = _reducer.OutputPosition;
-            if (_liveEnd is not { } liveUntil || liveUntil > boundary)
-            {
-                int latency = GetMaxInputLatency(_sampleRate, drain: true);
-                long tailEnd = latency == int.MaxValue ? long.MaxValue : boundary + latency;
-                if (tailEnd < _reducer.InputEnd)
-                {
-                    _reducer.EndInputAt(tailEnd);
-                    _liveEnd = boundary;
-                    _drainEnd = _reducer.InputEnd;
-                }
-                else if (_liveEnd is null)
-                {
-                    // Everything read so far lies within the tail; the upstream drains the rest.
-                    _liveEnd = _reducer.InputEnd;
-                    _drainEnd = latency == int.MaxValue ? null : tailEnd;
-                }
-            }
-
+            // The source is exhausted where the last block ended.
+            _feed!.BeginDrain(_reducer.OutputPosition, _reducer);
             return true;
         }
 
         long? terminal = context.ProcessEndTime is { } processEnd ? ToTerminalSample(processEnd) : null;
 
         // An edit that moves the terminal invalidates input read past the earlier of the two ends.
-        bool terminalMoved = _liveEnd is { } liveEnd
-            ? terminal != liveEnd
-            : terminal is { } value && value < _reducer.InputEnd;
+        bool terminalMoved = _feed!.EndMoved(terminal, _reducer);
         if (!contiguous || terminalMoved)
         {
             // Truncate like SourceNode and ResampleNode, so a start between samples maps to the
@@ -176,7 +144,7 @@ public sealed class NoiseReductionNode : AudioNode
         }
         else
         {
-            _terminal = terminal;
+            _feed.End = terminal;
         }
 
         return true;
@@ -195,68 +163,11 @@ public sealed class NoiseReductionNode : AudioNode
         long origin = SpectralNoiseReducer.FloorToHop(Math.Max(earliest, outputStart - seed / 2), reducer.HopSize);
 
         reducer.Reset(origin, outputStart);
-        _stream!.Begin(outputStart / (double)_sampleRate, origin / (double)_sampleRate, forceReanchor: true);
-        _terminal = terminal;
-        _liveEnd = null;
-        _drainEnd = null;
+        _feed!.Restart(outputStart, origin, terminal);
 
         long seedEnd = origin + seed;
-        FillInput(seedEnd, context);
+        _feed.Fill(reducer, seedEnd, context);
         reducer.Seed(seedEnd);
-    }
-
-    // Live input up to the terminal, then the upstream's held tail, then silence.
-    private void FillInput(long target, AudioProcessContext context)
-    {
-        SpectralNoiseReducer reducer = _reducer!;
-        while (reducer.InputEnd < target)
-        {
-            long position = reducer.InputEnd;
-            int frames = (int)Math.Min(target - position, MaxReadFrames);
-            if (_liveEnd is null)
-            {
-                if ((_terminal is not { } terminal || position < terminal)
-                    && ReadUpstream(frames, context, draining: false, _terminal) > 0)
-                {
-                    continue;
-                }
-
-                EndLiveInput(position);
-            }
-
-            if (_drainEnd is not { } drainEnd || position < drainEnd)
-            {
-                if (ReadUpstream(frames, context, draining: true, _drainEnd) > 0)
-                    continue;
-
-                _drainEnd = position;
-            }
-
-            reducer.WritePadding((int)(target - position));
-        }
-    }
-
-    private void EndLiveInput(long position)
-    {
-        _liveEnd = position;
-        int latency = GetMaxInputLatency(_sampleRate, drain: true);
-        _drainEnd = latency == int.MaxValue ? null : position + latency;
-    }
-
-    private int ReadUpstream(int frames, AudioProcessContext context, bool draining, long? end)
-    {
-        int length = frames * ChannelCount;
-        float[] buffer = ArrayPool<float>.Shared.Rent(length);
-        try
-        {
-            int samples = _stream!.Read(buffer.AsSpan(0, length), Inputs[0], context, draining, end);
-            _reducer!.Write(buffer.AsSpan(0, samples));
-            return samples / ChannelCount;
-        }
-        finally
-        {
-            ArrayPool<float>.Shared.Return(buffer);
-        }
     }
 
     private void CaptureSettings(AudioProcessContext context)
@@ -318,7 +229,7 @@ public sealed class NoiseReductionNode : AudioNode
     protected override void Dispose(bool disposing)
     {
         _reducer = null;
-        _stream = null;
+        _feed = null;
         _upstreamSnapshot = null;
         _sampler = null;
         base.Dispose(disposing);
