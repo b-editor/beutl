@@ -221,13 +221,15 @@ public class TimelineRulerBarTests
         }
     }
 
-    // The ruler draws the seek bar, so it is drawn again on every frame of playback, while its texts stay.
+    // The ruler draws the seek bar, so it is drawn again on every frame of playback, while its texts stay. Two markers of
+    // one name share a text.
     [AvaloniaTest]
     public async Task Moving_the_seek_bar_lays_out_none_of_the_ruler_s_texts_and_a_new_theme_lays_them_out_again()
     {
         using TimelineTestHost host = await TimelineTestHost.CreateAsync(
             "timeline-ruler-texts", MediaTime.FromSeconds(10), theme: ThemeVariant.Dark);
         host.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(0.8), name: "Cue"));
+        host.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(1.6), name: "Cue"));
         IEditorClock clock = ((EditViewModel)host.Model.EditorContext).GetRequiredService<IEditorClock>();
         HeadlessTestHelpers.Render(3);
         TimelineScale ruler = host.Ruler;
