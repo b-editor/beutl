@@ -5,6 +5,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
+using Beutl.UnitTests.Engine.Graphics.Backend;
 
 using SkiaSharp;
 
@@ -195,6 +196,48 @@ public sealed class ShaderFallbackTests
             Assert.That(rasterization.Bitmap, Is.Not.Null);
             Assert.That(statistics.Creations, Is.EqualTo(1));
             Assert.That(statistics.Hits, Is.EqualTo(1));
+        });
+    }
+
+    // A stage over the source budget runs on its own, keyed by its destination's context in the shared cache.
+    [Test]
+    [NonParallelizable]
+    public void StandaloneStage_RenderersOnGpuAndCpuDestinationsKeepEachOthersPrograms()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget gpu = RenderTarget.Create(6, 4)!;
+            using var gpuCanvas = new ImmediateCanvas(gpu, RenderIntent.Preview);
+            using var cpu = new CpuRenderTarget(6, 4);
+            using var cpuCanvas = new ImmediateCanvas(cpu, RenderIntent.Preview);
+            using var source = new CpuRenderTarget(6, 4);
+            source.Value.Canvas.Clear(new SKColor(64, 128, 192, 160));
+            using var node = new ShaderNode(source, ShaderDescription.CurrentPixel(
+                $"/*{new string('界', 22_000)}*/\nhalf4 apply(half4 color) {{ return color.bgra; }}"));
+            var request = new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                TargetDomain = s_bounds,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                FusionMode = FusionMode.Disabled,
+            };
+            using var onGpu = new RenderNodeRenderer(node, request);
+            using var onCpu = new RenderNodeRenderer(node, request);
+            onGpu.Render(gpuCanvas);
+            onCpu.Render(cpuCanvas);
+            long misses = onGpu.ProgramCacheStatistics.Misses;
+
+            onGpu.Render(gpuCanvas);
+            onCpu.Render(cpuCanvas);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(onGpu.LastExecutionStatistics.ProgramCacheHits, Is.EqualTo(1));
+                Assert.That(onCpu.LastExecutionStatistics.ProgramCacheHits, Is.EqualTo(1));
+                Assert.That(onGpu.ProgramCacheStatistics.Misses, Is.EqualTo(misses),
+                    "a renderer drawing on another context must not evict the program this one draws with");
+            });
         });
     }
 

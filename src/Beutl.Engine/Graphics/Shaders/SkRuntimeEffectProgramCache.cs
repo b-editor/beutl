@@ -59,14 +59,17 @@ internal static class SkRuntimeEffectProgramCache
     public static ProgramCacheLease<CachedSkRuntimeEffect> AcquireForDestination(
         ProgramCache<CachedSkRuntimeEffect> cache,
         RenderTarget destination,
-        string source)
+        string source,
+        bool synchronizeContext = true)
     {
         ArgumentNullException.ThrowIfNull(cache);
         ArgumentNullException.ThrowIfNull(destination);
         destination.VerifyAccess();
         GRRecordingContext? graphicsContext = destination.RawValue.Context;
         object contextIdentity = GetDestinationContextIdentity(graphicsContext);
-        cache.SynchronizeContext(cache, contextIdentity);
+        // A shared cache keeps every context's programs, since other renderers may still draw with them.
+        if (synchronizeContext)
+            cache.SynchronizeContext(cache, contextIdentity);
         SkslBackendBudget budget = SkslBackendBudgetResolver.Resolve(graphicsContext?.Backend);
         ProgramCacheContextKey contextKey = CreateContextKey(
             new RenderCacheDeviceContextIdentity(cache, contextIdentity),

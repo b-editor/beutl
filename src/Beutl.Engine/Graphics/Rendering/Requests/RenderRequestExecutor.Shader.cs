@@ -235,7 +235,8 @@ internal sealed partial class RenderRequestExecutor
                 SkRuntimeEffectProgramCache.AcquireForDestination(
                     _programCaches.Sksl,
                     target,
-                    source);
+                    source,
+                    synchronizeContext: _programCaches.OwnsPrograms);
             if (lease.IsCacheHit)
                 _programCacheHits++;
             return lease;

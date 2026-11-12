@@ -20,7 +20,9 @@ internal sealed class RenderProgramCaches(
     /// <summary>Every family with owned programs or images, so context teardown can reach what they retain.</summary>
     private static readonly HashSet<RenderProgramCaches> s_owning = new(ReferenceEqualityComparer.Instance);
     private static readonly Lazy<RenderProgramCaches> s_sharedPrograms = new(Create);
-    private readonly bool _ownsPrograms = ownsPrograms;
+
+    /// <summary>Whether this family owns its programs, rather than borrowing the ones every renderer shares.</summary>
+    public bool OwnsPrograms { get; } = ownsPrograms;
 
     public ProgramCache<CachedSkRuntimeEffect> Sksl { get; } = sksl;
 
@@ -61,7 +63,7 @@ internal sealed class RenderProgramCaches(
     internal static void RetireRetainedBeforeContextTeardown()
         => CleanupFailures.RetireLive(s_owning, static family =>
         {
-            if (family._ownsPrograms)
+            if (family.OwnsPrograms)
             {
                 family.Sksl.EvictAll();
                 family.Spirv.EvictAll();
@@ -74,7 +76,7 @@ internal sealed class RenderProgramCaches(
     public void EvictContext(object deviceIdentity, object contextIdentity)
     {
         // A shared program may still be in use by another renderer on the previous, live context.
-        if (_ownsPrograms)
+        if (OwnsPrograms)
         {
             Sksl.EvictContext(deviceIdentity, contextIdentity);
             ShaderGraph.EvictContext(deviceIdentity, contextIdentity);
@@ -88,7 +90,7 @@ internal sealed class RenderProgramCaches(
     {
         lock (s_owning)
             s_owning.Remove(this);
-        if (_ownsPrograms)
+        if (OwnsPrograms)
         {
             Sksl.Dispose();
             Spirv.Dispose();
