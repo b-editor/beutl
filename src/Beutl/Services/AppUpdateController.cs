@@ -21,6 +21,8 @@ public sealed record AppUpdateStatus(string? Text, bool IsBusy, double? Progress
 // in the background, says when it is ready, and shows its dialog only when asked to.
 internal sealed class AppUpdateController
 {
+    // Where release notes are read when an update names no page of its own.
+    internal const string ReleasesPageUrl = "https://github.com/b-editor/beutl/releases";
     private static readonly TimeSpan s_readyNotificationDuration = TimeSpan.FromSeconds(30);
     private static readonly ILogger s_logger = Log.CreateLogger<AppUpdateController>();
     private readonly Func<AppUpdateResponse, UpdateDialogViewModel> _createViewModel;
@@ -140,7 +142,7 @@ internal sealed class AppUpdateController
         NotificationService.Show(new Notification(
             MessageStrings.UpdateDownloading_Title,
             GetVersionLabel(viewModel.Update.LatestVersion),
-            Actions: viewModel.ReleaseUri is { } releaseUri ? [ReleaseNotesAction(releaseUri)] : null)
+            Actions: [ReleaseNotesAction(viewModel)])
         {
             CancellationToken = withdrawn,
         });
@@ -213,14 +215,14 @@ internal sealed class AppUpdateController
         NotificationAction installNow = new(viewModel.PrimaryButtonText.Value, () => InstallNow(viewModel));
         NotificationAction onQuit = new(MessageStrings.UpdateAction_UpdateOnQuit, () => ScheduleInstallOnQuit(viewModel));
         // The notice of an update that downloaded unasked is gone by now, so the release notes are offered here too.
-        return viewModel.ReleaseUri is { } releaseUri
-            ? [installNow, onQuit, ReleaseNotesAction(releaseUri)]
-            : [installNow, onQuit];
+        return [installNow, onQuit, ReleaseNotesAction(viewModel)];
     }
 
-    // Opening the release notes leaves the notification on screen, with whatever choice it offers.
-    private static NotificationAction ReleaseNotesAction(Uri releaseUri)
-        => new(MessageStrings.ReleaseNotes, () => OpenUrl(releaseUri.AbsoluteUri), DismissOnInvoke: false);
+    // An update without a page of its own links to the list of releases instead. Opening the release notes leaves
+    // the notification on screen, with whatever choice it offers.
+    private static NotificationAction ReleaseNotesAction(UpdateDialogViewModel viewModel)
+        => new(MessageStrings.ReleaseNotes, () => OpenUrl(viewModel.ReleaseUri?.AbsoluteUri ?? ReleasesPageUrl),
+            DismissOnInvoke: false);
 
     // The dialog stays open through the handoff, so a failure there can be read.
     private void InstallNow(UpdateDialogViewModel viewModel)

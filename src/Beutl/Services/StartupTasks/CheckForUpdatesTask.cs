@@ -11,6 +11,8 @@ namespace Beutl.Services.StartupTasks;
 
 public sealed class CheckForUpdatesTask : StartupTask
 {
+    private static readonly object s_claimGate = new();
+    private static FileStream? s_updateFolderClaim;
     private readonly ILogger<CheckForUpdatesTask> _logger = Log.CreateLogger<CheckForUpdatesTask>();
     private readonly BeutlApiApplication _beutlApiApplication;
 
@@ -54,8 +56,9 @@ public sealed class CheckForUpdatesTask : StartupTask
                     {
                         _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
                         // Downloading needs no decision, so it starts now when the settings allow it, and only
-                        // installing waits for the user.
+                        // installing waits for the user. It starts only in the Beutl that claims the update folders.
                         if (inAppUpdate is not { } update
+                            || !ClaimUpdateFolders()
                             || !await Dispatcher.UIThread.InvokeAsync(
                                 () => AppUpdateController.Instance.TryStartAutomatically(update)))
                         {
@@ -92,6 +95,32 @@ public sealed class CheckForUpdatesTask : StartupTask
         }
     }
 
+    // Every running Beutl prepares its update in the same folders, and preparing empties them first. So only the one
+    // that claims them starts an update unasked, and the others leave it to the user. The claim lasts until the
+    // process exits. The lock file stays, since unlinking it could split ownership.
+    private static bool ClaimUpdateFolders()
+    {
+        lock (s_claimGate)
+        {
+            s_updateFolderClaim ??= TryClaim(Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.lock"));
+            return s_updateFolderClaim != null;
+        }
+    }
+
+    // The lock on path, or null while another process holds it.
+    internal static FileStream? TryClaim(string path)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
     private static void ShowUpdateAvailable(string latestVersion, string releaseUrl, AppUpdateResponse? inAppUpdate)
     {
         NotificationAction releaseNotes = new(MessageStrings.ReleaseNotes, () => AppUpdateController.OpenUrl(releaseUrl));
@@ -99,7 +128,13 @@ public sealed class CheckForUpdatesTask : StartupTask
             MessageStrings.NewVersionAvailable,
             AppUpdateController.GetVersionLabel(latestVersion),
             actions: inAppUpdate is { } update
-                ? [new(ExtensionsStrings.Install, () => AppUpdateController.Instance.StartInBackground(update)), releaseNotes]
+                ? [new(ExtensionsStrings.Install, () =>
+                {
+                    // An update the user starts here is theirs to prepare even without the claim, but it keeps the
+                    // claim when it can, so that no other Beutl empties its folders unasked.
+                    _ = ClaimUpdateFolders();
+                    AppUpdateController.Instance.StartInBackground(update);
+                }), releaseNotes]
                 : [releaseNotes]);
     }
 
@@ -114,7 +149,7 @@ public sealed class CheckForUpdatesTask : StartupTask
             "AppUpdateResponse for {LatestVersion} had no Url; falling back to releases page.",
             v3.LatestVersion);
         activity?.SetTag("UpdateUrlMissing", true);
-        return "https://github.com/b-editor/beutl/releases";
+        return AppUpdateController.ReleasesPageUrl;
     }
 
     private async ValueTask<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdates(Activity? activity)
@@ -167,8 +202,16 @@ public sealed class CheckForUpdatesTask : StartupTask
             if (inAppUpdate != null)
             {
                 // Closing the dialog keeps Beutl running, and the update still downloads when the settings allow it.
-                if (answer == FAContentDialogResult.Primary) AppUpdateController.Instance.StartAndShowDialog(inAppUpdate);
-                else AppUpdateController.Instance.TryStartAutomatically(inAppUpdate);
+                if (answer == FAContentDialogResult.Primary)
+                {
+                    _ = ClaimUpdateFolders();
+                    AppUpdateController.Instance.StartAndShowDialog(inAppUpdate);
+                }
+                else if (ClaimUpdateFolders())
+                {
+                    AppUpdateController.Instance.TryStartAutomatically(inAppUpdate);
+                }
+
                 return;
             }
 

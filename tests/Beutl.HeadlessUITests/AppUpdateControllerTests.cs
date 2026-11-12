@@ -80,7 +80,8 @@ public sealed class AppUpdateControllerTests
         await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
         HeadlessTestHelpers.Settle();
 
-        // Starting the download says nothing, so the only notification is the one that asks for a decision.
+        // Starting the download says nothing, so the only notification is the one that asks for a decision. This update
+        // names no page of its own, and its release notes are still offered.
         Notification ready = _shown.Single();
         Assert.Multiple(() =>
         {
@@ -88,7 +89,7 @@ public sealed class AppUpdateControllerTests
             Assert.That(ready.Message, Is.EqualTo("Beutl 2.0.0"));
             Assert.That(ready.Actions!.Select(action => action.Text), Is.EqualTo(new[]
             {
-                MessageStrings.UpdateAction_StartInstaller, MessageStrings.UpdateAction_UpdateOnQuit,
+                MessageStrings.UpdateAction_StartInstaller, MessageStrings.UpdateAction_UpdateOnQuit, MessageStrings.ReleaseNotes,
             }));
         });
     }
@@ -104,7 +105,8 @@ public sealed class AppUpdateControllerTests
             update => vm = ViewModel(update, new Handler(release.Task, HttpStatusCode.OK)),
             downloadsAutomatically: () => true);
 
-        Assert.That(controller.TryStartAutomatically(Update("https://example.test/releases/2.0.0")), Is.True);
+        // Without a page of its own, the update still offers its release notes.
+        Assert.That(controller.TryStartAutomatically(Update()), Is.True);
         Notification downloading = _shown.Single();
         Assert.Multiple(() =>
         {

@@ -31,6 +31,31 @@ public sealed class CheckForUpdatesTaskTests
             Is.EqualTo(CheckForUpdatesTask.UpdateCheckResult.UpToDate));
     }
 
+    // Running instances share the update folders. While one holds them, no other can claim them and start an update
+    // there unasked, until the first lets go.
+    [Test]
+    public void OnlyOneHolderAtATimeClaimsTheUpdateFolders()
+    {
+        string directory = Directory.CreateTempSubdirectory("beutl-update-claim").FullName;
+        string path = Path.Combine(directory, "update.lock");
+        try
+        {
+            using (FileStream? first = CheckForUpdatesTask.TryClaim(path))
+            {
+                Assert.That(first, Is.Not.Null);
+                using FileStream? second = CheckForUpdatesTask.TryClaim(path);
+                Assert.That(second, Is.Null);
+            }
+
+            using FileStream? afterRelease = CheckForUpdatesTask.TryClaim(path);
+            Assert.That(afterRelease, Is.Not.Null);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Test]
     public void UpgradeRequired_No_KeepsBeutlRunningWithoutOpeningTheBrowser()
     {
