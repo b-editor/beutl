@@ -1,4 +1,5 @@
 ﻿using System.Runtime.InteropServices;
+using Beutl.Api.Services;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
@@ -8,10 +9,10 @@ internal static class FileManagerLauncher
 {
     private static readonly TimeSpan s_launchWaitTimeout = TimeSpan.FromSeconds(10);
 
-    internal static string MenuHeader => GetMenuHeader(CurrentPlatform);
+    internal static string MenuHeader => GetMenuHeader(ContextCommandManager.CurrentPlatform);
 
     internal static ProcessStartInfo CreateStartInfo(string path, bool isDirectory)
-        => CreateStartInfo(path, isDirectory, CurrentPlatform);
+        => CreateStartInfo(path, isDirectory, ContextCommandManager.CurrentPlatform);
 
     internal static string GetMenuHeader(OSPlatform platform)
     {
@@ -86,8 +87,4 @@ internal static class FileManagerLauncher
             NotificationService.ShowError(MenuHeader, MessageStrings.OperationFailed);
         }
     }
-
-    private static OSPlatform CurrentPlatform => OperatingSystem.IsMacOS() ? OSPlatform.OSX
-        : OperatingSystem.IsWindows() ? OSPlatform.Windows
-        : OSPlatform.Linux;
 }

@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using Avalonia.Input;
+﻿using Avalonia.Input;
 using Beutl.Api.Services;
 using Beutl.Controls.Navigation;
 using Reactive.Bindings;
@@ -28,17 +27,9 @@ public class KeyMapSettingsItem
         _commandManager = commandManager;
         Command = command;
         GestureIndex = gestureIndex;
-        var gesture = command.KeyGestures
-            .Where(i => i.Platform == CurrentPlatform)
-            .ElementAtOrDefault(gestureIndex)
-            ?.KeyGesture;
+        KeyGesture? gesture = ContextCommandManager.CurrentGestures(command).ElementAtOrDefault(gestureIndex);
         KeyGesture = new ReactiveProperty<KeyGesture?>(gesture);
     }
-
-    internal static OSPlatform CurrentPlatform => OperatingSystem.IsWindows() ? OSPlatform.Windows :
-        OperatingSystem.IsMacOS() ? OSPlatform.OSX :
-        OperatingSystem.IsLinux() ? OSPlatform.Linux :
-        throw new PlatformNotSupportedException();
 
     public ContextCommandEntry Command { get; set; }
 
@@ -58,7 +49,7 @@ public class KeyMapSettingsItem
     public void SetKeyGesture(KeyGesture? gesture)
     {
         // Persist before updating the UI so a throwing ChangeKeyGesture leaves the displayed binding untouched.
-        _commandManager.ChangeKeyGesture(Command, gesture, CurrentPlatform, GestureIndex);
+        _commandManager.ChangeKeyGesture(Command, gesture, ContextCommandManager.CurrentPlatform, GestureIndex);
         KeyGesture.Value = gesture;
     }
 }
@@ -86,7 +77,7 @@ public class KeyMapSettingsPageViewModel : PageContext
                     extension,
                     i.SelectMany(j =>
                     {
-                        int slots = Math.Max(1, j.KeyGestures.Count(g => g.Platform == KeyMapSettingsItem.CurrentPlatform));
+                        int slots = Math.Max(1, ContextCommandManager.CurrentGestures(j).Count());
                         return Enumerable.Range(0, slots)
                             .Select(index => new KeyMapSettingsItem(j, _commandManager, index));
                     }).ToArray());

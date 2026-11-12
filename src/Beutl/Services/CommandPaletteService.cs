@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using Avalonia.Input;
+﻿using Avalonia.Input;
 using Beutl.Api.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
@@ -8,11 +7,6 @@ namespace Beutl.Services;
 
 public sealed class CommandPaletteService
 {
-    private static readonly OSPlatform s_currentPlatform =
-        OperatingSystem.IsWindows() ? OSPlatform.Windows :
-        OperatingSystem.IsLinux() ? OSPlatform.Linux :
-        OSPlatform.OSX;
-
     private readonly ContextCommandManager _commandManager;
     private readonly ICommandPaletteHandlerProvider _handlerProvider;
     private readonly Func<MenuBarViewModel?> _menuBarAccessor;
@@ -75,8 +69,7 @@ public sealed class CommandPaletteService
                 ? entry.Definition.Id
                 : entry.Definition.DisplayName!;
             string category = ResolveCategoryName(entry.ExtensionType);
-            KeyGesture? gesture = entry.KeyGestures
-                .FirstOrDefault(i => i.Platform == s_currentPlatform)?.KeyGesture;
+            KeyGesture? gesture = ContextCommandManager.CurrentGestures(entry).FirstOrDefault();
 
             if (entry.Definition.Scope == ContextCommandScope.Extension)
             {
