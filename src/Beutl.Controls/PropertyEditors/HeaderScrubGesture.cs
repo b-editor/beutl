@@ -16,6 +16,8 @@ internal struct HeaderScrubGesture
 
     private Point _dragStart;
     private double _accumulator;
+    // The travel of an armed press before its scrub began, which the scrub's first move adds.
+    private Point _travel;
 
     // Scrubs begun and not yet ended across all editors; tests check that the cursor is shown again.
     internal static int ActiveCount { get; private set; }
@@ -49,15 +51,18 @@ internal struct HeaderScrubGesture
         return true;
     }
 
-    // Begins the scrub where the armed press was, once it has travelled along either axis, so the travel still counts
-    // as a move: for a pad that moves in two dimensions.
+    // Begins the scrub once the armed press has travelled along either axis, and adds the travel to the first move, so
+    // it still counts: for a pad that moves in two dimensions. The scrub begins where the pointer is, as a locked pointer
+    // on macOS reports only the moves after the lock.
     public bool TryBeginAtPress(Visual header, Point position)
     {
         if (Math.Abs(position.X - _dragStart.X) < ClickTolerance && Math.Abs(position.Y - _dragStart.Y) < ClickTolerance)
             return false;
 
+        Point travel = position - _dragStart;
         IsArmed = false;
-        Begin(header, _dragStart);
+        Begin(header, position);
+        _travel = travel;
         return true;
     }
 
@@ -65,6 +70,7 @@ internal struct HeaderScrubGesture
     {
         _dragStart = position;
         _accumulator = 0;
+        _travel = default;
         PointerLockHelper.Pressed(header, _dragStart);
         IsActive = true;
         ActiveCount++;
@@ -72,7 +78,11 @@ internal struct HeaderScrubGesture
 
     // The pointer's move since the last one, with the pointer held where the scrub began.
     public Point NextMove(Visual header, PointerEventArgs e)
-        => PointerLockHelper.Moved(header, e.GetPosition(header), ref _dragStart);
+    {
+        Point move = PointerLockHelper.Moved(header, e.GetPosition(header), ref _dragStart) + _travel;
+        _travel = default;
+        return move;
+    }
 
     public TValue NextDelta<TValue>(Visual header, PointerEventArgs e)
         where TValue : INumber<TValue>
