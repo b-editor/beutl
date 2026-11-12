@@ -204,7 +204,7 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
                     OutputScale = 1,
                     MaxWorkingScale = 1,
                     CacheOptions = RenderCacheOptions.Disabled,
-                });
+                }, targetFactory: null, programCaches: RenderProgramCaches.Create());
 
             using RenderNodeRasterization cold = renderer.Rasterize();
             ProgramCacheStatistics coldCache = renderer.ProgramCacheStatistics;
