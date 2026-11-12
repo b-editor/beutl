@@ -5,6 +5,7 @@ using Beutl.Animation;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.PropertyEditors;
@@ -30,7 +31,10 @@ public static class TutorialHelpers
         var editVm = GetEditViewModel(editorService);
         if (editVm == null) return false;
 
-        var tab = editVm.FindToolTab<LibraryTabViewModel>() ?? new LibraryTabViewModel();
+        // Made as the menu makes it, so its thumbnails show the preview's frame.
+        IToolContext? tab = editVm.FindToolTab<LibraryTabViewModel>();
+        if (tab == null && !LibraryTabExtension.Instance.TryCreateContext(editVm, out tab)) return false;
+
         editVm.OpenToolTab(tab);
         return true;
     }
