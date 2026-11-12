@@ -208,10 +208,9 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
         KeyEventArgs args,
         ContextCommandEntry[] entries)
     {
-        OSPlatform pid = CurrentPlatform();
         foreach (ContextCommandEntry entry in entries)
         {
-            if (!HasMatchingGesture(entry, pid, args))
+            if (!Matches(entry, args))
                 continue;
 
             var execution = new ContextCommandExecution(entry.Definition.Id) { KeyEventArgs = args };
@@ -225,19 +224,20 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
         }
     }
 
-    private static OSPlatform CurrentPlatform()
-        => OperatingSystem.IsWindows() ? OSPlatform.Windows :
-            OperatingSystem.IsMacOS() ? OSPlatform.OSX :
-            OperatingSystem.IsLinux() ? OSPlatform.Linux :
-            throw new PlatformNotSupportedException();
+    // The platform whose key gestures apply here, and whose file manager opens files. Any OS other than Windows and
+    // macOS takes Linux's, as a desktop whose shortcuts use Ctrl.
+    internal static OSPlatform CurrentPlatform { get; } =
+        OperatingSystem.IsWindows() ? OSPlatform.Windows
+        : OperatingSystem.IsMacOS() ? OSPlatform.OSX
+        : OSPlatform.Linux;
 
-    private static bool HasMatchingGesture(ContextCommandEntry entry, OSPlatform platform, KeyEventArgs args)
-        => !entry.KeyGestures.Where(gesture => gesture.Platform == platform)
-            .All(gesture => gesture.KeyGesture?.Matches(args) != true);
+    // The entry's gestures on this platform, in their order.
+    internal static IEnumerable<KeyGesture?> CurrentGestures(ContextCommandEntry entry)
+        => entry.KeyGestures.Where(gesture => gesture.Platform == CurrentPlatform).Select(gesture => gesture.KeyGesture);
 
     // Whether the key is one of the entry's gestures on this platform, as dispatch decides it.
     internal static bool Matches(ContextCommandEntry entry, KeyEventArgs args)
-        => HasMatchingGesture(entry, CurrentPlatform(), args);
+        => CurrentGestures(entry).Any(gesture => gesture?.Matches(args) == true);
 }
 
 public sealed class ContextCommandSettingsStore : IBeutlApiResource
