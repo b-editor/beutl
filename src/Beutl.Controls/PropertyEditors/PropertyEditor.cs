@@ -196,7 +196,7 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     // Ends the typing in a text box, for a press on a box that starts a drag, so that what was typed is confirmed in an
     // undo step of its own. The focus goes to the nearest parent that takes it, as for a press on anything else; with
     // none, as in a floated property tab, it goes nowhere rather than stay in the text box.
-    private protected void EndTextEditing()
+    internal void EndTextEditing()
     {
         foreach (InputElement ancestor in this.GetVisualAncestors().OfType<InputElement>())
         {

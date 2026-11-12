@@ -7,7 +7,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
-using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
@@ -700,11 +699,10 @@ public sealed class ColorGradingTabTests
     {
         private readonly HistoryScope _history;
         private readonly GradingColorEditorViewModel _viewModel;
-        private readonly bool _pointerLock = GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value;
+        private readonly PointerLockScope _pointerLock = PointerLockScope.Off();
 
         public WheelHost(Func<ColorGrading, IProperty<GradingColor>> pick, GradingColor? start = null)
         {
-            GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = false;
             var effect = new ColorGrading();
             Property = pick(effect);
             if (start is { } value)
@@ -755,7 +753,7 @@ public sealed class ColorGradingTabTests
             Window.Close();
             _viewModel.Dispose();
             _history.Dispose();
-            GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = _pointerLock;
+            _pointerLock.Dispose();
         }
     }
 }

@@ -5,7 +5,6 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
-using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Engine;
@@ -165,11 +164,10 @@ public class NumericHapticFeedbackTests
 
     private sealed class ScrubHost : IDisposable
     {
-        private readonly bool _pointerLock = GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value;
+        private readonly PointerLockScope _pointerLock = PointerLockScope.Off();
 
         public ScrubHost(Control control)
         {
-            GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = false;
             Window = new Window { Content = new StackPanel { Margin = new Thickness(24), Children = { control } }, Width = 420, Height = 180 };
             Window.Show();
             HeadlessTestHelpers.Render(3);
@@ -186,7 +184,7 @@ public class NumericHapticFeedbackTests
         public void Dispose()
         {
             Window.Close();
-            GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = _pointerLock;
+            _pointerLock.Dispose();
         }
     }
 }

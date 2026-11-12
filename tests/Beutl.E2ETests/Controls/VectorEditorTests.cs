@@ -4,7 +4,6 @@ using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless.NUnit;
-using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Graphics;
 using Beutl.Testing.Headless;
@@ -82,31 +81,22 @@ public class VectorEditorTests
     [NonParallelizable]
     public void Vector3_list_item_x_header_drag_changes_x()
     {
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        bool pointerLock = config.EnablePointerLockInProperty.Value;
-        config.EnablePointerLockInProperty.Value = false;
-        try
+        using var pointerLock = PointerLockScope.Off();
+        var editor = new Vector3Editor<float>
         {
-            var editor = new Vector3Editor<float>
-            {
-                EditorStyle = PropertyEditorStyle.ListItem,
-                FirstValue = 1,
-                SecondValue = 2,
-                ThirdValue = 3
-            };
-            using var host = new EditorTestHost<Vector3Editor<float>>(editor);
-            TextBlock header = host.Require<TextBlock>("PART_HeaderFirstTextBlock");
+            EditorStyle = PropertyEditorStyle.ListItem,
+            FirstValue = 1,
+            SecondValue = 2,
+            ThirdValue = 3
+        };
+        using var host = new EditorTestHost<Vector3Editor<float>>(editor);
+        TextBlock header = host.Require<TextBlock>("PART_HeaderFirstTextBlock");
 
-            // The text box beside the header covers its right half.
-            host.DragHorizontally(header, 40, new Avalonia.Point(2, header.Bounds.Height / 2));
+        // The text box beside the header covers its right half.
+        host.DragHorizontally(header, 40, new Avalonia.Point(2, header.Bounds.Height / 2));
 
-            Assert.That(editor.FirstValue, Is.Not.EqualTo(1f), "The drag did not change X.");
-            Assert.That((editor.SecondValue, editor.ThirdValue), Is.EqualTo((2f, 3f)));
-        }
-        finally
-        {
-            config.EnablePointerLockInProperty.Value = pointerLock;
-        }
+        Assert.That(editor.FirstValue, Is.Not.EqualTo(1f), "The drag did not change X.");
+        Assert.That((editor.SecondValue, editor.ThirdValue), Is.EqualTo((2f, 3f)));
     }
 
     [AvaloniaTest]
@@ -132,38 +122,29 @@ public class VectorEditorTests
     public void Vector4_header_drag_confirms_all_four_components()
     {
         // Pointer lock reads the real mouse on macOS and Windows, which a headless drag never moves.
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        bool pointerLock = config.EnablePointerLockInProperty.Value;
-        config.EnablePointerLockInProperty.Value = false;
-        try
+        using var pointerLock = PointerLockScope.Off();
+        // Distinct, nonzero starting values: the old third and fourth values must be recorded at the press,
+        // not left at their zero defaults.
+        var editor = new Vector4Editor<float>
         {
-            // Distinct, nonzero starting values: the old third and fourth values must be recorded at the press,
-            // not left at their zero defaults.
-            var editor = new Vector4Editor<float>
-            {
-                Header = "XYZW",
-                FirstValue = 1,
-                SecondValue = 2,
-                ThirdValue = 3,
-                FourthValue = 4
-            };
-            using var host = new EditorTestHost<Vector4Editor<float>>(editor);
-            var confirmed = new List<object>();
-            editor.ValueConfirmed += (_, e) => confirmed.Add(e);
+            Header = "XYZW",
+            FirstValue = 1,
+            SecondValue = 2,
+            ThirdValue = 3,
+            FourthValue = 4
+        };
+        using var host = new EditorTestHost<Vector4Editor<float>>(editor);
+        var confirmed = new List<object>();
+        editor.ValueConfirmed += (_, e) => confirmed.Add(e);
 
-            host.DragHorizontally(host.Require<TextBlock>("PART_HeaderTextBlock"), 40);
+        host.DragHorizontally(host.Require<TextBlock>("PART_HeaderTextBlock"), 40);
 
-            Assert.That(editor.FirstValue, Is.Not.EqualTo(1f), "The drag did not change the value.");
-            Assert.That(confirmed, Has.Count.EqualTo(1));
-            var args = confirmed[0] as PropertyEditorValueChangedEventArgs<(float, float, float, float)>;
-            Assert.That(args, Is.Not.Null, $"Confirmed with {confirmed[0].GetType()}, which the view models ignore.");
-            Assert.That(args!.NewValue, Is.EqualTo((editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue)));
-            Assert.That(args.OldValue, Is.EqualTo((1f, 2f, 3f, 4f)));
-        }
-        finally
-        {
-            config.EnablePointerLockInProperty.Value = pointerLock;
-        }
+        Assert.That(editor.FirstValue, Is.Not.EqualTo(1f), "The drag did not change the value.");
+        Assert.That(confirmed, Has.Count.EqualTo(1));
+        var args = confirmed[0] as PropertyEditorValueChangedEventArgs<(float, float, float, float)>;
+        Assert.That(args, Is.Not.Null, $"Confirmed with {confirmed[0].GetType()}, which the view models ignore.");
+        Assert.That(args!.NewValue, Is.EqualTo((editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue)));
+        Assert.That(args.OldValue, Is.EqualTo((1f, 2f, 3f, 4f)));
     }
 
     [AvaloniaTest]

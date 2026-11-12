@@ -37,6 +37,8 @@ public abstract class VectorEditorBase : PropertyEditor
     private readonly TextBox?[] _textBoxes;
     private readonly TextBlock?[] _componentHeaders;
     private Border? _backgroundBorder;
+    private readonly NumberBoxDrag _boxDrag;
+    // The scrub of a header.
     private HeaderScrubGesture _scrub;
     private Control? _editSource;
 
@@ -51,6 +53,19 @@ public abstract class VectorEditorBase : PropertyEditor
         _isUniformProperty = isUniformProperty;
         _textBoxes = new TextBox?[textProperties.Length];
         _componentHeaders = componentHeaders ? new TextBlock?[textProperties.Length] : [];
+        _boxDrag = new NumberBoxDrag(
+            this,
+            began: () => Values!.Snapshot(),
+            scrub: ScrubBoxComponent,
+            ended: () => Values!.RaiseConfirmedIfChanged(),
+            clicked: box =>
+            {
+                if (box is TextBox textBox && textBox.Focus())
+                    textBox.SelectAll();
+            },
+            // A press on a box being edited, or on a value that does not parse, goes to the text box.
+            canArm: box => !box.IsKeyboardFocusWithin && !DataValidationErrors.GetHasErrors(this),
+            left: () => IsPointerOverChanged(false));
     }
 
     private protected VectorValues? Values { get; init; }
@@ -122,13 +137,11 @@ public abstract class VectorEditorBase : PropertyEditor
     // on its way to the text box, so that the many layouts of these editors need only the cursor of their boxes' theme.
     private void SubscribeBoxes()
     {
-        var boxHandlers = new ScrubHeaderHandlers(
-            OnBoxPointerPressed, OnBoxPointerReleased, OnBoxPointerMoved, OnBoxPointerCaptureLost, RoutingStrategies.Tunnel);
         foreach (TextBox? box in _textBoxes)
         {
             if (box == null) continue;
 
-            boxHandlers.SubscribePointer(box, _disposables);
+            _boxDrag.Subscribe(box, _disposables, RoutingStrategies.Tunnel);
             box.Classes.Add(ScrubBox);
             TextBoxAttachment.SetEnterDownBehavior(box, TextBoxAttachment.EnterBehaviorMode.LostFocus);
         }
@@ -164,7 +177,8 @@ public abstract class VectorEditorBase : PropertyEditor
     private void IsPointerOverChanged(bool obj)
     {
         // A pressed box holds the pointer, which leaves it and all the rest not over anything until the release.
-        bool isPointerOver = _scrub.IsHeld
+        bool isPointerOver = _scrub.IsActive
+            || _boxDrag.IsHeld
             || _backgroundBorder?.IsPointerOver == true
             || Array.Exists(_textBoxes, textBox => textBox?.IsPointerOver == true)
             || Array.Exists(_componentHeaders, header => header?.IsPointerOver == true);
@@ -277,81 +291,11 @@ public abstract class VectorEditorBase : PropertyEditor
         Values!.RaiseConfirmedIfChanged();
     }
 
-    private void OnBoxPointerPressed(object? sender, PointerPressedEventArgs e)
+    // Scrubs the component of box, or every component while they are one value.
+    private void ScrubBoxComponent(ref HeaderScrubGesture gesture, Control box, PointerEventArgs e)
     {
-        if (sender is not TextBox box
-            || box.IsKeyboardFocusWithin
-            || IsReadOnly
-            || DataValidationErrors.GetHasErrors(this))
-        {
-            return;
-        }
-
-        PointerPoint pointerPoint = e.GetCurrentPoint(box);
-        if (!pointerPoint.Properties.IsLeftButtonPressed) return;
-
-        EndTextEditing();
-        _scrub.Arm(pointerPoint.Position);
-        e.Pointer.Capture(box);
-        e.Handled = true;
-    }
-
-    private void OnBoxPointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (sender is not TextBox box || !_scrub.IsHeld) return;
-
-        // A move with the button up means the release never reached the box.
-        if (!e.Properties.IsLeftButtonPressed)
-        {
-            AbandonBoxPress();
-            return;
-        }
-
-        e.Handled = true;
-        if (_scrub.IsArmed)
-        {
-            if (!_scrub.TryBegin(box, e.GetPosition(box))) return;
-
-            Values!.Snapshot();
-        }
-
-        Values!.Scrub(IsUniformValue ? -1 : Array.IndexOf(_textBoxes, box), ref _scrub, box, e);
+        Values!.Scrub(IsUniformValue ? -1 : Array.IndexOf(_textBoxes, box as TextBox), ref gesture, box, e);
         UpdateErrors();
-    }
-
-    private void OnBoxPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (!_scrub.IsHeld) return;
-
-        e.Handled = true;
-        bool clicked = _scrub.IsArmed;
-        EndBoxPress();
-        if (sender is not TextBox box) return;
-
-        if (clicked && box.Focus())
-            box.SelectAll();
-
-        // Only an unlocked pointer can be released away from the box, and then nothing else says that it has left.
-        if (!new Rect(box.Bounds.Size).Contains(e.GetPosition(box)))
-            IsPointerOverChanged(false);
-    }
-
-    private void OnBoxPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e) => AbandonBoxPress();
-
-    private void EndBoxPress()
-    {
-        _scrub.Disarm();
-        CompleteScrub();
-    }
-
-    // Ends a press whose release was lost, after which nothing else says where the pointer went. It is not one when the
-    // capture goes after a release, which has ended the press already.
-    private void AbandonBoxPress()
-    {
-        if (!_scrub.IsHeld) return;
-
-        EndBoxPress();
-        IsPointerOverChanged(false);
     }
 
     private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs e)

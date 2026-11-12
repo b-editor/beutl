@@ -31,14 +31,28 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
         AvaloniaProperty.Register<NumberSliderEditor<TValue>, double>(nameof(Origin));
 
     private readonly CompositeDisposable _sliderHandlers = [];
+    // The drag of a ValueSliderField, which is the box's own.
+    private readonly NumberBoxDrag _boxDrag;
     private ValueSlider? _slider;
-    private HeaderScrubGesture _scrub;
     private TValue _slideStart = TValue.Zero;
+    // Where a drag of a ValueSlider beside the box has taken the value, and how the pointer sits on the thumb.
     private double _slideValue;
     private double _grabOffset;
     private double _lastX;
     private bool _sliding;
     private bool _showsRange = true;
+
+    public NumberSliderEditor()
+    {
+        _boxDrag = new NumberBoxDrag(
+            this,
+            began: BeginSlide,
+            scrub: ApplyScrub,
+            ended: EndSlide,
+            clicked: _ => EditText(),
+            // Text that does not parse is not scrubbed, as by the header; the release edits it, as a click does.
+            canBegin: () => InnerTextBox is not { } box || !DataValidationErrors.GetHasErrors(box));
+    }
 
     public double Minimum
     {
@@ -70,8 +84,6 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
         }
     }
 
-    private bool IsPressed => _sliding || _scrub.IsArmed;
-
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         _sliderHandlers.Clear();
@@ -79,10 +91,19 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
         _slider = e.NameScope.Find<ValueSlider>("PART_Slider");
         if (_slider != null)
         {
-            new ScrubHeaderHandlers(
-                    OnSliderPointerPressed, OnSliderPointerReleased, OnSliderPointerMoved,
-                    OnSliderPointerCaptureLost, RoutingStrategies.Direct | RoutingStrategies.Bubble)
-                .SubscribePointer(_slider, _sliderHandlers);
+            const RoutingStrategies routes = RoutingStrategies.Direct | RoutingStrategies.Bubble;
+            if (_slider.EditsOnClick)
+            {
+                _boxDrag.Subscribe(_slider, _sliderHandlers, routes);
+            }
+            else
+            {
+                new ScrubHeaderHandlers(
+                        OnSliderPointerPressed, OnSliderPointerReleased, OnSliderPointerMoved,
+                        OnSliderPointerCaptureLost, routes)
+                    .SubscribePointer(_slider, _sliderHandlers);
+            }
+
             _slider.AddDisposableHandler(ContextRequestedEvent, OnSliderContextRequested).DisposeWith(_sliderHandlers);
             UpdateSlider();
         }
@@ -123,14 +144,6 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
             return;
 
         e.Handled = true;
-        if (_slider.EditsOnClick)
-        {
-            EndTextEditing();
-            _scrub.Arm(point.Position);
-            e.Pointer.Capture(_slider);
-            return;
-        }
-
         if (e.ClickCount == 2)
         {
             // The default is applied as it is, even when it does not fall on a step.
@@ -168,37 +181,19 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
 
     private void OnSliderPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (!IsPressed || _slider == null)
+        if (!_sliding || _slider == null)
             return;
 
         PointerPoint point = e.GetCurrentPoint(_slider);
         if (!point.Properties.IsLeftButtonPressed)
         {
             // The release never reached the slider.
-            EndPress();
+            EndSlide();
             return;
         }
 
         e.Handled = true;
-        if (_slider.EditsOnClick)
-            ScrubBox(_slider, point.Position, e);
-        else
-            FollowPointer(_slider, point.Position.X, e.KeyModifiers);
-    }
-
-    // Moves the value as a drag of the header does, once the press has travelled.
-    private void ScrubBox(ValueSlider slider, Point position, PointerEventArgs e)
-    {
-        if (_scrub.IsArmed)
-        {
-            // Text that does not parse is not scrubbed, as by the header; the release edits it, as a click does.
-            if (DataValidationErrors.GetHasErrors(InnerTextBox) || !_scrub.TryBegin(slider, position))
-                return;
-
-            BeginSlide();
-        }
-
-        ApplyScrub(ref _scrub, slider, e);
+        FollowPointer(_slider, point.Position.X, e.KeyModifiers);
     }
 
     private void FollowPointer(ValueSlider slider, double x, KeyModifiers modifiers)
@@ -220,14 +215,11 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
 
     private void OnSliderPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (!IsPressed || e.InitialPressMouseButton != MouseButton.Left)
+        if (!_sliding || e.InitialPressMouseButton != MouseButton.Left)
             return;
 
         e.Handled = true;
-        bool clicked = _scrub.IsArmed;
-        EndPress();
-        if (clicked)
-            EditText();
+        EndSlide();
     }
 
     // A slider over the box stands in front of the box's own menu of cut, copy and paste, so it opens that.
@@ -247,20 +239,15 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
             textBox.SelectAll();
     }
 
-    private void OnSliderPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e) => EndPress();
+    private void OnSliderPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e) => EndSlide();
 
-    private void EndPress()
+    private void EndSlide()
     {
-        _scrub.Disarm();
         if (!_sliding)
             return;
 
         _sliding = false;
         PseudoClasses.Set(":sliding", false);
-        // Ended before confirming, so a confirmation that rebuilds the slider cannot end it twice.
-        if (_scrub.IsActive)
-            _scrub.End();
-
         ConfirmValue(_slideStart);
     }
 

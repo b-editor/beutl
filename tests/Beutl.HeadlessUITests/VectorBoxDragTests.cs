@@ -4,7 +4,6 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
-using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Testing.Headless;
 using AvaPoint = Avalonia.Point;
@@ -336,11 +335,10 @@ public class VectorBoxDragTests
     // the real mouse instead of the test's moves.
     private sealed class BoxHost : IDisposable
     {
-        private readonly bool _pointerLock = GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value;
+        private readonly PointerLockScope _pointerLock = PointerLockScope.Off();
 
         public BoxHost(VectorEditorBase editor, bool focusableParent = true)
         {
-            GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = false;
             Editor = editor;
             editor.ValueConfirmed += (_, _) => Confirmed++;
             Window = new Window { Content = new Border { Focusable = focusableParent, Child = editor }, Width = 520, Height = 120 };
@@ -398,7 +396,7 @@ public class VectorBoxDragTests
         public void Dispose()
         {
             Window.Close();
-            GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = _pointerLock;
+            _pointerLock.Dispose();
         }
     }
 }

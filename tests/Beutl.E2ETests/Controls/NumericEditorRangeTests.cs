@@ -5,7 +5,6 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Testing.Headless;
 using RelativePoint = Beutl.Graphics.RelativePoint;
@@ -129,35 +128,26 @@ public class NumericEditorRangeTests
     [TestCaseSource(nameof(NumberAndVectorEditors))]
     public void Header_drag_clamps_live_values_and_confirms_once_on_release(EditorCase editorCase)
     {
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        bool pointerLock = config.EnablePointerLockInProperty.Value;
-        config.EnablePointerLockInProperty.Value = false;
-        try
-        {
-            using var editor = new BoundedEditor(editorCase);
-            editor.Reset(195);
-            TextBlock header = editor.Host.Require<TextBlock>("PART_HeaderTextBlock");
-            Point start = header.TranslatePoint(new Point(header.Bounds.Width / 2, header.Bounds.Height / 2),
-                editor.Host.Window)!.Value;
+        using var pointerLock = PointerLockScope.Off();
+        using var editor = new BoundedEditor(editorCase);
+        editor.Reset(195);
+        TextBlock header = editor.Host.Require<TextBlock>("PART_HeaderTextBlock");
+        Point start = header.TranslatePoint(new Point(header.Bounds.Width / 2, header.Bounds.Height / 2),
+            editor.Host.Window)!.Value;
 
-            editor.Host.PressAndDrag(header, 40);
-            Assert.That(editor.Values, Is.All.EqualTo(200));
-            editor.AssertTextMatchesValues();
-            Assert.That(editor.Confirmed, Is.Empty);
+        editor.Host.PressAndDrag(header, 40);
+        Assert.That(editor.Values, Is.All.EqualTo(200));
+        editor.AssertTextMatchesValues();
+        Assert.That(editor.Confirmed, Is.Empty);
 
-            // Moving back from the limit must immediately decrease the values again.
-            editor.Host.Window.MouseMove(start + new Vector(30, 0), RawInputModifiers.LeftMouseButton);
-            HeadlessTestHelpers.Settle();
-            Assert.That(editor.Values, Is.All.EqualTo(190));
-            editor.AssertTextMatchesValues();
-            editor.Host.Window.MouseUp(start + new Vector(30, 0), MouseButton.Left);
-            HeadlessTestHelpers.Settle();
-            Assert.That(editor.Confirmed, Is.EqualTo(new[] { editor.Compose(editor.Values) }));
-        }
-        finally
-        {
-            config.EnablePointerLockInProperty.Value = pointerLock;
-        }
+        // Moving back from the limit must immediately decrease the values again.
+        editor.Host.Window.MouseMove(start + new Vector(30, 0), RawInputModifiers.LeftMouseButton);
+        HeadlessTestHelpers.Settle();
+        Assert.That(editor.Values, Is.All.EqualTo(190));
+        editor.AssertTextMatchesValues();
+        editor.Host.Window.MouseUp(start + new Vector(30, 0), MouseButton.Left);
+        HeadlessTestHelpers.Settle();
+        Assert.That(editor.Confirmed, Is.EqualTo(new[] { editor.Compose(editor.Values) }));
     }
 
     [AvaloniaTest]
@@ -204,32 +194,23 @@ public class NumericEditorRangeTests
     [TestCase("Vector3")]
     public void Component_header_drag_changes_only_its_component(string kind)
     {
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        bool pointerLock = config.EnablePointerLockInProperty.Value;
-        config.EnablePointerLockInProperty.Value = false;
-        try
+        using var pointerLock = PointerLockScope.Off();
+        using var editor = new BoundedEditor(new EditorCase(kind));
+        for (int index = 0; index < editor.VisibleComponentCount; index++)
         {
-            using var editor = new BoundedEditor(new EditorCase(kind));
-            for (int index = 0; index < editor.VisibleComponentCount; index++)
-            {
-                float[] initial = editor.Reset(195);
-                TextBlock header = editor.Host.Require<TextBlock>($"PART_Header{BoundedEditor.Components[index]}TextBlock");
-                // Component labels overlap the text box's padding; use the exposed left edge.
-                Point start = header.TranslatePoint(new Point(1, header.Bounds.Height / 2), editor.Host.Window)!.Value;
-                editor.Host.Window.MouseMove(start);
-                editor.Host.Window.MouseDown(start, MouseButton.Left);
-                editor.Host.Window.MouseMove(start + new Vector(40, 0), RawInputModifiers.LeftMouseButton);
-                editor.Host.Window.MouseUp(start + new Vector(40, 0), MouseButton.Left);
-                HeadlessTestHelpers.Settle();
-                float[] expected = editor.WithEditedValue(initial, index, 200);
-                Assert.That(editor.Values, Is.EqualTo(expected));
-                editor.AssertTextMatchesValues();
-                Assert.That(editor.Confirmed, Is.EqualTo(new[] { editor.Compose(expected) }));
-            }
-        }
-        finally
-        {
-            config.EnablePointerLockInProperty.Value = pointerLock;
+            float[] initial = editor.Reset(195);
+            TextBlock header = editor.Host.Require<TextBlock>($"PART_Header{BoundedEditor.Components[index]}TextBlock");
+            // Component labels overlap the text box's padding; use the exposed left edge.
+            Point start = header.TranslatePoint(new Point(1, header.Bounds.Height / 2), editor.Host.Window)!.Value;
+            editor.Host.Window.MouseMove(start);
+            editor.Host.Window.MouseDown(start, MouseButton.Left);
+            editor.Host.Window.MouseMove(start + new Vector(40, 0), RawInputModifiers.LeftMouseButton);
+            editor.Host.Window.MouseUp(start + new Vector(40, 0), MouseButton.Left);
+            HeadlessTestHelpers.Settle();
+            float[] expected = editor.WithEditedValue(initial, index, 200);
+            Assert.That(editor.Values, Is.EqualTo(expected));
+            editor.AssertTextMatchesValues();
+            Assert.That(editor.Confirmed, Is.EqualTo(new[] { editor.Compose(expected) }));
         }
     }
 
