@@ -286,6 +286,9 @@
   <data name="UpdateReady_Title" xml:space="preserve">
     <value>업데이트가 준비되었습니다</value>
   </data>
+  <data name="UpdateDownloading_Title" xml:space="preserve">
+    <value>업데이트를 다운로드하고 있습니다</value>
+  </data>
   <data name="UpdateFailed_Title" xml:space="preserve">
     <value>업데이트에 실패했습니다</value>
   </data>

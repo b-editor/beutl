@@ -286,6 +286,9 @@ Do you want to restart the application?</value>
   <data name="UpdateReady_Title" xml:space="preserve">
     <value>The update is ready</value>
   </data>
+  <data name="UpdateDownloading_Title" xml:space="preserve">
+    <value>Downloading the update</value>
+  </data>
   <data name="UpdateFailed_Title" xml:space="preserve">
     <value>The update failed</value>
   </data>

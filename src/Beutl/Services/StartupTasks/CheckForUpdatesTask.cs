@@ -44,17 +44,23 @@ public sealed class CheckForUpdatesTask : StartupTask
                 else if (v3 != null)
                 {
                     UpdateCheckResult result = Classify(v3.IsLatest, v3.MustLatest);
+                    AppUpdateResponse? inAppUpdate = FlatpakUpdater.RequiresManualUpdate ? null : v3;
                     if (result == UpdateCheckResult.UpgradeRequired)
                     {
                         _logger.LogWarning("Current version must be updated to the latest version.");
-                        await ShowUpgradeRequiredDialog(
-                            GetReleaseUrl(v3, activity), inAppUpdate: FlatpakUpdater.RequiresManualUpdate ? null : v3);
+                        await ShowUpgradeRequiredDialog(GetReleaseUrl(v3, activity), inAppUpdate);
                     }
                     else if (result == UpdateCheckResult.UpdateAvailable)
                     {
                         _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
-                        ShowUpdateAvailable(
-                            v3.LatestVersion, GetReleaseUrl(v3, activity), FlatpakUpdater.RequiresManualUpdate ? null : v3);
+                        // Downloading needs no decision, so it starts now when the settings allow it, and only
+                        // installing waits for the user.
+                        if (inAppUpdate is not { } update
+                            || !await Dispatcher.UIThread.InvokeAsync(
+                                () => AppUpdateController.Instance.TryStartAutomatically(update)))
+                        {
+                            ShowUpdateAvailable(v3.LatestVersion, GetReleaseUrl(v3, activity), inAppUpdate);
+                        }
                     }
                 }
             }
@@ -86,9 +92,9 @@ public sealed class CheckForUpdatesTask : StartupTask
         }
     }
 
-    private void ShowUpdateAvailable(string latestVersion, string releaseUrl, AppUpdateResponse? inAppUpdate)
+    private static void ShowUpdateAvailable(string latestVersion, string releaseUrl, AppUpdateResponse? inAppUpdate)
     {
-        NotificationAction releaseNotes = new(MessageStrings.ReleaseNotes, () => OpenUrl(releaseUrl));
+        NotificationAction releaseNotes = new(MessageStrings.ReleaseNotes, () => AppUpdateController.OpenUrl(releaseUrl));
         NotificationService.ShowInformation(
             MessageStrings.NewVersionAvailable,
             AppUpdateController.GetVersionLabel(latestVersion),
@@ -109,21 +115,6 @@ public sealed class CheckForUpdatesTask : StartupTask
             v3.LatestVersion);
         activity?.SetTag("UpdateUrlMissing", true);
         return "https://github.com/b-editor/beutl/releases";
-    }
-
-    private bool OpenUrl(string url)
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" });
-            return true;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogError(ex, "Failed to open URL: {Url}", url);
-            NotificationService.ShowError(Strings.Error, ex.Message);
-            return false;
-        }
     }
 
     private async ValueTask<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdates(Activity? activity)
@@ -175,13 +166,15 @@ public sealed class CheckForUpdatesTask : StartupTask
             FAContentDialogResult answer = await dialog.ShowAsync();
             if (inAppUpdate != null)
             {
+                // Closing the dialog keeps Beutl running, and the update still downloads when the settings allow it.
                 if (answer == FAContentDialogResult.Primary) AppUpdateController.Instance.StartAndShowDialog(inAppUpdate);
+                else AppUpdateController.Instance.TryStartAutomatically(inAppUpdate);
                 return;
             }
 
             HandleUpgradeRequiredAnswer(
                 answer,
-                () => OpenUrl(releaseUrl),
+                () => AppUpdateController.OpenUrl(releaseUrl),
                 () => (AppHelper.GetTopLevel() as Window)?.Close());
         });
     }

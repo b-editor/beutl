@@ -286,6 +286,9 @@ Podrás seguir editando cuando termine.</value>
   <data name="UpdateReady_Title" xml:space="preserve">
     <value>La actualización está lista</value>
   </data>
+  <data name="UpdateDownloading_Title" xml:space="preserve">
+    <value>Descargando la actualización</value>
+  </data>
   <data name="UpdateFailed_Title" xml:space="preserve">
     <value>La actualización ha fallado</value>
   </data>

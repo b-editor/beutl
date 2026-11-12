@@ -140,6 +140,12 @@
     <value>关于要收集的数据的设置</value>
     <comment />
   </data>
+  <data name="AutoDownloadUpdates" xml:space="preserve">
+    <value>自动下载更新</value>
+  </data>
+  <data name="AutoDownloadUpdates_Description" xml:space="preserve">
+    <value>启动 Beutl 时如有新版本，将在后台下载。何时安装由您决定。</value>
+  </data>
   <data name="Telemetry_Description" xml:space="preserve">
     <value>为了改进 Beutl，我们收集匿名的使用数据。这些设置将在应用程序重新启动后生效。有关详细信息，请参阅以下页面。</value>
     <comment />
