@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Shaders;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
@@ -7,18 +8,22 @@ namespace Beutl.Graphics.Rendering.Requests;
 /// shader-graph pipelines, with the images shader graphs keep between executions.
 /// </summary>
 /// <remarks>
-/// <see cref="Dispose"/> disposes all of them, so only the owner of every cache calls it; an executor that borrows
-/// some of them disposes only the ones it created.
+/// Renderers borrow shared immutable programs and own their image pool. An isolated family owns all its caches.
+/// An executor that borrows individual caches disposes only the ones it created.
 /// </remarks>
 internal sealed class RenderProgramCaches(
     ProgramCache<CachedSkRuntimeEffect> sksl,
     ProgramCache<GLSLFilterPipeline> spirv,
     ProgramCache<ShaderGraphPipeline> shaderGraph,
-    ShaderGraphImagePool? shaderGraphImages = null) : IDisposable
+    ShaderGraphImagePool? shaderGraphImages = null,
+    bool ownsPrograms = true) : IDisposable
 {
-    /// <summary>Every family from <see cref="Create"/> not yet disposed, so context teardown can reach what they retain.</summary>
-    /// <remarks>Nothing enumerates the live renderers, and a borrowing family owns nothing to reach.</remarks>
+    /// <summary>Every family with owned programs or images, so context teardown can reach what they retain.</summary>
     private static readonly HashSet<RenderProgramCaches> s_owning = new(ReferenceEqualityComparer.Instance);
+    private static readonly Lazy<RenderProgramCaches> s_sharedPrograms = new(Create);
+
+    /// <summary>Whether this family owns its programs, rather than borrowing the ones every renderer shares.</summary>
+    public bool OwnsPrograms { get; } = ownsPrograms;
 
     public ProgramCache<CachedSkRuntimeEffect> Sksl { get; } = sksl;
 
@@ -42,6 +47,16 @@ internal sealed class RenderProgramCaches(
         return caches;
     }
 
+    public static RenderProgramCaches CreateWithSharedPrograms()
+    {
+        RenderProgramCaches shared = s_sharedPrograms.Value;
+        var caches = new RenderProgramCaches(shared.Sksl, shared.Spirv, shared.ShaderGraph,
+            new ShaderGraphImagePool(), ownsPrograms: false);
+        lock (s_owning)
+            s_owning.Add(caches);
+        return caches;
+    }
+
     /// <summary>
     /// Disposes what every live family retains while the device is still installed, so the releases reach it. A
     /// renderer that outlives the teardown compiles its programs again.
@@ -49,18 +64,51 @@ internal sealed class RenderProgramCaches(
     internal static void RetireRetainedBeforeContextTeardown()
         => CleanupFailures.RetireLive(s_owning, static family =>
         {
-            family.Sksl.EvictAll();
-            family.Spirv.EvictAll();
-            family.ShaderGraph.EvictAll();
+            if (family.OwnsPrograms)
+            {
+                family.Sksl.EvictAll();
+                family.Spirv.EvictAll();
+                family.ShaderGraph.EvictAll();
+            }
             family.ShaderGraphImages?.Clear();
         }, "One or more program caches failed to release what they retain.");
 
-    /// <summary>Invalidates every program compiled for one device context, and the images allocated on it.</summary>
+    /// <summary>
+    /// Disposes the programs and images every live family keeps for one recording context while its device is still
+    /// installed.
+    /// </summary>
+    /// <remarks>
+    /// Shared programs outlive the renderers that compiled them, so a context torn down on its own, rather than by a
+    /// full teardown, releases its programs here instead of leaving them on a destroyed device. Image pools hold
+    /// images of any context and drop them all; those of a live context are allocated again on their next use.
+    /// </remarks>
+    internal static void RetireContextBeforeTeardown(GRRecordingContext graphicsContext)
+    {
+        object identity = SkRuntimeEffectProgramCache.GetDestinationContextIdentity(graphicsContext);
+        CleanupFailures.RetireLive(s_owning, family =>
+        {
+            family.ShaderGraphImages?.Clear();
+            if (!family.OwnsPrograms)
+                return;
+
+            family.Sksl.EvictContext(identity, identity);
+            // A standalone program keys its device half by the cache that holds it.
+            family.Sksl.EvictContext(family.Sksl, identity);
+            family.Spirv.EvictContext(identity, identity);
+            family.ShaderGraph.EvictContext(identity, identity);
+        }, "One or more program caches failed to release a torn-down context's programs.");
+    }
+
+    /// <summary>Releases this family's state when its renderer changes context.</summary>
     public void EvictContext(object deviceIdentity, object contextIdentity)
     {
-        Sksl.EvictContext(deviceIdentity, contextIdentity);
-        ShaderGraph.EvictContext(deviceIdentity, contextIdentity);
-        Spirv.EvictContext(deviceIdentity, contextIdentity);
+        // A shared program may still be in use by another renderer on the previous, live context.
+        if (OwnsPrograms)
+        {
+            Sksl.EvictContext(deviceIdentity, contextIdentity);
+            ShaderGraph.EvictContext(deviceIdentity, contextIdentity);
+            Spirv.EvictContext(deviceIdentity, contextIdentity);
+        }
         // The pool matches images by context instance, not by these identities, so it drops them all.
         ShaderGraphImages?.Clear();
     }
@@ -69,9 +117,12 @@ internal sealed class RenderProgramCaches(
     {
         lock (s_owning)
             s_owning.Remove(this);
-        Sksl.Dispose();
-        Spirv.Dispose();
-        ShaderGraph.Dispose();
+        if (OwnsPrograms)
+        {
+            Sksl.Dispose();
+            Spirv.Dispose();
+            ShaderGraph.Dispose();
+        }
         ShaderGraphImages?.Dispose();
     }
 

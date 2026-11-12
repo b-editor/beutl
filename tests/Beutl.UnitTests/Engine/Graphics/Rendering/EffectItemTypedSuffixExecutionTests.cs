@@ -94,7 +94,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             Intent = RenderIntent.Preview,
             TargetDomain = bounds,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuRenderTargetFactory());
+        }, new CpuRenderTargetFactory(), RenderProgramCaches.Create());
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         ProgramCacheStatistics coldStatistics = renderer.ProgramCacheStatistics;

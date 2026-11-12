@@ -16,6 +16,88 @@ namespace Beutl.Graphics3DTests;
 [NonParallelizable]
 public sealed class ShaderGraphCacheTests
 {
+    [TestCase("Sharpen")]
+    [TestCase("Bloom")]
+    [TestCase("EdgeDetection")]
+    public void ShortLivedRenderersReuseProgramsAfterTheirPredecessorIsDisposed(string effectName)
+    {
+        OnDevice(_ =>
+        {
+            Rect bounds = new(0, 0, 64, 32);
+            long? creations = null;
+            ushort[]? expected = null;
+            for (int frame = 0; frame < 4; frame++)
+            {
+                FilterEffect effect = effectName switch
+                {
+                    "Sharpen" => new Sharpen(),
+                    "Bloom" => new Bloom(),
+                    _ => new EdgeDetection()
+                };
+                using var rectangle = new RectangleRenderNode(bounds, Brushes.Resource.White, null);
+                using var node = new GraphNode(rectangle, ShaderGraphEffectTests.Record(effect));
+                using var renderer = new RenderNodeRenderer(node, new()
+                {
+                    Intent = RenderIntent.Delivery,
+                    TargetDomain = bounds,
+                    CacheOptions = RenderCacheOptions.Disabled
+                });
+                long misses = renderer.ProgramCacheStatistics.Misses;
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                using RenderNodeRasterization result = renderer.Rasterize();
+                TestContext.Out.WriteLine($"{effectName} frame {frame}: {watch.Elapsed.TotalMilliseconds:F1} ms");
+                ushort[] pixels = result.Bitmap!.GetPixelSpan<ushort>().ToArray();
+                if (frame == 0)
+                {
+                    expected = pixels;
+                    creations = renderer.ProgramCacheStatistics.Creations;
+                }
+                else
+                {
+                    Assert.That(pixels, Is.EqualTo(expected));
+                    Assert.That(renderer.LastExecutionStatistics.ProgramCacheHits, Is.GreaterThan(0));
+                    Assert.That(renderer.ProgramCacheStatistics.Misses, Is.EqualTo(misses));
+                    Assert.That(renderer.ProgramCacheStatistics.Creations, Is.EqualTo(creations));
+                }
+                Assert.That(renderer.LastExecutionStatistics.ShaderStageExecutions, Is.GreaterThan(0));
+            }
+        });
+    }
+
+    [Test]
+    public void SharedPipelinesBindEachRenderersCurrentPushConstants()
+    {
+        OnDevice(_ =>
+        {
+            Rect bounds = new(0, 0, 64, 32);
+            foreach (float red in new[] { 0.25f, 0.75f, 0.5f })
+            {
+                ShaderGraphDescription graph = ShaderGraphBuilder.Build(red, static (builder, value) =>
+                {
+                    ShaderImage image = builder.Image2D("color", builder.Source);
+                    builder.Fullscreen("paint", ShaderGraphTests.ColorProgram, pass =>
+                    {
+                        pass.PushConstants(new System.Numerics.Vector4(value, 0, 0, 1));
+                        pass.ColorAttachment(0, image);
+                    });
+                    return builder.Output(image);
+                });
+                using var rectangle = new RectangleRenderNode(bounds, Brushes.Resource.White, null);
+                using var node = new GraphNode(rectangle, graph);
+                using var renderer = new RenderNodeRenderer(node, new()
+                {
+                    Intent = RenderIntent.Delivery,
+                    TargetDomain = bounds,
+                    CacheOptions = RenderCacheOptions.Disabled
+                });
+                long misses = renderer.ProgramCacheStatistics.Misses;
+                Assert.That(RenderRed(renderer), Is.EqualTo(red).Within(0.002));
+                if (red != 0.25f)
+                    Assert.That(renderer.ProgramCacheStatistics.Misses, Is.EqualTo(misses));
+            }
+        });
+    }
+
     private static RenderNodeRenderer CreateBloomRenderer(Rect bounds, GraphNode node)
         => new(node, new()
         {
@@ -160,7 +242,7 @@ public sealed class ShaderGraphCacheTests
                 OutputScale = 1,
                 MaxWorkingScale = 1,
                 CacheOptions = RenderCacheOptions.Enabled,
-            });
+            }, targetFactory: null, programCaches: RenderProgramCaches.Create());
             WarmCache(renderer);
             Assert.That(RenderRed(renderer), Is.EqualTo(0.75f).Within(0.002));
             Assert.That(node.Cache.IsCached, Is.True);

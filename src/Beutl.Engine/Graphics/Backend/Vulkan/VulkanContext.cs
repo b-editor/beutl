@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using System.Text.Json;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics3D;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -277,6 +278,9 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
 
         try
         {
+            // Programs that renderers share outlive them, so the ones built on this device have to go while it exists.
+            if (_skiaContext is not null)
+                RenderProgramCaches.RetireContextBeforeTeardown(_skiaContext);
             _vulkanCommandPool.Flush(waitForCompletion: true);
             _vulkanDevice.WaitIdle();
         }

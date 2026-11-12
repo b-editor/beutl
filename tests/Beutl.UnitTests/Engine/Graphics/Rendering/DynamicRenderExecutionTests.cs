@@ -548,7 +548,7 @@ public sealed class DynamicRenderExecutionTests
             TargetDomain = Domain,
             MaxWorkingScale = 1,
             CacheOptions = RenderCacheOptions.Disabled,
-        }, factory ?? new CpuRenderTargetFactory());
+        }, factory ?? new CpuRenderTargetFactory(), RenderProgramCaches.Create());
 
     private sealed class ScaledFilterNode(FilterEffect.Resource resource, float density = 0.5f) : FilterEffectRenderNode(resource)
     {

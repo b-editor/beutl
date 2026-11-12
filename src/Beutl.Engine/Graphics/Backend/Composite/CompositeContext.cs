@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics.Backend.Metal;
 using Beutl.Graphics.Backend.Vulkan;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics3D;
 using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.EXT;
@@ -214,15 +215,24 @@ internal sealed class CompositeContext : IGraphicsContext
         if (_disposed) return;
         _disposed = true;
 
-        if (Timeline != null)
+        try
         {
-            // Vulkan first: the Metal waits only finish once the Vulkan signals they wait for have run.
-            Vulkan.WaitIdle();
-            Metal.WaitForHandOffs();
-            Timeline.Dispose();
+            // Programs that renderers share are keyed by the Metal context but built on the Vulkan device, so they
+            // have to go before either is torn down.
+            RenderProgramCaches.RetireContextBeforeTeardown(Metal.SkiaContext);
         }
+        finally
+        {
+            if (Timeline != null)
+            {
+                // Vulkan first: the Metal waits only finish once the Vulkan signals they wait for have run.
+                Vulkan.WaitIdle();
+                Metal.WaitForHandOffs();
+                Timeline.Dispose();
+            }
 
-        Vulkan.Dispose();
-        Metal.Dispose();
+            Vulkan.Dispose();
+            Metal.Dispose();
+        }
     }
 }

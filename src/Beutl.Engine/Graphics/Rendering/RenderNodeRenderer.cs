@@ -13,7 +13,7 @@ namespace Beutl.Graphics.Rendering;
 /// </summary>
 /// <remarks>
 /// The renderer borrows <see cref="Root"/>, its target factory, render destinations, and returned rasterizations.
-/// It owns its plan/program caches and pooled targets.
+/// It owns its plan cache, shader-graph images and pooled targets, and borrows shared compiled programs.
 /// Public calls on one instance are synchronous and must not overlap. After <see cref="Dispose"/>, every public
 /// rendering or metadata method throws <see cref="ObjectDisposedException"/>.
 /// </remarks>
@@ -44,6 +44,16 @@ public sealed class RenderNodeRenderer : IDisposable
         RenderNode root,
         RenderNodeRenderRequest defaultRequest,
         IRenderTargetFactory? targetFactory = null)
+        : this(root, defaultRequest, targetFactory, programCaches: null)
+    {
+    }
+
+    // A caller supplying an isolated family transfers its ownership to this renderer.
+    internal RenderNodeRenderer(
+        RenderNode root,
+        RenderNodeRenderRequest defaultRequest,
+        IRenderTargetFactory? targetFactory,
+        RenderProgramCaches? programCaches)
     {
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(defaultRequest);
@@ -52,7 +62,7 @@ public sealed class RenderNodeRenderer : IDisposable
         DefaultRequest = CopyAndSanitizeRequest(defaultRequest);
         _targetPool = new RenderTargetPool(targetFactory);
         _structuralPlanCache = new StructuralPlanCache();
-        _programCaches = RenderProgramCaches.Create();
+        _programCaches = programCaches ?? RenderProgramCaches.CreateWithSharedPrograms();
     }
 
     /// <summary>Gets the caller-owned root node.</summary>
@@ -572,7 +582,7 @@ public sealed class RenderNodeRenderer : IDisposable
         return result;
     }
 
-    /// <summary>Releases renderer-owned plans, programs, and pooled targets.</summary>
+    /// <summary>Releases renderer-owned plans, shader-graph images, and pooled targets.</summary>
     /// <remarks>
     /// Disposal is idempotent. It does not dispose the root, root cache, target factory, destinations,
     /// or previously returned rasterizations.
@@ -638,7 +648,7 @@ public sealed class RenderNodeRenderer : IDisposable
 
     private void SynchronizeProgramCacheContext(RenderTargetLeaseSession targets)
     {
-        RenderCacheDeviceContextIdentity current = targets.CacheDeviceContextIdentity;
+        RenderCacheDeviceContextIdentity current = targets.ProgramCacheDeviceContextIdentity;
         if (_programCacheContext is { } previous && previous != current)
         {
             _programCaches.EvictContext(previous.DeviceIdentity, previous.ContextIdentity);

@@ -15,6 +15,7 @@ internal sealed partial class RenderRequestExecutor
     private readonly ProgramCache<GLSLFilterPipeline>? _spirvProgramCache;
     private readonly ProgramCache<ShaderGraphPipeline>? _graphProgramCache;
     private readonly ShaderGraphImagePool? _shaderGraphImages;
+    private readonly RenderProgramCaches? _familyProgramCaches;
     private readonly ShaderBackendPreference _shaderBackendPreference;
     private readonly CancellationToken _cancellationToken;
 
@@ -59,6 +60,7 @@ internal sealed partial class RenderRequestExecutor
             cancellationToken,
             programCaches.ShaderGraphImages)
     {
+        _familyProgramCaches = programCaches;
     }
 
     public void Execute(
@@ -86,7 +88,7 @@ internal sealed partial class RenderRequestExecutor
         ProgramCache<ShaderGraphPipeline>? localGraphProgramCache = _graphProgramCache is null
             ? ShaderGraphPipeline.CreateCache() : null;
         // Borrows the executor's caches; only the local ones are disposed below.
-        var familyProgramCaches = new RenderProgramCaches(
+        var familyProgramCaches = _familyProgramCaches ?? new RenderProgramCaches(
             _programCache ?? localProgramCache!,
             _spirvProgramCache ?? localSpirvProgramCache!,
             _graphProgramCache ?? localGraphProgramCache!,
@@ -395,7 +397,7 @@ internal sealed partial class RenderRequestExecutor
             _previewDropEligibleMaterializations = previewDropEligibleMaterializations
                 ?? throw new ArgumentNullException(nameof(previewDropEligibleMaterializations));
             _targets = targets;
-            _programCacheContext = targets.CacheDeviceContextIdentity;
+            _programCacheContext = targets.ProgramCacheDeviceContextIdentity;
             _programCaches = programCaches;
             _shaderBackendPreference = shaderBackendPreference;
             _drawableBrushMaterializer = MaterializeDrawableBrush;
