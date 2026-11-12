@@ -419,6 +419,46 @@ public class NumberSliderFieldTests
         }
     }
 
+    // While its text does not parse, the box is not scrubbed, as its header is not: a drag leaves the value alone and
+    // its release edits the text, as a click does, so it can be put right.
+    [AvaloniaTest]
+    public void A_box_whose_text_does_not_parse_takes_a_drag_as_a_click()
+    {
+        using var host = new FieldHost(effect => effect.Temperature, start: 20);
+        host.Click(host.PointAt(-60));
+        host.Window.KeyTextInput("abc");
+        ((Border)host.Window.Content!).Focus();
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(DataValidationErrors.GetHasErrors(host.Box), Is.True, "The text that does not parse stays.");
+            Assert.That(host.Slider.IsHitTestVisible, Is.True);
+        });
+
+        int scrubs = HeaderScrubGesture.ActiveCount;
+        AvaPoint start = host.PointAt(0);
+        host.Window.MouseMove(start);
+        host.Window.MouseDown(start, MouseButton.Left);
+        host.DragTo(start + new AvaPoint(34, 0));
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Property.Value, Is.EqualTo(20f));
+            Assert.That(host.Editor.Classes, Does.Not.Contain(":sliding"));
+            Assert.That(HeaderScrubGesture.ActiveCount, Is.EqualTo(scrubs), "The cursor stays.");
+        });
+
+        host.Window.MouseUp(start + new AvaPoint(34, 0), MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Property.Value, Is.EqualTo(20f));
+            Assert.That(host.History.UndoCount, Is.Zero);
+            Assert.That(host.Box.IsKeyboardFocusWithin, Is.True, "The release edits the text.");
+            Assert.That(host.Box.SelectedText, Is.EqualTo("abc"));
+        });
+    }
+
     [AvaloniaTest]
     public void A_read_only_box_neither_slides_nor_edits()
     {

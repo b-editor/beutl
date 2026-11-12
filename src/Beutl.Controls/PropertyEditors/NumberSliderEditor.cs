@@ -191,7 +191,8 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
     {
         if (_scrub.IsArmed)
         {
-            if (!_scrub.TryBegin(slider, position))
+            // Text that does not parse is not scrubbed, as by the header; the release edits it, as a click does.
+            if (DataValidationErrors.GetHasErrors(InnerTextBox) || !_scrub.TryBegin(slider, position))
                 return;
 
             BeginSlide();
