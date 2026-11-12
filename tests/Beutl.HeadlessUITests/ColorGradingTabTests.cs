@@ -239,6 +239,84 @@ public sealed class ColorGradingTabTests
         });
     }
 
+    // A click leaves the cursor alone, as on a number box: the drag and the pointer lock that hides the cursor wait
+    // for the press to travel, along either axis, and the travel still moves the puck.
+    [AvaloniaTest]
+    public void A_press_on_the_pad_hides_the_cursor_only_once_it_travels()
+    {
+        using var host = new WheelHost(effect => effect.Lift);
+        int scrubs = HeaderScrubGesture.ActiveCount;
+        AvaPoint click = host.PadCenter() - new Vector(20, 0);
+        host.Window.MouseMove(click);
+        host.Window.MouseDown(click, MouseButton.Left);
+        host.Window.MouseMove(click + new Vector(2, 2), RawInputModifiers.LeftMouseButton);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Pad.IsDragging, Is.False);
+            Assert.That(HeaderScrubGesture.ActiveCount, Is.EqualTo(scrubs), "A press that has not travelled keeps the cursor.");
+            Assert.That(host.History.IsEditing, Is.False);
+        });
+
+        host.Window.MouseUp(click + new Vector(2, 2), MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Property.Value, Is.EqualTo(GradingColor.Zero), "A click moves nothing.");
+            Assert.That(host.History.UndoCount, Is.Zero);
+        });
+
+        AvaPoint start = host.PadCenter() + new Vector(20, 0);
+        host.Window.MouseMove(start);
+        host.Window.MouseDown(start, MouseButton.Left);
+        host.Window.MouseMove(start + new Vector(0, 12), RawInputModifiers.LeftMouseButton);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Pad.IsDragging, Is.True, "A vertical travel begins the drag.");
+            Assert.That(HeaderScrubGesture.ActiveCount, Is.EqualTo(scrubs + 1), "The drag hides the cursor.");
+            Assert.That(host.Wheel.Color, Is.Not.EqualTo(GradingColor.Zero), "The travel moves the puck.");
+        });
+
+        host.Window.MouseUp(start + new Vector(0, 12), MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(HeaderScrubGesture.ActiveCount, Is.EqualTo(scrubs), "The release shows the cursor again.");
+            Assert.That(host.History.UndoCount, Is.EqualTo(1));
+        });
+    }
+
+    // The drag begins where the press has travelled to, as a locked pointer on macOS reports only the moves after the
+    // lock, and its first move adds that travel.
+    [AvaloniaTest]
+    public void The_travel_that_begins_a_pad_drag_counts_once()
+    {
+        GradingColor Drag(params Vector[] steps)
+        {
+            using var host = new WheelHost(effect => effect.Lift);
+            AvaPoint start = host.PadCenter() + new Vector(20, 0);
+            host.Window.MouseMove(start);
+            host.Window.MouseDown(start, MouseButton.Left);
+            foreach (Vector step in steps)
+                host.Window.MouseMove(start + step, RawInputModifiers.LeftMouseButton);
+
+            host.Window.MouseUp(start + steps[^1], MouseButton.Left);
+            HeadlessTestHelpers.Render();
+            return host.Property.Value;
+        }
+
+        GradingColor inOneMove = Drag(new Vector(0, 12));
+        GradingColor inTwo = Drag(new Vector(0, 4), new Vector(0, 12));
+        Assert.Multiple(() =>
+        {
+            Assert.That(inOneMove, Is.Not.EqualTo(GradingColor.Zero));
+            Assert.That(inOneMove.R, Is.EqualTo(inTwo.R).Within(1e-5));
+            Assert.That(inOneMove.G, Is.EqualTo(inTwo.G).Within(1e-5));
+            Assert.That(inOneMove.B, Is.EqualTo(inTwo.B).Within(1e-5));
+        });
+    }
+
     [AvaloniaTest]
     public void A_double_click_on_the_pad_removes_only_the_chroma()
     {
