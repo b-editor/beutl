@@ -65,7 +65,7 @@ internal abstract class PropertyPair : IAnimatablePropertyAdapter, IExpressionPr
             if ((!ReferenceEquals(first, property) && !others.Contains(property.Name)) || members.Contains(null)) continue;
 
             IPropertyAdapter[] adapters = [.. members.Select(member => PropertyAdapterFactory.CreateAdapter(member!, owner))];
-            // The property panel names an unnamed row the same way.
+            // The property panel's row shows this name, as the graph editor and the inline view do.
             string name = attribute.GetName() ?? adapters[0].DisplayName;
             // A width and a height are a size; two of anything else have an axis, which a point has. Three are a vector,
             // whose type the namespaces of an expression do not hold, so its example names it in full.

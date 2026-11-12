@@ -193,6 +193,34 @@ public sealed class CombinedEditorTests
         Assert.That(rows.Contexts, Has.Length.EqualTo(2).And.All.TypeOf<NumberEditorViewModel<float>>());
     }
 
+    // A row is a view of its first property's pair, so it joins only what that pair joins. Here B carries the attribute
+    // but belongs to A's pair, which the attribute on A forms first: shown without A, B and C take a row each instead of
+    // a row whose pair is another; shown with A, A and B form the row as before.
+    [AvaloniaTest]
+    public void A_row_joins_only_the_properties_its_first_property_s_pair_joins()
+    {
+        var owner = new OverlappingPairOwner();
+        IPropertyAdapter Adapter(AnimatableProperty<float> property) => PropertyAdapterFactory.CreateAdapter(property, owner);
+
+        var withoutA = new List<IPropertyEditorContext>();
+        PropertyEditorResolver.CreateContexts([Adapter(owner.B), Adapter(owner.C)], [PropertyEditorExtension.Instance],
+            PropertyEditorSurface.Panel, withoutA.Add);
+        using var rowsWithoutA = new DisposableContexts([.. withoutA]);
+        Assert.That(rowsWithoutA.Contexts, Has.Length.EqualTo(2).And.All.TypeOf<NumberEditorViewModel<float>>());
+
+        var all = new List<IPropertyEditorContext>();
+        PropertyEditorResolver.CreateContexts([Adapter(owner.A), Adapter(owner.B), Adapter(owner.C)],
+            [PropertyEditorExtension.Instance], PropertyEditorSurface.Panel, all.Add);
+        using var rows = new DisposableContexts([.. all]);
+        var row = rows.Contexts.OfType<CombinedEditorViewModel<float, (float, float)>>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(row.EditedProperties.Select(p => p.GetEngineProperty()), Is.EqualTo(new IProperty[] { owner.A, owner.B }));
+            Assert.That(row.Header, Is.EqualTo("A"));
+            Assert.That(rows.Contexts, Has.Length.EqualTo(2));
+        });
+    }
+
     [AvaloniaTest]
     public void The_values_show_with_the_names_of_their_axes()
     {
@@ -1337,6 +1365,20 @@ public sealed partial class UnnamedPairOwner : EngineObject
 
     [Display(Name = "Offset Y")]
     public AnimatableProperty<float> OffsetY { get; } = new(0);
+}
+
+// An extension's attributes that overlap: B is the second property of A's pair and also names C as its own.
+public sealed partial class OverlappingPairOwner : EngineObject
+{
+    public OverlappingPairOwner() => ScanProperties<OverlappingPairOwner>();
+
+    [CombinedEditor(nameof(B))]
+    public AnimatableProperty<float> A { get; } = new(0);
+
+    [CombinedEditor(nameof(C))]
+    public AnimatableProperty<float> B { get; } = new(0);
+
+    public AnimatableProperty<float> C { get; } = new(0);
 }
 
 // An extension's object that is not an engine object, with two properties it marks as one row.
