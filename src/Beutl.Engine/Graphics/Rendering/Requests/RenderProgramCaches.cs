@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Shaders;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
@@ -71,6 +72,29 @@ internal sealed class RenderProgramCaches(
             }
             family.ShaderGraphImages?.Clear();
         }, "One or more program caches failed to release what they retain.");
+
+    /// <summary>
+    /// Disposes the programs every live family keeps for one recording context while its device is still installed.
+    /// </summary>
+    /// <remarks>
+    /// Shared programs outlive the renderers that compiled them, so a context torn down on its own, rather than by a
+    /// full teardown, releases its programs here instead of leaving them on a destroyed device.
+    /// </remarks>
+    internal static void RetireContextBeforeTeardown(GRRecordingContext graphicsContext)
+    {
+        object identity = SkRuntimeEffectProgramCache.GetDestinationContextIdentity(graphicsContext);
+        CleanupFailures.RetireLive(s_owning, family =>
+        {
+            if (!family.OwnsPrograms)
+                return;
+
+            family.Sksl.EvictContext(identity, identity);
+            // A standalone program keys its device half by the cache that holds it.
+            family.Sksl.EvictContext(family.Sksl, identity);
+            family.Spirv.EvictContext(identity, identity);
+            family.ShaderGraph.EvictContext(identity, identity);
+        }, "One or more program caches failed to release a torn-down context's programs.");
+    }
 
     /// <summary>Releases this family's state when its renderer changes context.</summary>
     public void EvictContext(object deviceIdentity, object contextIdentity)

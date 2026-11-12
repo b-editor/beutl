@@ -58,6 +58,46 @@ public sealed class RadialBlurBackendTests
         });
     }
 
+    [Test]
+    public void ShaderCache_ReleasesTheProgramsOfADisposedContext()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var effect = new RadialBlur { Mode = { Value = RadialBlurMode.Zoom }, Amount = { Value = 50 } };
+            using var brush = (Brush.Resource)new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
+            using var root = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
+            root.AddChild(new RectangleRenderNode(new Rect(4, 4, 16, 8), brush, null));
+            using var renderer = new RenderNodeRenderer(root,
+                new RenderNodeRenderRequest { Intent = RenderIntent.Delivery, CacheOptions = RenderCacheOptions.Disabled });
+            Render();
+            int retained = renderer.ProgramCacheStatistics.RetainedPrograms;
+
+            IGraphicsContext replacement = GraphicsContextFactory.CreateContext();
+            try
+            {
+                using (InstalledGraphicsScope.Install(replacement))
+                    Render();
+                // Back on the live context, the renderer lets go of everything it held on the replacement.
+                Render();
+                Assert.That(renderer.ProgramCacheStatistics.RetainedPrograms, Is.GreaterThan(retained),
+                    "the replacement must leave programs in the shared caches, or their release is unobservable");
+            }
+            finally
+            {
+                replacement.Dispose();
+            }
+
+            Assert.That(renderer.ProgramCacheStatistics.RetainedPrograms, Is.EqualTo(retained),
+                "programs built on a disposed context's device must not outlive it in the shared caches");
+
+            void Render()
+            {
+                using RenderNodeRasterization output = renderer.Rasterize();
+            }
+        });
+    }
+
     [TestCase(RenderIntent.Preview)]
     [TestCase(RenderIntent.Delivery)]
     public void CpuRenderer_RejectsRadialBlurWithoutFallback(RenderIntent intent)
