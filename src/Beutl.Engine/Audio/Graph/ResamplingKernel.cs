@@ -9,6 +9,9 @@ internal sealed class ResamplingKernel
     // Entries of a sinc table per sample of distance, read with linear interpolation (about -100 dB of error).
     private const int TableResolution = 512;
 
+    // The radius of Sinc 64, the widest kernel, which a node can read without building that kernel's table.
+    public const int MaxRadius = 32;
+
     private static readonly ResamplingKernel s_hold = new(ResamplingMethod.Hold, 0, 0, null);
     private static readonly ResamplingKernel s_linear = new(ResamplingMethod.Linear, 0, 1, null);
     private static readonly ResamplingKernel s_catmullRom = new(ResamplingMethod.CatmullRom, -1, 2, null);
@@ -17,7 +20,7 @@ internal sealed class ResamplingKernel
     // Kaiser windows. 16 samples stay flat to 80% of the lower rate's Nyquist frequency and reach about -53 dB past
     // 120% of it; 64 samples stay flat to 90% and reach about -97 dB past 120%.
     private static readonly Lazy<ResamplingKernel> s_sinc16 = new(() => CreateSinc(ResamplingMethod.Sinc16, 8, 5));
-    private static readonly Lazy<ResamplingKernel> s_sinc64 = new(() => CreateSinc(ResamplingMethod.Sinc64, 32, 9));
+    private static readonly Lazy<ResamplingKernel> s_sinc64 = new(() => CreateSinc(ResamplingMethod.Sinc64, MaxRadius, 9));
 
     private readonly float[]? _table;
 
@@ -82,24 +85,30 @@ internal sealed class ResamplingKernel
                 weights[3] = (float)((f + 1) * f * (f - 1) / 6);
                 break;
             default:
-                double sum = 0;
-                for (int i = 0; i < weights.Length; i++)
-                {
-                    float weight = Value(Math.Abs(f - (First + i)));
-                    weights[i] = weight;
-                    sum += weight;
-                }
-
-                // The window leaves the sum a little off one between samples, which would ripple a constant.
-                float scale = (float)(1 / sum);
-                for (int i = 0; i < weights.Length; i++)
-                    weights[i] *= scale;
+                GetSincWeights(f, First, 1, weights);
                 break;
         }
     }
 
+    // The weights of the samples from first on for a value at position at, with the sinc stretched by 1 / cutoff.
+    public void GetSincWeights(double at, long first, double cutoff, Span<float> weights)
+    {
+        double sum = 0;
+        for (int i = 0; i < weights.Length; i++)
+        {
+            float weight = Value(Math.Abs(at - (first + i)) * cutoff);
+            weights[i] = weight;
+            sum += weight;
+        }
+
+        // The window leaves the sum a little off one between samples, which would ripple a constant.
+        float scale = (float)(1 / sum);
+        for (int i = 0; i < weights.Length; i++)
+            weights[i] *= scale;
+    }
+
     // The windowed sinc at a distance in samples, zero from the radius on.
-    public float Value(double distance)
+    private float Value(double distance)
     {
         float[] table = _table!;
         double index = distance * TableResolution;

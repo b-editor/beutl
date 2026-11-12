@@ -137,9 +137,8 @@ internal partial class WebBrowserTabView
         if (_deferredNativeDownloads.Count == 0 || IsPageDownloadOfferBlocked) return;
         var deferred = _deferredNativeDownloads.First!.Value;
         _deferredNativeDownloads.RemoveFirst();
-        // A file whose page never finished loading is offered without a claim.
-        BrowserDownloadHandling? handling = deferred.LoadingPage == null ? deferred.Handling : null;
-        OfferPageDownload(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source, handling);
+        // A file whose page never finished loading holds no claim, so it is offered without one.
+        OfferPageDownload(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source, deferred.Handling);
     }
 
     // The files that frames of the page offered while it loaded are claimed as soon as it is the page on display, even
@@ -156,13 +155,17 @@ internal partial class WebBrowserTabView
         }
     }
 
+    // A file waits unless this page's offers were dismissed or the queue is full; one that cannot wait is dropped.
+    private bool CanDefer(IBrowserDownloadSource source)
+    {
+        if (!_pageDownloadRequestsSuppressed && _deferredNativeDownloads.Count < MaxDeferredNativeDownloads) return true;
+        source.Dispose();
+        return false;
+    }
+
     private void DeferNativeDownload(Uri uri, string? suggestedName, IBrowserDownloadSource source, Uri? page = null)
     {
-        if (_pageDownloadRequestsSuppressed || _deferredNativeDownloads.Count >= MaxDeferredNativeDownloads)
-        {
-            source.Dispose();
-            return;
-        }
+        if (!CanDefer(source)) return;
         _deferredNativeDownloads.AddLast(new DeferredDownload(uri, suggestedName, source,
             ClaimDownload(uri, suggestedName, source.IsGenerated, page)));
     }
@@ -170,11 +173,7 @@ internal partial class WebBrowserTabView
     // The page a frame's file belongs to is the main-frame request still loading, if the engine reported one.
     private void DeferLoadingPageDownload(Uri uri, string? suggestedName, IBrowserDownloadSource source)
     {
-        if (_pageDownloadRequestsSuppressed || _deferredNativeDownloads.Count >= MaxDeferredNativeDownloads)
-        {
-            source.Dispose();
-            return;
-        }
+        if (!CanDefer(source)) return;
         _deferredNativeDownloads.AddLast(new DeferredDownload(uri, suggestedName, source, null,
             LoadingPage: _latestNavigationRequest));
     }
@@ -508,7 +507,7 @@ internal partial class WebBrowserTabView
         try
         {
             // A claimed file goes into the project without asking where, as long as the editor can still take it.
-            string? claimedDirectory = handling != null && vm.CanAddDownloadedMedia ? vm.ProjectDownloadDirectory : null;
+            string? claimedDirectory = handling != null ? vm.ClaimedDownloadDirectory : null;
             if (claimedDirectory == null) handling = null;
             BrowserDownloadOptions? options = claimedDirectory != null
                 ? new BrowserDownloadOptions(claimedDirectory, AddToTimeline: true)

@@ -19,7 +19,7 @@ internal static class KeyFrameShorthand
         .Where(type => !type.IsAbstract && typeof(Easing).IsAssignableFrom(type))
         .ToDictionary(type => type.Name, type => type, StringComparer.OrdinalIgnoreCase);
 
-    public static IEnumerable<string> EasingNames => s_easings.Keys.Order(StringComparer.Ordinal);
+    public static IReadOnlyList<string> EasingNames { get; } = [.. s_easings.Keys.Order(StringComparer.Ordinal)];
 
     public static bool IsShorthand(JsonObject animationJson)
     {
@@ -170,7 +170,7 @@ internal static class KeyFrameShorthand
 
         throw Rejected(
             $"Easing '{name}' is not a Beutl easing.",
-            $"Use a bare easing type name such as {string.Join(", ", s_easings.Keys.Order(StringComparer.Ordinal).Take(6))}, ... (no assembly prefix).");
+            $"Use a bare easing type name such as {string.Join(", ", EasingNames.Take(6))}, ... (no assembly prefix).");
     }
 
     private static ReconcileException Rejected(string message, string hint)

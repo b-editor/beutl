@@ -33,18 +33,20 @@ public sealed class ResampleNode : AudioNode, IAudioSampleRateConversionNode
     public override AudioBuffer Flush(AudioProcessContext context)
         => ProcessCore(context, draining: true);
 
+    // Upstream latency is counted at SourceSampleRate; round up so the output-rate budget never falls short.
     public override int GetTotalLatencySamples(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 
-        return ScaleFromSourceRate(base.GetTotalLatencySamples(SourceSampleRate), sampleRate);
+        return AudioLatency.ScaleSampleCount(base.GetTotalLatencySamples(SourceSampleRate), SourceSampleRate, sampleRate);
     }
 
     public override int GetDrainLatencySamples(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 
-        return ScaleFromSourceRate(GetMaxInputLatency(SourceSampleRate, drain: true), sampleRate);
+        return AudioLatency.ScaleSampleCount(
+            GetMaxInputLatency(SourceSampleRate, drain: true), SourceSampleRate, sampleRate);
     }
 
     private AudioBuffer ProcessCore(AudioProcessContext context, bool draining)
@@ -70,16 +72,6 @@ public sealed class ResampleNode : AudioNode, IAudioSampleRateConversionNode
             : Inputs[0].Process(newContext);
         _sourceSampleCursor = checked(sourceStart + input.SampleCount);
         return RecordProcessedOutput(Resample(context, input));
-    }
-
-    // Upstream latency is counted at SourceSampleRate; round up so the output-rate budget never falls short.
-    private int ScaleFromSourceRate(int sourceLatency, int sampleRate)
-    {
-        if (sourceLatency == 0 || sourceLatency == int.MaxValue)
-            return sourceLatency;
-
-        double scaled = Math.Ceiling(sourceLatency * (double)sampleRate / SourceSampleRate);
-        return scaled >= int.MaxValue ? int.MaxValue : (int)scaled;
     }
 
     private AudioBuffer Resample(AudioProcessContext context, AudioBuffer input)

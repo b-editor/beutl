@@ -206,9 +206,6 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         _listBox = e.NameScope.Find<ListBox>("PART_ListBox");
         _tileListBox = e.NameScope.Find<ListBox>("PART_TileListBox");
         _referenceListBox = e.NameScope.Find<ListBox>("PART_ReferenceListBox");
-        _listBox?.Focusable = true;
-        _tileListBox?.Focusable = true;
-        _referenceListBox?.Focusable = true;
 
         this.AddDisposableHandler(KeyDownEvent, OnPresenterKeyDown, RoutingStrategies.Tunnel)
             .DisposeWith(_keyboardDisposables);
@@ -219,26 +216,17 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         _searchTextBox?.AddDisposableHandler(KeyDownEvent, OnSearchBoxKeyDown)
             .DisposeWith(_keyboardDisposables);
 
-        _listBox?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
-            .DisposeWith(_keyboardDisposables);
+        foreach (ListBox? listBox in new[] { _listBox, _tileListBox, _referenceListBox })
+        {
+            if (listBox is null) continue;
 
-        _tileListBox?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
-            .DisposeWith(_keyboardDisposables);
-
-        _referenceListBox?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
-            .DisposeWith(_keyboardDisposables);
-
-        _listBox?.GetObservable(ItemsControl.ItemCountProperty)
-            .Subscribe(_ => UpdateNoResults())
-            .DisposeWith(_keyboardDisposables);
-
-        _tileListBox?.GetObservable(ItemsControl.ItemCountProperty)
-            .Subscribe(_ => UpdateNoResults())
-            .DisposeWith(_keyboardDisposables);
-
-        _referenceListBox?.GetObservable(ItemsControl.ItemCountProperty)
-            .Subscribe(_ => UpdateNoResults())
-            .DisposeWith(_keyboardDisposables);
+            listBox.Focusable = true;
+            listBox.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
+                .DisposeWith(_keyboardDisposables);
+            listBox.GetObservable(ItemsControl.ItemCountProperty)
+                .Subscribe(_ => UpdateNoResults())
+                .DisposeWith(_keyboardDisposables);
+        }
     }
 
     private void OnPresenterKeyDown(object? sender, KeyEventArgs e)
@@ -265,12 +253,18 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         if (sender is not ListBox listBox) return;
 
+        MoveSelection(listBox, e);
+
+        FocusListBox();
+    }
+
+    // The tiles move by tile and by row, the lists by item.
+    private void MoveSelection(ListBox listBox, KeyEventArgs e)
+    {
         if (ReferenceEquals(listBox, _tileListBox))
             PickerListNavigation.MoveSelectionInGrid(listBox, e, TileColumns);
         else
             PickerListNavigation.MoveSelection(listBox, e);
-
-        FocusListBox();
     }
 
     private void OnSearchBoxKeyDown(object? sender, KeyEventArgs e)
@@ -282,10 +276,7 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
                 // 検索ボックスにフォーカスを残したまま、結果の選択を移動する（タイルは行ごと）
                 if (GetCurrentListBox() is { } listBox)
                 {
-                    if (ReferenceEquals(listBox, _tileListBox))
-                        PickerListNavigation.MoveSelectionInGrid(listBox, e, TileColumns);
-                    else
-                        PickerListNavigation.MoveSelection(listBox, e);
+                    MoveSelection(listBox, e);
                 }
 
                 e.Handled = true;

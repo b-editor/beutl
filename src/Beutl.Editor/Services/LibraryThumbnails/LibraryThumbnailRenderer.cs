@@ -72,6 +72,14 @@ internal static class LibraryThumbnailRenderer
     internal static readonly MediaTime TransitionHold = MediaTime.FromSeconds(0.25);
     internal static readonly MediaTime TransitionLength = MediaTime.FromSeconds(1);
 
+    // The lengths above in frames at the thumbnail's frame rate, each a whole number of them.
+    private static readonly int s_effectLengthFrames =
+        (int)EffectLength.ToFrame(LibraryThumbnailLayout.FrameRate, MidpointRounding.ToEven);
+    private static readonly int s_transitionHoldFrames =
+        (int)TransitionHold.ToFrame(LibraryThumbnailLayout.FrameRate, MidpointRounding.ToEven);
+    private static readonly int s_transitionLengthFrames =
+        (int)TransitionLength.ToFrame(LibraryThumbnailLayout.FrameRate, MidpointRounding.ToEven);
+
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(LibraryThumbnailRenderer));
 
     public static bool CanRender(Type type)
@@ -96,12 +104,12 @@ internal static class LibraryThumbnailRenderer
 
         if (type.IsAssignableTo(typeof(ClipTransition)))
         {
-            int hold = ToFrames(TransitionHold);
-            int length = ToFrames(TransitionLength);
+            int hold = s_transitionHoldFrames;
+            int length = s_transitionLengthFrames;
             return new LibraryThumbnailLayout(2 * (hold + length), hold + (int)Math.Round(length * 0.35));
         }
 
-        int count = ToFrames(EffectLength);
+        int count = s_effectLengthFrames;
         return new LibraryThumbnailLayout(count, count / 2);
     }
 
@@ -169,11 +177,6 @@ internal static class LibraryThumbnailRenderer
         {
             RenderThread.Dispatcher.Dispatch(session.Dispose, DispatchPriority.Low);
         }
-    }
-
-    private static int ToFrames(MediaTime time)
-    {
-        return (int)Math.Round(time.ToSeconds() * LibraryThumbnailLayout.FrameRate.ToDouble());
     }
 
     private static Scene CreateEffectScene(Type type, LibraryThumbnailSubject? subject)
@@ -276,8 +279,8 @@ internal static class LibraryThumbnailRenderer
             CreateElement(LibraryThumbnailSamples.CreateBackdrop(frame), MediaTime.Zero, duration, 0),
             element);
 
-        int hold = ToFrames(TransitionHold);
-        int length = ToFrames(TransitionLength);
+        int hold = s_transitionHoldFrames;
+        int length = s_transitionLengthFrames;
         MediaTime shown = entering ? after : MediaTime.Zero;
         MediaTime gone = entering ? MediaTime.Zero : after;
         MediaTime Way(int step) => start + MediaTime.FromFrames(step, LibraryThumbnailLayout.FrameRate);
@@ -307,19 +310,28 @@ internal static class LibraryThumbnailRenderer
         return transition;
     }
 
-    // An image of picture at the size it covers in the project, centred. The picture's image comes through an
-    // expression, which does not make it a child of this scene, so every thumbnail drawn from it shares it.
+    // An image of picture at the size it covers in the project, centred.
     private static SourceImage CreateImage(LibraryThumbnailSubject.Picture picture)
+    {
+        return CreateImage(
+            picture.Source,
+            100 * picture.Size.Width / picture.Pixels.Width,
+            100 * picture.Size.Height / picture.Pixels.Height);
+    }
+
+    // An image of source scaled by scaleX and scaleY percent, centred. The source comes through an expression, which
+    // does not make it a child of the scene, so every thumbnail drawn from it shares it.
+    internal static SourceImage CreateImage(ImageSource source, float scaleX, float scaleY)
     {
         return new SourceImage
         {
-            Source = { Expression = new SharedValueExpression<ImageSource?>(picture.Source) },
+            Source = { Expression = new SharedValueExpression<ImageSource?>(source) },
             Transform =
             {
                 Value = new ScaleTransform
                 {
-                    ScaleX = { Value = 100 * picture.Size.Width / picture.Pixels.Width },
-                    ScaleY = { Value = 100 * picture.Size.Height / picture.Pixels.Height },
+                    ScaleX = { Value = scaleX },
+                    ScaleY = { Value = scaleY },
                 }
             },
         };
@@ -339,7 +351,7 @@ internal static class LibraryThumbnailRenderer
 
     // The scene and its elements need paths for the scene to relate them, though nothing is read from or written to
     // them.
-    private static Scene CreateScene(PixelSize frameSize, MediaTime duration, params ReadOnlySpan<Element> elements)
+    internal static Scene CreateScene(PixelSize frameSize, MediaTime duration, params ReadOnlySpan<Element> elements)
     {
         string directory = Path.Combine(Path.GetTempPath(), "beutl-library-thumbnail");
         var scene = new Scene(frameSize.Width, frameSize.Height, string.Empty)
@@ -356,12 +368,35 @@ internal static class LibraryThumbnailRenderer
         return scene;
     }
 
+    // Thumbnails and the content they show are drawn at preview quality, sharing resources, without a render cache.
+    internal static SceneRenderer CreateRenderer(Scene scene, float scale)
+    {
+        var renderer = new SceneRenderer(
+            scene,
+            RenderIntent.Preview,
+            scale,
+            disableResourceShare: false,
+            maxWorkingScale: WorkingScaleCeiling.Preview(scale));
+        try
+        {
+            renderer.CacheOptions = RenderCacheOptions.Disabled;
+        }
+        catch
+        {
+            renderer.Dispose();
+            throw;
+        }
+
+        return renderer;
+    }
+
     // One thumbnail being drawn. It lives on the render thread from its creation to its disposal.
     private sealed class Session : IDisposable
     {
         private readonly Type _type;
         private readonly Func<int, MediaTime>? _timeOf;
         private readonly SceneRenderer _renderer;
+        private Bitmap? _snapshot;
         private Bitmap? _sheet;
 
         // The scene is drawn at the scale that makes its frame a thumbnail's width. Resources are shared, so the
@@ -372,15 +407,9 @@ internal static class LibraryThumbnailRenderer
             _type = type;
             _timeOf = timeOf;
             float scale = LibraryThumbnailLayout.FrameSize.Width / (float)scene.FrameSize.Value.Width;
-            _renderer = new SceneRenderer(
-                scene,
-                RenderIntent.Preview,
-                scale,
-                disableResourceShare: false,
-                maxWorkingScale: WorkingScaleCeiling.Preview(scale));
+            _renderer = CreateRenderer(scene, scale);
             try
             {
-                _renderer.CacheOptions = RenderCacheOptions.Disabled;
                 _sheet = new Bitmap(
                     sheetSize.Width, sheetSize.Height, BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
             }
@@ -421,8 +450,10 @@ internal static class LibraryThumbnailRenderer
                 MediaTime time = _timeOf?.Invoke(index) ?? MediaTime.FromFrames(index, LibraryThumbnailLayout.FrameRate);
                 CompositionFrame frame = _renderer.Compositor.EvaluateGraphics(time, LibraryThumbnailLayout.FrameRate);
                 _renderer.Render(frame);
-                using Bitmap snapshot = _renderer.Snapshot();
-                using Bitmap converted = snapshot.Convert(
+                // Every frame is read into the same bitmap.
+                _snapshot ??= _renderer.CreateSnapshotBitmap();
+                _renderer.SnapshotInto(_snapshot);
+                using Bitmap converted = _snapshot.Convert(
                     BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
                 _sheet.CopyFrom(converted, cell);
                 return true;
@@ -445,6 +476,8 @@ internal static class LibraryThumbnailRenderer
         public void Dispose()
         {
             _renderer.Dispose();
+            _snapshot?.Dispose();
+            _snapshot = null;
             _sheet?.Dispose();
             _sheet = null;
         }

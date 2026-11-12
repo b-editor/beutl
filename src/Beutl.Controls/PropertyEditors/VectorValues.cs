@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Runtime.CompilerServices;
 
 using Avalonia;
 using Avalonia.Input;
@@ -30,6 +31,36 @@ internal abstract class VectorValues
     // index is -1 for what scrubs every component: the editor's header, or the one box of a uniform value.
     public virtual void Scrub(int index, ref HeaderScrubGesture scrub, Visual header, PointerEventArgs e)
     {
+    }
+
+    // The values after a scrub moves the component at index by delta, or every component for -1.
+    protected static T[] Scrubbed<T>(T[] values, int index, T delta)
+        where T : INumber<T>
+    {
+        T[] result = [.. values];
+        for (int i = 0; i < result.Length; i++)
+        {
+            if (index < 0 || index == i)
+                result[i] = NumberEditorHelper.AddPreservingScale(result[i], delta);
+        }
+
+        return result;
+    }
+
+    // One pulse when a value the handlers kept crossed its reference: the component of references, or zero.
+    protected static void PulseIfCrossed<T>(
+        VectorEditorBase editor, T[] oldValues, T[] values, ITuple? references, ulong timestamp)
+        where T : INumber<T>
+    {
+        for (int i = 0; i < values.Length; i++)
+        {
+            T reference = references?[i] is T value ? value : T.Zero;
+            if (NumberEditorHelper.CrossedHapticReference(oldValues[i], values[i], reference))
+            {
+                NativeHapticFeedback.PerformAlignment(editor, timestamp);
+                break; // A uniform or whole-vector scrub produces one pulse per pointer event.
+            }
+        }
     }
 }
 
@@ -156,29 +187,15 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
     {
         TElement delta = scrub.NextDelta<TElement>(header, e) * SmallChange;
 
-        TElement[] newValues = [.. _values];
         TElement[] oldValues = [.. _values];
-        for (int i = 0; i < newValues.Length; i++)
-        {
-            if (index < 0 || index == i)
-                newValues[i] = NumberEditorHelper.AddPreservingScale(newValues[i], delta);
-        }
-
+        TElement[] newValues = Scrubbed(oldValues, index, delta);
         for (int i = 0; i < newValues.Length; i++)
             Set(i, newValues[i]);
 
         _editor.RaiseEvent(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent));
 
         // The handlers have written the accepted values back, including shared-axis constraints.
-        for (int i = 0; i < _values.Length; i++)
-        {
-            TElement reference = _editor.HapticReferenceValues?[i] is TElement value ? value : TElement.Zero;
-            if (NumberEditorHelper.CrossedHapticReference(oldValues[i], _values[i], reference))
-            {
-                NativeHapticFeedback.PerformAlignment(_editor, e.Timestamp);
-                break; // A uniform or whole-vector scrub produces one pulse per pointer event.
-            }
-        }
+        PulseIfCrossed(_editor, oldValues, _values, _editor.HapticReferenceValues, e.Timestamp);
     }
 
     // From the last component to the first, the order of FirstValue = SecondValue = value.
@@ -308,28 +325,15 @@ internal sealed class RelativeVectorValues : VectorValues
     {
         float delta = scrub.NextDelta<float>(header, e) * (_unit == RelativeUnit.Relative ? 0.01f : 1f);
 
-        float[] newValues = [.. _values];
         float[] oldValues = [.. _values];
-        for (int i = 0; i < newValues.Length; i++)
-        {
-            if (index < 0 || index == i)
-                newValues[i] = NumberEditorHelper.AddPreservingScale(newValues[i], delta);
-        }
-
+        float[] newValues = Scrubbed(oldValues, index, delta);
         for (int i = 0; i < newValues.Length; i++)
             Set(i, newValues[i]);
 
         _editor.RaiseEvent(_createEventArgs(newValues, _unit, oldValues, _unit, PropertyEditor.ValueChangedEvent));
 
         // The handlers have written the accepted values back.
-        for (int i = 0; i < _values.Length; i++)
-        {
-            if (NumberEditorHelper.CrossedHapticReference(oldValues[i], _values[i], 0f))
-            {
-                NativeHapticFeedback.PerformAlignment(_editor, e.Timestamp);
-                break; // A uniform or whole-vector scrub produces one pulse per pointer event.
-            }
-        }
+        PulseIfCrossed(_editor, oldValues, _values, null, e.Timestamp);
     }
 
     private void ApplyValueChange(int index, float value, RelativeUnit unit, float[] oldValues, RelativeUnit oldUnit)

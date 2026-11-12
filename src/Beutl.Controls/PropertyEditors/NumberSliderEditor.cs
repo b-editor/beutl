@@ -1,9 +1,12 @@
 ﻿using System.Numerics;
+using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -27,6 +30,7 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
     public static readonly StyledProperty<double> OriginProperty =
         AvaloniaProperty.Register<NumberSliderEditor<TValue>, double>(nameof(Origin));
 
+    private readonly CompositeDisposable _sliderHandlers = [];
     private ValueSlider? _slider;
     private HeaderScrubGesture _scrub;
     private TValue _slideStart = TValue.Zero;
@@ -70,24 +74,16 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
-        if (_slider != null)
-        {
-            _slider.PointerPressed -= OnSliderPointerPressed;
-            _slider.PointerMoved -= OnSliderPointerMoved;
-            _slider.PointerReleased -= OnSliderPointerReleased;
-            _slider.PointerCaptureLost -= OnSliderPointerCaptureLost;
-            _slider.ContextRequested -= OnSliderContextRequested;
-        }
-
+        _sliderHandlers.Clear();
         base.OnApplyTemplate(e);
         _slider = e.NameScope.Find<ValueSlider>("PART_Slider");
         if (_slider != null)
         {
-            _slider.PointerPressed += OnSliderPointerPressed;
-            _slider.PointerMoved += OnSliderPointerMoved;
-            _slider.PointerReleased += OnSliderPointerReleased;
-            _slider.PointerCaptureLost += OnSliderPointerCaptureLost;
-            _slider.ContextRequested += OnSliderContextRequested;
+            new ScrubHeaderHandlers(
+                    OnSliderPointerPressed, OnSliderPointerReleased, OnSliderPointerMoved,
+                    OnSliderPointerCaptureLost, RoutingStrategies.Direct | RoutingStrategies.Bubble)
+                .SubscribePointer(_slider, _sliderHandlers);
+            _slider.AddDisposableHandler(ContextRequestedEvent, OnSliderContextRequested).DisposeWith(_sliderHandlers);
             UpdateSlider();
         }
     }
@@ -201,9 +197,7 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
             BeginSlide();
         }
 
-        TValue previous = Value;
-        ApplyValue(Scrub(previous, ref _scrub, slider, e));
-        OnScrubbed(previous, e.Timestamp);
+        ApplyScrub(ref _scrub, slider, e);
     }
 
     private void FollowPointer(ValueSlider slider, double x, KeyModifiers modifiers)

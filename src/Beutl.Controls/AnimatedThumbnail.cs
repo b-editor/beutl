@@ -115,17 +115,11 @@ public sealed class AnimatedThumbnail : Control
     // Uniformly inside the bounds, centred.
     private Rect Fit(Size size)
     {
-        Size bounds = Bounds.Size;
+        var bounds = new Rect(Bounds.Size);
         if (size.Width <= 0 || size.Height <= 0 || bounds.Width <= 0 || bounds.Height <= 0)
             return default;
 
-        double scale = Math.Min(bounds.Width / size.Width, bounds.Height / size.Height);
-        var fitted = new Size(size.Width * scale, size.Height * scale);
-        return new Rect(
-            (bounds.Width - fitted.Width) / 2,
-            (bounds.Height - fitted.Height) / 2,
-            fitted.Width,
-            fitted.Height);
+        return bounds.CenterRect(new Rect(Stretch.Uniform.CalculateSize(bounds.Size, size)));
     }
 
     private void OnEffectiveViewportChanged(object? sender, EffectiveViewportChangedEventArgs e)

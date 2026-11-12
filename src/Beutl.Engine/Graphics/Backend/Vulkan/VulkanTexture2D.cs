@@ -140,7 +140,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
                 BufferImageHeight = 0,
                 ImageSubresource = new ImageSubresourceLayers
                 {
-                    AspectMask = _format.IsDepthFormat() ? ImageAspectFlags.DepthBit : ImageAspectFlags.ColorBit,
+                    AspectMask = VulkanContext.GetCopyAspectMask(_format),
                     MipLevel = 0,
                     BaseArrayLayer = 0,
                     LayerCount = 1

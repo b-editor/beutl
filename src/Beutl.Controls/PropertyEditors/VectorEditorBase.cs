@@ -164,8 +164,7 @@ public abstract class VectorEditorBase : PropertyEditor
     private void IsPointerOverChanged(bool obj)
     {
         // A pressed box holds the pointer, which leaves it and all the rest not over anything until the release.
-        bool isPointerOver = _scrub.IsArmed
-            || _scrub.IsActive
+        bool isPointerOver = _scrub.IsHeld
             || _backgroundBorder?.IsPointerOver == true
             || Array.Exists(_textBoxes, textBox => textBox?.IsPointerOver == true)
             || Array.Exists(_componentHeaders, header => header?.IsPointerOver == true);
@@ -299,7 +298,7 @@ public abstract class VectorEditorBase : PropertyEditor
 
     private void OnBoxPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (sender is not TextBox box || (!_scrub.IsArmed && !_scrub.IsActive)) return;
+        if (sender is not TextBox box || !_scrub.IsHeld) return;
 
         // A move with the button up means the release never reached the box.
         if (!e.Properties.IsLeftButtonPressed)
@@ -322,7 +321,7 @@ public abstract class VectorEditorBase : PropertyEditor
 
     private void OnBoxPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (!_scrub.IsArmed && !_scrub.IsActive) return;
+        if (!_scrub.IsHeld) return;
 
         e.Handled = true;
         bool clicked = _scrub.IsArmed;
@@ -349,7 +348,7 @@ public abstract class VectorEditorBase : PropertyEditor
     // capture goes after a release, which has ended the press already.
     private void AbandonBoxPress()
     {
-        if (!_scrub.IsArmed && !_scrub.IsActive) return;
+        if (!_scrub.IsHeld) return;
 
         EndBoxPress();
         IsPointerOverChanged(false);

@@ -28,64 +28,6 @@
         </StackPanel>
     </DataTemplate>
 
-    <ControlTheme x:Key="LibraryItemPicker_TileListBoxItem"
-                  BasedOn="{StaticResource PickerListBoxItemBase}"
-                  TargetType="ListBoxItem">
-        <Setter Property="Padding" Value="6,6,6,4" />
-        <Setter Property="Margin" Value="2" />
-        <Setter Property="VerticalContentAlignment" Value="Top" />
-        <Setter Property="Template">
-            <ControlTemplate>
-                <Border Name="Root"
-                        Background="{TemplateBinding Background}"
-                        BorderBrush="{TemplateBinding BorderBrush}"
-                        BorderThickness="{TemplateBinding BorderThickness}"
-                        CornerRadius="{TemplateBinding CornerRadius}">
-                    <Panel>
-                        <ContentPresenter Name="PART_ContentPresenter"
-                                          Padding="{TemplateBinding Padding}"
-                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                          Content="{TemplateBinding Content}"
-                                          ContentTemplate="{TemplateBinding ContentTemplate}" />
-
-                        <!--  One-way for the same reason as the list's pin: a rebuilt list can hand this tile another item.  -->
-                        <ToggleButton Name="ToggleButton"
-                                      Margin="0,0,4,1"
-                                      HorizontalAlignment="Right"
-                                      VerticalAlignment="Bottom"
-                                      IsChecked="{Binding $self.((local:PinnableLibraryItem)DataContext).IsPinned, Mode=OneWay, FallbackValue=False}"
-                                      IsVisible="False"
-                                      Theme="{StaticResource PickerPinToggleButton}">
-                            <icons:FluentIcon FontSize="14" Icon="Pin" />
-                        </ToggleButton>
-
-                        <Rectangle Name="SelectionIndicator"
-                                   Width="16"
-                                   Height="3"
-                                   Margin="0,0,0,1"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Bottom"
-                                   Fill="{DynamicResource AccentFillColorDefaultBrush}"
-                                   IsVisible="False"
-                                   RadiusX="2"
-                                   RadiusY="2"
-                                   RenderTransform="scaleY(0)"
-                                   UseLayoutRounding="False" />
-                    </Panel>
-                </Border>
-            </ControlTemplate>
-        </Setter>
-
-        <Style Selector="^:pointerover /template/ ToggleButton#ToggleButton">
-            <Setter Property="IsVisible" Value="True" />
-        </Style>
-
-        <Style Selector="^ /template/ ToggleButton#ToggleButton:checked">
-            <Setter Property="IsVisible" Value="True" />
-        </Style>
-    </ControlTheme>
-
     <ControlTheme x:Key="LibraryItemPicker_ListBoxItem"
                   BasedOn="{StaticResource PickerListBoxItemBase}"
                   TargetType="ListBoxItem">
@@ -150,6 +92,56 @@
         <Style Selector="^ /template/ ToggleButton#ToggleButton:checked">
             <Setter Property="IsVisible" Value="True" />
         </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="LibraryItemPicker_TileListBoxItem"
+                  BasedOn="{StaticResource LibraryItemPicker_ListBoxItem}"
+                  TargetType="ListBoxItem">
+        <Setter Property="Padding" Value="6,6,6,4" />
+        <Setter Property="Margin" Value="2" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="Root"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Panel>
+                        <ContentPresenter Name="PART_ContentPresenter"
+                                          Padding="{TemplateBinding Padding}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}" />
+
+                        <!--  One-way for the same reason as the list's pin: a rebuilt list can hand this tile another item.  -->
+                        <ToggleButton Name="ToggleButton"
+                                      Margin="0,0,4,1"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Bottom"
+                                      IsChecked="{Binding $self.((local:PinnableLibraryItem)DataContext).IsPinned, Mode=OneWay, FallbackValue=False}"
+                                      IsVisible="False"
+                                      Theme="{StaticResource PickerPinToggleButton}">
+                            <icons:FluentIcon FontSize="14" Icon="Pin" />
+                        </ToggleButton>
+
+                        <Rectangle Name="SelectionIndicator"
+                                   Width="16"
+                                   Height="3"
+                                   Margin="0,0,0,1"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Bottom"
+                                   Fill="{DynamicResource AccentFillColorDefaultBrush}"
+                                   IsVisible="False"
+                                   RadiusX="2"
+                                   RadiusY="2"
+                                   RenderTransform="scaleY(0)"
+                                   UseLayoutRounding="False" />
+                    </Panel>
+                </Border>
+            </ControlTemplate>
+        </Setter>
     </ControlTheme>
 
     <ControlTheme x:Key="{x:Type local:LibraryItemPickerFlyoutPresenter}"

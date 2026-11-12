@@ -24,8 +24,7 @@ public sealed partial class TimelineTabViewModel
     {
         if (kind == ElementSelectionKind.Group)
         {
-            HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(GetGroupSelectionSeeds(reference), Scene.Groups);
-            ApplySelection(Scene.Children.Where(element => ids.Contains(element.Id.Value)).ToHashSet());
+            ApplySelection(DuplicateHelper.FindWithGroupSiblings(Scene, GetGroupSelectionSeeds(reference)).ToHashSet());
             return;
         }
 

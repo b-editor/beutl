@@ -144,25 +144,19 @@ public static class GotoTimecodeParser
             return TryParseFrame(text, frameRate, out result, out error);
         }
 
-        if (IsTimecode(text))
+        // Four fields of digits that colons or semicolons part, which no time has.
+        string[] fields = text.Split(s_timecodeSeparators);
+        if (fields.Length == 4 && fields.All(field => field.Length > 0 && field.All(char.IsAsciiDigit)))
         {
-            return TryParseTimecode(text, frameRate, out result, out error);
+            return TryParseTimecode(fields, frameRate, out result, out error);
         }
 
         return TryParseAbsolute(text, out result, out error);
     }
 
-    // Four fields of digits that colons or semicolons part, which no time has.
-    private static bool IsTimecode(string text)
-    {
-        string[] fields = text.Split(s_timecodeSeparators);
-        return fields.Length == 4 && fields.All(field => field.Length > 0 && field.All(char.IsAsciiDigit));
-    }
-
-    private static bool TryParseTimecode(string text, Rational frameRate, out MediaTime result, out GotoTimecodeError error)
+    private static bool TryParseTimecode(string[] fields, Rational frameRate, out MediaTime result, out GotoTimecodeError error)
     {
         result = MediaTime.Zero;
-        string[] fields = text.Split(s_timecodeSeparators);
         var values = new ulong[fields.Length];
         for (int i = 0; i < fields.Length; i++)
         {

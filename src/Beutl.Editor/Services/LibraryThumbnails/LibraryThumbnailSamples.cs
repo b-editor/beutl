@@ -1,6 +1,5 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
-using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Serialization;
@@ -47,17 +46,16 @@ internal static class LibraryThumbnailSamples
     // moves read at a glance.
     public static Drawable CreateClip(bool incoming)
     {
-        return CreateImage(incoming ? "transition-b.webp" : "transition-a.webp");
+        return CreateImage(GetClipFileName(incoming));
     }
 
     // The source of a sample's picture, for tests.
     internal static ImageSource GetSource(LibraryThumbnailSample sample) => GetSource(GetFileName(sample));
 
     // The source of a transition's clip, for tests.
-    internal static ImageSource GetClipSource(bool incoming)
-    {
-        return GetSource(incoming ? "transition-b.webp" : "transition-a.webp");
-    }
+    internal static ImageSource GetClipSource(bool incoming) => GetSource(GetClipFileName(incoming));
+
+    private static string GetClipFileName(bool incoming) => incoming ? "transition-b.webp" : "transition-a.webp";
 
     private static string GetFileName(LibraryThumbnailSample sample)
     {
@@ -72,22 +70,10 @@ internal static class LibraryThumbnailSamples
         };
     }
 
-    // A picture at the size it covers in the frame, centred. Its source comes through an expression, which does not
-    // make it a child of the scene, so every thumbnail shares it and one decoded copy of it while any draws it.
+    // A picture at the size it covers in the frame, centred; thumbnails share one decoded copy while any draws it.
     private static SourceImage CreateImage(string fileName)
     {
-        return new SourceImage
-        {
-            Source = { Expression = new SharedValueExpression<ImageSource?>(GetSource(fileName)) },
-            Transform =
-            {
-                Value = new ScaleTransform
-                {
-                    ScaleX = { Value = 100 / PixelsPerUnit },
-                    ScaleY = { Value = 100 / PixelsPerUnit },
-                }
-            },
-        };
+        return LibraryThumbnailRenderer.CreateImage(GetSource(fileName), 100 / PixelsPerUnit, 100 / PixelsPerUnit);
     }
 
     // The picture is read into memory once, and thumbnails decode it from there, as captured content is.

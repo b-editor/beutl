@@ -48,8 +48,7 @@ public class ColorBalancePad : Control
     // fill it once; the last pad to let go of a disk disposes it.
     private static readonly Dictionary<DiskKey, SharedDisk> s_disks = [];
     private DiskKey? _diskKey;
-    private bool _dragging;
-    private Point _dragPoint;
+    private HeaderScrubGesture _scrub;
 
     static ColorBalancePad()
     {
@@ -81,7 +80,7 @@ public class ColorBalancePad : Control
         set => SetValue(GuideBrushProperty, value);
     }
 
-    public bool IsDragging => _dragging;
+    public bool IsDragging => _scrub.IsActive;
 
     // Ends the drag in progress and gives the cursor back, for a host that ended the gesture before the release; the
     // release then does nothing.
@@ -191,17 +190,15 @@ public class ColorBalancePad : Control
             return;
         }
 
-        _dragging = true;
-        _dragPoint = point.Position;
         e.Pointer.Capture(this);
-        PointerLockHelper.Pressed(this, _dragPoint);
+        _scrub.Begin(this, point.Position);
         RaiseEvent(new VectorEventArgs { RoutedEvent = DragStartedEvent, Vector = default });
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if (!_dragging)
+        if (!_scrub.IsActive)
             return;
 
         // A move with the button up means the release never reached the pad.
@@ -211,7 +208,7 @@ public class ColorBalancePad : Control
             return;
         }
 
-        Point move = PointerLockHelper.Moved(this, e.GetPosition(this), ref _dragPoint);
+        Point move = _scrub.NextMove(this, e);
         double factor = NumberEditorHelper.IsFineModifier(e.KeyModifiers) ? 0.1 : 1;
         var delta = new Vector(move.X, -move.Y) * (factor / TravelRadius);
         e.Handled = true;
@@ -222,7 +219,7 @@ public class ColorBalancePad : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
-        if (_dragging && e.InitialPressMouseButton == MouseButton.Left)
+        if (_scrub.IsActive && e.InitialPressMouseButton == MouseButton.Left)
         {
             e.Handled = true;
             EndDrag();
@@ -237,11 +234,10 @@ public class ColorBalancePad : Control
 
     private void EndDrag()
     {
-        if (!_dragging)
+        if (!_scrub.IsActive)
             return;
 
-        _dragging = false;
-        PointerLockHelper.Released();
+        _scrub.End();
         RaiseEvent(new VectorEventArgs { RoutedEvent = DragCompletedEvent, Vector = default });
     }
 

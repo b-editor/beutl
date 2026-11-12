@@ -8,46 +8,10 @@ namespace Beutl.Editor.Components.ColorGradingTab.Views;
 // share, as in a column as wide as what it holds, the groups stack too.
 public sealed class GradingAdjustmentsPanel : Panel
 {
-    public static readonly StyledProperty<int> ColumnsProperty =
-        AvaloniaProperty.Register<GradingAdjustmentsPanel, int>(nameof(Columns), 3);
-
-    public static readonly StyledProperty<double> MinColumnWidthProperty =
-        AvaloniaProperty.Register<GradingAdjustmentsPanel, double>(nameof(MinColumnWidth), 280);
-
-    public static readonly StyledProperty<double> ColumnSpacingProperty =
-        AvaloniaProperty.Register<GradingAdjustmentsPanel, double>(nameof(ColumnSpacing), 24);
-
-    public static readonly StyledProperty<double> RowSpacingProperty =
-        AvaloniaProperty.Register<GradingAdjustmentsPanel, double>(nameof(RowSpacing), 12);
-
-    static GradingAdjustmentsPanel()
-    {
-        AffectsMeasure<GradingAdjustmentsPanel>(ColumnsProperty, MinColumnWidthProperty, ColumnSpacingProperty, RowSpacingProperty);
-    }
-
-    public int Columns
-    {
-        get => GetValue(ColumnsProperty);
-        set => SetValue(ColumnsProperty, value);
-    }
-
-    public double MinColumnWidth
-    {
-        get => GetValue(MinColumnWidthProperty);
-        set => SetValue(MinColumnWidthProperty, value);
-    }
-
-    public double ColumnSpacing
-    {
-        get => GetValue(ColumnSpacingProperty);
-        set => SetValue(ColumnSpacingProperty, value);
-    }
-
-    public double RowSpacing
-    {
-        get => GetValue(RowSpacingProperty);
-        set => SetValue(RowSpacingProperty, value);
-    }
+    private const int Columns = 3;
+    private const double MinColumnWidth = 280;
+    private const double ColumnSpacing = 24;
+    private const double RowSpacing = 12;
 
     // The columns of the last layout, for tests.
     internal int UsedColumns { get; private set; } = 1;
@@ -103,7 +67,7 @@ public sealed class GradingAdjustmentsPanel : Panel
         if (!double.IsFinite(width))
             return 1;
 
-        int columns = Math.Max(Columns, 1);
+        int columns = Columns;
 
         while (columns > 1 && CellWidth(width, columns) < MinColumnWidth)
             columns--;

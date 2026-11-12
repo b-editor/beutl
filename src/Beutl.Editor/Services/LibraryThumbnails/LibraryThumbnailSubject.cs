@@ -2,11 +2,9 @@
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
-using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Threading;
@@ -184,18 +182,19 @@ internal sealed class LibraryThumbnailSubject : IDisposable
             covered.X / probeScale, covered.Y / probeScale, covered.Width / probeScale, covered.Height / probeScale);
         float scale = Math.Clamp(MaxPictureSize / Math.Max(content.Width, content.Height), probeScale, 1f);
         Bitmap? bitmap = probe;
+        PixelRect? area = covered;
         if (scale > probeScale * 1.25f)
         {
             probe.Dispose();
             bitmap = TryRenderScene(copy, scale);
+            // Found again at the scale drawn, so the crop follows the pixels rather than a rounded probe.
+            area = bitmap == null ? null : FindCovered(bitmap);
         }
         else
         {
             scale = probeScale;
         }
 
-        // Found again at the scale drawn, so the crop follows the pixels rather than a rounded probe.
-        PixelRect? area = bitmap == null ? null : FindCovered(bitmap);
         if (bitmap == null || area is not { } found)
         {
             bitmap?.Dispose();
@@ -232,14 +231,8 @@ internal sealed class LibraryThumbnailSubject : IDisposable
             if (at >= end)
                 at = end - start > EdgeInset ? end - EdgeInset : start;
 
-            string directory = Path.Combine(Path.GetTempPath(), "beutl-library-thumbnail");
-            var scene = new Scene(frameSize.Width, frameSize.Height, string.Empty)
-            {
-                Duration = { Value = end > MediaTime.Zero ? end : MediaTime.FromSeconds(1) },
-                Uri = ObjectTemplateItem.ToFileUri(Path.Combine(directory, "subject.scene")),
-            };
-            copy.Uri = ObjectTemplateItem.ToFileUri(Path.Combine(directory, $"{copy.Id.Value}.belm"));
-            scene.Children.Add(copy);
+            Scene scene = LibraryThumbnailRenderer.CreateScene(
+                frameSize, end > MediaTime.Zero ? end : MediaTime.FromSeconds(1), copy);
             return new Copy(scene, at);
         }
         catch (Exception ex)
@@ -255,13 +248,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     {
         try
         {
-            using var renderer = new SceneRenderer(
-                copy.Scene,
-                RenderIntent.Preview,
-                scale,
-                disableResourceShare: false,
-                maxWorkingScale: WorkingScaleCeiling.Preview(scale));
-            renderer.CacheOptions = RenderCacheOptions.Disabled;
+            using SceneRenderer renderer = LibraryThumbnailRenderer.CreateRenderer(copy.Scene, scale);
             renderer.Render(renderer.Compositor.EvaluateGraphics(copy.Time));
             using Bitmap snapshot = renderer.Snapshot();
             return snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
@@ -278,19 +265,33 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     {
         try
         {
-            using Bitmap converted = frame.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
-            float scale = Math.Min(1f, MaxPictureSize / (float)Math.Max(converted.Width, converted.Height));
-            if (scale >= 1f)
-                return converted.Clone();
+            // Convert always makes a new bitmap, so one that needs no scaling is handed over rather than copied.
+            Bitmap converted = frame.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+            bool handedOver = false;
+            try
+            {
+                float scale = Math.Min(1f, MaxPictureSize / (float)Math.Max(converted.Width, converted.Height));
+                if (scale >= 1f)
+                {
+                    handedOver = true;
+                    return converted;
+                }
 
-            var info = new SKImageInfo(
-                Math.Max(1, (int)MathF.Round(converted.Width * scale)),
-                Math.Max(1, (int)MathF.Round(converted.Height * scale)),
-                SKColorType.Bgra8888,
-                SKAlphaType.Premul,
-                converted.SKBitmap.ColorSpace);
-            SKBitmap? scaled = converted.SKBitmap.Resize(info, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
-            return scaled == null ? null : new Bitmap(scaled);
+                var info = new SKImageInfo(
+                    Math.Max(1, (int)MathF.Round(converted.Width * scale)),
+                    Math.Max(1, (int)MathF.Round(converted.Height * scale)),
+                    SKColorType.Bgra8888,
+                    SKAlphaType.Premul,
+                    converted.SKBitmap.ColorSpace);
+                SKBitmap? scaled = converted.SKBitmap.Resize(
+                    info, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
+                return scaled == null ? null : new Bitmap(scaled);
+            }
+            finally
+            {
+                if (!handedOver)
+                    converted.Dispose();
+            }
         }
         catch (Exception ex)
         {
@@ -312,7 +313,8 @@ internal sealed class LibraryThumbnailSubject : IDisposable
 
         try
         {
-            if (FindCovered(bitmap) == null)
+            // A crop is where its caller found something drawn; a whole bitmap is only checked for anything drawn.
+            if (crop == null && ObjectTemplatePreviewRenderer.IsBlank(bitmap))
                 return null;
 
             using Bitmap? cropped = crop is { } rect ? bitmap.ExtractSubset(rect) : null;
