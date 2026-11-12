@@ -49,6 +49,18 @@ internal struct HeaderScrubGesture
         return true;
     }
 
+    // Begins the scrub where the armed press was, once it has travelled along either axis, so the travel still counts
+    // as a move: for a pad that moves in two dimensions.
+    public bool TryBeginAtPress(Visual header, Point position)
+    {
+        if (Math.Abs(position.X - _dragStart.X) < ClickTolerance && Math.Abs(position.Y - _dragStart.Y) < ClickTolerance)
+            return false;
+
+        IsArmed = false;
+        Begin(header, _dragStart);
+        return true;
+    }
+
     public void Begin(Visual header, Point position)
     {
         _dragStart = position;

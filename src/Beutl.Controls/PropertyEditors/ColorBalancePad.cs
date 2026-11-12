@@ -84,7 +84,11 @@ public class ColorBalancePad : Control
 
     // Ends the drag in progress and gives the cursor back, for a host that ended the gesture before the release; the
     // release then does nothing.
-    public void StopDrag() => EndDrag();
+    public void StopDrag()
+    {
+        _scrub.Disarm();
+        EndDrag();
+    }
 
     public event EventHandler<VectorEventArgs>? DragStarted
     {
@@ -190,22 +194,32 @@ public class ColorBalancePad : Control
             return;
         }
 
+        // The drag, and the pointer lock that hides the cursor, wait for the press to travel, so that a click and a
+        // double click leave the cursor alone, as on a number box.
         e.Pointer.Capture(this);
-        _scrub.Begin(this, point.Position);
-        RaiseEvent(new VectorEventArgs { RoutedEvent = DragStartedEvent, Vector = default });
+        _scrub.Arm(point.Position);
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if (!_scrub.IsActive)
+        if (!_scrub.IsHeld)
             return;
 
         // A move with the button up means the release never reached the pad.
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            EndDrag();
+            StopDrag();
             return;
+        }
+
+        if (_scrub.IsArmed)
+        {
+            e.Handled = true;
+            if (!_scrub.TryBeginAtPress(this, e.GetPosition(this)))
+                return;
+
+            RaiseEvent(new VectorEventArgs { RoutedEvent = DragStartedEvent, Vector = default });
         }
 
         Point move = _scrub.NextMove(this, e);
@@ -219,17 +233,17 @@ public class ColorBalancePad : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
-        if (_scrub.IsActive && e.InitialPressMouseButton == MouseButton.Left)
+        if (_scrub.IsHeld && e.InitialPressMouseButton == MouseButton.Left)
         {
             e.Handled = true;
-            EndDrag();
+            StopDrag();
         }
     }
 
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
     {
         base.OnPointerCaptureLost(e);
-        EndDrag();
+        StopDrag();
     }
 
     private void EndDrag()
