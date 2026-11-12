@@ -73,6 +73,9 @@ public sealed class TimelineScale : TimelineBarsControl
     private static readonly Geometry _pointMarker;
     private INotifyCollectionChanged? _trackedMarkers;
     private readonly Dictionary<SceneMarker, IDisposable> _markerSubscriptions = new();
+    // The ruler is drawn again on every frame of playback, since it draws the seek bar, while its texts stay the same.
+    private readonly TextLayoutCache _tickLabels = new(13);
+    private readonly TextLayoutCache _markerLabels = new(11);
 
     static TimelineScale()
     {
@@ -193,18 +196,34 @@ public sealed class TimelineScale : TimelineBarsControl
         set => SetValue(TimeDisplayFormatProperty, value);
     }
 
+    // The layouts made for the ruler's texts so far; tests check that a render that only moves the seek bar makes none.
+    internal int LabelLayoutsMade => _tickLabels.Made + _markerLabels.Made;
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
         if (change.Property == ScaleBrushProperty)
         {
             _pen = new ImmutablePen(ScaleBrush?.ToImmutable(), 1);
+            _tickLabels.Clear();
+            _markerLabels.Clear();
+        }
+        else if (change.Property == MarkerLabelForegroundProperty)
+        {
+            _markerLabels.Clear();
         }
         else if (change.Property == MarkersProperty)
         {
             DetachMarkers();
             AttachMarkers(change.NewValue as IEnumerable);
         }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        _tickLabels.Clear();
+        _markerLabels.Clear();
     }
 
     private void AttachMarkers(IEnumerable? markers)
@@ -314,6 +333,9 @@ public sealed class TimelineScale : TimelineBarsControl
             DrawRangeMarkers(context);
             DrawMarkers(context, viewport);
         }
+
+        _tickLabels.EndRender();
+        _markerLabels.EndRender();
     }
 
     private void DrawTimeTicks(DrawingContext context, IPen pen, Rect viewport, double height, double originX, double viewportRight)
@@ -332,7 +354,7 @@ public sealed class TimelineScale : TimelineBarsControl
                 context.DrawLine(pen, new(x, 5), new(x, height));
             }
 
-            using var text = new TextLayout(TimeDisplayFormatter.Format(time, FrameRate, TimeDisplayFormat), s_typeface, 13, ScaleBrush);
+            TextLayout text = _tickLabels.Get(TimeDisplayFormatter.Format(time, FrameRate, TimeDisplayFormat), ScaleBrush);
             var textbounds = new Rect(x + 8, 0, text.Width, text.Height);
 
             if (viewport.Intersects(textbounds) && (recentPix == 0d || (x + 8) > recentPix))
@@ -429,8 +451,7 @@ public sealed class TimelineScale : TimelineBarsControl
             string label = marker.Name.Value;
             if (!string.IsNullOrEmpty(label))
             {
-                IBrush? labelBrush = MarkerLabelForeground ?? ScaleBrush;
-                using var text = new TextLayout(label, s_typeface, 11, labelBrush);
+                TextLayout text = _markerLabels.Get(label, MarkerLabelForeground ?? ScaleBrush);
                 var origin = new Point(x + 8, 1);
                 if (MarkerLabelBackground is { } bg)
                 {
@@ -464,5 +485,50 @@ public sealed class TimelineScale : TimelineBarsControl
         }
 
         return best;
+    }
+
+    // Keeps the layout of each text a render uses for the next render, which lets go of those it does not use. All the
+    // texts take one brush, so a new brush clears it.
+    private sealed class TextLayoutCache(double fontSize)
+    {
+        private Dictionary<string, TextLayout> _kept = [];
+        private Dictionary<string, TextLayout> _used = [];
+
+        public int Made { get; private set; }
+
+        public TextLayout Get(string text, IBrush? brush)
+        {
+            if (_used.TryGetValue(text, out TextLayout? layout))
+                return layout;
+
+            if (!_kept.Remove(text, out layout))
+            {
+                layout = new TextLayout(text, s_typeface, fontSize, brush);
+                Made++;
+            }
+
+            _used.Add(text, layout);
+            return layout;
+        }
+
+        public void EndRender()
+        {
+            DisposeAll(_kept);
+            (_kept, _used) = (_used, _kept);
+        }
+
+        public void Clear()
+        {
+            DisposeAll(_kept);
+            DisposeAll(_used);
+        }
+
+        private static void DisposeAll(Dictionary<string, TextLayout> layouts)
+        {
+            foreach (TextLayout layout in layouts.Values)
+                layout.Dispose();
+
+            layouts.Clear();
+        }
     }
 }
