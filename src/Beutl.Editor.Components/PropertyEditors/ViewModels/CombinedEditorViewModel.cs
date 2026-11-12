@@ -28,9 +28,9 @@ public sealed class CombinedEditorViewModel<T, TTuple> : VectorEditorViewModel<T
     private IServiceProvider? _services;
 
     // split and compose turn the row's value into the value of each property, in their order, and back.
-    internal CombinedEditorViewModel(IReadOnlyList<IAnimatablePropertyAdapter<T>> properties, string displayName,
+    internal CombinedEditorViewModel(IReadOnlyList<IAnimatablePropertyAdapter<T>> properties,
         Func<TTuple, T[]> split, Func<T[], TTuple> compose)
-        : this(new CombinedPropertyAdapter<T, TTuple>(properties, displayName, split, compose))
+        : this(new CombinedPropertyAdapter<T, TTuple>(properties, split, compose))
     {
     }
 
@@ -211,13 +211,12 @@ internal sealed class CombinedPropertyAdapter<T, TTuple>
     private readonly CompositeDisposable _subscriptions = [];
     private readonly ReactivePropertySlim<bool> _isSeparated = new();
 
-    public CombinedPropertyAdapter(IReadOnlyList<IAnimatablePropertyAdapter<T>> properties, string displayName,
+    public CombinedPropertyAdapter(IReadOnlyList<IAnimatablePropertyAdapter<T>> properties,
         Func<TTuple, T[]> split, Func<T[], TTuple> compose)
     {
         _first = properties[0];
         _split = split;
         _compose = compose;
-        DisplayName = displayName;
         Properties = properties;
         Pair = (PropertyPair<T>)PropertyPair.Find(_first)!;
         Components = [.. properties.Select(property => new NumberEditorViewModel<T>(property))];
@@ -241,7 +240,7 @@ internal sealed class CombinedPropertyAdapter<T, TTuple>
     // What the row's hover text names; the value of each editor is one of these.
     public Type PropertyType => typeof(T);
 
-    public string DisplayName { get; }
+    public string DisplayName => Pair.DisplayName;
 
     public string? Description => _first.Description;
 

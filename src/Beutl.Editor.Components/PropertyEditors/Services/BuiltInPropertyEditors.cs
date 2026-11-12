@@ -149,9 +149,7 @@ internal static class BuiltInPropertyEditors
             Tier = PropertyEditorTier.Match,
             Match = properties => MatchCombined<T>(properties, count),
             CreateContext = properties => new CombinedEditorViewModel<T, TTuple>(
-                [.. properties.Cast<IAnimatablePropertyAdapter<T>>()],
-                properties[0].GetAttributes().OfType<CombinedEditorAttribute>().First().GetName() ?? properties[0].DisplayName,
-                split, compose),
+                [.. properties.Cast<IAnimatablePropertyAdapter<T>>()], split, compose),
             CreateControl = (_, _) => createControl(),
             Connect = Connect,
             IsStandard = true,
@@ -161,26 +159,26 @@ internal static class BuiltInPropertyEditors
     }
 
     // Waits until the panel reaches the first property, so that the row takes its place. count is the number of
-    // properties the row's editor shows.
+    // properties the row's editor shows. The row is a view of the PropertyPair of its first property, so it takes the
+    // properties that pair joins.
     private static IReadOnlyList<IPropertyAdapter> MatchCombined<T>(IReadOnlyList<IPropertyAdapter> properties, int count)
     {
         if (properties.FirstOrDefault() is not IAnimatablePropertyAdapter<T> first
-            || first.GetAttributes().OfType<CombinedEditorAttribute>().FirstOrDefault() is not { } attribute)
+            || !first.GetAttributes().OfType<CombinedEditorAttribute>().Any()
+            || first.GetEngineProperty() is not { } property
+            || PropertyPair.Find(property) is not { } pair
+            || pair.Properties.Count != count
+            || !ReferenceEquals(pair.Properties[0], property))
         {
             return [];
         }
 
-        string[] others = attribute.OtherNames;
-        // PropertyPair, which the row is a view of, finds pairs only on an engine object.
-        if (others.Length + 1 != count || first.GetEngineProperty()?.GetOwnerObject() is not EngineObject owner) return [];
-
         var matched = new List<IPropertyAdapter>(count) { first };
-        foreach (string name in others)
+        for (int i = 1; i < count; i++)
         {
-            if (properties.FirstOrDefault(p => p is IAnimatablePropertyAdapter<T>
-                    && p.GetEngineProperty() is { } property
-                    && property.Name == name
-                    && ReferenceEquals(property.GetOwnerObject(), owner)) is not { } other)
+            IProperty member = pair.Properties[i];
+            if (properties.FirstOrDefault(p => p is IAnimatablePropertyAdapter<T> && ReferenceEquals(p.GetEngineProperty(), member))
+                is not { } other)
             {
                 return [];
             }
