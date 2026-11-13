@@ -241,6 +241,29 @@ public class MultiElementPropertyTests
         });
     }
 
+    // The rows of separated components edit those of each element, so a property that only the shown element separates
+    // takes no row until every element separates it.
+    [AvaloniaTest]
+    public async Task APropertyOnlyTheShownElementSeparatesIsLeftOut()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
+        RectShape[] shapes = Shapes<RectShape>(elements);
+        ComponentAnimations.Separate(shapes[0].TransformOrigin);
+        editor.HistoryManager.Commit("test setup");
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(HasEditor(tab, Copy<RectShape>(tab).TransformOrigin), Is.False);
+            Assert.That(HasEditor(tab, Copy<RectShape>(tab).Opacity), Is.True);
+        });
+
+        ComponentAnimations.Separate(shapes[1].TransformOrigin);
+        editor.HistoryManager.Commit("separate the other");
+        HeadlessTestHelpers.Settle();
+        Assert.That(HasEditor(tab, Copy<RectShape>(tab).TransformOrigin), Is.True);
+    }
+
     // A row of two properties runs its commands on the same row of each element.
     [AvaloniaTest]
     public async Task CombinedRowsRunTheirCommandsOnEveryElement()
@@ -477,6 +500,107 @@ public class MultiElementPropertyTests
         });
     }
 
+    // Effects of one type pair in the order each element holds them, the first blur with the first blur, whatever lies
+    // between them.
+    [AvaloniaTest]
+    public async Task EffectsInAnotherOrderArePairedByType()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
+        RectShape[] shapes = Shapes<RectShape>(elements);
+        Effects(shapes[0]).Children.AddRange([new Blur(), new DropShadow(), new Blur()]);
+        Effects(shapes[1]).Children.AddRange([new DropShadow(), new Blur(), new Blur()]);
+        editor.HistoryManager.Commit("test setup");
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        RectShape copy = Copy<RectShape>(tab);
+        Size unedited = ((Blur)Effects(shapes[1]).Children[2]).Sigma.Value;
+
+        Assert.That(EffectList(tab, copy).Items.Select(item => item.IsShown.Value), Is.All.True);
+
+        ((Blur)Effects(copy).Children[0]).Sigma.Value = new Size(7, 7);
+        editor.HistoryManager.Commit("edit the first blur");
+        Assert.That(Effects(shapes[1]).Children.OfType<Blur>().Select(blur => blur.Sigma.Value),
+            Is.EqualTo(new[] { new Size(7, 7), unedited }));
+    }
+
+    // Adding an effect where each element holds one effect puts each element's own effect in its new group, as its own
+    // editor would, and none in an element that held none.
+    [AvaloniaTest]
+    public async Task AddingAnEffectKeepsEachElementsOwnEffect()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(
+            () => new RectShape(), () => new RectShape(), () => new RectShape());
+        RectShape[] shapes = Shapes<RectShape>(elements);
+        shapes[0].FilterEffect.Value = new Blur { Sigma = { Value = new Size(3, 3) } };
+        shapes[1].FilterEffect.Value = new Blur { Sigma = { Value = new Size(9, 9) } };
+        shapes[2].FilterEffect.Value = null;
+        editor.HistoryManager.Commit("test setup");
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+
+        var filter = (FilterEffectEditorViewModel)Editor(tab, Copy<RectShape>(tab).FilterEffect);
+        filter.AddItem(new Saturate());
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shapes.Take(2).Select(EffectTypes), Is.All.EqualTo(new[] { typeof(Blur), typeof(Saturate) }));
+            Assert.That(shapes.Take(2).Select(shape => ((Blur)Effects(shape).Children[0]).Sigma.Value),
+                Is.EqualTo(new[] { new Size(3, 3), new Size(9, 9) }));
+            Assert.That(EffectTypes(shapes[2]), Is.EqualTo(new[] { typeof(Saturate) }));
+        });
+    }
+
+    // A pen holds its dashes as a list of its own: each element keeps a list of its own, and a dash goes in, out or
+    // changes at its place in each.
+    [AvaloniaTest]
+    public async Task DashesStayEachElementsOwnAndChangeAtTheirPlaces()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
+        RectShape[] shapes = Shapes<RectShape>(elements);
+        foreach (RectShape shape in shapes)
+            shape.Pen.Value = new Pen();
+        editor.HistoryManager.Commit("test setup");
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        Pen copy = Copy<RectShape>(tab).Pen.Value!;
+
+        copy.DashArray.Value = new Beutl.Collections.CoreList<float>();
+        editor.HistoryManager.Commit("give the pen dashes");
+        Assert.That(shapes.Select(shape => shape.Pen.Value!.DashArray.Value).Append(copy.DashArray.Value)
+            .Distinct<object?>(ReferenceEqualityComparer.Instance).Count(), Is.EqualTo(3), "each holds a list of its own");
+
+        copy.DashArray.Value!.AddRange([2f, 4f]);
+        editor.HistoryManager.Commit("add dashes");
+        shapes[1].Pen.Value!.DashArray.Value!.Add(6f);
+        editor.HistoryManager.Commit("add a dash elsewhere");
+        HeadlessTestHelpers.Settle();
+        Assert.That(Dashes(shapes[1]), Is.EqualTo(new[] { 2f, 4f, 6f }));
+
+        copy.DashArray.Value![0] = 5f;
+        editor.HistoryManager.Commit("change a dash");
+        Assert.Multiple(() =>
+        {
+            Assert.That(Dashes(shapes[0]), Is.EqualTo(new[] { 5f, 4f }));
+            Assert.That(Dashes(shapes[1]), Is.EqualTo(new[] { 5f, 4f, 6f }));
+        });
+
+        copy.DashArray.Value!.Move(0, 1);
+        editor.HistoryManager.Commit("move a dash");
+        Assert.Multiple(() =>
+        {
+            Assert.That(Dashes(shapes[0]), Is.EqualTo(new[] { 4f, 5f }));
+            Assert.That(Dashes(shapes[1]), Is.EqualTo(new[] { 4f, 5f, 6f }));
+        });
+
+        copy.DashArray.Value!.RemoveAt(0);
+        editor.HistoryManager.Commit("remove a dash");
+        Assert.Multiple(() =>
+        {
+            Assert.That(Dashes(shapes[0]), Is.EqualTo(new[] { 5f }));
+            Assert.That(Dashes(shapes[1]), Is.EqualTo(new[] { 5f, 6f }));
+        });
+
+        static float[] Dashes(RectShape shape) => [.. shape.Pen.Value!.DashArray.Value!];
+    }
+
     // The nodes and connections of a node graph refer to each other by Id and the tab does not show them, so an edit of
     // them stays with the element the copy was made from.
     [AvaloniaTest]
@@ -550,7 +674,12 @@ public class MultiElementPropertyTests
         var first = (TransformEditorViewModel)transform.Group.Value!.Items[0].Context!;
 
         first.ChangeType(KnownTransformType.Scale);
-        Assert.That(shapes.Select(shape => ((TransformGroup)shape.Transform.Value!).Children[0]), Is.All.TypeOf<ScaleTransform>());
+        HeadlessTestHelpers.Settle();
+        Assert.Multiple(() =>
+        {
+            Assert.That(shapes.Select(shape => ((TransformGroup)shape.Transform.Value!).Children[0]), Is.All.TypeOf<ScaleTransform>());
+            Assert.That(transform.Group.Value!.Items[0].IsShown.Value, Is.True, "the row tells of the transform that took its place");
+        });
     }
 
     // Unlocking every element changes nothing the copy holds of them, yet lets the tab edit it.
@@ -572,6 +701,30 @@ public class MultiElementPropertyTests
         Assert.Multiple(() =>
         {
             Assert.That(tab.DisplayedElement.Value, Is.SameAs(copy));
+            Assert.That(tab.CanEdit.Value, Is.True);
+        });
+    }
+
+    // The copy follows the element it shows to another layer, as it follows its time: the tab keeps the copy rather than
+    // copying the element again, and a lock of the layer the element left keeps nothing.
+    [AvaloniaTest]
+    public async Task TheCopyFollowsTheShownElementToAnotherLayer()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        Element copy = tab.DisplayedElement.Value!;
+
+        elements[0].ZIndex.Value = 3;
+        editor.HistoryManager.Commit("move to another layer");
+        HeadlessTestHelpers.Settle();
+        editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsLocked = { Value = true } });
+        editor.HistoryManager.Commit("lock the layer it left");
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tab.DisplayedElement.Value, Is.SameAs(copy));
+            Assert.That(copy.ZIndex.Value, Is.EqualTo(3));
             Assert.That(tab.CanEdit.Value, Is.True);
         });
     }
@@ -673,6 +826,30 @@ public class MultiElementPropertyTests
             Assert.That(shapes.Select(shape => shape.Opacity.Value), Is.All.EqualTo(100f));
             Assert.That(Editor(tab, Copy<RectShape>(tab).Opacity).ValueDifference.Value, Is.Null);
         });
+    }
+
+    // An element whose value an expression gives takes no value from the tab, as its own editor lets none be entered.
+    [AvaloniaTest]
+    public async Task AnElementWhoseValueAnExpressionGivesKeepsItsOwn()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
+        RectShape[] shapes = Shapes<RectShape>(elements);
+        shapes[1].Opacity.Value = 50;
+        shapes[1].Opacity.Expression = Beutl.Engine.Expressions.Expression.Create<float>("1 + 3");
+        editor.HistoryManager.Commit("test setup");
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        var opacity = (NumberEditorViewModel<float>)Editor(tab, Copy<RectShape>(tab).Opacity);
+        int steps = editor.HistoryManager.UndoCount;
+
+        opacity.MatchOtherElements();
+        Assert.Multiple(() =>
+        {
+            Assert.That(shapes[1].Opacity.Value, Is.EqualTo(50f));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(steps), "nothing changed");
+        });
+
+        ((IValueEditorContext<float>)opacity).ConfirmEdit(100, 70);
+        Assert.That(shapes.Select(shape => shape.Opacity.Value), Is.EqualTo(new[] { 70f, 50f }));
     }
 
     // A value goes where each element's own editor would put it: to its keyframe at the playhead, or else its next one.

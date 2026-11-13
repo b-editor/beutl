@@ -30,6 +30,10 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
     private readonly Scene? _scene;
     private readonly IFrameCacheInvalidator? _invalidator;
     private readonly CoreObjectOperationObserver _observer;
+    // After a change of a value of the copy that replaced an object: what each element held there, or null where it
+    // held nothing. A group that takes a value's place takes the value in next, and each element then takes its own
+    // value back rather than a copy of the copy's.
+    private (CoreObject Copy, Dictionary<Element, CoreObject?> Targets)? _replaced;
 
     public MultiElementReplicator(
         MultiElementCorrespondence correspondence, Element shown, IReadOnlyList<Element> others, Scene? scene,
@@ -88,8 +92,9 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
         _observer.Dispose();
     }
 
-    // An object the copy owns becomes an object of the element's own; a struct, a string or another value without
-    // identity is shared, as is an object held from elsewhere, such as a scene.
+    // An object the copy owns becomes an object of the element's own, and so does a list a property holds as its value,
+    // such as a pen's dashes, which an edit changes in place; a struct, a string or another value without identity is
+    // shared, as is an object held from elsewhere, such as a scene.
     public object? CopyValue(object? value, bool exact)
     {
         switch (value)
@@ -98,6 +103,15 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
                 return exact ? CopyExactly(obj) : CopyWithNewIds(obj);
             case SplineEasing easing:
                 return new SplineEasing(easing.X1, easing.Y1, easing.X2, easing.Y2);
+            case IList { IsFixedSize: false, IsReadOnly: false } list
+                when value.GetType().GetConstructor(Type.EmptyTypes) is { } constructor:
+                var copy = (IList)constructor.Invoke(null);
+                foreach (object? item in list)
+                {
+                    copy.Add(CopyValue(item, exact));
+                }
+
+                return copy;
             default:
                 return value;
         }
@@ -146,6 +160,7 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
         bool movesKeyFrame = update.Object is IKeyFrame && name == nameof(IKeyFrame.KeyTime);
         bool reachesOthers = ReachesOthers(update.Object, null);
         var written = new List<Element>();
+        var replaced = new Dictionary<Element, CoreObject?>();
         foreach ((Element target, bool exact) in Targets())
         {
             if (!exact && !reachesOthers) continue;
@@ -158,6 +173,7 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
             switch (slot)
             {
                 case PropertyPathSlot.Value:
+                    replaced[target] = property.Value as CoreObject;
                     property.Value = CopyValue(update.NewValue, exact);
                     break;
                 case PropertyPathSlot.Animation:
@@ -170,6 +186,8 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
 
             written.Add(target);
         }
+
+        _replaced = slot == PropertyPathSlot.Value && update.OldValue is CoreObject old ? (old, replaced) : null;
 
         // A new object, a new chain or a keyframe at another time changes what stands where.
         if (slot != PropertyPathSlot.Value || update.NewValue is CoreObject || update.OldValue is CoreObject || movesKeyFrame)
@@ -245,7 +263,7 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
             {
                 changed = Insert(
                     collection.Object, source, current, Get<int>(operation, "Index"),
-                    [.. Get<IEnumerable>(operation, "Items").Cast<object?>()], targetList, exact);
+                    [.. Get<IEnumerable>(operation, "Items").Cast<object?>()], targetList, target, exact);
             }
             else if (definition == typeof(RemoveCollectionRangeOperation<>))
             {
@@ -268,21 +286,27 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
 
     // Puts a copy of each new item next to the item that stands for its neighbour in the copy, the one before it or else
     // the one after it. Keyframes go where their time puts them. The element the copy was made from holds what the copy
-    // held, so its items go where the copy's did.
+    // held, so its items go where the copy's did, and so do values without identity, such as a pen's dashes, which stand
+    // for those at their places.
     private bool Insert(
-        CoreObject owner, IProperty source, object?[] current, int index, object?[] items, IList targetList, bool exact)
+        CoreObject owner, IProperty source, object?[] current, int index, object?[] items, IList targetList, Element target,
+        bool exact)
     {
         if (items.Length == 0) return false;
 
-        if (exact)
+        bool changed = false;
+        if (exact || items.All(IsPlain))
         {
             int position = Math.Clamp(index, 0, targetList.Count);
             foreach (object? item in items)
             {
-                targetList.Insert(position++, CopyValue(item, exact));
+                if (!TryGetValueFor(item, target, exact, out object? value)) continue;
+
+                targetList.Insert(position++, value);
+                changed = true;
             }
 
-            return true;
+            return changed;
         }
 
         if (items.All(item => item is IKeyFrame))
@@ -318,16 +342,50 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
 
         foreach (object? item in items)
         {
-            targetList.Insert(at++, CopyValue(item, exact));
+            if (!TryGetValueFor(item, target, exact, out object? value)) continue;
+
+            targetList.Insert(at++, value);
+            changed = true;
         }
 
+        return changed;
+    }
+
+    // What target takes for item, a new item of the copy: a copy of it, unless item is the copy's value that a change of
+    // value just replaced, as when a group takes the place of a value and then takes the value in. Target then takes its
+    // own value back, as its own editor would do, and nothing when it held none.
+    private bool TryGetValueFor(object? item, Element target, bool exact, out object? value)
+    {
+        if (item is CoreObject obj && _replaced is { } replaced && ReferenceEquals(replaced.Copy, obj)
+            && replaced.Targets.Remove(target, out CoreObject? own))
+        {
+            value = own;
+            return own is not null;
+        }
+
+        value = CopyValue(item, exact);
         return true;
     }
 
-    // Removes the items that stand for the removed ones; keyframes are those at the removed ones' times.
+    // A value without identity, such as a number, stands for the one at its place in the element's list.
+    private static bool IsPlain(object? item) => item is not (null or CoreObject);
+
+    // Removes the items that stand for the removed ones; keyframes are those at the removed ones' times, and values
+    // without identity those at their places.
     private bool Remove(CoreObject owner, IProperty source, object?[] current, int index, object?[] items, IList targetList)
     {
         if (items.Length == 0) return false;
+
+        if (items.All(IsPlain))
+        {
+            int count = Math.Min(items.Length, targetList.Count - index);
+            for (int i = 0; i < count; i++)
+            {
+                targetList.RemoveAt(index);
+            }
+
+            return count > 0;
+        }
 
         object?[] toRemove;
         if (items.All(item => item is IKeyFrame))
@@ -366,6 +424,16 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
         object?[] block = current[newIndex..(newIndex + count)];
         // A keyframe that moved in time moves itself in every element.
         if (block.All(item => item is IKeyFrame)) return false;
+
+        // Values without identity move from their places to theirs. A move to a later place names it as the list has it
+        // after the move, and MoveRange as it has it before.
+        if (block.All(IsPlain))
+        {
+            if (oldIndex < 0 || oldIndex == newIndex || Math.Max(oldIndex, newIndex) + count > coreList.Count) return false;
+
+            coreList.MoveRange(oldIndex, count, newIndex > oldIndex ? newIndex + count : newIndex);
+            return true;
+        }
 
         // The list as it was, with the block where it came from.
         object?[] rest = [.. current.Take(newIndex), .. current.Skip(newIndex + count)];

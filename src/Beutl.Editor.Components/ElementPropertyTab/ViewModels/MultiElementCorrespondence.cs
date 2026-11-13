@@ -8,10 +8,11 @@ namespace Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 
 // Which object of an element stands where each object of the copy does, the copy being what the element property tab
 // shows for several elements. An object a property holds stands for the one the element's same property holds, when it
-// is of the same kind; an item of a list stands for the item of the element's list that lining the two lists up by type
-// pairs it with; a keyframe stands for the one at its time. The element's own objects are lined up by kind rather than
-// by type, so that the drawable of one element stands for that of another even when one shows text and the other a
-// shape: what both have in common, such as where they are drawn, can then be edited together.
+// is of the same kind; an item of a list stands for the item of its type at its place among the items of that type in
+// the element's list, the first blur for the first blur; a keyframe stands for the one at its time. The element's own
+// objects that find none of their type pair by kind, so that the drawable of one element stands for that of another
+// even when one shows text and the other a shape: what both have in common, such as where they are drawn, can then be
+// edited together.
 internal sealed class MultiElementCorrespondence(Element copy)
 {
     // What Find found since the copy or an element last changed in what objects they hold. What it did not find is
@@ -118,55 +119,33 @@ internal sealed class MultiElementCorrespondence(Element copy)
     public static IKeyFrame? FindKeyFrame(IList keyFrames, MediaTime time)
         => keyFrames.OfType<IKeyFrame>().FirstOrDefault(k => k.KeyTime.Value == time);
 
-    // Lines the lists up as their longest common sequence: of items of one type, and where byKind is set also of items
-    // of one kind, which weigh less so that a pair of one type wins. Of the ways to line them up as well, the one that
-    // pairs earlier items is taken, as the earlier of two items of one type stands for the earlier of the other list's.
+    // Pairs the items of one type in the order each list holds them, the first of a type with the first of that type,
+    // whatever lies between them; where byKind is set, the items left then pair with those left of one kind, in order
+    // too. Keyframes pair by time instead.
     private static Dictionary<object, object> Pair(IReadOnlyList<object?> source, IList target, bool byKind)
     {
         var pairs = new Dictionary<object, object>(ReferenceEqualityComparer.Instance);
-        int n = source.Count;
-        int m = target.Count;
-        if (n == 0 || m == 0) return pairs;
-
-        // best[i, j] is the weight of the best pairing of source[i..] with target[j..].
-        var best = new int[n + 1, m + 1];
-        for (int i = n - 1; i >= 0; i--)
-        {
-            for (int j = m - 1; j >= 0; j--)
-            {
-                int weight = Weight(source[i], target[j], byKind);
-                int paired = weight > 0 ? best[i + 1, j + 1] + weight : 0;
-                best[i, j] = Math.Max(paired, Math.Max(best[i + 1, j], best[i, j + 1]));
-            }
-        }
-
-        for (int i = 0, j = 0; i < n && j < m;)
-        {
-            int weight = Weight(source[i], target[j], byKind);
-            if (weight > 0 && best[i, j] == best[i + 1, j + 1] + weight)
-            {
-                pairs[source[i]!] = target[j]!;
-                i++;
-                j++;
-            }
-            else if (best[i + 1, j] >= best[i, j + 1])
-            {
-                i++;
-            }
-            else
-            {
-                j++;
-            }
-        }
-
+        List<CoreObject> left = [.. target.OfType<CoreObject>().Where(item => item is not IKeyFrame)];
+        PairInOrder(source, left, pairs, (a, b) => a.GetType() == b.GetType());
+        if (byKind) PairInOrder(source, left, pairs, SameKind);
         return pairs;
     }
 
-    private static int Weight(object? a, object? b, bool byKind)
+    // Pairs each item of source not paired yet with the first item of left that matches it, which then leaves left.
+    private static void PairInOrder(
+        IReadOnlyList<object?> source, List<CoreObject> left, Dictionary<object, object> pairs,
+        Func<CoreObject, CoreObject, bool> match)
     {
-        if (a is not CoreObject x || b is not CoreObject y || a is IKeyFrame || b is IKeyFrame) return 0;
-        if (x.GetType() == y.GetType()) return 2;
-        return byKind && SameKind(x, y) ? 1 : 0;
+        foreach (object? item in source)
+        {
+            if (item is not CoreObject obj || obj is IKeyFrame || pairs.ContainsKey(obj)) continue;
+
+            int at = left.FindIndex(candidate => match(obj, candidate));
+            if (at < 0) continue;
+
+            pairs[obj] = left[at];
+            left.RemoveAt(at);
+        }
     }
 
     private static bool Contains(IList list, object obj)

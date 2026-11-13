@@ -106,7 +106,11 @@ public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEdito
             Context = context;
         }
 
-        IsShown = PropertyEditorScope.ObserveShows(itemAccessor.GetValue()).ToReadOnlyReactivePropertySlim(true);
+        // An item that takes the place of another keeps its row, which then tells of the new item.
+        IsShown = itemAccessor.GetObservable()
+            .Select(item => PropertyEditorScope.ObserveShows(item))
+            .Switch()
+            .ToReadOnlyReactivePropertySlim(true);
     }
 
     // False for an item of an object that stands for those of several others when one of them holds none in its place.

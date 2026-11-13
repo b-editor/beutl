@@ -103,14 +103,15 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
     internal void SetValue(TValue? oldValue, TValue? newValue, string? commandName)
     {
         // Every element takes the value as its own editor would, from what it shows itself: the value shown is one
-        // element's, so the others can still differ from it even when it stays.
+        // element's, so the others can still differ from it even when it stays. One whose value an expression gives
+        // takes none, as its own editor lets no value be entered.
         if (Mirrors(
                 (editor, _) =>
                 {
                     var typed = (PropertyEditorViewModel<TValue>)editor;
                     if (ReferenceEquals(typed, this))
                         typed.SetValue(oldValue, newValue, commandName);
-                    else
+                    else if (!typed.HasExpression.Value)
                         typed.SetValue(typed.GetEditingValue(), CopyForOtherElement(newValue), commandName);
                 },
                 commitName: commandName))
@@ -140,8 +141,14 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     public void SetValue(TValue? newValue)
     {
-        if (Mirrors((editor, _) => ((PropertyEditorViewModel<TValue>)editor).SetValue(
-                ReferenceEquals(editor, this) ? newValue : CopyForOtherElement(newValue))))
+        if (Mirrors((editor, _) =>
+            {
+                var typed = (PropertyEditorViewModel<TValue>)editor;
+                if (ReferenceEquals(typed, this))
+                    typed.SetValue(newValue);
+                else if (!typed.HasExpression.Value)
+                    typed.SetValue(CopyForOtherElement(newValue));
+            }))
         {
             return;
         }
@@ -194,7 +201,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
                     var typed = (PropertyEditorViewModel<TValue>)editor;
                     if (ReferenceEquals(typed, this))
                         coerced = typed.SetCurrentValueAndGetCoerced(value);
-                    else
+                    else if (!typed.HasExpression.Value)
                         typed.SetCurrentValueAndGetCoerced(CopyForOtherElement(value));
                 },
                 commit: false))

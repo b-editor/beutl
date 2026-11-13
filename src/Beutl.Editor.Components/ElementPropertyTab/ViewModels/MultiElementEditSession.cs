@@ -76,7 +76,7 @@ public sealed class MultiElementEditSession : IDisposable
     public void Refresh()
     {
         Element shown = ChooseShown();
-        _current.KeepTimeOf(Shown);
+        _current.KeepPlaceOf(Shown);
         if (shown != Shown
             || !_current.Compared.SequenceEqual(ComparedElements(shown))
             || !Matches(shown, _current.Element)
@@ -203,12 +203,14 @@ public sealed class MultiElementEditSession : IDisposable
         // Whether the tab shows one of the copy's objects, which each of the elements has in its place.
         public bool SharesAnObject() => Element.Objects.Any(_root.Shows);
 
-        // The copy keeps the time of the element it was made from, so that its editors find keyframes where that
-        // element's editors do. The copy's own changes of time reach no element.
-        public void KeepTimeOf(Element shown)
+        // The copy keeps the time and the layer of the element it was made from, so that its editors find keyframes
+        // where that element's editors do, and a lock of a layer keeps the copy as it keeps that element. The copy's own
+        // changes of time and layer reach no element.
+        public void KeepPlaceOf(Element shown)
         {
             if (Element.Start.Value != shown.Start.Value) Element.Start.Value = shown.Start.Value;
             if (Element.Length.Value != shown.Length.Value) Element.Length.Value = shown.Length.Value;
+            if (Element.ZIndex.Value != shown.ZIndex.Value) Element.ZIndex.Value = shown.ZIndex.Value;
         }
 
         // The copy can be edited while one of the elements can.
@@ -328,11 +330,15 @@ public sealed class MultiElementEditSession : IDisposable
 
         public void OnDescendantDetached(IHierarchical descendant) => DescendantDetached?.Invoke(this, descendant);
 
-        // The keyframes of the elements can lie at other times, which an editor of keyframes shows of one element.
+        // The keyframes of the elements can lie at other times, which an editor of keyframes shows of one element. The
+        // rows of separated components edit the components of each element, so a property whose components the copy
+        // separates is shown when each element separates them too.
         public bool Shows(CoreObject owner, IProperty property)
             => owner is IKeyFrame or IPropertyAnimation
                || _compared.All(element => _correspondence.Find(owner, element) is { } found
-                                           && MultiElementCorrespondence.FindDisplayedProperty(found, property) != null);
+                                           && MultiElementCorrespondence.FindDisplayedProperty(found, property) is { } shared
+                                           && (property.GetPropertyAnimation() is not IComponentAnimation
+                                               || shared.GetPropertyAnimation() is IComponentAnimation));
 
         public bool Shows(CoreObject obj)
             => obj is IKeyFrame or IPropertyAnimation || _compared.All(element => _correspondence.Find(obj, element) != null);
