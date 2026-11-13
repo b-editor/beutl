@@ -16,8 +16,10 @@ public sealed class StringEditorViewModel(IPropertyAdapter<string?> property) : 
         if (visitor is StringEditor editor && !Disposables.IsDisposed)
         {
             var attrs = PropertyAdapter.GetAttributes();
-            bool multiline = attrs.Any(v => v is DataTypeAttribute { DataType: DataType.MultilineText });
+            bool code = attrs.Any(v => v is DataTypeAttribute dataType && dataType.IsCode());
+            bool multiline = code || attrs.Any(v => v is DataTypeAttribute { DataType: DataType.MultilineText });
             editor.Classes.Set("multiline", multiline);
+            editor.Classes.Set("code", code);
         }
     }
 }

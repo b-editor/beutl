@@ -31,7 +31,7 @@ public partial class ShaderComputePassNode : ShaderPassNode
         InsertDefaultPorts(["result"], ["source", "result"]);
     }
 
-    [DataType(DataType.MultilineText)]
+    [DataType(CustomDataTypes.Code)]
     [Display(Name = nameof(NodeGraphStrings.ShaderPort_Code), ResourceType = typeof(NodeGraphStrings))]
     public IProperty<string> Code { get; } = new ValueOnlyProperty<string>(DefaultCode);
 

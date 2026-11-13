@@ -12,7 +12,7 @@
              mc:Ignorable="d">
     <StackPanel>
         <editor:StringEditor x:Name="ScriptStringEditor"
-                              Classes="multiline"
+                              Classes="multiline code"
                               Text="{Binding Value.Value}"
                               Header="{Binding Header, Mode=OneTime}"
                               Description="{Binding Description.Value}"
