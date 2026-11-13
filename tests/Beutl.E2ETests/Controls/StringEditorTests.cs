@@ -106,6 +106,20 @@ public class StringEditorTests
     }
 
     [AvaloniaTest]
+    public void Shift_Tab_moves_back_from_code_on_a_node()
+    {
+        var editor = new StringEditor { Header = "Code", EditorStyle = PropertyEditorStyle.Compact, Classes = { "multiline", "code" } };
+        using var host = new EditorTestHost<StringEditor>(editor);
+        var previous = new Button { Content = "previous" };
+        ((Panel)editor.Parent!).Children.Insert(0, previous);
+
+        TextBox box = PressTabIn(host, RawInputModifiers.Shift);
+
+        Assert.That(box.Text, Is.Null.Or.Empty, "Shift+Tab should not type a tab");
+        Assert.That(previous.IsFocused, Is.True, "Shift+Tab should leave the code for the field before it");
+    }
+
+    [AvaloniaTest]
     public void Code_fields_get_the_code_editor_and_prose_keeps_the_multiline_one()
     {
         var expression = new ExpressionNode();
@@ -143,12 +157,12 @@ public class StringEditorTests
         return [.. PresenterOf(host).TextLayout.TextLines.Select(line => line.Width)];
     }
 
-    private static TextBox PressTabIn(EditorTestHost<StringEditor> host)
+    private static TextBox PressTabIn(EditorTestHost<StringEditor> host, RawInputModifiers modifiers = RawInputModifiers.None)
     {
         TextBox box = host.Require<TextBox>("PART_InnerTextBox");
         box.Focus();
         HeadlessTestHelpers.Settle();
-        host.Window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, "\t");
+        host.Window.KeyPress(Key.Tab, modifiers, PhysicalKey.Tab, "\t");
         HeadlessTestHelpers.Settle();
         return box;
     }
