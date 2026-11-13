@@ -67,6 +67,37 @@ public class PackageToolsRestartTests
     }
 
     [AvaloniaTest]
+    public async Task The_first_page_stays_when_reading_the_changes_throws()
+    {
+        using var http = new HttpClient();
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        PackageToolsMainViewModel viewModel = CreateViewModel(
+            http,
+            app,
+            static _ => Task.FromException(new IOException("The changes could not be read.")),
+            true,
+            static () => { });
+        (Window window, FAFrame frame, _) = Show(viewModel);
+
+        try
+        {
+            frame.NavigateFromObject(viewModel);
+            HeadlessTestHelpers.Render(3);
+            await Assert.ThrowsAsync<IOException>(async () =>
+                await GetInitializationTask(viewModel).WaitAsync(TimeSpan.FromSeconds(5)));
+            HeadlessTestHelpers.Render(3);
+
+            Assert.That(frame.Content, Is.TypeOf<DisplayPackagesPage>(), "A restart must not press Start for changes it could not read.");
+        }
+        finally
+        {
+            await viewModel.DisposeAsync();
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(true)]
     [TestCase(false)]
     public async Task The_clean_page_runs_by_itself_only_when_Beutl_restarts(bool restarting)
