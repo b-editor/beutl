@@ -133,7 +133,7 @@ public partial class MainViewModel
     internal bool IsRestartRequested => Volatile.Read(ref _restartRequested) != 0;
 
     // Quits as Exit does. The package tools then apply the scheduled changes without waiting for Start
-    // and offer to start Beutl when they finish; with nothing to apply, Beutl starts again right away.
+    // and offer to start Beutl when they finish.
     // False when the close was refused: Beutl keeps running, and quitting later does not restart it.
     internal async Task<bool> RestartAsync()
     {
@@ -524,13 +524,14 @@ public partial class MainViewModel
         }
     }
 
-    // What Beutl starts on its way out: the package tools when changes wait for them, Beutl itself when a
-    // restart has nothing left to apply, or nothing. sessionId is read only for the package tools.
+    // What Beutl starts on its way out: the package tools when changes wait for them or Beutl is restarting,
+    // or nothing. A restart always goes through them, even with nothing to apply: they wait for this process
+    // to exit, so the next Beutl never starts beside it. sessionId is read only for the package tools.
     internal static ProcessStartInfo? CreateHandoffStartInfo(PackageChangesQueue queue, bool restart, Func<string> sessionId)
     {
-        if (!queue.GetInstalls().Any() && !queue.GetUninstalls().Any())
+        if (!restart && !queue.GetInstalls().Any() && !queue.GetUninstalls().Any())
         {
-            return restart ? DotNetProcess.CreateBesideApplication("Beutl") : null;
+            return null;
         }
 
         // PackageTools.UI reads the changes from the queue's file, and from arguments when the last save failed.

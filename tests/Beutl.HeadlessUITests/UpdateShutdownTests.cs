@@ -314,16 +314,20 @@ public class UpdateShutdownTests
         }
     }
 
+    // Starting Beutl directly would race the exiting one; the package tools wait for it first.
     [Test]
-    public void A_restart_with_nothing_to_apply_starts_Beutl_itself()
+    public void A_restart_with_nothing_to_apply_still_goes_through_the_package_tools()
     {
         var queue = new PackageChangesQueue(
             Path.Combine(Path.GetTempPath(), "beutl-handoff-" + Guid.NewGuid().ToString("N"), "packageChanges.json"));
 
+        ProcessStartInfo? restarting = MainViewModel.CreateHandoffStartInfo(queue, restart: true, () => "session");
         Assert.Multiple(() =>
         {
             Assert.That(MainViewModel.CreateHandoffStartInfo(queue, restart: false, () => "session"), Is.Null);
-            Assert.That(StartedProgram(MainViewModel.CreateHandoffStartInfo(queue, restart: true, () => "session")!), Is.EqualTo("Beutl"));
+            Assert.That(restarting, Is.Not.Null);
+            Assert.That(StartedProgram(restarting!), Is.EqualTo("Beutl.PackageTools.UI"));
+            Assert.That(restarting!.ArgumentList, Does.Contain("--restart"));
         });
     }
 
