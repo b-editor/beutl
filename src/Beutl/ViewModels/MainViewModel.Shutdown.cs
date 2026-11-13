@@ -517,27 +517,26 @@ public partial class MainViewModel
 
     private void PerformShutdownHandoff(BeutlApiApplication clients)
     {
-        bool restart = IsRestartRequested;
         PackageChangesQueue queue = clients.GetResource<PackageChangesQueue>();
+        if (CreateHandoffStartInfo(queue, IsRestartRequested, () => Telemetry.Instance._sessionId) is { } startInfo)
+        {
+            using Process? _ = Process.Start(startInfo);
+        }
+    }
+
+    // What Beutl starts on its way out: the package tools when changes wait for them, Beutl itself when a
+    // restart has nothing left to apply, or nothing. sessionId is read only for the package tools.
+    internal static ProcessStartInfo? CreateHandoffStartInfo(PackageChangesQueue queue, bool restart, Func<string> sessionId)
+    {
         if (!queue.GetInstalls().Any() && !queue.GetUninstalls().Any())
         {
-            // Nothing is left to apply, so a restart starts Beutl again right away.
-            if (restart)
-            {
-                var beutl = new ProcessStartInfo() { UseShellExecute = true, };
-                DotNetProcess.Configure(beutl, Path.Combine(AppContext.BaseDirectory, "Beutl"));
-                using Process? _ = Process.Start(beutl);
-            }
-
-            return;
+            return restart ? DotNetProcess.CreateBesideApplication("Beutl") : null;
         }
 
         // PackageTools.UI reads the changes from the queue's file, and from arguments when the last save failed.
-        var startInfo = new ProcessStartInfo() { UseShellExecute = true, };
-        DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.PackageTools.UI"));
-
+        ProcessStartInfo startInfo = DotNetProcess.CreateBesideApplication("Beutl.PackageTools.UI");
         startInfo.ArgumentList.AddRange(queue.GetUnsavedArguments());
-        startInfo.ArgumentList.AddRange(["--session-id", Telemetry.Instance._sessionId]);
+        startInfo.ArgumentList.AddRange(["--session-id", sessionId()]);
 
         // PackageTools.UI applies the changes without waiting for Start, then offers to start Beutl.
         if (restart)
@@ -546,6 +545,6 @@ public partial class MainViewModel
         if (Debugger.IsAttached)
             startInfo.ArgumentList.Add("--launch-debugger");
 
-        Process.Start(startInfo);
+        return startInfo;
     }
 }

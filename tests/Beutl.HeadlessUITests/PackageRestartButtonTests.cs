@@ -16,6 +16,7 @@ using Beutl.Pages.ExtensionsPages;
 using Beutl.Pages.ExtensionsPages.DiscoverPages;
 using Beutl.Services;
 using Beutl.Testing.Headless;
+using Beutl.ViewModels;
 using Beutl.ViewModels.ExtensionsPages;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using FluentAvalonia.UI.Controls;
@@ -135,6 +136,11 @@ public class PackageRestartButtonTests
                 Assert.That(FindButton(page, viewModel.Update).IsEffectivelyVisible, Is.False);
                 Assert.That(FindButton(page, viewModel.Uninstall).IsEffectivelyVisible, Is.False);
             });
+
+            // With no main window, as here, Restart has nothing to quit and the change stays scheduled.
+            Assume.That(MainViewModel.TryGetCurrent(out _), Is.False, "Restarting would close a real shell.");
+            await viewModel.Restart.ExecuteAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(viewModel.CanCancel.Value, Is.True);
         }
         finally
         {

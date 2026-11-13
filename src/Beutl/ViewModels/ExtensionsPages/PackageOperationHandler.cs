@@ -1,6 +1,7 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
 using Beutl.Services;
@@ -514,8 +515,18 @@ internal class PackageOperationHandler
     }
 
     // Quits Beutl so the scheduled changes are applied right away; the package tools then offer to start it.
-    public static Task RestartAsync()
+    // Without a main window there is nothing to quit.
+    public static async Task RestartAsync()
     {
-        return MainViewModel.TryGetCurrent(out MainViewModel? main) ? main.RestartAsync() : Task.CompletedTask;
+        try
+        {
+            if (MainViewModel.TryGetCurrent(out MainViewModel? main))
+                await main.RestartAsync();
+        }
+        catch (Exception e)
+        {
+            await e.Handle();
+            s_logger.LogError(e, "Failed to restart Beutl.");
+        }
     }
 }

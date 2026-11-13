@@ -50,7 +50,7 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
             .DisposeWith(_disposables);
 
         Restart = new AsyncReactiveCommand()
-            .WithSubscribe(RestartAsync)
+            .WithSubscribe(PackageOperationHandler.RestartAsync)
             .DisposeWith(_disposables);
 
         RemoveFromLibrary = new AsyncReactiveCommand(
@@ -188,19 +188,6 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
         finally
         {
             IsBusy.Value = false;
-        }
-    }
-
-    private async Task RestartAsync()
-    {
-        try
-        {
-            await PackageOperationHandler.RestartAsync();
-        }
-        catch (Exception e)
-        {
-            await e.Handle();
-            _logger.LogError(e, "An unexpected error has occurred.");
         }
     }
 

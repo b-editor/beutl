@@ -223,7 +223,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .DisposeWith(_disposables);
 
         Restart = new AsyncReactiveCommand()
-            .WithSubscribe(RestartAsync)
+            .WithSubscribe(PackageOperationHandler.RestartAsync)
             .DisposeWith(_disposables);
 
         Refresh.Execute();
@@ -357,19 +357,6 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         finally
         {
             IsBusy.Value = false;
-        }
-    }
-
-    private async Task RestartAsync()
-    {
-        try
-        {
-            await PackageOperationHandler.RestartAsync();
-        }
-        catch (Exception e)
-        {
-            await e.Handle();
-            _logger.LogError(e, "An unexpected error has occurred.");
         }
     }
 

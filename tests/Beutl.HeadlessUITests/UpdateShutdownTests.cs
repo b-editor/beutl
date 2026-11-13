@@ -1,4 +1,5 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Diagnostics;
+using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -6,6 +7,8 @@ using Beutl.Services;
 using Beutl.Services.StartupTasks;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using NuGet.Packaging.Core;
+using NuGet.Versioning;
 
 namespace Beutl.HeadlessUITests;
 
@@ -281,6 +284,58 @@ public class UpdateShutdownTests
             Assert.That(restartAtHandoff, Is.False);
         }
         finally { await DisposeShellAsync(main); }
+    }
+
+    [Test]
+    public void The_handoff_asks_the_package_tools_to_carry_a_restart_on()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "beutl-handoff-" + Guid.NewGuid().ToString("N"));
+        var queue = new PackageChangesQueue(Path.Combine(directory, "packageChanges.json"));
+        try
+        {
+            queue.UninstallQueue(new PackageIdentity("Beutl.HandoffTest", NuGetVersion.Parse("1.0.0")));
+
+            ProcessStartInfo restarting = MainViewModel.CreateHandoffStartInfo(queue, restart: true, () => "session")!;
+            ProcessStartInfo quitting = MainViewModel.CreateHandoffStartInfo(queue, restart: false, () => "session")!;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(StartedProgram(restarting), Is.EqualTo("Beutl.PackageTools.UI"));
+                Assert.That(restarting.ArgumentList, Does.Contain("--restart"));
+                Assert.That(StartedProgram(quitting), Is.EqualTo("Beutl.PackageTools.UI"));
+                Assert.That(quitting.ArgumentList, Does.Not.Contain("--restart"));
+                Assert.That(quitting.ArgumentList, Is.SupersetOf(new[] { "--session-id", "session" }));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, true);
+        }
+    }
+
+    [Test]
+    public void A_restart_with_nothing_to_apply_starts_Beutl_itself()
+    {
+        var queue = new PackageChangesQueue(
+            Path.Combine(Path.GetTempPath(), "beutl-handoff-" + Guid.NewGuid().ToString("N"), "packageChanges.json"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(MainViewModel.CreateHandoffStartInfo(queue, restart: false, () => "session"), Is.Null);
+            Assert.That(StartedProgram(MainViewModel.CreateHandoffStartInfo(queue, restart: true, () => "session")!), Is.EqualTo("Beutl"));
+        });
+    }
+
+    // The program a start info runs: its executable, or the assembly it hands to dotnet.
+    private static string StartedProgram(ProcessStartInfo startInfo)
+    {
+        string path = startInfo.ArgumentList.FirstOrDefault(argument => argument.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            ?? startInfo.FileName;
+        string name = Path.GetFileName(path);
+        return name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+            ? name[..^4]
+            : name;
     }
 
     // handoff sees the shell when Beutl hands the package changes over on its way out.

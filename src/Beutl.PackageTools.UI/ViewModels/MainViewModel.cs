@@ -294,12 +294,7 @@ public class MainViewModel : IAsyncDisposable
     }
 
     // Starts the Beutl installed beside these tools.
-    private static void StartBeutl()
-    {
-        var startInfo = new ProcessStartInfo { UseShellExecute = true };
-        DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl"));
-        using Process? _ = Process.Start(startInfo);
-    }
+    private static void StartBeutl() => Process.Start(DotNetProcess.CreateBesideApplication("Beutl"))?.Dispose();
 
     // Beutl starts after everything these tools hold is released, so nothing they do overlaps its start.
     private async ValueTask DisposeThenStartBeutlAsync(Func<ValueTask> dispose)
