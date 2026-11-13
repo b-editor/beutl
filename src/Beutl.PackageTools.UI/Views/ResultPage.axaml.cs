@@ -31,6 +31,17 @@ public partial class ResultPage : PackageToolPage
         this.FindAncestorOfType<Window>()?.Close();
     }
 
+    // Beutl starts once these tools have closed and released what they hold.
+    private void OnStartBeutlButtonClick(object? sender, RoutedEventArgs e)
+    {
+        if (this.FindAncestorOfType<FAFrame>() is { DataContext: MainViewModel main })
+        {
+            main.StartBeutlWhenClosed();
+        }
+
+        this.FindAncestorOfType<Window>()?.Close();
+    }
+
     private void ShowDetailsClick(object? sender, RoutedEventArgs e)
     {
         FAFrame? frame = this.FindAncestorOfType<FAFrame>();

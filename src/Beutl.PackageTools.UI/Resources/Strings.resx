@@ -125,6 +125,9 @@ This package file may have been tampered with.</value>
   <data name="Close" xml:space="preserve">
     <value>Close</value>
   </data>
+  <data name="StartBeutl" xml:space="preserve">
+    <value>Start Beutl</value>
+  </data>
   <data name="ShowDetails" xml:space="preserve">
     <value>Show Details</value>
   </data>

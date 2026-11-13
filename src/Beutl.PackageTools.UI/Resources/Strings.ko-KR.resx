@@ -68,6 +68,9 @@
   <data name="Close" xml:space="preserve">
     <value>닫기</value>
   </data>
+  <data name="StartBeutl" xml:space="preserve">
+    <value>Beutl 시작</value>
+  </data>
   <data name="ShowDetails" xml:space="preserve">
     <value>자세한 정보 표시</value>
   </data>

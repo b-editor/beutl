@@ -68,6 +68,9 @@
   <data name="Close" xml:space="preserve">
     <value>关闭</value>
   </data>
+  <data name="StartBeutl" xml:space="preserve">
+    <value>启动 Beutl</value>
+  </data>
   <data name="ShowDetails" xml:space="preserve">
     <value>显示详细信息</value>
   </data>

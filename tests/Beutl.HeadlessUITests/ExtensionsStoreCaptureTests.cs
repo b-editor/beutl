@@ -6,6 +6,7 @@ using System.Text.Json;
 using AsyncImageLoader;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api;
@@ -23,6 +24,8 @@ using Beutl.ViewModels.ExtensionsPages;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using FluentAvalonia.UI.Controls;
 using LiveMarkdown.Avalonia;
+using NuGet.Packaging.Core;
+using NuGet.Versioning;
 using Reactive.Bindings;
 using SkiaSharp;
 
@@ -73,6 +76,20 @@ public class ExtensionsStoreCaptureTests
             await SettleAsync(window, () => true);
             ThemeCaptureTests.Capture(window, $"store-details-end-{suffix}.png");
 
+            // A change that waits for a restart.
+            PackageChangesQueue queue = clients.GetResource<PackageChangesQueue>();
+            queue.UninstallQueue(new PackageIdentity(featured.Name, NuGetVersion.Parse("1.0.0")));
+            try
+            {
+                ((PackageDetailsPage)frame.Content!).GetVisualDescendants().OfType<ScrollViewer>().First().ScrollToHome();
+                await SettleAsync(window, () => true);
+                ThemeCaptureTests.Capture(window, $"store-details-restart-{suffix}.png");
+            }
+            finally
+            {
+                queue.Cancel(featured.Name);
+            }
+
             frame.Navigate(typeof(SearchPage), "text");
             await SettleAsync(window, () => frame.Content is SearchPage
             {
@@ -93,6 +110,14 @@ public class ExtensionsStoreCaptureTests
             ShowLibraryRows(library, store);
             await SettleAsync(window, () => true);
             ThemeCaptureTests.Capture(window, $"store-library-{suffix}.png");
+
+            // The menu of the row whose change waits for a restart, where Cancel went.
+            Button overflow = window.GetVisualDescendants().OfType<Button>().First(button =>
+                button.ContextFlyout is FAMenuFlyout && button.DataContext is StubLibraryRow { CanCancel.Value: true });
+            overflow.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await SettleAsync(window, () => true);
+            ThemeCaptureTests.Capture(window, $"store-library-menu-{suffix}.png");
+            overflow.ContextFlyout!.Hide();
         }
         finally
         {
@@ -134,6 +159,7 @@ public class ExtensionsStoreCaptureTests
         library.Packages.Add(new StubLibraryRow(store.Packages[0], LibraryRowState.Installed));
         library.Packages.Add(new StubLibraryRow(store.Packages[2], LibraryRowState.Busy));
         library.Packages.Add(new StubLibraryRow(store.Packages[3], LibraryRowState.NotInstalled));
+        library.Packages.Add(new StubLibraryRow(store.Packages[5], LibraryRowState.RestartRequired));
         library.Packages.Add(new StubLibraryRow(store.Packages[7], LibraryRowState.Installed));
     }
 
@@ -143,6 +169,8 @@ public class ExtensionsStoreCaptureTests
         Installed,
         UpdateAvailable,
         Busy,
+        // A change is scheduled for the next launch.
+        RestartRequired,
     }
 
     private sealed record StorePackage(
@@ -452,7 +480,7 @@ public class ExtensionsStoreCaptureTests
             IsInstallButtonVisible = Observable.Return(state == LibraryRowState.NotInstalled).ToReadOnlyReactivePropertySlim();
             IsUninstallButtonVisible = Observable.Return(state == LibraryRowState.Installed).ToReadOnlyReactivePropertySlim();
             IsUpdateButtonVisible = Observable.Return(state == LibraryRowState.UpdateAvailable).ToReadOnlyReactivePropertySlim();
-            CanCancel = Observable.Return(false).ToReadOnlyReactivePropertySlim();
+            CanCancel = Observable.Return(state == LibraryRowState.RestartRequired).ToReadOnlyReactivePropertySlim();
             IsBusy.Value = state == LibraryRowState.Busy;
             StatusText.Value = state == LibraryRowState.Busy ? ExtensionsStrings.Installing : null;
         }
@@ -482,6 +510,8 @@ public class ExtensionsStoreCaptureTests
         public AsyncReactiveCommand Uninstall { get; } = new();
 
         public AsyncReactiveCommand Cancel { get; } = new();
+
+        public AsyncReactiveCommand Restart { get; } = new();
 
         public ReactiveCommand RemoveFromLibrary { get; } = new();
 

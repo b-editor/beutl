@@ -222,6 +222,10 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .WithSubscribe(CancelAsync)
             .DisposeWith(_disposables);
 
+        Restart = new AsyncReactiveCommand()
+            .WithSubscribe(PackageOperationHandler.RestartAsync)
+            .DisposeWith(_disposables);
+
         Refresh.Execute();
     }
 
@@ -413,6 +417,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     public AsyncReactiveCommand Uninstall { get; }
 
     public AsyncReactiveCommand Cancel { get; }
+
+    public AsyncReactiveCommand Restart { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

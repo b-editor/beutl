@@ -1,4 +1,5 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Diagnostics;
+using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -6,6 +7,8 @@ using Beutl.Services;
 using Beutl.Services.StartupTasks;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using NuGet.Packaging.Core;
+using NuGet.Versioning;
 
 namespace Beutl.HeadlessUITests;
 
@@ -230,10 +233,122 @@ public class UpdateShutdownTests
         finally { await DisposeShellAsync(main).WaitAsync(TimeSpan.FromSeconds(20)); }
     }
 
-    private static async Task<(MainViewModel Main, Scene Scene)> CreateShellAsync()
+    [AvaloniaTest]
+    public async Task A_restart_saves_pending_edits_and_tells_the_handoff_to_carry_it_on()
+    {
+        bool? restartAtHandoff = null;
+        var (main, scene) = await CreateShellAsync(shell => restartAtHandoff = shell.IsRestartRequested);
+        Uri uri = scene.Uri!;
+        scene.Duration.Value = MediaTime.FromSeconds(73);
+        try
+        {
+            Assert.That(await main.RestartAsync(), Is.True);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(main.WaitForDisposalAsync().IsCompleted, Is.True);
+                Assert.That(restartAtHandoff, Is.True);
+                Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
+            });
+        }
+        finally { await DisposeShellAsync(main); }
+    }
+
+    [AvaloniaTest]
+    public async Task A_refused_restart_keeps_Beutl_running_and_a_later_quit_does_not_restart()
+    {
+        bool? restartAtHandoff = null;
+        var (main, scene) = await CreateShellAsync(shell => restartAtHandoff = shell.IsRestartRequested);
+        EditorTabItem tab = main.EditorService.SelectedTabItem.Value!;
+        scene.Duration.Value = MediaTime.FromSeconds(73);
+        try
+        {
+            using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+                   {
+                       if (step == StorageWriteStep.Replace && path == scene.Uri!.LocalPath)
+                           throw new IOException("save failed");
+                   }))
+            {
+                Assert.That(await main.RestartAsync(), Is.False);
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(main.IsRestartRequested, Is.False);
+                Assert.That(restartAtHandoff, Is.Null);
+                Assert.That(main.EditorService.TabItems, Does.Contain(tab));
+            });
+
+            Assert.That(await main.TryDisposeForWindowCloseAsync(), Is.True);
+            await main.WaitForDisposalAsync();
+            Assert.That(restartAtHandoff, Is.False);
+        }
+        finally { await DisposeShellAsync(main); }
+    }
+
+    [Test]
+    public void The_handoff_asks_the_package_tools_to_carry_a_restart_on()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "beutl-handoff-" + Guid.NewGuid().ToString("N"));
+        var queue = new PackageChangesQueue(Path.Combine(directory, "packageChanges.json"));
+        try
+        {
+            queue.UninstallQueue(new PackageIdentity("Beutl.HandoffTest", NuGetVersion.Parse("1.0.0")));
+
+            ProcessStartInfo restarting = MainViewModel.CreateHandoffStartInfo(queue, restart: true, () => "session")!;
+            ProcessStartInfo quitting = MainViewModel.CreateHandoffStartInfo(queue, restart: false, () => "session")!;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(StartedProgram(restarting), Is.EqualTo("Beutl.PackageTools.UI"));
+                Assert.That(restarting.ArgumentList, Does.Contain("--restart"));
+                Assert.That(StartedProgram(quitting), Is.EqualTo("Beutl.PackageTools.UI"));
+                Assert.That(quitting.ArgumentList, Does.Not.Contain("--restart"));
+                Assert.That(quitting.ArgumentList, Is.SupersetOf(new[] { "--session-id", "session" }));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, true);
+        }
+    }
+
+    // Starting Beutl directly would race the exiting one; the package tools wait for it first.
+    [Test]
+    public void A_restart_with_nothing_to_apply_still_goes_through_the_package_tools()
+    {
+        var queue = new PackageChangesQueue(
+            Path.Combine(Path.GetTempPath(), "beutl-handoff-" + Guid.NewGuid().ToString("N"), "packageChanges.json"));
+
+        ProcessStartInfo? restarting = MainViewModel.CreateHandoffStartInfo(queue, restart: true, () => "session");
+        Assert.Multiple(() =>
+        {
+            Assert.That(MainViewModel.CreateHandoffStartInfo(queue, restart: false, () => "session"), Is.Null);
+            Assert.That(restarting, Is.Not.Null);
+            Assert.That(StartedProgram(restarting!), Is.EqualTo("Beutl.PackageTools.UI"));
+            Assert.That(restarting!.ArgumentList, Does.Contain("--restart"));
+        });
+    }
+
+    // The program a start info runs: its executable, or the assembly it hands to dotnet.
+    private static string StartedProgram(ProcessStartInfo startInfo)
+    {
+        string path = startInfo.ArgumentList.FirstOrDefault(argument => argument.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            ?? startInfo.FileName;
+        string name = Path.GetFileName(path);
+        return name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+            ? name[..^4]
+            : name;
+    }
+
+    // handoff sees the shell when Beutl hands the package changes over on its way out.
+    private static async Task<(MainViewModel Main, Scene Scene)> CreateShellAsync(Action<MainViewModel>? handoff = null)
     {
         await TestReset.ResetShellAsync();
-        var main = new MainViewModel(_ => { });
+        MainViewModel? shell = null;
+        var main = new MainViewModel(_ => handoff?.Invoke(shell!));
+        shell = main;
         main.ExtensionProvider.AddExtensions(0, LoadPrimitiveExtensionTask.PrimitiveExtensions);
         string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, "update-shutdown-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);

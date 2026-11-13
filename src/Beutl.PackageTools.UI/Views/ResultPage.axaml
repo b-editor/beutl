@@ -17,6 +17,9 @@
     <local:PackageToolPage.ButtonsContainer>
         <uip:FATaskDialogButtonsPanel KeyboardNavigation.TabNavigation="Continue" Spacing="8">
             <uip:FATaskDialogButtonHost Click="OnCloseButtonClick" Content="{x:Static res:Strings.Close}" />
+            <uip:FATaskDialogButtonHost Classes="accent"
+                                        Click="OnStartBeutlButtonClick"
+                                        Content="{x:Static res:Strings.StartBeutl}" />
         </uip:FATaskDialogButtonsPanel>
     </local:PackageToolPage.ButtonsContainer>
     <local:PackageToolPage.Resources>

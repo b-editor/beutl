@@ -98,6 +98,8 @@ public class LibraryPageOperationStatusTests
 
         public AsyncReactiveCommand Cancel { get; } = new();
 
+        public AsyncReactiveCommand Restart { get; } = new();
+
         public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
         public ReactivePropertySlim<string?> StatusText { get; } = new();
@@ -114,6 +116,7 @@ public class LibraryPageOperationStatusTests
             Update.Dispose();
             Uninstall.Dispose();
             Cancel.Dispose();
+            Restart.Dispose();
             IsBusy.Dispose();
             StatusText.Dispose();
         }

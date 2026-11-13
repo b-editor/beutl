@@ -46,6 +46,10 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
         Cancel = new AsyncReactiveCommand()
             .WithSubscribe(CancelAsync)
             .DisposeWith(_disposables);
+
+        Restart = new AsyncReactiveCommand()
+            .WithSubscribe(PackageOperationHandler.RestartAsync)
+            .DisposeWith(_disposables);
     }
 
     private async Task InstallAsync()
@@ -195,6 +199,8 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
     public AsyncReactiveCommand Uninstall { get; }
 
     public AsyncReactiveCommand Cancel { get; }
+
+    public AsyncReactiveCommand Restart { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

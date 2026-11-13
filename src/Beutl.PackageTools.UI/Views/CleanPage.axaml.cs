@@ -19,6 +19,9 @@ public partial class CleanPage : PackageToolPage
 
     private CancellationTokenSource? _cts;
 
+    // What Start does, once its buttons exist.
+    private Func<Task>? _run;
+
     public CleanPage()
     {
         _backButton = new(() => TaskDialogButtons.CreateBackPanel(this));
@@ -40,7 +43,9 @@ public partial class CleanPage : PackageToolPage
             {
                 _cts?.Cancel();
             };
-            runButton.Click += async (_, _) => await RunCleanAsync(runButton, cancelButton);
+            Func<Task> run = () => RunCleanAsync(runButton, cancelButton);
+            _run = run;
+            runButton.Click += async (_, _) => await run();
             panel.Children.Add(cancelButton);
             panel.Children.Add(runButton);
 
@@ -111,7 +116,19 @@ public partial class CleanPage : PackageToolPage
             else
             {
                 ButtonsContainer = _buttons.Value;
+
+                // Beutl is restarting, so the unnecessary packages are deleted without waiting for Start.
+                if (e.NavigationMode == FANavigationMode.New
+                    && this.FindAncestorOfType<FAFrame>() is { DataContext: MainViewModel { StartsAutomatically: true } })
+                {
+                    RunAutomatically();
+                }
             }
         }
+    }
+
+    private async void RunAutomatically()
+    {
+        await _run!();
     }
 }

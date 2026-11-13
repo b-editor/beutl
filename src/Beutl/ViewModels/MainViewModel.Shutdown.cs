@@ -13,6 +13,8 @@ namespace Beutl.ViewModels;
 public partial class MainViewModel
 {
     private Action? _updateOnQuit;
+    // 1 while a restart's close is in flight or accepted, so the package hand-off carries the restart on.
+    private int _restartRequested;
 
     public override void Dispose()
     {
@@ -125,6 +127,42 @@ public partial class MainViewModel
 
             return true;
         };
+    }
+
+    // Whether the package hand-off carries a restart on.
+    internal bool IsRestartRequested => Volatile.Read(ref _restartRequested) != 0;
+
+    // Quits as Exit does. The package tools then apply the scheduled changes without waiting for Start
+    // and offer to start Beutl when they finish.
+    // False when the close was refused: Beutl keeps running, and quitting later does not restart it.
+    internal async Task<bool> RestartAsync()
+    {
+        Volatile.Write(ref _restartRequested, 1);
+        bool accepted = false;
+        try
+        {
+            accepted = await TryDisposeForWindowCloseAsync();
+        }
+        finally
+        {
+            if (!accepted)
+                Volatile.Write(ref _restartRequested, 0);
+        }
+
+        if (!accepted)
+            return false;
+
+        try
+        {
+            await WaitForDisposalAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Cleanup failed after the restart was accepted.");
+        }
+
+        _desktopLifetime?.TryShutdown();
+        return true;
     }
 
     internal Task<bool> TryDisposeForUpdateAsync(Func<bool> startInstaller)
@@ -480,19 +518,34 @@ public partial class MainViewModel
     private void PerformShutdownHandoff(BeutlApiApplication clients)
     {
         PackageChangesQueue queue = clients.GetResource<PackageChangesQueue>();
-        if (!queue.GetInstalls().Any() && !queue.GetUninstalls().Any())
-            return;
+        if (CreateHandoffStartInfo(queue, IsRestartRequested, () => Telemetry.Instance._sessionId) is { } startInfo)
+        {
+            using Process? _ = Process.Start(startInfo);
+        }
+    }
+
+    // What Beutl starts on its way out: the package tools when changes wait for them or Beutl is restarting,
+    // or nothing. A restart always goes through them, even with nothing to apply: they wait for this process
+    // to exit, so the next Beutl never starts beside it. sessionId is read only for the package tools.
+    internal static ProcessStartInfo? CreateHandoffStartInfo(PackageChangesQueue queue, bool restart, Func<string> sessionId)
+    {
+        if (!restart && !queue.GetInstalls().Any() && !queue.GetUninstalls().Any())
+        {
+            return null;
+        }
 
         // PackageTools.UI reads the changes from the queue's file, and from arguments when the last save failed.
-        var startInfo = new ProcessStartInfo() { UseShellExecute = true, };
-        DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.PackageTools.UI"));
-
+        ProcessStartInfo startInfo = DotNetProcess.CreateBesideApplication("Beutl.PackageTools.UI");
         startInfo.ArgumentList.AddRange(queue.GetUnsavedArguments());
-        startInfo.ArgumentList.AddRange(["--session-id", Telemetry.Instance._sessionId]);
+        startInfo.ArgumentList.AddRange(["--session-id", sessionId()]);
+
+        // PackageTools.UI applies the changes without waiting for Start, then offers to start Beutl.
+        if (restart)
+            startInfo.ArgumentList.Add("--restart");
 
         if (Debugger.IsAttached)
             startInfo.ArgumentList.Add("--launch-debugger");
 
-        Process.Start(startInfo);
+        return startInfo;
     }
 }

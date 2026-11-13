@@ -116,12 +116,14 @@
                                         Content="{Binding StatusText.Value}"
                                         IsHitTestVisible="False" />
 
+                                <!--  A scheduled change waits for a restart, so the cell offers one; the menu cancels the change. Hidden, it is also disabled, as transparent leaves it reachable with Tab.  -->
                                 <Button Grid.Column="4"
-                                        Classes="action"
+                                        Classes="action accent"
                                         Classes.transparent="{Binding !CanCancel.Value}"
                                         Click="ActionButton_Click"
-                                        Command="{Binding Cancel}"
-                                        Content="{x:Static lang:Strings.Cancel}" />
+                                        Command="{Binding Restart}"
+                                        Content="{x:Static lang:Strings.Restart}"
+                                        IsEnabled="{Binding CanCancel.Value}" />
 
                                 <Button Grid.Column="6"
                                         Click="Overflow_Click"
@@ -137,6 +139,9 @@
                                             <ui:FAMenuFlyoutItem Command="{Binding Update}"
                                                                  IsEnabled="{Binding IsUpdateButtonVisible.Value}"
                                                                  Text="{x:Static lang:ExtensionsStrings.Update}" />
+                                            <ui:FAMenuFlyoutItem Command="{Binding Cancel}"
+                                                                 IsVisible="{Binding CanCancel.Value}"
+                                                                 Text="{x:Static lang:Strings.Cancel}" />
                                             <ui:FAMenuFlyoutItem Command="{ReflectionBinding RemoveFromLibrary}"
                                                                  IsVisible="{Binding IsRemote}"
                                                                  Text="{x:Static lang:ExtensionsStrings.RemoveFromLibrary}" />

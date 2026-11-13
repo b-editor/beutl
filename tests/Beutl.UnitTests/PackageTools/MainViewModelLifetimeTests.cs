@@ -1,4 +1,6 @@
-﻿using Beutl.Api;
+﻿using System.Diagnostics;
+
+using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.PackageTools.UI.Models;
 
@@ -152,6 +154,179 @@ public sealed class MainViewModelLifetimeTests
         {
             releaseFirst.TrySetResult();
             releaseSecond.TrySetResult();
+            await viewModel.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    [Test]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task DisposeAsync_StartsBeutlOnceAfterTheResourcesOnlyWhenTheUserAsked(bool asked)
+    {
+        var events = new List<string>();
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var viewModel = new PackageToolsMainViewModel(
+            httpClient,
+            app,
+            new ChangesModel(),
+            [],
+            [],
+            initialize: static _ => Task.CompletedTask,
+            cancelPendingRequests: static () => { },
+            disposeResources: () =>
+            {
+                lock (events) events.Add("dispose");
+                return ValueTask.CompletedTask;
+            },
+            startBeutl: () =>
+            {
+                lock (events) events.Add("start");
+            });
+
+        await viewModel.InitializationTask.WaitAsync(TimeSpan.FromSeconds(5));
+        if (asked)
+        {
+            viewModel.StartBeutlWhenClosed();
+        }
+
+        await Task.WhenAll(viewModel.DisposeAsync().AsTask(), viewModel.DisposeAsync().AsTask())
+            .WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(events, Is.EqualTo(asked ? new[] { "dispose", "start" } : new[] { "dispose" }));
+    }
+
+    [Test]
+    public async Task ShouldStartAutomaticallyAsync_IsTrueOnceInitializationFinishesWhenBeutlRestarts()
+    {
+        var releaseInitialization = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var viewModel = new PackageToolsMainViewModel(
+            httpClient,
+            app,
+            new ChangesModel(),
+            [],
+            [],
+            initialize: _ => releaseInitialization.Task,
+            cancelPendingRequests: static () => { },
+            disposeResources: static () => ValueTask.CompletedTask,
+            startsAutomatically: true);
+
+        try
+        {
+            Task<bool> decision = viewModel.ShouldStartAutomaticallyAsync();
+            Assert.That(decision.IsCompleted, Is.False, "The changes are not known before initialization finishes.");
+
+            releaseInitialization.TrySetResult();
+            Assert.That(await decision.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        }
+        finally
+        {
+            releaseInitialization.TrySetResult();
+            await viewModel.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    [Test]
+    public async Task ShouldStartAutomaticallyAsync_IsFalseWithoutARestart()
+    {
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var viewModel = CreateViewModel(
+            httpClient,
+            app,
+            static _ => Task.CompletedTask,
+            static () => { },
+            static () => ValueTask.CompletedTask);
+
+        try
+        {
+            Assert.That(await viewModel.ShouldStartAutomaticallyAsync().WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        }
+        finally
+        {
+            await viewModel.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    [Test]
+    public async Task ShouldStartAutomaticallyAsync_IsFalseWhenInitializationFails()
+    {
+        using var httpClient = new HttpClient();
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        // A disposed application refuses its resources, so reading the changes fails.
+        await app.DisposeAsync();
+        var viewModel = new PackageToolsMainViewModel(
+            httpClient,
+            app,
+            new ChangesModel(),
+            [],
+            [],
+            cancelPendingRequests: static () => { },
+            disposeResources: static () => ValueTask.CompletedTask,
+            startsAutomatically: true);
+
+        try
+        {
+            Assert.That(await viewModel.ShouldStartAutomaticallyAsync().WaitAsync(TimeSpan.FromSeconds(10)), Is.False);
+        }
+        finally
+        {
+            await viewModel.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    [Test]
+    public async Task ShouldStartAutomaticallyAsync_IsFalseWhenClosedDuringInitialization()
+    {
+        var releaseInitialization = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var viewModel = new PackageToolsMainViewModel(
+            httpClient,
+            app,
+            new ChangesModel(),
+            [],
+            [],
+            initialize: _ => releaseInitialization.Task,
+            cancelPendingRequests: static () => { },
+            disposeResources: static () => ValueTask.CompletedTask,
+            startsAutomatically: true);
+
+        Task<bool> decision = viewModel.ShouldStartAutomaticallyAsync();
+        Task dispose = viewModel.DisposeAsync().AsTask();
+        releaseInitialization.TrySetResult();
+
+        Assert.That(await decision.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        await dispose.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task AnotherPackageToolsProcess_KeepsTheChangesFromStartingAutomatically()
+    {
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        using Process self = Process.GetCurrentProcess();
+        using Process other = Process.GetCurrentProcess();
+        var viewModel = new PackageToolsMainViewModel(
+            httpClient,
+            app,
+            new ChangesModel(),
+            [],
+            [self, other],
+            cancelPendingRequests: static () => { },
+            disposeResources: static () => ValueTask.CompletedTask,
+            startsAutomatically: true);
+
+        try
+        {
+            await viewModel.InitializationTask.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(viewModel.AreOthersRunning.Value, Is.True);
+            Assert.That(await viewModel.ShouldStartAutomaticallyAsync().WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        }
+        finally
+        {
             await viewModel.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         }
     }
