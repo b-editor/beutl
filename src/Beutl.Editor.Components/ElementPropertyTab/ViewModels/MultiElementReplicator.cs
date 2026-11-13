@@ -139,9 +139,12 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
 
         // A keyframe that moved is found where it was.
         bool movesKeyFrame = update.Object is IKeyFrame && name == nameof(IKeyFrame.KeyTime);
+        bool reachesOthers = ReachesOthers(update.Object, null);
         var written = new List<Element>();
         foreach ((Element target, bool exact) in Targets())
         {
+            if (!exact && !reachesOthers) continue;
+
             CoreObject? owner = movesKeyFrame
                 ? FindKeyFrame((IKeyFrame)update.Object, target, (MediaTime)update.OldValue!)
                 : Find(update.Object, target);
@@ -194,9 +197,12 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
 
         Type definition = type.GetGenericTypeDefinition();
         object?[] current = [.. list.Cast<object?>()];
+        bool reachesOthers = ReachesOthers(collection.Object, source);
         var written = new List<Element>();
         foreach ((Element target, bool exact) in Targets())
         {
+            if (!exact && !reachesOthers) continue;
+
             if (Find(collection.Object, target) is not { } owner
                 || MultiElementCorrespondence.FindProperty(owner, source)?.Value is not IList targetList)
             {
@@ -386,10 +392,12 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
         if (operation.Parent is not { } keyFrame) return;
 
         string name = PropertyPathHelper.GetPropertyNameFromPath(operation.PropertyPath);
+        bool reachesOthers = ReachesOthers(keyFrame, null);
         var written = new List<Element>();
-        foreach ((Element target, _) in Targets())
+        foreach ((Element target, bool exact) in Targets())
         {
-            if (Find(keyFrame, target) is not KeyFrame { Easing.Value: SplineEasing easing }) continue;
+            if ((!exact && !reachesOthers) || Find(keyFrame, target) is not KeyFrame { Easing.Value: SplineEasing easing })
+                continue;
 
             switch (name)
             {
@@ -450,6 +458,40 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
         ObjectRegenerator.Regenerate(obj, obj.GetType(), out ICoreSerializable copy);
         return (CoreObject)copy;
     }
+
+    // Whether an edit of owner, or of its list, reaches the other elements: an edit of what the editors show of the copy
+    // does, while one of what they hide stays with the element the copy was made from. The nodes and connections of a
+    // node graph are hidden, and refer to each other by Id, which each element's copy of them would not share.
+    private bool ReachesOthers(CoreObject owner, IProperty? list)
+    {
+        if (list is not null && owner is not IPropertyAnimation && !IsShown(owner, list)) return false;
+
+        for (CoreObject current = owner; !ReferenceEquals(current, _copy);)
+        {
+            if ((current as IHierarchical)?.HierarchicalParent is not CoreObject parent) return false;
+
+            // The keyframes of an animation show in the editor of the property it animates.
+            if (parent is not IPropertyAnimation
+                && (HoldingProperty(parent, current) is not { } holding || !IsShown(parent, holding)))
+            {
+                return false;
+            }
+
+            current = parent;
+        }
+
+        return true;
+    }
+
+    private static bool IsShown(CoreObject owner, IProperty property)
+        => MultiElementCorrespondence.DisplayedProperties(owner).Contains(property);
+
+    // The property of parent that holds child: as its value, among its items, or as its keyframes.
+    private static IProperty? HoldingProperty(CoreObject parent, CoreObject child)
+        => parent.Properties.FirstOrDefault(property =>
+            ReferenceEquals(property.Value, child)
+            || (property.Value is IList list && list.Cast<object?>().Any(item => ReferenceEquals(item, child)))
+            || (property is IExpressionProperty && ReferenceEquals(property.GetPropertyAnimation(), child)));
 
     // The element the copy was made from first, with exact copies, then the others unless a command runs on them itself.
     private IEnumerable<(Element Target, bool Exact)> Targets()

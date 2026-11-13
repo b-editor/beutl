@@ -18,6 +18,8 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -474,6 +476,30 @@ public class MultiElementPropertyTests
         });
     }
 
+    // The nodes and connections of a node graph refer to each other by Id and the tab does not show them, so an edit of
+    // them stays with the element the copy was made from.
+    [AvaloniaTest]
+    public async Task NodeGraphEditsStayWithTheShownElement()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
+        RectShape[] shapes = Shapes<RectShape>(elements);
+        foreach (RectShape shape in shapes)
+            Effects(shape).Children.Add(new NodeGraphFilterEffect());
+        editor.HistoryManager.Commit("test setup");
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        GraphModel copyGraph = Graph(Copy<RectShape>(tab));
+
+        copyGraph.Nodes.Add(new OutputNode());
+        editor.HistoryManager.Commit("add a node");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Graph(shapes[0]).Nodes.Select(node => node.Id.Value), Is.EqualTo(copyGraph.Nodes.Select(node => node.Id.Value)),
+                "the element shown holds what the copy does");
+            Assert.That(Graph(shapes[1]).Nodes, Is.Empty);
+        });
+    }
+
     // A locked element is not edited, so what it lacks does not keep the others from editing it.
     [AvaloniaTest]
     public async Task ALockedElementDoesNotHideWhatTheOthersShare()
@@ -648,6 +674,9 @@ public class MultiElementPropertyTests
     private static FilterEffectGroup Effects(Drawable drawable) => (FilterEffectGroup)drawable.FilterEffect.Value!;
 
     private static Type[] EffectTypes(Drawable drawable) => [.. Effects(drawable).Children.Select(effect => effect.GetType())];
+
+    private static GraphModel Graph(Drawable drawable)
+        => ((NodeGraphFilterEffect)Effects(drawable).Children.Single()).Model.Value!;
 
     // The editor of the copy's effects, opened as the view opens it.
     private static ListEditorViewModel<FilterEffect> EffectList(ElementPropertyTabViewModel tab, Drawable copy)
