@@ -266,6 +266,8 @@
 
         <Style Selector="^.multiline /template/ TextBox#PART_InnerTextBox">
             <Setter Property="AcceptsReturn" Value="True" />
+            <!-- A long line wraps at the editor's width rather than scrolling sideways out of view. -->
+            <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
     </ControlTheme>
 
