@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Beutl.Configuration;
@@ -11,6 +12,7 @@ using Beutl.Controls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
+using FluentAvalonia.UI.Controls;
 using SkiaSharp;
 using BtlMatrix = Beutl.Graphics.Matrix;
 
@@ -209,6 +211,50 @@ public sealed class PlayerViewHdrPreviewTests
         }
         finally
         {
+            window.Close();
+        }
+    }
+
+    // A dialog draws in the window's overlay layer, which the native view covered. The frame panel shows black under the
+    // native view here, and the copy over black shows the dialog and its smoke as the window does. The dialog has no text,
+    // whose edges the window and the copy may smooth apart.
+    [AvaloniaTest]
+    public async Task A_dialog_over_the_player_is_in_the_copy_as_the_window_shows_it()
+    {
+        TestGpu.RequireAnyDevice();
+        (_, PlayerView view, Window window) = await Open(hdr: true, 900, 520);
+        var dialog = new FAContentDialog { Content = new Border { Background = Brushes.Fuchsia, Width = 200, Height = 80 } };
+        Task? closed = null;
+        try
+        {
+            closed = dialog.ShowAsync(window);
+            await HdrOverlayTests.WaitUntilShown(dialog);
+
+            HdrBitmapView native = view.hdrView!;
+            Rect frame = SlotIn(view, window);
+            using WriteableBitmap shown = window.CaptureRenderedFrame()!;
+            using SKPicture picture = native.Overlay!.Record(native.Bounds.Size, native.FrameRegion, 1);
+            Point origin = native.TranslatePoint(default, window)!.Value;
+            using var copy = new SKBitmap(new SKImageInfo(
+                (int)native.Bounds.Width, (int)native.Bounds.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
+            using (var canvas = new SKCanvas(copy))
+            {
+                canvas.Clear(SKColors.Transparent);
+                canvas.DrawPicture(picture);
+            }
+
+            (int Compared, int Lit, int WorstDifference) result = Compare(shown, copy, frame, origin);
+            var corner = new PixelPoint((int)(frame.X - origin.X) + 2, (int)(frame.Y - origin.Y) + 2);
+            Assert.Multiple(() =>
+            {
+                Assert.That(copy.GetPixel(corner.X, corner.Y).Alpha, Is.GreaterThan(0), "the smoke over the frame");
+                Assert.That(result.Lit, Is.GreaterThan(500), "the dialog's content over the frame");
+                Assert.That(result.WorstDifference, Is.LessThanOrEqualTo(2));
+            });
+        }
+        finally
+        {
+            await HdrOverlayTests.CloseAsync(dialog, closed);
             window.Close();
         }
     }
