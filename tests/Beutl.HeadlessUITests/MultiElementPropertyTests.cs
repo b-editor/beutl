@@ -500,6 +500,41 @@ public class MultiElementPropertyTests
         });
     }
 
+    // A layer input keeps its value in its node, so its edit is an edit of the node graph: it reaches the element shown,
+    // and the copy keeps showing it rather than showing that element again without it.
+    [AvaloniaTest]
+    public async Task ALayerInputEditReachesTheShownElementAndStays()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new NodeGraphDrawable(), () => new NodeGraphDrawable());
+        var ports = new List<LayerInputNode.LayerInputPort<float>>();
+        foreach (Element element in elements)
+        {
+            var port = new LayerInputNode.LayerInputPort<float>();
+            port.SetupProperty("Amount");
+            var node = new LayerInputNode();
+            node.Items.Add(port);
+            ((NodeGraphDrawable)element.Objects[0]).Model.Value!.Nodes.Add(node);
+            ports.Add(port);
+        }
+
+        editor.HistoryManager.Commit("test setup");
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        Element copy = tab.DisplayedElement.Value!;
+        NumberEditorViewModel<float> amount = PropertyEditorTestHost
+            .Flatten(tab.Items.Single().Properties, includeGroups: false)
+            .OfType<GraphModelEditorViewModel>().Single()
+            .NodeMembers.Single().Properties.OfType<NumberEditorViewModel<float>>().Single();
+
+        ((IValueEditorContext<float>)amount).ConfirmEdit(0, 42);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ports.Select(port => (float)port.Property!.GetValue()!), Is.EqualTo(new[] { 42f, 0f }));
+            Assert.That(tab.DisplayedElement.Value, Is.SameAs(copy), "the copy keeps the edit");
+        });
+    }
+
     // A locked element is not edited, so what it lacks does not keep the others from editing it.
     [AvaloniaTest]
     public async Task ALockedElementDoesNotHideWhatTheOthersShare()

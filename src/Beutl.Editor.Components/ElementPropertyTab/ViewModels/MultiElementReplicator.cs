@@ -9,6 +9,7 @@ using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
@@ -115,6 +116,9 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
             case IUpdatePropertyValueOperation update:
                 ReplicateUpdate(update);
                 break;
+            case UpdateNodeMemberOperation member:
+                ReplicateNodeMember(member);
+                break;
         }
     }
 
@@ -171,6 +175,32 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
             OnStructureChanged();
 
         Invalidate(written);
+    }
+
+    // A member of a node, such as a layer input, keeps its value in its own adapter rather than in a property. Like any
+    // edit inside a node graph, it reaches only the element the copy was made from (ReachesOthers).
+    private void ReplicateNodeMember(UpdateNodeMemberOperation operation)
+    {
+        if (!IsEditable(_shown)
+            || operation.NodeMember is not CoreObject member
+            || Find(member, _shown) is not INodeMember { Property: { } property })
+        {
+            return;
+        }
+
+        switch (PropertyPathHelper.Parse(operation.PropertyPath).Slot)
+        {
+            case PropertyPathSlot.Value:
+                property.SetValue(CopyValue(operation.NewValue, exact: true));
+                break;
+            case PropertyPathSlot.Animation when property is IAnimatablePropertyAdapter animatable:
+                animatable.Animation = CopyValue(operation.NewValue, exact: true) as IKeyFrameAnimation;
+                break;
+            default:
+                return;
+        }
+
+        Invalidate([_shown]);
     }
 
     // The keyframe of target that stands for the copy's keyframe when that was at time.
