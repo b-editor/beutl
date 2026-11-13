@@ -20,17 +20,12 @@ internal static class PackageReleaseRefreshCoordinator
 
         try
         {
-            await refreshPackageAsync();
+            // The package and its releases are separate requests, so they load together.
+            Task refreshPackage = refreshPackageAsync();
+            Task<Release[]> loadReleases = LoadReleasesAsync(getReleasesAsync);
+            await Task.WhenAll(refreshPackage, loadReleases);
 
-            var releases = new List<Release>();
-            Release[] page;
-            do
-            {
-                page = await getReleasesAsync(releases.Count, PageSize);
-                releases.AddRange(page);
-            } while (page.Length == PageSize);
-
-            publishReleases([.. releases]);
+            publishReleases(await loadReleases);
             publicationCompleted = true;
             releasesReady.OnNext(true);
         }
@@ -43,5 +38,18 @@ internal static class PackageReleaseRefreshCoordinator
 
             throw;
         }
+    }
+
+    private static async Task<Release[]> LoadReleasesAsync(Func<int, int, Task<Release[]>> getReleasesAsync)
+    {
+        var releases = new List<Release>();
+        Release[] page;
+        do
+        {
+            page = await getReleasesAsync(releases.Count, PageSize);
+            releases.AddRange(page);
+        } while (page.Length == PageSize);
+
+        return [.. releases];
     }
 }

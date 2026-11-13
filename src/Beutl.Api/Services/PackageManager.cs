@@ -89,49 +89,50 @@ public sealed partial class PackageManager : IBeutlApiResource
         var (discover, lifetime) = apiApplication.GetResourceWithLifetime<DiscoverService>(cancellationToken);
         using CancellationTokenSource operationCts = lifetime;
         CancellationToken operationToken = operationCts.Token;
-        using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
+        using (Telemetry.ActivitySource.StartActivity("CheckUpdate"))
         {
             PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
 
-            var updates = new List<PackageUpdate>(packages.Length);
-
-            for (int i = 0; i < packages.Length; i++)
-            {
-                operationToken.ThrowIfCancellationRequested();
-                PackageIdentity pkg = packages[i];
-                NuGetVersion version = pkg.Version;
-                string versionStr = version.ToString();
-                try
-                {
-                    activity?.AddEvent(new("Checking updates"));
-                    activity?.SetTag("PackageId", pkg.Id);
-                    activity?.SetTag("Version", versionStr);
-                    Package remotePackage = await discover
-                        .GetPackage(pkg.Id, operationToken)
-                        .ConfigureAwait(false);
-                    activity?.AddEvent(new("Checked updates"));
-
-                    PackageUpdate? update = await FindUpdateAsync(remotePackage, version, versionStr, operationToken)
-                        .ConfigureAwait(false);
-                    if (update is not null)
-                    {
-                        updates.Add(update);
-                        _logger.LogInformation("Update found for package {PackageId}: {OldVersion} -> {NewVersion}", pkg.Id, versionStr, update.NewVersion.Version.Value);
-                    }
-                }
-                catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex,
-                        "An exception occurred while checking for package updates. (PackageId: {PackageId})", pkg.Id);
-                }
-            }
+            // Each package takes a few store requests, so the packages are checked together.
+            PackageUpdate?[] updates = await Task.WhenAll(
+                    packages.Select(pkg => CheckUpdateOrLogAsync(discover, pkg, operationToken)))
+                .ConfigureAwait(false);
 
             operationToken.ThrowIfCancellationRequested();
-            return updates;
+            return [.. updates.OfType<PackageUpdate>()];
+        }
+    }
+
+    private async Task<PackageUpdate?> CheckUpdateOrLogAsync(
+        DiscoverService discover,
+        PackageIdentity pkg,
+        CancellationToken cancellationToken)
+    {
+        string versionStr = pkg.Version.ToString();
+        try
+        {
+            Package remotePackage = await discover
+                .GetPackage(pkg.Id, cancellationToken)
+                .ConfigureAwait(false);
+
+            PackageUpdate? update = await FindUpdateAsync(remotePackage, pkg.Version, versionStr, cancellationToken)
+                .ConfigureAwait(false);
+            if (update is not null)
+            {
+                _logger.LogInformation("Update found for package {PackageId}: {OldVersion} -> {NewVersion}", pkg.Id, versionStr, update.NewVersion.Version.Value);
+            }
+
+            return update;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "An exception occurred while checking for package updates. (PackageId: {PackageId})", pkg.Id);
+            return null;
         }
     }
 

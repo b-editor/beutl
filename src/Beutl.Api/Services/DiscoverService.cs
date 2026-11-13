@@ -41,11 +41,7 @@ public class DiscoverService(BeutlApiApplication clients) : IBeutlApiResource
             .GetFeatured(token, start, count, type.ToQueryValue())
             .ConfigureAwait(false);
         token.ThrowIfCancellationRequested();
-        Package[] result = await Task.WhenAll(
-                packages.Select(package => GetPackage(package.Name, token)))
-            .ConfigureAwait(false);
-        token.ThrowIfCancellationRequested();
-        return result;
+        return ToPackages(packages);
     }
 
     public async Task<Package[]> Search(
@@ -63,10 +59,14 @@ public class DiscoverService(BeutlApiApplication clients) : IBeutlApiResource
             .Search(query, token, start, count, type.ToQueryValue())
             .ConfigureAwait(false);
         token.ThrowIfCancellationRequested();
-        Package[] result = await Task.WhenAll(
-                packages.Select(package => GetPackage(package.Name, token)))
-            .ConfigureAwait(false);
-        token.ThrowIfCancellationRequested();
-        return result;
+        return ToPackages(packages);
+    }
+
+    // The cards need only the list entries; the details page loads the rest of a package.
+    private Package[] ToPackages(SimplePackageResponse[] packages)
+    {
+        return packages
+            .Select(package => new Package(new Profile(package.Owner, clients), package, clients))
+            .ToArray();
     }
 }

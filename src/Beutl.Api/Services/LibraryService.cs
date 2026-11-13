@@ -33,10 +33,9 @@ public class LibraryService(BeutlApiApplication clients) : IBeutlApiResource
 
         AcquirePackageResponse[] packages = await clients.Library.GetLibrary(token, start, count);
         token.ThrowIfCancellationRequested();
-        Package[] result = await Task.WhenAll(
-            packages.Select(package => GetPackage(package.Package.Name, token)));
-        token.ThrowIfCancellationRequested();
-        return result;
+        return packages
+            .Select(item => new Package(new Profile(item.Package.Owner, clients), item.Package, clients))
+            .ToArray();
     }
 
     public async Task<Release> Acquire(Package package, CancellationToken cancellationToken)

@@ -119,9 +119,7 @@ public class Profile
             token,
             start,
             count);
-        PackageResponse[] responses = await Task.WhenAll(
-            packages.Select(package => _clients.Packages.GetPackage(package.Name, token)));
         token.ThrowIfCancellationRequested();
-        return responses.Select(response => new Package(this, response, _clients)).ToArray();
+        return packages.Select(package => new Package(this, package, _clients)).ToArray();
     }
 }

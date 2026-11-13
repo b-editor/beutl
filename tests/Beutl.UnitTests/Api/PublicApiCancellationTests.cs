@@ -179,8 +179,9 @@ public sealed class PublicApiCancellationTests
         await handler.CancellationObserved.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
+    // A list builds its packages from its own entries; any further request would block in the handler.
     [Test]
-    public async Task DiscoverFeatured_PropagatesCancellationToPackageDetailRequests()
+    public async Task DiscoverFeatured_SendsNoRequestPerPackage()
     {
         using var handler = new BlockingHandler(request =>
             request.RequestUri?.AbsolutePath == "/api/v3/discover/featured"
@@ -188,16 +189,16 @@ public sealed class PublicApiCancellationTests
                 : null);
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        using var cancellationTokenSource = new CancellationTokenSource();
         var service = new DiscoverService(app);
 
-        Task operation = service.GetFeatured(cancellationTokenSource.Token);
+        Package[] packages = await service.GetFeatured(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
 
-        await AssertTransportCancellation(operation, handler, cancellationTokenSource);
+        Assert.That(packages.Select(package => package.Name), Is.EqualTo(new[] { "package-name" }));
+        Assert.That(handler.BlockingRequestStarted.IsCompleted, Is.False);
     }
 
     [Test]
-    public async Task LibraryPackages_PropagatesCancellationToPackageDetailRequests()
+    public async Task LibraryPackages_SendsNoRequestPerPackage()
     {
         using var handler = new BlockingHandler(request =>
             request.RequestUri?.AbsolutePath == "/api/v3/account/library"
@@ -205,12 +206,12 @@ public sealed class PublicApiCancellationTests
                 : null);
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        using var cancellationTokenSource = new CancellationTokenSource();
         var service = new LibraryService(app);
 
-        Task operation = service.GetPackages(cancellationTokenSource.Token);
+        Package[] packages = await service.GetPackages(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
 
-        await AssertTransportCancellation(operation, handler, cancellationTokenSource);
+        Assert.That(packages.Select(package => package.Name), Is.EqualTo(new[] { "package-name" }));
+        Assert.That(handler.BlockingRequestStarted.IsCompleted, Is.False);
     }
 
     private const string SimplePackageJson = """
