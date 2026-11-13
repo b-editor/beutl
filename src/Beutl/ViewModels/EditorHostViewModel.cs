@@ -69,6 +69,10 @@ public class EditorHostViewModel
                 _closedSelections.Add(project, new ClosedProjectSelection(selectedObject));
                 closeContext.RegisterCompletion(projectClosed =>
                     RestoreAfterAbortedCloseAsync(project, selectedObject, projectClosed));
+
+                // A scene removed from the project can still have its tab open, and the project cannot open on it.
+                if (selectedObject is ProjectItem selectedItem && project.Items.Contains(selectedItem))
+                    ProjectViewState.SaveSelectedScene(project, selectedItem);
             }
 
             bool saveChanges = closeContext.CloseIntent == ProjectService.ProjectCloseIntent.SaveChanges
@@ -83,17 +87,20 @@ public class EditorHostViewModel
         {
             await DispatchAsync(() => OnProjectChangedAsync(project, null, saveChanges: true));
             if (_closedSelections.TryGetValue(project, out ClosedProjectSelection? selection))
-            {
                 _closedSelections.Remove(project);
-                if (selection.SelectedObject is ProjectItem item && project.Items.Contains(item))
-                {
-                    await DispatchAsync(() =>
-                    {
-                        _editorService.ActivateTabItem(item);
-                        return Task.CompletedTask;
-                    });
-                }
-            }
+
+            await DispatchAsync(() =>
+            {
+                // A model that opens again after a failed close or switch shows what it showed. A project read
+                // from its file opens on the scene it showed when it last closed.
+                CoreObject? selectedObject = selection is not null
+                    ? selection.SelectedObject
+                    : ProjectViewState.FindSelectedScene(project);
+                if (selectedObject is ProjectItem item && project.Items.Contains(item))
+                    _editorService.ActivateTabItem(item);
+
+                return Task.CompletedTask;
+            });
         });
     }
 
