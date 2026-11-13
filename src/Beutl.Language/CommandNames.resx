@@ -89,6 +89,9 @@
   <data name="ChangeLayerColor" xml:space="preserve">
     <value>Change Layer Color</value>
   </data>
+  <data name="RenameLayer" xml:space="preserve">
+    <value>Rename Layer</value>
+  </data>
   <data name="ChangeLayerLocked" xml:space="preserve">
     <value>Change Layer Locked</value>
   </data>

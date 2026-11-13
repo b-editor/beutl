@@ -123,7 +123,8 @@
                  Grid.Column="6"
                  Theme="{StaticResource LayerHeaderNameTextBoxTheme}"
                  InputMethod.IsInputMethodEnabled="True"
-                 Text="{Binding Name.Value}" />
+                 LostFocus="NameTextBox_LostFocus"
+                 Text="{Binding Name.Value, Mode=OneWay}" />
 
         <ItemsControl Grid.Row="1"
                       Grid.ColumnSpan="7"

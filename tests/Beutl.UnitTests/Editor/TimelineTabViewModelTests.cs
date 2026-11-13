@@ -213,6 +213,123 @@ public class TimelineTabViewModelTests
         });
     }
 
+    // The name box hands what was typed to Rename when the edit ends. That names the layer on the row, so the name
+    // is saved on its TimelineLayer: a move carries the name to the row the layer lands on, and undo takes back the
+    // move and then the rename.
+    [Test]
+    public void ANameTypedIntoAHeader_MovesWithItsLayer_ThroughUndoAndRedo()
+    {
+        using var harness = new SceneHistoryHarness("beutl_layer_header_rename");
+        Element namedRowClip = harness.AddElement(0);
+        harness.AddElement(1);
+        harness.AddElement(2);
+        harness.History.Commit("Setup");
+        using TimelineTabViewModel viewModel = CreateViewModel(harness.Scene, new LayerMoveService(harness.History),
+            layerAttributeService: new LayerAttributeService(harness.History));
+
+        viewModel.LayerHeaders[0].Rename("Named");
+        AssertHeaderNames(viewModel, namedRow: 0);
+
+        viewModel.LayerHeaders[0].MoveTo(2, [namedRowClip]);
+        AssertHeaderNames(viewModel, namedRow: 2);
+
+        Assert.That(harness.History.Undo(), Is.True, "undo the move");
+        AssertHeaderNames(viewModel, namedRow: 0);
+
+        Assert.That(harness.History.Undo(), Is.True, "undo the rename");
+        AssertHeaderNames(viewModel, namedRow: null);
+
+        Assert.That(harness.History.Redo(), Is.True, "redo the rename");
+        AssertHeaderNames(viewModel, namedRow: 0);
+
+        Assert.That(harness.History.Redo(), Is.True, "redo the move");
+        AssertHeaderNames(viewModel, namedRow: 2);
+    }
+
+    // A header without a name shows the number of its row. Leaving the box with that number, or with only spaces,
+    // names nothing, and clearing a name leaves no TimelineLayer behind when the name was all it held.
+    [Test]
+    public void TheRowNumberAndABlankName_NameNoLayer()
+    {
+        using var harness = new SceneHistoryHarness("beutl_layer_header_blank_name");
+        harness.AddElement(0);
+        harness.AddElement(1);
+        harness.History.Commit("Setup");
+        using TimelineTabViewModel viewModel = CreateViewModel(harness.Scene,
+            layerAttributeService: new LayerAttributeService(harness.History));
+        LayerHeaderViewModel header = viewModel.LayerHeaders[1];
+        int undoCount = harness.History.UndoCount;
+
+        header.Rename(" 1 ");
+        header.Rename("   ");
+        Assert.Multiple(() =>
+        {
+            Assert.That(header.Name.Value, Is.EqualTo("1"));
+            Assert.That(harness.Scene.Layers, Is.Empty);
+            Assert.That(harness.History.UndoCount, Is.EqualTo(undoCount));
+        });
+
+        header.Rename(" Named ");
+        header.Rename(string.Empty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(header.Name.Value, Is.EqualTo("1"));
+            Assert.That(harness.Scene.Layers, Is.Empty);
+            Assert.That(harness.History.UndoCount, Is.EqualTo(undoCount + 2));
+        });
+
+        Assert.That(harness.History.Undo(), Is.True, "undo the clearing");
+        Assert.Multiple(() =>
+        {
+            Assert.That(header.Name.Value, Is.EqualTo("Named"));
+            Assert.That(harness.Scene.Layers.Single().Name.Value, Is.EqualTo("Named"));
+        });
+    }
+
+    // A header without a name shows the number of its row. Coloring the layer must not save that number as the
+    // layer's name, or the layer would go on showing its old number on the row a move takes it to.
+    [Test]
+    public void ColoringALayerWithoutAName_KeepsItShowingItsRow_AfterAMove()
+    {
+        using var harness = new SceneHistoryHarness("beutl_layer_header_color");
+        Element coloredRowClip = harness.AddElement(0);
+        harness.AddElement(1);
+        harness.AddElement(2);
+        harness.History.Commit("Setup");
+        using TimelineTabViewModel viewModel = CreateViewModel(harness.Scene, new LayerMoveService(harness.History),
+            layerAttributeService: new LayerAttributeService(harness.History));
+
+        viewModel.LayerHeaders[0].SetColor(Avalonia.Media.Colors.Red);
+        viewModel.LayerHeaders[0].MoveTo(2, [coloredRowClip]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(harness.Scene.Layers.Single().Name.Value, Is.Empty);
+            for (int row = 0; row < viewModel.LayerHeaders.Count; row++)
+            {
+                LayerHeaderViewModel header = viewModel.LayerHeaders[row];
+                Assert.That(header.Name.Value, Is.EqualTo($"{row}"), $"the name on row {row}");
+                Assert.That(header.Color.Value == Avalonia.Media.Colors.Red, Is.EqualTo(row == 2),
+                    $"the color on row {row}");
+            }
+        });
+    }
+
+    private static void AssertHeaderNames(TimelineTabViewModel viewModel, int? namedRow)
+    {
+        Assert.Multiple(() =>
+        {
+            for (int row = 0; row < viewModel.LayerHeaders.Count; row++)
+            {
+                Assert.That(viewModel.LayerHeaders[row].Name.Value, Is.EqualTo(row == namedRow ? "Named" : $"{row}"),
+                    $"the name on row {row}");
+            }
+
+            Assert.That(viewModel.Scene.Layers.Where(layer => layer.Name.Value == "Named").Select(layer => layer.ZIndex.Value),
+                namedRow is { } named ? Is.EqualTo(new[] { named }) : Is.Empty, "the row of the layer with the name");
+        });
+    }
+
     [Test]
     public void LayerTops_follow_height_changes_and_shrink_then_grow()
     {
@@ -344,7 +461,8 @@ public class TimelineTabViewModelTests
         Scene? scene = null,
         ILayerMoveService? layerMoveService = null,
         IElementNudgeService? nudgeService = null,
-        IElementGapService? gapService = null)
+        IElementGapService? gapService = null,
+        ILayerAttributeService? layerAttributeService = null)
     {
         scene ??= new Scene();
         var editorContext = new TestEditorContext(scene);
@@ -354,6 +472,8 @@ public class TimelineTabViewModelTests
         editorContext.AddService<IEditorSelection>(new TestEditorSelection());
         if (layerMoveService is not null)
             editorContext.AddService(layerMoveService);
+        if (layerAttributeService is not null)
+            editorContext.AddService(layerAttributeService);
         if (nudgeService is not null)
             editorContext.AddService(nudgeService);
         if (gapService is not null)

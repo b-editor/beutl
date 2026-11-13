@@ -22,7 +22,8 @@ public sealed class LayerHeaderViewModel : IDisposable
 
         // A header is a fixed row: Number is its index in the timeline's LayerHeaders, and it shows the
         // TimelineLayer whose ZIndex is that row. The timeline has every header look its model up again when a
-        // model changes rows or is added or removed, as a layer move and its undo and redo do.
+        // model changes rows or is added or removed, as a layer move and its undo and redo do. Name only shows the
+        // model's name; Rename changes it.
         Number = num;
         Name = _model.Select(i => i?.Name.GetObservable() ?? Observable.Return(num.ToString()))
             .Switch()
@@ -164,11 +165,29 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public void SetColor(Color color)
     {
+        // Without a model the header shows only its row's number, which must not become the layer's name: the
+        // layer would keep showing it on the row a move takes it to.
         Timeline.EditorContext.GetRequiredService<ILayerAttributeService>()
-            .SetColor(Timeline.Scene, Number, color.ToBtlColor(), Name.Value);
+            .SetColor(Timeline.Scene, Number, color.ToBtlColor(), string.Empty);
 
         // Re-sync the local TimelineLayer from the scene so Name/Color bindings track
         // the model the service just created or updated.
+        ResyncModel();
+    }
+
+    // Names the layer on this header's row with the text of its name box. The name is saved on the row's
+    // TimelineLayer, so it moves with the layer. Blank text, or the row's number that a layer without a name shows,
+    // clears the name.
+    public void Rename(string? text)
+    {
+        // The name box saves its text when it loses the focus, which can happen while the timeline closes, and
+        // whether or not anything was typed: text that is still the name shown changes nothing.
+        if (_disposables.IsDisposed || text == Name.Value) return;
+
+        string name = text?.Trim() ?? string.Empty;
+        if (name == $"{Number}") name = string.Empty;
+
+        Timeline.EditorContext.GetRequiredService<ILayerAttributeService>().SetName(Timeline.Scene, Number, name);
         ResyncModel();
     }
 

@@ -201,4 +201,91 @@ public class LayerHeaderDragTests
             TimelineTestHost.Close(view, window);
         }
     }
+
+    // A name typed into a header names the layer on its row, so a header drag takes the name along with that layer,
+    // whether Enter or the drag ended the edit and whichever header is dragged. Undo takes back the move and then the
+    // name. Dragging row 0 to row 2 moves the layer on row 1 up to row 0.
+    [AvaloniaTest]
+    [TestCase(0, true, 2)]
+    [TestCase(0, false, 2)]
+    [TestCase(1, false, 0)]
+    public async Task A_name_typed_into_a_header_moves_with_its_layer(int typedRow, bool pressEnter, int movedRow)
+    {
+        ElementSource rect = new ElementSource.EngineObject(() => new RectShape());
+        (EditViewModel editor, TimelineTabViewModel timeline) = await TimelineTestHost.OpenTimelineAsync(
+            $"layer-header-rename-{typedRow}-{pressEnter}",
+            [
+                new ElementDescription(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0, rect),
+                new ElementDescription(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 1, rect),
+                new ElementDescription(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 2, rect),
+            ]);
+        Element namedClip = editor.Scene.Children.Single(clip => clip.ZIndex.Value == typedRow);
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 960, Height = 420 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            TextBox nameBox = FindHeader(view, typedRow).FindControl<TextBox>("NameTextBox")!;
+            Point box = nameBox.TranslatePoint(new Point(nameBox.Bounds.Width / 2, nameBox.Bounds.Height / 2), window)!.Value;
+            TimelineTestHost.WaitForHitTest(window, nameBox, box);
+            window.MouseDown(box, MouseButton.Left);
+            window.MouseUp(box, MouseButton.Left);
+            Assert.That(nameBox.IsFocused, Is.True);
+            nameBox.SelectAll();
+            window.KeyTextInput("Background");
+            if (pressEnter)
+            {
+                window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                Assert.That(editor.Scene.Layers.Select(layer => layer.Name.Value), Is.EqualTo(new[] { "Background" }),
+                    "Enter saves the name.");
+            }
+
+            Border handle = FindHeader(view, 0).FindControl<Border>("border")!;
+            Point press = handle.TranslatePoint(new Point(handle.Bounds.Width / 2, handle.Bounds.Height / 2), window)!.Value;
+            Point moved = press + new Vector(0, 2 * FrameNumberHelper.LayerHeight);
+            TimelineTestHost.WaitForHitTest(window, handle, press);
+            window.MouseMove(press);
+            window.MouseDown(press, MouseButton.Left);
+            window.MouseMove(moved, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(moved, MouseButton.Left);
+            HeadlessTestHelpers.Settle(4);
+
+            Assert.That(namedClip.ZIndex.Value, Is.EqualTo(movedRow));
+            AssertNames(view, editor.Scene, namedRow: movedRow);
+
+            Assert.That(await editor.UndoAsync(), Is.True, "undo the move");
+            HeadlessTestHelpers.Settle(4);
+            AssertNames(view, editor.Scene, namedRow: typedRow);
+
+            Assert.That(await editor.UndoAsync(), Is.True, "undo the name");
+            HeadlessTestHelpers.Settle(4);
+            AssertNames(view, editor.Scene, namedRow: null);
+        }
+        finally
+        {
+            TimelineTestHost.Close(view, window);
+        }
+    }
+
+    private static LayerHeader FindHeader(TimelineTabView view, int row)
+        => view.GetVisualDescendants().OfType<LayerHeader>()
+            .First(header => header.DataContext is LayerHeaderViewModel model && model.Number == row);
+
+    // What the name boxes of the first three rows show, and the row of the layer that holds the name.
+    private static void AssertNames(TimelineTabView view, Scene scene, int? namedRow)
+    {
+        Assert.Multiple(() =>
+        {
+            for (int row = 0; row < 3; row++)
+            {
+                Assert.That(FindHeader(view, row).FindControl<TextBox>("NameTextBox")!.Text,
+                    Is.EqualTo(row == namedRow ? "Background" : $"{row}"), $"the name on row {row}");
+            }
+
+            Assert.That(scene.Layers.Where(layer => layer.Name.Value == "Background").Select(layer => layer.ZIndex.Value),
+                namedRow is { } named ? Is.EqualTo(new[] { named }) : Is.Empty, "the row of the layer with the name");
+        });
+    }
 }
