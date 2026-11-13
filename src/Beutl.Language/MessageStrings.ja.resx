@@ -281,6 +281,9 @@
   <data name="UpdateReady_Title" xml:space="preserve">
     <value>アップデートの準備ができました</value>
   </data>
+  <data name="UpdateDownloading_Title" xml:space="preserve">
+    <value>アップデートをダウンロード中</value>
+  </data>
   <data name="UpdateFailed_Title" xml:space="preserve">
     <value>アップデートに失敗しました</value>
   </data>

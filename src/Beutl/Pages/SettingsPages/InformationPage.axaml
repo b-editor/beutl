@@ -57,6 +57,20 @@
 
             <Border Classes="options-group">
                 <ctrls:OptionsGroupPanel>
+                    <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AutoDownloadUpdates_Description}"
+                                              Header="{x:Static lang:SettingsStrings.AutoDownloadUpdates}"
+                                              IsVisible="{Binding CanDownloadUpdatesAutomatically}">
+                        <ctrls:OptionsDisplayItem.Icon>
+                            <icons:FluentIcon Icon="ArrowDownload" />
+                        </ctrls:OptionsDisplayItem.Icon>
+                        <ctrls:OptionsDisplayItem.ActionButton>
+                            <ToggleSwitch AutomationProperties.Name="{x:Static lang:SettingsStrings.AutoDownloadUpdates}"
+                                          Classes="left"
+                                          IsChecked="{Binding AutoDownloadUpdates.Value}"
+                                          Theme="{StaticResource CompactToggleSwitchStyle}" />
+                        </ctrls:OptionsDisplayItem.ActionButton>
+                    </ctrls:OptionsDisplayItem>
+
                     <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.Telemetry_ShortDescription}"
                                               Header="{x:Static lang:SettingsStrings.Telemetry}"
                                               Navigates="True"

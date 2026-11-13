@@ -140,6 +140,12 @@
     <value>Settings about the data to be collected</value>
     <comment/>
   </data>
+  <data name="AutoDownloadUpdates" xml:space="preserve">
+    <value>Download updates automatically</value>
+  </data>
+  <data name="AutoDownloadUpdates_Description" xml:space="preserve">
+    <value>Downloads a new version in the background when Beutl starts. You choose when to install it.</value>
+  </data>
   <data name="Telemetry_Description" xml:space="preserve">
     <value>To improve Beutl, we collect anonymous usage data.These settings will be applied after the application is restarted.For more information, please refer to the following pages.</value>
     <comment/>

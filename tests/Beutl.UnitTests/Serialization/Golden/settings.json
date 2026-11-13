@@ -122,5 +122,9 @@
     "UseLfsWhenAvailable": true,
     "LargeMediaWarningThresholdMb": 10,
     "$type": "[Beutl.Configuration]:VersionControlConfig"
+  },
+  "Update": {
+    "AutoDownload": false,
+    "$type": "[Beutl.Configuration]:UpdateConfig"
   }
 }

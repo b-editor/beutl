@@ -286,6 +286,9 @@
   <data name="UpdateReady_Title" xml:space="preserve">
     <value>更新已准备就绪</value>
   </data>
+  <data name="UpdateDownloading_Title" xml:space="preserve">
+    <value>正在下载更新</value>
+  </data>
   <data name="UpdateFailed_Title" xml:space="preserve">
     <value>更新失败</value>
   </data>

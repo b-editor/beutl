@@ -76,6 +76,7 @@ public partial class PropertyConversionGoldenTests
                 GitExecutablePath = { Value = "/golden/git" },
                 LargeMediaWarningThresholdMb = { Value = 10 },
             }),
+            ["Update"] = CoreSerializer.SerializeToJsonObject(new UpdateConfig { AutoDownload = { Value = false } }),
         };
 
         AssertGolden(json, "settings");

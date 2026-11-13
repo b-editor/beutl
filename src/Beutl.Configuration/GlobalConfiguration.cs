@@ -48,6 +48,7 @@ public sealed class GlobalConfiguration
             ("AiAgent", null, AiAgentConfig),
             ("ProxyStore", null, ProxyStoreConfig),
             ("VersionControl", null, VersionControlConfig),
+            ("Update", null, UpdateConfig),
         ];
         AddHandlers();
     }
@@ -73,6 +74,8 @@ public sealed class GlobalConfiguration
     public ProxyStoreConfig ProxyStoreConfig { get; } = new();
 
     public VersionControlConfig VersionControlConfig { get; } = new();
+
+    public UpdateConfig UpdateConfig { get; } = new();
 
     [AllowNull]
     public string LastStartedVersion { get; private set; } = BeutlApplication.Version;

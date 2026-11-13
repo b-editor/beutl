@@ -88,5 +88,8 @@ public sealed class SettingsDialogViewModel : IDisposable
 
         if (_aiAgent.IsValueCreated)
             _aiAgent.Value.Dispose();
+
+        if (_information.IsValueCreated)
+            _information.Value.Dispose();
     }
 }

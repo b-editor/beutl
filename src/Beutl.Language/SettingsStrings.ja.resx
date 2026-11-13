@@ -136,6 +136,12 @@
     <value>収集するデータに関する設定</value>
     <comment/>
   </data>
+  <data name="AutoDownloadUpdates" xml:space="preserve">
+    <value>アップデートを自動でダウンロード</value>
+  </data>
+  <data name="AutoDownloadUpdates_Description" xml:space="preserve">
+    <value>Beutl の起動時に新しいバージョンが見つかると、バックグラウンドでダウンロードします。インストールするタイミングは選べます。</value>
+  </data>
   <data name="Telemetry_Description" xml:space="preserve">
     <value>Beutlを改善するために、匿名の使用状況データを収集します。これらの設定はアプリケーションの再起動後に変更が適用されます。詳しくは以下のページをご覧ください。</value>
     <comment/>

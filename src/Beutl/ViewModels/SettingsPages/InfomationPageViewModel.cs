@@ -1,21 +1,32 @@
 ﻿using System.Reflection;
 using Avalonia.Controls;
 
+using Beutl.Configuration;
 using Beutl.Controls.Navigation;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
+using Beutl.Services;
 using Beutl.Threading;
 
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
 
-public sealed class InformationPageViewModel : PageContext
+public sealed class InformationPageViewModel : PageContext, IDisposable
 {
+    private readonly CompositeDisposable _disposables = [];
     private TelemetrySettingsPageViewModel? _telemetry;
 
     public InformationPageViewModel()
     {
+        UpdateConfig updateConfig = GlobalConfiguration.Instance.UpdateConfig;
+        AutoDownloadUpdates = updateConfig.AutoDownload.GetObservable()
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        AutoDownloadUpdates.Skip(1)
+            .Subscribe(value => updateConfig.AutoDownload.Value = value)
+            .DisposeWith(_disposables);
+
         RenderThread.Dispatcher.Dispatch(() =>
         {
             if (!Design.IsDesignMode)
@@ -77,4 +88,13 @@ public sealed class InformationPageViewModel : PageContext
     public TelemetrySettingsPageViewModel Telemetry => _telemetry ??= new();
 
     public AsyncReactiveCommand NavigateToTelemetry { get; }
+
+    public ReactiveProperty<bool> AutoDownloadUpdates { get; }
+
+    public bool CanDownloadUpdatesAutomatically => AppUpdateController.CanDownloadAutomatically;
+
+    public void Dispose()
+    {
+        _disposables.Dispose();
+    }
 }

@@ -49,10 +49,10 @@ public sealed class AppUpdateControllerTests
         if (File.Exists(file)) File.Delete(file);
     }
 
-    private AppUpdateResponse Update() => new()
+    private AppUpdateResponse Update(string? url = null) => new()
     {
         LatestVersion = "2.0.0",
-        Url = null,
+        Url = url,
         DownloadUrl = "https://downloads.example.test/" + _fileName,
         IsLatest = false,
         MustLatest = false,
@@ -80,7 +80,8 @@ public sealed class AppUpdateControllerTests
         await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
         HeadlessTestHelpers.Settle();
 
-        // Starting the download says nothing, so the only notification is the one that asks for a decision.
+        // Starting the download says nothing, so the only notification is the one that asks for a decision. This update
+        // names no page of its own, and its release notes are still offered.
         Notification ready = _shown.Single();
         Assert.Multiple(() =>
         {
@@ -88,8 +89,83 @@ public sealed class AppUpdateControllerTests
             Assert.That(ready.Message, Is.EqualTo("Beutl 2.0.0"));
             Assert.That(ready.Actions!.Select(action => action.Text), Is.EqualTo(new[]
             {
-                MessageStrings.UpdateAction_StartInstaller, MessageStrings.UpdateAction_UpdateOnQuit,
+                MessageStrings.UpdateAction_StartInstaller, MessageStrings.UpdateAction_UpdateOnQuit, MessageStrings.ReleaseNotes,
             }));
+        });
+    }
+
+    // An update found at startup downloads without asking when the settings allow it. Downloading asks for nothing, so
+    // its notice is as brief as any other and gives way to the notification that asks for a decision.
+    [AvaloniaTest]
+    public async Task AnUpdateFoundAtStartupDownloadsUnaskedWithABriefNotice()
+    {
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        UpdateDialogViewModel? vm = null;
+        var controller = new AppUpdateController(
+            update => vm = ViewModel(update, new Handler(release.Task, HttpStatusCode.OK)),
+            downloadsAutomatically: () => true);
+
+        // Without a page of its own, the update still offers its release notes.
+        Assert.That(controller.TryStartAutomatically(Update()), Is.True);
+        Notification downloading = _shown.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(downloading.Title, Is.EqualTo(MessageStrings.UpdateDownloading_Title));
+            Assert.That(downloading.Message, Is.EqualTo("Beutl 2.0.0"));
+            Assert.That(downloading.Type, Is.EqualTo(NotificationType.Information));
+            Assert.That(downloading.Expiration, Is.Null);
+            Assert.That(downloading.Actions!.Select(action => action.Text), Is.EqualTo(new[] { MessageStrings.ReleaseNotes }));
+            Assert.That(downloading.CancellationToken.IsCancellationRequested, Is.False);
+        });
+
+        release.SetResult();
+        await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(downloading.CancellationToken.IsCancellationRequested, Is.True);
+            Assert.That(_shown, Has.Count.EqualTo(2));
+            Assert.That(_shown[^1].Title, Is.EqualTo(MessageStrings.UpdateReady_Title));
+        });
+    }
+
+    // With automatic downloads turned off, or where they cannot run, the update waits for the user.
+    [Test]
+    public void AnUpdateFoundAtStartupWaitsForTheUserWhenDownloadsAreNotAutomatic()
+    {
+        var controller = new AppUpdateController(
+            _ => throw new AssertionException("The update started without being asked."),
+            downloadsAutomatically: () => false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(controller.TryStartAutomatically(Update()), Is.False);
+            Assert.That(controller.Current, Is.Null);
+            Assert.That(_shown, Is.Empty);
+        });
+    }
+
+    // The notice of an update that downloaded unasked is gone once the update is ready, so the release notes are offered
+    // again there. Opening them leaves the choice on screen.
+    [AvaloniaTest]
+    public async Task TheReadyNotificationOffersTheReleaseNotesAndStays()
+    {
+        UpdateDialogViewModel? vm = null;
+        var controller = new AppUpdateController(update => vm = ViewModel(update, new Handler(HttpStatusCode.OK)));
+
+        controller.StartInBackground(Update("https://example.test/releases/2.0.0"));
+        await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+        HeadlessTestHelpers.Settle();
+
+        NotificationAction[] actions = [.. _shown.Single().Actions!];
+        Assert.Multiple(() =>
+        {
+            Assert.That(actions.Select(action => action.Text), Is.EqualTo(new[]
+            {
+                MessageStrings.UpdateAction_StartInstaller, MessageStrings.UpdateAction_UpdateOnQuit, MessageStrings.ReleaseNotes,
+            }));
+            Assert.That(actions[^1].DismissOnInvoke, Is.False);
         });
     }
 
