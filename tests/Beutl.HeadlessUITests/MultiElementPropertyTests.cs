@@ -591,6 +591,23 @@ public class MultiElementPropertyTests
         Assert.That(Copy<RectShape>(tab).Opacity.Evaluate(new EvaluationContext(elements[0].Start.Value)), Is.EqualTo(25f));
     }
 
+    // Closing the tab while it shows several elements lets go of the editors it made for the copy.
+    [AvaloniaTest]
+    public async Task ClosingTheTabDisposesTheEditorsOfTheCopy()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
+        ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        PropertyEditorViewModel opacity = Editor(tab, Copy<RectShape>(tab).Opacity);
+
+        tab.Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(opacity.IsDisposed, Is.True);
+            Assert.That(tab.Items, Is.Empty);
+        });
+    }
+
     // A locked element is not edited, so what it lacks does not keep the others from editing it.
     [AvaloniaTest]
     public async Task ALockedElementDoesNotHideWhatTheOthersShare()

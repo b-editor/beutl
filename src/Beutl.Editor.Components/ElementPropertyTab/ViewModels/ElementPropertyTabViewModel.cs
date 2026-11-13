@@ -297,6 +297,8 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
         _isDisposed = true;
         _disposables.Dispose();
         _disposable1?.Dispose();
+        // While the tab shows several elements, Element going null leaves the copy displayed, so its items stay.
+        ClearItems();
         MultipleElements.Value?.Dispose();
         MultipleElements.Value = null;
 
