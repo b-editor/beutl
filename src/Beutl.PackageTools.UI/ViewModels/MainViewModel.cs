@@ -31,6 +31,7 @@ public class MainViewModel : IAsyncDisposable
     private readonly bool _startsAutomatically;
     private readonly Action _startBeutl;
     private volatile bool _disposeRequested;
+    private volatile bool _initializationFailed;
     private volatile bool _startBeutlWhenClosed;
 
     public MainViewModel()
@@ -106,15 +107,15 @@ public class MainViewModel : IAsyncDisposable
     // Beutl is restarting, so the changes and the clean-up after them start without waiting for Start.
     internal bool StartsAutomatically => _startsAutomatically;
 
-    // Whether Start is pressed for the user: Beutl is restarting, the changes are known, and these tools
-    // are neither closing nor only asking to be closed for another package-tools process.
+    // Whether Start is pressed for the user: Beutl is restarting, the changes were read without a failure,
+    // and these tools are neither closing nor only asking to be closed for another package-tools process.
     internal async Task<bool> ShouldStartAutomaticallyAsync()
     {
         if (!_startsAutomatically)
             return false;
 
         await _initializationTask;
-        return !_disposeRequested && !AreOthersRunning.Value;
+        return !_initializationFailed && !_disposeRequested && !AreOthersRunning.Value;
     }
 
     // The user asked at the end to start Beutl; it starts once these tools are closed and disposed.
@@ -188,6 +189,8 @@ public class MainViewModel : IAsyncDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to initialize package tools");
+            // Some changes may be missing, so the user decides whether to go on.
+            _initializationFailed = true;
         }
         finally
         {

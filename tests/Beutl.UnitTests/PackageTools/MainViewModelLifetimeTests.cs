@@ -251,6 +251,33 @@ public sealed class MainViewModelLifetimeTests
     }
 
     [Test]
+    public async Task ShouldStartAutomaticallyAsync_IsFalseWhenInitializationFails()
+    {
+        using var httpClient = new HttpClient();
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        // A disposed application refuses its resources, so reading the changes fails.
+        await app.DisposeAsync();
+        var viewModel = new PackageToolsMainViewModel(
+            httpClient,
+            app,
+            new ChangesModel(),
+            [],
+            [],
+            cancelPendingRequests: static () => { },
+            disposeResources: static () => ValueTask.CompletedTask,
+            startsAutomatically: true);
+
+        try
+        {
+            Assert.That(await viewModel.ShouldStartAutomaticallyAsync().WaitAsync(TimeSpan.FromSeconds(10)), Is.False);
+        }
+        finally
+        {
+            await viewModel.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    [Test]
     public async Task ShouldStartAutomaticallyAsync_IsFalseWhenClosedDuringInitialization()
     {
         var releaseInitialization = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
