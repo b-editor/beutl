@@ -47,11 +47,11 @@ public partial class ShaderRenderPassNode : ShaderGraphicsPassNode
     {
     }
 
-    [DataType(DataType.MultilineText)]
+    [DataType(CustomDataTypes.Code)]
     [Display(Name = nameof(NodeGraphStrings.ShaderPort_VertexCode), ResourceType = typeof(NodeGraphStrings))]
     public IProperty<string> Vertex { get; } = new ValueOnlyProperty<string>(DefaultVertexCode);
 
-    [DataType(DataType.MultilineText)]
+    [DataType(CustomDataTypes.Code)]
     [Display(Name = nameof(NodeGraphStrings.ShaderPort_FragmentCode), ResourceType = typeof(NodeGraphStrings))]
     public IProperty<string> Fragment { get; } = new ValueOnlyProperty<string>(DefaultFragmentCode);
 
@@ -93,15 +93,15 @@ public partial class ShaderRenderPassNode : ShaderGraphicsPassNode
 /// <summary>A render pass with geometry and tessellation stages; an empty one is left out.</summary>
 public partial class ShaderExtendedRenderPassNode : ShaderRenderPassNode
 {
-    [DataType(DataType.MultilineText)]
+    [DataType(CustomDataTypes.Code)]
     [Display(Name = nameof(NodeGraphStrings.ShaderPort_TessellationControlCode), ResourceType = typeof(NodeGraphStrings))]
     public IProperty<string> TessellationControl { get; } = new ValueOnlyProperty<string>("");
 
-    [DataType(DataType.MultilineText)]
+    [DataType(CustomDataTypes.Code)]
     [Display(Name = nameof(NodeGraphStrings.ShaderPort_TessellationEvaluationCode), ResourceType = typeof(NodeGraphStrings))]
     public IProperty<string> TessellationEvaluation { get; } = new ValueOnlyProperty<string>("");
 
-    [DataType(DataType.MultilineText)]
+    [DataType(CustomDataTypes.Code)]
     [Display(Name = nameof(NodeGraphStrings.ShaderPort_GeometryCode), ResourceType = typeof(NodeGraphStrings))]
     public IProperty<string> Geometry { get; } = new ValueOnlyProperty<string>("");
 

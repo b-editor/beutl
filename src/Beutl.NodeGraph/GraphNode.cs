@@ -245,11 +245,18 @@ public abstract partial class GraphNode : EngineObject
         return AddMonitor<Ref<Bitmap>?>(name, NodeMonitorContentKind.Image, display);
     }
 
-    /// <summary>Edits a text input in a multi-line field, as long prompts and scripts need.</summary>
+    /// <summary>Edits a text input in a multi-line field, as long prompts need.</summary>
     protected static void UseMultilineEditor(InputPort<string> port)
     {
         if (port.Property is NodePropertyAdapter<string> adapter)
             adapter.Attributes = [.. adapter.Attributes, new DataTypeAttribute(DataType.MultilineText)];
+    }
+
+    /// <summary>Edits a text member as code: a multi-line monospace field that keeps its lines and takes Tab.</summary>
+    protected static void UseCodeEditor(NodeMember<string> member)
+    {
+        if (member.Property is NodePropertyAdapter<string> adapter)
+            adapter.Attributes = [.. adapter.Attributes, new DataTypeAttribute(CustomDataTypes.Code)];
     }
 
     protected InputPort<T> CreateInput<T>(string name, DisplayAttribute? display = null)

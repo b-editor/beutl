@@ -28,7 +28,7 @@ public partial class ShaderFullscreenPassNode : ShaderGraphicsPassNode
         InsertDefaultPorts(["color"], ["source"]);
     }
 
-    [DataType(DataType.MultilineText)]
+    [DataType(CustomDataTypes.Code)]
     [Display(Name = nameof(NodeGraphStrings.ShaderPort_Code), ResourceType = typeof(NodeGraphStrings))]
     public IProperty<string> Code { get; } = new ValueOnlyProperty<string>(DefaultCode);
 

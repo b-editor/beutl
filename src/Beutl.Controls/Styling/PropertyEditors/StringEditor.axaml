@@ -269,6 +269,12 @@
             <!-- A long line wraps at the editor's width rather than scrolling sideways out of view. -->
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
+        <!-- Code, on top of multiline: columns line up, lines stay as written, and Tab indents rather than moving focus. -->
+        <Style Selector="^.code /template/ TextBox#PART_InnerTextBox">
+            <Setter Property="FontFamily" Value="Consolas, Menlo, monospace" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="AcceptsTab" Value="True" />
+        </Style>
     </ControlTheme>
 
 </ResourceDictionary>

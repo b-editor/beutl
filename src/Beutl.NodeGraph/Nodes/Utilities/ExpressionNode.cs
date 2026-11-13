@@ -17,6 +17,7 @@ public partial class ExpressionNode : GraphNode
     {
         InputPort = AddListInput<object?>("Inputs", NodePortDisplays.Inputs);
         Expression = AddProperty<string>("Expression", NodePortDisplays.Expression);
+        UseCodeEditor(Expression);
         Output = AddOutput<object?>("Output", NodePortDisplays.Output);
         ErrorMonitor = AddTextMonitor("Error", NodePortDisplays.Error);
     }

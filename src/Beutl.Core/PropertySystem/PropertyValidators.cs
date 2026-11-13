@@ -45,9 +45,9 @@ internal static class PropertyValidators
                 goto default;
 
             case DataTypeAttribute dataTypeAttribute:
-                if (dataTypeAttribute.DataType == DataType.MultilineText)
+                if (dataTypeAttribute.DataType == DataType.MultilineText || dataTypeAttribute.IsCode())
                 {
-                    // MultilineTextの場合はバリデーションを行わない
+                    // MultilineTextとコードの場合はバリデーションを行わない
                     return new DataAnnotationValidater<T>(null);
                 }
                 goto default;
