@@ -41,6 +41,7 @@ public class PackageRestartButtonTests
             Assert.Multiple(() =>
             {
                 Assert.That(restart.Classes, Does.Not.Contain("transparent"));
+                Assert.That(restart.IsEffectivelyEnabled, Is.True);
                 Assert.That(restart.Classes, Does.Contain("accent"));
                 Assert.That(restart.Content, Is.EqualTo(Strings.Restart));
                 Assert.That(buttons.Where(x => x.Command == viewModel.Cancel), Is.Empty, "Cancel leaves the action cell.");
@@ -75,7 +76,13 @@ public class PackageRestartButtonTests
 
         try
         {
-            Assert.That(buttons.Single(x => x.Command == viewModel.Restart).Classes, Does.Contain("transparent"));
+            Button restart = buttons.Single(x => x.Command == viewModel.Restart);
+            Assert.Multiple(() =>
+            {
+                Assert.That(restart.Classes, Does.Contain("transparent"));
+                // The transparent class leaves a button reachable with Tab; this one would quit Beutl.
+                Assert.That(restart.IsEffectivelyEnabled, Is.False, "The hidden restart must not take focus or run.");
+            });
             Assert.That(OpenMenuItem(buttons, Strings.Cancel).IsVisible, Is.False);
         }
         finally

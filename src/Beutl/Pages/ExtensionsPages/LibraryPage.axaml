@@ -116,13 +116,14 @@
                                         Content="{Binding StatusText.Value}"
                                         IsHitTestVisible="False" />
 
-                                <!--  A scheduled change waits for a restart, so the cell offers one; the menu cancels the change.  -->
+                                <!--  A scheduled change waits for a restart, so the cell offers one; the menu cancels the change. Hidden, it is also disabled, as transparent leaves it reachable with Tab.  -->
                                 <Button Grid.Column="4"
                                         Classes="action accent"
                                         Classes.transparent="{Binding !CanCancel.Value}"
                                         Click="ActionButton_Click"
                                         Command="{Binding Restart}"
-                                        Content="{x:Static lang:Strings.Restart}" />
+                                        Content="{x:Static lang:Strings.Restart}"
+                                        IsEnabled="{Binding CanCancel.Value}" />
 
                                 <Button Grid.Column="6"
                                         Click="Overflow_Click"
