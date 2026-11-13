@@ -186,40 +186,48 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         PackageManager manager = _clients.GetResource<PackageManager>();
         DiscoverService discover = _clients.GetResource<DiscoverService>();
         List<Package> own = auth ? await LoadAll(cancellationToken) : [];
-        Packages.Clear();
         var installed = await manager.GetPackages();
+        string[] names = [.. own.Select(i => i.Name).Union(installed.Select(i => i.Name))];
 
-        foreach (var name in own.Select(i => i.Name).Union(installed.Select(i => i.Name)))
+        // Looks up the installed packages missing from the library together rather than one by one.
+        Package?[] remotes = await Task.WhenAll(names.Select(name =>
+            own.FirstOrDefault(i => i.Name == name) is { } package
+                ? Task.FromResult<Package?>(package)
+                : TryGetPackage(discover, name, cancellationToken)));
+
+        Packages.Clear();
+        for (int i = 0; i < names.Length; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var remote = own.FirstOrDefault(i => i.Name == name);
-            if (remote == null)
+            if (remotes[i] is { } remote)
             {
-                try
-                {
-                    remote = await discover.GetPackage(name, cancellationToken);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    // Not in own, so the name came from installed.
-                    var item = installed.First(i => i.Name == name);
-                    Packages.Add(new LocalUserPackageViewModel(item, _clients, _editorService, _projectService));
-                }
-            }
-
-            if (remote != null)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
                 Packages.Add(new RemoteUserPackageViewModel(remote, _clients, _editorService, _projectService)
                 {
                     OnRemoveFromLibrary = OnPackageRemoveFromLibrary
                 });
             }
+            else
+            {
+                // Not in own, so the name came from installed.
+                LocalPackage item = installed.First(p => p.Name == names[i]);
+                Packages.Add(new LocalUserPackageViewModel(item, _clients, _editorService, _projectService));
+            }
+        }
+    }
+
+    private static async Task<Package?> TryGetPackage(DiscoverService discover, string name, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await discover.GetPackage(name, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return null;
         }
     }
 

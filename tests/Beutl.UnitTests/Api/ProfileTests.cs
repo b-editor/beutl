@@ -117,10 +117,9 @@ public sealed class ProfileTests
     }
 
     [Test]
-    public async Task GetPackagesAsync_CancelsEveryPackageDetailRequest()
+    public async Task GetPackagesAsync_SendsNoRequestPerPackage()
     {
         var detailRequestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var detailCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var handler = new DelegateHttpHandler(async (request, cancellationToken) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/users/test/packages")
@@ -146,31 +145,18 @@ public sealed class ProfileTests
             }
 
             detailRequestStarted.TrySetResult();
-            try
-            {
-                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
-            }
-            finally
-            {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    detailCancellationObserved.TrySetResult();
-                }
-            }
-
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
             return TestHttp.Json(HttpStatusCode.OK, "{}");
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var profile = new Profile(CreateProfileResponse("test", "Test User"), app);
-        using var cancellationTokenSource = new CancellationTokenSource();
 
-        Task operation = profile.GetPackagesAsync(cancellationTokenSource.Token);
-        await detailRequestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        cancellationTokenSource.Cancel();
+        Package[] packages = await profile.GetPackagesAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
 
-        await Assert.CatchAsync<OperationCanceledException>(async () => await operation);
-        await detailCancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(packages.Select(package => package.Name), Is.EqualTo(new[] { "package-name" }));
+        Assert.That(packages[0].Owner, Is.SameAs(profile));
+        Assert.That(detailRequestStarted.Task.IsCompleted, Is.False);
     }
 
     private static ProfileResponse CreateProfileResponse(string name, string displayName)

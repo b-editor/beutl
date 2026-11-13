@@ -34,6 +34,29 @@ public class Package
             .ToReadOnlyReactivePropertySlim<string?>();
     }
 
+    // A list entry has no description, website or screenshots until RefreshAsync loads the package.
+    public Package(Profile profile, SimplePackageResponse response, BeutlApiApplication clients)
+        : this(profile, new PackageResponse
+        {
+            Id = response.Id,
+            Owner = response.Owner,
+            Name = response.Name,
+            DisplayName = response.DisplayName,
+            Description = "",
+            ShortDescription = response.ShortDescription,
+            WebSite = "",
+            Tags = response.Tags,
+            LogoId = response.LogoId,
+            LogoUrl = response.LogoUrl,
+            Screenshots = [],
+            Currency = response.Currency,
+            Price = response.Price,
+            Paid = response.Paid,
+            Owned = response.Owned,
+        }, clients)
+    {
+    }
+
     public IReadOnlyReactiveProperty<PackageResponse> Response => _response;
 
     public Profile Owner { get; }
