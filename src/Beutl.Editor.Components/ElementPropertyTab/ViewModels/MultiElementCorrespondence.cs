@@ -20,6 +20,9 @@ internal sealed class MultiElementCorrespondence(Element copy)
     // an object of the copy that belongs to nothing yet.
     private readonly Dictionary<(CoreObject, Element), CoreObject> _found = new(PairComparer.Instance);
 
+    // The items of lists that were paired, an item of the copy first, kept for as long as the copy is.
+    private readonly HashSet<(CoreObject, CoreObject)> _paired = new(PairComparer.Instance);
+
     public Element Copy => copy;
 
     // Forgets what was found, after a change of what objects the copy or an element holds.
@@ -121,13 +124,20 @@ internal sealed class MultiElementCorrespondence(Element copy)
 
     // Pairs the items of one type in the order each list holds them, the first of a type with the first of that type,
     // whatever lies between them; where byKind is set, the items left then pair with those left of one kind, in order
-    // too. Keyframes pair by time instead.
-    private static Dictionary<object, object> Pair(IReadOnlyList<object?> source, IList target, bool byKind)
+    // too. Items paired before stay paired while both are there, so that an item added to an element ahead of an older
+    // one of its type does not take that one's place. Keyframes pair by time instead.
+    private Dictionary<object, object> Pair(IReadOnlyList<object?> source, IList target, bool byKind)
     {
         var pairs = new Dictionary<object, object>(ReferenceEqualityComparer.Instance);
         List<CoreObject> left = [.. target.OfType<CoreObject>().Where(item => item is not IKeyFrame)];
+        PairInOrder(source, left, pairs, (a, b) => _paired.Contains((a, b)));
         PairInOrder(source, left, pairs, (a, b) => a.GetType() == b.GetType());
         if (byKind) PairInOrder(source, left, pairs, SameKind);
+        foreach (KeyValuePair<object, object> pair in pairs)
+        {
+            _paired.Add(((CoreObject)pair.Key, (CoreObject)pair.Value));
+        }
+
         return pairs;
     }
 
@@ -174,7 +184,7 @@ internal sealed class MultiElementCorrespondence(Element copy)
     }
 
     // Objects of a kind that compares by its values are still told apart.
-    private sealed class PairComparer : IEqualityComparer<(CoreObject, Element)>
+    private sealed class PairComparer : IEqualityComparer<(CoreObject, Element)>, IEqualityComparer<(CoreObject, CoreObject)>
     {
         public static readonly PairComparer Instance = new();
 
@@ -182,6 +192,12 @@ internal sealed class MultiElementCorrespondence(Element copy)
             => ReferenceEquals(x.Item1, y.Item1) && ReferenceEquals(x.Item2, y.Item2);
 
         public int GetHashCode((CoreObject, Element) obj)
+            => HashCode.Combine(RuntimeHelpers.GetHashCode(obj.Item1), RuntimeHelpers.GetHashCode(obj.Item2));
+
+        public bool Equals((CoreObject, CoreObject) x, (CoreObject, CoreObject) y)
+            => ReferenceEquals(x.Item1, y.Item1) && ReferenceEquals(x.Item2, y.Item2);
+
+        public int GetHashCode((CoreObject, CoreObject) obj)
             => HashCode.Combine(RuntimeHelpers.GetHashCode(obj.Item1), RuntimeHelpers.GetHashCode(obj.Item2));
     }
 }

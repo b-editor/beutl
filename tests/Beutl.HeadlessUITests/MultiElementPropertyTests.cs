@@ -522,6 +522,36 @@ public class MultiElementPropertyTests
             Is.EqualTo(new[] { new Size(7, 7), unedited }));
     }
 
+    // An effect added to the copy stands for the one each element takes, even where it goes ahead of an older effect of
+    // its type: the rows go on editing the effects they edited.
+    [AvaloniaTest]
+    public async Task AnEffectAddedAheadOfAnOlderOneOfItsTypeKeepsThePairs()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
+        RectShape[] shapes = Shapes<RectShape>(elements);
+        Effects(shapes[0]).Children.AddRange([new Blur(), new DropShadow()]);
+        Effects(shapes[1]).Children.AddRange([new DropShadow(), new Blur { Sigma = { Value = new Size(5, 5) } }]);
+        editor.HistoryManager.Commit("test setup");
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        RectShape copy = Copy<RectShape>(tab);
+        var older = (Blur)Effects(shapes[1]).Children[1];
+
+        Effects(copy).Children.Add(new Blur());
+        editor.HistoryManager.Commit("add a blur");
+        Blur added = Effects(shapes[1]).Children.OfType<Blur>().Single(blur => !ReferenceEquals(blur, older));
+        Assert.That(Effects(shapes[1]).Children.IndexOf(added), Is.LessThan(Effects(shapes[1]).Children.IndexOf(older)),
+            "the new blur goes after the shadow, ahead of the older blur");
+
+        ((Blur)Effects(copy).Children[0]).Sigma.Value = new Size(7, 7);
+        ((Blur)Effects(copy).Children[2]).Sigma.Value = new Size(2, 2);
+        editor.HistoryManager.Commit("edit both blurs");
+        Assert.Multiple(() =>
+        {
+            Assert.That(older.Sigma.Value, Is.EqualTo(new Size(7, 7)));
+            Assert.That(added.Sigma.Value, Is.EqualTo(new Size(2, 2)));
+        });
+    }
+
     // Adding an effect where each element holds one effect puts each element's own effect in its new group, as its own
     // editor would, and none in an element that held none.
     [AvaloniaTest]
