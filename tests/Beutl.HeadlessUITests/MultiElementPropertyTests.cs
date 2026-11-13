@@ -23,6 +23,7 @@ using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using FluentAvalonia.UI.Controls;
 using TextBlock = Beutl.Graphics.Shapes.TextBlock;
 
 namespace Beutl.HeadlessUITests;
@@ -608,6 +609,23 @@ public class MultiElementPropertyTests
         });
     }
 
+    // The copy belongs to no scene, yet its keyframes go on the frames of the project, as the elements' do.
+    [AvaloniaTest]
+    public async Task KeyFramesOfTheCopyGoOnTheProjectsFrames()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
+        editor.Scene.FindHierarchicalParent<Project>()!.FrameRate.Value = new Rational(60);
+        RectShape[] shapes = Shapes<RectShape>(elements);
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        var opacity = (NumberEditorViewModel<float>)Editor(tab, Copy<RectShape>(tab).Opacity);
+
+        opacity.PrepareToEditAnimation();
+        opacity.InsertKeyFrame(MediaTime.FromSeconds(1.0 / 60));
+
+        Assert.That(shapes.Select(shape => KeyFrames(shape.Opacity).Select(keyFrame => keyFrame.Seconds)),
+            Is.All.EqualTo(new[] { 0, 1.0 / 60 }).Within(1e-9));
+    }
+
     // A locked element is not edited, so what it lacks does not keep the others from editing it.
     [AvaloniaTest]
     public async Task ALockedElementDoesNotHideWhatTheOthersShare()
@@ -709,6 +727,8 @@ public class MultiElementPropertyTests
                 Assert.That(ToolTip.GetTip(Badge(window, opacity).FindAncestorOfType<Button>()!),
                     Is.EqualTo(opacity.ValueDifference.Value));
                 Assert.That(Badge(window, size).IsVisible, Is.False);
+                Assert.That(Menu(window, opacity).FindControl<FAMenuFlyoutItem>("editInlineAnimationItem")!.IsVisible, Is.False,
+                    "the copy has no track on the timeline to show it inline");
             });
         }
         finally { window.Close(); }
@@ -823,10 +843,11 @@ public class MultiElementPropertyTests
 
     // The mark of differing values on the menu of editor's row.
     private static Avalonia.Controls.Shapes.Ellipse Badge(Window window, PropertyEditorViewModel editor)
-        => window.GetVisualDescendants().OfType<PropertyEditorMenu>()
-            .Single(menu => ReferenceEquals(menu.DataContext, editor))
-            .GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Ellipse>()
+        => Menu(window, editor).GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Ellipse>()
             .Single(ellipse => ellipse.Name == "valueDifferenceBadge");
+
+    private static PropertyEditorMenu Menu(Window window, PropertyEditorViewModel editor)
+        => window.GetVisualDescendants().OfType<PropertyEditorMenu>().Single(menu => ReferenceEquals(menu.DataContext, editor));
 
     private static (double Seconds, float Value)[] KeyFrames(IProperty<float> property)
         => property.GetKeyFrameAnimation() is { } animation

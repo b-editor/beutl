@@ -235,7 +235,8 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
             easing: null,
             keyTime: keyTime,
             logger: Logger,
-            fallbackOwner: AnimationOwner);
+            fallbackOwner: AnimationOwner,
+            fallbackScene: EditingScene);
         Commit();
 
         if (keyframe == null) return;
@@ -253,7 +254,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         if (IsDisposed || GetAnimation() is not KeyFrameAnimation<TValue> kfAnimation) return;
         // Check the keyframe itself: removing another one while it holds an easing that could not be
         // read leaves the element protected, so that removal would not be saved.
-        if (AnimationOperations.FindKeyFrame(kfAnimation, keyTime, Logger, AnimationOwner) is not { } keyframe
+        if (AnimationOperations.FindKeyFrame(kfAnimation, keyTime, Logger, AnimationOwner, EditingScene) is not { } keyframe
             || !CanReplace(keyframe)) return;
 
         AnimationOperations.RemoveKeyFrame(

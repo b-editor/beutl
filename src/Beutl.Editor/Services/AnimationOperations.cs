@@ -18,12 +18,17 @@ internal static class AnimationOperations
         .Single(m => m.Name == nameof(InsertKeyFrame) && m.IsGenericMethodDefinition);
 
     private static MediaTime ConvertKeyTime(IKeyFrameAnimation animation, MediaTime globalkeyTime, ILogger logger,
-        EngineObject? fallbackOwner = null)
+        EngineObject? fallbackOwner = null, Scene? fallbackScene = null)
     {
-        var scene = animation.FindHierarchicalParent<Scene>() ?? fallbackOwner?.FindHierarchicalParent<Scene>();
+        Scene? scene = FindScene(animation, fallbackOwner, fallbackScene);
         logger.LogInformation("Converting key time {GlobalKeyTime}", globalkeyTime);
         return ConvertKeyTime(animation, globalkeyTime, scene, fallbackOwner);
     }
+
+    // The scene whose frames an animation's keyframes go on. fallbackScene stands in for one the animation has no path
+    // to, as for an editor of a copy that belongs to no scene.
+    private static Scene? FindScene(IKeyFrameAnimation animation, EngineObject? fallbackOwner, Scene? fallbackScene)
+        => animation.FindHierarchicalParent<Scene>() ?? fallbackOwner?.FindHierarchicalParent<Scene>() ?? fallbackScene;
 
     // The animation's key time at a time on the timeline, rounded to the frames of the scene.
     internal static MediaTime ConvertKeyTime(IKeyFrameAnimation animation, MediaTime globalkeyTime, Scene? scene,
@@ -73,21 +78,21 @@ internal static class AnimationOperations
 
     // InsertKeyFrame<T> for an animation whose value type is known only at run time.
     public static IKeyFrame? InsertKeyFrame(IKeyFrameAnimation animation, Easing? easing, MediaTime keyTime, ILogger logger,
-        EngineObject? fallbackOwner = null)
+        EngineObject? fallbackOwner = null, Scene? fallbackScene = null)
     {
         return (IKeyFrame?)s_insertKeyFrame.MakeGenericMethod(animation.ValueType)
-            .Invoke(null, BindingFlags.DoNotWrapExceptions, null, [animation, easing, keyTime, logger, fallbackOwner], null);
+            .Invoke(null, BindingFlags.DoNotWrapExceptions, null, [animation, easing, keyTime, logger, fallbackOwner, fallbackScene], null);
     }
 
     public static KeyFrame<T>? InsertKeyFrame<T>(KeyFrameAnimation<T> animation, Easing? easing, MediaTime keyTime, ILogger logger,
-        EngineObject? fallbackOwner = null)
+        EngineObject? fallbackOwner = null, Scene? fallbackScene = null)
     {
         logger.LogInformation("Inserting key frame at {KeyTime}", keyTime);
         bool defaultEasing = easing is null or SplineEasing { X1: 0, Y1: 0, X2: 1, Y2: 1 };
         KeyFrame<T>? createdKeyFrame = null;
-        keyTime = ConvertKeyTime(animation, keyTime, logger, fallbackOwner);
+        keyTime = ConvertKeyTime(animation, keyTime, logger, fallbackOwner, fallbackScene);
 
-        var scene = animation.FindHierarchicalParent<Scene>() ?? fallbackOwner?.FindHierarchicalParent<Scene>();
+        Scene? scene = FindScene(animation, fallbackOwner, fallbackScene);
         if (FindKeyFrameOnFrame(animation.KeyFrames, keyTime, GetFrameRate(scene)) == null)
         {
             (IKeyFrame? prevIKeyFrame, IKeyFrame? nextIKeyFrame) = animation.GetPreviousAndNextKeyFrame(keyTime);
@@ -125,10 +130,10 @@ internal static class AnimationOperations
 
     // The keyframe at keyTime, or null when there is none.
     internal static IKeyFrame? FindKeyFrame(IKeyFrameAnimation animation, MediaTime keyTime, ILogger logger,
-        EngineObject? fallbackOwner = null)
+        EngineObject? fallbackOwner = null, Scene? fallbackScene = null)
     {
-        keyTime = ConvertKeyTime(animation, keyTime, logger, fallbackOwner);
-        Scene? scene = animation.FindHierarchicalParent<Scene>() ?? fallbackOwner?.FindHierarchicalParent<Scene>();
+        keyTime = ConvertKeyTime(animation, keyTime, logger, fallbackOwner, fallbackScene);
+        Scene? scene = FindScene(animation, fallbackOwner, fallbackScene);
         return FindKeyFrameOnFrame(animation.KeyFrames, keyTime, GetFrameRate(scene));
     }
 

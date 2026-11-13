@@ -277,6 +277,10 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
     // A node member's animation has no parent to find its clock through.
     private protected GraphNode? AnimationOwner => _node;
 
+    // The scene the editor works in, whose frames keyframes go on even when what it edits belongs to no scene, as the
+    // copy that stands for several elements does.
+    private protected Scene? EditingScene => _scene;
+
     [AllowNull] public PropertyEditorExtension Extension { get; set; }
 
     protected void CompleteElementRepair()
@@ -440,6 +444,9 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     // The host that repeats this editor's commands on other elements, when it shows one of several.
     internal IPropertyEditorMirror? Mirror => _mirror;
+
+    // Whether the editor shows one of several elements and repeats its edits on the others.
+    public bool EditsSeveralElements => _mirror != null;
 
     // While the editor shows one of several elements: how the values of the others differ from the one it shows, or
     // null when they do not.

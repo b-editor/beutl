@@ -78,7 +78,8 @@ public sealed partial class PropertyEditorMenu : UserControl
     {
         bool supportsAnimation = model?.PropertyAdapter is IAnimatablePropertyAdapter && !separated;
         editAnimationItem.IsVisible = supportsAnimation;
-        editInlineAnimationItem.IsVisible = supportsAnimation;
+        // The inline view lies on the timeline track of one element, which the copy that stands for several has none of.
+        editInlineAnimationItem.IsVisible = supportsAnimation && model?.EditsSeveralElements != true;
         removeAnimationItem.IsVisible = supportsAnimation;
         separateComponentsItem.IsVisible = model?.CanSeparateComponents == true && !separated;
         // The item's state and command are those of the editor it unseparates, which can be the one this one came from.

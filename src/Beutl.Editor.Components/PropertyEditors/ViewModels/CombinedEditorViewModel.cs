@@ -105,7 +105,7 @@ public sealed class CombinedEditorViewModel<T, TTuple> : VectorEditorViewModel<T
     {
         if (Mirrors((editor, shift) => editor.RemoveKeyFrame(keyTime + shift))) return;
         if (!IsElementEditable || GetAnimation() is not { } animation
-            || AnimationOperations.FindKeyFrame(animation, keyTime, Logger, AnimationOwner) is not { } keyFrame)
+            || AnimationOperations.FindKeyFrame(animation, keyTime, Logger, AnimationOwner, EditingScene) is not { } keyFrame)
         {
             return;
         }
