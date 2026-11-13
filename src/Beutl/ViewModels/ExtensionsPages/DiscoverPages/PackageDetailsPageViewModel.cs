@@ -222,6 +222,10 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .WithSubscribe(CancelAsync)
             .DisposeWith(_disposables);
 
+        Restart = new AsyncReactiveCommand()
+            .WithSubscribe(RestartAsync)
+            .DisposeWith(_disposables);
+
         Refresh.Execute();
     }
 
@@ -356,6 +360,19 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         }
     }
 
+    private async Task RestartAsync()
+    {
+        try
+        {
+            await PackageOperationHandler.RestartAsync();
+        }
+        catch (Exception e)
+        {
+            await e.Handle();
+            _logger.LogError(e, "An unexpected error has occurred.");
+        }
+    }
+
     private async Task<Release> AcquireRelease(CancellationToken cancellationToken)
     {
         if (_app.AuthenticatedUser.Value != null)
@@ -413,6 +430,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     public AsyncReactiveCommand Uninstall { get; }
 
     public AsyncReactiveCommand Cancel { get; }
+
+    public AsyncReactiveCommand Restart { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

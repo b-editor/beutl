@@ -13,6 +13,8 @@ namespace Beutl.ViewModels;
 public partial class MainViewModel
 {
     private Action? _updateOnQuit;
+    // 1 while a restart's close is in flight or accepted, so the package hand-off carries the restart on.
+    private int _restartRequested;
 
     public override void Dispose()
     {
@@ -125,6 +127,42 @@ public partial class MainViewModel
 
             return true;
         };
+    }
+
+    // Whether the package hand-off carries a restart on.
+    internal bool IsRestartRequested => Volatile.Read(ref _restartRequested) != 0;
+
+    // Quits as Exit does. The package tools then apply the scheduled changes without waiting for Start
+    // and offer to start Beutl when they finish; with nothing to apply, Beutl starts again right away.
+    // False when the close was refused: Beutl keeps running, and quitting later does not restart it.
+    internal async Task<bool> RestartAsync()
+    {
+        Volatile.Write(ref _restartRequested, 1);
+        bool accepted = false;
+        try
+        {
+            accepted = await TryDisposeForWindowCloseAsync();
+        }
+        finally
+        {
+            if (!accepted)
+                Volatile.Write(ref _restartRequested, 0);
+        }
+
+        if (!accepted)
+            return false;
+
+        try
+        {
+            await WaitForDisposalAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Cleanup failed after the restart was accepted.");
+        }
+
+        _desktopLifetime?.TryShutdown();
+        return true;
     }
 
     internal Task<bool> TryDisposeForUpdateAsync(Func<bool> startInstaller)
@@ -479,9 +517,20 @@ public partial class MainViewModel
 
     private void PerformShutdownHandoff(BeutlApiApplication clients)
     {
+        bool restart = IsRestartRequested;
         PackageChangesQueue queue = clients.GetResource<PackageChangesQueue>();
         if (!queue.GetInstalls().Any() && !queue.GetUninstalls().Any())
+        {
+            // Nothing is left to apply, so a restart starts Beutl again right away.
+            if (restart)
+            {
+                var beutl = new ProcessStartInfo() { UseShellExecute = true, };
+                DotNetProcess.Configure(beutl, Path.Combine(AppContext.BaseDirectory, "Beutl"));
+                using Process? _ = Process.Start(beutl);
+            }
+
             return;
+        }
 
         // PackageTools.UI reads the changes from the queue's file, and from arguments when the last save failed.
         var startInfo = new ProcessStartInfo() { UseShellExecute = true, };
@@ -489,6 +538,10 @@ public partial class MainViewModel
 
         startInfo.ArgumentList.AddRange(queue.GetUnsavedArguments());
         startInfo.ArgumentList.AddRange(["--session-id", Telemetry.Instance._sessionId]);
+
+        // PackageTools.UI applies the changes without waiting for Start, then offers to start Beutl.
+        if (restart)
+            startInfo.ArgumentList.Add("--restart");
 
         if (Debugger.IsAttached)
             startInfo.ArgumentList.Add("--launch-debugger");

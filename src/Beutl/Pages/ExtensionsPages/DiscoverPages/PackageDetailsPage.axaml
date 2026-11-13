@@ -159,6 +159,13 @@
                                 Content="{x:Static lang:ExtensionsStrings.Uninstall}"
                                 IsVisible="{Binding IsUninstallButtonVisible.Value}" />
 
+                        <!--  A scheduled change waits for a restart; Cancel drops the change instead.  -->
+                        <Button HorizontalAlignment="Stretch"
+                                Classes="accent"
+                                Command="{Binding Restart}"
+                                Content="{x:Static lang:Strings.Restart}"
+                                IsVisible="{Binding CanCancel.Value}" />
+
                         <Button HorizontalAlignment="Stretch"
                                 Command="{Binding Cancel}"
                                 Content="{x:Static lang:Strings.Cancel}"

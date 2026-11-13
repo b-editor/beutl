@@ -2,6 +2,7 @@
 using System.CommandLine.Parsing;
 using System.Reactive.Linq;
 
+using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.PackageTools.UI.Models;
 using Beutl.PackageTools.UI.Services;
@@ -27,6 +28,10 @@ public class MainViewModel : IAsyncDisposable
 
     private readonly Process[] _beutlProcesses;
     private readonly Process[] _pkgProcesses;
+    private readonly bool _startsAutomatically;
+    private readonly Action _startBeutl;
+    private volatile bool _disposeRequested;
+    private volatile bool _startBeutlWhenClosed;
 
     public MainViewModel()
         : this(new HttpClient())
@@ -48,10 +53,13 @@ public class MainViewModel : IAsyncDisposable
                 .. Process.GetProcessesByName("Beutl.PackageTools"),
                 .. Process.GetProcessesByName("Beutl.PackageTools.UI"),
                 .. Process.GetProcessesByName("beutl-pkg"),
-            ])
+            ],
+            startsAutomatically: ParseArgs().Restart)
     {
     }
 
+    // startsAutomatically is true when Beutl is restarting (see StartsAutomatically). startBeutl starts Beutl
+    // when the user asks for it at the end; by default the Beutl beside these tools.
     internal MainViewModel(
         HttpClient httpClient,
         BeutlApiApplication app,
@@ -60,17 +68,22 @@ public class MainViewModel : IAsyncDisposable
         Process[] pkgProcesses,
         Func<CancellationToken, Task>? initialize = null,
         Action? cancelPendingRequests = null,
-        Func<ValueTask>? disposeResources = null)
+        Func<ValueTask>? disposeResources = null,
+        bool startsAutomatically = false,
+        Action? startBeutl = null)
     {
         _httpClient = httpClient;
         _app = app;
         _model = model;
         _beutlProcesses = beutlProcesses;
         _pkgProcesses = pkgProcesses;
+        _startsAutomatically = startsAutomatically;
+        _startBeutl = startBeutl ?? StartBeutl;
 
+        Func<ValueTask> dispose = disposeResources ?? DisposeOwnedResources;
         _operationLifetime = new AsyncOperationLifetime(
             cancelPendingRequests ?? _httpClient.CancelPendingRequests,
-            disposeResources ?? DisposeOwnedResources);
+            () => DisposeThenStartBeutlAsync(dispose));
         _initializationTask = _operationLifetime.RunAsync(initialize ?? InitializeAsync);
     }
 
@@ -89,6 +102,26 @@ public class MainViewModel : IAsyncDisposable
     public ReactiveProperty<PackageChangeModel> SelectedItem { get; } = new();
 
     internal Task InitializationTask => _initializationTask;
+
+    // Beutl is restarting, so the changes and the clean-up after them start without waiting for Start.
+    internal bool StartsAutomatically => _startsAutomatically;
+
+    // Whether Start is pressed for the user: Beutl is restarting, the changes are known, and these tools
+    // are neither closing nor only asking to be closed for another package-tools process.
+    internal async Task<bool> ShouldStartAutomaticallyAsync()
+    {
+        if (!_startsAutomatically)
+            return false;
+
+        await _initializationTask;
+        return !_disposeRequested && !AreOthersRunning.Value;
+    }
+
+    // The user asked at the end to start Beutl; it starts once these tools are closed and disposed.
+    internal void StartBeutlWhenClosed()
+    {
+        _startBeutlWhenClosed = true;
+    }
 
     internal Task RunOperationAsync(
         Func<CancellationToken, Task> operation,
@@ -122,7 +155,7 @@ public class MainViewModel : IAsyncDisposable
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            (string[] installItems, string[] uninstallItems, string[] updateItems, bool launchDebugger) = ParseArgs();
+            (string[] installItems, string[] uninstallItems, string[] updateItems, bool launchDebugger, _) = ParseArgs();
 
             if (!Debugger.IsAttached && launchDebugger)
             {
@@ -212,7 +245,7 @@ public class MainViewModel : IAsyncDisposable
         }
     }
 
-    private static (string[] InstallItems, string[] UninstallItems, string[] UpdateItems, bool LaunchDebugger) ParseArgs()
+    private static (string[] InstallItems, string[] UninstallItems, string[] UpdateItems, bool LaunchDebugger, bool Restart) ParseArgs()
     {
         var command = new RootCommand();
         var installs = new Option<string[]>("--installs", "-i")
@@ -235,19 +268,57 @@ public class MainViewModel : IAsyncDisposable
         {
             Hidden = true,
         };
+        // Beutl passes this when the user chose to restart it.
+        var restart = new Option<bool>("--restart")
+        {
+            Hidden = true,
+        };
         command.Add(installs);
         command.Add(uninstalls);
         command.Add(updates);
         command.Add(launchDebugger);
         command.Add(sessionId);
+        command.Add(restart);
 
         ParseResult parseResult = command.Parse(Environment.GetCommandLineArgs());
         string[] installItems = parseResult.GetValue(installs) ?? [];
         string[] uninstallItems = parseResult.GetValue(uninstalls) ?? [];
         string[] updateItems = parseResult.GetValue(updates) ?? [];
         bool launchDebuggerValue = parseResult.GetValue(launchDebugger);
+        bool restartValue = parseResult.GetValue(restart);
 
-        return (installItems, uninstallItems, updateItems, launchDebuggerValue);
+        return (installItems, uninstallItems, updateItems, launchDebuggerValue, restartValue);
+    }
+
+    // Starts the Beutl installed beside these tools.
+    private static void StartBeutl()
+    {
+        var startInfo = new ProcessStartInfo { UseShellExecute = true };
+        DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl"));
+        using Process? _ = Process.Start(startInfo);
+    }
+
+    // Beutl starts after everything these tools hold is released, so nothing they do overlaps its start.
+    private async ValueTask DisposeThenStartBeutlAsync(Func<ValueTask> dispose)
+    {
+        try
+        {
+            await dispose();
+        }
+        finally
+        {
+            if (_startBeutlWhenClosed)
+            {
+                try
+                {
+                    _startBeutl();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to start Beutl");
+                }
+            }
+        }
     }
 
     public object? Next(ActionViewModel? current, CancellationToken cancellationToken)
@@ -290,7 +361,10 @@ public class MainViewModel : IAsyncDisposable
     }
 
     public ValueTask DisposeAsync()
-        => _operationLifetime.DisposeAsync();
+    {
+        _disposeRequested = true;
+        return _operationLifetime.DisposeAsync();
+    }
 
     private async ValueTask DisposeOwnedResources()
     {

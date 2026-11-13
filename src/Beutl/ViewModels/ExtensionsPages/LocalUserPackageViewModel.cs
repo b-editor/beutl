@@ -46,6 +46,10 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
         Cancel = new AsyncReactiveCommand()
             .WithSubscribe(CancelAsync)
             .DisposeWith(_disposables);
+
+        Restart = new AsyncReactiveCommand()
+            .WithSubscribe(RestartAsync)
+            .DisposeWith(_disposables);
     }
 
     private async Task InstallAsync()
@@ -168,6 +172,19 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
         }
     }
 
+    private async Task RestartAsync()
+    {
+        try
+        {
+            await PackageOperationHandler.RestartAsync();
+        }
+        catch (Exception e)
+        {
+            await e.Handle();
+            _logger.LogError(e, "An unexpected error has occurred.");
+        }
+    }
+
     public LocalPackage Package { get; }
 
     public string Name => Package.Name;
@@ -195,6 +212,8 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
     public AsyncReactiveCommand Uninstall { get; }
 
     public AsyncReactiveCommand Cancel { get; }
+
+    public AsyncReactiveCommand Restart { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

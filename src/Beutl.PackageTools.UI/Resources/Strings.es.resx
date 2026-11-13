@@ -68,6 +68,9 @@ Este archivo de paquete puede haber sido manipulado.</value>
   <data name="Close" xml:space="preserve">
     <value>Cerrar</value>
   </data>
+  <data name="StartBeutl" xml:space="preserve">
+    <value>Iniciar Beutl</value>
+  </data>
   <data name="ShowDetails" xml:space="preserve">
     <value>Mostrar detalles</value>
   </data>

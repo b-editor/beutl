@@ -1,6 +1,7 @@
 ﻿namespace Beutl.Helpers;
 
-public static class DotNetProcess
+// Also compiled into Beutl.PackageTools.UI, which starts Beutl again after a restart.
+internal static class DotNetProcess
 {
     public static void Configure(ProcessStartInfo processStartInfo, string path)
     {

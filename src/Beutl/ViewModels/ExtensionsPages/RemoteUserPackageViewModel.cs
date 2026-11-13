@@ -49,6 +49,10 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
             .WithSubscribe(CancelAsync)
             .DisposeWith(_disposables);
 
+        Restart = new AsyncReactiveCommand()
+            .WithSubscribe(RestartAsync)
+            .DisposeWith(_disposables);
+
         RemoveFromLibrary = new AsyncReactiveCommand(
                 new[] { IsBusy.Inverse(), _app.AuthenticatedUser.Select(i => i != null) }.CombineLatestValuesAreAllTrue())
             .WithSubscribe(RemoveFromLibraryAsync)
@@ -187,6 +191,19 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
         }
     }
 
+    private async Task RestartAsync()
+    {
+        try
+        {
+            await PackageOperationHandler.RestartAsync();
+        }
+        catch (Exception e)
+        {
+            await e.Handle();
+            _logger.LogError(e, "An unexpected error has occurred.");
+        }
+    }
+
     private async Task RemoveFromLibraryAsync()
     {
         using Activity? activity = Telemetry.StartActivity("RemoteUserPackage.RemoveFromLibrary");
@@ -277,6 +294,8 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
     public AsyncReactiveCommand Uninstall { get; }
 
     public AsyncReactiveCommand Cancel { get; }
+
+    public AsyncReactiveCommand Restart { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

@@ -512,4 +512,10 @@ internal class PackageOperationHandler
     {
         _queue.Cancel(packageName);
     }
+
+    // Quits Beutl so the scheduled changes are applied right away; the package tools then offer to start it.
+    public static Task RestartAsync()
+    {
+        return MainViewModel.TryGetCurrent(out MainViewModel? main) ? main.RestartAsync() : Task.CompletedTask;
+    }
 }

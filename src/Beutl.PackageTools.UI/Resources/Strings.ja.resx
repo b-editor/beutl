@@ -125,6 +125,9 @@
   <data name="Close" xml:space="preserve">
     <value>閉じる</value>
   </data>
+  <data name="StartBeutl" xml:space="preserve">
+    <value>Beutlを起動</value>
+  </data>
   <data name="ShowDetails" xml:space="preserve">
     <value>詳細を表示</value>
   </data>

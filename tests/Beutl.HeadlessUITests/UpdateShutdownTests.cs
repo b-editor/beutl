@@ -230,10 +230,66 @@ public class UpdateShutdownTests
         finally { await DisposeShellAsync(main).WaitAsync(TimeSpan.FromSeconds(20)); }
     }
 
-    private static async Task<(MainViewModel Main, Scene Scene)> CreateShellAsync()
+    [AvaloniaTest]
+    public async Task A_restart_saves_pending_edits_and_tells_the_handoff_to_carry_it_on()
+    {
+        bool? restartAtHandoff = null;
+        var (main, scene) = await CreateShellAsync(shell => restartAtHandoff = shell.IsRestartRequested);
+        Uri uri = scene.Uri!;
+        scene.Duration.Value = MediaTime.FromSeconds(73);
+        try
+        {
+            Assert.That(await main.RestartAsync(), Is.True);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(main.WaitForDisposalAsync().IsCompleted, Is.True);
+                Assert.That(restartAtHandoff, Is.True);
+                Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
+            });
+        }
+        finally { await DisposeShellAsync(main); }
+    }
+
+    [AvaloniaTest]
+    public async Task A_refused_restart_keeps_Beutl_running_and_a_later_quit_does_not_restart()
+    {
+        bool? restartAtHandoff = null;
+        var (main, scene) = await CreateShellAsync(shell => restartAtHandoff = shell.IsRestartRequested);
+        EditorTabItem tab = main.EditorService.SelectedTabItem.Value!;
+        scene.Duration.Value = MediaTime.FromSeconds(73);
+        try
+        {
+            using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+                   {
+                       if (step == StorageWriteStep.Replace && path == scene.Uri!.LocalPath)
+                           throw new IOException("save failed");
+                   }))
+            {
+                Assert.That(await main.RestartAsync(), Is.False);
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(main.IsRestartRequested, Is.False);
+                Assert.That(restartAtHandoff, Is.Null);
+                Assert.That(main.EditorService.TabItems, Does.Contain(tab));
+            });
+
+            Assert.That(await main.TryDisposeForWindowCloseAsync(), Is.True);
+            await main.WaitForDisposalAsync();
+            Assert.That(restartAtHandoff, Is.False);
+        }
+        finally { await DisposeShellAsync(main); }
+    }
+
+    // handoff sees the shell when Beutl hands the package changes over on its way out.
+    private static async Task<(MainViewModel Main, Scene Scene)> CreateShellAsync(Action<MainViewModel>? handoff = null)
     {
         await TestReset.ResetShellAsync();
-        var main = new MainViewModel(_ => { });
+        MainViewModel? shell = null;
+        var main = new MainViewModel(_ => handoff?.Invoke(shell!));
+        shell = main;
         main.ExtensionProvider.AddExtensions(0, LoadPrimitiveExtensionTask.PrimitiveExtensions);
         string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, "update-shutdown-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
