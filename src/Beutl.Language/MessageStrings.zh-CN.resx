@@ -163,6 +163,18 @@
   <data name="PropertyUnset" xml:space="preserve">
     <value>属性未设置。</value>
   </data>
+  <data name="MultipleElements_LockedNote" xml:space="preserve">
+    <value>{0} 个已锁定的元素不会更改。</value>
+  </data>
+  <data name="MultipleElements_NothingInCommon" xml:space="preserve">
+    <value>所选元素没有可共同编辑的属性。</value>
+  </data>
+  <data name="MultipleElements_ValuesDiffer" xml:space="preserve">
+    <value>所选元素的值各不相同。</value>
+  </data>
+  <data name="MultipleElements_MoreValues" xml:space="preserve">
+    <value>另有 {0} 个</value>
+  </data>
   <data name="RightClickToShowMenu" xml:space="preserve">
     <value>右键单击以显示菜单</value>
   </data>

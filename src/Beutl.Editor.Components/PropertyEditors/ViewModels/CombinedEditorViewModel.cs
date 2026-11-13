@@ -92,12 +92,18 @@ public sealed class CombinedEditorViewModel<T, TTuple> : VectorEditorViewModel<T
         ShowSeparation();
     }
 
-    public override void InsertKeyFrame(MediaTime keyTime) => EditAll(editor => editor.InsertKeyFrame(keyTime));
+    // The row's commands run on the row of each other element too, so that its two properties change together there.
+    public override void InsertKeyFrame(MediaTime keyTime)
+    {
+        if (Mirrors((editor, shift) => editor.InsertKeyFrame(keyTime + shift))) return;
+        EditAll(editor => editor.InsertKeyFrame(keyTime));
+    }
 
     // Through the joined keyframes: an editor of each property would fit that property's next easing to what remains, and
     // the properties would then differ.
     public override void RemoveKeyFrame(MediaTime keyTime)
     {
+        if (Mirrors((editor, shift) => editor.RemoveKeyFrame(keyTime + shift))) return;
         if (!IsElementEditable || GetAnimation() is not { } animation
             || AnimationOperations.FindKeyFrame(animation, keyTime, Logger, AnimationOwner) is not { } keyFrame)
         {
@@ -108,15 +114,25 @@ public sealed class CombinedEditorViewModel<T, TTuple> : VectorEditorViewModel<T
         Commit();
     }
 
-    public override void PrepareToEditAnimation() => EditAll(editor => editor.PrepareToEditAnimation());
+    public override void PrepareToEditAnimation()
+    {
+        if (Mirrors((editor, _) => editor.PrepareToEditAnimation())) return;
+        EditAll(editor => editor.PrepareToEditAnimation());
+    }
 
-    public override void RemoveAnimation() => EditAll(editor => editor.RemoveAnimation());
+    public override void RemoveAnimation()
+    {
+        if (Mirrors((editor, _) => editor.RemoveAnimation())) return;
+        EditAll(editor => editor.RemoveAnimation());
+    }
 
     public override string? GetExpressionString() => (_adapter.Expression as IComponentExpression)?.Source;
 
     // One expression, which returns a value with a component for each property.
     public override bool SetExpression(string expressionString, [NotNullWhen(false)] out string? error)
     {
+        if (MirrorsExpression(editor => (editor.SetExpression(expressionString, out string? failure), failure), out bool set, out error))
+            return set;
         if (!_adapter.Pair.TryParseExpression(expressionString, out IExpression<T>[]? expressions, out error))
             return false;
 
@@ -133,7 +149,11 @@ public sealed class CombinedEditorViewModel<T, TTuple> : VectorEditorViewModel<T
         return failure == null;
     }
 
-    public override void RemoveExpression() => EditAll(editor => editor.RemoveExpression());
+    public override void RemoveExpression()
+    {
+        if (Mirrors((editor, _) => editor.RemoveExpression())) return;
+        EditAll(editor => editor.RemoveExpression());
+    }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {

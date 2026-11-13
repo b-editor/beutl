@@ -401,6 +401,9 @@
   <data name="ElementProperty" xml:space="preserve">
     <value>元素属性</value>
   </data>
+  <data name="MultipleElements_ApplyValueToAll" xml:space="preserve">
+    <value>将所有元素设为此值</value>
+  </data>
   <data name="ProjectFile" xml:space="preserve">
     <value>项目文件</value>
   </data>

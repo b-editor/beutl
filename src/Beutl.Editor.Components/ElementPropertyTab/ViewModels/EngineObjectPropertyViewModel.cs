@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -26,7 +27,7 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
         // Removing or replacing this object stays allowed on a recovery-protected element while the
         // object holds what could not be loaded: that is how the user repairs the element.
         CanReplace = ElementEditability.ObserveRepair(
-                parent.Element.Value, model, parent.GetService(typeof(Scene)) as Scene)
+                parent.DisplayedElement.Value, model, parent.GetService(typeof(Scene)) as Scene)
             .ToReadOnlyReactivePropertySlim();
         // A fallback that saves the JSON it was read from as it is would not save turning it on or off.
         CanToggleEnabled = model is IFallback fallback && !fallback.SavesItsMembers()
@@ -58,6 +59,9 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
 
         FallbackMessage = Observable.ReturnThenNever(FallbackHelper.GetFallbackMessage(model))
             .ToReadOnlyReactivePropertySlim()!;
+
+        IsShown = PropertyEditorScope.ObserveShows(model).ToReadOnlyReactivePropertySlim(true);
+        TypeNames = PropertyEditorScope.DescribeTypes(model);
     }
 
     public EngineObject Model { get; private set; }
@@ -79,6 +83,12 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
     public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
 
     public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
+
+    // False while the object stands for objects of several elements and one of them holds none in its place.
+    public ReadOnlyReactivePropertySlim<bool> IsShown { get; }
+
+    // The names of the types of the objects this one stands for, when they are not all of its type.
+    public string? TypeNames { get; }
 
     public void RestoreState(JsonNode json)
     {
@@ -113,6 +123,7 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
         _enabledSubscription.Dispose();
         IsEnabled.Dispose();
         CanReplace.Dispose();
+        IsShown.Dispose();
         if (!ReferenceEquals(CanToggleEnabled, CanEdit))
             (CanToggleEnabled as IDisposable)?.Dispose();
 

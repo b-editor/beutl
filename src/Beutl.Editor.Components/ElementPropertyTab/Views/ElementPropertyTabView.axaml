@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.ElementPropertyTab.Views.ElementPropertyTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="using:Beutl.Editor.Components.ElementPropertyTab.Views"
@@ -12,13 +13,45 @@
              DragDrop.AllowDrop="True"
              pe:PropertyEditorGrid.IsAlignmentScope="True"
              mc:Ignorable="d">
-    <ScrollViewer x:Name="scrollViewer">
-        <ItemsControl x:Name="itemsControl" ItemsSource="{Binding Items}">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <local:EngineObjectPropertyView />
+    <DockPanel>
+        <!--  While several elements are selected, says what an edit leaves out: the locked ones, or all of them when they share nothing.  -->
+        <ContentControl x:Name="multipleElementsBanner"
+                        Content="{Binding MultipleElements.Value}"
+                        DockPanel.Dock="Top">
+            <ContentControl.ContentTemplate>
+                <DataTemplate x:DataType="viewModel:MultiElementEditSession">
+                    <controls:ToolTabBar>
+                        <controls:ToolTabBar.IsVisible>
+                            <MultiBinding Converter="{x:Static BoolConverters.Or}">
+                                <Binding Converter="{x:Static ObjectConverters.IsNotNull}" Path="LockedNote.Value" />
+                                <Binding Converter="{x:Static ObjectConverters.IsNotNull}" Path="NothingInCommonNote.Value" />
+                            </MultiBinding>
+                        </controls:ToolTabBar.IsVisible>
+                        <StackPanel Margin="{DynamicResource ToolTabBarTitleMargin}" Spacing="2">
+                            <TextBlock x:Name="lockedNoteText"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       IsVisible="{Binding LockedNote.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                       Text="{Binding LockedNote.Value}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="nothingInCommonText"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       IsVisible="{Binding NothingInCommonNote.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                       Text="{Binding NothingInCommonNote.Value}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </controls:ToolTabBar>
                 </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
-    </ScrollViewer>
+            </ContentControl.ContentTemplate>
+        </ContentControl>
+
+        <ScrollViewer x:Name="scrollViewer">
+            <ItemsControl x:Name="itemsControl" ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="viewModel:EngineObjectPropertyViewModel">
+                        <local:EngineObjectPropertyView IsVisible="{Binding IsShown.Value}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
 </UserControl>

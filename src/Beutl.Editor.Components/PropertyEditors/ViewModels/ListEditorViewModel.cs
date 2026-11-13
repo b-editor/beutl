@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Services;
@@ -104,7 +105,12 @@ public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEdito
         {
             Context = context;
         }
+
+        IsShown = PropertyEditorScope.ObserveShows(itemAccessor.GetValue()).ToReadOnlyReactivePropertySlim(true);
     }
+
+    // False for an item of an object that stands for those of several others when one of them holds none in its place.
+    public ReadOnlyReactivePropertySlim<bool> IsShown { get; }
 
     public ListEditorViewModel<TItem> Parent { get; }
 
@@ -115,6 +121,7 @@ public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEdito
     public void Dispose()
     {
         Context?.Dispose();
+        IsShown.Dispose();
     }
 
     public void OnDeleteRequested()

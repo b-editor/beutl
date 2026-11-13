@@ -59,6 +59,18 @@ internal static class AnimationOperations
         return keyFrames.FirstOrDefault(k => MediaTimeJsonConverter.SnapToFrame(k.KeyTime.Value, rate) == at);
     }
 
+    // The keyframe a property editor edits with the playhead at time: the one on that frame, else the next one, else the
+    // last, as the editor's keyframe index points it.
+    internal static IKeyFrame? FindEditingKeyFrame(IKeyFrameAnimation animation, MediaTime time, Rational rate)
+    {
+        IListProperty<IKeyFrame> keyFrames = animation.KeyFrames;
+        if (keyFrames.Count == 0) return null;
+
+        MediaTime keyTime = (time - GetTimeOrigin(animation)).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+        return FindKeyFrameOnFrame(keyFrames, keyTime, rate)
+               ?? keyFrames[Math.Clamp(keyFrames.IndexAtOrCount(keyTime), 0, keyFrames.Count - 1)];
+    }
+
     // InsertKeyFrame<T> for an animation whose value type is known only at run time.
     public static IKeyFrame? InsertKeyFrame(IKeyFrameAnimation animation, Easing? easing, MediaTime keyTime, ILogger logger,
         EngineObject? fallbackOwner = null)

@@ -102,6 +102,22 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     internal void SetValue(TValue? oldValue, TValue? newValue, string? commandName)
     {
+        // Every element takes the value as its own editor would, from what it shows itself: the value shown is one
+        // element's, so the others can still differ from it even when it stays.
+        if (Mirrors(
+                (editor, _) =>
+                {
+                    var typed = (PropertyEditorViewModel<TValue>)editor;
+                    if (ReferenceEquals(typed, this))
+                        typed.SetValue(oldValue, newValue, commandName);
+                    else
+                        typed.SetValue(typed.GetEditingValue(), CopyForOtherElement(newValue), commandName);
+                },
+                commitName: commandName))
+        {
+            return;
+        }
+
         if (!CanReplace(oldValue, newValue)) return;
         if (!EqualityComparer<TValue>.Default.Equals(oldValue, newValue))
         {
@@ -112,8 +128,22 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         }
     }
 
+    public override void MatchOtherElements()
+    {
+        if (IsDisposed || !CanEdit.Value) return;
+
+        TValue? value = GetEditingValue();
+        SetValue(value, value, null);
+    }
+
     public void SetValue(TValue? newValue)
     {
+        if (Mirrors((editor, _) => ((PropertyEditorViewModel<TValue>)editor).SetValue(
+                ReferenceEquals(editor, this) ? newValue : CopyForOtherElement(newValue))))
+        {
+            return;
+        }
+
         // Like SetValue(oldValue, newValue): replacing the current value can repair the element, as when a
         // file-backed editor puts a valid file in place of a source that loading dropped.
         if (IsDisposed || !CanReplace(GetEditingValue(), newValue)) return;
@@ -122,6 +152,10 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         CompleteElementRepair();
         Commit();
     }
+
+    // An object goes to each element as a copy of its own; a value without identity goes as it is.
+    private TValue? CopyForOtherElement(TValue? value)
+        => value is null || typeof(TValue).IsValueType ? value : (TValue?)Mirror!.CopyValue(value);
 
     // The value of the keyframe being edited, or of the property itself when no keyframe is.
     protected internal TValue? GetEditingValue()
@@ -149,6 +183,23 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
     public TValue? SetCurrentValueAndGetCoerced(TValue? value)
     {
         if (IsDisposed) return default;
+
+        // While a value is dragged every element shows it, and the edit that sets it takes one history entry for all.
+        TValue? coerced = default;
+        if (Mirrors(
+                (editor, _) =>
+                {
+                    var typed = (PropertyEditorViewModel<TValue>)editor;
+                    if (ReferenceEquals(typed, this))
+                        coerced = typed.SetCurrentValueAndGetCoerced(value);
+                    else
+                        typed.SetCurrentValueAndGetCoerced(CopyForOtherElement(value));
+                },
+                commit: false))
+        {
+            return coerced;
+        }
+
         if (!IsElementEditable)
             return GetEditingValue();
         if (SeparatedComponents.Value is IComponentAnimation<TValue> components)
@@ -173,6 +224,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     public override void InsertKeyFrame(MediaTime keyTime)
     {
+        if (Mirrors((editor, shift) => editor.InsertKeyFrame(keyTime + shift))) return;
         if (!IsElementEditable) return;
         if (GetAnimation() is not KeyFrameAnimation<TValue> kfAnimation) return;
 
@@ -195,6 +247,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     public override void RemoveKeyFrame(MediaTime keyTime)
     {
+        if (Mirrors((editor, shift) => editor.RemoveKeyFrame(keyTime + shift))) return;
         if (IsDisposed || GetAnimation() is not KeyFrameAnimation<TValue> kfAnimation) return;
         // Check the keyframe itself: removing another one while it holds an easing that could not be
         // read leaves the element protected, so that removal would not be saved.
@@ -211,6 +264,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     public override void PrepareToEditAnimation()
     {
+        if (Mirrors((editor, _) => editor.PrepareToEditAnimation())) return;
         if (SeparatedComponents.Value != null) return;
         if (!IsElementEditable) return;
         if (PropertyAdapter is IAnimatablePropertyAdapter<TValue> animatableProperty
@@ -240,6 +294,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     public override void RemoveAnimation()
     {
+        if (Mirrors((editor, _) => editor.RemoveAnimation())) return;
         if (!CanReplace(GetAnimation())) return;
         if (PropertyAdapter is IAnimatablePropertyAdapter<TValue> animatableProperty)
         {
@@ -251,6 +306,8 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     public override bool SetExpression(string expressionString, [NotNullWhen(false)] out string? error)
     {
+        if (MirrorsExpression(editor => (editor.SetExpression(expressionString, out string? failure), failure), out bool set, out error))
+            return set;
         if (!CanSetExpression(out error))
         {
             return false;
@@ -305,6 +362,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     public override void RemoveExpression()
     {
+        if (Mirrors((editor, _) => editor.RemoveExpression())) return;
         if (!IsElementEditable) return;
         if (PropertyAdapter is IExpressionPropertyAdapter<TValue> expressionProperty)
         {

@@ -12,4 +12,5 @@
              d:DesignWidth="800"
              x:CompileBindings="False"
              Content="{Binding Context, Converter={StaticResource ViewModelToViewConverter}}"
+             IsVisible="{Binding IsShown.Value, FallbackValue=True}"
              mc:Ignorable="d" />
