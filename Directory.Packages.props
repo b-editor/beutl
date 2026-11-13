@@ -69,7 +69,7 @@
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
     <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
     <PackageVersion Include="NuGet.Packaging" Version="8.0.0" />
-    <PackageVersion Include="NuGet.ProjectModel" Version="7.9.0" />
+    <PackageVersion Include="NuGet.ProjectModel" Version="8.0.0" />
     <PackageVersion Include="NuGet.Protocol" Version="8.0.0" />
     <PackageVersion Include="NuGet.Resolver" Version="8.0.0" />
     <PackageVersion Include="NuGet.Versioning" Version="7.9.0" />
