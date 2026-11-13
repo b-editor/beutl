@@ -50,10 +50,10 @@ public sealed class EncodingColorTests
         });
 
         // Independent reference values for red, green, blue, sRGB mid-gray, black and white.
-        // sRGB 128 becomes BT.709 R'G'B' 115 before limited-range YUV conversion.
+        // sRGB 128 becomes BT.709 R'G'B' 117, which QuickTime reads back as 128, before limited-range YUV conversion.
         int[][] expected = explicitSettings
             ? [[76, 85, 255], [150, 44, 21], [29, 255, 107], [128, 128, 128], [0, 128, 128], [255, 128, 128]]
-            : [[63, 102, 240], [173, 42, 26], [32, 240, 118], [115, 128, 128], [16, 128, 128], [235, 128, 128]];
+            : [[63, 102, 240], [173, 42, 26], [32, 240, 118], [116, 128, 128], [16, 128, 128], [235, 128, 128]];
         AssertYuvPatches(frame, expected);
         Assert.That(controller.VideoSettings.ColorTrc.Value,
             Is.EqualTo(explicitSettings ? FFColorTransfer.IEC61966_2_1 : FFColorTransfer.UNSPECIFIED),

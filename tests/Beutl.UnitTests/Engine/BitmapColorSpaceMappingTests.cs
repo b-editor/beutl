@@ -56,6 +56,50 @@ public class BitmapColorSpaceMappingTests
         Assert.That(encoded.GetPixelSpan<ushort>()[1] / 65535f, Is.EqualTo(expectedCode).Within(0.003f));
     }
 
+    // Linear light that AVFoundation itself gives for these code values (AVAssetImageGenerator frames drawn into an
+    // extended linear sRGB CGContext), so QuickTime is the reference. The exact inverse of the BT.709 OETF gives up to
+    // 3.6 times as much in the shadows (1.3 times at code 51), which made dark screen recordings look washed out.
+    [TestCase(BitmapColorTransfer.Bt709, 5, 0.0012207f)]
+    [TestCase(BitmapColorTransfer.Bt709, 13, 0.0031738f)]
+    [TestCase(BitmapColorTransfer.Bt709, 16, 0.0043945f)]
+    [TestCase(BitmapColorTransfer.Bt709, 51, 0.0424805f)]
+    [TestCase(BitmapColorTransfer.Bt709, 98, 0.1533203f)]
+    [TestCase(BitmapColorTransfer.Bt709, 214, 0.7092285f)]
+    [TestCase(BitmapColorTransfer.Rec2020, 13, 0.0031738f)]
+    [TestCase(BitmapColorTransfer.Rec2020, 144, 0.3261719f)]
+    public void BuildTargetColorSpace_VideoTransferDecodesLikeQuickTime(
+        BitmapColorTransfer transfer, int code, float expected)
+    {
+        var colorSpace = BitmapColorSpaceMapping.BuildTargetColorSpace(transfer, BitmapColorPrimaries.Bt709);
+        using var encoded = new Bitmap(1, 1, BitmapColorType.Rgba8888, BitmapAlphaType.Unpremul, colorSpace);
+        encoded.GetPixelSpan<byte>().Fill((byte)code);
+        encoded.GetPixelSpan<byte>()[3] = 255;
+
+        using var linear = encoded.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+
+        // AVFoundation's linear values come in steps of 1/4096.
+        Assert.That((float)linear.GetPixelSpan<RgbaF16>()[0].G, Is.EqualTo(expected).Within(expected * 0.01f + 1f / 8192f));
+    }
+
+    // The BT.709 code that AVFoundation reads back closest to each sRGB gray, so an export plays back in QuickTime as
+    // it was rendered. The BT.709 OETF wrote 5, 9, 48 and 115 for the first four.
+    [TestCase(13, 15)]
+    [TestCase(22, 22)]
+    [TestCase(64, 56)]
+    [TestCase(128, 117)]
+    [TestCase(200, 193)]
+    public void BuildTargetColorSpace_Bt709EncodesWhatQuickTimeReadsBack(int srgb, int expectedCode)
+    {
+        using var source = new Bitmap(1, 1, BitmapColorType.Rgba8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+        source.GetPixelSpan<byte>().Fill((byte)srgb);
+        source.GetPixelSpan<byte>()[3] = 255;
+        var colorSpace = BitmapColorSpaceMapping.BuildTargetColorSpace(BitmapColorTransfer.Bt709, BitmapColorPrimaries.Bt709);
+
+        using var encoded = source.Convert(BitmapColorType.Rgba8888, BitmapAlphaType.Unpremul, colorSpace);
+
+        Assert.That((int)encoded.GetPixelSpan<byte>()[1], Is.EqualTo(expectedCode).Within(1));
+    }
+
     [TestCase(BitmapColorTransfer.Srgb)]
     [TestCase(BitmapColorTransfer.Bt709)]
     [TestCase(BitmapColorTransfer.Unknown)]
@@ -74,6 +118,7 @@ public class BitmapColorSpaceMappingTests
     [TestCase(BitmapColorTransfer.Linear)]
     [TestCase(BitmapColorTransfer.Pq)]
     [TestCase(BitmapColorTransfer.Hlg)]
+    [TestCase(BitmapColorTransfer.Bt709)]
     [TestCase(BitmapColorTransfer.Rec2020)]
     public void GetTransferFunction_KnownTagsRoundTripThroughBuild(BitmapColorTransfer transfer)
     {

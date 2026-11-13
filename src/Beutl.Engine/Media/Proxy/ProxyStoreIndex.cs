@@ -3,7 +3,9 @@
 public sealed record ProxyStoreIndex
 {
     // 3: SDR sources decode by their transfer tags, so proxies made from the forced sRGB reading are stale.
-    public const int CurrentVersion = 3;
+    // 4: BT.709-family video decodes and encodes with QuickTime's curve, so shadows of proxies written with the BT.709
+    //    OETF no longer match their sources.
+    public const int CurrentVersion = 4;
 
     public int Version { get; init; } = CurrentVersion;
 
@@ -14,8 +16,8 @@ public sealed record ProxyStoreIndex
 
 public sealed record ProxySourceMetadata
 {
-    // 3: as ProxyStoreIndex, so a rebuilt index cannot pick up the stale proxies either.
-    public const int CurrentVersion = 3;
+    // 3, 4: as ProxyStoreIndex, so a rebuilt index cannot pick up the stale proxies either.
+    public const int CurrentVersion = 4;
 
     public int Version { get; init; } = CurrentVersion;
 
