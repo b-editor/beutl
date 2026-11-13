@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Beutl.Controls.PropertyEditors;
@@ -31,6 +32,8 @@ public sealed partial class LayerHeader : UserControl
     public LayerHeader()
     {
         InitializeComponent();
+        // A single-line text box marks Enter handled, so the name box takes it on the way down.
+        NameTextBox.AddHandler(KeyDownEvent, NameTextBox_KeyDown, RoutingStrategies.Tunnel);
     }
 
     public double PositionY
@@ -196,6 +199,15 @@ public sealed partial class LayerHeader : UserControl
             && !ViewModel.IsLocked.Value
             && GetOrFindTimeline() is { } timeline)
         {
+            // The press need not take the focus from a name box, and a drag changes the layer each row holds, so a
+            // name still being typed is saved now, on the layer it was typed for, not when the box loses the focus.
+            if (TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox focused
+                && focused.FindLogicalAncestorOfType<LayerHeader>() is { } editing
+                && editing.NameTextBox == focused)
+            {
+                editing.CommitName();
+            }
+
             _pressed = true;
             _newLayer = ViewModel.Number;
             _startRel = point.Position;
@@ -212,6 +224,24 @@ public sealed partial class LayerHeader : UserControl
         }
 
         translate.Y = PositionY;
+    }
+
+    private void NameTextBox_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+            CommitName();
+    }
+
+    private void NameTextBox_LostFocus(object? sender, RoutedEventArgs e) => CommitName();
+
+    // Saves the name box's text as the name of the layer on this header's row. The box then shows the name the
+    // layer holds, which differs from the text when the text was blank or only the row's number.
+    private void CommitName()
+    {
+        if (DataContext is not LayerHeaderViewModel viewModel) return;
+
+        viewModel.Rename(NameTextBox.Text);
+        NameTextBox.SetCurrentValue(TextBox.TextProperty, viewModel.Name.Value);
     }
 
     private void OnColorConfirmed(SimpleColorPickerButton sender, (Color OldValue, Color NewValue) args)

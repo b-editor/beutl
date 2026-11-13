@@ -89,6 +89,9 @@
   <data name="ChangeLayerColor" xml:space="preserve">
     <value>레이어 색상 변경</value>
   </data>
+  <data name="RenameLayer" xml:space="preserve">
+    <value>레이어 이름 바꾸기</value>
+  </data>
   <data name="ChangeLayerLocked" xml:space="preserve">
     <value>레이어 잠금 변경</value>
   </data>

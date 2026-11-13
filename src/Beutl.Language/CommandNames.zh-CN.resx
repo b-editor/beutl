@@ -89,6 +89,9 @@
   <data name="ChangeLayerColor" xml:space="preserve">
     <value>更改图层颜色</value>
   </data>
+  <data name="RenameLayer" xml:space="preserve">
+    <value>重命名图层</value>
+  </data>
   <data name="ChangeLayerLocked" xml:space="preserve">
     <value>更改图层锁定</value>
   </data>

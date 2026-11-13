@@ -122,6 +122,73 @@ public class LayerAttributeServiceTests
         });
     }
 
+    [Test]
+    public void SetName_NoExistingModel_CreatesLayerAndCommits()
+    {
+        int beforeUndo = _history.UndoCount;
+
+        bool changed = _service.SetName(_scene, zIndex: 3, "BG");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.True);
+            TimelineLayer created = _scene.Layers.Single();
+            Assert.That(created.ZIndex.Value, Is.EqualTo(3));
+            Assert.That(created.Name.Value, Is.EqualTo("BG"));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
+        });
+    }
+
+    [Test]
+    public void SetName_SameNameOrEmptyWithoutModel_DoesNotCommit()
+    {
+        _scene.Layers.Add(new TimelineLayer { Name = { Value = "BG" }, ZIndex = { Value = 4 } });
+        int beforeUndo = _history.UndoCount;
+
+        bool same = _service.SetName(_scene, zIndex: 4, "BG");
+        bool empty = _service.SetName(_scene, zIndex: 5, string.Empty);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(same, Is.False);
+            Assert.That(empty, Is.False);
+            Assert.That(_scene.Layers, Has.Count.EqualTo(1));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
+        });
+    }
+
+    // A name is one of the things a model holds; clearing it removes the model only when nothing else is left.
+    [Test]
+    public void SetName_Clearing_PrunesOnlyAModelLeftWithDefaults()
+    {
+        var namedOnly = new TimelineLayer { Name = { Value = "Text" }, ZIndex = { Value = 1 } };
+        var muted = new TimelineLayer { Name = { Value = "Music" }, ZIndex = { Value = 2 }, IsAudioMuted = { Value = true } };
+        _scene.Layers.Add(namedOnly);
+        _scene.Layers.Add(muted);
+        _history.Commit("Setup");
+        int beforeUndo = _history.UndoCount;
+
+        bool clearedNamedOnly = _service.SetName(_scene, zIndex: 1, string.Empty);
+        bool clearedMuted = _service.SetName(_scene, zIndex: 2, string.Empty);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clearedNamedOnly, Is.True);
+            Assert.That(clearedMuted, Is.True);
+            Assert.That(_scene.Layers, Is.EqualTo(new[] { muted }));
+            Assert.That(muted.Name.Value, Is.Empty);
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 2));
+        });
+
+        Assert.That(_history.Undo(), Is.True);
+        Assert.That(_history.Undo(), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Layers.Single(l => l.ZIndex.Value == 1).Name.Value, Is.EqualTo("Text"));
+            Assert.That(muted.Name.Value, Is.EqualTo("Music"));
+        });
+    }
+
     [TestCase("locked")]
     [TestCase("audio-muted")]
     [TestCase("video-muted")]

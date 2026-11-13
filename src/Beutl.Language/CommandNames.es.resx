@@ -89,6 +89,9 @@
   <data name="ChangeLayerColor" xml:space="preserve">
     <value>Cambiar color de la capa</value>
   </data>
+  <data name="RenameLayer" xml:space="preserve">
+    <value>Cambiar nombre de la capa</value>
+  </data>
   <data name="ChangeLayerLocked" xml:space="preserve">
     <value>Cambiar bloqueo de la capa</value>
   </data>

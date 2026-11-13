@@ -16,6 +16,12 @@ public interface ILayerAttributeService
     /// otherwise false and no commit.</summary>
     bool SetColor(Scene scene, int zIndex, Color color, string defaultName);
 
+    /// <summary>Sets the name of the layer at <paramref name="zIndex"/>, creating the
+    /// model on demand, so the name moves with the layer. An empty name clears it and
+    /// removes a model left holding only defaults. Returns true and commits
+    /// <c>RenameLayer</c> when the name changed; otherwise false and no commit.</summary>
+    bool SetName(Scene scene, int zIndex, string name);
+
     /// <summary>Sets <see cref="TimelineLayer.IsLocked"/> for the layer at
     /// <paramref name="zIndex"/>, creating the model on demand. The editor treats
     /// a layer lock the same as locking every element at that zIndex.</summary>

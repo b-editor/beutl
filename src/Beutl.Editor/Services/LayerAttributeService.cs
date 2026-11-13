@@ -41,6 +41,33 @@ public sealed class LayerAttributeService : ILayerAttributeService
         return true;
     }
 
+    public bool SetName(Scene scene, int zIndex, string name)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(name);
+
+        TimelineLayer? layer = FindLayer(scene, zIndex);
+        if (layer is null)
+        {
+            // A layer move carries the models, not the rows, so the name needs a model to move with the layer.
+            if (name.Length == 0) return false;
+            scene.Layers.Add(new TimelineLayer { Name = { Value = name }, ZIndex = { Value = zIndex } });
+        }
+        else
+        {
+            if (layer.Name.Value == name) return false;
+
+            layer.Name.Value = name;
+            if (IsEmptyLayerModel(layer))
+            {
+                scene.Layers.Remove(layer);
+            }
+        }
+
+        _historyManager.Commit(CommandNames.RenameLayer);
+        return true;
+    }
+
     public bool SetLocked(Scene scene, int zIndex, bool isLocked)
         => SetLayerFlag(scene, zIndex, isLocked, l => l.IsLocked.Value, (l, v) => l.IsLocked.Value = v, CommandNames.ChangeLayerLocked);
 
