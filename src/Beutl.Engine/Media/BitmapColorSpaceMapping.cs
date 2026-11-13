@@ -18,16 +18,21 @@ public static class BitmapColorSpaceMapping
     /// <summary>
     /// Resolves the numerical transfer function for a transfer tag. Unknown tags fall back to sRGB.
     /// </summary>
+    /// <remarks>
+    /// BT.709, BT.601 and BT.2020 SDR all tag the camera OETF, whose exact inverse gives scene light rather than what a
+    /// display shows. Like QuickTime and AVFoundation, they resolve to
+    /// <see cref="BitmapColorSpaceTransferFn.CoreMedia709"/>, so a macOS screen recording reads back as the screen looked,
+    /// and an export plays back in QuickTime as it was rendered.
+    /// </remarks>
     public static BitmapColorSpaceTransferFn GetTransferFunction(BitmapColorTransfer transfer)
     {
         return transfer switch
         {
             BitmapColorTransfer.Linear => BitmapColorSpaceTransferFn.Linear,
             BitmapColorTransfer.TwoDotTwo => BitmapColorSpaceTransferFn.TwoDotTwo,
-            BitmapColorTransfer.Rec2020 => BitmapColorSpaceTransferFn.Rec2020,
             BitmapColorTransfer.Pq => BitmapColorSpaceTransferFn.Pq,
             BitmapColorTransfer.Hlg => BitmapColorSpaceTransferFn.Hlg,
-            BitmapColorTransfer.Bt709 => BitmapColorSpaceTransferFn.Bt709,
+            BitmapColorTransfer.Bt709 or BitmapColorTransfer.Rec2020 => BitmapColorSpaceTransferFn.CoreMedia709,
             BitmapColorTransfer.Gamma28 => BitmapColorSpaceTransferFn.Gamma28,
             BitmapColorTransfer.Smpte240M => BitmapColorSpaceTransferFn.Smpte240M,
             BitmapColorTransfer.Smpte428 => BitmapColorSpaceTransferFn.Smpte428,

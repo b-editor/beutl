@@ -73,7 +73,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Call validate_shader to check compilation. A successful compilation does not verify rendered output; render_still and render_storyboard return rendered evidence.",
                 "measure_frame_differences reports numerical changes between frames; analyze_audio_rhythm reports estimated beats and onsets. Measurements are data, not quality or completion verdicts.",
                 "For file-backed sessions, save_project persists edits. In LiveEditor sessions, use the editor's normal save behavior as reported by read_operation_status.",
-                "export_video writes to the requested path. Exported pixels follow the file's declared transfer, BT.709 by default, so a tool that decodes without converting reads dark sRGB colors darker (#09 as #03); that is correct and needs no grading afterwards. Successful validation, rendering, saving, or exporting confirms that operation only; the agent evaluates the result against the user's request."
+                "export_video writes to the requested path. Exported pixels follow the file's declared transfer, BT.709 by default, so a tool that decodes without converting reads mid grays darker (#80 as #75); that is correct and needs no grading afterwards. Successful validation, rendering, saving, or exporting confirms that operation only; the agent evaluates the result against the user's request."
             ],
             CreateRecommendedSkills(),
             SchemaGenerator.CreateListedCategoryAliases(),

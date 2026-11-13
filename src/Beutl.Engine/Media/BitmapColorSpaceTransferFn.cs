@@ -33,6 +33,10 @@ public readonly struct BitmapColorSpaceTransferFn : IEquatable<BitmapColorSpaceT
     /// <summary>
     /// BT.709 / BT.601 / SMPTE 170M / IEC 61966-2-4 / BT.1361 ECG
     /// </summary>
+    /// <remarks>
+    /// The exact inverse of the camera OETF, which gives scene light. Video tagged with these transfers decodes through
+    /// <see cref="CoreMedia709"/> instead (see <see cref="BitmapColorSpaceMapping.GetTransferFunction"/>).
+    /// </remarks>
     public static BitmapColorSpaceTransferFn Bt709 { get; } = new()
     {
         G = 1f / 0.45f,
@@ -40,6 +44,27 @@ public readonly struct BitmapColorSpaceTransferFn : IEquatable<BitmapColorSpaceT
         B = 0.099f / 1.099f,
         C = 1f / 4.5f,
         D = 0.081f,
+        E = 0f,
+        F = 0f
+    };
+
+    /// <summary>
+    /// BT.709-family video as Apple's media stack reads and writes it (kCGColorSpaceCoreMedia709): gamma 1.9609375,
+    /// with ColorSync's slope of 1/16 near black.
+    /// </summary>
+    /// <remarks>
+    /// QuickTime and AVFoundation decode BT.709, BT.601 and BT.2020 SDR video with this curve, and the macOS screen
+    /// recorder encodes with its inverse. It matches <see cref="Bt709"/> within 1% above code 0.5 but stays darker in
+    /// the shadows, where the OETF's linear segment would lift code 0.05 from about 0.003 to 0.011 in linear light.
+    /// </remarks>
+    public static BitmapColorSpaceTransferFn CoreMedia709 { get; } = new()
+    {
+        G = 1.9609375f,
+        A = 1f,
+        B = 0f,
+        C = 1f / 16f,
+        // Where the 1/16 slope meets the power curve: d^g = d / 16.
+        D = MathF.Pow(1f / 16f, 1f / (1.9609375f - 1f)),
         E = 0f,
         F = 0f
     };
@@ -141,6 +166,7 @@ public readonly struct BitmapColorSpaceTransferFn : IEquatable<BitmapColorSpaceT
         if (this == Pq) return "PQ";
         if (this == Rec2020) return "Rec.2020";
         if (this == Bt709) return "BT.709";
+        if (this == CoreMedia709) return "BT.709 (CoreMedia)";
         if (this == Gamma28) return "2.8";
         if (this == Smpte240M) return "SMPTE 240M";
         if (this == Smpte428) return "SMPTE ST 428-1";
