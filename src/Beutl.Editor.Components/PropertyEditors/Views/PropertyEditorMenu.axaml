@@ -37,8 +37,14 @@
                 <ui:FAMenuFlyoutItem x:Name="matchOtherElementsItem"
                                    Command="{Binding MatchOtherElements}"
                                    IsEnabled="{Binding CanEdit.Value}"
-                                   IsVisible="{Binding ValueDifference.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                   Text="{x:Static lang:Strings.MultipleElements_ApplyValueToAll}" />
+                                   Text="{x:Static lang:Strings.MultipleElements_ApplyValueToAll}">
+                    <ui:FAMenuFlyoutItem.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Converter="{x:Static ObjectConverters.IsNotNull}" Path="ValueDifference.Value" />
+                            <Binding Path="CanMatchOtherElements" />
+                        </MultiBinding>
+                    </ui:FAMenuFlyoutItem.IsVisible>
+                </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="separateComponentsItem"
                                    IsVisible="False"
                                    IsEnabled="{Binding CanEditProperty.Value}"

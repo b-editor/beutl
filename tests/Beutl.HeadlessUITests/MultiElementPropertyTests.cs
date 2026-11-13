@@ -535,6 +535,62 @@ public class MultiElementPropertyTests
         });
     }
 
+    // Changing the type of a transform goes through the editor of an item of a list, which no element has an editor of
+    // its own for, so the change of the copy's list reaches each element instead.
+    [AvaloniaTest]
+    public async Task ChangingTheTypeOfATransformReachesEveryElement()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
+        RectShape[] shapes = Shapes<RectShape>(elements);
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        var transform = (TransformEditorViewModel)Editor(tab, Copy<RectShape>(tab).Transform);
+        transform.IsExpanded.Value = true;
+        HeadlessTestHelpers.Settle();
+        var first = (TransformEditorViewModel)transform.Group.Value!.Items[0].Context!;
+
+        first.ChangeType(KnownTransformType.Scale);
+        Assert.That(shapes.Select(shape => ((TransformGroup)shape.Transform.Value!).Children[0]), Is.All.TypeOf<ScaleTransform>());
+    }
+
+    // Unlocking every element changes nothing the copy holds of them, yet lets the tab edit it.
+    [AvaloniaTest]
+    public async Task UnlockingTheElementsLetsTheTabEditThem()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
+        foreach (Element element in elements)
+            element.IsLocked.Value = true;
+        editor.HistoryManager.Commit("lock the elements");
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        Element copy = tab.DisplayedElement.Value!;
+        Assert.That(tab.CanEdit.Value, Is.False);
+
+        foreach (Element element in elements)
+            element.IsLocked.Value = false;
+        editor.HistoryManager.Commit("unlock the elements");
+        HeadlessTestHelpers.Settle();
+        Assert.Multiple(() =>
+        {
+            Assert.That(tab.DisplayedElement.Value, Is.SameAs(copy));
+            Assert.That(tab.CanEdit.Value, Is.True);
+        });
+    }
+
+    // An expression of the copy reads a property of an element that is not selected, which it finds in the scene.
+    [AvaloniaTest]
+    public async Task AnExpressionOfTheCopyReadsAnotherElement()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(
+            () => new RectShape(), () => new RectShape(), () => new RectShape());
+        RectShape[] shapes = Shapes<RectShape>(elements);
+        shapes[2].Opacity.Value = 25;
+        shapes[0].Opacity.Expression = Beutl.Engine.Expressions.Expression.Create<float>(
+            $"GetProperty<float>(\"{{{shapes[2].Id.Value}}}.Opacity\")");
+        editor.HistoryManager.Commit("test setup");
+        using ElementPropertyTabViewModel tab = OpenTab(editor, [elements[0], elements[1]]);
+
+        Assert.That(Copy<RectShape>(tab).Opacity.Evaluate(new EvaluationContext(elements[0].Start.Value)), Is.EqualTo(25f));
+    }
+
     // A locked element is not edited, so what it lacks does not keep the others from editing it.
     [AvaloniaTest]
     public async Task ALockedElementDoesNotHideWhatTheOthersShare()
@@ -557,16 +613,22 @@ public class MultiElementPropertyTests
         (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
         RectShape[] shapes = Shapes<RectShape>(elements);
         shapes[1].Opacity.Value = 40;
+        shapes[0].Fill.Value = new SolidColorBrush(Colors.White);
+        shapes[1].Fill.Value = new LinearGradientBrush();
         editor.HistoryManager.Commit("test setup");
         using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
         PropertyEditorViewModel opacity = Editor(tab, Copy<RectShape>(tab).Opacity);
         PropertyEditorViewModel size = Editor(tab, Copy<RectShape>(tab).Width);
+        PropertyEditorViewModel fill = Editor(tab, Copy<RectShape>(tab).Fill);
 
         Assert.Multiple(() =>
         {
             Assert.That(opacity.ValueDifference.Value, Does.StartWith(MessageStrings.MultipleElements_ValuesDiffer)
                 .And.Contain(": 100").And.Contain(": 40"));
+            Assert.That(opacity.CanMatchOtherElements, Is.True);
             Assert.That(size.ValueDifference.Value, Is.Null, "both are as wide and as tall");
+            Assert.That(fill.ValueDifference.Value, Is.Not.Null, "the brushes are of different types");
+            Assert.That(fill.CanMatchOtherElements, Is.False, "the brush editor offers its types to switch to instead");
         });
 
         opacity.MatchOtherElements();

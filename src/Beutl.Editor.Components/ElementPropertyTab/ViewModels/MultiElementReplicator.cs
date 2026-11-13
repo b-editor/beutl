@@ -48,9 +48,10 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
 
     public Element Shown => _shown;
 
-    // While a command runs on the copy, the other elements run it themselves on their own values, so what it changes
-    // goes to the element the copy was made from only.
-    public bool ReachesShownOnly { get; set; }
+    // While a command runs on the copy: the other elements that ran it themselves, on their own values, so that what it
+    // changes of the copy does not reach them as well. An element no editor of its own could run it for, as when the
+    // command edits an item of a list, takes what it changes instead.
+    public IReadOnlyCollection<Element> RanThemselves { get; set; } = [];
 
     // Raised after a change of what objects the elements hold, which can change what the copy has in common with them.
     public event Action? StructureChanged;
@@ -523,15 +524,14 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
             || (property.Value is IList list && list.Cast<object?>().Any(item => ReferenceEquals(item, child)))
             || (property is IExpressionProperty && ReferenceEquals(property.GetPropertyAnimation(), child)));
 
-    // The element the copy was made from first, with exact copies, then the others unless a command runs on them itself.
+    // The element the copy was made from first, with exact copies, then the others that did not run a command themselves.
     private IEnumerable<(Element Target, bool Exact)> Targets()
     {
         if (IsEditable(_shown)) yield return (_shown, true);
-        if (ReachesShownOnly) yield break;
 
         foreach (Element other in _others)
         {
-            if (IsEditable(other)) yield return (other, false);
+            if (IsEditable(other) && !RanThemselves.Contains(other)) yield return (other, false);
         }
     }
 

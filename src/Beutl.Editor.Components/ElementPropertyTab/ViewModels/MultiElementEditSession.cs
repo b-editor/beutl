@@ -90,6 +90,8 @@ public sealed class MultiElementEditSession : IDisposable
         }
         else
         {
+            // Unlocking the elements, or the layers they lie on, changes nothing the copy holds of them.
+            _current.KeepLock(!Elements.Any(IsEditable));
             _current.Mirror.Forget();
             _changed.OnNext(Unit.Default);
         }
@@ -131,7 +133,8 @@ public sealed class MultiElementEditSession : IDisposable
         copy.IsLocked.Value = !Elements.Any(IsEditable);
         Element[] compared = ComparedElements(shown);
         var correspondence = new MultiElementCorrespondence(copy);
-        var root = new MultiEditRoot(copy, correspondence, compared, _changed);
+        var root = new MultiEditRoot(
+            copy, ((IHierarchical)shown).FindHierarchicalRoot(), correspondence, compared, _changed);
         var replicator = new MultiElementReplicator(
             correspondence, shown, [.. Elements.Where(element => element != shown)], _scene,
             _services.GetService<IFrameCacheInvalidator>());
@@ -206,6 +209,12 @@ public sealed class MultiElementEditSession : IDisposable
         {
             if (Element.Start.Value != shown.Start.Value) Element.Start.Value = shown.Start.Value;
             if (Element.Length.Value != shown.Length.Value) Element.Length.Value = shown.Length.Value;
+        }
+
+        // The copy can be edited while one of the elements can.
+        public void KeepLock(bool locked)
+        {
+            if (Element.IsLocked.Value != locked) Element.IsLocked.Value = locked;
         }
 
         // Whether the elements still have in common what the copy shows of them: an edit made elsewhere can add or
@@ -289,16 +298,20 @@ public sealed class MultiElementEditSession : IDisposable
 
     // The root of a copy, so that its objects count as attached, tool tabs opened on them see them leave, and the editors
     // of its objects show only what each of the elements it is compared with holds too.
-    private sealed class MultiEditRoot : Hierarchical, IHierarchicalRoot, IPropertyEditorScope, IDisposable
+    private sealed class MultiEditRoot : Hierarchical, IHierarchicalRoot, IPropertyEditorScope, IChildObjectSource, IDisposable
     {
+        private readonly IHierarchical? _elementsRoot;
         private readonly MultiElementCorrespondence _correspondence;
         private readonly IReadOnlyList<Element> _compared;
         private Element? _copy;
 
+        // elementsRoot is the root of the elements' own hierarchy, such as the application that holds their project.
         public MultiEditRoot(
-            Element copy, MultiElementCorrespondence correspondence, IReadOnlyList<Element> compared, IObservable<Unit> changed)
+            Element copy, IHierarchical? elementsRoot, MultiElementCorrespondence correspondence, IReadOnlyList<Element> compared,
+            IObservable<Unit> changed)
         {
             _copy = copy;
+            _elementsRoot = elementsRoot;
             _correspondence = correspondence;
             _compared = compared;
             Changed = changed;
@@ -323,6 +336,22 @@ public sealed class MultiElementEditSession : IDisposable
 
         public bool Shows(CoreObject obj)
             => obj is IKeyFrame or IPropertyAnimation || _compared.All(element => _correspondence.Find(obj, element) != null);
+
+        // A search by Id from an object of the copy goes on from here into the elements' own hierarchy, as one from the
+        // elements does: an expression or a reference of the copy names objects of other elements and scenes there. The
+        // copy comes first, as the element it stands for holds the same Ids, so that what it names of that element is its
+        // own.
+        IEnumerable<object?> IChildObjectSource.GetChildObjects()
+        {
+            foreach (IProperty property in Properties)
+                yield return property;
+
+            if (_copy is not null)
+                yield return _copy;
+
+            if (_elementsRoot is not null)
+                yield return _elementsRoot;
+        }
 
         public IReadOnlyList<Type> TypesOf(CoreObject obj)
             => [.. _compared.Select(element => _correspondence.Find(obj, element)?.GetType())

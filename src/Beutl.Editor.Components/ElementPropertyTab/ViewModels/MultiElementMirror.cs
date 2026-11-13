@@ -65,17 +65,18 @@ internal sealed class MultiElementMirror : IPropertyEditorMirror, IDisposable
         {
             // The others go first, so that what the copy shows next, as the editors of an object that took the place of
             // another, finds its like in each of them.
-            foreach (TargetEditor other in TargetsOf(editor))
+            TargetEditor[] targets = TargetsOf(editor);
+            foreach (TargetEditor other in targets)
                 command(other.Editor, other.Shift);
 
-            _replicator.ReachesShownOnly = true;
+            _replicator.RanThemselves = [.. targets.Select(other => other.Target)];
             try
             {
                 command(editor, MediaTime.Zero);
             }
             finally
             {
-                _replicator.ReachesShownOnly = false;
+                _replicator.RanThemselves = [];
             }
         }
         finally
@@ -258,13 +259,18 @@ internal sealed class MultiElementMirror : IPropertyEditorMirror, IDisposable
         private readonly IReadOnlyList<IPropertyEditorContext?> _contexts;
         private readonly ShiftedClock _clock;
 
-        private TargetEditor(PropertyEditorViewModel editor, MediaTime shift, IReadOnlyList<IPropertyEditorContext?> contexts, ShiftedClock clock)
+        private TargetEditor(
+            Element target, PropertyEditorViewModel editor, MediaTime shift, IReadOnlyList<IPropertyEditorContext?> contexts,
+            ShiftedClock clock)
         {
+            Target = target;
             Editor = editor;
             Shift = shift;
             _contexts = contexts;
             _clock = clock;
         }
+
+        public Element Target { get; }
 
         public PropertyEditorViewModel Editor { get; }
 
@@ -305,7 +311,7 @@ internal sealed class MultiElementMirror : IPropertyEditorMirror, IDisposable
             }
 
             found.DefersCommit = true;
-            return new TargetEditor(found, shift, contexts, clock);
+            return new TargetEditor(target, found, shift, contexts, clock);
         }
 
         public void Dispose()

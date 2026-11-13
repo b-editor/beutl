@@ -128,6 +128,8 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         }
     }
 
+    public override bool CanMatchOtherElements => true;
+
     public override void MatchOtherElements()
     {
         if (IsDisposed || !CanEdit.Value) return;

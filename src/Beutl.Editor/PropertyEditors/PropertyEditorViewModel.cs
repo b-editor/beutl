@@ -445,6 +445,9 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
     // null when they do not.
     public IReadOnlyReactiveProperty<string?> ValueDifference => _valueDifference;
 
+    // Whether MatchOtherElements can write the value shown to the other elements.
+    public virtual bool CanMatchOtherElements => false;
+
     // Writes the value shown to the other elements, so that they all hold it.
     public virtual void MatchOtherElements()
     {
