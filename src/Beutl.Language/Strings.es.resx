@@ -401,6 +401,9 @@
   <data name="ElementProperty" xml:space="preserve">
     <value>Propiedad del elemento</value>
   </data>
+  <data name="MultipleElements_ApplyValueToAll" xml:space="preserve">
+    <value>Aplicar este valor a todos los elementos</value>
+  </data>
   <data name="ProjectFile" xml:space="preserve">
     <value>Archivo de proyecto</value>
   </data>

@@ -94,6 +94,9 @@ Beutl.Utilities
   keys: ChannelLayout, FrameRate, Id, Name, SampleRate, items, variables
 [Beutl.Core]Beutl:ProjectItem
   abstract
+[Beutl.Editor.Components].ElementPropertyTab.ViewModels:MultiElementEditSession:MultiEditRoot
+  sealed
+  keys: (no public parameterless constructor)
 [Beutl.Editor].Services:ObjectRegenerator:ListWrapper<T>
   sealed
 [Beutl.Editor]:VirtualProjectRoot

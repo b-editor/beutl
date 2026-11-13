@@ -163,6 +163,18 @@ porque el nuevo nombre entra en conflicto con una carpeta existente.</value>
   <data name="PropertyUnset" xml:space="preserve">
     <value>La propiedad no está establecida.</value>
   </data>
+  <data name="MultipleElements_LockedNote" xml:space="preserve">
+    <value>{0} elementos bloqueados no se modifican.</value>
+  </data>
+  <data name="MultipleElements_NothingInCommon" xml:space="preserve">
+    <value>Los elementos seleccionados no tienen nada en común que editar.</value>
+  </data>
+  <data name="MultipleElements_ValuesDiffer" xml:space="preserve">
+    <value>Los elementos seleccionados tienen valores distintos.</value>
+  </data>
+  <data name="MultipleElements_MoreValues" xml:space="preserve">
+    <value>y {0} más</value>
+  </data>
   <data name="RightClickToShowMenu" xml:space="preserve">
     <value>Clic derecho para mostrar el menú</value>
   </data>

@@ -36,6 +36,8 @@ internal static class CoreObjectPropertyEditorBuilder
     {
         ArgumentNullException.ThrowIfNull(extensionProvider);
 
+        // An object that stands for objects of several others shows only what each of them holds too.
+        PropertyEditorScope.RemoveHidden(adapters);
         PropertyEditorResolver.CreateContexts(
             adapters,
             extensionProvider.GetExtensions<PropertyEditorExtension>(),

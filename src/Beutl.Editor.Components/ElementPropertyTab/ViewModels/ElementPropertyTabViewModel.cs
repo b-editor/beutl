@@ -1,8 +1,10 @@
 ﻿using System.Collections.Specialized;
+using System.Reactive;
 using System.Text.Json.Nodes;
 
 using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
@@ -17,18 +19,33 @@ namespace Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 public sealed class ElementPropertyTabViewModel : IPinnableToolContext
 {
     private const string PinnedElementJsonKey = "pinnedElementId";
+    // A range selection changes the selection with each pointer move; the view of several elements waits for it to settle.
+    private static readonly TimeSpan s_multipleSelectionDelay = TimeSpan.FromMilliseconds(100);
     private readonly CompositeDisposable _disposables = [];
     private readonly ToolTabPin _pin;
+    private readonly IEditorSelection? _selection;
     private IEditorContext _editorContext;
     private IDisposable? _disposable1;
     private Element? _oldElement;
+    private Element? _oldDisplayedElement;
+    // The element whose view state the shown items keep: the selected one for the copy of several elements.
+    private Element? _stateOwner;
+    private bool _isDisposed;
 
     public ElementPropertyTabViewModel(IEditorContext editorContext)
     {
         _editorContext = editorContext;
-        _pin = new ToolTabPin(Element.Select(element => element != null));
+        // A pin keeps one element, so there is nothing to pin while the tab shows several.
+        _pin = new ToolTabPin(Element.CombineLatest(MultipleElements, (element, multiple) => element != null && multiple == null));
 
-        CanEdit = Element.Select(element => element is null
+        DisplayedElement = MultipleElements
+            .Select(multiple => multiple?.Copy ?? (IObservable<Element?>)Element)
+            .Switch()
+            .DistinctUntilChanged()
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        CanEdit = DisplayedElement.Select(element => element is null
                 ? Observable.Return(false)
                 : ElementEditability.Observe(element, editorContext.GetService<Scene>()))
             .Switch()
@@ -43,6 +60,33 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
             .DisposeWith(_disposables)!;
 
         Element.Subscribe(OnElementChanged).DisposeWith(_disposables);
+        DisplayedElement.Subscribe(OnDisplayedElementChanged).DisposeWith(_disposables);
+
+        _selection = editorContext.GetService<IEditorSelection>();
+        if (_selection != null)
+        {
+            IObservable<Unit> selectionChanges = _selection.SelectedElements.CollectionChangedAsObservable()
+                .Select(_ => Unit.Default)
+                .Merge(_selection.SelectedObject.Skip(1).Select(_ => Unit.Default))
+                .Merge(_pin.IsPinned.Skip(1).Select(_ => Unit.Default));
+            // Leaving the view of several elements does not wait, so a click on one element shows it at once.
+            selectionChanges
+                .Where(_ => MultipleElements.Value != null && !ShowsMultipleElements)
+                .Subscribe(_ => UpdateMultipleElements())
+                .DisposeWith(_disposables);
+            selectionChanges
+                .Throttle(s_multipleSelectionDelay)
+                .ObserveOnUIDispatcher()
+                .Subscribe(_ => UpdateMultipleElements())
+                .DisposeWith(_disposables);
+            UpdateMultipleElements();
+        }
+
+        // An edit, an undo or a lock can change the objects of the elements, or what of them can be written.
+        editorContext.GetService<HistoryManager>()?.StateChanged
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ => MultipleElements.Value?.Refresh())
+            .DisposeWith(_disposables);
     }
 
     /// <summary>
@@ -62,21 +106,38 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
         if (_oldElement != null)
         {
             _oldElement.DetachedFromHierarchy -= OnElementDetached;
-            SaveState(_oldElement);
         }
         _oldElement = element;
+
+        if (element != null)
+        {
+            element.DetachedFromHierarchy += OnElementDetached;
+        }
+    }
+
+    // The items follow the element shown: the selected one, or the copy that stands for several.
+    private void OnDisplayedElementChanged(Element? element)
+    {
+        if (_oldDisplayedElement != null && _stateOwner != null)
+        {
+            SaveState(_stateOwner);
+        }
+        _oldDisplayedElement = element;
+        _stateOwner = MultipleElements.Value is { } multiple && ReferenceEquals(element, multiple.Copy.Value)
+            ? multiple.Shown
+            : element;
 
         _disposable1?.Dispose();
         _disposable1 = null;
         ClearItems();
         if (element != null)
         {
-            element.DetachedFromHierarchy += OnElementDetached;
             Items.AddRange(CreateItems(element.Objects));
             _disposable1 = element.Objects.CollectionChangedAsObservable()
                 .Subscribe(OnObjectsChanged);
 
-            RestoreState(element);
+            if (_stateOwner != null)
+                RestoreState(_stateOwner);
         }
     }
 
@@ -84,6 +145,44 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
     private void OnElementDetached(object? sender, HierarchyAttachmentEventArgs e)
     {
         Element.Value = null;
+    }
+
+    // Shows the selected elements together while there are several, or the one element again.
+    internal void UpdateMultipleElements()
+    {
+        if (_isDisposed) return;
+
+        MultiElementEditSession? current = MultipleElements.Value;
+        if (GetMultipleSelection() is not { } elements)
+        {
+            MultipleElements.Value = null;
+            current?.Dispose();
+        }
+        else if (current != null && current.Elements.SequenceEqual(elements))
+        {
+            current.Refresh();
+        }
+        else
+        {
+            MultipleElements.Value = new MultiElementEditSession(elements, _editorContext);
+            current?.Dispose();
+        }
+    }
+
+    private bool ShowsMultipleElements => _selection is { SelectedElements.Count: > 1 } && !IsPinned.Value;
+
+    // The selected elements when there are several to show: first the one the selection last moved to, whose values the
+    // view shows, then the others in timeline order.
+    private Element[]? GetMultipleSelection()
+    {
+        if (!ShowsMultipleElements) return null;
+
+        ICoreList<Element> selected = _selection!.SelectedElements;
+        Element[] ordered = [.. selected.OrderBy(element => element.Start.Value).ThenBy(element => element.ZIndex.Value)];
+        Element first = _selection.SelectedObject.Value is Element selectedObject && selected.Contains(selectedObject)
+            ? selectedObject
+            : ordered[0];
+        return [first, .. ordered.Where(element => element != first)];
     }
 
     private void OnObjectsChanged(NotifyCollectionChangedEventArgs e)
@@ -143,6 +242,12 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
 
     public ReactiveProperty<Element?> Element { get; } = new();
 
+    // The selected elements while there are several and the tab is not pinned, which it edits together.
+    public ReactivePropertySlim<MultiElementEditSession?> MultipleElements { get; } = new();
+
+    // What the items show: Element, or the copy that stands for the selected elements.
+    public ReadOnlyReactivePropertySlim<Element?> DisplayedElement { get; }
+
     public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 
     public CoreList<EngineObjectPropertyViewModel> Items { get; } = [];
@@ -183,16 +288,23 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
 
     public void Dispose()
     {
-        if (Element.Value != null)
+        if (_stateOwner != null)
         {
-            SaveState(Element.Value);
-            Element.Value = null;
+            SaveState(_stateOwner);
+            _stateOwner = null;
         }
+        Element.Value = null;
+        _isDisposed = true;
         _disposables.Dispose();
         _disposable1?.Dispose();
+        // While the tab shows several elements, Element going null leaves the copy displayed, so its items stay.
+        ClearItems();
+        MultipleElements.Value?.Dispose();
+        MultipleElements.Value = null;
 
         CanEdit.Dispose();
         _pin.Dispose();
+        MultipleElements.Dispose();
         RevealRequested.Dispose();
         Element.Dispose();
         _editorContext = null!;
@@ -263,17 +375,17 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
             Element.Value = element;
             _pin.IsPinned.Value = true;
         }
-        else if (Element.Value != null)
+        else if (_stateOwner != null)
         {
-            RestoreState(Element.Value);
+            RestoreState(_stateOwner);
         }
     }
 
     public void WriteToJson(JsonObject json)
     {
-        if (Element.Value != null)
+        if (_stateOwner != null)
         {
-            SaveState(Element.Value);
+            SaveState(_stateOwner);
         }
 
         _pin.WriteToJson(json);
@@ -286,7 +398,9 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
     public object? GetService(Type serviceType)
     {
         if (serviceType == typeof(Element))
-            return Element.Value;
+            return DisplayedElement.Value;
+        if (serviceType == typeof(IPropertyEditorMirror))
+            return MultipleElements.Value?.Mirror;
 
         return _editorContext.GetService(serviceType);
     }

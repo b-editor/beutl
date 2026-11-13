@@ -50,12 +50,13 @@ public sealed partial class ElementPropertyTabView : UserControl
         EditFlash.Run(target);
     }
 
+    // While several elements are selected, the object goes into the copy that stands for them, and so into each.
     private void Drop(object? sender, DragEventArgs e)
     {
         if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } item
             && DataContext is ElementPropertyTabViewModel { CanEdit.Value: true } vm
-            && vm.Element.Value is Element element)
+            && vm.DisplayedElement.Value is Element element)
         {
             vm.GetRequiredService<IElementObjectService>()
                 .Add(element, (EngineObject)Activator.CreateInstance(item)!);

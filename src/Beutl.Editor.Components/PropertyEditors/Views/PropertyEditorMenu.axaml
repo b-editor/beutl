@@ -21,6 +21,7 @@
             HorizontalAlignment="Center"
             BorderThickness="0"
             Click="Button_Click"
+            ToolTip.Tip="{Binding ValueDifference.Value}"
             Theme="{StaticResource TransparentButton}">
         <Button.ContextFlyout>
             <ui:FAMenuFlyout>
@@ -32,6 +33,17 @@
                             <Binding Path="CanReset" />
                         </MultiBinding>
                     </ui:FAMenuFlyoutItem.IsEnabled>
+                </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="matchOtherElementsItem"
+                                   Command="{Binding MatchOtherElements}"
+                                   IsEnabled="{Binding CanEdit.Value}"
+                                   Text="{x:Static lang:Strings.MultipleElements_ApplyValueToAll}">
+                    <ui:FAMenuFlyoutItem.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Converter="{x:Static ObjectConverters.IsNotNull}" Path="ValueDifference.Value" />
+                            <Binding Path="CanMatchOtherElements" />
+                        </MultiBinding>
+                    </ui:FAMenuFlyoutItem.IsVisible>
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="separateComponentsItem"
                                    IsVisible="False"
@@ -101,26 +113,37 @@
                                       Text="{x:Static lang:Strings.CopyGetPropertyCode}" />
             </ui:FAMenuFlyout>
         </Button.ContextFlyout>
-        <icons:FluentIcon x:Name="symbolIcon"
-                          Classes.hasAnimation="{Binding HasAnimation.Value}"
-                          Classes.hasExpression="{Binding HasExpression.Value}"
-                          Classes.atKeyFrame="{Binding IsAtKeyFrame.Value}">
-            <icons:FluentIcon.Styles>
-                <Style Selector="icons|FluentIcon">
-                    <Setter Property="Icon" Value="MoreVertical" />
-                </Style>
-                <Style Selector="icons|FluentIcon.atKeyFrame">
-                    <Setter Property="IconVariant" Value="Filled" />
-                </Style>
-                <Style Selector="icons|FluentIcon.hasAnimation">
-                    <Setter Property="Icon" Value="Diamond" />
-                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCaution}" />
-                </Style>
-                <Style Selector="icons|FluentIcon.hasExpression">
-                    <Setter Property="Icon" Value="MathFormula" />
-                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
-                </Style>
-            </icons:FluentIcon.Styles>
-        </icons:FluentIcon>
+        <Panel>
+            <icons:FluentIcon x:Name="symbolIcon"
+                              Classes.hasAnimation="{Binding HasAnimation.Value}"
+                              Classes.hasExpression="{Binding HasExpression.Value}"
+                              Classes.atKeyFrame="{Binding IsAtKeyFrame.Value}">
+                <icons:FluentIcon.Styles>
+                    <Style Selector="icons|FluentIcon">
+                        <Setter Property="Icon" Value="MoreVertical" />
+                    </Style>
+                    <Style Selector="icons|FluentIcon.atKeyFrame">
+                        <Setter Property="IconVariant" Value="Filled" />
+                    </Style>
+                    <Style Selector="icons|FluentIcon.hasAnimation">
+                        <Setter Property="Icon" Value="Diamond" />
+                        <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCaution}" />
+                    </Style>
+                    <Style Selector="icons|FluentIcon.hasExpression">
+                        <Setter Property="Icon" Value="MathFormula" />
+                        <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
+                    </Style>
+                </icons:FluentIcon.Styles>
+            </icons:FluentIcon>
+            <!--  The elements the editor stands for hold different values; the button's tip lists them.  -->
+            <Ellipse x:Name="valueDifferenceBadge"
+                     Width="6"
+                     Height="6"
+                     HorizontalAlignment="Right"
+                     VerticalAlignment="Top"
+                     Fill="{DynamicResource AccentFillColorDefaultBrush}"
+                     IsHitTestVisible="False"
+                     IsVisible="{Binding ValueDifference.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </Panel>
     </Button>
 </UserControl>

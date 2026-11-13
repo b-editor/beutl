@@ -89,7 +89,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
             {
                 EngineObject obj = viewModel.Model;
                 Type type = obj.GetType();
-                headerText.Text = TypeDisplayHelpers.GetLocalizedName(type);
+                headerText.Text = viewModel.TypeNames ?? TypeDisplayHelpers.GetLocalizedName(type);
                 ToolTip.SetTip(headerPanel, TypeDisplayHelpers.GetLocalizedDescription(type));
 
                 if (panel.Children.Count == 2)
@@ -116,7 +116,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
             if (itemsControl?.DataContext is ElementPropertyTabViewModel
                 {
                     CanEdit.Value: true,
-                    Element.Value: { } element
+                    DisplayedElement.Value: { } element
                 } viewModel)
             {
                 viewModel.GetRequiredService<IElementObjectService>()

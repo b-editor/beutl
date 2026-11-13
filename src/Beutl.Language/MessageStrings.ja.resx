@@ -158,6 +158,18 @@
   <data name="PropertyUnset" xml:space="preserve">
     <value>プロパティが未設定です。</value>
   </data>
+  <data name="MultipleElements_LockedNote" xml:space="preserve">
+    <value>ロックされている {0} 個の要素は変更されません。</value>
+  </data>
+  <data name="MultipleElements_NothingInCommon" xml:space="preserve">
+    <value>選択中の要素に共通するプロパティはありません。</value>
+  </data>
+  <data name="MultipleElements_ValuesDiffer" xml:space="preserve">
+    <value>選択中の要素で値が異なります。</value>
+  </data>
+  <data name="MultipleElements_MoreValues" xml:space="preserve">
+    <value>ほか {0} 個</value>
+  </data>
   <data name="RightClickToShowMenu" xml:space="preserve">
     <value>右クリックでメニューを表示</value>
   </data>

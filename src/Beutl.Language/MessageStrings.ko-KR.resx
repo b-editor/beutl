@@ -163,6 +163,18 @@
   <data name="PropertyUnset" xml:space="preserve">
     <value>속성이 설정되지 않았습니다.</value>
   </data>
+  <data name="MultipleElements_LockedNote" xml:space="preserve">
+    <value>잠긴 요소 {0}개는 변경되지 않습니다.</value>
+  </data>
+  <data name="MultipleElements_NothingInCommon" xml:space="preserve">
+    <value>선택한 요소에 공통으로 편집할 수 있는 속성이 없습니다.</value>
+  </data>
+  <data name="MultipleElements_ValuesDiffer" xml:space="preserve">
+    <value>선택한 요소의 값이 서로 다릅니다.</value>
+  </data>
+  <data name="MultipleElements_MoreValues" xml:space="preserve">
+    <value>외 {0}개</value>
+  </data>
   <data name="RightClickToShowMenu" xml:space="preserve">
     <value>메뉴를 표시하려면 마우스 오른쪽 버튼 클릭</value>
   </data>

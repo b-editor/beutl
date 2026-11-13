@@ -40,6 +40,9 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
     private IDisposable? _animationRepairSubscription;
     private readonly ReactivePropertySlim<bool> _canReplaceAnimation = new(true);
     private IEditorClock? _clock;
+    private IPropertyEditorMirror? _mirror;
+    private IDisposable? _differenceSubscription;
+    private readonly ReactivePropertySlim<string?> _valueDifference = new();
     private IServiceProvider? _parentServices;
     private IPropertyEditorControlHost? _propertyEditorControlHost;
     // The ExtensionProvider Accept injects; editors that build child contexts wait for it.
@@ -191,6 +194,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     public virtual void SeparateComponents()
     {
+        if (Mirrors((editor, _) => editor.SeparateComponents())) return;
         if (!IsElementEditable || PropertyAdapter.IsReadOnly || !CanSeparateComponents || SeparatedComponents.Value != null) return;
         ComponentAnimations.Separate(PropertyAdapter.GetEngineProperty()!);
         Commit();
@@ -198,6 +202,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     public virtual void UnseparateComponents()
     {
+        if (Mirrors((editor, _) => editor.UnseparateComponents())) return;
         if (!IsElementEditable || PropertyAdapter.IsReadOnly || SeparatedComponents.Value == null) return;
         ComponentAnimations.Unseparate(PropertyAdapter.GetEngineProperty()!, CurrentTimeValue);
         Commit();
@@ -271,6 +276,10 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     // A node member's animation has no parent to find its clock through.
     private protected GraphNode? AnimationOwner => _node;
+
+    // The scene the editor works in, whose frames keyframes go on even when what it edits belongs to no scene, as the
+    // copy that stands for several elements does.
+    private protected Scene? EditingScene => _scene;
 
     [AllowNull] public PropertyEditorExtension Extension { get; set; }
 
@@ -355,8 +364,17 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
             {
                 float kfIndex = atFrame != null ? t.Second.IndexOf(atFrame) : t.Second.IndexAtOrCount(keyTime) - 0.5f;
 
-                _skipKeyFrameIndexSubscription = KeyFrameIndex.Value != kfIndex;
-                KeyFrameIndex.Value = kfIndex;
+                if (KeyFrameIndex.Value == kfIndex)
+                {
+                    // An index that stays does not point the edited keyframe at it, so an editor made while the
+                    // playhead is on the first keyframe would edit none.
+                    SyncEditingKeyFrame(((kfIndex, t.Second), (kfIndex, t.Second)));
+                }
+                else
+                {
+                    _skipKeyFrameIndexSubscription = true;
+                    KeyFrameIndex.Value = kfIndex;
+                }
             }
         }
         else
@@ -386,6 +404,10 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
                     .Subscribe(canReplace => _canReplaceAnimation.Value = canReplace)
                 : null;
             _clock = serviceProvider.GetService<IEditorClock>();
+            _mirror = serviceProvider.GetService<IPropertyEditorMirror>();
+            _differenceSubscription?.Dispose();
+            _differenceSubscription = _mirror?.ObserveDifference(this)
+                .Subscribe(difference => _valueDifference.Value = difference);
             _extensionProvider.Value = serviceProvider.GetService<ExtensionProvider>();
 
             if (_clock != null)
@@ -420,6 +442,44 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
     // Set while another editor runs this one's edit as part of its own, which it commits as one history entry.
     internal bool DefersCommit { get; set; }
 
+    // The host that repeats this editor's commands on other elements, when it shows one of several.
+    internal IPropertyEditorMirror? Mirror => _mirror;
+
+    // Whether the editor shows one of several elements and repeats its edits on the others.
+    public bool EditsSeveralElements => _mirror != null;
+
+    // While the editor shows one of several elements: how the values of the others differ from the one it shows, or
+    // null when they do not.
+    public IReadOnlyReactiveProperty<string?> ValueDifference => _valueDifference;
+
+    // Whether MatchOtherElements can write the value shown to the other elements.
+    public virtual bool CanMatchOtherElements => false;
+
+    // Writes the value shown to the other elements, so that they all hold it.
+    public virtual void MatchOtherElements()
+    {
+    }
+
+    // Runs command through the mirror, which runs it here and on the other elements; false when there is none, or while
+    // it runs a command, so that the caller goes on as it would alone.
+    internal bool Mirrors(Action<PropertyEditorViewModel, MediaTime> command, bool commit = true, string? commitName = null)
+        => _mirror?.Run(this, command, commit, commitName) == true;
+
+    // Mirrors setting an expression, and gives what setting it on this editor's element returned.
+    internal bool MirrorsExpression(
+        Func<PropertyEditorViewModel, (bool Set, string? Error)> set, out bool result, out string? error)
+    {
+        (bool Set, string? Error) shown = (false, null);
+        bool mirrored = Mirrors((editor, _) =>
+        {
+            (bool Set, string? Error) outcome = set(editor);
+            if (ReferenceEquals(editor, this)) shown = outcome;
+        });
+        result = shown.Set;
+        error = mirrored && !shown.Set ? shown.Error ?? MessageStrings.OperationFailed : null;
+        return mirrored;
+    }
+
     public void Commit(string? name = null)
     {
         if (!DefersCommit)
@@ -441,6 +501,10 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
         _animationRepairSubscription?.Dispose();
         _animationRepairSubscription = null;
         _currentTime.OnCompleted();
+        _differenceSubscription?.Dispose();
+        _differenceSubscription = null;
+        _valueDifference.Dispose();
+        _mirror = null;
 
         Disposables.Dispose();
         _extensionProvider.Dispose();

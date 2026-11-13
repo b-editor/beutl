@@ -401,6 +401,9 @@
   <data name="ElementProperty" xml:space="preserve">
     <value>요소 속성</value>
   </data>
+  <data name="MultipleElements_ApplyValueToAll" xml:space="preserve">
+    <value>모든 요소를 이 값으로 설정</value>
+  </data>
   <data name="ProjectFile" xml:space="preserve">
     <value>프로젝트 파일</value>
   </data>

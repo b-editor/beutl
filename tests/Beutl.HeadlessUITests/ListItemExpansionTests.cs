@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
+using Beutl.Collections;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
@@ -72,6 +73,7 @@ public class ListItemExpansionTests
         using var selected = new ReactivePropertySlim<CoreObject?>(null);
         var selection = new Mock<IEditorSelection>();
         selection.SetupGet(s => s.SelectedObject).Returns(selected);
+        selection.SetupGet(s => s.SelectedElements).Returns(new CoreList<Element>());
         var extensions = TestShell.Extensions;
         var factory = new PropertyEditorFactoryAdapter(extensions);
         var host = new Mock<IEditorContext>();

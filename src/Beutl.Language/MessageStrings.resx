@@ -163,6 +163,18 @@ because the new name conflicts with an existing folder.</value>
   <data name="PropertyUnset" xml:space="preserve">
     <value>Property is unset.</value>
   </data>
+  <data name="MultipleElements_LockedNote" xml:space="preserve">
+    <value>{0} locked elements stay as they are.</value>
+  </data>
+  <data name="MultipleElements_NothingInCommon" xml:space="preserve">
+    <value>The selected elements have nothing in common to edit.</value>
+  </data>
+  <data name="MultipleElements_ValuesDiffer" xml:space="preserve">
+    <value>The selected elements have different values.</value>
+  </data>
+  <data name="MultipleElements_MoreValues" xml:space="preserve">
+    <value>and {0} more</value>
+  </data>
   <data name="RightClickToShowMenu" xml:space="preserve">
     <value>Right-click to show menu</value>
   </data>

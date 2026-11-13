@@ -402,6 +402,9 @@
   <data name="ElementProperty" xml:space="preserve">
     <value>要素プロパティ</value>
   </data>
+  <data name="MultipleElements_ApplyValueToAll" xml:space="preserve">
+    <value>すべての要素をこの値にする</value>
+  </data>
   <data name="ProjectFile" xml:space="preserve">
     <value>プロジェクトファイル</value>
   </data>
