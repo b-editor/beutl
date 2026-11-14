@@ -36,7 +36,7 @@ public class BrowserNewTabReferrerTests
         editor ??= new TabOpeningEditor();
         using var opener = new WebBrowserTabViewModel(editor.Mock.Object, page, profile);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false))
-        { DataContext = opener, OpensFirstPageDownloadDirectly = false };
+        { DataContext = opener, OpensPageDownloadOptionsDirectly = false };
         beforeRequest?.Invoke(view);
         var args = new WebViewNewWindowRequestedEventArgs { Request = request };
         view.OnNewWindowRequested(null, args);
@@ -63,7 +63,7 @@ public class BrowserNewTabReferrerTests
                 navigations.Add((uri, referrer));
                 return true;
             })
-        { DataContext = opened, OpensFirstPageDownloadDirectly = false };
+        { DataContext = opened, OpensPageDownloadOptionsDirectly = false };
 
         // A Source would let NativeWebView request the page without the referrer as soon as its adapter exists.
         Assert.That(created, Is.EqualTo(new[] { WebBrowserTabViewModel.BlankPage }));
@@ -103,7 +103,7 @@ public class BrowserNewTabReferrerTests
                 return native = new NativeWebView { Source = uri };
             }, () => (true, null, false),
             navigateWithReferrer: (_, _, _) => throw new AssertionException("An HTTP page gets no referrer from an HTTPS page."))
-        { DataContext = opened, OpensFirstPageDownloadDirectly = false };
+        { DataContext = opened, OpensPageDownloadOptionsDirectly = false };
         view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
 
         Assert.That(created, Is.EqualTo(new[] { request }));
@@ -128,7 +128,7 @@ public class BrowserNewTabReferrerTests
                 navigations++;
                 return true;
             })
-        { DataContext = opened, OpensFirstPageDownloadDirectly = false };
+        { DataContext = opened, OpensPageDownloadOptionsDirectly = false };
         var adapter = new WebViewAdapterEventArgs(null);
         view.OnAdapterCreated(native, adapter);
         view.OnNavigationStarted(native, new WebViewNavigationStartingEventArgs { Request = s_downloadPage });
@@ -161,7 +161,7 @@ public class BrowserNewTabReferrerTests
         using var view = new WebBrowserTabView(uri => native = new NativeWebView { Source = uri }, () => (true, null, false),
             navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false,
             navigateWithReferrer: (_, _, _) => true)
-        { DataContext = opened, OpensFirstPageDownloadDirectly = false };
+        { DataContext = opened, OpensPageDownloadOptionsDirectly = false };
         using var handler = new ReferrerHandler();
         using var client = new HttpClient(handler);
         view.MediaDownloader = new BrowserMediaDownload(client);
@@ -214,7 +214,7 @@ public class BrowserNewTabReferrerTests
         var editor = new TabOpeningEditor();
         using var opener = new WebBrowserTabViewModel(editor.Mock.Object, s_page, profile);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false))
-        { DataContext = opener, OpensFirstPageDownloadDirectly = false };
+        { DataContext = opener, OpensPageDownloadOptionsDirectly = false };
 
         if (reported) view.OnNativeNewWindowRequested(s_downloadPage, referrer);
         view.OnNativeWindowOpenRequested(s_downloadPage);
@@ -251,7 +251,7 @@ public class BrowserNewTabReferrerTests
         using var view = new WebBrowserTabView(uri => native = new NativeWebView { Source = uri }, () => (true, null, false),
             navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false,
             navigateWithReferrer: (_, _, _) => true)
-        { DataContext = opened, OpensFirstPageDownloadDirectly = false };
+        { DataContext = opened, OpensPageDownloadOptionsDirectly = false };
         using var handler = new ReferrerHandler();
         using var client = new HttpClient(handler);
         view.MediaDownloader = new BrowserMediaDownload(client);
@@ -291,7 +291,7 @@ public class BrowserNewTabReferrerTests
         NativeWebView? native = null;
         using var view = new WebBrowserTabView(uri => native = new NativeWebView { Source = uri }, () => (true, null, false),
             navigateWithReferrer: (_, _, _) => throw new AssertionException("The session starts the navigation after its rules."))
-        { DataContext = opened, OpensFirstPageDownloadDirectly = false };
+        { DataContext = opened, OpensPageDownloadOptionsDirectly = false };
 
         view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
 
@@ -315,7 +315,7 @@ public class BrowserNewTabReferrerTests
                 navigations.Add((uri, referrer));
                 return true;
             })
-        { DataContext = opened, OpensFirstPageDownloadDirectly = false };
+        { DataContext = opened, OpensPageDownloadOptionsDirectly = false };
         view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
         Assert.That(navigations, Is.Empty);
 
@@ -340,7 +340,7 @@ public class BrowserNewTabReferrerTests
         NativeWebView? native = null;
         using var view = new WebBrowserTabView(uri => native = new NativeWebView { Source = uri }, () => (true, null, false),
             navigateWithReferrer: (_, _, _) => throw new AssertionException("This page is not the one the opener asked for."))
-        { DataContext = opened, OpensFirstPageDownloadDirectly = false };
+        { DataContext = opened, OpensPageDownloadOptionsDirectly = false };
         view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
 
         var started = new WebViewNavigationStartingEventArgs { Request = other };
@@ -369,7 +369,7 @@ public class BrowserNewTabReferrerTests
                 navigations++;
                 return true;
             })
-        { DataContext = opened, OpensFirstPageDownloadDirectly = false };
+        { DataContext = opened, OpensPageDownloadOptionsDirectly = false };
         var adapter = new WebViewAdapterEventArgs(null);
         view.OnAdapterCreated(native, adapter);
         Assert.That(navigations, Is.EqualTo(1));
@@ -394,7 +394,7 @@ public class BrowserNewTabReferrerTests
         NativeWebView? native = null;
         using var view = new WebBrowserTabView(uri => native = new NativeWebView { Source = uri }, () => (true, null, false),
             navigateWithReferrer: (_, _, _) => true)
-        { DataContext = opened, OpensFirstPageDownloadDirectly = false };
+        { DataContext = opened, OpensPageDownloadOptionsDirectly = false };
         view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
 
         Assert.That(native!.Source, Is.EqualTo(WebBrowserTabViewModel.BlankPage));

@@ -18,7 +18,6 @@ internal partial class WebBrowserTabView
     private PageDownloadRequest? _pendingPageDownloadRequest;
     private int _pageDownloadDocumentId;
     private bool _pageDownloadRequestsSuppressed;
-    private bool _pageDownloadOffered;
     private bool _pageDownloadNavigationPending;
     private bool _pageDownloadReferrerUncertain;
     private bool _mediaNavigationIntercepted;
@@ -36,10 +35,9 @@ internal partial class WebBrowserTabView
         BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source, BrowserDownloadHandling? Handling);
 
     internal BrowserMediaDownload MediaDownloader { get; set; } = BrowserMediaDownload.Default;
-    // A page's first download request opens the download options at once, as a click on a download link would. Any
-    // later one waits in the notification until the user confirms it, so a page cannot keep putting the options in
-    // front of the user. Tests of the notification itself turn this off.
-    internal bool OpensFirstPageDownloadDirectly { get; set; } = true;
+    // A page's download request opens the download options at once, as a click on a download link would. Tests of
+    // the notification itself turn this off.
+    internal bool OpensPageDownloadOptionsDirectly { get; set; } = true;
     internal Func<Uri, CancellationToken, Task<BrowserDownloadOptions?>>? DownloadOptionsSelector { get; set; }
     internal Func<NativeWebView?, CancellationToken, Task<IReadOnlyList<Cookie>>> DownloadCookiesProvider { get; set; } =
         static async (webView, cancellation) => webView?.TryGetCookieManager() is { } manager
@@ -346,13 +344,10 @@ internal partial class WebBrowserTabView
                 || documentId != _pageDownloadDocumentId || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
                 || !ReferenceEquals(_pendingPageDownloadRequest, request) || _downloadCancellation != null) return;
 
-            // Page scripts control bridge messages and navigation requests, so only the page's first request opens
-            // the options without the user's confirmation, and never in place of a panel the user has open. A file an
-            // extension takes over is saved without the options, so it waits for the user to confirm what the
-            // extension says it will do. The first request counts however it is offered.
-            bool first = !_pageDownloadOffered;
-            _pageDownloadOffered = true;
-            if (OpensFirstPageDownloadDirectly && first && handling == null && !ToolPanel.IsVisible)
+            // The options open in place of the page, never in place of a panel the user has open. A file an extension
+            // takes over is saved without the options, so it waits in the notification for the user to confirm what
+            // the extension says it will do.
+            if (OpensPageDownloadOptionsDirectly && handling == null && !ToolPanel.IsVisible)
             {
                 _ = StartPageDownloadAsync(request);
                 return;
@@ -396,7 +391,6 @@ internal partial class WebBrowserTabView
     {
         InvalidatePageDownloadRequests();
         _pageDownloadRequestsSuppressed = false;
-        _pageDownloadOffered = false;
         _pageDownloadNavigationPending = false;
         _pageDownloadReferrerUncertain = false;
         _mediaNavigationIntercepted = false;
