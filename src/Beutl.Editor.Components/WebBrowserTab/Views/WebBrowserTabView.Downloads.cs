@@ -18,6 +18,7 @@ internal partial class WebBrowserTabView
     private PageDownloadRequest? _pendingPageDownloadRequest;
     private int _pageDownloadDocumentId;
     private bool _pageDownloadRequestsSuppressed;
+    private bool _pageDownloadOpenedDirectly;
     private bool _pageDownloadNavigationPending;
     private bool _pageDownloadReferrerUncertain;
     private bool _mediaNavigationIntercepted;
@@ -35,6 +36,10 @@ internal partial class WebBrowserTabView
         BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source, BrowserDownloadHandling? Handling);
 
     internal BrowserMediaDownload MediaDownloader { get; set; } = BrowserMediaDownload.Default;
+    // A page's first download request opens the download options at once, as a click on a download link would. Any
+    // later one waits in the notification until the user confirms it, so a page cannot keep putting the options in
+    // front of the user. Tests of the notification itself turn this off.
+    internal bool OpensFirstPageDownloadDirectly { get; set; } = true;
     internal Func<Uri, CancellationToken, Task<BrowserDownloadOptions?>>? DownloadOptionsSelector { get; set; }
     internal Func<NativeWebView?, CancellationToken, Task<IReadOnlyList<Cookie>>> DownloadCookiesProvider { get; set; } =
         static async (webView, cancellation) => webView?.TryGetCookieManager() is { } manager
@@ -341,7 +346,17 @@ internal partial class WebBrowserTabView
                 || documentId != _pageDownloadDocumentId || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
                 || !ReferenceEquals(_pendingPageDownloadRequest, request) || _downloadCancellation != null) return;
 
-            // Page scripts control bridge messages and navigation requests. Only native UI can authorize opening options.
+            // Page scripts control bridge messages and navigation requests, so only the page's first request opens
+            // the options without the user's confirmation, and never in place of a panel the user has open. A file an
+            // extension takes over is saved without the options, so it waits for the user to confirm what the
+            // extension says it will do.
+            if (OpensFirstPageDownloadDirectly && !_pageDownloadOpenedDirectly && handling == null && !ToolPanel.IsVisible)
+            {
+                _pageDownloadOpenedDirectly = true;
+                _ = StartPageDownloadAsync(request);
+                return;
+            }
+
             SetDownloadRunning(false);
             DownloadStatusText.MaxLines = 1;
             DownloadStatusText.TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis;
@@ -380,6 +395,7 @@ internal partial class WebBrowserTabView
     {
         InvalidatePageDownloadRequests();
         _pageDownloadRequestsSuppressed = false;
+        _pageDownloadOpenedDirectly = false;
         _pageDownloadNavigationPending = false;
         _pageDownloadReferrerUncertain = false;
         _mediaNavigationIntercepted = false;
@@ -406,6 +422,11 @@ internal partial class WebBrowserTabView
     private async void OnConfirmPageDownloadClick(object? sender, RoutedEventArgs e)
     {
         if (_pageDownloadNavigationPending || !ConfirmPageDownloadButton.IsVisible || _pendingPageDownloadRequest is not { } request) return;
+        await StartPageDownloadAsync(request);
+    }
+
+    private async Task StartPageDownloadAsync(PageDownloadRequest request)
+    {
         ClearPageDownloadRequest(disposeSource: false);
         if (_disposed || request.DocumentId != _pageDownloadDocumentId)
         {

@@ -41,7 +41,7 @@ public class BrowserToolPanelsTests
         Directory.CreateDirectory(root);
         var uri = new Uri("https://example.com/long/path?q=value");
         using var vm = new WebBrowserTabViewModel(CreateContext(root), uri, new BrowserProfile(Path.Combine(root, "profile.json")));
-        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false));
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { OpensFirstPageDownloadDirectly = false };
         view.DataContext = vm;
         vm.CompleteNavigation(uri, true, false, false);
         var window = new Window { Content = view, Width = width, Height = 400, RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark };
@@ -102,7 +102,7 @@ public class BrowserToolPanelsTests
         profile.AddDownload(new Uri("https://videos.example.com/forest.mp4"), file);
         var uri = new Uri("https://example.com/");
         using var vm = new WebBrowserTabViewModel(CreateContext(root), uri, profile);
-        using var view = new WebBrowserTabView(url => new NativeWebView { Source = url }, () => (true, null, false));
+        using var view = new WebBrowserTabView(url => new NativeWebView { Source = url }, () => (true, null, false)) { OpensFirstPageDownloadDirectly = false };
         view.DataContext = vm;
         vm.CompleteNavigation(uri, true, false, false);
         var window = new Window { Content = view, Width = width, Height = 640, RequestedThemeVariant = ThemeVariant.Dark };
@@ -183,7 +183,7 @@ public class BrowserToolPanelsTests
     [TestCase(640)]
     public void LongPanelTitlesWrapWithoutClippingOrHidingTheCloseButton(int width)
     {
-        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false));
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { OpensFirstPageDownloadDirectly = false };
         var window = new Window { Content = view, Width = width, Height = 360 };
         bool closed = false;
         try
@@ -227,7 +227,7 @@ public class BrowserToolPanelsTests
         using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, new Uri("https://original.example/"));
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
             getPageTitle: _ => Task.FromResult<string?>("Page"))
-        { DataContext = vm };
+        { DataContext = vm, OpensFirstPageDownloadDirectly = false };
         var pending = new TaskCompletionSource<string?>();
         view.PageScriptRunner = _ => pending.Task;
         Task zoom = view.SetPageZoomAsync(110);
@@ -256,7 +256,7 @@ public class BrowserToolPanelsTests
     [AvaloniaTest]
     public async Task FindFeedbackIndicatesWhenTheMatchLimitIsReached()
     {
-        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false));
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { OpensFirstPageDownloadDirectly = false };
         view.FindControl<Grid>("FindPanel")!.IsVisible = true;
         view.FindControl<TextBox>("FindTextBox")!.Text = "a";
         view.PageScriptRunner = _ => Task.FromResult<string?>("{\"Index\":1,\"Count\":1000,\"LimitReached\":true}");
@@ -269,7 +269,7 @@ public class BrowserToolPanelsTests
     [AvaloniaTest]
     public async Task FindFeedbackIgnoresResultsFromAnOlderRequest()
     {
-        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false));
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { OpensFirstPageDownloadDirectly = false };
         view.FindControl<Grid>("FindPanel")!.IsVisible = true;
         var first = new TaskCompletionSource<string?>();
         var second = new TaskCompletionSource<string?>();
@@ -316,7 +316,7 @@ public class BrowserToolPanelsTests
         using var client = new HttpClient(new PendingMediaHandler());
         using var vm = new WebBrowserTabViewModel(CreateContext(root), new Uri("https://example.com/"),
             new BrowserProfile(Path.Combine(root, "profile.json")));
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false)) { OpensFirstPageDownloadDirectly = false };
         view.DataContext = vm;
         vm.CompleteNavigation(vm.CurrentUri, true, false, false);
         view.MediaDownloader = new BrowserMediaDownload(client);
@@ -348,7 +348,7 @@ public class BrowserToolPanelsTests
         var uri = new Uri("https://example.com/page");
         var profile = new BrowserProfile(file);
         using var vm = new WebBrowserTabViewModel(CreateContext(root), WebBrowserTabViewModel.BlankPage, profile);
-        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { DataContext = vm };
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { DataContext = vm, OpensFirstPageDownloadDirectly = false };
         var window = new Window { Content = view, Width = 640, Height = 480 };
         using var notifications = new NotificationCapture();
         try
@@ -389,7 +389,7 @@ public class BrowserToolPanelsTests
         var uri = new Uri("https://example.com/page");
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"), _ => throw new IOException("write denied"));
         using var vm = new WebBrowserTabViewModel(CreateContext(root), uri, profile);
-        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { DataContext = vm };
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { DataContext = vm, OpensFirstPageDownloadDirectly = false };
         vm.CompleteNavigation(uri, true, false, false);
         view.OnNativeDownloadRequested(new Uri("https://files.example/movie.mp4"), "movie.mp4", new IdleDownloadSource());
         Dispatcher.UIThread.RunJobs();
@@ -428,7 +428,7 @@ public class BrowserToolPanelsTests
         profile.AddDownload(new Uri("https://files.example/Setup.exe"), program);
         var uri = new Uri("https://example.com/");
         using var vm = new WebBrowserTabViewModel(CreateContext(temporary.Path), uri, profile);
-        using var view = new WebBrowserTabView(url => new NativeWebView { Source = url }, () => (true, null, false));
+        using var view = new WebBrowserTabView(url => new NativeWebView { Source = url }, () => (true, null, false)) { OpensFirstPageDownloadDirectly = false };
         view.DataContext = vm;
         vm.CompleteNavigation(uri, true, false, false);
         var window = new Window { Content = view, Width = 640, Height = 640 };
@@ -467,7 +467,7 @@ public class BrowserToolPanelsTests
         profile.AddDownload(page, readme, generated: true);
         var uri = new Uri("https://example.com/");
         using var vm = new WebBrowserTabViewModel(CreateContext(temporary.Path), uri, profile);
-        using var view = new WebBrowserTabView(url => new NativeWebView { Source = url }, () => (true, null, false));
+        using var view = new WebBrowserTabView(url => new NativeWebView { Source = url }, () => (true, null, false)) { OpensFirstPageDownloadDirectly = false };
         view.DataContext = vm;
         vm.CompleteNavigation(uri, true, false, false);
         var window = new Window { Content = view, Width = 640, Height = 640 };

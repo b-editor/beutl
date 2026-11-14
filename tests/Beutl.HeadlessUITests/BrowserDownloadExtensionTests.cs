@@ -415,7 +415,7 @@ public sealed class BrowserDownloadExtensionTests
     private static WebBrowserTabView CreateView(WebBrowserTabViewModel vm, bool? includesSubframes = null)
         => new(uri => new NativeWebView { Source = uri }, () => (true, null, false),
             navigationStartedIncludesSubframes: includesSubframes)
-        { DataContext = vm };
+        { DataContext = vm, OpensFirstPageDownloadDirectly = false };
 
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
