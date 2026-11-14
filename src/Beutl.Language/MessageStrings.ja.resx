@@ -243,6 +243,9 @@
   <data name="FailedToLoadMetadata" xml:space="preserve">
     <value>メタデータの読み込みに失敗しました</value>
   </data>
+  <data name="UpdateFoldersInUse" xml:space="preserve">
+    <value>起動中の別の Beutl が、アップデートを準備するフォルダーを使っています。その Beutl からアップデートするか、その Beutl を終了してからやり直してください。</value>
+  </data>
   <data name="DownloadFailed" xml:space="preserve">
     <value>ダウンロードに失敗しました。</value>
   </data>

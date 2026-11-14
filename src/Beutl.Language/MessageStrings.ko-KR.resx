@@ -248,6 +248,9 @@
   <data name="FailedToLoadMetadata" xml:space="preserve">
     <value>메타데이터를 검색하지 못했습니다.</value>
   </data>
+  <data name="UpdateFoldersInUse" xml:space="preserve">
+    <value>실행 중인 다른 Beutl이 업데이트를 준비하는 폴더를 사용하고 있습니다. 그 Beutl에서 업데이트를 설치하거나, 그 Beutl을 종료한 후 다시 시도하세요.</value>
+  </data>
   <data name="DownloadFailed" xml:space="preserve">
     <value>다운로드에 실패했습니다.</value>
   </data>

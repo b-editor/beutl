@@ -59,7 +59,8 @@ public sealed class AppUpdateControllerTests
     };
 
     // The installer type needs no unpacking, so it is ready as soon as it has downloaded.
-    private static UpdateDialogViewModel ViewModel(AppUpdateResponse update, HttpMessageHandler handler)
+    private static UpdateDialogViewModel ViewModel(
+        AppUpdateResponse update, HttpMessageHandler handler, string type = "installer", Func<bool>? claimUpdateFolders = null)
         => new(update, false, httpClient: new HttpClient(handler), loadMetadata: () => Task.FromResult<AssetMetadataJson?>(new AssetMetadataJson
         {
             Id = "test",
@@ -67,8 +68,8 @@ public sealed class AppUpdateControllerTests
             Arch = "test",
             Version = "2.0.0",
             Standalone = "false",
-            Type = "installer",
-        }));
+            Type = type,
+        }), claimUpdateFolders: claimUpdateFolders);
 
     [AvaloniaTest]
     public async Task AReadyUpdateOffersToInstallNowOrOnQuit()
@@ -308,6 +309,58 @@ public sealed class AppUpdateControllerTests
         });
     }
 
+    // A macOS app unpacks into folders that every running Beutl shares and empties first, so while another Beutl holds
+    // them, where its own update may be ready, the update stops before downloading and says why. Once that Beutl has
+    // quit, a retry goes ahead.
+    [AvaloniaTest]
+    public async Task AnUpdateThatUnpacksLeavesTheFoldersAnotherBeutlHoldsAlone()
+    {
+        bool claimed = false;
+        var handler = new Handler(HttpStatusCode.NotFound);
+        UpdateDialogViewModel? vm = null;
+        var controller = new AppUpdateController(update =>
+            vm = ViewModel(update, handler, type: "app", claimUpdateFolders: () => claimed));
+
+        controller.StartInBackground(Update());
+        await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(vm.Phase.Value, Is.EqualTo(AppUpdatePhase.Failed));
+            Assert.That(vm.ProgressText.Value, Is.EqualTo(MessageStrings.UpdateFoldersInUse));
+            Assert.That(_shown[^1].Message, Is.EqualTo(MessageStrings.UpdateFoldersInUse));
+            Assert.That(handler.Requests, Is.Zero, "nothing downloads");
+        });
+
+        claimed = true;
+        _shown[^1].Actions!.Single().Callback();
+        await vm.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(handler.Requests, Is.EqualTo(1), "the retry downloads");
+    }
+
+    // An installer unpacks nothing, so it prepares whichever Beutl holds the folders.
+    [AvaloniaTest]
+    public async Task AnInstallerNeedsNoClaimOnTheFolders()
+    {
+        int asked = 0;
+        UpdateDialogViewModel vm = ViewModel(Update(), new Handler(HttpStatusCode.OK), claimUpdateFolders: () =>
+        {
+            asked++;
+            return false;
+        });
+
+        vm.Start();
+        await vm.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(vm.Phase.Value, Is.EqualTo(AppUpdatePhase.Ready));
+            Assert.That(asked, Is.Zero);
+        });
+    }
+
     [Test]
     public void DownloadProgressShowsThePercentageAndTheSizes()
     {
@@ -324,6 +377,8 @@ public sealed class AppUpdateControllerTests
         public Handler(params HttpStatusCode[] codes) : this(Task.CompletedTask, codes)
         {
         }
+
+        public int Requests => _next;
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
         {
