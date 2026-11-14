@@ -5,7 +5,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Templates;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Api;
@@ -89,6 +91,45 @@ public class PackageRestartButtonTests
         finally
         {
             CloseMenus(buttons);
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    // The action cell hides buttons with the transparent class, which leaves them reachable with Tab, and Space would run
+    // one unseen, such as Uninstall behind Update. Tab reaches only the action the row shows, and the menu.
+    [AvaloniaTest]
+    [TestCase(false, false, true, nameof(StubRow.Uninstall))]
+    [TestCase(false, true, true, nameof(StubRow.Update))]
+    [TestCase(false, false, false, nameof(StubRow.Install))]
+    [TestCase(true, false, true, nameof(StubRow.Restart))]
+    public void Tab_reaches_only_the_action_a_library_row_shows(bool scheduled, bool update, bool installed, string shown)
+    {
+        using var viewModel = new StubRow(scheduled, update, installed);
+        (Window window, List<Button> buttons) = ShowRow(viewModel);
+
+        try
+        {
+            Button row = buttons.Single(x => x.FindAncestorOfType<Button>() == null);
+            Button overflow = buttons.Single(x => x.ContextFlyout is FAMenuFlyout);
+            Button action = buttons.Single(x => x.Command == typeof(StubRow).GetProperty(shown)!.GetValue(viewModel));
+            Assert.That(action.Classes, Does.Not.Contain("transparent"));
+
+            row.Focus();
+            var reached = new HashSet<Button>();
+            for (int i = 0; i < buttons.Count; i++)
+            {
+                window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+                window.KeyRelease(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+                if (window.FocusManager?.GetFocusedElement() is Button focused && focused != row)
+                    reached.Add(focused);
+            }
+
+            Assert.That(reached, Is.EquivalentTo(new[] { action, overflow }),
+                string.Join(", ", reached.Select(x => x.Content)));
+        }
+        finally
+        {
             window.Close();
             HeadlessTestHelpers.Settle();
         }
@@ -189,13 +230,14 @@ public class PackageRestartButtonTests
 
     private sealed class StubRow : IUserPackageViewModel
     {
-        public StubRow(bool scheduled)
+        // As PackageButtonStates shows them: a scheduled change hides every action, and an update hides Uninstall.
+        public StubRow(bool scheduled, bool update = false, bool installed = true)
         {
             DisplayName = Observable.Return<string?>("Package").ToReadOnlyReactivePropertySlim();
             LogoUrl = Observable.Return<string?>(null).ToReadOnlyReactivePropertySlim();
-            IsInstallButtonVisible = Observable.Return(false).ToReadOnlyReactivePropertySlim();
-            IsUninstallButtonVisible = Observable.Return(!scheduled).ToReadOnlyReactivePropertySlim();
-            IsUpdateButtonVisible = Observable.Return(false).ToReadOnlyReactivePropertySlim();
+            IsInstallButtonVisible = Observable.Return(!installed && !scheduled).ToReadOnlyReactivePropertySlim();
+            IsUninstallButtonVisible = Observable.Return(installed && !update && !scheduled).ToReadOnlyReactivePropertySlim();
+            IsUpdateButtonVisible = Observable.Return(installed && update && !scheduled).ToReadOnlyReactivePropertySlim();
             CanCancel = Observable.Return(scheduled).ToReadOnlyReactivePropertySlim();
             Restart.Subscribe(() =>
             {
