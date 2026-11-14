@@ -1135,10 +1135,13 @@ public class WebBrowserDownloadTests
         view.OnGeneratedDownloadRequested(null, "queued.txt", queued);
         Request();
         Assert.That(optionsOpened, Is.EqualTo(2));
-        Assert.That(statusPanel.IsVisible, Is.False);
+        Assert.That(statusPanel.IsVisible, Is.True);
+        Assert.That(view.FindControl<TextBlock>("DownloadStatusText")!.Text, Is.EqualTo(Beutl.Language.Strings.BrowserPageDownloadsIgnored));
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.False);
         Assert.That(queued.IsDisposed, Is.True);
 
         view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = initial, IsSuccess = true });
+        Assert.That(statusPanel.IsVisible, Is.False);
         Request();
         Assert.That(optionsOpened, Is.EqualTo(3));
     }
@@ -1237,12 +1240,22 @@ public class WebBrowserDownloadTests
         Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
         view.FindControl<Button>("DismissDownloadStatusButton")!
             .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        var statusPanel = view.FindControl<Grid>("DownloadStatusPanel")!;
+        var statusText = view.FindControl<TextBlock>("DownloadStatusText")!;
+        void AssertIgnored()
+        {
+            Assert.That(statusPanel.IsVisible, Is.True);
+            Assert.That(statusText.Text, Is.EqualTo(Beutl.Language.Strings.BrowserPageDownloadsIgnored));
+            Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.False);
+        }
+        AssertIgnored();
         Request();
-        Assert.That(view.FindControl<Grid>("DownloadStatusPanel")!.IsVisible, Is.False);
+        AssertIgnored();
         view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = initial, IsSuccess = false });
         Request();
-        Assert.That(view.FindControl<Grid>("DownloadStatusPanel")!.IsVisible, Is.False);
+        AssertIgnored();
         view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = initial, IsSuccess = true });
+        Assert.That(statusPanel.IsVisible, Is.False);
         Request();
         Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
     }

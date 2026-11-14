@@ -3198,6 +3198,9 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="BrowserIgnorePageDownloads" xml:space="preserve">
     <value>이 페이지를 새로고침할 때까지 다운로드 요청 무시</value>
   </data>
+  <data name="BrowserPageDownloadsIgnored" xml:space="preserve">
+    <value>이 페이지를 새로고침할 때까지 다운로드 요청을 무시하고 있습니다</value>
+  </data>
   <data name="CloudStorage" xml:space="preserve">
     <value>Beutl 저장소</value>
   </data>

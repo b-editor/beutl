@@ -395,8 +395,22 @@ internal partial class WebBrowserTabView
         if (disposeSource) request?.Source?.Dispose();
     }
 
+    // While a page's requests are ignored, the notification says so until the page reloads or the user closes it.
+    private void ShowPageDownloadsIgnored()
+    {
+        SetDownloadRunning(false);
+        DownloadStatusText.Text = Strings.BrowserPageDownloadsIgnored;
+        ToolTip.SetTip(DownloadStatusText, null);
+        DownloadStatusPanel.IsVisible = true;
+    }
+
     private void ResetPageDownloadRequests()
     {
+        if (_pageDownloadRequestsSuppressed && _downloadCancellation == null
+            && DownloadStatusText.Text == Strings.BrowserPageDownloadsIgnored)
+        {
+            DownloadStatusPanel.IsVisible = false;
+        }
         InvalidatePageDownloadRequests();
         _pageDownloadRequestsSuppressed = false;
         _pageDownloadDeclines = 0;
@@ -448,6 +462,7 @@ internal partial class WebBrowserTabView
     {
         if (++_pageDownloadDeclines < PageDownloadDeclinesBeforeSuppression) return;
         _pageDownloadRequestsSuppressed = true;
+        ShowPageDownloadsIgnored();
         for (LinkedListNode<DeferredDownload>? node = _deferredNativeDownloads.First; node != null;)
         {
             LinkedListNode<DeferredDownload>? next = node.Next;
@@ -472,9 +487,11 @@ internal partial class WebBrowserTabView
     private void OnDismissDownloadStatusClick(object? sender, RoutedEventArgs e)
     {
         bool offerNext = _pendingPageDownloadRequest?.Source != null && _deferredNativeDownloads.Count > 0;
-        if (_pendingPageDownloadRequest != null && !offerNext) _pageDownloadRequestsSuppressed = true;
+        bool suppress = _pendingPageDownloadRequest != null && !offerNext;
+        if (suppress) _pageDownloadRequestsSuppressed = true;
         ClearPageDownloadRequest();
         DownloadStatusPanel.IsVisible = false;
+        if (suppress) ShowPageDownloadsIgnored();
         if (offerNext) OfferNextDeferredNativeDownload(afterDecline: true);
     }
 

@@ -3034,6 +3034,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="BrowserIgnorePageDownloads" xml:space="preserve">
     <value>ページを再読み込みするまでダウンロード要求を無視</value>
   </data>
+  <data name="BrowserPageDownloadsIgnored" xml:space="preserve">
+    <value>このページを再読み込みするまでダウンロード要求を無視しています</value>
+  </data>
   <data name="CloudStorage" xml:space="preserve">
     <value>Beutlストレージ</value>
   </data>

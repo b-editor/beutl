@@ -3039,6 +3039,9 @@ when history recording is enabled.</value>
   <data name="BrowserIgnorePageDownloads" xml:space="preserve">
     <value>Ignore download requests until this page is reloaded</value>
   </data>
+  <data name="BrowserPageDownloadsIgnored" xml:space="preserve">
+    <value>Ignoring download requests from this page until it is reloaded</value>
+  </data>
   <data name="CloudStorage" xml:space="preserve">
     <value>Beutl storage</value>
   </data>
