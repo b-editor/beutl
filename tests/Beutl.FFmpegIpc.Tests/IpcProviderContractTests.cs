@@ -269,6 +269,39 @@ public class IpcProviderContractTests
         });
     }
 
+    // A proxy's frames come straight from the decoder, in the video's color space, which the message names. Read as
+    // sRGB, a BT.709 video's proxy lost its curve and an HDR one its range (#4291).
+    [TestCase(BitmapColorType.Bgra8888, 4, false)]
+    [TestCase(BitmapColorType.Rgba16161616, 8, true)]
+    public async Task ReadNextFrame_ReadsTheFrameInTheColorSpaceItsMessageNames(
+        BitmapColorType colorType, int bytesPerPixel, bool hdr)
+    {
+        BitmapColorSpace colorSpace = hdr
+            ? BitmapColorSpaceMapping.BuildHdrColorSpace(BitmapColorTransfer.Pq, BitmapColorPrimaries.Rec2020)
+            : BitmapColorSpaceMapping.BuildTargetColorSpace(BitmapColorTransfer.Bt709, BitmapColorPrimaries.Bt709);
+        (float[] transferFn, float[] toXyzD50) = IpcColorSpace.ToArrays(colorSpace);
+        await using var host = new FakeHost((request, _) => IpcMessage.Create(request.Id, MessageType.ProvideFrame,
+            new ProvideFrameMessage
+            {
+                Width = 1,
+                Height = 1,
+                DataLength = bytesPerPixel,
+                ColorType = (int)colorType,
+                TransferFn = transferFn,
+                ToXyzD50 = toXyzD50,
+            }));
+        var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
+
+        using Bitmap bitmap = (await provider.ReadNextFrame())!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bitmap.ColorType, Is.EqualTo(colorType));
+            Assert.That(bitmap.ColorSpace, Is.EqualTo(colorSpace));
+            Assert.That(bitmap.ColorSpace, Is.Not.EqualTo(BitmapColorSpace.Srgb));
+        });
+    }
+
     // The DataLength/Capacity guards use the color type's width: a 4-byte DataLength for an 8-byte
     // Rgba16161616 frame must be rejected, not allocate/read a wider bitmap.
     [Test]

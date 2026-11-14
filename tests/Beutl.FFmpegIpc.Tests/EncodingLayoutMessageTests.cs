@@ -35,6 +35,24 @@ public class EncodingLayoutMessageTests
         });
     }
 
+    // The frame message names the frame's color space, which comes through the pipe intact (#4291).
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ProvideFrame_CarriesTheFrameColorSpace(bool hdr)
+    {
+        BitmapColorSpace colorSpace = hdr
+            ? BitmapColorSpaceMapping.BuildHdrColorSpace(BitmapColorTransfer.Hlg, BitmapColorPrimaries.Rec2020)
+            : BitmapColorSpaceMapping.BuildTargetColorSpace(BitmapColorTransfer.Bt709, BitmapColorPrimaries.Bt709);
+        using var bitmap = new Bitmap(2, 1, BitmapColorType.Bgra8888, BitmapAlphaType.Premul, colorSpace);
+        using var stream = new MemoryStream();
+        await MessageSerializer.WriteMessageAsync(stream,
+            IpcMessage.Create(1, MessageType.ProvideFrame, FFmpegEncodingControllerProxy.CreateFrameMessage(bitmap)));
+        stream.Position = 0;
+        var received = (await MessageSerializer.ReadMessageAsync(stream))!.RequirePayload<ProvideFrameMessage>(MessageType.ProvideFrame);
+
+        Assert.That(IpcColorSpace.FromArrays(received.TransferFn!, received.ToXyzD50!), Is.EqualTo(colorSpace));
+    }
+
     private sealed class Provider(AudioChannelLayout layout) : ISampleProvider, IFrameProvider
     {
         public AudioChannelLayout ChannelLayout => layout;

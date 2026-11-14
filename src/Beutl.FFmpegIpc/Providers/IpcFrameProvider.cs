@@ -131,7 +131,10 @@ internal sealed class IpcFrameProvider : IFrameProvider
             throw new InvalidOperationException($"Frame has no valid color type ({frameInfo.ColorType}).");
 
         var colorType = (BitmapColorType)frameInfo.ColorType;
-        return (colorType, ColorSpaceFor(colorType), BytesPerPixelOf(colorType));
+        BitmapColorSpace colorSpace = frameInfo is { TransferFn: { } transferFn, ToXyzD50: { } toXyzD50 }
+            ? IpcColorSpace.FromArrays(transferFn, toXyzD50)
+            : ColorSpaceFor(colorType);
+        return (colorType, colorSpace, BytesPerPixelOf(colorType));
     }
 
     private static readonly ConcurrentDictionary<BitmapColorType, int> s_bytesPerPixelCache = new();
@@ -143,6 +146,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
             return probe.BytesPerPixel;
         });
 
+    // A frame whose message names no color space.
     private static BitmapColorSpace ColorSpaceFor(BitmapColorType colorType)
     {
         // Beutl's render-target frames are linear float; integer formats (SDR and 16-bit integer
