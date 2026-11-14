@@ -21,7 +21,8 @@ namespace Beutl.Controls;
 /// otherwise only where it lies: a panel beside the view draws nothing over the frame, however often it changes.
 /// A control whose drawing changes without a property change calls <see cref="InvalidateVisual"/> instead of
 /// <see cref="Visual.InvalidateVisual"/>. A control is drawn only where its bounds meet the frame, so one that draws
-/// past them takes the size it draws in.
+/// past them takes the size it draws in. So is each layer, a child that an ancestor of the anchor draws after the
+/// anchor's branch, with all it holds: a control that reaches out of its layer into the frame is not in the copy.
 /// </remarks>
 internal sealed class HdrOverlay : IDisposable
 {
@@ -387,15 +388,60 @@ internal sealed class HdrOverlay : IDisposable
 
         // Where a visual was before its transform changed is not known.
         if (property == Visual.RenderTransformProperty || property == Visual.RenderTransformOriginProperty)
-            return true;
+            return IsInDrawnLayer(visual, region);
 
         if (Meets(visual, region))
-            return true;
+            return IsInDrawnLayer(visual, region);
 
         // A visual that moved out of the frame leaves its old place to draw again.
         return property == Visual.BoundsProperty && e!.OldValue is Rect old
             && visual.GetVisualParent()?.TransformToVisual(_target) is { } parentToTarget
-            && old.TransformToAABB(parentToTarget).Intersects(region);
+            && old.TransformToAABB(parentToTarget).Intersects(region)
+            && IsInDrawnLayer(visual, region);
+    }
+
+    // Whether the copy draws the layer a visual lies in. The copy draws a layer, with all it holds, only where the layer's
+    // own bounds meet the frame, so nothing that reaches out of a layer into the frame is in the copy, and nothing it
+    // changes shows there: the player's seek bar reaches out of the footer over the frame only to be easy to grab.
+    private bool IsInDrawnLayer(Visual visual, Rect region)
+    {
+        return LayerOf(visual) is not { } layer || ReferenceEquals(layer, visual) || Meets(layer, region);
+    }
+
+    // The layer the copy draws a visual with: the child, on the visual's side, of its nearest ancestor in common with the
+    // anchor, as Record walks the anchor's ancestors. Null for the anchor's ancestors and for a visual in another tree.
+    private Visual? LayerOf(Visual visual)
+    {
+        Visual? layer = null;
+        Visual? side = visual;
+        Visual? anchorSide = _anchor;
+        int depth = Depth(visual) - Depth(_anchor);
+        for (; depth > 0; depth--)
+        {
+            layer = side;
+            side = side!.GetVisualParent();
+        }
+
+        for (; depth < 0; depth++)
+            anchorSide = anchorSide!.GetVisualParent();
+
+        while (!ReferenceEquals(side, anchorSide))
+        {
+            layer = side;
+            side = side!.GetVisualParent();
+            anchorSide = anchorSide!.GetVisualParent();
+        }
+
+        return side == null ? null : layer;
+    }
+
+    private static int Depth(Visual visual)
+    {
+        int depth = 0;
+        for (Visual? parent = visual.GetVisualParent(); parent != null; parent = parent.GetVisualParent())
+            depth++;
+
+        return depth;
     }
 
     private void Invalidate()
