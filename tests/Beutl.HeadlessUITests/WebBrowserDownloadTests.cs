@@ -1133,6 +1133,39 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    public void AFileQueuedBehindCanceledOptionsStaysInTheNotificationAcrossAPageLoad()
+    {
+        var initial = new Uri("https://page.example/");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), initial);
+        using var view = CreateView(vm, getPageTitle: _ => Task.FromResult<string?>("Page"));
+        view.OpensPageDownloadOptionsDirectly = true;
+        view.PageScriptRunner = _ => Task.FromResult<string?>("true");
+        var pending = new List<TaskCompletionSource<WebBrowserTabView.BrowserDownloadOptions?>>();
+        view.DownloadOptionsSelector = (_, _) =>
+        {
+            var completion = new TaskCompletionSource<WebBrowserTabView.BrowserDownloadOptions?>();
+            pending.Add(completion);
+            return completion.Task;
+        };
+        view.OnGeneratedDownloadRequested(null, "first.txt", new GeneratedDownloadSource("first.txt", "1"));
+        Dispatcher.UIThread.RunJobs();
+        view.OnGeneratedDownloadRequested(null, "second.txt", new GeneratedDownloadSource("second.txt", "2"));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(pending, Has.Count.EqualTo(1));
+
+        // The queued file waits in the notification and stays there when the page finishes loading again.
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = initial });
+        pending[0].SetResult(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = initial, IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(pending, Has.Count.EqualTo(1));
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo("second.txt"));
+    }
+
+    [AvaloniaTest]
     public void TheIgnoredNoticeClearsOnReloadEvenWhileTheOptionsAreOpen()
     {
         var initial = new Uri("https://page.example/");

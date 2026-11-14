@@ -23,6 +23,9 @@ internal partial class WebBrowserTabView
     private int _pageDownloadDeclines;
     // Changes with each page that loads, so a decline counts only against the page that opened the options.
     private int _pageDownloadPage;
+    // The next queued file goes to the notification because the user declined the one before it, even if it has to
+    // wait for a page to load first.
+    private bool _deferredOfferAfterDecline;
     private bool _pageDownloadNavigationPending;
     private bool _pageDownloadReferrerUncertain;
     private bool _mediaNavigationIntercepted;
@@ -108,7 +111,7 @@ internal partial class WebBrowserTabView
         _viewModel.RestoreCommittedPage();
         UpdateBlankPageState();
         // Keep history retries conservative; the current transfer retains the browser's original response.
-        if (trackNavigationFailure && _downloadCancellation != null) DeferNativeDownload(uri, suggestedName, source!);
+        if (source != null && _downloadCancellation != null) DeferNativeDownload(uri, suggestedName, source);
         else QueuePageDownloadRequest(uri, suggestedName, referrerPolicy, source);
         // The queued request keeps its conservative metadata; later links belong to the restored document.
         _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
@@ -146,7 +149,15 @@ internal partial class WebBrowserTabView
     // several files cannot keep opening the options each time the user cancels them.
     private void OfferNextDeferredNativeDownload(bool afterDecline = false)
     {
-        if (_deferredNativeDownloads.Count == 0 || IsPageDownloadOfferBlocked) return;
+        _deferredOfferAfterDecline |= afterDecline;
+        if (_deferredNativeDownloads.Count == 0)
+        {
+            _deferredOfferAfterDecline = false;
+            return;
+        }
+        if (IsPageDownloadOfferBlocked) return;
+        afterDecline = _deferredOfferAfterDecline;
+        _deferredOfferAfterDecline = false;
         var deferred = _deferredNativeDownloads.First!.Value;
         _deferredNativeDownloads.RemoveFirst();
         // A file whose page never finished loading holds no claim, so it is offered without one.
@@ -201,6 +212,8 @@ internal partial class WebBrowserTabView
             _deferredNativeDownloads.RemoveLast();
         }
         _deferredNativeDownloads.AddFirst(new DeferredDownload(pending.Uri, pending.SuggestedName, source, pending.Handling));
+        // It was waiting in the notification, and returns there rather than opening the options.
+        _deferredOfferAfterDecline = true;
     }
 
     private void ClearDeferredNativeDownloads()
