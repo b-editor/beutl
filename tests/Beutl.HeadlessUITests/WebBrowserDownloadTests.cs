@@ -1144,6 +1144,46 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    public void OptionsCanceledAfterTheirPageWasLeftDoNotCountAgainstTheNextPage()
+    {
+        var initial = new Uri("https://page.example/");
+        var next = new Uri("https://next.example/");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), initial);
+        using var view = CreateView(vm, getPageTitle: _ => Task.FromResult<string?>("Page"));
+        view.OpensPageDownloadOptionsDirectly = true;
+        view.PageScriptRunner = _ => Task.FromResult<string?>("true");
+        var pending = new List<TaskCompletionSource<WebBrowserTabView.BrowserDownloadOptions?>>();
+        view.DownloadOptionsSelector = (_, _) =>
+        {
+            var completion = new TaskCompletionSource<WebBrowserTabView.BrowserDownloadOptions?>();
+            pending.Add(completion);
+            return completion.Task;
+        };
+        void Request()
+        {
+            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+            { Body = """{"kind":"beutl-download","url":"https://files.example/movie.mp4"}""" });
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        Request();
+        Assert.That(pending, Has.Count.EqualTo(1));
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
+        pending[0].SetResult(null);
+        Dispatcher.UIThread.RunJobs();
+
+        // The next page's own first cancel is not its second.
+        Request();
+        Assert.That(pending, Has.Count.EqualTo(2));
+        pending[1].SetResult(null);
+        Dispatcher.UIThread.RunJobs();
+        Request();
+        Assert.That(pending, Has.Count.EqualTo(3));
+        pending[2].SetResult(null);
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaTest]
     public void APageDownloadRequestDoesNotReplaceAnOpenPanel()
     {
         using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://page.example/"));

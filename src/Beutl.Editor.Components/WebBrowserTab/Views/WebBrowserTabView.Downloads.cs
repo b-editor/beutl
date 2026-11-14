@@ -21,6 +21,8 @@ internal partial class WebBrowserTabView
     private int _pageDownloadDocumentId;
     private bool _pageDownloadRequestsSuppressed;
     private int _pageDownloadDeclines;
+    // Changes with each page that loads, so a decline counts only against the page that opened the options.
+    private int _pageDownloadPage;
     private bool _pageDownloadNavigationPending;
     private bool _pageDownloadReferrerUncertain;
     private bool _mediaNavigationIntercepted;
@@ -398,6 +400,7 @@ internal partial class WebBrowserTabView
         InvalidatePageDownloadRequests();
         _pageDownloadRequestsSuppressed = false;
         _pageDownloadDeclines = 0;
+        _pageDownloadPage++;
         _pageDownloadNavigationPending = false;
         _pageDownloadReferrerUncertain = false;
         _mediaNavigationIntercepted = false;
@@ -544,6 +547,8 @@ internal partial class WebBrowserTabView
         }
         ClearPageDownloadRequest();
         NativeWebView? initiatingWebView = _webView;
+        // Options canceled after the page that opened them was left say nothing about the page now shown.
+        int page = _pageDownloadPage;
         bool saved = false;
         using var cancellation = new CancellationTokenSource();
         _downloadCancellation = cancellation;
@@ -557,9 +562,10 @@ internal partial class WebBrowserTabView
                 : DownloadOptionsSelector is { } selector
                     ? await selector(uri, cancellation.Token)
                     : await ChooseDownloadOptionsAsync(uri, cancellation.Token, suggestedName);
-            if (options == null && fromPage && !_disposed && ReferenceEquals(_viewModel, vm)) CountPageDownloadDecline();
+            bool samePage = fromPage && !_disposed && ReferenceEquals(_viewModel, vm) && page == _pageDownloadPage;
+            if (options == null && samePage) CountPageDownloadDecline();
             if (options == null || cancellation.IsCancellationRequested) return;
-            if (fromPage) _pageDownloadDeclines = 0;
+            if (samePage) _pageDownloadDeclines = 0;
             ShowDownloadRunning(uri);
             Progress<(long Received, long? Total)> progress = CreateDownloadProgress(cancellation);
             string file;
