@@ -92,15 +92,9 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                                 targetVideoBuffer.Write(new ReadOnlySpan<byte>((void*)bitmap.Data, bitmap.ByteCount));
                             }
 
-                            await connection.SendAsync(IpcMessage.Create(msg.Id, MessageType.ProvideFrame,
-                                new ProvideFrameMessage
-                                {
-                                    Width = bitmap.Width,
-                                    Height = bitmap.Height,
-                                    DataLength = bitmap.ByteCount,
-                                    Premul = bitmap.AlphaType == BitmapAlphaType.Premul,
-                                    ColorType = (int)bitmap.ColorType
-                                }), cancellationToken);
+                            await connection.SendAsync(
+                                IpcMessage.Create(msg.Id, MessageType.ProvideFrame, CreateFrameMessage(bitmap)),
+                                cancellationToken);
                             break;
                         }
 
@@ -164,6 +158,22 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
 
             throw;
         }
+    }
+
+    // What the worker needs to read a frame from the shared buffer, its color space included.
+    internal static ProvideFrameMessage CreateFrameMessage(Bitmap bitmap)
+    {
+        (float[] transferFn, float[] toXyzD50) = IpcColorSpace.ToArrays(bitmap.ColorSpace);
+        return new ProvideFrameMessage
+        {
+            Width = bitmap.Width,
+            Height = bitmap.Height,
+            DataLength = bitmap.ByteCount,
+            Premul = bitmap.AlphaType == BitmapAlphaType.Premul,
+            ColorType = (int)bitmap.ColorType,
+            TransferFn = transferFn,
+            ToXyzD50 = toXyzD50
+        };
     }
 
     internal EncodeStartRequest CreateStartRequest(IFrameProvider frameProvider, ISampleProvider sampleProvider)

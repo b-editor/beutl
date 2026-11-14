@@ -71,6 +71,12 @@ public sealed class ProvideFrameMessage
     // The frame's BitmapColorType as an int, which tells two 8-byte formats (half-float RgbaF16 and integer
     // Rgba16161616) apart; -1 means unset, which the worker refuses.
     public int ColorType { get; set; } = -1;
+
+    // The frame's color space, in the form of IpcColorSpace. A proxy's frames come straight from the decoder, in the
+    // video's color space. Without them an integer frame reads as sRGB and a float one as linear sRGB, as a render
+    // target's frames are.
+    public float[]? TransferFn { get; set; }
+    public float[]? ToXyzD50 { get; set; }
 }
 
 public sealed class RequestSampleMessage
