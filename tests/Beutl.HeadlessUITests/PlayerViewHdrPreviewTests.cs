@@ -7,6 +7,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Testing.Headless;
@@ -161,6 +162,40 @@ public sealed class PlayerViewHdrPreviewTests
                 HeadlessTestHelpers.Render();
                 Assert.That(invalidations, Is.GreaterThan(0));
             }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // A player wider than the scene fits the frame to its height, the common layout in the editor, so the frame ends
+    // where the seek bar's row begins and the seek bar, which reaches 3 px over the row above to be easy to grab, lies
+    // over the frame's bottom. It draws nothing there, and seeking records no copy.
+    [AvaloniaTest]
+    public async Task Seeking_leaves_the_copy_alone_where_the_seek_bar_reaches_over_the_frame()
+    {
+        TestGpu.RequireAnyDevice();
+        Config.IsPreviewGuideEnabled.Value = false;
+        (EditViewModel editor, PlayerView view, Window window) = await Open(hdr: true, 1200, 450);
+        try
+        {
+            HdrBitmapView native = view.hdrView!;
+            PlayerSeekBar seekBar = view.GetVisualDescendants().OfType<PlayerSeekBar>().Single();
+            Rect barInView = new Rect(seekBar.Bounds.Size).TransformToAABB(seekBar.TransformToVisual(native)!.Value);
+            Assert.That(barInView.Intersects(native.FrameRegion), Is.True,
+                $"the seek bar ({barInView}) reaches over the frame ({native.FrameRegion})");
+
+            int invalidations = 0;
+            native.Overlay!.Invalidated += (_, _) => invalidations++;
+            Rational rate = editor.Player.GetFrameRate();
+            for (int frame = 1; frame <= 5; frame++)
+            {
+                editor.Player.ApplyTimecodeSeek(MediaTime.FromFrames(frame * 7, rate));
+                await RenderPreview(editor);
+            }
+
+            Assert.That(invalidations, Is.Zero);
         }
         finally
         {

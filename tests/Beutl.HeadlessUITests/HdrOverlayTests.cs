@@ -303,6 +303,64 @@ public sealed class HdrOverlayTests
         }
     }
 
+    // Like the player's seek bar, a bar that reaches 3 units over the frame, only to be easy to grab, from a footer under
+    // it. A part of the bar moves on every seek, as the slider's track buttons do.
+    private static (Border Footer, Border Bar, Border Part) AddFooter(Viewport viewport, bool overFrame)
+    {
+        var part = new Border { Background = Brushes.Transparent, Width = 30, HorizontalAlignment = HorizontalAlignment.Left };
+        var bar = new Border { Background = Brushes.Transparent, Height = 26, Margin = new Thickness(0, -3), Child = part };
+        var footer = new Border
+        {
+            Width = s_frame.Width,
+            Height = 20,
+            // Below the frame, or over its bottom.
+            Margin = new Thickness(s_frame.X, overFrame ? s_frame.Bottom - 20 : s_frame.Bottom, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            Child = bar
+        };
+        ((Grid)viewport.View.GetVisualParent()!).Children.Add(footer);
+        HeadlessTestHelpers.Render();
+        return (footer, bar, part);
+    }
+
+    // The copy draws a layer only where its own bounds meet the frame, so what reaches out of the footer is not in it.
+    [AvaloniaTest]
+    public void A_change_reaching_into_the_frame_from_a_layer_outside_it_leaves_the_copy()
+    {
+        Viewport viewport = Open();
+        try
+        {
+            (_, Border bar, Border part) = AddFooter(viewport, overFrame: false);
+            Rect barInView = new Rect(bar.Bounds.Size).TransformToAABB(bar.TransformToVisual(viewport.View)!.Value);
+            Assert.That(barInView.Intersects(viewport.View.FrameRegion), Is.True, "the bar reaches over the frame");
+
+            Assert.That(CountInvalidations(viewport, () => part.Width = 60), Is.Zero);
+        }
+        finally
+        {
+            viewport.Overlay.Dispose();
+            viewport.Window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void A_change_in_a_layer_over_the_frame_invalidates_the_copy()
+    {
+        Viewport viewport = Open();
+        try
+        {
+            (_, _, Border part) = AddFooter(viewport, overFrame: true);
+
+            Assert.That(CountInvalidations(viewport, () => part.Width = 60), Is.GreaterThan(0));
+        }
+        finally
+        {
+            viewport.Overlay.Dispose();
+            viewport.Window.Close();
+        }
+    }
+
     [AvaloniaTest]
     public void An_ancestor_of_the_slot_counts_only_for_where_it_puts_the_layers_over_the_frame()
     {
