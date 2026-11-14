@@ -171,7 +171,7 @@
     <comment />
   </data>
   <data name="EnablePointerLockInProperty_Description" xml:space="preserve">
-    <value>속성 편집기에서 끌기 작업 중에 커서를 숨깁니다. (Windows 전용)</value>
+    <value>속성 편집기에서 끌기 작업 중에 커서를 숨깁니다. (Windows 및 macOS 전용)</value>
     <comment />
   </data>
   <data name="Telemetry_Beutl_Logging" xml:space="preserve">

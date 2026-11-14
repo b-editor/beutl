@@ -167,7 +167,7 @@
     <comment/>
   </data>
   <data name="EnablePointerLockInProperty_Description" xml:space="preserve">
-    <value>プロパティエディタのドラッグ操作中にカーソルを非表示にします。（Windowsのみ）</value>
+    <value>プロパティエディタのドラッグ操作中にカーソルを非表示にします。（Windows と macOS のみ）</value>
     <comment/>
   </data>
   <data name="Telemetry_Beutl_Logging" xml:space="preserve">
