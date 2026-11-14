@@ -228,6 +228,35 @@ public partial class ImmediateCanvas
         }
     }
 
+    // Beutl's libSkiaSharp sends a draw's color to a float target as floats (native/SkiaSharp/float-target-vertex-colors.patch),
+    // but Skia builds glyph vertices with 8-bit colors. In the linear working space that rounds a dark text color to a step of
+    // 1/255: sRGB 8, 13 and 17 all drew as 13 (#4288). So on the GPU a solid text color goes in a runtime shader, whose uniform
+    // stays in floating point; layout(color) converts it from sRGB into the target's space. Skia folds a color shader back into
+    // the paint's color, so that would not do. The CPU backend keeps paint colors in floats.
+    private static readonly Lazy<SKRuntimeEffect> s_textColorEffect = new(() =>
+        SKRuntimeEffect.CreateShader("layout(color) uniform half4 color; half4 main(float2 p) { return color; }", out string? errors)
+        ?? throw new InvalidOperationException($"Failed to compile the text color shader: {errors}"));
+
+    private void KeepTextColorExact(SKPaint paint)
+    {
+        // Only a solid color leaves the paint without a shader. Black and white channels stay exact in 8 bits at any alpha.
+        SKColor color = paint.Color;
+        if (paint.Shader != null || Canvas.Context == null
+            || (IsBlackOrWhite(color.Red) && IsBlackOrWhite(color.Green) && IsBlackOrWhite(color.Blue)))
+        {
+            return;
+        }
+
+        // The paint keeps the alpha, which color glyphs go by, and the shader gives the color.
+        paint.Color = new SKColor(255, 255, 255, color.Alpha);
+        using var uniforms = new SKRuntimeEffectUniforms(s_textColorEffect.Value);
+        uniforms["color"] = new[] { color.Red / 255f, color.Green / 255f, color.Blue / 255f, 1f };
+        using SKShader shader = s_textColorEffect.Value.ToShader(uniforms);
+        paint.Shader = shader;
+
+        static bool IsBlackOrWhite(byte channel) => channel is 0 or 255;
+    }
+
     public void DrawText(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
     {
         VerifyPixelOperation();
@@ -263,6 +292,7 @@ public partial class ImmediateCanvas
             }
 
             ConfigureFillPaint(brushBounds, fill, scale: 1f);
+            KeepTextColorExact(_sharedFillPaint);
             Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
 
             if (stroke != null && !strokeBeneath)

@@ -16,7 +16,8 @@ def library_name(rid):
 
 def patches_for(rid):
     patches = {"patchSha256": HERE / "vulkan-image-layout.patch",
-               "surfaceContentChangePatchSha256": HERE / "surface-content-change.patch"}
+               "surfaceContentChangePatchSha256": HERE / "surface-content-change.patch",
+               "floatTargetColorsPatchSha256": HERE / "float-target-vertex-colors.patch"}
     if rid.startswith("linux-"):
         patches["fontconfigPatchSha256"] = HERE / "fontconfig-missing-family.patch"
     if rid.startswith("win-"):

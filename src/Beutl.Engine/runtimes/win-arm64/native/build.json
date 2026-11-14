@@ -7,6 +7,7 @@
   "rid": "win-arm64",
   "patchSha256": "9fe788fc0cc5d4e5d702a8cbc6f8274757217efde20c558e05e1234dd00d2553",
   "surfaceContentChangePatchSha256": "dab10c82eb9bdcdd6edde40d8b7b6e2bc50483ecc90fe0c8441190a64cd91726",
+  "floatTargetColorsPatchSha256": "a422e4e740a9a73d0fe2c916cee5ebffb06cb9fa8a43aab498473581ce172d5b",
   "freetypeFontMgrPatchSha256": "1fdc53111c983caeeddf636a5d13f81ed45c6a4bdd80d1def345737a4b009cf4",
-  "binarySha256": "9fcdc2966e5b96487dc2e531b3b24c0b29824a5795c8fef5ed20d85f1bdac369"
+  "binarySha256": "a778def35532c29c6245d849d635b1956c6f4d16a6c4969c52ae540446c71e0e"
 }

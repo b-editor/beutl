@@ -9,6 +9,11 @@ can discard that clear. These paths are covered by `SkiaVulkanLayoutInteropTests
 `SkiaImageState_FollowsInitializationBeforeUntouchedSnapshot`.
 `native/SkiaSharp/surface-content-change.patch` lets the engine drop a surface's cached snapshot once
 its draws are recorded, so Skia can skip the copy it schedules for a snapshot of a wrapped texture.
+`native/SkiaSharp/float-target-vertex-colors.patch` makes Ganesh send a draw's color to a target with float
+channels, such as the engine's linear RgbaF16 surfaces, as floats. Ganesh packs a color that fits in [0,1]
+into 8 bits, which in a linear space rounds a dark color to a step of 1/255 (#4288). Glyph vertices keep
+8-bit colors, so `ImmediateCanvas.DrawText` gives a solid text color through a shader instead.
+`SolidColorPrecisionTests` covers both.
 
 The pinned Linux x64/ARM64, Windows x64/ARM64 and universal macOS binaries, build manifests and notices
 are committed under `src/Beutl.Engine/runtimes/`. Ordinary `dotnet build`, `dotnet test` and `dotnet run`
@@ -16,7 +21,7 @@ use those files directly; no native build or artifact download is needed. Publis
 NuGet package include them too. CI verifies the pinned source, patch and binary hashes, target architecture,
 and required exports with `python3 native/SkiaSharp/verify.py`. The ELF/PE/Mach-O checks do not load the
 libraries, so all five runtimes can be verified on any host. The macOS runtime renders through Skia's Metal
-backend. It carries both patches above, with the layout exports compiled as no-ops because it has no
+backend. It carries the three patches above, with the layout exports compiled as no-ops because it has no
 Vulkan, plus `native/SkiaSharp/macos-linker-version.patch` for the Xcode linker.
 
 Linux also applies `native/SkiaSharp/fontconfig-missing-family.patch`, which stops family enumeration

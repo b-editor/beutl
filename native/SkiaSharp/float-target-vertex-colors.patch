@@ -1,0 +1,80 @@
+diff --git a/src/gpu/ganesh/ops/FillRectOp.cpp b/src/gpu/ganesh/ops/FillRectOp.cpp
+index 6450691..c7f4442 100644
+--- a/src/gpu/ganesh/ops/FillRectOp.cpp
++++ b/src/gpu/ganesh/ops/FillRectOp.cpp
+@@ -196,6 +196,11 @@ public:
+         if (fColorType == ColorType::kNone && !result.hasColorFragmentProcessor()) {
+             fColorType = ColorType::kByte;
+         }
++        // Beutl: a target with float channels takes the color as floats, as in
++        // GrSimpleMeshDrawOpHelper::finalizeProcessors.
++        if (fColorType == ColorType::kByte && clampType != GrClampType::kAuto) {
++            fColorType = ColorType::kFloat;
++        }
+ 
+         return result;
+     }
+diff --git a/src/gpu/ganesh/ops/GrSimpleMeshDrawOpHelper.cpp b/src/gpu/ganesh/ops/GrSimpleMeshDrawOpHelper.cpp
+index 5f04c82..fca506c 100644
+--- a/src/gpu/ganesh/ops/GrSimpleMeshDrawOpHelper.cpp
++++ b/src/gpu/ganesh/ops/GrSimpleMeshDrawOpHelper.cpp
+@@ -79,7 +79,9 @@ GrProcessorSet::Analysis GrSimpleMeshDrawOpHelper::finalizeProcessors(
+     auto result = this->finalizeProcessors(caps, clip, clampType, geometryCoverage, &color);
+     color.isConstant(geometryColor);
+     if (wideColor) {
+-        *wideColor = !geometryColor->fitsInBytes();
++        // Beutl: a target with float channels takes the color as floats. Bytes would round it to a
++        // step of 1/255 in the target's color space, which in a linear space loses dark colors.
++        *wideColor = !geometryColor->fitsInBytes() || clampType != GrClampType::kAuto;
+     }
+     return result;
+ }
+diff --git a/src/gpu/ganesh/ops/GrSimpleMeshDrawOpHelperWithStencil.cpp b/src/gpu/ganesh/ops/GrSimpleMeshDrawOpHelperWithStencil.cpp
+index 8f9bc27..e7625a6 100644
+--- a/src/gpu/ganesh/ops/GrSimpleMeshDrawOpHelperWithStencil.cpp
++++ b/src/gpu/ganesh/ops/GrSimpleMeshDrawOpHelperWithStencil.cpp
+@@ -33,7 +33,9 @@ GrProcessorSet::Analysis GrSimpleMeshDrawOpHelperWithStencil::finalizeProcessors
+     auto result = this->finalizeProcessors(caps, clip, clampType, geometryCoverage, &color);
+     color.isConstant(geometryColor);
+     if (wideColor) {
+-        *wideColor = !geometryColor->fitsInBytes();
++        // Beutl: a target with float channels takes the color as floats. Bytes would round it to a
++        // step of 1/255 in the target's color space, which in a linear space loses dark colors.
++        *wideColor = !geometryColor->fitsInBytes() || clampType != GrClampType::kAuto;
+     }
+     return result;
+ }
+diff --git a/src/gpu/ganesh/ops/PathTessellateOp.cpp b/src/gpu/ganesh/ops/PathTessellateOp.cpp
+index 507a181..13e7d1f 100644
+--- a/src/gpu/ganesh/ops/PathTessellateOp.cpp
++++ b/src/gpu/ganesh/ops/PathTessellateOp.cpp
+@@ -34,6 +34,12 @@ void PathTessellateOp::visitProxies(const GrVisitProxyFunc& func) const {
+ GrProcessorSet::Analysis PathTessellateOp::finalize(const GrCaps& caps,
+                                                     const GrAppliedClip* clip,
+                                                     GrClampType clampType) {
++    // Beutl: a target with float channels takes the color as floats, as in
++    // GrSimpleMeshDrawOpHelper::finalizeProcessors. It only matters once draws of different colors
++    // merge and the color moves from a uniform into the patch attributes.
++    if (clampType != GrClampType::kAuto) {
++        fPatchAttribs |= PatchAttribs::kWideColorIfEnabled;
++    }
+     auto analysis = fProcessors.finalize(this->headDraw().fColor,
+                                          GrProcessorAnalysisCoverage::kNone,
+                                          clip,
+diff --git a/src/gpu/ganesh/ops/StrokeTessellateOp.cpp b/src/gpu/ganesh/ops/StrokeTessellateOp.cpp
+index fb5a83d..8968d3a 100644
+--- a/src/gpu/ganesh/ops/StrokeTessellateOp.cpp
++++ b/src/gpu/ganesh/ops/StrokeTessellateOp.cpp
+@@ -78,6 +78,12 @@ GrProcessorSet::Analysis StrokeTessellateOp::finalize(const GrCaps& caps,
+         // explicitly stating the curve type.
+         fPatchAttribs |= PatchAttribs::kExplicitCurveType;
+     }
++    // Beutl: a target with float channels takes the color as floats, as in
++    // GrSimpleMeshDrawOpHelper::finalizeProcessors. It only matters once draws of different colors
++    // merge and the color moves from a uniform into the patch attributes.
++    if (clampType != GrClampType::kAuto) {
++        fPatchAttribs |= PatchAttribs::kWideColorIfEnabled;
++    }
+     const GrProcessorSet::Analysis& analysis = fProcessors.finalize(
+             this->headColor(), GrProcessorAnalysisCoverage::kNone, clip,
+             &GrUserStencilSettings::kUnused, caps, clampType, &this->headColor());
