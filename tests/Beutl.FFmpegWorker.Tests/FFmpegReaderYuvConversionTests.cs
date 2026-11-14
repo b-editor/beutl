@@ -30,10 +30,11 @@ public sealed class FFmpegReaderYuvConversionTests
 
     // The gray steps of a screen recording in #4287, from black to white. With neutral chroma R, G and B all take
     // (Y - 16) * 255 / 219. Nine 18-unit patches make a width that is not a multiple of 16, which arm64's NEON path
-    // leaves to the C one, 2 low; nine 16-unit ones a width it takes, which is exact there and up to 1 low on x64.
-    [TestCase(18)]
-    [TestCase(16)]
-    public void Limited_range_gray_decodes_to_the_nearest_code_value(int patch)
+    // leaves to the C one, 2 low, and x64's default conversion reads up to 1 low; the exact conversion meets the value
+    // on both. Nine 16-unit ones make a width the fast path keeps: exact on arm64 and up to 1 low on x64.
+    [TestCase(18, 0)]
+    [TestCase(16, 1)]
+    public void Limited_range_gray_decodes_to_the_nearest_code_value(int patch, int tolerance)
     {
         byte[] lumas = [16, 23, 28, 34, 46, 64, 116, 174, 235];
         string path = Path.Combine(_directory, "gray.mkv");
@@ -58,7 +59,7 @@ public sealed class FFmpegReaderYuvConversionTests
                 {
                     Span<byte> pixel = bitmap.GetRow(patch / 2).Slice(((i * patch) + (patch / 2)) * 4, 4);
                     int expected = (int)Math.Round((lumas[i] - 16) * 255.0 / 219);
-                    Assert.That(new int[] { pixel[0], pixel[1], pixel[2] }, Is.All.EqualTo(expected).Within(1), decoded[i]);
+                    Assert.That(new int[] { pixel[0], pixel[1], pixel[2] }, Is.All.EqualTo(expected).Within(tolerance), decoded[i]);
                 }
             });
         }
