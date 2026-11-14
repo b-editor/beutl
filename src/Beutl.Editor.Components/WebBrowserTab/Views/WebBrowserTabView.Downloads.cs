@@ -18,7 +18,7 @@ internal partial class WebBrowserTabView
     private PageDownloadRequest? _pendingPageDownloadRequest;
     private int _pageDownloadDocumentId;
     private bool _pageDownloadRequestsSuppressed;
-    private bool _pageDownloadOpenedDirectly;
+    private bool _pageDownloadOffered;
     private bool _pageDownloadNavigationPending;
     private bool _pageDownloadReferrerUncertain;
     private bool _mediaNavigationIntercepted;
@@ -349,10 +349,11 @@ internal partial class WebBrowserTabView
             // Page scripts control bridge messages and navigation requests, so only the page's first request opens
             // the options without the user's confirmation, and never in place of a panel the user has open. A file an
             // extension takes over is saved without the options, so it waits for the user to confirm what the
-            // extension says it will do.
-            if (OpensFirstPageDownloadDirectly && !_pageDownloadOpenedDirectly && handling == null && !ToolPanel.IsVisible)
+            // extension says it will do. The first request counts however it is offered.
+            bool first = !_pageDownloadOffered;
+            _pageDownloadOffered = true;
+            if (OpensFirstPageDownloadDirectly && first && handling == null && !ToolPanel.IsVisible)
             {
-                _pageDownloadOpenedDirectly = true;
                 _ = StartPageDownloadAsync(request);
                 return;
             }
@@ -395,7 +396,7 @@ internal partial class WebBrowserTabView
     {
         InvalidatePageDownloadRequests();
         _pageDownloadRequestsSuppressed = false;
-        _pageDownloadOpenedDirectly = false;
+        _pageDownloadOffered = false;
         _pageDownloadNavigationPending = false;
         _pageDownloadReferrerUncertain = false;
         _mediaNavigationIntercepted = false;

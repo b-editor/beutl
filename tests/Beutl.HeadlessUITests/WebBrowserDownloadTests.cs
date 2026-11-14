@@ -1087,12 +1087,26 @@ public class WebBrowserDownloadTests
             optionsOpened++;
             return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
         };
-        view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
-        { Body = """{"kind":"beutl-download","url":"https://files.example/movie.mp4"}""" });
-        Dispatcher.UIThread.RunJobs();
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        void Request(string url)
+        {
+            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+            { Body = $$"""{"kind":"beutl-download","url":"{{url}}"}""" });
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        Request("https://files.example/first.mp4");
         Assert.That(optionsOpened, Is.Zero);
         Assert.That(view.FindControl<ContentControl>("ToolPanelContent")!.Content, Is.SameAs(existingContent));
-        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        Assert.That(confirm.IsVisible, Is.True);
+
+        // The first request was offered in the notification, so the next one waits there too.
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Assert.That(optionsOpened, Is.EqualTo(1));
+        view.CloseBrowserPanel();
+        Request("https://files.example/second.mp4");
+        Assert.That(optionsOpened, Is.EqualTo(1));
+        Assert.That(confirm.IsVisible, Is.True);
     }
 
     [AvaloniaTest]
