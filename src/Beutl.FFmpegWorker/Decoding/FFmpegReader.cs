@@ -623,7 +623,22 @@ public sealed class FFmpegReader : MediaReader
         var formatFilter = new MediaFilter("format");
         var formatCtx = _filterGraph.AddFilter(formatFilter, pixelFormats);
 
-        _bufferSrcCtx.LinkTo(0, formatCtx);
+        // The conversion is the scaler's, and the one libavfilter inserts takes its default flags. For 4:2:0 and 4:2:2 SDR
+        // video those come out up to 2 below the exact value (white at 253) wherever arm64's NEON path does not run: a
+        // width that is not a multiple of 16, or an odd height, as screen recordings often have. Both flags make it exact
+        // there, at several times the cost, so the sizes that path takes keep it; on x64 they stay up to 1 low. #4293
+        // would convert on the GPU instead.
+        if (!_isHdr && (width % 16 != 0 || height % 2 != 0))
+        {
+            var scaleCtx = _filterGraph.AddFilter(new MediaFilter("scale"), "flags=accurate_rnd+full_chroma_int");
+            _bufferSrcCtx.LinkTo(0, scaleCtx);
+            scaleCtx.LinkTo(0, formatCtx);
+        }
+        else
+        {
+            _bufferSrcCtx.LinkTo(0, formatCtx);
+        }
+
         formatCtx.LinkTo(0, _bufferSinkCtx);
 
         _filterGraph.Initialize();
