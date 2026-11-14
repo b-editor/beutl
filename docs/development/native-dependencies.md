@@ -18,6 +18,7 @@ Everything Beutl uses that is not an ordinary managed package from NuGet is list
 | --- | --- |
 | `native/SkiaSharp/vulkan-image-layout.patch` | SkiaSharp's C API exposes a backend texture's Vulkan image layout |
 | `native/SkiaSharp/surface-content-change.patch` | SkiaSharp's C API exposes `SkSurface::notifyContentWillChange` |
+| `native/SkiaSharp/float-target-vertex-colors.patch` | Skia's Ganesh sends colors to a float target without rounding them to 8 bits, or Beutl renders with Graphite |
 | `native/SkiaSharp/freetype-fontmgr.patch` | SkiaSharp's C API can create a FreeType font manager on Windows |
 | `native/SkiaSharp/fontconfig-missing-family.patch` | Skia stops family enumeration on `FcResultNoMatch` by itself |
 | `native/SkiaSharp/macos-linker-version.patch` | The pinned Skia passes its minimum macOS version in a form the Xcode linker accepts |

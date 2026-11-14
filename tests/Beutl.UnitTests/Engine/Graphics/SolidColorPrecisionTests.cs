@@ -1,7 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using Beutl.Composition;
-using Beutl.Graphics;
-using Beutl.Graphics.Backend;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
@@ -10,40 +7,48 @@ using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Backend;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics;
 
 // On the GPU a paint's color reached the target as 8 bits in the target's color space, which in the linear working space
-// rounded a dark color to a step of 1/255: sRGB 8, 13 and 17 all drew as 13 (#4288). A solid brush now gives its color
-// through a shader.
+// rounded a dark color to a step of 1/255: sRGB 8, 13 and 17 all drew as 13 (#4288). Beutl's libSkiaSharp now sends colors
+// to a float target as floats (native/SkiaSharp/float-target-vertex-colors.patch), and text, whose glyph vertices Skia keeps
+// at 8 bits, gives its color through a shader.
 [TestFixture]
 [NonParallelizable]
 public sealed class SolidColorPrecisionTests
 {
-    private const int Patch = 20;
     private static readonly byte[] s_grays = [4, 8, 13, 17, 22, 29, 40, 51, 64, 96, 128, 255];
 
-    [Test]
-    public void Dark_solid_fills_keep_their_sRGB_value_on_the_GPU()
+    // Each kind reaches a different Skia draw: rectangles, ovals, rounded rectangles, convex paths, paths with a hole
+    // (Beutl draws a stroke as a filled path), the same too large for Skia's path atlas, and glyphs.
+    public enum Kind
     {
+        Rectangle,
+        Ellipse,
+        RoundedRectangle,
+        Triangle,
+        Outline,
+        LargeOutline,
+        Text,
+    }
+
+    [Test]
+    public void Dark_solid_colors_keep_their_sRGB_value_on_the_GPU([Values] Kind kind, [Values(255, 128)] int alpha)
+    {
+        int cell = kind == Kind.LargeOutline ? 320 : 48;
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var scene = new Scene(Patch * s_grays.Length, Patch, "dark-fills");
+            var scene = new Scene(cell * s_grays.Length, cell, "dark-colors");
             for (int i = 0; i < s_grays.Length; i++)
             {
-                var rect = new RectShape
-                {
-                    Width = { Value = Patch },
-                    Height = { Value = Patch },
-                    Fill = { Value = new SolidColorBrush(Color.FromRgb(s_grays[i], s_grays[i], s_grays[i])) },
-                    AlignmentX = { Value = AlignmentX.Left },
-                    AlignmentY = { Value = AlignmentY.Top },
-                };
-                rect.Transform.Value = new TranslateTransform(i * Patch, 0);
+                Drawable drawable = Create(kind, new SolidColorBrush(Color.FromArgb((byte)alpha, s_grays[i], s_grays[i], s_grays[i])));
+                drawable.AlignmentX.Value = AlignmentX.Left;
+                drawable.AlignmentY.Value = AlignmentY.Top;
+                drawable.Transform.Value = new TranslateTransform((i * cell) + 12, 12);
                 var element = new Element { ZIndex = { Value = i }, Length = { Value = MediaTime.FromSeconds(1) } };
-                element.Objects.Add(rect);
+                element.Objects.Add(drawable);
                 scene.Children.Add(element);
             }
 
@@ -56,74 +61,67 @@ public sealed class SolidColorPrecisionTests
             {
                 for (int i = 0; i < s_grays.Length; i++)
                 {
-                    Bgra8888 pixel = srgb.GetRow<Bgra8888>(Patch / 2)[(i * Patch) + (Patch / 2)];
-                    Assert.That(new int[] { pixel.R, pixel.G, pixel.B }, Is.All.EqualTo(s_grays[i]).Within(1),
-                        $"sRGB {s_grays[i]} drew as {pixel.R}");
+                    // The pixels a shape covers fully hold the fill's own color; antialiased edges are left out.
+                    var channels = new List<int>();
+                    for (int y = 0; y < cell; y++)
+                    {
+                        foreach (Bgra8888 pixel in srgb.GetRow<Bgra8888>(y).Slice(i * cell, cell))
+                        {
+                            if (pixel.A >= alpha - 1)
+                                channels.AddRange([pixel.R, pixel.G, pixel.B]);
+                        }
+                    }
+
+                    Assert.That(channels, Has.Count.GreaterThan(90), $"sRGB {s_grays[i]} covered too few pixels");
+                    Assert.That(channels, Is.All.EqualTo(s_grays[i]).Within(1),
+                        $"sRGB {s_grays[i]} drew as {(channels.Count == 0 ? "nothing" : $"{channels.Min()} to {channels.Max()}")}");
                 }
             });
         });
     }
 
-    // Skia leaves a paint's shader out when the paint goes around a layer, as with an SVG picture, or when it draws a
-    // color image, so a solid fill there still gives only its alpha.
-    [Test]
-    public void A_solid_fill_around_a_picture_or_an_image_gives_only_its_alpha()
+    private static Drawable Create(Kind kind, Brush fill)
     {
-        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        switch (kind)
         {
-            var info = new SKImageInfo(4, 4, SKColorType.RgbaF16, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear());
-            using SKSurface surface = SKSurface.Create(context.SkiaContext, false, info);
-            using var recorder = new SKPictureRecorder();
-            using (var blue = new SKPaint { Color = SKColors.Blue })
-                recorder.BeginRecording(SKRect.Create(4, 4)).DrawRect(SKRect.Create(4, 4), blue);
-            using SKPicture picture = recorder.EndRecording();
-            using SKImage image = SKImage.FromPicture(picture, new SKSizeI(4, 4));
-
-            var brush = new SolidColorBrush(Colors.Red) { Opacity = { Value = 50 } };
-            using Brush.Resource resource = brush.ToResource(CompositionContext.Default);
-            using var paint = new SKPaint();
-            new BrushConstructor(new Rect(0, 0, 4, 4), resource, BlendMode.SrcOver, RenderIntent.Preview,
-                drawableBrushMaterializer: null).ConfigurePaint(paint);
-
-            Assert.Multiple(() =>
-            {
-                surface.Canvas.Clear(SKColors.Transparent);
-                surface.Canvas.DrawPicture(picture, paint);
-                Assert.That(ReadCenter(surface), Is.EqualTo((0f, 0f, 0.5f, 0.5f)).Using<(float, float, float, float)>(Near),
-                    "picture");
-
-                surface.Canvas.Clear(SKColors.Transparent);
-                surface.Canvas.DrawImage(image, 0, 0, paint);
-                Assert.That(ReadCenter(surface), Is.EqualTo((0f, 0f, 0.5f, 0.5f)).Using<(float, float, float, float)>(Near),
-                    "image");
-            });
-        });
-    }
-
-    // Premultiplied linear RGBA at the surface's center.
-    private static (float R, float G, float B, float A) ReadCenter(SKSurface surface)
-    {
-        surface.Flush();
-        var info = new SKImageInfo(1, 1, SKColorType.RgbaF32, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear());
-        float[] pixel = new float[4];
-        GCHandle handle = GCHandle.Alloc(pixel, GCHandleType.Pinned);
-        try
-        {
-            Assert.That(surface.ReadPixels(info, handle.AddrOfPinnedObject(), info.RowBytes, 2, 2), Is.True);
+            case Kind.Rectangle:
+                return new RectShape { Width = { Value = 30 }, Height = { Value = 30 }, Fill = { Value = fill } };
+            case Kind.Ellipse:
+                return new EllipseShape { Width = { Value = 30 }, Height = { Value = 30 }, Fill = { Value = fill } };
+            case Kind.RoundedRectangle:
+                return new RoundedRectShape
+                {
+                    Width = { Value = 30 },
+                    Height = { Value = 30 },
+                    CornerRadius = { Value = new CornerRadius(10) },
+                    Fill = { Value = fill },
+                };
+            case Kind.Triangle:
+                var figure = new PathFigure();
+                figure.StartPoint.Value = new Point(0, 0);
+                figure.IsClosed.Value = true;
+                figure.Segments.Add(new LineSegment(30, 0));
+                figure.Segments.Add(new LineSegment(15, 30));
+                var geometry = new PathGeometry();
+                geometry.Figures.Add(figure);
+                return new GeometryShape { Data = { Value = geometry }, Fill = { Value = fill } };
+            case Kind.Outline or Kind.LargeOutline:
+                float size = kind == Kind.Outline ? 20 : 280;
+                return new EllipseShape
+                {
+                    Width = { Value = size },
+                    Height = { Value = size },
+                    Fill = { Value = null },
+                    Pen = { Value = new Pen { Brush = { Value = fill }, Thickness = { Value = 10 } } },
+                };
+            default:
+                return new TextBlock
+                {
+                    Text = { Value = "I" },
+                    Size = { Value = 32 },
+                    FontWeight = { Value = FontWeight.Bold },
+                    Fill = { Value = fill },
+                };
         }
-        finally
-        {
-            handle.Free();
-        }
-
-        return (pixel[0], pixel[1], pixel[2], pixel[3]);
-    }
-
-    private static bool Near((float, float, float, float) a, (float, float, float, float) b)
-    {
-        const float tolerance = 0.01f;
-        return MathF.Abs(a.Item1 - b.Item1) < tolerance && MathF.Abs(a.Item2 - b.Item2) < tolerance
-            && MathF.Abs(a.Item3 - b.Item3) < tolerance && MathF.Abs(a.Item4 - b.Item4) < tolerance;
     }
 }
