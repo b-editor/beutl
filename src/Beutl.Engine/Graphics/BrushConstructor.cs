@@ -63,6 +63,14 @@ public readonly struct BrushConstructor(
         ? intent
         : throw new ArgumentOutOfRangeException(nameof(intent), intent, "Unknown render intent.");
 
+    // A solid color in a shader rather than in the paint. The GPU backend hands a paint's color to the target as 8 bits in
+    // the target's color space, which in the linear working space rounds a dark color to a step of 1/255: sRGB 8, 13 and
+    // 17 all drew as 13 (#4288). A runtime shader's uniform stays in floating point, and layout(color) converts it from
+    // sRGB into the target's space. Skia folds a color shader back into the paint's color, so that would not do.
+    private static readonly Lazy<SKRuntimeEffect> s_solidColorEffect = new(() =>
+        SKRuntimeEffect.CreateShader("layout(color) uniform half4 color; half4 main(float2 p) { return color; }", out string? errors)
+        ?? throw new InvalidOperationException($"Failed to compile the solid color shader: {errors}"));
+
     public void ConfigurePaint(SKPaint paint)
     {
         Brush.Resource? brush = ResolvePresentedBrush();
@@ -74,7 +82,12 @@ public readonly struct BrushConstructor(
 
         if (brush is SolidColorBrush.Resource solid)
         {
-            paint.Color = new SKColor(solid.Color.R, solid.Color.G, solid.Color.B, (byte)(solid.Color.A * opacity));
+            // The paint keeps the alpha, which layers and images go by, and the shader gives the color.
+            paint.Color = new SKColor(255, 255, 255, (byte)(solid.Color.A * opacity));
+            using var uniforms = new SKRuntimeEffectUniforms(s_solidColorEffect.Value);
+            uniforms["color"] = new[] { solid.Color.R / 255f, solid.Color.G / 255f, solid.Color.B / 255f, 1f };
+            using SKShader shader = s_solidColorEffect.Value.ToShader(uniforms);
+            paint.Shader = shader;
         }
         else if (brush is GradientBrush.Resource gradient)
         {
