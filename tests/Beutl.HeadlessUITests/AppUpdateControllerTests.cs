@@ -309,6 +309,27 @@ public sealed class AppUpdateControllerTests
         });
     }
 
+    // The metadata says whether the update unpacks, so it is read before anything downloads.
+    [AvaloniaTest]
+    public async Task MissingMetadataFailsBeforeDownloading()
+    {
+        var handler = new Handler(HttpStatusCode.OK);
+        using var client = new HttpClient(handler);
+        var vm = new UpdateDialogViewModel(Update(), false, httpClient: client,
+            loadMetadata: () => Task.FromResult<AssetMetadataJson?>(null));
+
+        vm.Start();
+        await vm.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(vm.Phase.Value, Is.EqualTo(AppUpdatePhase.Failed));
+            Assert.That(vm.IsRetryVisible.Value, Is.True);
+            Assert.That(vm.ProgressText.Value, Is.EqualTo(MessageStrings.FailedToLoadMetadata));
+            Assert.That(handler.Requests, Is.Zero, "nothing downloads");
+        });
+    }
+
     // A macOS app unpacks into folders that every running Beutl shares and empties first, so while another Beutl holds
     // them, where its own update may be ready, the update stops before downloading and says why. Once that Beutl has
     // quit, a retry goes ahead.
