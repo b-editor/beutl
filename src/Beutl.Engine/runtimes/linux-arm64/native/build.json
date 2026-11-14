@@ -7,6 +7,7 @@
   "rid": "linux-arm64",
   "patchSha256": "9fe788fc0cc5d4e5d702a8cbc6f8274757217efde20c558e05e1234dd00d2553",
   "surfaceContentChangePatchSha256": "dab10c82eb9bdcdd6edde40d8b7b6e2bc50483ecc90fe0c8441190a64cd91726",
+  "floatTargetColorsPatchSha256": "a422e4e740a9a73d0fe2c916cee5ebffb06cb9fa8a43aab498473581ce172d5b",
   "fontconfigPatchSha256": "0df2847359df09cc9eb00840b365d2d06af3ebf430170d5b0386ca1f7c5c0351",
-  "binarySha256": "52ceeda72f742a077f2590b8fcc8ca7d84e5f968844548cc67cf2823cdba1a72"
+  "binarySha256": "ab69307cf855b5c6877fb522c75026a618efad8536909952903f250a94098f3d"
 }

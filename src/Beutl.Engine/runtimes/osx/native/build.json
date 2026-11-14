@@ -7,6 +7,7 @@
   "rid": "osx",
   "patchSha256": "9fe788fc0cc5d4e5d702a8cbc6f8274757217efde20c558e05e1234dd00d2553",
   "surfaceContentChangePatchSha256": "dab10c82eb9bdcdd6edde40d8b7b6e2bc50483ecc90fe0c8441190a64cd91726",
+  "floatTargetColorsPatchSha256": "a422e4e740a9a73d0fe2c916cee5ebffb06cb9fa8a43aab498473581ce172d5b",
   "macosLinkerPatchSha256": "301feaf3f258c66b26ae4995d0ae40314a89687de7c0f386d2c2324774f0944d",
-  "binarySha256": "36421e1b9561772987cbe1e598bbfa0045f5927bf7c7ae27c52caf033c0fdc83"
+  "binarySha256": "f4fb55dd283763da75417465b1321b421995fc9873e09475bc6c6e87271d3798"
 }
