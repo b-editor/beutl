@@ -3198,6 +3198,9 @@ cuando el registro del historial está activado.</value>
   <data name="BrowserIgnorePageDownloads" xml:space="preserve">
     <value>Ignorar las solicitudes de descarga hasta que se recargue esta página</value>
   </data>
+  <data name="BrowserPageDownloadsIgnored" xml:space="preserve">
+    <value>Se ignoran las solicitudes de descarga de esta página hasta que se recargue</value>
+  </data>
   <data name="CloudStorage" xml:space="preserve">
     <value>Almacenamiento de Beutl</value>
   </data>

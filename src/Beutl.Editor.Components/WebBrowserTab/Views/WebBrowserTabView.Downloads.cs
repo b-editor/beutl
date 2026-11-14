@@ -14,10 +14,18 @@ internal partial class WebBrowserTabView
 {
     private const int MaxDeferredNativeDownloads = 32;
     private const int MaxNativeDownloadFailures = 32;
+    // The options a page opened that the user canceled in a row before its requests are ignored until it reloads.
+    private const int PageDownloadDeclinesBeforeSuppression = 2;
     private CancellationTokenSource? _downloadCancellation;
     private PageDownloadRequest? _pendingPageDownloadRequest;
     private int _pageDownloadDocumentId;
     private bool _pageDownloadRequestsSuppressed;
+    private int _pageDownloadDeclines;
+    // Changes with each page that loads, so a decline counts only against the page that opened the options.
+    private int _pageDownloadPage;
+    // The next queued file goes to the notification because the user declined the one before it, even if it has to
+    // wait for a page to load first.
+    private bool _deferredOfferAfterDecline;
     private bool _pageDownloadNavigationPending;
     private bool _pageDownloadReferrerUncertain;
     private bool _mediaNavigationIntercepted;
@@ -35,6 +43,9 @@ internal partial class WebBrowserTabView
         BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source, BrowserDownloadHandling? Handling);
 
     internal BrowserMediaDownload MediaDownloader { get; set; } = BrowserMediaDownload.Default;
+    // A page's download request opens the download options at once, as a click on a download link would. Tests of
+    // the notification itself turn this off.
+    internal bool OpensPageDownloadOptionsDirectly { get; set; } = true;
     internal Func<Uri, CancellationToken, Task<BrowserDownloadOptions?>>? DownloadOptionsSelector { get; set; }
     internal Func<NativeWebView?, CancellationToken, Task<IReadOnlyList<Cookie>>> DownloadCookiesProvider { get; set; } =
         static async (webView, cancellation) => webView?.TryGetCookieManager() is { } manager
@@ -72,10 +83,12 @@ internal partial class WebBrowserTabView
             return;
         }
         bool mainFrameDownload = trackNavigationFailure && _pageDownloadNavigationPending && _latestNavigationRequest == uri;
-        if (trackNavigationFailure && !_pageDownloadNavigationPending
-            && (_pendingPageDownloadRequest?.Source != null || _downloadCancellation != null))
+        // A response the engine already holds waits while another file's options are open or it is being saved, from
+        // any engine; a WebView2 one also waits behind an offered file. One that ends a navigation settles it first.
+        if (source != null && !_pageDownloadNavigationPending
+            && (_downloadCancellation != null || trackNavigationFailure && _pendingPageDownloadRequest?.Source != null))
         {
-            DeferNativeDownload(uri, suggestedName, source!);
+            DeferNativeDownload(uri, suggestedName, source);
             return;
         }
         if (trackNavigationFailure && _pageDownloadNavigationPending && !mainFrameDownload)
@@ -98,7 +111,7 @@ internal partial class WebBrowserTabView
         _viewModel.RestoreCommittedPage();
         UpdateBlankPageState();
         // Keep history retries conservative; the current transfer retains the browser's original response.
-        if (trackNavigationFailure && _downloadCancellation != null) DeferNativeDownload(uri, suggestedName, source!);
+        if (source != null && _downloadCancellation != null) DeferNativeDownload(uri, suggestedName, source);
         else QueuePageDownloadRequest(uri, suggestedName, referrerPolicy, source);
         // The queued request keeps its conservative metadata; later links belong to the restored document.
         _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
@@ -132,13 +145,24 @@ internal partial class WebBrowserTabView
             ? vm.ClaimDownload(new BrowserDownloadOffer(uri, page ?? vm.CommittedUri, suggestedName, isGenerated), RunPageScriptAsync)
             : null;
 
-    private void OfferNextDeferredNativeDownload()
+    // After the user declines a file, the next one waiting is offered in the notification, so a page that queued
+    // several files cannot keep opening the options each time the user cancels them.
+    private void OfferNextDeferredNativeDownload(bool afterDecline = false)
     {
-        if (_deferredNativeDownloads.Count == 0 || IsPageDownloadOfferBlocked) return;
+        _deferredOfferAfterDecline |= afterDecline;
+        if (_deferredNativeDownloads.Count == 0)
+        {
+            _deferredOfferAfterDecline = false;
+            return;
+        }
+        if (IsPageDownloadOfferBlocked) return;
+        afterDecline = _deferredOfferAfterDecline;
+        _deferredOfferAfterDecline = false;
         var deferred = _deferredNativeDownloads.First!.Value;
         _deferredNativeDownloads.RemoveFirst();
         // A file whose page never finished loading holds no claim, so it is offered without one.
-        OfferPageDownload(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source, deferred.Handling);
+        OfferPageDownload(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source, deferred.Handling,
+            openOptions: !afterDecline);
     }
 
     // The files that frames of the page offered while it loaded are claimed as soon as it is the page on display, even
@@ -188,6 +212,8 @@ internal partial class WebBrowserTabView
             _deferredNativeDownloads.RemoveLast();
         }
         _deferredNativeDownloads.AddFirst(new DeferredDownload(pending.Uri, pending.SuggestedName, source, pending.Handling));
+        // It was waiting in the notification, and returns there rather than opening the options.
+        _deferredOfferAfterDecline = true;
     }
 
     private void ClearDeferredNativeDownloads()
@@ -316,7 +342,7 @@ internal partial class WebBrowserTabView
     }
 
     private void OfferPageDownload(Uri uri, string? suggestedName, BrowserReferrerPolicy referrerPolicy,
-        IBrowserDownloadSource? downloadSource, BrowserDownloadHandling? handling)
+        IBrowserDownloadSource? downloadSource, BrowserDownloadHandling? handling, bool openOptions = true)
     {
         if (IsPageDownloadOfferBlocked)
         {
@@ -341,7 +367,15 @@ internal partial class WebBrowserTabView
                 || documentId != _pageDownloadDocumentId || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
                 || !ReferenceEquals(_pendingPageDownloadRequest, request) || _downloadCancellation != null) return;
 
-            // Page scripts control bridge messages and navigation requests. Only native UI can authorize opening options.
+            // The options open in place of the page, never in place of a panel the user has open. A file an extension
+            // takes over is saved without the options, so it waits in the notification for the user to confirm what
+            // the extension says it will do.
+            if (openOptions && OpensPageDownloadOptionsDirectly && handling == null && !ToolPanel.IsVisible)
+            {
+                _ = StartPageDownloadAsync(request);
+                return;
+            }
+
             SetDownloadRunning(false);
             DownloadStatusText.MaxLines = 1;
             DownloadStatusText.TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis;
@@ -376,10 +410,25 @@ internal partial class WebBrowserTabView
         if (disposeSource) request?.Source?.Dispose();
     }
 
+    // While a page's requests are ignored, the notification says so until the page reloads or the user closes it.
+    private void ShowPageDownloadsIgnored()
+    {
+        SetDownloadRunning(false);
+        DownloadStatusText.Text = Strings.BrowserPageDownloadsIgnored;
+        ToolTip.SetTip(DownloadStatusText, null);
+        DownloadStatusPanel.IsVisible = true;
+    }
+
     private void ResetPageDownloadRequests()
     {
+        if (_pageDownloadRequestsSuppressed && DownloadStatusText.Text == Strings.BrowserPageDownloadsIgnored)
+        {
+            DownloadStatusPanel.IsVisible = false;
+        }
         InvalidatePageDownloadRequests();
         _pageDownloadRequestsSuppressed = false;
+        _pageDownloadDeclines = 0;
+        _pageDownloadPage++;
         _pageDownloadNavigationPending = false;
         _pageDownloadReferrerUncertain = false;
         _mediaNavigationIntercepted = false;
@@ -406,6 +455,11 @@ internal partial class WebBrowserTabView
     private async void OnConfirmPageDownloadClick(object? sender, RoutedEventArgs e)
     {
         if (_pageDownloadNavigationPending || !ConfirmPageDownloadButton.IsVisible || _pendingPageDownloadRequest is not { } request) return;
+        await StartPageDownloadAsync(request);
+    }
+
+    private async Task StartPageDownloadAsync(PageDownloadRequest request)
+    {
         ClearPageDownloadRequest(disposeSource: false);
         if (_disposed || request.DocumentId != _pageDownloadDocumentId)
         {
@@ -413,7 +467,27 @@ internal partial class WebBrowserTabView
             return;
         }
         await DownloadMediaAsync(request.Uri, request.SuggestedName, request.Referrer, request.ReferrerPolicy, request.Source,
-            request.Handling);
+            request.Handling, fromPage: true);
+    }
+
+    // Canceling the options a page opened several times in a row ignores the page's requests until it reloads, along
+    // with the files it already queued, so a page cannot keep opening the options.
+    private void CountPageDownloadDecline()
+    {
+        if (++_pageDownloadDeclines < PageDownloadDeclinesBeforeSuppression) return;
+        _pageDownloadRequestsSuppressed = true;
+        ShowPageDownloadsIgnored();
+        for (LinkedListNode<DeferredDownload>? node = _deferredNativeDownloads.First; node != null;)
+        {
+            LinkedListNode<DeferredDownload>? next = node.Next;
+            // A file from a frame of the next page, still loading, belongs to that page.
+            if (node.Value.LoadingPage == null)
+            {
+                node.Value.Source.Dispose();
+                _deferredNativeDownloads.Remove(node);
+            }
+            node = next;
+        }
     }
 
     private void OnDownloadMediaClick(object? sender, RoutedEventArgs e)
@@ -427,10 +501,12 @@ internal partial class WebBrowserTabView
     private void OnDismissDownloadStatusClick(object? sender, RoutedEventArgs e)
     {
         bool offerNext = _pendingPageDownloadRequest?.Source != null && _deferredNativeDownloads.Count > 0;
-        if (_pendingPageDownloadRequest != null && !offerNext) _pageDownloadRequestsSuppressed = true;
+        bool suppress = _pendingPageDownloadRequest != null && !offerNext;
+        if (suppress) _pageDownloadRequestsSuppressed = true;
         ClearPageDownloadRequest();
         DownloadStatusPanel.IsVisible = false;
-        if (offerNext) OfferNextDeferredNativeDownload();
+        if (suppress) ShowPageDownloadsIgnored();
+        if (offerNext) OfferNextDeferredNativeDownload(afterDecline: true);
     }
 
     private void SetDownloadRunning(bool running)
@@ -493,7 +569,7 @@ internal partial class WebBrowserTabView
 
     internal async Task DownloadMediaAsync(Uri uri, string? suggestedName, Uri? referrer = null,
         BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin, IBrowserDownloadSource? source = null,
-        BrowserDownloadHandling? handling = null)
+        BrowserDownloadHandling? handling = null, bool fromPage = false)
     {
         if (_disposed || _downloadCancellation != null || _viewModel is not { } vm)
         {
@@ -502,6 +578,9 @@ internal partial class WebBrowserTabView
         }
         ClearPageDownloadRequest();
         NativeWebView? initiatingWebView = _webView;
+        // Options canceled after the page that opened them was left say nothing about the page now shown.
+        int page = _pageDownloadPage;
+        bool saved = false;
         using var cancellation = new CancellationTokenSource();
         _downloadCancellation = cancellation;
         try
@@ -514,7 +593,10 @@ internal partial class WebBrowserTabView
                 : DownloadOptionsSelector is { } selector
                     ? await selector(uri, cancellation.Token)
                     : await ChooseDownloadOptionsAsync(uri, cancellation.Token, suggestedName);
+            bool samePage = fromPage && !_disposed && ReferenceEquals(_viewModel, vm) && page == _pageDownloadPage;
+            if (options == null && samePage) CountPageDownloadDecline();
             if (options == null || cancellation.IsCancellationRequested) return;
+            if (samePage) _pageDownloadDeclines = 0;
             ShowDownloadRunning(uri);
             Progress<(long Received, long? Total)> progress = CreateDownloadProgress(cancellation);
             string file;
@@ -530,6 +612,7 @@ internal partial class WebBrowserTabView
                 file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token, referrer, cookies, referrerPolicy,
                     await DownloadUserAgentProvider(initiatingWebView).WaitAsync(cancellation.Token));
             }
+            saved = true;
             if (_disposed || !ReferenceEquals(_viewModel, vm)) return;
             DownloadStatusText.Text = string.Format(Strings.WebDownloadComplete, Path.GetFileName(file));
             ToolTip.SetTip(DownloadStatusText, file);
@@ -567,7 +650,7 @@ internal partial class WebBrowserTabView
             source?.Dispose();
             _downloadCancellation = null;
             if (!_disposed) SetDownloadRunning(false);
-            OfferNextDeferredNativeDownload();
+            OfferNextDeferredNativeDownload(afterDecline: !saved);
         }
     }
 }
