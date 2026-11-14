@@ -171,7 +171,7 @@
     <comment/>
   </data>
   <data name="EnablePointerLockInProperty_Description" xml:space="preserve">
-    <value>Hides the cursor during drag operations in the Property Editor. (Windows only)</value>
+    <value>Hides the cursor during drag operations in the Property Editor. (Windows and macOS only)</value>
     <comment/>
   </data>
   <data name="Telemetry_Beutl_Logging" xml:space="preserve">

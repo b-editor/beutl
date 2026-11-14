@@ -171,7 +171,7 @@
     <comment />
   </data>
   <data name="EnablePointerLockInProperty_Description" xml:space="preserve">
-    <value>Oculta el cursor durante las operaciones de arrastre en el editor de propiedades. (Solo Windows)</value>
+    <value>Oculta el cursor durante las operaciones de arrastre en el editor de propiedades. (Solo Windows y macOS)</value>
     <comment />
   </data>
   <data name="Telemetry_Beutl_Logging" xml:space="preserve">

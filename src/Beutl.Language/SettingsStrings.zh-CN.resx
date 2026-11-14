@@ -171,7 +171,7 @@
     <comment />
   </data>
   <data name="EnablePointerLockInProperty_Description" xml:space="preserve">
-    <value>在属性编辑器中拖动操作期间隐藏光标。（仅限 Windows）</value>
+    <value>在属性编辑器中拖动操作期间隐藏光标。（仅限 Windows 和 macOS）</value>
     <comment />
   </data>
   <data name="Telemetry_Beutl_Logging" xml:space="preserve">
