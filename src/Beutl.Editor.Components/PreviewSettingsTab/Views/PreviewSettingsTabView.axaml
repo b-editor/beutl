@@ -89,7 +89,8 @@
                 <ItemsControl ItemsSource="{CompiledBinding Guides.Kinds}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <WrapPanel />
+                            <!--  A label longer than the minimum width ends where its check box does, so the gap comes from the panel.  -->
+                            <WrapPanel ItemSpacing="8" />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>

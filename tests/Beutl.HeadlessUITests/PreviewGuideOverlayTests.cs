@@ -1,4 +1,5 @@
-﻿using System.Reactive.Linq;
+﻿using System.Globalization;
+using System.Reactive.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -296,6 +297,62 @@ public class PreviewGuideOverlayTests
         finally
         {
             window.Close();
+        }
+    }
+
+    // A label longer than a check box's minimum width (アクションセーフ, Área segura de acción) used to end
+    // exactly where the next check box began.
+    [AvaloniaTest]
+    public async Task Guide_labels_leave_a_gap_before_the_next_check_box()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("preview-guides-spacing");
+        Config.IsPreviewGuideEnabled.Value = true;
+        CultureInfo previousUiCulture = CultureInfo.CurrentUICulture;
+        var gaps = new List<string>();
+        try
+        {
+            foreach (CultureInfo culture in LocalizeService.Instance.SupportedCultures())
+            {
+                CultureInfo.CurrentUICulture = culture;
+                using var vm = new PreviewSettingsTabViewModel(editor);
+                var view = new PreviewSettingsTabView { DataContext = vm };
+                var window = new Window { Content = view, Width = 620, Height = 900 };
+                window.Show();
+                try
+                {
+                    HeadlessTestHelpers.Render();
+                    HeadlessCapture.SaveIfRequested(window, nameof(PreviewGuideOverlayTests), $"guide-kinds-{culture.Name}");
+
+                    WrapPanel panel = view.FindControl<StackPanel>("GuideSettings")!
+                        .GetVisualDescendants().OfType<WrapPanel>().First();
+                    CheckBox[] boxes = panel.GetVisualDescendants().OfType<CheckBox>().ToArray();
+                    Assert.That(boxes, Has.Length.EqualTo(vm.Guides.Kinds.Count), culture.Name);
+
+                    for (int i = 0; i + 1 < boxes.Length; i++)
+                    {
+                        Point next = boxes[i + 1].TranslatePoint(default, panel)!.Value;
+                        if (next.Y > boxes[i].TranslatePoint(default, panel)!.Value.Y)
+                            continue; // the next box starts a new line
+
+                        Avalonia.Controls.TextBlock label = boxes[i].GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>()
+                            .Single(text => text.Text == (string)boxes[i].Content!);
+                        double labelEnd = label.TranslatePoint(new Point(label.TextLayout.WidthIncludingTrailingWhitespace, 0), panel)!.Value.X;
+                        double gap = next.X - labelEnd;
+                        gaps.Add($"{culture.Name} {label.Text}: {gap:0.#}");
+                        Assert.That(gap, Is.GreaterThanOrEqualTo(6),
+                            $"{culture.Name}: '{label.Text}' runs up to the next check box");
+                    }
+                }
+                finally
+                {
+                    window.Close();
+                }
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previousUiCulture;
+            TestContext.Out.WriteLine(string.Join(Environment.NewLine, gaps));
         }
     }
 
