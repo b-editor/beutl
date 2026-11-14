@@ -248,6 +248,9 @@ You can keep editing when this finishes.</value>
   <data name="FailedToLoadMetadata" xml:space="preserve">
     <value>Failed to retrieve metadata.</value>
   </data>
+  <data name="UpdateFoldersInUse" xml:space="preserve">
+    <value>Another running Beutl is using the folder that updates are prepared in. Install the update from that Beutl, or quit it and try again.</value>
+  </data>
   <data name="DownloadFailed" xml:space="preserve">
     <value>Download failed.</value>
   </data>

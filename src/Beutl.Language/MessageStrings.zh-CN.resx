@@ -248,6 +248,9 @@
   <data name="FailedToLoadMetadata" xml:space="preserve">
     <value>检索元数据失败。</value>
   </data>
+  <data name="UpdateFoldersInUse" xml:space="preserve">
+    <value>另一个正在运行的 Beutl 正在使用准备更新的文件夹。请从该 Beutl 安装更新，或将其退出后重试。</value>
+  </data>
   <data name="DownloadFailed" xml:space="preserve">
     <value>下载失败。</value>
   </data>

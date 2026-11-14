@@ -248,6 +248,9 @@ Podrás seguir editando cuando termine.</value>
   <data name="FailedToLoadMetadata" xml:space="preserve">
     <value>No se pudieron recuperar los metadatos.</value>
   </data>
+  <data name="UpdateFoldersInUse" xml:space="preserve">
+    <value>Otro Beutl en ejecución está usando la carpeta donde se preparan las actualizaciones. Instala la actualización desde ese Beutl, o ciérralo e inténtalo de nuevo.</value>
+  </data>
   <data name="DownloadFailed" xml:space="preserve">
     <value>La descarga falló.</value>
   </data>

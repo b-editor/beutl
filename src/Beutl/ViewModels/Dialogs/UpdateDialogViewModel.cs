@@ -24,11 +24,14 @@ public enum AppUpdatePhase
 
 public class UpdateDialogViewModel
 {
+    private static readonly object s_claimGate = new();
+    private static FileStream? s_updateFolderClaim;
     private readonly CancellationTokenSource _cts = new();
     private readonly ILogger _logger = Log.CreateLogger<UpdateDialogViewModel>();
     private readonly FlatpakUpdater? _flatpak;
     private readonly HttpClient? _httpClient;
     private readonly Func<Task<AssetMetadataJson?>> _loadMetadata;
+    private readonly Func<bool> _claimUpdateFolders;
     private Task? _startTask;
     private string? _downloadFile;
     private bool _isInstalling;
@@ -42,13 +45,14 @@ public class UpdateDialogViewModel
     // Test seam: the app passes neither flatpak nor httpClient and uses the defaults.
     internal UpdateDialogViewModel(AppUpdateResponse update, bool isFlatpak,
         FlatpakUpdater? flatpak = null, HttpClient? httpClient = null,
-        Func<Task<AssetMetadataJson?>>? loadMetadata = null)
+        Func<Task<AssetMetadataJson?>>? loadMetadata = null, Func<bool>? claimUpdateFolders = null)
     {
         Update = update;
         IsFlatpak = isFlatpak;
         _flatpak = flatpak;
         _httpClient = httpClient;
         _loadMetadata = loadMetadata ?? BeutlApiApplication.LoadMetadata;
+        _claimUpdateFolders = claimUpdateFolders ?? ClaimUpdateFolders;
         PrimaryButtonText = new(isFlatpak
             ? ""
             : OperatingSystem.IsWindows()
@@ -374,6 +378,26 @@ public class UpdateDialogViewModel
     // Failed when the update could not be prepared; ProgressText says why.
     private async Task<AppUpdatePhase> PrepareUpdateAsync()
     {
+        // Read first, so an update that cannot be prepared here downloads nothing.
+        AssetMetadataJson? metadata = null;
+        if (!IsFlatpak)
+        {
+            metadata = await _loadMetadata();
+            if (metadata == null)
+            {
+                ProgressText.Value = MessageStrings.FailedToLoadMetadata;
+                return AppUpdatePhase.Failed;
+            }
+
+            // Unpacking empties folders that every running Beutl shares, where another Beutl may have its update ready.
+            if (Unpacks(metadata) && !_claimUpdateFolders())
+            {
+                _logger.LogInformation("Another Beutl holds the update folders");
+                ProgressText.Value = MessageStrings.UpdateFoldersInUse;
+                return AppUpdatePhase.Failed;
+            }
+        }
+
         FlatpakUpdater? flatpak = null;
         try
         {
@@ -409,23 +433,16 @@ public class UpdateDialogViewModel
             }
         }
 
-        var metadata = await _loadMetadata();
-        if (metadata == null)
+        // A Flatpak update has finished by now, so the metadata was read.
+        AssetMetadataJson read = metadata!;
+        if (Unpacks(read))
         {
-            ProgressText.Value = MessageStrings.FailedToLoadMetadata;
-            return AppUpdatePhase.Failed;
-        }
-
-        // Only the Linux zip and the macOS app install from an unpacked update. Windows and macOS zips
-        // are no longer published and have no update path.
-        if ((metadata.Type == "zip" && OperatingSystem.IsLinux()) || metadata.Type == "app")
-        {
-            return await StageExtractedUpdateAsync(metadata, _downloadFile)
+            return await StageExtractedUpdateAsync(read, _downloadFile)
                 ? AppUpdatePhase.Ready
                 : AppUpdatePhase.Failed;
         }
 
-        if (metadata.Type is "installer" or "debian")
+        if (read.Type is "installer" or "debian")
         {
             ProgressText.Value = MessageStrings.StartInstaller;
             PrimaryButtonText.Value = MessageStrings.UpdateAction_StartInstaller;
@@ -448,6 +465,37 @@ public class UpdateDialogViewModel
     // Where an update is unpacked before the update script copies it over the application.
     private static string UpdateStagingRoot
         => Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update");
+
+    // Only the Linux zip and the macOS app install from an unpacked update. Windows and macOS zips
+    // are no longer published and have no update path.
+    private static bool Unpacks(AssetMetadataJson metadata)
+        => (metadata.Type == "zip" && OperatingSystem.IsLinux()) || metadata.Type == "app";
+
+    // Every running Beutl unpacks its update into the same folders, and unpacking empties them first. So only the Beutl
+    // that claims them unpacks one, or starts one unasked, and the claim lasts until the process exits. The lock file
+    // stays, since unlinking it could split ownership.
+    internal static bool ClaimUpdateFolders()
+    {
+        lock (s_claimGate)
+        {
+            s_updateFolderClaim ??= TryClaim(Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.lock"));
+            return s_updateFolderClaim != null;
+        }
+    }
+
+    // The lock on path, or null while another process holds it.
+    internal static FileStream? TryClaim(string path)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
 
     // Downloads go to their own folder, so a server-chosen name cannot overwrite the update
     // scripts in tmp, which this application later executes.
