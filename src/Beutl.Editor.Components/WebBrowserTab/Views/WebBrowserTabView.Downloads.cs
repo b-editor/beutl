@@ -80,10 +80,12 @@ internal partial class WebBrowserTabView
             return;
         }
         bool mainFrameDownload = trackNavigationFailure && _pageDownloadNavigationPending && _latestNavigationRequest == uri;
-        if (trackNavigationFailure && !_pageDownloadNavigationPending
-            && (_pendingPageDownloadRequest?.Source != null || _downloadCancellation != null))
+        // A response the engine already holds waits while another file's options are open or it is being saved, from
+        // any engine; a WebView2 one also waits behind an offered file. One that ends a navigation settles it first.
+        if (source != null && !_pageDownloadNavigationPending
+            && (_downloadCancellation != null || trackNavigationFailure && _pendingPageDownloadRequest?.Source != null))
         {
-            DeferNativeDownload(uri, suggestedName, source!);
+            DeferNativeDownload(uri, suggestedName, source);
             return;
         }
         if (trackNavigationFailure && _pageDownloadNavigationPending && !mainFrameDownload)
@@ -406,8 +408,7 @@ internal partial class WebBrowserTabView
 
     private void ResetPageDownloadRequests()
     {
-        if (_pageDownloadRequestsSuppressed && _downloadCancellation == null
-            && DownloadStatusText.Text == Strings.BrowserPageDownloadsIgnored)
+        if (_pageDownloadRequestsSuppressed && DownloadStatusText.Text == Strings.BrowserPageDownloadsIgnored)
         {
             DownloadStatusPanel.IsVisible = false;
         }

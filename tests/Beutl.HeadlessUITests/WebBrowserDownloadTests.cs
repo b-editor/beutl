@@ -1104,6 +1104,62 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    public void ResponsesFromEveryEngineWaitWhileTheOptionsAreOpen()
+    {
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://page.example/"));
+        using var view = CreateView(vm);
+        view.OpensPageDownloadOptionsDirectly = true;
+        var pending = new List<TaskCompletionSource<WebBrowserTabView.BrowserDownloadOptions?>>();
+        view.DownloadOptionsSelector = (_, _) =>
+        {
+            var completion = new TaskCompletionSource<WebBrowserTabView.BrowserDownloadOptions?>();
+            pending.Add(completion);
+            return completion.Task;
+        };
+        var first = new ResponseDownloadSource("first.bin");
+        var second = new ResponseDownloadSource("second.bin");
+        view.OnNativeDownloadRequested(new Uri("https://files.example/first.bin"), "first.bin", first);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(pending, Has.Count.EqualTo(1));
+        view.OnNativeDownloadRequested(new Uri("https://files.example/second.bin"), "second.bin", second);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(second.IsDisposed, Is.False);
+
+        pending[0].SetResult(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo("https://files.example/second.bin"));
+        Assert.That(second.IsDisposed, Is.False);
+    }
+
+    [AvaloniaTest]
+    public void TheIgnoredNoticeClearsOnReloadEvenWhileTheOptionsAreOpen()
+    {
+        var initial = new Uri("https://page.example/");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), initial);
+        using var view = CreateView(vm, getPageTitle: _ => Task.FromResult<string?>("Page"));
+        view.PageScriptRunner = _ => Task.FromResult<string?>("true");
+        var pending = new TaskCompletionSource<WebBrowserTabView.BrowserDownloadOptions?>();
+        view.DownloadOptionsSelector = (_, _) => pending.Task;
+        view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+        { Body = """{"kind":"beutl-download","url":"https://files.example/movie.mp4"}""" });
+        Dispatcher.UIThread.RunJobs();
+        view.FindControl<Button>("DismissDownloadStatusButton")!
+            .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        var statusPanel = view.FindControl<Grid>("DownloadStatusPanel")!;
+        Assert.That(statusPanel.IsVisible, Is.True);
+
+        // The user opens the options for the page itself, and the page reloads meanwhile.
+        _ = view.DownloadMediaAsync(initial, null, initial);
+        Dispatcher.UIThread.RunJobs();
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = initial, IsSuccess = true });
+        Assert.That(statusPanel.IsVisible, Is.False);
+        pending.SetResult(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(statusPanel.IsVisible, Is.False);
+    }
+
+    [AvaloniaTest]
     public void CancelingAPagesOptionsTwiceIgnoresItsRequestsUntilItReloads()
     {
         var initial = new Uri("https://page.example/");
