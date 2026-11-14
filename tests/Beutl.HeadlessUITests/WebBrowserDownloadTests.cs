@@ -1066,6 +1066,84 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    public void FilesQueuedWhileTheOptionsAreOpenWaitInTheNotificationAfterCancel()
+    {
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://page.example/"));
+        using var view = CreateView(vm);
+        view.OpensPageDownloadOptionsDirectly = true;
+        var pending = new List<TaskCompletionSource<WebBrowserTabView.BrowserDownloadOptions?>>();
+        view.DownloadOptionsSelector = (_, _) =>
+        {
+            var completion = new TaskCompletionSource<WebBrowserTabView.BrowserDownloadOptions?>();
+            pending.Add(completion);
+            return completion.Task;
+        };
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+
+        view.OnGeneratedDownloadRequested(null, "first.txt", new GeneratedDownloadSource("first.txt", "1"));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(pending, Has.Count.EqualTo(1));
+        view.OnGeneratedDownloadRequested(null, "second.txt", new GeneratedDownloadSource("second.txt", "2"));
+        view.OnGeneratedDownloadRequested(null, "third.txt", new GeneratedDownloadSource("third.txt", "3"));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(pending, Has.Count.EqualTo(1));
+
+        pending[0].SetResult(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(pending, Has.Count.EqualTo(1));
+        Assert.That(confirm.IsVisible, Is.True);
+        Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo("second.txt"));
+
+        // Dismissing the notification offers the next queued file there as well.
+        view.FindControl<Button>("DismissDownloadStatusButton")!
+            .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(pending, Has.Count.EqualTo(1));
+        Assert.That(confirm.IsVisible, Is.True);
+        Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo("third.txt"));
+    }
+
+    [AvaloniaTest]
+    public void CancelingAPagesOptionsTwiceIgnoresItsRequestsUntilItReloads()
+    {
+        var initial = new Uri("https://page.example/");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), initial);
+        using var view = CreateView(vm, getPageTitle: _ => Task.FromResult<string?>("Page"));
+        view.OpensPageDownloadOptionsDirectly = true;
+        view.PageScriptRunner = _ => Task.FromResult<string?>("true");
+        int optionsOpened = 0;
+        view.DownloadOptionsSelector = (_, _) =>
+        {
+            optionsOpened++;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+        };
+        var statusPanel = view.FindControl<Grid>("DownloadStatusPanel")!;
+        void Request()
+        {
+            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+            { Body = """{"kind":"beutl-download","url":"https://files.example/movie.mp4"}""" });
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        Request();
+        Assert.That(optionsOpened, Is.EqualTo(1));
+        Request();
+        Assert.That(optionsOpened, Is.EqualTo(2));
+
+        // A queued file is dropped along with the page's later requests.
+        var queued = new GeneratedDownloadSource("queued.txt", "q");
+        view.OnGeneratedDownloadRequested(null, "queued.txt", queued);
+        Request();
+        Assert.That(optionsOpened, Is.EqualTo(2));
+        Assert.That(statusPanel.IsVisible, Is.False);
+        Assert.That(queued.IsDisposed, Is.True);
+
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = initial, IsSuccess = true });
+        Request();
+        Assert.That(optionsOpened, Is.EqualTo(3));
+    }
+
+    [AvaloniaTest]
     public void APageDownloadRequestDoesNotReplaceAnOpenPanel()
     {
         using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://page.example/"));
