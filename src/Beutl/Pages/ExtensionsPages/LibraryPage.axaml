@@ -84,14 +84,16 @@
                                                Theme="{StaticResource CaptionTextBlockStyle}" />
                                 </StackPanel>
 
-                                <!--  The buttons share one cell and hide with the transparent class, so the cell keeps its width as the state changes.  -->
+                                <!--  The buttons share one cell and hide with the transparent class, so the cell keeps its width as the state changes.
+                                      Transparent leaves a button reachable with Tab, so a hidden one is also disabled, or Space would run it unseen.  -->
                                 <Button Grid.Column="4"
                                         Classes="action"
                                         Classes.shimmer="{Binding IsBusy.Value}"
                                         Classes.transparent="{Binding !IsInstallButtonVisible.Value}"
                                         Click="ActionButton_Click"
                                         Command="{Binding Install}"
-                                        Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Install}}" />
+                                        Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Install}}"
+                                        IsEnabled="{Binding IsInstallButtonVisible.Value}" />
 
                                 <Button Grid.Column="4"
                                         Classes="action"
@@ -99,7 +101,8 @@
                                         Classes.transparent="{Binding !IsUninstallButtonVisible.Value}"
                                         Click="ActionButton_Click"
                                         Command="{Binding Uninstall}"
-                                        Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Uninstall}}" />
+                                        Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Uninstall}}"
+                                        IsEnabled="{Binding IsUninstallButtonVisible.Value}" />
 
                                 <Button Grid.Column="4"
                                         Classes="action accent"
@@ -107,16 +110,19 @@
                                         Classes.transparent="{Binding !IsUpdateButtonVisible.Value}"
                                         Click="ActionButton_Click"
                                         Command="{Binding Update}"
-                                        Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Update}}" />
+                                        Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Update}}"
+                                        IsEnabled="{Binding IsUpdateButtonVisible.Value}" />
 
+                                <!--  Only shows the progress, so it never takes the focus.  -->
                                 <Button Grid.Column="4"
                                         Classes="action"
                                         Classes.shimmer="{Binding IsBusy.Value}"
                                         Classes.transparent="{Binding !IsBusy.Value}"
                                         Content="{Binding StatusText.Value}"
+                                        Focusable="False"
                                         IsHitTestVisible="False" />
 
-                                <!--  A scheduled change waits for a restart, so the cell offers one; the menu cancels the change. Hidden, it is also disabled, as transparent leaves it reachable with Tab.  -->
+                                <!--  A scheduled change waits for a restart, so the cell offers one; the menu cancels the change.  -->
                                 <Button Grid.Column="4"
                                         Classes="action accent"
                                         Classes.transparent="{Binding !CanCancel.Value}"
