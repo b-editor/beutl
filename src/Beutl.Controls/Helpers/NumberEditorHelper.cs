@@ -152,9 +152,13 @@ public static class NumberEditorHelper
         };
     }
 
+    // .NET writes negative zero as "-0", which an expression such as Round(-0.2) or a typed "-0" gives.
     internal static string Format<TValue>(TValue value, string? numberFormat)
         where TValue : INumber<TValue>
     {
+        if (TValue.IsZero(value))
+            value = TValue.Zero;
+
         return value.ToString(numberFormat ?? "G", CultureInfo.CurrentCulture);
     }
 
