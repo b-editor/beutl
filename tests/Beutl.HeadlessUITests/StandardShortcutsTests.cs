@@ -998,6 +998,37 @@ public sealed class StandardShortcutsTests
         }
     }
 
+    // AppKit gives the application menu's Settings entry Cmd+, before the flyout sees it, so while a key is being assigned
+    // the entry hands its key to the flyout (#4053).
+    [AvaloniaTest]
+    public async Task The_key_of_a_menu_entry_goes_to_the_flyout_taking_a_key()
+    {
+        await TestReset.ResetShellAsync();
+        using var model = TestShell.MainViewModel.CreateSettingsDialog();
+        var page = new KeyMapSettingsPage { DataContext = model.KeyMap };
+        var window = new Window { Content = page, Width = 1000, Height = 900 };
+        window.Show();
+        var settingsKey = new KeyGesture(Key.OemComma, KeyModifiers.Meta);
+        try
+        {
+            Assert.That(KeyMapFlyout.TakeMenuKey(settingsKey), Is.False, "No key is being assigned.");
+            (_, ContentControl presenter) = OpenKeyMapFlyout(page, window);
+            TextBox gestureBox = ((Grid)presenter.Content!).Children.OfType<TextBox>().Single();
+
+            Assert.That(KeyMapFlyout.TakeMenuKey(settingsKey), Is.True);
+            HeadlessTestHelpers.Settle();
+            Assert.That(gestureBox.Text, Is.EqualTo(settingsKey.ToString()));
+
+            presenter.RaiseEvent(KeyDown(presenter, Key.Escape, KeyModifiers.None));
+            HeadlessTestHelpers.Render(3);
+            Assert.That(KeyMapFlyout.TakeMenuKey(settingsKey), Is.False, "The flyout has closed.");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static (Button Row, ContentControl Presenter) OpenKeyMapFlyout(KeyMapSettingsPage page, Window window)
     {
         HeadlessTestHelpers.Render();

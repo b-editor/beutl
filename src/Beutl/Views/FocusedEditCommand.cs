@@ -36,6 +36,9 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
 
     public ICommand Fallback => fallback;
 
+    // The key the entry shows, which the key map can move.
+    internal KeyGesture? ShownGesture { get; set; } = shownGesture;
+
     // Test seam: the Headless platform has no AppKit event to look at.
     internal Func<bool> IsKeyEquivalent { get; init; } = () => IsCurrentEventKeyDown(window);
 
@@ -63,7 +66,7 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
         bool isTextInput = IsTextInput(target);
         // A text input knows only the standard keys. Elsewhere a key map can have moved the entry's key, and the
         // standard one may then run another command.
-        KeyGesture gesture = (isTextInput ? null : shownGesture) ?? GetKeyGesture(action);
+        KeyGesture gesture = (isTextInput ? null : ShownGesture) ?? GetKeyGesture(action);
         var args = new KeyEventArgs
         {
             RoutedEvent = InputElement.KeyDownEvent,
@@ -127,7 +130,7 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
             SharedApplication(), ObjCRuntime.Selector("sendAction:to:from:"), ObjCRuntime.Selector(selector), 0, 0);
     }
 
-    private static bool IsCurrentEventKeyDown(TopLevel window)
+    internal static bool IsCurrentEventKeyDown(TopLevel window)
     {
         const nint NSEventTypeKeyDown = 10;
         if (window.TryGetPlatformHandle() is not IMacOSTopLevelPlatformHandle)

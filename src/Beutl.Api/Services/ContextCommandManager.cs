@@ -23,6 +23,12 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
     private readonly ILogger _logger = Log.CreateLogger<ContextCommandManager>();
     private readonly Dictionary<Type, ContextCommandEntry[]> _entries = new();
 
+    /// <summary>
+    /// Raised on the thread that made the change, after commands are registered or unregistered or a gesture is assigned,
+    /// so that what shows the gestures, such as a menu built before the commands were known, can show them again.
+    /// </summary>
+    internal event EventHandler? GesturesChanged;
+
     public void Register(ViewExtension extension)
     {
         var definitions = extension.ContextCommands.Select(def
@@ -35,6 +41,7 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
         Restore(definitions);
 
         _entries[extension.GetType()] = definitions;
+        GesturesChanged?.Invoke(this, EventArgs.Empty);
     }
 
     // A gesture without a platform yields null, which Register filters out.
@@ -60,7 +67,8 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
 
     public void Unregister(ViewExtension extension)
     {
-        _entries.Remove(extension.GetType());
+        if (_entries.Remove(extension.GetType()))
+            GesturesChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public IEnumerable<ContextCommandEntry> GetDefinitions(Type type)
@@ -123,6 +131,7 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
             entry.Definition.Id,
             entry.KeyGestures.Where(g => g.Platform == platform).Select(g => g.KeyGesture).ToArray(),
             platform);
+        GesturesChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void Restore(ContextCommandEntry[] entries)
