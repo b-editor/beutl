@@ -950,6 +950,24 @@ public class ShaderNodeRecordingTests
         Assert.That(error.Value, Is.Null);
     }
 
+    // Two pictures can be made from one node, and the one that spoke last is shown. A picture that goes takes back only
+    // what it said itself, so an older picture that goes after a newer one has spoken leaves the newer one's mistake.
+    [Test]
+    public void APictureThatGoesTakesBackOnlyWhatItSaid()
+    {
+        var monitor = new NodeMonitor<string?>();
+        var reports = new ShaderErrorReports(monitor);
+        object older = new(), newer = new();
+
+        reports.ReportPicture(older, "The older picture failed.");
+        reports.ReportPicture(newer, "The newer picture failed.");
+        reports.WithdrawPicture(older);
+        Assert.That(monitor.Value, Is.EqualTo("The newer picture failed."));
+
+        reports.WithdrawPicture(newer);
+        Assert.That(monitor.Value, Is.Null);
+    }
+
     private static void Rebuild(GraphModel graph, GraphSnapshot snapshot)
     {
         snapshot.MarkDirty();
