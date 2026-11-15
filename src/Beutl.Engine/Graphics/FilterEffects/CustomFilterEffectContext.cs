@@ -171,11 +171,13 @@ public class CustomFilterEffectContext
 
     // The device pixel a buffer starts in, given the one its edge falls in. Bounds laid on whole device pixels come
     // back from effect-local space a few units in the last place off them, and an edge that short of the next pixel
-    // starts there, or a target described by its raster would be drawn a pixel early.
+    // starts there, or a target described by its raster would be drawn a pixel early. The allowance grows with the
+    // coordinate but stays under a pixel, so an edge on a pixel boundary stays on it however far out it lies.
     private static int StartPastRounding(int pixel, float edge, float w)
     {
         double device = (double)edge * w;
-        return pixel + 1 - device <= Math.Max(1e-4, Math.Abs(device) * 1e-6) ? pixel + 1 : pixel;
+        double allowance = Math.Min(0.25, Math.Max(1e-4, Math.Abs(device) * 1e-6));
+        return pixel + 1 - device <= allowance ? pixel + 1 : pixel;
     }
 
     /// <summary>

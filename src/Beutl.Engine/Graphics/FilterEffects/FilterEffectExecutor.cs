@@ -367,7 +367,10 @@ public sealed partial class FilterEffectExecutor : IDisposable
             }
 
             Rect bounds = target.ContentBounds ?? placement.Restore(target.Bounds);
-            if (bounds != target.Bounds)
+            // A target that knows where its content lies is described by its raster even where its bounds are already
+            // the content's, so the next flush ahead of a callback that keeps placement lays it out again and goes on
+            // tracking its content.
+            if (target.ContentBounds is not null || bounds != target.Bounds)
                 CurrentTargets[i] = target.TakeRasterWithBounds(bounds);
         }
     }

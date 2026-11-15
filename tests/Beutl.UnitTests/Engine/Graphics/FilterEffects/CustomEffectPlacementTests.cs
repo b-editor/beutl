@@ -90,6 +90,36 @@ public sealed class CustomEffectPlacementTests
         AssertSamePixels(filled, blended);
     }
 
+    // Blended with a mode that also paints where the content is not, such as SrcOver, a brush covers the content's own
+    // rectangle, whose edges move with the content, rather than the whole pixels the content touches: it is the same
+    // as a rectangle of the brush drawn over the shape. The shape is 12 px tall, so its rectangle lies on whole pixels
+    // vertically: Skia covers a rectangle's corner pixel by the smaller of its two edges' coverage, and a shape's by
+    // their product.
+    [Test]
+    public void A_brush_painted_over_a_shape_covers_the_shape_s_rectangle(
+        [Values(1, 2)] int renderScale,
+        [Values(0f, 0.2f, 0.7f)] float offset)
+    {
+        using Bitmap rectangle = RenderFrame(
+            renderScale,
+            CreateShape(null, offset, Brushes.White, rectangle: false, height: 12),
+            CreateShape(null, offset, new SolidColorBrush(Colors.Red), rectangle: true, height: 12));
+        using Bitmap painted = RenderFrame(
+            renderScale,
+            CreateShape(
+                new BlendEffect
+                {
+                    Brush = { Value = new SolidColorBrush(Colors.Red) },
+                    BlendMode = { Value = BlendMode.SrcOver },
+                },
+                offset,
+                Brushes.White,
+                rectangle: false,
+                height: 12));
+
+        AssertSamePixels(rectangle, painted);
+    }
+
     // FlatShadow grows its output by whole pixels on the side the shadow falls, however far the shadow reaches, so a
     // shadow of no colour leaves the shape as it was.
     [Test]
@@ -118,13 +148,35 @@ public sealed class CustomEffectPlacementTests
     [TestCase(typeof(StrokeEffect))]
     public void An_effect_that_grows_its_output_goes_on_with_the_bounds_it_gives_the_content(Type effectType)
     {
-        var content = new Rect(8.3f, 10.15f, 15.4f, 11.7f);
+        AssertBoundsAfter(new Rect(8.3f, 10.15f, 15.4f, 11.7f), Growing(effectType));
+    }
+
+    // Content on whole pixels comes out of BlendEffect with bounds that are already its own. It still goes on known by
+    // its raster, so the effect that grows after it lays it out again and gives the content the bounds it declares.
+    [TestCase(typeof(FlatShadow))]
+    [TestCase(typeof(StrokeEffect))]
+    public void An_effect_that_grows_after_one_that_leaves_content_on_whole_pixels_goes_on_with_its_bounds(
+        Type effectType)
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(new BlendEffect());
+        group.Children.Add(Growing(effectType));
+
+        AssertBoundsAfter(new Rect(8, 10, 15, 11), group);
+    }
+
+    private static FilterEffect Growing(Type effectType)
+        => effectType == typeof(FlatShadow)
+            ? new FlatShadow { Angle = { Value = 180 }, Length = { Value = 5.5f } }
+            : new StrokeEffect();
+
+    // Runs the effect on content drawn at the given bounds and checks the bounds it goes on with are the ones the
+    // effect declares for them.
+    private static void AssertBoundsAfter(Rect content, FilterEffect effect)
+    {
         PixelRect device = PixelRect.FromRect(content, 1);
         using RenderTarget backing = CpuRenderTargets.Create(device.Width, device.Height);
         using var targets = new EffectTargets { new EffectTarget(backing, content, EffectiveScale.At(1), device) };
-        FilterEffect effect = effectType == typeof(FlatShadow)
-            ? new FlatShadow { Angle = { Value = 180 }, Length = { Value = 5.5f } }
-            : new StrokeEffect();
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(content);
         context.ApplyTransactional(resource);
@@ -272,13 +324,35 @@ public sealed class CustomEffectPlacementTests
     }
 
     private static Bitmap Render(FilterEffect? effect, int renderScale, float offset, Brush? fill = null)
+        => RenderFrame(renderScale, CreateShape(effect, offset, fill ?? Brushes.White, rectangle: false));
+
+    private static Shape CreateShape(
+        FilterEffect? effect, float offset, Brush fill, bool rectangle, float height = 11.7f)
     {
-        var shape = new EllipseShape();
-        shape.Width.Value = 15.4f;
-        shape.Height.Value = 11.7f;
-        shape.Fill.Value = fill ?? Brushes.White;
+        Shape shape;
+        if (rectangle)
+        {
+            var rect = new RectShape();
+            rect.Width.Value = 15.4f;
+            rect.Height.Value = height;
+            shape = rect;
+        }
+        else
+        {
+            var ellipse = new EllipseShape();
+            ellipse.Width.Value = 15.4f;
+            ellipse.Height.Value = height;
+            shape = ellipse;
+        }
+
+        shape.Fill.Value = fill;
         shape.FilterEffect.Value = effect;
         shape.Transform.Value = new TranslateTransform(offset, 0);
+        return shape;
+    }
+
+    private static Bitmap RenderFrame(int renderScale, params Drawable[] drawables)
+    {
         return RenderThread.Dispatcher.Invoke(() =>
         {
             int pixels = Size * renderScale;
@@ -289,7 +363,7 @@ public sealed class CustomEffectPlacementTests
                 renderScale: renderScale,
                 maxWorkingScale: float.PositiveInfinity,
                 surface: new CpuRenderTarget(pixels, pixels));
-            renderer.Render(RendererTestSupport.CreateFrame(new PixelSize(Size, Size), shape));
+            renderer.Render(RendererTestSupport.CreateFrame(new PixelSize(Size, Size), drawables));
             return renderer.Snapshot();
         });
     }

@@ -385,9 +385,10 @@ public sealed partial class FilterEffectContext
                     float w = newTarget.Scale.Value;
                     using var brushPaint = new SKPaint();
                     // The brush lies over the content, which the target may hold inside the whole pixels it touches.
-                    Rect content = target.ContentBounds ?? target.Bounds;
+                    Rect content = (target.ContentBounds ?? target.Bounds)
+                        .Translate(new Vector(-target.Bounds.X, -target.Bounds.Y));
                     context.CreateBrushConstructor(
-                        content.Translate(new Vector(-target.Bounds.X, -target.Bounds.Y)),
+                        content,
                         data.Brush,
                         data.BlendMode,
                         w).ConfigurePaint(brushPaint);
@@ -401,7 +402,11 @@ public sealed partial class FilterEffectContext
                             newCanvas.DrawRenderTarget(target.RenderTarget, default);
                         }
 
-                        newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
+                        // A mode that shows only where the content is fills the whole buffer, so the content's partly
+                        // covered pixels take all of the brush. Any other paints the content's rectangle, which moves
+                        // with the content rather than with the whole pixels it touches.
+                        Rect fill = ShowsOnlyOverDestination(data.BlendMode) ? new Rect(size) : content;
+                        newCanvas.Canvas.DrawRect(fill.ToSKRect(), brushPaint);
                     }
 
                     newTarget.ContentBounds = target.ContentBounds;
@@ -413,4 +418,11 @@ public sealed partial class FilterEffectContext
         // The content is copied pixel for pixel and the brush blended over it, so it stays where it is.
         CustomEffect((brush, blendMode), ApplyCore, (_, r) => r, CustomFilterEffectOptions.KeepsPlacement);
     }
+
+    // Whether a blend mode leaves a transparent destination pixel transparent, so the source shows only where the
+    // destination is.
+    private static bool ShowsOnlyOverDestination(BlendMode mode)
+        => mode is Graphics.BlendMode.Clear or Graphics.BlendMode.Dst or Graphics.BlendMode.SrcIn
+            or Graphics.BlendMode.DstIn or Graphics.BlendMode.DstOut or Graphics.BlendMode.SrcATop
+            or Graphics.BlendMode.Modulate;
 }

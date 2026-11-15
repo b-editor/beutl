@@ -97,6 +97,21 @@ public class CustomTargetClampConsistencyTests
         });
     }
 
+    // The allowance for that rounding grows with the coordinate but stays under a pixel, so bounds on a pixel boundary
+    // a million pixels out still start on it.
+    [Test]
+    public void CreateTarget_BoundsOnAPixelFarOut_StartOnIt()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            CustomFilterEffectContext context = Context(workingScale: 1f);
+            using EffectTarget target = context.CreateTarget(new Rect(1_000_000, 0, 10, 4));
+
+            Assert.That(target.DeviceBounds, Is.EqualTo(new PixelRect(1_000_000, 0, 10, 4)));
+        });
+    }
+
     [Test]
     public void CreateTarget_BufferBudgetExceeded_ClampsDensity_AndOpenMatchesClamp()
     {
