@@ -74,9 +74,10 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
         private long _heldFrom;
         private HoldSettings _heldSettings;
 
-        // What the held magnitudes were made with; any change makes them again.
+        // What the held magnitudes were made with; any change makes them again. The decay is the share of the hold a
+        // frame keeps: the smoothing, or, for a peak that would outlast the history, a rate the gain and the floor set.
         private readonly record struct HoldSettings(
-            int FftSize, int BarCount, FrequencyScale Scale, float Smoothing, int SampleRate, Rational FrameRate, int SourceVersion);
+            int FftSize, int BarCount, FrequencyScale Scale, float Decay, int SampleRate, Rational FrameRate, int SourceVersion);
 
         /// <summary>Gets the bars the last reconcile made, from 0 at the floor to 1 at full scale.</summary>
         internal ReadOnlySpan<float> Bars => _normalizedBars.AsSpan(0, _shownBarCount);
@@ -128,8 +129,10 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
 
             int barCount = Math.Min(Math.Max(1, BarCount), fftSize / 2);
             float smoothing = Math.Clamp(Smoothing / 100f, 0f, 0.99f);
+            // A hold made again takes in the windows of the frames after this one.
+            (int history, float decay) = HoldHistory(smoothing, frameRate);
             var settings = new HoldSettings(
-                fftSize, barCount, FrequencyScale, smoothing, CachedSampleRate, frameRate, Source?.Version ?? 0);
+                fftSize, barCount, FrequencyScale, decay, CachedSampleRate, frameRate, Source?.Version ?? 0);
             if (_smoothedMagnitudes.Length < barCount) _smoothedMagnitudes = new float[barCount];
             if (_shownMagnitudes.Length < barCount) _shownMagnitudes = new float[barCount];
             if (_normalizedBars.Length < barCount) _normalizedBars = new float[barCount];
@@ -138,8 +141,6 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             // The last frame of the grid at or before this time; a time between frames adds its own window on top.
             long frame = time.ToFrame(frameRate, MidpointRounding.ToNegativeInfinity);
             bool onFrame = MediaTime.FromFrames(frame, frameRate) == time;
-            // A hold made again takes in the windows of the frames after this one.
-            (int history, float decay) = HoldHistory(smoothing, frameRate);
             long from = frame - history - 1;
             // Playing on continues the hold while it reaches back as far as a hold made again would. A lower floor or a
             // higher gain moves that point back, and the hold is made again from there.

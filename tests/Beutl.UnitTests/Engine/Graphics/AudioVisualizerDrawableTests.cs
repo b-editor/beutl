@@ -267,6 +267,34 @@ public class AudioVisualizerDrawableTests
         });
     }
 
+    // A peak that would outlast the history falls at a rate the gain and the floor set, so changing either at the same
+    // time makes the hold again, though it looks back no further than before.
+    [TestCase(1f, -80f, 4f, -80f)]
+    [TestCase(1f, -80f, 1f, -60f)]
+    public void Spectrum_AGainOrAFloorThatChangesTheFallMakesTheHoldAgain(
+        float gainBefore, float floorBefore, float gainAfter, float floorAfter)
+    {
+        var frameRate = new Rational(10, 1);
+        // Nine and a half seconds after the tone stops. Both settings would hold its peak longer than thirty seconds.
+        MediaTime target = MediaTime.FromFrames(100, frameRate);
+        AudioTestWaves.WithTemporaryWave(SpectrumRate, SpectrumRate * 11, ToneThen(0f), source =>
+        {
+            AudioSpectrumDrawable drawable = CreateSpectrum(source, 11);
+            drawable.Smoothing.Value = 99;
+            drawable.Gain.Value = gainBefore;
+            drawable.FloorDb.Value = floorBefore;
+            using var resource = ReachSpectrum(drawable, frameRate, target);
+            drawable.Gain.Value = gainAfter;
+            drawable.FloorDb.Value = floorAfter;
+            ReachAgain(resource, drawable, frameRate, target);
+            using var fresh = ReachSpectrum(drawable, frameRate, target);
+
+            float[] expected = fresh.Bars.ToArray();
+            Assert.That(expected.Max(), Is.GreaterThan(0.2f), "The peak still shows after the change.");
+            Assert.That(resource.Bars.ToArray(), Is.EqualTo(expected).Within(0.01f));
+        });
+    }
+
     private const int SpectrumRate = 44100;
     private static readonly Rational s_spectrumFrameRate = new(30, 1);
 
