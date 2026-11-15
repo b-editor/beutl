@@ -239,7 +239,9 @@ public sealed partial class FilterEffectExecutor : IDisposable
                 case IFEItem_Custom custom:
                     // A custom effect runs author code against materialized targets, so the pending
                     // chain has to be forced out before it can see them.
-                    Flush();
+                    Flush(
+                        force: true,
+                        alignToDeviceGrid: custom.Options.HasFlag(CustomFilterEffectOptions.KeepsPlacement));
                     if (CurrentTargets.Count == 0) return;
                     bool controlsContinuation = custom.Options.HasFlag(CustomFilterEffectOptions.ControlsContinuation);
                     RunCustomEffectItem(custom, controlsContinuation ? items.Skip(index + 1).ToArray() : null);

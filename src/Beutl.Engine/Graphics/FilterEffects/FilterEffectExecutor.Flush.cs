@@ -14,7 +14,14 @@ public sealed partial class FilterEffectExecutor
     /// </remarks>
     private const int StackFlushPlanLimit = 16;
 
-    public void Flush(bool force = true)
+    public void Flush(bool force = true) => Flush(force, alignToDeviceGrid: false);
+
+    /// <param name="force">Whether to materialize the targets even without a pending Skia chain.</param>
+    /// <param name="alignToDeviceGrid">
+    /// Whether the custom effect this flush runs ahead of keeps its content where it is, which lays the targets on
+    /// the device grid (see <see cref="AlignsToDeviceGrid"/>).
+    /// </param>
+    private void Flush(bool force, bool alignToDeviceGrid)
     {
         bool hasFilter = Builder.HasFilter();
         if (!force && !hasFilter)
@@ -35,8 +42,8 @@ public sealed partial class FilterEffectExecutor
             ? stackalloc FlushTarget?[StackFlushPlanLimit]
             : new FlushTarget?[count];
         plan = plan[..count];
-        PlanFlush(plan, hasFilter);
-        MaterializeFlush(plan, paint, hasFilter);
+        PlanFlush(plan, hasFilter, alignToDeviceGrid);
+        MaterializeFlush(plan, paint, hasFilter, alignToDeviceGrid);
 
         _pendingSkiaTargets = null;
         _pendingChainNeedsBoundsCoordinates = false;
@@ -53,7 +60,7 @@ public sealed partial class FilterEffectExecutor
     /// positional - slot <c>i</c> answers for the target at index <c>i</c> - which is what lets
     /// materialization read it while removing entries from the list it was measured against.
     /// </remarks>
-    private void PlanFlush(Span<FlushTarget?> plan, bool hasFilter)
+    private void PlanFlush(Span<FlushTarget?> plan, bool hasFilter, bool alignToDeviceGrid)
     {
         for (int i = 0; i < plan.Length; i++)
         {
@@ -71,7 +78,7 @@ public sealed partial class FilterEffectExecutor
                 continue;
 
             plan[i] = flushTarget;
-            ClampWorkingScaleToFlushBudget(target, flushTarget, hasFilter);
+            ClampWorkingScaleToFlushBudget(target, flushTarget, hasFilter, alignToDeviceGrid);
         }
     }
 
@@ -79,13 +86,19 @@ public sealed partial class FilterEffectExecutor
     private void ClampWorkingScaleToFlushBudget(
         EffectTarget target,
         FlushTarget flushTarget,
-        bool hasFilter)
+        bool hasFilter,
+        bool alignToDeviceGrid)
     {
-        Rect budgetBounds = hasFilter
-            ? ResolveDeviceRoundingSource(target, flushTarget)
-            : new Rect(default, target.Bounds.Size);
+        // A buffer laid on the device grid covers every pixel the bounds touch, which a fractional origin can widen
+        // by one.
+        bool aligned = AlignsToDeviceGrid(target, hasFilter, alignToDeviceGrid);
+        Rect budgetBounds = aligned
+            ? target.Bounds
+            : hasFilter
+                ? ResolveDeviceRoundingSource(target, flushTarget)
+                : new Rect(default, target.Bounds.Size);
         BufferDimensionBudget budget = Budget;
-        float fit = hasFilter
+        float fit = aligned || hasFilter
             ? budget.ClampWorkingScaleToExactFootprint(
                 budgetBounds.Translate(target.DeviceGridOffset),
                 WorkingScale)
@@ -103,7 +116,8 @@ public sealed partial class FilterEffectExecutor
     private void MaterializeFlush(
         ReadOnlySpan<FlushTarget?> plan,
         SKPaint? paint,
-        bool hasFilter)
+        bool hasFilter,
+        bool alignToDeviceGrid)
     {
         // 'planned' counts targets consumed rather than list positions, so it keeps naming the slot this
         // target was measured into while removals move the list index back under it.
@@ -136,14 +150,15 @@ public sealed partial class FilterEffectExecutor
                 target,
                 flushTarget,
                 w,
-                hasFilter);
+                hasFilter,
+                alignToDeviceGrid);
             EffectTarget? newTarget = EffectTargetAllocation.Allocate(
                 _settings.RenderTargetLeaseSession,
-                target.Bounds,
+                geometry.Bounds,
                 w,
                 geometry.DeviceBounds,
                 geometry.DeviceGridOffset,
-                preserveImperativeRasterPlacement: !hasFilter);
+                geometry.PreserveImperativeRasterPlacement);
             if (newTarget is null)
             {
                 ReportRefusedFlushBuffer(target, i, geometry.DeviceBounds, w, flushTarget.PhysicalBounds);
@@ -202,18 +217,52 @@ public sealed partial class FilterEffectExecutor
         CurrentTargets.RemoveAt(index);
     }
 
-    /// <summary>Where a flush buffer sits on the device grid, and the raster frame it is drawn in.</summary>
+    /// <summary>
+    /// Where a flush buffer sits on the device grid, the raster frame it is drawn in, and the bounds and placement
+    /// the new target takes.
+    /// </summary>
     private readonly record struct FlushGeometry(
         PixelRect DeviceBounds,
         Vector DeviceGridOffset,
-        Rect RasterBounds);
+        Rect RasterBounds,
+        Rect Bounds,
+        bool PreserveImperativeRasterPlacement);
+
+    /// <summary>
+    /// Whether a flush ahead of a custom effect that keeps its content in place lays this target on the device grid:
+    /// on a buffer whose bounds are the whole pixels the target's bounds touch, with the content where it was.
+    /// </summary>
+    /// <remarks>
+    /// The content keeps its sub-pixel position and its partly covered last column and row, every whole-pixel copy
+    /// the callback makes of it stays pixel for pixel, and the result goes back onto the composition the same way. A
+    /// target that keeps an imperative placement and has no pending chain to draw is already where an effect drew
+    /// it, and is flushed at its bounds as before.
+    /// </remarks>
+    private static bool AlignsToDeviceGrid(EffectTarget target, bool hasFilter, bool alignToDeviceGrid)
+        => alignToDeviceGrid && (hasFilter || !target.PreserveImperativeRasterPlacement);
 
     private FlushGeometry ResolveFlushGeometry(
         EffectTarget target,
         FlushTarget flushTarget,
         float w,
-        bool hasFilter)
+        bool hasFilter,
+        bool alignToDeviceGrid)
     {
+        if (AlignsToDeviceGrid(target, hasFilter, alignToDeviceGrid))
+        {
+            PixelRect alignedDeviceBounds = CustomFilterEffectContext.DeviceBufferBounds(
+                target.Bounds.Translate(target.DeviceGridOffset), w);
+            Rect alignedBounds = alignedDeviceBounds
+                .ToRect(w)
+                .Translate(-target.DeviceGridOffset);
+            return new FlushGeometry(
+                alignedDeviceBounds,
+                target.DeviceGridOffset,
+                alignedBounds,
+                alignedBounds,
+                PreserveImperativeRasterPlacement: true);
+        }
+
         bool preserveImperativeRasterPlacement = !hasFilter;
         Vector allocationGridOffset = preserveImperativeRasterPlacement
             ? _settings.DeviceGridOffset ?? default
@@ -251,7 +300,9 @@ public sealed partial class FilterEffectExecutor
             outputDeviceGridOffset,
             deviceBounds
                 .ToRect(w)
-                .Translate(-outputDeviceGridOffset));
+                .Translate(-outputDeviceGridOffset),
+            target.Bounds,
+            preserveImperativeRasterPlacement);
     }
 
     /// <summary>Draws the target, through the pending Skia chain, into its freshly allocated buffer.</summary>

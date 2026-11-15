@@ -362,6 +362,13 @@ public sealed partial class FilterEffectContext : IDisposable
     }
 
     internal void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action,
+        Func<T, Rect, Rect> transformBounds, CustomFilterEffectOptions options)
+        where T : IEquatable<T>
+    {
+        AppendDescription(new FEItem_CustomEffect<T>(data, action, transformBounds) { Options = options });
+    }
+
+    internal void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action,
         CustomFilterEffectOptions options)
     {
         ArgumentNullException.ThrowIfNull(action);
