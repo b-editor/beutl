@@ -128,7 +128,7 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
         }
 
         // What a picture failed on may be gone with the code it was about; the next evaluation says if it is not.
-        _errors.ReportPicture(null);
+        _errors.ReportPicture(null, null);
         ReportError(null);
         SyncPorts(CreatePortSpecs(reflection));
         return true;
@@ -136,7 +136,9 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
 
     internal void ReportError(string? message) => _errors.ReportOwn(message);
 
-    void IShaderPictureOwner.ReportPictureFailure(string? message) => _errors.ReportPicture(message);
+    void IShaderPictureOwner.ReportPictureFailure(object picture, string? message) => _errors.ReportPicture(picture, message);
+
+    void IShaderPictureOwner.WithdrawPictureFailure(object picture) => _errors.WithdrawPicture(picture);
 
     private static IReadOnlyList<ShaderPortSpec> CreatePortSpecs(ShaderPassReflection reflection)
     {

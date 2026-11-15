@@ -11,7 +11,10 @@ namespace Beutl.NodeGraph.Nodes.Shaders;
 /// <summary>A node that can say why the picture made from its image output failed.</summary>
 internal interface IShaderPictureOwner
 {
-    void ReportPictureFailure(string? message);
+    void ReportPictureFailure(object picture, string? message);
+
+    /// <summary>Takes back what <paramref name="picture"/> said, once the node no longer makes it.</summary>
+    void WithdrawPictureFailure(object picture);
 }
 
 /// <summary>What a node's error monitor shows: its own problem first, then why the picture made from it failed.</summary>
@@ -20,6 +23,8 @@ internal sealed class ShaderErrorReports(NodeMonitor<string?> monitor)
 {
     private string? _own;
     private string? _picture;
+    // Two pictures can be made from one node, and the last to speak is shown.
+    private object? _pictureSource;
 
     public void ReportOwn(string? message)
     {
@@ -27,9 +32,19 @@ internal sealed class ShaderErrorReports(NodeMonitor<string?> monitor)
         Show();
     }
 
-    public void ReportPicture(string? message)
+    public void ReportPicture(object? source, string? message)
     {
         _picture = message;
+        _pictureSource = source;
+        Show();
+    }
+
+    // A picture that is gone takes back what it said, unless another has spoken since.
+    public void WithdrawPicture(object source)
+    {
+        if (!ReferenceEquals(_pictureSource, source)) return;
+        _picture = null;
+        _pictureSource = null;
         Show();
     }
 
@@ -46,10 +61,14 @@ internal sealed class ShaderErrorReports(NodeMonitor<string?> monitor)
 internal sealed class ShaderGraphPicture : IWirePicture
 {
     private readonly ShaderGraphEffect _effect = new();
+    // A render reports what it ran into on its own thread, which can be after the picture is gone.
+    private readonly object _reportGate = new();
     private ShaderGraphEffect.Resource? _effectResource;
     private ShaderGraphRenderNode? _renderNode;
     private string? _recordingError;
     private string? _executionError;
+    private IShaderPictureOwner? _explainer;
+    private bool _disposed;
 
     public RenderNode? RenderNode => _renderNode;
 
@@ -77,12 +96,12 @@ internal sealed class ShaderGraphPicture : IWirePicture
 
         // What a render refused stands until a graph runs, which takes the renderer to find out.
         if (description == null) _executionError = null;
-        explainer?.ReportPictureFailure(_recordingError ?? _executionError);
+        Report(explainer);
 
         // The same graph again keeps what the renderer has cached for it.
         if (description == null || !IsRecorded(description))
         {
-            description?.ExecutionObserver = failure => OnExecuted(explainer, failure);
+            description?.ExecutionObserver = OnExecuted;
             _effect.Description.Value = description;
         }
 
@@ -96,10 +115,22 @@ internal sealed class ShaderGraphPicture : IWirePicture
     private bool IsRecorded(ShaderGraphDescription description)
         => _effect.Description.Value?.OutputIdentity.Equals(description.OutputIdentity) == true;
 
-    private void OnExecuted(IShaderPictureOwner? explainer, Exception? failure)
+    private void OnExecuted(Exception? failure)
     {
         _executionError = failure?.Message;
-        explainer?.ReportPictureFailure(_recordingError ?? _executionError);
+        Report(_explainer);
+    }
+
+    // Says on the node that explains this picture why it failed, and takes back what it said on another one.
+    private void Report(IShaderPictureOwner? explainer)
+    {
+        lock (_reportGate)
+        {
+            if (_disposed) return;
+            if (!ReferenceEquals(_explainer, explainer)) _explainer?.WithdrawPictureFailure(this);
+            _explainer = explainer;
+            explainer?.ReportPictureFailure(this, _recordingError ?? _executionError);
+        }
     }
 
     // The node whose output became the picture, or, through a plain group that shows nothing of its own, the node inside
@@ -117,6 +148,14 @@ internal sealed class ShaderGraphPicture : IWirePicture
 
     public void Dispose()
     {
+        // The output no longer makes this picture, so what the picture failed on no longer stands.
+        lock (_reportGate)
+        {
+            _disposed = true;
+            _explainer?.WithdrawPictureFailure(this);
+            _explainer = null;
+        }
+
         _renderNode?.Dispose();
         _renderNode = null;
         _effectResource?.Dispose();
