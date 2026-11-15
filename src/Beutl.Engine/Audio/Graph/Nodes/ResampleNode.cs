@@ -154,14 +154,15 @@ public sealed class ResampleNode : AudioNode, IAudioSampleRateConversionNode
     }
 
     // Without the samples after a block, its last outputs bend toward silence where the next block begins. The read
-    // stops at the end of the live input, after which the upstream drains instead.
+    // stops at the end of the live input, after which the upstream drains instead. A block whose input has no known end,
+    // such as a drain, reads only itself: past the block can be a tail that a clip below drains into it, which the
+    // composer counts as played while this node would only hold it.
     private long GetResampledSourceEnd(AudioProcessContext context)
     {
         long blockEnd = CeilingSampleIndex(context.TimeRange.End, SourceSampleRate);
-        long readEnd = blockEnd + ReadAheadSamples;
         return context.ProcessEndTime is { } terminal
-            ? Math.Max(blockEnd, Math.Min(readEnd, CeilingSampleIndex(terminal, SourceSampleRate)))
-            : readEnd;
+            ? Math.Max(blockEnd, Math.Min(blockEnd + ReadAheadSamples, CeilingSampleIndex(terminal, SourceSampleRate)))
+            : blockEnd;
     }
 
     private static long CeilingSampleIndex(MediaTime time, int sampleRate)

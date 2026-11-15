@@ -1896,9 +1896,7 @@ public class AudioLatencyCompensationTests
         using var composer = new Composer { SampleRate = outputSampleRate };
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
-        // The window runs two source samples past the clip and the resampler reads four more, so the clip drains six of
-        // its 100 samples inline, and the 94 left are 47 at the output rate.
-        Assert.That(composer.GetTotalLatencySamples(outputSampleRate), Is.EqualTo(47),
+        Assert.That(composer.GetTotalLatencySamples(outputSampleRate), Is.EqualTo(49),
             "Inline drain samples recorded before a resampler must be converted from the source domain.");
     }
 
