@@ -92,13 +92,18 @@ internal sealed class AiOperationAvailabilityTracker : IDisposable
         }
         finally
         {
+            // Whoever takes a request out of _requestCts disposes it. A newer check and Dispose cancel the one they
+            // take outside the lock, so a check that has been taken must not dispose its request under them.
+            bool owned;
             lock (_gate)
             {
-                if (ReferenceEquals(_requestCts, requestCts))
+                owned = ReferenceEquals(_requestCts, requestCts);
+                if (owned)
                     _requestCts = null;
             }
 
-            requestCts.Dispose();
+            if (owned)
+                requestCts.Dispose();
         }
 
         Publish(revision, state);
