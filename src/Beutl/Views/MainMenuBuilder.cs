@@ -127,6 +127,9 @@ internal static class MainMenuBuilder
 
         commands.GesturesChanged += OnChanged;
         disposables.Add(Disposable.Create(() => commands.GesturesChanged -= OnChanged));
+        // Commands registered on another thread after the entry read its gesture and before it subscribed raised the
+        // event unheard, so the entry reads its gesture again now that it hears.
+        show(GetGesture(item));
     }
 
     // Applies each change in place: rebuilding on every change made each open view recreate all its entries.
