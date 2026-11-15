@@ -152,12 +152,13 @@ public static class NumberEditorHelper
         };
     }
 
-    // .NET writes negative zero as "-0", which an expression such as Round(-0.2) or a typed "-0" gives.
+    // .NET writes negative zero as "-0", which an expression such as Round(-0.2) or a typed "-0" gives. Abs drops the
+    // sign and keeps the places of a decimal zero such as 0.00, which AddPreservingScale keeps.
     internal static string Format<TValue>(TValue value, string? numberFormat)
         where TValue : INumber<TValue>
     {
         if (TValue.IsZero(value))
-            value = TValue.Zero;
+            value = TValue.Abs(value);
 
         return value.ToString(numberFormat ?? "G", CultureInfo.CurrentCulture);
     }

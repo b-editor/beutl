@@ -20,6 +20,19 @@ public sealed class NumberEditorFormatTests
         });
     }
 
+    // A decimal zero keeps its places, which stepping and dragging keep, whatever its sign.
+    [Test]
+    [SetCulture("en-US")]
+    public void A_decimal_zero_keeps_its_places()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(NumberEditorHelper.Format(0.00m, null), Is.EqualTo("0.00"));
+            Assert.That(NumberEditorHelper.Format(-0.00m, null), Is.EqualTo("0.00"));
+            Assert.That(NumberEditorHelper.Format(decimal.Negate(0.00m), null), Is.EqualTo("0.00"));
+        });
+    }
+
     [AvaloniaTest]
     public void A_number_box_and_a_vector_box_show_negative_zero_as_zero()
     {
