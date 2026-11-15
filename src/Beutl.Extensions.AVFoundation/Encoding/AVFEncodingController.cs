@@ -225,18 +225,19 @@ public class AVFEncodingController : EncodingController
         if (AudioSettings.LinearPcmBigEndian.Value) flags |= 2;
         if (AudioSettings.LinearPcmNonInterleaved.Value) flags |= 4;
 
+        int channels = AudioSettings.Channels.Value;
         return new BeutlAudioEncoderConfig
         {
             SampleRate = sampleRate,
-            ChannelCount = AudioSettings.Channels.Value,
+            ChannelCount = channels,
             FormatFourCC = (int)AudioSettings.Format.Value,
             Bitrate = AudioSettings.Bitrate.Value,
             Quality = (int)AudioSettings.Quality.Value,
-            SampleRateConverterQuality = (int)AudioSettings.SampleRateConverterQuality.Value,
             LinearPcmBitDepth = (int)AudioSettings.LinearPcmBitDepth.Value,
             LinearPcmFlags = flags,
             InputChannelCount = inputLayout.ChannelCount,
             InputSpeakerMask = (uint)inputLayout.Speakers,
+            OutputSpeakerMask = channels > 0 ? (uint)AudioChannelLayout.GetDefault(channels).Speakers : 0,
         };
     }
 

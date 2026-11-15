@@ -23,7 +23,6 @@
     "LinearPcmFloat": true,
     "LinearPcmNonInterleaved": false,
     "Quality": -1,
-    "SampleRateConverterQuality": -1,
     "SampleRate": 48000,
     "Channels": 2,
     "Bitrate": -1,

@@ -22,8 +22,6 @@ public sealed class AVFAudioEncoderSettings : AudioEncoderSettings
 
     public IProperty<AudioQuality> Quality { get; } = Property.CreateValue(AudioQuality.Default);
 
-    public IProperty<AudioQuality> SampleRateConverterQuality { get; } = Property.CreateValue(AudioQuality.Default);
-
     public enum BitDepth
     {
         Bits8 = 8,

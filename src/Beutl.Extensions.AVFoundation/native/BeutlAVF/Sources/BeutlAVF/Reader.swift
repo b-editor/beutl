@@ -345,7 +345,6 @@ final class AudioReaderContext {
 
         self.info = BeutlAudioInfo(
             sampleRate: Int32(sampleRate),
-            channelCount: Int32(outputLayout.channelCount),
             codecFourCC: codecFourCC,
             durationNum: durationRational.num,
             durationDen: durationRational.den,

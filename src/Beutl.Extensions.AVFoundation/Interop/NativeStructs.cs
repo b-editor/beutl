@@ -22,7 +22,6 @@ internal struct BeutlVideoInfo
 internal struct BeutlAudioInfo
 {
     public int SampleRate;
-    public int ChannelCount;
     public int CodecFourCC;
     public long DurationNum;
     public long DurationDen;
@@ -76,9 +75,9 @@ internal struct BeutlAudioEncoderConfig
     public int FormatFourCC;
     public int Bitrate;                    // -1 = unspecified
     public int Quality;                    // -1 = Default
-    public int SampleRateConverterQuality;
     public int LinearPcmBitDepth;
     public int LinearPcmFlags;             // bit0=Float, bit1=BigEndian, bit2=NonInterleaved
     public int InputChannelCount;
     public uint InputSpeakerMask;
+    public uint OutputSpeakerMask;         // The default layout of ChannelCount speakers, used when it differs from the input's.
 }
