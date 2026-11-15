@@ -58,6 +58,66 @@ public class AudioVisualizerDrawableTests
         });
     }
 
+    // The bars at a time are the same however the frame is reached: played up to it at the scene's frame rate, drawn on
+    // their own as render_still does, played with frames dropped, or reached backwards as a reversed clip plays (#4207).
+    // A tone that stops leaves the bars falling for a while, which is where they depended on the frames drawn before.
+    [TestCase(85f)]
+    [TestCase(95f)]
+    public void Spectrum_BarsAtATimeDoNotDependOnHowTheFrameIsReached(float smoothing)
+    {
+        const int Rate = 44100;
+        // Six frames after the tone stops at 0.5 s.
+        const long Target = 21;
+        var frameRate = new Rational(30, 1);
+        MediaTime At(long frame) => MediaTime.FromFrames(frame, frameRate);
+        static (float, float) ToneThenSilence(int i)
+        {
+            float value = i < Rate / 2 ? 0.5f * MathF.Sin(2 * MathF.PI * 1000 * i / Rate) : 0f;
+            return (value, value);
+        }
+
+        AudioTestWaves.WithTemporaryWave(Rate, Rate * 2, ToneThenSilence, source =>
+        {
+            AudioSpectrumDrawable.Resource Reach(params MediaTime[] times)
+            {
+                var drawable = CreateSpectrum();
+                drawable.Smoothing.Value = smoothing;
+                drawable.Source.Value = new SourceSound
+                {
+                    Source = { Value = source },
+                    TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(2)) },
+                };
+                var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(
+                    new CompositionContext(times[0]) { FrameRate = frameRate });
+                foreach (MediaTime time in times.Skip(1))
+                {
+                    bool versionBumped = false;
+                    resource.Reconcile(drawable, new CompositionContext(time) { FrameRate = frameRate }, ref versionBumped);
+                }
+
+                return resource;
+            }
+
+            using var played = Reach([.. Enumerable.Range(0, (int)Target + 1).Select(f => At(f))]);
+            using var still = Reach(At(Target));
+            using var dropping = Reach([.. Enumerable.Range(1, 11).Select(f => At(f * 2 - 1))]);
+            using var reversed = Reach([.. Enumerable.Range((int)Target, 19).Reverse().Select(f => At(f))]);
+            MediaTime between = At(Target) + MediaTime.FromSeconds(0.01);
+            using var playedOn = Reach([.. Enumerable.Range(0, (int)Target + 1).Select(f => At(f)), between]);
+            using var stillBetween = Reach(between);
+
+            float[] expected = played.Bars.ToArray();
+            Assert.That(expected.Max(), Is.GreaterThan(0.2f), "The bars are still falling from the tone.");
+            Assert.Multiple(() =>
+            {
+                Assert.That(still.Bars.ToArray(), Is.EqualTo(expected).Within(0.01f), "drawn on its own");
+                Assert.That(dropping.Bars.ToArray(), Is.EqualTo(expected).Within(0.01f), "with every other frame dropped");
+                Assert.That(reversed.Bars.ToArray(), Is.EqualTo(expected).Within(0.01f), "reached backwards");
+                Assert.That(stillBetween.Bars.ToArray(), Is.EqualTo(playedOn.Bars.ToArray()).Within(0.01f), "between frames");
+            });
+        });
+    }
+
     private const int WindowTestRate = 44100;
     private const int WindowTestFrames = WindowTestRate * 4;
     // Far enough from both ends of the ramp for every window below.

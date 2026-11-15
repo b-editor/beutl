@@ -162,6 +162,73 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
         protected abstract void RenderForeground(ImmediateCanvas canvas, Rect bounds);
 
+        /// <summary>
+        /// Composes the source over <paramref name="range"/>, mixed down to mono, without touching the cached window.
+        /// </summary>
+        /// <param name="range">The time range to compose.</param>
+        /// <param name="sampleRate">The rate the samples were composed at.</param>
+        /// <returns>The samples, or an empty array when there is no source or it gives none.</returns>
+        protected float[] ComposeMono(TimeRange range, out int sampleRate)
+        {
+            sampleRate = ComposerSampleRate;
+            float[] samples = [];
+            if (_composer == null || _source == null || _source.IsDisposed || range.Duration <= MediaTime.Zero)
+                return samples;
+
+            int length = ComposeMonoInto(range, ref samples, ref sampleRate);
+            return samples.Length == length ? samples : samples[..length];
+        }
+
+        private int ComposeMonoInto(TimeRange range, ref float[] destination, ref int sampleRate)
+        {
+            Sound sound = _source!.RequireOriginal();
+
+            if (!ReferenceEquals(_frameObjectsSource, _source))
+            {
+                _frameObjects = ImmutableArray.Create<EngineObject.Resource>(_source);
+                _frameObjectsSource = _source;
+            }
+
+            var frame = new CompositionFrame(
+                _frameObjects,
+                sound.TimeRange.Value,
+                default,
+                new CompositionEligibility([sound]));
+
+            AudioBuffer? buffer = _composer!.Compose(range, frame);
+            try
+            {
+                if (buffer == null || buffer.SampleCount == 0)
+                    return 0;
+
+                int n = buffer.SampleCount;
+                if (destination.Length < n)
+                {
+                    destination = new float[n];
+                }
+                Span<float> dst = destination.AsSpan(0, n);
+                Span<float> leftChannel = buffer.GetChannelData(0);
+                if (buffer.ChannelCount >= 2)
+                {
+                    Span<float> rightChannel = buffer.GetChannelData(1);
+                    for (int i = 0; i < n; i++)
+                    {
+                        dst[i] = (leftChannel[i] + rightChannel[i]) * 0.5f;
+                    }
+                }
+                else
+                {
+                    leftChannel.CopyTo(dst);
+                }
+                sampleRate = buffer.SampleRate;
+                return n;
+            }
+            finally
+            {
+                buffer?.Dispose();
+            }
+        }
+
         private void EnsureSamplesComposed(MediaTime targetStart, MediaTime targetDuration)
         {
             int rate = _composer!.SampleRate;
@@ -187,58 +254,8 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
             if (!needsRecompose) return;
 
-            var targetRange = new TimeRange(targetStart, targetDuration);
-            Sound sound = _source.RequireOriginal();
-
-            if (!ReferenceEquals(_frameObjectsSource, _source))
-            {
-                _frameObjects = ImmutableArray.Create<EngineObject.Resource>(_source);
-                _frameObjectsSource = _source;
-            }
-
-            var frame = new CompositionFrame(
-                _frameObjects,
-                sound.TimeRange.Value,
-                default,
-                new CompositionEligibility([sound]));
-
-            AudioBuffer? buffer = _composer.Compose(targetRange, frame);
-            try
-            {
-                if (buffer == null || buffer.SampleCount == 0)
-                {
-                    _cachedSampleLength = 0;
-                }
-                else
-                {
-                    int n = buffer.SampleCount;
-                    if (_cachedSamples.Length < n)
-                    {
-                        _cachedSamples = new float[n];
-                    }
-                    Span<float> dst = _cachedSamples.AsSpan(0, n);
-                    Span<float> leftChannel = buffer.GetChannelData(0);
-                    if (buffer.ChannelCount >= 2)
-                    {
-                        Span<float> rightChannel = buffer.GetChannelData(1);
-                        for (int i = 0; i < n; i++)
-                        {
-                            dst[i] = (leftChannel[i] + rightChannel[i]) * 0.5f;
-                        }
-                    }
-                    else
-                    {
-                        leftChannel.CopyTo(dst);
-                    }
-                    _cachedSampleLength = n;
-                    rate = buffer.SampleRate;
-                }
-            }
-            finally
-            {
-                buffer?.Dispose();
-            }
-
+            int length = ComposeMonoInto(new TimeRange(targetStart, targetDuration), ref _cachedSamples, ref rate);
+            _cachedSampleLength = length;
             _cachedSampleRate = rate;
             _cachedStart = targetStart;
             _cachedDuration = targetDuration;
