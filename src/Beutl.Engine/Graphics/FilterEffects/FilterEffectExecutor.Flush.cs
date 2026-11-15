@@ -241,15 +241,20 @@ public sealed partial class FilterEffectExecutor
         bool PreserveImperativeRasterPlacement);
 
     /// <summary>The bounds of a target's content before a flush, and of the whole pixels the flush laid it on.</summary>
-    private readonly record struct TargetPlacement(Rect Content, Rect Aligned)
+    internal readonly record struct TargetPlacement(Rect Content, Rect Aligned)
     {
         public TargetPlacement Union(TargetPlacement other)
             => new(Content.Union(other.Content), Aligned.Union(other.Aligned));
     }
 
     /// <summary>Where a flush laid each target's content on the device grid.</summary>
-    private sealed class AlignedPlacement(List<TargetPlacement> targets)
+    internal sealed class AlignedPlacement(List<TargetPlacement> targets)
     {
+        // How far apart, beside the size of the edges, two edges may be and still be one. A callback finds an edge again
+        // from other edges and sizes, as a union finds its right edge from its left edge and its width, and the rounding
+        // of that arithmetic can leave it a few units in the last place off the edge it lies on.
+        private const float EdgeTolerance = 1e-6f;
+
         /// <summary>
         /// Moves each edge of <paramref name="bounds"/> that lies on or beyond the laid-out one back by as much as the
         /// content's edge lay inside it. An edge a callback moved inwards stays where it put it.
@@ -283,7 +288,7 @@ public sealed partial class FilterEffectExecutor
             TargetPlacement? joined = null;
             foreach (TargetPlacement target in targets)
             {
-                if (bounds is { } b && !(whole ? b.Contains(target.Aligned) : b.Intersects(target.Aligned)))
+                if (bounds is { } b && !(whole ? Holds(b, target.Aligned) : b.Intersects(target.Aligned)))
                     continue;
 
                 joined = joined is { } j ? j.Union(target) : target;
@@ -292,11 +297,20 @@ public sealed partial class FilterEffectExecutor
             return joined;
         }
 
+        private static bool Holds(Rect outer, Rect inner)
+            => AtOrBefore(outer.Left, inner.Left) && AtOrBefore(outer.Top, inner.Top)
+                && AtOrBefore(inner.Right, outer.Right) && AtOrBefore(inner.Bottom, outer.Bottom);
+
+        private static bool AtOrBefore(float edge, float other) => edge <= other || SameEdge(edge, other);
+
+        private static bool SameEdge(float edge, float other)
+            => MathF.Abs(edge - other) <= EdgeTolerance * MathF.Max(1f, MathF.Max(MathF.Abs(edge), MathF.Abs(other)));
+
         private static float Start(float edge, float aligned, float content)
-            => edge == aligned ? content : edge < aligned ? edge + (content - aligned) : edge;
+            => SameEdge(edge, aligned) ? content : edge < aligned ? edge + (content - aligned) : edge;
 
         private static float End(float edge, float aligned, float content)
-            => edge == aligned ? content : edge > aligned ? edge - (aligned - content) : edge;
+            => SameEdge(edge, aligned) ? content : edge > aligned ? edge - (aligned - content) : edge;
     }
 
     /// <summary>

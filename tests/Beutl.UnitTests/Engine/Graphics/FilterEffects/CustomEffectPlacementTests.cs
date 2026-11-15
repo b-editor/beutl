@@ -50,14 +50,56 @@ public sealed class CustomEffectPlacementTests
 
     // The effect works on the content laid on whole pixels and leaves the content's own bounds to what follows, so a
     // transform after it scales about the same centre as it does without the effect.
-    [TestCase(typeof(LayerEffect))]
-    [TestCase(typeof(Clipping))]
-    public void A_transform_after_an_effect_that_changes_nothing_scales_about_the_same_centre(Type effectType)
+    [Test]
+    public void A_transform_after_an_effect_that_changes_nothing_scales_about_the_same_centre(
+        [Values(typeof(LayerEffect), typeof(Clipping))] Type effectType,
+        [Values(1, 2)] int renderScale,
+        [Values(0f, 0.2f, 0.7f)] float offset)
     {
-        using Bitmap scaled = Render(ThenScaled(null), 1, 0f);
-        using Bitmap withEffect = Render(ThenScaled((FilterEffect)Activator.CreateInstance(effectType)!), 1, 0f);
+        using Bitmap scaled = Render(ThenScaled(null), renderScale, offset);
+        using Bitmap withEffect = Render(
+            ThenScaled((FilterEffect)Activator.CreateInstance(effectType)!), renderScale, offset);
 
         AssertSamePixels(scaled, withEffect);
+    }
+
+    // Merged as LayerEffect merges them, two targets laid on whole pixels a tenth of a pixel off the grid make a union
+    // whose right edge, its left edge plus its width, rounds to just inside the right edge of the target on the right.
+    // The union still holds that target, and goes back to the content of both.
+    [Test]
+    public void A_merge_whose_edge_rounds_inside_a_target_goes_back_to_the_content_of_every_target()
+    {
+        var left = new Rect(-20.1f, 0, 6, 5);
+        var right = new Rect(-0.1f, 0, 6, 5);
+        Rect merged = left.Union(right);
+        Assert.That(merged.Right, Is.LessThan(right.Right), "The union's right edge rounds inside.");
+        var leftContent = new Rect(-19.8f, 0.2f, 5.1f, 4.6f);
+        var rightContent = new Rect(0.15f, 0.3f, 5.55f, 4.4f);
+        var placement = new FilterEffectExecutor.AlignedPlacement([new(leftContent, left), new(rightContent, right)]);
+
+        Assert.That(placement.Restore(merged), Is.EqualTo(leftContent.Union(rightContent)));
+    }
+
+    // Grown by two pixels on the left, as a Clipping with a left of -2 grows it, a target's right edge, its new left edge
+    // plus its new width, rounds to just inside the right edge it had. The edge it left in place goes back to the
+    // content's, and the one it moved keeps the move.
+    [Test]
+    public void An_edge_that_rounds_inside_the_one_it_lies_on_goes_back_to_the_content()
+    {
+        var aligned = new Rect(-3.05f, 0, 4, 5);
+        var grown = new Rect(aligned.X - 2, aligned.Y, aligned.Width + 2, aligned.Height);
+        Assert.That(grown.Right, Is.LessThan(aligned.Right), "The right edge rounds inside.");
+        var content = new Rect(-2.8f, 0.25f, 3.45f, 4.5f);
+        var placement = new FilterEffectExecutor.AlignedPlacement([new(content, aligned)]);
+
+        Rect restored = placement.Restore(grown);
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.Left, Is.EqualTo(content.Left - 2).Within(1e-5f));
+            Assert.That(restored.Right, Is.EqualTo(content.Right).Within(1e-5f));
+            Assert.That(restored.Top, Is.EqualTo(content.Top).Within(1e-5f));
+            Assert.That(restored.Bottom, Is.EqualTo(content.Bottom).Within(1e-5f));
+        });
     }
 
     // A group's drawables reach the effect as separate targets. Each goes on with its own bounds, so a transform after
