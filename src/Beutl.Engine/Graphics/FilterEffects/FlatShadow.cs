@@ -96,15 +96,23 @@ public partial class FlatShadow : FilterEffect
                     }
                 }
 
-                // SrcIn brush at the buffer's real density (wOut), over the bounds of the content's shadow. The target
-                // may hold the content inside the whole pixels it touches.
-                Rect shadowBounds = TransformBounds(data, target.ContentBounds ?? target.Bounds);
+                // SrcIn brush at the buffer's real density (wOut), over the bounds of the content's shadow, laid out
+                // from their origin by moving the canvas there. The target may hold the content inside the whole
+                // pixels it touches.
+                Rect shadowBounds = TransformBounds(data, target.ContentBounds ?? target.Bounds)
+                    .Translate(new Vector(-bounds.X, -bounds.Y));
                 context.CreateBrushConstructor(
-                    shadowBounds.Translate(new Vector(-bounds.X, -bounds.Y)),
+                    new Rect(shadowBounds.Size),
                     brush,
                     BlendMode.SrcIn,
                     wOut).ConfigurePaint(brushPaint);
-                newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Width, newTarget.Bounds.Height), brushPaint);
+                using (newCanvas.PushTransform(Matrix.CreateTranslation(shadowBounds.X, shadowBounds.Y)))
+                {
+                    newCanvas.Canvas.DrawRect(
+                        SKRect.Create(
+                            -shadowBounds.X, -shadowBounds.Y, newTarget.Bounds.Width, newTarget.Bounds.Height),
+                        brushPaint);
+                }
 
                 if (!data.ShadowOnly)
                 {

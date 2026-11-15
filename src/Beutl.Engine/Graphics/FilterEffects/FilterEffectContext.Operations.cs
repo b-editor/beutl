@@ -384,11 +384,13 @@ public sealed partial class FilterEffectContext
                     // Read density from the target (may be clamped), not context.WorkingScale.
                     float w = newTarget.Scale.Value;
                     using var brushPaint = new SKPaint();
-                    // The brush lies over the content, which the target may hold inside the whole pixels it touches.
+                    // The brush lies over the content, which the target may hold inside the whole pixels it touches. It
+                    // is laid out from the content's origin, by moving the canvas there, as a shape lays out its fill:
+                    // not every brush places itself at the position of the bounds it is given.
                     Rect content = (target.ContentBounds ?? target.Bounds)
                         .Translate(new Vector(-target.Bounds.X, -target.Bounds.Y));
                     context.CreateBrushConstructor(
-                        content,
+                        new Rect(content.Size),
                         data.Brush,
                         data.BlendMode,
                         w).ConfigurePaint(brushPaint);
@@ -406,7 +408,12 @@ public sealed partial class FilterEffectContext
                         // covered pixels take all of the brush. Any other paints the content's rectangle, which moves
                         // with the content rather than with the whole pixels it touches.
                         Rect fill = ShowsOnlyOverDestination(data.BlendMode) ? new Rect(size) : content;
-                        newCanvas.Canvas.DrawRect(fill.ToSKRect(), brushPaint);
+                        using (newCanvas.PushTransform(Matrix.CreateTranslation(content.X, content.Y)))
+                        {
+                            newCanvas.Canvas.DrawRect(
+                                fill.Translate(new Vector(-content.X, -content.Y)).ToSKRect(),
+                                brushPaint);
+                        }
                     }
 
                     newTarget.ContentBounds = target.ContentBounds;

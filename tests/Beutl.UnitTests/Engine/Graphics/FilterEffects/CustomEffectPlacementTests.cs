@@ -90,6 +90,19 @@ public sealed class CustomEffectPlacementTests
         AssertSamePixels(filled, blended);
     }
 
+    // So does noise, which the brush lays out from the origin of what it fills rather than from the position of the
+    // bounds it is given.
+    [Test]
+    public void A_noise_blended_into_a_shape_lies_where_it_lies_filling_the_shape(
+        [Values(1, 2)] int renderScale,
+        [Values(0f, 0.2f, 0.7f)] float offset)
+    {
+        using Bitmap filled = Render(null, renderScale, offset, Noise());
+        using Bitmap blended = Render(new BlendEffect { Brush = { Value = Noise() } }, renderScale, offset);
+
+        AssertSamePixels(filled, blended);
+    }
+
     // Blended with a mode that also paints where the content is not, such as SrcOver, a brush covers the content's own
     // rectangle, whose edges move with the content, rather than the whole pixels the content touches: it is the same
     // as a rectangle of the brush drawn over the shape. The shape is 12 px tall, so its rectangle lies on whole pixels
@@ -282,6 +295,16 @@ public sealed class CustomEffectPlacementTests
         gradient.GradientStops.Add(new GradientStop(Colors.Blue, 0.55f));
         return gradient;
     }
+
+    // Turbulence at 0.2 cycles a pixel with a second octave at 0.4, fine enough that moving it a fraction of a pixel
+    // against the shape shows. Past the 0.5 cycles a pixel the grid holds, noise aliases, and two ways of reaching the
+    // same point then sample it apart.
+    private static PerlinNoiseBrush Noise() => new()
+    {
+        BaseFrequencyX = { Value = 20 },
+        BaseFrequencyY = { Value = 20 },
+        Octaves = { Value = 2 },
+    };
 
     private static FilterEffectGroup ThenScaled(FilterEffect? head)
     {
