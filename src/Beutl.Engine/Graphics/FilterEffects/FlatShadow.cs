@@ -53,24 +53,26 @@ public partial class FlatShadow : FilterEffect
         float radian = MathUtilities.Deg2Rad(data.Angle);
         float x1 = MathF.Cos(radian);
         float y1 = MathF.Sin(radian);
-        float x2 = length * x1;
-        float y2 = length * y1;
-        float x2Abs = Math.Abs(x2);
-        float y2Abs = Math.Abs(y2);
         int unit = Math.Sign(length);
 
         for (int ii = 0; ii < context.Targets.Count; ii++)
         {
             var target = context.Targets[ii];
-            EffectTarget newTarget = context.CreateTarget(TransformBounds(data, target.Bounds));
+            // The outline is in device px, so the shadow is extruded in device space.
+            float w = context.WorkingScale;
+            // The output grows by whole device pixels, so the content is copied pixel for pixel and stays where it is.
+            Rect bounds = CustomFilterEffectContext.GrowToWholePixels(
+                target.Bounds, TransformBounds(data, target.Bounds), w);
+            var contentOffset = new Point(
+                MathF.Round((target.Bounds.X - bounds.X) * w),
+                MathF.Round((target.Bounds.Y - bounds.Y) * w));
+            EffectTarget newTarget = context.CreateTarget(bounds);
             if (newTarget.IsEmpty)
             {
                 newTarget.Dispose();
                 continue;
             }
 
-            // The outline is in device px, so the shadow is extruded in device space.
-            float w = context.WorkingScale;
             float lenAbs = Math.Abs(length) * w;
             using SKPath? shadow = lenAbs > 0 && float.IsFinite(lenAbs)
                 ? CreateShadowPath(target.RenderTarget!, x1 * unit, y1 * unit, lenAbs)
@@ -88,15 +90,17 @@ public partial class FlatShadow : FilterEffect
                     using var paint = new SKPaint { Color = SKColors.White, IsAntialias = true, Style = SKPaintStyle.Fill };
                     using (newCanvas.PushDeviceSpace())
                     using (w == wOut ? default : newCanvas.PushTransform(Matrix.CreateScale(wOut / w, wOut / w)))
-                    using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w)))
+                    using (newCanvas.PushTransform(Matrix.CreateTranslation(contentOffset.X, contentOffset.Y)))
                     {
                         newCanvas.Canvas.DrawPath(shadow, paint);
                     }
                 }
 
-                // SrcIn brush at the buffer's real density (wOut).
+                // SrcIn brush at the buffer's real density (wOut), over the bounds of the content's shadow. The target
+                // may hold the content inside the whole pixels it touches.
+                Rect shadowBounds = TransformBounds(data, target.ContentBounds ?? target.Bounds);
                 context.CreateBrushConstructor(
-                    new Rect(newTarget.Bounds.Size),
+                    shadowBounds.Translate(new Vector(-bounds.X, -bounds.Y)),
                     brush,
                     BlendMode.SrcIn,
                     wOut).ConfigurePaint(brushPaint);
@@ -107,12 +111,12 @@ public partial class FlatShadow : FilterEffect
                     using (newCanvas.PushDeviceSpace())
                     using (w == wOut ? default : newCanvas.PushTransform(Matrix.CreateScale(wOut / w, wOut / w)))
                     {
-                        newCanvas.DrawRenderTarget(target.RenderTarget!,
-                            new((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w));
+                        newCanvas.DrawRenderTarget(target.RenderTarget!, contentOffset);
                     }
                 }
             }
 
+            newTarget.ContentBounds = target.ContentBounds is { } content ? TransformBounds(data, content) : null;
             context.Targets[ii] = newTarget;
         }
     }
@@ -207,7 +211,11 @@ public partial class FlatShadow : FilterEffect
     {
         protected override void ApplyTo(FilterEffectContext context)
         {
-            context.CustomEffect((Angle, Length, Brush, ShadowOnly), Apply, TransformBounds);
+            context.CustomEffect(
+                (Angle, Length, Brush, ShadowOnly),
+                Apply,
+                TransformBounds,
+                CustomFilterEffectOptions.KeepsPlacement);
         }
     }
 }

@@ -145,6 +145,16 @@ public sealed class EffectTarget : IDisposable
     internal bool PreserveImperativeRasterPlacement { get; }
 
     /// <summary>
+    /// Gets or sets where the content lies, when a flush laid it on whole device pixels for a callback that keeps it in
+    /// place; <see langword="null"/> when <see cref="Bounds"/> are the content's own.
+    /// </summary>
+    /// <remarks>
+    /// Such a callback maps what it lays over the content, such as a brush, onto these bounds, and sets them on each
+    /// target it makes from this one. The target goes on with them after the callback.
+    /// </remarks>
+    internal Rect? ContentBounds { get; set; }
+
+    /// <summary>
     /// Gets the current effect-local, pixel-aligned logical footprint. Moving <see cref="Bounds"/>
     /// translates this footprint without stretching the backing pixels.
     /// </summary>

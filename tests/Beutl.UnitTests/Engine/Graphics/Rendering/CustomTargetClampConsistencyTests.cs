@@ -1,6 +1,7 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -62,6 +63,37 @@ public class CustomTargetClampConsistencyTests
                 Assert.That(canvas.LogicalSize, Is.EqualTo(bounds.Size));
                 Assert.That(canvas.Transform.Transform(default(Point)), Is.EqualTo(default(Point)));
             });
+        });
+    }
+
+    // Bounds laid on the device grid come back from effect-local space a rounding error off it. At 2x with a grid
+    // offset of 0.51, pixel -127 lies at -64.01, and -64.01 + 0.51 lands just short of -63.5; the buffer still starts
+    // on that pixel, where a target described by its raster is drawn.
+    [Test]
+    public void CreateTarget_BoundsOnTheDeviceGrid_StartOnTheirFirstPixel()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var gridOffset = new Vector(0.51f, 0);
+            var deviceBounds = new PixelRect(-127, 0, 10, 4);
+            Rect bounds = deviceBounds.ToRect(2).Translate(-gridOffset);
+            Assert.That(
+                (double)(bounds.X + gridOffset.X) * 2,
+                Is.LessThan(-127d),
+                "The edge comes back short of the pixel.");
+            var context = new CustomFilterEffectContext(
+                new EffectTargets(),
+                new FilterEffectExecutionSettings(RenderIntent.Delivery, RenderRequestPurpose.Auxiliary)
+                {
+                    OutputScale = 1f,
+                    WorkingScale = 2f,
+                    Budget = BufferDimensionBudget.Named(TestBufferDimension),
+                    DeviceGridOffset = gridOffset,
+                });
+            using EffectTarget target = context.CreateTarget(bounds);
+
+            Assert.That(target.DeviceBounds, Is.EqualTo(deviceBounds));
         });
     }
 

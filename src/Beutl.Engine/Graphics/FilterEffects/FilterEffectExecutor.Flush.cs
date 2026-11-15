@@ -177,7 +177,11 @@ public sealed partial class FilterEffectExecutor
             DrawIntoFlushTarget(target, newTarget, flushTarget, geometry, paint, w);
             newTarget.OriginalBounds = target.OriginalBounds;
             (placements ??= []).Add(new TargetPlacement(target.Bounds, newTarget.Bounds));
-            aligned |= AlignsToDeviceGrid(target, hasFilter, alignToDeviceGrid);
+            if (AlignsToDeviceGrid(target, hasFilter, alignToDeviceGrid))
+            {
+                newTarget.ContentBounds = target.Bounds;
+                aligned = true;
+            }
             CurrentTargets[i] = newTarget;
             target.Dispose();
         }

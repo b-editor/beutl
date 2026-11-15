@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
@@ -6,12 +7,14 @@ using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
+using Beutl.UnitTests.TestInfrastructure;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 
 // An effect that goes through CustomEffect and moves nothing leaves a drawable that starts at a fraction of a pixel
 // as it was drawn without the effect. Text usually starts at one, and the effect used to move it onto whole pixels
-// and cut its last partly covered column and row, so it roughened edges and made slow motion jump (#4197).
+// and cut its last partly covered column and row, so it roughened edges and made slow motion jump (#4197, #4321).
 [TestFixture]
 public sealed class CustomEffectPlacementTests
 {
@@ -24,10 +27,14 @@ public sealed class CustomEffectPlacementTests
     private const float Tolerance = 0.06f;
 
     // Centred in the frame, a 15.4 x 11.7 shape starts at (8.3, 10.15). The offsets move it to 8.5, half a pixel,
-    // and to 9, a whole one.
+    // and to 9, a whole one. With their defaults the effects change nothing on a white shape: BlendEffect blends white
+    // in, InnerShadow is white, FlatShadow has no length, and StrokeEffect's pen has no brush, though its output grows
+    // by the pen's reach.
     [Test]
     public void An_effect_that_changes_nothing_leaves_a_shape_at_a_fraction_of_a_pixel_as_it_was(
-        [Values(typeof(LayerEffect), typeof(Clipping))] Type effectType,
+        [Values(
+            typeof(LayerEffect), typeof(Clipping), typeof(BlendEffect), typeof(InnerShadow), typeof(FlatShadow),
+            typeof(StrokeEffect))] Type effectType,
         [Values(1, 2)] int renderScale,
         [Values(0f, 0.2f, 0.7f)] float offset)
     {
@@ -40,6 +47,10 @@ public sealed class CustomEffectPlacementTests
     // A blur ahead of the effect is drawn on the device grid too, where the effect then finds it.
     [TestCase(typeof(LayerEffect))]
     [TestCase(typeof(Clipping))]
+    [TestCase(typeof(BlendEffect))]
+    [TestCase(typeof(InnerShadow))]
+    [TestCase(typeof(FlatShadow))]
+    [TestCase(typeof(StrokeEffect))]
     public void An_effect_that_changes_nothing_after_a_blur_leaves_the_blur_as_it_was(Type effectType)
     {
         using Bitmap blurred = Render(Blurred(null), 1, 0f);
@@ -49,10 +60,13 @@ public sealed class CustomEffectPlacementTests
     }
 
     // The effect works on the content laid on whole pixels and leaves the content's own bounds to what follows, so a
-    // transform after it scales about the same centre as it does without the effect.
+    // transform after it scales about the same centre as it does without the effect. StrokeEffect is left out: its
+    // bounds grow by the pen's reach even where the pen draws nothing, so what follows it finds other bounds.
     [Test]
     public void A_transform_after_an_effect_that_changes_nothing_scales_about_the_same_centre(
-        [Values(typeof(LayerEffect), typeof(Clipping))] Type effectType,
+        [Values(
+            typeof(LayerEffect), typeof(Clipping), typeof(BlendEffect), typeof(InnerShadow), typeof(FlatShadow))]
+        Type effectType,
         [Values(1, 2)] int renderScale,
         [Values(0f, 0.2f, 0.7f)] float offset)
     {
@@ -61,6 +75,73 @@ public sealed class CustomEffectPlacementTests
             ThenScaled((FilterEffect)Activator.CreateInstance(effectType)!), renderScale, offset);
 
         AssertSamePixels(scaled, withEffect);
+    }
+
+    // BlendEffect lays its brush over the content rather than over the whole pixels the content touches, so a gradient
+    // blended into a white shape lies where the same gradient lies when it fills the shape.
+    [Test]
+    public void A_gradient_blended_into_a_shape_lies_where_it_lies_filling_the_shape(
+        [Values(1, 2)] int renderScale,
+        [Values(0f, 0.2f, 0.7f)] float offset)
+    {
+        using Bitmap filled = Render(null, renderScale, offset, Gradient());
+        using Bitmap blended = Render(new BlendEffect { Brush = { Value = Gradient() } }, renderScale, offset);
+
+        AssertSamePixels(filled, blended);
+    }
+
+    // FlatShadow grows its output by whole pixels on the side the shadow falls, however far the shadow reaches, so a
+    // shadow of no colour leaves the shape as it was.
+    [Test]
+    public void A_shadow_of_no_colour_leaves_a_shape_as_it_was(
+        [Values(180f, 225f)] float angle,
+        [Values(1, 2)] int renderScale,
+        [Values(0f, 0.2f, 0.7f)] float offset)
+    {
+        using Bitmap plain = Render(null, renderScale, offset);
+        using Bitmap shadowed = Render(
+            new FlatShadow
+            {
+                Angle = { Value = angle },
+                Length = { Value = 5.5f },
+                Brush = { Value = new SolidColorBrush(Colors.Transparent) },
+            },
+            renderScale,
+            offset);
+
+        AssertSamePixels(plain, shadowed);
+    }
+
+    // An effect that grows its output lays it out in whole pixels around the content laid on them, and goes on with the
+    // bounds it gives the content: a shadow 5.5 px to the left, and the default pen's reach of 1.5 px all round.
+    [TestCase(typeof(FlatShadow))]
+    [TestCase(typeof(StrokeEffect))]
+    public void An_effect_that_grows_its_output_goes_on_with_the_bounds_it_gives_the_content(Type effectType)
+    {
+        var content = new Rect(8.3f, 10.15f, 15.4f, 11.7f);
+        PixelRect device = PixelRect.FromRect(content, 1);
+        using RenderTarget backing = CpuRenderTargets.Create(device.Width, device.Height);
+        using var targets = new EffectTargets { new EffectTarget(backing, content, EffectiveScale.At(1), device) };
+        FilterEffect effect = effectType == typeof(FlatShadow)
+            ? new FlatShadow { Angle = { Value = 180 }, Length = { Value = 5.5f } }
+            : new StrokeEffect();
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        using var context = new FilterEffectContext(content);
+        context.ApplyTransactional(resource);
+        using var builder = new SKImageFilterBuilder();
+        using var executor = new FilterEffectExecutor(
+            targets,
+            builder,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null,
+            outputScale: 1,
+            workingScale: 1,
+            maxWorkingScale: 1);
+
+        executor.Apply(context);
+
+        Assert.That(targets.Single().Bounds, Is.EqualTo(context.Bounds));
     }
 
     // Merged as LayerEffect merges them, two targets laid on whole pixels a tenth of a pixel off the grid make a union
@@ -136,6 +217,20 @@ public sealed class CustomEffectPlacementTests
         });
     }
 
+    // Red to blue across the middle tenth of the shape, steep enough that moving it a fraction of a pixel against the
+    // shape shows.
+    private static LinearGradientBrush Gradient()
+    {
+        var gradient = new LinearGradientBrush
+        {
+            StartPoint = { Value = new RelativePoint(0, 0.5f, RelativeUnit.Relative) },
+            EndPoint = { Value = new RelativePoint(1, 0.5f, RelativeUnit.Relative) },
+        };
+        gradient.GradientStops.Add(new GradientStop(Colors.Red, 0.45f));
+        gradient.GradientStops.Add(new GradientStop(Colors.Blue, 0.55f));
+        return gradient;
+    }
+
     private static FilterEffectGroup ThenScaled(FilterEffect? head)
     {
         var group = new FilterEffectGroup();
@@ -176,12 +271,12 @@ public sealed class CustomEffectPlacementTests
         Assert.That(largest, Is.LessThanOrEqualTo(Tolerance), $"{changed} pixels changed, by up to {largest:0.000}.");
     }
 
-    private static Bitmap Render(FilterEffect? effect, int renderScale, float offset)
+    private static Bitmap Render(FilterEffect? effect, int renderScale, float offset, Brush? fill = null)
     {
         var shape = new EllipseShape();
         shape.Width.Value = 15.4f;
         shape.Height.Value = 11.7f;
-        shape.Fill.Value = Brushes.White;
+        shape.Fill.Value = fill ?? Brushes.White;
         shape.FilterEffect.Value = effect;
         shape.Transform.Value = new TranslateTransform(offset, 0);
         return RenderThread.Dispatcher.Invoke(() =>

@@ -80,10 +80,13 @@ public partial class StrokeEffect : FilterEffect
                 using SKPath borderPath = ContourPaths.CreateOutline(src);
                 if (w != 1f) borderPath.Transform(SKMatrix.CreateScale(1f / w, 1f / w));
 
-                Rect transformedBounds = TransformBounds(data, target.Bounds);
+                // The output grows by whole device pixels, so the content is copied pixel for pixel and stays where
+                // it is.
+                Rect transformedBounds = CustomFilterEffectContext.GrowToWholePixels(
+                    target.Bounds, TransformBounds(data, target.Bounds), w);
                 var origin = Matrix.CreateTranslation(
-                    target.Bounds.X - transformedBounds.X,
-                    target.Bounds.Y - transformedBounds.Y);
+                    MathF.Round((target.Bounds.X - transformedBounds.X) * w) / w,
+                    MathF.Round((target.Bounds.Y - transformedBounds.Y) * w) / w);
 
                 EffectTarget newTarget = context.CreateTarget(transformedBounds);
                 if (newTarget.IsEmpty)
@@ -114,6 +117,7 @@ public partial class StrokeEffect : FilterEffect
                     }
                 }
 
+                newTarget.ContentBounds = target.ContentBounds is { } content ? TransformBounds(data, content) : null;
                 context.Targets[i] = newTarget;
             }
         }
@@ -126,7 +130,8 @@ public partial class StrokeEffect : FilterEffect
             context.CustomEffect(
                 (Offset, Pen),
                 Apply,
-                TransformBounds);
+                TransformBounds,
+                CustomFilterEffectOptions.KeepsPlacement);
         }
     }
 }

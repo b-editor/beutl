@@ -107,11 +107,14 @@ public sealed partial class FilterEffectContext
                             }
                         }
 
+                        newTarget.ContentBounds = target.ContentBounds;
                         context.Targets[i] = newTarget;
                     }
                 }
             },
-            transformBounds: (_, bounds) => bounds);
+            transformBounds: (_, bounds) => bounds,
+            // The content is copied pixel for pixel and the shadow drawn from it, so it stays where it is.
+            options: CustomFilterEffectOptions.KeepsPlacement);
     }
 
     public void Transform(Matrix matrix, BitmapInterpolationMode bitmapInterpolationMode)
@@ -381,8 +384,10 @@ public sealed partial class FilterEffectContext
                     // Read density from the target (may be clamped), not context.WorkingScale.
                     float w = newTarget.Scale.Value;
                     using var brushPaint = new SKPaint();
+                    // The brush lies over the content, which the target may hold inside the whole pixels it touches.
+                    Rect content = target.ContentBounds ?? target.Bounds;
                     context.CreateBrushConstructor(
-                        new Rect(size),
+                        content.Translate(new Vector(-target.Bounds.X, -target.Bounds.Y)),
                         data.Brush,
                         data.BlendMode,
                         w).ConfigurePaint(brushPaint);
@@ -399,11 +404,13 @@ public sealed partial class FilterEffectContext
                         newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
                     }
 
+                    newTarget.ContentBounds = target.ContentBounds;
                     context.Targets[i] = newTarget;
                 }
             }
         }
 
-        CustomEffect((brush, blendMode), ApplyCore, (_, r) => r);
+        // The content is copied pixel for pixel and the brush blended over it, so it stays where it is.
+        CustomEffect((brush, blendMode), ApplyCore, (_, r) => r, CustomFilterEffectOptions.KeepsPlacement);
     }
 }
