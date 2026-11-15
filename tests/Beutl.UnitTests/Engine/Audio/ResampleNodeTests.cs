@@ -1,4 +1,5 @@
 ﻿using Beutl.Audio;
+using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Composition;
@@ -151,6 +152,60 @@ public class ResampleNodeTests
         using var expected = fresh.Process(context);
         using var actual = resample.Process(context);
         AssertBuffersEqual(actual, expected);
+    }
+
+    // Playback and export compose one window after another. A sweep never comes back to where it was, so a bend where two
+    // windows meet cannot hide in it the way it does in a tone whose period divides the window.
+    [TestCase(44100)]
+    [TestCase(22050)]
+    [TestCase(8000)]
+    public void Consecutive_windows_resample_like_one(int sourceRate)
+    {
+        const int Seconds = 3;
+        AudioTestWaves.WithTemporaryWave(sourceRate, sourceRate * Seconds, i => (Sweep(i, sourceRate), -Sweep(i, sourceRate)), source =>
+        {
+            float[][] whole = ComposeInWindows(source, Seconds, windows: 1);
+            float[][] windowed = ComposeInWindows(source, Seconds, windows: Seconds);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(windowed[0], Is.EqualTo(whole[0]).Within(1e-5f));
+                Assert.That(windowed[1], Is.EqualTo(whole[1]).Within(1e-5f));
+            });
+        });
+    }
+
+    // An exponential sweep from 20 Hz to 3.9 kHz over three seconds, below the Nyquist frequency of every rate here.
+    private static float Sweep(int index, int sampleRate)
+    {
+        const double From = 20, To = 3900, Duration = 3;
+        double growth = Math.Log(To / From) / Duration;
+        double seconds = index / (double)sampleRate;
+        return (float)(0.5 * Math.Sin(2 * Math.PI * From * (Math.Exp(growth * seconds) - 1) / growth));
+    }
+
+    // Composes a sound that plays the source from its start, at 48 kHz in windows of equal length.
+    private static float[][] ComposeInWindows(SoundSource source, int seconds, int windows)
+    {
+        var sound = new SourceSound
+        {
+            Source = { Value = source },
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(seconds)) },
+        };
+        using var resource = sound.ToResource(CompositionContext.Default);
+        using var composer = new Composer { SampleRate = 48000 };
+        var eligibility = new CompositionEligibility([sound]);
+        List<float>[] channels = [[], []];
+        MediaTime length = MediaTime.FromSeconds(seconds / (double)windows);
+        for (int window = 0; window < windows; window++)
+        {
+            var range = new TimeRange(MediaTime.FromSeconds(seconds * window / (double)windows), length);
+            using AudioBuffer? buffer = composer.Compose(range, new CompositionFrame([resource], range, default, eligibility));
+            for (int channel = 0; channel < channels.Length; channel++)
+                channels[channel].AddRange(buffer!.GetChannelData(channel).ToArray());
+        }
+
+        return [.. channels.Select(channel => channel.ToArray())];
     }
 
     private static void AssertBuffersEqual(AudioBuffer actual, AudioBuffer expected)

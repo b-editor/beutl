@@ -7,6 +7,10 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class ResampleNode : AudioNode, IAudioSampleRateConversionNode
 {
+    // A block's last outputs are interpolated toward the source samples after it. WdlResampler asks for four source
+    // samples past those its output reaches and keeps them for the next block, so a block reads that far ahead.
+    private const int ReadAheadSamples = 4;
+
     private readonly List<(AudioNode Node, int InputCount)> _inputTopology = [];
     private int _sourceSampleRate = 44100;
     private ResampleSampleProvider? _resampleProvider;
@@ -127,7 +131,7 @@ public sealed class ResampleNode : AudioNode, IAudioSampleRateConversionNode
         // pull one extra sample and skip it on the next contiguous read.
         long sourceEnd = SourceSampleRate == context.SampleRate
             ? sourceStart + context.GetSampleCount()
-            : CeilingSampleIndex(context.TimeRange.End, SourceSampleRate);
+            : GetResampledSourceEnd(context);
         long sourceCount = Math.Max(0, sourceEnd - sourceStart);
         if (sourceCount > int.MaxValue)
         {
@@ -147,6 +151,17 @@ public sealed class ResampleNode : AudioNode, IAudioSampleRateConversionNode
         {
             ProcessEndTime = context.ProcessEndTime
         };
+    }
+
+    // Without the samples after a block, its last outputs bend toward silence where the next block begins. The read
+    // stops at the end of the live input, after which the upstream drains instead.
+    private long GetResampledSourceEnd(AudioProcessContext context)
+    {
+        long blockEnd = CeilingSampleIndex(context.TimeRange.End, SourceSampleRate);
+        long readEnd = blockEnd + ReadAheadSamples;
+        return context.ProcessEndTime is { } terminal
+            ? Math.Max(blockEnd, Math.Min(readEnd, CeilingSampleIndex(terminal, SourceSampleRate)))
+            : readEnd;
     }
 
     private static long CeilingSampleIndex(MediaTime time, int sampleRate)
