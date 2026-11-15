@@ -10,14 +10,17 @@ namespace Beutl.NodeGraph.Nodes.Shaders;
 /// <summary>A node whose image output can end in a picture, so it has to be able to say why that failed.</summary>
 public abstract partial class ShaderImageProducerNode : GraphNode, IShaderPictureOwner
 {
+    private ShaderErrorReports? _errors;
+
     public NodeMonitor<string?> Error { get; private set; } = null!;
+
+    private ShaderErrorReports Errors => _errors ??= new ShaderErrorReports(Error);
 
     private protected void AddErrorMonitor() => Error = AddTextMonitor("Error", NodePortDisplays.Error);
 
-    void IShaderPictureOwner.ReportPictureFailure(string? message)
-    {
-        if (Error.Value != message) Error.Value = message;
-    }
+    void IShaderPictureOwner.ReportPictureFailure(object picture, string? message) => Errors.ReportPicture(picture, message);
+
+    void IShaderPictureOwner.WithdrawPictureFailure(object picture) => Errors.WithdrawPicture(picture);
 }
 
 /// <summary>A new image that follows another image's position and size, or an explicit rectangle.</summary>

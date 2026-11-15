@@ -915,6 +915,48 @@ public class ShaderNodeRecordingTests
         Assert.That(pass.Error.Value, Does.Contain("binding 0"));
     }
 
+    // A node that no longer makes a picture no longer shows why the picture failed (#4161), on a pass and on a node that
+    // shows nothing but what its pictures say, while one that still makes it says so again as it is recorded anew.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AMistakeInAPictureGoesWhenTheNodeNoLongerMakesIt(bool settings)
+    {
+        var (graph, output) = NewGraph();
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        var image = graph.Add(new ShaderFixedImageNode());
+        image.Kind.Property!.SetValue(ImageKind.Image3D);
+        graph.Connect(pass.In("source"), image.Output);
+        GraphNode shown = pass;
+        IOutputPort made = pass.Out("color");
+        if (settings)
+        {
+            shown = graph.Add(new ShaderSamplerNode());
+            graph.Connect(Port<IInputPort>(shown, "Image"), made);
+            made = Port<IOutputPort>(shown, "Output");
+        }
+
+        Connection wire = graph.Connect(output.InputPort, made);
+        NodeMonitor<string?> error = settings ? Port<NodeMonitor<string?>>(shown, "Error") : pass.Error;
+        using var snapshot = new GraphSnapshot();
+        Evaluate(graph, snapshot);
+        Assert.That(error.Value, Does.Contain("binding 0"));
+
+        graph.Add(new ShaderFullscreenPassNode());
+        Rebuild(graph, snapshot);
+        Assert.That(error.Value, Does.Contain("binding 0"), "The picture is still made, and fails the same way.");
+
+        graph.Disconnect(wire);
+        Rebuild(graph, snapshot);
+        Assert.That(error.Value, Is.Null);
+    }
+
+    private static void Rebuild(GraphModel graph, GraphSnapshot snapshot)
+    {
+        snapshot.MarkDirty();
+        snapshot.Build(graph, CompositionContext.Default);
+        snapshot.Evaluate(CompositionContext.Default);
+    }
+
     private static T Port<T>(GraphNode node, string name) where T : INodeMember
         => node.Items.OfType<T>().Single(item => item.Name.Value == name);
 

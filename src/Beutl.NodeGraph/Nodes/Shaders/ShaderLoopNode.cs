@@ -51,7 +51,9 @@ public abstract partial class ShaderLoopNode : GroupNode, IShaderPictureOwner
 
     private ShaderErrorReports Errors => _errors ??= new ShaderErrorReports(Error);
 
-    void IShaderPictureOwner.ReportPictureFailure(string? message) => Errors.ReportPicture(message);
+    void IShaderPictureOwner.ReportPictureFailure(object picture, string? message) => Errors.ReportPicture(picture, message);
+
+    void IShaderPictureOwner.WithdrawPictureFailure(object picture) => Errors.WithdrawPicture(picture);
 
     public override void Deserialize(ICoreSerializationContext context)
     {
