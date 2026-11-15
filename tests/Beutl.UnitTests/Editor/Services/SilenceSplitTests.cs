@@ -248,7 +248,7 @@ public class SilenceSplitTests
         var service = new SilenceSplitService(h.History);
         if (unsupported)
         {
-            Assert.ThrowsAsync<InvalidOperationException>(async () => await service.ApplyAsync(h.Scene, audio, [Range(3, 4)], SilenceSplitMode.RippleDelete, linked));
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await service.ApplyAsync(h.Scene, audio, [Range(3, 4)], SilenceSplitMode.RippleDelete, linked));
             Assert.That(h.History.UndoCount, Is.EqualTo(before));
             Assert.That(h.History.HasPendingOperations, Is.False);
             Assert.That(h.Scene.Children, Is.EquivalentTo(new[] { audio, video }));
@@ -675,7 +675,7 @@ public class SilenceSplitTests
         var service = new SilenceSplitService(h.History);
         await service.ApplyAsync(h.Scene, e, [], SilenceSplitMode.SplitOnly, true);
         Assert.That(h.History.UndoCount, Is.EqualTo(before));
-        Assert.ThrowsAsync<InvalidOperationException>(async () => await service.ApplyAsync(h.Scene, e, [Range(1, 2)], SilenceSplitMode.DeleteSilence, true));
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await service.ApplyAsync(h.Scene, e, [Range(1, 2)], SilenceSplitMode.DeleteSilence, true));
         Assert.That(h.Scene.Children, Has.Count.EqualTo(2));
         await service.ApplyAsync(h.Scene, e, [Range(0, 5)], SilenceSplitMode.DeleteSilence, false);
         Assert.That(h.Scene.Children, Is.EqualTo(new[] { linked }));
