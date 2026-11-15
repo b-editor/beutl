@@ -96,16 +96,18 @@ public sealed class AiOperationAvailabilityTrackerTests
     // A check that finishes on another thread while a newer check replaces it, or while the tracker is disposed, must
     // not dispose its request under the one cancelling it (#4174). The window is a few instructions wide, so the race
     // runs on more threads than there are cores, where one can be switched out inside it as on a busy CI runner. The
-    // call that races the answer starts a little later each round, so the two meet at every point of it.
+    // call that races the answer starts a little later each round, so the two meet at every point of it. The test awaits
+    // the racers, which leaves the UI thread free to apply the states the trackers post to it as they come; waiting on
+    // it would keep every one of them, and its tracker, until the test returned.
     [AvaloniaTest]
     [TestCase(true)]
     [TestCase(false)]
-    public void A_check_that_finishes_as_it_is_cancelled_leaves_its_request_to_the_canceller(bool replace)
+    public async Task A_check_that_finishes_as_it_is_cancelled_leaves_its_request_to_the_canceller(bool replace)
     {
         // Before the fix, 2 of 320,000 rounds threw on 8 cores in each case; a round takes a few microseconds.
         const int Rounds = 20_000;
         var failures = new ConcurrentQueue<Exception>();
-        Thread[] racers = Enumerable.Range(0, Environment.ProcessorCount * 2).Select(_ => new Thread(() =>
+        Task[] racers = Enumerable.Range(0, Environment.ProcessorCount * 2).Select(_ => Task.Factory.StartNew(() =>
         {
             for (int i = 0; i < Rounds; i++)
             {
@@ -132,12 +134,9 @@ public sealed class AiOperationAvailabilityTrackerTests
 
                 first.Wait();
             }
-        })).ToArray();
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)).ToArray();
 
-        foreach (Thread racer in racers)
-            racer.Start();
-        foreach (Thread racer in racers)
-            racer.Join();
+        await Task.WhenAll(racers);
 
         Assert.That(failures.Select(failure => failure.GetType().Name).Distinct(), Is.Empty,
             $"{failures.Count} of {Rounds * racers.Length} rounds threw.");
