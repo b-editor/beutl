@@ -31,7 +31,19 @@
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
-                <local:EffectEditorHeaderButtons Click="Tag_Click" />
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <Button x:Name="selectEffectButton"
+                            Padding="0"
+                            AutomationProperties.Name="{x:Static lang:Strings.EditInFrame}"
+                            Classes="size-24x24"
+                            Click="SelectEffectClick"
+                            IsVisible="{Binding CanSelectEffect.Value}"
+                            Theme="{StaticResource TransparentButton}"
+                            ToolTip.Tip="{x:Static lang:Strings.EditInFrame}">
+                        <icons:FluentIcon Icon="MyLocation" />
+                    </Button>
+                    <local:EffectEditorHeaderButtons Click="Tag_Click" />
+                </StackPanel>
             </ToggleButton.Tag>
             <WrapPanel Orientation="Horizontal">
                 <TextBlock Text="{Binding Header, FallbackValue=Filter}" />
