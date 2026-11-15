@@ -112,6 +112,22 @@ public class CustomTargetClampConsistencyTests
         });
     }
 
+    // Grown by whole pixels around content laid on them, bounds keep a whole-pixel size. At x = -63.01 the distance
+    // between the grown edges rounds to 19.999996, and a buffer at 1x would take 19 columns of it.
+    [Test]
+    public void GrowToWholePixels_KeepsAWholePixelSize()
+    {
+        var content = new Rect(-63.01f, 0, 16, 4);
+        Rect grown = CustomFilterEffectContext.GrowToWholePixels(content, content.Inflate(1.5f), 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(grown.X, Is.EqualTo(content.X - 2));
+            Assert.That(grown.Width, Is.EqualTo(20));
+            Assert.That(CustomFilterEffectContext.DeviceBufferSize(grown, 1), Is.EqualTo((20, 8)));
+        });
+    }
+
     [Test]
     public void CreateTarget_BufferBudgetExceeded_ClampsDensity_AndOpenMatchesClamp()
     {

@@ -187,15 +187,20 @@ public class CustomFilterEffectContext
     /// <remarks>
     /// A target made at the grown bounds holds the content at a whole-pixel offset, so a copy of it lands pixel for
     /// pixel, and bounds laid on the device grid stay on it. An edge of <paramref name="bounds"/> inside the content
-    /// moves out to the content's.
+    /// moves out to the content's. The size is the content's plus the growth, so a whole-pixel size stays whole: the
+    /// distance between the grown edges can round below it, and a buffer at 1x would lose its last column.
     /// </remarks>
     internal static Rect GrowToWholePixels(Rect content, Rect bounds, float w)
     {
-        float left = content.Left - WholePixels(content.Left - bounds.Left, w);
-        float top = content.Top - WholePixels(content.Top - bounds.Top, w);
-        float right = content.Right + WholePixels(bounds.Right - content.Right, w);
-        float bottom = content.Bottom + WholePixels(bounds.Bottom - content.Bottom, w);
-        return new Rect(left, top, right - left, bottom - top);
+        float left = WholePixels(content.Left - bounds.Left, w);
+        float top = WholePixels(content.Top - bounds.Top, w);
+        float right = WholePixels(bounds.Right - content.Right, w);
+        float bottom = WholePixels(bounds.Bottom - content.Bottom, w);
+        return new Rect(
+            content.X - left,
+            content.Y - top,
+            content.Width + left + right,
+            content.Height + top + bottom);
     }
 
     // The fewest whole device pixels that cover a logical distance, allowing for its rounding.
