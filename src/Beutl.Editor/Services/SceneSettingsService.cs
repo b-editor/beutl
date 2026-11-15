@@ -68,7 +68,9 @@ public sealed class SceneSettingsService : ISceneSettingsService
         {
             try
             {
-                ProjectPersistence.PersistOrRollback(() => CoreSerializer.StoreToUri(project, uri),
+                // The layout is the project's own, so the scenes it references, and their unsaved edits, are not written.
+                ProjectPersistence.PersistOrRollback(
+                    () => CoreSerializer.StoreToUri(project, uri, CoreSerializationMode.Write),
                     () => project.ChannelLayout.Value = previous);
             }
             catch (Exception ex) when (ex is not ProjectStateDivergedException)
