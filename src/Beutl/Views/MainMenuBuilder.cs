@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Threading;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
@@ -47,6 +48,7 @@ internal static class MainMenuBuilder
             InputGesture = GetGesture(item),
             Icon = item.Icon is { } icon ? new FluentIcon { Icon = icon } : item.IconSource
         };
+        FollowGesture(item, gesture => menuItem.InputGesture = gesture, disposables);
         if (item.IsVisible is { } isVisible)
             disposables.Add(isVisible.Subscribe(visible => menuItem.IsVisible = visible));
         if (item.Items is { } items)
@@ -76,13 +78,20 @@ internal static class MainMenuBuilder
             CommandParameter = item.CommandParameter,
             Gesture = gesture
         };
+        FocusedEditCommand? editCommand = null;
         if (item.EditAction is { } action)
         {
-            var command = new FocusedEditCommand(action, item.Command!, window, gesture);
-            disposables.Add(command.FollowFocus());
-            menuItem.Command = command;
+            editCommand = new FocusedEditCommand(action, item.Command!, window, gesture);
+            disposables.Add(editCommand.FollowFocus());
+            menuItem.Command = editCommand;
         }
 
+        // The key the entry shows is also the key equivalent AppKit gives it.
+        FollowGesture(item, moved =>
+        {
+            menuItem.Gesture = moved;
+            editCommand?.ShownGesture = moved;
+        }, disposables);
         if (item.IsVisible is { } isVisible)
             disposables.Add(isVisible.Subscribe(visible => menuItem.IsVisible = visible));
         if (item.Items is { } items)
@@ -102,6 +111,23 @@ internal static class MainMenuBuilder
         { EditAction: { } action } => FocusedEditCommand.GetKeyGesture(action),
         _ => null
     };
+
+    // The key map can move a command's gesture, and a menu built before the commands were registered shows none until
+    // they are.
+    private static void FollowGesture(MainMenuItem item, Action<KeyGesture?> show, CompositeDisposable disposables)
+    {
+        if (item.GestureCommand is null || AppHelper.GetContextCommandManager?.Invoke() is not { } commands)
+            return;
+
+        void OnChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(() =>
+        {
+            if (!disposables.IsDisposed)
+                show(GetGesture(item));
+        });
+
+        commands.GesturesChanged += OnChanged;
+        disposables.Add(Disposable.Create(() => commands.GesturesChanged -= OnChanged));
+    }
 
     // Applies each change in place: rebuilding on every change made each open view recreate all its entries.
     private static void Follow<T>(

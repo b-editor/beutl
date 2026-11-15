@@ -4,8 +4,10 @@ using System.Text.Json.Nodes;
 using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.DockLayoutTab;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Language;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
@@ -256,6 +258,57 @@ public sealed class MainMenuBuilderTests
         {
             macWindow.DataContext = null;
             macWindow.Close();
+        }
+    }
+
+    // Both menus show the key the key map gives a command, when the commands are registered after the menus are built and
+    // when the key map moves it, and an edit entry hands on the key it shows (#4053).
+    [AvaloniaTest]
+    public async Task Both_menus_follow_commands_registered_after_them_and_the_key_map()
+    {
+        await TestReset.ResetShellAsync();
+        MainViewModel viewModel = TestShell.MainViewModel;
+        Func<ContextCommandManager?>? previous = AppHelper.GetContextCommandManager;
+        var commands = new ContextCommandManager(new ContextCommandSettingsStore(new JsonObject(), persist: false));
+        AppHelper.GetContextCommandManager = () => commands;
+        var view = new MainView { DataContext = viewModel };
+        var macWindow = new MacWindow { DataContext = viewModel };
+        try
+        {
+            HeadlessTestHelpers.Settle();
+            MenuItem undo = view.FindControl<Menu>("MenuBar")!.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.Edit))
+                .Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.Undo));
+            NativeMenuItem nativeUndo = NativeMenu.GetMenu(macWindow)!.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.Edit)
+                .Menu!.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.Undo);
+            Assert.That(nativeUndo.Gesture, Is.Null, "No command is registered yet.");
+
+            commands.Register(MainViewExtension.Instance);
+            HeadlessTestHelpers.Settle();
+            ContextCommandEntry entry = commands.GetDefinitions<MainViewExtension>().Single(command => command.Definition.Id == "main.undo");
+            KeyGesture? registered = ContextCommandManager.CurrentGestures(entry).First();
+            Assert.Multiple(() =>
+            {
+                Assert.That(registered, Is.Not.Null);
+                Assert.That(undo.InputGesture, Is.EqualTo(registered));
+                Assert.That(nativeUndo.Gesture, Is.EqualTo(registered));
+            });
+
+            var moved = new KeyGesture(Key.U, KeyModifiers.Alt | KeyModifiers.Shift);
+            commands.ChangeKeyGesture(entry, moved, ContextCommandManager.CurrentPlatform);
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(undo.InputGesture, Is.EqualTo(moved));
+                Assert.That(nativeUndo.Gesture, Is.EqualTo(moved));
+                Assert.That(((FocusedEditCommand)nativeUndo.Command!).ShownGesture, Is.EqualTo(moved));
+            });
+        }
+        finally
+        {
+            AppHelper.GetContextCommandManager = previous;
+            macWindow.DataContext = null;
+            macWindow.Close();
+            view.DataContext = null;
         }
     }
 

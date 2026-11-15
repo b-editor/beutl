@@ -67,6 +67,9 @@ public sealed class KeyMapFlyout : FAPickerFlyoutBase
     public static readonly StyledProperty<KeyGesture?> GestureProperty =
         AvaloniaProperty.Register<KeyMapFlyout, KeyGesture?>(nameof(Gesture));
 
+    // The flyout taking a key now, if any.
+    private static KeyMapFlyout? s_open;
+
     public KeyGesture? Gesture
     {
         get => GetValue(GestureProperty);
@@ -74,6 +77,32 @@ public sealed class KeyMapFlyout : FAPickerFlyoutBase
     }
 
     public event TypedEventHandler<KeyMapFlyout, EventArgs>? Confirmed;
+
+    /// <summary>
+    /// Gives the open flyout the key of a menu entry, which AppKit hands the menu before the flyout sees it, and says
+    /// whether one was open to take it.
+    /// </summary>
+    internal static bool TakeMenuKey(KeyGesture gesture)
+    {
+        if (s_open is not { } open)
+            return false;
+
+        open.Gesture = gesture;
+        return true;
+    }
+
+    protected override void OnOpened()
+    {
+        base.OnOpened();
+        s_open = this;
+    }
+
+    protected override void OnClosed()
+    {
+        if (s_open == this)
+            s_open = null;
+        base.OnClosed();
+    }
 
     protected override Control CreatePresenter()
     {

@@ -21,6 +21,7 @@ using Beutl.Logging;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.Pages;
+using Beutl.Pages.SettingsPages;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Services.StartupTasks;
@@ -324,19 +325,36 @@ public sealed class App : Application
 
     private void OpenSettingsClicked(object? sender, EventArgs e)
     {
+        // AppKit gives the entry its key before the key map's flyout sees it, and the key is then the one being assigned.
+        if (sender is NativeMenuItem { Gesture: { } gesture }
+            && (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow is { } window
+            && FocusedEditCommand.IsCurrentEventKeyDown(window)
+            && KeyMapFlyout.TakeMenuKey(gesture))
+        {
+            return;
+        }
+
         _mainViewModel?.MenuBar.ShowSettings.Execute();
     }
 
-    // The application menu's entry shows the command's gesture, which is known once the commands are registered.
+    // The application menu's entry shows the command's gesture, which is known once the commands are registered, and
+    // follows the key map after that.
     private void ShowSettingsGestureInApplicationMenu()
     {
         if (NativeMenu.GetMenu(this)?.Items.OfType<NativeMenuItem>().FirstOrDefault(item => item.Header == Strings.Settings) is not { } settings)
             return;
 
+        void Show() => settings.Gesture = GetCommandGestureExtension.GetKeyGesture(
+            typeof(MainViewExtension), MainViewExtension.ShowSettingsCommandId);
+
         Task registered = _startUp?.GetTask<LoadPrimitiveExtensionTask>().Task ?? Task.CompletedTask;
         registered.ContinueWith(
-            _ => Dispatcher.UIThread.Post(() => settings.Gesture = GetCommandGestureExtension.GetKeyGesture(
-                typeof(MainViewExtension), MainViewExtension.ShowSettingsCommandId)),
+            _ => Dispatcher.UIThread.Post(() =>
+            {
+                Show();
+                if (AppHelper.GetContextCommandManager?.Invoke() is { } commands)
+                    commands.GesturesChanged += (_, _) => Dispatcher.UIThread.Post(Show);
+            }),
             TaskScheduler.Default);
     }
 }
