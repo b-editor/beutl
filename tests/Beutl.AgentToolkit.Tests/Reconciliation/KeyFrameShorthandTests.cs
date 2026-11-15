@@ -193,11 +193,24 @@ public sealed class KeyFrameShorthandTests
         Assert.That(rect.Pen.Value!.TrimEnd.GetKeyFrameAnimation()!.KeyFrames, Has.Count.EqualTo(2));
     }
 
-    [Test]
-    public void Out_of_range_values_on_a_nested_object_written_without_a_type_are_coerced()
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Out_of_range_values_on_a_nested_object_written_without_a_type_are_coerced(bool shorthand)
     {
         Scene scene = TestWorkspace.CreateScene();
         using var session = new AgentToolkitTestSession(scene);
+        JsonObject animation = shorthand
+            ? new JsonObject
+            {
+                [KeyFrameShorthand.PropertyName] = new JsonArray(new JsonArray(0, -25), new JsonArray(0.5, 4))
+            }
+            : new JsonObject
+            {
+                ["$type"] = IdentityHelper.WriteDiscriminator(typeof(KeyFrameAnimation<float>)),
+                [nameof(IKeyFrameAnimation.KeyFrames)] = new JsonArray(
+                    CreateLongFormKeyFrame(0, -25),
+                    CreateLongFormKeyFrame(0.5, 4))
+            };
 
         ToolResult<ApplyEditResponse> apply = session.CreateEditTools().ApplyEdit(
             patch: InsertElementWith(new JsonObject
@@ -205,13 +218,7 @@ public sealed class KeyFrameShorthandTests
                 ["$type"] = IdentityHelper.WriteDiscriminator(typeof(RectShape)),
                 [nameof(RectShape.Pen)] = new JsonObject
                 {
-                    ["Animations"] = new JsonObject
-                    {
-                        [nameof(Pen.Thickness)] = new JsonObject
-                        {
-                            [KeyFrameShorthand.PropertyName] = new JsonArray(new JsonArray(0, -25), new JsonArray(0.5, 4))
-                        }
-                    }
+                    ["Animations"] = new JsonObject { [nameof(Pen.Thickness)] = animation }
                 }
             }),
             schemaVersion: SchemaVersion.Current);
