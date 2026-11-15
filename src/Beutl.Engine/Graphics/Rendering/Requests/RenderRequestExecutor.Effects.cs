@@ -210,7 +210,7 @@ internal sealed partial class RenderRequestExecutor
                 currentTarget,
                 () => ExecuteEffectItemCore(fragment, currentTarget, requestedScale),
                 normalizeGridPhase: fragment.Payload is FilterEffectSegmentRenderFragmentPayload payload
-                                    && payload.HasImperativeItem);
+                                    && payload.StripsDeviceGridPhase);
 
         private IReadOnlyList<MaterializedRenderValue> ExecuteEffectItemCore(
             RenderFragmentReference fragment,

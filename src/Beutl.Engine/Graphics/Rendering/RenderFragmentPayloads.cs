@@ -68,10 +68,7 @@ internal sealed record FilterEffectSegmentRenderFragmentPayload(
     FilterEffectWorkingScalePolicy? WorkingScalePolicy,
     int StreamInputCount)
 {
-    /// <summary>
-    /// Whether the segment runs an imperative effect callback, which lays out its targets in whole device pixels,
-    /// so the executor strips the sub-pixel phase of the ambient device grid for it and its nested input frames.
-    /// </summary>
+    /// <summary>Whether the segment runs an imperative effect callback.</summary>
     public bool HasImperativeItem
     {
         get
@@ -84,6 +81,33 @@ internal sealed record FilterEffectSegmentRenderFragmentPayload(
             foreach (IFEItem item in BoundsItems)
             {
                 if (item is IFEItem_Custom)
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Whether the segment runs an imperative effect callback that lays out its targets in whole device pixels from
+    /// where its content sits, so the executor strips the sub-pixel phase of the ambient device grid for it and its
+    /// nested input frames.
+    /// </summary>
+    /// <remarks>
+    /// A callback recorded with <see cref="CustomFilterEffectOptions.KeepsPlacement"/> leaves its content where it is,
+    /// so a segment that runs only those keeps the phase, and the content stays where it is drawn without the effect.
+    /// </remarks>
+    public bool StripsDeviceGridPhase
+    {
+        get
+        {
+            if (BoundsItems.IsDefaultOrEmpty)
+                return false;
+
+            foreach (IFEItem item in BoundsItems)
+            {
+                if (item is IFEItem_Custom custom
+                    && !custom.Options.HasFlag(CustomFilterEffectOptions.KeepsPlacement))
                     return true;
             }
 

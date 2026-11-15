@@ -14,14 +14,22 @@ public sealed partial class FilterEffectExecutor
     /// </remarks>
     private const int StackFlushPlanLimit = 16;
 
-    public void Flush(bool force = true)
+    public void Flush(bool force = true) => Flush(force, alignToDeviceGrid: false);
+
+    /// <param name="force">Whether to materialize the targets even without a pending Skia chain.</param>
+    /// <param name="alignToDeviceGrid">
+    /// Whether the custom effect this flush runs ahead of keeps its content where it is, which lays the targets on
+    /// the device grid (see <see cref="AlignsToDeviceGrid"/>).
+    /// </param>
+    /// <returns>Where the content was laid on the device grid, or <see langword="null"/> when none of it was.</returns>
+    private AlignedPlacement? Flush(bool force, bool alignToDeviceGrid)
     {
         bool hasFilter = Builder.HasFilter();
         if (!force && !hasFilter)
         {
             _pendingSkiaTargets = null;
             _pendingChainNeedsBoundsCoordinates = false;
-            return;
+            return null;
         }
 
         using var paint = hasFilter ? new SKPaint() : null;
@@ -35,12 +43,13 @@ public sealed partial class FilterEffectExecutor
             ? stackalloc FlushTarget?[StackFlushPlanLimit]
             : new FlushTarget?[count];
         plan = plan[..count];
-        PlanFlush(plan, hasFilter);
-        MaterializeFlush(plan, paint, hasFilter);
+        PlanFlush(plan, hasFilter, alignToDeviceGrid);
+        AlignedPlacement? placement = MaterializeFlush(plan, paint, hasFilter, alignToDeviceGrid);
 
         _pendingSkiaTargets = null;
         _pendingChainNeedsBoundsCoordinates = false;
         Builder.Clear();
+        return placement;
     }
 
     /// <summary>
@@ -53,7 +62,7 @@ public sealed partial class FilterEffectExecutor
     /// positional - slot <c>i</c> answers for the target at index <c>i</c> - which is what lets
     /// materialization read it while removing entries from the list it was measured against.
     /// </remarks>
-    private void PlanFlush(Span<FlushTarget?> plan, bool hasFilter)
+    private void PlanFlush(Span<FlushTarget?> plan, bool hasFilter, bool alignToDeviceGrid)
     {
         for (int i = 0; i < plan.Length; i++)
         {
@@ -71,7 +80,7 @@ public sealed partial class FilterEffectExecutor
                 continue;
 
             plan[i] = flushTarget;
-            ClampWorkingScaleToFlushBudget(target, flushTarget, hasFilter);
+            ClampWorkingScaleToFlushBudget(target, flushTarget, hasFilter, alignToDeviceGrid);
         }
     }
 
@@ -79,13 +88,19 @@ public sealed partial class FilterEffectExecutor
     private void ClampWorkingScaleToFlushBudget(
         EffectTarget target,
         FlushTarget flushTarget,
-        bool hasFilter)
+        bool hasFilter,
+        bool alignToDeviceGrid)
     {
-        Rect budgetBounds = hasFilter
-            ? ResolveDeviceRoundingSource(target, flushTarget)
-            : new Rect(default, target.Bounds.Size);
+        // A buffer laid on the device grid covers every pixel the bounds touch, which a fractional origin can widen
+        // by one.
+        bool aligned = AlignsToDeviceGrid(target, hasFilter, alignToDeviceGrid);
+        Rect budgetBounds = aligned
+            ? target.Bounds
+            : hasFilter
+                ? ResolveDeviceRoundingSource(target, flushTarget)
+                : new Rect(default, target.Bounds.Size);
         BufferDimensionBudget budget = Budget;
-        float fit = hasFilter
+        float fit = aligned || hasFilter
             ? budget.ClampWorkingScaleToExactFootprint(
                 budgetBounds.Translate(target.DeviceGridOffset),
                 WorkingScale)
@@ -100,11 +115,15 @@ public sealed partial class FilterEffectExecutor
     }
 
     /// <summary>Allocates a buffer for every planned target and draws the pending chain into it.</summary>
-    private void MaterializeFlush(
+    /// <returns>Where the content was laid on the device grid, or <see langword="null"/> when none of it was.</returns>
+    private AlignedPlacement? MaterializeFlush(
         ReadOnlySpan<FlushTarget?> plan,
         SKPaint? paint,
-        bool hasFilter)
+        bool hasFilter,
+        bool alignToDeviceGrid)
     {
+        List<TargetPlacement>? placements = null;
+        bool aligned = false;
         // 'planned' counts targets consumed rather than list positions, so it keeps naming the slot this
         // target was measured into while removals move the list index back under it.
         for (int i = 0, planned = 0; i < CurrentTargets.Count; i++, planned++)
@@ -130,20 +149,24 @@ public sealed partial class FilterEffectExecutor
 
             float w = WorkingScale;
             if (!hasFilter && CanReuseEffectItemTarget(target, w))
+            {
+                (placements ??= []).Add(new TargetPlacement(target.Bounds, target.Bounds));
                 continue;
+            }
 
             FlushGeometry geometry = ResolveFlushGeometry(
                 target,
                 flushTarget,
                 w,
-                hasFilter);
+                hasFilter,
+                alignToDeviceGrid);
             EffectTarget? newTarget = EffectTargetAllocation.Allocate(
                 _settings.RenderTargetLeaseSession,
-                target.Bounds,
+                geometry.Bounds,
                 w,
                 geometry.DeviceBounds,
                 geometry.DeviceGridOffset,
-                preserveImperativeRasterPlacement: !hasFilter);
+                geometry.PreserveImperativeRasterPlacement);
             if (newTarget is null)
             {
                 ReportRefusedFlushBuffer(target, i, geometry.DeviceBounds, w, flushTarget.PhysicalBounds);
@@ -153,9 +176,13 @@ public sealed partial class FilterEffectExecutor
 
             DrawIntoFlushTarget(target, newTarget, flushTarget, geometry, paint, w);
             newTarget.OriginalBounds = target.OriginalBounds;
+            (placements ??= []).Add(new TargetPlacement(target.Bounds, newTarget.Bounds));
+            aligned |= AlignsToDeviceGrid(target, hasFilter, alignToDeviceGrid);
             CurrentTargets[i] = newTarget;
             target.Dispose();
         }
+
+        return aligned && placements is not null ? new AlignedPlacement(placements) : null;
     }
 
     /// <summary>Reports a target whose own bounds no allocator could be asked for.</summary>
@@ -202,18 +229,125 @@ public sealed partial class FilterEffectExecutor
         CurrentTargets.RemoveAt(index);
     }
 
-    /// <summary>Where a flush buffer sits on the device grid, and the raster frame it is drawn in.</summary>
+    /// <summary>
+    /// Where a flush buffer sits on the device grid, the raster frame it is drawn in, and the bounds and placement
+    /// the new target takes.
+    /// </summary>
     private readonly record struct FlushGeometry(
         PixelRect DeviceBounds,
         Vector DeviceGridOffset,
-        Rect RasterBounds);
+        Rect RasterBounds,
+        Rect Bounds,
+        bool PreserveImperativeRasterPlacement);
+
+    /// <summary>The bounds of a target's content before a flush, and of the whole pixels the flush laid it on.</summary>
+    internal readonly record struct TargetPlacement(Rect Content, Rect Aligned)
+    {
+        public TargetPlacement Union(TargetPlacement other)
+            => new(Content.Union(other.Content), Aligned.Union(other.Aligned));
+    }
+
+    /// <summary>Where a flush laid each target's content on the device grid.</summary>
+    internal sealed class AlignedPlacement(List<TargetPlacement> targets)
+    {
+        // How far apart, beside the size of the edges, two edges may be and still be one. A callback finds an edge again
+        // from other edges and sizes, as a union finds its right edge from its left edge and its width, and the rounding
+        // of that arithmetic can leave it a few units in the last place off the edge it lies on.
+        private const float EdgeTolerance = 1e-6f;
+
+        /// <summary>
+        /// Moves each edge of <paramref name="bounds"/> that lies on or beyond the laid-out one back by as much as the
+        /// content's edge lay inside it. An edge a callback moved inwards stays where it put it.
+        /// </summary>
+        /// <remarks>
+        /// The bounds are measured against the targets they hold whole, as a copy, an expansion or a merge of them holds
+        /// them; or else the ones they overlap, as a crop of one does; or else all of them.
+        /// </remarks>
+        public Rect Restore(Rect bounds)
+        {
+            if ((Join(bounds, whole: true) ?? Join(bounds, whole: false) ?? Join(bounds: null, whole: false))
+                is not { } placement)
+            {
+                return bounds;
+            }
+
+            (Rect content, Rect aligned) = placement;
+            if (bounds == aligned)
+                return content;
+
+            float left = Start(bounds.Left, aligned.Left, content.Left);
+            float top = Start(bounds.Top, aligned.Top, content.Top);
+            float right = End(bounds.Right, aligned.Right, content.Right);
+            float bottom = End(bounds.Bottom, aligned.Bottom, content.Bottom);
+            return right > left && bottom > top ? new Rect(left, top, right - left, bottom - top) : bounds;
+        }
+
+        // The targets the bounds hold whole, or overlap; every target when no bounds are given.
+        private TargetPlacement? Join(Rect? bounds, bool whole)
+        {
+            TargetPlacement? joined = null;
+            foreach (TargetPlacement target in targets)
+            {
+                if (bounds is { } b && !(whole ? Holds(b, target.Aligned) : b.Intersects(target.Aligned)))
+                    continue;
+
+                joined = joined is { } j ? j.Union(target) : target;
+            }
+
+            return joined;
+        }
+
+        private static bool Holds(Rect outer, Rect inner)
+            => AtOrBefore(outer.Left, inner.Left) && AtOrBefore(outer.Top, inner.Top)
+                && AtOrBefore(inner.Right, outer.Right) && AtOrBefore(inner.Bottom, outer.Bottom);
+
+        private static bool AtOrBefore(float edge, float other) => edge <= other || SameEdge(edge, other);
+
+        private static bool SameEdge(float edge, float other)
+            => MathF.Abs(edge - other) <= EdgeTolerance * MathF.Max(1f, MathF.Max(MathF.Abs(edge), MathF.Abs(other)));
+
+        private static float Start(float edge, float aligned, float content)
+            => SameEdge(edge, aligned) ? content : edge < aligned ? edge + (content - aligned) : edge;
+
+        private static float End(float edge, float aligned, float content)
+            => SameEdge(edge, aligned) ? content : edge > aligned ? edge - (aligned - content) : edge;
+    }
+
+    /// <summary>
+    /// Whether a flush ahead of a custom effect that keeps its content in place lays this target on the device grid:
+    /// on a buffer whose bounds are the whole pixels the target's bounds touch, with the content where it was.
+    /// </summary>
+    /// <remarks>
+    /// The content keeps its sub-pixel position and its partly covered last column and row, every whole-pixel copy
+    /// the callback makes of it stays pixel for pixel, and the result goes back onto the composition the same way. A
+    /// target that keeps an imperative placement and has no pending chain to draw is already where an effect drew
+    /// it, and is flushed at its bounds as before.
+    /// </remarks>
+    private static bool AlignsToDeviceGrid(EffectTarget target, bool hasFilter, bool alignToDeviceGrid)
+        => alignToDeviceGrid && (hasFilter || !target.PreserveImperativeRasterPlacement);
 
     private FlushGeometry ResolveFlushGeometry(
         EffectTarget target,
         FlushTarget flushTarget,
         float w,
-        bool hasFilter)
+        bool hasFilter,
+        bool alignToDeviceGrid)
     {
+        if (AlignsToDeviceGrid(target, hasFilter, alignToDeviceGrid))
+        {
+            PixelRect alignedDeviceBounds = CustomFilterEffectContext.DeviceBufferBounds(
+                target.Bounds.Translate(target.DeviceGridOffset), w);
+            Rect alignedBounds = alignedDeviceBounds
+                .ToRect(w)
+                .Translate(-target.DeviceGridOffset);
+            return new FlushGeometry(
+                alignedDeviceBounds,
+                target.DeviceGridOffset,
+                alignedBounds,
+                alignedBounds,
+                PreserveImperativeRasterPlacement: true);
+        }
+
         bool preserveImperativeRasterPlacement = !hasFilter;
         Vector allocationGridOffset = preserveImperativeRasterPlacement
             ? _settings.DeviceGridOffset ?? default
@@ -251,7 +385,9 @@ public sealed partial class FilterEffectExecutor
             outputDeviceGridOffset,
             deviceBounds
                 .ToRect(w)
-                .Translate(-outputDeviceGridOffset));
+                .Translate(-outputDeviceGridOffset),
+            target.Bounds,
+            preserveImperativeRasterPlacement);
     }
 
     /// <summary>Draws the target, through the pending Skia chain, into its freshly allocated buffer.</summary>

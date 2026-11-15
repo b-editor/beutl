@@ -78,8 +78,9 @@ internal sealed partial class RenderRequestExecutor
         {
             Vector previousOffset = _activeDeviceGridOffset;
             bool previousNormalized = _deviceGridPhaseNormalized;
-            // Custom effects require logical origins on exact buffer pixels; fractional grid phases resample
-            // and lose edge coverage. Nested materialization inherits this normalization.
+            // Custom effects that lay out targets from where their content sits require logical origins on exact
+            // buffer pixels; fractional grid phases resample and lose edge coverage. Nested materialization inherits
+            // this normalization.
             bool normalized = previousNormalized || normalizeGridPhase;
             Vector offset = DeviceGridAlignment.ResolveLogicalOffset(currentTarget);
             if (normalized)

@@ -147,7 +147,13 @@ public sealed partial class Clipping : FilterEffect
         protected override void ApplyTo(FilterEffectContext context)
         {
             var thickness = new Thickness(Left, Top, Right, Bottom);
-            context.CustomEffect((thickness, AutoCenter, AutoClip), Apply, TransformBounds);
+            // Cropping in whole device pixels moves nothing, so the content stays where it is drawn without the
+            // effect. Centring the result moves it.
+            context.CustomEffect(
+                (thickness, AutoCenter, AutoClip),
+                Apply,
+                TransformBounds,
+                AutoCenter ? CustomFilterEffectOptions.None : CustomFilterEffectOptions.KeepsPlacement);
         }
     }
 }
