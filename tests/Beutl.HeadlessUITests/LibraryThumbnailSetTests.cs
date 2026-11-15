@@ -30,13 +30,8 @@ public class LibraryThumbnailSetTests
         }
     }
 
-    private static int s_captures;
-
     private static Task<LibraryThumbnailSubject?> Capture(CancellationToken cancellationToken)
-    {
-        s_captures++;
-        return Task.FromResult<LibraryThumbnailSubject?>(null);
-    }
+        => Task.FromResult<LibraryThumbnailSubject?>(null);
 
     private static Task Idle(LibraryThumbnailSet set)
     {
@@ -89,9 +84,15 @@ public class LibraryThumbnailSetTests
     [AvaloniaTest]
     public async Task A_refresh_captures_again_and_keeps_the_still_until_it_is_drawn_again()
     {
+        // The second capture waits until the still has been looked at. With a capture and a drawing that finish at
+        // once, the whole drawing could otherwise end inside Refresh, whenever its Task.Run finished first (#4253).
         var renderer = new FakeRenderer();
-        s_captures = 0;
-        using var set = new LibraryThumbnailSet(Capture, renderer.Render);
+        var recapture = new TaskCompletionSource<LibraryThumbnailSubject?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int captures = 0;
+        Task<LibraryThumbnailSubject?> CaptureAgainWhenAllowed(CancellationToken cancellationToken)
+            => ++captures == 1 ? Task.FromResult<LibraryThumbnailSubject?>(null) : recapture.Task;
+
+        using var set = new LibraryThumbnailSet(CaptureAgainWhenAllowed, renderer.Render);
         IAnimatedThumbnailSource source = set.GetSource(typeof(Blur))!;
         using IDisposable request = source.RequestStill();
         await HeadlessTestHelpers.WaitUntilAsync(() => source.Still != null);
@@ -99,13 +100,16 @@ public class LibraryThumbnailSetTests
         Avalonia.Media.IImage first = source.Still!;
 
         set.Refresh();
+        await HeadlessTestHelpers.WaitUntilAsync(() => captures == 2);
         Assert.That(source.Still, Is.SameAs(first), "The still stays until it is drawn again.");
+
+        recapture.SetResult(null);
         await HeadlessTestHelpers.WaitUntilAsync(() => !ReferenceEquals(source.Still, first));
         await Idle(set);
 
         Assert.Multiple(() =>
         {
-            Assert.That(s_captures, Is.EqualTo(2));
+            Assert.That(captures, Is.EqualTo(2));
             Assert.That(renderer.Calls.Count(call => call.Type == typeof(Blur)), Is.EqualTo(2));
         });
     }
