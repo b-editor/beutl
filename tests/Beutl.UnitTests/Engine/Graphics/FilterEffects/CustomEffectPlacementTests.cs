@@ -60,6 +60,40 @@ public sealed class CustomEffectPlacementTests
         AssertSamePixels(scaled, withEffect);
     }
 
+    // A group's drawables reach the effect as separate targets. Each goes on with its own bounds, so a transform after
+    // the effect scales each about the same centre as without it.
+    [Test]
+    public void A_transform_after_a_clipping_on_a_group_scales_each_drawable_about_the_same_centre()
+    {
+        using Bitmap scaled = RenderGroup(ThenScaled(null));
+        using Bitmap withEffect = RenderGroup(ThenScaled(new Clipping()));
+
+        AssertSamePixels(scaled, withEffect);
+    }
+
+    // Two ellipses apart from each other, whose bounds start and end at fractions of a pixel.
+    private static Bitmap RenderGroup(FilterEffect effect)
+    {
+        var group = new DrawableGroup();
+        foreach (float x in new[] { -7.3f, 7.7f })
+        {
+            var shape = new EllipseShape();
+            shape.Width.Value = 9.4f;
+            shape.Height.Value = 7.7f;
+            shape.Fill.Value = Brushes.White;
+            shape.Transform.Value = new TranslateTransform(x, 0.15f);
+            group.Children.Add(shape);
+        }
+
+        group.FilterEffect.Value = effect;
+        return RenderThread.Dispatcher.Invoke(() =>
+        {
+            using Renderer renderer = RendererTestSupport.CreateCpuRenderer(48, 48);
+            renderer.Render(RendererTestSupport.CreateFrame(new PixelSize(48, 48), group));
+            return renderer.Snapshot();
+        });
+    }
+
     private static FilterEffectGroup ThenScaled(FilterEffect? head)
     {
         var group = new FilterEffectGroup();

@@ -122,8 +122,7 @@ public sealed partial class FilterEffectExecutor
         bool hasFilter,
         bool alignToDeviceGrid)
     {
-        Rect? content = null;
-        Rect? laidOut = null;
+        List<TargetPlacement>? placements = null;
         bool aligned = false;
         // 'planned' counts targets consumed rather than list positions, so it keeps naming the slot this
         // target was measured into while removals move the list index back under it.
@@ -151,8 +150,7 @@ public sealed partial class FilterEffectExecutor
             float w = WorkingScale;
             if (!hasFilter && CanReuseEffectItemTarget(target, w))
             {
-                content = Union(content, target.Bounds);
-                laidOut = Union(laidOut, target.Bounds);
+                (placements ??= []).Add(new TargetPlacement(target.Bounds, target.Bounds));
                 continue;
             }
 
@@ -178,16 +176,13 @@ public sealed partial class FilterEffectExecutor
 
             DrawIntoFlushTarget(target, newTarget, flushTarget, geometry, paint, w);
             newTarget.OriginalBounds = target.OriginalBounds;
-            content = Union(content, target.Bounds);
-            laidOut = Union(laidOut, newTarget.Bounds);
+            (placements ??= []).Add(new TargetPlacement(target.Bounds, newTarget.Bounds));
             aligned |= AlignsToDeviceGrid(target, hasFilter, alignToDeviceGrid);
             CurrentTargets[i] = newTarget;
             target.Dispose();
         }
 
-        return aligned && content is { } c && laidOut is { } l ? new AlignedPlacement(c, l) : null;
-
-        static Rect Union(Rect? union, Rect bounds) => union is { } u ? u.Union(bounds) : bounds;
+        return aligned && placements is not null ? new AlignedPlacement(placements) : null;
     }
 
     /// <summary>Reports a target whose own bounds no allocator could be asked for.</summary>
@@ -245,23 +240,56 @@ public sealed partial class FilterEffectExecutor
         Rect Bounds,
         bool PreserveImperativeRasterPlacement);
 
-    /// <summary>The bounds of the content a flush laid on the device grid, and of the whole pixels it laid it on.</summary>
-    private readonly record struct AlignedPlacement(Rect Content, Rect Aligned)
+    /// <summary>The bounds of a target's content before a flush, and of the whole pixels the flush laid it on.</summary>
+    private readonly record struct TargetPlacement(Rect Content, Rect Aligned)
+    {
+        public TargetPlacement Union(TargetPlacement other)
+            => new(Content.Union(other.Content), Aligned.Union(other.Aligned));
+    }
+
+    /// <summary>Where a flush laid each target's content on the device grid.</summary>
+    private sealed class AlignedPlacement(List<TargetPlacement> targets)
     {
         /// <summary>
         /// Moves each edge of <paramref name="bounds"/> that lies on or beyond the laid-out one back by as much as the
         /// content's edge lay inside it. An edge a callback moved inwards stays where it put it.
         /// </summary>
+        /// <remarks>
+        /// The bounds are measured against the targets they hold whole, as a copy, an expansion or a merge of them holds
+        /// them; or else the ones they overlap, as a crop of one does; or else all of them.
+        /// </remarks>
         public Rect Restore(Rect bounds)
         {
-            if (bounds == Aligned)
-                return Content;
+            if ((Join(bounds, whole: true) ?? Join(bounds, whole: false) ?? Join(bounds: null, whole: false))
+                is not { } placement)
+            {
+                return bounds;
+            }
 
-            float left = Start(bounds.Left, Aligned.Left, Content.Left);
-            float top = Start(bounds.Top, Aligned.Top, Content.Top);
-            float right = End(bounds.Right, Aligned.Right, Content.Right);
-            float bottom = End(bounds.Bottom, Aligned.Bottom, Content.Bottom);
+            (Rect content, Rect aligned) = placement;
+            if (bounds == aligned)
+                return content;
+
+            float left = Start(bounds.Left, aligned.Left, content.Left);
+            float top = Start(bounds.Top, aligned.Top, content.Top);
+            float right = End(bounds.Right, aligned.Right, content.Right);
+            float bottom = End(bounds.Bottom, aligned.Bottom, content.Bottom);
             return right > left && bottom > top ? new Rect(left, top, right - left, bottom - top) : bounds;
+        }
+
+        // The targets the bounds hold whole, or overlap; every target when no bounds are given.
+        private TargetPlacement? Join(Rect? bounds, bool whole)
+        {
+            TargetPlacement? joined = null;
+            foreach (TargetPlacement target in targets)
+            {
+                if (bounds is { } b && !(whole ? b.Contains(target.Aligned) : b.Intersects(target.Aligned)))
+                    continue;
+
+                joined = joined is { } j ? j.Union(target) : target;
+            }
+
+            return joined;
         }
 
         private static float Start(float edge, float aligned, float content)
