@@ -585,6 +585,74 @@ public sealed class ListItemLayoutTests
         }
     }
 
+    // A number row's box keeps to its column in a narrow panel, so it ends where the box of the vector row beside it does
+    // (#4079). At 300 px its least width used to push it 8 px past its column, toward the menu button.
+    [AvaloniaTest]
+    [TestCase(300)]
+    [TestCase(420)]
+    public async Task The_boxes_of_a_transforms_number_and_vector_rows_end_at_one_edge(int width)
+    {
+        var scale = new ScaleTransform();
+        var group = new TransformGroup { Children = { scale } };
+        using var history = new HistoryScope(group);
+        using var list = CreateList(new EnginePropertyAdapter<ICoreList<Transform>>(group.Children, group), history);
+        var window = new Window { Content = new ListEditor { DataContext = list }, Width = width, Height = 600 };
+        try
+        {
+            window.Show();
+            await Settle();
+            TransformListItemEditor item = Item(window, scale);
+
+            Assert.That(Right(Box(item, "PART_InnerTextBox"), window), Is.EqualTo(Right(Box(item, "PART_InnerSecondTextBox"), window)),
+                "Scale ends where Scale XY does.");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Too narrow for a label and a value at their widths, a row of an effect gives the label less room: its value, an
+    // enum's or a number's alike, stays in the value's column, where the values of the rows around it end.
+    [AvaloniaTest]
+    public async Task An_effects_values_stay_in_their_column_in_a_narrow_panel()
+    {
+        var bokeh = new Bokeh();
+        var group = new FilterEffectGroup { Children = { bokeh } };
+        using var history = new HistoryScope(group);
+        using var list = CreateList(new EnginePropertyAdapter<ICoreList<FilterEffect>>(group.Children, group), history);
+        var window = new Window { Content = new ListEditor { DataContext = list }, Width = 300, Height = 600 };
+        try
+        {
+            window.Show();
+            await Settle();
+            FilterEffectListItemEditor item = await Expand(window, bokeh);
+
+            PropertyEditorGrid[] rows = item.GetVisualDescendants().OfType<PropertyEditorGrid>()
+                .Where(row => row.IsEffectivelyVisible).ToArray();
+            Assert.That(rows.Select(row => row.FindAncestorOfType<PropertyEditor>()),
+                Has.Some.InstanceOf<EnumEditor>().And.Some.InstanceOf<NumberEditor<float>>());
+            string[] outside = rows.SelectMany(row =>
+            {
+                double start = row.ColumnDefinitions.Take(row.ValueColumn).Sum(column => column.ActualWidth);
+                double end = start + row.ColumnDefinitions[row.ValueColumn].ActualWidth;
+                return row.Children
+                    .Where(value => value.IsVisible && Grid.GetColumn(value) == row.ValueColumn && Grid.GetColumnSpan(value) == 1
+                        && (value.Bounds.Left - value.Margin.Left < start - .01 || value.Bounds.Right + value.Margin.Right > end + .01))
+                    .Select(value => $"{row.FindAncestorOfType<PropertyEditor>()?.Header}: {value.Bounds.Left - value.Margin.Left}"
+                        + $"..{value.Bounds.Right + value.Margin.Right} in {start}..{end}");
+            }).ToArray();
+            Assert.That(outside, Is.Empty);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static TextBox Box(Control item, string name)
+        => item.GetVisualDescendants().OfType<TextBox>().Single(box => box.Name == name && box.IsEffectivelyVisible);
+
     // The decorator draws its line this far into itself.
     private const double LineInset = 8;
 

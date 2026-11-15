@@ -31,6 +31,8 @@ public sealed class PropertyEditorGrid : Grid
     private const double LayoutTolerance = .1;
     private Control? _scope;
     private ColumnDefinition? _alignedHeader;
+    private ColumnDefinition? _valueColumn;
+    private double _declaredValueMinimum;
     private GridLength _originalHeaderWidth;
     private double _rightInset = double.NaN;
     private double _precedingWidth;
@@ -104,6 +106,7 @@ public sealed class PropertyEditorGrid : Grid
     protected override Size MeasureOverride(Size availableSize)
     {
         CancelPendingReclamp();
+        KeepValueMinimum();
         _canAlign = _scope is { Bounds.Width: >= MinimumScopeWidth }
             && double.IsFinite(availableSize.Width)
             && HasInlineValue();
@@ -199,6 +202,35 @@ public sealed class PropertyEditorGrid : Grid
     private bool HasInlineValue()
         => ValueColumn > 0 && ValueColumn < ColumnDefinitions.Count
             && Children.Any(child => child.IsVisible && GetColumn(child) == ValueColumn && GetRow(child) == 0);
+
+    // The value's least width, with its margin, is its column's. Kept by the value alone, a row too narrow for both
+    // halves would put the value out of its column, centred, past the rows around it; kept by the column, the header
+    // gives way.
+    private void KeepValueMinimum()
+    {
+        ColumnDefinition? column = ValueColumn > 0 && ValueColumn < ColumnDefinitions.Count
+            ? ColumnDefinitions[ValueColumn]
+            : null;
+        if (column != _valueColumn)
+        {
+            _valueColumn?.MinWidth = _declaredValueMinimum;
+            _valueColumn = column;
+            _declaredValueMinimum = column?.MinWidth ?? 0;
+        }
+
+        if (column is not { Width.IsStar: true })
+            return;
+
+        double minimum = _declaredValueMinimum;
+        foreach (Control child in Children)
+        {
+            if (child.IsVisible && GetColumn(child) == ValueColumn && GetColumnSpan(child) == 1 && child.MinWidth > 0)
+                minimum = Math.Max(minimum, child.MinWidth + child.Margin.Left + child.Margin.Right);
+        }
+
+        if (column.MinWidth != minimum)
+            column.MinWidth = minimum;
+    }
 
     private double MeasureMinimumValueSpace(double availableHeight)
     {
