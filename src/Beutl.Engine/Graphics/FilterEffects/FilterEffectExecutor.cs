@@ -343,13 +343,15 @@ public sealed partial class FilterEffectExecutor : IDisposable
 
         foreach (EffectTarget t in CurrentTargets)
         {
+            t.ContentBounds = null;
             t.OriginalBounds = t.Bounds.WithX(0).WithY(0);
         }
     }
 
-    // A callback that keeps its content in place worked on the content laid on whole pixels. Where it left an edge of
-    // that layout, the target goes on with the content's own edge, so what follows, such as a transform about the
-    // content's centre, sees the bounds it sees without the effect. The rasters stay where they are.
+    // A callback that keeps its content in place worked on the content laid on whole pixels. The target goes on with
+    // the bounds the callback gave its content, or else, where it left an edge of that layout, with the content's own
+    // edge, so what follows, such as a transform about the content's centre, sees the bounds it sees without the
+    // effect. The rasters stay where they are.
     private void RestoreContentEdges(AlignedPlacement placement)
     {
         for (int i = 0; i < CurrentTargets.Count; i++)
@@ -364,8 +366,11 @@ public sealed partial class FilterEffectExecutor : IDisposable
                 continue;
             }
 
-            Rect bounds = placement.Restore(target.Bounds);
-            if (bounds != target.Bounds)
+            Rect bounds = target.ContentBounds ?? placement.Restore(target.Bounds);
+            // A target that knows where its content lies is described by its raster even where its bounds are already
+            // the content's, so the next flush ahead of a callback that keeps placement lays it out again and goes on
+            // tracking its content.
+            if (target.ContentBounds is not null || bounds != target.Bounds)
                 CurrentTargets[i] = target.TakeRasterWithBounds(bounds);
         }
     }

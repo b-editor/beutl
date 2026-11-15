@@ -39,14 +39,22 @@ public sealed class FilterEffectSegmentBoundaryReasonTests
         using CompiledRenderRequest layer = Compile(new LayerEffect());
         using CompiledRenderRequest clipping = Compile(new Clipping());
         using CompiledRenderRequest centred = Compile(new Clipping { AutoCenter = { Value = true } });
+        using CompiledRenderRequest blend = Compile(new BlendEffect());
+        using CompiledRenderRequest innerShadow = Compile(new InnerShadow());
+        using CompiledRenderRequest flatShadow = Compile(new FlatShadow());
         using CompiledRenderRequest stroke = Compile(new StrokeEffect());
+        using CompiledRenderRequest split = Compile(new SplitEffect());
 
         Assert.Multiple(() =>
         {
             Assert.That(SegmentIslandPayload(layer).StripsDeviceGridPhase, Is.False, "LayerEffect");
             Assert.That(SegmentIslandPayload(clipping).StripsDeviceGridPhase, Is.False, "Clipping");
             Assert.That(SegmentIslandPayload(centred).StripsDeviceGridPhase, Is.True, "Clipping with AutoCenter");
-            Assert.That(SegmentIslandPayload(stroke).StripsDeviceGridPhase, Is.True, "StrokeEffect");
+            Assert.That(SegmentIslandPayload(blend).StripsDeviceGridPhase, Is.False, "BlendEffect");
+            Assert.That(SegmentIslandPayload(innerShadow).StripsDeviceGridPhase, Is.False, "InnerShadow");
+            Assert.That(SegmentIslandPayload(flatShadow).StripsDeviceGridPhase, Is.False, "FlatShadow");
+            Assert.That(SegmentIslandPayload(stroke).StripsDeviceGridPhase, Is.False, "StrokeEffect");
+            Assert.That(SegmentIslandPayload(split).StripsDeviceGridPhase, Is.True, "SplitEffect");
         });
     }
 

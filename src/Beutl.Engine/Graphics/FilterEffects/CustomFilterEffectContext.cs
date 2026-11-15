@@ -169,6 +169,44 @@ public class CustomFilterEffectContext
         return PixelRect.FromRect(bounds, w);
     }
 
+    // The device pixel a buffer starts in, given the one its edge falls in. Bounds laid on whole device pixels come
+    // back from effect-local space a few units in the last place off them, and an edge that short of the next pixel
+    // starts there, or a target described by its raster would be drawn a pixel early. The allowance grows with the
+    // coordinate but stays under a pixel, so an edge on a pixel boundary stays on it however far out it lies.
+    private static int StartPastRounding(int pixel, float edge, float w)
+    {
+        double device = (double)edge * w;
+        double allowance = Math.Min(0.25, Math.Max(1e-4, Math.Abs(device) * 1e-6));
+        return pixel + 1 - device <= allowance ? pixel + 1 : pixel;
+    }
+
+    /// <summary>
+    /// Grows <paramref name="bounds"/> outward until each of its edges lies a whole number of device pixels at
+    /// <paramref name="w"/> from the same edge of <paramref name="content"/>.
+    /// </summary>
+    /// <remarks>
+    /// A target made at the grown bounds holds the content at a whole-pixel offset, so a copy of it lands pixel for
+    /// pixel, and bounds laid on the device grid stay on it. An edge of <paramref name="bounds"/> inside the content
+    /// moves out to the content's. The size is the content's plus the growth, so a whole-pixel size stays whole: the
+    /// distance between the grown edges can round below it, and a buffer at 1x would lose its last column.
+    /// </remarks>
+    internal static Rect GrowToWholePixels(Rect content, Rect bounds, float w)
+    {
+        float left = WholePixels(content.Left - bounds.Left, w);
+        float top = WholePixels(content.Top - bounds.Top, w);
+        float right = WholePixels(bounds.Right - content.Right, w);
+        float bottom = WholePixels(bounds.Bottom - content.Bottom, w);
+        return new Rect(
+            content.X - left,
+            content.Y - top,
+            content.Width + left + right,
+            content.Height + top + bottom);
+    }
+
+    // The fewest whole device pixels that cover a logical distance, allowing for its rounding.
+    private static float WholePixels(float distance, float w)
+        => distance <= 0 ? 0 : MathF.Max(0, MathF.Ceiling(distance * w - 1e-3f)) / w;
+
     /// <summary>
     /// The density <see cref="CreateTarget"/> will allocate for <paramref name="bounds"/>,
     /// after applying the effect-item per-buffer dimension clamp.
@@ -208,9 +246,11 @@ public class CustomFilterEffectContext
             w = fit;
         }
 
-        PixelPoint deviceOrigin = DeviceBufferBounds(
-            bounds.Translate(DeviceGridOffset),
-            w).Position;
+        Rect onDevice = bounds.Translate(DeviceGridOffset);
+        PixelPoint covering = DeviceBufferBounds(onDevice, w).Position;
+        var deviceOrigin = new PixelPoint(
+            StartPastRounding(covering.X, onDevice.X, w),
+            StartPastRounding(covering.Y, onDevice.Y, w));
         (int width, int height) = DeviceBufferSize(bounds, w);
         var deviceBounds = new PixelRect(
             deviceOrigin,

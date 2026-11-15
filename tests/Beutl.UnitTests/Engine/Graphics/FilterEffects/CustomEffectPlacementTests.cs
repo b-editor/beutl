@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
@@ -6,12 +7,14 @@ using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
+using Beutl.UnitTests.TestInfrastructure;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 
 // An effect that goes through CustomEffect and moves nothing leaves a drawable that starts at a fraction of a pixel
 // as it was drawn without the effect. Text usually starts at one, and the effect used to move it onto whole pixels
-// and cut its last partly covered column and row, so it roughened edges and made slow motion jump (#4197).
+// and cut its last partly covered column and row, so it roughened edges and made slow motion jump (#4197, #4321).
 [TestFixture]
 public sealed class CustomEffectPlacementTests
 {
@@ -24,10 +27,14 @@ public sealed class CustomEffectPlacementTests
     private const float Tolerance = 0.06f;
 
     // Centred in the frame, a 15.4 x 11.7 shape starts at (8.3, 10.15). The offsets move it to 8.5, half a pixel,
-    // and to 9, a whole one.
+    // and to 9, a whole one. With their defaults the effects change nothing on a white shape: BlendEffect blends white
+    // in, InnerShadow is white, FlatShadow has no length, and StrokeEffect's pen has no brush, though its output grows
+    // by the pen's reach.
     [Test]
     public void An_effect_that_changes_nothing_leaves_a_shape_at_a_fraction_of_a_pixel_as_it_was(
-        [Values(typeof(LayerEffect), typeof(Clipping))] Type effectType,
+        [Values(
+            typeof(LayerEffect), typeof(Clipping), typeof(BlendEffect), typeof(InnerShadow), typeof(FlatShadow),
+            typeof(StrokeEffect))] Type effectType,
         [Values(1, 2)] int renderScale,
         [Values(0f, 0.2f, 0.7f)] float offset)
     {
@@ -40,6 +47,10 @@ public sealed class CustomEffectPlacementTests
     // A blur ahead of the effect is drawn on the device grid too, where the effect then finds it.
     [TestCase(typeof(LayerEffect))]
     [TestCase(typeof(Clipping))]
+    [TestCase(typeof(BlendEffect))]
+    [TestCase(typeof(InnerShadow))]
+    [TestCase(typeof(FlatShadow))]
+    [TestCase(typeof(StrokeEffect))]
     public void An_effect_that_changes_nothing_after_a_blur_leaves_the_blur_as_it_was(Type effectType)
     {
         using Bitmap blurred = Render(Blurred(null), 1, 0f);
@@ -49,10 +60,13 @@ public sealed class CustomEffectPlacementTests
     }
 
     // The effect works on the content laid on whole pixels and leaves the content's own bounds to what follows, so a
-    // transform after it scales about the same centre as it does without the effect.
+    // transform after it scales about the same centre as it does without the effect. StrokeEffect is left out: its
+    // bounds grow by the pen's reach even where the pen draws nothing, so what follows it finds other bounds.
     [Test]
     public void A_transform_after_an_effect_that_changes_nothing_scales_about_the_same_centre(
-        [Values(typeof(LayerEffect), typeof(Clipping))] Type effectType,
+        [Values(
+            typeof(LayerEffect), typeof(Clipping), typeof(BlendEffect), typeof(InnerShadow), typeof(FlatShadow))]
+        Type effectType,
         [Values(1, 2)] int renderScale,
         [Values(0f, 0.2f, 0.7f)] float offset)
     {
@@ -61,6 +75,138 @@ public sealed class CustomEffectPlacementTests
             ThenScaled((FilterEffect)Activator.CreateInstance(effectType)!), renderScale, offset);
 
         AssertSamePixels(scaled, withEffect);
+    }
+
+    // BlendEffect lays its brush over the content rather than over the whole pixels the content touches, so a gradient
+    // blended into a white shape lies where the same gradient lies when it fills the shape.
+    [Test]
+    public void A_gradient_blended_into_a_shape_lies_where_it_lies_filling_the_shape(
+        [Values(1, 2)] int renderScale,
+        [Values(0f, 0.2f, 0.7f)] float offset)
+    {
+        using Bitmap filled = Render(null, renderScale, offset, Gradient());
+        using Bitmap blended = Render(new BlendEffect { Brush = { Value = Gradient() } }, renderScale, offset);
+
+        AssertSamePixels(filled, blended);
+    }
+
+    // So does noise, which the brush lays out from the origin of what it fills rather than from the position of the
+    // bounds it is given.
+    [Test]
+    public void A_noise_blended_into_a_shape_lies_where_it_lies_filling_the_shape(
+        [Values(1, 2)] int renderScale,
+        [Values(0f, 0.2f, 0.7f)] float offset)
+    {
+        using Bitmap filled = Render(null, renderScale, offset, Noise());
+        using Bitmap blended = Render(new BlendEffect { Brush = { Value = Noise() } }, renderScale, offset);
+
+        AssertSamePixels(filled, blended);
+    }
+
+    // Blended with a mode that also paints where the content is not, such as SrcOver, a brush covers the content's own
+    // rectangle, whose edges move with the content, rather than the whole pixels the content touches: it is the same
+    // as a rectangle of the brush drawn over the shape. The shape is 12 px tall, so its rectangle lies on whole pixels
+    // vertically: Skia covers a rectangle's corner pixel by the smaller of its two edges' coverage, and a shape's by
+    // their product.
+    [Test]
+    public void A_brush_painted_over_a_shape_covers_the_shape_s_rectangle(
+        [Values(1, 2)] int renderScale,
+        [Values(0f, 0.2f, 0.7f)] float offset)
+    {
+        using Bitmap rectangle = RenderFrame(
+            renderScale,
+            CreateShape(null, offset, Brushes.White, rectangle: false, height: 12),
+            CreateShape(null, offset, new SolidColorBrush(Colors.Red), rectangle: true, height: 12));
+        using Bitmap painted = RenderFrame(
+            renderScale,
+            CreateShape(
+                new BlendEffect
+                {
+                    Brush = { Value = new SolidColorBrush(Colors.Red) },
+                    BlendMode = { Value = BlendMode.SrcOver },
+                },
+                offset,
+                Brushes.White,
+                rectangle: false,
+                height: 12));
+
+        AssertSamePixels(rectangle, painted);
+    }
+
+    // FlatShadow grows its output by whole pixels on the side the shadow falls, however far the shadow reaches, so a
+    // shadow of no colour leaves the shape as it was.
+    [Test]
+    public void A_shadow_of_no_colour_leaves_a_shape_as_it_was(
+        [Values(180f, 225f)] float angle,
+        [Values(1, 2)] int renderScale,
+        [Values(0f, 0.2f, 0.7f)] float offset)
+    {
+        using Bitmap plain = Render(null, renderScale, offset);
+        using Bitmap shadowed = Render(
+            new FlatShadow
+            {
+                Angle = { Value = angle },
+                Length = { Value = 5.5f },
+                Brush = { Value = new SolidColorBrush(Colors.Transparent) },
+            },
+            renderScale,
+            offset);
+
+        AssertSamePixels(plain, shadowed);
+    }
+
+    // An effect that grows its output lays it out in whole pixels around the content laid on them, and goes on with the
+    // bounds it gives the content: a shadow 5.5 px to the left, and the default pen's reach of 1.5 px all round.
+    [TestCase(typeof(FlatShadow))]
+    [TestCase(typeof(StrokeEffect))]
+    public void An_effect_that_grows_its_output_goes_on_with_the_bounds_it_gives_the_content(Type effectType)
+    {
+        AssertBoundsAfter(new Rect(8.3f, 10.15f, 15.4f, 11.7f), Growing(effectType));
+    }
+
+    // Content on whole pixels comes out of BlendEffect with bounds that are already its own. It still goes on known by
+    // its raster, so the effect that grows after it lays it out again and gives the content the bounds it declares.
+    [TestCase(typeof(FlatShadow))]
+    [TestCase(typeof(StrokeEffect))]
+    public void An_effect_that_grows_after_one_that_leaves_content_on_whole_pixels_goes_on_with_its_bounds(
+        Type effectType)
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(new BlendEffect());
+        group.Children.Add(Growing(effectType));
+
+        AssertBoundsAfter(new Rect(8, 10, 15, 11), group);
+    }
+
+    private static FilterEffect Growing(Type effectType)
+        => effectType == typeof(FlatShadow)
+            ? new FlatShadow { Angle = { Value = 180 }, Length = { Value = 5.5f } }
+            : new StrokeEffect();
+
+    // Runs the effect on content drawn at the given bounds and checks the bounds it goes on with are the ones the
+    // effect declares for them.
+    private static void AssertBoundsAfter(Rect content, FilterEffect effect)
+    {
+        PixelRect device = PixelRect.FromRect(content, 1);
+        using RenderTarget backing = CpuRenderTargets.Create(device.Width, device.Height);
+        using var targets = new EffectTargets { new EffectTarget(backing, content, EffectiveScale.At(1), device) };
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        using var context = new FilterEffectContext(content);
+        context.ApplyTransactional(resource);
+        using var builder = new SKImageFilterBuilder();
+        using var executor = new FilterEffectExecutor(
+            targets,
+            builder,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null,
+            outputScale: 1,
+            workingScale: 1,
+            maxWorkingScale: 1);
+
+        executor.Apply(context);
+
+        Assert.That(targets.Single().Bounds, Is.EqualTo(context.Bounds));
     }
 
     // Merged as LayerEffect merges them, two targets laid on whole pixels a tenth of a pixel off the grid make a union
@@ -136,6 +282,30 @@ public sealed class CustomEffectPlacementTests
         });
     }
 
+    // Red to blue across the middle tenth of the shape, steep enough that moving it a fraction of a pixel against the
+    // shape shows.
+    private static LinearGradientBrush Gradient()
+    {
+        var gradient = new LinearGradientBrush
+        {
+            StartPoint = { Value = new RelativePoint(0, 0.5f, RelativeUnit.Relative) },
+            EndPoint = { Value = new RelativePoint(1, 0.5f, RelativeUnit.Relative) },
+        };
+        gradient.GradientStops.Add(new GradientStop(Colors.Red, 0.45f));
+        gradient.GradientStops.Add(new GradientStop(Colors.Blue, 0.55f));
+        return gradient;
+    }
+
+    // Turbulence at 0.2 cycles a pixel with a second octave at 0.4, fine enough that moving it a fraction of a pixel
+    // against the shape shows. Past the 0.5 cycles a pixel the grid holds, noise aliases, and two ways of reaching the
+    // same point then sample it apart.
+    private static PerlinNoiseBrush Noise() => new()
+    {
+        BaseFrequencyX = { Value = 20 },
+        BaseFrequencyY = { Value = 20 },
+        Octaves = { Value = 2 },
+    };
+
     private static FilterEffectGroup ThenScaled(FilterEffect? head)
     {
         var group = new FilterEffectGroup();
@@ -176,14 +346,36 @@ public sealed class CustomEffectPlacementTests
         Assert.That(largest, Is.LessThanOrEqualTo(Tolerance), $"{changed} pixels changed, by up to {largest:0.000}.");
     }
 
-    private static Bitmap Render(FilterEffect? effect, int renderScale, float offset)
+    private static Bitmap Render(FilterEffect? effect, int renderScale, float offset, Brush? fill = null)
+        => RenderFrame(renderScale, CreateShape(effect, offset, fill ?? Brushes.White, rectangle: false));
+
+    private static Shape CreateShape(
+        FilterEffect? effect, float offset, Brush fill, bool rectangle, float height = 11.7f)
     {
-        var shape = new EllipseShape();
-        shape.Width.Value = 15.4f;
-        shape.Height.Value = 11.7f;
-        shape.Fill.Value = Brushes.White;
+        Shape shape;
+        if (rectangle)
+        {
+            var rect = new RectShape();
+            rect.Width.Value = 15.4f;
+            rect.Height.Value = height;
+            shape = rect;
+        }
+        else
+        {
+            var ellipse = new EllipseShape();
+            ellipse.Width.Value = 15.4f;
+            ellipse.Height.Value = height;
+            shape = ellipse;
+        }
+
+        shape.Fill.Value = fill;
         shape.FilterEffect.Value = effect;
         shape.Transform.Value = new TranslateTransform(offset, 0);
+        return shape;
+    }
+
+    private static Bitmap RenderFrame(int renderScale, params Drawable[] drawables)
+    {
         return RenderThread.Dispatcher.Invoke(() =>
         {
             int pixels = Size * renderScale;
@@ -194,7 +386,7 @@ public sealed class CustomEffectPlacementTests
                 renderScale: renderScale,
                 maxWorkingScale: float.PositiveInfinity,
                 surface: new CpuRenderTarget(pixels, pixels));
-            renderer.Render(RendererTestSupport.CreateFrame(new PixelSize(Size, Size), shape));
+            renderer.Render(RendererTestSupport.CreateFrame(new PixelSize(Size, Size), drawables));
             return renderer.Snapshot();
         });
     }

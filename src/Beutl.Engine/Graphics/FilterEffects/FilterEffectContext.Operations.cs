@@ -107,11 +107,14 @@ public sealed partial class FilterEffectContext
                             }
                         }
 
+                        newTarget.ContentBounds = target.ContentBounds;
                         context.Targets[i] = newTarget;
                     }
                 }
             },
-            transformBounds: (_, bounds) => bounds);
+            transformBounds: (_, bounds) => bounds,
+            // The content is copied pixel for pixel and the shadow drawn from it, so it stays where it is.
+            options: CustomFilterEffectOptions.KeepsPlacement);
     }
 
     public void Transform(Matrix matrix, BitmapInterpolationMode bitmapInterpolationMode)
@@ -381,8 +384,13 @@ public sealed partial class FilterEffectContext
                     // Read density from the target (may be clamped), not context.WorkingScale.
                     float w = newTarget.Scale.Value;
                     using var brushPaint = new SKPaint();
+                    // The brush lies over the content, which the target may hold inside the whole pixels it touches. It
+                    // is laid out from the content's origin, by moving the canvas there, as a shape lays out its fill:
+                    // not every brush places itself at the position of the bounds it is given.
+                    Rect content = (target.ContentBounds ?? target.Bounds)
+                        .Translate(new Vector(-target.Bounds.X, -target.Bounds.Y));
                     context.CreateBrushConstructor(
-                        new Rect(size),
+                        new Rect(content.Size),
                         data.Brush,
                         data.BlendMode,
                         w).ConfigurePaint(brushPaint);
@@ -396,14 +404,32 @@ public sealed partial class FilterEffectContext
                             newCanvas.DrawRenderTarget(target.RenderTarget, default);
                         }
 
-                        newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
+                        // A mode that shows only where the content is fills the whole buffer, so the content's partly
+                        // covered pixels take all of the brush. Any other paints the content's rectangle, which moves
+                        // with the content rather than with the whole pixels it touches.
+                        Rect fill = ShowsOnlyOverDestination(data.BlendMode) ? new Rect(size) : content;
+                        using (newCanvas.PushTransform(Matrix.CreateTranslation(content.X, content.Y)))
+                        {
+                            newCanvas.Canvas.DrawRect(
+                                fill.Translate(new Vector(-content.X, -content.Y)).ToSKRect(),
+                                brushPaint);
+                        }
                     }
 
+                    newTarget.ContentBounds = target.ContentBounds;
                     context.Targets[i] = newTarget;
                 }
             }
         }
 
-        CustomEffect((brush, blendMode), ApplyCore, (_, r) => r);
+        // The content is copied pixel for pixel and the brush blended over it, so it stays where it is.
+        CustomEffect((brush, blendMode), ApplyCore, (_, r) => r, CustomFilterEffectOptions.KeepsPlacement);
     }
+
+    // Whether a blend mode leaves a transparent destination pixel transparent, so the source shows only where the
+    // destination is.
+    private static bool ShowsOnlyOverDestination(BlendMode mode)
+        => mode is Graphics.BlendMode.Clear or Graphics.BlendMode.Dst or Graphics.BlendMode.SrcIn
+            or Graphics.BlendMode.DstIn or Graphics.BlendMode.DstOut or Graphics.BlendMode.SrcATop
+            or Graphics.BlendMode.Modulate;
 }
