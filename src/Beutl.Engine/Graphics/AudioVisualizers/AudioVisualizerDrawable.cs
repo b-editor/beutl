@@ -163,20 +163,23 @@ public abstract partial class AudioVisualizerDrawable : Drawable
         protected abstract void RenderForeground(ImmediateCanvas canvas, Rect bounds);
 
         /// <summary>
-        /// Composes the source over <paramref name="range"/>, mixed down to mono, without touching the cached window.
+        /// Composes the source over <paramref name="range"/>, mixed down to mono, into <paramref name="buffer"/>, without
+        /// touching the cached window.
         /// </summary>
         /// <param name="range">The time range to compose.</param>
+        /// <param name="buffer">The buffer to write to, replaced by a larger one when it is too small.</param>
         /// <param name="sampleRate">The rate the samples were composed at.</param>
-        /// <returns>The samples, or an empty array when there is no source or it gives none.</returns>
-        protected float[] ComposeMono(TimeRange range, out int sampleRate)
+        /// <returns>
+        /// How many samples were written to the start of <paramref name="buffer"/>; 0 when there is no source or it gives
+        /// none.
+        /// </returns>
+        protected int ComposeMono(TimeRange range, ref float[] buffer, out int sampleRate)
         {
             sampleRate = ComposerSampleRate;
-            float[] samples = [];
             if (_composer == null || _source == null || _source.IsDisposed || range.Duration <= MediaTime.Zero)
-                return samples;
+                return 0;
 
-            int length = ComposeMonoInto(range, ref samples, ref sampleRate);
-            return samples.Length == length ? samples : samples[..length];
+            return ComposeMonoInto(range, ref buffer, ref sampleRate);
         }
 
         private int ComposeMonoInto(TimeRange range, ref float[] destination, ref int sampleRate)

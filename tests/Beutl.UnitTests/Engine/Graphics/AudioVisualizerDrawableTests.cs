@@ -1,4 +1,5 @@
 ﻿using Beutl.Audio;
+using Beutl.Audio.Effects;
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.AudioVisualizers;
@@ -116,6 +117,142 @@ public class AudioVisualizerDrawableTests
                 Assert.That(stillBetween.Bars.ToArray(), Is.EqualTo(playedOn.Bars.ToArray()).Within(0.01f), "between frames");
             });
         });
+    }
+
+    // A lower floor or a higher gain shows older peaks, so a hold made with a shorter history is made again from further
+    // back when either changes, even at the same time.
+    [TestCase(-20f, 4f, -80f, 4f)]
+    [TestCase(-80f, 0.01f, -80f, 4f)]
+    public void Spectrum_ShowingOlderPeaksMakesTheHoldAgain(
+        float floorBefore, float gainBefore, float floorAfter, float gainAfter)
+    {
+        // Fifty frames after the tone stops, past the history before the change and within the one after it.
+        MediaTime target = MediaTime.FromFrames(65, s_spectrumFrameRate);
+        AudioTestWaves.WithTemporaryWave(SpectrumRate, SpectrumRate * 3, ToneThen(0f), source =>
+        {
+            AudioSpectrumDrawable drawable = CreateSpectrum(source, 3);
+            drawable.FloorDb.Value = floorBefore;
+            drawable.Gain.Value = gainBefore;
+            using var resource = ReachSpectrum(drawable, s_spectrumFrameRate, target);
+            drawable.FloorDb.Value = floorAfter;
+            drawable.Gain.Value = gainAfter;
+            ReachAgain(resource, drawable, s_spectrumFrameRate, target);
+            using var fresh = ReachSpectrum(drawable, s_spectrumFrameRate, target);
+
+            float[] expected = fresh.Bars.ToArray();
+            Assert.That(expected.Max(), Is.GreaterThan(0.05f), "The tone still shows after the change.");
+            Assert.That(resource.Bars.ToArray(), Is.EqualTo(expected).Within(0.01f));
+        });
+    }
+
+    // The bars follow the frame rate, which no property reports, so making them again at another rate at the same time
+    // tells the renderer that they changed.
+    [Test]
+    public void Spectrum_AnotherFrameRateAtTheSameTimeChangesTheBarsAndTheVersion()
+    {
+        MediaTime target = MediaTime.FromSeconds(0.7);
+        AudioTestWaves.WithTemporaryWave(SpectrumRate, SpectrumRate * 2, ToneThen(0f), source =>
+        {
+            AudioSpectrumDrawable drawable = CreateSpectrum(source, 2);
+            using var resource = ReachSpectrum(drawable, new Rational(30, 1), target);
+            float[] at30 = resource.Bars.ToArray();
+            int version = resource.Version;
+            ReachAgain(resource, drawable, new Rational(24, 1), target);
+            using var fresh = ReachSpectrum(drawable, new Rational(24, 1), target);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(fresh.Bars.ToArray(), Is.Not.EqualTo(at30).Within(0.01f), "The rate changes the bars.");
+                Assert.That(resource.Bars.ToArray(), Is.EqualTo(fresh.Bars.ToArray()).Within(0.01f));
+                Assert.That(resource.Version, Is.GreaterThan(version));
+            });
+        });
+    }
+
+    // A delay starts again on a window that does not follow the last one, as each frame's window does not, so the frames
+    // before a still are composed one window at a time, as playing composes them.
+    [Test]
+    public void Spectrum_ADelayGivesTheSameBarsDrawnOnItsOwnAsPlayed()
+    {
+        const int Target = 21;
+        AudioTestWaves.WithTemporaryWave(SpectrumRate, SpectrumRate * 2, ToneThen(0f), source =>
+        {
+            AudioSpectrumDrawable drawable = CreateSpectrum(source, 2);
+            ((SourceSound)drawable.Source.Value!).Effect.Value = new DelayEffect();
+            using var played = ReachSpectrum(drawable, s_spectrumFrameRate, Frames(0, Target));
+            using var still = ReachSpectrum(drawable, s_spectrumFrameRate, MediaTime.FromFrames(Target, s_spectrumFrameRate));
+
+            float[] expected = played.Bars.ToArray();
+            Assert.That(expected.Max(), Is.GreaterThan(0.2f), "The bars are still falling from the tone.");
+            Assert.That(still.Bars.ToArray(), Is.EqualTo(expected).Within(0.01f));
+        });
+    }
+
+    // The hold adds each window to what is left of earlier peaks, so a peak older than the frames a hold made again
+    // looks back to still lifts a bar near the floor while playing. The history reaches back until that lift is under
+    // a hundredth of a bar. The quiet tone after the loud one steps through the floor in 1.5 dB steps.
+    [Test]
+    public void Spectrum_ABarNearTheFloorAfterAPeakIsTheSameHoweverItIsReached()
+    {
+        // Sixty frames after the loud tone stops, and a hundred.
+        foreach (int target in new[] { 75, 115 })
+        {
+            for (int step = -8; step <= 8; step++)
+            {
+                float quiet = 2e-4f * MathF.Pow(10, step * 1.5f / 20);
+                AudioTestWaves.WithTemporaryWave(SpectrumRate, SpectrumRate * 4, ToneThen(quiet), source =>
+                {
+                    AudioSpectrumDrawable drawable = CreateSpectrum(source, 4);
+                    using var played = ReachSpectrum(drawable, s_spectrumFrameRate, Frames(0, target));
+                    using var still = ReachSpectrum(
+                        drawable, s_spectrumFrameRate, MediaTime.FromFrames(target, s_spectrumFrameRate));
+
+                    Assert.That(still.Bars.ToArray(), Is.EqualTo(played.Bars.ToArray()).Within(0.01f),
+                        $"frame {target}, quiet tone at {quiet}");
+                });
+            }
+        }
+    }
+
+    private const int SpectrumRate = 44100;
+    private static readonly Rational s_spectrumFrameRate = new(30, 1);
+
+    // A 1 kHz tone at 0.5 for the first half second, then the same tone at the given level.
+    private static Func<int, (float, float)> ToneThen(float level) => i =>
+    {
+        float value = (i < SpectrumRate / 2 ? 0.5f : level) * MathF.Sin(2 * MathF.PI * 1000 * i / SpectrumRate);
+        return (value, value);
+    };
+
+    private static MediaTime[] Frames(int first, int last)
+        => [.. Enumerable.Range(first, last - first + 1).Select(f => MediaTime.FromFrames(f, s_spectrumFrameRate))];
+
+    private static AudioSpectrumDrawable CreateSpectrum(SoundSource source, int seconds)
+    {
+        AudioSpectrumDrawable drawable = CreateSpectrum();
+        drawable.Source.Value = new SourceSound
+        {
+            Source = { Value = source },
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(seconds)) },
+        };
+        return drawable;
+    }
+
+    private static AudioSpectrumDrawable.Resource ReachSpectrum(
+        AudioSpectrumDrawable drawable, Rational frameRate, params MediaTime[] times)
+    {
+        var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(
+            new CompositionContext(times[0]) { FrameRate = frameRate });
+        foreach (MediaTime time in times.Skip(1))
+            ReachAgain(resource, drawable, frameRate, time);
+        return resource;
+    }
+
+    private static void ReachAgain(
+        AudioSpectrumDrawable.Resource resource, AudioSpectrumDrawable drawable, Rational frameRate, MediaTime time)
+    {
+        bool versionBumped = false;
+        resource.Reconcile(drawable, new CompositionContext(time) { FrameRate = frameRate }, ref versionBumped);
     }
 
     private const int WindowTestRate = 44100;

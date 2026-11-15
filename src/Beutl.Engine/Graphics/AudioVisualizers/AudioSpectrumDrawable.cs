@@ -56,6 +56,9 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
         // A hold made again looks back no further than this, whatever the smoothing.
         private static readonly MediaTime s_maxHoldHistory = MediaTime.FromSeconds(30);
 
+        // How much of its height a bar may differ by between a hold made again and one played on from further back.
+        private const double HoldHistoryTolerance = 0.01;
+
         private float[] _fftReal = [];
         private float[] _fftImag = [];
         private float[] _fftMagnitudes = [];
@@ -63,9 +66,12 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
         private float[] _smoothedMagnitudes = [];
         private float[] _shownMagnitudes = [];
         private float[] _normalizedBars = [];
+        private float[] _historyWindow = [];
         private int _shownBarCount;
         private int _sampleWindowFftSize;
         private long? _heldFrame;
+        // The hold has taken in the window of every frame after this one, up to the frame it reached.
+        private long _heldFrom;
         private HoldSettings _heldSettings;
 
         // What the held magnitudes were made with; any change makes them again.
@@ -132,15 +138,19 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             // The last frame of the grid at or before this time; a time between frames adds its own window on top.
             long frame = time.ToFrame(frameRate, MidpointRounding.ToNegativeInfinity);
             bool onFrame = MediaTime.FromFrames(frame, frameRate) == time;
-            int history = HoldHistoryFrames(smoothing, frameRate);
-            if (_heldFrame is { } last && _heldSettings == settings && last <= frame && frame - last <= history)
+            // A hold made again takes in the windows of the frames after this one.
+            long from = frame - HoldHistoryFrames(smoothing, frameRate) - 1;
+            // Playing on continues the hold while it reaches back as far as a hold made again would. A lower floor or a
+            // higher gain moves that point back, and the hold is made again from there.
+            if (_heldFrame is { } last && _heldSettings == settings && last <= frame && last > from && _heldFrom <= from)
             {
                 AdvanceHold(held, last, frame, onFrame, frameRate, fftSize, smoothing);
             }
             else
             {
                 held.Clear();
-                AdvanceHold(held, frame - history - 1, frame, onFrame, frameRate, fftSize, smoothing);
+                AdvanceHold(held, from, frame, onFrame, frameRate, fftSize, smoothing);
+                _heldFrom = from;
             }
 
             _heldFrame = frame;
@@ -154,29 +164,26 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
                 Hold(shown, CachedSampleSpan, fftSize, smoothing);
             }
 
-            Normalize(shown, fftSize);
+            bool changed = Normalize(shown, fftSize) | (_shownBarCount != barCount);
             _shownBarCount = barCount;
+            // The bars follow the frame rate and the frames before, which no change of a property reports.
+            if (changed)
+                Version++;
         }
 
-        // Takes the hold from frame `from` to frame `to` of the grid. The window of each frame ends at that frame; the
-        // current one, when the time is on a frame, is the one the base composed already.
+        // Takes the hold from frame `from` to frame `to` of the grid. Each frame's window is composed on its own and ends
+        // at that frame, as drawing the frame composes it: an effect that keeps state between samples, such as a delay,
+        // starts again on a window that does not follow the last one, so the samples are the same either way. The current
+        // window, when the time is on a frame, is the one the base composed already.
         private void AdvanceHold(
             Span<float> held, long from, long to, bool onFrame, Rational frameRate, int fftSize, float smoothing)
         {
             long composedTo = onFrame ? to - 1 : to;
-            if (composedTo > from)
+            for (long f = from + 1; f <= composedTo; f++)
             {
-                MediaTime window = MediaTime.FromSeconds((double)fftSize / ComposerSampleRate);
-                MediaTime start = MediaTime.FromFrames(from + 1, frameRate) - window;
-                MediaTime end = MediaTime.FromFrames(composedTo, frameRate);
-                float[] samples = ComposeMono(new TimeRange(start, end - start), out int rate);
-                for (long f = from + 1; f <= composedTo; f++)
-                {
-                    long endIndex = (long)Math.Round((MediaTime.FromFrames(f, frameRate) - start).ToSeconds() * rate);
-                    int stop = (int)Math.Clamp(endIndex, 0, samples.Length);
-                    int first = Math.Max(0, stop - fftSize);
-                    Hold(held, samples.AsSpan(first, stop - first), fftSize, smoothing);
-                }
+                (MediaTime start, MediaTime duration) = ComputeSampleWindow(MediaTime.FromFrames(f, frameRate));
+                int length = ComposeMono(new TimeRange(start, duration), ref _historyWindow, out _);
+                Hold(held, _historyWindow.AsSpan(0, length), fftSize, smoothing);
             }
 
             if (onFrame && to > from)
@@ -205,34 +212,42 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             }
         }
 
-        // A full-scale peak falls by the smoothing each frame. After this many frames it is under the floor, so the frames
-        // before them cannot show.
+        // A full-scale peak falls by the smoothing each frame, and the hold adds each window to what is left of it. After
+        // this many frames what is left is small enough beside the floor that adding it lifts a bar by under
+        // HoldHistoryTolerance of its height, so the frames before them barely show.
         private int HoldHistoryFrames(float smoothing, Rational frameRate)
         {
             float gain = Math.Max(0f, Gain);
             if (smoothing <= 0f || gain <= 0f) return 0;
 
-            double floor = Math.Pow(10, MathF.Min(FloorDb, -0.001f) / 20.0) / gain;
-            if (floor >= 1) return 0;
+            float floorDb = MathF.Min(FloorDb, -0.001f);
+            double share = Math.Pow(10, HoldHistoryTolerance * -floorDb / 20.0) - 1;
+            double remainder = Math.Pow(10, floorDb / 20.0) / gain * share;
+            if (remainder >= 1) return 0;
 
-            long frames = (long)Math.Ceiling(Math.Log(floor) / Math.Log(smoothing));
+            long frames = (long)Math.Ceiling(Math.Log(remainder) / Math.Log(smoothing));
             long limit = s_maxHoldHistory.ToFrame(frameRate, MidpointRounding.ToZero);
             return (int)Math.Clamp(frames, 0, Math.Max(0, limit));
         }
 
-        private void Normalize(ReadOnlySpan<float> magnitudes, int fftSize)
+        // Returns whether any bar changed.
+        private bool Normalize(ReadOnlySpan<float> magnitudes, int fftSize)
         {
             float reference = fftSize * 0.5f;
             float gain = Math.Max(0f, Gain);
             // FloorDb は Range(-200, 0) だが、0 に設定されると (0 - floorDb) が 0 除算になるため -0.001 以下にクランプする
             float floorDb = MathF.Min(FloorDb, -0.001f);
             Span<float> normalized = _normalizedBars.AsSpan(0, magnitudes.Length);
+            bool changed = false;
             for (int i = 0; i < magnitudes.Length; i++)
             {
                 float db = Fft.MagnitudeToDb(magnitudes[i] * gain, reference);
-                float n = (db - floorDb) / (0f - floorDb);
-                normalized[i] = Math.Clamp(n, 0f, 1f);
+                float n = Math.Clamp((db - floorDb) / (0f - floorDb), 0f, 1f);
+                changed |= normalized[i] != n;
+                normalized[i] = n;
             }
+
+            return changed;
         }
 
         /// <summary>Runs a Hann-windowed FFT over the newest samples of <paramref name="samples"/> and returns the bin magnitudes.</summary>
