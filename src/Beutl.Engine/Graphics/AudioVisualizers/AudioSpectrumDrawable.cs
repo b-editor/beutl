@@ -53,7 +53,7 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
 
     public new partial class Resource
     {
-        // A hold made again looks back no further than this, whatever the smoothing.
+        // A hold made again looks back no further than this; a smoothing that would hold a peak longer falls faster.
         private static readonly MediaTime s_maxHoldHistory = MediaTime.FromSeconds(30);
 
         // How much of its height a bar may differ by between a hold made again and one played on from further back.
@@ -139,17 +139,18 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             long frame = time.ToFrame(frameRate, MidpointRounding.ToNegativeInfinity);
             bool onFrame = MediaTime.FromFrames(frame, frameRate) == time;
             // A hold made again takes in the windows of the frames after this one.
-            long from = frame - HoldHistoryFrames(smoothing, frameRate) - 1;
+            (int history, float decay) = HoldHistory(smoothing, frameRate);
+            long from = frame - history - 1;
             // Playing on continues the hold while it reaches back as far as a hold made again would. A lower floor or a
             // higher gain moves that point back, and the hold is made again from there.
             if (_heldFrame is { } last && _heldSettings == settings && last <= frame && last > from && _heldFrom <= from)
             {
-                AdvanceHold(held, last, frame, onFrame, frameRate, fftSize, smoothing);
+                AdvanceHold(held, last, frame, onFrame, frameRate, fftSize, decay);
             }
             else
             {
                 held.Clear();
-                AdvanceHold(held, from, frame, onFrame, frameRate, fftSize, smoothing);
+                AdvanceHold(held, from, frame, onFrame, frameRate, fftSize, decay);
                 _heldFrom = from;
             }
 
@@ -161,7 +162,7 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             {
                 shown = _shownMagnitudes.AsSpan(0, barCount);
                 held.CopyTo(shown);
-                Hold(shown, CachedSampleSpan, fftSize, smoothing);
+                Hold(shown, CachedSampleSpan, fftSize, decay);
             }
 
             bool changed = Normalize(shown, fftSize) | (_shownBarCount != barCount);
@@ -212,22 +213,25 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             }
         }
 
-        // A full-scale peak falls by the smoothing each frame, and the hold adds each window to what is left of it. After
-        // this many frames what is left is small enough beside the floor that adding it lifts a bar by under
-        // HoldHistoryTolerance of its height, so the frames before them barely show.
-        private int HoldHistoryFrames(float smoothing, Rational frameRate)
+        // A full-scale peak falls by the smoothing each frame, and the hold adds each window to what is left of it. The
+        // history is how many frames it takes until what is left is small enough beside the floor that adding it lifts a
+        // bar by under HoldHistoryTolerance of its height, so the frames before them barely show. A peak that would take
+        // longer than s_maxHoldHistory falls faster instead, so that playing on forgets it when a hold made again does.
+        private (int Frames, float Decay) HoldHistory(float smoothing, Rational frameRate)
         {
             float gain = Math.Max(0f, Gain);
-            if (smoothing <= 0f || gain <= 0f) return 0;
+            if (smoothing <= 0f || gain <= 0f) return (0, smoothing);
 
             float floorDb = MathF.Min(FloorDb, -0.001f);
             double share = Math.Pow(10, HoldHistoryTolerance * -floorDb / 20.0) - 1;
             double remainder = Math.Pow(10, floorDb / 20.0) / gain * share;
-            if (remainder >= 1) return 0;
+            if (remainder >= 1) return (0, smoothing);
 
             long frames = (long)Math.Ceiling(Math.Log(remainder) / Math.Log(smoothing));
-            long limit = s_maxHoldHistory.ToFrame(frameRate, MidpointRounding.ToZero);
-            return (int)Math.Clamp(frames, 0, Math.Max(0, limit));
+            long limit = Math.Max(1, s_maxHoldHistory.ToFrame(frameRate, MidpointRounding.ToZero));
+            return frames <= limit
+                ? ((int)Math.Max(0, frames), smoothing)
+                : ((int)limit, (float)Math.Pow(remainder, 1.0 / limit));
         }
 
         // Returns whether any bar changed.

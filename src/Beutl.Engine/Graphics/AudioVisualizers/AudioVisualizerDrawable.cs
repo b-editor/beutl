@@ -43,6 +43,9 @@ public abstract partial class AudioVisualizerDrawable : Drawable
         private const int DefaultComposerSampleRate = 44100;
 
         private Composer? _composer;
+        // Composes other ranges than the cached window. A composer keeps the state of effects such as a delay from one
+        // range into the next when they follow on, so these ranges must not leave it to the cached window's.
+        private Composer? _historyComposer;
         private Sound.Resource? _source;
 
         private float[] _cachedSamples = [];
@@ -137,9 +140,11 @@ public abstract partial class AudioVisualizerDrawable : Drawable
             if (disposing)
             {
                 _composer?.Dispose();
+                _historyComposer?.Dispose();
                 _source?.Dispose();
             }
             _composer = null;
+            _historyComposer = null;
             _source = null;
             _cachedSamples = [];
         }
@@ -179,10 +184,11 @@ public abstract partial class AudioVisualizerDrawable : Drawable
             if (_composer == null || _source == null || _source.IsDisposed || range.Duration <= MediaTime.Zero)
                 return 0;
 
-            return ComposeMonoInto(range, ref buffer, ref sampleRate);
+            _historyComposer ??= new Composer { SampleRate = _composer.SampleRate };
+            return ComposeMonoInto(_historyComposer, range, ref buffer, ref sampleRate);
         }
 
-        private int ComposeMonoInto(TimeRange range, ref float[] destination, ref int sampleRate)
+        private int ComposeMonoInto(Composer composer, TimeRange range, ref float[] destination, ref int sampleRate)
         {
             Sound sound = _source!.RequireOriginal();
 
@@ -198,7 +204,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
                 default,
                 new CompositionEligibility([sound]));
 
-            AudioBuffer? buffer = _composer!.Compose(range, frame);
+            AudioBuffer? buffer = composer.Compose(range, frame);
             try
             {
                 if (buffer == null || buffer.SampleCount == 0)
@@ -257,7 +263,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
             if (!needsRecompose) return;
 
-            int length = ComposeMonoInto(new TimeRange(targetStart, targetDuration), ref _cachedSamples, ref rate);
+            int length = ComposeMonoInto(_composer!, new TimeRange(targetStart, targetDuration), ref _cachedSamples, ref rate);
             _cachedSampleLength = length;
             _cachedSampleRate = rate;
             _cachedStart = targetStart;

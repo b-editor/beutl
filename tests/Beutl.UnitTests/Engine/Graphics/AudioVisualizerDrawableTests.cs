@@ -214,6 +214,59 @@ public class AudioVisualizerDrawableTests
         }
     }
 
+    // A composer carries a delay's line into a range that follows on from the last one it composed. The frames before a
+    // time between frames are composed apart from the window drawn, so a window that starts where one of them ended is
+    // composed as it is on its own.
+    [Test]
+    public void Spectrum_ComposingTheFramesBeforeLeavesTheNextWindowAlone()
+    {
+        MediaTime first = MediaTime.FromSeconds(0.51);
+        // This window starts at 0.5 s, where the window of frame 15, composed for the first time, ends.
+        MediaTime second = MediaTime.FromSeconds(0.5) + MediaTime.FromSeconds(1024.0 / SpectrumRate);
+        AudioTestWaves.WithTemporaryWave(SpectrumRate, SpectrumRate * 2, ToneThen(0f), source =>
+        {
+            AudioSpectrumDrawable drawable = CreateSpectrum(source, 2);
+            drawable.Smoothing.Value = 0;
+            ((SourceSound)drawable.Source.Value!).Effect.Value = new DelayEffect
+            {
+                DelayTime = { Value = 10 },
+                Feedback = { Value = 0 },
+                DryMix = { Value = 0 },
+                WetMix = { Value = 100 },
+            };
+            using var reached = ReachSpectrum(drawable, s_spectrumFrameRate, first, second);
+            using var fresh = ReachSpectrum(drawable, s_spectrumFrameRate, second);
+
+            Assert.That(reached.Bars.ToArray(), Is.EqualTo(fresh.Bars.ToArray()).Within(0.01f));
+        });
+    }
+
+    // Smoothing 99 at a gain of 1000 would keep a peak showing for minutes, longer than a hold made again looks back.
+    // The peak falls faster instead, within that history, so playing on forgets it when a hold made again does.
+    [Test]
+    public void Spectrum_APeakThatWouldOutlastTheHistoryFallsWithinIt()
+    {
+        var frameRate = new Rational(10, 1);
+        AudioTestWaves.WithTemporaryWave(SpectrumRate, SpectrumRate * 32, ToneThen(0f), source =>
+        {
+            AudioSpectrumDrawable drawable = CreateSpectrum(source, 32);
+            drawable.Smoothing.Value = 99;
+            drawable.Gain.Value = 1000;
+            // Ten seconds after the tone, and past the thirty seconds a hold made again looks back.
+            foreach (int target in new[] { 100, 315 })
+            {
+                using var played = ReachSpectrum(drawable, frameRate,
+                    [.. Enumerable.Range(0, target + 1).Select(f => MediaTime.FromFrames(f, frameRate))]);
+                using var still = ReachSpectrum(drawable, frameRate, MediaTime.FromFrames(target, frameRate));
+
+                float[] expected = played.Bars.ToArray();
+                if (target == 100)
+                    Assert.That(expected.Max(), Is.GreaterThan(0.2f), "The peak still shows ten seconds on.");
+                Assert.That(still.Bars.ToArray(), Is.EqualTo(expected).Within(0.01f), $"frame {target}");
+            }
+        });
+    }
+
     private const int SpectrumRate = 44100;
     private static readonly Rational s_spectrumFrameRate = new(30, 1);
 
