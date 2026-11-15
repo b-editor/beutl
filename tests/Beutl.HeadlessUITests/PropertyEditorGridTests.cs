@@ -231,6 +231,38 @@ public class PropertyEditorGridTests
         finally { window.Close(); }
     }
 
+    // The value's least width and margin are its column's, so a row too narrow for both halves takes the room from the
+    // header (#4079). A column gets back the least width it declared once it no longer holds the value, and a value
+    // column sized by its content, or no value column, takes none.
+    [AvaloniaTest]
+    public void A_column_keeps_the_values_least_width_only_while_it_holds_the_value()
+    {
+        var value = new Border { MinWidth = 120, Margin = new Thickness(4) };
+        Grid.SetColumn(value, 2);
+        var grid = new PropertyEditorGrid { ColumnDefinitions = new ColumnDefinitions("*,Auto,*,Auto"), Children = { new TextBlock(), value } };
+        grid.ColumnDefinitions[2].MinWidth = 100;
+        var window = new Window { Content = grid, Width = 200, Height = 100 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            Assert.That(grid.ColumnDefinitions[2].MinWidth, Is.EqualTo(128));
+
+            grid.ValueColumn = 3;
+            HeadlessTestHelpers.Render(3);
+            Assert.Multiple(() =>
+            {
+                Assert.That(grid.ColumnDefinitions[2].MinWidth, Is.EqualTo(100), "The column gets back what it declared.");
+                Assert.That(grid.ColumnDefinitions[3].MinWidth, Is.Zero, "A column sized by its content takes none.");
+            });
+
+            grid.ValueColumn = 0;
+            HeadlessTestHelpers.Render(3);
+            Assert.That(grid.ColumnDefinitions.Select(column => column.MinWidth), Is.EqualTo(new[] { 0d, 0d, 100d, 0d }));
+        }
+        finally { window.Close(); }
+    }
+
     private static void MoveSplitter(Window window, PropertyEditor editor, Key key, PhysicalKey physicalKey, double increment)
     {
         var splitter = editor.GetVisualDescendants().OfType<GridSplitter>().Single();
