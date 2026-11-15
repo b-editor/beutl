@@ -49,6 +49,26 @@ public class AVFSettingsGoldenTests
         });
     }
 
+    // Settings saved while they had a sample rate converter quality, which AVFoundation never applied, still read (#3900).
+    [Test]
+    public void AudioSettingsSavedWithASampleRateConverterQualityStillRead()
+    {
+        var expected = (JsonObject)ReadGolden("avf-settings")["Audio"]!;
+        var saved = (JsonObject)expected.DeepClone();
+        saved["SampleRateConverterQuality"] = 127;
+        var settings = new AVFAudioEncoderSettings();
+
+        CoreSerializer.PopulateFromJsonObject(settings, typeof(AVFAudioEncoderSettings), saved);
+
+        // The serializer carries a key it does not know along when it writes, as it does any other.
+        JsonObject written = CoreSerializer.SerializeToJsonObject(settings);
+        Assert.Multiple(() =>
+        {
+            Assert.That(written.Remove("SampleRateConverterQuality"), Is.True);
+            Assert.That(written.ToJsonString(), Is.EqualTo(expected.ToJsonString()));
+        });
+    }
+
     private static string WithoutId(JsonObject json)
     {
         json.Remove("Id");

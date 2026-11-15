@@ -44,14 +44,14 @@ struct AudioOutputLayout {
 
         guard channels.count == channelCount else {
             speakerMask = 0
-            data = Self.tagData(kAudioChannelLayoutTag_DiscreteInOrder | UInt32(channelCount))
+            data = AudioEncoderLayout.layoutData(kAudioChannelLayoutTag_DiscreteInOrder | UInt32(channelCount))
             return
         }
 
         speakerMask = mask
         if sourceLayout == nil {
             // Only the synthesized mono/stereo labels use a default tag.
-            data = Self.tagData(channelCount == 1 ? kAudioChannelLayoutTag_Mono : kAudioChannelLayoutTag_Stereo)
+            data = AudioEncoderLayout.layoutData(channelCount == 1 ? kAudioChannelLayoutTag_Mono : kAudioChannelLayoutTag_Stereo)
         } else {
             // Keep the source labels: replacing rear-surround labels with surround labels can silence them.
             data = Self.descriptionData(channels.sorted { $0.bit < $1.bit }.map { $0.label })
@@ -114,12 +114,6 @@ struct AudioOutputLayout {
             // Discrete, coordinates, ambisonics, and positions without a WAVE equivalent stay discrete.
             return 0
         }
-    }
-
-    private static func tagData(_ tag: AudioChannelLayoutTag) -> Data {
-        var layout = AudioChannelLayout()
-        layout.mChannelLayoutTag = tag
-        return withUnsafeBytes(of: &layout) { Data($0) }
     }
 
     private static func descriptionData(_ labels: [AudioChannelLabel]) -> Data {

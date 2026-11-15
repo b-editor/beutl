@@ -892,7 +892,7 @@ Beutl.Utilities
   keys: MaxAudioBufferSize, MaxVideoBufferSize, ThresholdFrameCount, ThresholdSampleCount
 [Beutl.Extensions.AVFoundation].Encoding:AVFAudioEncoderSettings
   sealed
-  keys: Bitrate, Channels, CodecOptions, Format, Id, LinearPcmBigEndian, LinearPcmBitDepth, LinearPcmFloat, LinearPcmNonInterleaved, Name, Quality, SampleRate, SampleRateConverterQuality
+  keys: Bitrate, Channels, CodecOptions, Format, Id, LinearPcmBigEndian, LinearPcmBitDepth, LinearPcmFloat, LinearPcmNonInterleaved, Name, Quality, SampleRate
 [Beutl.Extensions.AVFoundation].Encoding:AVFVideoEncoderSettings
   sealed
   keys: Bitrate, Codec, CodecOptions, ColorPrimaries, ColorTransfer, DestinationSize, FrameRate, Id, JPEGQuality, KeyframeRate, Name, ProfileLevelH264, SourceSize, YCbCrMatrix

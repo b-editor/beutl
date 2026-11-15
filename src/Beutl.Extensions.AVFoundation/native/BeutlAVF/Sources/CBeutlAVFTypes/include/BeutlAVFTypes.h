@@ -54,7 +54,6 @@ typedef struct {
 
 typedef struct {
     int32_t sampleRate;
-    int32_t channelCount;
     int32_t codecFourCC;
     int64_t durationNum;
     int64_t durationDen;
@@ -93,11 +92,11 @@ typedef struct {
     int32_t formatFourCC;
     int32_t bitrate;                  // -1 = unspecified
     int32_t quality;                  // -1 = Default
-    int32_t sampleRateConverterQuality;
     int32_t linearPcmBitDepth;
     int32_t linearPcmFlags;           // bit0=Float, bit1=BigEndian, bit2=NonInterleaved
     int32_t inputChannelCount;
     uint32_t inputSpeakerMask;
+    uint32_t outputSpeakerMask;       // The default layout of channelCount speakers, used when it differs from the input's.
 } BeutlAudioEncoderConfig;
 
 #pragma pack(pop)

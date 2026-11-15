@@ -349,9 +349,8 @@ final class Writer {
             AVNumberOfChannelsKey: Int(config.channelCount),
         ]
         let outputChannels = Int(config.channelCount)
-        let defaultMasks: [Int: UInt32] = [1: 0x4, 2: 0x3, 6: 0x3f, 8: 0x63f]
         var outputTag = outputChannels == audioChannelCount ? audioLayoutTag
-            : AudioEncoderLayout.inputTag(channelCount: outputChannels, speakerMask: defaultMasks[outputChannels] ?? 0)
+            : AudioEncoderLayout.inputTag(channelCount: outputChannels, speakerMask: config.outputSpeakerMask)
         audioBitrate = config.bitrate
         if formatId == kAudioFormatMPEG4AAC || formatId == kAudioFormatAppleLossless {
             outputTag = try AudioEncoderLayout.selectOutputTag(inputTag: outputTag,
@@ -362,8 +361,7 @@ final class Writer {
                 inputTag: audioLayoutTag, outputTag: outputTag)
         }
         if outputChannels >= 3 {
-            var layout = AudioEncoderLayout.layout(outputTag)
-            settings[AVChannelLayoutKey] = Data(bytes: &layout, count: MemoryLayout<AudioChannelLayout>.size)
+            settings[AVChannelLayoutKey] = AudioEncoderLayout.layoutData(outputTag)
         }
         if audioBitrate > 0 {
             settings[AVEncoderBitRateKey] = audioBitrate
@@ -371,8 +369,6 @@ final class Writer {
         if config.quality >= 0 {
             settings[AVEncoderAudioQualityKey] = config.quality
         }
-        // config.sampleRateConverterQuality is ignored: AVAssetWriterInput throws on
-        // AVSampleRateConverterAudioQualityKey even when canApply accepts the settings.
         if formatId == kAudioFormatLinearPCM {
             settings[AVLinearPCMBitDepthKey] = Int(config.linearPcmBitDepth)
             settings[AVLinearPCMIsFloatKey] = (config.linearPcmFlags & 0x1) != 0

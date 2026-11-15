@@ -22,6 +22,12 @@ enum AudioEncoderLayout {
         return result
     }
 
+    // The bytes AVFoundation takes for a layout given by its tag alone.
+    static func layoutData(_ tag: AudioChannelLayoutTag) -> Data {
+        var result = layout(tag)
+        return withUnsafeBytes(of: &result) { Data($0) }
+    }
+
     static func pcmFormat(sampleRate: Int, channelCount: Int) -> AudioStreamBasicDescription {
         AudioStreamBasicDescription(
             mSampleRate: Float64(sampleRate),

@@ -3,6 +3,6 @@ import XCTest
 
 final class VersionTests: XCTestCase {
     func testVersionIncludesEncoderInputLayout() {
-        XCTAssertEqual(beutl_avf_version(), 5)
+        XCTAssertEqual(beutl_avf_version(), 6)
     }
 }

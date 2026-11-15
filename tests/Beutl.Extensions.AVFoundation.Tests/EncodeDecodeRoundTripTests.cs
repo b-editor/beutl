@@ -91,18 +91,64 @@ public class EncodeDecodeRoundTripTests
         }
     }
 
-    [TestCase(AVFAudioEncoderSettings.AudioQuality.Min)]
-    [TestCase(AVFAudioEncoderSettings.AudioQuality.Max)]
-    public async Task NonDefaultSampleRateConverterQualityEncodesResampledAudio(AVFAudioEncoderSettings.AudioQuality quality)
+    // An output with more channels than its input takes Beutl's default layout for its count, and the input's pair
+    // lands on its front pair. Apple Lossless offers no 4.0 layout with those speakers, as it offered none for the
+    // discrete layout these counts got before, so a four-channel Apple Lossless output still fails (#4319). Seven
+    // channels are written as 6.1 but read back with back surrounds for the side pair (#4318).
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 3)]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 4)]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 5)]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 3)]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 5)]
+    public async Task StereoInAnOutputWithMoreChannelsKeepsItsFrontPair(
+        AVFAudioEncoderSettings.AudioFormatType format,
+        int channels)
+    {
+        const int rate = 48000;
+        string path = Path.Combine(_workDir, $"upmix-{format}-{channels}.mov");
+        var controller = new AVFEncodingController(path);
+        controller.VideoSettings.SourceSize.Value = controller.VideoSettings.DestinationSize.Value = new PixelSize(64, 64);
+        controller.VideoSettings.FrameRate.Value = new Rational(30);
+        controller.AudioSettings.SampleRate.Value = rate;
+        controller.AudioSettings.Channels.Value = channels;
+        controller.AudioSettings.Format.Value = format;
+        if (format == AVFAudioEncoderSettings.AudioFormatType.LinearPCM)
+        {
+            controller.AudioSettings.LinearPcmFloat.Value = true;
+            controller.AudioSettings.LinearPcmBitDepth.Value = AVFAudioEncoderSettings.BitDepth.Bits32;
+        }
+        using var frames = new GradientFrameProvider(60, new Rational(30), 64, 64);
+        using var samples = new SpeakerToneSampleProvider(rate * 2, rate, AudioChannelLayout.Stereo);
+
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        using var reader = new AVFReader(path, new MediaOptions(), new AVFDecodingExtension());
+        Assert.That(reader.AudioInfo.ChannelLayout, Is.EqualTo(AudioChannelLayout.GetDefault(channels)));
+        Assert.That(reader.ReadAudio(rate / 2, rate, out var decoded), Is.True);
+        using (decoded)
+        {
+            Assert.That(decoded!.ChannelCount, Is.EqualTo(channels));
+            for (int ch = 0; ch < 2; ch++)
+                for (int tone = 0; tone < 2; tone++)
+                {
+                    double level = SpeakerToneSampleProvider.ToneLevel(decoded.GetChannelData(ch),
+                        SpeakerToneSampleProvider.Frequency(tone), rate);
+                    Assert.That(level, tone == ch ? Is.InRange(0.15, 0.32) : Is.LessThan(0.04),
+                        $"Speaker {ch}, tone {tone}: {level}");
+                }
+        }
+    }
+
+    [Test]
+    public async Task AudioAtAnotherRateIsEncodedAtTheOutputRate()
     {
         const int sourceRate = 44100;
         const int outputRate = 48000;
-        string path = Path.Combine(_workDir, $"src-quality-{quality}.mp4");
+        string path = Path.Combine(_workDir, "resampled.mp4");
         var controller = new AVFEncodingController(path);
         controller.VideoSettings.SourceSize.Value = controller.VideoSettings.DestinationSize.Value = new PixelSize(64, 64);
         controller.VideoSettings.FrameRate.Value = new Rational(30);
         controller.AudioSettings.SampleRate.Value = outputRate;
-        controller.AudioSettings.SampleRateConverterQuality.Value = quality;
         using var frames = new GradientFrameProvider(30, new Rational(30), 64, 64);
         using var samples = new SpeakerToneSampleProvider(sourceRate, sourceRate, AudioChannelLayout.Stereo);
 

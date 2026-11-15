@@ -2,7 +2,7 @@ import CBeutlAVFTypes
 import Foundation
 
 // Increment on any breaking ABI change (struct layout, function signature).
-private let abiVersion: Int32 = 5
+private let abiVersion: Int32 = 6
 
 @_cdecl("beutl_avf_version")
 public func beutl_avf_version() -> Int32 {
