@@ -32,6 +32,24 @@ public sealed class FilterEffectSegmentBoundaryReasonTests
         Assert.That(SegmentIslandPayload(compiled).HasImperativeItem, Is.True);
     }
 
+    // A custom effect that keeps its content in place leaves the sub-pixel phase of the grid; any other strips it.
+    [Test]
+    public void A_segment_strips_the_grid_phase_unless_its_custom_effects_keep_their_content_in_place()
+    {
+        using CompiledRenderRequest layer = Compile(new LayerEffect());
+        using CompiledRenderRequest clipping = Compile(new Clipping());
+        using CompiledRenderRequest centred = Compile(new Clipping { AutoCenter = { Value = true } });
+        using CompiledRenderRequest stroke = Compile(new StrokeEffect());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SegmentIslandPayload(layer).StripsDeviceGridPhase, Is.False, "LayerEffect");
+            Assert.That(SegmentIslandPayload(clipping).StripsDeviceGridPhase, Is.False, "Clipping");
+            Assert.That(SegmentIslandPayload(centred).StripsDeviceGridPhase, Is.True, "Clipping with AutoCenter");
+            Assert.That(SegmentIslandPayload(stroke).StripsDeviceGridPhase, Is.True, "StrokeEffect");
+        });
+    }
+
     [Test]
     public void PureSkiaSegments_DeclareSingleForOneInput()
     {

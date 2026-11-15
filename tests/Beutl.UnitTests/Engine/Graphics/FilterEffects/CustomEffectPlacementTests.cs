@@ -48,6 +48,27 @@ public sealed class CustomEffectPlacementTests
         AssertSamePixels(blurred, withEffect);
     }
 
+    // The effect works on the content laid on whole pixels and leaves the content's own bounds to what follows, so a
+    // transform after it scales about the same centre as it does without the effect.
+    [TestCase(typeof(LayerEffect))]
+    [TestCase(typeof(Clipping))]
+    public void A_transform_after_an_effect_that_changes_nothing_scales_about_the_same_centre(Type effectType)
+    {
+        using Bitmap scaled = Render(ThenScaled(null), 1, 0f);
+        using Bitmap withEffect = Render(ThenScaled((FilterEffect)Activator.CreateInstance(effectType)!), 1, 0f);
+
+        AssertSamePixels(scaled, withEffect);
+    }
+
+    private static FilterEffectGroup ThenScaled(FilterEffect? head)
+    {
+        var group = new FilterEffectGroup();
+        if (head != null)
+            group.Children.Add(head);
+        group.Children.Add(new TransformEffect { Transform = { Value = new ScaleTransform(150, 150) } });
+        return group;
+    }
+
     private static FilterEffectGroup Blurred(FilterEffect? tail)
     {
         var group = new FilterEffectGroup();

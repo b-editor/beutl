@@ -237,6 +237,28 @@ public sealed class EffectTarget : IDisposable
         };
     }
 
+    /// <summary>
+    /// Moves this target's raster into a target that draws it where it is and takes <paramref name="bounds"/> as its
+    /// bounds. This target is left empty.
+    /// </summary>
+    /// <remarks>
+    /// The raster must lie at its allocated place, which <see cref="RasterBounds"/> leaves only when the bounds move.
+    /// The new target does not keep an imperative placement, so its bounds can be narrower than the raster.
+    /// </remarks>
+    internal EffectTarget TakeRasterWithBounds(Rect bounds)
+    {
+        object backing = _target ?? throw new InvalidOperationException("An empty target has no raster to move.");
+        var result = new EffectTarget(
+            backing,
+            bounds,
+            Scale,
+            DeviceBounds,
+            DeviceGridOffset,
+            preserveImperativeRasterPlacement: false);
+        _target = null;
+        return result;
+    }
+
     internal EffectTargetRenderTargetLease? TakeRenderTargetLease()
     {
         if (_target is not EffectTargetRenderTargetLease renderTargetLease)

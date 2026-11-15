@@ -239,12 +239,12 @@ public sealed partial class FilterEffectExecutor : IDisposable
                 case IFEItem_Custom custom:
                     // A custom effect runs author code against materialized targets, so the pending
                     // chain has to be forced out before it can see them.
-                    Flush(
+                    AlignedPlacement? placement = Flush(
                         force: true,
                         alignToDeviceGrid: custom.Options.HasFlag(CustomFilterEffectOptions.KeepsPlacement));
                     if (CurrentTargets.Count == 0) return;
                     bool controlsContinuation = custom.Options.HasFlag(CustomFilterEffectOptions.ControlsContinuation);
-                    RunCustomEffectItem(custom, controlsContinuation ? items.Skip(index + 1).ToArray() : null);
+                    RunCustomEffectItem(custom, controlsContinuation ? items.Skip(index + 1).ToArray() : null, placement);
                     if (controlsContinuation) return;
                     break;
                 case FEItem_ShaderGraph graph:
@@ -319,7 +319,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
             : item.TransformBounds(bounds.Translate(offset)).Translate(-offset);
 
     /// <summary>Hands the materialized targets to author code, and re-anchors what it left behind.</summary>
-    private void RunCustomEffectItem(IFEItem_Custom custom, IFEItem[]? continuation)
+    private void RunCustomEffectItem(IFEItem_Custom custom, IFEItem[]? continuation, AlignedPlacement? placement)
     {
         _customEffectBoundaryMaterialized = true;
 
@@ -338,9 +338,35 @@ public sealed partial class FilterEffectExecutor : IDisposable
             execution?.End();
         }
 
+        if (placement is { } aligned)
+            RestoreContentEdges(aligned);
+
         foreach (EffectTarget t in CurrentTargets)
         {
             t.OriginalBounds = t.Bounds.WithX(0).WithY(0);
+        }
+    }
+
+    // A callback that keeps its content in place worked on the content laid on whole pixels. Where it left an edge of
+    // that layout, the target goes on with the content's own edge, so what follows, such as a transform about the
+    // content's centre, sees the bounds it sees without the effect. The rasters stay where they are.
+    private void RestoreContentEdges(AlignedPlacement placement)
+    {
+        for (int i = 0; i < CurrentTargets.Count; i++)
+        {
+            EffectTarget target = CurrentTargets[i];
+            if (!target.PreserveImperativeRasterPlacement
+                || !target.IsMaterialized
+                || target.RasterBounds != target.DeviceBounds
+                    .ToRect(target.Scale.Value)
+                    .Translate(-target.DeviceGridOffset))
+            {
+                continue;
+            }
+
+            Rect bounds = placement.Restore(target.Bounds);
+            if (bounds != target.Bounds)
+                CurrentTargets[i] = target.TakeRasterWithBounds(bounds);
         }
     }
 
