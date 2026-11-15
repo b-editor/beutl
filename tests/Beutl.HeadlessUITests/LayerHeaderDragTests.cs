@@ -202,6 +202,52 @@ public class LayerHeaderDragTests
         }
     }
 
+    // A drag released on the row it started from moves nothing, and puts the clips back on the row as well as the header
+    // (#4023).
+    [AvaloniaTest]
+    public async Task A_drag_released_on_its_own_row_puts_the_clips_back_on_it()
+    {
+        (EditViewModel editor, TimelineTabViewModel timeline) = await TimelineTestHost.OpenTimelineAsync(
+            "layer-header-drag-same-row",
+            [new ElementDescription(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0,
+                new ElementSource.EngineObject(() => new RectShape()))]);
+        Element clip = editor.Scene.Children.Single();
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 960, Height = 420 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            LayerHeader header = view.GetVisualDescendants().OfType<LayerHeader>()
+                .First(h => h.DataContext is LayerHeaderViewModel { Number: 0 });
+            var headerModel = (LayerHeaderViewModel)header.DataContext!;
+            Border handle = header.FindControl<Border>("border")!;
+            Point press = handle.TranslatePoint(new Point(handle.Bounds.Width / 2, handle.Bounds.Height / 2), window)!.Value;
+            Point moved = press + new Vector(0, FrameNumberHelper.LayerHeight / 4);
+            TimelineTestHost.WaitForHitTest(window, handle, press);
+            window.MouseMove(press);
+            window.MouseDown(press, MouseButton.Left);
+            window.MouseMove(moved, RawInputModifiers.LeftMouseButton);
+            HeadlessTestHelpers.Render(3);
+            ElementViewModel clipModel = timeline.GetViewModelFor(clip)!;
+            Assert.That(clipModel.Margin.Value.Top, Is.GreaterThan(timeline.CalculateLayerTop(0)), "The clip follows the drag.");
+
+            window.MouseUp(moved, MouseButton.Left);
+            HeadlessTestHelpers.Settle(4);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(clip.ZIndex.Value, Is.Zero);
+                Assert.That(headerModel.PosY.Value, Is.Zero);
+                Assert.That(clipModel.Margin.Value.Top, Is.EqualTo(timeline.CalculateLayerTop(0)).Within(0.0001));
+            });
+        }
+        finally
+        {
+            TimelineTestHost.Close(view, window);
+        }
+    }
+
     // A name typed into a header names the layer on its row, so a header drag takes the name along with that layer,
     // whether Enter or the drag ended the edit and whichever header is dragged. Undo takes back the move and then the
     // name. Dragging row 0 to row 2 moves the layer on row 1 up to row 0.

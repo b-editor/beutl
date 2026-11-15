@@ -150,9 +150,10 @@ public sealed partial class LayerHeader : UserControl
         if (DataContext is not LayerHeaderViewModel vm)
             return;
 
+        // A drop on the row the drag started from moves nothing, so the header and the clips that followed it go back.
         if (newLayerNum == vm.Number)
         {
-            vm.PosY.Value = 0;
+            RestoreDraggedRows(vm, directElements);
             return;
         }
 
