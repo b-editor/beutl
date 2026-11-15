@@ -241,27 +241,37 @@ public sealed partial class Reconciler
         return expanded;
     }
 
-    // A new object nested in a property has no Id for the sandbox to find it by, and the serializer that reads it
-    // does not know the shorthand. The document says what it is, by its $type or by the property holding it.
-    private static void ExpandNewObjectAnimationShorthand(JsonObject document)
+    // A new object nested in a property has no Id for the sandbox to find it by, so its keyframe values go unchecked,
+    // and the serializer that reads it does not know the shorthand. The document says what it is, by its $type or by
+    // the property holding it.
+    private static void PrepareNewObjectAnimations(JsonObject document)
     {
-        if (ContainsAnimationShorthand(document))
+        if (NeedsAnimationPreparation(document))
         {
-            ExpandAnimationShorthandByType(document, null, new Dictionary<Type, EngineObject?>());
+            PrepareAnimationsByType(document, null, new Dictionary<Type, EngineObject?>());
         }
     }
 
-    private static bool ContainsAnimationShorthand(JsonNode? node)
+    private static bool NeedsAnimationPreparation(JsonNode? node)
     {
         return node switch
         {
-            JsonObject obj => KeyFrameShorthand.IsShorthand(obj) || obj.Any(pair => ContainsAnimationShorthand(pair.Value)),
-            JsonArray array => array.Any(ContainsAnimationShorthand),
+            JsonObject obj => KeyFrameShorthand.IsShorthand(obj)
+                              || IsUntypedNewAnimationOwner(obj)
+                              || obj.Any(pair => NeedsAnimationPreparation(pair.Value)),
+            JsonArray array => array.Any(NeedsAnimationPreparation),
             _ => false
         };
     }
 
-    private static void ExpandAnimationShorthandByType(
+    // An object gets an Id from its $type, and the owning properties check its keyframe values through that Id. A sealed
+    // type such as Pen is written without one.
+    private static bool IsUntypedNewAnimationOwner(JsonObject obj)
+        => obj["Animations"] is JsonObject
+           && !obj.ContainsKey("$type")
+           && !CollectionReconciler.TryGetId(obj, out _);
+
+    private static void PrepareAnimationsByType(
         JsonNode? node,
         Type? declaredType,
         Dictionary<Type, EngineObject?> prototypes)
@@ -270,7 +280,7 @@ public sealed partial class Reconciler
         {
             foreach (JsonNode? item in array)
             {
-                ExpandAnimationShorthandByType(item, declaredType, prototypes);
+                PrepareAnimationsByType(item, declaredType, prototypes);
             }
 
             return;
@@ -282,19 +292,19 @@ public sealed partial class Reconciler
         }
 
         EngineObject? prototype = FindPrototype(obj, declaredType, prototypes);
-        if (prototype is not null
-            && ExpandOwnAnimationShorthand(prototype, obj)
-            && !obj.ContainsKey("$type")
-            && !CollectionReconciler.TryGetId(obj, out _))
+        if (prototype is not null)
         {
-            // A new object gets its Id from its $type, and the owning properties check its keyframe values through that Id.
-            obj["$type"] = IdentityHelper.WriteDiscriminator(prototype.GetType());
+            ExpandOwnAnimationShorthand(prototype, obj);
+            if (IsUntypedNewAnimationOwner(obj))
+            {
+                obj["$type"] = IdentityHelper.WriteDiscriminator(prototype.GetType());
+            }
         }
 
         foreach ((string name, JsonNode? child) in obj.ToArray())
         {
             IProperty? property = prototype?.Properties.FirstOrDefault(item => item.Name == name);
-            ExpandAnimationShorthandByType(
+            PrepareAnimationsByType(
                 child,
                 property is IListProperty list ? list.ElementType : property?.ValueType,
                 prototypes);
