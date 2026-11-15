@@ -121,6 +121,40 @@ public class SceneSettingsServiceTests
         }
     }
 
+    // The layout is the project's alone, so writing it leaves the scene files, and an edit not saved in one, as they
+    // are (#4147).
+    [Test]
+    public void Apply_ProjectLayoutWritesOnlyTheProjectFile()
+    {
+        string directory = Directory.CreateTempSubdirectory("beutl-layout-scenes-").FullName;
+        string path = Path.Combine(directory, "project.json");
+        _scene.Uri = new Uri(Path.Combine(directory, "scene.scene"));
+        var other = new Scene(640, 480, string.Empty) { Uri = new Uri(Path.Combine(directory, "other.scene")) };
+        var project = new Project { Uri = new Uri(path), Items = { _scene, other } };
+        try
+        {
+            CoreSerializer.StoreToUri(project, project.Uri);
+            string savedScene = File.ReadAllText(_scene.Uri.LocalPath);
+            string savedOther = File.ReadAllText(other.Uri.LocalPath);
+            other.Duration.Value = MediaTime.FromSeconds(9);
+
+            _service.Apply(_scene, _scene.FrameSize.Value, _scene.Start.Value, _scene.Duration.Value, SpeakerLayout.Surround51);
+            Assert.That(_history.Undo(), Is.True);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.ReadAllText(_scene.Uri.LocalPath), Is.EqualTo(savedScene));
+                Assert.That(File.ReadAllText(other.Uri.LocalPath), Is.EqualTo(savedOther), "The unsaved edit stays unsaved.");
+                Assert.That(JsonNode.Parse(File.ReadAllText(path))!["ChannelLayout"]!.GetValue<int>(),
+                    Is.EqualTo((int)SpeakerLayout.Stereo));
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Test]
     public void Apply_ProjectWriteFailureRestoresTheLayoutWithoutRecordingAnEdit()
     {
