@@ -3,13 +3,12 @@ using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.Extensions.FFmpeg.Encoding;
-using Beutl.FFmpegIpc;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 
-namespace Beutl.UnitTests.Extensions.FFmpeg;
+namespace Beutl.FFmpegIpc.Tests;
 
 [TestFixture]
 public sealed class FFmpegEncodingScaleTests
@@ -18,7 +17,7 @@ public sealed class FFmpegEncodingScaleTests
     public async Task Encode_WhenDestinationSizeDiffers_ScalesInsteadOfCropping()
     {
         if (!FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
-            Assert.Ignore("FFmpeg worker deployment is unavailable; skipping the native integration test.");
+            Assert.Ignore("FFmpeg worker binary not present in the test output; skipping.");
 
         string outputPath = Path.Combine(
             TestContext.CurrentContext.WorkDirectory,
@@ -39,7 +38,7 @@ public sealed class FFmpegEncodingScaleTests
         }
         catch (FFmpegLibrariesNotFoundException ex)
         {
-            Assert.Ignore(ex.Message);
+            Assert.Ignore($"FFmpeg natives unavailable ({ex.Message}); skipping.");
         }
 
         using MediaReader? reader = new FFmpegDecoderInfo(new FFmpegDecodingSettings())

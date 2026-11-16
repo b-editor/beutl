@@ -8267,7 +8267,7 @@ License: GPL-3+
  Corresponding Source and build scripts for each distributed version are
  available from its matching release tag at https://github.com/b-editor/beutl/releases.
 
-Files: src/Beutl.Controls/Assets/Fonts/NotoColorEmoji/NotoColorEmoji.ttf
+Files: src/Beutl.BundledFonts/Fonts/NotoColorEmoji/NotoColorEmoji.ttf
  tests/Beutl.UnitTests/Assets/Font/BeutlTestSeparateEmoji.ttf
 Copyright: 2022 Google Inc.
 License: OFL-1.1

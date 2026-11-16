@@ -3,13 +3,12 @@ using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.Extensions.FFmpeg.Encoding;
-using Beutl.FFmpegIpc;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 
-namespace Beutl.UnitTests.Extensions.FFmpeg;
+namespace Beutl.FFmpegIpc.Tests;
 
 // A proxy's frames come straight from the decoder, in the video's color space. The worker read them as sRGB, so a
 // BT.709 video's proxy came out darker in the midtones: code value 117, sRGB 128, read back as 116 (#4291).
@@ -20,7 +19,7 @@ public sealed class FFmpegEncodingColorSpaceTests
     public async Task A_frame_in_the_BT709_color_space_encodes_as_it_looks()
     {
         if (!FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
-            Assert.Ignore("FFmpeg worker deployment is unavailable; skipping the native integration test.");
+            Assert.Ignore("FFmpeg worker binary not present in the test output; skipping.");
 
         string outputPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.mp4");
         var controller = new FFmpegEncodingControllerProxy(outputPath, new FFmpegEncodingSettings());
@@ -45,7 +44,7 @@ public sealed class FFmpegEncodingColorSpaceTests
         }
         catch (FFmpegLibrariesNotFoundException ex)
         {
-            Assert.Ignore(ex.Message);
+            Assert.Ignore($"FFmpeg natives unavailable ({ex.Message}); skipping.");
         }
 
         try

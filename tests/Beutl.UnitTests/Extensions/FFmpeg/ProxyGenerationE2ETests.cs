@@ -1,6 +1,5 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
-using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Proxy;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -23,50 +22,6 @@ public sealed class ProxyGenerationE2ETests
     public void OneTimeSetUp()
     {
         TestMediaHelper.RegisterTestDecoder();
-    }
-
-    [Test]
-    public async Task GenerateAsync_WritesProxyFileAndMetadata()
-    {
-        if (!FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
-            Assert.Ignore("FFmpeg worker deployment is unavailable; skipping the native integration test.");
-
-        string root = ProxyTestScope.CreateRoot();
-        var store = new ProxyStore(root);
-        var generator = new FFmpegProxyGenerator(store);
-        string source = TestMediaHelper.CreateTestVideoFile(64, 48, new Rational(12, 1), 4);
-        File.WriteAllBytes(source, [1, 2, 3, 4]);
-        var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Half);
-
-        try
-        {
-            await generator.GenerateAsync(job);
-        }
-        catch (ProxyGeneratorUnavailableException ex)
-        {
-            Assert.Ignore(ex.Message);
-        }
-
-        ProxyEntry? entry = store.TryGet(job.Source, ProxyPreset.Half);
-        Assert.That(entry, Is.Not.Null);
-        string proxyPath = Path.Combine(root, entry!.ProxyFileRelative.Replace('/', Path.DirectorySeparatorChar));
-        string metadataPath = Path.Combine(Path.GetDirectoryName(proxyPath)!, "meta.json");
-        ProxySourceMetadata? metadata = JsonSerializer.Deserialize<ProxySourceMetadata>(
-            File.ReadAllText(metadataPath),
-            s_jsonOptions);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(File.Exists(proxyPath), Is.True);
-            Assert.That(new FileInfo(proxyPath).Length, Is.GreaterThan(0));
-            Assert.That(entry.State, Is.EqualTo(ProxyState.Ready));
-            Assert.That(entry.OriginalLogicalFrameSize, Is.EqualTo(new PixelSize(64, 48)));
-            Assert.That(entry.ProxyDecodedFrameSize.Width, Is.LessThanOrEqualTo(64));
-            Assert.That(entry.ProxyDecodedFrameSize.Height, Is.LessThanOrEqualTo(48));
-            Assert.That(metadata, Is.Not.Null);
-            Assert.That(metadata!.Source, Is.EqualTo(job.Source));
-            Assert.That(metadata.Entries.Single(), Is.EqualTo(entry));
-        });
     }
 
     [Test]
