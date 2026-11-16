@@ -147,9 +147,9 @@ public class UpdateDialogViewModel
         IsPrimaryButtonEnabled.Value = false;
         try
         {
-            if (await CreateInstallerStartInfoAsync(relaunch: true) is { } startInfo)
+            if (await CreateInstallerLaunchAsync(relaunch: true) is { } startInstaller)
             {
-                await LaunchInstallerAsync(startInfo);
+                await LaunchInstallerAsync(startInstaller);
             }
         }
         catch (OperationCanceledException) when (_cts.IsCancellationRequested)
@@ -168,7 +168,7 @@ public class UpdateDialogViewModel
         }
     }
 
-    private async Task<bool> InstallAndExitCoreAsync(ProcessStartInfo startInfo)
+    private async Task<bool> InstallAndExitCoreAsync(Action startInstaller)
     {
         _cts.Token.ThrowIfCancellationRequested();
         if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime lifetime
@@ -178,7 +178,7 @@ public class UpdateDialogViewModel
         if (!await main.TryDisposeForUpdateAsync(() =>
             {
                 _cts.Token.ThrowIfCancellationRequested();
-                StartInstaller(startInfo);
+                startInstaller();
                 return true;
             }))
             return false;
@@ -196,9 +196,9 @@ public class UpdateDialogViewModel
         return true;
     }
 
-    private async Task LaunchInstallerAsync(ProcessStartInfo startInfo)
+    private async Task LaunchInstallerAsync(Action startInstaller)
     {
-        _installationStarted = await InstallAndExitCoreAsync(startInfo);
+        _installationStarted = await InstallAndExitCoreAsync(startInstaller);
         if (!_installationStarted)
             ProgressText.Value = MessageStrings.OperationFailed;
     }
@@ -215,7 +215,7 @@ public class UpdateDialogViewModel
         _isInstalling = true;
         try
         {
-            if (await CreateInstallerStartInfoAsync(relaunch: false) is not { } startInfo)
+            if (await CreateInstallerLaunchAsync(relaunch: false) is not { } startInstaller)
                 return false;
 
             // The update can be canceled while the script is written, and Cancel had nothing to clear yet.
@@ -228,7 +228,7 @@ public class UpdateDialogViewModel
                 return false;
             }
 
-            main.SetUpdateOnQuit(() => StartInstaller(startInfo));
+            main.SetUpdateOnQuit(startInstaller);
             _installOnQuit = true;
             ProgressText.Value = MessageStrings.UpdateWillInstallOnQuit;
             IsSecondaryButtonEnabled.Value = false;
@@ -247,7 +247,7 @@ public class UpdateDialogViewModel
     }
 
     // How to start the installer for this platform, or null with the reason in ProgressText.
-    private async Task<ProcessStartInfo?> CreateInstallerStartInfoAsync(bool relaunch)
+    private async Task<Action?> CreateInstallerLaunchAsync(bool relaunch)
     {
         if (await _loadMetadata() is not { } metadata)
         {
@@ -255,10 +255,10 @@ public class UpdateDialogViewModel
             return null;
         }
 
-        if (OperatingSystem.IsMacOS()) return await CreateMacInstallerStartInfoAsync(metadata, relaunch);
-        if (OperatingSystem.IsLinux()) return await CreateLinuxInstallerStartInfoAsync(metadata, relaunch);
-        if (OperatingSystem.IsWindows()) return CreateWindowsInstallerStartInfo(metadata, relaunch);
-        return null;
+        if (OperatingSystem.IsLinux()) return await CreateLinuxInstallerLaunchAsync(metadata, relaunch);
+        ProcessStartInfo? startInfo = OperatingSystem.IsMacOS() ? await CreateMacInstallerStartInfoAsync(metadata, relaunch)
+            : OperatingSystem.IsWindows() ? CreateWindowsInstallerStartInfo(metadata, relaunch) : null;
+        return startInfo == null ? null : () => StartInstaller(startInfo);
     }
 
     private static void StartInstaller(ProcessStartInfo startInfo)
@@ -286,46 +286,40 @@ public class UpdateDialogViewModel
         };
     }
 
-    private async Task<ProcessStartInfo?> CreateLinuxInstallerStartInfoAsync(AssetMetadataJson metadata, bool relaunch)
+    private async Task<Action?> CreateLinuxInstallerLaunchAsync(AssetMetadataJson metadata, bool relaunch)
     {
-        string command;
         if (metadata.Type == "debian")
         {
-            if (_downloadFile == null)
+            if (_downloadFile is not { } package)
             {
                 ProgressText.Value = MessageStrings.DownloadFailed;
                 return null;
             }
 
-            command = $"sudo apt update && sudo apt install \"{_downloadFile}\"";
+            var debianTerminal = FindTerminal(DebianPackageInstaller.Command, DebianPackageInstaller.GetManualCommand(package));
+            return debianTerminal == null ? null : () => DebianPackageInstaller.Start(package, debianTerminal, StartInstaller);
         }
-        else if (metadata.Type == "zip")
-        {
-            if (await WriteUpdateScriptAsync("update.sh", "Beutl.Resources.linux-update.sh") is not { } scriptPath)
-            {
-                return null;
-            }
 
-            var directory = ZipStagingDirectory;
-            var target = AppContext.BaseDirectory;
-            string executable = relaunch ? $" \"{Path.Combine(AppContext.BaseDirectory, "Beutl")}\"" : "";
-
-            command = $"chmod +x \"{scriptPath}\" && \"{scriptPath}\" \"{directory}\" \"{target}\" Beutl{executable}";
-        }
-        else
+        if (metadata.Type != "zip") return null;
+        if (await WriteUpdateScriptAsync("update.sh", "Beutl.Resources.linux-update.sh") is not { } scriptPath)
         {
             return null;
         }
 
-        if (TerminalLauncher.CreateStartInfo(["bash", "-c", command]) is not { } psi)
-        {
-            // Beutl keeps running, and the user can finish the update by running the command themselves.
-            _logger.LogWarning("No terminal emulator was found for the update command: {Command}", command);
-            ProgressText.Value = string.Format(MessageStrings.TerminalNotFound, command);
-            return null;
-        }
+        var directory = ZipStagingDirectory;
+        var target = AppContext.BaseDirectory;
+        string executable = relaunch ? $" \"{Path.Combine(AppContext.BaseDirectory, "Beutl")}\"" : "";
+        string command = $"chmod +x \"{scriptPath}\" && \"{scriptPath}\" \"{directory}\" \"{target}\" Beutl{executable}";
+        var terminal = FindTerminal(["bash", "-c", command], command);
+        return terminal == null ? null : () => StartInstaller(terminal);
+    }
 
-        return psi;
+    private ProcessStartInfo? FindTerminal(IReadOnlyList<string> arguments, string manualCommand)
+    {
+        if (TerminalLauncher.CreateStartInfo(arguments) is { } terminal) return terminal;
+        _logger.LogWarning("No terminal emulator was found for the update command: {Command}", manualCommand);
+        ProgressText.Value = string.Format(MessageStrings.TerminalNotFound, manualCommand);
+        return null;
     }
 
     private async Task<ProcessStartInfo?> CreateMacInstallerStartInfoAsync(AssetMetadataJson metadata, bool relaunch)

@@ -1,4 +1,5 @@
-﻿using System.IO.Compression;
+﻿using System.Diagnostics;
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -301,6 +302,83 @@ public sealed class UpdateDownloadTests
         string? cached = await later.DownloadFile(httpClient: client, cache: next);
         Assert.That(handler.Requests, Is.EqualTo(1));
         Assert.That(Directory.GetFiles(_root, "*.exe", SearchOption.AllDirectories), Is.EquivalentTo(new[] { cached }));
+    }
+
+    [TestCase(false, 0)]
+    [TestCase(true, 1)]
+    public async Task DebianInstallerKeepsThePackageUntilAptFinishes(bool manual, int installExitCode)
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("Uses the Debian installer's Bash command.");
+        string cacheRoot = Path.Combine(_root, "user's downloads");
+        using var cache = UpdateDownloadCache.Open(cacheRoot);
+        string original = Path.Combine(cache.DirectoryPath, "release.deb");
+        File.WriteAllText(original, "verified package");
+        string bashEnv = Path.Combine(_root, "mock-apt.sh");
+        File.WriteAllText(bashEnv, """
+            sudo() {
+              case "$1 $2" in
+                "apt update") echo updating; read -r gate; return 0 ;;
+                "apt install") echo "$3"; cat "$3" && return "$APT_EXIT" ;;
+                *) return 99 ;;
+              esac
+            }
+            """);
+
+        ProcessStartInfo Shell(IReadOnlyList<string> args)
+        {
+            var info = new ProcessStartInfo(args[0]) { RedirectStandardInput = true, RedirectStandardOutput = true };
+            foreach (string arg in args.Skip(1)) info.ArgumentList.Add(arg);
+            info.Environment["BASH_ENV"] = bashEnv;
+            info.Environment["APT_EXIT"] = installExitCode.ToString();
+            return info;
+        }
+
+        Process? child = null;
+        if (manual)
+            child = Process.Start(Shell(["bash", "-c", DebianPackageInstaller.GetManualCommand(original)]));
+        else
+            DebianPackageInstaller.Start(original, Shell(DebianPackageInstaller.Command), info => child = Process.Start(info));
+        using var apt = child!;
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        try
+        {
+            Assert.That(await apt.StandardOutput.ReadLineAsync(timeout.Token), Is.EqualTo("updating"));
+            cache.Dispose();
+            using var newer = UpdateDownloadCache.Open(cacheRoot);
+            string replacement = Path.Combine(newer.DirectoryPath, "new.deb");
+            File.WriteAllText(replacement, "new package");
+            newer.RemoveOtherDownloads(replacement);
+            Assert.That(File.Exists(original), Is.False);
+        }
+        finally
+        {
+            apt.StandardInput.Close();
+            await apt.WaitForExitAsync(timeout.Token);
+        }
+
+        string? handoff = await apt.StandardOutput.ReadLineAsync(timeout.Token);
+        Assert.That(await apt.StandardOutput.ReadToEndAsync(timeout.Token), Is.EqualTo("verified package"));
+        Assert.That(apt.ExitCode, Is.EqualTo(installExitCode));
+        Assert.That(Directory.Exists(Path.GetDirectoryName(handoff!)), Is.False);
+    }
+
+    [Test]
+    public void FailedDebianTerminalLaunchRemovesOnlyItsHandoff()
+    {
+        string original = Path.Combine(_root, "release.deb");
+        File.WriteAllText(original, "verified package");
+        string? handoff = null;
+        void FailToStart(ProcessStartInfo info)
+        {
+            handoff = info.ArgumentList[^1];
+            Assert.That(File.ReadAllText(Path.Combine(handoff, "update.deb")), Is.EqualTo("verified package"));
+            throw new IOException("Terminal failed to start.");
+        }
+
+        Assert.Throws<IOException>(() => DebianPackageInstaller.Start(original, new ProcessStartInfo(), FailToStart));
+        Assert.That(handoff, Is.Not.Null);
+        Assert.That(Directory.Exists(handoff), Is.False);
+        Assert.That(File.Exists(original), Is.True);
     }
 
     [Test]
