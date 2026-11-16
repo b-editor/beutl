@@ -1266,6 +1266,9 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Website" xml:space="preserve">
     <value>Sitio web</value>
   </data>
+  <data name="BrowserLoadingPageFormat" xml:space="preserve">
+    <value>Cargando {0}</value>
+  </data>
   <data name="WebBrowser" xml:space="preserve">
     <value>Navegador</value>
   </data>

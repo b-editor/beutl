@@ -168,7 +168,11 @@ public class WebBrowserTabLifecycleTests
         }
 
         var next = new Uri("https://example.com/page");
+        view.OnNativeNavigationStarted();
+        Assert.That(vm.IsLoading.Value, Is.True);
+        Assert.That(vm.Header.Value, Is.EqualTo("Google"));
         view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
+        Assert.That(vm.IsLoading.Value, Is.False);
         Assert.That(vm.CurrentUri, Is.EqualTo(next));
         Assert.That(vm.Address.Value, Is.EqualTo(next.AbsoluteUri));
     }

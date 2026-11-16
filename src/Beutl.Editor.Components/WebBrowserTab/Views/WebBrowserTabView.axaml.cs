@@ -27,7 +27,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private readonly bool _handlesMediaResponsesNatively;
     private NativeWebView? _webView;
     private BrowserAdBlockSession? _adBlockSession;
-    private IDisposable? _nativeDownloadHandler;
+    private IDisposable? _nativeBrowserHandler;
     private int _nativeDownloadHandlerVersion;
     private WebBrowserTabViewModel? _viewModel;
     // A tool tab that is not shown is out of the visual tree, where NativeWebView destroys its native web view. The
@@ -264,7 +264,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         int handlerVersion = InvalidateNativeDownloads();
         NativeWebView webView = _webView;
         if (_pendingPageDownloadRequest?.Source != null) ClearPageDownloadRequest();
-        _nativeDownloadHandler?.Dispose();
+        _nativeBrowserHandler?.Dispose();
         bool IsCurrent() => handlerVersion == _nativeDownloadHandlerVersion && ReferenceEquals(webView, _webView);
         void OnDownload(Uri uri, string name, IBrowserDownloadSource source)
         {
@@ -291,21 +291,31 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
         if (OperatingSystem.IsMacOS())
         {
-            _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
-                OnGeneratedDownload, OnNativeNavigationCommitted, OnNativeNavigationStarted, OnNativeNewWindowRequested,
-                OnWindowOpened);
+            _nativeBrowserHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
+                OnGeneratedDownload, OnNativeNavigationCommitted, OnNativeNavigationStarted, OnNativeNavigationFailed,
+                OnNativeNewWindowRequested, OnWindowOpened);
         }
         else if (OperatingSystem.IsWindows())
         {
-            _nativeDownloadHandler = WindowsBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
+            _nativeBrowserHandler = WindowsBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
                 OnGeneratedDownload);
         }
         else if (OperatingSystem.IsLinux())
         {
-            _nativeDownloadHandler = LinuxBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), (uri, name) =>
+            IPlatformHandle? handle = e.TryGetPlatformHandle();
+            var pageLoad = LinuxWebKit.ObservePageLoad(handle, loading =>
+            {
+                if (!IsCurrent() || _adBlockSession?.IsPreparing == true) return;
+                if (loading) OnNativeNavigationStarted();
+                // A canceled WebKit load can finish without a managed completion. An address the app
+                // requested still awaits its own completion (the adapter can start on about:blank).
+                else if (_viewModel is { IsLoadingRequestedAddress: false } vm) vm.EndLoading();
+            });
+            IDisposable? downloads = LinuxBrowserDownloadHandler.TryAttach(handle, (uri, name) =>
             {
                 if (IsCurrent()) OnNavigationResponseNotShown(uri, name);
             }, OnGeneratedDownload, OnWindowOpened);
+            _nativeBrowserHandler = new CompositeDisposable(pageLoad ?? Disposable.Empty, downloads ?? Disposable.Empty);
         }
         // The download handler is in place first, so a response of this navigation can become a download.
         // With ad blocking on, the session starts it once its rules are in place.
@@ -321,8 +331,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         if (sender is NativeWebView webView && !ReferenceEquals(webView, _webView)) return;
         InvalidateNativeDownloads();
         if (_pendingPageDownloadRequest?.Source != null) ClearPageDownloadRequest();
-        _nativeDownloadHandler?.Dispose();
-        _nativeDownloadHandler = null;
+        _nativeBrowserHandler?.Dispose();
+        _nativeBrowserHandler = null;
         // NativeWebView never saw the first navigation's address, so a new adapter would stay blank without it.
         _openerNavigationIssued = false;
     }
@@ -500,8 +510,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _webView.AdapterCreated -= LinuxWebKitCookies.PersistCookies;
         _webView.AdapterCreated -= OnAdapterCreated;
         _webView.AdapterDestroyed -= OnAdapterDestroyed;
-        _nativeDownloadHandler?.Dispose();
-        _nativeDownloadHandler = null;
+        _nativeBrowserHandler?.Dispose();
+        _nativeBrowserHandler = null;
         _webView.NavigationStarted -= OnNavigationStarted;
         _webView.NavigationCompleted -= OnNavigationCompleted;
         _webView.NewWindowRequested -= OnNewWindowRequested;

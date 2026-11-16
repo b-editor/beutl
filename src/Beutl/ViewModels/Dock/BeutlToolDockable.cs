@@ -1,6 +1,8 @@
 ﻿using System.ComponentModel;
 using Avalonia.Controls;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.WebBrowserTab.ViewModels;
+using Beutl.Helpers;
 using Beutl.Services;
 using Dock.Model.Inpc.Controls;
 using FluentAvalonia.UI.Controls;
@@ -12,6 +14,8 @@ public class BeutlToolDockable : Tool, IDisposable
 {
     private readonly IDisposable _isSelectedSubscription;
     private readonly IDisposable _headerSubscription;
+    private readonly IDisposable? _browserLoadingSubscription;
+    private bool _showsLoadingIndicator;
     private bool _isDisposed;
     private readonly ToolUsageTracker _usage;
 
@@ -31,6 +35,17 @@ public class BeutlToolDockable : Tool, IDisposable
         CanDockAsDocument = false;
 
         IsSelected = context.IsSelected.Value;
+
+        if (context is WebBrowserTabViewModel browser)
+        {
+            // Finishing a fast navigation cancels the pending reveal immediately.
+            _browserLoadingSubscription = browser.IsLoading
+                .Select(loading => loading
+                    ? Observable.Return(true).Delay(TimeSpan.FromMilliseconds(200), UiThreadScheduler.Instance)
+                    : Observable.Return(false))
+                .Switch()
+                .Subscribe(visible => ShowsLoadingIndicator = visible);
+        }
 
         _headerSubscription = context.Header
             .DistinctUntilChanged()
@@ -69,6 +84,12 @@ public class BeutlToolDockable : Tool, IDisposable
     /// <summary>Gets the icon the tab strip shows left of the title, or <see langword="null"/> for none.</summary>
     public FAIconSource? Icon { get; }
 
+    public bool ShowsLoadingIndicator
+    {
+        get => _showsLoadingIndicator;
+        private set => SetProperty(ref _showsLoadingIndicator, value);
+    }
+
     public EditViewModel EditViewModel { get; }
 
     internal Control? ToolContent { get; set; }
@@ -95,6 +116,7 @@ public class BeutlToolDockable : Tool, IDisposable
         _isDisposed = true;
         PropertyChanged -= OnPropertyChanged;
         _headerSubscription.Dispose();
+        _browserLoadingSubscription?.Dispose();
         _isSelectedSubscription.Dispose();
         UnpinCommand.Dispose();
         _usage.Dispose();
