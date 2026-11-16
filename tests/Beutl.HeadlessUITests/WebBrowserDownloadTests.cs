@@ -1515,7 +1515,9 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
-    public void WithoutNativeMediaResponses_SubframeModeStillOffersMediaNavigationAsADownload()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void WithoutNativeMediaResponses_SubframeModeStillOffersMediaNavigationAsADownload(bool pageLinkLoading)
     {
         var page = new Uri("https://pixabay.com/videos/ocean-12345/");
         using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
@@ -1525,6 +1527,7 @@ public class WebBrowserDownloadTests
         { DataContext = vm, OpensPageDownloadOptionsDirectly = false };
         vm.CompleteNavigation(page, true, false, false);
 
+        if (pageLinkLoading) view.OnNativeNavigationStarted();
         var subframe = new WebViewNavigationStartingEventArgs { Request = WebBrowserTabViewModel.BlankPage };
         view.OnNavigationStarted(null, subframe);
         var media = new WebViewNavigationStartingEventArgs { Request = new Uri("https://cdn.pixabay.com/video/2024/01/01/12345_large.mp4") };
@@ -1535,6 +1538,7 @@ public class WebBrowserDownloadTests
         {
             Assert.That(subframe.Cancel, Is.False);
             Assert.That(media.Cancel, Is.True);
+            Assert.That(vm.IsLoading.Value, Is.EqualTo(pageLinkLoading));
             Assert.That(vm.CurrentUri, Is.EqualTo(page));
             Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
         });

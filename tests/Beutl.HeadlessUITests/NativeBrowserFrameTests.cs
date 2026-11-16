@@ -1,11 +1,18 @@
 ﻿using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
+using System.Reactive.Linq;
+using System.Reactive.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
+using Beutl.Language;
 using Beutl.Testing.Headless;
 
 namespace Beutl.HeadlessUITests;
@@ -81,6 +88,7 @@ internal static class NativeBrowserFrameTestHost
             webView.Navigate(localUri);
             Assert.That(await canceled.Task.WaitAsync(timeout.Token), Is.True);
             Assert.That(vm.CurrentUri, Is.EqualTo(page));
+            await CheckPageLoading(view, webView, vm, timeout.Token);
             Console.WriteLine("Embedded srcdoc, data and blob frames loaded; top-level file navigation stayed blocked.");
             exitCode = 0;
         }
@@ -90,6 +98,56 @@ internal static class NativeBrowserFrameTestHost
             window?.Close();
             lifetime.Shutdown(exitCode);
         }
+    }
+
+    private static async Task CheckPageLoading(WebBrowserTabView view, NativeWebView webView, WebBrowserTabViewModel vm, CancellationToken token)
+    {
+        List<bool> states = [];
+        using var subscription = vm.IsLoading.Subscribe(states.Add);
+        await webView.InvokeScript("""
+            const extra = document.createElement('iframe');
+            extra.srcdoc = "<script>parent.postMessage('extra', '*')<\/script>";
+            document.body.append(extra);
+            """);
+        while (await webView.InvokeScript("window.loadedFrames.includes('extra')") != "true")
+            await Task.Delay(20, token);
+        Assert.That(states, Is.EqualTo(new[] { false }));
+
+        // Hold back the response so a page-initiated link must show its loading state before it commits.
+        using var server = new TcpListener(IPAddress.Loopback, 0);
+        server.Start();
+        var destination = new Uri($"http://127.0.0.1:{((IPEndPoint)server.LocalEndpoint).Port}/");
+        var completed = new TaskCompletionSource();
+        webView.NavigationCompleted += (_, e) =>
+        {
+            if ((e.Request ?? webView.Source) == destination && e.IsSuccess) completed.TrySetResult();
+        };
+        Task started = vm.IsLoading.FirstAsync(loading => loading).ToTask(token);
+        await webView.InvokeScript($"const link = document.createElement('a'); link.href = '{destination}'; link.click();");
+        using var client = await server.AcceptTcpClientAsync(token);
+        await started;
+        Assert.That(vm.IsLoading.Value, Is.True);
+        await client.GetStream().WriteAsync("HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 2\r\nContent-Type: text/html\r\n\r\nOK"u8.ToArray(), token);
+        await completed.Task.WaitAsync(token);
+        Assert.That(states, Is.EqualTo(new[] { false, true, false }));
+
+        client.Close();
+        states.Clear();
+        started = vm.IsLoading.FirstAsync(loading => loading).ToTask(token);
+        await webView.InvokeScript("location.assign('/slow')");
+        using var slow = await server.AcceptTcpClientAsync(token);
+        await started;
+        Button stop = view.GetVisualDescendants().OfType<Button>().Single(b => Equals(ToolTip.GetTip(b), Strings.Stop));
+        stop.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.That(states, Is.EqualTo(new[] { true, false }));
+        Assert.That(vm.ErrorMessage.Value, Is.Null);
+
+        server.Stop();
+        states.Clear();
+        Task failed = vm.ErrorMessage.FirstAsync(message => message == Strings.WebPageLoadFailed).ToTask(token);
+        await webView.InvokeScript("location.assign('/offline')");
+        await failed;
+        Assert.That(states, Is.EqualTo(new[] { true, false }));
     }
 }
 

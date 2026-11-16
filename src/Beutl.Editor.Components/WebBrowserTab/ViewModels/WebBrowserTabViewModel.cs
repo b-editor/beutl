@@ -203,6 +203,9 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     public IReadOnlyReactiveProperty<bool> IsLoading => _isLoading;
 
+    // A frame-ambiguous WebKit media request can settle an app-requested address, but not a page-initiated load.
+    internal bool IsLoadingRequestedAddress { get; private set; }
+
     public IReadOnlyReactiveProperty<bool> IsLinuxRuntimeHelpVisible => _isLinuxRuntimeHelpVisible;
 
     public IReadOnlyReactiveProperty<string?> ErrorMessage => _errorMessage;
@@ -269,19 +272,31 @@ internal sealed class WebBrowserTabViewModel : IToolContext
         return false;
     }
 
-    internal void BeginNavigation(Uri uri)
+    // WebKit reports a main-frame start separately from its frame policy decisions. Keep the
+    // displayed address and title until it identifies the new page, or the app requests an address.
+    internal void BeginNavigation(Uri? uri = null)
     {
-        if (!IsPersistableUri(uri))
+        if (uri != null)
         {
-            RejectNavigation();
-            return;
+            if (!IsPersistableUri(uri))
+            {
+                RejectNavigation();
+                return;
+            }
+            SetCurrentUri(uri);
+            _pageTitle.Value = null;
+            IsLoadingRequestedAddress = true;
         }
-        SetCurrentUri(uri);
 
         _isLoading.Value = true;
         _errorMessage.Value = null;
-        _pageTitle.Value = null;
         _navigationStopped = false;
+    }
+
+    internal void EndLoading()
+    {
+        IsLoadingRequestedAddress = false;
+        _isLoading.Value = false;
     }
 
     internal void CompleteNavigation(Uri uri, bool isSuccess, bool canGoBack, bool canGoForward)
@@ -308,7 +323,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
         SetCurrentUri(uri);
 
-        _isLoading.Value = false;
+        EndLoading();
         _canGoBack.Value = canGoBack;
         _canGoForward.Value = canGoForward;
         _errorMessage.Value = isSuccess || _navigationStopped ? null : Strings.WebPageLoadFailed;
@@ -317,7 +332,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     private void RejectNavigation()
     {
-        _isLoading.Value = false;
+        EndLoading();
         _errorMessage.Value = Strings.InvalidWebAddress;
     }
 
@@ -329,7 +344,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     internal void SetWebViewUnavailable(string? detail, bool showLinuxRuntimeHelp)
     {
-        _isLoading.Value = false;
+        EndLoading();
         _canGoBack.Value = false;
         _canGoForward.Value = false;
         _isLinuxRuntimeHelpVisible.Value = showLinuxRuntimeHelp;
@@ -340,7 +355,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     internal void StopNavigation()
     {
-        _isLoading.Value = false;
+        EndLoading();
         _navigationStopped = true;
     }
 
@@ -363,7 +378,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
     {
         SetCurrentUri(_committedUri);
         _pageTitle.Value = _committedPageTitle;
-        _isLoading.Value = false;
+        EndLoading();
         _errorMessage.Value = null;
         _navigationStopped = false;
     }

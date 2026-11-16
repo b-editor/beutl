@@ -1,12 +1,16 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using Avalonia;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Shapes;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.LibraryTab;
+using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Extensibility;
 using Beutl.Services.StartupTasks;
 using Beutl.Testing.Headless;
@@ -210,6 +214,79 @@ public class ToolTabHeaderTests
         return root.GetVisualDescendants()
             .OfType<ToolTabStripItem>()
             .Single(item => item.DataContext is BeutlToolDockable dockable && predicate(dockable));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task A_background_browser_tab_shows_only_sustained_loads_in_its_icon_slot(bool dark)
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("browser-tab-loading");
+        var browser = new WebBrowserTabViewModel(editor);
+        var dock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Right)!;
+        var active = dock.ActiveDockable!;
+        editor.OpenToolTab(browser);
+        editor.DockHost.Factory.SetActiveDockable(active);
+        var page = new Uri("https://example.org/");
+        browser.CompleteNavigation(page, true, false, false);
+        browser.SetPageTitle(page, "Beutl Docs");
+
+        var view = new EditView { DataContext = editor };
+        var theme = dark ? ThemeVariant.Dark : ThemeVariant.Light;
+        var window = new Window { Content = view, Width = dark ? 1240 : 1400, Height = 720, RequestedThemeVariant = theme };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            ToolTabStripItem tab = FindTab(view, item => item.ToolContext == browser);
+            var peer = ControlAutomationPeer.CreatePeerForElement(tab);
+            Viewbox iconSlot = FindIconSlot(tab);
+            var size = iconSlot.Bounds.Size;
+            var iconForeground = iconSlot.GetVisualDescendants().OfType<FAIconSourceElement>().Single().Foreground;
+            Assert.That(tab.IsSelected, Is.False);
+
+            browser.BeginNavigation();
+            Assert.That(tab.Classes.Contains("browserLoading"), Is.False);
+            browser.StopNavigation();
+            await Task.Delay(250);
+            Assert.That(FindIconSlot(tab).IsVisible, Is.True);
+            HeadlessCapture.SaveIfRequested(window, nameof(ToolTabHeaderTests), $"browser-{theme.Key}-idle");
+
+            browser.BeginNavigation();
+            await HeadlessTestHelpers.WaitUntilAsync(() => tab.Classes.Contains("browserLoading"));
+            HeadlessTestHelpers.Render();
+            Arc ring = tab.GetVisualDescendants().OfType<Arc>().Single();
+            string loading = string.Format(Beutl.Language.Strings.BrowserLoadingPageFormat, "Beutl Docs");
+            Assert.Multiple(() =>
+            {
+                Assert.That(ring.Bounds.Size, Is.EqualTo(size));
+                Assert.That(ring.StrokeThickness, Is.EqualTo(1.5));
+                Assert.That(ring.Stroke, Is.Not.Null.And.SameAs(iconForeground));
+                Assert.That(tab.GetVisualDescendants().OfType<FAIconSourceElement>(), Is.Empty);
+                Assert.That(peer.GetName(), Is.EqualTo(loading));
+                Assert.That(ToolTip.GetTip(tab), Is.EqualTo(loading));
+            });
+            var rotation = ring.RenderTransform?.Value;
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+            {
+                HeadlessTestHelpers.Render();
+                return ring.RenderTransform?.Value != rotation;
+            });
+            HeadlessCapture.SaveIfRequested(window, nameof(ToolTabHeaderTests), $"browser-{theme.Key}-loading");
+
+            browser.CompleteNavigation(page, false, false, false);
+            HeadlessTestHelpers.Render();
+            Assert.That(FindIconSlot(tab).Bounds.Size, Is.EqualTo(size));
+            Assert.That(tab.GetVisualDescendants().OfType<Arc>(), Is.Empty);
+            Assert.That(peer.GetName(), Is.EqualTo(browser.Header.Value));
+            Assert.That(ToolTip.GetTip(tab), Is.EqualTo(browser.Header.Value));
+        }
+        finally
+        {
+            window.Close();
+            editor.CloseToolTab(browser);
+            HeadlessTestHelpers.Settle();
+        }
     }
 
     private static Viewbox FindIconSlot(ToolTabStripItem tab)

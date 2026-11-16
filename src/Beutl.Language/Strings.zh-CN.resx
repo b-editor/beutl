@@ -1266,6 +1266,9 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="Website" xml:space="preserve">
     <value>网站</value>
   </data>
+  <data name="BrowserLoadingPageFormat" xml:space="preserve">
+    <value>正在加载 {0}</value>
+  </data>
   <data name="WebBrowser" xml:space="preserve">
     <value>浏览器</value>
   </data>

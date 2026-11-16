@@ -221,12 +221,6 @@ internal sealed partial class LinuxBrowserDownloadHandler
         public nint Message;
     }
 
-    [LibraryImport("libgobject-2.0.so.0", EntryPoint = "g_signal_connect_data", StringMarshalling = StringMarshalling.Utf8)]
-    private static partial nuint SignalConnect(nint instance, string signal, nint handler, nint data, nint destroy, int flags);
-
-    [LibraryImport("libgobject-2.0.so.0", EntryPoint = "g_signal_handler_disconnect")]
-    private static partial void SignalHandlerDisconnect(nint instance, nuint handler);
-
     [LibraryImport("libglib-2.0.so.0", EntryPoint = "g_filename_to_uri", StringMarshalling = StringMarshalling.Utf8)]
     private static partial nint FilenameToUri(string filename, nint hostname, nint error);
 

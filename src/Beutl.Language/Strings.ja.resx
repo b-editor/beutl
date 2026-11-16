@@ -1297,6 +1297,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Website" xml:space="preserve">
     <value>ウェブサイト</value>
   </data>
+  <data name="BrowserLoadingPageFormat" xml:space="preserve">
+    <value>{0} を読み込み中</value>
+  </data>
   <data name="WebBrowser" xml:space="preserve">
     <value>ブラウザ</value>
   </data>

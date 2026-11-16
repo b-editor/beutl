@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 
 using Avalonia.Platform;
+using Avalonia.Threading;
 
 namespace Beutl.Editor.Components.WebBrowserTab;
 
@@ -47,6 +48,31 @@ internal static partial class LinuxWebKit
         }
     }
 
+    // Both GTK and WPE emit load-changed for the main document; decide-policy also sees iframes.
+    internal static unsafe IDisposable? ObservePageLoad(IPlatformHandle? handle, Action<bool> onLoading)
+    {
+        if (!TryGetWebView(handle, out nint view, out _) || view == 0) return null;
+        ObjectRef(view);
+        var callback = GCHandle.Alloc(onLoading);
+        nuint signal = SignalConnect(view, "load-changed",
+            (nint)(delegate* unmanaged[Cdecl]<nint, int, nint, void>)&OnLoadChanged, GCHandle.ToIntPtr(callback), 0, 0);
+        return Disposable.Create(() => _ = OnGlibAsync(() =>
+        {
+            SignalHandlerDisconnect(view, signal);
+            callback.Free();
+            ObjectUnref(view);
+        }));
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnLoadChanged(nint view, int loadEvent, nint data)
+    {
+        const int started = 0, finished = 3; // WebKitLoadEvent
+        if (loadEvent != started && loadEvent != finished) return;
+        var onLoading = (Action<bool>)GCHandle.FromIntPtr(data).Target!;
+        Dispatcher.UIThread.Post(() => onLoading(loadEvent == started));
+    }
+
     internal static unsafe Task OnGlibAsync(Action action)
     {
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -81,6 +107,10 @@ internal static partial class LinuxWebKit
 
     [LibraryImport("libgobject-2.0.so.0", EntryPoint = "g_object_ref")] internal static partial nint ObjectRef(nint value);
     [LibraryImport("libgobject-2.0.so.0", EntryPoint = "g_object_unref")] internal static partial void ObjectUnref(nint value);
+    [LibraryImport("libgobject-2.0.so.0", EntryPoint = "g_signal_connect_data", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial nuint SignalConnect(nint instance, string signal, nint handler, nint data, nint destroy, int flags);
+    [LibraryImport("libgobject-2.0.so.0", EntryPoint = "g_signal_handler_disconnect")]
+    internal static partial void SignalHandlerDisconnect(nint instance, nuint handler);
     [LibraryImport("libglib-2.0.so.0", EntryPoint = "g_error_free")] internal static partial void ErrorFree(nint value);
     [LibraryImport("libglib-2.0.so.0", EntryPoint = "g_idle_add_full")] private static partial uint IdleAdd(int priority, nint callback, nint data, nint destroy);
 }
