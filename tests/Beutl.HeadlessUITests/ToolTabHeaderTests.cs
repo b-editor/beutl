@@ -249,7 +249,15 @@ public class ToolTabHeaderTests
             Assert.That(tab.Classes.Contains("browserLoading"), Is.False);
             browser.StopNavigation();
             await Task.Delay(250);
-            Assert.That(FindIconSlot(tab).IsVisible, Is.True);
+            HeadlessTestHelpers.Render();
+            Viewbox idleSlot = FindIconSlot(tab);
+            Assert.Multiple(() =>
+            {
+                Assert.That(tab.Classes.Contains("browserLoading"), Is.False);
+                Assert.That(idleSlot.IsVisible, Is.True);
+                Assert.That(idleSlot.GetVisualDescendants().OfType<Arc>(), Is.Empty);
+                Assert.That(idleSlot.GetVisualDescendants().OfType<FAIconSourceElement>(), Is.Not.Empty);
+            });
             HeadlessCapture.SaveIfRequested(window, nameof(ToolTabHeaderTests), $"browser-{theme.Key}-idle");
 
             browser.BeginNavigation();
