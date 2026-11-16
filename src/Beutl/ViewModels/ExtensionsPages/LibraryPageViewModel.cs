@@ -79,6 +79,13 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                         PackageManager manager = _clients.GetResource<PackageManager>();
                         IReadOnlyList<PackageUpdate> updates = await manager.CheckUpdate(_lifetimeCts.Token);
                         _lifetimeCts.Token.ThrowIfCancellationRequested();
+                        // A release may have been withdrawn or its target range changed since the last check.
+                        foreach (var candidate in LocalPackages.Select(row => row.LatestRelease)
+                                     .Concat(Packages.OfType<RemoteUserPackageViewModel>().Select(row => row.LatestRelease)))
+                        {
+                            candidate.Value = null;
+                        }
+
                         foreach (PackageUpdate item in updates)
                         {
                             _lifetimeCts.Token.ThrowIfCancellationRequested();

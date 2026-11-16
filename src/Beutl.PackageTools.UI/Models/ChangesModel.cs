@@ -10,20 +10,31 @@ public class ChangesModel
 
     public ReactiveCollection<PackageChangeModel> UpdateItems { get; } = [];
 
-    public async Task Load(
+    public Task Load(
         BeutlApiApplication apiApp,
         string[] installItems,
         string[] uninstallItems,
         string[] updateItems,
         CancellationToken cancellationToken)
+        => Load(apiApp, installItems, uninstallItems, updateItems, null, false, cancellationToken);
+
+    internal async Task Load(
+        BeutlApiApplication apiApp,
+        string[] installItems,
+        string[] uninstallItems,
+        string[] updateItems,
+        PackageChangesQueue? queue,
+        bool fromEditor,
+        CancellationToken cancellationToken)
     {
-        var hash = new HashSet<string>();
+        var queuedInstalls = queue?.GetInstalls().Select(PackageChangesQueue.ToArgument) ?? [];
+        var queuedUninstalls = queue?.GetUninstalls().Select(PackageChangesQueue.ToArgument) ?? [];
         List<PackageChangeModel> installViewModels = await ParseUniqueAsync(
-            apiApp, installItems, PackageChangeAction.Install, hash, cancellationToken);
+            apiApp, installItems, queuedInstalls, PackageChangeAction.Install, fromEditor, cancellationToken);
         List<PackageChangeModel> updateViewModels = await ParseUniqueAsync(
-            apiApp, updateItems, PackageChangeAction.Update, hash, cancellationToken);
+            apiApp, updateItems, [], PackageChangeAction.Update, fromEditor, cancellationToken);
         List<PackageChangeModel> uninstallViewModels = await ParseUniqueAsync(
-            apiApp, uninstallItems, PackageChangeAction.Uninstall, hash, cancellationToken);
+            apiApp, uninstallItems, queuedUninstalls, PackageChangeAction.Uninstall, fromEditor, cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
         AddAll(InstallItems, installViewModels);
@@ -31,23 +42,25 @@ public class ChangesModel
         AddAll(UninstallItems, uninstallViewModels);
     }
 
-    // Ids are deduplicated within one action only, so the shared set is cleared first.
     private static async Task<List<PackageChangeModel>> ParseUniqueAsync(
         BeutlApiApplication apiApp,
         string[] items,
+        IEnumerable<string> queuedItems,
         PackageChangeAction action,
-        HashSet<string> ids,
+        bool fromEditor,
         CancellationToken cancellationToken)
     {
         var viewModels = new List<PackageChangeModel>();
-        ids.Clear();
-        foreach (string item in items)
+        var ids = new HashSet<string>();
+        var requests = items.Select(item => (item, !fromEditor)).Concat(queuedItems.Select(item => (item, false)));
+        foreach (var (item, fromCommandLine) in requests)
         {
             cancellationToken.ThrowIfCancellationRequested();
             PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(
                 apiApp,
                 item,
                 action,
+                fromCommandLine,
                 cancellationToken);
 
             if (itemViewModel != null && ids.Add(itemViewModel.Id))

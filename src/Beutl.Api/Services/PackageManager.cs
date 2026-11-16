@@ -181,26 +181,15 @@ public sealed partial class PackageManager : IBeutlApiResource
         string installedVersionText,
         CancellationToken cancellationToken)
     {
-        Release[] releases = await remotePackage
-            .GetReleasesAsync(cancellationToken)
+        Release? release = await remotePackage
+            .GetLatestCompatibleReleaseAsync(cancellationToken, installedVersion)
             .ConfigureAwait(false);
+        if (release is null)
+            return null;
 
-        foreach (Release? item in releases)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            // 降順
-            if (new NuGetVersion(item.Version.Value).CompareTo(installedVersion) > 0)
-            {
-                Release? oldRelease = await TryGetReleaseAsync(
-                        remotePackage,
-                        installedVersionText,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                return new PackageUpdate(remotePackage, oldRelease, item);
-            }
-        }
-
-        return null;
+        Release? oldRelease = await TryGetReleaseAsync(remotePackage, installedVersionText, cancellationToken)
+            .ConfigureAwait(false);
+        return new PackageUpdate(remotePackage, oldRelease, release);
     }
 
     private static async Task<Release?> TryGetReleaseAsync(

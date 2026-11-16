@@ -40,13 +40,13 @@ internal static class TestStore
         Owned = true,
     };
 
-    public static ReleaseResponse CreateReleaseResponse(string version, string description = "", string? fileId = null) => new()
+    public static ReleaseResponse CreateReleaseResponse(string version, string description = "", string? fileId = null, string? targetVersion = null) => new()
     {
         Id = version,
         Version = version,
         Title = version,
         Description = description,
-        TargetVersion = null,
+        TargetVersion = targetVersion,
         FileId = fileId,
         FileUrl = null,
     };
@@ -59,7 +59,7 @@ internal static class TestStore
     }
 }
 
-// Answers the store's release list with releases and any other request with Package, and records the requests.
+// Serves the package and its releases and records the requests.
 internal sealed class StoreHandler(PackageResponse package, params ReleaseResponse[] releases) : HttpMessageHandler
 {
     public PackageResponse Package { get; set; } = package;
@@ -69,7 +69,23 @@ internal sealed class StoreHandler(PackageResponse package, params ReleaseRespon
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         Requests.Add(request);
-        object response = request.RequestUri!.AbsolutePath.EndsWith("/releases", StringComparison.Ordinal) ? releases : Package;
+        Uri uri = request.RequestUri!;
+        object response = Package;
+        if (request.Method == HttpMethod.Post && uri.AbsolutePath == "/api/v3/account/library")
+        {
+            response = new { Package, LatestRelease = releases.FirstOrDefault() };
+        }
+        else if (uri.AbsolutePath.EndsWith("/releases", StringComparison.Ordinal))
+        {
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            int start = int.Parse(query["start"] ?? "0");
+            int count = int.Parse(query["count"] ?? "30");
+            response = releases.Skip(start).Take(count).ToArray();
+        }
+        else if (uri.Segments is [.., "releases/", var version] && releases.FirstOrDefault(r => r.Version == version) is { } release)
+        {
+            response = release;
+        }
         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonSerializerDefaults.Web)), Encoding.UTF8, "application/json"),

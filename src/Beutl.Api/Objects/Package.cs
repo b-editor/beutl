@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Reactive.Linq;
 using Beutl.Api.Clients;
+using NuGet.Versioning;
 using Reactive.Bindings;
 
 namespace Beutl.Api.Objects;
@@ -144,5 +145,39 @@ public class Package
         return responses
             .Select(x => new Release(this, x, _clients))
             .ToArray();
+    }
+
+    internal async Task<Release?> GetLatestCompatibleReleaseAsync(CancellationToken cancellationToken, NuGetVersion? newerThan = null)
+    {
+        var pages = GetReleasePagesAsync((start, count) => GetReleasesAsync(cancellationToken, start, count));
+        await foreach (Release[] page in pages.ConfigureAwait(false))
+        {
+            Release? candidate = page.FirstOrDefault(release => release.CanInstall(newerThan));
+            if (candidate != null)
+                return candidate;
+
+            // The store orders releases by descending NuGet version.
+            if (newerThan != null && NuGetVersion.TryParse(page[^1].Version.Value, out NuGetVersion? oldest) && oldest <= newerThan)
+                break;
+        }
+        return null;
+    }
+
+    internal static async IAsyncEnumerable<Release[]> GetReleasePagesAsync(Func<int, int, Task<Release[]>> getPage)
+    {
+        const int pageSize = 30;
+        string? lastId = null;
+        for (int start = 0; ; start += pageSize)
+        {
+            Release[] page = await getPage(start, pageSize).ConfigureAwait(false);
+            // Some stores return their entire list regardless of the offset.
+            if (page.Length == 0 || page[^1].Id == lastId)
+                yield break;
+
+            yield return page;
+            if (page.Length != pageSize)
+                yield break;
+            lastId = page[^1].Id;
+        }
     }
 }

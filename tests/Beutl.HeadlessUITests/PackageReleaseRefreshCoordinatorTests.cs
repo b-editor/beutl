@@ -149,5 +149,20 @@ public class PackageReleaseRefreshCoordinatorTests
         Assert.That(releasesReady.Value, Is.True);
     }
 
+    [Test]
+    public async Task RefreshAsync_PublishesAnUnpagedStoreResponseOnce()
+    {
+        using var ready = new BehaviorSubject<bool>(false);
+        Release[] all = [.. Enumerable.Range(1, 30).Select(n => CreateRelease($"1.0.{n}"))];
+        Release[]? published = null;
+        await PackageReleaseRefreshCoordinator.RefreshAsync(ready, () => Task.CompletedTask, (start, _) =>
+        {
+            Assert.That(start, Is.LessThanOrEqualTo(30));
+            return Task.FromResult(all);
+        }, releases => published = releases);
+
+        Assert.That(published, Is.EqualTo(all));
+    }
+
     private Release CreateRelease(string version) => _store.CreateRelease(version);
 }

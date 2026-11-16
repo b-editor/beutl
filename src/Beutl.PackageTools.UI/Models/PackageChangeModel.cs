@@ -31,6 +31,8 @@ public record PackageChangeModel(
 
     public bool Conflict { get; init; }
 
+    internal bool AllowUnsupportedVersion { get; init; }
+
     private static string GetLocalNupkgPath(PackageIdentity package)
     {
         return Path.Combine(Helper.LocalSourcePath, $"{package}.nupkg");
@@ -79,30 +81,37 @@ public record PackageChangeModel(
         return null;
     }
 
-    public static async ValueTask<PackageChangeModel?> TryParse(
+    public static ValueTask<PackageChangeModel?> TryParse(
         BeutlApiApplication apiApp,
         string s,
         PackageChangeAction action,
         CancellationToken cancellationToken)
+        => TryParse(apiApp, s, action, fromCommandLine: true, cancellationToken);
+
+    internal static async ValueTask<PackageChangeModel?> TryParse(
+        BeutlApiApplication apiApp, string s, PackageChangeAction action, bool fromCommandLine, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        DiscoverService discover = apiApp.GetResource<DiscoverService>();
-        string[] splited = s.Split('/');
+        string[] parts = s.Split('/');
+        // The CLI can force an install or a specific update. Editor hand-offs always check the target.
+        bool force = fromCommandLine && (action == PackageChangeAction.Install || (action == PackageChangeAction.Update && parts.Length == 2));
+        PackageChangeModel? model;
 
-        if (splited.Length == 2)
+        if (parts.Length == 2)
         {
-            return await ResolveVersionedAsync(discover, splited[0], splited[1], action, cancellationToken);
+            model = await ResolveVersionedAsync(apiApp.GetResource<DiscoverService>(), parts[0], parts[1], action, cancellationToken);
         }
-        else if (splited.Length == 1)
+        else if (parts.Length == 1)
         {
-            return await ResolveLatestAsync(discover, s, action, cancellationToken);
+            model = await ResolveLatestAsync(apiApp, s, action, force, cancellationToken);
         }
         else
         {
             s_logger.LogWarning("Invalid package identifier format: {PackageId}", s);
+            return null;
         }
 
-        return null;
+        return force && model != null ? model with { AllowUnsupportedVersion = true } : model;
     }
 
     // "<id>/<version>": the remote package, or the local nupkg / an uninstall-only entry when discovery fails.
@@ -149,22 +158,31 @@ public record PackageChangeModel(
         return item;
     }
 
-    // "<id>": the latest release of the remote package.
+    // An update by name selects a compatible upgrade. A versioned CLI request names its release explicitly.
     private static async ValueTask<PackageChangeModel?> ResolveLatestAsync(
-        DiscoverService discover,
+        BeutlApiApplication apiApp,
         string s,
         PackageChangeAction action,
+        bool force,
         CancellationToken cancellationToken)
     {
         try
         {
             s_logger.LogDebug("Attempting to discover package {PackageId}", s);
-            Package package = await discover.GetPackage(s, cancellationToken);
-            Release[] releases = await package.GetReleasesAsync(cancellationToken, 0, 1);
-
-            if (releases.Length > 0)
+            Package package = await apiApp.GetResource<DiscoverService>().GetPackage(s, cancellationToken);
+            Release? release;
+            if (action != PackageChangeAction.Uninstall && !force)
             {
-                Release release = releases[0];
+                NuGetVersion? installed = apiApp.GetResource<InstalledPackageRepository>().GetLocalPackages(s).Max(pkg => pkg.Version);
+                release = await package.GetLatestCompatibleReleaseAsync(cancellationToken, installed);
+            }
+            else
+            {
+                release = (await package.GetReleasesAsync(cancellationToken, 0, 1)).FirstOrDefault();
+            }
+
+            if (release != null)
+            {
                 var pkg = new PackageIdentity(package.Name, new NuGetVersion(release.Version.Value));
                 s_logger.LogInformation("Successfully discovered package {PackageId} with release version {Version}", package.Name, release.Version.Value);
 
@@ -177,7 +195,7 @@ public record PackageChangeModel(
             }
             else
             {
-                s_logger.LogWarning("No releases found for package {PackageId}", s);
+                s_logger.LogInformation("No applicable release found for package {PackageId}.", s);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

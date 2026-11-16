@@ -85,7 +85,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                                 LatestRelease.Value = releases.FirstOrDefault();
                                 SelectedRelease.Value = versionToSelect == null
-                                    ? LatestRelease.Value
+                                    ? GetDefaultRelease(releases)
                                     : releases.FirstOrDefault(release => NuGetVersion.Parse(release.Version.Value)
                                         .Equals(NuGetVersion.Parse(versionToSelect)));
                                 _unavailableVersion.Value = SelectedRelease.Value == null ? versionToSelect : null;
@@ -114,24 +114,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        CanInstallOrUpdate = SelectedRelease.Select(v =>
-            {
-                if (v == null)
-                    return false;
-
-                string beutlVersion = BeutlApplication.Version;
-
-                if (v.TargetVersion?.Value is { } target
-                    && VersionRange.TryParse(target, out VersionRange? versionRange)
-                    && NuGetVersion.TryParse(beutlVersion, out NuGetVersion? version))
-                {
-                    return versionRange.Satisfies(version);
-                }
-                else
-                {
-                    return true;
-                }
-            })
+        CanInstallOrUpdate = SelectedRelease.Select(release => release?.CanInstall() == true)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -206,11 +189,11 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .ToReadOnlyReactivePropertySlim(ExtensionsStrings.Install)
             .DisposeWith(_disposables);
 
-        Install = new AsyncReactiveCommand(IsBusy.Inverse())
+        Install = new AsyncReactiveCommand(IsInstallButtonVisible)
             .WithSubscribe(InstallAsync)
             .DisposeWith(_disposables);
 
-        Update = new AsyncReactiveCommand(IsBusy.Inverse())
+        Update = new AsyncReactiveCommand(IsUpdateButtonVisible)
             .WithSubscribe(UpdateAsync)
             .DisposeWith(_disposables);
 
@@ -232,6 +215,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     private async Task InstallAsync()
     {
         using Activity? activity = Telemetry.StartActivity("PackageDetailsPage.Install");
+        if (SelectedRelease.Value is not { } release)
+            return;
 
         try
         {
@@ -247,7 +232,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             using (await _app.Lock.LockAsync(_lifetimeCts.Token))
             {
                 activity?.AddEvent(new("Entered_AsyncLock"));
-                Release release = await AcquireRelease(_lifetimeCts.Token);
+                await AcquirePackageAsync(_lifetimeCts.Token);
                 var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
 
                 await _handler.InstallOrQueueAsync(release, packageId, _logger, _lifetimeCts.Token);
@@ -272,6 +257,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     private async Task UpdateAsync()
     {
         using Activity? activity = Telemetry.StartActivity("PackageDetailsPage.Update");
+        if (SelectedRelease.Value is not { } release)
+            return;
 
         try
         {
@@ -283,7 +270,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             using (await _app.Lock.LockAsync(_lifetimeCts.Token))
             {
                 activity?.AddEvent(new("Entered_AsyncLock"));
-                Release release = await AcquireRelease(_lifetimeCts.Token);
+                await AcquirePackageAsync(_lifetimeCts.Token);
                 var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
 
                 await _handler.UpdateOrQueueAsync(
@@ -360,20 +347,19 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         }
     }
 
-    private async Task<Release> AcquireRelease(CancellationToken cancellationToken)
+    private Release? GetDefaultRelease(Release[] releases)
+    {
+        NuGetVersion? installed = _handler.InstalledPackageRepository.GetLocalPackages(Package.Name).Max(pkg => pkg.Version);
+        return releases.FirstOrDefault(release => release.CanInstall(installed)) ?? LatestRelease.Value;
+    }
+
+    private async Task AcquirePackageAsync(CancellationToken cancellationToken)
     {
         if (_app.AuthenticatedUser.Value != null)
         {
             await _app.AuthenticatedUser.Value.RefreshAsync(cancellationToken);
             await _library.Acquire(Package, cancellationToken);
         }
-
-        if (SelectedRelease.Value != null)
-        {
-            return SelectedRelease.Value;
-        }
-
-        return await PackageReleaseResolver.GetFirstReleaseAsync(Package, cancellationToken);
     }
 
     public Package Package { get; }
