@@ -124,6 +124,24 @@ public class AudioSinkRefillLoopTests
         }
     }
 
+    [Test]
+    public async Task Gives_up_on_a_sink_that_stops_playing_mid_scene()
+    {
+        var sink = new FakeAudioSink(bufferCount: 2);
+        var composed = new List<double>();
+        // The device plays the first buffer, then stops making progress (unplugged or suspended).
+        AudioSinkRefillLoop loop = CreateLoop(sink, composed, sceneEndSeconds: 60,
+            onPoll: poll => sink.CompleteBuffers(poll == 0 ? 1 : 0));
+
+        await loop.RunAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(composed, Is.EqualTo(new double[] { 0, 1, 2 }), "nothing more is composed for a stalled sink");
+            Assert.That(sink.Events[^1], Is.EqualTo("stop"), "the loop ends before the scene end and stops the sink");
+        });
+    }
+
     private static AudioSinkRefillLoop CreateLoop(
         FakeAudioSink sink, List<double> composed, double sceneEndSeconds, Action<int> onPoll,
         List<double>? published = null, Func<bool>? isPlaying = null,

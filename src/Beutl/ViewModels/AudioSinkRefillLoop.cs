@@ -9,6 +9,10 @@ internal sealed class AudioSinkRefillLoop
 {
     internal static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
 
+    // How long the sink may play nothing before the loop gives up on it, so a device that stops
+    // mid-playback (unplugged, suspended) cannot keep a non-looping playback from finishing.
+    internal static readonly TimeSpan StallTimeout = TimeSpan.FromSeconds(3);
+
     private static readonly MediaTime s_bufferDuration = MediaTime.FromSeconds(1);
 
     public required IAudioSink Sink { get; init; }
@@ -40,6 +44,18 @@ internal sealed class AudioSinkRefillLoop
         int sampleRate = SampleRate;
         bool hasAudio = false;
         bool audioClockValid = false;
+        long lastPlayedSamples = -1;
+        int stalledPolls = 0;
+        int maxStalledPolls = (int)Math.Ceiling(StallTimeout / PollInterval);
+
+        // Counts polls in which the sink played nothing and reports when it has stalled for too long.
+        bool HasStalled()
+        {
+            long played = Sink.PlayedSamples;
+            stalledPolls = played == lastPlayedSamples ? stalledPolls + 1 : 0;
+            lastPlayedSamples = played;
+            return stalledPolls >= maxStalledPolls;
+        }
 
         void AnchorClock()
         {
@@ -116,6 +132,9 @@ internal sealed class AudioSinkRefillLoop
                 await Delay(PollInterval, token).ConfigureAwait(false);
                 if (cur >= sceneEndTime)
                     break;
+
+                if (HasStalled())
+                    return;
             }
 
             // The final buffer is silence-padded past the scene end; let the queued audio play out.
@@ -124,6 +143,8 @@ internal sealed class AudioSinkRefillLoop
                 Sink.ReleaseProcessedBuffers();
                 AnchorClock();
                 await Delay(PollInterval, token).ConfigureAwait(false);
+                if (HasStalled())
+                    return;
             }
         }
         catch (OperationCanceledException)
