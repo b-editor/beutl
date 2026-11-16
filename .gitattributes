@@ -12,5 +12,5 @@ src/Beutl.Engine/runtimes/**/libSkiaSharp.* binary
 src/Beutl.Engine/runtimes/**/Skia.NOTICES -whitespace
 
 # Keep upstream font license text as provided.
-src/Beutl.Controls/Assets/Fonts/**/OFL.txt -whitespace
-src/Beutl.Controls/Assets/Fonts/NotoSansCJK-LICENSE.txt -whitespace
+src/Beutl.BundledFonts/Fonts/**/OFL.txt -whitespace
+src/Beutl.BundledFonts/Fonts/NotoSansCJK-LICENSE.txt -whitespace

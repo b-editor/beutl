@@ -11,10 +11,10 @@ public class FallbackCharacterEllipsisTests
     private const string LongName = "A font name too long for its row";
 
     // Bundled with Beutl. A color emoji font has no ellipsis.
-    private static readonly Typeface s_withoutEllipsis = new("avares://Beutl.Controls/Assets/Fonts/NotoColorEmoji#Noto Color Emoji");
+    private static readonly Typeface s_withoutEllipsis = new("resm:Fonts/NotoColorEmoji/?assembly=Beutl.BundledFonts#Noto Color Emoji");
 
     // Bundled with Beutl, with an ellipsis, and not the UI font outside Korean.
-    private static readonly Typeface s_withEllipsis = new("avares://Beutl.Controls/Assets/Fonts/NotoSansKR#Noto Sans KR");
+    private static readonly Typeface s_withEllipsis = new("resm:Fonts/NotoSansKR/?assembly=Beutl.BundledFonts#Noto Sans KR");
 
     [AvaloniaTest]
     public void A_font_without_an_ellipsis_trims_with_the_ellipsis_of_the_UI_font()

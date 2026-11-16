@@ -1,6 +1,8 @@
 ﻿using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Beutl")]
+[assembly: InternalsVisibleTo("Beutl.AgentToolkit")]
+[assembly: InternalsVisibleTo("Beutl.AgentToolkit.Tests")]
 [assembly: InternalsVisibleTo("Beutl.Editor")]
 [assembly: InternalsVisibleTo("Beutl.Editor.Components")]
 [assembly: InternalsVisibleTo("Beutl.Controls")]

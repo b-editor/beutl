@@ -14,6 +14,7 @@ public static class UiFonts
 
     // Noto Sans 2.015; Noto Sans CJK f8d157532fbfaeda587e826d4cd5b21a49186f7c.
     // SC/KR SemiBold faces are static instances of the subset variable TTFs at wght=600.
+    // The engine's text fallback (Beutl.Media.BundledFonts) keeps the same order.
     private static readonly string[] s_familyNames =
     [
         "Noto Sans",
@@ -98,6 +99,11 @@ public static class UiFonts
             .ToArray();
     }
 
+    // The fonts are manifest resources of Beutl.BundledFonts, which the app, its helper processes and the
+    // rendering engine (Beutl.Media.BundledFonts) share, so the installation carries one copy. The trailing
+    // slash keeps "Fonts/NotoSans/" from also matching the CJK folders.
+    internal const string BundledFontsAssemblyName = "Beutl.BundledFonts";
+
     internal static FontFamily GetEmbeddedFontFamily(string name) =>
-        new($"avares://{typeof(UiFonts).Assembly.GetName().Name}/Assets/Fonts/{name.Replace(" ", "")}#{name}");
+        new($"resm:Fonts/{name.Replace(" ", "")}/?assembly={BundledFontsAssemblyName}#{name}");
 }

@@ -24,6 +24,8 @@ public static class AgentToolkitMcpServer
         // Without the decoders the app registers at startup, every video, sound and animated image
         // would render as offline media and analyze_audio_rhythm could not open any file.
         DecoderRegistration.EnsureRegistered();
+        // Without the app's fallback fonts, CJK and emoji in a font that lacks them would render as boxes.
+        BundledFontRegistration.EnsureRegistered();
 
         services
             .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)
