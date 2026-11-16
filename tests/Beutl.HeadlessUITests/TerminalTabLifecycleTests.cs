@@ -1,7 +1,9 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -195,7 +197,11 @@ public class TerminalTabLifecycleTests
     public void TerminalControl_ThemeResources_ResolvePerVariant()
     {
         using var view = new TerminalTabView();
-        using var host = new ControlHost(view, 480, 160);
+        var panel = new Border { Padding = new Thickness(12, 0, 0, 0), Child = view };
+        var window = new Window { Content = panel, Width = 480, Height = 160 };
+        panel.Bind(Border.BackgroundProperty, panel.GetResourceObservable("DockSurfacePanelBrush"));
+        window.Bind(Window.BackgroundProperty, window.GetResourceObservable("DockSurfaceWorkbenchBrush"));
+        using var host = new ControlHost(window);
         var terminal = view.FindControl<TerminalControl>("Terminal")!;
         terminal.WriteOutput("$ echo 日本語\r\n日本語\r\n"u8);
 
@@ -207,6 +213,10 @@ public class TerminalTabLifecycleTests
                 ? Is.GreaterThan(terminal.DefaultBackground.R)
                 : Is.LessThan(terminal.DefaultBackground.R));
             Assert.That(terminal.Theme!.CursorColor, Is.EqualTo(terminal.DefaultForeground.ToUInt32()));
+            using var frame = window.CaptureRenderedFrame()!;
+            var dockBackground = HeadlessTestHelpers.ReadPixel(frame, new PixelPoint(6, 100));
+            var terminalBackground = HeadlessTestHelpers.ReadPixel(frame, new PixelPoint(240, 100));
+            Assert.That(terminalBackground, Is.EqualTo(dockBackground), $"The terminal should match the surrounding {variant} dock panel");
             HeadlessCapture.SaveIfRequested(view, nameof(TerminalTabLifecycleTests), variant.ToString());
         }
     }

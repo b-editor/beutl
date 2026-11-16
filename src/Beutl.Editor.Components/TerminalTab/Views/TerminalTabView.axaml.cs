@@ -40,15 +40,8 @@ public partial class TerminalTabView : UserControl, IDisposable
             .DisposeWith(_settingsSubscriptions);
         settings.ScrollbackLines.GetObservable().Subscribe(lines => Terminal.ScrollbackLimit = lines).DisposeWith(_settingsSubscriptions);
 
-        var foreground = this.GetResourceObservable("TerminalForegroundBrush").OfType<ISolidColorBrush>()
-            .Select(brush => brush is SolidColorBrush mutable
-                ? mutable.GetObservable(SolidColorBrush.ColorProperty)
-                : Observable.Return(brush.Color))
-            .Switch();
-        var applicationTheme = foreground
-            .CombineLatest(this.GetResourceObservable("SolidBackgroundFillColorSecondary").OfType<Color>(),
-                (text, background) => new TerminalTheme(text.ToUInt32(), background.ToUInt32(),
-                    cursorColor: text.ToUInt32(), palette: TerminalTheme.Dark.Palette));
+        var applicationTheme = ObserveBrush("TerminalForegroundBrush").CombineLatest(
+            ObserveBrush("DockSurfacePanelBrush"), ObserveBrush("DockSurfaceWorkbenchBrush"), CreateApplicationTheme);
         settings.ColorScheme.GetObservable().Select(scheme => scheme switch
             {
                 TerminalColorScheme.Dark => Observable.Return(TerminalTheme.Dark),
@@ -61,6 +54,25 @@ public partial class TerminalTabView : UserControl, IDisposable
             if (args.Key == Key.Enter)
                 UsageTelemetry.Current?.Record("tool.command", "Terminal", "SubmitInput");
         }, RoutingStrategies.Tunnel);
+    }
+
+    private IObservable<ISolidColorBrush> ObserveBrush(string key) =>
+        this.GetResourceObservable(key).OfType<ISolidColorBrush>()
+            .Select(brush => brush is SolidColorBrush mutable
+                ? mutable.GetObservable(SolidColorBrush.ColorProperty)
+                    .CombineLatest(mutable.GetObservable(Brush.OpacityProperty), (_, _) => brush)
+                : Observable.Return(brush))
+            .Switch();
+
+    private static TerminalTheme CreateApplicationTheme(ISolidColorBrush foreground, ISolidColorBrush panel, ISolidColorBrush workbench)
+    {
+        // RoyalTerminal needs an opaque color. The dock paints its panel brush over the workbench.
+        Color fill = panel.Color, behind = workbench.Color;
+        double opacity = fill.A / 255d * panel.Opacity;
+        byte Blend(byte fillChannel, byte behindChannel) => (byte)Math.Round(double.Lerp(behindChannel, fillChannel, opacity));
+        Color background = Color.FromRgb(Blend(fill.R, behind.R), Blend(fill.G, behind.G), Blend(fill.B, behind.B));
+        uint text = foreground.Color.ToUInt32();
+        return new TerminalTheme(text, background.ToUInt32(), cursorColor: text, palette: TerminalTheme.Dark.Palette);
     }
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
