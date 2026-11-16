@@ -275,6 +275,9 @@
   <data name="UpdateAction_RestartAndUpdate" xml:space="preserve">
     <value>再起動して更新</value>
   </data>
+  <data name="UpdateAction_Download" xml:space="preserve">
+    <value>ダウンロード</value>
+  </data>
   <data name="UpdateAction_StartInstaller" xml:space="preserve">
     <value>インストーラーを起動</value>
   </data>
@@ -283,6 +286,9 @@
   </data>
   <data name="UpdateAction_RunInBackground" xml:space="preserve">
     <value>バックグラウンドへ</value>
+  </data>
+  <data name="UpdateAction_Later" xml:space="preserve">
+    <value>後で</value>
   </data>
   <data name="UpdateAction_UpdateOnQuit" xml:space="preserve">
     <value>終了時に更新</value>

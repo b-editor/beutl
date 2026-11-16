@@ -280,6 +280,9 @@
   <data name="UpdateAction_RestartAndUpdate" xml:space="preserve">
     <value>重新启动并更新</value>
   </data>
+  <data name="UpdateAction_Download" xml:space="preserve">
+    <value>下载</value>
+  </data>
   <data name="UpdateAction_StartInstaller" xml:space="preserve">
     <value>启动安装程序</value>
   </data>
@@ -288,6 +291,9 @@
   </data>
   <data name="UpdateAction_RunInBackground" xml:space="preserve">
     <value>后台运行</value>
+  </data>
+  <data name="UpdateAction_Later" xml:space="preserve">
+    <value>稍后</value>
   </data>
   <data name="UpdateAction_UpdateOnQuit" xml:space="preserve">
     <value>退出时更新</value>

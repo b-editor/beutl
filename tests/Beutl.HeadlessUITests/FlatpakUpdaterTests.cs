@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using Beutl.Api.Clients;
 using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Language;
@@ -153,6 +154,7 @@ public sealed class FlatpakUpdaterTests
 
     [AvaloniaTest]
     [TestCase("complete", false)]
+    [TestCase("cancel-ready", false)]
     [TestCase("cancel", true)]
     [TestCase("failure", false)]
     public async Task ActiveUpdateInstallsOrCancelsAndAlwaysRemovesTheBundle(string outcome, bool light)
@@ -160,8 +162,10 @@ public sealed class FlatpakUpdaterTests
         if (OperatingSystem.IsWindows()) Assert.Ignore("Flatpak uses Unix paths.");
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var finish = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int hostCalls = 0;
         var updater = Updater(run: async (args, token) =>
         {
+            Interlocked.Increment(ref hostCalls);
             if (args[1] == "list") return $"{Ref}\tuser\n";
             if (args[1] == "info") return $"/install/user/app/{Ref}/new";
             Assert.That(await File.ReadAllBytesAsync(args[^1], token), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
@@ -172,24 +176,63 @@ public sealed class FlatpakUpdaterTests
         }, read: _ => "app/" + Ref);
         using var client = new HttpClient(new Handler(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([1, 2, 3, 4]) }));
         var vm = ViewModel(updater, client);
+        var controller = new AppUpdateController(_ => vm, downloadsAutomatically: () => true);
+        using var notifications = new NotificationCapture();
         var dialog = new UpdateDialog { DataContext = vm };
-        var window = new Window { Width = 400, Height = 400, RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark };
+        var window = new Window { Width = 720, Height = 420, RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark };
         window.Show();
-        Task closed = dialog.ShowAsync(window);
+        Task closed = Task.CompletedTask;
         try
         {
-            vm.Start();
-            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(vm.UpdateTask!.IsCompleted, Is.False);
+            Assert.That(await controller.TryStartAutomaticallyAsync(vm.Update), Is.True);
+            await HeadlessTestHelpers.WaitUntilAsync(() => notifications.All.Any(n => n.Title == MessageStrings.UpdateReady_Title));
+            Notification ready = notifications.All.Last();
+            Assert.That(ready.Actions!.Select(a => a.Text), Is.EqualTo(new[] { ExtensionsStrings.Install, MessageStrings.ReleaseNotes }));
             Assert.That(File.Exists(updater.DownloadPath), Is.True);
-            if (outcome == "cancel") dialog.Hide();
-            else finish.SetResult();
-            await vm.UpdateTask.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(hostCalls, Is.Zero);
+            closed = dialog.ShowAsync(window);
+            HeadlessTestHelpers.Render();
+            Assert.That(dialog.SecondaryButtonText, Is.EqualTo(MessageStrings.UpdateAction_Later));
+            if (outcome == "complete")
+            {
+                Panel layout = dialog.GetVisualDescendants().OfType<Panel>().First(p => p.Name == "LayoutRoot");
+                await HeadlessTestHelpers.WaitUntilAsync(() =>
+                {
+                    HeadlessTestHelpers.Render();
+                    return layout.Opacity > 0.99;
+                });
+                HeadlessCapture.SaveIfRequested(dialog, nameof(FlatpakUpdaterTests), "ready");
+                Button later = dialog.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "SecondaryButton");
+                HeadlessTestHelpers.Click(later);
+                await closed.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.That(vm.Phase.Value, Is.EqualTo(AppUpdatePhase.Ready));
+                Assert.That(hostCalls, Is.Zero);
+                dialog = new UpdateDialog { DataContext = vm };
+                closed = dialog.ShowAsync(window);
+            }
+            if (outcome == "cancel-ready")
+            {
+                dialog.Hide();
+            }
+            else
+            {
+                HeadlessTestHelpers.Render();
+                Button install = dialog.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PrimaryButton");
+                Assert.That(install.Content, Is.EqualTo(ExtensionsStrings.Install));
+                HeadlessTestHelpers.Click(install);
+                await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.That(vm.Phase.Value, Is.EqualTo(AppUpdatePhase.Installing));
+                if (outcome == "cancel") dialog.Hide();
+                else finish.SetResult();
+            }
+
+            await vm.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
             HeadlessTestHelpers.Render();
             Assert.That(File.Exists(updater.DownloadPath), Is.False);
             Assert.That(vm.ProgressText.Value, Is.EqualTo(outcome switch
-            { "complete" => MessageStrings.FlatpakUpdateCompleted, "cancel" => MessageStrings.Canceled, _ => "install failed" }));
-            Assert.That(dialog.PrimaryButtonText, Is.Empty);
+            { "complete" => MessageStrings.FlatpakUpdateCompleted, "cancel" or "cancel-ready" => MessageStrings.Canceled, _ => "install failed" }));
+            Assert.That(ready.CancellationToken.IsCancellationRequested, Is.True);
+            Assert.That(dialog.IsPrimaryButtonEnabled, Is.False);
             Assert.That(window.IsVisible, Is.True);
         }
         finally { vm.Cancel(); finish.TrySetResult(); if (vm.UpdateTask != null) await vm.UpdateTask; dialog.Hide(); await closed; window.Close(); }
@@ -210,6 +253,8 @@ public sealed class FlatpakUpdaterTests
         var vm = ViewModel(updater, client);
 
         vm.Start();
+        await HeadlessTestHelpers.WaitUntilAsync(() => vm.Phase.Value == AppUpdatePhase.Ready);
+        await vm.HandlePrimaryButtonClick();
         await vm.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Multiple(() =>
         {

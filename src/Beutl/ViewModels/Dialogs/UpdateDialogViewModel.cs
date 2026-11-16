@@ -16,10 +16,10 @@ public enum AppUpdatePhase
 {
     Preparing,
     Ready,
-    // A Flatpak update is installed by the time it finishes preparing.
     Completed,
     Failed,
     Canceled,
+    Installing,
 }
 
 public class UpdateDialogViewModel
@@ -29,6 +29,7 @@ public class UpdateDialogViewModel
     private readonly CancellationTokenSource _cts = new();
     private readonly ILogger _logger = Log.CreateLogger<UpdateDialogViewModel>();
     private readonly FlatpakUpdater? _flatpak;
+    private readonly TaskCompletionSource? _flatpakInstallRequested;
     private readonly HttpClient? _httpClient;
     private readonly Func<Task<AssetMetadataJson?>> _loadMetadata;
     private readonly Func<bool> _claimUpdateFolders;
@@ -48,13 +49,13 @@ public class UpdateDialogViewModel
         Func<Task<AssetMetadataJson?>>? loadMetadata = null, Func<bool>? claimUpdateFolders = null)
     {
         Update = update;
-        IsFlatpak = isFlatpak;
+        _flatpakInstallRequested = isFlatpak ? new(TaskCreationOptions.RunContinuationsAsynchronously) : null;
         _flatpak = flatpak;
         _httpClient = httpClient;
         _loadMetadata = loadMetadata ?? BeutlApiApplication.LoadMetadata;
         _claimUpdateFolders = claimUpdateFolders ?? ClaimUpdateFolders;
         PrimaryButtonText = new(isFlatpak
-            ? ""
+            ? ExtensionsStrings.Install
             : OperatingSystem.IsWindows()
                 ? MessageStrings.UpdateAction_StartInstaller
                 : MessageStrings.UpdateAction_RestartAndUpdate);
@@ -72,7 +73,7 @@ public class UpdateDialogViewModel
 
     public ReactiveProperty<bool> IsPrimaryButtonEnabled { get; } = new();
 
-    internal bool IsFlatpak { get; }
+    internal bool IsFlatpak => _flatpakInstallRequested != null;
     // Test seam: tests await the started update.
     internal Task? UpdateTask => _startTask;
 
@@ -83,8 +84,6 @@ public class UpdateDialogViewModel
 
     public string VersionText => $"Beutl {BeutlApplication.Version} → {Update.LatestVersion}";
 
-    // The dialog decides whether to show this button when it opens, so a Flatpak update, which has no
-    // handoff step, starts empty and every other update starts with a label.
     public ReactiveProperty<string> PrimaryButtonText { get; }
 
     public ReactiveProperty<string> CloseButtonText { get; } = new(Strings.Cancel);
@@ -106,8 +105,15 @@ public class UpdateDialogViewModel
 
     public async Task HandlePrimaryButtonClick()
     {
-        if (IsFlatpak || _isInstalling || _installationStarted || _cts.IsCancellationRequested)
+        if (_isInstalling || _installationStarted || _cts.IsCancellationRequested)
             return;
+
+        if (_flatpakInstallRequested != null)
+        {
+            if (Phase.Value == AppUpdatePhase.Ready)
+                _flatpakInstallRequested.TrySetResult();
+            return;
+        }
 
         _isInstalling = true;
         IsPrimaryButtonEnabled.Value = false;
@@ -341,7 +347,11 @@ public class UpdateDialogViewModel
                 result = AppUpdatePhase.Failed;
             }
 
-            if (_cts.IsCancellationRequested) return;
+            if (_cts.IsCancellationRequested)
+            {
+                Phase.Value = AppUpdatePhase.Canceled;
+                return;
+            }
 
             switch (result)
             {
@@ -406,8 +416,23 @@ public class UpdateDialogViewModel
             if (_downloadFile == null) return AppUpdatePhase.Failed;
             if (flatpak != null)
             {
+                // Keep the bundle until the user chooses Install. Retrying an explicitly requested
+                // installation already has that choice, including when the host asks for authorization again.
+                Task installRequested = _flatpakInstallRequested!.Task;
+                if (!installRequested.IsCompleted)
+                {
+                    IsPrimaryButtonEnabled.Value = true;
+                    SecondaryButtonText.Value = MessageStrings.UpdateAction_Later;
+                    Phase.Value = AppUpdatePhase.Ready;
+                    await installRequested.WaitAsync(_cts.Token);
+                }
+
+                _cts.Token.ThrowIfCancellationRequested();
+                IsPrimaryButtonEnabled.Value = false;
+                SecondaryButtonText.Value = MessageStrings.UpdateAction_RunInBackground;
                 ProgressText.Value = ExtensionsStrings.Installing;
                 IsIndeterminate.Value = true;
+                Phase.Value = AppUpdatePhase.Installing;
                 await flatpak.InstallAsync(_cts.Token);
                 ProgressText.Value = MessageStrings.FlatpakUpdateCompleted;
                 return AppUpdatePhase.Completed;
@@ -425,6 +450,7 @@ public class UpdateDialogViewModel
         {
             if (IsFlatpak)
             {
+                IsPrimaryButtonEnabled.Value = false;
                 IsIndeterminate.Value = false;
                 CloseButtonText.Value = Strings.Close;
                 try { if (flatpak != null) File.Delete(flatpak.DownloadPath); }
@@ -937,7 +963,7 @@ public class UpdateDialogViewModel
             main.SetUpdateOnQuit(null);
         }
 
-        if (Phase.Value is AppUpdatePhase.Preparing or AppUpdatePhase.Ready or AppUpdatePhase.Failed)
+        if (Phase.Value is AppUpdatePhase.Preparing or AppUpdatePhase.Ready or AppUpdatePhase.Installing or AppUpdatePhase.Failed)
         {
             Phase.Value = AppUpdatePhase.Canceled;
         }

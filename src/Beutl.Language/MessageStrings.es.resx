@@ -280,6 +280,9 @@ Podrás seguir editando cuando termine.</value>
   <data name="UpdateAction_RestartAndUpdate" xml:space="preserve">
     <value>Reiniciar y actualizar</value>
   </data>
+  <data name="UpdateAction_Download" xml:space="preserve">
+    <value>Descargar</value>
+  </data>
   <data name="UpdateAction_StartInstaller" xml:space="preserve">
     <value>Iniciar instalador</value>
   </data>
@@ -288,6 +291,9 @@ Podrás seguir editando cuando termine.</value>
   </data>
   <data name="UpdateAction_RunInBackground" xml:space="preserve">
     <value>En segundo plano</value>
+  </data>
+  <data name="UpdateAction_Later" xml:space="preserve">
+    <value>Más tarde</value>
   </data>
   <data name="UpdateAction_UpdateOnQuit" xml:space="preserve">
     <value>Actualizar al salir</value>
