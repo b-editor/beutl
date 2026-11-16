@@ -242,6 +242,9 @@ internal partial class WebBrowserTabView
                 if (!event.isTrusted || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
                 const link = event.target.closest?.('a[href]');
                 if (!link) return;
+                // A media link opening a new tab receives the native window request's referrer policy.
+                const target = link.getAttribute('target') ?? document.querySelector('base[target]')?.target;
+                if (!link.hasAttribute('download') && target?.toLowerCase() === '_blank') return;
                 const url = new URL(link.href, document.baseURI);
                 if (!['http:', 'https:'].includes(url.protocol)) return;
                 if (!link.hasAttribute('download') && !/\.(mp4|webm|mov|mkv|avi|mpeg|mp3|m4a|wav|flac|ogg|opus|aac|jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(url.pathname)) return;
@@ -330,7 +333,7 @@ internal partial class WebBrowserTabView
     }
 
     private void QueuePageDownloadRequest(Uri uri, string? suggestedName, BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin,
-        IBrowserDownloadSource? downloadSource = null, Uri? page = null)
+        IBrowserDownloadSource? downloadSource = null, Uri? page = null, Uri? referrer = null)
     {
         if (IsPageDownloadOfferBlocked)
         {
@@ -338,11 +341,11 @@ internal partial class WebBrowserTabView
             return;
         }
         OfferPageDownload(uri, suggestedName, referrerPolicy, downloadSource,
-            ClaimDownload(uri, suggestedName, downloadSource?.IsGenerated == true, page));
+            ClaimDownload(uri, suggestedName, downloadSource?.IsGenerated == true, page), referrer: referrer);
     }
 
     private void OfferPageDownload(Uri uri, string? suggestedName, BrowserReferrerPolicy referrerPolicy,
-        IBrowserDownloadSource? downloadSource, BrowserDownloadHandling? handling, bool openOptions = true)
+        IBrowserDownloadSource? downloadSource, BrowserDownloadHandling? handling, bool openOptions = true, Uri? referrer = null)
     {
         if (IsPageDownloadOfferBlocked)
         {
@@ -354,7 +357,7 @@ internal partial class WebBrowserTabView
         int documentId = _pageDownloadDocumentId;
         // BlankPage deliberately prevents the downloader's direct-navigation fallback from
         // using destination cookies when the surviving document's origin is unknown.
-        Uri? referrer = DocumentReferrer;
+        referrer ??= DocumentReferrer;
         var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId, referrerPolicy, downloadSource, handling);
         // A generated file's address is the site credited with it, which says less than the file's name.
         string shown = downloadSource?.IsGenerated == true && !string.IsNullOrEmpty(suggestedName) ? suggestedName : uri.AbsoluteUri;

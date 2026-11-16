@@ -37,7 +37,8 @@ public class BrowserNewTabReferrerTests
         using var opener = new WebBrowserTabViewModel(editor.Mock.Object, page, profile);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false))
         { DataContext = opener, OpensPageDownloadOptionsDirectly = false };
-        beforeRequest?.Invoke(view);
+        if (beforeRequest == null) view.OnNativeNewWindowRequested(request, page.AbsoluteUri);
+        else beforeRequest(view);
         var args = new WebViewNewWindowRequestedEventArgs { Request = request };
         view.OnNewWindowRequested(null, args);
         Assert.That(args.Handled, Is.True);
@@ -135,6 +136,7 @@ public class BrowserNewTabReferrerTests
         if (webKit) view.OnNativeNavigationCommitted(s_downloadPage);
 
         var args = new WebViewNewWindowRequestedEventArgs { Request = new Uri("https://files.example/sounds/123") };
+        view.OnNativeNewWindowRequested(args.Request!, s_downloadPage.AbsoluteUri);
         view.OnNewWindowRequested(native, args);
 
         Assert.That(args.Handled, Is.True);
@@ -186,7 +188,7 @@ public class BrowserNewTabReferrerTests
         finally { window.Close(); }
     }
 
-    // macOS reports the referrer WebKit computed for the request, which a noreferrer link leaves out.
+    // WebKit reports the referrer it computed for the request, which a noreferrer link leaves out.
     [AvaloniaTest]
     [TestCase(null, null)]
     [TestCase("https://materials.example/sounds/detail/123?from=list", "https://materials.example/")]
@@ -202,9 +204,9 @@ public class BrowserNewTabReferrerTests
     }
 
     // WKWebView and WebKitGTK ask only their own delegates for a page's window.open(), and the handlers report it.
-    // It opens a tab as a link with target="_blank" does: Linux sends the page's origin, macOS what WebKit computed.
+    // Both paths use the referrer reported for this specific request.
     [AvaloniaTest]
-    [TestCase(false, null, "https://materials.example/")]
+    [TestCase(false, null, null)]
     [TestCase(true, null, null)]
     [TestCase(true, "https://materials.example/sounds/detail/123?from=list", "https://materials.example/")]
     public void AWindowThePageOpensBecomesANewTab(bool reported, string? referrer, string? expected)
@@ -228,14 +230,14 @@ public class BrowserNewTabReferrerTests
     }
 
     [AvaloniaTest]
-    public void AReportForAnotherRequestLeavesThePagesOrigin()
+    public void AReportForAnotherRequestDoesNotAuthorizeAReferrer()
     {
         using var temporary = new TemporaryDirectory();
         var profile = new BrowserProfile(Path.Combine(temporary.Path, "profile.json"));
         using WebBrowserTabViewModel opened = OpenFrom(profile, s_page, s_downloadPage,
-            view => view.OnNativeNewWindowRequested(new Uri("https://downloads.example/other"), null));
+            view => view.OnNativeNewWindowRequested(new Uri("https://downloads.example/other"), s_page.AbsoluteUri));
 
-        Assert.That(opened.TakeOpenerReferrer(), Is.EqualTo(s_origin));
+        Assert.That(opened.TakeOpenerReferrer(), Is.Null);
     }
 
     // On Linux the downloader requests a file again when the first navigation turns into one.

@@ -12,10 +12,12 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
+using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Testing.Headless;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Moq;
 
 namespace Beutl.HeadlessUITests;
 
@@ -42,6 +44,15 @@ internal static class NativeBrowserFrameTestHost
         int exitCode = 1;
         try
         {
+            if (scenario == "--native-browser-referrers")
+            {
+                window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
+                window.Show();
+                using var referrerTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(75));
+                await CheckNewTabReferrersAsync(window, referrerTimeout.Token);
+                exitCode = 0;
+                return;
+            }
             using var temporary = new TemporaryDirectory();
             var webView = new NativeWebView();
             webView.EnvironmentRequested += (_, e) =>
@@ -158,6 +169,123 @@ internal static class NativeBrowserFrameTestHost
         Assert.That(states, Is.EqualTo(new[] { true, false }));
     }
 
+    private static async Task CheckNewTabReferrersAsync(Window window, CancellationToken token)
+    {
+        await using var server = WebApplication.CreateSlimBuilder().Build();
+        server.Urls.Add("http://127.0.0.1:0");
+        var requests = System.Threading.Channels.Channel.CreateUnbounded<string>();
+        var loading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var finishLoad = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        server.MapGet("/defer", async () =>
+        {
+            loading.TrySetResult();
+            await finishLoad.Task.WaitAsync(token);
+            return Results.NoContent();
+        });
+        server.MapGet("/opened", (HttpContext context) =>
+        {
+            requests.Writer.TryWrite(context.Request.Headers.Referer.ToString());
+            return Results.Content("<title>Opened</title>", "text/html");
+        });
+        server.MapGet("/source", (HttpContext context) =>
+        {
+            if (context.Request.Query.ContainsKey("header")) context.Response.Headers["Referrer-Policy"] = "origin, no-referrer";
+            string meta = context.Request.Query.ContainsKey("meta") ? "<meta name='referrer' content='no-referrer'>" : "";
+            string delay = context.Request.Query.ContainsKey("loading") ? "<img src='/defer'>" : "";
+            string destination = context.Request.Query.ContainsKey("same") ? "/opened" : $"http://localhost:{context.Connection.LocalPort}/opened";
+            return Results.Content($"{meta}<a href='{destination}' target='_blank'>open</a>{delay}", "text/html");
+        });
+        await server.StartAsync(token);
+        var origin = new Uri(server.Urls.Single());
+        var browser = new NativeWebView();
+        var editor = new Mock<IEditorContext>();
+        using var vm = new WebBrowserTabViewModel(editor.Object, WebBrowserTabViewModel.BlankPage);
+        using var opener = new WebBrowserTabView(_ => browser, () => (true, null, false)) { DataContext = vm };
+        var openedHost = new ContentControl();
+        window.Content = new Grid { Children = { opener, openedHost } };
+        WebBrowserTabViewModel? opened = null;
+        WebBrowserTabView? openedView = null;
+        int count = 0;
+        editor.Setup(x => x.OpenToolTab(It.IsAny<IToolContext>())).Returns<IToolContext>(tab =>
+        {
+            count++;
+            openedView?.Dispose();
+            opened?.Dispose();
+            opened = (WebBrowserTabViewModel)tab;
+            openedHost.Content = openedView = new WebBrowserTabView { DataContext = opened };
+            return true;
+        });
+
+        async Task Load(string query, Func<Task>? whileLoading = null)
+        {
+            Uri uri = new(origin, "/source?" + query);
+            var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            void Loaded(object? sender, WebViewNavigationCompletedEventArgs e)
+            {
+                if (e.IsSuccess && e.Request == uri) done.TrySetResult();
+            }
+            browser.NavigationCompleted += Loaded;
+            try
+            {
+                vm.Address.Value = uri.AbsoluteUri;
+                opener.NavigateFromAddress();
+                if (whileLoading != null)
+                {
+                    await loading.Task.WaitAsync(token);
+                    try { await whileLoading(); }
+                    finally { finishLoad.TrySetResult(); }
+                }
+                await done.Task.WaitAsync(token);
+            }
+            finally { browser.NavigationCompleted -= Loaded; }
+        }
+
+        async Task Check(string script, string expected)
+        {
+            int before = count;
+            await browser.InvokeScript(script);
+            string header = await requests.Reader.ReadAsync(token);
+            Assert.That(header, Is.EqualTo(expected), script);
+            Assert.That(count, Is.EqualTo(before + 1), script);
+            await opened!.IsLoading.FirstAsync(loading => !loading).ToTask(token);
+        }
+
+        try
+        {
+            await Load("normal&loading", async () =>
+            {
+                await Check("window.open(document.querySelector('a').href)", origin.AbsoluteUri);
+            });
+            await Check("document.querySelector('a').click()", origin.AbsoluteUri);
+            await Check("document.querySelector('a').rel='noreferrer'; document.querySelector('a').click()", "");
+            await Check("document.querySelector('a').rel=''; document.querySelector('a').referrerPolicy='same-origin'; document.querySelector('a').click()", "");
+            await Check("document.querySelector('a').referrerPolicy='no-referrer'; document.querySelector('a').click()", "");
+            await Check("window.open(document.querySelector('a').href, '_blank')", origin.AbsoluteUri);
+            await Check("window.open(document.querySelector('a').href, '_blank', 'noreferrer')", "");
+            await Check("window.open(document.querySelector('a').href, '_blank', 'noopener,NoReferrer')", "");
+            await Load("same");
+            await Check("document.querySelector('a').click()", origin.AbsoluteUri);
+            await Check("window.addEventListener('click', e => e.target.rel='noreferrer', {once:true}); document.querySelector('a').click()", "");
+            await Load("meta");
+            await Check("document.querySelector('a').click()", "");
+            await Check("window.open(document.querySelector('a').href)", "");
+            await Check("document.querySelector('meta').remove(); window.open(document.querySelector('a').href)", "");
+            await Check("const m=document.createElement('meta'); m.name='referrer'; m.content='origin'; document.head.append(m); window.open(document.querySelector('a').href)", origin.AbsoluteUri);
+            await Check("document.querySelector('meta').content='invalid'; window.open(document.querySelector('a').href)", origin.AbsoluteUri);
+            await Check("document.querySelector('meta').content='no-referrer'; document.querySelector('meta').content='invalid'; window.open(document.querySelector('a').href)", "");
+            await Load("header");
+            await Check("document.querySelector('a').click()", "");
+            await Check("window.open(document.querySelector('a').href)", "");
+            await Check("document.querySelector('a').referrerPolicy='origin'; document.querySelector('a').click()", origin.AbsoluteUri);
+        }
+        finally
+        {
+            finishLoad.TrySetResult();
+            openedView?.Dispose();
+            opened?.Dispose();
+        }
+    }
+
     private static async Task CheckHistoryAsync(WebBrowserTabView view, NativeWebView webView,
         WebBrowserTabViewModel vm, CancellationToken token)
     {
@@ -234,18 +362,21 @@ internal static class NativeBrowserFrameTestHost
 [TestFixture]
 public class NativeBrowserFrameTests
 {
-    [TestCase("--native-browser-frames", TestName = "EmbeddedDocumentsLoadWithoutBecomingTopLevelNavigations")]
-    [TestCase("--native-browser-history", TestName = "HistoryButtonsSettleAfterSameDocumentNavigation")]
-    [Platform("MacOSX")]
+    [TestCase("--native-browser-frames", TestName = "EmbeddedDocumentsLoadWithoutBecomingTopLevelNavigations", IncludePlatform = "MacOSX")]
+    [TestCase("--native-browser-history", TestName = "HistoryButtonsSettleAfterSameDocumentNavigation", IncludePlatform = "MacOSX")]
+    [TestCase("--native-browser-referrers", TestName = "NewTabRequestsHonorLinkAndDocumentReferrerPolicies", IncludePlatform = "Win,Linux")]
     public async Task NativeNavigation(string scenario)
     {
+        if (OperatingSystem.IsLinux() && (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY"))
+            || !WebBrowserTabView.GetWebViewAvailability().IsAvailable))
+            Assert.Ignore("Native browser navigation requires an X display and a WebKit runtime.");
         var start = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true };
         start.ArgumentList.Add(typeof(NativeBrowserFrameTestHost).Assembly.Location);
         start.ArgumentList.Add(scenario);
         using Process process = Process.Start(start)!;
         Task<string> output = process.StandardOutput.ReadToEndAsync();
         Task<string> error = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(scenario == "--native-browser-referrers" ? 90 : 60));
         try { await process.WaitForExitAsync(timeout.Token); }
         catch
         {

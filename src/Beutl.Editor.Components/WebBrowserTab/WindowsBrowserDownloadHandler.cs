@@ -21,48 +21,50 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
     private bool _subscribed;
 
     private unsafe WindowsBrowserDownloadHandler(IWindowsWebView2PlatformHandle handle,
-        Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload)
+        Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload,
+        Func<Uri, Uri?, bool> onWindowOpened)
     {
         _onDownload = onDownload;
         _onGeneratedDownload = onGeneratedDownload;
         _handler = new DownloadStartingHandler(this);
+        // The adapter lends this reference. QueryInterface below owns _webView.
         nint coreWebView = handle.CoreWebView2;
         if (coreWebView == 0) throw new InvalidOperationException("WebView2 is not available.");
         try
         {
             var iid = new Guid("20D02D59-6DF2-42DC-BD06-F98A694B1302"); // ICoreWebView2_4
             Marshal.ThrowExceptionForHR(Marshal.QueryInterface(coreWebView, in iid, out _webView));
-            void* handler = ComInterfaceMarshaller<IDownloadStartingHandler>.ConvertToUnmanaged(_handler);
-            try
-            {
-                // ICoreWebView2_4::add_DownloadStarting
-                long token;
-                Marshal.ThrowExceptionForHR(
-                    ((delegate* unmanaged[Stdcall]<nint, void*, long*, int>)Method(_webView, 75))(_webView, handler, &token));
-                _token = token;
-                _subscribed = true;
-            }
-            finally
-            {
-                ComInterfaceMarshaller<IDownloadStartingHandler>.Free(handler);
-            }
+            // ICoreWebView2_4::add_DownloadStarting.
+            Marshal.ThrowExceptionForHR(Subscribe<IDownloadStartingHandler>(75, _handler, out _token));
+            _subscribed = true;
+            AttachNewWindowHandlers(onWindowOpened);
         }
         catch
         {
             Dispose();
             throw;
         }
-        finally
+    }
+
+    private unsafe int Subscribe<T>(int slot, T handler, out long token) where T : class
+    {
+        void* callback = ComInterfaceMarshaller<T>.ConvertToUnmanaged(handler);
+        try
         {
-            Marshal.Release(coreWebView);
+            long nativeToken = 0;
+            int hr = ((delegate* unmanaged[Stdcall]<nint, void*, long*, int>)Method(_webView, slot))(_webView, callback, &nativeToken);
+            token = nativeToken;
+            return hr;
         }
+        finally { ComInterfaceMarshaller<T>.Free(callback); }
     }
 
     internal static WindowsBrowserDownloadHandler? TryAttach(IPlatformHandle? handle,
-        Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload)
+        Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload,
+        Func<Uri, Uri?, bool> onWindowOpened)
     {
         if (handle is not IWindowsWebView2PlatformHandle windows) return null;
-        try { return new WindowsBrowserDownloadHandler(windows, onDownload, onGeneratedDownload); }
+        try { return new WindowsBrowserDownloadHandler(windows, onDownload, onGeneratedDownload, onWindowOpened); }
         catch (Exception ex)
         {
             Trace.TraceError("WebView2 download handler could not be installed: {0}", ex);
@@ -133,6 +135,7 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
     public unsafe void Dispose()
     {
         if (_webView == 0) return;
+        DetachNewWindowHandlers();
         if (_subscribed)
         {
             _ = ((delegate* unmanaged[Stdcall]<nint, long, int>)Method(_webView, 76))(_webView, _token);
