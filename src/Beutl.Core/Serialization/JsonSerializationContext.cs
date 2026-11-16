@@ -96,6 +96,9 @@ public partial class JsonSerializationContext(
 
     public Uri? BaseUri => options?.BaseUri ?? Parent?.BaseUri;
 
+    // Nested members share their document's origin. In-memory snapshots can have the same BaseUri as the file.
+    internal bool IsReadingFromStorage { get; init; } = parent is JsonSerializationContext { IsReadingFromStorage: true };
+
     internal bool EmbedsCopy => options?.EmbedsCopy ?? (Parent as JsonSerializationContext)?.EmbedsCopy ?? false;
 
     internal IReadOnlySet<string>? PendingFileChanges

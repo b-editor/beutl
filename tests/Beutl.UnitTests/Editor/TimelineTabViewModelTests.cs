@@ -8,6 +8,7 @@ using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.UnitTests.TestInfrastructure;
 
@@ -313,6 +314,43 @@ public class TimelineTabViewModelTests
                     $"the color on row {row}");
             }
         });
+    }
+
+    [Test]
+    public void LoadingALayerNamedAfterItsRow_ShowsTheNewRowAfterAMove()
+    {
+        using var directory = new TemporaryDirectory();
+        Directory.CreateDirectory(directory.Path);
+        var uri = new Uri(Path.Combine(directory.Path, "legacy.scene"));
+        File.WriteAllText(uri.LocalPath, """
+            {
+              "Layers": [
+                { "ZIndex": 0, "Name": "0", "Color": "Red" },
+                { "ZIndex": 1, "Name": "7" },
+                { "ZIndex": 2, "Name": "02" },
+                { "ZIndex": 12, "Name": "12" },
+                { "ZIndex": 3, "Name": "Titles" }
+              ]
+            }
+            """);
+
+        Scene scene = CoreSerializer.RestoreFromUri<Scene>(uri);
+        using var history = new HistoryHarness(scene);
+        using var timeline = CreateViewModel(scene, new LayerMoveService(history.History));
+        timeline.Options.Value = timeline.Options.Value with { MaxLayerCount = 4 };
+
+        Assert.That(scene.Layers.Select(layer => layer.Name.Value), Is.EqualTo(new[] { "", "7", "02", "", "Titles" }));
+        Assert.That(timeline.LayerHeaders[0].Name.Value, Is.EqualTo("0"));
+        timeline.LayerHeaders[0].MoveTo(2, []);
+        Assert.That(timeline.LayerHeaders[2].Name.Value, Is.EqualTo("2"));
+        Assert.That(timeline.LayerHeaders[2].Color.Value, Is.EqualTo(Avalonia.Media.Colors.Red));
+        CoreSerializer.StoreToUri(scene, uri);
+        Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Layers[0].Name.Value, Is.Empty);
+
+        Assert.That(history.History.Undo(), Is.True);
+        Assert.That(timeline.LayerHeaders[0].Color.Value, Is.EqualTo(Avalonia.Media.Colors.Red));
+        Assert.That(scene.Layers[0].Name.Value, Is.Empty);
+        Assert.That(history.History.CanUndo, Is.False);
     }
 
     private static void AssertHeaderNames(TimelineTabViewModel viewModel, int? namedRow)
