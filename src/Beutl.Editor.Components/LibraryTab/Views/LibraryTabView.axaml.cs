@@ -9,6 +9,7 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
 using Beutl.Configuration;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Editor.Components.LibraryTab.Views.LibraryViews;
 using Beutl.Services;
@@ -60,6 +61,19 @@ public sealed partial class LibraryTabView : UserControl
         scroll.TemplateApplied += OnScrollViewerTemplateApplied;
 
         scroll.AddHandler(PointerWheelChangedEvent, OnScrollPointerWheelChanged, RoutingStrategies.Tunnel);
+        AddHandler(KeyDownEvent, OnLibraryKeyDown, RoutingStrategies.Tunnel);
+    }
+
+    private void OnLibraryKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (!PickerListNavigation.IsSearchShortcut(e)) return;
+
+        var search = carousel.Items.OfType<SearchView>().Single();
+        carousel.SelectedItem = search;
+        // The carousel attaches the newly selected page during layout, before its text box can take focus.
+        carousel.UpdateLayout();
+        search.FocusSearchBox();
+        e.Handled = true;
     }
 
     private TabStripItem CreateTabItem((Icon Icon, string Text, string Id, Func<Control> Create) item)

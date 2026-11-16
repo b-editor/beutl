@@ -1,7 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Api.Objects;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Logging;
 using Beutl.Pages.ExtensionsPages;
 using Beutl.Pages.ExtensionsPages.DiscoverPages;
@@ -61,7 +63,17 @@ public sealed partial class ExtensionsPage : Window
 
         nav.SelectedItem = selected;
 
+        AddHandler(KeyDownEvent, OnStoreKeyDown, RoutingStrategies.Tunnel);
         Loaded += OnFirstLoaded;
+    }
+
+    private void OnStoreKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (!PickerListNavigation.IsSearchShortcut(e)) return;
+
+        searchTextBox.Focus();
+        searchTextBox.SelectAll();
+        e.Handled = true;
     }
 
     private void OnFirstLoaded(object? sender, RoutedEventArgs e)
