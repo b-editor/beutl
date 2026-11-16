@@ -14,6 +14,7 @@ using Avalonia.VisualTree;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
+using Beutl.Controls;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Language;
 using Beutl.Testing.Headless;
@@ -39,7 +40,7 @@ public sealed class CloudStorageTests
             window.Show();
             HeadlessTestHelpers.Render();
             Assert.That(scope.Handler.Requests, Is.Empty);
-            Assert.That(view.FindControl<StackPanel>("SignInState")!.IsEffectivelyVisible, Is.True);
+            Assert.That(view.FindControl<EmptyState>("SignInState")!.IsEffectivelyVisible, Is.True);
             Assert.That(view.FindControl<Button>("AccountSettingsButton")!.IsEffectivelyVisible, Is.True);
             Assert.That(((System.Windows.Input.ICommand)vm.Refresh).CanExecute(null), Is.False);
         }

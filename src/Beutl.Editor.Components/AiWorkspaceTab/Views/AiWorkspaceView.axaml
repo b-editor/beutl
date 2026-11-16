@@ -6,7 +6,6 @@
              xmlns:dialogs="using:Beutl.Editor.Components.AiWorkspaceTab.ViewModels"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
-             xmlns:live="using:Beutl.Controls"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:tools="using:Beutl.Editor.Components.AiWorkspaceTab.Views"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -79,38 +78,13 @@
                       HorizontalContentAlignment="Stretch"
                       HorizontalScrollBarVisibility="Disabled"
                       IsVisible="{CompiledBinding IsGateOpen.Value}">
-            <Border x:Name="AiGatePanel"
-                    Margin="24"
-                    Padding="8,24"
-                    VerticalAlignment="Center">
-                <StackPanel MaxWidth="320"
-                            HorizontalAlignment="Center"
-                            Spacing="24">
-                    <Border Width="64"
-                            Height="64"
-                            HorizontalAlignment="Center"
-                            Background="{DynamicResource SubtleFillColorSecondaryBrush}"
-                            CornerRadius="20">
-                        <icons:FluentIcon HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          FontSize="30"
-                                          Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                          Icon="Sparkle" />
-                    </Border>
-                    <StackPanel Spacing="10">
-                        <TextBlock FontSize="20"
-                                   FontWeight="Normal"
-                                   Text="{x:Static lang:Strings.Ai}"
-                                   TextAlignment="Center"
-                                   TextWrapping="Wrap" />
-                        <TextBlock x:Name="AiGateDescription"
-                                   FontSize="13"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                   LineHeight="22"
-                                   Text="{x:Static lang:Strings.AiProRequired}"
-                                   TextAlignment="Center"
-                                   TextWrapping="Wrap" />
-                    </StackPanel>
+            <controls:EmptyState x:Name="AiGatePanel"
+                                 Title="{x:Static lang:Strings.Ai}"
+                                 Description="{x:Static lang:Strings.AiProRequired}">
+                <controls:EmptyState.Icon>
+                    <icons:FluentIcon Icon="Sparkle" />
+                </controls:EmptyState.Icon>
+                <StackPanel Spacing="12">
                     <Button x:Name="AiGateSignInButton"
                             HorizontalAlignment="Center"
                             usage:UsageTracking.Feature="AiWorkspace.SignIn"
@@ -164,15 +138,15 @@
                                        TextWrapping="Wrap" />
                         </Grid>
                     </Button>
-                    <live:SafeLiveRegionTextBlock AutomationProperties.LiveSetting="Assertive"
-                               AutomationProperties.Name="{CompiledBinding SignInError.Value}"
-                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                               IsVisible="{CompiledBinding SignInError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
-                               Text="{CompiledBinding SignInError.Value}"
-                               TextAlignment="Center"
-                               TextWrapping="Wrap" />
+                    <controls:SafeLiveRegionTextBlock AutomationProperties.LiveSetting="Assertive"
+                                                      AutomationProperties.Name="{CompiledBinding SignInError.Value}"
+                                                      Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                                      IsVisible="{CompiledBinding SignInError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                      Text="{CompiledBinding SignInError.Value}"
+                                                      TextAlignment="Center"
+                                                      TextWrapping="Wrap" />
                 </StackPanel>
-            </Border>
+            </controls:EmptyState>
         </ScrollViewer>
     </Grid>
 </UserControl>

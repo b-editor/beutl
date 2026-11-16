@@ -44,53 +44,26 @@
             <ScrollViewer HorizontalContentAlignment="Stretch"
                           HorizontalScrollBarVisibility="Disabled"
                           IsVisible="{CompiledBinding !Items.Count}">
-                <Border Margin="24"
-                        Padding="8,24"
-                        VerticalAlignment="Center">
-                    <StackPanel MaxWidth="320"
-                                HorizontalAlignment="Center"
-                                Spacing="24">
-                        <Border Width="64"
-                                Height="64"
-                                HorizontalAlignment="Center"
-                                Background="{DynamicResource SubtleFillColorSecondaryBrush}"
-                                CornerRadius="20">
-                            <icons:FluentIcon HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              FontSize="30"
-                                              Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                              Icon="LayoutColumnThree" />
-                        </Border>
-                        <StackPanel Spacing="10">
-                            <TextBlock FontSize="20"
-                                       FontWeight="SemiBold"
-                                       Text="{x:Static lang:Strings.DockLayout}"
+                <controls:EmptyState Title="{x:Static lang:Strings.DockLayout}"
+                                     Description="{x:Static lang:MessageStrings.NoDockLayoutPresets}">
+                    <controls:EmptyState.Icon>
+                        <icons:FluentIcon Icon="LayoutColumnThree" />
+                    </controls:EmptyState.Icon>
+                    <Button usage:UsageTracking.Feature="DockLayout.Save"
+                            AutomationProperties.Name="{x:Static lang:Strings.SaveCurrentDockLayout}"
+                            Click="OnSaveClick">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                            <icons:FluentIcon VerticalAlignment="Center"
+                                              FontSize="16"
+                                              Icon="Add" />
+                            <TextBlock Grid.Column="1"
+                                       VerticalAlignment="Center"
+                                       Text="{x:Static lang:Strings.SaveCurrentDockLayout}"
                                        TextAlignment="Center"
                                        TextWrapping="Wrap" />
-                            <TextBlock FontSize="13"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       LineHeight="22"
-                                       Text="{x:Static lang:MessageStrings.NoDockLayoutPresets}"
-                                       TextAlignment="Center"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                        <Button HorizontalAlignment="Center"
-                                usage:UsageTracking.Feature="DockLayout.Save"
-                                AutomationProperties.Name="{x:Static lang:Strings.SaveCurrentDockLayout}"
-                                Click="OnSaveClick">
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                                <icons:FluentIcon VerticalAlignment="Center"
-                                                  FontSize="16"
-                                                  Icon="Add" />
-                                <TextBlock Grid.Column="1"
-                                           VerticalAlignment="Center"
-                                           Text="{x:Static lang:Strings.SaveCurrentDockLayout}"
-                                           TextAlignment="Center"
-                                           TextWrapping="Wrap" />
-                            </Grid>
-                        </Button>
-                    </StackPanel>
-                </Border>
+                        </Grid>
+                    </Button>
+                </controls:EmptyState>
             </ScrollViewer>
 
             <ListBox Background="Transparent"

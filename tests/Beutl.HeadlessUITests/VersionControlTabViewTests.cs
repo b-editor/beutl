@@ -13,6 +13,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.Components.VersionControl.Views;
@@ -268,7 +269,7 @@ public class VersionControlTabViewTests
             {
                 Assert.That(viewModel.IsTracked.Value, Is.False);
                 Assert.That(
-                    view.FindControl<Border>("UntrackedProjectPanel")!.IsVisible,
+                    view.FindControl<EmptyState>("UntrackedProjectPanel")!.IsVisible,
                     Is.True);
             });
 
@@ -283,7 +284,7 @@ public class VersionControlTabViewTests
                 Assert.That(viewModel.IsTracked.Value, Is.True);
                 Assert.That(viewModel.Commits, Is.Not.Empty);
                 Assert.That(
-                    view.FindControl<Border>("UntrackedProjectPanel")!.IsVisible,
+                    view.FindControl<EmptyState>("UntrackedProjectPanel")!.IsVisible,
                     Is.False);
                 Assert.That(
                     view.FindControl<Grid>("WideLayoutRoot")!.IsVisible,
@@ -337,7 +338,7 @@ public class VersionControlTabViewTests
             Assert.Multiple(() =>
             {
                 Assert.That(
-                    view.FindControl<Border>("UntrackedProjectPanel")!.IsVisible,
+                    view.FindControl<EmptyState>("UntrackedProjectPanel")!.IsVisible,
                     Is.True);
                 Assert.That(enableButton.IsVisible, Is.True);
                 Assert.That(

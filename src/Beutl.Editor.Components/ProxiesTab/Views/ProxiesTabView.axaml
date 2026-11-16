@@ -41,21 +41,14 @@
         <Style Selector="Border.proxyItem.selected">
             <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
         </Style>
-        <Style Selector="Border.statePill">
-            <Setter Property="MaxWidth" Value="110" />
-            <Setter Property="Padding" Value="8,3" />
-            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-            <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
-            <Setter Property="VerticalAlignment" Value="Center" />
+        <Style Selector="controls|StatusLabel.ready">
+            <Setter Property="Kind" Value="Success" />
         </Style>
-        <Style Selector="Border.statePill.ready">
-            <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
+        <Style Selector="controls|StatusLabel.stale">
+            <Setter Property="Kind" Value="Caution" />
         </Style>
-        <Style Selector="Border.statePill.stale">
-            <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
-        </Style>
-        <Style Selector="Border.statePill.failed">
-            <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
+        <Style Selector="controls|StatusLabel.failed">
+            <Setter Property="Kind" Value="Critical" />
         </Style>
     </UserControl.Styles>
 
@@ -161,12 +154,11 @@
                                         <Grid Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                             <TextBlock x:Name="FileNameText" VerticalAlignment="Center"
                                                        Text="{Binding FileName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
-                                            <Border Grid.Column="1" Classes="statePill"
-                                                    Classes.failed="{Binding IsFailed.Value}"
-                                                    Classes.ready="{Binding IsReady.Value}"
-                                                    Classes.stale="{Binding IsStale.Value}">
-                                                <TextBlock FontSize="12" Text="{Binding State.Value}" TextWrapping="Wrap" />
-                                            </Border>
+                                            <controls:StatusLabel Grid.Column="1" MaxWidth="110" FontSize="12"
+                                                                  Classes.failed="{Binding IsFailed.Value}"
+                                                                  Classes.ready="{Binding IsReady.Value}"
+                                                                  Classes.stale="{Binding IsStale.Value}"
+                                                                  Text="{Binding State.Value}" TextBlock.TextWrapping="Wrap" />
                                         </Grid>
 
                                         <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
