@@ -131,7 +131,9 @@ public sealed class AutomaticExtensionUpdateTests
     }
 
     [AvaloniaTest]
-    public async Task Ready_update_keeps_its_dependencies_for_an_offline_restart()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Ready_update_keeps_its_dependencies_for_an_offline_restart(bool alreadyInstalled)
     {
         using var config = new AppRootFileBackup("nuget.config");
         Directory.CreateDirectory(Helper.LocalSourcePath);
@@ -139,6 +141,7 @@ public sealed class AutomaticExtensionUpdateTests
         var cleanup = new List<string>();
         var dependency = TestPackages.CreateNupkg("Required", "1.0.0", cleanup);
         string dependencyFile = Helper.GetNupkgFilePath(dependency.Id, dependency.Version.ToString());
+        string installedDependencyPath = Helper.PackagePathResolver.GetInstallPath(dependency);
         var installed = new PackageIdentity($"WithDependency.{Guid.NewGuid():N}", NuGetVersion.Parse("1.0.0"));
         var candidate = new PackageIdentity(installed.Id, NuGetVersion.Parse("2.0.0"));
         cleanup.Add(Helper.PackagePathResolver.GetInstallPath(candidate));
@@ -157,14 +160,20 @@ public sealed class AutomaticExtensionUpdateTests
                 await Assert.ThatAsync(() => installer.StageExtensionUpdateAsync(installed, release, host, true, default), Throws.Exception);
                 Assert.That(PackageInstaller.FindStagedExtensionUpdate(installed, host, true), Is.Null);
                 File.WriteAllBytes(dependencyFile, bytes);
+                if (alreadyInstalled)
+                {
+                    var context = installer.PrepareForInstall(dependency.Id, dependency.Version.ToString());
+                    await installer.ResolveDependencies(context, null);
+                    File.Delete(dependencyFile);
+                }
                 Assert.That(await installer.StageExtensionUpdateAsync(installed, release, host, true, default), Is.True);
-                Assert.That(Helper.PackagePathResolver.GetInstalledPath(dependency), Is.Null);
+                Assert.That(Directory.Exists(installedDependencyPath), Is.EqualTo(alreadyInstalled));
             }
-            File.Delete(dependencyFile);
+            TestPackages.Delete([dependencyFile, installedDependencyPath]);
             await using var offline = new StoreClients();
             var ready = PackageInstaller.FindStagedExtensionUpdate(installed, host, true)!;
             await offline.App.GetResource<PackageInstaller>().ResolveStagedExtensionAsync(ready, default);
-            Assert.That(Helper.PackagePathResolver.GetInstalledPath(dependency), Is.Not.Null);
+            Assert.That(File.ReadAllText(Path.Combine(installedDependencyPath, "content", "payload.txt")), Is.EqualTo("local payload"));
         }
         finally
         {

@@ -2,6 +2,7 @@
 using NuGet.Configuration;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
+using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
 
@@ -47,9 +48,16 @@ public partial class PackageInstaller
                 foreach (var dep in graph.Where(dep => !candidate.Equals(dep)))
                 {
                     SourceRepository repository = dep.Source ?? throw new InvalidDataException($"'{dep}' has no package source.");
+                    using var output = File.Create(Path.Combine(draft, $"{dep.Id}.{dep.Version.ToNormalizedString()}.nupkg"));
+                    // The packages.config source supplies the archive path and has no FindPackageByIdResource.
+                    if (repository.FeedTypeOverride == FeedType.FileSystemPackagesConfig && dep.DownloadUri is { IsFile: true } archiveUri)
+                    {
+                        using var input = File.OpenRead(archiveUri.LocalPath);
+                        await input.CopyToAsync(output, token).ConfigureAwait(false);
+                        continue;
+                    }
                     var resource = await repository.GetResourceAsync<FindPackageByIdResource>(token).ConfigureAwait(false)
                         ?? throw new InvalidOperationException($"The source cannot download '{dep}'.");
-                    using var output = File.Create(Path.Combine(draft, $"{dep.Id}.{dep.Version.ToNormalizedString()}.nupkg"));
                     if (!await resource.CopyNupkgToStreamAsync(dep.Id, dep.Version, output, _cacheContext, logger, token).ConfigureAwait(false))
                         throw new InvalidDataException($"Could not prepare dependency '{dep}'.");
                 }
