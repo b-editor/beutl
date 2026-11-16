@@ -260,7 +260,7 @@ public class VersionControlToolBarTests
             {
                 Assert.That(panel.IsEffectivelyVisible, Is.True);
                 Assert.That(view.PromptFlyout.IsOpen, Is.False);
-                Border onboarding = view.FindControl<Border>("UntrackedProjectPanel")!;
+                EmptyState onboarding = view.FindControl<EmptyState>("UntrackedProjectPanel")!;
                 Assert.That(onboarding.IsAttachedToVisualTree() && onboarding.IsEffectivelyVisible, Is.False);
                 Assert.That(view.FindControl<TextBlock>("RepositoryAdoptionMessage")!.Text,
                     Is.EqualTo(Strings.VersionControl_AdoptExistingRepository));
@@ -285,8 +285,8 @@ public class VersionControlToolBarTests
             Assert.That(await confirmation, Is.False);
             await WaitUntilAsync(() => !model.HasPendingRepositoryAdoption.Value);
             HeadlessTestHelpers.Render();
-            Assert.That(view.FindControl<Border>("UntrackedProjectPanel")!.IsAttachedToVisualTree(), Is.True);
-            Assert.That(view.FindControl<Border>("UntrackedProjectPanel")!.IsEffectivelyVisible, Is.True);
+            Assert.That(view.FindControl<EmptyState>("UntrackedProjectPanel")!.IsAttachedToVisualTree(), Is.True);
+            Assert.That(view.FindControl<EmptyState>("UntrackedProjectPanel")!.IsEffectivelyVisible, Is.True);
 
             confirmation = TestShell.VersionControl.ConfirmAdoptExistingRepositoryAsync(repository, cancellation.Token);
             await WaitUntilAsync(() => model.HasPendingRepositoryAdoption.Value);

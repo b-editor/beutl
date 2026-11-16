@@ -24,28 +24,29 @@
     <Grid>
         <ScrollViewer x:Name="StartPage" IsVisible="{Binding !IsSharing.Value}"
                       HorizontalContentAlignment="Stretch" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel MaxWidth="320" Margin="24" VerticalAlignment="Center" Spacing="24">
-                <Border Width="64" Height="64" HorizontalAlignment="Center" CornerRadius="20"
-                        Background="{DynamicResource SubtleFillColorSecondaryBrush}">
-                    <icons:FluentIcon Icon="Phone" FontSize="30" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                      Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
-                </Border>
-                <TextBlock Text="{x:Static lang:Strings.MobilePreviewDescription}" Classes="secondary" TextAlignment="Center" />
-                <Button x:Name="StartButton" Click="OnToggleClick" IsEnabled="{Binding CanToggle.Value}"
-                        HorizontalAlignment="Center" ToolTip.Tip="{x:Static lang:Strings.MobilePreviewInternetDescription}">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Panel Width="16" Height="16" VerticalAlignment="Center">
-                            <icons:FluentIcon x:Name="StartIcon" Icon="Play" FontSize="16" IsVisible="{Binding !IsBusy.Value}" />
-                            <controls:ProgressRing x:Name="StartProgress" Width="16" Height="16" MinWidth="0" MinHeight="0"
-                                                   BorderThickness="2" IsIndeterminate="{Binding IsBusy.Value}"
-                                                   IsVisible="{Binding IsBusy.Value}" />
-                        </Panel>
-                        <TextBlock Text="{x:Static lang:Strings.Start}" />
-                    </StackPanel>
-                </Button>
-                <TextBlock Text="{Binding Status.Value}" Classes="secondary" TextAlignment="Center"
-                           IsVisible="{Binding Status.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-            </StackPanel>
+            <controls:EmptyState Description="{x:Static lang:Strings.MobilePreviewDescription}">
+                <controls:EmptyState.Icon>
+                    <icons:FluentIcon Icon="Phone" />
+                </controls:EmptyState.Icon>
+                <StackPanel Spacing="12">
+                    <Button x:Name="StartButton" Click="OnToggleClick" IsEnabled="{Binding CanToggle.Value}"
+                            HorizontalAlignment="Center" ToolTip.Tip="{x:Static lang:Strings.MobilePreviewInternetDescription}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Panel Width="16" Height="16" VerticalAlignment="Center">
+                                <icons:FluentIcon x:Name="StartIcon" Icon="Play" FontSize="16" IsVisible="{Binding !IsBusy.Value}" />
+                                <controls:ProgressRing x:Name="StartProgress" Width="16" Height="16" MinWidth="0" MinHeight="0"
+                                                       BorderThickness="2" IsIndeterminate="{Binding IsBusy.Value}"
+                                                       IsVisible="{Binding IsBusy.Value}" />
+                            </Panel>
+                            <TextBlock Text="{x:Static lang:Strings.Start}" />
+                        </StackPanel>
+                    </Button>
+                    <controls:SafeLiveRegionTextBlock Text="{Binding Status.Value}" TextAlignment="Center" TextWrapping="Wrap"
+                                                      AutomationProperties.LiveSetting="Polite"
+                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                      IsVisible="{Binding Status.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
+            </controls:EmptyState>
         </ScrollViewer>
 
         <Grid IsVisible="{Binding IsSharing.Value}" RowDefinitions="Auto,*">

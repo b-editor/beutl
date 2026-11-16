@@ -156,38 +156,14 @@
                     <ScrollViewer HorizontalContentAlignment="Stretch"
                                   HorizontalScrollBarVisibility="Disabled"
                                   IsVisible="{Binding !IsTracked.Value}">
-                        <Border x:Name="UntrackedProjectPanel"
-                                Margin="24"
-                                Padding="8,24"
-                                VerticalAlignment="Center"
-                                IsVisible="{Binding !IsTracked.Value}">
-                            <StackPanel MaxWidth="320"
-                                        HorizontalAlignment="Center"
-                                        Spacing="24">
-                                <Border Width="64"
-                                        Height="64"
-                                        HorizontalAlignment="Center"
-                                        Background="{DynamicResource SubtleFillColorSecondaryBrush}"
-                                        CornerRadius="20">
-                                    <icons:FluentIcon HorizontalAlignment="Center"
-                                                      VerticalAlignment="Center"
-                                                      FontSize="30"
-                                                      Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                                      Icon="BranchFork" />
-                                </Border>
-                                <StackPanel Spacing="10">
-                                    <TextBlock FontSize="20"
-                                               FontWeight="Normal"
-                                               Text="{x:Static lang:Strings.VersionControl}"
-                                               TextAlignment="Center"
-                                               TextWrapping="Wrap" />
-                                    <TextBlock FontSize="13"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               LineHeight="22"
-                                               Text="{x:Static lang:Strings.VersionControl_UntrackedExplanation}"
-                                               TextAlignment="Center"
-                                               TextWrapping="Wrap" />
-                                </StackPanel>
+                        <controls:EmptyState x:Name="UntrackedProjectPanel"
+                                             Title="{x:Static lang:Strings.VersionControl}"
+                                             Description="{x:Static lang:Strings.VersionControl_UntrackedExplanation}"
+                                             IsVisible="{Binding !IsTracked.Value}">
+                            <controls:EmptyState.Icon>
+                                <icons:FluentIcon Icon="BranchFork" />
+                            </controls:EmptyState.Icon>
+                            <StackPanel Spacing="12">
                                 <Button x:Name="EnableVersionControlButton"
                                         HorizontalAlignment="Center"
                                         usage:UsageTracking.Feature="VersionControl.EnableVersionControlCommand"
@@ -211,15 +187,15 @@
                                                    TextWrapping="Wrap" />
                                     </Grid>
                                 </Button>
-                                <TextBlock FontSize="13"
-                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                           LineHeight="22"
-                                           IsVisible="{Binding IsEnablingVersionControl.Value}"
-                                           Text="{x:Static lang:Strings.VersionControl_EnablingHint}"
-                                           TextAlignment="Center"
-                                           TextWrapping="Wrap" />
+                                <controls:SafeLiveRegionTextBlock AutomationProperties.LiveSetting="Polite"
+                                                                  FontSize="12"
+                                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                                  IsVisible="{Binding IsEnablingVersionControl.Value}"
+                                                                  Text="{x:Static lang:Strings.VersionControl_EnablingHint}"
+                                                                  TextAlignment="Center"
+                                                                  TextWrapping="Wrap" />
                             </StackPanel>
-                        </Border>
+                        </controls:EmptyState>
                     </ScrollViewer>
 
                     <Grid x:Name="TrackedLayoutRoot"

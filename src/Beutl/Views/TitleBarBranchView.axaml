@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.TitleBarBranchView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -45,20 +46,10 @@
                                             VerticalAlignment="Center"
                                             Orientation="Horizontal"
                                             Spacing="4">
-                                    <Border Padding="6,1"
-                                            Background="{DynamicResource SubtleFillColorSecondaryBrush}"
-                                            CornerRadius="8"
-                                            IsVisible="{Binding HasAhead.Value}">
-                                        <TextBlock FontSize="10"
-                                                   Text="{Binding AheadCount.Value, StringFormat='↑{0}'}" />
-                                    </Border>
-                                    <Border Padding="6,1"
-                                            Background="{DynamicResource SubtleFillColorSecondaryBrush}"
-                                            CornerRadius="8"
-                                            IsVisible="{Binding HasBehind.Value}">
-                                        <TextBlock FontSize="10"
-                                                   Text="{Binding BehindCount.Value, StringFormat='↓{0}'}" />
-                                    </Border>
+                                    <controls:StatusLabel IsVisible="{Binding HasAhead.Value}"
+                                                          Text="{Binding AheadCount.Value, StringFormat='↑{0}'}" />
+                                    <controls:StatusLabel IsVisible="{Binding HasBehind.Value}"
+                                                          Text="{Binding BehindCount.Value, StringFormat='↓{0}'}" />
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
