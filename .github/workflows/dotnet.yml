@@ -139,6 +139,9 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore Beutl.slnx
 
+      - name: Check third-party notices for shipped packages
+        run: python3 build/check_third_party_notices.py
+
       - name: Build
         run: dotnet build Beutl.slnx --no-restore
 
