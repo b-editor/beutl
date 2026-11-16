@@ -89,8 +89,7 @@ public sealed class BrowserDownloadImportContext
 }
 
 /// <summary>
-/// Takes over files that pages in the browser tab offer for download, to add them to the editor in a way of its
-/// own, such as speech from a text-to-speech site placed with its character and caption.
+/// Downloads media from a browser page on the user's request, or imports files that a page offers for download.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -106,10 +105,19 @@ public sealed class BrowserDownloadImportContext
 public abstract class BrowserDownloadExtension : Extension
 {
     /// <summary>
+    /// Handles the user's Download Media command for the page displayed in the browser tab.
+    /// Return false to let the next extension or the browser handle it. A handler owns the
+    /// download, its progress UI and its destination, and should await it before returning true.
+    /// The token is canceled when the user cancels the download or closes the browser tab.
+    /// </summary>
+    public virtual ValueTask<bool> TryDownloadPageAsync(IEditorContext editorContext, Uri page,
+        string? pageTitle, CancellationToken cancellationToken) => ValueTask.FromResult(false);
+
+    /// <summary>
     /// Decides whether this extension takes over <paramref name="offer"/>. Called on the UI thread when a page offers
     /// a file, so return quickly. Return <see langword="null"/> to leave the file to the browser.
     /// </summary>
-    public abstract BrowserDownloadClaim? Claim(BrowserDownloadOffer offer);
+    public virtual BrowserDownloadClaim? Claim(BrowserDownloadOffer offer) => null;
 
     /// <summary>
     /// Adds a claimed file to the editor. Called on the UI thread after the file is saved; the package stays loaded
@@ -119,5 +127,6 @@ public abstract class BrowserDownloadExtension : Extension
     /// An exception is reported in the browser's download prompt as a failure to add the saved file. The token is
     /// canceled when the user cancels the download in the prompt.
     /// </remarks>
-    public abstract ValueTask<bool> ImportAsync(BrowserDownloadImportContext context, CancellationToken cancellationToken);
+    public virtual ValueTask<bool> ImportAsync(BrowserDownloadImportContext context, CancellationToken cancellationToken)
+        => ValueTask.FromResult(false);
 }

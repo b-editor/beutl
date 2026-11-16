@@ -118,6 +118,26 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     private IExtensionProvider? Extensions => _editorContext.GetService(typeof(IExtensionProvider)) as IExtensionProvider;
 
+    internal async ValueTask<(Uri? Page, bool Handled)> TryDownloadPageAsync(Func<Task<Uri?>> readPage, CancellationToken cancellationToken)
+    {
+        if (Extensions is not { } extensions) return default;
+        var descriptors = extensions.GetDescriptors<BrowserDownloadExtension>();
+        if (descriptors.Count == 0 || await readPage() is not { } page) return default;
+        string? title = page == CurrentUri ? PageTitle : null;
+        foreach (ExtensionDescriptor descriptor in descriptors)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!extensions.TryAcquire(descriptor.Id, out IExtensionLease<BrowserDownloadExtension>? lease)) continue;
+            using (lease)
+            {
+                if (await lease.Extension.TryDownloadPageAsync(_editorContext, page, title, cancellationToken))
+                    return (page, true);
+            }
+        }
+
+        return (page, false);
+    }
+
     // Offers a file to the extensions while it can go straight into the project. The page script of the claim starts
     // now, while the page still shows what produced the file.
     internal BrowserDownloadHandling? ClaimDownload(BrowserDownloadOffer offer, Func<string, Task<string?>> runPageScript)

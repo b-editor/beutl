@@ -9,7 +9,11 @@
 3. The browser shows its download prompt. The claim's `Description` takes the place of the file name there, which stays in the tooltip.
 4. When the user confirms, the browser saves the file to the project's download folder (`resources/downloads` next to the project file) without showing the download options, records it in the download history, and calls `ImportAsync`.
 
-Nothing is saved or imported until the user confirms in the prompt, so a page cannot add anything on its own. Offers go to extensions only while the editor can add files to a saved scene in a saved project; otherwise the browser asks where to save the file as usual. Retrying a download from the history and the toolbar's download button do not offer the file to extensions.
+Nothing is saved or imported until the user confirms in the prompt, so a page cannot add anything on its own. Offers go to extensions only while the editor can add files to a saved scene in a saved project. Retrying from history uses the browser's download options.
+
+## Downloading the current page's media
+
+When the user chooses **Download Media** in the browser menu, Beutl calls `TryDownloadPageAsync` with the editor, page URL, page title and cancellation token. A downloader can use the URL of a video page to obtain its media streams. Return `false` for pages the extension does not handle. The browser tries the next extension and then its usual download options. For a handled page, show progress, honor cancellation, await the download and return `true`. The package stays loaded for the duration of the call. An extension implementing only this command can inherit the default file-offer methods.
 
 ## Claiming offers
 
