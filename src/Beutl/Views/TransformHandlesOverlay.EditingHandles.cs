@@ -13,6 +13,10 @@ internal sealed partial class TransformHandlesOverlay
     private IEditingHandleProvider? _editingHandleProvider;
     private IReadOnlyList<EditingHandle> _editingHandles = [];
 
+    // While the handles of an object inside the drawable show, such as an effect's, they are what is edited, so the
+    // drawable's own handles are neither drawn nor pressed. A drawable's own editing handles show with them.
+    private bool ShowsTransformHandles => _editingHandles.Count == 0 || ReferenceEquals(_editingHandleProvider, _drawable);
+
     public void UpdateEditingHandles(IEditingHandleProvider? provider, MediaTime time)
     {
         EditingHandle[] handles = provider?.GetEditingHandles(time).ToArray() ?? [];

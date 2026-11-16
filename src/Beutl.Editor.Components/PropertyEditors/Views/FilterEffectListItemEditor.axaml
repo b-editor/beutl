@@ -15,7 +15,7 @@
                                x:CompileBindings="False"
                                mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
-        <Grid ColumnDefinitions="*,Auto,Auto"
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto"
               IsVisible="{Binding !IsPresenter.Value}"
               ToolTip.Tip="{Binding HoverInfo.Value}">
             <ToggleButton x:Name="reorderHandle"
@@ -24,7 +24,20 @@
                           IsChecked="{Binding IsExpanded.Value}"
                           Theme="{StaticResource ListEditorMiniExpanderToggleButton}" />
 
-            <ToggleButton Grid.Column="1"
+            <Button x:Name="selectEffectButton"
+                    Grid.Column="1"
+                    Margin="4,0,0,0"
+                    Padding="0"
+                    AutomationProperties.Name="{x:Static lang:Strings.EditInFrame}"
+                    Classes="size-24x24"
+                    Click="SelectEffectClick"
+                    IsVisible="{Binding CanSelectEffect.Value}"
+                    Theme="{StaticResource TransparentButton}"
+                    ToolTip.Tip="{x:Static lang:Strings.EditInFrame}">
+                <icons:FluentIcon Icon="MyLocation" />
+            </Button>
+
+            <ToggleButton Grid.Column="2"
                           Margin="4,0,0,0"
                           Padding="0"
                           Classes="size-24x24"
@@ -32,7 +45,7 @@
                           IsEnabled="{Binding CanEditProperty.Value}"
                           Theme="{StaticResource VisibilityToggleButtonStyle}" />
 
-            <Button Grid.Column="2"
+            <Button Grid.Column="3"
                     Margin="4,0,8,0"
                     Padding="0"
                     Classes="size-24x24"

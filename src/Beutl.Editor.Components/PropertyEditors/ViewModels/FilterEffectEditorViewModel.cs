@@ -1,16 +1,25 @@
 ﻿using Avalonia.Input;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.PropertyAdapters;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
 public sealed class FilterEffectEditorViewModel : GroupableEditorViewModel<FilterEffect, FilterEffectGroup, FallbackFilterEffect>, IPresenterEditorViewModel
 {
+    private readonly ReactivePropertySlim<IEditorSelection?> _selection = new();
+
     public FilterEffectEditorViewModel(IPropertyAdapter<FilterEffect?> property)
         : base(property)
     {
+        _selection.DisposeWith(Disposables);
+        CanSelectEffect = Value.CombineLatest(_selection, (value, selection) => value is IEditingHandleProvider && selection != null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
         FilterName = Value.Select(v =>
             {
                 if (v != null)
@@ -37,7 +46,25 @@ public sealed class FilterEffectEditorViewModel : GroupableEditorViewModel<Filte
 
     public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
+    // Whether the effect has editing handles, which the preview shows while it is selected, and can be selected here.
+    public ReadOnlyReactivePropertySlim<bool> CanSelectEffect { get; }
+
     void ITargetPickerViewModel.SetTarget(CoreObject? target) => SetTarget(target as FilterEffect);
+
+    public override void Accept(IPropertyEditorContextVisitor visitor)
+    {
+        base.Accept(visitor);
+        // The copy that stands for several elements is in no scene, so selecting its effect would select nothing shown.
+        _selection.Value = EditsSeveralElements ? null : this.GetService<IEditorSelection>();
+    }
+
+    public void SelectEffect()
+    {
+        if (!IsDisposed && CanSelectEffect.Value)
+        {
+            _selection.Value?.Select(Value.Value);
+        }
+    }
 
     public void ChangeFilterType(Type type)
     {

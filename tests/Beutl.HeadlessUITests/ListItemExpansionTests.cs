@@ -205,8 +205,9 @@ public class ListItemExpansionTests
             AssertState(filterHeader, false);
             AssertState(otherHeader, false);
 
+            // The crosshair beside it shows only for an effect with editing handles.
             var delete = ((Panel)filterHeader.Parent!).Children.OfType<Button>()
-                .Single(b => b is not ToggleButton);
+                .Single(b => b is not ToggleButton && b.IsVisible);
             HeadlessTestHelpers.Click(delete, ticks: 3);
             Assert.That(effects.Children, Has.Count.EqualTo(1));
             Assert.That(effects.Children[0], Is.SameAs(shadow));

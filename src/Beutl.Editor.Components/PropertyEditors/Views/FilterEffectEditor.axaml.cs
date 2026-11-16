@@ -141,6 +141,11 @@ public partial class FilterEffectEditor : UserControl
         viewModel.SetNull();
     }
 
+    private void SelectEffectClick(object? sender, RoutedEventArgs e)
+    {
+        (DataContext as FilterEffectEditorViewModel)?.SelectEffect();
+    }
+
     private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } vm) return;

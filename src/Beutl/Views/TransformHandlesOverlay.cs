@@ -163,6 +163,11 @@ internal sealed partial class TransformHandlesOverlay : Control
     {
         base.Render(context);
         if (!HasShape) return;
+        if (!ShowsTransformHandles)
+        {
+            RenderEditingHandles(context);
+            return;
+        }
 
         var geom = new StreamGeometry();
         using (var ctx = geom.Open())
@@ -219,7 +224,7 @@ internal sealed partial class TransformHandlesOverlay : Control
 
     public HandleKind HitTest(AvaPoint imagePoint)
     {
-        if (!HasShape) return HandleKind.None;
+        if (!HasShape || !ShowsTransformHandles) return HandleKind.None;
 
         double tol = HandleSize / 2 + 2;
         double centerTol = CenterMarkerRadius + 2;

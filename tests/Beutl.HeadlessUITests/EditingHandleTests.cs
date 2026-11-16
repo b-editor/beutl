@@ -188,6 +188,76 @@ public class EditingHandleTests
         finally { window.Close(); }
     }
 
+    // While an effect's handles show, they are what the preview edits: the drawable's transform handles are neither drawn
+    // nor pressed, and they come back once the element is selected again.
+    [AvaloniaTest]
+    public async Task TransformHandlesStepAsideWhileAnEffectsHandlesShow()
+    {
+        (EditViewModel editor, PlayerView view, Window window, EditingHandleTestEffect effect) = await Open(900, false);
+        try
+        {
+            Assert.That(view.transformHandlesOverlay.HitTestEditingHandle(Position(view, effect.Position.Value))?.Provider,
+                Is.SameAs(effect));
+            AssertTransformHandles(view, window, shown: false);
+
+            editor.GetRequiredService<IEditorSelection>().Select(effect.FindHierarchicalParent<Element>());
+            await RenderPreview(editor);
+            AssertTransformHandles(view, window, shown: true);
+        }
+        finally { window.Close(); }
+    }
+
+    // A drawable's own editing handles show with its transform handles, which still move the drawable.
+    [AvaloniaTest]
+    public async Task ADrawablesOwnHandlesShowWithItsTransformHandles()
+    {
+        TestGpu.RequireAnyDevice();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("drawable-editing-handles");
+        var drawable = new EditingHandleTestDrawable();
+        await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
+            MediaTime.Zero, MediaTime.FromSeconds(4), 0, new ElementSource.EngineObject(() => drawable))], CancellationToken.None);
+        editor.GetRequiredService<IEditorSelection>().Select(drawable.FindHierarchicalParent<Element>());
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 900, Height = 560 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            editor.Player.IsMoveMode.Value = true;
+            await RenderPreview(editor);
+
+            Assert.That(view.transformHandlesOverlay.HitTestEditingHandle(Position(view, EditingHandleTestDrawable.HandlePosition))?.Provider,
+                Is.SameAs(drawable));
+            AssertTransformHandles(view, window, shown: true);
+        }
+        finally { window.Close(); }
+    }
+
+    // Whether the transform handles answer at the box's top-left corner, the middle of its top edge and the pivot, and
+    // whether the pivot's dot is drawn: its accent blue has little red, unlike the white of the drawables here.
+    private static void AssertTransformHandles(PlayerView view, Window window, bool shown)
+    {
+        TransformHandlesOverlay overlay = view.transformHandlesOverlay;
+        var box = overlay.LocalBounds;
+        AvaPoint corner = Position(view, new Point(box.Left, box.Top));
+        AvaPoint edge = Position(view, new Point((box.Left + box.Right) / 2, box.Top));
+        HeadlessTestHelpers.Render();
+        using WriteableBitmap frame = window.CaptureRenderedFrame()!;
+        AvaPoint pivot = ToWindow(view, window, overlay.PivotImage);
+        int red = HeadlessTestHelpers.ReadPixel(frame, new PixelPoint((int)pivot.X, (int)pivot.Y)).R;
+        Assert.Multiple(() =>
+        {
+            Assert.That(overlay.HitTest(corner),
+                Is.EqualTo(shown ? TransformHandlesOverlay.HandleKind.TopLeft : TransformHandlesOverlay.HandleKind.None));
+            Assert.That(overlay.HitTest(edge),
+                Is.EqualTo(shown ? TransformHandlesOverlay.HandleKind.Top : TransformHandlesOverlay.HandleKind.None));
+            Assert.That(overlay.HitTest(overlay.PivotImage),
+                Is.EqualTo(shown ? TransformHandlesOverlay.HandleKind.Center : TransformHandlesOverlay.HandleKind.None));
+            if (shown) Assert.That(red, Is.LessThan(100), "the pivot's dot is drawn");
+            else Assert.That(red, Is.GreaterThan(200), "the pivot's dot is not drawn");
+        });
+    }
+
     private static async Task<(EditViewModel, PlayerView, Window, EditingHandleTestEffect)> Open(
         int width, bool light, bool multiple = false, bool bound = false)
     {
@@ -273,5 +343,20 @@ internal sealed partial class EditingHandleTestEffect : FilterEffect, IEditingHa
     public new partial class Resource
     {
         protected override void ApplyTo(FilterEffectContext context) { }
+    }
+}
+
+internal sealed partial class EditingHandleTestDrawable : Drawable, IEditingHandleProvider
+{
+    public static readonly Point HandlePosition = new(40, 30);
+
+    public IReadOnlyList<EditingHandle> GetEditingHandles(MediaTime time) => [new("point", HandlePosition, "Point")];
+
+    public new partial class Resource
+    {
+        protected override Beutl.Graphics.Size MeasureCore(Beutl.Graphics.Size availableSize) => new(180, 120);
+
+        protected override void OnDraw(Beutl.Graphics.Rendering.GraphicsContext2D context)
+            => context.DrawRectangle(new Beutl.Graphics.Rect(0, 0, 180, 120), Beutl.Media.Brushes.Resource.White, null);
     }
 }
