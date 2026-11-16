@@ -67,6 +67,14 @@ public class DownloadTaskModel : ITaskStepModel
 
                 if (!_model.IsRemote || await PreferLocalSourceAnswer.WaitAsync(token))
                 {
+                    if (!_model.AllowUnsupportedVersion)
+                    {
+                        using var stream = File.OpenRead(Helper.GetNupkgFilePath(_model.Id, _model.Version.ToString()));
+                        LocalPackage? local = Helper.ReadLocalPackageFromNupkgFile(stream);
+                        if (!PackageCompatibility.SupportsCurrentBeutlVersion(local?.TargetVersion))
+                            return UnsupportedVersion();
+                    }
+
                     DownloadSkipped.Value = true;
                     Context = installer.PrepareForInstall(_model.Id, _model.Version.ToString(), true, token);
                     Succeeded.Value = true;
@@ -80,6 +88,8 @@ public class DownloadTaskModel : ITaskStepModel
 
             Package package = await discover.GetPackage(_model.Id, token);
             Release release = await package.GetReleaseAsync(_model.Version.ToString(), token);
+            if (!_model.AllowUnsupportedVersion && !release.CanInstall())
+                return UnsupportedVersion();
 
             Context = await installer.PrepareForInstall(release, true, token);
             DownloadMessage.Value = string.Format(Strings.Downloading_XXX, PackageFileName);
@@ -124,6 +134,13 @@ public class DownloadTaskModel : ITaskStepModel
             IsRunning.Value = false;
             _logger.LogInformation("Download task ended for package {PackageId} version {Version}.", _model.Id, _model.Version);
         }
+    }
+
+    private bool UnsupportedVersion()
+    {
+        ErrorMessage.Value = Language.ExtensionsStrings.This_extension_does_not_support_your_Beutl_version;
+        Failed.Value = true;
+        return false;
     }
 
     private async Task<ApiErrorResponse?> TryGetApiErrorResponse(ApiException error)

@@ -29,13 +29,13 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
         _handler = new PackageOperationHandler(app, editorService, projectService);
 
         (CanCancel, IsInstallButtonVisible, IsUpdateButtonVisible, IsUninstallButtonVisible) = PackageButtonStates.Create(
-            _handler, package.Name, IsBusy, LatestRelease, _disposables);
+            _handler, package.Name, IsBusy, LatestRelease, _disposables, PackageCompatibility.SupportsCurrentBeutlVersion(package.TargetVersion));
 
-        Install = new AsyncReactiveCommand(IsBusy.Inverse())
+        Install = new AsyncReactiveCommand(IsInstallButtonVisible)
             .WithSubscribe(InstallAsync)
             .DisposeWith(_disposables);
 
-        Update = new AsyncReactiveCommand(IsBusy.Inverse())
+        Update = new AsyncReactiveCommand(IsUpdateButtonVisible)
             .WithSubscribe(UpdateAsync)
             .DisposeWith(_disposables);
 
@@ -84,22 +84,18 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
         try
         {
             IsBusy.Value = true;
-            if (!await _handler.EnsureProjectClosed())
+            if (LatestRelease.Value is not { } release || !await _handler.EnsureProjectClosed())
                 return;
 
             StatusText.Value = ExtensionsStrings.Updating;
-            if (LatestRelease.Value != null)
-            {
-                var packageId = new PackageIdentity(Package.Name,
-                    new NuGetVersion(LatestRelease.Value.Version.Value));
+            var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
 
-                await _handler.UpdateOrQueueAsync(
-                    Package.Name,
-                    packageId,
-                    token => _handler.DownloadAndLoadPackage(LatestRelease.Value, packageId, token),
-                    _logger,
-                    CancellationToken.None);
-            }
+            await _handler.UpdateOrQueueAsync(
+                Package.Name,
+                packageId,
+                token => _handler.DownloadAndLoadPackage(release, packageId, token),
+                _logger,
+                CancellationToken.None);
         }
         catch (Exception e)
         {

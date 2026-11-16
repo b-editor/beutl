@@ -6,6 +6,17 @@ namespace Beutl.Api.Services;
 // Lets a package built for another Beutl version load only if the host has every API it references.
 internal sealed class PackageCompatibility(PackageApiCheckCache cache)
 {
+    internal static bool SupportsCurrentBeutlVersion(string? target)
+    {
+        if (target != null && VersionRange.TryParse(target, out VersionRange? range)
+            && NuGetVersion.TryParse(BeutlApplication.Version, out NuGetVersion? host))
+        {
+            return range.Satisfies(host);
+        }
+
+        return true;
+    }
+
     public void EnsureCompatible(
         LocalPackage package,
         IReadOnlyCollection<string> assemblies,

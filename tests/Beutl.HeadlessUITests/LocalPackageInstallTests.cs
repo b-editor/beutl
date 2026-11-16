@@ -112,6 +112,35 @@ public sealed class LocalPackageInstallTests
         });
     }
 
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task DeferredInstallChecksTheTargetOfTheChosenSource(bool preferLocal)
+    {
+        string unsupported = $"({BeutlApplication.Version},)";
+        var identity = TestPackages.CreateNupkg("Beutl.Deferred", "2.0.0", _cleanup, unsupported);
+        using var handler = new StoreHandler(TestStore.CreatePackageResponse(identity.Id),
+            TestStore.CreateReleaseResponse("2.0.0", fileId: "asset", targetVersion: unsupported));
+        using var http = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        var model = new PackageChangeModel(identity.Id, identity.Version, identity.Id, true, PackageChangeAction.Install) { Conflict = true };
+        var download = new DownloadTaskModel(model, app);
+        download.SetPreferLocalSource(preferLocal);
+
+        Assert.That(await download.Run(CancellationToken.None), Is.False);
+        Assert.That(download.ErrorMessage.Value, Is.EqualTo(Language.ExtensionsStrings.This_extension_does_not_support_your_Beutl_version));
+        Assert.That(handler.Requests.Any(request => request.RequestUri!.AbsolutePath.Contains("/files/")), Is.False);
+
+        if (preferLocal)
+        {
+            var direct = new ChangesModel();
+            await direct.Load(app, [$"{identity.Id}/2.0.0"], [], [], CancellationToken.None);
+            var forced = new DownloadTaskModel(direct.InstallItems.Single(), app);
+            forced.SetPreferLocalSource(true);
+            Assert.That(await forced.Run(CancellationToken.None), Is.True);
+        }
+    }
+
     private sealed class MissingStorePackageHandler : HttpMessageHandler
     {
         public int RequestCount { get; private set; }
