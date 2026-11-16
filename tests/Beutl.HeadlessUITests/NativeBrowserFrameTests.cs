@@ -14,6 +14,8 @@ using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
 using Beutl.Language;
 using Beutl.Testing.Headless;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 
 namespace Beutl.HeadlessUITests;
 
@@ -27,13 +29,13 @@ internal static class NativeBrowserFrameTestHost
         try
         {
             return AppBuilder.Configure<TestApp>().UsePlatformDetect()
-                .AfterSetup(_ => Dispatcher.UIThread.Post(CheckFrames))
+                .AfterSetup(_ => Dispatcher.UIThread.Post(() => CheckNavigation(args[0])))
                 .StartWithClassicDesktopLifetime(args, ShutdownMode.OnExplicitShutdown);
         }
         finally { BeutlHomeIsolation.End(); }
     }
 
-    private static async void CheckFrames()
+    private static async void CheckNavigation(string scenario)
     {
         var lifetime = (IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
         Window? window = null;
@@ -52,6 +54,12 @@ internal static class NativeBrowserFrameTestHost
             window = new Window { Content = view, Width = 640, Height = 480, ShowActivated = false, ShowInTaskbar = false };
             window.Show();
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            if (scenario == "--native-browser-history")
+            {
+                await CheckHistoryAsync(view, webView, vm, timeout.Token);
+                exitCode = 0;
+                return;
+            }
             var loaded = new TaskCompletionSource();
             webView.NavigationCompleted += (_, _) => loaded.TrySetResult();
             webView.NavigateToString("""
@@ -149,18 +157,91 @@ internal static class NativeBrowserFrameTestHost
         await failed;
         Assert.That(states, Is.EqualTo(new[] { true, false }));
     }
+
+    private static async Task CheckHistoryAsync(WebBrowserTabView view, NativeWebView webView,
+        WebBrowserTabViewModel vm, CancellationToken token)
+    {
+        await using var server = WebApplication.CreateSlimBuilder().Build();
+        server.Urls.Add("http://127.0.0.1:0");
+        server.MapGet("/{**path}", () => Results.Content("<title>History</title>", "text/html"));
+        await server.StartAsync(token);
+        var first = new Uri(server.Urls.Single() + "/first");
+        var page = new Uri(first, "/second");
+        Button ToolbarButton(string tip) => view.GetVisualDescendants().OfType<Button>()
+            .Single(button => Equals(ToolTip.GetTip(button), tip));
+        Button back = ToolbarButton(Strings.Back);
+        Button forward = ToolbarButton(Strings.Forward);
+        Button refresh = ToolbarButton(Strings.Refresh);
+        Button stop = ToolbarButton(Strings.Stop);
+
+        async Task LoadDocument(Uri uri, Action navigate)
+        {
+            var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            void Completed(object? _, WebViewNavigationCompletedEventArgs e)
+            {
+                if (e.Request == uri) loaded.TrySetResult();
+            }
+            webView.NavigationCompleted += Completed;
+            try
+            {
+                navigate();
+                await loaded.Task.WaitAsync(token);
+            }
+            finally { webView.NavigationCompleted -= Completed; }
+        }
+
+        await LoadDocument(first, () => webView.Navigate(first));
+        await LoadDocument(page, () =>
+        {
+            vm.Address.Value = page.AbsoluteUri;
+            view.NavigateFromAddress();
+            Assert.That(stop.IsVisible, Is.True);
+        });
+        Assert.That(back.IsEnabled, Is.True);
+        await webView.InvokeScript("history.pushState(1, '', '?step=2')");
+
+        async Task Traverse(Button button, string relativeAddress)
+        {
+            string address = new Uri(page, relativeAddress).AbsoluteUri;
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            while (WebBrowserTabView.NormalizePageTitle(await webView.InvokeScript("location.href")) != address)
+                await Task.Delay(20, token);
+            Assert.Multiple(() =>
+            {
+                Assert.That(vm.IsLoading.Value, Is.False);
+                Assert.That(refresh.IsVisible, Is.True);
+                Assert.That(stop.IsVisible, Is.False);
+                Assert.That(vm.Address.Value, Is.EqualTo(address));
+                Assert.That(vm.CurrentUri.AbsoluteUri, Is.EqualTo(address));
+            });
+        }
+
+        await Traverse(back, "");
+        Assert.That(forward.IsEnabled, Is.True);
+        await Traverse(forward, "?step=2");
+        Assert.That(back.IsEnabled, Is.True);
+        await webView.InvokeScript("history.pushState(2, '', '#section')");
+        await Traverse(back, "?step=2");
+        await Traverse(forward, "?step=2#section");
+        await Traverse(back, "?step=2");
+        await Traverse(back, "");
+        await LoadDocument(first, () => back.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)));
+        Assert.That(vm.CurrentUri, Is.EqualTo(first));
+        Assert.That(refresh.IsVisible, Is.True);
+    }
 }
 
 [TestFixture]
 public class NativeBrowserFrameTests
 {
-    [Test]
+    [TestCase("--native-browser-frames", TestName = "EmbeddedDocumentsLoadWithoutBecomingTopLevelNavigations")]
+    [TestCase("--native-browser-history", TestName = "HistoryButtonsSettleAfterSameDocumentNavigation")]
     [Platform("MacOSX")]
-    public async Task EmbeddedDocumentsLoadWithoutBecomingTopLevelNavigations()
+    public async Task NativeNavigation(string scenario)
     {
         var start = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true };
         start.ArgumentList.Add(typeof(NativeBrowserFrameTestHost).Assembly.Location);
-        start.ArgumentList.Add("--native-browser-frames");
+        start.ArgumentList.Add(scenario);
         using Process process = Process.Start(start)!;
         Task<string> output = process.StandardOutput.ReadToEndAsync();
         Task<string> error = process.StandardError.ReadToEndAsync();
