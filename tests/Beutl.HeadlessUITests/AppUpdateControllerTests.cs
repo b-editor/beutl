@@ -15,6 +15,7 @@ using Beutl.ViewModels.Dialogs;
 using Beutl.Views;
 using Beutl.Views.Dialogs;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.HeadlessUITests;
 
@@ -65,8 +66,8 @@ public sealed class AppUpdateControllerTests
     // The installer type needs no unpacking, so it is ready as soon as it has downloaded.
     private static UpdateDialogViewModel ViewModel(
         AppUpdateResponse update, HttpMessageHandler handler, string type = "installer", Func<bool>? claimUpdateFolders = null,
-        Func<string, CancellationToken, Task<int>>? prepareExtensions = null)
-        => new(update, false, httpClient: new HttpClient(handler), loadMetadata: () => Task.FromResult<AssetMetadataJson?>(new AssetMetadataJson
+        Func<string, CancellationToken, Task<int>>? prepareExtensions = null, FlatpakUpdater? flatpak = null, TimeProvider? timeProvider = null)
+        => new(update, flatpak != null, flatpak, httpClient: new HttpClient(handler), loadMetadata: () => Task.FromResult<AssetMetadataJson?>(new AssetMetadataJson
         {
             Id = "test",
             OS = "test",
@@ -74,7 +75,67 @@ public sealed class AppUpdateControllerTests
             Version = "2.0.0",
             Standalone = "false",
             Type = type,
-        }), claimUpdateFolders: claimUpdateFolders, prepareExtensions: prepareExtensions);
+        }), claimUpdateFolders: claimUpdateFolders, prepareExtensions: prepareExtensions, timeProvider: timeProvider);
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task Stalled_extension_preparation_leaves_the_app_update_installable_unless_canceled(bool flatpak, bool cancelUpdate)
+    {
+        if (flatpak && OperatingSystem.IsWindows()) Assert.Ignore("Flatpak uses Unix paths.");
+        var clock = new FakeTimeProvider();
+        var reading = new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var finishRead = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var setting = GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
+        var previous = setting.Value;
+        var updater = flatpak ? new FlatpakUpdater($"""
+            [Instance]
+            arch=x86_64
+            branch=master
+            app-path=/app/files
+            instance-path={BeutlEnvironment.GetHomeDirectoryPath()}
+            """) : null;
+        var vm = ViewModel(Update(), new Handler(HttpStatusCode.OK), flatpak: updater, timeProvider: clock,
+            prepareExtensions: (_, token) =>
+            {
+                reading.SetResult(token);
+                return finishRead.Task;
+            });
+        try
+        {
+            setting.Value = ExtensionUpdateMode.WithAppUpdate;
+            vm.Start();
+            CancellationToken transfer = await reading.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            clock.Advance(TimeSpan.FromSeconds(29));
+            Assert.That(transfer.IsCancellationRequested, Is.False);
+            Assert.That(vm.Phase.Value, Is.EqualTo(AppUpdatePhase.Preparing));
+            if (cancelUpdate) vm.Cancel();
+            else clock.Advance(TimeSpan.FromSeconds(1));
+
+            if (cancelUpdate)
+            {
+                await vm.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(2));
+                Assert.That(vm.Phase.Value, Is.EqualTo(AppUpdatePhase.Canceled));
+            }
+            else
+            {
+                await HeadlessTestHelpers.WaitUntilAsync(() => vm.Phase.Value == AppUpdatePhase.Ready, TimeSpan.FromSeconds(2));
+                Assert.That(vm.IsPrimaryButtonEnabled.Value, Is.True);
+            }
+            Assert.That(transfer.IsCancellationRequested, Is.True);
+            Assert.That(vm.CancellationToken.IsCancellationRequested, Is.EqualTo(cancelUpdate));
+            Assert.That(vm.IncludedExtensions, Is.Null);
+        }
+        finally
+        {
+            vm.Cancel();
+            finishRead.TrySetResult(1);
+            if (vm.UpdateTask != null) await vm.UpdateTask;
+            setting.Value = previous;
+        }
+    }
 
     [AvaloniaTest]
     [TestCase(ExtensionUpdateMode.NotifyOnly, 3, false)]

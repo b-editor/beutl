@@ -37,6 +37,7 @@ public class UpdateDialogViewModel
     private readonly Func<Task<AssetMetadataJson?>> _loadMetadata;
     private readonly Func<bool> _claimUpdateFolders;
     private readonly Func<string, CancellationToken, Task<int>>? _prepareExtensions;
+    private readonly TimeProvider _timeProvider;
     private readonly ReactivePropertySlim<int> _preparedExtensionCount = new();
     private Task? _startTask;
     private string? _downloadFile;
@@ -62,7 +63,7 @@ public class UpdateDialogViewModel
     internal UpdateDialogViewModel(AppUpdateResponse update, bool isFlatpak,
         FlatpakUpdater? flatpak = null, HttpClient? httpClient = null,
         Func<Task<AssetMetadataJson?>>? loadMetadata = null, Func<bool>? claimUpdateFolders = null,
-        Func<string, CancellationToken, Task<int>>? prepareExtensions = null)
+        Func<string, CancellationToken, Task<int>>? prepareExtensions = null, TimeProvider? timeProvider = null)
     {
         Update = update;
         _flatpakInstallRequested = isFlatpak ? new(TaskCreationOptions.RunContinuationsAsynchronously) : null;
@@ -71,6 +72,7 @@ public class UpdateDialogViewModel
         _loadMetadata = loadMetadata ?? BeutlApiApplication.LoadMetadata;
         _claimUpdateFolders = claimUpdateFolders ?? ClaimUpdateFolders;
         _prepareExtensions = prepareExtensions;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         ExtensionUpdateSummary = _preparedExtensionCount.CombineLatest(
             GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates.GetObservable(), (_, _) => IncludedExtensions);
         PrimaryButtonText = new(isFlatpak
@@ -407,22 +409,35 @@ public class UpdateDialogViewModel
         string previous = ProgressText.Value;
         ProgressText.Value = MessageStrings.PreparingExtensionUpdates;
         IsIndeterminate.Value = true;
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30), _timeProvider);
+        using var preparation = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, deadline.Token);
         try
         {
-            _preparedExtensionCount.Value = await _prepareExtensions(Update.LatestVersion, _cts.Token);
+            _preparedExtensionCount.Value = await PrepareAsync(preparation.Token).WaitAsync(preparation.Token);
         }
-        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        catch (OperationCanceledException) when (preparation.IsCancellationRequested)
         {
-            // Cancel already withdrew the app update.
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Could not prepare extension updates alongside Beutl.");
+            // The deadline cancels only the extensions. Canceling the app update still withdraws it.
         }
         finally
         {
             IsIndeterminate.Value = false;
             ProgressText.Value = _cts.IsCancellationRequested ? MessageStrings.Canceled : previous;
+        }
+
+        async Task<int> PrepareAsync(CancellationToken token)
+        {
+            try
+            {
+                return await _prepareExtensions(Update.LatestVersion, token);
+            }
+            catch (Exception ex)
+            {
+                // A source may finish unwinding after the app is ready to install.
+                if (!token.IsCancellationRequested)
+                    _logger.LogWarning(ex, "Could not prepare extension updates alongside Beutl.");
+                return 0;
+            }
         }
     }
 
