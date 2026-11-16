@@ -17,7 +17,7 @@ under the adjacent `LICENSE.txt` (SIL Open Font License 1.1).
 To reproduce with Python and fontTools 4.60.1, download the pinned upstream font and run:
 
 ```shell
-python build/fonts/prepare_noto_color_emoji.py NotoColorEmoji-upstream.ttf src/Beutl.Controls/Assets/Fonts/NotoColorEmoji/NotoColorEmoji.ttf
+python build/fonts/prepare_noto_color_emoji.py NotoColorEmoji-upstream.ttf src/Beutl.BundledFonts/Fonts/NotoColorEmoji/NotoColorEmoji.ttf
 ```
 
 The rendering engine uses it for emoji presentation while ordinary digits and text presentation stay in the selected font.

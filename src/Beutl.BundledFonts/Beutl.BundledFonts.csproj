@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The fonts the app's UI and the rendering engine's text fallback share: Noto Sans, Noto Sans JP/SC/KR
+       and Noto Color Emoji, as plain manifest resources named Fonts/<Family>/<File>. It has no code and no
+       dependencies, so the app, its helper processes and the standalone MCP server load the same single copy:
+       Avalonia through resm: URIs (UiFonts) and the engine through Beutl.Media.BundledFonts. Their licenses
+       are reproduced in THIRD_PARTY_NOTICES.md, which every distribution ships. -->
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Fonts\**\*.ttf;Fonts\**\*.otf"
+                      LogicalName="Fonts/$([System.String]::Copy('%(RecursiveDir)').Replace('\', '/'))%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Globalization;
+using Avalonia;
 #if DEBUG
 using Avalonia.Diagnostics;
 #endif
@@ -37,7 +38,6 @@ namespace Beutl;
 
 public sealed class App : Application
 {
-    private static bool s_bundledEngineFontsRegistered;
     private static readonly ILogger s_logger = Log.CreateLogger<App>();
     private readonly TaskCompletionSource _windowOpenTcs = new();
     private FluentAvaloniaTheme? _theme;
@@ -82,31 +82,10 @@ public sealed class App : Application
         }
     }
 
+    // The same fonts and order as the UI, shared with the standalone MCP server (Beutl.AgentToolkit).
     internal static void RegisterBundledEngineFonts()
     {
-        if (!s_bundledEngineFontsRegistered)
-        {
-            foreach (string familyName in UiFonts.DefaultFontFamily.FamilyNames.Append("Noto Color Emoji"))
-            {
-                var root = new Uri($"avares://Beutl.Controls/Assets/Fonts/{familyName.Replace(" ", "")}/");
-                foreach (Uri uri in AssetLoader.GetAssets(root, null).OrderBy(uri => uri.AbsoluteUri, StringComparer.Ordinal))
-                {
-                    if (Path.GetExtension(uri.AbsolutePath) is not (".ttf" or ".otf"))
-                        continue;
-                    string weightName = Path.GetFileNameWithoutExtension(uri.AbsolutePath).Split('-')[^1];
-                    Media.FontWeight weight = Enum.TryParse(weightName, out Media.FontWeight parsedWeight)
-                        ? parsedWeight : Media.FontWeight.Regular;
-                    Media.FontManager.Instance.RegisterFont(
-                        new Media.Typeface(new Media.FontFamily(familyName), Media.FontStyle.Normal, weight),
-                        () => AssetLoader.Open(uri));
-                }
-            }
-            s_bundledEngineFontsRegistered = true;
-        }
-
-        Media.FontManager.Instance.SetFallbackFonts(
-            UiFonts.DefaultFontFamily.FamilyNames.Select(name => new Media.FontFamily(name)),
-            new Media.FontFamily("Noto Color Emoji"));
+        Media.BundledFonts.Apply(Media.FontManager.Instance, CultureInfo.CurrentUICulture);
     }
 
     private void ApplyDockStringOverrides()

@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Beutl.AgentToolkit\Beutl.AgentToolkit.csproj" />
+    <!-- The UI fallback and emoji fonts text falls back to, as in the app; the same file the app ships. -->
+    <ProjectReference Include="..\Beutl.BundledFonts\Beutl.BundledFonts.csproj" />
   </ItemGroup>
 
   <ItemGroup>

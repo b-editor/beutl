@@ -16,6 +16,7 @@
   <ItemGroup>
     <Using Include="NUnit.Framework" />
     <EmbeddedResource Include="..\Beutl.UnitTests\Assets\Font\BeutlTestVariable.ttf" LogicalName="ProjectFontFixture.ttf" />
+    <EmbeddedResource Include="..\Beutl.UnitTests\Assets\Font\Roboto-Regular.ttf" LogicalName="LatinOnlyFontFixture.ttf" />
   </ItemGroup>
 
   <ItemGroup>
@@ -25,6 +26,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.AgentToolkit\Beutl.AgentToolkit.csproj" />
+    <!-- As Beutl.AgentToolkit.Mcp ships it, for the text fallback the server sets up. -->
+    <ProjectReference Include="..\..\src\Beutl.BundledFonts\Beutl.BundledFonts.csproj" />
   </ItemGroup>
 
 </Project>
