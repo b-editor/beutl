@@ -6,10 +6,7 @@ namespace Beutl.Graphics.Rendering;
 public sealed class RenderExecutionInput
 {
     private readonly RenderExecutionSessionToken _token;
-    private readonly Rect _bounds;
-    private readonly EffectiveScale _effectiveScale;
-    private readonly PixelRect _deviceBounds;
-    private readonly Rect _rasterBounds;
+    private readonly RenderPlacement _placement;
     private readonly SKImage _image;
     private readonly Func<Bitmap>? _createSnapshot;
     private bool _snapshotUsed;
@@ -35,76 +32,22 @@ public sealed class RenderExecutionInput
         ArgumentNullException.ThrowIfNull(image);
 
         _token = token;
-        _bounds = bounds;
-        _effectiveScale = effectiveScale;
-        _deviceBounds = ValidateDeviceBounds(
-            bounds,
-            effectiveScale.Value,
-            deviceBounds,
-            rasterBounds);
-        _rasterBounds = rasterBounds;
+        ValidateDeviceBounds(bounds, effectiveScale.Value, deviceBounds, rasterBounds);
+        _placement = RenderPlacement.FromRasterOrigin(bounds, effectiveScale, deviceBounds, rasterBounds.Position);
         _image = image;
         _createSnapshot = createSnapshot;
     }
 
-    public Rect Bounds
+    public RenderPlacement Placement
     {
-        get { _token.ThrowIfInactive(); return _bounds; }
-    }
-
-    public EffectiveScale EffectiveScale
-    {
-        get { _token.ThrowIfInactive(); return _effectiveScale; }
-    }
-
-    public PixelRect DeviceBounds
-    {
-        get { _token.ThrowIfInactive(); return _deviceBounds; }
-    }
-
-    public PixelSize DeviceSize
-    {
-        get { _token.ThrowIfInactive(); return _deviceBounds.Size; }
-    }
-
-    /// <summary>
-    /// Gets the translation from input-local coordinates to the composition-device grid used to
-    /// round <see cref="DeviceBounds"/>.
-    /// </summary>
-    public Vector DeviceGridOffset
-    {
-        get
-        {
-            _token.ThrowIfInactive();
-            return new Vector(
-                (_deviceBounds.X / _effectiveScale.Value) - _rasterBounds.X,
-                (_deviceBounds.Y / _effectiveScale.Value) - _rasterBounds.Y);
-        }
-    }
-
-    /// <summary>
-    /// Gets the pixel-aligned logical footprint represented by the complete backing image.
-    /// This can conservatively extend beyond <see cref="Bounds"/> because of device-pixel rounding.
-    /// </summary>
-    public Rect RasterBounds
-    {
-        get { _token.ThrowIfInactive(); return _rasterBounds; }
-    }
-
-    public Point LogicalOrigin
-    {
-        get
-        {
-            _token.ThrowIfInactive();
-            return _rasterBounds.Position;
-        }
+        get { _token.ThrowIfInactive(); return _placement; }
     }
 
     public void Draw(ImmediateCanvas canvas)
     {
         ArgumentNullException.ThrowIfNull(canvas);
         _token.VerifyActiveCanvas(canvas);
-        canvas.DrawExecutionInput(_image, _rasterBounds);
+        canvas.DrawExecutionInput(_image, _placement.RasterBounds);
     }
 
     /// <summary>
@@ -123,7 +66,7 @@ public sealed class RenderExecutionInput
         ArgumentNullException.ThrowIfNull(canvas);
         ArgumentNullException.ThrowIfNull(paint);
         _token.VerifyActiveCanvas(canvas);
-        canvas.DrawExecutionInput(_image, _rasterBounds, paint, sampling);
+        canvas.DrawExecutionInput(_image, _placement.RasterBounds, paint, sampling);
     }
 
     public void DrawDeviceSpace(ImmediateCanvas canvas, Point devicePoint)
@@ -153,7 +96,7 @@ public sealed class RenderExecutionInput
         _token.AuthorizeResource(snapshot, () => use(snapshot));
     }
 
-    private static PixelRect ValidateDeviceBounds(
+    private static void ValidateDeviceBounds(
         Rect bounds,
         float density,
         PixelRect deviceBounds,
@@ -177,7 +120,5 @@ public sealed class RenderExecutionInput
                 "Execution input raster bounds must match the backing size and contain the semantic bounds.",
                 nameof(deviceBounds));
         }
-
-        return deviceBounds;
     }
 }

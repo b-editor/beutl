@@ -31,7 +31,7 @@ public sealed class TargetScopeSession
         get { _canvas.Token.ThrowIfInactive(); return _outputBounds; }
     }
 
-    public Rect RequiredRegion => _canvas.LogicalBounds;
+    public Rect RequiredRegion => _canvas.Placement.LogicalBounds;
 
     public RenderIntent Intent
     {

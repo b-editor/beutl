@@ -185,30 +185,24 @@ public sealed class RenderDescriptionAndExecutionContractTests
 
         MaterializedInputDescription description = MaterializedInputDescription.FromRenderTarget(
             token,
-            bounds,
-            EffectiveScale.At(2),
-            deviceBounds,
-            deviceGridOffset,
+            new RenderPlacement(bounds, EffectiveScale.At(2), deviceBounds, deviceGridOffset),
             RenderHitTestContract.OutputBounds);
 
         Assert.Multiple(() =>
         {
-            Assert.That(description.Bounds, Is.EqualTo(bounds));
-            Assert.That(description.EffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
-            Assert.That(description.DeviceBounds, Is.EqualTo(deviceBounds));
-            Assert.That(description.DeviceGridOffset, Is.EqualTo(deviceGridOffset));
+            Assert.That(description.Placement.LogicalBounds, Is.EqualTo(bounds));
+            Assert.That(description.Placement.Scale, Is.EqualTo(EffectiveScale.At(2)));
+            Assert.That(description.Placement.DeviceBounds, Is.EqualTo(deviceBounds));
+            Assert.That(description.Placement.DeviceGridOffset, Is.EqualTo(deviceGridOffset));
             Assert.That(
-                description.RasterBounds,
+                description.Placement.RasterBounds,
                 Is.EqualTo(deviceBounds.ToRect(2).Translate(-deviceGridOffset)));
             Assert.That(description.Target, Is.SameAs(token));
             Assert.That(description.HitTest, Is.EqualTo(RenderHitTestContract.OutputBounds));
             Assert.That(
                 () => MaterializedInputDescription.FromRenderTarget(
                     token,
-                    bounds,
-                    EffectiveScale.Unbounded,
-                    deviceBounds,
-                    deviceGridOffset,
+                    new RenderPlacement(bounds, EffectiveScale.Unbounded, deviceBounds, deviceGridOffset),
                     RenderHitTestContract.None),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
@@ -217,19 +211,13 @@ public sealed class RenderDescriptionAndExecutionContractTests
             Assert.That(
                 () => MaterializedInputDescription.FromRenderTarget(
                     token,
-                    bounds,
-                    EffectiveScale.At(2),
-                    deviceBounds,
-                    deviceGridOffset,
+                    new RenderPlacement(bounds, EffectiveScale.At(2), deviceBounds, deviceGridOffset),
                     RenderHitTestContract.AnyInput),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
                 () => MaterializedInputDescription.FromRenderTarget(
                     token,
-                    bounds,
-                    EffectiveScale.At(2),
-                    new PixelRect(0, 0, deviceBounds.Width, deviceBounds.Height),
-                    deviceGridOffset,
+                    new RenderPlacement(bounds, EffectiveScale.At(2), new PixelRect(0, 0, deviceBounds.Width, deviceBounds.Height), deviceGridOffset),
                     RenderHitTestContract.None),
                 Throws.TypeOf<ArgumentException>());
         });
@@ -258,14 +246,14 @@ public sealed class RenderDescriptionAndExecutionContractTests
             retainedCanvas = canvas;
             Assert.Multiple(() =>
             {
-                Assert.That(facade.DeviceBounds, Is.EqualTo(deviceBounds));
-                Assert.That(facade.RasterBounds, Is.EqualTo(deviceBounds.ToRect(2)));
-                Assert.That(facade.LogicalOrigin,
+                Assert.That(facade.Placement.DeviceBounds, Is.EqualTo(deviceBounds));
+                Assert.That(facade.Placement.RasterBounds, Is.EqualTo(deviceBounds.ToRect(2)));
+                Assert.That(facade.Placement.LogicalOrigin,
                     Is.EqualTo(new Point(deviceBounds.X / 2f, deviceBounds.Y / 2f)));
-                Assert.That(canvas.Transform.Transform(facade.LogicalOrigin), Is.EqualTo(default(Point)));
+                Assert.That(canvas.Transform.Transform(facade.Placement.LogicalOrigin), Is.EqualTo(default(Point)));
                 Assert.That(() => canvas.Clear(Colors.Red), Throws.Nothing);
                 canvas.Pop(0);
-                Assert.That(canvas.Transform.Transform(facade.LogicalOrigin), Is.EqualTo(default(Point)));
+                Assert.That(canvas.Transform.Transform(facade.Placement.LogicalOrigin), Is.EqualTo(default(Point)));
                 Assert.That(() => canvas.PushLayer(), Throws.TypeOf<InvalidOperationException>());
                 Assert.That(() => canvas.DrawNode(null!), Throws.TypeOf<InvalidOperationException>());
                 Assert.That(() => RenderTarget.GetRenderTarget(canvas), Throws.TypeOf<InvalidOperationException>());
@@ -282,7 +270,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
         });
 
         token.Complete();
-        Assert.That(() => _ = facade.Density, Throws.TypeOf<InvalidOperationException>());
+        Assert.That(() => _ = facade.Placement.Scale.Value, Throws.TypeOf<InvalidOperationException>());
     }
 
     [Test]
@@ -331,14 +319,14 @@ public sealed class RenderDescriptionAndExecutionContractTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(input.DeviceBounds, Is.EqualTo(inputDeviceBounds));
-            Assert.That(input.DeviceSize, Is.EqualTo(input.DeviceBounds.Size));
-            Assert.That(input.RasterBounds, Is.EqualTo(inputRasterBounds));
-            Assert.That(input.LogicalOrigin, Is.EqualTo(inputRasterBounds.Position));
+            Assert.That(input.Placement.DeviceBounds, Is.EqualTo(inputDeviceBounds));
+            Assert.That(input.Placement.DeviceSize, Is.EqualTo(input.Placement.DeviceBounds.Size));
+            Assert.That(input.Placement.RasterBounds, Is.EqualTo(inputRasterBounds));
+            Assert.That(input.Placement.LogicalOrigin, Is.EqualTo(inputRasterBounds.Position));
         });
 
         token.Complete();
-        Assert.That(() => _ = input.Bounds, Throws.TypeOf<InvalidOperationException>());
+        Assert.That(() => _ = input.Placement.LogicalBounds, Throws.TypeOf<InvalidOperationException>());
     }
 
     [Test]

@@ -77,7 +77,7 @@ internal sealed record FilterEffectExecutionSettings
     public FilterEffectExecutionSettings WithDeviceGridOffsetFrom(EffectTargets targets)
         => DeviceGridOffset.HasValue
             ? this
-            : this with { DeviceGridOffset = targets.Count > 0 ? targets[0].DeviceGridOffset : default };
+            : this with { DeviceGridOffset = targets.Count > 0 ? targets[0].Allocation.DeviceGridOffset : default };
 
     public ImmediateCanvas CreateCanvas(RenderTarget target, float density, Size logicalSize)
         => ImmediateCanvas.CreateCustomEffectCanvas(

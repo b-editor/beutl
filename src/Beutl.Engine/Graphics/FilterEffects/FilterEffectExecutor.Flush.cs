@@ -102,7 +102,7 @@ public sealed partial class FilterEffectExecutor
         BufferDimensionBudget budget = Budget;
         float fit = aligned || hasFilter
             ? budget.ClampWorkingScaleToExactFootprint(
-                budgetBounds.Translate(target.DeviceGridOffset),
+                budgetBounds.Translate(target.Allocation.DeviceGridOffset),
                 WorkingScale)
             : budget.ClampWorkingScale(budgetBounds, WorkingScale);
         if (fit >= WorkingScale)
@@ -340,13 +340,13 @@ public sealed partial class FilterEffectExecutor
         if (AlignsToDeviceGrid(target, hasFilter, alignToDeviceGrid))
         {
             PixelRect alignedDeviceBounds = CustomFilterEffectContext.DeviceBufferBounds(
-                target.Bounds.Translate(target.DeviceGridOffset), w);
+                target.Bounds.Translate(target.Allocation.DeviceGridOffset), w);
             Rect alignedBounds = alignedDeviceBounds
                 .ToRect(w)
-                .Translate(-target.DeviceGridOffset);
+                .Translate(-target.Allocation.DeviceGridOffset);
             return new FlushGeometry(
                 alignedDeviceBounds,
-                target.DeviceGridOffset,
+                target.Allocation.DeviceGridOffset,
                 alignedBounds,
                 alignedBounds,
                 PreserveImperativeRasterPlacement: true);
@@ -355,7 +355,7 @@ public sealed partial class FilterEffectExecutor
         bool preserveImperativeRasterPlacement = !hasFilter;
         Vector allocationGridOffset = preserveImperativeRasterPlacement
             ? _settings.DeviceGridOffset ?? default
-            : target.DeviceGridOffset;
+            : target.Allocation.DeviceGridOffset;
         Rect deviceRoundingSource = preserveImperativeRasterPlacement
             ? target.Bounds
             : ResolveDeviceRoundingSource(target, flushTarget);
@@ -378,7 +378,7 @@ public sealed partial class FilterEffectExecutor
         else
         {
             deviceBounds = canonicalDeviceBounds;
-            outputDeviceGridOffset = target.DeviceGridOffset;
+            outputDeviceGridOffset = target.Allocation.DeviceGridOffset;
         }
 
         if (!preserveImperativeRasterPlacement)
@@ -544,7 +544,7 @@ public sealed partial class FilterEffectExecutor
         else
         {
             inputBounds = target.Bounds;
-            physicalBounds = target.RasterBounds.Translate(
+            physicalBounds = target.Placement.RasterBounds.Translate(
                 target.OriginalBounds.Position - target.Bounds.Position);
             chainOrigin = target.Bounds.Position;
         }
@@ -577,7 +577,7 @@ public sealed partial class FilterEffectExecutor
         float density)
     {
         PixelRect semanticDeviceBounds = PixelRect.FromRect(
-            target.Bounds.Translate(target.DeviceGridOffset),
+            target.Bounds.Translate(target.Allocation.DeviceGridOffset),
             density);
         if (!deviceBounds.Contains(semanticDeviceBounds))
         {
@@ -589,8 +589,8 @@ public sealed partial class FilterEffectExecutor
     private static bool CanReuseEffectItemTarget(EffectTarget target, float density)
     {
         if (!target.PreserveImperativeRasterPlacement
-            || target.Scale.IsUnbounded
-            || target.Scale.Value != density
+            || target.Placement.Scale.IsUnbounded
+            || target.Placement.Scale.Value != density
             || target.RenderTarget is not { } renderTarget)
         {
             return false;

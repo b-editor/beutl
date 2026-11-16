@@ -1,5 +1,4 @@
 ﻿using System.Collections.ObjectModel;
-using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -12,10 +11,8 @@ public sealed class OpaqueRenderSession
     private readonly IReadOnlyList<RenderExecutionInput> _inputs;
     private readonly IReadOnlyList<RenderExecutionInputRange> _inputRanges;
     private readonly Rect _outputBounds;
-    private readonly Rect _requiredRegion;
-    private readonly PixelRect _deviceBounds;
+    private readonly RenderPlacement _outputPlacement;
     private readonly float _outputScale;
-    private readonly float _workingScale;
     private readonly float _maxWorkingScale;
     private readonly RenderIntent _intent;
     private readonly RenderRequestPurpose _purpose;
@@ -25,10 +22,8 @@ public sealed class OpaqueRenderSession
         IList<RenderExecutionInput> inputs,
         IList<RenderExecutionInputRange> inputRanges,
         Rect outputBounds,
-        Rect requiredRegion,
-        PixelRect deviceBounds,
+        RenderPlacement outputPlacement,
         float outputScale,
-        float workingScale,
         float maxWorkingScale,
         RenderIntent intent,
         RenderRequestPurpose purpose,
@@ -47,10 +42,8 @@ public sealed class OpaqueRenderSession
         _inputs = new ReadOnlyCollection<RenderExecutionInput>(inputs);
         _inputRanges = new ReadOnlyCollection<RenderExecutionInputRange>(inputRanges);
         _outputBounds = outputBounds;
-        _requiredRegion = requiredRegion;
-        _deviceBounds = deviceBounds;
+        _outputPlacement = outputPlacement;
         _outputScale = outputScale;
-        _workingScale = workingScale;
         _maxWorkingScale = maxWorkingScale;
         _intent = intent;
         _purpose = purpose;
@@ -80,29 +73,15 @@ public sealed class OpaqueRenderSession
         get { _token.ThrowIfInactive(); return _outputBounds; }
     }
 
-    public Rect RequiredRegion
+    /// <summary>The portion of the declared output requested on the current composition grid.</summary>
+    public RenderPlacement OutputPlacement
     {
-        get { _token.ThrowIfInactive(); return _requiredRegion; }
-    }
-
-    public PixelRect DeviceBounds
-    {
-        get { _token.ThrowIfInactive(); return _deviceBounds; }
-    }
-
-    public PixelSize DeviceSize
-    {
-        get { _token.ThrowIfInactive(); return _deviceBounds.Size; }
+        get { _token.ThrowIfInactive(); return _outputPlacement; }
     }
 
     public float OutputScale
     {
         get { _token.ThrowIfInactive(); return _outputScale; }
-    }
-
-    public float WorkingScale
-    {
-        get { _token.ThrowIfInactive(); return _workingScale; }
     }
 
     public float MaxWorkingScale
@@ -124,7 +103,7 @@ public sealed class OpaqueRenderSession
     /// <param name="logicalBounds">The finite non-empty logical output bounds.</param>
     /// <param name="density">
     /// The optional finite positive density for this output. <see langword="null"/> uses
-    /// <see cref="WorkingScale"/>. The executor clamps either value to engine allocation limits.
+    /// the scale of <see cref="OutputPlacement"/>. The executor clamps either value to engine allocation limits.
     /// </param>
     public OpaqueRenderOutput CreateOutput(Rect logicalBounds, float? density = null)
     {

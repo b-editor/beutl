@@ -140,7 +140,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
                 (_, execution) =>
                 {
                     observedAmbientGrid = execution.DeviceGridOffset;
-                    observedInputGrid = execution.Targets.Single().DeviceGridOffset;
+                    observedInputGrid = execution.Targets.Single().Allocation.DeviceGridOffset;
                 },
                 static (_, bounds) => bounds));
 
@@ -173,7 +173,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
                         replacementBacking);
                     source.Dispose();
                     execution.Targets[0] = replacement;
-                    replacementGrid = replacement.DeviceGridOffset;
+                    replacementGrid = replacement.Allocation.DeviceGridOffset;
                 },
                 static (_, bounds) => bounds);
             context.CustomEffect(
@@ -181,7 +181,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
                 (_, execution) =>
                 {
                     followingAmbientGrid = execution.DeviceGridOffset;
-                    followingInputGrid = execution.Targets.Single().DeviceGridOffset;
+                    followingInputGrid = execution.Targets.Single().Allocation.DeviceGridOffset;
                 },
                 static (_, bounds) => bounds);
         });
@@ -339,7 +339,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             context.Geometry(GeometryDescription.CreateRequestLocal(
                 session =>
                 {
-                    observedInput = session.Input.Bounds;
+                    observedInput = session.Input.Placement.LogicalBounds;
                     session.Canvas.Use(static canvas => canvas.Clear(Colors.Lime));
                     session.SetOutputBounds(session.OutputBounds.Inflate(new Thickness(-1)));
                 },
@@ -447,7 +447,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
                 (_, execution) => execution.ForEach((_, _) =>
                 {
                     EffectTarget expanded = execution.CreateTarget(expandedBounds);
-                    observedInternalAllocation = expanded.DeviceBounds.Size;
+                    observedInternalAllocation = expanded.Placement.DeviceBounds.Size;
                     using ImmediateCanvas canvas = execution.Open(expanded);
                     canvas.Clear(Colors.Magenta);
                     return expanded;
@@ -456,7 +456,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             context.Geometry(GeometryDescription.CreateRequestLocal(
                 session =>
                 {
-                    observedDownstreamInput = session.Input.Bounds;
+                    observedDownstreamInput = session.Input.Placement.LogicalBounds;
                     session.Canvas.Use(session.Input.Draw);
                 },
                 RenderBoundsContract.Identity,
@@ -578,9 +578,9 @@ public sealed class EffectItemTypedSuffixExecutionTests
             context.Geometry(GeometryDescription.CreateRequestLocal(
                 session =>
                 {
-                    observedBounds = session.Input.Bounds;
-                    observedDeviceBounds = session.Input.DeviceBounds;
-                    observedRasterBounds = session.Input.RasterBounds;
+                    observedBounds = session.Input.Placement.LogicalBounds;
+                    observedDeviceBounds = session.Input.Placement.DeviceBounds;
+                    observedRasterBounds = session.Input.Placement.RasterBounds;
                     session.Canvas.Use(session.Input.Draw);
                 },
                 RenderBoundsContract.Identity,
@@ -761,8 +761,8 @@ public sealed class EffectItemTypedSuffixExecutionTests
             context.Geometry(GeometryDescription.CreateRequestLocal(
                 session =>
                 {
-                    observedScale = session.Input.EffectiveScale;
-                    observedDeviceBounds = session.Input.DeviceBounds;
+                    observedScale = session.Input.Placement.Scale;
+                    observedDeviceBounds = session.Input.Placement.DeviceBounds;
                     session.Canvas.Use(session.Input.Draw);
                 },
                 RenderBoundsContract.Identity,
@@ -984,10 +984,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             context.Publish(context.MaterializedInput(
                 MaterializedInputDescription.FromRenderTarget(
                     target,
-                    bounds,
-                    EffectiveScale.At(density),
-                    PixelRect.FromRect(bounds, density),
-                    default,
+                    new RenderPlacement(bounds, EffectiveScale.At(density), PixelRect.FromRect(bounds, density), default),
                     RenderHitTestContract.OutputBounds)));
         }
     }

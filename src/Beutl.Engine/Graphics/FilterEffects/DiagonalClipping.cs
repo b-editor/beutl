@@ -113,12 +113,12 @@ public sealed partial class DiagonalClipping : FilterEffect
                     bindings.Uniform("normal", parameters.Normal);
                     bindings.Uniform("position", parameters.Position);
                     bindings.Uniform("width", parameters.Width);
-                    bindings.Uniform("workingScale", 0, static (writer, _, execution) => writer.Set(execution.WorkingScale));
+                    bindings.Uniform("workingScale", 0, static (writer, _, execution) => writer.Set(execution.OutputPlacement.Scale.Value));
                     bindings.Uniform("center", 0, static (writer, _, execution) =>
                     {
                         // Anchor to the complete logical source, including when only part of it is requested.
-                        Vector center = execution.OutputBounds.Center - execution.LogicalOrigin;
-                        writer.Set(new Vector2(center.X, center.Y) * execution.WorkingScale);
+                        Vector center = execution.OutputBounds.Center - execution.OutputPlacement.LogicalOrigin;
+                        writer.Set(new Vector2(center.X, center.Y) * execution.OutputPlacement.Scale.Value);
                     });
                 },
                 SKShaderTileMode.Decal,

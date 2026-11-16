@@ -487,45 +487,41 @@ internal sealed partial class RenderRequestExecutor
         {
             if (target.PreserveImperativeRasterPlacement)
             {
-                Vector deviceGridOffset = target.DeviceBounds
-                    .ToRect(target.Scale.Value)
-                    .Position - target.RasterBounds.Position;
+                Vector deviceGridOffset = target.Placement.DeviceBounds
+                    .ToRect(target.Placement.Scale.Value)
+                    .Position - target.Placement.RasterBounds.Position;
                 return CreateOwnedEffectItemValue(
                     target,
                     renderTarget,
                     target.Bounds,
-                    target.Scale,
-                    target.DeviceBounds,
+                    target.Placement.Scale,
+                    target.Placement.DeviceBounds,
                     deviceGridOffset,
                     completeBounds,
                     preserveImperativeRasterPlacement: true);
             }
 
-            Rect canonicalRasterBounds = target.DeviceBounds
-                .ToRect(target.Scale.Value)
-                .Translate(-target.DeviceGridOffset);
-            PixelRect semanticDeviceBounds = PixelRect.FromRect(
-                target.Bounds.Translate(target.DeviceGridOffset),
-                target.Scale.Value);
-            if (target.RasterBounds == canonicalRasterBounds
-                && target.DeviceBounds.Contains(semanticDeviceBounds))
+            Rect canonicalRasterBounds = target.Allocation.RasterBounds;
+            PixelRect semanticDeviceBounds = target.Allocation.ToDevice(target.Bounds);
+            if (target.Placement.RasterBounds == canonicalRasterBounds
+                && target.Placement.DeviceBounds.Contains(semanticDeviceBounds))
             {
                 return CreateOwnedEffectItemValue(
                     target,
                     renderTarget,
                     target.Bounds,
-                    target.Scale,
-                    target.DeviceBounds,
-                    target.DeviceGridOffset,
+                    target.Placement.Scale,
+                    target.Placement.DeviceBounds,
+                    target.Allocation.DeviceGridOffset,
                     completeBounds: completeBounds);
             }
 
             return CreateNormalizedValue(
                 renderTarget,
-                target.RasterBounds,
+                target.Placement.RasterBounds,
                 target.Bounds,
-                target.Scale,
-                target.DeviceGridOffset,
+                target.Placement.Scale,
+                target.Allocation.DeviceGridOffset,
                 completeBounds,
                 addRasterApron: false);
         }

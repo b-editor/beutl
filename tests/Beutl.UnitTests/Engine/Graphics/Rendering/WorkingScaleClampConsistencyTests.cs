@@ -174,7 +174,7 @@ public class WorkingScaleClampConsistencyTests
             Assert.That(expected, Is.LessThan(8f), "the fixture must actually trigger the clamp");
             Assert.That(executor.WorkingScale, Is.EqualTo(expected));
             Assert.That(executor.CurrentTargets, Has.Count.EqualTo(1));
-            Assert.That(executor.CurrentTargets[0].Scale.Value, Is.EqualTo(executor.WorkingScale),
+            Assert.That(executor.CurrentTargets[0].Placement.Scale.Value, Is.EqualTo(executor.WorkingScale),
                 "the flushed buffer's density and the executor's WorkingScale must agree");
             Assert.That(executor.CurrentTargets[0].RenderTarget!.Width,
                 Is.LessThanOrEqualTo(TestBufferDimension));
@@ -230,9 +230,9 @@ public class WorkingScaleClampConsistencyTests
             Assert.Multiple(() =>
             {
                 Assert.That(actual, Is.Not.SameAs(input));
-                Assert.That(actual.Scale, Is.EqualTo(EffectiveScale.At(density)));
-                Assert.That(actual.DeviceBounds, Is.EqualTo(expectedDeviceBounds));
-                Assert.That(actual.RasterBounds, Is.EqualTo(expectedDeviceBounds.ToRect(density)));
+                Assert.That(actual.Placement.Scale, Is.EqualTo(EffectiveScale.At(density)));
+                Assert.That(actual.Placement.DeviceBounds, Is.EqualTo(expectedDeviceBounds));
+                Assert.That(actual.Placement.RasterBounds, Is.EqualTo(expectedDeviceBounds.ToRect(density)));
                 Assert.That(actual.RenderTarget!.Width, Is.EqualTo(expectedDeviceBounds.Width));
                 Assert.That(actual.RenderTarget.Height, Is.EqualTo(expectedDeviceBounds.Height));
                 Assert.That(actual.PreserveImperativeRasterPlacement, Is.EqualTo(!hasFilter));
@@ -274,7 +274,7 @@ public class WorkingScaleClampConsistencyTests
                 Assert.That(actual, Is.Not.SameAs(input));
                 Assert.That(actual.PreserveImperativeRasterPlacement, Is.True);
                 Assert.That(actual.Bounds, Is.EqualTo(bounds));
-                Assert.That(actual.Scale, Is.EqualTo(EffectiveScale.At(density)));
+                Assert.That(actual.Placement.Scale, Is.EqualTo(EffectiveScale.At(density)));
                 Assert.That(actual.RenderTarget!.Width, Is.EqualTo(canonical.Width));
                 Assert.That(actual.RenderTarget.Height, Is.EqualTo(canonical.Height));
             });
@@ -303,7 +303,7 @@ public class WorkingScaleClampConsistencyTests
                 "an oversized request must degrade density, not return an empty target");
             float expected = BufferDimensionBudget.Named(TestBufferDimension)
                 .ClampWorkingScale(s_pathologicalBounds, 8f);
-            Assert.That(target.Scale.Value, Is.EqualTo(expected));
+            Assert.That(target.Placement.Scale.Value, Is.EqualTo(expected));
             Assert.That(target.RenderTarget!.Width, Is.LessThanOrEqualTo(TestBufferDimension));
         });
     }

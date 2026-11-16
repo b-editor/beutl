@@ -90,7 +90,7 @@ public sealed partial class FilterEffectContext
                         {
                             canvas.Clear();
                             // Read density from the target (may be clamped), not context.WorkingScale.
-                            float w = newTarget.Scale.Value;
+                            float w = newTarget.Placement.Scale.Value;
                             using var blur = SKImageFilter.CreateBlur(data.sigma.Width * w, data.sigma.Height * w);
                             using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
                             using var filter = SKImageFilter.CreateColorFilter(blend, blur);
@@ -382,7 +382,7 @@ public sealed partial class FilterEffectContext
                     }
 
                     // Read density from the target (may be clamped), not context.WorkingScale.
-                    float w = newTarget.Scale.Value;
+                    float w = newTarget.Placement.Scale.Value;
                     using var brushPaint = new SKPaint();
                     // The brush lies over the content, which the target may hold inside the whole pixels it touches. It
                     // is laid out from the content's origin, by moving the canvas there, as a shape lays out its fill:

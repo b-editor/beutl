@@ -6,11 +6,8 @@ namespace Beutl.Graphics.Rendering;
 public sealed class RenderCallbackCanvas
 {
     private readonly RenderExecutionSessionToken _token;
-    private readonly float _density;
-    private readonly Rect _logicalBounds;
-    private readonly PixelRect _deviceBounds;
+    private readonly RenderPlacement _placement;
     private readonly PixelPoint _backingDeviceOrigin;
-    private readonly Rect _rasterBounds;
     private readonly Func<ImmediateCanvas> _openCanvas;
     private readonly CallbackCanvasCapability _capability;
     private readonly bool _mapLogicalOrigin;
@@ -40,16 +37,11 @@ public sealed class RenderCallbackCanvas
             throw new ArgumentOutOfRangeException(nameof(capability), capability, "The callback capability is invalid.");
 
         _token = token;
-        _density = density;
-        _logicalBounds = logicalBounds;
-        _rasterBounds = rasterBounds ?? deviceBounds.ToRect(density);
-        _deviceBounds = ValidateDeviceBounds(
-            logicalBounds,
-            density,
-            deviceBounds,
-            _rasterBounds);
+        Rect raster = rasterBounds ?? deviceBounds.ToRect(density);
+        _placement = RenderPlacement.FromRasterOrigin(logicalBounds, EffectiveScale.At(density), deviceBounds, raster.Position);
+        ValidateDeviceBounds(_placement, raster);
         _backingDeviceOrigin = mapLogicalOrigin
-            ? _deviceBounds.Position
+            ? _placement.DeviceBounds.Position
             : backingDeviceOrigin ?? default;
         _openCanvas = openCanvas;
         _capability = capability;
@@ -82,48 +74,9 @@ public sealed class RenderCallbackCanvas
             rasterBounds: rasterBounds);
     }
 
-    public float Density
+    public RenderPlacement Placement
     {
-        get { _token.ThrowIfInactive(); return _density; }
-    }
-
-    public Rect LogicalBounds
-    {
-        get { _token.ThrowIfInactive(); return _logicalBounds; }
-    }
-
-    public Point LogicalOrigin
-    {
-        get { _token.ThrowIfInactive(); return _rasterBounds.Position; }
-    }
-
-    public PixelRect DeviceBounds
-    {
-        get { _token.ThrowIfInactive(); return _deviceBounds; }
-    }
-
-    /// <summary>
-    /// Gets the translation from callback-local coordinates to the composition-device grid used
-    /// to round <see cref="DeviceBounds"/>.
-    /// </summary>
-    public Vector DeviceGridOffset
-    {
-        get
-        {
-            _token.ThrowIfInactive();
-            return new Vector(
-                (_deviceBounds.X / _density) - _rasterBounds.X,
-                (_deviceBounds.Y / _density) - _rasterBounds.Y);
-        }
-    }
-
-    /// <summary>
-    /// Gets the pixel-aligned logical footprint of the backing target. The footprint can
-    /// conservatively extend beyond <see cref="LogicalBounds"/> because of device-pixel rounding.
-    /// </summary>
-    public Rect RasterBounds
-    {
-        get { _token.ThrowIfInactive(); return _rasterBounds; }
+        get { _token.ThrowIfInactive(); return _placement; }
     }
 
     internal RenderExecutionSessionToken Token => _token;
@@ -152,20 +105,20 @@ public sealed class RenderCallbackCanvas
             // under a shrinking transform maps it to a sub-pixel span the device grid would snap away.
             if (_mapLogicalOrigin)
             {
-                canvas.PushTransform(Matrix.CreateTranslation(-_rasterBounds.X, -_rasterBounds.Y));
-                canvas.ClipRectCoveringDevicePixels(_rasterBounds);
+                canvas.PushTransform(Matrix.CreateTranslation(-_placement.RasterBounds.X, -_placement.RasterBounds.Y));
+                canvas.ClipRectCoveringDevicePixels(_placement.RasterBounds);
             }
             else if (_capability is CallbackCanvasCapability.TargetScope
                      or CallbackCanvasCapability.TargetCommandFull)
             {
                 canvas.ClipRectCoveringDevicePixels(
-                    RenderScaleUtilities.AddRasterApron(_deviceBounds)
-                        .ToRect(_density)
-                        .Translate(-DeviceGridOffset));
+                    RenderScaleUtilities.AddRasterApron(_placement.DeviceBounds)
+                        .ToRect(_placement.Scale.Value)
+                        .Translate(-_placement.DeviceGridOffset));
             }
             else
             {
-                canvas.ClipRectCoveringDevicePixels(_logicalBounds);
+                canvas.ClipRectCoveringDevicePixels(_placement.LogicalBounds);
             }
             canvas.PinExecutionCallbackState();
             draw(canvas);
@@ -194,12 +147,11 @@ public sealed class RenderCallbackCanvas
         primaryFailure?.Throw();
     }
 
-    private static PixelRect ValidateDeviceBounds(
-        Rect bounds,
-        float density,
-        PixelRect deviceBounds,
-        Rect rasterBounds)
+    private static void ValidateDeviceBounds(RenderPlacement placement, Rect rasterBounds)
     {
+        Rect bounds = placement.LogicalBounds;
+        PixelRect deviceBounds = placement.DeviceBounds;
+        float density = placement.Scale.Value;
         bool logicalBoundsAreEmpty = bounds.Width == 0 || bounds.Height == 0;
         if (deviceBounds.Width < 0
             || deviceBounds.Height < 0
@@ -210,12 +162,7 @@ public sealed class RenderCallbackCanvas
                 nameof(deviceBounds));
         }
 
-        Vector deviceGridOffset = new(
-            (deviceBounds.X / density) - rasterBounds.X,
-            (deviceBounds.Y / density) - rasterBounds.Y);
-        PixelRect semanticDeviceBounds = PixelRect.FromRect(
-            bounds.Translate(deviceGridOffset),
-            density);
+        PixelRect semanticDeviceBounds = placement.ToDevice(bounds);
         if (!DeviceBoundsValidation.MatchesExtent(rasterBounds.Width, density, deviceBounds.Width)
             || !DeviceBoundsValidation.MatchesExtent(rasterBounds.Height, density, deviceBounds.Height)
             || !DeviceBoundsValidation.Covers(deviceBounds, semanticDeviceBounds))
@@ -224,7 +171,5 @@ public sealed class RenderCallbackCanvas
                 "Callback canvas raster bounds must match the backing size and contain its logical bounds.",
                 nameof(deviceBounds));
         }
-
-        return deviceBounds;
     }
 }

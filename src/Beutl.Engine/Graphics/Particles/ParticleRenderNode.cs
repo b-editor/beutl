@@ -126,7 +126,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
     private static void DrawFallbackParticle(OpaqueRenderSession session, Brush.Resource fill)
     {
-        using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+        using OpaqueRenderOutput output = session.CreateOutput(session.OutputPlacement.LogicalBounds);
         output.Canvas.Use(canvas => canvas.DrawEllipse(s_fallbackBounds, fill, null));
         session.Publish(output);
     }
@@ -157,7 +157,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         RenderExecutionInput input,
         Particle[] particles)
     {
-        Point center = input.Bounds.Center;
+        Point center = input.Placement.LogicalBounds.Center;
         for (int i = 0; i < particles.Length; i++)
         {
             ref readonly Particle particle = ref particles[i];

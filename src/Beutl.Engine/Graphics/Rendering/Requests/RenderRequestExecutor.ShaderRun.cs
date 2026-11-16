@@ -489,7 +489,8 @@ internal sealed partial class RenderRequestExecutor
                         runInput.EffectiveScale.Value,
                         runInput.DeviceBounds,
                         runInput.RasterBounds)
-                    : null);
+                    : null,
+                wholeSource: description.Kind == ShaderDescriptionKind.WholeSource);
         }
 
         private ProgramCacheLease<CachedSkRuntimeEffect> AcquireProgram(

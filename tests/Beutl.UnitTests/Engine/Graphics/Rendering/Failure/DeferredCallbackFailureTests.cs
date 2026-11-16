@@ -136,7 +136,7 @@ public sealed class DeferredCallbackFailureTests
             Assert.That(() => canvas.Use(static _ => { }), Throws.TypeOf<InvalidOperationException>());
         });
         token.Complete();
-        Assert.That(() => _ = canvas.LogicalBounds, Throws.TypeOf<InvalidOperationException>());
+        Assert.That(() => _ = canvas.Placement.LogicalBounds, Throws.TypeOf<InvalidOperationException>());
     }
 
     [Test]
@@ -259,9 +259,9 @@ public sealed class DeferredCallbackFailureTests
         {
             Assert.That(rasterization.IsEmpty, Is.False);
             Assert.That(() => _ = node.Session!.OutputBounds, Throws.TypeOf<InvalidOperationException>());
-            Assert.That(() => _ = node.Input!.Bounds, Throws.TypeOf<InvalidOperationException>());
-            Assert.That(() => _ = node.Output!.Bounds, Throws.TypeOf<InvalidOperationException>());
-            Assert.That(() => _ = node.CanvasFacade!.LogicalBounds, Throws.TypeOf<InvalidOperationException>());
+            Assert.That(() => _ = node.Input!.Placement.LogicalBounds, Throws.TypeOf<InvalidOperationException>());
+            Assert.That(() => _ = node.Output!.Placement.LogicalBounds, Throws.TypeOf<InvalidOperationException>());
+            Assert.That(() => _ = node.CanvasFacade!.Placement.LogicalBounds, Throws.TypeOf<InvalidOperationException>());
             Assert.That(node.ImmediateCanvas, Is.Not.Null);
             Assert.That(
                 () => node.ImmediateCanvas!.Clear(),

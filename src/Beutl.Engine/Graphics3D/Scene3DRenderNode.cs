@@ -305,7 +305,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         if (graphicsContext is null || !graphicsContext.Supports3DRendering)
             return;
 
-        float density = session.WorkingScale;
+        float density = session.OutputPlacement.Scale.Value;
         (int deviceWidth, int deviceHeight) = ResolveDeviceFootprint(snapshot.Bounds, density);
         Renderer3D renderer = snapshot.Scene.Renderer ??= new Renderer3D(graphicsContext);
 

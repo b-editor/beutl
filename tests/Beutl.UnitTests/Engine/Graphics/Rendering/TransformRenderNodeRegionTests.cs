@@ -122,7 +122,7 @@ public sealed class TransformRenderNodeRegionTests
                 "red-and-blue",
                 static (session, _) =>
                 {
-                    using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputPlacement.LogicalBounds);
                     output.Canvas.Use(static canvas =>
                     {
                         using (canvas.PushClip(new Rect(0, 0, 50, 100)))

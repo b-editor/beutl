@@ -810,8 +810,8 @@ public class SourceEffectiveScaleFlowTests
                 bounds,
                 session =>
                 {
-                    observedWorkingScale = session.WorkingScale;
-                    observedDeviceBounds = session.DeviceBounds;
+                    observedWorkingScale = session.OutputPlacement.Scale.Value;
+                    observedDeviceBounds = session.OutputPlacement.DeviceBounds;
                 }),
             new ConstantWorkingScaleRenderNode(
                 effect.ToResource(CompositionContext.Default),
@@ -905,7 +905,7 @@ public class SourceEffectiveScaleFlowTests
         RenderNode source = ScaleRecordingTestHelper.Source(
             EffectiveScale.Unbounded,
             childBounds,
-            session => observedWorkingScales.Add(session.WorkingScale));
+            session => observedWorkingScales.Add(session.OutputPlacement.Scale.Value));
         RenderNode layer = ScaleRecordingTestHelper.Layer(layerDomain);
         FailureTestSupport.WarmForCacheCapture(layer);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, layer);
@@ -1155,7 +1155,7 @@ public class SourceEffectiveScaleFlowTests
             ScaleRecordingTestHelper.Source(
                 EffectiveScale.Unbounded,
                 bounds,
-                session => observedSourceScale = session.WorkingScale),
+                session => observedSourceScale = session.OutputPlacement.Scale.Value),
             new ConstantWorkingScaleRenderNode(
                 effect.ToResource(CompositionContext.Default),
                 2));
@@ -1214,11 +1214,11 @@ public class SourceEffectiveScaleFlowTests
                 ScaleRecordingTestHelper.Source(
                     EffectiveScale.Unbounded,
                     firstBounds,
-                    session => observedSources.Add((session.WorkingScale, session.DeviceBounds))),
+                    session => observedSources.Add((session.OutputPlacement.Scale.Value, session.OutputPlacement.DeviceBounds))),
                 ScaleRecordingTestHelper.Source(
                     EffectiveScale.Unbounded,
                     secondBounds,
-                    session => observedSources.Add((session.WorkingScale, session.DeviceBounds))),
+                    session => observedSources.Add((session.OutputPlacement.Scale.Value, session.OutputPlacement.DeviceBounds))),
             ],
             new ConstantWorkingScaleRenderNode(
                 effect.ToResource(CompositionContext.Default),
@@ -1318,10 +1318,10 @@ public class SourceEffectiveScaleFlowTests
             context.Geometry(GeometryDescription.CreateRequestLocal(
                 session =>
                 {
-                    observedInputScale = session.Input.EffectiveScale;
-                    observedInputDeviceBounds = session.Input.DeviceBounds;
-                    observedWorkingScale = session.WorkingScale;
-                    observedOutputDeviceBounds = session.DeviceBounds;
+                    observedInputScale = session.Input.Placement.Scale;
+                    observedInputDeviceBounds = session.Input.Placement.DeviceBounds;
+                    observedWorkingScale = session.OutputPlacement.Scale.Value;
+                    observedOutputDeviceBounds = session.OutputPlacement.DeviceBounds;
                     session.Canvas.Use(session.Input.Draw);
                 },
                 RenderBoundsContract.Identity,
@@ -1685,7 +1685,7 @@ public class SourceEffectiveScaleFlowTests
             TargetCommandDescription command = TargetCommandDescription.CreateRequestLocal(
                 session =>
                 {
-                    observe(session.Inputs.Single().EffectiveScale);
+                    observe(session.Inputs.Single().Placement.Scale);
                     session.Canvas.Use(static _ => { });
                 },
                 TargetRegion.Region(bounds),
@@ -1720,10 +1720,7 @@ public class SourceEffectiveScaleFlowTests
             RenderResource<RenderTarget> target = context.Borrow(source);
             context.Publish(context.MaterializedInput(MaterializedInputDescription.FromRenderTarget(
                 target,
-                bounds,
-                scale,
-                PixelRect.FromRect(bounds.Translate(deviceGridOffset), scale.Value),
-                deviceGridOffset,
+                new RenderPlacement(bounds, scale, PixelRect.FromRect(bounds.Translate(deviceGridOffset), scale.Value), deviceGridOffset),
                 RenderHitTestContract.OutputBounds)));
         }
     }
@@ -1833,7 +1830,7 @@ public class SourceEffectiveScaleFlowTests
                 OpaqueRenderDescription source = OpaqueRenderDescription.CreateRequestLocal(
                     session =>
                     {
-                        observedWorkingScales.Add(session.WorkingScale);
+                        observedWorkingScales.Add(session.OutputPlacement.Scale.Value);
                         using OpaqueRenderOutput output = session.CreateOutput(bounds);
                         output.Canvas.Use(static canvas => canvas.Clear());
                         session.Publish(output);
@@ -1893,10 +1890,10 @@ public class SourceEffectiveScaleFlowTests
                 context.InputBounds,
                 context.OutputBounds,
                 context.RequiredRegion,
-                context.DeviceBounds,
+                context.OutputPlacement.DeviceBounds,
                 context.InputEffectiveScale,
                 context.OutputScale,
-                context.WorkingScale,
+                context.OutputPlacement.Scale.Value,
                 context.MaxWorkingScale);
     }
 

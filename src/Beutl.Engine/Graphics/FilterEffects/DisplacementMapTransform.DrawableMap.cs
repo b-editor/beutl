@@ -55,14 +55,14 @@ public abstract partial class DisplacementMapTransform
                     continue;
                 }
 
-                float density = output.Scale.Value;
+                float density = output.Placement.Scale.Value;
                 using SKShader displacementMapShaderRaw = DisplacementMapShaderFactory.CreateOrTransparent(
                         context,
                         data.Map,
                         new Rect(effectTarget.Bounds.Size),
                         density);
 
-                Vector semanticOrigin = effectTarget.Bounds.Position - effectTarget.RasterBounds.Position;
+                Vector semanticOrigin = effectTarget.Bounds.Position - effectTarget.Placement.RasterBounds.Position;
                 SKMatrix mapMatrix = SKMatrix.CreateScaleTranslation(
                     density,
                     density,

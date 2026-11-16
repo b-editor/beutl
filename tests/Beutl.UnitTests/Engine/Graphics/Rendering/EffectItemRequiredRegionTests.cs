@@ -32,7 +32,7 @@ public sealed class EffectItemRequiredRegionTests
         filter.AddChild(ScaleRecordingTestHelper.Source(
             EffectiveScale.At(1),
             sourceBounds,
-            session => observed.Add(session.RequiredRegion)));
+            session => observed.Add(session.OutputPlacement.LogicalBounds)));
         using var renderer = new RenderNodeRenderer(filter, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,

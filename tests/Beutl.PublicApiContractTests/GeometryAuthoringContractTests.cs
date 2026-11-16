@@ -104,9 +104,9 @@ public sealed class GeometryAuthoringContractTests
 
             Assert.That(() => _ = effect.RetainedSession!.OutputBounds,
                 Throws.TypeOf<InvalidOperationException>());
-            Assert.That(() => _ = effect.RetainedInput!.Bounds,
+            Assert.That(() => _ = effect.RetainedInput!.Placement.LogicalBounds,
                 Throws.TypeOf<InvalidOperationException>());
-            Assert.That(() => _ = effect.RetainedCanvas!.Density,
+            Assert.That(() => _ = effect.RetainedCanvas!.Placement.Scale.Value,
                 Throws.TypeOf<InvalidOperationException>());
             Assert.That(() => effect.RetainedCanvas!.Use(static _ => { }),
                 Throws.TypeOf<InvalidOperationException>());
@@ -291,8 +291,8 @@ public sealed class GeometryAuthoringContractTests
             RetainedSession = session;
             RetainedInput = session.Input;
             RetainedCanvas = session.Canvas;
-            ObservedInputRasterBounds = session.Input.RasterBounds;
-            ObservedCanvasRasterBounds = session.Canvas.RasterBounds;
+            ObservedInputRasterBounds = session.Input.Placement.RasterBounds;
+            ObservedCanvasRasterBounds = session.Canvas.Placement.RasterBounds;
             session.UseResource(s_resourceSlot, value =>
             {
                 ResourceUses++;

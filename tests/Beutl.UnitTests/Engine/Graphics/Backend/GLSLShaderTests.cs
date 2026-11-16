@@ -307,9 +307,9 @@ public class GLSLShaderTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(output.RasterBounds, Is.EqualTo(input.RasterBounds));
-                Assert.That(output.DeviceBounds, Is.EqualTo(input.DeviceBounds));
-                Assert.That(output.Scale, Is.EqualTo(input.Scale));
+                Assert.That(output.Placement.RasterBounds, Is.EqualTo(input.Placement.RasterBounds));
+                Assert.That(output.Placement.DeviceBounds, Is.EqualTo(input.Placement.DeviceBounds));
+                Assert.That(output.Placement.Scale, Is.EqualTo(input.Placement.Scale));
             });
         });
     }
@@ -331,7 +331,7 @@ public class GLSLShaderTests
             var bounds = new Rect(-2, -2, 8, 8);
             using EffectTarget output = shader.Render(context, [input], bounds, destination =>
             {
-                Assert.That(destination.Scale.Value, Is.EqualTo(density));
+                Assert.That(destination.Placement.Scale.Value, Is.EqualTo(density));
                 return new DummyPush();
             });
             RgbaF16[] pixels = ReadNativePixels(output.RenderTarget!);

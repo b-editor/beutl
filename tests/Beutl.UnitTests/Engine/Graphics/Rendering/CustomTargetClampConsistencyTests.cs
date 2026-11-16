@@ -33,12 +33,12 @@ public class CustomTargetClampConsistencyTests
             CustomFilterEffectContext context = Context(workingScale: 2f);
             using EffectTarget target = context.CreateTarget(new Rect(0, 0, 100, 80));
 
-            Assert.That(target.Scale.IsUnbounded, Is.False);
-            Assert.That(target.Scale.Value, Is.EqualTo(2f).Within(1e-4),
+            Assert.That(target.Placement.Scale.IsUnbounded, Is.False);
+            Assert.That(target.Placement.Scale.Value, Is.EqualTo(2f).Within(1e-4),
                 "an in-budget buffer must keep the context working scale");
 
             using ImmediateCanvas canvas = context.Open(target);
-            Assert.That(canvas.SurfaceDensity, Is.EqualTo(target.Scale.Value).Within(1e-4),
+            Assert.That(canvas.SurfaceDensity, Is.EqualTo(target.Placement.Scale.Value).Within(1e-4),
                 "Open must tag the canvas with the target's actual density");
         });
     }
@@ -58,7 +58,7 @@ public class CustomTargetClampConsistencyTests
             {
                 Assert.That(target.RenderTarget!.Width, Is.EqualTo(181));
                 Assert.That(target.RenderTarget.Height, Is.EqualTo(101));
-                Assert.That(target.RasterBounds,
+                Assert.That(target.Placement.RasterBounds,
                     Is.EqualTo(new Rect(bounds.Position, new Size(181, 101))));
                 Assert.That(canvas.LogicalSize, Is.EqualTo(bounds.Size));
                 Assert.That(canvas.Transform.Transform(default(Point)), Is.EqualTo(default(Point)));
@@ -93,7 +93,7 @@ public class CustomTargetClampConsistencyTests
                 });
             using EffectTarget target = context.CreateTarget(bounds);
 
-            Assert.That(target.DeviceBounds, Is.EqualTo(deviceBounds));
+            Assert.That(target.Placement.DeviceBounds, Is.EqualTo(deviceBounds));
         });
     }
 
@@ -108,7 +108,7 @@ public class CustomTargetClampConsistencyTests
             CustomFilterEffectContext context = Context(workingScale: 1f);
             using EffectTarget target = context.CreateTarget(new Rect(1_000_000, 0, 10, 4));
 
-            Assert.That(target.DeviceBounds, Is.EqualTo(new PixelRect(1_000_000, 0, 10, 4)));
+            Assert.That(target.Placement.DeviceBounds, Is.EqualTo(new PixelRect(1_000_000, 0, 10, 4)));
         });
     }
 
@@ -139,14 +139,14 @@ public class CustomTargetClampConsistencyTests
             CustomFilterEffectContext context = Context(workingScale: 2f);
             using EffectTarget target = context.CreateTarget(bounds);
 
-            Assert.That(target.Scale.IsUnbounded, Is.False);
-            Assert.That(target.Scale.Value, Is.LessThan(2f),
+            Assert.That(target.Placement.Scale.IsUnbounded, Is.False);
+            Assert.That(target.Placement.Scale.Value, Is.LessThan(2f),
                 "CreateTarget did not clamp the density for an over-budget buffer");
             float expectedFit = BufferDimensionBudget.Named(TestBufferDimension).ClampWorkingScale(bounds, 2f);
-            Assert.That(target.Scale.Value, Is.EqualTo(expectedFit).Within(1e-4));
+            Assert.That(target.Placement.Scale.Value, Is.EqualTo(expectedFit).Within(1e-4));
 
             using ImmediateCanvas canvas = context.Open(target);
-            Assert.That(canvas.SurfaceDensity, Is.EqualTo(target.Scale.Value).Within(1e-4),
+            Assert.That(canvas.SurfaceDensity, Is.EqualTo(target.Placement.Scale.Value).Within(1e-4),
                 "Open must tag the canvas with the clamped density, not context.WorkingScale (2.0)");
             Assert.That(canvas.SurfaceDensity, Is.LessThan(2f));
         });

@@ -51,8 +51,8 @@ public sealed class NamedBufferBudgetReachTests
         Assert.Multiple(() =>
         {
             Assert.That(targets, Has.Count.EqualTo(1));
-            Assert.That(targets[0].DeviceBounds.Width, Is.LessThanOrEqualTo(TestBufferDimension));
-            Assert.That(targets[0].Scale.Value, Is.LessThan(1f));
+            Assert.That(targets[0].Placement.DeviceBounds.Width, Is.LessThanOrEqualTo(TestBufferDimension));
+            Assert.That(targets[0].Placement.Scale.Value, Is.LessThan(1f));
         });
     }
 
@@ -147,7 +147,7 @@ public sealed class NamedBufferBudgetReachTests
                 1f,
                 (writer, value, execution) =>
                 {
-                    observe(execution.DeviceSize);
+                    observe(execution.OutputPlacement.DeviceSize);
                     writer.Set(value);
                 }));
 

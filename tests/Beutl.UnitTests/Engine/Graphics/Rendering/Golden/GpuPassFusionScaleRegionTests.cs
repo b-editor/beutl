@@ -646,13 +646,13 @@ public sealed class GpuPassFusionScaleRegionTests
                 {
                     CallbackCount++;
                     ObservedOutputBounds = session.OutputBounds;
-                    ObservedRequiredRegion = session.RequiredRegion;
-                    ObservedSessionDeviceBounds = session.DeviceBounds;
-                    ObservedDensity = session.WorkingScale;
-                    using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
-                    ObservedCanvasBounds = output.Canvas.LogicalBounds;
-                    ObservedCanvasDeviceBounds = output.Canvas.DeviceBounds;
-                    ObservedCanvasOrigin = output.Canvas.LogicalOrigin;
+                    ObservedRequiredRegion = session.OutputPlacement.LogicalBounds;
+                    ObservedSessionDeviceBounds = session.OutputPlacement.DeviceBounds;
+                    ObservedDensity = session.OutputPlacement.Scale.Value;
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputPlacement.LogicalBounds);
+                    ObservedCanvasBounds = output.Canvas.Placement.LogicalBounds;
+                    ObservedCanvasDeviceBounds = output.Canvas.Placement.DeviceBounds;
+                    ObservedCanvasOrigin = output.Canvas.Placement.LogicalOrigin;
                     output.Canvas.Use(static _ => { });
                     session.Publish(output);
                 },
@@ -700,9 +700,9 @@ public sealed class GpuPassFusionScaleRegionTests
                 {
                     TotalCallbackCount++;
                     GeometryOutputBounds = session.OutputBounds;
-                    GeometryRequiredRegion = session.RequiredRegion;
-                    GeometryDeviceBounds = session.DeviceBounds;
-                    GeometryCanvasBounds = session.Canvas.LogicalBounds;
+                    GeometryRequiredRegion = session.OutputPlacement.LogicalBounds;
+                    GeometryDeviceBounds = session.OutputPlacement.DeviceBounds;
+                    GeometryCanvasBounds = session.Canvas.Placement.LogicalBounds;
                     session.Canvas.Use(session.Input.Draw);
                 },
                 RenderBoundsContract.Identity,
@@ -719,7 +719,7 @@ public sealed class GpuPassFusionScaleRegionTests
                         ShaderInputBounds = execution.InputBounds;
                         ShaderOutputBounds = execution.OutputBounds;
                         ShaderRequiredRegion = execution.RequiredRegion;
-                        ShaderDeviceBounds = execution.DeviceBounds;
+                        ShaderDeviceBounds = execution.OutputPlacement.DeviceBounds;
                         writer.Set(value);
                     }));
             current = context.Shader(current, shader);
@@ -729,8 +729,8 @@ public sealed class GpuPassFusionScaleRegionTests
                     TotalCallbackCount++;
                     TargetScopeOutputBounds = session.OutputBounds;
                     TargetScopeRequiredRegion = session.RequiredRegion;
-                    TargetScopeCanvasBounds = session.Canvas.LogicalBounds;
-                    TargetScopeCanvasDeviceBounds = session.Canvas.DeviceBounds;
+                    TargetScopeCanvasBounds = session.Canvas.Placement.LogicalBounds;
+                    TargetScopeCanvasDeviceBounds = session.Canvas.Placement.DeviceBounds;
                     session.Canvas.Use(_ => session.ReplayInput());
                 },
                 RenderBoundsContract.Identity,
@@ -773,8 +773,8 @@ public sealed class GpuPassFusionScaleRegionTests
             RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
-                    SourceRequiredRegion = session.RequiredRegion;
-                    using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+                    SourceRequiredRegion = session.OutputPlacement.LogicalBounds;
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputPlacement.LogicalBounds);
                     output.Canvas.Use(static canvas => canvas.Clear(Colors.CornflowerBlue));
                     session.Publish(output);
                 },
@@ -791,8 +791,8 @@ public sealed class GpuPassFusionScaleRegionTests
                         CallbackCount++;
                         AffectedBounds = session.AffectedBounds;
                         RequiredRegion = session.RequiredRegion;
-                        CanvasBounds = session.Canvas.LogicalBounds;
-                        CanvasDeviceBounds = session.Canvas.DeviceBounds;
+                        CanvasBounds = session.Canvas.Placement.LogicalBounds;
+                        CanvasDeviceBounds = session.Canvas.Placement.DeviceBounds;
                         session.UseSnapshot(bitmap =>
                         {
                             SnapshotSize = new PixelSize(bitmap.Width, bitmap.Height);
@@ -827,7 +827,7 @@ public sealed class GpuPassFusionScaleRegionTests
             context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
-                    using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputPlacement.LogicalBounds);
                     output.Canvas.Use(static canvas => canvas.Clear(Colors.CornflowerBlue));
                     session.Publish(output);
                 },
@@ -864,7 +864,7 @@ public sealed class GpuPassFusionScaleRegionTests
         => OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
-                using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+                using OpaqueRenderOutput output = session.CreateOutput(session.OutputPlacement.LogicalBounds);
                 output.Canvas.Use(static canvas => canvas.Clear(Colors.CornflowerBlue));
                 session.Publish(output);
             },
@@ -937,7 +937,7 @@ public sealed class GpuPassFusionScaleRegionTests
             return OpaqueRenderDescription.CreateRequestLocal(
                 execute: session =>
                 {
-                    float density = session.Inputs.Single().EffectiveScale.Value;
+                    float density = session.Inputs.Single().Placement.Scale.Value;
                     if (kind == CaptureKind.Public)
                         PublicCaptureInputDensity = density;
                     else

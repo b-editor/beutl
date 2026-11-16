@@ -55,8 +55,8 @@ public sealed class ShaderMigrationPhysicalFootprintTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(actual.DeviceBounds, Is.EqualTo(PixelRect.FromRect(bounds, 1)));
-            Assert.That(actual.Scale, Is.EqualTo(EffectiveScale.At(1)));
+            Assert.That(actual.Placement.DeviceBounds, Is.EqualTo(PixelRect.FromRect(bounds, 1)));
+            Assert.That(actual.Placement.Scale, Is.EqualTo(EffectiveScale.At(1)));
             Assert.That(bitmap.Width, Is.EqualTo(5));
             Assert.That(bitmap.Height, Is.EqualTo(4));
             Assert.That(firstPixel, Is.EqualTo(new ushort[] { 0, 0, one, one }),
@@ -210,8 +210,8 @@ public sealed class ShaderMigrationPhysicalFootprintTests
         using Bitmap bitmap = target.RenderTarget!.Snapshot();
         return new TargetSnapshot(
             target.Bounds,
-            target.DeviceBounds,
-            target.RasterBounds,
+            target.Placement.DeviceBounds,
+            target.Placement.RasterBounds,
             bitmap.GetPixelSpan<ushort>().ToArray());
     }
 

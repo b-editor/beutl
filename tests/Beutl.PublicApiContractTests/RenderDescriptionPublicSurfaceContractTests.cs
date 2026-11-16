@@ -177,9 +177,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
             ]),
             (typeof(MaterializedInputDescription),
             [
-                nameof(MaterializedInputDescription.Bounds), nameof(MaterializedInputDescription.EffectiveScale),
-                nameof(MaterializedInputDescription.DeviceBounds), nameof(MaterializedInputDescription.DeviceGridOffset),
-                nameof(MaterializedInputDescription.RasterBounds), nameof(MaterializedInputDescription.Resources),
+                nameof(MaterializedInputDescription.Placement), nameof(MaterializedInputDescription.Resources),
                 nameof(MaterializedInputDescription.FromRenderTarget),
             ]),
         ];
@@ -453,10 +451,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         yield return ("MaterializedInputDescription.FromRenderTarget", resources
             => MaterializedInputDescription.FromRenderTarget(
                 materializedTarget,
-                s_resourceProbeBounds,
-                EffectiveScale.At(1),
-                PixelRect.FromRect(s_resourceProbeBounds, 1),
-                default,
+                new RenderPlacement(s_resourceProbeBounds, EffectiveScale.At(1)),
                 RenderHitTestContract.OutputBounds,
                 resources).Resources);
     }

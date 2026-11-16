@@ -333,7 +333,7 @@ internal sealed partial class RenderCacheResolver
             return CandidateEvaluation.Bypass;
         if (reference.Kind == RenderFragmentKind.MaterializedInput
             && reference.Payload is MaterializedInputRenderFragmentPayload input
-            && !BufferDimensionBudget.EngineCeiling.Fits(input.Description.DeviceBounds.Size))
+            && !BufferDimensionBudget.EngineCeiling.Fits(input.Description.Placement.DeviceBounds.Size))
         {
             return CandidateEvaluation.Bypass;
         }
@@ -416,7 +416,7 @@ internal sealed partial class RenderCacheResolver
         if (reference.Kind == RenderFragmentKind.MaterializedInput
             && reference.Payload is MaterializedInputRenderFragmentPayload materializedInput)
         {
-            result = materializedInput.Description.DeviceBounds.Size;
+            result = materializedInput.Description.Placement.DeviceBounds.Size;
             return true;
         }
 

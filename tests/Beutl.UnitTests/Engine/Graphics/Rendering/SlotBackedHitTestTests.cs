@@ -298,10 +298,7 @@ public sealed class SlotBackedHitTestTests
             RenderResource<HitShape> shapeResource = context.Borrow(shape);
             context.Publish(context.MaterializedInput(MaterializedInputDescription.FromRenderTarget(
                 target,
-                s_bounds,
-                EffectiveScale.At(1),
-                PixelRect.FromRect(s_bounds, 1),
-                default,
+                new RenderPlacement(s_bounds, EffectiveScale.At(1)),
                 RenderHitTestContract.FromSlot(
                     s_shapeSlot,
                     static (shape, point) => shape.Contains(point)),

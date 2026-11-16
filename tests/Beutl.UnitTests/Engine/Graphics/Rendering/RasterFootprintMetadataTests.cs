@@ -48,10 +48,10 @@ public sealed class RasterFootprintMetadataTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(input.Bounds, Is.EqualTo(bounds));
-            Assert.That(input.DeviceBounds, Is.EqualTo(deviceBounds));
-            Assert.That(input.RasterBounds, Is.EqualTo(rasterBounds));
-            Assert.That(input.LogicalOrigin, Is.EqualTo(rasterBounds.Position));
+            Assert.That(input.Placement.LogicalBounds, Is.EqualTo(bounds));
+            Assert.That(input.Placement.DeviceBounds, Is.EqualTo(deviceBounds));
+            Assert.That(input.Placement.RasterBounds, Is.EqualTo(rasterBounds));
+            Assert.That(input.Placement.LogicalOrigin, Is.EqualTo(rasterBounds.Position));
             Assert.That(
                 MeasureAlphaBounds(rendered),
                 Is.EqualTo(new PixelRect(0, 0, deviceBounds.Width, deviceBounds.Height)));
@@ -86,10 +86,10 @@ public sealed class RasterFootprintMetadataTests
         {
             Assert.Multiple(() =>
             {
-                Assert.That(facade.LogicalBounds, Is.EqualTo(logicalBounds));
-                Assert.That(facade.DeviceBounds, Is.EqualTo(deviceBounds));
-                Assert.That(facade.RasterBounds, Is.EqualTo(rasterBounds));
-                Assert.That(facade.LogicalOrigin, Is.EqualTo(rasterBounds.Position));
+                Assert.That(facade.Placement.LogicalBounds, Is.EqualTo(logicalBounds));
+                Assert.That(facade.Placement.DeviceBounds, Is.EqualTo(deviceBounds));
+                Assert.That(facade.Placement.RasterBounds, Is.EqualTo(rasterBounds));
+                Assert.That(facade.Placement.LogicalOrigin, Is.EqualTo(rasterBounds.Position));
                 Assert.That(canvas.Transform.Transform(rasterBounds.Position), Is.EqualTo(default(Point)));
             });
         });
@@ -152,11 +152,11 @@ public sealed class RasterFootprintMetadataTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(facade.DeviceGridOffset, Is.EqualTo(expectedOffset));
+                Assert.That(facade.Placement.DeviceGridOffset, Is.EqualTo(expectedOffset));
                 Assert.That(
-                    facade.RasterBounds,
-                    Is.EqualTo(facade.DeviceBounds.ToRect(facade.Density).Translate(-expectedOffset)));
-                Assert.That(facade.RasterBounds.Contains(callbackBounds), Is.True);
+                    facade.Placement.RasterBounds,
+                    Is.EqualTo(facade.Placement.DeviceBounds.ToRect(facade.Placement.Scale.Value).Translate(-expectedOffset)));
+                Assert.That(facade.Placement.RasterBounds.Contains(callbackBounds), Is.True);
             });
         }
 
@@ -185,10 +185,10 @@ public sealed class RasterFootprintMetadataTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(facade.Density, Is.EqualTo(1));
-                Assert.That(facade.DeviceGridOffset, Is.EqualTo(translation));
-                Assert.That(facade.DeviceBounds, Is.EqualTo(new PixelRect(49, 70, 151, 110)));
-                Assert.That(facade.RasterBounds, Is.EqualTo(new Rect(-0.97410583f, 0, 151, 110)));
+                Assert.That(facade.Placement.Scale.Value, Is.EqualTo(1));
+                Assert.That(facade.Placement.DeviceGridOffset, Is.EqualTo(translation));
+                Assert.That(facade.Placement.DeviceBounds, Is.EqualTo(new PixelRect(49, 70, 151, 110)));
+                Assert.That(facade.Placement.RasterBounds, Is.EqualTo(new Rect(-0.97410583f, 0, 151, 110)));
             });
         }
 
@@ -320,7 +320,7 @@ public sealed class RasterFootprintMetadataTests
                     callbackBounds,
                     destination,
                     CallbackCanvasCapability.TargetScope);
-                expectedBounds = RenderScaleUtilities.AddRasterApron(facade.DeviceBounds);
+                expectedBounds = RenderScaleUtilities.AddRasterApron(facade.Placement.DeviceBounds);
                 using var paint = new SKPaint { Color = SKColors.White };
                 var session = new TargetScopeSession(
                     callbackBounds,
@@ -407,17 +407,17 @@ public sealed class RasterFootprintMetadataTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(target.DeviceBounds, Is.EqualTo(deviceBounds));
-            Assert.That(target.DeviceGridOffset, Is.EqualTo(deviceGridOffset));
-            Assert.That(target.RasterBounds, Is.EqualTo(initialRasterBounds.Translate(translation)));
-            Assert.That(target.RasterBounds.Size, Is.EqualTo(initialRasterBounds.Size));
-            Assert.That(clone.DeviceBounds, Is.EqualTo(deviceBounds));
-            Assert.That(clone.DeviceGridOffset, Is.EqualTo(deviceGridOffset));
+            Assert.That(target.Placement.DeviceBounds, Is.EqualTo(deviceBounds));
+            Assert.That(target.Allocation.DeviceGridOffset, Is.EqualTo(deviceGridOffset));
+            Assert.That(target.Placement.RasterBounds, Is.EqualTo(initialRasterBounds.Translate(translation)));
+            Assert.That(target.Placement.RasterBounds.Size, Is.EqualTo(initialRasterBounds.Size));
+            Assert.That(clone.Placement.DeviceBounds, Is.EqualTo(deviceBounds));
+            Assert.That(clone.Allocation.DeviceGridOffset, Is.EqualTo(deviceGridOffset));
             Assert.That(clone.Bounds, Is.EqualTo(target.Bounds));
-            Assert.That(clone.RasterBounds, Is.EqualTo(target.RasterBounds));
-            Assert.That(clonedTargets[0].DeviceBounds, Is.EqualTo(deviceBounds));
-            Assert.That(clonedTargets[0].DeviceGridOffset, Is.EqualTo(deviceGridOffset));
-            Assert.That(clonedTargets[0].RasterBounds, Is.EqualTo(target.RasterBounds));
+            Assert.That(clone.Placement.RasterBounds, Is.EqualTo(target.Placement.RasterBounds));
+            Assert.That(clonedTargets[0].Placement.DeviceBounds, Is.EqualTo(deviceBounds));
+            Assert.That(clonedTargets[0].Allocation.DeviceGridOffset, Is.EqualTo(deviceGridOffset));
+            Assert.That(clonedTargets[0].Placement.RasterBounds, Is.EqualTo(target.Placement.RasterBounds));
         });
     }
 
@@ -523,8 +523,8 @@ public sealed class RasterFootprintMetadataTests
         Assert.Multiple(() =>
         {
             Assert.That(context.DeviceGridOffset, Is.EqualTo(ambientOffset));
-            Assert.That(context.Targets[0].DeviceGridOffset, Is.EqualTo(firstOffset));
-            Assert.That(context.Targets[1].DeviceGridOffset, Is.EqualTo(secondOffset));
+            Assert.That(context.Targets[0].Allocation.DeviceGridOffset, Is.EqualTo(firstOffset));
+            Assert.That(context.Targets[1].Allocation.DeviceGridOffset, Is.EqualTo(secondOffset));
         });
     }
 
@@ -557,9 +557,9 @@ public sealed class RasterFootprintMetadataTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(replacement.DeviceGridOffset, Is.EqualTo(gridOffset));
-            Assert.That(replacement.DeviceBounds, Is.EqualTo(deviceBounds));
-            Assert.That(replacement.RasterBounds, Is.EqualTo(source.RasterBounds));
+            Assert.That(replacement.Allocation.DeviceGridOffset, Is.EqualTo(gridOffset));
+            Assert.That(replacement.Placement.DeviceBounds, Is.EqualTo(deviceBounds));
+            Assert.That(replacement.Placement.RasterBounds, Is.EqualTo(source.Placement.RasterBounds));
             Assert.That(replacement.Bounds, Is.EqualTo(source.Bounds));
         });
     }

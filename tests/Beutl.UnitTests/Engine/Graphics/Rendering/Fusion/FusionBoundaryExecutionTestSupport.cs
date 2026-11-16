@@ -148,10 +148,7 @@ internal static class FusionBoundaryExecutionTestSupport
         Rect bounds)
         => context.MaterializedInput(MaterializedInputDescription.FromRenderTarget(
             context.Borrow(source),
-            bounds,
-            EffectiveScale.At(1),
-            PixelRect.FromRect(bounds, 1),
-            default,
+            new RenderPlacement(bounds, EffectiveScale.At(1)),
             RenderHitTestContract.OutputBounds));
 
     public static RenderFragmentReference Fragment(

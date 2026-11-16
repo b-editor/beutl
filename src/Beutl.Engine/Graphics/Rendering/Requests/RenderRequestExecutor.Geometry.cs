@@ -271,12 +271,8 @@ internal sealed partial class RenderRequestExecutor
                             executionInputs,
                             inputRanges,
                             outputBounds,
-                            requiredRegion,
-                            PixelRect.FromRect(
-                                requiredRegion.Translate(_activeDeviceGridOffset),
-                                density),
+                            new RenderPlacement(requiredRegion, EffectiveScale.At(density), _activeDeviceGridOffset),
                             _options.OutputScale,
-                            density,
                             _options.MaxWorkingScale,
                             _options.Intent,
                             _options.Purpose,
@@ -340,14 +336,14 @@ internal sealed partial class RenderRequestExecutor
                                 MaterializedRenderValue value = outputLeases[output];
 
                                 // Empty bounds mean no output; publishing would request an invalid zero-extent crop.
-                                if (output.Bounds.Width <= 0 || output.Bounds.Height <= 0)
+                                if (output.Placement.LogicalBounds.Width <= 0 || output.Placement.LogicalBounds.Height <= 0)
                                     return;
 
-                                if (value.Bounds != output.Bounds)
+                                if (value.Bounds != output.Placement.LogicalBounds)
                                 {
                                     MaterializedRenderValue cropped = CropValue(
                                         value,
-                                        output.Bounds,
+                                        output.Placement.LogicalBounds,
                                         allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
                                     ReleaseUnpublished(value);
                                     outputLeases[output] = cropped;
@@ -422,10 +418,10 @@ internal sealed partial class RenderRequestExecutor
                     description.ValidateTargetDeviceSize(target);
                     return CreateOwnedShallowCopy(
                         target,
-                        description.Bounds,
-                        description.EffectiveScale,
-                        description.DeviceBounds,
-                        description.DeviceGridOffset);
+                        description.Placement.LogicalBounds,
+                        description.Placement.Scale,
+                        description.Placement.DeviceBounds,
+                        description.Placement.DeviceGridOffset);
                 });
             _ownedValues.Add(value);
             return [value];
