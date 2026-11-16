@@ -116,7 +116,11 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
     {
         int funcCopyBuffer(IMFSample sample)
         {
-            return SampleUtilities.SampleCopyToBuffer(sample, buf, _mediaInfo.OutImageBufferSize);
+            return SampleUtilities.SampleCopyToBuffer(
+                sample,
+                buf,
+                _mediaInfo.OutImageBufferSize,
+                _mediaInfo.ImageFormat.Width * (_mediaInfo.ImageFormat.BitCount / 8));
         }
 
         frame = Math.Max(frame, _firstFrame);
