@@ -1,0 +1,9 @@
+<Style xmlns="https://github.com/avaloniaui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       Selector="Popup">
+    <!-- The Popup passes this setting to its overlay or native window so wheel input reaches the control below. -->
+    <Setter Property="(Classes.toolTipHost)" Value="{CompiledBinding $self.((ToolTip)Child), Converter={x:Static ObjectConverters.IsNotNull}}" />
+    <Style Selector="^.toolTipHost">
+        <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+</Style>
