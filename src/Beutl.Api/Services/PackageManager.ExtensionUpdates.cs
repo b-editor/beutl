@@ -15,7 +15,12 @@ public sealed partial class PackageManager
 
         using var lifetime = apiApplication.CreateLifetimeLinkedTokenSource(cancellationToken);
         CancellationToken token = lifetime.Token;
-        using var lease = await apiApplication.Lock.LockAsync(token);
+        if (packages == null)
+        {
+            using var lease = await apiApplication.Lock.LockAsync(token);
+            packages = [.. installedPackageRepository.GetLocalPackages()];
+        }
+        var checkedPackages = packages.ToLookup(p => p.Id, StringComparer.OrdinalIgnoreCase);
         IReadOnlyList<PackageUpdate> available = await CheckUpdatesForHost(host, token, packages).ConfigureAwait(false);
         int staged = 0;
         var remaining = new List<PackageUpdate>();
@@ -25,16 +30,17 @@ public sealed partial class PackageManager
             token.ThrowIfCancellationRequested();
             string name = update.Package.Name;
             if (update.Package.Tags.Value.GetPackageKind() == PackageKind.Extension
-                && policy.ShouldUpdateExtensions(appUpdate) && !queue.HasPendingChange(name)
-                && installedPackageRepository.GetLocalPackages(name).MaxBy(p => p.Version) is { } installed
+                && checkedPackages[name].MaxBy(p => p.Version) is { } installed
                 && NuGetVersion.Parse(update.NewVersion.Version.Value) > installed.Version)
             {
                 try
                 {
-                    if (await apiApplication.GetResource<PackageInstaller>()
-                        .StageExtensionUpdateAsync(installed, update.NewVersion, host, appUpdate, token).ConfigureAwait(false))
-                        staged++;
-                    continue;
+                    bool IsCurrent() => policy.ShouldUpdateExtensions(appUpdate) && !queue.HasPendingChange(name)
+                        && installed.Equals(installedPackageRepository.GetLocalPackages(name).MaxBy(p => p.Version));
+                    var result = await apiApplication.GetResource<PackageInstaller>()
+                        .StageExtensionUpdateAsync(installed, update.NewVersion, host, appUpdate, token, IsCurrent).ConfigureAwait(false);
+                    if (result == ExtensionUpdateStageResult.Ready) staged++;
+                    if (result != ExtensionUpdateStageResult.RequiresLicenseAcceptance) continue;
                 }
                 catch (Exception ex) when (!token.IsCancellationRequested)
                 {

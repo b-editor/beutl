@@ -58,8 +58,8 @@ internal class PackageOperationHandler
             await loadPreceding();
             using var lease = await _app.Lock.LockAsync(token);
             if (!_installedPackageRepository.ExistsPackage(installed) || _queue.HasPendingChange(installed.Id)) return false;
-            await _packageInstaller.ResolveStagedExtensionAsync(update, token);
-            if (!policy.ShouldUpdateExtensions(update.WithAppUpdate)) return false;
+            if (!await _packageInstaller.ResolveStagedExtensionAsync(update, token)
+                || !policy.ShouldUpdateExtensions(update.WithAppUpdate)) return false;
             try
             {
                 await ActivateInstalledPackageAsync(update.Package, token);

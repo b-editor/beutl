@@ -354,7 +354,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         CancellationToken cancellationToken = default)
         => TrackAsync(() => ResolveDependenciesCoreAsync(context, useSavedSelection: false, logger, cancellationToken));
 
-    private async Task ResolveDependenciesCoreAsync(
+    private async Task<bool> ResolveDependenciesCoreAsync(
         PackageInstallContext context,
         bool useSavedSelection,
         ILogger? logger,
@@ -386,6 +386,11 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 SourcePackageDependencyInfo[] packagesToInstall = await ResolvePackageGraphAsync(
                     package, nuGetFramework, sources, selectedPackages, logger, cancellationToken).ConfigureAwait(false);
 
+                // Staged and installed sources both resolve to local archives. Check the selected graph
+                // before extraction so a manual install can still collect every required license.
+                if (stagedSource != null && !AreExtensionLicensesAccepted(packagesToInstall.Select(p => p.DownloadUri!.LocalPath), cancellationToken))
+                    return false;
+
                 var packageExtractionContext = new PackageExtractionContext(
                     PackageSaveMode.Defaultv3,
                     XmlDocFileSaveMode.None,
@@ -416,6 +421,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                     packagesToInstall.Where(item => !CoreLibraries.IncludedInPackageDependencies(item.Id, item.Version)));
                 context.Phase = PackageInstallPhase.ResolvedDependencies;
             }
+            return true;
         }
         finally
         {

@@ -10,6 +10,13 @@ namespace Beutl.Api.Services;
 
 internal sealed record StagedExtensionUpdate(PackageIdentity Package, string Source, bool WithAppUpdate);
 
+internal enum ExtensionUpdateStageResult
+{
+    Ready,
+    Skipped,
+    RequiresLicenseAcceptance,
+}
+
 public partial class PackageInstaller
 {
     private const string WithAppDirectory = "app";
@@ -19,16 +26,22 @@ public partial class PackageInstaller
     private static string ExtensionUpdateDirectory(PackageIdentity installed)
         => Path.Combine(Helper.AppRoot, "extensionUpdates", ValidatePackageName(installed.Id).ToLowerInvariant(), installed.Version.ToNormalizedString());
 
-    internal Task<bool> StageExtensionUpdateAsync(PackageIdentity installed, Release release, NuGetVersion host, bool appUpdate, CancellationToken token)
+    internal Task<ExtensionUpdateStageResult> StageExtensionUpdateAsync(PackageIdentity installed, Release release,
+        NuGetVersion host, bool appUpdate, CancellationToken token, Func<bool>? isCurrent = null)
         => TrackAsync(async () =>
         {
             var candidate = new PackageIdentity(installed.Id, NuGetVersion.Parse(release.Version.Value));
             string hostDirectory = Path.Combine(ExtensionUpdateDirectory(installed), host.ToNormalizedString());
             string directory = appUpdate ? Path.Combine(hostDirectory, WithAppDirectory) : hostDirectory;
             string name = $"{installed.Id}.{candidate.Version.ToNormalizedString()}";
-            if (File.Exists(Path.Combine(hostDirectory, name + ".rejected"))) return false;
+            string rejected = Path.Combine(hostDirectory, name + ".rejected");
             string ready = Path.Combine(directory, name + ".ready");
-            if (Directory.Exists(ready)) return true;
+            bool CanStage() => (isCurrent?.Invoke() ?? true) && !File.Exists(rejected);
+            using (await _apiApplication.Lock.LockAsync(token))
+            {
+                if (!CanStage()) return ExtensionUpdateStageResult.Skipped;
+            }
+            if (Directory.Exists(ready)) return await FinishStagingAsync(ready).ConfigureAwait(false);
 
             // Publish the whole local feed together. Startup never selects a partially downloaded graph.
             string draft = Directory.CreateDirectory(Path.Combine(directory, $".preparing-{Guid.NewGuid():N}")).FullName;
@@ -61,22 +74,48 @@ public partial class PackageInstaller
                     if (!await resource.CopyNupkgToStreamAsync(dep.Id, dep.Version, output, _cacheContext, logger, token).ConfigureAwait(false))
                         throw new InvalidDataException($"Could not prepare dependency '{dep}'.");
                 }
-                token.ThrowIfCancellationRequested();
-                try
-                {
-                    Directory.Move(draft, ready);
-                }
-                catch (IOException) when (Directory.Exists(ready))
-                {
-                    // Another Beutl instance published the same update.
-                }
-                return true;
+                return await FinishStagingAsync(draft).ConfigureAwait(false);
             }
             finally
             {
                 DeleteIfExists(draft);
             }
+
+            async Task<ExtensionUpdateStageResult> FinishStagingAsync(string feed)
+            {
+                bool accepted = AreExtensionLicensesAccepted(Directory.EnumerateFiles(feed, "*.nupkg"), token);
+                // A manual change during the download takes precedence over publishing its result.
+                using var lease = await _apiApplication.Lock.LockAsync(token);
+                token.ThrowIfCancellationRequested();
+                if (!CanStage()) return ExtensionUpdateStageResult.Skipped;
+                if (!accepted) return ExtensionUpdateStageResult.RequiresLicenseAcceptance;
+                if (feed != ready)
+                {
+                    try
+                    {
+                        Directory.Move(feed, ready);
+                    }
+                    catch (IOException) when (Directory.Exists(ready))
+                    {
+                        // Another Beutl instance published the same update.
+                    }
+                }
+                return ExtensionUpdateStageResult.Ready;
+            }
         });
+
+    private bool AreExtensionLicensesAccepted(IEnumerable<string> archives, CancellationToken token)
+    {
+        foreach (string archive in archives)
+        {
+            token.ThrowIfCancellationRequested();
+            using var reader = new PackageArchiveReader(archive);
+            if (reader.NuspecReader.GetRequireLicenseAcceptance()
+                && !_apiApplication.GetResource<AcceptedLicenseManager>().Accepted.ContainsKey(reader.GetIdentity()))
+                return false;
+        }
+        return true;
+    }
 
     private async Task DownloadExtensionArchiveAsync(PackageIdentity candidate, Release release, string path, CancellationToken token)
     {
@@ -124,7 +163,7 @@ public partial class PackageInstaller
         return latest;
     }
 
-    internal Task ResolveStagedExtensionAsync(StagedExtensionUpdate update, CancellationToken token)
+    internal Task<bool> ResolveStagedExtensionAsync(StagedExtensionUpdate update, CancellationToken token)
     {
         var source = new PackageSource(update.Source);
         var context = new PackageInstallContext(update.Package.Id, update.Package.Version.ToNormalizedString(), string.Empty);

@@ -10,6 +10,7 @@ using Beutl.Services;
 using Beutl.Services.StartupTasks;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.ExtensionsPages;
+using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
@@ -118,9 +119,9 @@ public sealed class AutomaticExtensionUpdateTests
                 await using var next = new BeutlApiApplication(nextHttp, new ExtensionProvider(), () => new HttpClient(store, false));
                 var release = TestStore.CreateRelease(next, "2.0.0", fileId: "archive", name: installed.Id);
                 var installer = next.GetResource<PackageInstaller>();
-                Assert.That(await installer.StageExtensionUpdateAsync(installed, release, host, false, default), Is.False);
+                Assert.That(await installer.StageExtensionUpdateAsync(installed, release, host, false, default), Is.EqualTo(ExtensionUpdateStageResult.Skipped));
                 Assert.That(store.Downloads, Is.EqualTo(1));
-                Assert.That(await installer.StageExtensionUpdateAsync(installed, release, new NuGetVersion(99, 0, 0), true, default), Is.True);
+                Assert.That(await installer.StageExtensionUpdateAsync(installed, release, new NuGetVersion(99, 0, 0), true, default), Is.EqualTo(ExtensionUpdateStageResult.Ready));
             }
         }
         finally
@@ -166,7 +167,7 @@ public sealed class AutomaticExtensionUpdateTests
                     await installer.ResolveDependencies(context, null);
                     File.Delete(dependencyFile);
                 }
-                Assert.That(await installer.StageExtensionUpdateAsync(installed, release, host, true, default), Is.True);
+                Assert.That(await installer.StageExtensionUpdateAsync(installed, release, host, true, default), Is.EqualTo(ExtensionUpdateStageResult.Ready));
                 Assert.That(Directory.Exists(installedDependencyPath), Is.EqualTo(alreadyInstalled));
             }
             TestPackages.Delete([dependencyFile, installedDependencyPath]);
@@ -178,6 +179,127 @@ public sealed class AutomaticExtensionUpdateTests
         finally
         {
             TestPackages.Delete(cleanup);
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Automatic_updates_wait_for_the_required_license(bool licenseOnDependency)
+    {
+        using var registration = new AppRootFileBackup("installedPackages.json");
+        using var licenses = new AppRootFileBackup("accepted-licenses.json");
+        var installed = new PackageIdentity($"Licensed.{Guid.NewGuid():N}", new NuGetVersion(1, 0, 0));
+        var candidate = new PackageIdentity(installed.Id, new NuGetVersion(2, 0, 0));
+        var dependency = new PackageIdentity(installed.Id + ".Dependency", installed.Version);
+        byte[] dependencyBytes = TestPackages.CreateExtensionNupkg(dependency, requireLicenseAcceptance: licenseOnDependency);
+        byte[] candidateBytes = TestPackages.CreateExtensionNupkg(candidate, dependency: dependency, requireLicenseAcceptance: !licenseOnDependency);
+        var host = NuGetVersion.Parse(BeutlApplication.Version);
+        string updates = Path.Combine(Helper.AppRoot, "extensionUpdates", installed.Id.ToLowerInvariant());
+        string dependencyFile = Helper.GetNupkgFilePath(dependency.Id, dependency.Version.ToString());
+        var cleanup = new List<string> { updates, dependencyFile, Helper.PackagePathResolver.GetInstallPath(candidate), Helper.PackagePathResolver.GetInstallPath(dependency) };
+        using var store = new UpdateStore(candidate, candidateBytes);
+        using var http = new HttpClient(store, false);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(), () => new HttpClient(store, false));
+        var setting = GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
+        var previous = setting.Value;
+        try
+        {
+            setting.Value = ExtensionUpdateMode.WithAppUpdate;
+            Directory.CreateDirectory(Helper.LocalSourcePath);
+            File.WriteAllBytes(dependencyFile, dependencyBytes);
+            TestPackages.CreateExtracted(installed, false, true, cleanup);
+            var handler = new PackageOperationHandler(app, new EditorService(app.GetResource<ExtensionProvider>()), new ProjectService());
+            handler.InstalledPackageRepository.UpgradePackagesAndDeferNotifications(installed)();
+            var manager = app.GetResource<PackageManager>();
+            var result = await manager.StageExtensionUpdatesAsync(host, true, default, [installed]);
+            Assert.That(result.Staged, Is.Zero);
+            Assert.That(result.Remaining.Single().Package.Name, Is.EqualTo(installed.Id));
+            Assert.That(PackageInstaller.FindStagedExtensionUpdate(installed, host, true), Is.Null);
+
+            // An earlier build may already have prepared the update in either on-disk layout.
+            string feed = Path.Combine(updates, installed.Version.ToNormalizedString(), host.ToNormalizedString(), "app");
+            if (licenseOnDependency) feed = Path.Combine(feed, $"{candidate.Id}.{candidate.Version}.ready");
+            Directory.CreateDirectory(feed);
+            File.WriteAllBytes(Path.Combine(feed, Helper.PackagePathResolver.GetPackageFileName(candidate)), candidateBytes);
+            File.Copy(dependencyFile, Path.Combine(feed, Path.GetFileName(dependencyFile)));
+            Task<bool> Apply() => handler.TryApplyStagedExtensionUpdateAsync(installed, host, () => Task.CompletedTask);
+            Assert.That(await Apply(), Is.False);
+            Assert.That(handler.InstalledPackageRepository.ExistsPackage(installed), Is.True);
+            Assert.That(Helper.PackagePathResolver.GetInstalledPath(candidate), Is.Null);
+
+            using var reader = new PackageArchiveReader(new MemoryStream(licenseOnDependency ? dependencyBytes : candidateBytes));
+            app.GetResource<AcceptedLicenseManager>().Accepts([(reader.GetIdentity(), reader.NuspecReader.GetLicenseMetadata()!)]);
+            Assert.That((await manager.StageExtensionUpdatesAsync(host, true, default, [installed])).Staged, Is.EqualTo(1));
+            Assert.That(await Apply(), Is.True);
+            Assert.That(handler.InstalledPackageRepository.ExistsPackage(candidate), Is.True);
+        }
+        finally
+        {
+            setting.Value = previous;
+            TestPackages.Delete(cleanup);
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Background_update_checks_respect_concurrent_package_changes(bool duringStoreQuery)
+    {
+        using var registration = new AppRootFileBackup("installedPackages.json");
+        using var changes = new AppRootFileBackup("packageChanges.json");
+        var installed = new PackageIdentity($"Concurrent.{Guid.NewGuid():N}", new NuGetVersion(1, 0, 0));
+        var candidate = new PackageIdentity(installed.Id, new NuGetVersion(2, 0, 0));
+        var host = NuGetVersion.Parse(BeutlApplication.Version);
+        var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task Pause(CancellationToken token)
+        {
+            requestStarted.TrySetResult();
+            return resume.Task.WaitAsync(token);
+        }
+        using var store = new UpdateStore(candidate, TestPackages.CreateExtensionNupkg(candidate))
+        {
+            BeforeReleases = duringStoreQuery ? Pause : null,
+            BeforeDownload = duringStoreQuery ? null : Pause,
+        };
+        using var http = new HttpClient(store, false);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(), () => new HttpClient(store, false));
+        var setting = GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
+        var previous = setting.Value;
+        Task<(int Staged, IReadOnlyList<PackageUpdate> Remaining)>? staging = null;
+        try
+        {
+            setting.Value = ExtensionUpdateMode.Always;
+            var repository = app.GetResource<InstalledPackageRepository>();
+            repository.UpgradePackagesAndDeferNotifications(installed)();
+            var queue = app.GetResource<PackageChangesQueue>();
+            var manager = app.GetResource<PackageManager>();
+            staging = manager.StageExtensionUpdatesAsync(host, false, default, [installed]);
+            await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            using (var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2)))
+            using (await app.Lock.LockAsync(deadline.Token))
+            {
+                if (duringStoreQuery) repository.UpgradePackagesAndDeferNotifications(candidate)();
+                else queue.UninstallQueue(installed);
+            }
+            resume.SetResult();
+            Assert.That((await staging).Staged, Is.Zero);
+            Assert.That(PackageInstaller.FindStagedExtensionUpdate(installed, host, true), Is.Null);
+            if (duringStoreQuery)
+                Assert.That(store.Downloads, Is.Zero);
+            else
+            {
+                queue.Cancel(installed.Id);
+                Assert.That((await manager.StageExtensionUpdatesAsync(host, false, default, [installed])).Staged, Is.EqualTo(1));
+            }
+        }
+        finally
+        {
+            resume.TrySetResult();
+            if (staging != null) await staging;
+            setting.Value = previous;
+            app.GetResource<PackageInstaller>().ClearStagedExtensionUpdates(installed);
         }
     }
 
@@ -266,6 +388,7 @@ public sealed class AutomaticExtensionUpdateTests
     private sealed class UpdateStore(PackageIdentity candidate, byte[] archive, bool correctHash = true) : HttpMessageHandler
     {
         public int Downloads { get; private set; }
+        public Func<CancellationToken, Task>? BeforeReleases { get; init; }
         public Func<CancellationToken, Task>? BeforeDownload { get; init; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -289,9 +412,12 @@ public sealed class AutomaticExtensionUpdateTests
                     sha256 = correctHash ? Convert.ToHexString(SHA256.HashData(archive)) : new string('0', 64)
                 });
             else if (path.EndsWith("/releases", StringComparison.Ordinal))
+            {
+                if (BeforeReleases != null) await BeforeReleases(cancellationToken);
                 content = JsonContent.Create(new[] {
                     TestStore.CreateReleaseResponse("3.0.0", fileId: "future", targetVersion: "[999.0.0,)"),
                     TestStore.CreateReleaseResponse(candidate.Version.ToString(), fileId: "archive", targetVersion: $"[{BeutlApplication.Version}]") });
+            }
             else if (path.Contains("/releases/", StringComparison.Ordinal))
                 content = JsonContent.Create(TestStore.CreateReleaseResponse("1.0.0"));
             else

@@ -83,7 +83,8 @@ internal static class TestPackages
         return CreateExtensionNupkg(identity, assembly);
     }
 
-    public static byte[] CreateExtensionNupkg(PackageIdentity identity, string? assembly = null, PackageIdentity? dependency = null)
+    public static byte[] CreateExtensionNupkg(PackageIdentity identity, string? assembly = null, PackageIdentity? dependency = null,
+        bool requireLicenseAcceptance = false)
     {
         string framework = Helper.GetFrameworkName().GetShortFolderName();
         using var stream = new MemoryStream();
@@ -99,6 +100,7 @@ internal static class TestPackages
                         <version>{{identity.Version}}</version>
                         <authors>tester</authors>
                         <description>Test extension</description>
+                        {{(requireLicenseAcceptance ? "<requireLicenseAcceptance>true</requireLicenseAcceptance><license type=\"expression\">MIT</license>" : "")}}
                         <dependencies><group targetFramework="{{framework}}">{{(dependency == null ? "" :
                             $"<dependency id=\"{dependency.Id}\" version=\"[{dependency.Version}]\" />")}}</group></dependencies>
                       </metadata>
