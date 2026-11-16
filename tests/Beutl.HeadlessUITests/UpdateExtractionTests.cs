@@ -222,7 +222,7 @@ public class UpdateExtractionTests
         finally { Directory.Delete(root, true); }
     }
 
-    private static void AddApplicationPayload(
+    internal static void AddApplicationPayload(
         ZipArchive zip, string os = "osx", bool standalone = true, string prefix = "", string? omitted = null)
     {
         const string executable = "Beutl";

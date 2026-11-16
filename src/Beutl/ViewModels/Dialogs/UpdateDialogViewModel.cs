@@ -457,57 +457,85 @@ public class UpdateDialogViewModel
     // Failed when the update could not be prepared; ProgressText says why.
     private async Task<AppUpdatePhase> PrepareUpdateAsync()
     {
-        // Read first, so an update that cannot be prepared here downloads nothing.
-        AssetMetadataJson? metadata = null;
-        if (!IsFlatpak)
-        {
-            metadata = await _loadMetadata();
-            if (metadata == null)
-            {
-                ProgressText.Value = MessageStrings.FailedToLoadMetadata;
-                return AppUpdatePhase.Failed;
-            }
+        if (IsFlatpak) return await PrepareFlatpakUpdateAsync();
 
-            // Unpacking empties folders that every running Beutl shares, where another Beutl may have its update ready.
-            if (Unpacks(metadata) && !_claimUpdateFolders())
-            {
-                _logger.LogInformation("Another Beutl holds the update folders");
-                ProgressText.Value = MessageStrings.UpdateFoldersInUse;
-                return AppUpdatePhase.Failed;
-            }
+        // Read first, so an update that cannot be prepared here downloads nothing.
+        AssetMetadataJson? metadata = await _loadMetadata();
+        if (metadata == null)
+        {
+            ProgressText.Value = MessageStrings.FailedToLoadMetadata;
+            return AppUpdatePhase.Failed;
         }
 
+        // Unpacking empties folders that every running Beutl shares, where another Beutl may have its update ready.
+        if (Unpacks(metadata) && !_claimUpdateFolders())
+        {
+            _logger.LogInformation("Another Beutl holds the update folders");
+            ProgressText.Value = MessageStrings.UpdateFoldersInUse;
+            return AppUpdatePhase.Failed;
+        }
+
+        UpdateDownloadCache? cache = UpdateDownloadCache.Open(DownloadDirectory);
+        try
+        {
+            _downloadFile = await DownloadFile(httpClient: _httpClient, cache: cache);
+            if (_downloadFile == null) return AppUpdatePhase.Failed;
+            if (Unpacks(metadata))
+            {
+                return await StageExtractedUpdateAsync(metadata, _downloadFile)
+                    ? AppUpdatePhase.Ready
+                    : AppUpdatePhase.Failed;
+            }
+
+            if (metadata.Type is "installer" or "debian")
+            {
+                // Keep this file available through install-on-quit. Canceling or exiting releases the folder.
+                _cts.Token.Register(cache.Dispose);
+                cache = null;
+                ProgressText.Value = MessageStrings.StartInstaller;
+                PrimaryButtonText.Value = MessageStrings.UpdateAction_StartInstaller;
+                return AppUpdatePhase.Ready;
+            }
+
+            ProgressText.Value = MessageStrings.OperationFailed;
+            return AppUpdatePhase.Failed;
+        }
+        finally
+        {
+            cache?.Dispose();
+        }
+    }
+
+    private async Task<AppUpdatePhase> PrepareFlatpakUpdateAsync()
+    {
         FlatpakUpdater? flatpak = null;
         try
         {
-            if (IsFlatpak) flatpak = _flatpak ?? FlatpakUpdater.Create();
-            _downloadFile = await DownloadFile(flatpak?.DownloadPath, _httpClient);
+            flatpak = _flatpak ?? FlatpakUpdater.Create();
+            _downloadFile = await DownloadFile(flatpak.DownloadPath, _httpClient);
             if (_downloadFile == null) return AppUpdatePhase.Failed;
-            if (flatpak != null)
+            await PrepareExtensionUpdatesAsync();
+            _cts.Token.ThrowIfCancellationRequested();
+            // Keep the bundle until the user chooses Install. Retrying an explicitly requested
+            // installation already has that choice, including when the host asks for authorization again.
+            Task installRequested = _flatpakInstallRequested!.Task;
+            if (!installRequested.IsCompleted)
             {
-                await PrepareExtensionUpdatesAsync();
-                _cts.Token.ThrowIfCancellationRequested();
-                // Keep the bundle until the user chooses Install. Retrying an explicitly requested
-                // installation already has that choice, including when the host asks for authorization again.
-                Task installRequested = _flatpakInstallRequested!.Task;
-                if (!installRequested.IsCompleted)
-                {
-                    IsPrimaryButtonEnabled.Value = true;
-                    SecondaryButtonText.Value = MessageStrings.UpdateAction_Later;
-                    Phase.Value = AppUpdatePhase.Ready;
-                    await installRequested.WaitAsync(_cts.Token);
-                }
-
-                _cts.Token.ThrowIfCancellationRequested();
-                IsPrimaryButtonEnabled.Value = false;
-                SecondaryButtonText.Value = MessageStrings.UpdateAction_RunInBackground;
-                ProgressText.Value = ExtensionsStrings.Installing;
-                IsIndeterminate.Value = true;
-                Phase.Value = AppUpdatePhase.Installing;
-                await flatpak.InstallAsync(_cts.Token);
-                ProgressText.Value = MessageStrings.FlatpakUpdateCompleted;
-                return AppUpdatePhase.Completed;
+                IsPrimaryButtonEnabled.Value = true;
+                SecondaryButtonText.Value = MessageStrings.UpdateAction_Later;
+                Phase.Value = AppUpdatePhase.Ready;
+                await installRequested.WaitAsync(_cts.Token);
             }
+
+            _cts.Token.ThrowIfCancellationRequested();
+            IsPrimaryButtonEnabled.Value = false;
+            SecondaryButtonText.Value = MessageStrings.UpdateAction_RunInBackground;
+            ProgressText.Value = ExtensionsStrings.Installing;
+            IsIndeterminate.Value = true;
+            Phase.Value = AppUpdatePhase.Installing;
+            await flatpak.InstallAsync(_cts.Token);
+            ProgressText.Value = MessageStrings.FlatpakUpdateCompleted;
+            return AppUpdatePhase.Completed;
         }
         catch (OperationCanceledException) { ProgressText.Value = MessageStrings.Canceled; return AppUpdatePhase.Canceled; }
         catch (Exception ex)
@@ -519,35 +547,13 @@ public class UpdateDialogViewModel
         }
         finally
         {
-            if (IsFlatpak)
-            {
-                IsPrimaryButtonEnabled.Value = false;
-                IsIndeterminate.Value = false;
-                CloseButtonText.Value = Strings.Close;
-                try { if (flatpak != null) File.Delete(flatpak.DownloadPath); }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                { _logger.LogWarning(ex, "Failed to remove update download"); }
-            }
+            IsPrimaryButtonEnabled.Value = false;
+            IsIndeterminate.Value = false;
+            CloseButtonText.Value = Strings.Close;
+            try { if (flatpak != null) File.Delete(flatpak.DownloadPath); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { _logger.LogWarning(ex, "Failed to remove update download"); }
         }
-
-        // A Flatpak update has finished by now, so the metadata was read.
-        AssetMetadataJson read = metadata!;
-        if (Unpacks(read))
-        {
-            return await StageExtractedUpdateAsync(read, _downloadFile)
-                ? AppUpdatePhase.Ready
-                : AppUpdatePhase.Failed;
-        }
-
-        if (read.Type is "installer" or "debian")
-        {
-            ProgressText.Value = MessageStrings.StartInstaller;
-            PrimaryButtonText.Value = MessageStrings.UpdateAction_StartInstaller;
-            return AppUpdatePhase.Ready;
-        }
-
-        ProgressText.Value = MessageStrings.OperationFailed;
-        return AppUpdatePhase.Failed;
     }
 
     internal static string FormatDownloadProgress(long downloaded, long total)
@@ -659,11 +665,11 @@ public class UpdateDialogViewModel
 
     // The file the update downloads to: the given path, or a sanitized name the server or the
     // URL gives it in a folder of its own, which is created when missing.
-    private string ResolveDownloadTarget(HttpResponseMessage response, string? destinationPath)
+    private string ResolveDownloadTarget(HttpResponseMessage response, string? destinationPath, string? downloadDirectory)
     {
         var directory = destinationPath != null
             ? Path.GetDirectoryName(Path.GetFullPath(destinationPath))!
-            : DownloadDirectory;
+            : downloadDirectory ?? DownloadDirectory;
         if (!Directory.Exists(directory))
         {
             Directory.CreateDirectory(directory);
@@ -672,8 +678,8 @@ public class UpdateDialogViewModel
         if (destinationPath != null)
             return Path.GetFullPath(destinationPath);
 
-        string name = NormalizeFileName(response.Content.Headers.ContentDisposition?.FileName)
-            ?? NormalizeFileName(Uri.TryCreate(Update.DownloadUrl, UriKind.Absolute, out Uri? uri)
+        string name = UpdateDownloadCache.NormalizeFileName(response.Content.Headers.ContentDisposition?.FileName)
+            ?? UpdateDownloadCache.NormalizeFileName(Uri.TryCreate(Update.DownloadUrl, UriKind.Absolute, out Uri? uri)
                 ? Uri.UnescapeDataString(uri.AbsolutePath)
                 : null)
             ?? "update";
@@ -684,21 +690,6 @@ public class UpdateDialogViewModel
 
         _logger.LogInformation("Resolved download file name: {FileName}", name);
         return file;
-    }
-
-    // Keep a single path component made of characters that are safe both as a file name on
-    // every platform and inside the Linux update command, which runs through a shell.
-    internal static string? NormalizeFileName(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-
-        string name = value.Trim().Trim('"').Replace('\\', '/');
-        name = name[(name.LastIndexOf('/') + 1)..];
-        name = string.Concat(name.Select(c =>
-                char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_' ? c : '_'))
-            .Trim(' ', '.');
-        return name.Length == 0 ? null : name;
     }
 
     // The digest is hex, optionally written the way GitHub release assets spell it.
@@ -717,7 +708,8 @@ public class UpdateDialogViewModel
     }
 
     // Test seam: only tests pass maximumBytes.
-    internal async Task<string?> DownloadFile(string? destinationPath = null, HttpClient? httpClient = null, long? maximumBytes = null)
+    internal async Task<string?> DownloadFile(string? destinationPath = null, HttpClient? httpClient = null,
+        long? maximumBytes = null, UpdateDownloadCache? cache = null)
     {
         string? temporaryPath = null;
         try
@@ -730,6 +722,15 @@ public class UpdateDialogViewModel
             if (!Uri.TryCreate(Update.DownloadUrl, UriKind.Absolute, out Uri? uri)
                 || uri.Scheme != Uri.UriSchemeHttps)
                 throw new InvalidDataException(MessageStrings.DownloadFailed);
+
+            string? expectedHash = NormalizeSha256(Update.Sha256);
+            long limit = maximumBytes ?? (IsFlatpak ? FlatpakUpdater.MaximumBundleBytes : long.MaxValue);
+            if (cache != null && expectedHash != null
+                && await cache.FindVerifiedAsync(expectedHash, limit, ct) is { } cachedFile)
+            {
+                _logger.LogInformation("Reusing verified update {FilePath}", cachedFile);
+                return CompleteDownload(cachedFile, cache);
+            }
 
             _logger.LogInformation("Downloading update from {DownloadUrl}", Update.DownloadUrl);
             // A client that was passed in outlives this attempt, so a retry can use it again.
@@ -744,11 +745,9 @@ public class UpdateDialogViewModel
                 throw new InvalidDataException(MessageStrings.DownloadFailed);
 
             long? contentLength = response.Content.Headers.ContentLength;
-            long limit = maximumBytes ?? (IsFlatpak ? FlatpakUpdater.MaximumBundleBytes : long.MaxValue);
             if (contentLength > limit) throw new InvalidDataException(MessageStrings.DownloadFailed);
-            var file = ResolveDownloadTarget(response, destinationPath);
+            var file = ResolveDownloadTarget(response, destinationPath, cache?.DirectoryPath);
 
-            string? expectedHash = NormalizeSha256(Update.Sha256);
             if (expectedHash == null)
             {
                 // Older responses have no digest; verify every download that carries one.
@@ -810,15 +809,12 @@ public class UpdateDialogViewModel
                 }
             }
 
+            ct.ThrowIfCancellationRequested();
             File.Move(temporaryPath, file, overwrite: true);
             temporaryPath = null;
 
-            ProgressText.Value = MessageStrings.DownloadComplete;
-            ProgressValue.Value = 1;
-            IsIndeterminate.Value = false;
             _logger.LogInformation("Downloaded update to {FilePath}", file);
-
-            return file;
+            return CompleteDownload(file, cache);
         }
         catch (OperationCanceledException) when (_cts.IsCancellationRequested)
         {
@@ -845,6 +841,15 @@ public class UpdateDialogViewModel
         }
     }
 
+    private string CompleteDownload(string file, UpdateDownloadCache? cache)
+    {
+        cache?.RemoveOtherDownloads(file);
+        ProgressText.Value = MessageStrings.DownloadComplete;
+        ProgressValue.Value = 1;
+        IsIndeterminate.Value = false;
+        return file;
+    }
+
     private async Task<bool> ExtractIfNeeded(AssetMetadataJson metadata, string file, string destination)
     {
         var ct = _cts.Token;
@@ -863,7 +868,7 @@ public class UpdateDialogViewModel
                 await ExtractAppBundleAsync(metadata, file, destination, ct);
             }
 
-            File.Delete(file);
+            if (string.IsNullOrWhiteSpace(Update.Sha256)) File.Delete(file);
             _logger.LogInformation("Extraction complete");
             ProgressText.Value = MessageStrings.ExtractionComplete;
             ProgressValue.Value = ProgressMax.Value;
