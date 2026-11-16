@@ -19,6 +19,8 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger<VulkanSwapchainRenderer>();
 
+    private readonly ILogger _logger = s_logger;
+
     private readonly Vk _vk;
     private readonly Instance _instance;
     private readonly PhysicalDevice _physicalDevice;
@@ -31,6 +33,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
     private VulkanSwapchain? _swapchain;
     private VulkanPresentPipeline? _pipeline;
     private VulkanSurfaceInfo _surfaceInfo;
+
+    // The Vulkan calls the presentation thread makes, set once there is a swapchain to present to.
+    private IVulkanPresentCalls? _calls;
 
     private Image _sourceImage;
     private DeviceMemory _sourceMemory;
@@ -84,6 +89,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
     private Thread? _presentThread;
     private readonly BlockingCollection<RenderCommand> _commandQueue = new(4);
+
+    // Batches the presentation thread has finished, so tests can tell when a request has been handled.
+    private int _executedBatches;
     private volatile bool _running;
     private bool _disposed;
 
@@ -125,6 +133,20 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         CreateSyncObjects();
     }
 
+    /// <summary>
+    /// A renderer that presents through <paramref name="calls"/> instead of a device and surface of its own, for tests.
+    /// Its presentation thread starts at once.
+    /// </summary>
+    internal VulkanSwapchainRenderer(IVulkanPresentCalls calls, ILogger logger)
+    {
+        _vk = null!;
+        _calls = calls;
+        _logger = logger;
+        StartPresentThread();
+    }
+
+    internal int ExecutedBatches => Volatile.Read(ref _executedBatches);
+
     public bool IsHdrActive => _swapchain?.IsHdr ?? false;
 
     /// <summary>Whether the swapchain takes linear BT.2020, whose gamut holds any display's.</summary>
@@ -135,6 +157,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         _surfaceInfo = VulkanSurfaceHelper.CreateSurface(_vk, _instance, nativeHandle);
         _swapchain = new VulkanSwapchain(_vk, _instance, _physicalDevice, _device, _surfaceInfo.Surface, width, height);
         _pipeline = new VulkanPresentPipeline(_vk, _device, _swapchain.Format, _swapchain.ImageViews, _swapchain.Extent);
+        _calls = new DeviceCalls(this);
         _renderCommandBuffer = AllocateCommandBuffer();
         _uploadCommandBuffer = AllocateCommandBuffer();
         _overlayCommandBuffer = AllocateCommandBuffer();
@@ -144,12 +167,12 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         StartPresentThread();
 
-        s_logger.LogInformation("VulkanSwapchainRenderer initialized: HDR={IsHdr}", _swapchain.IsHdr);
+        _logger.LogInformation("VulkanSwapchainRenderer initialized: HDR={IsHdr}", _swapchain.IsHdr);
     }
 
     public void Resize(uint width, uint height)
     {
-        if (_swapchain == null || _pipeline == null || _disposed)
+        if (_calls == null || _disposed)
             return;
 
         if (width == 0 || height == 0)
@@ -255,7 +278,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
                     if (_lastRenderParams is not { } lastParams
                         || !ShouldRedrawPaused(
                             RefreshDisplay(lastParams.DisplayPeakLuminance),
-                            _faulted ? null : _swapchain?.GetSurfaceExtent(),
+                            _faulted ? null : _calls?.GetSurfaceExtent(),
                             _presentedExtent))
                     {
                         continue;
@@ -271,15 +294,16 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
                 catch (VulkanPresentException ex)
                 {
                     _faulted = true;
-                    s_logger.LogError(ex, "Stopped presenting the preview after a Vulkan call failed");
+                    _logger.LogError(ex, "Stopped presenting the preview after a Vulkan call failed");
                 }
                 catch (Exception ex)
                 {
-                    s_logger.LogError(ex, "Error in presentation thread");
+                    _logger.LogError(ex, "Error in presentation thread");
                 }
                 finally
                 {
                     batch.Bitmap?.Dispose();
+                    Interlocked.Increment(ref _executedBatches);
                 }
             }
         }
@@ -289,7 +313,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         }
         catch (Exception ex)
         {
-            s_logger.LogError(ex, "Presentation thread crashed");
+            _logger.LogError(ex, "Presentation thread crashed");
         }
     }
 
@@ -345,20 +369,19 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
     private void ExecuteResize(uint width, uint height)
     {
-        if (_faulted || _swapchain == null || _pipeline == null)
+        if (_faulted || _calls == null)
             return;
 
-        Check(_vk.DeviceWaitIdle(_device), "vkDeviceWaitIdle");
-        _swapchain.Recreate(width, height);
-        _pipeline.RecreateFramebuffers(_swapchain.ImageViews, _swapchain.Extent);
+        Check(_calls.DeviceWaitIdle(), "vkDeviceWaitIdle");
+        _calls.RecreateSwapchain(width, height);
 
-        s_logger.LogDebug("Swapchain resized to {Width}x{Height}", width, height);
+        _logger.LogDebug("Swapchain resized to {Width}x{Height}", width, height);
     }
 
     // Without a bitmap, draws the one uploaded last again.
     private void ExecuteRender(Ref<Bitmap>? bitmapRef, RenderParams renderParams, bool redrawIfOutOfDate = true)
     {
-        if (_faulted || _swapchain == null || _pipeline == null)
+        if (_faulted || _calls == null)
             return;
 
         var bitmap = bitmapRef?.Value;
@@ -366,17 +389,16 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             return;
 
         // Drawing again needs a frame uploaded before.
-        if (bitmap == null && _sourceImage.Handle == 0)
+        if (bitmap == null && !_calls.HasSourceImage)
             return;
 
         // The previous frame fence covers its upload and present draw because both use this queue.
         // Wait before rewriting the persistent staging buffer or replacing the source image.
-        var fence = _inFlightFence;
-        Result waitResult = _vk.WaitForFences(_device, 1, &fence, Vk.True, FenceTimeoutNanoseconds);
+        Result waitResult = _calls.WaitForFences(FenceTimeoutNanoseconds);
         if (waitResult == Result.Timeout)
         {
             // The GPU may still finish the previous frame, so drop this one and wait again on the next.
-            s_logger.LogWarning("Dropped a preview frame because the previous one had not finished");
+            _logger.LogWarning("Dropped a preview frame because the previous one had not finished");
             return;
         }
 
@@ -386,22 +408,22 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         {
             // The following render submission is ordered after this upload on the same queue, so it
             // needs no per-operation CPU fence wait.
-            UploadBitmap(bitmap);
+            _calls.UploadBitmap(bitmap);
         }
 
         // What the idle wait draws the frame again with.
         _lastRenderParams = renderParams;
 
         // The overlay follows the swapchain's size, so a resize draws it again too.
-        if (_overlayDirty || !SameSize(_overlayExtent, _swapchain.Extent))
-            UploadOverlay();
+        if (_overlayDirty || !SameSize(_overlayExtent, _calls.SwapchainExtent))
+            _calls.UploadOverlay();
 
         RefreshDisplay(renderParams.DisplayPeakLuminance);
 
-        var acquireResult = _swapchain.AcquireNextImage(_imageAvailableSemaphore, out uint imageIndex);
+        var acquireResult = _calls.AcquireNextImage(out uint imageIndex);
         if (acquireResult == Result.ErrorOutOfDateKhr)
         {
-            ExecuteResize(_swapchain.Extent.Width, _swapchain.Extent.Height);
+            ExecuteResize(_calls.SwapchainExtent.Width, _calls.SwapchainExtent.Height);
             // Nothing was drawn, and a paused preview sends no later frame, so the uploaded one is drawn once more.
             if (redrawIfOutOfDate)
                 ExecuteRender(null, renderParams, redrawIfOutOfDate: false);
@@ -411,17 +433,18 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         if (acquireResult != Result.SuboptimalKhr)
             Check(acquireResult, "vkAcquireNextImageKHR");
 
-        Check(_vk.ResetFences(_device, 1, &fence), "vkResetFences");
+        Check(_calls.ResetFences(), "vkResetFences");
 
-        RecordAndSubmit(imageIndex, renderParams);
+        _calls.RecordCommands(imageIndex, renderParams);
+        Check(_calls.QueueSubmit(), "vkQueueSubmit");
 
-        var presentResult = _swapchain.Present(_graphicsQueue, _renderFinishedSemaphore, imageIndex);
+        var presentResult = _calls.QueuePresent(imageIndex);
         if (presentResult is Result.Success or Result.SuboptimalKhr)
-            _presentedExtent = _swapchain.Extent;
+            _presentedExtent = _calls.SwapchainExtent;
 
         if (presentResult is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
         {
-            ExecuteResize(_swapchain.Extent.Width, _swapchain.Extent.Height);
+            ExecuteResize(_calls.SwapchainExtent.Width, _calls.SwapchainExtent.Height);
             // A suboptimal frame was still shown, at the old size, which a paused preview's idle wait draws again;
             // an out-of-date one was not, so it is drawn once more.
             if (presentResult == Result.ErrorOutOfDateKhr && redrawIfOutOfDate)
@@ -453,10 +476,14 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
     private static bool SameSize(Extent2D a, Extent2D b) => a.Width == b.Width && a.Height == b.Height;
 
-    // Recreates the swapchain at the surface's size when the two differ.
+    // Recreates the swapchain at the surface's size when the two differ. A faulted renderer makes no more Vulkan calls,
+    // the surface query included.
     private void FollowSurfaceSize()
     {
-        if (_swapchain?.GetSurfaceExtent() is { } surface && ShouldRebuild(surface, _swapchain.Extent))
+        if (_faulted || _calls == null)
+            return;
+
+        if (_calls.GetSurfaceExtent() is { } surface && ShouldRebuild(surface, _calls.SwapchainExtent))
             ExecuteResize(surface.Width, surface.Height);
     }
 
@@ -470,7 +497,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             return false;
         }
 
-        s_logger.LogInformation(
+        _logger.LogInformation(
             "Fitting the preview to its display: reference white {ReferenceWhite}, headroom {Headroom}, gamut {Gamut}",
             _windowsDisplay.Current.ReferenceWhite, _windowsDisplay.Current.Headroom,
             _windowsDisplay.Gamut.IsEnabled ? "display" : "none");
@@ -594,7 +621,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         EndAndSubmitUploadCommands(cmdBuf);
     }
 
-    private void RecordAndSubmit(uint imageIndex, RenderParams renderParams)
+    private void RecordRenderCommands(uint imageIndex, RenderParams renderParams)
     {
         var cmdBuf = _renderCommandBuffer;
         Check(_vk.ResetCommandBuffer(cmdBuf, 0), "vkResetCommandBuffer");
@@ -667,7 +694,11 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         _vk.CmdEndRenderPass(cmdBuf);
         Check(_vk.EndCommandBuffer(cmdBuf), "vkEndCommandBuffer");
+    }
 
+    private Result SubmitRenderCommands()
+    {
+        var cmdBuf = _renderCommandBuffer;
         var waitSemaphore = _imageAvailableSemaphore;
         var signalSemaphore = _renderFinishedSemaphore;
         PipelineStageFlags waitStage = PipelineStageFlags.ColorAttachmentOutputBit;
@@ -684,7 +715,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             PSignalSemaphores = &signalSemaphore
         };
 
-        Check(_vk.QueueSubmit(_graphicsQueue, 1, &submitInfo, _inFlightFence), "vkQueueSubmit");
+        return _vk.QueueSubmit(_graphicsQueue, 1, &submitInfo, _inFlightFence);
     }
 
     internal static void ComputeStretchRects(RenderParams p, Extent2D extent, out PresentPushConstants pc)
@@ -762,7 +793,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         // A thread that has still not stopped keeps what it uses: leaking it beats freeing it under the thread.
         if (_presentThread is { } presentThread && !presentThread.Join(PresentThreadStopTimeoutMilliseconds))
         {
-            s_logger.LogWarning(
+            _logger.LogWarning(
                 "The presentation thread did not stop within {Timeout} ms, so the preview's resources are left to it",
                 PresentThreadStopTimeoutMilliseconds);
             return;

@@ -35,6 +35,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
+    <ProjectReference Include="..\Beutl.BundledFonts\Beutl.BundledFonts.csproj" />
     <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />
   </ItemGroup>

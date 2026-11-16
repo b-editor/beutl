@@ -9,7 +9,6 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
-using Silk.NET.OpenAL;
 using AudioContext = Beutl.Audio.Platforms.OpenAL.AudioContext;
 
 namespace Beutl.ViewModels;
@@ -226,141 +225,38 @@ public partial class PlayerViewModel
         }
     }
 
-    // オーディオバックエンドが最初のサンプルを出力するまで短いポーリングで待機する。出力前にアンカーすると
-    // 映像が先行し、後の AnchorClock で巻き戻る。true を返した場合、呼び出し側は安全に AnchorClock できる。
-    // 期限内に進行が観測できなかった場合と音声がない場合は false を返し、呼び出し側は音声クロックを諦めて
-    // 壁時計にフォールバックする (サスペンド/切断中のデバイスで無期限ハングするのを防ぐため)。このとき
-    // AnchorClock は何もしないので、呼び出し側が SignalStarted で開始を知らせる。
-    private static async Task<bool> WaitForFirstSampleAsync(
-        Func<bool> hasProgressed, bool hasAudio, CancellationToken token)
-    {
-        if (!hasAudio) return false;
-        long deadline = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 2; // 2s
-        while (!token.IsCancellationRequested)
-        {
-            if (hasProgressed()) return true;
-            if (Stopwatch.GetTimestamp() >= deadline) return false;
-            try
-            {
-                await Task.Delay(1, token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                return false;
-            }
-        }
-        return false;
-    }
-
+    [SupportedOSPlatform("windows")]
     private async Task PlayWithXA2(XAudioContext audioContext, AudioChannelLayout projectLayout,
         bool useMultichannelBackend, Scene scene,
         AudioPlaybackClock clock, MediaTime startTime, int sampleRate, int generation, CancellationToken playbackToken)
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(playbackToken);
-        cts.Token.ThrowIfCancellationRequested();
-        var (outputLayout, outputMatrix) = AudioPlaybackOutput.Create(projectLayout, audioContext.DeviceLayout);
-        MediaTime cur = startTime;
-        MediaTime sceneEndTime = default;
-        var source = new XAudioSource(audioContext);
-        var primaryBuffer = new XAudioBuffer();
-        var secondaryBuffer = new XAudioBuffer();
-        bool hasAudio = false;
-        bool audioClockValid = false;
+        playbackToken.ThrowIfCancellationRequested();
+        using var sink = new XAudio2AudioSink(audioContext, projectLayout, useMultichannelBackend);
+        AudioSinkRefillLoop loop = CreateRefillLoop(sink, scene, clock, startTime, sampleRate, generation,
+            playbackToken,
+            () => _logger.LogWarning(
+                "XAudio2 backend did not advance SamplesPlayed within the startup deadline; falling back to wall-clock timing."));
+        // XAudio2 can stop the voice from any thread, so cancellation silences it at once
+        // instead of waiting for a synchronous buffer composition to return.
+        await RunAudioPlaybackWithImmediateStopAsync(playbackToken, sink.Stop, () => loop.RunAsync(playbackToken))
+            .ConfigureAwait(false);
+    }
 
-        void PrepareBuffer(XAudioBuffer buffer)
+    private AudioSinkRefillLoop CreateRefillLoop(IAudioSink sink, Scene scene, AudioPlaybackClock clock,
+        MediaTime startTime, int sampleRate, int generation, CancellationToken playbackToken, Action onStartupStalled)
+    {
+        return new AudioSinkRefillLoop
         {
-            cts.Token.ThrowIfCancellationRequested();
-            MediaTime bufferStartTime = cur;
-            var bufferData = FillAudioData(cur, scene, generation, playbackToken);
-            sceneEndTime = bufferData.SceneEnd;
-            using AudioBuffer? audio = bufferData.Audio;
-            cts.Token.ThrowIfCancellationRequested();
-            if (audio != null)
-            {
-                if (!hasAudio)
-                {
-                    sampleRate = audio.SampleRate;
-                }
-
-                using AudioBuffer? converted = outputMatrix?.Apply(audio);
-                if (useMultichannelBackend)
-                    buffer.BufferData(converted ?? audio, outputLayout);
-                else
-                    buffer.BufferData(converted ?? audio);
-                hasAudio = true;
-                _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(audio, bufferStartTime));
-            }
-
-            source.QueueBuffer(buffer);
-        }
-
-        void AnchorClock()
-        {
-            if (!hasAudio || !audioClockValid) return;
-            double seconds = (double)source.SamplesPlayed / sampleRate;
-            clock.Anchor(startTime + MediaTime.FromSeconds(seconds));
-        }
-
-        async Task PlaybackLoop()
-        {
-            PrepareBuffer(primaryBuffer);
-
-            cur += s_second;
-            PrepareBuffer(secondaryBuffer);
-
-            source.Play();
-            // 最初のサンプルが出てからアンカーする (WaitForFirstSampleAsync を参照)。
-            audioClockValid = await WaitForFirstSampleAsync(
-                    () => source.SamplesPlayed > 0, hasAudio, cts.Token)
-                .ConfigureAwait(false);
-            if (hasAudio && !audioClockValid)
-            {
-                _logger.LogWarning(
-                    "XAudio2 backend did not advance SamplesPlayed within the startup deadline; falling back to wall-clock timing.");
-            }
-            AnchorClock();
-            clock.SignalStarted();
-
-            await Task.Delay(1000, cts.Token).ConfigureAwait(false);
-            AnchorClock();
-
-            // primaryBufferが終了、secondaryが開始
-
-            // FillAudioData refreshes the range on the compose thread along with each buffer.
-            while (cur < sceneEndTime)
-            {
-                if (!IsPlaying.Value)
-                {
-                    source.Stop();
-                    break;
-                }
-
-                cur += s_second;
-
-                PrepareBuffer(primaryBuffer);
-
-                (primaryBuffer, secondaryBuffer) = (secondaryBuffer, primaryBuffer);
-
-                await Task.Delay(1000, cts.Token).ConfigureAwait(false);
-                AnchorClock();
-            }
-        }
-
-        try
-        {
-            await RunAudioPlaybackWithImmediateStopAsync(cts.Token, source.Stop, PlaybackLoop)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            source.Stop();
-        }
-        finally
-        {
-            source.Dispose();
-            primaryBuffer.Dispose();
-            secondaryBuffer.Dispose();
-        }
+            Sink = sink,
+            Clock = clock,
+            StartTime = startTime,
+            SampleRate = sampleRate,
+            Compose = time => FillAudioData(time, scene, generation, playbackToken),
+            Publish = (audio, bufferStartTime) =>
+                _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(audio, bufferStartTime)),
+            IsPlaying = () => IsPlaying.Value,
+            OnStartupStalled = onStartupStalled,
+        };
     }
 
     internal static async Task RunAudioPlaybackWithImmediateStopAsync(
@@ -437,7 +333,7 @@ public partial class PlayerViewModel
             CheckPlayback();
             renderer.Play();
             started = true;
-            audioClockValid = await WaitForFirstSampleAsync(
+            audioClockValid = await AudioSinkRefillLoop.WaitForFirstSampleAsync(
                 () => renderer.PositionSeconds > 0, hasAudio, playbackToken).ConfigureAwait(false);
             CheckPlayback();
             if (hasAudio && !audioClockValid)
@@ -483,145 +379,12 @@ public partial class PlayerViewModel
     private async Task PlayWithOpenAL(AudioContext audioContext, AudioChannelLayout projectLayout, Scene scene,
         AudioPlaybackClock clock, MediaTime startTime, int sampleRate, int generation, CancellationToken playbackToken)
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(playbackToken);
-        cts.Token.ThrowIfCancellationRequested();
-        audioContext.MakeCurrent();
-        var (outputLayout, outputMatrix) = AudioPlaybackOutput.Create(projectLayout, audioContext.DeviceLayout);
-
-        MediaTime cur = startTime;
-        MediaTime sceneEndTime = default;
-        uint[] buffers = audioContext.GenBuffers(2);
-        uint source = audioContext.GenSource();
-        long totalProcessedSamples = 0;
-        var queuedBufferSamples = new Queue<int>();
-        bool hasAudio = false;
-        bool audioClockValid = false;
-
-        void AnchorClock()
-        {
-            if (!hasAudio || !audioClockValid) return;
-            audioContext.GetSource(source, GetSourceInteger.SampleOffset, out int sampleOffset);
-            long pos = totalProcessedSamples + sampleOffset;
-            double seconds = (double)pos / sampleRate;
-            clock.Anchor(startTime + MediaTime.FromSeconds(seconds));
-        }
-
-        // Composes the next second and queues it in the buffer takeBuffer returns once the audio is ready.
-        void FillAndQueue(Func<uint> takeBuffer)
-        {
-            cts.Token.ThrowIfCancellationRequested();
-            MediaTime bufferStartTime = cur;
-            var bufferData = FillAudioData(cur, scene, generation, playbackToken);
-            sceneEndTime = bufferData.SceneEnd;
-            using AudioBuffer? audio = bufferData.Audio;
-            cts.Token.ThrowIfCancellationRequested();
-            cur += s_second;
-            uint buffer = takeBuffer();
-            int fillSamples = 0;
-            if (audio != null)
-            {
-                if (!hasAudio)
-                {
-                    sampleRate = audio.SampleRate;
-                }
-
-                using AudioBuffer? converted = outputMatrix?.Apply(audio);
-                audioContext.BufferData(buffer, converted ?? audio, outputLayout);
-                fillSamples = audio.SampleCount;
-                hasAudio = true;
-                _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(audio, bufferStartTime));
-            }
-
-            audioContext.SourceQueueBuffer(source, buffer);
-            queuedBufferSamples.Enqueue(fillSamples);
-        }
-
-        try
-        {
-            foreach (uint buffer in buffers)
-            {
-                FillAndQueue(() => buffer);
-            }
-
-            cts.Token.ThrowIfCancellationRequested();
-            audioContext.SourcePlay(source);
-
-            try
-            {
-                // 最初のサンプルが出てからアンカーする (WaitForFirstSampleAsync を参照)。
-                audioClockValid = await WaitForFirstSampleAsync(
-                        () =>
-                        {
-                            audioContext.MakeCurrent();
-                            audioContext.GetSource(source, GetSourceInteger.SampleOffset, out int offset);
-                            return offset > 0;
-                        },
-                        hasAudio,
-                        cts.Token)
-                    .ConfigureAwait(false);
-                // await 後は別のプールスレッドで継続する可能性があり、
-                // OpenAL コンテキストはスレッド固有のため再バインドが必要。
-                audioContext.MakeCurrent();
-                if (hasAudio && !audioClockValid)
-                {
-                    _logger.LogWarning(
-                        "OpenAL backend did not advance SampleOffset within the startup deadline; falling back to wall-clock timing.");
-                }
-                AnchorClock();
-                clock.SignalStarted();
-
-                while (IsPlaying.Value && !cts.Token.IsCancellationRequested)
-                {
-                    audioContext.MakeCurrent();
-                    audioContext.GetSource(source, GetSourceInteger.BuffersProcessed, out int processed);
-                    while (processed > 0)
-                    {
-                        FillAndQueue(() => audioContext.SourceUnqueueBuffer(source));
-                        // The oldest entry is the reused buffer's; FillAndQueue added the new one behind it.
-                        totalProcessedSamples += queuedBufferSamples.Dequeue();
-                        processed--;
-                    }
-
-                    if (audioContext.GetSourceState(source) != SourceState.Playing)
-                    {
-                        audioContext.SourcePlay(source);
-                    }
-
-                    AnchorClock();
-
-                    await Task.Delay(100, cts.Token).ConfigureAwait(false);
-                    if (cur >= sceneEndTime)
-                        break;
-                }
-
-                while (audioContext.GetSourceState(source) == SourceState.Playing
-                       && IsPlaying.Value
-                       && !cts.Token.IsCancellationRequested)
-                {
-                    audioContext.MakeCurrent();
-                    audioContext.GetSource(source, GetSourceInteger.BuffersProcessed, out int drainProcessed);
-                    while (drainProcessed > 0 && queuedBufferSamples.Count > 0)
-                    {
-                        audioContext.SourceUnqueueBuffer(source);
-                        totalProcessedSamples += queuedBufferSamples.Dequeue();
-                        drainProcessed--;
-                    }
-                    AnchorClock();
-                    await Task.Delay(100, cts.Token).ConfigureAwait(false);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }
-        finally
-        {
-            audioContext.MakeCurrent();
-            audioContext.SourceStop(source);
-            // https://hamken100.blogspot.com/2014/04/aldeletebuffersalinvalidoperation.html
-            audioContext.Source(source, SourceInteger.Buffer, 0);
-            audioContext.DeleteBuffers(buffers);
-            audioContext.DeleteSource(source);
-        }
+        playbackToken.ThrowIfCancellationRequested();
+        using var sink = new OpenALAudioSink(audioContext, projectLayout);
+        AudioSinkRefillLoop loop = CreateRefillLoop(sink, scene, clock, startTime, sampleRate, generation,
+            playbackToken,
+            () => _logger.LogWarning(
+                "OpenAL backend did not advance SampleOffset within the startup deadline; falling back to wall-clock timing."));
+        await loop.RunAsync(playbackToken).ConfigureAwait(false);
     }
 }

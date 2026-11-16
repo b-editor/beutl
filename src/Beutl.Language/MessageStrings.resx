@@ -280,6 +280,9 @@ Do you want to restart the application?</value>
   <data name="UpdateAction_RestartAndUpdate" xml:space="preserve">
     <value>Restart and update</value>
   </data>
+  <data name="UpdateAction_Download" xml:space="preserve">
+    <value>Download</value>
+  </data>
   <data name="UpdateAction_StartInstaller" xml:space="preserve">
     <value>Start installer</value>
   </data>
@@ -288,6 +291,9 @@ Do you want to restart the application?</value>
   </data>
   <data name="UpdateAction_RunInBackground" xml:space="preserve">
     <value>Run in background</value>
+  </data>
+  <data name="UpdateAction_Later" xml:space="preserve">
+    <value>Later</value>
   </data>
   <data name="UpdateAction_UpdateOnQuit" xml:space="preserve">
     <value>Update on quit</value>

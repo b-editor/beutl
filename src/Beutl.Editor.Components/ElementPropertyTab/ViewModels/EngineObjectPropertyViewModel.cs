@@ -87,6 +87,8 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
     // False while the object stands for objects of several elements and one of them holds none in its place.
     public ReadOnlyReactivePropertySlim<bool> IsShown { get; }
 
+    public ReactivePropertySlim<bool> IsLastShown { get; } = new();
+
     // The names of the types of the objects this one stands for, when they are not all of its type.
     public string? TypeNames { get; }
 
@@ -124,6 +126,7 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
         IsEnabled.Dispose();
         CanReplace.Dispose();
         IsShown.Dispose();
+        IsLastShown.Dispose();
         if (!ReferenceEquals(CanToggleEnabled, CanEdit))
             (CanToggleEnabled as IDisposable)?.Dispose();
 

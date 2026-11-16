@@ -280,6 +280,9 @@
   <data name="UpdateAction_RestartAndUpdate" xml:space="preserve">
     <value>다시 시작하고 업데이트</value>
   </data>
+  <data name="UpdateAction_Download" xml:space="preserve">
+    <value>다운로드</value>
+  </data>
   <data name="UpdateAction_StartInstaller" xml:space="preserve">
     <value>설치 프로그램 시작</value>
   </data>
@@ -288,6 +291,9 @@
   </data>
   <data name="UpdateAction_RunInBackground" xml:space="preserve">
     <value>백그라운드로</value>
+  </data>
+  <data name="UpdateAction_Later" xml:space="preserve">
+    <value>나중에</value>
   </data>
   <data name="UpdateAction_UpdateOnQuit" xml:space="preserve">
     <value>종료 시 업데이트</value>

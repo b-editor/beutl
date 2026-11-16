@@ -12,7 +12,7 @@ namespace Beutl.Services.StartupTasks;
 
 public sealed class CheckForUpdatesTask : StartupTask
 {
-    private readonly ILogger<CheckForUpdatesTask> _logger = Log.CreateLogger<CheckForUpdatesTask>();
+    private static readonly ILogger<CheckForUpdatesTask> s_logger = Log.CreateLogger<CheckForUpdatesTask>();
     private readonly BeutlApiApplication _beutlApiApplication;
 
     public CheckForUpdatesTask(BeutlApiApplication beutlApiApplication)
@@ -20,56 +20,49 @@ public sealed class CheckForUpdatesTask : StartupTask
         _beutlApiApplication = beutlApiApplication;
         Task = Task.Run(async () =>
         {
-            using (Activity? activity = Telemetry.StartActivity("CheckForUpdatesTask"))
-            {
-                activity?.AddEvent(new("Checking for updates"));
-                var (v1, v3) = await CheckForUpdates(activity);
-                activity?.AddEvent(new("Checked for updates"));
-                activity?.SetTag("IsLatest", v1?.IsLatest ?? v3?.IsLatest ?? true);
-                activity?.SetTag("MustLatest", v1?.MustLatest ?? v3?.MustLatest ?? false);
-
-                if (v1 != null)
-                {
-                    UpdateCheckResult result = Classify(v1.IsLatest, v1.MustLatest);
-                    if (result == UpdateCheckResult.UpgradeRequired)
-                    {
-                        _logger.LogWarning("Current version must be updated to the latest version.");
-                        await ShowUpgradeRequiredDialog(v1.Url, inAppUpdate: null);
-                    }
-                    else if (result == UpdateCheckResult.UpdateAvailable)
-                    {
-                        _logger.LogInformation("A new version is available: {VersionUrl}", v1.Url);
-                        ShowUpdateAvailable(v1.LatestVersion, v1.Url, inAppUpdate: null);
-                    }
-                }
-                else if (v3 != null)
-                {
-                    UpdateCheckResult result = Classify(v3.IsLatest, v3.MustLatest);
-                    AppUpdateResponse? inAppUpdate = FlatpakUpdater.RequiresManualUpdate ? null : v3;
-                    if (result == UpdateCheckResult.UpgradeRequired)
-                    {
-                        _logger.LogWarning("Current version must be updated to the latest version.");
-                        await ShowUpgradeRequiredDialog(GetReleaseUrl(v3, activity), inAppUpdate);
-                    }
-                    else if (result == UpdateCheckResult.UpdateAvailable)
-                    {
-                        _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
-                        // Downloading needs no decision, so it starts now when the settings allow it, and only
-                        // installing waits for the user. It starts only in the Beutl that claims the update folders.
-                        if (inAppUpdate is not { } update
-                            || !UpdateDialogViewModel.ClaimUpdateFolders()
-                            || !await Dispatcher.UIThread.InvokeAsync(
-                                () => AppUpdateController.Instance.TryStartAutomatically(update)))
-                        {
-                            ShowUpdateAvailable(v3.LatestVersion, GetReleaseUrl(v3, activity), inAppUpdate);
-                        }
-                    }
-                }
-            }
+            using Activity? activity = Telemetry.StartActivity("CheckForUpdatesTask");
+            activity?.AddEvent(new("Checking for updates"));
+            var (v1, v3) = await CheckForUpdates(activity);
+            activity?.AddEvent(new("Checked for updates"));
+            await HandleUpdateCheckAsync(v1, v3, AppUpdateController.Instance, activity);
         });
     }
 
     public override Task Task { get; }
+
+    internal static async Task HandleUpdateCheckAsync(CheckForUpdatesResponse? v1, AppUpdateResponse? v3,
+        AppUpdateController controller, Activity? activity = null)
+    {
+        bool isLatest = v1?.IsLatest ?? v3?.IsLatest ?? true;
+        bool mustLatest = v1?.MustLatest ?? v3?.MustLatest ?? false;
+        activity?.SetTag("IsLatest", isLatest);
+        activity?.SetTag("MustLatest", mustLatest);
+        UpdateCheckResult result = Classify(isLatest, mustLatest);
+        if (result == UpdateCheckResult.UpToDate) return;
+
+        string latestVersion = v1?.LatestVersion ?? v3!.LatestVersion;
+        if (result == UpdateCheckResult.UpgradeRequired)
+            s_logger.LogWarning("Current version must be updated to {LatestVersion}.", latestVersion);
+        else
+            s_logger.LogInformation("A new version is available: {LatestVersion}", latestVersion);
+
+        AppUpdateResponse? inAppUpdate = v3?.DownloadUrl != null && !FlatpakUpdater.RequiresManualUpdate ? v3 : null;
+        if (inAppUpdate != null && await controller.TryStartAutomaticallyAsync(inAppUpdate))
+            return;
+
+        string? releaseUrl = v1?.Url ?? v3?.Url;
+        if (releaseUrl == null)
+        {
+            s_logger.LogWarning("Update {LatestVersion} had no URL; falling back to releases page.", latestVersion);
+            activity?.SetTag("UpdateUrlMissing", true);
+            releaseUrl = AppUpdateController.ReleasesPageUrl;
+        }
+
+        if (result == UpdateCheckResult.UpgradeRequired && inAppUpdate == null)
+            await ShowUpgradeRequiredDialog(releaseUrl);
+        else
+            ShowUpdateAvailable(latestVersion, releaseUrl, inAppUpdate, controller);
+    }
 
     // The server sets mustLatest only together with isLatest = false, when the running version
     // is below the release's minimum version, so mustLatest has to be checked first.
@@ -94,35 +87,24 @@ public sealed class CheckForUpdatesTask : StartupTask
         }
     }
 
-    private static void ShowUpdateAvailable(string latestVersion, string releaseUrl, AppUpdateResponse? inAppUpdate)
+    private static void ShowUpdateAvailable(string latestVersion, string releaseUrl, AppUpdateResponse? inAppUpdate,
+        AppUpdateController controller)
     {
         NotificationAction releaseNotes = new(MessageStrings.ReleaseNotes, () => AppUpdateController.OpenUrl(releaseUrl));
-        NotificationService.ShowInformation(
-            MessageStrings.NewVersionAvailable,
+        bool required = inAppUpdate?.MustLatest == true;
+        NotificationService.Show(
+            required ? MessageStrings.UpgradeRequired : MessageStrings.NewVersionAvailable,
             AppUpdateController.GetVersionLabel(latestVersion),
+            required ? NotificationType.Warning : NotificationType.Information,
             actions: inAppUpdate is { } update
-                ? [new(ExtensionsStrings.Install, () =>
+                ? [new(MessageStrings.UpdateAction_Download, () =>
                 {
                     // The update takes the claim when it can, so that no other Beutl starts one unasked. One that
                     // unpacks stops before downloading while another Beutl holds it, says why, and can be retried.
                     _ = UpdateDialogViewModel.ClaimUpdateFolders();
-                    AppUpdateController.Instance.StartInBackground(update);
+                    controller.StartInBackground(update);
                 }), releaseNotes]
                 : [releaseNotes]);
-    }
-
-    private string GetReleaseUrl(AppUpdateResponse v3, Activity? activity)
-    {
-        if (v3.Url is { } url)
-        {
-            return url;
-        }
-
-        _logger.LogWarning(
-            "AppUpdateResponse for {LatestVersion} had no Url; falling back to releases page.",
-            v3.LatestVersion);
-        activity?.SetTag("UpdateUrlMissing", true);
-        return AppUpdateController.ReleasesPageUrl;
     }
 
     private async ValueTask<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdates(Activity? activity)
@@ -142,7 +124,7 @@ public sealed class CheckForUpdatesTask : StartupTask
             }
 
             activity?.SetStatus(ActivityStatusCode.Error);
-            _logger.LogError(ex, "An error occurred while checking for updates");
+            s_logger.LogError(ex, "An error occurred while checking for updates");
             if (ex is OperationCanceledException)
             {
                 // No external token is passed, so an OCE is a network timeout. Show a dedicated
@@ -157,8 +139,8 @@ public sealed class CheckForUpdatesTask : StartupTask
         }
     }
 
-    // inAppUpdate is the update Beutl can install itself; without one, the release page is the way forward.
-    private async Task ShowUpgradeRequiredDialog(string releaseUrl, AppUpdateResponse? inAppUpdate)
+    // The only way to obtain this required update is through its release page.
+    private static async Task ShowUpgradeRequiredDialog(string releaseUrl)
     {
         await App.WaitWindowOpened();
         await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -167,27 +149,11 @@ public sealed class CheckForUpdatesTask : StartupTask
             {
                 Title = MessageStrings.UpgradeRequired,
                 Content = MessageStrings.VersionDiscontinued,
-                PrimaryButtonText = inAppUpdate != null ? ExtensionsStrings.Install : Strings.Open,
+                PrimaryButtonText = Strings.Open,
                 CloseButtonText = Strings.Close,
             };
 
             FAContentDialogResult answer = await dialog.ShowAsync();
-            if (inAppUpdate != null)
-            {
-                // Closing the dialog keeps Beutl running, and the update still downloads when the settings allow it.
-                if (answer == FAContentDialogResult.Primary)
-                {
-                    _ = UpdateDialogViewModel.ClaimUpdateFolders();
-                    AppUpdateController.Instance.StartAndShowDialog(inAppUpdate);
-                }
-                else if (UpdateDialogViewModel.ClaimUpdateFolders())
-                {
-                    AppUpdateController.Instance.TryStartAutomatically(inAppUpdate);
-                }
-
-                return;
-            }
-
             HandleUpgradeRequiredAnswer(
                 answer,
                 () => AppUpdateController.OpenUrl(releaseUrl),

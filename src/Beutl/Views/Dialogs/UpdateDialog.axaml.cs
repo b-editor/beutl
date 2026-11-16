@@ -24,7 +24,7 @@ public partial class UpdateDialog : FAContentDialog
         _ = vm.HandlePrimaryButtonClick();
     }
 
-    // While the update prepares, this button leaves it running. Once it is ready, it defers it to quit.
+    // Return to the editor, scheduling the ready update on quit where the installer supports it.
     protected override void OnSecondaryButtonClick(FAContentDialogButtonClickEventArgs args)
     {
         base.OnSecondaryButtonClick(args);

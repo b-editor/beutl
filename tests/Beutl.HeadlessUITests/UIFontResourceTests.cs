@@ -73,7 +73,7 @@ public class UIFontResourceTests
 
         foreach (string name in family.FamilyNames)
         {
-            var embedded = new FontFamily($"avares://{HelperAssembly}/Assets/Fonts/{name.Replace(" ", "")}#{name}");
+            var embedded = new FontFamily($"resm:Fonts/{name.Replace(" ", "")}/?assembly=Beutl.BundledFonts#{name}");
             foreach (FontWeight weight in new[] { FontWeight.Normal, FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold })
             {
                 Assert.That(FontManager.Current.TryGetGlyphTypeface(
@@ -220,7 +220,7 @@ public class UIFontResourceTests
     [AvaloniaTest]
     public void NotoColorEmoji_is_bundled_and_registered_with_the_rendering_engine()
     {
-        var uri = new Uri("avares://Beutl.Controls/Assets/Fonts/NotoColorEmoji/NotoColorEmoji.ttf");
+        var uri = new Uri("resm:Fonts/NotoColorEmoji/NotoColorEmoji.ttf?assembly=Beutl.BundledFonts");
         Assert.Multiple(() =>
         {
             Assert.That(AssetLoader.Exists(uri), Is.True);
@@ -271,5 +271,70 @@ public class UIFontResourceTests
             CultureInfo.CurrentUICulture = previous;
             App.RegisterBundledEngineFonts();
         }
+    }
+
+    // The app (App.RegisterBundledEngineFonts) and the standalone MCP server (AddAgentToolkitServer) give text in
+    // a Latin-only font the same CJK, emoji and ZWJ fallback (#2724).
+    [AvaloniaTest]
+    public void App_and_standalone_MCP_server_set_up_the_same_text_fallback()
+    {
+        using (Stream font = typeof(UIFontResourceTests).Assembly.GetManifestResourceStream("ProjectFontSecondFixture.ttf")!)
+            Beutl.Media.FontManager.Instance.AddFont(font);
+        (Beutl.Media.FontFamily[] Families, Beutl.Media.FontFamily? Emoji) previous =
+            Beutl.Media.FontManager.Instance.GetFallbackFamilies();
+        string profile = Directory.CreateTempSubdirectory("beutl-bundled-fonts-").FullName;
+        try
+        {
+            Beutl.Media.FontManager.Instance.SetFallbackFonts([], null);
+            using SkiaSharp.SKBitmap withoutFallback = DrawLatinOnlyFallbackText();
+
+            App.RegisterBundledEngineFonts();
+            (Beutl.Media.FontFamily[] Families, Beutl.Media.FontFamily? Emoji) app =
+                Beutl.Media.FontManager.Instance.GetFallbackFamilies();
+            using SkiaSharp.SKBitmap appText = DrawLatinOnlyFallbackText();
+
+            Beutl.Media.FontManager.Instance.SetFallbackFonts([], null);
+            Microsoft.Extensions.DependencyInjection.ServiceCollection services = new();
+            Beutl.AgentToolkit.AgentToolkitMcpServer.AddAgentToolkitServer(services, profile);
+            (Beutl.Media.FontFamily[] Families, Beutl.Media.FontFamily? Emoji) standalone =
+                Beutl.Media.FontManager.Instance.GetFallbackFamilies();
+            using SkiaSharp.SKBitmap standaloneText = DrawLatinOnlyFallbackText();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(app.Families.Select(family => family.Name),
+                    Is.EqualTo(UiFonts.DefaultFontFamily.FamilyNames));
+                Assert.That(app.Emoji, Is.EqualTo(new Beutl.Media.FontFamily("Noto Color Emoji")));
+                Assert.That(standalone.Families, Is.EqualTo(app.Families));
+                Assert.That(standalone.Emoji, Is.EqualTo(app.Emoji));
+                Assert.That(standaloneText.Bytes, Is.EqualTo(appText.Bytes));
+                Assert.That(appText.Bytes, Is.Not.EqualTo(withoutFallback.Bytes));
+            });
+        }
+        finally
+        {
+            Beutl.Media.FontManager.Instance.SetFallbackFonts(previous.Families, previous.Emoji);
+            Directory.Delete(profile, true);
+        }
+    }
+
+    private static SkiaSharp.SKBitmap DrawLatinOnlyFallbackText()
+    {
+        using var text = new Beutl.Media.TextFormatting.FormattedText
+        {
+            Font = new Beutl.Media.FontFamily("Roboto"),
+            // Latin, CJK, an emoji and a ZWJ family sequence.
+            Text = "Ag \u6F22\u5B57 \U0001F600 \U0001F468\u200D\U0001F469\u200D\U0001F467",
+            Size = 48f,
+        };
+        using var surface = SkiaSharp.SKSurface.Create(new SkiaSharp.SKImageInfo(720, 120));
+        surface.Canvas.Clear(SkiaSharp.SKColors.White);
+        using var paint = new SkiaSharp.SKPaint { Color = SkiaSharp.SKColors.Black, IsAntialias = true };
+        // Owned by the text.
+        SkiaSharp.SKTextBlob? blob = text.GetTextBlob();
+        Assert.That(blob, Is.Not.Null);
+        surface.Canvas.DrawText(blob, 16, 80, paint);
+        using SkiaSharp.SKImage image = surface.Snapshot();
+        return SkiaSharp.SKBitmap.FromImage(image);
     }
 }

@@ -38,8 +38,8 @@
   </Target>
 
   <!-- Copies the worker binary next to the tests that start it as a separate process over IPC: the decoding
-       contract tests and MediaFoundationFallbackIntegrationTests. Without it they skip, which fails CI under
-       BEUTL_REQUIRE_FFMPEG. -->
+       contract tests, the encoding and proxy generation tests, and MediaFoundationFallbackIntegrationTests.
+       Without it they skip, which fails CI under BEUTL_REQUIRE_FFMPEG. -->
   <Target Name="CopyWorkerBinary" AfterTargets="Build">
     <PropertyGroup>
       <WorkerOutputDir>..\..\src\Beutl.FFmpegWorker\bin\$(Configuration)\$(TargetFramework)\</WorkerOutputDir>

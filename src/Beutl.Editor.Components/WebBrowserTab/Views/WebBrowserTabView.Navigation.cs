@@ -36,7 +36,19 @@ internal partial class WebBrowserTabView
 
     internal void OnNativeNavigationStarted()
     {
-        if (!_disposed) InvalidatePageDownloadRequests();
+        if (_disposed) return;
+        InvalidatePageDownloadRequests();
+        if (_adBlockSession?.IsPreparing != true) _viewModel?.BeginNavigation();
+    }
+
+    private void OnNativeNavigationFailed()
+    {
+        if (_webView == null || _viewModel == null) return;
+        OnNavigationCompleted(_webView, new WebViewNavigationCompletedEventArgs
+        {
+            Request = _latestNavigationRequest ?? _viewModel.CurrentUri,
+            IsSuccess = false
+        });
     }
 
     internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
@@ -54,16 +66,14 @@ internal partial class WebBrowserTabView
         _latestNavigationRequest = e.Request;
 
         // WebKit reports subframe policy decisions here without frame identity; only the macOS delegate
-        // can filter them. Main-frame commits arrive through NavigationCompleted, and on macOS main-frame
-        // starts also arrive through separate native callbacks.
+        // can filter them here. The WebKit backends report main-frame load starts separately.
         // App-initiated navigation and explicit download links are handled separately.
         if (_navigationStartedIncludesSubframes)
         {
             // Without a native response handler, a media request must become a download offer here,
             // even though a subframe may have made it; WebKit would otherwise play it in the page.
-            // Pages only start loading through the app in this mode, so loading also means the app started it.
             if (!_handlesMediaResponsesNatively
-                && TryInterceptMediaNavigation(e, _pageDownloadNavigationPending || _viewModel?.IsLoading.Value == true)) return;
+                && TryInterceptMediaNavigation(e, _pageDownloadNavigationPending || _viewModel?.IsLoadingRequestedAddress == true)) return;
             // Expire script offers at the policy decision, but keep a captured native response
             // until the WK delegate confirms that a new main-frame navigation has started.
             if (_pendingPageDownloadRequest?.Source == null) InvalidatePageDownloadRequests();
@@ -72,7 +82,7 @@ internal partial class WebBrowserTabView
 
         _pageRevision++;
         _findRequest?.Cancel();
-        if (_nativeDownloadHandler is not WindowsBrowserDownloadHandler && TryInterceptMediaNavigation(e, true)) return;
+        if (_nativeBrowserHandler is not WindowsBrowserDownloadHandler && TryInterceptMediaNavigation(e, true)) return;
 
         if (e.Request is { } request)
         {
@@ -164,7 +174,7 @@ internal partial class WebBrowserTabView
             _ = SetPageZoomAsync(_zoomPercent);
             if (FindPanel.IsVisible) _ = FindInPageAsync(0);
             // WebView2 handles attachment responses itself; an inline media page still offers a download.
-            if (_nativeDownloadHandler is WindowsBrowserDownloadHandler && BrowserMediaDownload.IsMediaLink(uri))
+            if (_nativeBrowserHandler is WindowsBrowserDownloadHandler && BrowserMediaDownload.IsMediaLink(uri))
                 QueuePageDownloadRequest(uri, null);
             // Linux sees no response before showing it, so media served without a media extension is found here.
             else if (!_handlesMediaResponsesNatively) _ = OfferInlineMediaPageAsync(uri);

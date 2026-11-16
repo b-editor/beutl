@@ -24,6 +24,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private readonly Action<Uri?, string, IBrowserDownloadSource, Uri?> _onGeneratedDownload;
     private readonly Action<Uri> _onNavigationCommitted;
     private readonly Action _onNavigationStarted;
+    private readonly Action _onNavigationFailed;
     private readonly Action<Uri, string?> _onNewWindowRequested;
     private readonly Action<Uri> _onWindowOpened;
     private readonly Dictionary<nint, NativeDownload> _pendingDownloads = [];
@@ -33,18 +34,21 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         static navigation => SendVoid(navigation, Selector("release")));
     private readonly nint _originalDelegate;
     private nint _webView;
+    // Identity only: a late failure must not finish a newer load, even after its document commits.
+    private nint _loadingNavigation;
     private nint _delegate;
     private nint _uiDelegate;
 
     private MacOSBrowserDownloadHandler(nint webView, Action<Uri, string, IBrowserDownloadSource> onDownload,
         Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload, Action<Uri> onNavigationCommitted, Action onNavigationStarted,
-        Action<Uri, string?> onNewWindowRequested, Action<Uri> onWindowOpened)
+        Action onNavigationFailed, Action<Uri, string?> onNewWindowRequested, Action<Uri> onWindowOpened)
     {
         _webView = webView;
         _onDownload = onDownload;
         _onGeneratedDownload = onGeneratedDownload;
         _onNavigationCommitted = onNavigationCommitted;
         _onNavigationStarted = onNavigationStarted;
+        _onNavigationFailed = onNavigationFailed;
         _onNewWindowRequested = onNewWindowRequested;
         _onWindowOpened = onWindowOpened;
         _originalDelegate = Send(Send(webView, Selector("navigationDelegate")), Selector("retain"));
@@ -62,13 +66,13 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
 
     internal static MacOSBrowserDownloadHandler? TryAttach(IPlatformHandle? handle, Action<Uri, string, IBrowserDownloadSource> onDownload,
         Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload, Action<Uri> onNavigationCommitted, Action onNavigationStarted,
-        Action<Uri, string?> onNewWindowRequested, Action<Uri> onWindowOpened)
+        Action onNavigationFailed, Action<Uri, string?> onNewWindowRequested, Action<Uri> onWindowOpened)
     {
         if (handle is not IAppleWKWebViewPlatformHandle apple) return null;
         nint webView = apple.GetWKWebViewRetained();
         return webView == 0 ? null
             : new MacOSBrowserDownloadHandler(webView, onDownload, onGeneratedDownload, onNavigationCommitted, onNavigationStarted,
-                onNewWindowRequested, onWindowOpened);
+                onNavigationFailed, onNewWindowRequested, onWindowOpened);
     }
 
     public void Dispose()
@@ -286,6 +290,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         try
         {
             handler._cancellations.BeginNavigation(navigation);
+            handler._loadingNavigation = navigation;
             handler._onNavigationStarted();
         }
         catch
@@ -300,16 +305,25 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private static void OnNavigationFailed(nint self, nint selector, nint webView, nint navigation, nint error)
     {
         if (!s_handlers.TryGetValue(self, out var handler)) return;
+        bool forward = SendBool(handler._originalDelegate, s_respondsToSelector, selector);
         try
         {
             // Consume our cancellation before Avalonia drops the WKNavigation identity.
             if (handler._cancellations.CompleteNavigation(navigation)) return;
+            if (!forward && handler._loadingNavigation == navigation)
+            {
+                handler._loadingNavigation = 0;
+                // Avalonia's WK delegate reports successful loads only. A superseded load and
+                // the Stop button both produce NSURLErrorCancelled, not a failed page.
+                if (Send(error, Selector("code")) != -999 || ToManagedString(Send(error, Selector("domain"))) != "NSURLErrorDomain")
+                    handler._onNavigationFailed();
+            }
         }
         catch
         {
             // Unrecognized failures still belong to Avalonia's delegate.
         }
-        if (SendBool(handler._originalDelegate, s_respondsToSelector, selector))
+        if (forward)
             SendNavigationFailure(handler._originalDelegate, selector, webView, navigation, error);
     }
 
@@ -347,7 +361,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
                 && handler._cancellations.Current != 0
                 && Uri.TryCreate(address, UriKind.Absolute, out Uri? uri)
                 && SendBool(response, s_respondsToSelector, Selector("statusCode"))
-                && handler._navigation.IsCompleteGetResponse(uri, Send(response, Selector("statusCode")))
+                && handler._navigation.GetCompleteResponseMethod(uri, Send(response, Selector("statusCode"))) is { } method
                 && BrowserMediaDownload.IsDownloadResponse(mediaType,
                     SendBool(navigationResponse, Selector("canShowMIMEType")), GetHeader(response, "Content-Disposition"))
                 && BrowserMediaDownload.GetResponseFileName(uri,
@@ -355,7 +369,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
             {
                 nint navigation = handler._cancellations.Current;
                 if (handler._cancellations.MarkCanceled(navigation)) canceledNavigation = navigation;
-                source = new NativeDownload(name, ToManagedString(Send(response, Selector("textEncodingName"))), uri);
+                source = new NativeDownload(name, ToManagedString(Send(response, Selector("textEncodingName"))), uri, method);
                 // WebKit retains this same response for didBecomeDownload. Keep its wrapper alive
                 // so simultaneous conversions are matched by object identity, never by URL.
                 handler._pendingDownloads.Add(Send(navigationResponse, Selector("retain")), source);
