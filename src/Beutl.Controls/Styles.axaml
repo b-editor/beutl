@@ -139,6 +139,7 @@
     <StyleInclude Source="/Styling/OptionsDisplayGroup.axaml" />
 
     <StyleInclude Source="avares://Beutl.Controls/Styling/ToolTabNavigation.axaml" />
+    <StyleInclude Source="/Styling/ToolTip.axaml" />
 
     <Style Selector="MenuFlyoutPresenter /template/ Border#LayoutRoot">
         <Setter Property="Background" Value="{DynamicResource AcrylicInAppFillColorDefaultBrush}" />

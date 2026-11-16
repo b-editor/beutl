@@ -9,6 +9,7 @@
         <sty:FluentAvaloniaTheme />
         <StyleInclude Source="avares://AsyncImageLoader.Avalonia/AdvancedImage.axaml" />
         <StyleInclude Source="avares://Beutl.Controls/Styling/Placeholder.axaml" />
+        <StyleInclude Source="avares://Beutl.Controls/Styling/ToolTip.axaml" />
 
         <Style Selector="asyncImageLoader|AdvancedImage">
             <Setter Property="Template">
