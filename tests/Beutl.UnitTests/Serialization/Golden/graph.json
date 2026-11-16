@@ -2,6 +2,7 @@
   "Nodes": [
     {
       "IsExpanded": false,
+      "EditorSize": {},
       "IsEnabled": true,
       "Id": "00000000-0000-0000-0000-000000000001",
       "Name": "",
@@ -229,6 +230,7 @@
     },
     {
       "IsExpanded": true,
+      "EditorSize": {},
       "IsEnabled": true,
       "Id": "00000000-0000-0000-0000-000000000024",
       "Name": "",
@@ -254,6 +256,7 @@
     },
     {
       "IsExpanded": true,
+      "EditorSize": {},
       "IsEnabled": true,
       "Id": "00000000-0000-0000-0000-000000000026",
       "Name": "",
@@ -481,6 +484,7 @@
     },
     {
       "IsExpanded": true,
+      "EditorSize": {},
       "IsEnabled": true,
       "Id": "00000000-0000-0000-0000-000000000047",
       "Name": "",
@@ -564,6 +568,7 @@
     },
     {
       "IsExpanded": true,
+      "EditorSize": {},
       "IsEnabled": true,
       "Id": "00000000-0000-0000-0000-000000000055",
       "Name": "",
@@ -585,6 +590,7 @@
     },
     {
       "IsExpanded": true,
+      "EditorSize": {},
       "IsEnabled": true,
       "Id": "00000000-0000-0000-0000-000000000057",
       "Name": "",
