@@ -4,6 +4,7 @@ using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.NodeGraph.Nodes.Shaders;
 using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
 using static Beutl.UnitTests.NodeGraph.NodeGraphTestHelpers;
@@ -85,9 +86,9 @@ public class NodeGraphValueOnlyPropertyTests
         }
     }
 
-    // Position and IsExpanded are not drawn, so, as their CoreProperty forms, they edit nothing; the history still records them.
+    // Editor layout is not drawn in the scene; history still records it.
     [Test]
-    public void MovingAndFoldingANodeEditNeitherTheGraphNorTheScene()
+    public void ChangingNodeLayoutEditsNeitherTheGraphNorTheScene()
     {
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
@@ -98,6 +99,7 @@ public class NodeGraphValueOnlyPropertyTests
         scene.Scene.Edited += (_, _) => edits++;
 
         node.Position.Value = (10, 20);
+        node.EditorSize.Value = new(310, 96);
         node.IsExpanded.Value = false;
         int editsByTheChanges = edits;
         scene.History.Commit("move");
@@ -108,7 +110,26 @@ public class NodeGraphValueOnlyPropertyTests
             Assert.That(editsByTheChanges, Is.Zero);
             Assert.That(node.Position.Value, Is.EqualTo((0d, 0d)));
             Assert.That(node.IsExpanded.Value, Is.True);
+            Assert.That(node.EditorSize.Value, Is.EqualTo(default(NodeEditorSize)));
         }
+    }
+
+    [Test]
+    public void EditorSizeRoundTripsPerNodeAndOlderGraphsUseTheTypeDefault()
+    {
+        var graph = new GraphModel();
+        graph.Nodes.AddRange([
+            new ShaderFullscreenPassNode { EditorSize = { Value = new(490.5, 128) } },
+            new ShaderFullscreenPassNode(),
+            new OutputNode { EditorSize = { Value = new(175) } }
+        ]);
+        JsonObject json = CoreSerializer.SerializeToJsonObject(graph);
+        json["Nodes"]![1]!.AsObject().Remove(nameof(GraphNode.EditorSize));
+        var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
+
+        Assert.That(restored.Nodes.Select(n => n.EditorSize.Value), Is.EqualTo(new NodeEditorSize[]
+            { new(490.5, 128), default, new(175) }));
+        Assert.That(restored.Nodes[1].EditorWidth, Is.EqualTo(380));
     }
 
     [Test]

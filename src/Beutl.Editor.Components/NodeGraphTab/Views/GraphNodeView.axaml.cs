@@ -24,6 +24,7 @@ public partial class GraphNodeView : UserControl
     private Point _snapshot;
     private DragSession? _drag;
     private IDisposable? _positionDisposable;
+    private IDisposable? _sizeDisposable;
     private NodePortView? _undecidedLeftNodePort;
     private NodePortView? _undecidedRightNodePort;
     private NodePortViewModel? _undecidedLeftNodePortContext;
@@ -32,6 +33,9 @@ public partial class GraphNodeView : UserControl
     public GraphNodeView()
     {
         InitializeComponent();
+        AddHandler(PointerPressedEvent, OnResizePressed, RoutingStrategies.Tunnel);
+        AddHandler(PointerMovedEvent, OnResizeHover, RoutingStrategies.Tunnel);
+        PointerExited += (_, _) => { if (_resize == null) ClearValue(CursorProperty); };
 
         handle.PointerPressed += OnHandlePointerPressed;
         handle.PointerReleased += OnHandlePointerReleased;
@@ -109,6 +113,8 @@ public partial class GraphNodeView : UserControl
         }
 
         _positionDisposable?.Dispose();
+        _resize?.Confirm();
+        _sizeDisposable?.Dispose();
         nestedPortOverlay.Children.Clear();
 
         DetachUndecidedNodePort(ref _undecidedLeftNodePort, ref _undecidedLeftNodePortContext);
@@ -118,6 +124,7 @@ public partial class GraphNodeView : UserControl
     private void OnDataContextAttached(GraphNodeViewModel obj)
     {
         _positionDisposable = obj.Position.Subscribe(_ => UpdateNodePortPosition());
+        _sizeDisposable = obj.GraphNode.EditorSize.GetObservable().Subscribe(size => ApplySize(obj, size));
         if (obj.GraphNode is IDynamicPortNode canBeAdded)
         {
             if (canBeAdded.PossibleLocation.HasFlag(NodePortLocation.Left))

@@ -523,6 +523,53 @@ public class NodeGraphDragTests
         });
     }
 
+    [AvaloniaTest]
+    [TestCase(0.5)]
+    [TestCase(1.5)]
+    public void Resizing_a_node_tracks_its_wire_at_graph_scale_and_undoes_in_one_step(double scale)
+    {
+        var source = new RandomSingleNode { Position = { Value = (20, 40) } };
+        var output = new OutputNode { Position = { Value = (320, 40) } };
+        using var scope = PortScope.Create(source, output);
+        scope.Graph.Connect(output.InputPort, source.Value);
+        scope.History.Commit();
+        scope.Zoom(scale);
+        GraphNodeView view = scope.NodeView(source);
+        ConnectionViewModel wire = scope.Model.AllConnections.Single();
+        Point anchor = wire.OutputPortPosition.Value;
+        Point start = view.TranslatePoint(new Point(view.Bounds.Width - 3, 12), scope.Window)!.Value;
+        Point end = start + new Vector(80 * scale, 0);
+        scope.Window.MouseDown(start, MouseButton.Left);
+        scope.Window.MouseMove(start + new Vector(24 * scale, 0), RawInputModifiers.LeftMouseButton);
+        scope.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        HeadlessTestHelpers.Render(2);
+        Assert.That(wire.OutputPortPosition.Value.X, Is.EqualTo(anchor.X + 80).Within(0.01));
+        scope.Window.MouseUp(end, MouseButton.Left);
+
+        Assert.That(source.EditorSize.Value, Is.EqualTo(new NodeEditorSize(295)));
+        Assert.That(source.Position.Value, Is.EqualTo((20d, 40d)));
+        Assert.That(output.EditorSize.Value, Is.EqualTo(default(NodeEditorSize)));
+        Assert.That(scope.History.UndoCount, Is.EqualTo(2));
+        scope.History.Undo();
+        HeadlessTestHelpers.Render(2);
+        Assert.That(view.Bounds.Width, Is.EqualTo(215));
+        Assert.That(wire.OutputPortPosition.Value, Is.EqualTo(anchor));
+        scope.History.Redo();
+        HeadlessTestHelpers.Render(2);
+        Assert.That(view.Bounds.Width, Is.EqualTo(295));
+
+        // Cancelling the next drag restores the saved width and closes it before the mouse is released.
+        scope.Window.MouseDown(end, MouseButton.Left);
+        scope.Window.MouseMove(start, RawInputModifiers.LeftMouseButton);
+        scope.Window.KeyPress(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+        scope.Window.KeyRelease(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+        scope.Window.MouseUp(start, MouseButton.Left);
+        HeadlessTestHelpers.Render(2);
+        Assert.That(view.Bounds.Width, Is.EqualTo(295));
+        Assert.That(scope.History.UndoCount, Is.EqualTo(2));
+        Assert.That(scope.History.IsEditing, Is.False);
+    }
+
     public enum SlotDrop { OwnPlaceholder, OwnRow, AnotherInput, AnotherInputRow, AnotherOutput, AnotherOutputRow }
 
     [AvaloniaTest]

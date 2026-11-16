@@ -143,6 +143,12 @@
   <data name="MoveNode" xml:space="preserve">
     <value>노드 이동</value>
   </data>
+  <data name="ResizeNode" xml:space="preserve">
+    <value>노드 크기 조정</value>
+  </data>
+  <data name="ResetNodeSize" xml:space="preserve">
+    <value>노드 크기 초기화</value>
+  </data>
   <data name="RenameNode" xml:space="preserve">
     <value>노드 이름 변경</value>
   </data>

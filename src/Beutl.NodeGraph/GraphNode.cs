@@ -23,7 +23,7 @@ public abstract partial class GraphNode : EngineObject
         // Each use of the ports brings them up to date first, as the NestedInputPorts accessor did.
         _nestedInputPorts.BeforeAccess = () => _nestedPortManager.EnsureSynchronized();
         ScanProperties<GraphNode>();
-        HideProperties(IsExpanded, Position, Items, NestedInputPorts);
+        HideProperties(IsExpanded, Position, EditorSize, Items, NestedInputPorts);
 
         Items.Attached += OnItemAttached;
         Items.Detached += OnItemDetached;
@@ -71,8 +71,16 @@ public abstract partial class GraphNode : EngineObject
     [SuppressResourceClassGeneration]
     public IProperty<bool> IsExpanded { get; } = new ValueOnlyProperty<bool>(true) { AffectsRender = false };
 
-    /// <summary>The width the editor gives this node, for one whose contents need more room than a value does.</summary>
+    /// <summary>The default width of this node type in the graph editor.</summary>
     public virtual double EditorWidth => 215;
+
+    /// <summary>The dimensions chosen for this instance in the graph editor.</summary>
+    [SuppressResourceClassGeneration]
+    public IProperty<NodeEditorSize> EditorSize { get; } = new ValueOnlyProperty<NodeEditorSize>(default)
+    {
+        AffectsRender = false,
+        Coerce = static (_, size) => size.Constrain()
+    };
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]

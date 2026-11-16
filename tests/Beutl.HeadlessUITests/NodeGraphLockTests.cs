@@ -43,7 +43,7 @@ public class NodeGraphLockTests
     [TestCase(true)]
     public void Drags_keys_and_menus_leave_the_graph_of_a_read_only_clip_as_it_is(bool protect)
     {
-        var source = new ExpressionNode { Position = { Value = (20, 40) } };
+        var source = new ExpressionNode { Position = { Value = (20, 40) }, EditorSize = { Value = new(250) } };
         var free = new ExpressionNode { Position = { Value = (20, 260) } };
         var target = new ExpressionNode { Position = { Value = (380, 260) } };
         var output = new OutputNode { Position = { Value = (380, 40) } };
@@ -83,6 +83,8 @@ public class NodeGraphLockTests
         HeadlessTestHelpers.Render(3);
         FAMenuFlyoutItem rename = nodeMenu.Items.OfType<FAMenuFlyoutItem>().Single(item => Equals(item.Text, Strings.Rename));
         bool renameEnabled = rename.IsEnabled;
+        bool resetSizeEnabled = nodeMenu.Items.OfType<FAMenuFlyoutItem>()
+            .Single(item => item.Text == CommandNames.ResetNodeSize).IsEffectivelyEnabled;
         nodeMenu.Hide();
         Assert.Multiple(() =>
         {
@@ -98,25 +100,31 @@ public class NodeGraphLockTests
             Assert.That(subMenus.Select(item => item.Text), Is.EquivalentTo(new[] { Strings.AddNode, NodeGraphStrings.Template_Templates }));
             Assert.That(subMenus.Select(item => item.IsEnabled), Is.All.False, "Nothing can be added.");
             Assert.That(renameEnabled, Is.False);
+            Assert.That(resetSizeEnabled, Is.False);
         });
     }
 
-    // A drag that the clip's lock overtakes ends with the nodes where the model still has them.
     [AvaloniaTest]
-    public void A_move_the_service_refuses_puts_the_dragged_nodes_back()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Locking_a_clip_during_a_node_move_or_resize_restores_its_layout(bool resize)
     {
         var first = new ExpressionNode { Position = { Value = (20, 40) } };
         var second = new ExpressionNode { Position = { Value = (20, 260) } };
         using var scope = new LockedGraphScope(protect: false, [first, second], lockClip: false);
         foreach (GraphNodeViewModel node in scope.Model.Nodes)
             node.IsSelected.Value = true;
-        Point start = HeadlessTestHelpers.Center(scope.NodeView(first).FindControl<Border>("handle")!, scope.Window);
+        GraphNodeView view = scope.NodeView(first);
+        Point start = resize
+            ? view.TranslatePoint(new Point(view.Bounds.Width - 3, 12), scope.Window)!.Value
+            : HeadlessTestHelpers.Center(view.FindControl<Border>("handle")!, scope.Window);
 
         scope.Window.MouseMove(start);
         scope.Window.MouseDown(start, MouseButton.Left);
         scope.Window.MouseMove(start + new Vector(60, 30), RawInputModifiers.LeftMouseButton);
         HeadlessTestHelpers.Render(3);
-        Assert.That(scope.Model.Nodes[0].Position.Value, Is.EqualTo(new Point(80, 70)), "The drag moves the nodes.");
+        if (resize) Assert.That(view.Bounds.Width, Is.EqualTo(275));
+        else Assert.That(scope.Model.Nodes[0].Position.Value, Is.EqualTo(new Point(80, 70)));
         scope.Element.IsLocked.Value = true;
         scope.Window.MouseUp(start + new Vector(60, 30), MouseButton.Left);
         HeadlessTestHelpers.Render(3);
@@ -124,6 +132,8 @@ public class NodeGraphLockTests
         Assert.Multiple(() =>
         {
             Assert.That(first.Position.Value, Is.EqualTo((20d, 40d)));
+            Assert.That(first.EditorSize.Value, Is.EqualTo(default(NodeEditorSize)));
+            Assert.That(view.Bounds.Width, Is.EqualTo(first.EditorWidth));
             Assert.That(second.Position.Value, Is.EqualTo((20d, 260d)));
             Assert.That(scope.Model.Nodes.Select(node => node.Position.Value),
                 Is.EqualTo(new[] { new Point(20, 40), new Point(20, 260) }));

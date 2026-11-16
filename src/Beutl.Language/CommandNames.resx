@@ -143,6 +143,12 @@
   <data name="MoveNode" xml:space="preserve">
     <value>Move Node</value>
   </data>
+  <data name="ResizeNode" xml:space="preserve">
+    <value>Resize Node</value>
+  </data>
+  <data name="ResetNodeSize" xml:space="preserve">
+    <value>Reset Node Size</value>
+  </data>
   <data name="RenameNode" xml:space="preserve">
     <value>Rename Node</value>
   </data>

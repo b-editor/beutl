@@ -209,7 +209,8 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
         => EditorContext.GetRequiredService<INodeGraphMutationService>()
             .AddNode(NodeGraph, node, point.X, point.Y);
 
-    private static Point UnderPointer(GraphNode node, Point pointer) => new(pointer.X - node.EditorWidth / 2, pointer.Y);
+    private static Point UnderPointer(GraphNode node, Point pointer)
+        => new(pointer.X - (node.EditorSize.Value.Width ?? node.EditorWidth) / 2, pointer.Y);
 
     public bool AddNodeAndConnect(GraphNode node, Point point, INodePort existingPort, INodePort? newPort)
         => EditorContext.GetRequiredService<INodeGraphMutationService>()

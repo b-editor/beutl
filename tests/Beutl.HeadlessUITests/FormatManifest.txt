@@ -921,24 +921,24 @@ Beutl.Utilities
   abstract
 [Beutl.NodeGraph].Nodes.Generative:AiImageEditNode
   sealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, RequestKeySeed
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, RequestKeySeed
 [Beutl.NodeGraph].Nodes.Generative:AiImageGenerationNode
   sealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, RequestKeySeed
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, RequestKeySeed
 [Beutl.NodeGraph].Nodes.Generative:AiPromptNode
   sealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Generative:AiVideoEditNode
   sealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, RequestKeySeed
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, RequestKeySeed
 [Beutl.NodeGraph].Nodes.Generative:AiVideoGenerationNode
   sealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, RequestKeySeed
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, RequestKeySeed
 [Beutl.NodeGraph].Nodes.Generative:SeededGenerativeNode
   abstract
 [Beutl.NodeGraph].Nodes.Group:GroupInput
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Group:GroupInput:GroupInputPort<T>
   unsealed
 [Beutl.NodeGraph].Nodes.Group:GroupInput:GroupInputPort<[Beutl.NodeGraph].Nodes.Shaders:ShaderGraphValue<[Beutl.Engine]Beutl.Graphics.Shaders:ShaderImage>>
@@ -946,10 +946,10 @@ Beutl.Utilities
   keys: Animations, Connections, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph].Nodes.Group:GroupNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, node-tree
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, node-tree
 [Beutl.NodeGraph].Nodes.Group:GroupOutput
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Group:GroupOutput:GroupOutputPort<T>
   unsealed
 [Beutl.NodeGraph].Nodes.Group:GroupOutput:GroupOutputPort<[Beutl.NodeGraph].Nodes.Shaders:ShaderGraphValue<[Beutl.Engine]Beutl.Graphics.Shaders:ShaderImage>>
@@ -957,57 +957,57 @@ Beutl.Utilities
   keys: Animations, Connection, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph].Nodes.Shaders:ShaderBlendNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderBufferNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderClearBufferNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderClearImageNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderColorNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderComputePassNode
   unsealed
-  keys: Animations, Code, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, Code, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderConvertColorNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderCopyBufferNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderCopyImageNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderDataNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderDepthNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderDispatchNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Mode, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Mode, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderDrawNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Mode, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Mode, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderDynamicNode
   abstract
 [Beutl.NodeGraph].Nodes.Shaders:ShaderExtendedRenderPassNode
   unsealed
-  keys: Animations, Expressions, Fragment, Geometry, Id, IsEnabled, IsExpanded, Items, Name, Position, TessellationControl, TessellationEvaluation, Vertex
+  keys: Animations, EditorSize, Expressions, Fragment, Geometry, Id, IsEnabled, IsExpanded, Items, Name, Position, TessellationControl, TessellationEvaluation, Vertex
 [Beutl.NodeGraph].Nodes.Shaders:ShaderFixedImageNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderFullscreenPassNode
   unsealed
-  keys: Animations, Code, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, Code, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderGenerateMipmapsNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderGraphEffect
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name
@@ -1015,190 +1015,190 @@ Beutl.Utilities
   abstract
 [Beutl.NodeGraph].Nodes.Shaders:ShaderImageNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderImageParametersNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderImageProducerNode
   abstract
 [Beutl.NodeGraph].Nodes.Shaders:ShaderImageViewNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderIndexBufferNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderInputRegionNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderLoadNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderLoopInfoNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderLoopInput
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderLoopNode
   abstract
 [Beutl.NodeGraph].Nodes.Shaders:ShaderLoopOutput
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderPackNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderPartialImagesNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderPartialRenderingNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderPassNode
   abstract
 [Beutl.NodeGraph].Nodes.Shaders:ShaderRasterizerNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderRenderPassNode
   unsealed
-  keys: Animations, Expressions, Fragment, Id, IsEnabled, IsExpanded, Items, Name, Position, Vertex
+  keys: Animations, EditorSize, Expressions, Fragment, Id, IsEnabled, IsExpanded, Items, Name, Position, Vertex
 [Beutl.NodeGraph].Nodes.Shaders:ShaderRepeatNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, node-tree
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, node-tree
 [Beutl.NodeGraph].Nodes.Shaders:ShaderReplayNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, node-tree
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, node-tree
 [Beutl.NodeGraph].Nodes.Shaders:ShaderSamplerNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderStencilNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderVectorNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderVertexAttributeNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Shaders:ShaderVertexBufferNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities.Struct:PixelPointNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities.Struct:PixelRectNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities.Struct:PixelSizeNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities.Struct:PointNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities.Struct:RectNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities.Struct:RelativePointNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities.Struct:RelativeRectNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities.Struct:SizeNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities:ExpressionNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities:MatrixNode
   abstract
 [Beutl.NodeGraph].Nodes.Utilities:MeasureNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities:PreviewNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities:RandomDoubleNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities:RandomInt32Node
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities:RandomInt64Node
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities:RandomSingleNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities:Rotation3DMatrixNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities:RotationMatrixNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities:ScaleMatrixNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities:SkewMatrixNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities:SwitchNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities:TimeNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes.Utilities:TranslateMatrixNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes:ConfigureNode
   abstract
 [Beutl.NodeGraph].Nodes:EllipseGeometryNode
   sealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Object, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Object, Position
 [Beutl.NodeGraph].Nodes:FactoryNode<T>
   unsealed
 [Beutl.NodeGraph].Nodes:FilterEffectInputNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes:FilterEffectNode<T>
   unsealed
 [Beutl.NodeGraph].Nodes:GeometryNode<T>
   unsealed
 [Beutl.NodeGraph].Nodes:GeometryShapeNode
   sealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes:ImageSourceNode
   sealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes:LayerInputNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes:LayerInputNode:LayerInputPort<T>
   unsealed
 [Beutl.NodeGraph].Nodes:OutputNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes:RectGeometryNode
   sealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Object, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Object, Position
 [Beutl.NodeGraph].Nodes:RenderNodeDrawable
   sealed
   keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
 [Beutl.NodeGraph].Nodes:RoundedRectGeometryNode
   sealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Object, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Object, Position
 [Beutl.NodeGraph].Nodes:SceneNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Object, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Object, Position
 [Beutl.NodeGraph].Nodes:TextNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, NestedInputPorts, Object, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, NestedInputPorts, Object, Position
 [Beutl.NodeGraph].Nodes:TransformNode
   unsealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph].Nodes:VideoSourceNode
   sealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph]:Connection
   sealed
   keys: Id, Input, Name, Output, Status
@@ -1414,7 +1414,7 @@ Beutl.Utilities
   keys: (no public parameterless constructor)
 [Beutl.NodeGraph]:FallbackGraphNode
   sealed
-  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+  keys: Animations, EditorSize, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
 [Beutl.NodeGraph]:GraphGroup
   unsealed
   keys: AllConnections, Animations, Expressions, Id, IsEnabled, Name, Nodes

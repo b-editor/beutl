@@ -1,18 +1,24 @@
 ﻿using System.Globalization;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.PanAndZoom;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
+using Beutl.Language;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Shaders;
+using Beutl.NodeGraph.Nodes.Utilities;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
 
@@ -42,6 +48,99 @@ public class ShaderGraphEditorTests
 
     private static IOutputPort Out(GraphNode node, string name)
         => (IOutputPort)node.Items.Single(item => item is IOutputPort && item.Name.Value == "Out." + name);
+
+    [AvaloniaTest]
+    public async Task Resizing_a_shader_pass_gives_its_code_fields_room_and_reset_restores_the_type_default()
+    {
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("resize-shader-node");
+        await TestShell.AddElementAsync(editor, () => new NodeGraphDrawable(), MediaTime.Zero, MediaTime.FromSeconds(1));
+        GraphModel graph = ((NodeGraphDrawable)scene.Children.Single().Objects.Single()).Model.Value!;
+        var value = new RandomSingleNode { Position = { Value = (20, 220) }, EditorSize = { Value = new(160) } };
+        var pass = new ShaderRenderPassNode { Position = { Value = (240, 20) } };
+        var output = new OutputNode { Position = { Value = (820, 50) } };
+        graph.Nodes.AddRange([value, pass, output]);
+        graph.Connect(pass.Padding, value.Value);
+        graph.Connect(output.InputPort, Out(pass, "color"));
+        editor.HistoryManager.Commit("Create shader graph");
+        using var model = new NodeGraphTabViewModel(editor);
+        model.Model.Value = graph;
+        var view = new NodeGraphTabView { DataContext = model };
+        var window = new Window { Content = view, Width = 900, Height = 820, RequestedThemeVariant = ThemeVariant.Dark };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            await WaitForNodes(view);
+            ZoomBorder zoom = view.GetVisualDescendants().OfType<ZoomBorder>().Single();
+            zoom.EnableAnimations = false;
+            zoom.SetMatrix(Matrix.CreateScale(0.75, 0.75), true);
+            HeadlessTestHelpers.Render(2);
+            string valueName = GraphNodeRegistry.FindItem(typeof(RandomSingleNode))!.DisplayName;
+            TextBlock valueTitle = view.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Text == valueName);
+            Assert.That(valueTitle.TextLayout.TextLines.Any(line => line.HasCollapsed), Is.False, "The narrow node keeps its name.");
+            GraphNodeView node = view.GetVisualDescendants().OfType<GraphNodeView>()
+                .Single(n => n.DataContext is GraphNodeViewModel vm && vm.GraphNode == pass);
+            TextBox[] fields = [.. node.GetVisualDescendants().OfType<TextBox>().Where(box => box.AcceptsReturn)];
+            Assert.That(fields, Has.Length.EqualTo(2));
+            double[] natural = [.. fields.Select(box => box.Bounds.Height)];
+            double height = node.Bounds.Height;
+            int undo = editor.HistoryManager.UndoCount;
+
+            DragCorner(100, 80);
+            Assert.That(node.Bounds.Width, Is.EqualTo(480));
+            Assert.That(node.Bounds.Height, Is.EqualTo(height + 80).Within(2));
+            Assert.That(fields.Select(box => box.Bounds.Height), Is.All.EqualTo(natural.Average() + 40).Within(1));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
+            HeadlessCapture.SaveIfRequested(view, "shader-graph", "resized-pass");
+
+            DragCorner(-450, -node.Bounds.Height);
+            Assert.That(node.Bounds.Width, Is.EqualTo(160));
+            Assert.That(fields.Select(box => box.Bounds.Height), Is.All.EqualTo(32));
+            HeadlessCapture.SaveIfRequested(view, "shader-graph", "minimum-pass");
+            editor.HistoryManager.Undo();
+            HeadlessTestHelpers.Render(2);
+            Assert.That(node.Bounds.Width, Is.EqualTo(480));
+
+            output.Position.Value = (820, 60);
+            Border header = node.FindControl<Border>("handle")!;
+            var menu = (FAMenuFlyout)header.ContextFlyout!;
+            menu.ShowAt(header);
+            HeadlessTestHelpers.Render(3);
+            HeadlessTestHelpers.Click(menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == CommandNames.ResetNodeSize), move: true);
+            Assert.That(node.Bounds.Width, Is.EqualTo(380));
+            Assert.That(fields.Select(box => box.Bounds.Height), Is.EqualTo(natural));
+            Assert.That(pass.EditorSize.Value, Is.EqualTo(default(NodeEditorSize)));
+            editor.HistoryManager.Undo();
+            HeadlessTestHelpers.Render(2);
+            Assert.That(node.Bounds.Width, Is.EqualTo(480));
+            Assert.That(output.Position.Value, Is.EqualTo((820d, 60d)), "Undoing the reset leaves the preceding edit in place.");
+
+            var toggle = node.FindControl<ToggleButton>("expandToggle")!;
+            HeadlessTestHelpers.Click(toggle, move: true);
+            double collapsedHeight = node.Bounds.Height;
+            DragCorner(40, 80);
+            Assert.That(node.Bounds.Width, Is.EqualTo(520));
+            Assert.That(node.Bounds.Height, Is.EqualTo(collapsedHeight));
+            HeadlessTestHelpers.Click(toggle, move: true);
+            Assert.That(fields.Select(box => box.Bounds.Height), Is.All.EqualTo(natural.Average() + 40).Within(1));
+
+            void DragCorner(double dx, double dy)
+            {
+                var corner = new Point(node.Bounds.Width - 3, node.Bounds.Height - 3);
+                Point start = node.TranslatePoint(corner, window)!.Value;
+                Point end = node.TranslatePoint(corner + new Vector(dx, dy), window)!.Value;
+                window.MouseMove(start);
+                window.MouseDown(start, MouseButton.Left);
+                window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+                window.MouseUp(end, MouseButton.Left);
+                HeadlessTestHelpers.Render(3);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
 
     [AvaloniaTest]
     [TestCase(600)]
