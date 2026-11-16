@@ -176,16 +176,20 @@ public class VulkanSwapchainRendererFailureTests
         Assert.That(released.Wait(s_timeout), Is.True, "The frame was not released.");
     }
 
-    // Requests a resize and waits until the presentation thread has taken it alone, so no frame joins its batch.
+    // Requests a resize and waits until the presentation thread has taken it and finished its batch, so no later
+    // request joins that batch.
     private void ResizeAndWait(uint width, uint height)
     {
+        int executed = _renderer.ExecutedBatches;
         _renderer.Resize(width, height);
         object commandQueue = typeof(VulkanSwapchainRenderer)
             .GetField("_commandQueue", BindingFlags.NonPublic | BindingFlags.Instance)!
             .GetValue(_renderer)!;
         PropertyInfo count = commandQueue.GetType().GetProperty("Count")!;
-        Assert.That(SpinWait.SpinUntil(() => (int)count.GetValue(commandQueue)! == 0, s_timeout), Is.True,
-            "The resize was not taken.");
+        Assert.That(
+            SpinWait.SpinUntil(
+                () => (int)count.GetValue(commandQueue)! == 0 && _renderer.ExecutedBatches > executed, s_timeout),
+            Is.True, "The resize was not handled.");
     }
 
     private static Ref<Bitmap> NewFrame(Action onRelease)

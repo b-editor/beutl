@@ -89,6 +89,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
     private Thread? _presentThread;
     private readonly BlockingCollection<RenderCommand> _commandQueue = new(4);
+
+    // Batches the presentation thread has finished, so tests can tell when a request has been handled.
+    private int _executedBatches;
     private volatile bool _running;
     private bool _disposed;
 
@@ -141,6 +144,8 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         _logger = logger;
         StartPresentThread();
     }
+
+    internal int ExecutedBatches => Volatile.Read(ref _executedBatches);
 
     public bool IsHdrActive => _swapchain?.IsHdr ?? false;
 
@@ -298,6 +303,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
                 finally
                 {
                     batch.Bitmap?.Dispose();
+                    Interlocked.Increment(ref _executedBatches);
                 }
             }
         }
