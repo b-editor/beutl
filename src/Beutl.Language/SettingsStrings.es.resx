@@ -793,4 +793,31 @@
   <data name="SeekOnTimelineClick_Description" xml:space="preserve">
     <value>Si se desactiva, el cabezal de reproducción solo se mueve con la regla o arrastrando su línea, y arrastrar en una zona vacía de la línea de tiempo selecciona clips sin tecla modificadora.</value>
   </data>
+  <data name="TerminalFollowApplication" xml:space="preserve">
+    <value>Usar el tema de Beutl</value>
+  </data>
+  <data name="TerminalDefaultFont" xml:space="preserve">
+    <value>Predeterminada ({0})</value>
+  </data>
+  <data name="TerminalFontSize" xml:space="preserve">
+    <value>Tamaño de fuente (DIP)</value>
+  </data>
+  <data name="TerminalScrollback" xml:space="preserve">
+    <value>Líneas de historial</value>
+  </data>
+  <data name="TerminalShell" xml:space="preserve">
+    <value>Intérprete de comandos</value>
+  </data>
+  <data name="TerminalShellDescription" xml:space="preserve">
+    <value>Deja ambos campos vacíos para usar el intérprete y los argumentos predeterminados. Los cambios se aplican al abrir o reiniciar un terminal.</value>
+  </data>
+  <data name="TerminalShellPath" xml:space="preserve">
+    <value>Ejecutable</value>
+  </data>
+  <data name="TerminalShellArguments" xml:space="preserve">
+    <value>Argumentos</value>
+  </data>
+  <data name="TerminalShellArgumentsDescription" xml:space="preserve">
+    <value>Introduce un argumento por línea. Se conservan los espacios de cada línea.</value>
+  </data>
 </root>

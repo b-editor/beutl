@@ -808,4 +808,31 @@
   <data name="SeekOnTimelineClick_Description" xml:space="preserve">
     <value>オフにすると、再生位置は目盛りの操作かバーのドラッグでのみ移動し、タイムラインの何もない場所をドラッグすると修飾キーなしで要素を範囲選択します。</value>
   </data>
+  <data name="TerminalFollowApplication" xml:space="preserve">
+    <value>Beutl のテーマに合わせる</value>
+  </data>
+  <data name="TerminalDefaultFont" xml:space="preserve">
+    <value>既定 ({0})</value>
+  </data>
+  <data name="TerminalFontSize" xml:space="preserve">
+    <value>フォントサイズ (DIP)</value>
+  </data>
+  <data name="TerminalScrollback" xml:space="preserve">
+    <value>スクロール履歴の行数</value>
+  </data>
+  <data name="TerminalShell" xml:space="preserve">
+    <value>起動シェル</value>
+  </data>
+  <data name="TerminalShellDescription" xml:space="preserve">
+    <value>両方とも空欄にすると、既定のシェルと引数を使います。変更はターミナルの新規起動時または再起動時に反映されます。</value>
+  </data>
+  <data name="TerminalShellPath" xml:space="preserve">
+    <value>実行ファイル</value>
+  </data>
+  <data name="TerminalShellArguments" xml:space="preserve">
+    <value>引数</value>
+  </data>
+  <data name="TerminalShellArgumentsDescription" xml:space="preserve">
+    <value>引数を 1 行に 1 つ入力します。行内の空白はそのまま渡されます。</value>
+  </data>
 </root>

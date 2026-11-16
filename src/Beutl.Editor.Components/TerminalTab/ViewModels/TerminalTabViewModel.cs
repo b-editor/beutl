@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
+using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 
 using Reactive.Bindings;
@@ -11,16 +12,13 @@ public sealed class TerminalTabViewModel : IToolContext
     // Number instances; shell and working directory are not unique, so numbers are not persisted.
     private static int s_lastInstanceNumber;
 
+    private readonly TerminalConfig _settings = GlobalConfiguration.Instance.TerminalConfig;
     private readonly ReadOnlyReactivePropertySlim<string> _header;
     private bool _disposed;
 
     public TerminalTabViewModel(IEditorContext editorContext)
     {
         WorkingDirectory = EditorContextDirectories.GetProjectOrSceneDirectory(editorContext);
-        (ShellPath, ShellArgs) = ResolveShell(
-            Environment.GetEnvironmentVariable,
-            OperatingSystem.IsWindows(),
-            OperatingSystem.IsMacOS());
         LangFallback = ResolveLangFallback(
             Environment.GetEnvironmentVariable,
             CultureInfo.CurrentCulture.Name,
@@ -44,9 +42,9 @@ public sealed class TerminalTabViewModel : IToolContext
 
     public IReadOnlyReactiveProperty<string> Header => _header;
 
-    public string ShellPath { get; }
+    public string ShellPath => GetShellCommand().Path;
 
-    public string[] ShellArgs { get; }
+    public string[] ShellArgs => GetShellCommand().Args;
 
     public string? WorkingDirectory { get; }
 
@@ -54,12 +52,21 @@ public sealed class TerminalTabViewModel : IToolContext
 
     public ReactivePropertySlim<bool> IsProcessExited { get; } = new();
 
+    internal (string Path, string[] Args) GetShellCommand()
+        => ResolveShell(Environment.GetEnvironmentVariable, OperatingSystem.IsWindows(), OperatingSystem.IsMacOS(),
+            _settings.ShellPath.Value, _settings.ShellArguments.Value);
+
     internal static (string Path, string[] Args) ResolveShell(
-        Func<string, string?> getEnvironmentVariable, bool isWindows, bool isMacOS)
+        Func<string, string?> getEnvironmentVariable, bool isWindows, bool isMacOS,
+        string? configuredPath = null, string? configuredArguments = null)
     {
+        string[] args = configuredArguments?.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries) ?? [];
+        if (configuredPath?.Trim() is { Length: > 0 } path)
+            return (path, args);
+
         if (isWindows)
         {
-            return (getEnvironmentVariable("COMSPEC") ?? "cmd.exe", []);
+            return (getEnvironmentVariable("COMSPEC") ?? "cmd.exe", args);
         }
 
         string? shell = getEnvironmentVariable("SHELL");
@@ -69,7 +76,7 @@ public sealed class TerminalTabViewModel : IToolContext
         }
 
         // A login shell picks up the user's profile (PATH etc.), which a bare PTY shell would not.
-        return (shell, ["-l"]);
+        return (shell, args.Length == 0 ? ["-l"] : args);
     }
 
     internal static string? ResolveLangFallback(

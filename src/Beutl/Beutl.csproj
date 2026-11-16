@@ -154,6 +154,12 @@
   </PropertyGroup>
   <Import Project="..\Beutl.Extensions.AVFoundation\build\BeutlAVF.targets" />
 
+  <!-- The NuGet launcher is executable only by its owner. Shared macOS installs need it runnable by every user. -->
+  <Target Name="MakeTerminalLauncherExecutable" AfterTargets="Publish"
+          Condition="$(RuntimeIdentifier.StartsWith('osx-')) And '$(OS)' != 'Windows_NT'">
+    <Exec Command="chmod a+x &quot;$(PublishDir)/royalterminal-pty-spawn&quot;" />
+  </Target>
+
   <Target Name="CopyBeutlAVFDylibForPublish"
           AfterTargets="Publish"
           Condition="'$(AVFBuildIn)'=='True' And '$(RuntimeIdentifier)' != '' And $(RuntimeIdentifier.StartsWith('osx'))">

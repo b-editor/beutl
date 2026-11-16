@@ -2,7 +2,6 @@
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.VisualTree;
 
 using Beutl.Editor.Components.TerminalTab.ViewModels;
 using Beutl.Editor.Components.TerminalTab.Views;
@@ -12,7 +11,7 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 
-using Iciclecreek.Terminal;
+using RoyalTerminal.Avalonia.Controls;
 
 namespace Beutl.HeadlessUITests;
 
@@ -84,15 +83,13 @@ public class ContextCommandInputTests
             {
                 HeadlessTestHelpers.Render();
                 TerminalControl control = terminalTab.FindControl<TerminalControl>("Terminal")!;
-                // The focused element (and so the KeyDown source) is the inner TerminalView, not the templated control.
-                TerminalView terminalView = control.GetVisualDescendants().OfType<TerminalView>().Single();
                 int markersBefore = scene.Markers.Count;
 
                 Assert.That(ContextCommandInput.GetIsTextInput(control), Is.True);
 
                 // Typing "m" into the terminal must not toggle a marker. A command that cannot run leaves the key
                 // unhandled (ContextCommandHandlerTests), so Avalonia still delivers the TextInput to the shell.
-                var fromTerminal = new ContextCommandExecution("editor.toggleMarker") { KeyEventArgs = KeyDownFrom(terminalView) };
+                var fromTerminal = new ContextCommandExecution("editor.toggleMarker") { KeyEventArgs = KeyDownFrom(control) };
                 Assert.That(SceneEditorExtension.Instance.CanRun(editor, fromTerminal), Is.False);
 
                 // Negative control: the same gesture from a non-text control still runs the shortcut.

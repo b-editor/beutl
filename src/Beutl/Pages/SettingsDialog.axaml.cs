@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Interactivity;
+using Beutl.Configuration;
 using Beutl.Controls.Navigation;
 using Beutl.Logging;
 using Beutl.Pages.SettingsPages;
@@ -163,6 +164,11 @@ public sealed partial class SettingsDialog : FAAppWindow
                 Strings.WebBrowser, typeof(BrowserSettingsPage),
                 new FluentIconSource { Icon = FluentIcons.Common.Icon.Globe }),
             GetContext: settings => settings.Browser),
+        new(typeof(TerminalSettingsPage), nameof(TerminalConfig), 8,
+            CreateItem: () => NavigationItem(
+                Strings.Terminal, typeof(TerminalSettingsPage),
+                new FluentIconSource { Icon = FluentIcons.Common.Icon.WindowConsole }),
+            GetContext: _ => GlobalConfiguration.Instance.TerminalConfig),
         new(typeof(InformationPage), "InformationPageViewModel", 9,
             CreateItem: () => NavigationItem(
                 Strings.Info, typeof(InformationPage),

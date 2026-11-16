@@ -5,8 +5,8 @@
              xmlns:ext="using:Beutl.Extensibility"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:terminal="using:Iciclecreek.Terminal"
              xmlns:usage="using:Beutl.Editor.Components.Helpers"
+             xmlns:views="using:Beutl.Editor.Components.TerminalTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.TerminalTab.ViewModels"
              d:DesignHeight="300"
              d:DesignWidth="600"
@@ -16,10 +16,11 @@
     <DockPanel>
         <Border Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
                 DockPanel.Dock="Top"
-                IsVisible="{Binding IsProcessExited.Value}"
+                IsVisible="{Binding IsProcessExited.Value, FallbackValue=False}"
                 Padding="8,4">
             <DockPanel>
-                <Button usage:UsageTracking.Feature="Terminal.Restart"
+                <Button Name="RestartButton"
+                        usage:UsageTracking.Feature="Terminal.Restart"
                         Click="OnRestartClick"
                         Content="{x:Static lang:Strings.Restart}"
                         DockPanel.Dock="Right" />
@@ -30,13 +31,11 @@
             Plain keys (Space, J/K/L, M, G ...) are scene editor shortcuts. Marking the terminal as a
             text-entry surface keeps those keystrokes flowing to the shell instead of the editor.
         -->
-        <terminal:TerminalControl Name="Terminal"
-                                  ext:ContextCommandInput.IsTextInput="True"
-                                  Background="Transparent"
-                                  BufferSize="5000"
-                                  FontFamily="Consolas, Menlo, monospace"
-                                  Foreground="{DynamicResource TerminalForegroundBrush}"
-                                  Process=""
-                                  ProcessExited="OnProcessExited" />
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <views:ShellTerminalControl Name="Terminal"
+                                       ext:ContextCommandInput.IsTextInput="True"
+                                       ProcessExited="OnProcessExited"
+                                       TitleChanged="OnTerminalTitleChanged" />
+        </ScrollViewer>
     </DockPanel>
 </UserControl>

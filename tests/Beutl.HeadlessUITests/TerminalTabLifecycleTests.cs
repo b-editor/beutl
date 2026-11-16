@@ -3,7 +3,6 @@ using System.Text.Json.Nodes;
 
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
-using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 
@@ -11,6 +10,7 @@ using Beutl.Editor.Components.TerminalTab.ViewModels;
 using Beutl.Editor.Components.TerminalTab.Views;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Extensibility;
+using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -19,9 +19,12 @@ using Beutl.Views;
 
 using Dock.Model.Controls;
 
-using Iciclecreek.Terminal;
+using Moq;
 
 using Reactive.Bindings;
+
+using RoyalTerminal.Avalonia.Controls;
+using RoyalTerminal.Terminal;
 
 namespace Beutl.HeadlessUITests;
 
@@ -51,24 +54,25 @@ public class TerminalTabLifecycleTests
         var view = new EditView { DataContext = editor };
         var window = new Window { Content = view, Width = 900, Height = 700 };
 
+        TerminalControl firstTerminal;
         try
         {
             window.Show();
             editor.DockHost.Factory.SetActiveDockable(terminalDockable);
             HeadlessTestHelpers.Render();
 
-            TerminalControl firstTerminal = FindTerminal(view);
+            firstTerminal = FindTerminal(view);
             await HeadlessTestHelpers.WaitUntilAsync(
-                () => firstTerminal.HasPtyConnection, TimeSpan.FromSeconds(5), "the terminal shell did not start");
-            int pid = firstTerminal.Pid;
+                () => firstTerminal.HasActiveSession, TimeSpan.FromSeconds(5), "the terminal shell did not start");
+            int pid = firstTerminal.Pty!.ChildPid;
 
             editor.DockHost.Factory.SetActiveDockable(otherDockable);
             HeadlessTestHelpers.Render();
 
             Assert.Multiple(() =>
             {
-                Assert.That(firstTerminal.HasPtyConnection, Is.True);
-                Assert.That(firstTerminal.Pid, Is.EqualTo(pid));
+                Assert.That(firstTerminal.HasActiveSession, Is.True);
+                Assert.That(firstTerminal.Pty!.ChildPid, Is.EqualTo(pid));
                 Assert.That(terminalContext.IsProcessExited.Value, Is.False);
             });
 
@@ -79,16 +83,69 @@ public class TerminalTabLifecycleTests
             Assert.Multiple(() =>
             {
                 Assert.That(secondTerminal, Is.SameAs(firstTerminal));
-                Assert.That(secondTerminal.HasPtyConnection, Is.True);
-                Assert.That(secondTerminal.Pid, Is.EqualTo(pid));
+                Assert.That(secondTerminal.HasActiveSession, Is.True);
+                Assert.That(secondTerminal.Pty!.ChildPid, Is.EqualTo(pid));
                 Assert.That(terminalContext.IsProcessExited.Value, Is.False);
             });
+
+            // A hidden tab still receives the shell's final OSC title and exit notification.
+            editor.DockHost.Factory.SetActiveDockable(otherDockable);
+            HeadlessTestHelpers.Render();
+            firstTerminal.SendInput("exec /bin/sh -c 'printf \"\\033]2;finished\\007\"; read reply'\r");
+            await HeadlessTestHelpers.WaitUntilAsync(() => terminalContext.TerminalTitle.Value == "finished");
+            firstTerminal.SendInput("\r");
+            await HeadlessTestHelpers.WaitUntilAsync(() => terminalContext.IsProcessExited.Value);
+
+            editor.DockHost.Factory.SetActiveDockable(terminalDockable);
+            HeadlessTestHelpers.Render();
+            var restart = terminalDockable.ToolContent!.FindControl<Button>("RestartButton")!;
+            Assert.That(restart.IsEffectivelyVisible, Is.True);
+            HeadlessTestHelpers.Click(restart);
+            await HeadlessTestHelpers.WaitUntilAsync(() => firstTerminal.HasActiveSession);
+            Assert.That(firstTerminal.Pty!.ChildPid, Is.Not.EqualTo(pid));
+            Assert.That(terminalContext.IsProcessExited.Value, Is.False);
         }
         finally
         {
             editor.CloseToolTab(terminalContext);
             window.Close();
             HeadlessTestHelpers.Settle();
+        }
+
+        Assert.That(firstTerminal.HasPty, Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task FailedLaunch_CanRestartInTheSceneDirectory()
+    {
+        var root = Directory.CreateTempSubdirectory("beutl-terminal-");
+        try
+        {
+            string directory = Path.Combine(root.FullName, "scene folder");
+            var scene = new Scene(640, 480, string.Empty) { Uri = new Uri(Path.Combine(directory, "test.scene")) };
+            var editor = new Mock<IEditorContext>();
+            editor.Setup(x => x.GetService(typeof(Scene))).Returns(scene);
+            using var owner = new TerminalTabViewModel(editor.Object);
+            using var view = new TerminalTabView { DataContext = owner };
+            using var host = new ControlHost(view);
+            var terminal = view.FindControl<TerminalControl>("Terminal")!;
+            await HeadlessTestHelpers.WaitUntilAsync(() => owner.IsProcessExited.Value);
+            Assert.That(terminal.HasPty, Is.False);
+
+            Directory.CreateDirectory(directory);
+            const string marker = "beutl-cwd-ok";
+            File.WriteAllText(Path.Combine(directory, "marker.txt"), marker);
+            HeadlessTestHelpers.Click(view.FindControl<Button>("RestartButton")!);
+            await HeadlessTestHelpers.WaitUntilAsync(() => terminal.HasActiveSession);
+            terminal.SendInput(OperatingSystem.IsWindows() ? "type marker.txt\r" : "cat marker.txt\r");
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+                terminal.TryExportSnapshot(TerminalSnapshotExportFormat.PlainText, default, out string text)
+                && text.Contains(marker, StringComparison.Ordinal));
+            Assert.That(owner.IsProcessExited.Value, Is.False);
+        }
+        finally
+        {
+            root.Delete(recursive: true);
         }
     }
 
@@ -135,56 +192,22 @@ public class TerminalTabLifecycleTests
     }
 
     [AvaloniaTest]
-    public async Task TerminalControl_ThemeResources_ResolvePerVariant()
+    public void TerminalControl_ThemeResources_ResolvePerVariant()
     {
-        await TestReset.ResetShellAsync();
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("The Windows ConPTY path is not exercised by this headless test.");
-        }
+        using var view = new TerminalTabView();
+        using var host = new ControlHost(view, 480, 160);
+        var terminal = view.FindControl<TerminalControl>("Terminal")!;
+        terminal.WriteOutput("$ echo 日本語\r\n日本語\r\n"u8);
 
-        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("terminal-tab-theme-resources");
-        IToolDock bottomDock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
-        var terminalContext = new TerminalTabViewModel(editor);
-        Assert.That(editor.DockHost.OpenToolTab(terminalContext, bottomDock), Is.True);
-        var terminalDockable = editor.DockHost.Factory.EnumerateTools()
-            .Single(item => ReferenceEquals(item.ToolContext, terminalContext));
-        var view = new EditView { DataContext = editor };
-        var window = new Window { Content = view, Width = 900, Height = 700 };
-        try
+        foreach (ThemeVariant variant in new[] { ThemeVariant.Dark, ThemeVariant.Light })
         {
-            window.Show();
-            editor.DockHost.Factory.SetActiveDockable(terminalDockable);
+            using var theme = ThemeVariantScope.Use(variant);
             HeadlessTestHelpers.Render();
-
-            TerminalControl terminal = FindTerminal(view);
-
-            Assert.That((terminal.Background as ISolidColorBrush)?.Color, Is.EqualTo(Colors.Transparent));
-
-            Assert.That(terminal.Foreground, Is.Not.Null);
-
-            Color darkForeground;
-            using (ThemeVariantScope.Use(ThemeVariant.Dark))
-            {
-                HeadlessTestHelpers.Render();
-                darkForeground = (terminal.Foreground as ISolidColorBrush)?.Color ?? default;
-            }
-
-            Color lightForeground;
-            using (ThemeVariantScope.Use(ThemeVariant.Light))
-            {
-                HeadlessTestHelpers.Render();
-                lightForeground = (terminal.Foreground as ISolidColorBrush)?.Color ?? default;
-            }
-
-            Assert.That(darkForeground, Is.Not.EqualTo(lightForeground),
-                "terminal foreground should vary between Dark and Light theme variants");
-        }
-        finally
-        {
-            editor.CloseToolTab(terminalContext);
-            window.Close();
-            HeadlessTestHelpers.Settle();
+            Assert.That(terminal.DefaultForeground.R, variant == ThemeVariant.Dark
+                ? Is.GreaterThan(terminal.DefaultBackground.R)
+                : Is.LessThan(terminal.DefaultBackground.R));
+            Assert.That(terminal.Theme!.CursorColor, Is.EqualTo(terminal.DefaultForeground.ToUInt32()));
+            HeadlessCapture.SaveIfRequested(view, nameof(TerminalTabLifecycleTests), variant.ToString());
         }
     }
 

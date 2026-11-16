@@ -1,218 +1,152 @@
-﻿using Avalonia.Controls;
+﻿using System.Text;
+using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
+using Beutl.Configuration;
 using Beutl.Editor.Components.TerminalTab.ViewModels;
 using Beutl.Editor.Services;
-using Iciclecreek.Terminal;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
+using RoyalTerminal.Avalonia.Controls;
+using RoyalTerminal.Terminal;
+using RoyalTerminal.Terminal.Theming;
 
 namespace Beutl.Editor.Components.TerminalTab.Views;
 
 public partial class TerminalTabView : UserControl, IDisposable
 {
-    private TerminalTabViewModel? _viewModel;
-    private TerminalTabViewModel? _launchedViewModel;
-    private bool _launching;
-    private bool _launched;
+    // RoyalTerminal 0.7.2 accepts typographic points. Avalonia font sizes are DIPs (96 per inch).
+    private const double PointsPerDip = 72d / 96d;
+
+    private static readonly ILogger s_logger = Log.CreateLogger<TerminalTabView>();
+    private readonly CompositeDisposable _settingsSubscriptions = [];
+    private TerminalTabViewModel? _sessionOwner;
+    private bool _starting;
     private bool _disposed;
 
     public TerminalTabView()
     {
         InitializeComponent();
         Loaded += OnLoaded;
-        Terminal.AddHandler(TerminalView.TitleChangedEvent, OnTerminalTitleChanged);
+        TerminalConfig settings = GlobalConfiguration.Instance.TerminalConfig;
+        settings.FontFamily.GetObservable().Subscribe(name =>
+            Terminal.FontFamilyName = string.IsNullOrWhiteSpace(name)
+                ? TerminalControl.FontFamilyNameProperty.GetDefaultValue(Terminal) : name.Trim())
+            .DisposeWith(_settingsSubscriptions);
+        settings.FontSize.GetObservable()
+            .Subscribe(dips => Terminal.TerminalFontSize = dips * PointsPerDip)
+            .DisposeWith(_settingsSubscriptions);
+        settings.ScrollbackLines.GetObservable().Subscribe(lines => Terminal.ScrollbackLimit = lines).DisposeWith(_settingsSubscriptions);
+
+        var foreground = this.GetResourceObservable("TerminalForegroundBrush").OfType<ISolidColorBrush>()
+            .Select(brush => brush is SolidColorBrush mutable
+                ? mutable.GetObservable(SolidColorBrush.ColorProperty)
+                : Observable.Return(brush.Color))
+            .Switch();
+        var applicationTheme = foreground
+            .CombineLatest(this.GetResourceObservable("SolidBackgroundFillColorSecondary").OfType<Color>(),
+                (text, background) => new TerminalTheme(text.ToUInt32(), background.ToUInt32(),
+                    cursorColor: text.ToUInt32(), palette: TerminalTheme.Dark.Palette));
+        settings.ColorScheme.GetObservable().Select(scheme => scheme switch
+            {
+                TerminalColorScheme.Dark => Observable.Return(TerminalTheme.Dark),
+                TerminalColorScheme.Light => Observable.Return(TerminalTheme.Light),
+                _ => applicationTheme
+            })
+            .Switch().Subscribe(Terminal.ApplyTheme).DisposeWith(_settingsSubscriptions);
         Terminal.AddHandler(KeyDownEvent, (_, args) =>
         {
             if (args.Key == Key.Enter)
                 UsageTelemetry.Current?.Record("tool.command", "Terminal", "SubmitInput");
-            else if (args is { KeyModifiers: KeyModifiers.Meta, Source: TerminalView view })
-                OnCommandKeyDown(view, args);
         }, RoutingStrategies.Tunnel);
     }
 
-    // The terminal copies and pastes on Ctrl+Shift, whereas macOS leaves Ctrl for the shell and has them on Cmd.
-    private static async void OnCommandKeyDown(TerminalView view, KeyEventArgs args)
+    private void OnLoaded(object? sender, RoutedEventArgs e)
     {
-        if (args.Key == Key.C)
-        {
-            args.Handled = true;
-            await view.CopyAsync();
-        }
-        else if (args.Key == Key.V)
-        {
-            args.Handled = true;
-            await view.PasteAsync();
-        }
-    }
-
-    // The view is recycled; update the view-model that owns the PTY.
-    private void OnTerminalTitleChanged(object? sender, TitleChangedEventArgs e)
-    {
-        if (!_disposed && _launchedViewModel is { } viewModel)
-        {
-            viewModel.TerminalTitle.Value = e.Title;
-        }
+        TryStartSession();
     }
 
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (_disposed) return;
-
-        _viewModel = DataContext as TerminalTabViewModel;
-        if (_viewModel != null)
-        {
-            if (!ReferenceEquals(_launchedViewModel, _viewModel))
-            {
-                // Reset only when bound to a different view-model than the launched one; the DataContext
-                // briefly goes null during a reparent.
-                _launched = false;
-                _launching = false;
-            }
-
-            // Pass the locale per spawn so it never mutates the shared process environment
-            // (which would race across concurrent terminals and leak into other subprocesses).
-            // Cleared when the fallback is absent so a recycled view drops a prior view-model's LANG.
-            Terminal.EnvironmentOverrides = _viewModel.LangFallback is { } lang
-                ? new Dictionary<string, string> { ["LANG"] = lang }
-                : null;
-
-            TryLaunch();
-        }
+        TryStartSession();
     }
 
-    private void OnLoaded(object? sender, RoutedEventArgs e)
+    private void TryStartSession()
     {
-        TryLaunch();
-    }
-
-    private void TryLaunch()
-    {
-        if (_launched || _launching || _disposed || _viewModel == null || !IsLoaded)
+        // The dock keeps this view when switching tabs and may temporarily clear its DataContext.
+        if (!_disposed && !_starting && IsLoaded && DataContext is TerminalTabViewModel owner && owner != _sessionOwner)
         {
-            return;
+            _ = StartSessionAsync(owner);
         }
-
-        // The first launch resolves the shell/args/working directory from the view-model.
-        _ = LaunchAsync(reuseConfiguredProcess: false);
     }
 
     private void OnRestartClick(object? sender, RoutedEventArgs e)
     {
-        if (_launching || _disposed || _viewModel == null)
+        if (!_disposed && !_starting && DataContext is TerminalTabViewModel { IsProcessExited.Value: true } owner)
         {
-            return;
+            _ = StartSessionAsync(owner);
         }
-
-        // Restart reuses the shell/args/working directory the first launch already configured.
-        _ = LaunchAsync(reuseConfiguredProcess: true);
     }
 
-    private async Task LaunchAsync(bool reuseConfiguredProcess)
+    private async Task StartSessionAsync(TerminalTabViewModel owner)
     {
-        TerminalTabViewModel viewModel = _viewModel!;
-        _launching = true;
-        _launchedViewModel = viewModel;
-        viewModel.IsProcessExited.Value = false;
-        // Clear the previous session title; the new shell may not emit OSC 0/2.
-        viewModel.TerminalTitle.Value = null;
-
-        // Suppress detach-cleanup before spawning so switching away mid-launch re-docks the tab
-        // instead of killing the just-spawned PTY. Kept on for the tab's life; disposal calls
-        // EndReparent + Shutdown.
-        Terminal.BeginReparent();
-
+        bool restart = owner == _sessionOwner;
+        _starting = true;
+        _sessionOwner = owner;
+        owner.IsProcessExited.Value = false;
+        owner.TerminalTitle.Value = null;
         try
         {
-            try
-            {
-                if (reuseConfiguredProcess)
-                {
-                    await Terminal.LaunchProcess();
-                }
-                else
-                {
-                    await Terminal.LaunchProcess(viewModel.WorkingDirectory, viewModel.ShellPath, viewModel.ShellArgs);
-                }
-            }
-            finally
-            {
-                _launching = false;
-            }
+            if (Terminal.HasPty) Terminal.StopPty();
 
-            if (_disposed)
-            {
-                // Torn down mid-launch: tear down any PTY that did spawn and never touch the disposed
-                // view-model. Shutdown is idempotent with the view teardown that already ran.
-                Terminal.Shutdown();
-                return;
-            }
-
-            if (!Terminal.HasPtyConnection)
-            {
-                // The terminal control swallows spawn failures (e.g. a missing SHELL/COMSPEC), so no
-                // PTY exists. Surface it through the restart UI and leave the tab relaunchable.
-                _launched = false;
-                viewModel.IsProcessExited.Value = true;
-                return;
-            }
-
-            _launched = true;
+            var size = PixelSize.FromSize(Terminal.Bounds.Size, TopLevel.GetTopLevel(this)?.RenderScaling ?? 1);
+            var (shell, args) = owner.GetShellCommand();
+            var options = new PtyTransportOptions(
+                new TerminalCommandSpec(shell, args),
+                owner.WorkingDirectory ?? Environment.CurrentDirectory,
+                owner.LangFallback is { } lang ? new Dictionary<string, string> { ["LANG"] = lang } : null,
+                new TerminalSessionDimensions(Terminal.Columns, Terminal.Rows, size.Width, size.Height));
+            await Terminal.StartSessionAsync(options, preserveScrollback: restart);
+            if (!_disposed && IsLoaded && DataContext == owner) Terminal.Focus();
         }
-        catch
+        catch (Exception ex)
         {
-            // Fire-and-forget: contain any fault and surface it through the restart UI, or tear down if
-            // disposed.
-            _launched = false;
-            if (_disposed)
+            s_logger.LogWarning(ex, "Could not start the terminal shell");
+            if (!_disposed)
             {
-                ShutdownQuietly();
+                owner.IsProcessExited.Value = true;
+                Terminal.WriteOutput(Encoding.UTF8.GetBytes(ex.Message + "\r\n"));
             }
-            else
-            {
-                viewModel.IsProcessExited.Value = true;
-            }
+        }
+        finally
+        {
+            _starting = false;
+            if (_disposed) Terminal.StopPty();
+            else TryStartSession();
         }
     }
 
-    private void OnProcessExited(object? sender, ProcessExitedEventArgs e)
+    private void OnTerminalTitleChanged(object? sender, string title)
     {
-        // Report on the view-model that owns the PTY, not the current DataContext, so a process exit
-        // while the view is transiently unbound still reaches the right view-model.
-        if (_launchedViewModel != null && !_disposed)
-        {
-            _launchedViewModel.IsProcessExited.Value = true;
-        }
+        if (_sessionOwner is { } owner) owner.TerminalTitle.Value = title;
+    }
+
+    private void OnProcessExited(object? sender, int exitCode)
+    {
+        if (_sessionOwner is { } owner) owner.IsProcessExited.Value = true;
     }
 
     public void Dispose()
     {
-        if (_disposed)
-        {
-            return;
-        }
+        if (_disposed) return;
 
         _disposed = true;
+        _sessionOwner = null;
         Loaded -= OnLoaded;
-        Terminal.RemoveHandler(TerminalView.TitleChangedEvent, OnTerminalTitleChanged);
-        // Shutdown (not just Kill) so the connection and read-cancellation source are disposed even
-        // when no later detach runs the cleanup — an inactive tab is already detached when closed.
-        Terminal.EndReparent();
-        ShutdownQuietly();
-
-        _viewModel = null;
-        _launchedViewModel = null;
-    }
-
-    private void ShutdownQuietly()
-    {
-        try
-        {
-            Terminal.Shutdown();
-        }
-        catch
-        {
-            // Best-effort teardown: the PTY may already be gone, and neither the fire-and-forget launch
-            // catch nor Dispose may throw.
-        }
+        _settingsSubscriptions.Dispose();
+        if (!_starting) Terminal.StopPty();
     }
 }

@@ -15,6 +15,33 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
     private GlobalConfiguration Restore(JsonObject json) => Restore(json.ToJsonString());
 
     [Test]
+    public void Terminal_settings_default_for_older_files_and_auto_save_edits()
+    {
+        TerminalConfig settings = Restore(new JsonObject()).TerminalConfig;
+        Assert.That(settings.FontSize.Value, Is.EqualTo(14));
+        Assert.That(settings.ScrollbackLines.Value, Is.EqualTo(5000));
+        Assert.That(settings.ColorScheme.Value, Is.EqualTo(TerminalColorScheme.FollowApplication));
+        Assert.That(settings.ShellPath.Value, Is.Null);
+
+        settings.FontSize.Value = 18;
+        settings.FontFamily.Value = "My Mono";
+        settings.ColorScheme.Value = TerminalColorScheme.Light;
+        settings.ScrollbackLines.Value = 0;
+        settings.ShellPath.Value = "/path with spaces/pwsh";
+        settings.ShellArguments.Value = "-File\nmy script.ps1";
+
+        GlobalConfiguration reopened = CreateConfiguration();
+        reopened.Restore(SettingsPath);
+        Assert.That(reopened.RestoreFailures, Is.Empty);
+        Assert.That(reopened.TerminalConfig.FontFamily.Value, Is.EqualTo("My Mono"));
+        Assert.That(reopened.TerminalConfig.FontSize.Value, Is.EqualTo(18));
+        Assert.That(reopened.TerminalConfig.ColorScheme.Value, Is.EqualTo(TerminalColorScheme.Light));
+        Assert.That(reopened.TerminalConfig.ScrollbackLines.Value, Is.Zero);
+        Assert.That(reopened.TerminalConfig.ShellPath.Value, Is.EqualTo("/path with spaces/pwsh"));
+        Assert.That(reopened.TerminalConfig.ShellArguments.Value, Is.EqualTo("-File\nmy script.ps1"));
+    }
+
+    [Test]
     public void A_string_where_a_number_belongs_keeps_the_default_and_the_rest_of_the_file()
     {
         var defaults = new EditorConfig();

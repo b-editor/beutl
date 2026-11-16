@@ -1,4 +1,5 @@
 ﻿using Avalonia.Data.Converters;
+using Beutl.Configuration;
 using Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 
@@ -6,6 +7,8 @@ namespace Beutl.Editor.Components.Converters;
 
 public static class EnumIndexConverters
 {
+    public static readonly IValueConverter TerminalColorSchemes = new EnumIndexConverter<TerminalColorScheme>(TerminalColorScheme.FollowApplication);
+
     public static readonly IValueConverter SpeakerLayouts = new EnumIndexConverter<SpeakerLayout>(SpeakerLayout.Stereo);
 
     // The items of a ComboBox whose index goes through SpeakerLayouts, so in the order of the enum.

@@ -793,4 +793,31 @@
   <data name="SeekOnTimelineClick_Description" xml:space="preserve">
     <value>关闭后，只能通过标尺或拖动播放头线条来移动播放头，在时间线的空白处拖动可直接框选剪辑，无需按修饰键。</value>
   </data>
+  <data name="TerminalFollowApplication" xml:space="preserve">
+    <value>跟随 Beutl 主题</value>
+  </data>
+  <data name="TerminalDefaultFont" xml:space="preserve">
+    <value>默认（{0}）</value>
+  </data>
+  <data name="TerminalFontSize" xml:space="preserve">
+    <value>字号 (DIP)</value>
+  </data>
+  <data name="TerminalScrollback" xml:space="preserve">
+    <value>回滚缓冲区行数</value>
+  </data>
+  <data name="TerminalShell" xml:space="preserve">
+    <value>启动 Shell</value>
+  </data>
+  <data name="TerminalShellDescription" xml:space="preserve">
+    <value>将两个字段留空即可使用默认的 Shell 及其参数。更改会在打开或重新启动终端时生效。</value>
+  </data>
+  <data name="TerminalShellPath" xml:space="preserve">
+    <value>可执行文件</value>
+  </data>
+  <data name="TerminalShellArguments" xml:space="preserve">
+    <value>参数</value>
+  </data>
+  <data name="TerminalShellArgumentsDescription" xml:space="preserve">
+    <value>每行输入一个参数。行内的空格会保留。</value>
+  </data>
 </root>
