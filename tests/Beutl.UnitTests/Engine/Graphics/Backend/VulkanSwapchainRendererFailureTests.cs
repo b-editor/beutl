@@ -157,7 +157,8 @@ public class VulkanSwapchainRendererFailureTests
         Assert.That(_calls.Count("UploadBitmap"), Is.EqualTo(uploads + 1));
         Assert.That(_calls.Count("QueueSubmit"), Is.EqualTo(submits + 1));
         Assert.That(_calls.Count("QueuePresent"), Is.EqualTo(presents + 1));
-        AssertNoUnexpectedErrors();
+        // A recovered renderer logs no error at all, not even a failed Vulkan call.
+        Assert.That(_logs.Entries.Where(e => e.Level >= LogLevel.Error), Is.Empty);
     }
 
     // Only a failed Vulkan call is logged as an error: anything else is the renderer reaching past the fake.
