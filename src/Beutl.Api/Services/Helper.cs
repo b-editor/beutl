@@ -57,9 +57,14 @@ internal static class Helper
         IEnumerable<SourceRepository> repositories,
         ISet<SourcePackageDependencyInfo> availablePackages,
         IReadOnlyDictionary<string, PackageIdentity>? selectedPackages = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool useCurrentHostLibraries = true)
     {
-        if (availablePackages.Contains(package) || IncludedInPackageDependencies(package.Id, package.Version)) return;
+        // Only Beutl's own assemblies are guaranteed to come from a future host.
+        if (availablePackages.Contains(package) || (useCurrentHostLibraries
+                ? IncludedInPackageDependencies(package.Id, package.Version) : CoreLibraries.IsBeutlLibrary(package.Id))) return;
+        bool SuppliedByHost(PackageDependency dep) => useCurrentHostLibraries
+            ? IncludedInPackageDependencies(dep.Id, dep.VersionRange) : CoreLibraries.IsBeutlLibrary(dep.Id);
 
         foreach (SourceRepository sourceRepository in repositories)
         {
@@ -84,11 +89,11 @@ internal static class Helper
 
             if (dependencyInfo == null) continue;
 
-            if (dependencyInfo.Dependencies.Any(x => IncludedInPackageDependencies(x.Id, x.VersionRange)))
+            if (dependencyInfo.Dependencies.Any(SuppliedByHost))
             {
                 dependencyInfo = new SourcePackageDependencyInfo(
                     dependencyInfo,
-                    dependencyInfo.Dependencies.Where(x => !IncludedInPackageDependencies(x.Id, x.VersionRange)),
+                    dependencyInfo.Dependencies.Where(x => !SuppliedByHost(x)),
                     dependencyInfo.Listed,
                     dependencyInfo.Source,
                     dependencyInfo.DownloadUri,
@@ -111,7 +116,7 @@ internal static class Helper
                     repositories,
                     availablePackages,
                     selectedPackages,
-                    cancellationToken)
+                    cancellationToken, useCurrentHostLibraries)
                     .ConfigureAwait(false);
             }
 

@@ -86,7 +86,8 @@ public sealed partial class PackageManager : IBeutlApiResource
     public Task<IReadOnlyList<PackageUpdate>> CheckUpdate(CancellationToken cancellationToken)
         => CheckUpdatesForHost(null, cancellationToken);
 
-    internal async Task<IReadOnlyList<PackageUpdate>> CheckUpdatesForHost(NuGetVersion? host, CancellationToken cancellationToken)
+    internal async Task<IReadOnlyList<PackageUpdate>> CheckUpdatesForHost(NuGetVersion? host, CancellationToken cancellationToken,
+        IReadOnlyList<PackageIdentity>? packages = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var (discover, lifetime) = apiApplication.GetResourceWithLifetime<DiscoverService>(cancellationToken);
@@ -94,7 +95,7 @@ public sealed partial class PackageManager : IBeutlApiResource
         CancellationToken operationToken = operationCts.Token;
         using (Telemetry.ActivitySource.StartActivity("CheckUpdate"))
         {
-            PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
+            packages ??= installedPackageRepository.GetLocalPackages().ToArray();
 
             // Each package takes a few store requests, so the packages are checked together.
             PackageUpdate?[] updates = await Task.WhenAll(

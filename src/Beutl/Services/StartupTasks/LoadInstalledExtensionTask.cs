@@ -90,16 +90,21 @@ public sealed class LoadInstalledExtensionTask : StartupTask
     private async Task PrepareExternalUpdateAsync(Startup startup, PackageIdentity[] installed, NuGetVersion host)
     {
         GlobalConfiguration settings = GlobalConfiguration.Instance;
-        if (!settings.UpdateConfig.ShouldUpdateExtensions(true) || installed.Length == 0) return;
+        if (!startup.IsAppUpgrade || !settings.UpdateConfig.ShouldUpdateExtensions(true)) return;
+        // Give fast updates a chance to load on this launch. The normal check after loading picks
+        // up any missing downloads without keeping a project waiting for the store.
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         try
         {
-            // External app updates have no preparation step in the old process.
-            if (NuGetVersion.TryParse(settings.LastStartedVersion, out var previous) && host > previous
-                && !installed.Any(p => PackageInstaller.FindStagedExtensionUpdate(p, host, includeStandalone: false) != null))
-            {
-                await startup.GetTask<AuthenticationTask>().Task;
-                await _manager.StageExtensionUpdatesAsync(host, appUpdate: true, CancellationToken.None);
-            }
+            bool includeStandalone = settings.UpdateConfig.ShouldUpdateExtensions(false);
+            PackageIdentity[] missing = [.. installed.Where(p => PackageInstaller.FindStagedExtensionUpdate(p, host, includeStandalone) == null)];
+            if (missing.Length == 0) return;
+            await startup.GetTask<AuthenticationTask>().Task.WaitAsync(deadline.Token);
+            await _manager.StageExtensionUpdatesAsync(host, appUpdate: true, deadline.Token, missing);
+        }
+        catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+        {
+            _logger.LogInformation("Continuing startup before all extension updates are ready.");
         }
         catch (Exception ex) when (ex is not OperationCanceledException and not ObjectDisposedException)
         {

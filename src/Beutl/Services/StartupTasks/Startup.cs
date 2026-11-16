@@ -1,6 +1,8 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.ViewModels.ExtensionsPages;
+using NuGet.Versioning;
 
 namespace Beutl.Services.StartupTasks;
 
@@ -12,12 +14,20 @@ public sealed class Startup
     private readonly EditorService _editorService;
 
     public Startup(BeutlApiApplication apiApp, ProjectService projectService, EditorService editorService)
+        : this(apiApp, projectService, editorService, GlobalConfiguration.Instance.LastStartedVersion)
+    {
+    }
+
+    internal Startup(BeutlApiApplication apiApp, ProjectService projectService, EditorService editorService, string lastStartedVersion)
     {
         _apiApp = apiApp;
         _projectService = projectService;
         _editorService = editorService;
+        IsAppUpgrade = NuGetVersion.TryParse(lastStartedVersion, out var previous) && NuGetVersion.Parse(BeutlApplication.Version) > previous;
         Initialize();
     }
+
+    internal bool IsAppUpgrade { get; }
 
     private async void Initialize()
     {

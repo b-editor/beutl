@@ -8,7 +8,7 @@ namespace Beutl.Api.Services;
 public sealed partial class PackageManager
 {
     internal async Task<(int Staged, IReadOnlyList<PackageUpdate> Remaining)> StageExtensionUpdatesAsync(
-        NuGetVersion host, bool appUpdate, CancellationToken cancellationToken)
+        NuGetVersion host, bool appUpdate, CancellationToken cancellationToken, IReadOnlyList<PackageIdentity>? packages = null)
     {
         UpdateConfig policy = GlobalConfiguration.Instance.UpdateConfig;
         if (!policy.ShouldUpdateExtensions(appUpdate)) return (0, []);
@@ -16,7 +16,7 @@ public sealed partial class PackageManager
         using var lifetime = apiApplication.CreateLifetimeLinkedTokenSource(cancellationToken);
         CancellationToken token = lifetime.Token;
         using var lease = await apiApplication.Lock.LockAsync(token);
-        IReadOnlyList<PackageUpdate> available = await CheckUpdatesForHost(host, token).ConfigureAwait(false);
+        IReadOnlyList<PackageUpdate> available = await CheckUpdatesForHost(host, token, packages).ConfigureAwait(false);
         int staged = 0;
         var remaining = new List<PackageUpdate>();
         var queue = apiApplication.GetResource<PackageChangesQueue>();
@@ -31,9 +31,9 @@ public sealed partial class PackageManager
             {
                 try
                 {
-                    await apiApplication.GetResource<PackageInstaller>()
-                        .StageExtensionUpdateAsync(installed, update.NewVersion, host, appUpdate, token).ConfigureAwait(false);
-                    staged++;
+                    if (await apiApplication.GetResource<PackageInstaller>()
+                        .StageExtensionUpdateAsync(installed, update.NewVersion, host, appUpdate, token).ConfigureAwait(false))
+                        staged++;
                     continue;
                 }
                 catch (Exception ex) when (!token.IsCancellationRequested)

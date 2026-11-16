@@ -22,7 +22,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
         : this(
             startup.WaitLoadingExtensions,
             () => startup.GetTask<LoadInstalledExtensionTask>().Failures,
-            token => CheckAndPrepareAsync(startup, packageManager, token),
+            token => CheckAndPrepareAsync(startup, packageManager, token, startup.IsAppUpgrade),
             () => beutlApiApplication.IsDisposed,
             s_mismatchDeadline)
     {
@@ -30,14 +30,14 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
     }
 
     private static async Task<IReadOnlyList<PackageUpdate>> CheckAndPrepareAsync(
-        Startup startup, PackageManager manager, CancellationToken token)
+        Startup startup, PackageManager manager, CancellationToken token, bool appUpdate = false)
     {
-        if (GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates.Value != ExtensionUpdateMode.Always
+        if (!GlobalConfiguration.Instance.UpdateConfig.ShouldUpdateExtensions(appUpdate)
             || startup.GetTask<CrashRecoveryPromptTask>().IsRestrictedMode)
             return await manager.CheckUpdate(token);
 
         await startup.GetTask<AuthenticationTask>().Task;
-        var result = await manager.StageExtensionUpdatesAsync(NuGetVersion.Parse(BeutlApplication.Version), false, token);
+        var result = await manager.StageExtensionUpdatesAsync(NuGetVersion.Parse(BeutlApplication.Version), appUpdate, token);
         return result.Remaining;
     }
 

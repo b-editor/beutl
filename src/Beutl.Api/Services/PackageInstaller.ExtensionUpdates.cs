@@ -2,6 +2,7 @@
 using NuGet.Configuration;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
+using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
 
 namespace Beutl.Api.Services;
@@ -17,62 +18,99 @@ public partial class PackageInstaller
     private static string ExtensionUpdateDirectory(PackageIdentity installed)
         => Path.Combine(Helper.AppRoot, "extensionUpdates", ValidatePackageName(installed.Id).ToLowerInvariant(), installed.Version.ToNormalizedString());
 
-    internal Task StageExtensionUpdateAsync(PackageIdentity installed, Release release, NuGetVersion host, bool appUpdate, CancellationToken token)
+    internal Task<bool> StageExtensionUpdateAsync(PackageIdentity installed, Release release, NuGetVersion host, bool appUpdate, CancellationToken token)
         => TrackAsync(async () =>
         {
             var candidate = new PackageIdentity(installed.Id, NuGetVersion.Parse(release.Version.Value));
-            string directory = Path.Combine(ExtensionUpdateDirectory(installed), host.ToNormalizedString());
-            if (appUpdate) directory = Path.Combine(directory, WithAppDirectory);
-            string archive = Path.Combine(directory, $"{installed.Id}.{candidate.Version.ToNormalizedString()}.nupkg");
-            if (File.Exists(archive)) return;
+            string hostDirectory = Path.Combine(ExtensionUpdateDirectory(installed), host.ToNormalizedString());
+            string directory = appUpdate ? Path.Combine(hostDirectory, WithAppDirectory) : hostDirectory;
+            string name = $"{installed.Id}.{candidate.Version.ToNormalizedString()}";
+            if (File.Exists(Path.Combine(hostDirectory, name + ".rejected"))) return false;
+            string ready = Path.Combine(directory, name + ".ready");
+            if (Directory.Exists(ready)) return true;
 
-            var asset = await release.GetAssetAsync(token).ConfigureAwait(false);
-            if (string.IsNullOrWhiteSpace(asset.Sha256))
-                throw new InvalidDataException("The extension update has no SHA-256 digest.");
-
-            Directory.CreateDirectory(directory);
-            string temporary = archive + $".{Guid.NewGuid():N}.tmp";
+            // Publish the whole local feed together. Startup never selects a partially downloaded graph.
+            string draft = Directory.CreateDirectory(Path.Combine(directory, $".preparing-{Guid.NewGuid():N}")).FullName;
             try
             {
-                using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
-                {
-                    await Download(asset.DownloadUrl, stream, null, token).ConfigureAwait(false);
-                    stream.Position = 0;
-                    if (!await VerifySha256Async(stream, asset.Sha256, null, token).ConfigureAwait(false))
-                        throw new InvalidDataException("The extension update does not match its advertised hash.");
+                string archive = Path.Combine(draft, name + ".nupkg");
+                string previousArchive = Path.Combine(directory, name + ".nupkg");
+                if (File.Exists(previousArchive))
+                    File.Copy(previousArchive, archive);
+                else
+                    await DownloadExtensionArchiveAsync(candidate, release, archive, token).ConfigureAwait(false);
 
-                    stream.Position = 0;
-                    using var reader = new PackageArchiveReader(stream, leaveStreamOpen: true);
-                    if (!candidate.Equals(reader.GetIdentity())
-                        || new LocalPackage(reader.NuspecReader).Tags.GetPackageKind() != PackageKind.Extension)
-                        throw new InvalidDataException("The download is not the requested extension.");
+                var source = _sourceRepositoryProvider.CreateRepository(new PackageSource(draft));
+                var logger = new LoggerAdapter(_logger);
+                var graph = await ResolvePackageGraphAsync(candidate, Helper.GetFrameworkName(), [source, .. GetInstallSources()],
+                    null, logger, token, useCurrentHostLibraries: host == NuGetVersion.Parse(BeutlApplication.Version)).ConfigureAwait(false);
+                foreach (var dep in graph.Where(dep => !candidate.Equals(dep)))
+                {
+                    SourceRepository repository = dep.Source ?? throw new InvalidDataException($"'{dep}' has no package source.");
+                    var resource = await repository.GetResourceAsync<FindPackageByIdResource>(token).ConfigureAwait(false)
+                        ?? throw new InvalidOperationException($"The source cannot download '{dep}'.");
+                    using var output = File.Create(Path.Combine(draft, $"{dep.Id}.{dep.Version.ToNormalizedString()}.nupkg"));
+                    if (!await resource.CopyNupkgToStreamAsync(dep.Id, dep.Version, output, _cacheContext, logger, token).ConfigureAwait(false))
+                        throw new InvalidDataException($"Could not prepare dependency '{dep}'.");
                 }
                 token.ThrowIfCancellationRequested();
-                File.Move(temporary, archive, overwrite: true);
+                try
+                {
+                    Directory.Move(draft, ready);
+                }
+                catch (IOException) when (Directory.Exists(ready))
+                {
+                    // Another Beutl instance published the same update.
+                }
+                return true;
             }
             finally
             {
-                File.Delete(temporary);
+                DeleteIfExists(draft);
             }
         });
+
+    private async Task DownloadExtensionArchiveAsync(PackageIdentity candidate, Release release, string path, CancellationToken token)
+    {
+        var asset = await release.GetAssetAsync(token).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(asset.Sha256))
+            throw new InvalidDataException("The extension update has no SHA-256 digest.");
+
+        using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+        await Download(asset.DownloadUrl, stream, null, token).ConfigureAwait(false);
+        stream.Position = 0;
+        if (!await VerifySha256Async(stream, asset.Sha256, null, token).ConfigureAwait(false))
+            throw new InvalidDataException("The extension update does not match its advertised hash.");
+
+        stream.Position = 0;
+        using var reader = new PackageArchiveReader(stream, leaveStreamOpen: true);
+        if (!candidate.Equals(reader.GetIdentity()) || new LocalPackage(reader.NuspecReader).Tags.GetPackageKind() != PackageKind.Extension)
+            throw new InvalidDataException("The download is not the requested extension.");
+    }
 
     internal static StagedExtensionUpdate? FindStagedExtensionUpdate(PackageIdentity installed, NuGetVersion host, bool includeStandalone)
     {
         string directory = Path.Combine(ExtensionUpdateDirectory(installed), host.ToNormalizedString());
-        if (!includeStandalone) directory = Path.Combine(directory, WithAppDirectory);
-        if (!Directory.Exists(directory)) return null;
-
+        string app = Path.Combine(directory, WithAppDirectory);
         string prefix = installed.Id + ".";
         StagedExtensionUpdate? latest = null;
-        foreach (string path in Directory.EnumerateFiles(directory, "*.nupkg", SearchOption.AllDirectories))
+        foreach (string channel in includeStandalone ? new[] { app, directory } : [app])
         {
-            string name = Path.GetFileNameWithoutExtension(path);
-            if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
-                && NuGetVersion.TryParse(name[prefix.Length..], out NuGetVersion? version)
-                && version > installed.Version && (latest == null || version > latest.Package.Version))
+            if (!Directory.Exists(channel)) continue;
+            foreach (string path in Directory.EnumerateFileSystemEntries(channel))
             {
-                string source = Path.GetDirectoryName(path)!;
-                latest = new(new PackageIdentity(installed.Id, version), source, Path.GetFileName(source) == WithAppDirectory);
+                string suffix = Path.GetExtension(path);
+                // Earlier builds staged a single archive directly in the channel.
+                if (suffix is not (".ready" or ".nupkg")) continue;
+                string name = Path.GetFileNameWithoutExtension(path);
+                if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                    && NuGetVersion.TryParse(name[prefix.Length..], out var version) && version > installed.Version
+                    && (latest == null || version > latest.Package.Version)
+                    && !File.Exists(Path.Combine(directory, name + ".rejected")))
+                {
+                    string feed = Path.Combine(channel, name + ".ready");
+                    latest = new(new PackageIdentity(installed.Id, version), Directory.Exists(feed) ? feed : channel, channel == app);
+                }
             }
         }
         return latest;
@@ -84,6 +122,19 @@ public partial class PackageInstaller
         var context = new PackageInstallContext(update.Package.Id, update.Package.Version.ToNormalizedString(), string.Empty);
         return TrackAsync(() => ResolveDependenciesCoreAsync(context, false, null, token,
             _sourceRepositoryProvider.CreateRepository(source)));
+    }
+
+    internal void RejectStagedExtensionUpdate(PackageIdentity installed, PackageIdentity candidate, NuGetVersion host)
+    {
+        string directory = Path.Combine(ExtensionUpdateDirectory(installed), host.ToNormalizedString());
+        string name = $"{installed.Id}.{candidate.Version.ToNormalizedString()}";
+        File.WriteAllText(Path.Combine(directory, name + ".rejected"), string.Empty);
+        foreach (string channel in new[] { directory, Path.Combine(directory, WithAppDirectory) })
+        {
+            if (!Directory.Exists(channel)) continue;
+            DeleteIfExists(Path.Combine(channel, name + ".ready"));
+            File.Delete(Path.Combine(channel, name + ".nupkg"));
+        }
     }
 
     internal void ClearStagedExtensionUpdates(PackageIdentity installed)

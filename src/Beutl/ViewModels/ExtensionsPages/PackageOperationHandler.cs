@@ -60,7 +60,16 @@ internal class PackageOperationHandler
             if (!_installedPackageRepository.ExistsPackage(installed) || _queue.HasPendingChange(installed.Id)) return false;
             await _packageInstaller.ResolveStagedExtensionAsync(update, token);
             if (!policy.ShouldUpdateExtensions(update.WithAppUpdate)) return false;
-            await ActivateInstalledPackageAsync(update.Package, token);
+            try
+            {
+                await ActivateInstalledPackageAsync(update.Package, token);
+            }
+            catch (PackageApiMismatchException)
+            {
+                _packageInstaller.RejectStagedExtensionUpdate(installed, update.Package, host);
+                DeleteVersionFiles([update.Package], s_logger);
+                throw;
+            }
             DeleteVersionFiles([installed], s_logger);
             return true;
         }
