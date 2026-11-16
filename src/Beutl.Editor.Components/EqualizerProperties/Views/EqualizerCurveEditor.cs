@@ -27,6 +27,8 @@ public sealed class EqualizerCurveEditor : AudioCanvas
     // Used only when the host has not bound a session sample rate (e.g. design-time).
     private const int DefaultResponseSampleRate = 48000;
 
+    private static readonly float[] s_gridFrequencies = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
+
     public static readonly StyledProperty<IBrush?> GridBrushProperty =
         AvaloniaProperty.Register<EqualizerCurveEditor, IBrush?>(nameof(GridBrush));
 
@@ -62,6 +64,9 @@ public sealed class EqualizerCurveEditor : AudioCanvas
     private bool _isAttached;
     private Pen? _gridPen;
     private Pen? _curvePen;
+    private BandParameters[] _responseBands = [];
+    private int _curveSampleRate;
+    private Rect _curveBounds;
 
     static EqualizerCurveEditor()
     {
@@ -120,6 +125,8 @@ public sealed class EqualizerCurveEditor : AudioCanvas
 
     private float EffectiveMaxFrequency => Math.Min(MaxFrequency, EffectiveSampleRate / 2f - 1f);
 
+    internal StreamGeometry? ResponseCurve { get; private set; }
+
     private void OnBandViewModelsChanged(
         ObservableCollection<EqualizerBandItemViewModel>? oldValue,
         ObservableCollection<EqualizerBandItemViewModel>? newValue)
@@ -166,6 +173,7 @@ public sealed class EqualizerCurveEditor : AudioCanvas
             _bandSubscriptions.Add(SubscribeEdited(band.Gain));
             _bandSubscriptions.Add(SubscribeEdited(band.Q));
             _bandSubscriptions.Add(SubscribeEdited(band.FilterType));
+            _bandSubscriptions.Add(SubscribeEdited(band.IsEnabled));
         }
     }
 
@@ -236,7 +244,8 @@ public sealed class EqualizerCurveEditor : AudioCanvas
                 && vm.CanEditProperty(band.Gain, CurrentTime))
             {
                 float targetCompositeDb = GainFromY(point.Y);
-                float othersContribution = CalculateResponseDb(effectiveFreq, _draggingIndex);
+                float othersContribution = CalculateResponseDb(effectiveFreq, ReadResponseBands(), EffectiveSampleRate,
+                    _draggingIndex);
                 float responseRatio = GainToResponseRatioAtF0(band.FilterType.Value);
                 float newGain = Math.Clamp((targetCompositeDb - othersContribution) / responseRatio, MinGain, MaxGain);
                 float oldGain = vm.GetEffectiveValue(band.Gain, CurrentTime);
@@ -414,61 +423,99 @@ public sealed class EqualizerCurveEditor : AudioCanvas
             context.DrawLine(db == 0 ? line : grid, new Point(area.Left, y), new Point(area.Right, y));
         }
 
-        foreach (double freq in new double[] { 50, 100, 200, 500, 1000, 2000, 5000, 10000 })
+        foreach (float freq in s_gridFrequencies)
         {
-            double x = XFromFrequency((float)freq);
+            double x = XFromFrequency(freq);
             bool isDecade = Math.Abs(Math.Log10(freq) - Math.Round(Math.Log10(freq))) < 0.01;
             context.DrawLine(isDecade ? line : grid, new Point(x, area.Top), new Point(x, area.Bottom));
         }
 
         context.DrawRectangle(null, line, area);
 
-        if (_bandViewModels is { Count: > 0 })
+        var bands = ReadResponseBands();
+        if (bands.IsEmpty) return;
+
+        int sampleRate = EffectiveSampleRate;
+        if (ResponseCurve is null || _curveBounds != area || _curveSampleRate != sampleRate)
         {
-            const int samples = 256;
-            // One stroke, so the segment ends do not leave seams along the curve.
-            var curve = new StreamGeometry();
-            using (StreamGeometryContext ctx = curve.Open())
+            ResponseCurve = BuildResponseCurve(bands, sampleRate);
+            _curveBounds = area;
+            _curveSampleRate = sampleRate;
+        }
+        context.DrawGeometry(null, GetPen(ref _curvePen, CurveBrush, 2, PenLineJoin.Round), ResponseCurve);
+
+        for (int i = 0; i < bands.Length; i++)
+        {
+            if (!bands[i].IsEnabled) continue;
+
+            Point center = GetHandleCenter(bands[i].Frequency, bands);
+            bool isSelected = i == SelectedBandIndex;
+            bool isHover = i == _hoverIndex || i == _draggingIndex;
+            double radius = isSelected || isHover ? HandleRadius + 2 : HandleRadius;
+
+            DrawHandle(context, center, radius, isSelected);
+        }
+    }
+
+    // Pointer input can arrive before the next render, so both paths refresh the same band values.
+    private ReadOnlySpan<BandParameters> ReadResponseBands()
+    {
+        int count = _bandViewModels?.Count ?? 0;
+        if (_responseBands.Length != count)
+        {
+            _responseBands = new BandParameters[count];
+            ResponseCurve = null;
+        }
+
+        var time = CurrentTime;
+        for (int i = 0; i < count; i++)
+        {
+            var vm = _bandViewModels![i];
+            var band = vm.Band;
+            var parameters = band.IsEnabled.Value
+                ? new BandParameters(true, band.FilterType.Value,
+                    vm.GetEffectiveValue(band.Frequency, time),
+                    Math.Max(vm.GetEffectiveValue(band.Q, time), MinQ),
+                    vm.GetEffectiveValue(band.Gain, time))
+                : default;
+            if (_responseBands[i] != parameters)
             {
-                for (int i = 0; i < samples; i++)
-                {
-                    double t = (double)i / (samples - 1);
-                    float freq = (float)(MinFrequency * Math.Pow(MaxFrequency / MinFrequency, t));
-                    float db = CalculateResponseDb(freq);
-                    var point = new Point(XFromFrequency(freq), YFromGain(db));
-                    if (i == 0)
-                        ctx.BeginFigure(point, false);
-                    else
-                        ctx.LineTo(point);
-                }
-                ctx.EndFigure(false);
-            }
-            context.DrawGeometry(null, GetPen(ref _curvePen, CurveBrush, 2, PenLineJoin.Round), curve);
-
-            for (int i = 0; i < _bandViewModels.Count; i++)
-            {
-                var vm = _bandViewModels[i];
-                if (!vm.Band.IsEnabled.Value) continue;
-
-                Point center = GetHandleCenter(vm);
-                bool isSelected = i == SelectedBandIndex;
-                bool isHover = i == _hoverIndex || i == _draggingIndex;
-                double radius = isSelected || isHover ? HandleRadius + 2 : HandleRadius;
-
-                DrawHandle(context, center, radius, isSelected);
+                _responseBands[i] = parameters;
+                ResponseCurve = null;
             }
         }
+        return _responseBands;
+    }
+
+    private StreamGeometry BuildResponseCurve(ReadOnlySpan<BandParameters> bands, int sampleRate)
+    {
+        const int samples = 256;
+        // One stroke, so the segment ends do not leave seams along the curve.
+        var curve = new StreamGeometry();
+        using var ctx = curve.Open();
+        for (int i = 0; i < samples; i++)
+        {
+            double t = (double)i / (samples - 1);
+            float freq = (float)(MinFrequency * Math.Pow(MaxFrequency / MinFrequency, t));
+            float db = CalculateResponseDb(freq, bands, sampleRate);
+            var point = new Point(XFromFrequency(freq), YFromGain(db));
+            if (i == 0)
+                ctx.BeginFigure(point, false);
+            else
+                ctx.LineTo(point);
+        }
+        ctx.EndFigure(false);
+        return curve;
     }
 
     private int HitTestHandle(Point point)
     {
-        if (_bandViewModels is null) return -1;
-        for (int i = 0; i < _bandViewModels.Count; i++)
+        var bands = ReadResponseBands();
+        for (int i = 0; i < bands.Length; i++)
         {
-            var vm = _bandViewModels[i];
-            if (!vm.Band.IsEnabled.Value) continue;
+            if (!bands[i].IsEnabled) continue;
 
-            Point center = GetHandleCenter(vm);
+            Point center = GetHandleCenter(bands[i].Frequency, bands);
             double dx = point.X - center.X;
             double dy = point.Y - center.Y;
             if (dx * dx + dy * dy <= HitTestRadius * HitTestRadius)
@@ -481,10 +528,12 @@ public sealed class EqualizerCurveEditor : AudioCanvas
 
     // A band's handle sits on the combined response curve at the band's frequency.
     internal Point GetHandleCenter(EqualizerBandItemViewModel vm)
+        => GetHandleCenter(vm.GetEffectiveValue(vm.Band.Frequency, CurrentTime), ReadResponseBands());
+
+    private Point GetHandleCenter(float frequency, ReadOnlySpan<BandParameters> bands)
     {
-        float freq = vm.GetEffectiveValue(vm.Band.Frequency, CurrentTime);
-        double x = XFromFrequency(freq);
-        double y = YFromGain(CalculateResponseDb(freq));
+        double x = XFromFrequency(frequency);
+        double y = YFromGain(CalculateResponseDb(frequency, bands, EffectiveSampleRate));
         return new Point(x, y);
     }
 
@@ -517,28 +566,18 @@ public sealed class EqualizerCurveEditor : AudioCanvas
         return (float)Math.Clamp(MinGain + t * (MaxGain - MinGain), MinGain, MaxGain);
     }
 
-    private float CalculateResponseDb(float frequency, int excludeIndex = -1)
+    private static float CalculateResponseDb(float frequency, ReadOnlySpan<BandParameters> bands, int sampleRate,
+        int excludeIndex = -1)
     {
-        if (_bandViewModels is null) return 0f;
         double total = 0.0;
-        for (int i = 0; i < _bandViewModels.Count; i++)
+        for (int i = 0; i < bands.Length; i++)
         {
-            if (i == excludeIndex) continue;
-            var vm = _bandViewModels[i];
-            if (!vm.Band.IsEnabled.Value) continue;
-            total += CalculateBandResponseDb(frequency, vm);
+            var band = bands[i];
+            if (!band.IsEnabled || i == excludeIndex) continue;
+            total += BiQuadFilter.CalculateResponseDb(band.FilterType, band.Frequency, band.Q, band.Gain,
+                sampleRate, frequency);
         }
         return (float)total;
-    }
-
-    private double CalculateBandResponseDb(float frequency, EqualizerBandItemViewModel vm)
-    {
-        var band = vm.Band;
-        float f0 = vm.GetEffectiveValue(band.Frequency, CurrentTime);
-        float q = Math.Max(vm.GetEffectiveValue(band.Q, CurrentTime), MinQ);
-        float gain = vm.GetEffectiveValue(band.Gain, CurrentTime);
-        return BiQuadFilter.CalculateResponseDb(
-            band.FilterType.Value, f0, q, gain, EffectiveSampleRate, frequency);
     }
 
     private static float GainToResponseRatioAtF0(BiQuadFilterType type) => type switch
@@ -548,4 +587,7 @@ public sealed class EqualizerCurveEditor : AudioCanvas
     };
 
     private static bool AreEqual(float a, float b) => Math.Abs(a - b) < 1e-5f;
+
+    private readonly record struct BandParameters(
+        bool IsEnabled, BiQuadFilterType FilterType, float Frequency, float Q, float Gain);
 }
