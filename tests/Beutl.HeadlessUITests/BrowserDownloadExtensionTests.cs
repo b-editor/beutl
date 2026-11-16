@@ -66,6 +66,27 @@ public sealed class BrowserDownloadExtensionTests
     }
 
     [AvaloniaTest]
+    [TestCase(true, true)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    public async Task DownloadMediaMenuUsesTheDisplayedUrlWhenAvailableWithoutExtensions(bool hasProvider, bool isHtml)
+    {
+        var previous = new Uri("https://player.example/watch?v=first");
+        var displayed = new Uri("https://player.example/watch?v=second");
+        var context = new BrowserEditorContext(extensions: hasProvider ? new ExtensionProvider() : null);
+        using var vm = new WebBrowserTabViewModel(context, previous);
+        using var view = CreateView(vm);
+        view.PageScriptRunner = _ => Task.FromResult<string?>(isHtml ? displayed.AbsoluteUri : "");
+
+        Task download = view.DownloadMediaAsync(vm.CurrentUri, null, vm.CurrentUri, fromMenu: true);
+        var options = (BrowserDownloadOptionsView)view.FindControl<ContentControl>("ToolPanelContent")!.Content!;
+        options.FindControl<Button>("CancelDownloadOptionsButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await download;
+
+        Assert.That(options.SourceUrl, Is.EqualTo((isHtml ? displayed : previous).AbsoluteUri));
+    }
+
+    [AvaloniaTest]
     // The browser reads the expression's value back from an envelope of its own. WebView2 returns that envelope as a
     // JSON string and WebKit as it is; either way the extension gets the page's string untouched.
     [TestCase("{\"text\":\"こんにちは\"}", true, TestName = "A JSON string from the page, quoted as WebView2 returns it")]

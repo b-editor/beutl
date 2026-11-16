@@ -503,22 +503,19 @@ internal partial class WebBrowserTabView
         // A single-page player can change videos via pushState without a navigation event.
         // A document showing a file, such as a PDF, keeps the browser's usual download flow.
         const string script = "['text/html','application/xhtml+xml'].includes(document.contentType) ? location.href : ''";
+        string? address = null;
         try
         {
-            string? address = NormalizePageTitle(await RunPageScriptAsync(script)
+            address = NormalizePageTitle(await RunPageScriptAsync(script)
                 .WaitAsync(TimeSpan.FromSeconds(5), cancellationToken));
-            if (Uri.TryCreate(address, UriKind.Absolute, out Uri? page) && BrowserMediaDownload.IsHttpUri(page))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                ShowDownloadRunning(page);
-                return page;
-            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // The native view can disappear while the menu is open.
         }
-        return null;
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return Uri.TryCreate(address, UriKind.Absolute, out Uri? page) && BrowserMediaDownload.IsHttpUri(page) ? page : null;
     }
 
     private void OnDismissDownloadStatusClick(object? sender, RoutedEventArgs e)
@@ -608,17 +605,15 @@ internal partial class WebBrowserTabView
         _downloadCancellation = cancellation;
         try
         {
-            if (fromMenu)
+            if (fromMenu && await ReadMediaPageAsync(cancellation.Token) is { } mediaPage)
             {
-                var (mediaPage, handled) = await vm.TryDownloadPageAsync(() => ReadMediaPageAsync(cancellation.Token), cancellation.Token);
+                ShowDownloadRunning(mediaPage);
+                bool handled = await vm.TryDownloadPageAsync(mediaPage, cancellation.Token);
                 cancellation.Token.ThrowIfCancellationRequested();
-                if (mediaPage != null)
-                {
-                    DownloadStatusPanel.IsVisible = false;
-                    if (handled) return;
-                    uri = mediaPage;
-                    referrer = mediaPage;
-                }
+                DownloadStatusPanel.IsVisible = false;
+                if (handled) return;
+                uri = mediaPage;
+                referrer = mediaPage;
             }
 
             // A claimed file goes into the project without asking where, as long as the editor can still take it.
