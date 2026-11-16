@@ -4,7 +4,6 @@ using Beutl.Api.Objects;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
-using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
@@ -37,7 +36,7 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
             .WithSubscribe(InstallAsync)
             .DisposeWith(_disposables);
 
-        Update = new AsyncReactiveCommand(IsBusy.Inverse())
+        Update = new AsyncReactiveCommand(IsUpdateButtonVisible)
             .WithSubscribe(UpdateAsync)
             .DisposeWith(_disposables);
 
@@ -76,7 +75,13 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
                     await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
                 }
 
-                Release release = await AcquirePackage();
+                Release? release = await AcquirePackage();
+                if (release is null)
+                {
+                    NotificationService.ShowWarning(Package.Name, ExtensionsStrings.This_extension_does_not_support_your_Beutl_version);
+                    return;
+                }
+
                 var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
 
                 await _handler.InstallOrQueueAsync(release, packageId, _logger, CancellationToken.None);
@@ -102,7 +107,7 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
         try
         {
             IsBusy.Value = true;
-            if (!await _handler.EnsureProjectClosed())
+            if (LatestRelease.Value is not { } release || !await _handler.EnsureProjectClosed())
                 return;
 
             StatusText.Value = ExtensionsStrings.Updating;
@@ -112,9 +117,9 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
                 if (_app.AuthenticatedUser.Value != null)
                 {
                     await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
+                    await _library.Acquire(Package, CancellationToken.None);
                 }
 
-                Release release = await AcquirePackage();
                 var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
 
                 await _handler.UpdateOrQueueAsync(
@@ -244,14 +249,16 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
         }
     }
 
-    private async Task<Release> AcquirePackage()
+    private async Task<Release?> AcquirePackage()
     {
         if (_app.AuthenticatedUser.Value != null)
         {
-            return await _library.Acquire(Package, CancellationToken.None);
+            Release latest = await _library.Acquire(Package, CancellationToken.None);
+            if (latest.CanInstall())
+                return latest;
         }
 
-        return await PackageReleaseResolver.GetFirstReleaseAsync(Package, CancellationToken.None);
+        return await Package.GetLatestCompatibleReleaseAsync(CancellationToken.None);
     }
 
     public Package Package { get; }

@@ -40,13 +40,14 @@ internal static class TestPackages
 
     // A .nupkg in the local package source whose content/payload.txt holds "local payload". The cleanup gets
     // the file and the folder that installing it creates.
-    public static PackageIdentity CreateNupkg(string idPrefix, string version, ICollection<string> cleanup)
+    public static PackageIdentity CreateNupkg(string idPrefix, string version, ICollection<string> cleanup, string? targetVersion = null)
     {
         var identity = new PackageIdentity($"{idPrefix}.{Guid.NewGuid():N}", NuGetVersion.Parse(version));
         string sourcePath = Helper.GetNupkgFilePath(identity.Id, version);
         cleanup.Add(sourcePath);
         cleanup.Add(Helper.PackagePathResolver.GetInstallPath(identity));
         using var archive = ZipFile.Open(sourcePath, ZipArchiveMode.Create);
+        string dependencies = targetVersion == null ? "" : $"<dependencies><dependency id=\"beutl.sdk\" version=\"{targetVersion}\" /></dependencies>";
         using (StreamWriter writer = new(archive.CreateEntry($"{identity.Id}.nuspec").Open(), new UTF8Encoding(false)))
         {
             writer.Write($$"""
@@ -58,6 +59,7 @@ internal static class TestPackages
                     <title>Local package test</title>
                     <authors>tester</authors>
                     <description>A package placed directly in packageSource</description>
+                    {{dependencies}}
                   </metadata>
                 </package>
                 """);

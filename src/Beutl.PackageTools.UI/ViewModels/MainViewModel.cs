@@ -156,9 +156,9 @@ public class MainViewModel : IAsyncDisposable
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            (string[] installItems, string[] uninstallItems, string[] updateItems, bool launchDebugger, _) = ParseArgs();
+            var args = ParseArgs();
 
-            if (!Debugger.IsAttached && launchDebugger)
+            if (!Debugger.IsAttached && args.LaunchDebugger)
             {
                 // The attach loop blocks until a debugger connects; keep it off the UI
                 // thread so the window can still paint and close while waiting.
@@ -166,12 +166,7 @@ public class MainViewModel : IAsyncDisposable
             }
 
             PackageChangesQueue queue = _app.GetResource<PackageChangesQueue>();
-            await _model.Load(
-                _app,
-                [.. installItems, .. queue.GetInstalls().Select(PackageChangesQueue.ToArgument)],
-                [.. uninstallItems, .. queue.GetUninstalls().Select(PackageChangesQueue.ToArgument)],
-                updateItems,
-                cancellationToken);
+            await _model.Load(_app, args.InstallItems, args.UninstallItems, args.UpdateItems, queue, args.FromEditor, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
             _viewModels.AddRange(InstallItems.Concat(UpdateItems)
@@ -248,7 +243,7 @@ public class MainViewModel : IAsyncDisposable
         }
     }
 
-    private static (string[] InstallItems, string[] UninstallItems, string[] UpdateItems, bool LaunchDebugger, bool Restart) ParseArgs()
+    private static (string[] InstallItems, string[] UninstallItems, string[] UpdateItems, bool LaunchDebugger, bool Restart, bool FromEditor) ParseArgs()
     {
         var command = new RootCommand();
         var installs = new Option<string[]>("--installs", "-i")
@@ -290,7 +285,7 @@ public class MainViewModel : IAsyncDisposable
         bool launchDebuggerValue = parseResult.GetValue(launchDebugger);
         bool restartValue = parseResult.GetValue(restart);
 
-        return (installItems, uninstallItems, updateItems, launchDebuggerValue, restartValue);
+        return (installItems, uninstallItems, updateItems, launchDebuggerValue, restartValue, parseResult.GetValue(sessionId) != null);
     }
 
     // Starts the Beutl installed beside these tools.

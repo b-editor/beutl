@@ -187,27 +187,18 @@ public sealed partial class PackageManager : IBeutlApiResource
         CancellationToken cancellationToken,
         NuGetVersion? host = null)
     {
-        const int pageSize = 30;
-        for (int start = 0; ; start += pageSize)
-        {
-            Release[] releases = await remotePackage.GetReleasesAsync(cancellationToken, start, pageSize).ConfigureAwait(false);
-            foreach (Release item in releases)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (new NuGetVersion(item.Version.Value) <= installedVersion) continue;
-                if (host != null && remotePackage.Tags.Value.GetPackageKind() == PackageKind.Extension
-                    && (item.AssetId.Value == null || !item.SupportsHost(host)))
-                    continue;
+        NuGetVersion? automaticUpdateHost = remotePackage.Tags.Value.GetPackageKind() == PackageKind.Extension ? host : null;
+        Release? release = await remotePackage
+            .GetLatestCompatibleReleaseAsync(cancellationToken, installedVersion, automaticUpdateHost)
+            .ConfigureAwait(false);
+        if (release is null)
+            return null;
 
-                // The library displays the installed release; automatic updates only need the candidate.
-                Release? oldRelease = host == null
-                    ? await TryGetReleaseAsync(remotePackage, installedVersionText, cancellationToken).ConfigureAwait(false)
-                    : null;
-                return new PackageUpdate(remotePackage, oldRelease, item);
-            }
-            if (host == null || releases.Length < pageSize || new NuGetVersion(releases[^1].Version.Value) <= installedVersion)
-                return null;
-        }
+        // The library displays the installed release; automatic updates only need the candidate.
+        Release? oldRelease = host == null
+            ? await TryGetReleaseAsync(remotePackage, installedVersionText, cancellationToken).ConfigureAwait(false)
+            : null;
+        return new PackageUpdate(remotePackage, oldRelease, release);
     }
 
     private static async Task<Release?> TryGetReleaseAsync(

@@ -132,6 +132,52 @@ public class PackageInstallNavigationTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task UpdateKeepsTheCompatibleVersionSelectedAtClick()
+    {
+        await TestReset.ResetShellAsync();
+        using var registration = new AppRootFileBackup("installedPackages.json");
+        using var queueFile = new AppRootFileBackup("packageChanges.json");
+        using var handler = new StoreHandler(TestStore.CreatePackageResponse("Beutl.Selection"),
+            TestStore.CreateReleaseResponse("3.0.0", targetVersion: $"({BeutlApplication.Version},)"),
+            TestStore.CreateReleaseResponse("2.0.0"), TestStore.CreateReleaseResponse("1.0.0"));
+        using var http = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        var package = await app.GetResource<DiscoverService>().GetPackage("Beutl.Selection", CancellationToken.None);
+        app.GetResource<InstalledPackageRepository>().UpgradePackagesAndDeferNotifications(new(package.Name, NuGetVersion.Parse("1.0.0")))();
+        using var details = new PackageDetailsPageViewModel(package, app, TestShell.MainViewModel.EditorService, TestShell.MainViewModel.ProjectService);
+        var window = new Window { Content = new PackageDetailsPage { DataContext = details }, Width = 800, Height = 600 };
+        try
+        {
+            window.Show();
+            await HeadlessTestHelpers.WaitUntilAsync(() => details.IsUpdateButtonVisible.Value);
+            Assert.That(details.SelectedRelease.Value?.Version.Value, Is.EqualTo("2.0.0"));
+            Task update;
+            using (await app.Lock.LockAsync())
+            {
+                update = details.Update.ExecuteAsync();
+                details.SelectedRelease.Value = details.LatestRelease.Value;
+            }
+            await update;
+            var queue = app.GetResource<PackageChangesQueue>();
+            Assert.That(queue.GetInstalls(), Does.Contain(new PackageIdentity(package.Name, NuGetVersion.Parse("2.0.0"))));
+            queue.Cancel(package.Name);
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(details.IsVersionUnsupported.Value, Is.True);
+                Assert.That(details.IsUpdateButtonVisible.Value, Is.False);
+                Assert.That(details.Update.CanExecute(), Is.False);
+            });
+            HeadlessCapture.SaveIfRequested(window, nameof(PackageInstallNavigationTests), "unsupported-release");
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
     private static StoreHandler CreateHandler()
         => new(TestStore.CreatePackageResponse("Beutl.Sample", "An extension opened from the Beutl web store."),
             TestStore.CreateReleaseResponse("2.0.0", "Release notes"),

@@ -163,6 +163,27 @@ public sealed class ChangesModelTests
         Assert.That(model.InstallItems, Is.Empty, "items must not be published after cancellation");
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task OnlyManualArgumentsCanForceAnUnsupportedVersion(bool fromEditor)
+    {
+        using var directory = new TemporaryDirectory();
+        var queue = new PackageChangesQueue(Path.Combine(directory.Path, "queue.json"));
+        queue.InstallQueue(new("queued", new(2, 0, 0)));
+        using var handler = new DelegateHttpHandler((request, _) => Task.FromResult(CreatePackageResponse(request)));
+        using var http = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        var model = new ChangesModel();
+
+        await model.Load(app, ["argument/2.0.0"], [], [], queue, fromEditor, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.InstallItems.Single(item => item.Id == "queued").AllowUnsupportedVersion, Is.False);
+            Assert.That(model.InstallItems.Single(item => item.Id == "argument").AllowUnsupportedVersion, Is.EqualTo(!fromEditor));
+        });
+    }
+
     private static HttpResponseMessage CreatePackageResponse(HttpRequestMessage request)
     {
         string name = request.RequestUri!.Segments[^1];

@@ -19,6 +19,26 @@ namespace Beutl.HeadlessUITests;
 [TestFixture, NonParallelizable]
 public sealed class AutomaticExtensionUpdateTests
 {
+    [Test]
+    public async Task Update_checks_use_the_release_for_the_requested_Beutl_version()
+    {
+        var installed = new PackageIdentity("TargetedExtension", new NuGetVersion(1, 0, 0));
+        var future = new NuGetVersion(99, 0, 0);
+        using var store = new StoreHandler(TestStore.CreatePackageResponse(installed.Id),
+            TestStore.CreateReleaseResponse("4.0.0", targetVersion: $"[{future}]"),
+            TestStore.CreateReleaseResponse("3.0.0", fileId: "future", targetVersion: $"[{future}]"),
+            TestStore.CreateReleaseResponse("2.0.0", fileId: "current", targetVersion: $"[{BeutlApplication.Version}]"),
+            TestStore.CreateReleaseResponse("1.0.0"));
+        using var http = new HttpClient(store, false);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        var manager = app.GetResource<PackageManager>();
+
+        var manual = (await manager.CheckUpdatesForHost(null, default, [installed])).Single();
+        Assert.That(manual.NewVersion.Version.Value, Is.EqualTo("2.0.0"));
+        var automatic = (await manager.CheckUpdatesForHost(future, default, [installed])).Single();
+        Assert.That(automatic.NewVersion.Version.Value, Is.EqualTo("3.0.0"));
+    }
+
     [AvaloniaTest]
     [TestCase(ExtensionUpdateMode.WithAppUpdate, true, true)]
     [TestCase(ExtensionUpdateMode.Always, false, true)]

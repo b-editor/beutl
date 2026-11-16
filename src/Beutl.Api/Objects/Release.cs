@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Reactive.Linq;
 using Beutl.Api.Clients;
+using Beutl.Api.Services;
 using NuGet.Versioning;
 using Reactive.Bindings;
 
@@ -42,9 +43,12 @@ public class Release
 
     public IReadOnlyReactiveProperty<string?> AssetId { get; }
 
-    internal bool SupportsHost(NuGetVersion version)
-        => TargetVersion.Value is not { } target
-           || !VersionRange.TryParse(target, out VersionRange? range) || range.Satisfies(version);
+    internal bool CanInstall(NuGetVersion? newerThan = null, NuGetVersion? host = null)
+    {
+        return NuGetVersion.TryParse(Version.Value, out NuGetVersion? version)
+            && (newerThan is null || version > newerThan)
+            && PackageCompatibility.SupportsBeutlVersion(TargetVersion.Value, host);
+    }
 
     public async Task RefreshAsync(CancellationToken cancellationToken)
     {

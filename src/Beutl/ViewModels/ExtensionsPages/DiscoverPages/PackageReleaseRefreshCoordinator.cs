@@ -6,8 +6,6 @@ namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 internal static class PackageReleaseRefreshCoordinator
 {
-    private const int PageSize = 30;
-
     public static async Task RefreshAsync(
         BehaviorSubject<bool> releasesReady,
         Func<Task> refreshPackageAsync,
@@ -43,12 +41,10 @@ internal static class PackageReleaseRefreshCoordinator
     private static async Task<Release[]> LoadReleasesAsync(Func<int, int, Task<Release[]>> getReleasesAsync)
     {
         var releases = new List<Release>();
-        Release[] page;
-        do
+        await foreach (Release[] page in Package.GetReleasePagesAsync(getReleasesAsync))
         {
-            page = await getReleasesAsync(releases.Count, PageSize);
             releases.AddRange(page);
-        } while (page.Length == PageSize);
+        }
 
         return [.. releases];
     }

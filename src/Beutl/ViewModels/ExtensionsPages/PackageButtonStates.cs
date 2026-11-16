@@ -18,7 +18,8 @@ internal static class PackageButtonStates
         string packageName,
         ReactivePropertySlim<bool> isBusy,
         ReactivePropertySlim<Release?> latestRelease,
-        CompositeDisposable disposables)
+        CompositeDisposable disposables,
+        bool supportsInstall = true)
     {
         IObservable<PackageChangesQueue.EventType> observable = handler.Queue.GetObservable(packageName);
         ReadOnlyReactivePropertySlim<bool> canCancel = observable.Select(x => x != PackageChangesQueue.EventType.None)
@@ -30,7 +31,7 @@ internal static class PackageButtonStates
         ReadOnlyReactivePropertySlim<bool> isInstallButtonVisible = new[]
             {
                 new[] { installed, canCancel }.CombineLatestValuesAreAllFalse(),
-                notBusy
+                notBusy.Select(ready => ready && supportsInstall)
             }
             .CombineLatestValuesAreAllTrue()
             .ToReadOnlyReactivePropertySlim()
@@ -40,7 +41,7 @@ internal static class PackageButtonStates
         ReadOnlyReactivePropertySlim<bool> isUpdateButtonVisible = new[]
             {
                 latestRelease.CombineLatest(installedPackage)
-                    .Select(x => PackageUpdateAvailability.IsAvailable(x.First?.Version.Value, x.Second)),
+                    .Select(x => PackageUpdate.IsAvailable(x.First, x.Second?.Version)),
                 canCancel.Inverse(),
                 notBusy
             }

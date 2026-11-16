@@ -31,7 +31,7 @@ public sealed partial class PackageManager
             string name = update.Package.Name;
             if (update.Package.Tags.Value.GetPackageKind() == PackageKind.Extension
                 && checkedPackages[name].MaxBy(p => p.Version) is { } installed
-                && NuGetVersion.Parse(update.NewVersion.Version.Value) > installed.Version)
+                && update.NewVersion.CanInstall(installed.Version, host))
             {
                 try
                 {

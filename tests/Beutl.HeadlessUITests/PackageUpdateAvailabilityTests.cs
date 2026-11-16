@@ -1,5 +1,5 @@
-﻿using Beutl.ViewModels.ExtensionsPages;
-using NuGet.Packaging.Core;
+﻿using Beutl.Api.Objects;
+using Beutl.Api.Services;
 using NuGet.Versioning;
 
 namespace Beutl.HeadlessUITests;
@@ -7,6 +7,11 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PackageUpdateAvailabilityTests
 {
+    private readonly StoreClients _store = new();
+
+    [OneTimeTearDown]
+    public async Task TearDown() => await _store.DisposeAsync();
+
     [TestCase(null, "1.0.0", false)]
     [TestCase("2.0.0", null, false)]
     [TestCase("not-a-version", "1.0.0", false)]
@@ -18,10 +23,9 @@ public class PackageUpdateAvailabilityTests
         string? installedVersion,
         bool expected)
     {
-        PackageIdentity? installed = installedVersion is null
-            ? null
-            : new PackageIdentity("Package", NuGetVersion.Parse(installedVersion));
+        Release? release = releaseVersion is null ? null : _store.CreateRelease(releaseVersion);
+        NuGetVersion? installed = installedVersion is null ? null : NuGetVersion.Parse(installedVersion);
 
-        Assert.That(PackageUpdateAvailability.IsAvailable(releaseVersion, installed), Is.EqualTo(expected));
+        Assert.That(PackageUpdate.IsAvailable(release, installed), Is.EqualTo(expected));
     }
 }
