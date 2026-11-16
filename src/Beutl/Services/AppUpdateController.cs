@@ -40,45 +40,41 @@ internal sealed class AppUpdateController
             .Select(viewModel => viewModel == null
                 ? Observable.Return(AppUpdateStatus.Idle)
                 : viewModel.Phase.CombineLatest(viewModel.ProgressText, viewModel.DownloadProgress,
-                    (phase, text, progress) => new AppUpdateStatus(text ?? "", phase == AppUpdatePhase.Preparing, progress)))
+                    (phase, text, progress) => new AppUpdateStatus(text ?? "",
+                        phase is AppUpdatePhase.Preparing or AppUpdatePhase.Installing, progress)))
             .Switch();
     }
 
     public static AppUpdateController Instance { get; } = new(
         update => new UpdateDialogViewModel(update),
-        () => CanDownloadAutomatically && GlobalConfiguration.Instance.UpdateConfig.AutoDownload.Value);
+        () => CanDownloadAutomatically && GlobalConfiguration.Instance.UpdateConfig.AutoDownload.Value
+            && UpdateDialogViewModel.ClaimUpdateFolders());
 
-    // A Flatpak update installs as it prepares, which can ask for an administrator's password, so it never starts
-    // unasked. The settings leave out the switch where it would do nothing.
-    internal static bool CanDownloadAutomatically => !FlatpakUpdater.IsRunning && !FlatpakUpdater.RequiresManualUpdate;
+    internal static bool CanDownloadAutomatically => !FlatpakUpdater.RequiresManualUpdate;
 
     public IObservable<AppUpdateStatus> Status { get; }
 
     internal UpdateDialogViewModel? Current => _current.Value;
 
-    // Starts an update that was found rather than asked for, when the settings let it download unasked. False when it
-    // is left for the user to start.
-    public bool TryStartAutomatically(AppUpdateResponse update)
+    public async Task<bool> TryStartAutomaticallyAsync(AppUpdateResponse update)
     {
-        if (!_downloadsAutomatically() || Start(update) is not { } viewModel) return false;
+        // The startup task checks the preference and claims the download folders off the UI thread.
+        if (!_downloadsAutomatically()) return false;
 
-        AnnounceDownload(viewModel);
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (_current.Value == null) Start(update);
+        });
         return true;
     }
 
     public void StartInBackground(AppUpdateResponse update)
     {
         // Asking again for an update that is already under way shows how far it has got.
-        if (Start(update) == null)
-        {
+        if (_current.Value != null)
             ShowDialog();
-        }
-    }
-
-    public void StartAndShowDialog(AppUpdateResponse update)
-    {
-        // The dialog opens first, so the outcome of the update is shown there rather than notified.
-        Start(update, ShowDialog);
+        else
+            Start(update);
     }
 
     public void ShowDialog()
@@ -92,7 +88,7 @@ internal sealed class AppUpdateController
     public static async void ScheduleInstallOnQuit(UpdateDialogViewModel viewModel)
     {
         // Leaving a preparing update running needs nothing more.
-        if (viewModel.Phase.Value != AppUpdatePhase.Ready) return;
+        if (viewModel.IsFlatpak || viewModel.Phase.Value != AppUpdatePhase.Ready) return;
 
         if (await viewModel.ScheduleInstallOnQuitAsync())
         {
@@ -108,45 +104,32 @@ internal sealed class AppUpdateController
 
     internal static string GetVersionLabel(string version) => $"Beutl {version}";
 
-    // The update that started, or null when one was already under way.
-    private UpdateDialogViewModel? Start(AppUpdateResponse update, Action? beforeStart = null)
+    private void Start(AppUpdateResponse update)
     {
-        if (_current.Value != null)
-        {
-            beforeStart?.Invoke();
-            return null;
-        }
-
         UpdateDialogViewModel viewModel = _createViewModel(update);
-        viewModel.Phase.Skip(1).Subscribe(phase => OnPhaseChanged(viewModel, phase));
         _current.OnNext(viewModel);
-        beforeStart?.Invoke();
+        viewModel.Phase.Subscribe(phase => OnPhaseChanged(viewModel, phase));
         viewModel.Start();
-        return viewModel;
     }
 
-    // Downloading asks for nothing, so this says only what the title bar's ring is doing, as briefly as any other
-    // notice. It gives way to the notification of the outcome, also in the list of earlier notifications, so the
-    // update has one notification at a time.
-    private static void AnnounceDownload(UpdateDialogViewModel viewModel)
+    private static CancellationToken UntilPhaseChanges(UpdateDialogViewModel viewModel, AppUpdatePhase phase)
     {
         var announcement = new CancellationTokenSource();
-        // Taken first: an update that already left Preparing disposes the source as soon as this subscribes.
+        // A transition before the UI thread shows the notification withdraws it immediately.
         CancellationToken withdrawn = announcement.Token;
-        viewModel.Phase.Where(phase => phase != AppUpdatePhase.Preparing).Take(1)
+        viewModel.Phase.Where(current => current != phase).Take(1)
             .Subscribe(_ =>
             {
                 announcement.Cancel();
                 announcement.Dispose();
             });
-        NotificationService.Show(new Notification(
-            MessageStrings.UpdateDownloading_Title,
-            GetVersionLabel(viewModel.Update.LatestVersion),
-            Actions: [ReleaseNotesAction(viewModel)])
-        {
-            CancellationToken = withdrawn,
-        });
+        return withdrawn;
     }
+
+    private static string GetUpdateMessage(AppUpdateResponse update)
+        => update.MustLatest
+            ? GetVersionLabel(update.LatestVersion) + Environment.NewLine + MessageStrings.UpgradeRequired
+            : GetVersionLabel(update.LatestVersion);
 
     private async Task ShowDialogAsync(UpdateDialogViewModel viewModel)
     {
@@ -180,15 +163,24 @@ internal sealed class AppUpdateController
 
         switch (phase)
         {
+            case AppUpdatePhase.Preparing:
+                NotificationService.Show(new Notification(
+                    MessageStrings.UpdateDownloading_Title,
+                    GetUpdateMessage(viewModel.Update),
+                    Actions: [ReleaseNotesAction(viewModel)])
+                {
+                    CancellationToken = UntilPhaseChanges(viewModel, phase),
+                });
+                break;
             case AppUpdatePhase.Ready:
                 NotificationService.Show(new Notification(
                     MessageStrings.UpdateReady_Title,
-                    GetVersionLabel(viewModel.Update.LatestVersion),
+                    GetUpdateMessage(viewModel.Update),
                     NotificationType.Success,
                     s_readyNotificationDuration,
                     Actions: CreateReadyActions(viewModel))
                 {
-                    CancellationToken = viewModel.CancellationToken,
+                    CancellationToken = UntilPhaseChanges(viewModel, phase),
                 });
                 break;
             case AppUpdatePhase.Failed:
@@ -199,7 +191,7 @@ internal sealed class AppUpdateController
                     s_readyNotificationDuration,
                     Actions: [new(MessageStrings.UpdateAction_Retry, viewModel.Retry)])
                 {
-                    CancellationToken = viewModel.CancellationToken,
+                    CancellationToken = UntilPhaseChanges(viewModel, phase),
                 });
                 break;
             case AppUpdatePhase.Completed:
@@ -213,6 +205,8 @@ internal sealed class AppUpdateController
     private NotificationAction[] CreateReadyActions(UpdateDialogViewModel viewModel)
     {
         NotificationAction installNow = new(viewModel.PrimaryButtonText.Value, () => InstallNow(viewModel));
+        if (viewModel.IsFlatpak) return [installNow, ReleaseNotesAction(viewModel)];
+
         NotificationAction onQuit = new(MessageStrings.UpdateAction_UpdateOnQuit, () => ScheduleInstallOnQuit(viewModel));
         // The notice of an update that downloaded unasked is gone by now, so the release notes are offered here too.
         return [installNow, onQuit, ReleaseNotesAction(viewModel)];

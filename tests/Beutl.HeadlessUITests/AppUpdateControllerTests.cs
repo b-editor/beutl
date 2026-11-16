@@ -7,10 +7,13 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Language;
 using Beutl.Services;
+using Beutl.Services.StartupTasks;
 using Beutl.Testing.Headless;
 using Beutl.Utilities;
 using Beutl.ViewModels.Dialogs;
+using Beutl.Views;
 using Beutl.Views.Dialogs;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
 
@@ -49,13 +52,13 @@ public sealed class AppUpdateControllerTests
         if (File.Exists(file)) File.Delete(file);
     }
 
-    private AppUpdateResponse Update(string? url = null) => new()
+    private AppUpdateResponse Update(string? url = null, bool mustLatest = false, bool hasDownload = true) => new()
     {
         LatestVersion = "2.0.0",
         Url = url,
-        DownloadUrl = "https://downloads.example.test/" + _fileName,
+        DownloadUrl = hasDownload ? "https://downloads.example.test/" + _fileName : null,
         IsLatest = false,
-        MustLatest = false,
+        MustLatest = mustLatest,
     };
 
     // The installer type needs no unpacking, so it is ready as soon as it has downloaded.
@@ -72,22 +75,25 @@ public sealed class AppUpdateControllerTests
         }), claimUpdateFolders: claimUpdateFolders);
 
     [AvaloniaTest]
-    public async Task AReadyUpdateOffersToInstallNowOrOnQuit()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task WithAutoDownloadOffTheUserCanDownloadAndThenChooseWhenToInstall(bool mustLatest)
     {
         UpdateDialogViewModel? vm = null;
         var controller = new AppUpdateController(update => vm = ViewModel(update, new Handler(HttpStatusCode.OK)));
 
-        controller.StartInBackground(Update());
+        await CheckForUpdatesTask.HandleUpdateCheckAsync(null, Update(mustLatest: mustLatest), controller);
+        Assert.That(vm, Is.Null);
+        Notification available = _shown.Single();
+        Assert.That(available.Title, Is.EqualTo(mustLatest ? MessageStrings.UpgradeRequired : MessageStrings.NewVersionAvailable));
+        available.Actions!.Single(action => action.Text == MessageStrings.UpdateAction_Download).Callback();
         await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
         HeadlessTestHelpers.Settle();
 
-        // Starting the download says nothing, so the only notification is the one that asks for a decision. This update
-        // names no page of its own, and its release notes are still offered.
-        Notification ready = _shown.Single();
+        Notification ready = _shown[^1];
         Assert.Multiple(() =>
         {
             Assert.That(ready.Title, Is.EqualTo(MessageStrings.UpdateReady_Title));
-            Assert.That(ready.Message, Is.EqualTo("Beutl 2.0.0"));
             Assert.That(ready.Actions!.Select(action => action.Text), Is.EqualTo(new[]
             {
                 MessageStrings.UpdateAction_StartInstaller, MessageStrings.UpdateAction_UpdateOnQuit, MessageStrings.ReleaseNotes,
@@ -98,7 +104,9 @@ public sealed class AppUpdateControllerTests
     // An update found at startup downloads without asking when the settings allow it. Downloading asks for nothing, so
     // its notice is as brief as any other and gives way to the notification that asks for a decision.
     [AvaloniaTest]
-    public async Task AnUpdateFoundAtStartupDownloadsUnaskedWithABriefNotice()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task AnUpdateFoundAtStartupDownloadsUnaskedWithABriefNotice(bool mustLatest)
     {
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         UpdateDialogViewModel? vm = null;
@@ -106,45 +114,69 @@ public sealed class AppUpdateControllerTests
             update => vm = ViewModel(update, new Handler(release.Task, HttpStatusCode.OK)),
             downloadsAutomatically: () => true);
 
-        // Without a page of its own, the update still offers its release notes.
-        Assert.That(controller.TryStartAutomatically(Update()), Is.True);
-        Notification downloading = _shown.Single();
-        Assert.Multiple(() =>
+        var view = new MainView { DataContext = TestShell.MainViewModel };
+        var window = new Window { Width = 1000, Height = 600 };
+        try
         {
-            Assert.That(downloading.Title, Is.EqualTo(MessageStrings.UpdateDownloading_Title));
-            Assert.That(downloading.Message, Is.EqualTo("Beutl 2.0.0"));
-            Assert.That(downloading.Type, Is.EqualTo(NotificationType.Information));
-            Assert.That(downloading.Expiration, Is.Null);
-            Assert.That(downloading.Actions!.Select(action => action.Text), Is.EqualTo(new[] { MessageStrings.ReleaseNotes }));
-            Assert.That(downloading.CancellationToken.IsCancellationRequested, Is.False);
-        });
+            window.Show();
+            window.Content = view;
+            NotificationService.Handler = new NotificationServiceHandler(() => view);
+            await CheckForUpdatesTask.HandleUpdateCheckAsync(null, Update(mustLatest: mustLatest), controller)
+                .WaitAsync(TimeSpan.FromSeconds(5));
 
-        release.SetResult();
-        await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
-        HeadlessTestHelpers.Settle();
+            async Task<Notification> VisibleNotice(string title)
+            {
+                await HeadlessTestHelpers.WaitUntilAsync(() =>
+                {
+                    HeadlessTestHelpers.Render();
+                    return view.NotificationPanel.Children is [FAInfoBar { Opacity: > 0.99 } bar] && bar.Title == title;
+                });
+                return (Notification)view.NotificationPanel.Children.Single().DataContext!;
+            }
 
-        Assert.Multiple(() =>
-        {
+            Notification downloading = await VisibleNotice(MessageStrings.UpdateDownloading_Title);
+            HeadlessCapture.SaveIfRequested(view, nameof(AppUpdateControllerTests), $"downloading-required-{mustLatest}");
+            string message = mustLatest ? $"Beutl 2.0.0{Environment.NewLine}{MessageStrings.UpgradeRequired}" : "Beutl 2.0.0";
+            Assert.Multiple(() =>
+            {
+                Assert.That(downloading.Message, Is.EqualTo(message));
+                Assert.That(downloading.Type, Is.EqualTo(NotificationType.Information));
+                Assert.That(downloading.Expiration, Is.Null);
+                Assert.That(downloading.Actions!.Select(action => action.Text), Is.EqualTo(new[] { MessageStrings.ReleaseNotes }));
+                Assert.That(downloading.CancellationToken.IsCancellationRequested, Is.False);
+            });
+
+            release.SetResult();
+            await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+            Notification ready = await VisibleNotice(MessageStrings.UpdateReady_Title);
+            Assert.That(ready.Message, Is.EqualTo(message));
             Assert.That(downloading.CancellationToken.IsCancellationRequested, Is.True);
-            Assert.That(_shown, Has.Count.EqualTo(2));
-            Assert.That(_shown[^1].Title, Is.EqualTo(MessageStrings.UpdateReady_Title));
-        });
+            Assert.That(view.HiddenNotificationPanel.Children, Is.Empty);
+            HeadlessCapture.SaveIfRequested(view, nameof(AppUpdateControllerTests), $"ready-required-{mustLatest}");
+        }
+        finally
+        {
+            vm?.Cancel();
+            release.TrySetResult();
+            if (vm?.UpdateTask is { } task) await task;
+            window.Close();
+        }
     }
 
-    // With automatic downloads turned off, or where they cannot run, the update waits for the user.
-    [Test]
-    public void AnUpdateFoundAtStartupWaitsForTheUserWhenDownloadsAreNotAutomatic()
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task AReleaseWithoutADownloadOffersItsReleasePage(bool legacy)
     {
         var controller = new AppUpdateController(
-            _ => throw new AssertionException("The update started without being asked."),
-            downloadsAutomatically: () => false);
+            _ => throw new AssertionException("There is no file to download."), downloadsAutomatically: () => true);
+        AppUpdateResponse update = Update("https://example.test/releases/2.0.0", hasDownload: false);
+        var v1 = new CheckForUpdatesResponse { LatestVersion = update.LatestVersion, Url = update.Url!, IsLatest = false, MustLatest = false };
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(controller.TryStartAutomatically(Update()), Is.False);
-            Assert.That(controller.Current, Is.Null);
-            Assert.That(_shown, Is.Empty);
-        });
+        await CheckForUpdatesTask.HandleUpdateCheckAsync(legacy ? v1 : null, legacy ? null : update, controller);
+        Notification notice = _shown.Single();
+        Assert.That(notice.Title, Is.EqualTo(MessageStrings.NewVersionAvailable));
+        Assert.That(notice.Actions!.Select(action => action.Text), Is.EqualTo(new[] { MessageStrings.ReleaseNotes }));
     }
 
     // The notice of an update that downloaded unasked is gone once the update is ready, so the release notes are offered
@@ -159,7 +191,7 @@ public sealed class AppUpdateControllerTests
         await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
         HeadlessTestHelpers.Settle();
 
-        NotificationAction[] actions = [.. _shown.Single().Actions!];
+        NotificationAction[] actions = [.. _shown[^1].Actions!];
         Assert.Multiple(() =>
         {
             Assert.That(actions.Select(action => action.Text), Is.EqualTo(new[]
@@ -184,8 +216,8 @@ public sealed class AppUpdateControllerTests
         await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
         HeadlessTestHelpers.Settle();
 
-        Assert.That(_shown.Single().Title, Is.EqualTo(MessageStrings.UpdateReady_Title));
-        Assert.That(onUIThread, Is.EqualTo(new[] { true }));
+        Assert.That(_shown.Select(n => n.Title), Is.EqualTo(new[] { MessageStrings.UpdateDownloading_Title, MessageStrings.UpdateReady_Title }));
+        Assert.That(onUIThread, Is.EqualTo(new[] { true, true }));
     }
 
     [AvaloniaTest]
