@@ -87,6 +87,49 @@ public class AlphaOutlineTracerTests
         AssertVertices(contours[0], new(0, 0), new(12, 0), new(12, 9), new(0, 9));
     }
 
+    [TestCase(1)]
+    [TestCase(2)]
+    public void Partly_covered_edge_rows_trace_as_if_padded_with_background(int height)
+    {
+        void Fill(Span<byte> pixels, int stride)
+        {
+            pixels.Slice(1, 10).Fill(72);
+            if (height == 2)
+                pixels.Slice(stride + 4, 9).Fill(160);
+        }
+
+        using Bitmap cropped = Pixels(16, height, Fill);
+        using Bitmap padded = Pixels(16, height + 1, Fill);
+
+        List<Vector2[]> expected = Trace(padded);
+        Assert.That(expected, Is.Not.Empty);
+        Assert.That(Trace(cropped), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void Tracing_shapes_together_keeps_the_same_vertices_in_the_same_order()
+    {
+        Action<SKCanvas, SKPaint>[] shapes =
+        [
+            (canvas, paint) => canvas.DrawRect(3, 0, 10, 8, paint),
+            (canvas, paint) => canvas.DrawCircle(45.25f, 25.5f, 13.25f, paint),
+            (canvas, paint) => canvas.DrawRect(8, 52, 8, 7, paint),
+        ];
+        using Bitmap combined = Draw(64, 64, (canvas, paint) =>
+        {
+            foreach (var shape in shapes)
+                shape(canvas, paint);
+        });
+
+        List<Vector2[]> contours = Trace(combined);
+        Assert.That(contours, Has.Count.EqualTo(shapes.Length));
+        for (int i = 0; i < shapes.Length; i++)
+        {
+            using Bitmap isolated = Draw(64, 64, shapes[i]);
+            Assert.That(contours[i], Is.EqualTo(Trace(isolated).Single()));
+        }
+    }
+
     // An anti-aliased circle off the pixel grid: the old tracer's whole-pixel steps strayed up to a pixel from it.
     [TestCase((byte)255)]
     [TestCase((byte)77)]

@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.Numerics;
+using Beutl.Collections.Pooled;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
@@ -120,6 +121,7 @@ public static class AlphaOutlineTracer
         int visitedWords = (edgeCount + 63) / 64;
         byte[] levels = ArrayPool<byte>.Shared.Rent(columns * rows);
         ulong[] visited = ArrayPool<ulong>.Shared.Rent(visitedWords);
+        ContourBuffers? buffers = null;
         try
         {
             FillLevels(bitmap, levels, columns, rows);
@@ -156,7 +158,7 @@ public static class AlphaOutlineTracer
 
                             points.Clear();
                             field.Follow(i, j, entry, points);
-                            if (Finish(points) is { } polygon)
+                            if (Finish(points, buffers ??= new ContourBuffers()) is { } polygon)
                                 result.Add(polygon);
                         }
                     }
@@ -167,6 +169,7 @@ public static class AlphaOutlineTracer
         }
         finally
         {
+            buffers?.Dispose();
             ArrayPool<byte>.Shared.Return(levels);
             ArrayPool<ulong>.Shared.Return(visited);
         }
@@ -189,10 +192,10 @@ public static class AlphaOutlineTracer
         int height = rows - 2;
         levels.AsSpan(0, columns).Clear();
         levels.AsSpan((rows - 1) * columns, columns).Clear();
+        ReadOnlySpan<byte> above = default;
+        ReadOnlySpan<byte> row = bitmap.GetRow(0);
         for (int y = 0; y < height; y++)
         {
-            ReadOnlySpan<byte> above = y > 0 ? bitmap.GetRow(y - 1) : default;
-            ReadOnlySpan<byte> row = bitmap.GetRow(y);
             ReadOnlySpan<byte> below = y < height - 1 ? bitmap.GetRow(y + 1) : default;
             Span<byte> samples = levels.AsSpan((y + 1) * columns, columns);
             samples[0] = 0;
@@ -206,7 +209,13 @@ public static class AlphaOutlineTracer
                 samples[x + 1] = EdgeLevel(row[x], x, width, above, row, below);
                 x++;
             }
+
+            above = row;
+            row = below;
         }
+
+        // The row spans borrow the bitmap's native pixel storage.
+        GC.KeepAlive(bitmap);
     }
 
     private static byte EdgeLevel(
@@ -241,14 +250,14 @@ public static class AlphaOutlineTracer
         }
     }
 
-    private static Point[]? Finish(List<Vector2> points)
+    private static Point[]? Finish(List<Vector2> points, ContourBuffers buffers)
     {
         if (points.Count < 3 || MathF.Abs(SignedArea(points)) < MinArea)
             return null;
 
         Smooth(points);
-        List<int> anchors = RestoreCorners(points);
-        List<int> kept = Simplify(points, Tolerance, anchors);
+        RestoreCorners(points, buffers);
+        PooledList<int> kept = Simplify(points, Tolerance, buffers.Anchors.Span, buffers);
         if (kept.Count < 3)
             return null;
 
@@ -295,15 +304,12 @@ public static class AlphaOutlineTracer
 
     // Douglas-Peucker on a closed contour, returning the indices it keeps in order. It runs between the anchors,
     // or else between the leftmost point and the point farthest from it, which any simplification keeps.
-    private static List<int> Simplify(List<Vector2> points, float tolerance, List<int>? anchors)
+    private static PooledList<int> Simplify(
+        List<Vector2> points, float tolerance, scoped ReadOnlySpan<int> splits, ContourBuffers buffers)
     {
         int count = points.Count;
-        List<int> splits;
-        if (anchors is { Count: > 0 })
-        {
-            splits = anchors;
-        }
-        else
+        Span<int> endpoints = stackalloc int[2];
+        if (splits.IsEmpty)
         {
             int first = 0;
             for (int k = 1; k < count; k++)
@@ -327,16 +333,18 @@ public static class AlphaOutlineTracer
                 }
             }
 
-            splits = first == second ? [first] : [Math.Min(first, second), Math.Max(first, second)];
+            endpoints[0] = Math.Min(first, second);
+            endpoints[1] = Math.Max(first, second);
+            splits = endpoints[..(first == second ? 1 : 2)];
         }
 
-        var keep = new bool[count];
-        var pending = new Stack<(int Start, int End)>();
-        for (int k = 0; k < splits.Count; k++)
+        Span<PointMark> marks = buffers.ResetMarks(count);
+        var pending = buffers.Pending;
+        for (int k = 0; k < splits.Length; k++)
         {
-            keep[splits[k]] = true;
+            marks[splits[k]] = PointMark.Keep;
             // Indices past the end wrap around, so each stretch is an increasing range.
-            int end = k + 1 < splits.Count ? splits[k + 1] : splits[0] + count;
+            int end = k + 1 < splits.Length ? splits[k + 1] : splits[0] + count;
             pending.Push((splits[k], end));
         }
 
@@ -364,16 +372,17 @@ public static class AlphaOutlineTracer
             if (split < 0)
                 continue;
 
-            keep[split % count] = true;
+            marks[split % count] = PointMark.Keep;
             pending.Push((start, split));
             pending.Push((split, end));
         }
 
-        var result = new List<int>();
+        var result = buffers.Kept;
+        result.Clear();
         for (int k = 0; k < count; k++)
         {
             int index = (splits[0] + k) % count;
-            if (keep[index])
+            if (marks[index] == PointMark.Keep)
                 result.Add(index);
         }
 
@@ -391,16 +400,17 @@ public static class AlphaOutlineTracer
         return Vector2.DistanceSquared(point, a + t * ab);
     }
 
-    // Moves each corner half coverage cut back to where its sides meet, removing the points around it, and returns
+    // Moves each corner half coverage cut back to where its sides meet, removing the points around it, and records
     // the corners' indices in order for the simplification to keep.
-    private static List<int> RestoreCorners(List<Vector2> points)
+    private static void RestoreCorners(List<Vector2> points, ContourBuffers buffers)
     {
         int count = points.Count;
-        var anchors = new List<int>();
-        List<int> coarse = Simplify(points, CornerTolerance, null);
+        var anchors = buffers.Anchors;
+        anchors.Clear();
+        PooledList<int> coarse = Simplify(points, CornerTolerance, [], buffers);
         int sides = coarse.Count;
         if (sides < 3)
-            return anchors;
+            return;
 
         bool IsSide(int k) =>
             Vector2.Distance(points[coarse[k % sides]], points[coarse[(k + 1) % sides]]) >= CornerSideLength;
@@ -416,11 +426,12 @@ public static class AlphaOutlineTracer
         }
 
         if (start < 0)
-            return anchors;
+            return;
 
         // Each pair of consecutive sides, with whatever short segments lie between them, may meet at a corner.
-        var corners = new List<(int First, int Last, Vector2 Point)>();
-        var claimed = new bool[count];
+        var corners = buffers.Corners;
+        corners.Clear();
+        Span<PointMark> marks = buffers.ResetMarks(count);
         int inSide = start;
         do
         {
@@ -428,42 +439,40 @@ public static class AlphaOutlineTracer
             while (!IsSide(outSide))
                 outSide++;
 
-            if (TryCorner(points, coarse, inSide, outSide, claimed) is { } corner)
+            if (TryCorner(points, coarse, inSide, outSide, marks) is { } corner)
                 corners.Add(corner);
 
             inSide = outSide;
         } while (inSide < start + sides);
 
         if (corners.Count == 0)
-            return anchors;
+            return;
 
-        // Each corner replaces the points from its first to its last, which may wrap past the end.
-        var replacement = new Vector2?[count];
-        foreach ((int first, int last, Vector2 point) in corners)
-            replacement[first] = point;
-
-        var result = new List<Vector2>(count);
-        for (int k = 0; k < count; k++)
+        // All sides have been fitted against the original points. Replace each claimed run at its first point,
+        // then compact in index order so a run wrapping past the end keeps its corner in the same place.
+        foreach ((int first, Vector2 point) in corners)
         {
-            if (replacement[k] is { } point)
-            {
-                anchors.Add(result.Count);
-                result.Add(point);
-            }
-            else if (!claimed[k])
-            {
-                result.Add(points[k]);
-            }
+            points[first] = point;
+            marks[first] = PointMark.Keep;
         }
 
-        points.Clear();
-        points.AddRange(result);
-        return anchors;
+        int written = 0;
+        for (int k = 0; k < count; k++)
+        {
+            if (marks[k] == PointMark.Remove)
+                continue;
+
+            if (marks[k] == PointMark.Keep)
+                anchors.Add(written);
+            points[written++] = points[k];
+        }
+
+        points.RemoveRange(written, count - written);
     }
 
     // The corner between two sides of the coarse outline, given as its segment indices, which may run past its end.
-    private static (int First, int Last, Vector2 Point)? TryCorner(
-        List<Vector2> points, List<int> coarse, int inSide, int outSide, bool[] claimed)
+    private static (int First, Vector2 Point)? TryCorner(
+        List<Vector2> points, PooledList<int> coarse, int inSide, int outSide, Span<PointMark> marks)
     {
         int count = points.Count;
         int sides = coarse.Count;
@@ -514,7 +523,7 @@ public static class AlphaOutlineTracer
                             && Vector2.Dot(offset, inDirection) <= CornerOvershoot)
                         || (MathF.Abs(Cross(offset, outDirection)) <= CornerSideTolerance
                             && Vector2.Dot(offset, outDirection) >= -CornerOvershoot);
-            if (claimed[index] || !fits)
+            if (marks[index] == PointMark.Remove || !fits)
                 return null;
         }
 
@@ -531,9 +540,9 @@ public static class AlphaOutlineTracer
             return null;
 
         for (int k = first; k <= last; k++)
-            claimed[Wrap(inEnd + k)] = true;
+            marks[Wrap(inEnd + k)] = PointMark.Remove;
 
-        return (Wrap(inEnd + first), Wrap(inEnd + last), corner);
+        return (Wrap(inEnd + first), corner);
     }
 
     // The line of a side, fitted to the traced points along it. Its ends may already bend into the corners, so only
@@ -625,6 +634,34 @@ public static class AlphaOutlineTracer
     }
 
     private static float Cross(Vector2 a, Vector2 b) => a.X * b.Y - a.Y * b.X;
+
+    private enum PointMark : byte { None, Keep, Remove }
+
+    // The coarse and final simplifications and the corner pass run in sequence on each contour.
+    private sealed class ContourBuffers : IDisposable
+    {
+        private readonly PooledList<PointMark> _marks = [];
+        public readonly PooledList<int> Kept = [];
+        public readonly PooledList<int> Anchors = [];
+        public readonly PooledList<(int First, Vector2 Point)> Corners = [];
+        public readonly Stack<(int Start, int End)> Pending = new();
+
+        public Span<PointMark> ResetMarks(int count)
+        {
+            _marks.Clear();
+            Span<PointMark> marks = _marks.AddSpan(count);
+            marks.Clear();
+            return marks;
+        }
+
+        public void Dispose()
+        {
+            _marks.Dispose();
+            Kept.Dispose();
+            Anchors.Dispose();
+            Corners.Dispose();
+        }
+    }
 
     // The samples and the crossed edges of one trace. Sample (i, j) is the centre of pixel (i - 1, j - 1); cell
     // (i, j) has samples (i, j) and (i + 1, j + 1) at its corners. Edges are numbered horizontal first, row by row.
