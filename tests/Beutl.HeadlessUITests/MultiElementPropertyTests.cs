@@ -416,12 +416,14 @@ public class MultiElementPropertyTests
     public async Task OnlyWhatEveryElementHoldsIsShown()
     {
         (EditViewModel editor, Element[] elements) = await OpenElements(() => new TextBlock(), () => new RectShape());
+        elements[0].Objects.Add(new SourceSound());
         using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
         TextBlock copy = Copy<TextBlock>(tab);
 
         Assert.Multiple(() =>
         {
-            Assert.That(tab.Items.Single().TypeNames, Is.EqualTo(
+            Assert.That(tab.Items.Select(item => item.IsLastShown.Value), Is.EqualTo(new[] { true, false }));
+            Assert.That(tab.Items[0].TypeNames, Is.EqualTo(
                 $"{TypeDisplayHelpers.GetLocalizedName(typeof(TextBlock))} / {TypeDisplayHelpers.GetLocalizedName(typeof(RectShape))}"));
             Assert.That(HasEditor(tab, copy.Text), Is.False, "only a text has text");
             Assert.That(HasEditor(tab, copy.Size), Is.False);

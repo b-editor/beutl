@@ -14,8 +14,19 @@
              x:DataType="viewModel:EngineObjectPropertyViewModel"
              DragDrop.AllowDrop="True"
              mc:Ignorable="d">
-    <Expander Theme="{StaticResource ToolTabExpanderTheme}"
+    <Expander x:Name="objectExpander"
+              Theme="{StaticResource ToolTabExpanderTheme}"
+              BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+              Classes.last="{Binding IsLastShown.Value}"
               IsExpanded="{Binding IsExpanded.Value, Mode=TwoWay, FallbackValue=True}">
+        <Expander.Styles>
+            <Style Selector="Expander#objectExpander:not(.last)">
+                <Setter Property="BorderThickness" Value="{DynamicResource ToolTabBarBorderThickness}" />
+            </Style>
+            <Style Selector="Expander#objectExpander.last:not(:expanded) /template/ ToggleButton#ExpanderHeader">
+                <Setter Property="BorderThickness" Value="0" />
+            </Style>
+        </Expander.Styles>
         <Expander.Header>
             <Grid x:Name="headerPanel"
                   Background="Transparent"

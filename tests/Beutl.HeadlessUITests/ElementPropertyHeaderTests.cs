@@ -61,6 +61,7 @@ public class ElementPropertyHeaderTests
             HeadlessTestHelpers.Render();
             double referenceHeight = referenceBar.Bounds.Height;
             double referenceRightInset = referenceBar.Padding.Right;
+            Thickness referenceThickness = referenceBar.BorderThickness;
             var referenceStroke = ((Avalonia.Media.ISolidColorBrush)referenceBar.BorderBrush!).Color;
             window.SizeToContent = SizeToContent.Manual;
             window.Height = 500;
@@ -75,6 +76,14 @@ public class ElementPropertyHeaderTests
             TextBlock title = first.FindControl<TextBlock>("headerText")!;
             ToggleButton visibility = first.FindControl<ToggleButton>("VisibilityButton")!;
             Border headerBorder = header.GetVisualChildren().OfType<Border>().Single();
+            var last = entries[1].FindControl<Expander>("objectExpander")!;
+            var lastHeader = last.GetVisualDescendants().OfType<ToggleButton>().First(b => b.Name == "ExpanderHeader");
+            Assert.That(lastHeader.BorderThickness, Is.EqualTo(default(Thickness)));
+            model.Items[1].IsExpanded.Value = true;
+            HeadlessTestHelpers.Render();
+            Assert.That(lastHeader.BorderThickness, Is.EqualTo(referenceThickness));
+            Assert.That(last.BorderThickness, Is.EqualTo(default(Thickness)));
+            model.Items[1].IsExpanded.Value = false;
             Border chevron = header.GetVisualDescendants().OfType<Border>().First(b => b.Name == "ExpandCollapseChevronBorder");
             Assert.That(header.Bounds.Height, Is.EqualTo(referenceHeight));
             Assert.That(header.Bounds.Width - chevron.TranslatePoint(default, header)!.Value.X - chevron.Bounds.Width,
@@ -86,6 +95,8 @@ public class ElementPropertyHeaderTests
             HeadlessTestHelpers.Render();
             Assert.That(header.Bounds.Height, Is.EqualTo(referenceHeight));
             Assert.That(((Avalonia.Media.ISolidColorBrush)headerBorder.BorderBrush!).Color, Is.EqualTo(referenceStroke));
+            Assert.That(expander.BorderBrush, Is.EqualTo(headerBorder.BorderBrush));
+            Assert.That(expander.BorderThickness, Is.EqualTo(referenceThickness));
             Click(title);
             Assert.That(model.Items[0].IsExpanded.Value, Is.False);
             Assert.That(header.Focus(), Is.True);
@@ -135,6 +146,7 @@ public class ElementPropertyHeaderTests
             Assert.That(element.Objects[0], Is.SameAs(secondObject));
             Assert.That(element.Objects[1], Is.SameAs(firstObject));
             Assert.That(model.Items.All(item => !item.IsExpanded.Value), Is.True);
+            Assert.That(model.Items.Select(item => item.IsLastShown.Value), Is.EqualTo(new[] { false, true }));
         }
         finally { window.Close(); }
 
