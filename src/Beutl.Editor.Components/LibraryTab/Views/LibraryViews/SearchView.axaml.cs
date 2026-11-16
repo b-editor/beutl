@@ -22,6 +22,12 @@ public partial class SearchView : UserControl
         searchResult.ContainerClearing += OnItemContainerClearing;
     }
 
+    internal void FocusSearchBox()
+    {
+        SearchBox.Focus();
+        SearchBox.SelectAll();
+    }
+
     private async void SearchQueryChanged(string? str)
     {
         if (DataContext is LibraryTabViewModel viewModel)
