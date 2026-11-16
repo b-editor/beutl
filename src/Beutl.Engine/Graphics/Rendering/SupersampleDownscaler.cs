@@ -32,7 +32,7 @@ public static class SupersampleDownscaler
             canvas.DrawImage(img, new SKRect(0, 0, target.Width, target.Height), sampling);
         }
 
-        return new Bitmap(dst);
+        return Bitmap.FromFixedLayout(dst);
     }
 
     /// <summary>

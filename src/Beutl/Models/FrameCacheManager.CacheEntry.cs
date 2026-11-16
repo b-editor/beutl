@@ -80,7 +80,7 @@ public partial class FrameCacheManager
                             new SKSamplingOptions(SKFilterMode.Linear), paint);
                     }
 
-                    var resizedBitmap = new Bitmap(resized);
+                    var resizedBitmap = Bitmap.FromFixedLayout(resized);
                     current = resizedBitmap;
                     ownsCurrentBitmap = true;
                 }

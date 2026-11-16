@@ -13,6 +13,7 @@ public sealed class Bitmap : ICloneable, IDisposable
     private readonly SKBitmap _skBitmap;
     private readonly BitmapColorSpace _colorSpace;
     private readonly bool _ownsData;
+    private readonly (int Width, int Height, int BytesPerPixel)? _fixedLayout;
 
     public Bitmap(int width, int height,
         BitmapColorType colorType = BitmapColorType.Bgra8888,
@@ -25,22 +26,28 @@ public sealed class Bitmap : ICloneable, IDisposable
         _skBitmap = new SKBitmap(info);
         _skBitmap.Erase(SKColor.Empty);
         _ownsData = true;
+        _fixedLayout = GetLayout(info);
     }
 
     public Bitmap(SKBitmap skBitmap)
+        : this(skBitmap, ownsData: true, cacheLayout: false)
     {
-        ArgumentNullException.ThrowIfNull(skBitmap);
-        _skBitmap = skBitmap;
-        _colorSpace = BitmapColorSpace.FromSKColorSpace(skBitmap.ColorSpace);
-        _ownsData = true;
     }
 
-    internal Bitmap(SKBitmap skBitmap, bool ownsData)
+    private Bitmap(SKBitmap skBitmap, bool ownsData, bool cacheLayout)
     {
+        ArgumentNullException.ThrowIfNull(skBitmap);
+        SKImageInfo info = skBitmap.Info;
         _skBitmap = skBitmap;
-        _colorSpace = BitmapColorSpace.FromSKColorSpace(skBitmap.ColorSpace);
+        _colorSpace = BitmapColorSpace.FromSKColorSpace(info.ColorSpace);
         _ownsData = ownsData;
+        if (cacheLayout)
+            _fixedLayout = GetLayout(info);
     }
+
+    // A public caller can reallocate its SKBitmap. Cache the layout only when Beutl controls the pixel storage.
+    internal static Bitmap FromFixedLayout(SKBitmap skBitmap, bool ownsData = true)
+        => new(skBitmap, ownsData, cacheLayout: true);
 
     internal Bitmap(IntPtr data, int width, int height, int rowBytes,
         BitmapColorType colorType, BitmapAlphaType alphaType, BitmapColorSpace? colorSpace)
@@ -53,6 +60,7 @@ public sealed class Bitmap : ICloneable, IDisposable
         if (!_skBitmap.InstallPixels(info, data, rowBytes))
             throw new InvalidOperationException("Failed to install external pixels into SKBitmap.");
         _ownsData = true;
+        _fixedLayout = GetLayout(info);
     }
 
     ~Bitmap()
@@ -60,13 +68,13 @@ public sealed class Bitmap : ICloneable, IDisposable
         Dispose();
     }
 
-    public int Width => _skBitmap.Width;
+    public int Width => _fixedLayout?.Width ?? _skBitmap.Width;
 
-    public int Height => _skBitmap.Height;
+    public int Height => _fixedLayout?.Height ?? _skBitmap.Height;
 
     public int ByteCount => _skBitmap.ByteCount;
 
-    public int BytesPerPixel => _skBitmap.BytesPerPixel;
+    public int BytesPerPixel => _fixedLayout?.BytesPerPixel ?? _skBitmap.BytesPerPixel;
 
     public int RowBytes => _skBitmap.RowBytes;
 
@@ -109,18 +117,13 @@ public sealed class Bitmap : ICloneable, IDisposable
     public unsafe Span<byte> GetRow(int y)
     {
         ThrowIfDisposed();
-        ThrowRowOutOfRange(y);
+        var layout = _fixedLayout ?? GetLayout(_skBitmap.Info);
+        ThrowRowOutOfRange(y, layout.Height);
         byte* ptr = (byte*)Data + (long)y * RowBytes;
-        return new Span<byte>(ptr, Width * BytesPerPixel);
+        return new Span<byte>(ptr, layout.Width * layout.BytesPerPixel);
     }
 
-    public unsafe Span<T> GetRow<T>(int y) where T : unmanaged
-    {
-        ThrowIfDisposed();
-        ThrowRowOutOfRange(y);
-        byte* ptr = (byte*)Data + (long)y * RowBytes;
-        return MemoryMarshal.Cast<byte, T>(new Span<byte>(ptr, Width * BytesPerPixel));
-    }
+    public Span<T> GetRow<T>(int y) where T : unmanaged => MemoryMarshal.Cast<byte, T>(GetRow(y));
 
     public Bitmap ExtractSubset(PixelRect roi)
     {
@@ -175,7 +178,7 @@ public sealed class Bitmap : ICloneable, IDisposable
         var skBitmap = SKBitmap.Decode(stream);
         if (skBitmap == null) throw new InvalidOperationException("Failed to decode bitmap from stream.");
 
-        return new Bitmap(skBitmap);
+        return FromFixedLayout(skBitmap);
     }
 
     public static Bitmap FromFile(string file)
@@ -186,7 +189,7 @@ public sealed class Bitmap : ICloneable, IDisposable
         var skBitmap = SKBitmap.Decode(file);
         if (skBitmap == null) throw new InvalidOperationException($"Failed to decode bitmap from file: {file}");
 
-        return new Bitmap(skBitmap);
+        return FromFixedLayout(skBitmap);
     }
 
     public bool Save(string file, EncodedImageFormat format = EncodedImageFormat.Default, int quality = 100)
@@ -248,14 +251,14 @@ public sealed class Bitmap : ICloneable, IDisposable
         using var paint = new SKPaint { BlendMode = SKBlendMode.Src, IsDither = true };
         canvas.DrawBitmap(_skBitmap, SKPoint.Empty, SKSamplingOptions.Default, paint);
 
-        return new Bitmap(destBitmap);
+        return FromFixedLayout(destBitmap);
     }
 
     public Bitmap Clone()
     {
         ThrowIfDisposed();
         var copy = _skBitmap.Copy();
-        return new Bitmap(copy);
+        return FromFixedLayout(copy);
     }
 
     public void Clear()
@@ -354,13 +357,16 @@ public sealed class Bitmap : ICloneable, IDisposable
             throw new ArgumentOutOfRangeException(nameof(height), "'height' is less than 0.");
     }
 
+    private static (int Width, int Height, int BytesPerPixel) GetLayout(SKImageInfo info)
+        => (info.Width, info.Height, info.BytesPerPixel);
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void ThrowRowOutOfRange(int y)
+    private static void ThrowRowOutOfRange(int y, int height)
     {
         if (y < 0)
             throw new ArgumentOutOfRangeException(nameof(y), "'y' is less than 0.");
-        else if (y >= Height)
-            throw new ArgumentOutOfRangeException(nameof(y), $"'y' is more than or equal to {Height}");
+        else if (y >= height)
+            throw new ArgumentOutOfRangeException(nameof(y), $"'y' is more than or equal to {height}");
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

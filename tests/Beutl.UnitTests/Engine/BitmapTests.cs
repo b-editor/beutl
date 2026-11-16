@@ -1,4 +1,5 @@
 ﻿using Beutl.Media;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine;
 
@@ -81,6 +82,34 @@ public class BitmapTests
         Assert.That(bitmap.ByteCount, Is.GreaterThan(0));
         Assert.That(bitmap.BytesPerPixel, Is.GreaterThan(0));
         Assert.That(bitmap.RowBytes, Is.GreaterThanOrEqualTo(bitmap.Width * bitmap.BytesPerPixel));
+    }
+
+    [Test]
+    public void GetRow_WrappedBitmapTracksReallocatedPixels()
+    {
+        var info = new SKImageInfo(3, 2, SKColorType.Rgb565, SKAlphaType.Opaque);
+        using var native = new SKBitmap(info, rowBytes: 8);
+        using var bitmap = new Bitmap(native);
+        Assert.That(bitmap.GetRow<ushort>(1).Length, Is.EqualTo(3));
+
+        Assert.That(native.TryAllocPixels(new SKImageInfo(2, 1, SKColorType.Alpha8)), Is.True);
+        Assert.That(bitmap.Width, Is.EqualTo(2));
+        Assert.That(bitmap.Height, Is.EqualTo(1));
+        Assert.That(bitmap.BytesPerPixel, Is.EqualTo(1));
+        Assert.That(bitmap.GetRow(0).Length, Is.EqualTo(2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => bitmap.GetRow<ushort>(1));
+    }
+
+    [Test]
+    public void GetRow_ExternalPixelsRespectStrideAndExcludePadding()
+    {
+        using var storage = new Bitmap(4, 2, BitmapColorType.Rgb565);
+        using var bitmap = new Bitmap(storage.Data, 3, 2, storage.RowBytes,
+            BitmapColorType.Rgb565, BitmapAlphaType.Opaque, storage.ColorSpace);
+
+        Assert.That(bitmap.GetRow(1).Length, Is.EqualTo(6));
+        bitmap.GetRow<ushort>(1).Fill(42);
+        Assert.That(storage.GetRow<ushort>(1).ToArray(), Is.EqualTo(new ushort[] { 42, 42, 42, 0 }));
     }
 
     [Test]

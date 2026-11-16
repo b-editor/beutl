@@ -64,7 +64,7 @@ internal sealed class LoadedImage : IDisposable
             SKImageInfo info = codec.Info.WithAlphaType(SKAlphaType.Unpremul).WithColorSpace(null);
             var pixels = new SKBitmap(info);
             if (codec.GetPixels(info, pixels.GetPixels()) is SKCodecResult.Success or SKCodecResult.IncompleteInput)
-                return new Bitmap(pixels);
+                return Bitmap.FromFixedLayout(pixels);
 
             pixels.Dispose();
             return null;

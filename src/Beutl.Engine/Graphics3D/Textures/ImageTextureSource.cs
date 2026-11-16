@@ -186,7 +186,7 @@ public sealed partial class ImageTextureSource : TextureSource
                 throw new InvalidOperationException("Failed to convert the image's colors for upload.");
             }
 
-            return new Bitmap(upload);
+            return Bitmap.FromFixedLayout(upload);
         }
 
         private static bool HasAtMost8BitsPerChannel(BitmapColorType colorType)
