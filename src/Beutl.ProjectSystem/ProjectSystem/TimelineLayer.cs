@@ -1,4 +1,6 @@
-﻿using Beutl.Media;
+﻿using System.Globalization;
+using Beutl.Media;
+using Beutl.Serialization;
 
 namespace Beutl.ProjectSystem;
 
@@ -25,4 +27,16 @@ public partial class TimelineLayer : Hierarchical
 
     // Non-exclusive: multiple layers can be soloed simultaneously.
     public IProperty<bool> IsSolo { get; } = Property.CreateValue(false);
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+
+        // Older versions saved the displayed row number as the name when coloring an unnamed layer.
+        if (context is JsonSerializationContext { IsReadingFromStorage: true }
+            && Name.Value == ZIndex.Value.ToString(CultureInfo.InvariantCulture))
+        {
+            Name.Value = string.Empty;
+        }
+    }
 }

@@ -293,12 +293,15 @@ public static partial class CoreSerializer
     }
 
     private static void PopulateFromJsonObjectCore(ICoreSerializable obj, Type type, JsonObject json,
-        CoreSerializerOptions? options)
+        CoreSerializerOptions? options, bool fromStorage = false)
     {
         var parentContext = ThreadLocalSerializationContext.Current;
         ReflectUri(json, obj, parentContext, ref options);
 
-        var context = new JsonSerializationContext(type, parentContext, json, options);
+        var context = new JsonSerializationContext(type, parentContext, json, options)
+        {
+            IsReadingFromStorage = fromStorage
+        };
         if (options?.PreserveUnchangedValues == true && obj is not IFallback
             && json.Any(pair => pair.Value is JsonObject or JsonArray))
         {
@@ -446,7 +449,7 @@ public static partial class CoreSerializer
         using (RootFileVersions.BeginReading(obj as Project))
         using (ReadOnProjectFrameGrid(obj))
         {
-            PopulateFromJsonObjectCore(obj, type, json, options);
+            PopulateFromJsonObjectCore(obj, type, json, options, fromStorage: true);
         }
 
         if (obj is Project project)

@@ -19,6 +19,16 @@ public sealed class SceneSnapshotTests
         Assert.That(snapshot.FindHierarchicalParent<Project>()!.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
     }
 
+    [Test]
+    public void Create_PreservesANumericLayerNameThatNowMatchesItsRow()
+    {
+        var layer = new TimelineLayer { ZIndex = { Value = 1 }, Name = { Value = "2" } };
+        var scene = new Scene { Layers = { layer } };
+        layer.ZIndex.Value = 2;
+
+        Assert.That(SceneSnapshot.Create(scene).Layers.Single().Name.Value, Is.EqualTo("2"));
+    }
+
     [TestCase(false, false)]
     [TestCase(true, false)]
     [TestCase(false, true)]
