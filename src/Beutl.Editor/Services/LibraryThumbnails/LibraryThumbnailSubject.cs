@@ -285,7 +285,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
                     converted.SKBitmap.ColorSpace);
                 SKBitmap? scaled = converted.SKBitmap.Resize(
                     info, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
-                return scaled == null ? null : new Bitmap(scaled);
+                return scaled == null ? null : Bitmap.FromFixedLayout(scaled);
             }
             finally
             {

@@ -98,7 +98,7 @@ public class AnimatedImageReader : MediaReader
 
         if (_lastFrame?.Index == detectedFrame)
         {
-            image = Ref<Bitmap>.Create(new Bitmap(_lastFrame.Bitmap.Copy()));
+            image = Ref<Bitmap>.Create(Bitmap.FromFixedLayout(_lastFrame.Bitmap.Copy()));
             return true;
         }
 
@@ -116,7 +116,7 @@ public class AnimatedImageReader : MediaReader
             _lastFrame = null;
         }
 
-        image = Ref<Bitmap>.Create(new Bitmap(bitmap.Copy()));
+        image = Ref<Bitmap>.Create(Bitmap.FromFixedLayout(bitmap.Copy()));
         return true;
     }
 

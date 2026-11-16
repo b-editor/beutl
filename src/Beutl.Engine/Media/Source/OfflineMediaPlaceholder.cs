@@ -9,7 +9,7 @@ internal static class OfflineMediaPlaceholder
     public static PixelSize Size => new(320, 180);
 
     // Each resource owns its wrapper, while the identical pixels live for the process.
-    public static Bitmap CreateBitmap() => new(s_bitmap.Value, ownsData: false);
+    public static Bitmap CreateBitmap() => Bitmap.FromFixedLayout(s_bitmap.Value, ownsData: false);
 
     private static SKBitmap CreateSharedBitmap()
     {

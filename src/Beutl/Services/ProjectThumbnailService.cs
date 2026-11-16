@@ -47,7 +47,7 @@ internal sealed class ProjectThumbnailService
             Math.Max(1, (int)(frame.Height * scale)));
         SKBitmap scaled = frame.SKBitmap.Resize(info, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear))
             ?? throw new InvalidOperationException("The frame could not be scaled.");
-        using var thumbnail = new Bitmap(scaled);
+        using var thumbnail = Bitmap.FromFixedLayout(scaled);
 
         string path = GetPath(projectFile);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
