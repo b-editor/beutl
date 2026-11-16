@@ -70,6 +70,9 @@ Beutl.Utilities
 [Beutl.Configuration]:TelemetryConfig
   sealed
   keys: Beutl_Api_Client, Beutl_Application, Beutl_Logging, Beutl_PackageManagement
+[Beutl.Configuration]:TerminalConfig
+  sealed
+  keys: ColorScheme, FontFamily, FontSize, ScrollbackLines, ShellArguments, ShellPath
 [Beutl.Configuration]:TutorialConfig
   sealed
   keys: CompletedTutorialIds
