@@ -23,9 +23,6 @@
             <Style Selector="Expander#objectExpander:not(.last)">
                 <Setter Property="BorderThickness" Value="{DynamicResource ToolTabBarBorderThickness}" />
             </Style>
-            <Style Selector="Expander#objectExpander.last:not(:expanded) /template/ ToggleButton#ExpanderHeader">
-                <Setter Property="BorderThickness" Value="0" />
-            </Style>
         </Expander.Styles>
         <Expander.Header>
             <Grid x:Name="headerPanel"

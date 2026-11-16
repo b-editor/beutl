@@ -78,7 +78,7 @@ public class ElementPropertyHeaderTests
             Border headerBorder = header.GetVisualChildren().OfType<Border>().Single();
             var last = entries[1].FindControl<Expander>("objectExpander")!;
             var lastHeader = last.GetVisualDescendants().OfType<ToggleButton>().First(b => b.Name == "ExpanderHeader");
-            Assert.That(lastHeader.BorderThickness, Is.EqualTo(default(Thickness)));
+            Assert.That(lastHeader.BorderThickness, Is.EqualTo(referenceThickness));
             model.Items[1].IsExpanded.Value = true;
             HeadlessTestHelpers.Render();
             Assert.That(lastHeader.BorderThickness, Is.EqualTo(referenceThickness));
