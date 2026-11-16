@@ -1,9 +1,12 @@
 ﻿using System.Collections.Concurrent;
 
 using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Logging;
 
 using Microsoft.Extensions.Logging;
+using NuGet.Packaging.Core;
+using NuGet.Versioning;
 
 namespace Beutl.Services.StartupTasks;
 
@@ -33,28 +36,8 @@ public sealed class LoadInstalledExtensionTask : StartupTask
 
                 if (!promptTask.IsRestrictedMode)
                 {
-                    IReadOnlyList<LocalPackage> packages = await _manager.GetPackages();
-
                     activity?.AddEvent(new ActivityEvent("Started loading installed packages."));
-
-                    foreach (LocalPackage item in packages.Where(item => failedPackageIds.Contains(item.Name)))
-                    {
-                        _logger.LogWarning(
-                            "Skipping package {PackageName} due to dependency re-resolution failure.",
-                            item.Name);
-                        Failures.Add((item, new InvalidOperationException(
-                            $"Dependency re-resolution failed for package '{item.Name}'.")));
-                    }
-
-                    await LoadPackagesAsync(
-                        packages.Where(item => !failedPackageIds.Contains(item.Name)),
-                        _manager.Prepare,
-                        startup.GetTask<LoadPrimitiveExtensionTask>().Task,
-                        prepared => _manager.Load(prepared),
-                        _logger,
-                        activity,
-                        Failures);
-
+                    await LoadInstalledAsync(startup, failedPackageIds, activity);
                     activity?.AddEvent(new ActivityEvent("Finished loading installed packages."));
                 }
                 else
@@ -68,6 +51,61 @@ public sealed class LoadInstalledExtensionTask : StartupTask
     public override Task Task { get; }
 
     public ConcurrentBag<(LocalPackage, Exception)> Failures { get; } = [];
+
+    private async Task LoadInstalledAsync(Startup startup, HashSet<string> failedPackageIds, Activity? activity)
+    {
+        var operations = startup.CreatePackageOperations();
+        NuGetVersion host = NuGetVersion.Parse(BeutlApplication.Version);
+        PackageIdentity[] installed = [.. operations.InstalledPackageRepository.GetLocalPackages()
+            .OrderBy(p => p.Id, StringComparer.OrdinalIgnoreCase)];
+        await PrepareExternalUpdateAsync(startup, installed, host);
+
+        // A staged replacement loads in the same position as the original extension. The packages
+        // before and after it still prepare in parallel, just as on a launch without updates.
+        Task primitives = startup.GetTask<LoadPrimitiveExtensionTask>().Task;
+        var batch = new List<LocalPackage>();
+        async Task LoadBatchAsync()
+        {
+            await LoadPackagesAsync(batch, _manager.Prepare, primitives, prepared => _manager.Load(prepared), _logger, activity, Failures);
+            batch.Clear();
+        }
+
+        foreach (PackageIdentity package in installed)
+        {
+            if (await operations.TryApplyStagedExtensionUpdateAsync(package, host, LoadBatchAsync)) continue;
+            if (PackageManager.ReadInstalledPackage(package) is not { } item) continue;
+            if (failedPackageIds.Contains(item.Name))
+            {
+                _logger.LogWarning("Skipping package {PackageName} due to dependency re-resolution failure.", item.Name);
+                Failures.Add((item, new InvalidOperationException($"Dependency re-resolution failed for package '{item.Name}'.")));
+            }
+            else
+            {
+                batch.Add(item);
+            }
+        }
+        await LoadBatchAsync();
+    }
+
+    private async Task PrepareExternalUpdateAsync(Startup startup, PackageIdentity[] installed, NuGetVersion host)
+    {
+        GlobalConfiguration settings = GlobalConfiguration.Instance;
+        if (!settings.UpdateConfig.ShouldUpdateExtensions(true) || installed.Length == 0) return;
+        try
+        {
+            // External app updates have no preparation step in the old process.
+            if (NuGetVersion.TryParse(settings.LastStartedVersion, out var previous) && host > previous
+                && !installed.Any(p => PackageInstaller.FindStagedExtensionUpdate(p, host, includeStandalone: false) != null))
+            {
+                await startup.GetTask<AuthenticationTask>().Task;
+                await _manager.StageExtensionUpdatesAsync(host, appUpdate: true, CancellationToken.None);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not ObjectDisposedException)
+        {
+            _logger.LogWarning(ex, "Could not check for extension updates after the Beutl upgrade.");
+        }
+    }
 
     // Assemblies load in parallel; Load() then runs after loadAfter, one package at a time in name order.
     internal static async Task LoadPackagesAsync(

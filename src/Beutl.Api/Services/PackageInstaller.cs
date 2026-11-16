@@ -358,7 +358,8 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         PackageInstallContext context,
         bool useSavedSelection,
         ILogger? logger,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        SourceRepository? stagedSource = null)
     {
         PackageIdentity? package = null;
         try
@@ -390,7 +391,9 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                     // Installed packages come first. Re-resolving after a Beutl update must work from them:
                     // PackageTools.UI deletes the downloaded nupkg from the local source, and store packages
                     // are not on nuget.org.
-                    [CreateInstalledPackagesRepository(), .. repositories],
+                    stagedSource == null
+                        ? [CreateInstalledPackagesRepository(), .. repositories]
+                        : [stagedSource, CreateInstalledPackagesRepository(), .. repositories],
                     availablePackages,
                     selectedPackages,
                     cancellationToken)

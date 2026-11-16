@@ -125,6 +125,7 @@
   },
   "Update": {
     "AutoDownload": false,
+    "ExtensionUpdates": 1,
     "$type": "[Beutl.Configuration]:UpdateConfig"
   }
 }

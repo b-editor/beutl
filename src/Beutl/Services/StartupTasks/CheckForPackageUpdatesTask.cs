@@ -2,10 +2,12 @@
 using Avalonia.Threading;
 using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.Logging;
+using NuGet.Versioning;
 
 namespace Beutl.Services.StartupTasks;
 
@@ -20,10 +22,55 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
         : this(
             startup.WaitLoadingExtensions,
             () => startup.GetTask<LoadInstalledExtensionTask>().Failures,
-            packageManager.CheckUpdate,
+            token => CheckAndPrepareAsync(startup, packageManager, token),
             () => beutlApiApplication.IsDisposed,
             s_mismatchDeadline)
     {
+        _ = WatchAutomaticUpdatesAsync(startup, packageManager, beutlApiApplication);
+    }
+
+    private static async Task<IReadOnlyList<PackageUpdate>> CheckAndPrepareAsync(
+        Startup startup, PackageManager manager, CancellationToken token)
+    {
+        if (GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates.Value != ExtensionUpdateMode.Always
+            || startup.GetTask<CrashRecoveryPromptTask>().IsRestrictedMode)
+            return await manager.CheckUpdate(token);
+
+        await startup.GetTask<AuthenticationTask>().Task;
+        var result = await manager.StageExtensionUpdatesAsync(NuGetVersion.Parse(BeutlApplication.Version), false, token);
+        return result.Remaining;
+    }
+
+    private async Task WatchAutomaticUpdatesAsync(Startup startup, PackageManager manager, BeutlApiApplication app)
+    {
+        using var lifetime = app.CreateLifetimeLinkedTokenSource(default);
+        CancellationToken token = lifetime.Token;
+        using var changed = new SemaphoreSlim(0);
+        var setting = GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
+        using var subscription = setting.GetObservable().Skip(1)
+            .Where(mode => mode == ExtensionUpdateMode.Always).Subscribe(_ => changed.Release());
+        try
+        {
+            await Task.WaitAsync(token);
+            if (startup.GetTask<CrashRecoveryPromptTask>().IsRestrictedMode) return;
+            while (true)
+            {
+                await changed.WaitAsync(TimeSpan.FromHours(6), token);
+                if (setting.Value != ExtensionUpdateMode.Always) continue;
+                try
+                {
+                    await CheckAndPrepareAsync(startup, manager, token);
+                }
+                catch (Exception ex) when (!token.IsCancellationRequested)
+                {
+                    _logger.LogWarning(ex, "Could not check for automatic extension updates.");
+                }
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // The application is shutting down.
+        }
     }
 
     internal CheckForPackageUpdatesTask(

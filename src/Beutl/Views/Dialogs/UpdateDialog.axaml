@@ -29,6 +29,9 @@
                    Theme="{StaticResource CaptionTextBlockStyle}" />
         <!-- Selectable so the user can copy a command or an error message. -->
         <SelectableTextBlock Text="{Binding ProgressText.Value}" TextWrapping="Wrap" />
+        <TextBlock IsVisible="{Binding ExtensionUpdateSummary^, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                   Text="{Binding ExtensionUpdateSummary^}"
+                   TextWrapping="Wrap" />
         <ProgressBar IsIndeterminate="{Binding IsIndeterminate.Value}"
                      Maximum="{Binding ProgressMax.Value}"
                      Value="{Binding ProgressValue.Value}" />

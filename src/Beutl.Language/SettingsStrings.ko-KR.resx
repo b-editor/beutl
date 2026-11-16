@@ -820,4 +820,19 @@
   <data name="TerminalShellArgumentsDescription" xml:space="preserve">
     <value>한 줄에 인수 하나를 입력하세요. 줄 안의 공백은 그대로 전달됩니다.</value>
   </data>
+  <data name="ExtensionUpdates" xml:space="preserve">
+    <value>업데이트 시점</value>
+  </data>
+  <data name="ExtensionUpdates_Description" xml:space="preserve">
+    <value>자동 업데이트는 다음 실행 시 프로젝트를 열기 전에 적용됩니다.</value>
+  </data>
+  <data name="ExtensionUpdates_NotifyOnly" xml:space="preserve">
+    <value>알림만 받기</value>
+  </data>
+  <data name="ExtensionUpdates_WithAppUpdate" xml:space="preserve">
+    <value>Beutl과 함께 업데이트</value>
+  </data>
+  <data name="ExtensionUpdates_Always" xml:space="preserve">
+    <value>항상 자동 업데이트</value>
+  </data>
 </root>

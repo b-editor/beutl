@@ -40,13 +40,13 @@ internal static class TestStore
         Owned = true,
     };
 
-    public static ReleaseResponse CreateReleaseResponse(string version, string description = "", string? fileId = null) => new()
+    public static ReleaseResponse CreateReleaseResponse(string version, string description = "", string? fileId = null, string? targetVersion = null) => new()
     {
         Id = version,
         Version = version,
         Title = version,
         Description = description,
-        TargetVersion = null,
+        TargetVersion = targetVersion,
         FileId = fileId,
         FileUrl = null,
     };

@@ -553,4 +553,10 @@ Do you want to restart the application?</value>
   <data name="ReleaseNotes" xml:space="preserve">
     <value>Release notes</value>
   </data>
+  <data name="PreparingExtensionUpdates" xml:space="preserve">
+    <value>Preparing extension updates…</value>
+  </data>
+  <data name="ExtensionUpdatesIncluded" xml:space="preserve">
+    <value>Extension updates included ({0})</value>
+  </data>
 </root>

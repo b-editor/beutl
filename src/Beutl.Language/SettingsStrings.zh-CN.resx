@@ -820,4 +820,19 @@
   <data name="TerminalShellArgumentsDescription" xml:space="preserve">
     <value>每行输入一个参数。行内的空格会保留。</value>
   </data>
+  <data name="ExtensionUpdates" xml:space="preserve">
+    <value>更新时机</value>
+  </data>
+  <data name="ExtensionUpdates_Description" xml:space="preserve">
+    <value>自动更新将在下次启动时、打开项目之前应用。</value>
+  </data>
+  <data name="ExtensionUpdates_NotifyOnly" xml:space="preserve">
+    <value>仅通知</value>
+  </data>
+  <data name="ExtensionUpdates_WithAppUpdate" xml:space="preserve">
+    <value>随 Beutl 一起更新</value>
+  </data>
+  <data name="ExtensionUpdates_Always" xml:space="preserve">
+    <value>始终自动更新</value>
+  </data>
 </root>

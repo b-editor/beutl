@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Api;
 using Beutl.Api.Clients;
+using Beutl.Configuration;
 using Beutl.Language;
 using Beutl.Services;
 using Beutl.Testing.Headless;
@@ -60,7 +61,8 @@ public sealed class AppUpdateControllerTests
 
     // The installer type needs no unpacking, so it is ready as soon as it has downloaded.
     private static UpdateDialogViewModel ViewModel(
-        AppUpdateResponse update, HttpMessageHandler handler, string type = "installer", Func<bool>? claimUpdateFolders = null)
+        AppUpdateResponse update, HttpMessageHandler handler, string type = "installer", Func<bool>? claimUpdateFolders = null,
+        Func<string, CancellationToken, Task<int>>? prepareExtensions = null)
         => new(update, false, httpClient: new HttpClient(handler), loadMetadata: () => Task.FromResult<AssetMetadataJson?>(new AssetMetadataJson
         {
             Id = "test",
@@ -69,7 +71,63 @@ public sealed class AppUpdateControllerTests
             Version = "2.0.0",
             Standalone = "false",
             Type = type,
-        }), claimUpdateFolders: claimUpdateFolders);
+        }), claimUpdateFolders: claimUpdateFolders, prepareExtensions: prepareExtensions);
+
+    [AvaloniaTest]
+    [TestCase(ExtensionUpdateMode.NotifyOnly, 3, false)]
+    [TestCase(ExtensionUpdateMode.WithAppUpdate, 3, true)]
+    [TestCase(ExtensionUpdateMode.Always, 0, false)]
+    public async Task Ready_update_includes_only_prepared_extensions(ExtensionUpdateMode mode, int count, bool showCount)
+    {
+        var setting = GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
+        ExtensionUpdateMode previous = setting.Value;
+        try
+        {
+            setting.Value = mode;
+            string? requestedHost = null;
+            UpdateDialogViewModel? vm = null;
+            var controller = new AppUpdateController(update =>
+                vm = ViewModel(update, new Handler(HttpStatusCode.OK), prepareExtensions: (version, _) =>
+                {
+                    requestedHost = version;
+                    return Task.FromResult(count);
+                }));
+            controller.StartInBackground(Update());
+            await vm!.UpdateTask!;
+            HeadlessTestHelpers.Settle();
+            string? summary = showCount ? string.Format(MessageStrings.ExtensionUpdatesIncluded, count) : null;
+            Assert.That(requestedHost, Is.EqualTo(mode == ExtensionUpdateMode.NotifyOnly ? null : "2.0.0"));
+            Assert.That(vm.IncludedExtensions, Is.EqualTo(summary));
+            Assert.That(_shown.Single().Message, Is.EqualTo(showCount ? $"Beutl 2.0.0\n{summary}" : "Beutl 2.0.0"));
+
+            if (showCount)
+            {
+                var window = new Window { Width = 720, Height = 400 };
+                window.Show();
+                var dialog = new UpdateDialog { DataContext = vm };
+                Task closed = dialog.ShowAsync(window);
+                try
+                {
+                    HeadlessTestHelpers.Render(3);
+                    Assert.That(dialog.GetVisualDescendants().OfType<TextBlock>().Any(t => t.IsEffectivelyVisible && t.Text == summary), Is.True);
+                    HeadlessCapture.SaveIfRequested(window, "extension-updates", "ready");
+                    setting.Value = ExtensionUpdateMode.NotifyOnly;
+                    HeadlessTestHelpers.Render();
+                    Assert.That(dialog.GetVisualDescendants().OfType<TextBlock>().Any(t => t.IsEffectivelyVisible && t.Text == summary), Is.False);
+                }
+                finally
+                {
+                    dialog.Hide();
+                    await closed;
+                    window.Close();
+                }
+            }
+        }
+        finally
+        {
+            setting.Value = previous;
+        }
+    }
 
     [AvaloniaTest]
     public async Task AReadyUpdateOffersToInstallNowOrOnQuit()

@@ -80,6 +80,11 @@ internal static class TestPackages
         string extensibility = Compile(root, "Beutl.Extensibility", "namespace Beutl.Extensibility; public class NotInHost { }");
         string assembly = Compile(Path.Combine(root, "plugin"), "Incompatible",
             "public class Uses { public System.Type Type = typeof(Beutl.Extensibility.NotInHost); }", extensibility);
+        return CreateExtensionNupkg(identity, assembly);
+    }
+
+    public static byte[] CreateExtensionNupkg(PackageIdentity identity, string? assembly = null)
+    {
         string framework = Helper.GetFrameworkName().GetShortFolderName();
         using var stream = new MemoryStream();
         using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
@@ -93,13 +98,16 @@ internal static class TestPackages
                         <id>{{identity.Id}}</id>
                         <version>{{identity.Version}}</version>
                         <authors>tester</authors>
-                        <description>Uses an API the host lacks</description>
+                        <description>Test extension</description>
                         <dependencies><group targetFramework="{{framework}}" /></dependencies>
                       </metadata>
                     </package>
                     """);
             }
-            archive.CreateEntryFromFile(assembly, $"lib/{framework}/Incompatible.dll");
+            if (assembly != null)
+                archive.CreateEntryFromFile(assembly, $"lib/{framework}/{Path.GetFileName(assembly)}");
+            else
+                archive.CreateEntry($"lib/{framework}/_._");
         }
         return stream.ToArray();
     }

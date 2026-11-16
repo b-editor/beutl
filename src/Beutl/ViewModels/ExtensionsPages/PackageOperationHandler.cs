@@ -1,6 +1,7 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
@@ -10,6 +11,7 @@ using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
+using NuGet.Versioning;
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
@@ -40,6 +42,35 @@ internal class PackageOperationHandler
     public InstalledPackageRepository InstalledPackageRepository => _installedPackageRepository;
 
     public PackageChangesQueue Queue => _queue;
+
+    // Called before installed extensions load and projects reopen. Activation publishes the new
+    // registration only after the extension has loaded, so a failure leaves the old version available.
+    internal async Task<bool> TryApplyStagedExtensionUpdateAsync(PackageIdentity installed, NuGetVersion host, Func<Task> loadPreceding)
+    {
+        UpdateConfig policy = GlobalConfiguration.Instance.UpdateConfig;
+        if (!policy.ShouldUpdateExtensions(true)) return false;
+        using var lifetime = _app.CreateLifetimeLinkedTokenSource(default);
+        CancellationToken token = lifetime.Token;
+        try
+        {
+            if (PackageInstaller.FindStagedExtensionUpdate(installed, host, policy.ShouldUpdateExtensions(false)) is not { } update)
+                return false;
+            await loadPreceding();
+            using var lease = await _app.Lock.LockAsync(token);
+            if (!_installedPackageRepository.ExistsPackage(installed) || _queue.HasPendingChange(installed.Id)) return false;
+            await _packageInstaller.ResolveStagedExtensionAsync(update, token);
+            if (!policy.ShouldUpdateExtensions(update.WithAppUpdate)) return false;
+            await ActivateInstalledPackageAsync(update.Package, token);
+            DeleteVersionFiles([installed], s_logger);
+            return true;
+        }
+        catch (Exception ex) when (!token.IsCancellationRequested)
+        {
+            s_logger.LogWarning(ex, "Could not apply the staged update of {Package}.", installed.Id);
+            NotificationService.ShowWarning(string.Format(ExtensionsStrings.PackageNotUpdated, installed.Id), ex.Message);
+            return false;
+        }
+    }
 
     public async Task DownloadAndLoadPackage(
         Release release,
@@ -326,6 +357,10 @@ internal class PackageOperationHandler
                 {
                     PackageUninstallContext ctx = _packageInstaller.PrepareForUninstall(directory);
                     _packageInstaller.Uninstall(ctx, new Progress<double>());
+                }
+                else
+                {
+                    _packageInstaller.ClearStagedExtensionUpdates(item);
                 }
             }
             catch (Exception ex)

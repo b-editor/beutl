@@ -1,5 +1,6 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.ViewModels.ExtensionsPages;
 
 namespace Beutl.Services.StartupTasks;
 
@@ -31,6 +32,8 @@ public sealed class Startup
     {
         await Task.WhenAll(_tasks.Values.Select(v => v.Value.Task)).ConfigureAwait(false);
     }
+
+    internal PackageOperationHandler CreatePackageOperations() => new(_apiApp, _editorService, _projectService);
 
     public async Task WaitLoadingExtensions()
     {

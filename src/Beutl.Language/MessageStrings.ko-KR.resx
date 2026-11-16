@@ -554,4 +554,10 @@
   <data name="ReleaseNotes" xml:space="preserve">
     <value>릴리스 노트</value>
   </data>
+  <data name="PreparingExtensionUpdates" xml:space="preserve">
+    <value>확장 기능 업데이트를 준비하는 중…</value>
+  </data>
+  <data name="ExtensionUpdatesIncluded" xml:space="preserve">
+    <value>확장 기능 {0}개도 함께 업데이트합니다.</value>
+  </data>
 </root>

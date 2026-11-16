@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Reactive.Linq;
 using Beutl.Api.Clients;
+using NuGet.Versioning;
 using Reactive.Bindings;
 
 namespace Beutl.Api.Objects;
@@ -40,6 +41,10 @@ public class Release
     public IReadOnlyReactiveProperty<string?> TargetVersion { get; }
 
     public IReadOnlyReactiveProperty<string?> AssetId { get; }
+
+    internal bool SupportsHost(NuGetVersion version)
+        => TargetVersion.Value is not { } target
+           || !VersionRange.TryParse(target, out VersionRange? range) || range.Satisfies(version);
 
     public async Task RefreshAsync(CancellationToken cancellationToken)
     {

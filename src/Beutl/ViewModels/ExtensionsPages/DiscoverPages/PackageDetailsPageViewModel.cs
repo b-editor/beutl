@@ -121,16 +121,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                 string beutlVersion = BeutlApplication.Version;
 
-                if (v.TargetVersion?.Value is { } target
-                    && VersionRange.TryParse(target, out VersionRange? versionRange)
-                    && NuGetVersion.TryParse(beutlVersion, out NuGetVersion? version))
-                {
-                    return versionRange.Satisfies(version);
-                }
-                else
-                {
-                    return true;
-                }
+                return !NuGetVersion.TryParse(beutlVersion, out NuGetVersion? version) || v.SupportsHost(version);
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);

@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Controls.Navigation;
 
 using DynamicData;
@@ -65,6 +66,8 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext, IDisposable
     public EditorExtensionPriorityPageViewModel EditorPriority => _editorPriority ??= new(_extensionProvider);
 
     public DecoderPriorityPageViewModel DecoderPriority => _decoderPriority ??= new();
+
+    public IProperty<ExtensionUpdateMode> ExtensionUpdates => GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
 
     public AsyncReactiveCommand NavigateToEditorPriority { get; }
 

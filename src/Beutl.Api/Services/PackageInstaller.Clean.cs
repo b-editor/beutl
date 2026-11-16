@@ -160,6 +160,7 @@ public partial class PackageInstaller
                 continue;
             }
 
+            ClearStagedExtensionUpdates(package);
             if (!Directory.Exists(directory))
             {
                 // The files are already gone, so the repository entry would outlive them.

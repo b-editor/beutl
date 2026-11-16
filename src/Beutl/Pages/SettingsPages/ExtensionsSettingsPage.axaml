@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Pages.SettingsPages.ExtensionsSettingsPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:config="using:Beutl.Configuration"
              xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -27,6 +28,18 @@
                         Spacing="4">
                 <Border Classes="options-group">
                     <ctrls:OptionsGroupPanel>
+                        <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ExtensionUpdates_Description}"
+                                                  Header="{x:Static lang:SettingsStrings.ExtensionUpdates}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ComboBox AutomationProperties.Name="{x:Static lang:SettingsStrings.ExtensionUpdates}"
+                                          SelectedValue="{Binding ExtensionUpdates.Value, Mode=TwoWay}"
+                                          SelectedValueBinding="{ReflectionBinding Tag}">
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.ExtensionUpdates_NotifyOnly}" Tag="{x:Static config:ExtensionUpdateMode.NotifyOnly}" />
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.ExtensionUpdates_WithAppUpdate}" Tag="{x:Static config:ExtensionUpdateMode.WithAppUpdate}" />
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.ExtensionUpdates_Always}" Tag="{x:Static config:ExtensionUpdateMode.Always}" />
+                                </ComboBox>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
                         <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.Editor_Extension_Priority}"
                                                   Navigates="True"
                                                   NavigationCommand="{Binding NavigateToEditorPriority}">

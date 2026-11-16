@@ -4,10 +4,13 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.Api;
 using Beutl.Api.Clients;
+using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Services;
 using Beutl.Utilities;
 using Microsoft.Extensions.Logging;
+using NuGet.Versioning;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
@@ -32,6 +35,8 @@ public class UpdateDialogViewModel
     private readonly HttpClient? _httpClient;
     private readonly Func<Task<AssetMetadataJson?>> _loadMetadata;
     private readonly Func<bool> _claimUpdateFolders;
+    private readonly Func<string, CancellationToken, Task<int>>? _prepareExtensions;
+    private readonly ReactivePropertySlim<int> _preparedExtensionCount = new();
     private Task? _startTask;
     private string? _downloadFile;
     private bool _isInstalling;
@@ -40,12 +45,23 @@ public class UpdateDialogViewModel
 
     public UpdateDialogViewModel(AppUpdateResponse update) : this(update, FlatpakUpdater.IsRunning)
     {
+        if (MainViewModel.TryGetCurrent(out var main))
+        {
+            _prepareExtensions = async (version, token) =>
+            {
+                if (!NuGetVersion.TryParse(version, out var host)) return 0;
+                var manager = main._beutlClients.GetResource<PackageManager>();
+                var result = await manager.StageExtensionUpdatesAsync(host, appUpdate: true, token);
+                return result.Staged;
+            };
+        }
     }
 
     // Test seam: the app passes neither flatpak nor httpClient and uses the defaults.
     internal UpdateDialogViewModel(AppUpdateResponse update, bool isFlatpak,
         FlatpakUpdater? flatpak = null, HttpClient? httpClient = null,
-        Func<Task<AssetMetadataJson?>>? loadMetadata = null, Func<bool>? claimUpdateFolders = null)
+        Func<Task<AssetMetadataJson?>>? loadMetadata = null, Func<bool>? claimUpdateFolders = null,
+        Func<string, CancellationToken, Task<int>>? prepareExtensions = null)
     {
         Update = update;
         IsFlatpak = isFlatpak;
@@ -53,6 +69,9 @@ public class UpdateDialogViewModel
         _httpClient = httpClient;
         _loadMetadata = loadMetadata ?? BeutlApiApplication.LoadMetadata;
         _claimUpdateFolders = claimUpdateFolders ?? ClaimUpdateFolders;
+        _prepareExtensions = prepareExtensions;
+        ExtensionUpdateSummary = _preparedExtensionCount.CombineLatest(
+            GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates.GetObservable(), (_, _) => IncludedExtensions);
         PrimaryButtonText = new(isFlatpak
             ? ""
             : OperatingSystem.IsWindows()
@@ -63,6 +82,13 @@ public class UpdateDialogViewModel
     public AppUpdateResponse Update { get; set; }
 
     public ReactiveProperty<string> ProgressText { get; } = new();
+
+    public IObservable<string?> ExtensionUpdateSummary { get; }
+
+    internal string? IncludedExtensions =>
+        _preparedExtensionCount.Value > 0 && GlobalConfiguration.Instance.UpdateConfig.ShouldUpdateExtensions(true)
+            ? string.Format(MessageStrings.ExtensionUpdatesIncluded, _preparedExtensionCount.Value)
+            : null;
 
     public ReactiveProperty<double> ProgressValue { get; } = new();
 
@@ -333,6 +359,8 @@ public class UpdateDialogViewModel
             try
             {
                 result = await PrepareUpdateAsync();
+                if (result is AppUpdatePhase.Ready or AppUpdatePhase.Completed)
+                    await PrepareExtensionUpdatesAsync();
             }
             catch (Exception ex)
             {
@@ -355,11 +383,37 @@ public class UpdateDialogViewModel
                     break;
                 case AppUpdatePhase.Ready:
                     SecondaryButtonText.Value = MessageStrings.UpdateAction_UpdateOnQuit;
+                    IsPrimaryButtonEnabled.Value = true;
                     break;
             }
 
             Phase.Value = result;
         });
+    }
+
+    private async Task PrepareExtensionUpdatesAsync()
+    {
+        if (_prepareExtensions == null || !GlobalConfiguration.Instance.UpdateConfig.ShouldUpdateExtensions(true)) return;
+        string previous = ProgressText.Value;
+        ProgressText.Value = MessageStrings.PreparingExtensionUpdates;
+        IsIndeterminate.Value = true;
+        try
+        {
+            _preparedExtensionCount.Value = await _prepareExtensions(Update.LatestVersion, _cts.Token);
+        }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        {
+            // Cancel already withdrew the app update.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not prepare extension updates alongside Beutl.");
+        }
+        finally
+        {
+            IsIndeterminate.Value = false;
+            ProgressText.Value = _cts.IsCancellationRequested ? MessageStrings.Canceled : previous;
+        }
     }
 
     public void Retry()
@@ -446,7 +500,6 @@ public class UpdateDialogViewModel
         {
             ProgressText.Value = MessageStrings.StartInstaller;
             PrimaryButtonText.Value = MessageStrings.UpdateAction_StartInstaller;
-            IsPrimaryButtonEnabled.Value = true;
             return AppUpdatePhase.Ready;
         }
 
@@ -530,7 +583,6 @@ public class UpdateDialogViewModel
         if (!result) return false;
 
         ProgressText.Value = MessageStrings.ApplicationRestartRequired;
-        IsPrimaryButtonEnabled.Value = true;
         return true;
     }
 

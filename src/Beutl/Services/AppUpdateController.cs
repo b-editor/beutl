@@ -183,7 +183,9 @@ internal sealed class AppUpdateController
             case AppUpdatePhase.Ready:
                 NotificationService.Show(new Notification(
                     MessageStrings.UpdateReady_Title,
-                    GetVersionLabel(viewModel.Update.LatestVersion),
+                    viewModel.IncludedExtensions is { } summary
+                        ? $"{GetVersionLabel(viewModel.Update.LatestVersion)}\n{summary}"
+                        : GetVersionLabel(viewModel.Update.LatestVersion),
                     NotificationType.Success,
                     s_readyNotificationDuration,
                     Actions: CreateReadyActions(viewModel))
