@@ -293,7 +293,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         {
             _nativeBrowserHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
                 OnGeneratedDownload, OnNativeNavigationCommitted, OnNativeNavigationStarted, OnNativeNavigationFailed,
-                OnNativeNewWindowRequested, OnWindowOpened);
+                OnNativeHistoryChanged, OnNativeNewWindowRequested, OnWindowOpened);
         }
         else if (OperatingSystem.IsWindows())
         {

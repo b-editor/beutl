@@ -49,7 +49,8 @@ internal sealed class WebBrowserTabViewModel : IToolContext
         _editorContext = editorContext;
         _instanceNumber = Interlocked.Increment(ref s_lastInstanceNumber);
 
-        _currentUri = new ReactivePropertySlim<Uri>(initialUri);
+        // Uri.Equals ignores the fragment, which can distinguish two browser history entries.
+        _currentUri = new ReactivePropertySlim<Uri>(initialUri, equalityComparer: ReferenceEqualityComparer.Instance);
         _address = new ReactivePropertySlim<string>(FormatAddress(initialUri));
         _header = _currentUri
             .CombineLatest(_pageTitle, BuildHeader)

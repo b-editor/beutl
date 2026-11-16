@@ -18,13 +18,15 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private static readonly Dictionary<nint, MacOSBrowserDownloadHandler> s_handlers = [];
     private static readonly nint s_responsePolicy = Selector("webView:decidePolicyForNavigationResponse:decisionHandler:");
     private static readonly nint s_respondsToSelector = Selector("respondsToSelector:");
+    private static readonly string[] s_historyKeys = ["loading", "canGoBack", "canGoForward"];
     private static readonly nint s_delegateClass = CreateDelegateClass();
     private static readonly nint s_uiDelegateClass = CreateUIDelegateClass();
     private readonly Action<Uri, string, IBrowserDownloadSource> _onDownload;
     private readonly Action<Uri?, string, IBrowserDownloadSource, Uri?> _onGeneratedDownload;
     private readonly Action<Uri> _onNavigationCommitted;
-    private readonly Action _onNavigationStarted;
+    private readonly Action<bool> _onNavigationStarted;
     private readonly Action _onNavigationFailed;
+    private readonly Action<Uri?> _onHistoryChanged;
     private readonly Action<Uri, string?> _onNewWindowRequested;
     private readonly Action<Uri> _onWindowOpened;
     private readonly Dictionary<nint, NativeDownload> _pendingDownloads = [];
@@ -38,10 +40,12 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private nint _loadingNavigation;
     private nint _delegate;
     private nint _uiDelegate;
+    private bool _awaitingHistoryLoad;
 
     private MacOSBrowserDownloadHandler(nint webView, Action<Uri, string, IBrowserDownloadSource> onDownload,
-        Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload, Action<Uri> onNavigationCommitted, Action onNavigationStarted,
-        Action onNavigationFailed, Action<Uri, string?> onNewWindowRequested, Action<Uri> onWindowOpened)
+        Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload, Action<Uri> onNavigationCommitted,
+        Action<bool> onNavigationStarted, Action onNavigationFailed, Action<Uri?> onHistoryChanged,
+        Action<Uri, string?> onNewWindowRequested, Action<Uri> onWindowOpened)
     {
         _webView = webView;
         _onDownload = onDownload;
@@ -49,12 +53,15 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         _onNavigationCommitted = onNavigationCommitted;
         _onNavigationStarted = onNavigationStarted;
         _onNavigationFailed = onNavigationFailed;
+        _onHistoryChanged = onHistoryChanged;
         _onNewWindowRequested = onNewWindowRequested;
         _onWindowOpened = onWindowOpened;
         _originalDelegate = Send(Send(webView, Selector("navigationDelegate")), Selector("retain"));
         _delegate = Send(s_delegateClass, Selector("new"));
         s_handlers.Add(_delegate, this);
         SendVoid(webView, Selector("setNavigationDelegate:"), _delegate);
+        foreach (string key in s_historyKeys)
+            AddObserver(webView, Selector("addObserver:forKeyPath:options:context:"), _delegate, AutoreleasedString(key), 0, 0);
         // Avalonia sets no UI delegate, which leaves a page's window.open() with nothing to open.
         if (Send(webView, Selector("UIDelegate")) == 0)
         {
@@ -65,19 +72,22 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     }
 
     internal static MacOSBrowserDownloadHandler? TryAttach(IPlatformHandle? handle, Action<Uri, string, IBrowserDownloadSource> onDownload,
-        Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload, Action<Uri> onNavigationCommitted, Action onNavigationStarted,
-        Action onNavigationFailed, Action<Uri, string?> onNewWindowRequested, Action<Uri> onWindowOpened)
+        Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload, Action<Uri> onNavigationCommitted,
+        Action<bool> onNavigationStarted, Action onNavigationFailed, Action<Uri?> onHistoryChanged,
+        Action<Uri, string?> onNewWindowRequested, Action<Uri> onWindowOpened)
     {
         if (handle is not IAppleWKWebViewPlatformHandle apple) return null;
         nint webView = apple.GetWKWebViewRetained();
         return webView == 0 ? null
             : new MacOSBrowserDownloadHandler(webView, onDownload, onGeneratedDownload, onNavigationCommitted, onNavigationStarted,
-                onNavigationFailed, onNewWindowRequested, onWindowOpened);
+                onNavigationFailed, onHistoryChanged, onNewWindowRequested, onWindowOpened);
     }
 
     public void Dispose()
     {
         if (_webView == 0) return;
+        foreach (string key in s_historyKeys)
+            SendVoid(_webView, Selector("removeObserver:forKeyPath:"), _delegate, AutoreleasedString(key));
         // Keep the WebView alive until its original delegate has been restored.
         if (Send(_webView, Selector("navigationDelegate")) == _delegate)
             SendVoid(_webView, Selector("setNavigationDelegate:"), _originalDelegate);
@@ -119,6 +129,8 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
             (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, void>)&OnNavigationCommitted, "v@:@@");
         class_addMethod(type, Selector("webView:didStartProvisionalNavigation:"),
             (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, void>)&OnNavigationStarted, "v@:@@");
+        class_addMethod(type, Selector("observeValueForKeyPath:ofObject:change:context:"),
+            (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, nint, nint, void>)&OnHistoryChanged, "v@:@@@^v");
         class_addMethod(type, Selector("webView:didFailProvisionalNavigation:withError:"),
             (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, nint, void>)&OnNavigationFailed, "v@:@@@");
         class_addMethod(type, Selector("webView:didFailNavigation:withError:"),
@@ -283,6 +295,37 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         SendVoid(download, Selector("cancel:"), 0);
     }
 
+    // A history traversal can restore an entry in the same document. Only a provisional navigation
+    // starts a new page load. For a same-document traversal WKWebView just becomes idle again.
+    internal bool NavigateHistory(Func<bool> navigate)
+    {
+        _awaitingHistoryLoad = true;
+        if (navigate()) return true;
+        _awaitingHistoryLoad = false;
+        return false;
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnHistoryChanged(nint self, nint selector, nint keyPath, nint webView, nint change, nint context)
+    {
+        if (!s_handlers.TryGetValue(self, out var handler)) return;
+        try
+        {
+            Uri? restored = null;
+            if (ToManagedString(keyPath) == "loading")
+            {
+                if (!handler._awaitingHistoryLoad || SendBool(webView, Selector("isLoading"))) return;
+                handler._awaitingHistoryLoad = false;
+                Uri.TryCreate(ToManagedString(Send(Send(webView, Selector("URL")), Selector("absoluteString"))), UriKind.Absolute, out restored);
+            }
+            handler._onHistoryChanged(restored);
+        }
+        catch
+        {
+            // Exceptions must not escape the native observer.
+        }
+    }
+
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static void OnNavigationStarted(nint self, nint selector, nint webView, nint navigation)
     {
@@ -291,7 +334,9 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         {
             handler._cancellations.BeginNavigation(navigation);
             handler._loadingNavigation = navigation;
-            handler._onNavigationStarted();
+            bool history = handler._awaitingHistoryLoad;
+            handler._awaitingHistoryLoad = false;
+            handler._onNavigationStarted(history);
         }
         catch
         {
@@ -449,6 +494,9 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
 
     [LibraryImport(LibObjC, StringMarshalling = StringMarshalling.Utf8)]
     private static partial nint objc_allocateClassPair(nint superclass, string name, nuint extraBytes);
+
+    [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
+    private static partial void AddObserver(nint receiver, nint selector, nint observer, nint keyPath, nuint options, nint context);
 
     [LibraryImport(LibObjC)]
     private static partial void objc_registerClassPair(nint type);

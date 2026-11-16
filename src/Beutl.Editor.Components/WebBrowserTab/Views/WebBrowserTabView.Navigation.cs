@@ -34,10 +34,10 @@ internal partial class WebBrowserTabView
         if (uri != WebBrowserTabViewModel.BlankPage) _openerPageCommitted = true;
     }
 
-    internal void OnNativeNavigationStarted()
+    internal void OnNativeNavigationStarted(bool history = false)
     {
         if (_disposed) return;
-        InvalidatePageDownloadRequests();
+        InvalidatePageDownloadRequests(navigationStarted: history);
         if (_adBlockSession?.IsPreparing != true) _viewModel?.BeginNavigation();
     }
 
@@ -49,6 +49,19 @@ internal partial class WebBrowserTabView
             Request = _latestNavigationRequest ?? _viewModel.CurrentUri,
             IsSuccess = false
         });
+    }
+
+    private void OnNativeHistoryChanged(Uri? restored)
+    {
+        if (_disposed || _viewModel == null || _webView == null || _adBlockSession?.IsPreparing == true) return;
+        if (restored == null)
+        {
+            UpdateHistoryState();
+            return;
+        }
+        _viewModel.CompleteNavigation(restored, true, _webView.CanGoBack, _webView.CanGoForward);
+        UpdateBlankPageState();
+        _ = UpdatePageTitleAsync(restored);
     }
 
     internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
@@ -355,15 +368,25 @@ internal partial class WebBrowserTabView
 
     private void OnBackClick(object? sender, RoutedEventArgs e)
     {
-        CloseBrowserPanel();
-        if (_webView != null && StartNativePageNavigation(_webView.GoBack)) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
-        UpdateHistoryState();
+        if (_webView != null) NavigateHistory(_webView.GoBack);
     }
 
     private void OnForwardClick(object? sender, RoutedEventArgs e)
     {
+        if (_webView != null) NavigateHistory(_webView.GoForward);
+    }
+
+    private void NavigateHistory(Func<bool> navigate)
+    {
         CloseBrowserPanel();
-        if (_webView != null && StartNativePageNavigation(_webView.GoForward)) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
+        if (OperatingSystem.IsMacOS() && _nativeBrowserHandler is MacOSBrowserDownloadHandler mac)
+        {
+            if (mac.NavigateHistory(navigate)) _openerNavigation = null;
+        }
+        else if (StartNativePageNavigation(navigate))
+        {
+            _viewModel?.BeginNavigation(_viewModel.CurrentUri);
+        }
         UpdateHistoryState();
     }
 
