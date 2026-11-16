@@ -189,7 +189,13 @@ public class WebBrowserDownloadTests
         using var client = new HttpClient(handler);
         view.MediaDownloader = new BrowserMediaDownload(client);
         view.DownloadCookiesProvider = (_, _) => throw new AssertionException("A POST response must not be requested again.");
-        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        // Counted because a retry that got through would fail quietly at the cookie provider above, before any request.
+        int optionRequests = 0;
+        view.DownloadOptionsSelector = (_, _) =>
+        {
+            optionRequests++;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        };
         var source = new ResponseDownloadSource("Morning.mp3", "POST");
         var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
@@ -231,6 +237,7 @@ public class WebBrowserDownloadTests
             retry.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             Dispatcher.UIThread.RunJobs();
             Assert.That(handler.Requests, Is.Zero);
+            Assert.That(optionRequests, Is.EqualTo(1), "the retry never starts a download");
             Assert.That(profile.Downloads, Has.Count.EqualTo(1));
         }
         finally { window.Close(); }
