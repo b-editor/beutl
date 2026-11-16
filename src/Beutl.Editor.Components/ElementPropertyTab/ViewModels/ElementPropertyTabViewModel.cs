@@ -59,6 +59,17 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
             .ToReadOnlyReactivePropertySlim(Strings.ElementProperty)
             .DisposeWith(_disposables)!;
 
+        Items.CollectionChangedAsObservable()
+            .Select(_ => Items.Select(item => item.IsShown).CombineLatest())
+            .Switch()
+            .Subscribe(_ =>
+            {
+                var last = Items.LastOrDefault(item => item.IsShown.Value);
+                foreach (var item in Items)
+                    item.IsLastShown.Value = item == last;
+            })
+            .DisposeWith(_disposables);
+
         Element.Subscribe(OnElementChanged).DisposeWith(_disposables);
         DisplayedElement.Subscribe(OnDisplayedElementChanged).DisposeWith(_disposables);
 
