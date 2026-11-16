@@ -347,7 +347,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
                 && handler._cancellations.Current != 0
                 && Uri.TryCreate(address, UriKind.Absolute, out Uri? uri)
                 && SendBool(response, s_respondsToSelector, Selector("statusCode"))
-                && handler._navigation.IsCompleteGetResponse(uri, Send(response, Selector("statusCode")))
+                && handler._navigation.GetCompleteResponseMethod(uri, Send(response, Selector("statusCode"))) is { } method
                 && BrowserMediaDownload.IsDownloadResponse(mediaType,
                     SendBool(navigationResponse, Selector("canShowMIMEType")), GetHeader(response, "Content-Disposition"))
                 && BrowserMediaDownload.GetResponseFileName(uri,
@@ -355,7 +355,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
             {
                 nint navigation = handler._cancellations.Current;
                 if (handler._cancellations.MarkCanceled(navigation)) canceledNavigation = navigation;
-                source = new NativeDownload(name, ToManagedString(Send(response, Selector("textEncodingName"))), uri);
+                source = new NativeDownload(name, ToManagedString(Send(response, Selector("textEncodingName"))), uri, method);
                 // WebKit retains this same response for didBecomeDownload. Keep its wrapper alive
                 // so simultaneous conversions are matched by object identity, never by URL.
                 handler._pendingDownloads.Add(Send(navigationResponse, Selector("retain")), source);

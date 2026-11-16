@@ -268,6 +268,8 @@ internal partial class WebBrowserTabView
     private void OnRetryHistoryClick(object? sender, RoutedEventArgs e) => WithHistoryRecord(sender,
         record =>
         {
+            // A form's response or a generated file has no address that answers a GET with the same file.
+            if (!record.CanRequestAgain) return;
             Uri.TryCreate(record.Referrer, UriKind.Absolute, out Uri? referrer);
             _ = DownloadMediaAsync(new Uri(record.Url), Path.GetFileName(record.FilePath), referrer, record.ReferrerPolicy);
         });

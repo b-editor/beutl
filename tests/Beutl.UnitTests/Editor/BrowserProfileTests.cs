@@ -47,6 +47,31 @@ public class BrowserProfileTests
     }
 
     [Test]
+    public void ResponsesToAFormPostKeepTheirMethodAndCannotBeRequestedAgain()
+    {
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
+        string path = Path.Combine(root, "profile.json");
+        var profile = new BrowserProfile(path);
+        var endpoint = new Uri("https://page.example/post");
+        profile.AddDownload(new Uri("https://example.com/clip.mp4"), Path.Combine(root, "clip.mp4"), method: "GET");
+        profile.AddDownload(endpoint, Path.Combine(root, "Morning.mp3"), method: "POST");
+
+        var restored = new BrowserProfile(path);
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.Downloads.Select(record => (record.Url, record.Method, record.CanRequestAgain)), Is.EqualTo(new[]
+            {
+                (endpoint.AbsoluteUri, (string?)"POST", false),
+                ("https://example.com/clip.mp4", null, true)
+            }));
+            // A GET, and every record saved before the method was kept, omits it.
+            Assert.That(File.ReadAllText(path), Does.Contain("\"Method\":\"POST\"").And.Not.Contain("\"Method\":\"GET\"")
+                .And.Not.Contain("\"Method\":null").And.Not.Contain("CanRequestAgain"));
+        });
+    }
+
+    [Test]
     public void Profile_RoundTripsSettingsBookmarksAndDownloads_AndClearsOnlyHistory()
     {
         using var temporary = new TemporaryDirectory();

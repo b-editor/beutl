@@ -26,12 +26,14 @@ internal sealed partial class MacOSBrowserDownloadHandler
         private DispatcherTimer? _progressTimer;
         private bool _saving;
 
-        // A response, named from its headers before WebKit turns it into a download.
-        internal NativeDownload(string fileName, string? charset, Uri origin)
+        // A response, named from its headers before WebKit turns it into a download. WebKit transfers the response it
+        // already received, so the request is not sent again, whatever its method.
+        internal NativeDownload(string fileName, string? charset, Uri origin, string method)
         {
             _fileName = fileName;
             _charset = charset;
             _origin = origin;
+            RequestMethod = method == "GET" ? null : method;
         }
 
         // A file the page generated, which WebKit names only when it asks where to save it. It is offered then.
@@ -44,6 +46,8 @@ internal sealed partial class MacOSBrowserDownloadHandler
         internal bool IsDisposed { get; private set; }
 
         public bool IsGenerated => _offerGenerated != null;
+
+        public string? RequestMethod { get; }
 
         internal void Attach(nint download)
         {

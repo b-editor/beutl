@@ -647,7 +647,8 @@ internal partial class WebBrowserTabView
             if (_disposed || !ReferenceEquals(_viewModel, vm)) return;
             DownloadStatusText.Text = string.Format(Strings.WebDownloadComplete, Path.GetFileName(file));
             ToolTip.SetTip(DownloadStatusText, file);
-            CheckProfileSave(vm.Profile.AddDownload(uri, file, referrer, referrerPolicy, source?.IsGenerated == true));
+            CheckProfileSave(vm.Profile.AddDownload(uri, file, referrer, referrerPolicy, source?.IsGenerated == true,
+                source?.RequestMethod));
             if (options.AddToTimeline && (handling != null || vm.CanAddDownloadedFile(file)))
             {
                 try
