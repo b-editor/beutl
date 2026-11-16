@@ -26,6 +26,14 @@ internal sealed record BrowserDownloadRecord(string Url, string FilePath, DateTi
     // A page script generated the file, so Url is the site credited with it and the file cannot be downloaded again.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Generated { get; init; }
+
+    // The method of the request the file answered when it was not a GET, such as a form's POST. Url is where it was
+    // sent, and the file cannot be downloaded again without submitting the form a second time.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Method { get; init; }
+
+    [JsonIgnore]
+    public bool CanRequestAgain => !Generated && Method == null;
 }
 
 internal sealed class BrowserProfile
@@ -148,14 +156,15 @@ internal sealed class BrowserProfile
     }
 
     internal bool AddDownload(Uri uri, string file, Uri? referrer = null, BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin,
-        bool generated = false)
+        bool generated = false, string? method = null)
     {
         if (!RecordDownloads || !IsAllowedUrl(uri.AbsoluteUri)) return true;
         var item = new BrowserDownloadRecord(uri.AbsoluteUri, Path.GetFullPath(file), DateTimeOffset.UtcNow)
         {
             Referrer = BrowserMediaDownload.NormalizeReferrer(referrer, uri)?.AbsoluteUri,
             ReferrerPolicy = referrerPolicy,
-            Generated = generated
+            Generated = generated,
+            Method = method is null or "GET" ? null : method
         };
         if (!Save(Snapshot() with { Downloads = Downloads.Prepend(item).Take(MaxEntries).ToArray() })) return false;
         Downloads.Insert(0, item);

@@ -172,6 +172,77 @@ public class WebBrowserDownloadTests
         Assert.That(vm.CurrentUri, Is.EqualTo(page));
     }
 
+    // A form's POST answered with the file itself. WebKit hands that response over; nothing is requested again, now or
+    // from the download history, and the form page stays the tab's page.
+    [AvaloniaTest]
+    public async Task PostResponseIsSavedFromTheEngineAndIsNeverRetried()
+    {
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
+        var page = new Uri("https://page.example/form");
+        var endpoint = new Uri("https://page.example/post");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page, profile);
+        using var view = CreateView(vm, includesSubframes: true);
+        view.OnNativeNavigationCommitted(page);
+        using var handler = new ExpiredDownloadHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadCookiesProvider = (_, _) => throw new AssertionException("A POST response must not be requested again.");
+        // Counted because a retry that got through would fail quietly at the cookie provider above, before any request.
+        int optionRequests = 0;
+        view.DownloadOptionsSelector = (_, _) =>
+        {
+            optionRequests++;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        };
+        var source = new ResponseDownloadSource("Morning.mp3", "POST");
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        var window = new Window { Width = 640, Height = 640, Content = view };
+        try
+        {
+            window.Show();
+            view.OnNativeNavigationStarted();
+            view.OnNativeDownloadRequested(endpoint, "Morning.mp3", source);
+            Dispatcher.UIThread.RunJobs();
+            var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+            Assert.That(confirm.IsVisible, Is.True);
+            confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            BrowserDownloadRecord record = profile.Downloads.Single();
+            var saved = new JsonObject();
+            vm.WriteToJson(saved);
+            Assert.Multiple(() =>
+            {
+                Assert.That(handler.Requests, Is.Zero);
+                Assert.That(source.Saves, Is.EqualTo(1));
+                Assert.That(source.IsDisposed, Is.True);
+                Assert.That(File.ReadAllBytes(record.FilePath), Is.EqualTo(new byte[] { 1, 2, 3 }));
+                Assert.That(record.Url, Is.EqualTo(endpoint.AbsoluteUri));
+                Assert.That(record.Method, Is.EqualTo("POST"));
+                Assert.That(record.CanRequestAgain, Is.False);
+                Assert.That(vm.CurrentUri, Is.EqualTo(page));
+                Assert.That(saved["source"]!.GetValue<string>(), Is.EqualTo(page.AbsoluteUri));
+            });
+
+            // The history has no retry for it, and a retry that reaches the view anyway sends nothing.
+            var menu = (FAMenuFlyout)view.FindControl<Button>("BrowserMenuButton")!.Flyout!;
+            menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Beutl.Language.Strings.BrowserDownloads)
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            Button retry = view.FindControl<ContentControl>("ToolPanelContent")!.GetVisualDescendants().OfType<Button>()
+                .Single(button => Equals(ToolTip.GetTip(button), Beutl.Language.Strings.BrowserRetry));
+            Assert.That(retry.IsVisible, Is.False);
+            retry.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            Assert.That(handler.Requests, Is.Zero);
+            Assert.That(optionRequests, Is.EqualTo(1), "the retry never starts a download");
+            Assert.That(profile.Downloads, Has.Count.EqualTo(1));
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTest]
     [TestCase("dismiss")]
     [TestCase("replace")]
@@ -2218,10 +2289,12 @@ public class WebBrowserDownloadTests
         public void Dispose() => IsDisposed = true;
     }
 
-    private sealed class ResponseDownloadSource(string name) : IBrowserDownloadSource
+    private sealed class ResponseDownloadSource(string name, string? method = null) : IBrowserDownloadSource
     {
         internal bool IsDisposed { get; private set; }
         internal int Saves { get; private set; }
+
+        public string? RequestMethod => method;
 
         public async Task<string> SaveAsync(string directory, IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken)
         {
