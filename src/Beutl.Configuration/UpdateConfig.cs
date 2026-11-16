@@ -2,6 +2,13 @@
 
 namespace Beutl.Configuration;
 
+public enum ExtensionUpdateMode
+{
+    NotifyOnly,
+    WithAppUpdate,
+    Always,
+}
+
 public sealed partial class UpdateConfig : ConfigurationBase
 {
     public UpdateConfig()
@@ -12,6 +19,12 @@ public sealed partial class UpdateConfig : ConfigurationBase
     // Whether an update found at startup downloads in the background without being asked. Installing it still waits
     // for the user.
     public IProperty<bool> AutoDownload { get; } = Property.CreateValue(true);
+
+    public IProperty<ExtensionUpdateMode> ExtensionUpdates { get; } = Property.CreateValue(ExtensionUpdateMode.WithAppUpdate);
+
+    public bool ShouldUpdateExtensions(bool appUpdate)
+        => ExtensionUpdates.Value == ExtensionUpdateMode.Always
+           || (appUpdate && ExtensionUpdates.Value == ExtensionUpdateMode.WithAppUpdate);
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {

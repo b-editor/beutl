@@ -43,11 +43,11 @@ public class Release
 
     public IReadOnlyReactiveProperty<string?> AssetId { get; }
 
-    internal bool CanInstall(NuGetVersion? newerThan = null)
+    internal bool CanInstall(NuGetVersion? newerThan = null, NuGetVersion? host = null)
     {
         return NuGetVersion.TryParse(Version.Value, out NuGetVersion? version)
             && (newerThan is null || version > newerThan)
-            && PackageCompatibility.SupportsCurrentBeutlVersion(TargetVersion.Value);
+            && PackageCompatibility.SupportsBeutlVersion(TargetVersion.Value, host);
     }
 
     public async Task RefreshAsync(CancellationToken cancellationToken)

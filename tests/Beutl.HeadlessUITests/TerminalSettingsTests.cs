@@ -103,12 +103,18 @@ public class TerminalSettingsTests
         {
             bool windows = OperatingSystem.IsWindows();
             settings.ShellPath.Value = windows ? Environment.GetEnvironmentVariable("COMSPEC") ?? "cmd.exe" : "/bin/sh";
-            settings.ShellArguments.Value = null;
+            // HasActiveSession only means the transport exists. Wait until the child can consume
+            // input before asking it to exit so the restart exercises the edited settings.
+            const string ready = "beutl-shell-ready";
+            settings.ShellArguments.Value = windows
+                ? $"/D\n/Q\n/C\necho {ready} & set /p input="
+                : $"-c\nprintf '{ready}\\n'; read -r input";
             using var owner = new TerminalTabViewModel(Mock.Of<IEditorContext>());
             using var view = new TerminalTabView { DataContext = owner };
             using var host = new ControlHost(view, 640, 240);
             var terminal = view.FindControl<TerminalControl>("Terminal")!;
-            await HeadlessTestHelpers.WaitUntilAsync(() => terminal.HasActiveSession);
+            await HeadlessTestHelpers.WaitUntilAsync(() => terminal.TryExportSnapshot(
+                TerminalSnapshotExportFormat.PlainText, default, out string text) && text.Contains(ready));
             int pid = terminal.Pty!.ChildPid;
 
             var page = new TerminalSettingsPage { DataContext = settings };
@@ -122,7 +128,7 @@ public class TerminalSettingsTests
             Assert.That(terminal.Pty!.ChildPid, Is.EqualTo(pid));
             Assert.That(owner.IsProcessExited.Value, Is.False);
 
-            terminal.SendInput("exit\r");
+            terminal.SendInput(windows ? "exit\r" : "exit\n");
             await HeadlessTestHelpers.WaitUntilAsync(() => owner.IsProcessExited.Value);
             HeadlessTestHelpers.Click(view.FindControl<Button>("RestartButton")!);
             await HeadlessTestHelpers.WaitUntilAsync(() => terminal.TryExportSnapshot(

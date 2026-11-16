@@ -12,6 +12,7 @@ using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Extensibility;
@@ -27,6 +28,35 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class SettingsGroupTests
 {
+    [AvaloniaTest]
+    public void Extension_update_setting_selects_and_persists_each_mode()
+    {
+        var setting = GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
+        ExtensionUpdateMode previous = setting.Value;
+        using var model = new ExtensionsSettingsPageViewModel(new ExtensionProvider());
+        var page = new ExtensionsSettingsPage { DataContext = model };
+        var window = new Window { Width = 480, Height = 380, Content = page };
+        try
+        {
+            setting.Value = ExtensionUpdateMode.WithAppUpdate;
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            ComboBox choice = page.GetVisualDescendants().OfType<ComboBox>().Single();
+            Assert.That(choice.SelectedIndex, Is.EqualTo(1));
+            foreach (ExtensionUpdateMode mode in Enum.GetValues<ExtensionUpdateMode>())
+            {
+                choice.SelectedIndex = (int)mode;
+                Assert.That(setting.Value, Is.EqualTo(mode));
+            }
+            HeadlessCapture.SaveIfRequested(window, "extension-updates", "settings");
+        }
+        finally
+        {
+            window.Close();
+            setting.Value = previous;
+        }
+    }
+
     [AvaloniaTest]
     public void Dividers_follow_visible_rows_after_hiding_removing_and_inserting_items()
     {

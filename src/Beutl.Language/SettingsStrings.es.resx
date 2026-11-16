@@ -820,4 +820,19 @@
   <data name="TerminalShellArgumentsDescription" xml:space="preserve">
     <value>Introduce un argumento por línea. Se conservan los espacios de cada línea.</value>
   </data>
+  <data name="ExtensionUpdates" xml:space="preserve">
+    <value>Cuándo actualizar</value>
+  </data>
+  <data name="ExtensionUpdates_Description" xml:space="preserve">
+    <value>Las actualizaciones automáticas se aplican al iniciar Beutl, antes de abrir un proyecto.</value>
+  </data>
+  <data name="ExtensionUpdates_NotifyOnly" xml:space="preserve">
+    <value>Solo notificar</value>
+  </data>
+  <data name="ExtensionUpdates_WithAppUpdate" xml:space="preserve">
+    <value>Al actualizar Beutl</value>
+  </data>
+  <data name="ExtensionUpdates_Always" xml:space="preserve">
+    <value>Actualizar siempre</value>
+  </data>
 </root>

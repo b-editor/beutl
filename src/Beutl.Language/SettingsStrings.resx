@@ -839,4 +839,19 @@
   <data name="TerminalShellArgumentsDescription" xml:space="preserve">
     <value>Enter one argument per line. Spaces within a line are preserved.</value>
   </data>
+  <data name="ExtensionUpdates" xml:space="preserve">
+    <value>Update timing</value>
+  </data>
+  <data name="ExtensionUpdates_Description" xml:space="preserve">
+    <value>Automatic updates take effect before a project opens on the next launch.</value>
+  </data>
+  <data name="ExtensionUpdates_NotifyOnly" xml:space="preserve">
+    <value>Notify only</value>
+  </data>
+  <data name="ExtensionUpdates_WithAppUpdate" xml:space="preserve">
+    <value>With Beutl updates</value>
+  </data>
+  <data name="ExtensionUpdates_Always" xml:space="preserve">
+    <value>Always update automatically</value>
+  </data>
 </root>

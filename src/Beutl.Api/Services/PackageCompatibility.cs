@@ -7,9 +7,12 @@ namespace Beutl.Api.Services;
 internal sealed class PackageCompatibility(PackageApiCheckCache cache)
 {
     internal static bool SupportsCurrentBeutlVersion(string? target)
+        => SupportsBeutlVersion(target, null);
+
+    internal static bool SupportsBeutlVersion(string? target, NuGetVersion? host)
     {
         if (target != null && VersionRange.TryParse(target, out VersionRange? range)
-            && NuGetVersion.TryParse(BeutlApplication.Version, out NuGetVersion? host))
+            && (host != null || NuGetVersion.TryParse(BeutlApplication.Version, out host)))
         {
             return range.Satisfies(host);
         }

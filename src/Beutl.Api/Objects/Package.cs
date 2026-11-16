@@ -147,12 +147,14 @@ public class Package
             .ToArray();
     }
 
-    internal async Task<Release?> GetLatestCompatibleReleaseAsync(CancellationToken cancellationToken, NuGetVersion? newerThan = null)
+    internal async Task<Release?> GetLatestCompatibleReleaseAsync(CancellationToken cancellationToken,
+        NuGetVersion? newerThan = null, NuGetVersion? automaticUpdateHost = null)
     {
         var pages = GetReleasePagesAsync((start, count) => GetReleasesAsync(cancellationToken, start, count));
         await foreach (Release[] page in pages.ConfigureAwait(false))
         {
-            Release? candidate = page.FirstOrDefault(release => release.CanInstall(newerThan));
+            Release? candidate = page.FirstOrDefault(release => release.CanInstall(newerThan, automaticUpdateHost)
+                && (automaticUpdateHost == null || release.AssetId.Value != null));
             if (candidate != null)
                 return candidate;
 

@@ -78,7 +78,7 @@ Beutl.Utilities
   keys: CompletedTutorialIds
 [Beutl.Configuration]:UpdateConfig
   sealed
-  keys: AutoDownload
+  keys: AutoDownload, ExtensionUpdates
 [Beutl.Configuration]:VersionControlConfig
   sealed
   keys: AutoCommitOnClose, AutoCommitOnSave, EnableForNewProjects, GitExecutablePath, LargeMediaWarningThresholdMb, UseLfsWhenAvailable

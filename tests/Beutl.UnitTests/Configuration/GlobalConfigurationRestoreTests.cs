@@ -15,6 +15,24 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
     private GlobalConfiguration Restore(JsonObject json) => Restore(json.ToJsonString());
 
     [Test]
+    public void Extension_update_timing_distinguishes_a_new_install_from_existing_settings()
+    {
+        var fresh = CreateConfiguration();
+        fresh.Restore(SettingsPath);
+        Assert.That(fresh.UpdateConfig.ExtensionUpdates.Value, Is.EqualTo(ExtensionUpdateMode.WithAppUpdate));
+
+        foreach (string oldSettings in new[] { "{}", """{"Update":{"AutoDownload":false}}""" })
+        {
+            var existing = Restore(oldSettings);
+            Assert.That(existing.UpdateConfig.ExtensionUpdates.Value, Is.EqualTo(ExtensionUpdateMode.NotifyOnly));
+            existing.UpdateConfig.ExtensionUpdates.Value = ExtensionUpdateMode.Always;
+            var reopened = CreateConfiguration();
+            reopened.Restore(SettingsPath);
+            Assert.That(reopened.UpdateConfig.ExtensionUpdates.Value, Is.EqualTo(ExtensionUpdateMode.Always));
+        }
+    }
+
+    [Test]
     public void Terminal_settings_default_for_older_files_and_auto_save_edits()
     {
         TerminalConfig settings = Restore(new JsonObject()).TerminalConfig;

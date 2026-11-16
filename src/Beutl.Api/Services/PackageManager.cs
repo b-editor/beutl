@@ -83,7 +83,11 @@ public sealed partial class PackageManager : IBeutlApiResource
         return list;
     }
 
-    public async Task<IReadOnlyList<PackageUpdate>> CheckUpdate(CancellationToken cancellationToken)
+    public Task<IReadOnlyList<PackageUpdate>> CheckUpdate(CancellationToken cancellationToken)
+        => CheckUpdatesForHost(null, cancellationToken);
+
+    internal async Task<IReadOnlyList<PackageUpdate>> CheckUpdatesForHost(NuGetVersion? host, CancellationToken cancellationToken,
+        IReadOnlyList<PackageIdentity>? packages = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var (discover, lifetime) = apiApplication.GetResourceWithLifetime<DiscoverService>(cancellationToken);
@@ -91,11 +95,11 @@ public sealed partial class PackageManager : IBeutlApiResource
         CancellationToken operationToken = operationCts.Token;
         using (Telemetry.ActivitySource.StartActivity("CheckUpdate"))
         {
-            PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
+            packages ??= installedPackageRepository.GetLocalPackages().ToArray();
 
             // Each package takes a few store requests, so the packages are checked together.
             PackageUpdate?[] updates = await Task.WhenAll(
-                    packages.Select(pkg => CheckUpdateOrLogAsync(discover, pkg, operationToken)))
+                    packages.Select(pkg => CheckUpdateOrLogAsync(discover, pkg, host, operationToken)))
                 .ConfigureAwait(false);
 
             operationToken.ThrowIfCancellationRequested();
@@ -106,6 +110,7 @@ public sealed partial class PackageManager : IBeutlApiResource
     private async Task<PackageUpdate?> CheckUpdateOrLogAsync(
         DiscoverService discover,
         PackageIdentity pkg,
+        NuGetVersion? host,
         CancellationToken cancellationToken)
     {
         string versionStr = pkg.Version.ToString();
@@ -115,7 +120,7 @@ public sealed partial class PackageManager : IBeutlApiResource
                 .GetPackage(pkg.Id, cancellationToken)
                 .ConfigureAwait(false);
 
-            PackageUpdate? update = await FindUpdateAsync(remotePackage, pkg.Version, versionStr, cancellationToken)
+            PackageUpdate? update = await FindUpdateAsync(remotePackage, pkg.Version, versionStr, cancellationToken, host)
                 .ConfigureAwait(false);
             if (update is not null)
             {
@@ -179,16 +184,20 @@ public sealed partial class PackageManager : IBeutlApiResource
         Package remotePackage,
         NuGetVersion installedVersion,
         string installedVersionText,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        NuGetVersion? host = null)
     {
+        NuGetVersion? automaticUpdateHost = remotePackage.Tags.Value.GetPackageKind() == PackageKind.Extension ? host : null;
         Release? release = await remotePackage
-            .GetLatestCompatibleReleaseAsync(cancellationToken, installedVersion)
+            .GetLatestCompatibleReleaseAsync(cancellationToken, installedVersion, automaticUpdateHost)
             .ConfigureAwait(false);
         if (release is null)
             return null;
 
-        Release? oldRelease = await TryGetReleaseAsync(remotePackage, installedVersionText, cancellationToken)
-            .ConfigureAwait(false);
+        // The library displays the installed release; automatic updates only need the candidate.
+        Release? oldRelease = host == null
+            ? await TryGetReleaseAsync(remotePackage, installedVersionText, cancellationToken).ConfigureAwait(false)
+            : null;
         return new PackageUpdate(remotePackage, oldRelease, release);
     }
 
@@ -218,20 +227,16 @@ public sealed partial class PackageManager : IBeutlApiResource
             PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
             activity?.SetTag("PackagesCount", packages.Length);
 
-            var list = new List<LocalPackage>(packages.Length);
-
-            foreach (PackageIdentity packageId in packages)
-            {
-                string? directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
-                if (Directory.Exists(directory))
-                {
-                    var reader = new PackageFolderReader(directory);
-                    list.Add(new LocalPackage(reader.NuspecReader) { InstalledPath = directory });
-                }
-            }
-
-            return Task.FromResult<IReadOnlyList<LocalPackage>>(list);
+            return Task.FromResult<IReadOnlyList<LocalPackage>>([.. packages.Select(ReadInstalledPackage).OfType<LocalPackage>()]);
         }
+    }
+
+    internal static LocalPackage? ReadInstalledPackage(PackageIdentity package)
+    {
+        string? directory = Helper.PackagePathResolver.GetInstalledPath(package);
+        if (!Directory.Exists(directory)) return null;
+        using var reader = new PackageFolderReader(directory);
+        return new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
     }
 
     public IReadOnlyList<LocalPackage> GetSideLoadPackages()

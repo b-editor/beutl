@@ -560,4 +560,10 @@
   <data name="ReleaseNotes" xml:space="preserve">
     <value>发行说明</value>
   </data>
+  <data name="PreparingExtensionUpdates" xml:space="preserve">
+    <value>正在准备扩展更新…</value>
+  </data>
+  <data name="ExtensionUpdatesIncluded" xml:space="preserve">
+    <value>将同时更新 {0} 个扩展。</value>
+  </data>
 </root>

@@ -560,4 +560,10 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   <data name="ReleaseNotes" xml:space="preserve">
     <value>Notas de la versión</value>
   </data>
+  <data name="PreparingExtensionUpdates" xml:space="preserve">
+    <value>Preparando las actualizaciones de las extensiones…</value>
+  </data>
+  <data name="ExtensionUpdatesIncluded" xml:space="preserve">
+    <value>Actualizaciones de extensiones incluidas ({0})</value>
+  </data>
 </root>

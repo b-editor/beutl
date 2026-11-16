@@ -62,6 +62,12 @@ public class PackageChangesQueue : IBeutlApiResource
         return new _Observable(this, name);
     }
 
+    internal bool HasPendingChange(string name)
+    {
+        lock (_gate)
+            return GetState_NoLock(name) != EventType.None;
+    }
+
     public void UninstallQueue(PackageIdentity packageIdentity)
     {
         lock (_gate)

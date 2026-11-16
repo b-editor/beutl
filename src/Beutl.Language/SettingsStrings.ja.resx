@@ -835,4 +835,19 @@
   <data name="TerminalShellArgumentsDescription" xml:space="preserve">
     <value>引数を 1 行に 1 つ入力します。行内の空白はそのまま渡されます。</value>
   </data>
+  <data name="ExtensionUpdates" xml:space="preserve">
+    <value>更新のタイミング</value>
+  </data>
+  <data name="ExtensionUpdates_Description" xml:space="preserve">
+    <value>自動更新は、次回起動時にプロジェクトを開く前に適用します。</value>
+  </data>
+  <data name="ExtensionUpdates_NotifyOnly" xml:space="preserve">
+    <value>通知のみ</value>
+  </data>
+  <data name="ExtensionUpdates_WithAppUpdate" xml:space="preserve">
+    <value>Beutl本体と一緒に更新</value>
+  </data>
+  <data name="ExtensionUpdates_Always" xml:space="preserve">
+    <value>常に自動更新</value>
+  </data>
 </root>

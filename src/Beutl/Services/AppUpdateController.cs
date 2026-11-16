@@ -173,9 +173,12 @@ internal sealed class AppUpdateController
                 });
                 break;
             case AppUpdatePhase.Ready:
+                string message = GetUpdateMessage(viewModel.Update);
+                if (viewModel.IncludedExtensions is { } summary)
+                    message += Environment.NewLine + summary;
                 NotificationService.Show(new Notification(
                     MessageStrings.UpdateReady_Title,
-                    GetUpdateMessage(viewModel.Update),
+                    message,
                     NotificationType.Success,
                     s_readyNotificationDuration,
                     Actions: CreateReadyActions(viewModel))

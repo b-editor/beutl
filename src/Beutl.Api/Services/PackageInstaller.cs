@@ -354,11 +354,12 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         CancellationToken cancellationToken = default)
         => TrackAsync(() => ResolveDependenciesCoreAsync(context, useSavedSelection: false, logger, cancellationToken));
 
-    private async Task ResolveDependenciesCoreAsync(
+    private async Task<bool> ResolveDependenciesCoreAsync(
         PackageInstallContext context,
         bool useSavedSelection,
         ILogger? logger,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        SourceRepository? stagedSource = null)
     {
         PackageIdentity? package = null;
         try
@@ -375,41 +376,20 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
                 logger ??= new LoggerAdapter(_logger);
 
-                SourceRepository[] repositories = _sourceRepositoryProvider.GetRepositories()
-                    .Select(GetRepositoryForCurrentHome).ToArray();
-                var availablePackages = new HashSet<SourcePackageDependencyInfo>(PackageIdentityComparer.Default);
                 Dictionary<string, PackageIdentity>? selectedPackages =
                     useSavedSelection && ResolvedPackageDependencies.TryLoadSelection(package, nuGetFramework, out IReadOnlyList<PackageIdentity>? selection)
                         ? selection.ToDictionary(item => item.Id, StringComparer.OrdinalIgnoreCase)
                         : null;
-                await Helper.GetPackageDependencies(
-                    package,
-                    nuGetFramework,
-                    _cacheContext,
-                    logger,
-                    // Installed packages come first. Re-resolving after a Beutl update must work from them:
-                    // PackageTools.UI deletes the downloaded nupkg from the local source, and store packages
-                    // are not on nuget.org.
-                    [CreateInstalledPackagesRepository(), .. repositories],
-                    availablePackages,
-                    selectedPackages,
-                    cancellationToken)
-                    .ConfigureAwait(false);
+                SourceRepository[] sources = stagedSource == null
+                    ? GetInstallSources()
+                    : [stagedSource, CreateInstalledPackagesRepository()];
+                SourcePackageDependencyInfo[] packagesToInstall = await ResolvePackageGraphAsync(
+                    package, nuGetFramework, sources, selectedPackages, logger, cancellationToken).ConfigureAwait(false);
 
-                var resolverContext = new PackageResolverContext(
-                    DependencyBehavior.Lowest,
-                    [packageId],
-                    [],
-                    [],
-                    CoreLibraries.GetPreferredVersions(),
-                    availablePackages,
-                    repositories.Select(s => s.PackageSource),
-                    logger);
-
-                SourcePackageDependencyInfo[] packagesToInstall
-                    = _resolver.Resolve(resolverContext, cancellationToken)
-                        .Select(p => availablePackages.Single(x => PackageIdentityComparer.Default.Equals(x, p)))
-                        .ToArray();
+                // Staged and installed sources both resolve to local archives. Check the selected graph
+                // before extraction so a manual install can still collect every required license.
+                if (stagedSource != null && !AreExtensionLicensesAccepted(packagesToInstall.Select(p => p.DownloadUri!.LocalPath), cancellationToken))
+                    return false;
 
                 var packageExtractionContext = new PackageExtractionContext(
                     PackageSaveMode.Defaultv3,
@@ -441,6 +421,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                     packagesToInstall.Where(item => !CoreLibraries.IncludedInPackageDependencies(item.Id, item.Version)));
                 context.Phase = PackageInstallPhase.ResolvedDependencies;
             }
+            return true;
         }
         finally
         {
@@ -449,6 +430,21 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 _installingContexts.TryRemove(package, out _);
             }
         }
+    }
+
+    private SourceRepository[] GetInstallSources()
+        => [CreateInstalledPackagesRepository(), .. _sourceRepositoryProvider.GetRepositories().Select(GetRepositoryForCurrentHome)];
+
+    private async Task<SourcePackageDependencyInfo[]> ResolvePackageGraphAsync(PackageIdentity root, NuGetFramework framework,
+        SourceRepository[] sources, IReadOnlyDictionary<string, PackageIdentity>? selection, ILogger logger, CancellationToken token,
+        bool useCurrentHostLibraries = true)
+    {
+        var available = new HashSet<SourcePackageDependencyInfo>(PackageIdentityComparer.Default);
+        await Helper.GetPackageDependencies(root, framework, _cacheContext, logger, sources, available, selection, token,
+            useCurrentHostLibraries).ConfigureAwait(false);
+        var context = new PackageResolverContext(DependencyBehavior.Lowest, [root.Id], [], [], CoreLibraries.GetPreferredVersions(),
+            available, sources.Select(s => s.PackageSource), logger);
+        return [.. _resolver.Resolve(context, token).Select(p => available.Single(x => PackageIdentityComparer.Default.Equals(x, p)))];
     }
 
     // Each installed package folder keeps its own copy of the nupkg, so installed packages

@@ -4,6 +4,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api.Clients;
+using Beutl.Configuration;
 using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Language;
 using Beutl.Services;
@@ -21,8 +22,9 @@ public sealed class FlatpakUpdaterTests
     private string _root = null!;
     [SetUp] public void SetUp() => Directory.CreateDirectory(_root = Path.Combine(Path.GetTempPath(), "beutl update " + Guid.NewGuid().ToString("N")));
     [TearDown] public void TearDown() => Directory.Delete(_root, true);
-    private static UpdateDialogViewModel ViewModel(FlatpakUpdater? updater = null, HttpClient? client = null) => new(new AppUpdateResponse
-    { LatestVersion = "2.0.0", Url = null, DownloadUrl = Url, IsLatest = false, MustLatest = false }, true, updater, client);
+    private static UpdateDialogViewModel ViewModel(FlatpakUpdater? updater = null, HttpClient? client = null,
+        Func<string, CancellationToken, Task<int>>? prepareExtensions = null) => new(new AppUpdateResponse
+        { LatestVersion = "2.0.0", Url = null, DownloadUrl = Url, IsLatest = false, MustLatest = false }, true, updater, client, prepareExtensions: prepareExtensions);
 
     private FlatpakUpdater Updater(string scope = "user", Func<string[], CancellationToken, Task<string>>? run = null,
         Func<string, string?>? read = null, string arch = "x86_64", string branch = "master") => new($"""
@@ -175,7 +177,10 @@ public sealed class FlatpakUpdaterTests
             return "";
         }, read: _ => "app/" + Ref);
         using var client = new HttpClient(new Handler(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([1, 2, 3, 4]) }));
-        var vm = ViewModel(updater, client);
+        var setting = GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
+        var previous = setting.Value;
+        int preparations = 0;
+        var vm = ViewModel(updater, client, (_, _) => Task.FromResult(++preparations));
         var controller = new AppUpdateController(_ => vm, downloadsAutomatically: () => true);
         using var notifications = new NotificationCapture();
         var dialog = new UpdateDialog { DataContext = vm };
@@ -184,9 +189,11 @@ public sealed class FlatpakUpdaterTests
         Task closed = Task.CompletedTask;
         try
         {
+            setting.Value = ExtensionUpdateMode.WithAppUpdate;
             Assert.That(await controller.TryStartAutomaticallyAsync(vm.Update), Is.True);
             await HeadlessTestHelpers.WaitUntilAsync(() => notifications.All.Any(n => n.Title == MessageStrings.UpdateReady_Title));
             Notification ready = notifications.All.Last();
+            Assert.That(ready.Message, Does.Contain(string.Format(MessageStrings.ExtensionUpdatesIncluded, 1)));
             Assert.That(ready.Actions!.Select(a => a.Text), Is.EqualTo(new[] { ExtensionsStrings.Install, MessageStrings.ReleaseNotes }));
             Assert.That(File.Exists(updater.DownloadPath), Is.True);
             Assert.That(hostCalls, Is.Zero);
@@ -227,6 +234,7 @@ public sealed class FlatpakUpdaterTests
             }
 
             await vm.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(preparations, Is.EqualTo(1));
             HeadlessTestHelpers.Render();
             Assert.That(File.Exists(updater.DownloadPath), Is.False);
             Assert.That(vm.ProgressText.Value, Is.EqualTo(outcome switch
@@ -235,7 +243,7 @@ public sealed class FlatpakUpdaterTests
             Assert.That(dialog.IsPrimaryButtonEnabled, Is.False);
             Assert.That(window.IsVisible, Is.True);
         }
-        finally { vm.Cancel(); finish.TrySetResult(); if (vm.UpdateTask != null) await vm.UpdateTask; dialog.Hide(); await closed; window.Close(); }
+        finally { setting.Value = previous; vm.Cancel(); finish.TrySetResult(); if (vm.UpdateTask != null) await vm.UpdateTask; dialog.Hide(); await closed; window.Close(); }
     }
 
     [AvaloniaTest]
