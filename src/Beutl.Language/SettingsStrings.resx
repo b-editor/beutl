@@ -812,4 +812,31 @@
   <data name="SeekOnTimelineClick_Description" xml:space="preserve">
     <value>When off, the playhead moves only from the ruler or by dragging its line, and dragging an empty part of the timeline selects elements without a modifier key.</value>
   </data>
+  <data name="TerminalFollowApplication" xml:space="preserve">
+    <value>Use Beutl theme</value>
+  </data>
+  <data name="TerminalDefaultFont" xml:space="preserve">
+    <value>Default ({0})</value>
+  </data>
+  <data name="TerminalFontSize" xml:space="preserve">
+    <value>Font size (DIP)</value>
+  </data>
+  <data name="TerminalScrollback" xml:space="preserve">
+    <value>Scrollback lines</value>
+  </data>
+  <data name="TerminalShell" xml:space="preserve">
+    <value>Shell</value>
+  </data>
+  <data name="TerminalShellDescription" xml:space="preserve">
+    <value>Leave both fields empty to use the default shell and its arguments. Changes apply when a terminal opens or restarts.</value>
+  </data>
+  <data name="TerminalShellPath" xml:space="preserve">
+    <value>Executable</value>
+  </data>
+  <data name="TerminalShellArguments" xml:space="preserve">
+    <value>Arguments</value>
+  </data>
+  <data name="TerminalShellArgumentsDescription" xml:space="preserve">
+    <value>Enter one argument per line. Spaces within a line are preserved.</value>
+  </data>
 </root>

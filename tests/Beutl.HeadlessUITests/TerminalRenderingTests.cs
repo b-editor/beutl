@@ -1,5 +1,5 @@
-﻿using System.Globalization;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
+using System.Text;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -7,12 +7,11 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media;
 using Avalonia.Platform;
-using Avalonia.VisualTree;
 
 using Beutl.Editor.Components.TerminalTab.Views;
 using Beutl.Testing.Headless;
 
-using Iciclecreek.Terminal;
+using RoyalTerminal.Avalonia.Controls;
 
 namespace Beutl.HeadlessUITests;
 
@@ -41,31 +40,29 @@ public class TerminalRenderingTests
         {
             window.Show();
             HeadlessTestHelpers.Render();
-            // Set after the view is attached, where the XAML DynamicResource would replace it.
-            terminal.Foreground = Brushes.White;
-            TerminalView terminalView = terminal.GetVisualDescendants().OfType<TerminalView>().Single();
+            // Use a known contrast for the pixel measurements, independent of the application theme.
+            terminal.DefaultForeground = Colors.White;
+            terminal.DefaultBackground = Colors.Black;
             // End on a new line so the cursor does not sit after the last bar.
-            terminal.Terminal.Write(string.Join("\r\n", s_rows) + "\r\n");
-            terminalView.InvalidateVisual();
+            terminal.WriteOutput(Encoding.UTF8.GetBytes(string.Join("\r\n", s_rows) + "\r\n"));
             HeadlessTestHelpers.Render();
 
             int[] barColumns = Enumerable.Range(0, s_rows.Length).Select(row =>
             {
-                var line = terminal.Terminal.Buffer.GetLine(row)!;
-                return Enumerable.Range(0, line.Length).First(x => line[x].Content == "|");
+                var line = terminal.Screen!.GetRow(row);
+                return Enumerable.Range(0, line.Columns).First(x => line[x].Codepoint == '|');
             }).ToArray();
-            Assume.That(barColumns, Is.All.EqualTo(barColumns[0]), "the terminal must place every bar in one column");
+            Assert.That(barColumns, Is.All.EqualTo(12), "the terminal must place every bar in one column");
 
+            HeadlessCapture.SaveIfRequested(view, nameof(TerminalRenderingTests), "glyph-grid");
             using var frame = window.CaptureRenderedFrame();
             Assert.That(frame, Is.Not.Null);
             using ILockedFramebuffer pixels = frame!.Lock();
             Assert.That(pixels.Format, Is.EqualTo(PixelFormat.Bgra8888).Or.EqualTo(PixelFormat.Rgba8888));
 
-            double rowHeight = new FormattedText(
-                "W", CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-                new Typeface(terminal.FontFamily, terminal.FontStyle, terminal.FontWeight), terminal.FontSize, Brushes.Black).Height;
-            Point origin = terminalView.TranslatePoint(default, window)!.Value;
-            int right = (int)(origin.X + terminalView.Bounds.Width) - 1;
+            double rowHeight = terminal.Renderer!.CellHeight;
+            Point origin = terminal.TranslatePoint(default, window)!.Value;
+            int right = (int)(origin.X + terminal.Bounds.Width) - 1;
 
             // The bar is the last glyph of every row, so each row's rightmost lit pixel is the bar's edge.
             int[] barEdges = Enumerable.Range(0, s_rows.Length).Select(row =>
@@ -77,7 +74,9 @@ public class TerminalRenderingTests
                         (Marshal.ReadInt32(pixels.Address, y * pixels.RowBytes + x * 4) & 0xFF) > 0x20), -1);
             }).ToArray();
 
-            Assert.That(barEdges, Is.All.GreaterThanOrEqualTo(0), "every row must draw its text");
+            double barLeft = origin.X + barColumns[0] * terminal.Renderer.CellWidth;
+            Assert.That(barEdges, Is.All.InRange((int)barLeft, (int)Math.Ceiling(barLeft + terminal.Renderer.CellWidth)),
+                "the last glyph should be visible inside its cell");
             Assert.That(barEdges, Is.All.EqualTo(barEdges[0]).Within(1),
                 "a glyph from a fallback font must not shift the rest of its row off the cell grid");
         }

@@ -82,6 +82,26 @@ public class TerminalTabViewModelTests
         Assert.That(result, Is.Null);
     }
 
+    [Test]
+    public void CustomShell_UsesOnlyTheSuppliedArguments()
+    {
+        const string executable = "/some path/pwsh";
+        var command = TerminalTabViewModel.ResolveShell(_ => null, false, true, executable, null);
+        Assert.That(command.Path, Is.EqualTo(executable));
+        Assert.That(command.Args, Is.Empty);
+
+        const string arguments = "-File\r\n\r\nmy scripts/start.ps1\n  literal spaces  ";
+        command = TerminalTabViewModel.ResolveShell(_ => null, true, false, executable, arguments);
+        Assert.That(command.Args, Is.EqualTo(new[] { "-File", "my scripts/start.ps1", "  literal spaces  " }));
+
+        command = TerminalTabViewModel.ResolveShell(_ => "/bin/fish", false, false, " ", "--no-config");
+        Assert.That(command.Path, Is.EqualTo("/bin/fish"));
+        Assert.That(command.Args, Is.EqualTo(new[] { "--no-config" }));
+
+        command = TerminalTabViewModel.ResolveShell(_ => null, false, true, executable, "  ");
+        Assert.That(command.Args, Is.EqualTo(new[] { "  " }));
+    }
+
     [TestCase("LANG")]
     [TestCase("LC_ALL")]
     [TestCase("LC_CTYPE")]

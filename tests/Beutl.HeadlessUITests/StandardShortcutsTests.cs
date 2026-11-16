@@ -31,7 +31,7 @@ using Beutl.ViewModels.SettingsPages;
 using Beutl.Views;
 using Dock.Model.Core;
 using FluentAvalonia.UI.Controls;
-using Iciclecreek.Terminal;
+using RoyalTerminal.Avalonia.Controls;
 
 namespace Beutl.HeadlessUITests;
 
@@ -1055,8 +1055,7 @@ public sealed class StandardShortcutsTests
         try
         {
             HeadlessTestHelpers.Render();
-            TerminalView terminal = terminalTab.FindControl<TerminalControl>("Terminal")!
-                .GetVisualDescendants().OfType<TerminalView>().Single();
+            TerminalControl terminal = terminalTab.FindControl<TerminalControl>("Terminal")!;
 
             KeyEventArgs args = KeyDown(terminal, key, KeyModifiers.Meta);
             terminal.RaiseEvent(args);

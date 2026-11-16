@@ -1,9 +1,13 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
+using Beutl.Editor.Components.TerminalTab.Views;
 using Beutl.Testing.Headless;
-using Iciclecreek.Terminal;
+using RoyalTerminal.Avalonia.Controls;
+using RoyalTerminal.Terminal;
 
 namespace Beutl.E2ETests.Controls;
 
@@ -18,55 +22,73 @@ public class TerminalControlInputTests
             Assert.Ignore("Uses a Unix PTY (/bin/cat); the Windows ConPTY path is not exercised here.");
         }
 
-        var terminal = new TerminalControl { Process = "/bin/cat" };
-        var host = new ControlHost(terminal, 640, 320);
+        using var view = new TerminalTabView();
+        using var host = new ControlHost(view, 640, 320);
+        var terminal = view.FindControl<TerminalControl>("Terminal")!;
         Window window = host.Window;
 
-        try
-        {
-            terminal.Focus();
-            await HeadlessTestHelpers.WaitUntilAsync(
-                () => terminal.Pid > 0, TimeSpan.FromSeconds(5), "the PTY process did not start");
+        terminal.StartPty("/bin/cat");
+        terminal.Focus();
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () => terminal.HasActiveSession, TimeSpan.FromSeconds(5), "the PTY process did not start");
 
-            // A real desktop keystroke of Shift+A arrives as KeyDown (KeySymbol is the
-            // unshifted "a" on macOS) followed by a TextInput event carrying "A".
-            window.KeyPress(Key.A, RawInputModifiers.Shift, PhysicalKey.A, "a");
-            window.KeyTextInput("A");
-            HeadlessTestHelpers.Settle();
+        // A real desktop keystroke of Shift+A arrives as KeyDown (KeySymbol is the
+        // unshifted "a" on macOS) followed by a TextInput event carrying "A".
+        window.KeyPress(Key.A, RawInputModifiers.Shift, PhysicalKey.A, "a");
+        window.KeyTextInput("A");
+        HeadlessTestHelpers.Settle();
 
-            // /bin/cat runs with tty echo on, so what the control writes to the PTY
-            // comes straight back into the terminal buffer.
-            await HeadlessTestHelpers.WaitUntilAsync(
-                () => ScreenText(terminal).Contains('A'), TimeSpan.FromSeconds(5), "the echoed input never appeared");
+        // /bin/cat runs with tty echo on, so what the control writes to the PTY
+        // comes straight back into the terminal buffer.
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () => ScreenText(terminal).Contains('A'), TimeSpan.FromSeconds(5), "the echoed input never appeared");
 
-            string text = ScreenText(terminal);
-            Assert.That(text.Trim(), Is.EqualTo("A"),
-                "Shift+A must reach the PTY exactly once and as an uppercase letter");
-        }
-        finally
-        {
-            try
-            {
-                terminal.Kill();
-            }
-            catch
-            {
-                // The PTY may never have started; closing the window is what matters.
-            }
+        string text = ScreenText(terminal);
+        Assert.That(text.Trim(), Is.EqualTo("A"),
+            "Shift+A must reach the PTY exactly once and as an uppercase letter");
+    }
 
-            host.Dispose();
-        }
+    [AvaloniaTest]
+    public async Task TerminalTab_RightClickAndControlCUseTheSelection()
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("Uses a Unix PTY with /bin/cat.");
+
+        using var view = new TerminalTabView();
+        using var host = new ControlHost(view, 640, 320);
+        var terminal = view.FindControl<TerminalControl>("Terminal")!;
+        terminal.StartPty("/bin/cat");
+        terminal.WriteOutput("copy this"u8);
+        terminal.SelectAll();
+        HeadlessTestHelpers.Click(terminal, new Point(10, 10), MouseButton.Right);
+        Assert.That((await host.Window.Clipboard!.TryGetTextAsync())?.Trim(), Is.EqualTo("copy this"));
+        Assert.That(terminal.HasSelection, Is.False);
+
+        await host.Window.Clipboard.SetTextAsync("paste this");
+        HeadlessTestHelpers.Click(terminal, new Point(10, 10), MouseButton.Right);
+        await HeadlessTestHelpers.WaitUntilAsync(() => ScreenText(terminal).Contains("paste this"));
+        terminal.SelectAll();
+        host.Window.KeyPress(Key.C, RawInputModifiers.Control, PhysicalKey.C, "c");
+        host.Window.KeyRelease(Key.C, RawInputModifiers.Control, PhysicalKey.C, "c");
+        HeadlessTestHelpers.Settle();
+        Assert.That(await host.Window.Clipboard.TryGetTextAsync(), Does.Contain("copy this"));
+        Assert.That(terminal.HasActiveSession, Is.True);
+
+        terminal.WriteOutput("\u001b[?1000h"u8);
+        terminal.SelectAll();
+        await host.Window.Clipboard.SetTextAsync("mouse reporting");
+        HeadlessTestHelpers.Click(terminal, new Point(10, 10), MouseButton.Right);
+        Assert.That(await host.Window.Clipboard.TryGetTextAsync(), Is.EqualTo("mouse reporting"));
+
+        terminal.ClearSelection();
+        bool exited = false;
+        terminal.ProcessExited += (_, _) => exited = true;
+        host.Window.KeyPress(Key.C, RawInputModifiers.Control, PhysicalKey.C, "c");
+        await HeadlessTestHelpers.WaitUntilAsync(() => exited);
     }
 
     private static string ScreenText(TerminalControl control)
     {
-        var buffer = control.Terminal.Buffer;
-        var lines = new List<string>();
-        for (int y = 0; y < control.Terminal.Rows; y++)
-        {
-            lines.Add(buffer.GetLine(buffer.YBase + y)?.TranslateToString(trimRight: true) ?? "");
-        }
-
-        return string.Join("\n", lines);
+        Assert.That(control.TryExportSnapshot(TerminalSnapshotExportFormat.PlainText, default, out string text), Is.True);
+        return text;
     }
 }

@@ -86,8 +86,6 @@ Choose the download for your operating system on the [website](https://beutl.bed
 
 ## Development
 
-On a fresh checkout, initialize the Git submodules first with `git submodule update --init --recursive`.
-
 Run the application from the repository root using the included scripts, which do not require the global Nuke tool.
 
 macOS/Linux:

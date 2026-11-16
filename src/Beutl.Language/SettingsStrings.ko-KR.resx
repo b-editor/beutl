@@ -793,4 +793,31 @@
   <data name="SeekOnTimelineClick_Description" xml:space="preserve">
     <value>끄면 눈금자를 사용하거나 재생 위치 막대를 드래그할 때만 재생 위치가 이동하고, 타임라인의 빈 곳을 드래그하면 보조 키 없이 클립을 범위 선택합니다.</value>
   </data>
+  <data name="TerminalFollowApplication" xml:space="preserve">
+    <value>Beutl 테마 따르기</value>
+  </data>
+  <data name="TerminalDefaultFont" xml:space="preserve">
+    <value>기본값 ({0})</value>
+  </data>
+  <data name="TerminalFontSize" xml:space="preserve">
+    <value>글꼴 크기(DIP)</value>
+  </data>
+  <data name="TerminalScrollback" xml:space="preserve">
+    <value>스크롤 기록 줄 수</value>
+  </data>
+  <data name="TerminalShell" xml:space="preserve">
+    <value>시작 셸</value>
+  </data>
+  <data name="TerminalShellDescription" xml:space="preserve">
+    <value>두 필드를 비워 두면 기본 셸과 인수를 사용합니다. 변경 사항은 터미널을 열거나 다시 시작할 때 적용됩니다.</value>
+  </data>
+  <data name="TerminalShellPath" xml:space="preserve">
+    <value>실행 파일</value>
+  </data>
+  <data name="TerminalShellArguments" xml:space="preserve">
+    <value>인수</value>
+  </data>
+  <data name="TerminalShellArgumentsDescription" xml:space="preserve">
+    <value>한 줄에 인수 하나를 입력하세요. 줄 안의 공백은 그대로 전달됩니다.</value>
+  </data>
 </root>

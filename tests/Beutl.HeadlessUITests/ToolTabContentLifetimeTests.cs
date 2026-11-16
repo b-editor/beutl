@@ -5,6 +5,7 @@ using Avalonia.Headless.NUnit;
 using Beutl.Editor.Components.TerminalTab.ViewModels;
 using Beutl.Editor.Components.TerminalTab.Views;
 using Beutl.Extensibility;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels.Dock;
 using Reactive.Bindings;
 
@@ -19,12 +20,13 @@ public class ToolTabContentLifetimeTests
         using var vm = new TerminalTabViewModel(new TestEditorContext());
         using var view = new TerminalTabView { DataContext = vm };
         view.Dispose();
-        var control = view.FindControl<Iciclecreek.Terminal.TerminalControl>("Terminal")!;
-        var marker = new Dictionary<string, string> { ["BEUTL_TEST_MARKER"] = "unchanged" };
-        control.EnvironmentOverrides = marker;
+        var control = view.FindControl<RoyalTerminal.Avalonia.Controls.TerminalControl>("Terminal")!;
+        using var host = new ControlHost(view);
         view.DataContext = null;
         view.DataContext = vm;
-        Assert.That(control.EnvironmentOverrides, Is.SameAs(marker));
+        HeadlessTestHelpers.Render();
+        Assert.That(control.HasActiveSession, Is.False);
+        Assert.That(vm.IsProcessExited.Value, Is.False);
     }
 
     [AvaloniaTest]

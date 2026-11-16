@@ -43,6 +43,7 @@ public sealed class GlobalConfiguration
             ("Extension", "extension", ExtensionConfig),
             ("Telemetry", "telemetry", TelemetryConfig),
             ("Editor", null, EditorConfig),
+            ("Terminal", null, TerminalConfig),
             ("Graphics", null, GraphicsConfig),
             ("Tutorial", null, TutorialConfig),
             ("AiAgent", null, AiAgentConfig),
@@ -66,6 +67,8 @@ public sealed class GlobalConfiguration
     public TelemetryConfig TelemetryConfig { get; } = new();
 
     public EditorConfig EditorConfig { get; } = new();
+
+    public TerminalConfig TerminalConfig { get; } = new();
 
     public TutorialConfig TutorialConfig { get; } = new();
 

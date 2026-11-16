@@ -15,7 +15,7 @@ using Beutl.Controls.Styling;
 using Beutl.Editor.Components.TerminalTab.Views;
 using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
-using Iciclecreek.Terminal;
+using RoyalTerminal.Avalonia.Controls;
 
 namespace Beutl.HeadlessUITests;
 
@@ -130,19 +130,10 @@ public class UIFontResourceTests
     [AvaloniaTest]
     public void Terminal_font_resolves_to_a_fixed_pitch_face()
     {
-        if (!OperatingSystem.IsLinux())
-            Assert.Ignore("Windows and macOS provide Consolas and Menlo; only Linux reaches the fontconfig monospace alias.");
-
         using var view = new TerminalTabView();
-        var typeface = new Typeface(view.FindControl<TerminalControl>("Terminal")!.FontFamily);
-        Assert.That(FontManager.Current.TryGetGlyphTypeface(typeface, out GlyphTypeface? glyphTypeface), Is.True);
-
-        // The terminal draws each run as one text, so every single-width cell must advance equally.
-        double[] widths = new[] { "iiii", "WWWW", "┌──┐" }
-            .Select(text => new FormattedText(
-                text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, typeface, 12, Brushes.Black).Width)
-            .ToArray();
-        Assert.That(widths, Is.All.EqualTo(widths[0]).Within(0.01), $"resolved to '{glyphTypeface!.FamilyName}'");
+        var terminal = view.FindControl<TerminalControl>("Terminal")!;
+        var face = terminal.Renderer!.GlyphCache.GetTypeface(bold: false, italic: false);
+        Assert.That(face.IsFixedPitch, Is.True, $"resolved to '{face.FamilyName}'");
     }
 
     private static string[] GetShapedFontFamilies(string value, FontFamily family)

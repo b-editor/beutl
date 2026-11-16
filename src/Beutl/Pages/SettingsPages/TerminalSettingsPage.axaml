@@ -1,0 +1,89 @@
+<UserControl x:Class="Beutl.Pages.SettingsPages.TerminalSettingsPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:config="using:Beutl.Configuration"
+             xmlns:conv="using:Beutl.Editor.Components.Converters"
+             xmlns:ctrls="using:Beutl.Controls"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Pages.SettingsPages"
+             x:CompileBindings="True"
+             x:DataType="config:TerminalConfig">
+    <Grid Margin="18" RowDefinitions="Auto,*">
+        <TextBlock Margin="10,8"
+                   Text="{x:Static lang:Strings.Terminal}"
+                   Theme="{StaticResource SimpleLargeBreadcrumbBarTextBlock}" />
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Margin="10,16,10,12" Spacing="6">
+                <TextBlock Text="{x:Static lang:Strings.View}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <Border Classes="options-group">
+                    <ctrls:OptionsGroupPanel>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.Theme}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ComboBox x:Name="ColorSchemeBox" MinWidth="190"
+                                          AutomationProperties.Name="{x:Static lang:SettingsStrings.Theme}"
+                                          SelectedIndex="{Binding ColorScheme.Value, Mode=TwoWay, Converter={x:Static conv:EnumIndexConverters.TerminalColorSchemes}}">
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.TerminalFollowApplication}" />
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.Dark}" />
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.Light}" />
+                                </ComboBox>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.Font}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ComboBox x:Name="FontFamilyBox" MinWidth="190" MaxWidth="280"
+                                          AutomationProperties.Name="{x:Static lang:SettingsStrings.Font}"
+                                          SelectedItem="{Binding FontFamily.Value, Mode=TwoWay}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="x:String">
+                                            <TextBlock Text="{Binding ., Converter={x:Static local:TerminalSettingsPage.FontLabel}}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.TerminalFontSize}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <NumericUpDown x:Name="FontSizeBox" MinWidth="125" FormatString="F0"
+                                               AutomationProperties.Name="{x:Static lang:SettingsStrings.TerminalFontSize}"
+                                               Value="{Binding FontSize.Value, Mode=TwoWay}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.TerminalScrollback}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <NumericUpDown x:Name="ScrollbackBox" MinWidth="125" FormatString="F0" Increment="100"
+                                               AutomationProperties.Name="{x:Static lang:SettingsStrings.TerminalScrollback}"
+                                               Minimum="0"
+                                               Value="{Binding ScrollbackLines.Value, Mode=TwoWay}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                    </ctrls:OptionsGroupPanel>
+                </Border>
+                <TextBlock Margin="0,14,0,0" Text="{x:Static lang:SettingsStrings.TerminalShell}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock Text="{x:Static lang:SettingsStrings.TerminalShellDescription}" TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <Border Classes="options-group">
+                    <ctrls:OptionsGroupPanel>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.TerminalShellPath}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <TextBox x:Name="ShellPathBox" MinWidth="210" MaxWidth="350"
+                                         AutomationProperties.Name="{x:Static lang:SettingsStrings.TerminalShellPath}"
+                                         Text="{Binding ShellPath.Value, Mode=TwoWay}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.TerminalShellArguments}"
+                                                  Description="{x:Static lang:SettingsStrings.TerminalShellArgumentsDescription}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <TextBox x:Name="ShellArgumentsBox" MinWidth="210" MaxWidth="350" MinHeight="62" MaxHeight="150"
+                                         AcceptsReturn="True" TextWrapping="NoWrap"
+                                         AutomationProperties.Name="{x:Static lang:SettingsStrings.TerminalShellArguments}"
+                                         Text="{Binding ShellArguments.Value, Mode=TwoWay}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                    </ctrls:OptionsGroupPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

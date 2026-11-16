@@ -6,8 +6,6 @@ Everything Beutl uses that is not an ordinary managed package from NuGet is list
 
 | Dependency | What we carry | Where | Upstream | Exit condition |
 | --- | --- | --- | --- | --- |
-| XTerm.NET | Fork, as a submodule on the `beutl` branch: Kitty keyboard protocol, parser and erase fixes | `external/XTerm.NET` | [tomlm/XTerm.NET](https://github.com/tomlm/XTerm.NET) | Upstream takes these changes |
-| Iciclecreek.Avalonia.Terminal | Fork, as a submodule on the `beutl` branch: Avalonia 12, glyph and clip fixes | `external/Iciclecreek.Avalonia.Terminal` | [tomlm/Iciclecreek.Avalonia.Terminal](https://github.com/tomlm/Iciclecreek.Avalonia.Terminal) | Upstream supports Avalonia 12 and takes these changes |
 | libSkiaSharp | Patched build for every runtime, with binaries committed | `native/SkiaSharp`, `src/Beutl.Engine/runtimes` | [mono/SkiaSharp](https://github.com/mono/SkiaSharp), [mono/skia](https://github.com/mono/skia) | Every patch below is gone |
 | libBeutlDataChannel | Our C ABI over a patched libdatachannel and Mbed TLS, with binaries committed | `native/libdatachannel` | [paullouisageneau/libdatachannel](https://github.com/paullouisageneau/libdatachannel), [Mbed-TLS/mbedtls](https://github.com/Mbed-TLS/mbedtls) | The patch and `packetizer.hpp` go as below; the C ABI in `preview.cpp` stays ours |
 | libBeutlAVF | Our own Swift library, with binaries committed because only macOS can build it | `src/Beutl.Extensions.AVFoundation` | None | A macOS job builds it for every package, so nothing has to be committed |
@@ -39,6 +37,7 @@ These are not ours to patch, so they have no exit condition: they move with thei
 | Assimp | `Ultz.Native.Assimp` | [assimp/assimp](https://github.com/assimp/assimp) |
 | HarfBuzz | `HarfBuzzSharp`, `HarfBuzzSharp.NativeAssets.Linux` | [harfbuzz/harfbuzz](https://github.com/harfbuzz/harfbuzz) |
 | Avalonia's platform libraries | Avalonia's packages, transitively | [AvaloniaUI/Avalonia](https://github.com/AvaloniaUI/Avalonia) |
+| macOS terminal launcher | `RoyalApps.RoyalTerminal.Terminal.Pty.Unix`, via `RoyalApps.RoyalTerminal.Avalonia` | [RoyalTerminal](https://github.com/royalapplications/RoyalTerminal) |
 | FFmpeg | Not bundled: downloaded from [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) on Windows and Linux and installed with Homebrew on macOS, for the GPL worker only (see the [license boundary](gpl-mit-boundary.md)) | [FFmpeg/FFmpeg](https://github.com/FFmpeg/FFmpeg) |
 
 ## How the committed binaries are checked
