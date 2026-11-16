@@ -43,6 +43,16 @@ jobs:
       mode: ${{ steps.release.outputs.mode }}
       body-sha256: ${{ steps.release.outputs.body-sha256 }}
     steps:
+      - &checkout-release-tools
+        name: Check out release tools and interface strings
+        uses: actions/checkout@v7.0.1
+        with:
+          path: source
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            src/Beutl.Language
+
       - &read-release
         name: Read the release notes
         id: release
@@ -56,7 +66,9 @@ jobs:
           echo "body-sha256=$(sha256sum < body.raw | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
           downloads="https://github.com/$REPO/releases/download/$TAG"
-          if grep -qF "$downloads/Beutl-$SEM_VER.flatpak" body.md; then
+          flatpak=$(python3 source/.github/scripts/release_assets.py flatpak "$SEM_VER")
+          echo "flatpak-url=$downloads/$flatpak" >> "$GITHUB_OUTPUT"
+          if grep -qF "$downloads/$flatpak" body.md; then
             mode=formatted
           elif grep -qF "$downloads/" body.md; then
             # Formatted by an older revision of this workflow, before the Flatpak link existed.
@@ -88,17 +100,6 @@ jobs:
           fi
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "Release notes of $TAG: $mode"
-
-      # Beside the notes rather than around them: a checkout deletes what the step above wrote.
-      - name: Check out the interface strings
-        if: steps.release.outputs.mode == 'format'
-        uses: actions/checkout@v7.0.1
-        with:
-          path: source
-          persist-credentials: false
-          sparse-checkout: |
-            .github/scripts
-            src/Beutl.Language
 
       - name: List the interface terms for opencode
         if: steps.release.outputs.mode == 'format'
@@ -214,6 +215,7 @@ jobs:
     steps:
       # The prepare step again (YAML alias): it re-reads the release and rebuilds changelog.md,
       # contributors.md and full-changelog.md here instead of trusting another job's artifacts.
+      - *checkout-release-tools
       - *read-release
 
       - name: Download the summary
@@ -230,16 +232,10 @@ jobs:
           BODY_SHA256: ${{ steps.release.outputs.body-sha256 }}
           SUMMARIZED_SHA256: ${{ needs.prepare.outputs.body-sha256 }}
           SUMMARY: ${{ runner.temp }}/summary/summary.json
+          FLATPAK_URL: ${{ steps.release.outputs.flatpak-url }}
         run: |
           set -euo pipefail
           downloads="https://github.com/$REPO/releases/download/$TAG"
-          flatpak_url="$downloads/Beutl-$SEM_VER.flatpak"
-          # Link the Debian packages the release carries: releases before #2939 named them for ubuntu22.04.
-          deb_url() {
-            local name
-            name=$(jq -r --arg arch "$1" '[.assets[]?.name | select(test("^beutl_.*_" + $arch + "\\.deb$"))][0] // empty' release.json)
-            echo "$downloads/${name:-beutl_$SIMPLE_VER-${REVISION}_$1.deb}"
-          }
           # Editing a published release must not turn it back into a draft.
           edit_release() {
             local args=(--notes-file release-body.md)
@@ -257,7 +253,7 @@ jobs:
           if [ "$MODE" = repair ]; then
             # Correct a stale Flatpak href, or add the bullet after the Debian one, and leave the
             # rest of the body alone.
-            if ! awk -v url="$flatpak_url" -v debian="[Debian package](" '
+            if ! awk -v url="$FLATPAK_URL" -v debian="[Debian package](" '
               { line[NR] = $0 }
               !flatpak && /^[[:space:]]*[-*+][[:space:]]+\[Flatpak\]\(/ { flatpak = NR }
               !anchor && /^[[:space:]]*[-*+][[:space:]]/ && index($0, debian) { anchor = NR }
@@ -309,25 +305,9 @@ jobs:
             | join("\n\n")
           ' "$SUMMARY")
           {
-            printf '%s\n' \
-              "## What's Changed" \
-              "" \
-              "- Windows (x64)" \
-              "  - [Installer]($downloads/beutl-standalone-setup.exe)" \
-              "- Windows (ARM64)" \
-              "  - [Installer]($downloads/beutl-standalone-arm64-setup.exe)" \
-              "- macOS" \
-              "  - [Zip (arm64)]($downloads/Beutl.osx_arm64.app.zip)" \
-              "  - [Zip (x64)]($downloads/Beutl.osx_x64.app.zip)" \
-              "- Linux (x64)" \
-              "  - [Debian package]($(deb_url amd64))" \
-              "  - [Flatpak]($flatpak_url)" \
-              "  - [Zip]($downloads/Beutl-linux-x64-standalone-$SEM_VER.zip)" \
-              "- Linux (ARM64)" \
-              "  - [Debian package]($(deb_url arm64))" \
-              "  - [Flatpak]($downloads/Beutl-arm64-$SEM_VER.flatpak)" \
-              "  - [Zip]($downloads/Beutl-linux-arm64-standalone-$SEM_VER.zip)" \
-              ""
+            printf "%s\n\n" "## What's Changed"
+            python3 source/.github/scripts/release_assets.py links "$SEM_VER" "$SIMPLE_VER-$REVISION" "$downloads" < release.json
+            echo
             # Every category may be empty: a release of dependency bumps and chores has nothing to summarize.
             if [ -n "$summary" ]; then
               printf '%s\n\n' "$summary"
@@ -346,6 +326,7 @@ jobs:
 
       - name: Verify the release notes were reformatted
         env:
+          FLATPAK_URL: ${{ steps.release.outputs.flatpak-url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
@@ -362,10 +343,9 @@ jobs:
             echo "::error::Release notes for $TAG were not reformatted (no download links found)."
             exit 1
           fi
-          flatpak_url="https://github.com/$REPO/releases/download/$TAG/Beutl-$SEM_VER.flatpak"
-          if grep -qF "$flatpak_url" "$body_file"; then
+          if grep -qF "$FLATPAK_URL" "$body_file"; then
             echo "Release notes link the Flatpak bundle."
           else
-            echo "::error::Release notes for $TAG are missing the Flatpak download link ($flatpak_url)."
+            echo "::error::Release notes for $TAG are missing the Flatpak download link ($FLATPAK_URL)."
             exit 1
           fi

@@ -5,6 +5,9 @@ name: Build Flatpak Package
 on:
   workflow_call:
     inputs:
+      platforms:
+        required: true
+        type: string
       semVer:
         required: true
         type: string
@@ -22,15 +25,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        include:
-          - arch: x64
-            flatpak-arch: x86_64
-            runner: ubuntu-latest
-            bundle: Beutl-${{ inputs.semVer }}.flatpak
-          - arch: arm64
-            flatpak-arch: aarch64
-            runner: ubuntu-24.04-arm
-            bundle: Beutl-arm64-${{ inputs.semVer }}.flatpak
+        include: ${{ fromJSON(inputs.platforms) }}
 
     steps:
       - name: Checkout

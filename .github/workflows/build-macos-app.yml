@@ -5,6 +5,9 @@ name: Build macOS App Bundle
 on:
   workflow_call:
     inputs:
+      rids:
+        required: true
+        type: string
       semVer:
         required: true
         type: string
@@ -38,7 +41,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        rid: [ osx_x64, osx_arm64 ]
+        rid: ${{ fromJSON(inputs.rids) }}
 
     steps:
       - name: Checkout

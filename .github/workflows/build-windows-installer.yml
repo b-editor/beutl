@@ -5,6 +5,9 @@ name: Build Windows Installer
 on:
   workflow_call:
     inputs:
+      architectures:
+        required: true
+        type: string
       semVer:
         required: true
         type: string
@@ -18,7 +21,7 @@ jobs:
     strategy:
       matrix:
         # Only the self-contained installers ship (#2887).
-        arch: [ x64, arm64 ]
+        arch: ${{ fromJSON(inputs.architectures) }}
 
     steps:
       - name: Checkout

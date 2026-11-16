@@ -5,6 +5,9 @@ name: Determine Version
 on:
   workflow_call:
     outputs:
+      releaseMatrices:
+        description: "Build matrices for release assets"
+        value: ${{ jobs.determine-version.outputs.releaseMatrices }}
       semVer:
         description: "Semantic Version"
         value: ${{ jobs.determine-version.outputs.semVer }}
@@ -28,6 +31,7 @@ jobs:
   determine-version:
     runs-on: ubuntu-latest
     outputs:
+      releaseMatrices: ${{ steps.assets.outputs.matrices }}
       semVer: ${{ steps.nbgv.outputs.SemVer2 }}
       nugetVer: ${{ steps.nbgv.outputs.NuGetPackageVersion }}
       asmVer: ${{ steps.nbgv.outputs.AssemblyFileVersion }}
@@ -48,3 +52,11 @@ jobs:
       - name: Nerdbank.GitVersioning
         id: nbgv
         uses: dotnet/nbgv@v0.5.2
+
+      - name: Resolve release asset matrices
+        id: assets
+        env:
+          VERSION: ${{ steps.nbgv.outputs.SemVer2 }}
+        run: |
+          matrices=$(python3 .github/scripts/release_assets.py matrices "$VERSION")
+          echo "matrices=$matrices" >> "$GITHUB_OUTPUT"
