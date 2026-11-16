@@ -494,8 +494,28 @@ internal partial class WebBrowserTabView
     {
         if (_viewModel is { } vm && BrowserMediaDownload.IsHttpUri(vm.CurrentUri))
         {
-            _ = DownloadMediaAsync(vm.CurrentUri, null, vm.CurrentUri);
+            _ = DownloadMediaAsync(vm.CurrentUri, null, vm.CurrentUri, fromMenu: true);
         }
+    }
+
+    private async Task<Uri?> ReadMediaPageAsync(CancellationToken cancellationToken)
+    {
+        // A single-page player can change videos via pushState without a navigation event.
+        // A document showing a file, such as a PDF, keeps the browser's usual download flow.
+        const string script = "['text/html','application/xhtml+xml'].includes(document.contentType) ? location.href : ''";
+        string? address = null;
+        try
+        {
+            address = NormalizePageTitle(await RunPageScriptAsync(script)
+                .WaitAsync(TimeSpan.FromSeconds(5), cancellationToken));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The native view can disappear while the menu is open.
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return Uri.TryCreate(address, UriKind.Absolute, out Uri? page) && BrowserMediaDownload.IsHttpUri(page) ? page : null;
     }
 
     private void OnDismissDownloadStatusClick(object? sender, RoutedEventArgs e)
@@ -569,7 +589,7 @@ internal partial class WebBrowserTabView
 
     internal async Task DownloadMediaAsync(Uri uri, string? suggestedName, Uri? referrer = null,
         BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin, IBrowserDownloadSource? source = null,
-        BrowserDownloadHandling? handling = null, bool fromPage = false)
+        BrowserDownloadHandling? handling = null, bool fromPage = false, bool fromMenu = false)
     {
         if (_disposed || _downloadCancellation != null || _viewModel is not { } vm)
         {
@@ -585,6 +605,17 @@ internal partial class WebBrowserTabView
         _downloadCancellation = cancellation;
         try
         {
+            if (fromMenu && await ReadMediaPageAsync(cancellation.Token) is { } mediaPage)
+            {
+                ShowDownloadRunning(mediaPage);
+                bool handled = await vm.TryDownloadPageAsync(mediaPage, cancellation.Token);
+                cancellation.Token.ThrowIfCancellationRequested();
+                DownloadStatusPanel.IsVisible = false;
+                if (handled) return;
+                uri = mediaPage;
+                referrer = mediaPage;
+            }
+
             // A claimed file goes into the project without asking where, as long as the editor can still take it.
             string? claimedDirectory = handling != null ? vm.ClaimedDownloadDirectory : null;
             if (claimedDirectory == null) handling = null;

@@ -10,6 +10,7 @@ using Beutl.Editor.Components.WebBrowserTab.Views;
 using Beutl.Extensibility;
 using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
 
@@ -26,6 +27,64 @@ public sealed class BrowserDownloadExtensionTests
 
     [TearDown]
     public void UnregisterAudioDecoder() => DecoderRegistry.Unregister(_decoder);
+
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task DownloadMediaMenuOffersTheCurrentPageBeforeOpeningTheFileOptions(bool handled)
+    {
+        using var temporary = new TemporaryDirectory();
+        var page = new Uri("https://www.youtube.com/watch?v=example&t=3");
+        using var browser = Browser.Open(temporary.Path, page);
+        var currentVideo = new Uri("https://www.youtube.com/watch?v=second&t=7");
+        browser.View.PageScriptRunner = _ => Task.FromResult<string?>(JsonSerializer.Serialize(currentVideo.AbsoluteUri));
+        var finished = new TaskCompletionSource<bool>();
+        var requests = new List<(IEditorContext, Uri, string?)>();
+        browser.Extension.DownloadPage = (editor, address, title, _) =>
+        {
+            requests.Add((editor, address, title));
+            return new ValueTask<bool>(finished.Task);
+        };
+        var optionsOpened = new List<Uri>();
+        browser.View.DownloadOptionsSelector = (uri, _) =>
+        {
+            optionsOpened.Add(uri);
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+        };
+
+        var menu = (FAMenuFlyout)browser.View.FindControl<Button>("BrowserMenuButton")!.Flyout!;
+        var download = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Beutl.Language.Strings.WebDownloadMedia);
+        download.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+        download.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+        Assert.That(requests, Is.EqualTo(new[] { ((IEditorContext)browser.Context, currentVideo, (string?)null) }));
+        Assert.That(optionsOpened, Is.Empty);
+        Assert.That(browser.Extension.Offers, Is.Empty);
+
+        finished.SetResult(handled);
+        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+        Assert.That(optionsOpened, Is.EqualTo(handled ? Array.Empty<Uri>() : new[] { currentVideo }));
+    }
+
+    [AvaloniaTest]
+    [TestCase(true, true)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    public async Task DownloadMediaMenuUsesTheDisplayedUrlWhenAvailableWithoutExtensions(bool hasProvider, bool isHtml)
+    {
+        var previous = new Uri("https://player.example/watch?v=first");
+        var displayed = new Uri("https://player.example/watch?v=second");
+        var context = new BrowserEditorContext(extensions: hasProvider ? new ExtensionProvider() : null);
+        using var vm = new WebBrowserTabViewModel(context, previous);
+        using var view = CreateView(vm);
+        view.PageScriptRunner = _ => Task.FromResult<string?>(isHtml ? displayed.AbsoluteUri : "");
+
+        Task download = view.DownloadMediaAsync(vm.CurrentUri, null, vm.CurrentUri, fromMenu: true);
+        var options = (BrowserDownloadOptionsView)view.FindControl<ContentControl>("ToolPanelContent")!.Content!;
+        options.FindControl<Button>("CancelDownloadOptionsButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await download;
+
+        Assert.That(options.SourceUrl, Is.EqualTo((isHtml ? displayed : previous).AbsoluteUri));
+    }
 
     [AvaloniaTest]
     // The browser reads the expression's value back from an envelope of its own. WebView2 returns that envelope as a
@@ -495,6 +554,12 @@ public sealed class BrowserDownloadExtensionTests
         public List<BrowserDownloadOffer> Offers { get; } = [];
 
         public List<BrowserDownloadImportContext> Imports { get; } = [];
+
+        public Func<IEditorContext, Uri, string?, CancellationToken, ValueTask<bool>>? DownloadPage { get; set; }
+
+        public override ValueTask<bool> TryDownloadPageAsync(IEditorContext editorContext, Uri page,
+            string? pageTitle, CancellationToken cancellationToken)
+            => DownloadPage?.Invoke(editorContext, page, pageTitle, cancellationToken) ?? ValueTask.FromResult(false);
 
         public Func<BrowserDownloadImportContext, CancellationToken, ValueTask<bool>> Import { get; set; } =
             (_, _) => ValueTask.FromResult(true);
