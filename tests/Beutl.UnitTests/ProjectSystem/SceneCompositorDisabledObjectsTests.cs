@@ -2,8 +2,13 @@
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
+using Beutl.Media;
+using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
@@ -37,6 +42,57 @@ public sealed class SceneCompositorDisabledObjectsTests
             Assert.That(curves.IsEnabled.Value, Is.True);
         });
     }
+
+    // The curves tab reads the colors a Curves effect receives from a frame where the effects after it change no colors,
+    // while an effect that moves pixels still puts them where the preview shows them.
+    [Test]
+    public void Effects_after_a_picked_one_keep_their_moves_and_change_no_colors()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        var curves = new Curves();
+        var turn = new HueRotate { Angle = { Value = 180 } };
+        var move = new TransformEffect { Transform = { Value = new TranslateTransform(16, 0) } };
+        var shape = new RectShape
+        {
+            Width = { Value = 32 },
+            Height = { Value = 32 },
+            Fill = { Value = new SolidColorBrush(Colors.Red) },
+        };
+        var chain = (FilterEffectGroup)shape.FilterEffect.Value!;
+        chain.Children.Add(curves);
+        chain.Children.Add(turn);
+        chain.Children.Add(move);
+        var scene = new Scene(32, 32, string.Empty);
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) } };
+        element.Objects.Add(shape);
+        scene.Children.Add(element);
+
+        Bgra8888[] preview = MiddleRow(scene, _ => { });
+        Bgra8888[] picked = MiddleRow(scene, compositor =>
+        {
+            compositor.DisabledObjects = new HashSet<EngineObject> { curves };
+            compositor.ColorStagesSkipped = FilterEffectOrder.After(curves);
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(preview[24].R, Is.LessThan(64), "The preview turns the red away.");
+            Assert.That(picked[24].R, Is.GreaterThan(250), "The picked frame keeps the red.");
+            Assert.That(Math.Max(picked[24].G, picked[24].B), Is.LessThan(5));
+            Assert.That((preview[8].A, picked[8].A), Is.EqualTo(((byte)0, (byte)0)), "Both move the rect off the left half.");
+        });
+    }
+
+    private static Bgra8888[] MiddleRow(Scene scene, Action<SceneCompositor> configure)
+        => VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+            configure(renderer.Compositor);
+            renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.Zero));
+            using Bitmap snapshot = renderer.Snapshot();
+            using Bitmap pixels = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            return pixels.GetRow<Bgra8888>(16).ToArray();
+        });
 
     private static bool[] EnabledEffects(SceneCompositor compositor)
     {

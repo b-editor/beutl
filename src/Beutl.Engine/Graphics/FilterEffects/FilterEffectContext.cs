@@ -115,6 +115,7 @@ public sealed partial class FilterEffectContext : IDisposable
         _resourceState = obj._resourceState.AddReference();
         _renderTimeItems = new PooledList<IFEItem>(obj._renderTimeItems);
         _items = new PooledList<IFEItem>(obj._items);
+        _skipColorStages = obj._skipColorStages;
     }
 
     private FilterEffectContext(
@@ -129,9 +130,13 @@ public sealed partial class FilterEffectContext : IDisposable
         _resourceState = obj._resourceState.AddReference();
         _renderTimeItems = [];
         _items = [];
+        _skipColorStages = obj._skipColorStages;
     }
 
     private Rect _bounds;
+
+    // While an effect in CompositionConditions.ColorStagesSkipped records, its per-pixel color stages are left out.
+    private bool _skipColorStages;
 
     internal Rect Bounds => _bounds;
 
@@ -216,6 +221,9 @@ public sealed partial class FilterEffectContext : IDisposable
             description.Resources,
             static binding => binding.Resource,
             nameof(description));
+        if (_skipColorStages && description.Kind == ShaderDescriptionKind.CurrentPixel)
+            return;
+
         AppendDescription(new FEItem_Shader(description));
     }
 
@@ -310,6 +318,9 @@ public sealed partial class FilterEffectContext : IDisposable
     public void AppendSKColorFilter<T>(T data, Func<T, FilterEffectExecutor, SKColorFilter?> factory)
         where T : IEquatable<T>
     {
+        if (_skipColorStages)
+            return;
+
         AddItem(new FEItem_SKColorFilter<T>(data, factory));
     }
 
@@ -395,6 +406,9 @@ public sealed partial class FilterEffectContext : IDisposable
         ThrowIfDisposed();
 
         RecordingCheckpoint checkpoint = Checkpoint();
+        bool skippedColorStages = _skipColorStages;
+        _skipColorStages |= resource.GetOriginal() is { } original
+            && resource.EvaluationContext?.Conditions.SkipsColorStages(original) == true;
         try
         {
             resource.Record(this);
@@ -406,6 +420,10 @@ public sealed partial class FilterEffectContext : IDisposable
         {
             Rollback(checkpoint);
             throw;
+        }
+        finally
+        {
+            _skipColorStages = skippedColorStages;
         }
     }
 

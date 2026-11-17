@@ -65,6 +65,10 @@ public sealed partial class SceneCompositor : ICompositor
     /// <remarks>Set it before the first frame. Nested scenes inherit it with the rest of the conditions.</remarks>
     internal IReadOnlySet<EngineObject>? DisabledObjects { get; set; }
 
+    /// <summary>Filter effects whose color stages this compositor's frames leave out; see <see cref="CompositionConditions.ColorStagesSkipped"/>.</summary>
+    /// <remarks>Set it before the first frame. Nested scenes inherit it with the rest of the conditions.</remarks>
+    internal IReadOnlySet<EngineObject>? ColorStagesSkipped { get; set; }
+
     // Replaces a compositor whose scene or sharing/source settings no longer match the context and
     // creates one for a referenced scene. The field is cleared before construction, so a constructor
     // that throws leaves no disposed compositor behind.
@@ -122,6 +126,7 @@ public sealed partial class SceneCompositor : ICompositor
                 FrameRate = compositor.Scene.FindHierarchicalParent<Project>().GetFrameRate(),
                 EvaluationServices = services?.Fork(compositor, this) ?? new EvaluationServices(compositor, this),
                 DisabledObjects = compositor.DisabledObjects,
+                ColorStagesSkipped = compositor.ColorStagesSkipped,
             };
         }
 
