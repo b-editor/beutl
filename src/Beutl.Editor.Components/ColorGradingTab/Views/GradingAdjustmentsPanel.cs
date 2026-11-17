@@ -16,10 +16,6 @@ public sealed class GradingAdjustmentsPanel : Panel
     // The columns of the last layout, for tests.
     internal int UsedColumns { get; private set; } = 1;
 
-    // The height the groups take at a width, from their heights in the last layout, which no width changes since each
-    // of their rows keeps one line. The tab uses it to know whether they fit above the wheels before putting them there.
-    internal double HeightAt(double width) => HeightOf(VisibleItems(), ColumnsFor(width));
-
     protected override Size MeasureOverride(Size availableSize)
     {
         Control[] items = VisibleItems();

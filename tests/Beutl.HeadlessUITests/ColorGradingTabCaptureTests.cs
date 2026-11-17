@@ -40,6 +40,7 @@ public class ColorGradingTabCaptureTests
     [TestCase(1440, 480, 0, Placement.Auto, false, true)]
     [TestCase(560, 720, 1, Placement.Auto, false, true)]
     [TestCase(420, 900, 0, Placement.Auto, false, true)]
+    [TestCase(420, 560, 0, Placement.Auto, false, true)]
     [TestCase(800, 360, 1, Placement.Auto, false, true)]
     [TestCase(800, 360, 0, Placement.Auto, false, true)]
     public async Task Capture_color_grading_tab(int width, int height, int mode, Placement placement, bool light, bool adjustments)
