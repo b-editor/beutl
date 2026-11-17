@@ -204,7 +204,7 @@ public sealed class FilterEffectCropTests
         filter.AddChild(ScaleRecordingTestHelper.Source(
             EffectiveScale.At(1),
             sourceBounds,
-            session => observed.Add(session.RequiredRegion)));
+            session => observed.Add(session.OutputPlacement.LogicalBounds)));
         using RenderNodeRenderer renderer = CreateRenderer(filter, requestedRegion: new Rect(150, 150, 200, 200));
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -222,7 +222,7 @@ public sealed class FilterEffectCropTests
         filter.AddChild(ScaleRecordingTestHelper.Source(
             EffectiveScale.At(1),
             sourceBounds,
-            session => observed.Add(session.RequiredRegion)));
+            session => observed.Add(session.OutputPlacement.LogicalBounds)));
         using RenderNodeRenderer renderer = CreateRenderer(filter, requestedRegion: new Rect(0, 0, 50, 50));
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -419,7 +419,7 @@ public sealed class FilterEffectCropTests
                 pieces,
                 static (session, pieces) =>
                 {
-                    using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputPlacement.LogicalBounds);
                     output.Canvas.Use(canvas =>
                     {
                         foreach ((Rect rect, Color color) in pieces)

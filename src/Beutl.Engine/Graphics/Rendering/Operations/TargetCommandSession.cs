@@ -63,7 +63,7 @@ public sealed class TargetCommandSession
         get { _canvas.Token.ThrowIfInactive(); return _affectedBounds; }
     }
 
-    public Rect RequiredRegion => _canvas.LogicalBounds;
+    public Rect RequiredRegion => _canvas.Placement.LogicalBounds;
 
     public RenderIntent Intent
     {

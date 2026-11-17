@@ -23,8 +23,8 @@ public sealed class RasterFootprintContractTests
             renderTarget,
             bounds,
             EffectiveScale.At(density));
-        PixelRect allocation = target.DeviceBounds;
-        Rect initialRasterBounds = target.RasterBounds;
+        PixelRect allocation = target.Placement.DeviceBounds;
+        Rect initialRasterBounds = target.Placement.RasterBounds;
         var translation = new Vector(3.25f, -1.5f);
 
         target.Bounds = target.Bounds.Translate(translation);
@@ -34,9 +34,10 @@ public sealed class RasterFootprintContractTests
             Assert.That(allocation.Position, Is.EqualTo(canonical.Position));
             Assert.That(allocation.Size,
                 Is.EqualTo(new PixelSize(renderTarget.Width, renderTarget.Height)));
-            Assert.That(target.DeviceBounds, Is.EqualTo(allocation));
-            Assert.That(target.RasterBounds, Is.EqualTo(initialRasterBounds.Translate(translation)));
-            Assert.That(target.RasterBounds.Size, Is.EqualTo(initialRasterBounds.Size));
+            Assert.That(target.Placement.DeviceBounds, Is.EqualTo(allocation));
+            Assert.That(target.Placement.RasterBounds, Is.EqualTo(initialRasterBounds.Translate(translation)));
+            Assert.That(target.Placement.ToLogical(allocation.Position), Is.EqualTo(initialRasterBounds.Position + translation));
+            Assert.That(target.Placement.RasterBounds.Size, Is.EqualTo(initialRasterBounds.Size));
             Assert.That(initialRasterBounds.Position, Is.EqualTo(bounds.Position));
             Assert.That(target.Bounds.Size, Is.EqualTo(bounds.Size));
         });
@@ -133,29 +134,31 @@ public sealed class RasterFootprintContractTests
     }
 
     [Test]
-    public void GridAwareRasterFacades_ExposeTheCompositionDeviceTranslation()
+    public void PlacementMapsLocalBoundsAndCompositionPixelsOnTheSameGrid()
     {
+        var bounds = new Rect(-3.25f, 5.5f, 4, 3);
+        var offset = new Vector(0.75f, -0.25f);
+        var placement = new RenderPlacement(bounds, EffectiveScale.At(2), new PixelRect(-6, 9, 12, 10), offset);
+
         Assert.Multiple(() =>
         {
-            Assert.That(
-                typeof(EffectTarget).GetProperty(nameof(EffectTarget.DeviceGridOffset)),
-                Is.Not.Null);
-            Assert.That(
-                typeof(CustomFilterEffectContext).GetProperty(
-                    nameof(CustomFilterEffectContext.DeviceGridOffset)),
-                Is.Not.Null);
-            Assert.That(
-                typeof(RenderExecutionInput).GetProperty(
-                    nameof(RenderExecutionInput.DeviceGridOffset)),
-                Is.Not.Null);
-            Assert.That(
-                typeof(RenderCallbackCanvas).GetProperty(
-                    nameof(RenderCallbackCanvas.DeviceGridOffset)),
-                Is.Not.Null);
-            Assert.That(
-                typeof(ShaderExecutionContext).GetProperty(
-                    nameof(ShaderExecutionContext.DeviceGridOffset)),
-                Is.Not.Null);
+            Assert.That(placement.ToLogical(placement.DeviceBounds.Position), Is.EqualTo(placement.LogicalOrigin));
+            Assert.That(placement.ToLogical(new PixelPoint(-4, 11)), Is.EqualTo(new Point(-2.75f, 5.75f)));
+            Assert.That(placement.ToDevice(bounds), Is.EqualTo(new PixelRect(-5, 10, 8, 7)));
+            Assert.That(placement.ToDevice(placement.RasterBounds), Is.EqualTo(placement.DeviceBounds));
         });
+    }
+
+    [TestCase(typeof(EffectTarget), "Placement")]
+    [TestCase(typeof(RenderExecutionInput), "Placement")]
+    [TestCase(typeof(RenderCallbackCanvas), "Placement")]
+    [TestCase(typeof(MaterializedInputDescription), "Placement")]
+    [TestCase(typeof(OpaqueRenderOutput), "Placement")]
+    [TestCase(typeof(ShaderExecutionContext), "OutputPlacement")]
+    [TestCase(typeof(GeometrySession), "OutputPlacement")]
+    [TestCase(typeof(OpaqueRenderSession), "OutputPlacement")]
+    public void RasterFacadesExposeTheSharedPlacement(Type facade, string name)
+    {
+        Assert.That(facade.GetProperty(name)?.PropertyType, Is.EqualTo(typeof(RenderPlacement)));
     }
 }

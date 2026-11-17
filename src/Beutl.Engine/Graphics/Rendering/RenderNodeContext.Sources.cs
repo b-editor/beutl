@@ -460,8 +460,8 @@ public sealed partial class RenderNodeContext
         ValidateDescriptionResources(description.Resources, nameof(description));
         return GetTransaction().CreateFragment(
             RenderFragmentKind.MaterializedInput,
-            description.Bounds,
-            description.EffectiveScale,
+            description.Placement.LogicalBounds,
+            description.Placement.Scale,
             RenderValueCardinality.Single,
             contributesValuesToTarget: true,
             canBeUsedAsValueInput: true,
@@ -547,7 +547,7 @@ public sealed partial class RenderNodeContext
     {
         public void Execute(OpaqueRenderSession session)
         {
-            using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+            using OpaqueRenderOutput output = session.CreateOutput(session.OutputPlacement.LogicalBounds);
             output.Canvas.Use(canvas => Draw(session.Token, canvas));
             session.Publish(output);
         }

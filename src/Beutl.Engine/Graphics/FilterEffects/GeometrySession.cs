@@ -1,5 +1,4 @@
 ﻿using Beutl.Graphics.Rendering;
-using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
@@ -50,18 +49,13 @@ public sealed class GeometrySession
         get { _canvas.Token.ThrowIfInactive(); return _outputBounds; }
     }
 
-    public Rect RequiredRegion => _canvas.LogicalBounds;
-
-    public PixelRect DeviceBounds => _canvas.DeviceBounds;
-
-    public PixelSize DeviceSize => _canvas.DeviceBounds.Size;
+    /// <summary>The portion of the output allocated for this request.</summary>
+    public RenderPlacement OutputPlacement => _canvas.Placement;
 
     public float OutputScale
     {
         get { _canvas.Token.ThrowIfInactive(); return field; }
     }
-
-    public float WorkingScale => _canvas.Density;
 
     public float MaxWorkingScale
     {

@@ -383,10 +383,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
             RenderResource<RenderTarget> target = context.Borrow(source);
             context.Publish(context.MaterializedInput(MaterializedInputDescription.FromRenderTarget(
                 target,
-                s_bounds,
-                EffectiveScale.At(1),
-                PixelRect.FromRect(s_bounds, 1),
-                default,
+                new RenderPlacement(s_bounds, EffectiveScale.At(1)),
                 RenderHitTestContract.OutputBounds)));
         }
     }

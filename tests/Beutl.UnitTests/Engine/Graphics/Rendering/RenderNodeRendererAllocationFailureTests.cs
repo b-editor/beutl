@@ -319,7 +319,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
             context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
-                    using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputPlacement.LogicalBounds);
                     output.Canvas.Use(static canvas => canvas.Clear(Colors.CornflowerBlue));
                     session.Publish(output);
                 },

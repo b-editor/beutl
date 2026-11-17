@@ -7,8 +7,7 @@ namespace Beutl.Graphics.Effects;
 public sealed class EffectTarget : IDisposable
 {
     private object? _target;
-    private readonly Rect _allocationBounds;
-    private readonly Rect _allocationRasterBounds;
+    private readonly RenderPlacement _allocation;
 
     public EffectTarget(RenderTarget renderTarget, Rect originalBounds, EffectiveScale scale = default)
         : this(
@@ -34,11 +33,8 @@ public sealed class EffectTarget : IDisposable
         Vector deviceGridOffset = default,
         bool preserveImperativeRasterPlacement = false)
         : this(
+            new RenderPlacement(originalBounds, scale, deviceBounds, deviceGridOffset),
             CopyValidatedBacking(renderTarget, scale, deviceBounds),
-            originalBounds,
-            scale,
-            deviceBounds,
-            deviceGridOffset,
             preserveImperativeRasterPlacement)
     {
     }
@@ -51,34 +47,22 @@ public sealed class EffectTarget : IDisposable
         Vector deviceGridOffset,
         bool preserveImperativeRasterPlacement)
         : this(
+            new RenderPlacement(originalBounds, scale, deviceBounds, deviceGridOffset),
             ValidatedBacking(renderTargetLease, scale, deviceBounds),
-            originalBounds,
-            scale,
-            deviceBounds,
-            deviceGridOffset,
             preserveImperativeRasterPlacement)
     {
     }
 
     /// <summary>Takes ownership of a validated backing: a render-target reference or a pooled lease.</summary>
     private EffectTarget(
+        RenderPlacement allocation,
         object backing,
-        Rect originalBounds,
-        EffectiveScale scale,
-        PixelRect deviceBounds,
-        Vector deviceGridOffset,
         bool preserveImperativeRasterPlacement)
     {
         _target = backing;
-        _allocationBounds = originalBounds;
-        _allocationRasterBounds = deviceBounds
-            .ToRect(scale.Value)
-            .Translate(-deviceGridOffset);
-        OriginalBounds = originalBounds;
-        Bounds = originalBounds;
-        Scale = scale;
-        DeviceBounds = deviceBounds;
-        DeviceGridOffset = deviceGridOffset;
+        _allocation = allocation;
+        OriginalBounds = allocation.LogicalBounds;
+        Bounds = allocation.LogicalBounds;
         PreserveImperativeRasterPlacement = preserveImperativeRasterPlacement;
     }
 
@@ -122,25 +106,10 @@ public sealed class EffectTarget : IDisposable
 
     public Rect Bounds { get; set; }
 
-    /// <summary>
-    /// Supply density: <see cref="EffectiveScale.Unbounded"/> for vector, concrete <see cref="EffectiveScale.At"/> for rasterized buffers.
-    /// </summary>
-    public EffectiveScale Scale { get; init; }
+    /// <summary>The current content and raster footprint. Moving Bounds translates the raster on its original allocation.</summary>
+    public RenderPlacement Placement => _allocation.MoveContent(Bounds);
 
-    /// <summary>
-    /// Gets the immutable composition-device footprint used to allocate the backing target.
-    /// </summary>
-    /// <remarks>
-    /// Convert this footprint to effect-local coordinates with
-    /// <c>DeviceBounds.ToRect(Scale.Value).Translate(-DeviceGridOffset)</c>.
-    /// </remarks>
-    public PixelRect DeviceBounds { get; }
-
-    /// <summary>
-    /// Gets the translation from effect-local logical coordinates to the composition-device grid
-    /// used to round the backing target.
-    /// </summary>
-    public Vector DeviceGridOffset { get; }
+    internal RenderPlacement Allocation => _allocation;
 
     internal bool PreserveImperativeRasterPlacement { get; }
 
@@ -154,20 +123,13 @@ public sealed class EffectTarget : IDisposable
     /// </remarks>
     internal Rect? ContentBounds { get; set; }
 
-    /// <summary>
-    /// Gets the current effect-local, pixel-aligned logical footprint. Moving <see cref="Bounds"/>
-    /// translates this footprint without stretching the backing pixels.
-    /// </summary>
-    public Rect RasterBounds
-        => _allocationRasterBounds.Translate(Bounds.Position - _allocationBounds.Position);
-
-    // Where Draw puts the raster: at RasterBounds, or at Bounds for a target that keeps an imperative placement.
+    // Where Draw puts the raster: at Placement.RasterBounds, or at Bounds for a target that keeps an imperative placement.
     internal Rect DrawnBounds
         => RenderTarget is null
             ? Rect.Empty
             : PreserveImperativeRasterPlacement
-                ? new Rect(Bounds.Position, RasterBounds.Size)
-                : RasterBounds;
+                ? new Rect(Bounds.Position, Placement.RasterBounds.Size)
+                : Placement.RasterBounds;
 
     public RenderTarget? RenderTarget => _target switch
     {
@@ -179,7 +141,7 @@ public sealed class EffectTarget : IDisposable
     public bool IsEmpty => _target == null;
 
     /// <summary>Whether this target has a backing render target and a concrete scale to rasterize at.</summary>
-    internal bool IsMaterialized => RenderTarget is not null && !Scale.IsUnbounded;
+    internal bool IsMaterialized => RenderTarget is not null && !_allocation.Scale.IsUnbounded;
 
     /// <summary>The <see cref="EffectTargets"/> that currently owns this target, if any.</summary>
     internal EffectTargets? Owner { get; set; }
@@ -223,23 +185,20 @@ public sealed class EffectTarget : IDisposable
     }
 
     internal EffectTarget CreateReplacement(RenderTarget renderTarget)
-        => CreateReplacementCore(CopyValidatedBacking(renderTarget, Scale, DeviceBounds));
+        => CreateReplacementCore(CopyValidatedBacking(renderTarget, _allocation.Scale, _allocation.DeviceBounds));
 
     internal EffectTarget CreateReplacement(RenderTargetLease renderTargetLease)
         => CreateReplacement(new EffectTargetRenderTargetLease(renderTargetLease));
 
     private EffectTarget CreateReplacement(EffectTargetRenderTargetLease renderTargetLease)
-        => CreateReplacementCore(ValidatedBacking(renderTargetLease, Scale, DeviceBounds));
+        => CreateReplacementCore(ValidatedBacking(renderTargetLease, _allocation.Scale, _allocation.DeviceBounds));
 
     /// <summary>Wraps a validated backing as a target with this target's footprint and bounds.</summary>
     private EffectTarget CreateReplacementCore(object backing)
     {
         return new EffectTarget(
+            _allocation,
             backing,
-            _allocationBounds,
-            Scale,
-            DeviceBounds,
-            DeviceGridOffset,
             PreserveImperativeRasterPlacement)
         {
             Bounds = Bounds,
@@ -252,18 +211,15 @@ public sealed class EffectTarget : IDisposable
     /// bounds. This target is left empty.
     /// </summary>
     /// <remarks>
-    /// The raster must lie at its allocated place, which <see cref="RasterBounds"/> leaves only when the bounds move.
+    /// The raster must lie at its allocated place, which <see cref="RenderPlacement.RasterBounds"/> leaves only when the bounds move.
     /// The new target does not keep an imperative placement, so its bounds can be narrower than the raster.
     /// </remarks>
     internal EffectTarget TakeRasterWithBounds(Rect bounds)
     {
         object backing = _target ?? throw new InvalidOperationException("An empty target has no raster to move.");
         var result = new EffectTarget(
+            _allocation.WithLogicalBounds(bounds),
             backing,
-            bounds,
-            Scale,
-            DeviceBounds,
-            DeviceGridOffset,
             preserveImperativeRasterPlacement: false);
         _target = null;
         return result;
@@ -298,7 +254,7 @@ public sealed class EffectTarget : IDisposable
     {
         if (RenderTarget != null)
         {
-            Rect rasterBounds = RasterBounds;
+            Rect rasterBounds = Placement.RasterBounds;
             Point localOrigin = PreserveImperativeRasterPlacement
                 ? default
                 : rasterBounds.Position - Bounds.Position;
@@ -308,7 +264,7 @@ public sealed class EffectTarget : IDisposable
             // lands on exact device pixels; a filter chain anchored at a fractional frame offset
             // does not, and must resample instead of snapping the content to the grid.
             var destination = new Rect(localOrigin, rasterBounds.Size);
-            if ((Scale.IsUnbounded || Scale.Value == 1f)
+            if ((_allocation.Scale.IsUnbounded || _allocation.Scale.Value == 1f)
                 && canvas.Density == 1f
                 && canvas.CanBlitLossless(destination, new PixelSize(RenderTarget.Width, RenderTarget.Height)))
             {

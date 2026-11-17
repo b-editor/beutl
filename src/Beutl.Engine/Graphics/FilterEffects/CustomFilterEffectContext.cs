@@ -287,14 +287,14 @@ public class CustomFilterEffectContext
         EffectTargetAllocation.FailDeliveryOrDrop(
             Intent,
             RenderTargetLeaseSession,
-            $"Custom-effect replacement target allocation failed ({source.DeviceBounds.Width}x{source.DeviceBounds.Height} px, "
-            + $"target density {source.Scale.Value}, bounds {source.Bounds}); "
+            $"Custom-effect replacement target allocation failed ({source.Placement.DeviceBounds.Width}x{source.Placement.DeviceBounds.Height} px, "
+            + $"target density {source.Placement.Scale.Value}, bounds {source.Bounds}); "
             + "the delivery render fails instead of shipping an unprocessed frame.");
         s_logger.LogWarning(
             "Custom-effect replacement target allocation failed ({Width}x{Height} px, target density {TargetDensity}, bounds {Bounds}); returning an empty target so the preview can keep the source pixels.",
-            source.DeviceBounds.Width,
-            source.DeviceBounds.Height,
-            source.Scale.Value,
+            source.Placement.DeviceBounds.Width,
+            source.Placement.DeviceBounds.Height,
+            source.Placement.Scale.Value,
             source.Bounds);
         return new EffectTarget();
     }
@@ -326,9 +326,9 @@ public class CustomFilterEffectContext
 
         s_logger.LogWarning(
             "Native custom-effect replacement target allocation failed ({Width}x{Height} px, target density {TargetDensity}, bounds {Bounds}); returning an empty target so the preview can keep the source pixels.",
-            source.DeviceBounds.Width,
-            source.DeviceBounds.Height,
-            source.Scale.Value,
+            source.Placement.DeviceBounds.Width,
+            source.Placement.DeviceBounds.Height,
+            source.Placement.Scale.Value,
             source.Bounds);
         RenderTargetLeaseSession.MarkContentDropped();
         return new EffectTarget();
@@ -345,7 +345,7 @@ public class CustomFilterEffectContext
     {
         if (leaseSession is not null)
         {
-            RenderTargetLease? lease = leaseSession.TryAcquire(source.DeviceBounds.Size, clearContents);
+            RenderTargetLease? lease = leaseSession.TryAcquire(source.Placement.DeviceBounds.Size, clearContents);
             if (lease is null)
                 return null;
 
@@ -361,8 +361,8 @@ public class CustomFilterEffectContext
         }
 
         using RenderTarget? renderTarget = RenderTarget.Create(
-            source.DeviceBounds.Width,
-            source.DeviceBounds.Height);
+            source.Placement.DeviceBounds.Width,
+            source.Placement.DeviceBounds.Height);
         return renderTarget is null ? null : source.CreateReplacement(renderTarget);
     }
 
@@ -435,12 +435,12 @@ public class CustomFilterEffectContext
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(renderTarget);
         RequireMaterialized(source, nameof(source));
-        if (renderTarget.Width != source.DeviceBounds.Width
-            || renderTarget.Height != source.DeviceBounds.Height)
+        if (renderTarget.Width != source.Placement.DeviceBounds.Width
+            || renderTarget.Height != source.Placement.DeviceBounds.Height)
         {
             throw new ArgumentException(
                 $"The replacement render target must match the source device footprint "
-                + $"{source.DeviceBounds.Width}x{source.DeviceBounds.Height}.",
+                + $"{source.Placement.DeviceBounds.Width}x{source.Placement.DeviceBounds.Height}.",
                 nameof(renderTarget));
         }
 
@@ -465,10 +465,10 @@ public class CustomFilterEffectContext
 
         return sourceShader.WithLocalMatrix(
             RasterShaderMapping.CreateLocalMatrix(
-                destination.Scale.Value,
-                source.Scale.Value,
-                destination.RasterBounds,
-                source.RasterBounds));
+                destination.Placement.Scale.Value,
+                source.Placement.Scale.Value,
+                destination.Placement.RasterBounds,
+                source.Placement.RasterBounds));
     }
 
     /// <summary>
@@ -513,11 +513,11 @@ public class CustomFilterEffectContext
         SKImage? image = sourceSnapshot.Image;
         if (image is null)
         {
-            ThrowIfDeliveryReadbackFailure(Intent, source.DeviceBounds);
+            ThrowIfDeliveryReadbackFailure(Intent, source.Placement.DeviceBounds);
             s_logger.LogWarning(
                 "The source surface could not be snapshotted for sampling ({Width}x{Height} px); the preview keeps the source pixels.",
-                source.DeviceBounds.Width,
-                source.DeviceBounds.Height);
+                source.Placement.DeviceBounds.Width,
+                source.Placement.DeviceBounds.Height);
             return false;
         }
 
@@ -531,7 +531,7 @@ public class CustomFilterEffectContext
     /// <exception cref="ArgumentException">The target has no backing target or an unbounded scale.</exception>
     private static RenderTarget RequireMaterialized(EffectTarget target, string parameterName)
     {
-        if (target.RenderTarget is not { } renderTarget || target.Scale.IsUnbounded)
+        if (target.RenderTarget is not { } renderTarget || target.Placement.Scale.IsUnbounded)
         {
             throw new ArgumentException(
                 $"The {parameterName} must have a materialized target and concrete scale.",
@@ -609,7 +609,7 @@ public class CustomFilterEffectContext
         }
 
         // Prefer the target's concrete Scale (may be clamped below WorkingScale by CreateTarget).
-        float density = target.Scale.IsUnbounded ? WorkingScale : target.Scale.Value;
+        float density = target.Placement.Scale.IsUnbounded ? WorkingScale : target.Placement.Scale.Value;
         return _settings.CreateCanvas(target.RenderTarget, density, target.Bounds.Size);
     }
 

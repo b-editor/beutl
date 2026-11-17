@@ -270,7 +270,7 @@ internal static class BrushPaintOperation
             Size size = target.Bounds.Size;
             EffectTarget newTarget = context.CreateTarget(target.Bounds);
             using var paint = new SKPaint();
-            context.CreateBrushConstructor(new Rect(size), state.Brush, BlendMode.SrcIn, newTarget.Scale.Value)
+            context.CreateBrushConstructor(new Rect(size), state.Brush, BlendMode.SrcIn, newTarget.Placement.Scale.Value)
                 .ConfigurePaint(paint);
             using (ImmediateCanvas canvas = context.Open(newTarget))
             {

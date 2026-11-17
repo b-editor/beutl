@@ -76,7 +76,7 @@ public sealed class SKSLShader : IDisposable
                 "The builder must be created by the shader used for rendering.",
                 nameof(builder));
         }
-        if (target.RenderTarget is null || target.Scale.IsUnbounded)
+        if (target.RenderTarget is null || target.Placement.Scale.IsUnbounded)
             throw new ArgumentException("The target must be materialized with a concrete scale.", nameof(target));
 
         using SKShader finalShader = builder.Build();

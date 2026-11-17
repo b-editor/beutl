@@ -18,7 +18,7 @@ public enum ShaderResourceCoordinateSpace
     /// </summary>
     /// <remarks>
     /// For a coordinate <c>coord</c>, the corresponding logical point is
-    /// <c>LogicalOrigin + coord / WorkingScale</c>.
+    /// <c>OutputPlacement.LogicalOrigin + coord / OutputPlacement.Scale.Value</c>.
     /// </remarks>
     OutputDevice,
 }

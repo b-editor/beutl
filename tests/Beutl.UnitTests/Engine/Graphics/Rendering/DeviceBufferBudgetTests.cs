@@ -166,7 +166,7 @@ public sealed class DeviceBufferBudgetTests
             Assert.That(factory.Requests[0].Width, Is.LessThanOrEqualTo(DeviceBudget));
             Assert.That(target.RenderTarget!.Width, Is.EqualTo(factory.Requests[0].Width));
             Assert.That(
-                PixelRect.FromRect(s_overBudgetBounds, target.Scale.Value).Width,
+                PixelRect.FromRect(s_overBudgetBounds, target.Placement.Scale.Value).Width,
                 Is.EqualTo(factory.Requests[0].Width),
                 "the density read back from the target must describe the buffer that was allocated");
         });

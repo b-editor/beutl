@@ -106,7 +106,7 @@ public partial class DisplacementMapEffect : FilterEffect
                                 (Context: effectContext, Brush: brush, Original: effectTarget, Replacement: newTarget),
                                 static state =>
                                 {
-                                    float w = state.Replacement.Scale.Value;
+                                    float w = state.Replacement.Placement.Scale.Value;
                                     using SKShader displacementMapShader = DisplacementMapShaderFactory.CreateOrTransparent(
                                         state.Context,
                                         state.Brush,

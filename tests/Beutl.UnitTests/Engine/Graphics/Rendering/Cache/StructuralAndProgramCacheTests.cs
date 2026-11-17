@@ -694,10 +694,7 @@ public sealed class StructuralAndProgramCacheTests
             RenderFragmentHandle input = context.MaterializedInput(
                 MaterializedInputDescription.FromRenderTarget(
                     target,
-                    new Rect(0, 0, 8, 8),
-                    EffectiveScale.At(1),
-                    new PixelRect(0, 0, 8, 8),
-                    default,
+                    new RenderPlacement(new Rect(0, 0, 8, 8), EffectiveScale.At(1), new PixelRect(0, 0, 8, 8), default),
                     RenderHitTestContract.OutputBounds));
             ShaderDescription shader = ShaderDescription.CurrentPixel(
                 FirstSource,

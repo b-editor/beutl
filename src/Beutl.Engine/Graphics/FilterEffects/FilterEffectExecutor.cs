@@ -189,7 +189,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
         _pendingSkiaTargets = new Dictionary<EffectTarget, PendingSkiaTarget>();
         foreach (EffectTarget target in CurrentTargets)
         {
-            Rect physicalBounds = target.RasterBounds.Translate(
+            Rect physicalBounds = target.Placement.RasterBounds.Translate(
                 target.OriginalBounds.Position - target.Bounds.Position);
             // OriginalBounds cannot serve as the anchor frame: a stage the fallback executor allocated
             // itself begins a chain with OriginalBounds == Bounds, which anchors the chain at zero.
@@ -359,9 +359,9 @@ public sealed partial class FilterEffectExecutor : IDisposable
             EffectTarget target = CurrentTargets[i];
             if (!target.PreserveImperativeRasterPlacement
                 || !target.IsMaterialized
-                || target.RasterBounds != target.DeviceBounds
-                    .ToRect(target.Scale.Value)
-                    .Translate(-target.DeviceGridOffset))
+                || target.Placement.RasterBounds != target.Placement.DeviceBounds
+                    .ToRect(target.Placement.Scale.Value)
+                    .Translate(-target.Allocation.DeviceGridOffset))
             {
                 continue;
             }
@@ -401,7 +401,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
             using var snapshot = SurfaceSnapshot.Take(innerSurface);
             SKImage skImage = snapshot.Image;
 
-            Rect rasterBounds = t.RasterBounds;
+            Rect rasterBounds = t.Placement.RasterBounds;
             SKImageFilter image = SKImageFilter.CreateImage(
                 skImage,
                 new SKRect(0, 0, skImage.Width, skImage.Height),

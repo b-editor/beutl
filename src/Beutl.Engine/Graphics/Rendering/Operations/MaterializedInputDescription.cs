@@ -6,33 +6,17 @@ public sealed class MaterializedInputDescription
 {
     private MaterializedInputDescription(
         RenderResource<RenderTarget> target,
-        Rect bounds,
-        EffectiveScale effectiveScale,
-        PixelRect deviceBounds,
-        Vector deviceGridOffset,
+        RenderPlacement placement,
         RenderHitTestContract hitTest,
         IReadOnlyList<RenderResourceBinding> resources)
     {
         Target = target;
-        Bounds = bounds;
-        EffectiveScale = effectiveScale;
-        DeviceBounds = deviceBounds;
-        DeviceGridOffset = deviceGridOffset;
+        Placement = placement;
         HitTest = hitTest;
         Resources = resources;
     }
 
-    public Rect Bounds { get; }
-
-    public EffectiveScale EffectiveScale { get; }
-
-    public PixelRect DeviceBounds { get; }
-
-    public Vector DeviceGridOffset { get; }
-
-    public Rect RasterBounds => DeviceBounds
-        .ToRect(EffectiveScale.Value)
-        .Translate(-DeviceGridOffset);
+    public RenderPlacement Placement { get; }
 
     /// <summary>Gets the resources the hit-test contract resolves its slots against.</summary>
     /// <remarks>
@@ -48,10 +32,7 @@ public sealed class MaterializedInputDescription
 
     public static MaterializedInputDescription FromRenderTarget(
         RenderResource<RenderTarget> target,
-        Rect bounds,
-        EffectiveScale effectiveScale,
-        PixelRect deviceBounds,
-        Vector deviceGridOffset,
+        RenderPlacement placement,
         RenderHitTestContract hitTest,
         IReadOnlyList<RenderResourceBinding>? resources = null)
     {
@@ -59,13 +40,9 @@ public sealed class MaterializedInputDescription
         if (target.RegistrationState == RenderResourceRegistrationState.Released)
             throw new ArgumentException("A released render-target resource cannot be materialized.", nameof(target));
 
-        RenderDescriptionValidation.ThrowUnlessFiniteNonEmpty(bounds, nameof(bounds));
-        if (effectiveScale.IsUnbounded)
-        {
-            throw new ArgumentException(
-                "A materialized input requires a concrete positive effective scale.",
-                nameof(effectiveScale));
-        }
+        RenderDescriptionValidation.ThrowUnlessFiniteNonEmpty(placement.LogicalBounds, nameof(placement));
+        if (placement.Scale.IsUnbounded || !placement.RasterBounds.Contains(placement.LogicalBounds))
+            throw new ArgumentException("A materialized input requires a raster covering its logical bounds.", nameof(placement));
 
         hitTest.ThrowIfUninitialized(nameof(hitTest));
         if (hitTest.Kind == RenderHitTestContractKind.AnyInput)
@@ -75,31 +52,9 @@ public sealed class MaterializedInputDescription
                 nameof(hitTest));
         }
 
-        if (deviceBounds.Width <= 0 || deviceBounds.Height <= 0)
-        {
-            throw new ArgumentException(
-                "A materialized input must resolve to a non-empty device allocation.",
-                nameof(deviceBounds));
-        }
-        if (!float.IsFinite(deviceGridOffset.X) || !float.IsFinite(deviceGridOffset.Y))
-            throw new ArgumentException("A materialized input requires a finite device-grid offset.", nameof(deviceGridOffset));
-
-        Rect rasterBounds = deviceBounds
-            .ToRect(effectiveScale.Value)
-            .Translate(-deviceGridOffset);
-        if (!rasterBounds.Contains(bounds))
-        {
-            throw new ArgumentException(
-                "The materialized input's physical footprint must contain its semantic bounds on the declared device grid.",
-                nameof(deviceBounds));
-        }
-
         return new MaterializedInputDescription(
             target,
-            bounds,
-            effectiveScale,
-            deviceBounds,
-            deviceGridOffset,
+            placement,
             hitTest,
             RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)));
     }
@@ -107,7 +62,7 @@ public sealed class MaterializedInputDescription
     internal void ValidateTargetDeviceSize(RenderTarget target)
     {
         ArgumentNullException.ThrowIfNull(target);
-        if (target.Width != DeviceBounds.Width || target.Height != DeviceBounds.Height)
+        if (target.Width != Placement.DeviceBounds.Width || target.Height != Placement.DeviceBounds.Height)
         {
             throw new ArgumentException(
                 "The render target device size must exactly match the materialized input's declared device bounds.",

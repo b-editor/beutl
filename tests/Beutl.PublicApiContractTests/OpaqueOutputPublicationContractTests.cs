@@ -13,7 +13,7 @@ public sealed class OpaqueOutputPublicationContractTests
     private static OpaqueRenderDescription RecordingMap(PublishedBoundsRecorder recorder)
         => OpaqueRenderDescription.Create(
             recorder,
-            static (session, current) => current.Record(session.Inputs.Single().Bounds),
+            static (session, current) => current.Record(session.Inputs.Single().Placement.LogicalBounds),
             OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
             RenderHitTestContract.AnyInput,
             RenderValueCardinality.ZeroOrOne,

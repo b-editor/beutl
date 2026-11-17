@@ -52,14 +52,14 @@ public partial class MosaicEffect : FilterEffect
         ShaderExecutionContext context)
     {
         Rect outputBounds = context.OutputBounds;
-        Point logicalOrigin = context.LogicalOrigin;
-        PixelRect destinationDeviceBounds = context.DeviceBounds;
+        Point logicalOrigin = context.OutputPlacement.LogicalOrigin;
+        PixelRect destinationDeviceBounds = context.OutputPlacement.DeviceBounds;
         var deviceGridOffset = new Vector(
-            (destinationDeviceBounds.X / context.WorkingScale) - logicalOrigin.X,
-            (destinationDeviceBounds.Y / context.WorkingScale) - logicalOrigin.Y);
+            (destinationDeviceBounds.X / context.OutputPlacement.Scale.Value) - logicalOrigin.X,
+            (destinationDeviceBounds.Y / context.OutputPlacement.Scale.Value) - logicalOrigin.Y);
         PixelRect completeDeviceBounds = PixelRect.FromRect(
             outputBounds.Translate(deviceGridOffset),
-            context.WorkingScale);
+            context.OutputPlacement.Scale.Value);
         writer.Set(new Vector2(
             completeDeviceBounds.X
             - destinationDeviceBounds.X
@@ -74,17 +74,17 @@ public partial class MosaicEffect : FilterEffect
         Vector2 value,
         ShaderExecutionContext context)
     {
-        var semanticOrigin = context.OutputBounds.Position - context.LogicalOrigin;
+        var semanticOrigin = context.OutputBounds.Position - context.OutputPlacement.LogicalOrigin;
         writer.Set(new Vector2(
-            (value.X + semanticOrigin.X) * context.WorkingScale,
-            (value.Y + semanticOrigin.Y) * context.WorkingScale));
+            (value.X + semanticOrigin.X) * context.OutputPlacement.Scale.Value,
+            (value.Y + semanticOrigin.Y) * context.OutputPlacement.Scale.Value));
     }
 
     // Source texels per stage pixel; without a source grid the stage's own grid is snapped instead.
     private static void BindSourceRatio(ShaderUniformWriter writer, Vector2 unit, ShaderExecutionContext context)
         => writer.Set(context.InputRasterOrigin is null
             ? unit
-            : unit * (context.InputEffectiveScale.Value / context.WorkingScale));
+            : unit * (context.InputEffectiveScale.Value / context.OutputPlacement.Scale.Value));
 
     // The source texel coordinate of stage pixel 0.
     private static void BindSourceOffset(ShaderUniformWriter writer, Vector2 none, ShaderExecutionContext context)
@@ -96,7 +96,7 @@ public partial class MosaicEffect : FilterEffect
         }
 
         float scale = context.InputEffectiveScale.Value;
-        Point logicalOrigin = context.LogicalOrigin;
+        Point logicalOrigin = context.OutputPlacement.LogicalOrigin;
         writer.Set(new Vector2((logicalOrigin.X - inputOrigin.X) * scale, (logicalOrigin.Y - inputOrigin.Y) * scale));
     }
 
@@ -118,7 +118,7 @@ public partial class MosaicEffect : FilterEffect
                     bindings.Uniform(
                         "tileSize",
                         tileSize,
-                        static (writer, tile, execution) => writer.Set(tile * execution.WorkingScale));
+                        static (writer, tile, execution) => writer.Set(tile * execution.OutputPlacement.Scale.Value));
                     bindings.Uniform("sourceRatio", Vector2.One, BindSourceRatio);
                     bindings.Uniform("sourceOffset", Vector2.Zero, BindSourceOffset);
                     if (Origin.Unit == RelativeUnit.Relative)

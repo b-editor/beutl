@@ -60,7 +60,7 @@ public partial class ColorShift : FilterEffect
         bindings.Uniform(
             name,
             new Vector2(value.X, value.Y),
-            static (writer, offset, execution) => writer.Set(offset * execution.WorkingScale));
+            static (writer, offset, execution) => writer.Set(offset * execution.OutputPlacement.Scale.Value));
     }
 
     private readonly record struct ColorShiftOffsets(

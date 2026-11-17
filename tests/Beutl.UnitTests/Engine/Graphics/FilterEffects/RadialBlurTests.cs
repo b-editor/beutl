@@ -337,7 +337,7 @@ public sealed class RadialBlurTests
                     : new Point(center + offset * MathF.Cos(MathF.PI / 6), 5 - offset * MathF.Sin(MathF.PI / 6));
                 if (opaque) trail += new Vector(100, 100);
                 using Bitmap bitmap = targets[i].RenderTarget!.Snapshot();
-                Assert.That(AlphaAt(bitmap, targets[i].RasterBounds, (int)MathF.Floor(trail.X), (int)MathF.Floor(trail.Y)),
+                Assert.That(AlphaAt(bitmap, targets[i].Placement.RasterBounds, (int)MathF.Floor(trail.X), (int)MathF.Floor(trail.Y)),
                     Is.GreaterThan(0.02f), "Both shapes must leave trails around the group's center.");
             }
         });
@@ -384,7 +384,7 @@ public sealed class RadialBlurTests
             Assert.That(part[0].Bounds, Is.EqualTo(kept));
             using Bitmap expected = whole[0].RenderTarget!.Snapshot();
             using Bitmap actual = part[0].RenderTarget!.Snapshot();
-            Assert.That(part[0].RasterBounds.Position, Is.EqualTo(whole[0].RasterBounds.Position));
+            Assert.That(part[0].Placement.RasterBounds.Position, Is.EqualTo(whole[0].Placement.RasterBounds.Position));
             // SwiftShader rounds the positions the part samples at differently from the whole's, by the last bit.
             float largest = 0;
             for (int y = 0; y < actual.Height; y++)
@@ -476,7 +476,7 @@ public sealed class RadialBlurTests
         }
 
         EffectTarget result = targets.Single();
-        return (result.RenderTarget!.Snapshot(), result.RasterBounds);
+        return (result.RenderTarget!.Snapshot(), result.Placement.RasterBounds);
     }
 
     private static float AlphaAt(Bitmap bitmap, Rect rasterBounds, int x, int y, float scale = 1)

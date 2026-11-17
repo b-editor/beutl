@@ -250,7 +250,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 static (session, _) => session.UseResource(ContributeValuesCacheHitExecutionSlots.ScaleProbe, probe =>
                 {
                     probe.Record(session.Inputs
-                        .Select(static item => item.EffectiveScale.Value)
+                        .Select(static item => item.Placement.Scale.Value)
                         .ToArray());
                     using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
                     output.Canvas.Use(canvas =>

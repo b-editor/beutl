@@ -14,19 +14,14 @@ public sealed class OpaqueRenderOutput : IDisposable
         Action<OpaqueRenderOutput> release)
     {
         _owner = owner;
-        _bounds = canvas.LogicalBounds;
+        _bounds = canvas.Placement.LogicalBounds;
         _canvas = canvas;
         _release = release;
     }
 
-    public Rect Bounds
+    public RenderPlacement Placement
     {
-        get { ThrowIfUnavailable(); return _bounds; }
-    }
-
-    public EffectiveScale EffectiveScale
-    {
-        get { ThrowIfUnavailable(); return EffectiveScale.At(_canvas.Density); }
+        get { ThrowIfUnavailable(); return _canvas.Placement.WithLogicalBounds(_bounds); }
     }
 
     public RenderCallbackCanvas Canvas
@@ -38,7 +33,7 @@ public sealed class OpaqueRenderOutput : IDisposable
     {
         ThrowIfUnavailable();
         RenderRectValidation.ThrowIfInvalidInput(logicalBounds, nameof(logicalBounds));
-        if (!_canvas.LogicalBounds.Contains(logicalBounds))
+        if (!_canvas.Placement.LogicalBounds.Contains(logicalBounds))
         {
             throw new ArgumentException(
                 "Output bounds may only shrink within the allocated output bounds.",

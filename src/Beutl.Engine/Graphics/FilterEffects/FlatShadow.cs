@@ -83,7 +83,7 @@ public partial class FlatShadow : FilterEffect
             {
                 newCanvas.Clear();
                 // CreateTarget may clamp below w; compensate with Scale(wOut / w).
-                float wOut = newTarget.Scale.Value;
+                float wOut = newTarget.Placement.Scale.Value;
 
                 if (shadow != null)
                 {

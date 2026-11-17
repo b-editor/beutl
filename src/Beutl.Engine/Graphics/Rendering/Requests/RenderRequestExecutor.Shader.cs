@@ -356,7 +356,8 @@ internal sealed partial class RenderRequestExecutor
                                 input.EffectiveScale.Value,
                                 input.DeviceBounds,
                                 input.RasterBounds)
-                            : null);
+                            : null,
+                        wholeSource: description.Kind == ShaderDescriptionKind.WholeSource);
                     BindStandaloneShaderCore(
                         description,
                         context,

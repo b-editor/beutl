@@ -64,7 +64,7 @@ public sealed class OpaqueSourceStateContractTests
             static (offset, output, inputs) => new[] { output.Translate(-offset) });
         OpaqueRenderDescription combine = OpaqueRenderDescription.Create(
             new Vector(999, 999),
-            static (session, _) => Draw(session, session.RequiredRegion),
+            static (session, _) => Draw(session, session.OutputPlacement.LogicalBounds),
             bounds,
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,

@@ -350,10 +350,7 @@ public sealed class RenderNodeAuthoringContractTests
             RenderFragmentHandle input = context.MaterializedInput(
                 MaterializedInputDescription.FromRenderTarget(
                     targetToken,
-                    bounds,
-                    EffectiveScale.At(2),
-                    PixelRect.FromRect(bounds, 2),
-                    default,
+                    new RenderPlacement(bounds, EffectiveScale.At(2)),
                     RenderHitTestContract.OutputBounds));
             materialized = FragmentSnapshot.From(input);
 

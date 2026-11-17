@@ -15,12 +15,10 @@ public sealed class ShaderExecutionContext
     private readonly Rect _inputBounds;
     private readonly Rect _outputBounds;
     private readonly Rect _requiredRegion;
-    private readonly PixelRect _deviceBounds;
+    private readonly RenderPlacement _outputPlacement;
     private readonly PixelSize _semanticOutputSize;
-    private readonly Point _logicalOrigin;
     private readonly EffectiveScale _inputEffectiveScale;
     private readonly float _outputScale;
-    private readonly float _workingScale;
     private readonly float _maxWorkingScale;
     private readonly RenderIntent _intent;
     private readonly RenderRequestPurpose _purpose;
@@ -39,20 +37,17 @@ public sealed class ShaderExecutionContext
         float maxWorkingScale,
         RenderIntent intent,
         RenderRequestPurpose purpose,
-        Point? inputRasterOrigin = null)
+        Point? inputRasterOrigin = null,
+        bool wholeSource = false)
     {
         ArgumentNullException.ThrowIfNull(token);
         _token = token;
         _inputBounds = inputBounds;
         _outputBounds = outputBounds;
         _requiredRegion = requiredRegion;
-        _deviceBounds = deviceBounds;
-        _logicalOrigin = logicalOrigin;
-        var deviceGridOffset = ComputeDeviceGridOffset(deviceBounds, workingScale, logicalOrigin);
-        _semanticOutputSize = PixelRect.FromRect(
-                outputBounds.Translate(deviceGridOffset),
-                workingScale)
-            .Size;
+        _outputPlacement = RenderPlacement.FromRasterOrigin(
+            wholeSource ? outputBounds : requiredRegion, EffectiveScale.At(workingScale), deviceBounds, logicalOrigin);
+        _semanticOutputSize = _outputPlacement.ToDevice(outputBounds).Size;
         if (_semanticOutputSize.Width <= 0 || _semanticOutputSize.Height <= 0)
         {
             throw new ArgumentOutOfRangeException(
@@ -62,7 +57,6 @@ public sealed class ShaderExecutionContext
         }
         _inputEffectiveScale = inputEffectiveScale;
         _outputScale = outputScale;
-        _workingScale = workingScale;
         _maxWorkingScale = maxWorkingScale;
         _intent = intent;
         _purpose = purpose;
@@ -90,81 +84,20 @@ public sealed class ShaderExecutionContext
         get { _token.ThrowIfInactive(); return _requiredRegion; }
     }
 
-    /// <summary>Gets the footprint the stage is evaluated over, in composition-device pixels.</summary>
-    /// <remarks>
-    /// The footprint reflects the actual runtime-clamped <see cref="WorkingScale"/>.
-    /// Subtract <see cref="DeviceGridOffset"/> after converting it to logical units to obtain
-    /// the stage-local footprint.
-    /// A <see cref="ShaderDescriptionKind.CurrentPixel"/> stage is evaluated over the region the request asked
-    /// for, so this is its destination footprint. A <see cref="ShaderDescriptionKind.WholeSource"/> stage is
-    /// evaluated over its complete output regardless of how much of it was requested, so this is the complete
-    /// output footprint and its size equals <see cref="SemanticOutputSize"/>; use <see cref="RequiredRegion"/>
-    /// for the part actually being produced.
-    /// </remarks>
-    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
-    public PixelRect DeviceBounds
+    /// <summary>The evaluated region, or the complete output for a whole-source stage.</summary>
+    public RenderPlacement OutputPlacement
     {
-        get { _token.ThrowIfInactive(); return _deviceBounds; }
-    }
-
-    /// <summary>Gets the evaluated footprint size, equal to <see cref="DeviceBounds"/>.<c>Size</c>.</summary>
-    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
-    public PixelSize DeviceSize
-    {
-        get { _token.ThrowIfInactive(); return _deviceBounds.Size; }
+        get { _token.ThrowIfInactive(); return _outputPlacement; }
     }
 
     /// <summary>Gets the complete semantic output dimensions in working-density pixels.</summary>
     /// <remarks>
-    /// The size is derived from <see cref="OutputBounds"/>, <see cref="WorkingScale"/>, and
-    /// <see cref="DeviceGridOffset"/>. It is independent of the physical backing selected by the execution planner.
-    /// It matches <see cref="DeviceSize"/> for a <see cref="ShaderDescriptionKind.WholeSource"/> stage and
-    /// describes the complete output rather than the requested region for a
-    /// <see cref="ShaderDescriptionKind.CurrentPixel"/> one.
+    /// This covers the full output even when a current-pixel stage evaluates only a requested region.
     /// </remarks>
     /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public PixelSize SemanticOutputSize
     {
         get { _token.ThrowIfInactive(); return _semanticOutputSize; }
-    }
-
-    /// <summary>
-    /// Gets the translation from stage-local coordinates to the composition-device grid used to
-    /// round <see cref="DeviceBounds"/>.
-    /// </summary>
-    public Vector DeviceGridOffset
-    {
-        get
-        {
-            _token.ThrowIfInactive();
-            return ComputeDeviceGridOffset(_deviceBounds, _workingScale, _logicalOrigin);
-        }
-    }
-
-    /// <summary>
-    /// Measures how far the device grid sits from stage-local coordinates: the device footprint's origin in
-    /// logical units, less the logical point it represents.
-    /// </summary>
-    private static Vector ComputeDeviceGridOffset(PixelRect deviceBounds, float workingScale, Point logicalOrigin)
-        => new(
-            (deviceBounds.X / workingScale) - logicalOrigin.X,
-            (deviceBounds.Y / workingScale) - logicalOrigin.Y);
-
-    /// <summary>Gets the logical point represented by local output-device coordinate <c>(0, 0)</c>.</summary>
-    /// <remarks>
-    /// A local device coordinate <c>coord</c> represents
-    /// <c>LogicalOrigin + coord / WorkingScale</c>. The origin follows <see cref="DeviceBounds"/>, so a
-    /// <see cref="ShaderDescriptionKind.WholeSource"/> stage's <c>coord</c> spans
-    /// <c>[0, SemanticOutputSize]</c> over its complete output even when a smaller region was requested.
-    /// </remarks>
-    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
-    public Point LogicalOrigin
-    {
-        get
-        {
-            _token.ThrowIfInactive();
-            return _logicalOrigin;
-        }
     }
 
     // Where the texel grid of a whole-source stage's src starts, in local logical coordinates; null for other stages.
@@ -176,7 +109,7 @@ public sealed class ShaderExecutionContext
     /// <summary>Gets the effective-scale supply resolved for the stage input.</summary>
     /// <remarks>
     /// The first fused stage receives the materialized input scale; later stages receive the fused run's
-    /// <see cref="WorkingScale"/>.
+    /// <see cref="RenderPlacement.Scale"/>.
     /// </remarks>
     /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public EffectiveScale InputEffectiveScale
@@ -185,20 +118,11 @@ public sealed class ShaderExecutionContext
     }
 
     /// <summary>Gets the final output density requested for the render, in device pixels per logical unit.</summary>
-    /// <remarks>This value is not an intermediate allocation ceiling; use <see cref="WorkingScale"/> for execution.</remarks>
+    /// <remarks>This value is not an intermediate allocation ceiling; use <see cref="RenderPlacement.Scale"/> for execution.</remarks>
     /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public float OutputScale
     {
         get { _token.ThrowIfInactive(); return _outputScale; }
-    }
-
-    /// <summary>
-    /// Gets the positive finite density selected for this stage after working-scale and allocation-limit clamping.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
-    public float WorkingScale
-    {
-        get { _token.ThrowIfInactive(); return _workingScale; }
     }
 
     /// <summary>Gets the sanitized maximum working density allowed by the render request.</summary>

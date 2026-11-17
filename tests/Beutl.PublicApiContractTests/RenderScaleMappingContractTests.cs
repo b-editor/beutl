@@ -234,7 +234,7 @@ public sealed class RenderScaleMappingContractTests
 
         public void Execute(OpaqueRenderSession session)
         {
-            ObservedWorkingScale = session.WorkingScale;
+            ObservedWorkingScale = session.OutputPlacement.Scale.Value;
             using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
             output.Canvas.Use(static canvas => canvas.Clear(Colors.White));
             session.Publish(output);

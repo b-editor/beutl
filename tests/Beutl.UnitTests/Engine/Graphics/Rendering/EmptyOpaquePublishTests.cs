@@ -164,6 +164,6 @@ public sealed class EmptyOpaquePublishTests
         }
 
         private void RecordInput(OpaqueRenderSession session)
-            => PublishedInputBounds.Record(session.Inputs.Single().Bounds);
+            => PublishedInputBounds.Record(session.Inputs.Single().Placement.LogicalBounds);
     }
 }

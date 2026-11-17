@@ -243,10 +243,7 @@ public sealed class RenderNodeRendererSnapshotFastPathTests
             context.Publish(context.MaterializedInput(
                 MaterializedInputDescription.FromRenderTarget(
                     target,
-                    bounds,
-                    EffectiveScale.At(1),
-                    PixelRect.FromRect(bounds, 1),
-                    default,
+                    new RenderPlacement(bounds, EffectiveScale.At(1)),
                     RenderHitTestContract.OutputBounds)));
 
             if (!requireFullReadback)

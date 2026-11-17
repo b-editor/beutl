@@ -98,7 +98,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
             try
             {
                 RenderTarget? outputRenderTarget = output.RenderTarget;
-                if (outputRenderTarget is null || output.Scale.IsUnbounded)
+                if (outputRenderTarget is null || output.Placement.Scale.IsUnbounded)
                 {
                     output.Dispose();
                     continue;
@@ -113,7 +113,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
                 if (builder.Uniforms.Contains("time"))
                     builder.Uniforms["time"] = data.time;
 
-                float w = output.Scale.Value;
+                float w = output.Placement.Scale.Value;
                 int deviceWidth = outputRenderTarget.Width;
                 int deviceHeight = outputRenderTarget.Height;
                 if (builder.Uniforms.Contains("width"))
@@ -325,7 +325,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
             => writer.Set(new Vector2(context.SemanticOutputSize.Width, context.SemanticOutputSize.Height));
 
         private static void BindScale(ShaderUniformWriter writer, float _, ShaderExecutionContext context)
-            => writer.Set(context.WorkingScale);
+            => writer.Set(context.OutputPlacement.Scale.Value);
 
         private void SetCompileError(string? error, string? previousError)
         {

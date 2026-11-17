@@ -367,10 +367,7 @@ internal sealed class BenchmarkVideoSourceNode(RenderTarget first, RenderTarget 
         RenderResource<RenderTarget> resource = context.Borrow(_showSecond ? second : first);
         context.Publish(context.MaterializedInput(MaterializedInputDescription.FromRenderTarget(
             resource,
-            bounds,
-            EffectiveScale.At(1),
-            PixelRect.FromRect(bounds, 1),
-            default,
+            new RenderPlacement(bounds, EffectiveScale.At(1)),
             RenderHitTestContract.OutputBounds)));
     }
 

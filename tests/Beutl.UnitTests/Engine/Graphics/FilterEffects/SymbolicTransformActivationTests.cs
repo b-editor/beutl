@@ -103,8 +103,8 @@ public sealed class SymbolicTransformActivationTests
         if (minX > maxX)
             return default;
 
-        float density = target.Scale.Value;
-        Rect raster = target.RasterBounds;
+        float density = target.Placement.Scale.Value;
+        Rect raster = target.Placement.RasterBounds;
         return new Rect(
             raster.X + (minX / density),
             raster.Y + (minY / density),

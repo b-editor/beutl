@@ -257,10 +257,7 @@ public sealed class MaterializedInputCompositeTests
             context.Publish(context.MaterializedInput(
                 MaterializedInputDescription.FromRenderTarget(
                     resource,
-                    bounds,
-                    EffectiveScale.At(density),
-                    deviceBounds,
-                    deviceGridOffset,
+                    new RenderPlacement(bounds, EffectiveScale.At(density), deviceBounds, deviceGridOffset),
                     RenderHitTestContract.OutputBounds)));
         }
     }

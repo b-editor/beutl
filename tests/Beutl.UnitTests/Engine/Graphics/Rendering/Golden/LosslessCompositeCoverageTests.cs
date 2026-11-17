@@ -718,11 +718,11 @@ public sealed class LosslessCompositeCoverageTests
                         (writer, value, execution) =>
                         {
                             Observations.Add(new ShaderFootprintObservation(
-                                execution.DeviceBounds,
-                                execution.DeviceSize,
-                                execution.LogicalOrigin,
-                                execution.DeviceGridOffset,
-                                execution.WorkingScale));
+                                execution.OutputPlacement.DeviceBounds,
+                                execution.OutputPlacement.DeviceSize,
+                                execution.OutputPlacement.LogicalOrigin,
+                                execution.OutputPlacement.DeviceGridOffset,
+                                execution.OutputPlacement.Scale.Value));
                             writer.Set(value);
                         }));
                 current = context.Shader(current, description);

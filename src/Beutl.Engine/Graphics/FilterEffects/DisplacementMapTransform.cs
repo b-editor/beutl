@@ -167,17 +167,17 @@ public abstract partial class DisplacementMapTransform : EngineObject
         ShaderUniformWriter writer,
         Vector2 value,
         ShaderExecutionContext context)
-        => writer.Set(value * context.WorkingScale);
+        => writer.Set(value * context.OutputPlacement.Scale.Value);
 
     private protected static void BindPivot(
         ShaderUniformWriter writer,
         Vector2 center,
         ShaderExecutionContext context)
     {
-        var semanticOrigin = context.OutputBounds.Position - context.LogicalOrigin;
+        var semanticOrigin = context.OutputBounds.Position - context.OutputPlacement.LogicalOrigin;
         writer.Set(new Vector2(
-            (semanticOrigin.X + context.OutputBounds.Width / 2 + center.X) * context.WorkingScale,
-            (semanticOrigin.Y + context.OutputBounds.Height / 2 + center.Y) * context.WorkingScale));
+            (semanticOrigin.X + context.OutputBounds.Width / 2 + center.X) * context.OutputPlacement.Scale.Value,
+            (semanticOrigin.Y + context.OutputBounds.Height / 2 + center.Y) * context.OutputPlacement.Scale.Value));
     }
 
     private static Brush.Resource? ResolvePresentedBrush(Brush.Resource? brush)
@@ -198,7 +198,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
                 // A drawable map never reaches this binder: TryApplyDrawableMap routes it to the
                 // custom-effect path, whose canvas carries the request's materializer.
                 drawableBrushMaterializer: null,
-                context.WorkingScale,
+                context.OutputPlacement.Scale.Value,
                 context.MaxWorkingScale)
             .CreateShader();
         if (shader is null)
@@ -210,12 +210,12 @@ public abstract partial class DisplacementMapTransform : EngineObject
         SKShader? mapped = null;
         try
         {
-            var semanticOrigin = context.OutputBounds.Position - context.LogicalOrigin;
+            var semanticOrigin = context.OutputBounds.Position - context.OutputPlacement.LogicalOrigin;
             SKMatrix localMatrix = SKMatrix.CreateScaleTranslation(
-                context.WorkingScale,
-                context.WorkingScale,
-                semanticOrigin.X * context.WorkingScale,
-                semanticOrigin.Y * context.WorkingScale);
+                context.OutputPlacement.Scale.Value,
+                context.OutputPlacement.Scale.Value,
+                semanticOrigin.X * context.OutputPlacement.Scale.Value,
+                semanticOrigin.Y * context.OutputPlacement.Scale.Value);
             if (localMatrix.IsIdentity)
             {
                 writer.Set(shader);
