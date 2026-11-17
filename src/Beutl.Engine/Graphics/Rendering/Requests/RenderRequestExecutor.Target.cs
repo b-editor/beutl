@@ -325,6 +325,126 @@ internal sealed partial class RenderRequestExecutor
             Rect completeBounds)
             => _regions.GetTargetAccessRequirement(fragment).ResolveWithin(completeBounds);
 
+        /// <summary>
+        /// Allocates the value a layer or a layer scope draws into: only the part of <paramref name="domain"/> the
+        /// request needs, at the density and on the device grid the whole domain would have.
+        /// </summary>
+        /// <remarks>
+        /// A layer spans its content's complete extent, which keeps growing with particles that travel past the
+        /// frame or a picture zoomed far into, while the request reads only what its consumers need: the frame and
+        /// the margins their effects and filtering add. On the same grid, every pixel the part holds is the one the
+        /// whole layer would hold. The whole domain is kept when the requirement is unknown or empty, and when
+        /// something inside reads the layer's own pixels back, since such a read is not part of what the layer's
+        /// consumers require of it.
+        /// </remarks>
+        private MaterializedRenderValue CreateLayerValue(
+            RenderFragmentReference fragment,
+            Rect domain,
+            EffectiveScale scale,
+            Vector? deviceGridOffset,
+            bool allowPreviewDrop = false)
+        {
+            if (ResolveLayerPart(fragment, domain, scale.Value, deviceGridOffset ?? _activeDeviceGridOffset)
+                is not { } part)
+            {
+                return CreateOwnedValue(
+                    domain,
+                    scale,
+                    deviceGridOffset: deviceGridOffset,
+                    allowPreviewDrop: allowPreviewDrop);
+            }
+
+            return CreateOwnedValue(
+                part.Bounds,
+                scale,
+                completeBounds: domain,
+                physicalDeviceBounds: part.DeviceBounds,
+                deviceGridOffset: deviceGridOffset,
+                physicalDeviceBoundsAreAligned: true,
+                allowPreviewDrop: allowPreviewDrop);
+        }
+
+        private (Rect Bounds, PixelRect DeviceBounds)? ResolveLayerPart(
+            RenderFragmentReference fragment,
+            Rect domain,
+            float scale,
+            Vector gridOffset)
+        {
+            if (fragment.Id is not { } id
+                || !_regions.FragmentRequirements.TryGetValue(id, out RequiredRegion requirement))
+            {
+                return null;
+            }
+
+            if (_regions.TargetAccessRequirements.TryGetValue(id, out RequiredRegion targetRequirement))
+                requirement = requirement.Union(targetRequirement);
+            if (requirement.IsEmpty || requirement.IsFull)
+                return null;
+
+            Rect required = requirement.ResolveWithin(domain);
+            if (required.Width <= 0 || required.Height <= 0)
+                return null;
+
+            PixelRect whole = PixelRect.FromRect(domain.Translate(gridOffset), scale);
+            PixelRect needed = PixelRect.FromRect(required.Translate(gridOffset), scale);
+            if (needed.Width <= 0 || needed.Height <= 0)
+                return null;
+
+            // A requirement mapped back through a transform can round a pixel past the domain's own edge.
+            PixelRect window = AllocationWindow(needed, whole.Union(needed));
+            if (DeviceBoundsValidation.Covers(window, whole) || ReadsOwnTarget(fragment))
+                return null;
+
+            return (required, window);
+        }
+
+        // The pool reuses a target only of the very size it asks for, so a part that moves or grows a little with a
+        // camera has to keep asking for the same size, as ShaderGraphRegions windows a graph's images.
+        private static PixelRect AllocationWindow(PixelRect needed, PixelRect whole)
+        {
+            const int step = 256;
+            int width = Math.Min((needed.Width + step - 1) / step * step, whole.Width);
+            int height = Math.Min((needed.Height + step - 1) / step * step, whole.Height);
+            return new PixelRect(
+                Math.Max(Math.Min(needed.X, whole.Right - width), whole.X),
+                Math.Max(Math.Min(needed.Y, whole.Bottom - height), whole.Y),
+                width,
+                height);
+        }
+
+        // A part's window can reach a pixel past the domain's own edge, where the whole layer's buffer would have
+        // ended and cut its content off; the same pixels have to stay out of the part.
+        private static void ClipToLayerDomain(ImmediateCanvas canvas, MaterializedRenderValue value)
+        {
+            if (value.Bounds != value.CompleteBounds)
+                canvas.ClipRectCoveringDevicePixels(value.CompleteBounds);
+        }
+
+        // Whether a fragment's inputs read back the target they draw into, through a capture or raw target work.
+        private bool ReadsOwnTarget(RenderFragmentReference fragment)
+        {
+            _ownTargetReaders ??= new Dictionary<RenderFragmentReference, bool>(ReferenceEqualityComparer.Instance);
+            if (_ownTargetReaders.TryGetValue(fragment, out bool known))
+                return known;
+
+            bool reads = false;
+            foreach (RenderFragmentReference input in fragment.Inputs)
+            {
+                if (input.Kind is RenderFragmentKind.TargetCapture
+                        or RenderFragmentKind.BuiltInBackdropCapture
+                        or RenderFragmentKind.RawTargetScope
+                        or RenderFragmentKind.RawTargetCommand
+                    || ReadsOwnTarget(input))
+                {
+                    reads = true;
+                    break;
+                }
+            }
+
+            _ownTargetReaders[fragment] = reads;
+            return reads;
+        }
+
         private Rect ResolveTargetRegion(
             TargetRegion region,
             RenderFragmentReference fragment,
@@ -384,10 +504,11 @@ internal sealed partial class RenderRequestExecutor
             Vector? deviceGridOffset = RequiresLocalDestructiveDeviceGrid(fragment)
                 ? default(Vector)
                 : null;
-            MaterializedRenderValue value = CreateOwnedValue(
+            MaterializedRenderValue value = CreateLayerValue(
+                fragment,
                 domain,
                 scale,
-                deviceGridOffset: deviceGridOffset,
+                deviceGridOffset,
                 allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
             bool succeeded = false;
             try
@@ -395,6 +516,7 @@ internal sealed partial class RenderRequestExecutor
                 using (var canvas = CreateValueCanvas(value))
                 using (canvas.PushTransform(value.RasterAlignmentTransform))
                 {
+                    ClipToLayerDomain(canvas, value);
                     if (fragment.Inputs.Length == 1
                         && IsMatchingTargetLayerScope(fragment.Inputs[0], canvas, domain))
                     {
@@ -502,15 +624,13 @@ internal sealed partial class RenderRequestExecutor
                 ? default
                 : DeviceGridAlignment.ResolveLogicalOffset(destination);
             scale = ClampToDeviceGrid(domain, scale, deviceGridOffset);
-            MaterializedRenderValue value = CreateOwnedValue(
-                domain,
-                scale,
-                deviceGridOffset: deviceGridOffset);
+            MaterializedRenderValue value = CreateLayerValue(fragment, domain, scale, deviceGridOffset);
             try
             {
                 using (var canvas = CreateValueCanvas(value))
                 using (canvas.PushTransform(value.RasterAlignmentTransform))
                 {
+                    ClipToLayerDomain(canvas, value);
                     ReplayScopeInputs(fragment, canvas, destination, callerScale);
                 }
 
