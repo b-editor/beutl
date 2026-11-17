@@ -355,7 +355,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _pendingWindowsAddress = null;
         if (_openerNavigation == null && pending != null && BrowserMediaDownload.IsHttpUri(pending))
         {
-            if (_adBlockSession?.IsPreparing == true) _adBlockSession.HoldNavigation(pending);
+            if (_adBlockSession?.IsPreparing == true) _adBlockSession.HoldNavigation(pending, replacePending: true);
             else webView.Navigate(pending);
         }
         else if (_openerNavigation is { } opener && !_openerNavigationIssued && _adBlockSession?.IsPreparing == true)

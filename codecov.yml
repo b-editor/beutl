@@ -22,6 +22,7 @@ coverage:
 # engine's Vulkan one.
 ignore:
   - "src/Beutl.Editor.Components/WebBrowserTab/WindowsBrowserDownloadHandler.cs"
+  - "src/Beutl.Editor.Components/WebBrowserTab/WindowsBrowserDownloadHandler.NewWindows.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/WindowsReferrerNavigation.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/MacOSReferrerNavigation.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/LinuxAdBlockBackend.cs"

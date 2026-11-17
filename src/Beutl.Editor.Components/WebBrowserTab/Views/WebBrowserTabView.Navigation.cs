@@ -310,7 +310,8 @@ internal partial class WebBrowserTabView
     // Ad blocking holds a new tab's first navigation until its rules are in place.
     private void ResumeNavigation(NativeWebView webView, Uri uri)
     {
-        if (HoldWindowsAddress(uri)) return;
+        // The adapter will resume the latest address entered while it was starting.
+        if (_pendingWindowsAddress != null) return;
         if (_openerNavigation?.Uri == uri)
         {
             _openerNavigationIssued = false;

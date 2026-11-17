@@ -167,9 +167,10 @@ internal sealed class BrowserAdBlockSession : IDisposable
     private bool IsCurrent(int revision) => !_disposed && revision == _revision;
 
     // A navigation the view starts itself waits for the rules as a deferred one does.
-    internal void HoldNavigation(Uri uri)
+    internal void HoldNavigation(Uri uri, bool replacePending = false)
     {
-        if (!_disposed && IsPreparing) _pendingNavigation ??= uri;
+        if (!_disposed && IsPreparing && (replacePending || _pendingNavigation == null))
+            _pendingNavigation = uri;
     }
 
     internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)

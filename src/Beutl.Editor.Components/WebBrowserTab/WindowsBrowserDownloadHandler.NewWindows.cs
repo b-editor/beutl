@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
 
@@ -9,10 +9,10 @@ namespace Beutl.Editor.Components.WebBrowserTab;
 internal sealed partial class WindowsBrowserDownloadHandler
 {
     private readonly string _windowTarget = Guid.NewGuid().ToString("N");
-    private long _windowToken, _responseToken;
-    private bool _observingResponses;
+    private long _windowToken, _responseToken, _contentToken;
+    private bool _observingResponses, _observingContent;
     private string? _scriptId;
-    private Uri? _expectedDocument;
+    private Uri? _expectedDocument, _committedDocument;
     private (Uri Page, BrowserReferrerPolicy Policy)? _documentPolicy;
     internal bool HandlesNewWindows { get; private set; }
 
@@ -20,6 +20,8 @@ internal sealed partial class WindowsBrowserDownloadHandler
     {
         // ICoreWebView2_2::add_WebResourceResponseReceived and ICoreWebView2::add_NewWindowRequested.
         _observingResponses = Subscribe<IDocumentResponseHandler>(61, new DocumentResponseHandler(this), out _responseToken) >= 0;
+        // ContentLoading precedes page scripts and only fires for a new document, including on reload.
+        _observingContent = Subscribe<IContentLoadingHandler>(9, new ContentLoadingHandler(this), out _contentToken) >= 0;
         HandlesNewWindows = Subscribe<INewWindowHandler>(44, new NewWindowHandler(this, open), out _windowToken) >= 0;
     }
 
@@ -29,6 +31,8 @@ internal sealed partial class WindowsBrowserDownloadHandler
             _ = ((delegate* unmanaged[Stdcall]<nint, long, int>)Method(_webView, 45))(_webView, _windowToken);
         if (_observingResponses)
             _ = ((delegate* unmanaged[Stdcall]<nint, long, int>)Method(_webView, 62))(_webView, _responseToken);
+        if (_observingContent)
+            _ = ((delegate* unmanaged[Stdcall]<nint, long, int>)Method(_webView, 10))(_webView, _contentToken);
         if (_scriptId != null)
         {
             fixed (char* id = _scriptId)
@@ -93,8 +97,11 @@ internal sealed partial class WindowsBrowserDownloadHandler
             {
                 if (!Uri.TryCreate(GetString(frame, 4), UriKind.Absolute, out Uri? source)) return null;
                 if (!inherit) return source;
-                return _documentPolicy is { } document && document.Page == source
-                    ? BrowserMediaDownload.NormalizeReferrer(source, uri, document.Policy) : null;
+                if (_documentPolicy is not { } document) return null;
+                // A same-document history change updates the frame URL while its response policy still applies.
+                if (document.Page != source && (document.Page != _committedDocument
+                    || !BrowserMediaDownload.IsSameOrigin(document.Page, source) || source != GetDocument())) return null;
+                return BrowserMediaDownload.NormalizeReferrer(source, uri, document.Policy);
             }
             finally { Marshal.Release(frame); }
         }
@@ -104,7 +111,14 @@ internal sealed partial class WindowsBrowserDownloadHandler
     internal void BeginDocument(Uri? request)
     {
         _expectedDocument = request;
+        _committedDocument = null;
         _documentPolicy = null;
+    }
+
+    [GeneratedComClass]
+    private sealed partial class ContentLoadingHandler(WindowsBrowserDownloadHandler owner) : IContentLoadingHandler
+    {
+        public void Invoke(nint sender, nint args) => owner._committedDocument = owner.GetDocument();
     }
 
     [GeneratedComClass]
@@ -292,6 +306,13 @@ internal sealed partial class WindowsBrowserDownloadHandler
 [GeneratedComInterface(Options = ComInterfaceOptions.ManagedObjectWrapper)]
 [Guid("D4C185FE-C81C-4989-97AF-2D3FA7AB5651")]
 internal partial interface INewWindowHandler
+{
+    void Invoke(nint sender, nint args);
+}
+
+[GeneratedComInterface(Options = ComInterfaceOptions.ManagedObjectWrapper)]
+[Guid("364471E7-F2BE-4910-BDBA-D72077D51C4B")]
+internal partial interface IContentLoadingHandler
 {
     void Invoke(nint sender, nint args);
 }

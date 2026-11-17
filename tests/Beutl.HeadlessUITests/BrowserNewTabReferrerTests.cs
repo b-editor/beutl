@@ -332,6 +332,27 @@ public class BrowserNewTabReferrerTests
     }
 
     [AvaloniaTest]
+    public async Task AddressEnteredDuringWindowsAdapterStartupReplacesTheAdBlockSessionsInitialAddress()
+    {
+        using var temporary = new TemporaryDirectory();
+        using var filters = new HttpClient(new BrowserAdBlockTestRules.FilterResponseHandler());
+        BrowserProfile profile = await CreateAdBlockingProfileAsync(temporary.Path, filters);
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), s_page, profile);
+        var native = new NativeWebView();
+        using var view = new WebBrowserTabView(_ => native, () => (true, null, false)) { DataContext = vm };
+        view.OnAdapterDestroyed(native, new WebViewAdapterEventArgs(Mock.Of<IWindowsWebView2PlatformHandle>()));
+
+        vm.Address.Value = s_downloadPage.AbsoluteUri;
+        view.NavigateFromAddress();
+        view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
+        BrowserAdBlockSession session = AdBlockSessionOf(view);
+        session.Attach(s_unknownWebView);
+        await HeadlessTestHelpers.WaitUntilAsync(() => !session.IsPreparing);
+
+        Assert.That(native.Source, Is.EqualTo(s_downloadPage));
+    }
+
+    [AvaloniaTest]
     public async Task AnotherHeldNavigationGoesOutThroughTheSource()
     {
         using var temporary = new TemporaryDirectory();

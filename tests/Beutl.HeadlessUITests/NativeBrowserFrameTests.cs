@@ -257,6 +257,8 @@ internal static class NativeBrowserFrameTestHost
                 await Check("window.open(document.querySelector('a').href)", origin.AbsoluteUri);
             });
             await Check("document.querySelector('a').click()", origin.AbsoluteUri);
+            await Check("history.pushState({}, '', '/items?view=list'); document.querySelector('a').click()", origin.AbsoluteUri);
+            await Check("history.replaceState({}, '', '/items?view=grid'); window.open(document.querySelector('a').href)", origin.AbsoluteUri);
             await Check("document.querySelector('a').rel='noreferrer'; document.querySelector('a').click()", "");
             await Check("document.querySelector('a').rel=''; document.querySelector('a').referrerPolicy='same-origin'; document.querySelector('a').click()", "");
             await Check("document.querySelector('a').referrerPolicy='no-referrer'; document.querySelector('a').click()", "");
@@ -275,6 +277,7 @@ internal static class NativeBrowserFrameTestHost
             await Check("document.querySelector('meta').content='no-referrer'; document.querySelector('meta').content='invalid'; window.open(document.querySelector('a').href)", "");
             await Load("header");
             await Check("document.querySelector('a').click()", "");
+            await Check("history.pushState({}, '', '/items?view=grid'); document.querySelector('a').click()", "");
             await Check("window.open(document.querySelector('a').href)", "");
             await Check("document.querySelector('a').referrerPolicy='origin'; document.querySelector('a').click()", origin.AbsoluteUri);
         }
