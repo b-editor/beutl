@@ -54,8 +54,9 @@ public sealed record CompositionConditions
     /// <remarks>
     /// An editor reads the colors an effect receives from a frame where the effects after it change no colors, while
     /// those that move pixels still put them where the preview shows them. A shader stage that reads only the current
-    /// pixel and a Skia color filter are color stages; everything else such an effect records stays, and the effects it
-    /// applies inside itself, as a group does its children, leave out theirs too.
+    /// pixel and a Skia color filter are color stages; everything else such an effect records stays. The effects it
+    /// applies inside its own recording leave out theirs too, but a group that draws its children as effects of their
+    /// own needs them in the set as well.
     /// </remarks>
     internal IReadOnlySet<EngineObject>? ColorStagesSkipped { get; init; }
 

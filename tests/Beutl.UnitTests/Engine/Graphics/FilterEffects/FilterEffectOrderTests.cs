@@ -9,7 +9,8 @@ namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 public sealed class FilterEffectOrderTests
 {
     // The curves tab reads the colors an effect receives, so the effects after it are those acting on what it gives:
-    // the later ones in each group around it, then the effects of the drawables around its drawable.
+    // the later ones in each group around it, then the effects of the drawables around its drawable. A group among them
+    // comes with what it holds, as each of its children draws as an effect of its own.
     [Test]
     public void The_effects_after_one_are_the_later_ones_around_it_and_those_of_the_groups_it_is_in()
     {
@@ -17,6 +18,9 @@ public sealed class FilterEffectOrderTests
         var target = new Curves();
         var nestedAfter = new HueRotate();
         var after = new Invert();
+        var laterChild = new Gamma();
+        var laterGroup = new FilterEffectGroup();
+        laterGroup.Children.Add(laterChild);
         var inner = new FilterEffectGroup();
         inner.Children.Add(target);
         inner.Children.Add(nestedAfter);
@@ -25,11 +29,16 @@ public sealed class FilterEffectOrderTests
         chain.Children.Add(before);
         chain.Children.Add(inner);
         chain.Children.Add(after);
+        chain.Children.Add(laterGroup);
         var group = new DrawableGroup();
         group.Children.Add(shape);
-        FilterEffect groupEffects = group.FilterEffect.Value!;
+        var groupEffects = (FilterEffectGroup)group.FilterEffect.Value!;
+        var groupChild = new HueRotate();
+        groupEffects.Children.Add(groupChild);
 
-        Assert.That(FilterEffectOrder.After(target), Is.EquivalentTo(new EngineObject[] { nestedAfter, after, groupEffects }));
+        Assert.That(
+            FilterEffectOrder.After(target),
+            Is.EquivalentTo(new EngineObject[] { nestedAfter, after, laterGroup, laterChild, groupEffects, groupChild }));
     }
 
     [Test]
