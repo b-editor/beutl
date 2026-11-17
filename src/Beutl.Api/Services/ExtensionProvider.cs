@@ -5,7 +5,6 @@ using System.Diagnostics.CodeAnalysis;
 using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Extensibility;
-
 using static Beutl.Configuration.ExtensionConfig;
 
 namespace Beutl.Api.Services;
@@ -14,7 +13,7 @@ public sealed class ExtensionProvider : IExtensionRegistry
 {
     private readonly Dictionary<int, ExtensionEntry[]> _entriesByPackage = [];
     private readonly Dictionary<ExtensionId, ExtensionEntry> _entriesById = [];
-    private readonly ExtensionConfig _config = GlobalConfiguration.Instance.ExtensionConfig;
+    private readonly ExtensionConfig _config;
     private readonly Dictionary<Type, Array> _cache = [];
     private readonly ExtensionCollection _extensions = new();
     private readonly object _lock = new();
@@ -22,8 +21,9 @@ public sealed class ExtensionProvider : IExtensionRegistry
     private Extension[] _snapshot = [];
     private ExtensionEntry[] _entrySnapshot = [];
 
-    public ExtensionProvider()
+    public ExtensionProvider(ExtensionConfig config)
     {
+        _config = config;
     }
 
     public event EventHandler? ExtensionsChanged;

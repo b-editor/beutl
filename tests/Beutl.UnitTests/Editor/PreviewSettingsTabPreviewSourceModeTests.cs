@@ -2,7 +2,6 @@
 using Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
-
 using Moq;
 
 namespace Beutl.UnitTests.Editor;
@@ -13,19 +12,25 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture, NonParallelizable]
 public sealed class PreviewSettingsTabPreviewSourceModeTests
 {
+    [SetUp]
+    public void InitializeConfiguration() => _testConfiguration = new();
+
+    private GlobalConfiguration _testConfiguration = new();
+
     private PreviewSourceMode _saved;
 
     [SetUp]
-    public void SetUp() => _saved = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value;
+    public void SetUp() => _saved = _testConfiguration.EditorConfig.PreviewSourceMode.Value;
 
     [TearDown]
-    public void TearDown() => GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = _saved;
+    public void TearDown() => _testConfiguration.EditorConfig.PreviewSourceMode.Value = _saved;
 
-    private static PreviewSettingsTabViewModel CreateViewModel()
+    private PreviewSettingsTabViewModel CreateViewModel()
     {
         var factory = new Mock<IPropertyEditorFactory>();
         factory.Setup(f => f.CreateEditor(It.IsAny<IPropertyAdapter>())).Returns((IPropertyEditorContext?)null);
         var ctx = new Mock<IEditorContext>();
+        ctx.Setup(c => c.GetService(typeof(GlobalConfiguration))).Returns(_testConfiguration);
         ctx.Setup(c => c.GetService(typeof(IPropertyEditorFactory))).Returns(factory.Object);
         return new PreviewSettingsTabViewModel(ctx.Object);
     }
@@ -33,7 +38,7 @@ public sealed class PreviewSettingsTabPreviewSourceModeTests
     [Test]
     public void PreviewSourceMode_ReflectsConfigAsInt()
     {
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.ForceOriginal;
+        _testConfiguration.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.ForceOriginal;
 
         using PreviewSettingsTabViewModel vm = CreateViewModel();
 
@@ -43,13 +48,13 @@ public sealed class PreviewSettingsTabPreviewSourceModeTests
     [Test]
     public void SettingIntValue_UpdatesConfigEnum()
     {
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
+        _testConfiguration.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
         using PreviewSettingsTabViewModel vm = CreateViewModel();
 
         // The ComboBox writes back the selected index as an int; the enum setting must follow.
         vm.PreviewSourceMode.Value = (int)PreviewSourceMode.ForceOriginal;
 
-        Assert.That(GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value,
+        Assert.That(_testConfiguration.EditorConfig.PreviewSourceMode.Value,
             Is.EqualTo(PreviewSourceMode.ForceOriginal));
     }
 
@@ -58,12 +63,12 @@ public sealed class PreviewSettingsTabPreviewSourceModeTests
     [Test]
     public void SettingOutOfRangeIndex_LeavesConfigUnchanged()
     {
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.ForceOriginal;
+        _testConfiguration.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.ForceOriginal;
         using PreviewSettingsTabViewModel vm = CreateViewModel();
 
         vm.PreviewSourceMode.Value = -1;
 
-        Assert.That(GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value,
+        Assert.That(_testConfiguration.EditorConfig.PreviewSourceMode.Value,
             Is.EqualTo(PreviewSourceMode.ForceOriginal), "an out-of-range index must not persist an undefined enum");
     }
 }

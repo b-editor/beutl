@@ -25,7 +25,7 @@ public class ElementStructureServiceTests
         _harness = new SceneHistoryHarness("beutl_life", start: MediaTime.Zero, duration: MediaTime.FromSeconds(60));
         _scene = _harness.Scene;
         _history = _harness.History;
-        _service = new ElementStructureService(_history);
+        _service = new ElementStructureService(_history, new Beutl.Configuration.EditorConfig());
     }
 
     [TearDown]
@@ -78,7 +78,7 @@ public class ElementStructureServiceTests
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => new ElementStructureService(null!));
+        Assert.Throws<ArgumentNullException>(() => new ElementStructureService(null!, new Beutl.Configuration.EditorConfig()));
     }
 
     [Test]

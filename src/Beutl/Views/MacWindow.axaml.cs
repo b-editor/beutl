@@ -20,7 +20,6 @@ public sealed partial class MacWindow : Window
 
         InitializeComponent();
         _closeGuard = new MainWindowCloseGuard(this, mainView);
-        WindowPlacement.Restore(this);
     }
 
     protected override void OnOpened(EventArgs e)
@@ -37,7 +36,10 @@ public sealed partial class MacWindow : Window
         base.OnDataContextChanged(e);
         _menuDisposables.Clear();
         if (DataContext is MainViewModel viewModel)
+        {
+            WindowPlacement.Restore(this, viewModel.Configuration.ViewConfig);
             MainMenuBuilder.AddMenus(NativeMenu.GetMenu(this)!, viewModel.MenuItems, this, _menuDisposables);
+        }
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
@@ -46,6 +48,7 @@ public sealed partial class MacWindow : Window
             return;
 
         base.OnClosing(e);
-        WindowPlacement.Save(this);
+        if (DataContext is MainViewModel viewModel)
+            WindowPlacement.Save(this, viewModel.Configuration.ViewConfig);
     }
 }

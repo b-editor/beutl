@@ -1,11 +1,12 @@
-﻿using Beutl.Editor.Components.WebBrowserTab;
+﻿using Beutl.Configuration;
+using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Views.Dock;
-
 using Dock.Model;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 using Dock.Model.Core.Events;
 using Dock.Model.Inpc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.ViewModels.Dock;
 
@@ -469,7 +470,7 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
     /// <summary>Opens an empty tab in <paramref name="target"/> for the user to pick a tool from.</summary>
     internal NewToolTabDockable OpenNewToolTab(IToolDock target)
     {
-        var dockable = new NewToolTabDockable { FocusOnShow = true };
+        var dockable = new NewToolTabDockable(editViewModel.GetRequiredService<GlobalConfiguration>().ViewConfig) { FocusOnShow = true };
         AddDockable(target, dockable);
         SetActiveDockable(dockable);
         SetFocusedDockable(target, dockable);

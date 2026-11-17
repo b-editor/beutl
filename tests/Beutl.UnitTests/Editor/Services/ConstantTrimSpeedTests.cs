@@ -18,6 +18,8 @@ namespace Beutl.UnitTests.Editor.Services;
 [TestFixture(nameof(SceneSound))]
 public class ConstantTrimSpeedTests(string mediaKind)
 {
+    private GlobalConfiguration _testConfiguration = new();
+
     private SceneHistoryHarness _harness = null!;
     private ElementSlipService _slip = null!;
     private ElementResizeService _resize = null!;
@@ -32,10 +34,11 @@ public class ConstantTrimSpeedTests(string mediaKind)
     [SetUp]
     public void SetUp()
     {
+        _testConfiguration = new();
         _harness = new SceneHistoryHarness("beutl_trim_speed", duration: MediaTime.FromSeconds(30));
         _slip = new ElementSlipService(History);
-        _resize = new ElementResizeService(History);
-        _clamp = new ClampResizeToOriginalLengthScope(true);
+        _resize = new ElementResizeService(History, _testConfiguration.EditorConfig);
+        _clamp = new ClampResizeToOriginalLengthScope(_testConfiguration.EditorConfig, true);
     }
 
     [TearDown]
@@ -192,7 +195,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
         var fastBack = new SourceSound { Speed = { Value = 200 } };
         back.Objects.Add(fastBack);
 
-        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)]);
+        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)], _testConfiguration.EditorConfig);
         Assert.That(bounds.Max, Is.EqualTo(MediaTime.FromSeconds(expectedLength - 2)));
 
         bool applied = Trim(front, middle, back, 15);
@@ -222,7 +225,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
         Element back = AddElement(backStart, 2);
         var offset = AddMedia(back, speed, 1);
 
-        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)]);
+        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)], _testConfiguration.EditorConfig);
         Assert.That(bounds.Min, Is.EqualTo(MediaTime.FromSeconds(expectedDelta)));
 
         bool applied = Trim(front, middle, back, -10);
@@ -315,7 +318,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
     public void RollOrSlide_VaryingSpeedAnimation_UsesThePlaybackIntegral(
         bool slide, bool animateFront, bool clampToSource)
     {
-        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value = clampToSource;
+        _testConfiguration.EditorConfig.ClampResizeToOriginalLength.Value = clampToSource;
         Element front = AddElement(0, 2);
         Element? middle = slide ? AddElement(2, 2) : null;
         double backStart = slide ? 4 : 2;
@@ -328,7 +331,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
         History.Commit();
         int before = History.UndoCount;
 
-        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)]);
+        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)], _testConfiguration.EditorConfig);
         bool applied = Trim(front, middle, back, 1);
 
         Assert.Multiple(() =>

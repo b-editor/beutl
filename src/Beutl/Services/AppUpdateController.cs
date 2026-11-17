@@ -45,10 +45,12 @@ internal sealed class AppUpdateController
             .Switch();
     }
 
-    public static AppUpdateController Instance { get; } = new(
-        update => new UpdateDialogViewModel(update),
-        () => CanDownloadAutomatically && GlobalConfiguration.Instance.UpdateConfig.AutoDownload.Value
-            && UpdateDialogViewModel.ClaimUpdateFolders());
+    internal AppUpdateController(UpdateConfig configuration)
+        : this(update => new UpdateDialogViewModel(update, configuration),
+            () => CanDownloadAutomatically && configuration.AutoDownload.Value
+                && UpdateDialogViewModel.ClaimUpdateFolders())
+    {
+    }
 
     internal static bool CanDownloadAutomatically => !FlatpakUpdater.RequiresManualUpdate;
 

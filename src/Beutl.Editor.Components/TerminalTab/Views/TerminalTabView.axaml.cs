@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Editor.Components.TerminalTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Logging;
@@ -22,6 +23,8 @@ public partial class TerminalTabView : UserControl, IDisposable
 
     private static readonly ILogger s_logger = Log.CreateLogger<TerminalTabView>();
     private readonly CompositeDisposable _settingsSubscriptions = [];
+    private readonly TerminalConfig _defaultSettings = new();
+    private TerminalConfig? _settings;
     private TerminalTabViewModel? _sessionOwner;
     private bool _starting;
     private bool _disposed;
@@ -29,8 +32,31 @@ public partial class TerminalTabView : UserControl, IDisposable
     public TerminalTabView()
     {
         InitializeComponent();
+        BindSettings();
         Loaded += OnLoaded;
-        TerminalConfig settings = GlobalConfiguration.Instance.TerminalConfig;
+        Terminal.AddHandler(KeyDownEvent, (_, args) =>
+        {
+            if (args.Key == Key.Enter)
+                UsageTelemetry.Current?.Record("tool.command", "Terminal", "SubmitInput");
+        }, RoutingStrategies.Tunnel);
+    }
+
+    private void BindSettings()
+    {
+        if (_disposed || Terminal == null) return;
+
+        TerminalConfig settings = (DataContext as TerminalTabViewModel)?.Settings
+            ?? ControlConfiguration.GetConfiguration(this)?.TerminalConfig
+            ?? _defaultSettings;
+        if (ReferenceEquals(_settings, settings)) return;
+
+        _settingsSubscriptions.Clear();
+        _settings = settings;
+        ApplySettings(settings);
+    }
+
+    private void ApplySettings(TerminalConfig settings)
+    {
         settings.FontFamily.GetObservable().Subscribe(name =>
             Terminal.FontFamilyName = string.IsNullOrWhiteSpace(name)
                 ? TerminalControl.FontFamilyNameProperty.GetDefaultValue(Terminal) : name.Trim())
@@ -49,11 +75,6 @@ public partial class TerminalTabView : UserControl, IDisposable
                 _ => applicationTheme
             })
             .Switch().Subscribe(Terminal.ApplyTheme).DisposeWith(_settingsSubscriptions);
-        Terminal.AddHandler(KeyDownEvent, (_, args) =>
-        {
-            if (args.Key == Key.Enter)
-                UsageTelemetry.Current?.Record("tool.command", "Terminal", "SubmitInput");
-        }, RoutingStrategies.Tunnel);
     }
 
     private IObservable<ISolidColorBrush> ObserveBrush(string key) =>
@@ -83,7 +104,15 @@ public partial class TerminalTabView : UserControl, IDisposable
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        BindSettings();
         TryStartSession();
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == ControlConfiguration.ConfigurationProperty)
+            BindSettings();
     }
 
     private void TryStartSession()
@@ -159,6 +188,7 @@ public partial class TerminalTabView : UserControl, IDisposable
         _sessionOwner = null;
         Loaded -= OnLoaded;
         _settingsSubscriptions.Dispose();
+        _settings = null;
         if (!_starting) Terminal.StopPty();
     }
 }

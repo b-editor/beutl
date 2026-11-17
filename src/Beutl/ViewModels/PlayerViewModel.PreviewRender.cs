@@ -5,6 +5,7 @@ using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using SkiaSharp;
@@ -123,7 +124,7 @@ public partial class PlayerViewModel
                     Style = SKPaintStyle.Stroke,
                     StrokeWidth = strokeScale
                 };
-                bool exactBounds = GlobalConfiguration.Instance.ViewConfig.ShowExactBoundaries.Value;
+                bool exactBounds = EditViewModel.GetRequiredService<GlobalConfiguration>().ViewConfig.ShowExactBoundaries.Value;
 
                 foreach (Rect item in boundary)
                 {
@@ -196,7 +197,7 @@ public partial class PlayerViewModel
 
         // Read the onion-skin settings and the path editor's state here on the UI thread; reading them on the render
         // thread would race their UI-thread writes.
-        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig editorConfig = EditViewModel.GetRequiredService<GlobalConfiguration>().EditorConfig;
         bool onionEnabled = editorConfig.IsOnionSkinEnabled.Value;
         int onionPrevCount = editorConfig.OnionSkinPrevCount.Value;
         int onionNextCount = editorConfig.OnionSkinNextCount.Value;

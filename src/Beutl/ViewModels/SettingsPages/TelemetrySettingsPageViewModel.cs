@@ -1,6 +1,5 @@
 ﻿using Beutl.Configuration;
 using Beutl.ViewModels.ExtensionsPages;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
@@ -10,9 +9,9 @@ public sealed class TelemetrySettingsPageViewModel : BasePageViewModel
     private readonly CompositeDisposable _disposables = [];
     private readonly TelemetryConfig _config;
 
-    public TelemetrySettingsPageViewModel()
+    public TelemetrySettingsPageViewModel(TelemetryConfig configuration)
     {
-        _config = GlobalConfiguration.Instance.TelemetryConfig;
+        _config = configuration;
 
         Beutl_Application = _config.Beutl_Application.GetObservable()
             .Select(v => v == true)

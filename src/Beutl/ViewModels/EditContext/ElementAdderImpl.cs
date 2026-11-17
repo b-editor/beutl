@@ -1,10 +1,12 @@
 ﻿using System.Collections.Immutable;
+using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;
@@ -382,7 +384,8 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                     {
                         scene.AddChild(
                             element,
-                            arrangements[index] ? ElementOverlapHandling.Allow : ElementOverlapHandling.Auto);
+                            arrangements[index] ? ElementOverlapHandling.Allow : ElementOverlapHandling.Auto,
+                            _context.GetRequiredService<GlobalConfiguration>().EditorConfig.AutoAdjustSceneDuration.Value);
                     }
 
                     layerEnds[description.Layer] = elements.Max(element => element.Range.End);

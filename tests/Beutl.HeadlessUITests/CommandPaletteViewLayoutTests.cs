@@ -91,7 +91,7 @@ public class CommandPaletteViewLayoutTests
     public async Task Command_search_starts_below_the_input_without_prompt_space(int width, bool light)
     {
         var extension = new SearchExtension();
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         provider.AddExtensions(-45009, [extension]);
         var editor = new EditorService(provider, TestShell.MainViewModel.AppServices);
         var manager = new ContextCommandManager(new ContextCommandSettingsStore());

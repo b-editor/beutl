@@ -32,7 +32,7 @@ public sealed class ExtensionsPageUpdatesTests
             TestStore.CreateReleaseResponse("3.0.0", targetVersion: $"({BeutlApplication.Version},)"),
             TestStore.CreateReleaseResponse("2.0.0"));
         using var http = new HttpClient(store);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         if (signedIn)
             AiTestSupport.SetAuthenticatedUser(app);
         var package = await app.GetResource<DiscoverService>().GetPackage(name, CancellationToken.None);
@@ -65,7 +65,7 @@ public sealed class ExtensionsPageUpdatesTests
         ];
         using var store = new StoreHandler(TestStore.CreatePackageResponse(name), releases);
         using var http = new HttpClient(store, disposeHandler: false);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         app.GetResource<InstalledPackageRepository>().UpgradePackagesAndDeferNotifications(identity)();
         MainViewModel main = TestShell.MainViewModel;
         using var context = new ExtensionsPageViewModel(app, main.EditorService, main.ProjectService);

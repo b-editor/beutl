@@ -37,7 +37,7 @@ public sealed class LibraryPageLookupTests
 
         var handler = new LookupHandler(known, lookups: identities.Length);
         using var http = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         foreach (PackageIdentity identity in identities)
         {
             app.GetResource<InstalledPackageRepository>().UpgradePackagesAndDeferNotifications(identity)();

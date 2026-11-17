@@ -310,8 +310,8 @@ public class ElementTransitionTimelineTests
     [AvaloniaTest]
     public async Task ThePartsDrawOneRampAcrossTheCut_AndTheHandleDragsOneSide()
     {
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
-        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = false;
+        bool originalSnap = TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value;
+        TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = false;
         Window? window = null;
         TimelineTabView? view = null;
         try
@@ -384,7 +384,7 @@ public class ElementTransitionTimelineTests
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
+            TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
             TimelineTestHost.Close(view, window);
         }
     }

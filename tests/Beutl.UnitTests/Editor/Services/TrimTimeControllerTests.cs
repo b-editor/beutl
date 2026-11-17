@@ -19,6 +19,8 @@ namespace Beutl.UnitTests.Editor.Services;
 [NonParallelizable]
 public class TrimTimeControllerTests
 {
+    private GlobalConfiguration _testConfiguration = new();
+
     private SceneHistoryHarness _harness = null!;
     private ElementSlipService _slip = null!;
     private ClampResizeToOriginalLengthScope _clamp = null!;
@@ -29,7 +31,8 @@ public class TrimTimeControllerTests
     [SetUp]
     public void Setup()
     {
-        _clamp = new ClampResizeToOriginalLengthScope(true);
+        _testConfiguration = new();
+        _clamp = new ClampResizeToOriginalLengthScope(_testConfiguration.EditorConfig, true);
         _harness = new SceneHistoryHarness("beutl_trim_controller", start: MediaTime.Zero, duration: Seconds(30));
         _slip = new ElementSlipService(_harness.History);
     }
@@ -524,7 +527,7 @@ public class TrimTimeControllerTests
         video.IsLoop.Value = true;
         Element element = AddElement(0, 2, video);
 
-        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(12), 0)]);
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(12), 0)]);
 
         Assert.Multiple(() =>
         {
@@ -619,7 +622,7 @@ public class TrimTimeControllerTests
             Loop = { Value = true }
         });
         var constraints = SlippableMedia.CreateResizeConstraints(element);
-        var service = new ElementResizeService(_harness.History);
+        var service = new ElementResizeService(_harness.History, _testConfiguration.EditorConfig);
         Assert.That(constraints.GetMaximumDuration()?.ToSeconds(), Is.EqualTo(2).Within(0.000001));
         // At length 1.5 the new loop period requests source 0.5..1.25, even
         // though both the original length 1 and the maximum length 2 are safe.
@@ -684,7 +687,7 @@ public class TrimTimeControllerTests
         Element? middleB = slide ? _harness.AddElement(Seconds(2), Seconds(1), 1) : null;
         Element backA = _harness.AddElement(Seconds(slide ? 3 : 2), Seconds(4), 0);
         Element backB = _harness.AddElement(Seconds(slide ? 3 : 2), Seconds(4), 1);
-        var resize = new ElementResizeService(_harness.History);
+        var resize = new ElementResizeService(_harness.History, _testConfiguration.EditorConfig);
 
         bool applied = slide
             ? resize.Slide(_harness.Scene,
@@ -792,7 +795,7 @@ public class TrimTimeControllerTests
         });
         Element locked = _harness.AddElement(Seconds(6.5), Seconds(1));
         locked.IsLocked.Value = true;
-        var service = new ElementResizeService(_harness.History);
+        var service = new ElementResizeService(_harness.History, _testConfiguration.EditorConfig);
         service.Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(2), 0)], ripple: true);
 
         Assert.Multiple(() =>
@@ -813,7 +816,7 @@ public class TrimTimeControllerTests
         video.IsLoop.SetKeyFrameAnimation(animation);
         Element element = AddElement(0, 2, video);
 
-        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(10), 0)]);
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(10), 0)]);
 
         Assert.That(element.Length.Value, Is.EqualTo(Seconds(5)));
     }
@@ -863,7 +866,7 @@ public class TrimTimeControllerTests
             OffsetPosition = { Value = Seconds(4) },
             Loop = { Value = true }
         });
-        var service = new ElementResizeService(_harness.History);
+        var service = new ElementResizeService(_harness.History, _testConfiguration.EditorConfig);
         if (mode == "resize")
             service.Resize(_harness.Scene, [new(front, front.Start.Value, Seconds(2.8), 0)]);
         else if (mode == "roll")
@@ -892,7 +895,7 @@ public class TrimTimeControllerTests
         Element element = AddElement(5, 1, video);
 
         Assert.That(ReadPosition(video, 14.5), Is.EqualTo(0.5));
-        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(10), 0)]);
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(10), 0)]);
 
         Assert.That(element.Length.Value, Is.EqualTo(Seconds(10)));
     }
@@ -962,7 +965,7 @@ public class TrimTimeControllerTests
             Assert.That(resource.Source!.Duration, Is.EqualTo(Seconds(1)));
 
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(2)), Is.False);
-        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(2), 0)]);
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(2), 0)]);
         Assert.Multiple(() =>
         {
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
@@ -986,8 +989,8 @@ public class TrimTimeControllerTests
         Element back = AddElement(mode == "roll" ? 2 : 3, 4, backVideo);
         TimeRange before = back.Range;
         int history = _harness.History.UndoCount;
-        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value = clamp;
-        var service = new ElementResizeService(_harness.History);
+        _testConfiguration.EditorConfig.ClampResizeToOriginalLength.Value = clamp;
+        var service = new ElementResizeService(_harness.History, _testConfiguration.EditorConfig);
 
         bool applied = mode == "roll"
             ? service.Roll(_harness.Scene, [new(front, back)], Seconds(1))
@@ -1028,7 +1031,7 @@ public class TrimTimeControllerTests
         Element element = AddElement(0, 1, video);
         Assert.That(ReadPosition(video, 7), Is.EqualTo(7));
 
-        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(8), 0)]);
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(8), 0)]);
 
         Assert.That(element.Length.Value, Is.EqualTo(Seconds(1)));
     }
@@ -1053,7 +1056,7 @@ public class TrimTimeControllerTests
         using var compositor = CreateCompositor(_harness.Scene);
         Assert.That(ReadPosition(compositor.EvaluateGraphics(owner.Start.Value).Objects.OfType<DrawableTimeController.Resource>().Single()), Is.EqualTo(4));
 
-        new ElementResizeService(_harness.History).Resize(_harness.Scene, requests);
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene, requests);
 
         Assert.Multiple(() =>
         {
@@ -1090,7 +1093,7 @@ public class TrimTimeControllerTests
         presented.Objects.Add(new PortalObject { Count = { Value = 1 } });
         presented.Objects.Add(controller);
 
-        new ElementResizeService(_harness.History).Resize(_harness.Scene,
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene,
             [new(owner, owner.Start.Value, Seconds(3), 1), new(presented, presented.Start.Value, Seconds(3), 0)], ripple);
 
         Assert.That(owner.Length.Value, Is.EqualTo(Seconds(barrier ? 1.25 : 1.5)));
@@ -1166,9 +1169,9 @@ public class TrimTimeControllerTests
         if (reverseOrder) Array.Reverse(lanes);
         int history = _harness.History.UndoCount;
         MediaTime preview = ElementResizeService.CreateTrimConstraints(_harness.Scene,
-            lanes.Select(lane => new ElementTrimPair(lane.Front, lane.Back)).ToArray(), [middleA, middleB]).Clamp(Seconds(-1));
+            lanes.Select(lane => new ElementTrimPair(lane.Front, lane.Back)).ToArray(), _testConfiguration.EditorConfig, [middleA, middleB]).Clamp(Seconds(-1));
 
-        bool applied = new ElementResizeService(_harness.History).Slide(_harness.Scene, lanes, Seconds(-1));
+        bool applied = new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Slide(_harness.Scene, lanes, Seconds(-1));
         using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(middleB.Start.Value + Seconds(1.5)).Objects
             .OfType<DrawableTimeController.Resource>().Single();
@@ -1206,8 +1209,8 @@ public class TrimTimeControllerTests
         if (reverseOrder) Array.Reverse(lanes);
 
         MediaTime preview = ElementResizeService.CreateTrimConstraints(_harness.Scene,
-            lanes.Select(lane => new ElementTrimPair(lane.Front, lane.Back)).ToArray(), [middleA, middleB]).Clamp(Seconds(1));
-        Assert.That(new ElementResizeService(_harness.History).Slide(_harness.Scene, lanes, Seconds(1)), Is.True);
+            lanes.Select(lane => new ElementTrimPair(lane.Front, lane.Back)).ToArray(), _testConfiguration.EditorConfig, [middleA, middleB]).Clamp(Seconds(1));
+        Assert.That(new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Slide(_harness.Scene, lanes, Seconds(1)), Is.True);
         using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(Seconds(4.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.Multiple(() =>
@@ -1260,7 +1263,7 @@ public class TrimTimeControllerTests
         Element element = AddElement(0, 1, controller);
         element.Objects.Insert(0, new PortalObject { Count = { Value = 1 } });
 
-        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(5), 0)]);
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(5), 0)]);
         using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(element.Range.End - Seconds(0.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.Multiple(() =>
@@ -1294,7 +1297,7 @@ public class TrimTimeControllerTests
         linked.ZIndex.Value = 2;
 
         Assert.That(_slip.Slip(_harness.Scene, [linked, element], Seconds(0.25)), Is.False);
-        new ElementResizeService(_harness.History).Resize(_harness.Scene,
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene,
             [new(element, element.Start.Value, Seconds(3), 0), new(linked, linked.Start.Value, Seconds(3), 2)]);
         Assert.Multiple(() =>
         {
@@ -1344,7 +1347,7 @@ public class TrimTimeControllerTests
         MediaTime end = element.Range.End;
         MediaTime preview = SlippableMedia.CreateResizeConstraints(element).ClampStart(requestedStart);
 
-        new ElementResizeService(_harness.History).Resize(_harness.Scene,
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene,
             [new(element, requestedStart, end - requestedStart, 0)], ripple);
 
         Assert.Multiple(() =>
@@ -1372,7 +1375,7 @@ public class TrimTimeControllerTests
         Assert.That(resource.Target, Is.Null);
 
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(0.25)), Is.False);
-        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(2), 0)]);
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(2), 0)]);
         Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
         Assert.That(element.Length.Value, Is.EqualTo(Seconds(2)));
     }
@@ -1395,7 +1398,7 @@ public class TrimTimeControllerTests
         MediaTime preview = newStart == 2 ? constraints.ClampLength(Seconds(newLength)) : constraints.ClampStart(Seconds(newStart));
 
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(0.25)), Is.False);
-        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, Seconds(newStart), Seconds(newLength), 0)]);
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene, [new(element, Seconds(newStart), Seconds(newLength), 0)]);
 
         Assert.Multiple(() =>
         {
@@ -1438,11 +1441,11 @@ public class TrimTimeControllerTests
         using var compositor = CreateCompositor(_harness.Scene);
         Assert.That(compositor.EvaluateGraphics(Seconds(4.5)).Objects.OfType<DrawableTimeController.Resource>()
             .Single().Target!.GetOriginal(), Is.SameAs(video), "Locks restrict editing, not playback.");
-        var resize = new ElementResizeService(_harness.History);
+        var resize = new ElementResizeService(_harness.History, _testConfiguration.EditorConfig);
         int history = _harness.History.UndoCount;
         MediaTime preview = operation == "slip"
             ? SlippableMedia.ClampSharedDelta(SlippableMedia.Collect(element), Seconds(0.5))
-            : ElementResizeService.CreateTrimConstraints(_harness.Scene, [new(front, element)],
+            : ElementResizeService.CreateTrimConstraints(_harness.Scene, [new(front, element)], _testConfiguration.EditorConfig,
                 middle == null ? [] : [middle]).Clamp(Seconds(0.5));
 
         bool Apply() => operation switch
@@ -1533,7 +1536,7 @@ public class TrimTimeControllerTests
         MediaTime requestedStart = Seconds(2.2);
         MediaTime preview = SlippableMedia.CreateResizeConstraints(element).ClampStart(requestedStart);
 
-        new ElementResizeService(_harness.History).Resize(_harness.Scene,
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene,
             [new(element, requestedStart, end - requestedStart, 0)], ripple);
 
         Assert.Multiple(() =>
@@ -1562,7 +1565,7 @@ public class TrimTimeControllerTests
         Assert.That(compositor.EvaluateGraphics(Seconds(0.25)).Objects.OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
 
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(0.25)), Is.False);
-        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(3), 0)]);
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(3), 0)]);
         Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
         Assert.That(element.Length.Value, Is.EqualTo(Seconds(3)));
     }
@@ -1586,7 +1589,7 @@ public class TrimTimeControllerTests
         Element linked = AddElement(3, 0.5, linkedVideo);
 
         Assert.That(_slip.Slip(_harness.Scene, [linked, element], Seconds(1)), Is.False);
-        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(3), 0)]);
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(3), 0)]);
         Assert.Multiple(() =>
         {
             Assert.That(element.Length.Value, Is.EqualTo(Seconds(3)));
@@ -1635,7 +1638,7 @@ public class TrimTimeControllerTests
         Assert.That(resource.Target?.GetOriginal(), Is.SameAs(hasActiveProvider ? active : null));
 
         bool slipped = _slip.Slip(_harness.Scene, [element], Seconds(0.5));
-        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(3), 0)]);
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(3), 0)]);
         Assert.Multiple(() =>
         {
             Assert.That(slipped, Is.EqualTo(hasActiveProvider));
@@ -1656,10 +1659,10 @@ public class TrimTimeControllerTests
         Element? middle = slide ? _harness.AddElement(Seconds(2), Seconds(2)) : null;
         Element back = AddElement(slide ? 4 : 2, 4, video);
         (sharedMiddle ? middle! : front).Objects.Add(new DrawablePresenter { Target = { Value = video } });
-        var resize = new ElementResizeService(_harness.History);
+        var resize = new ElementResizeService(_harness.History, _testConfiguration.EditorConfig);
         MediaTime oldBackStart = back.Start.Value;
         _harness.History.Commit();
-        MediaTime preview = ElementResizeService.CreateTrimConstraints(_harness.Scene, [new(front, back)],
+        MediaTime preview = ElementResizeService.CreateTrimConstraints(_harness.Scene, [new(front, back)], _testConfiguration.EditorConfig,
             middle == null ? [] : [middle]).Clamp(Seconds(0.5));
 
         bool applied = slide
@@ -1698,7 +1701,7 @@ public class TrimTimeControllerTests
             .OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
         var constraints = SlippableMedia.CreateResizeConstraints(element);
         MediaTime preview = leftEdge ? constraints.ClampStart(Seconds(1)) : constraints.ClampLength(Seconds(5));
-        new ElementResizeService(_harness.History).Resize(_harness.Scene,
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene,
             [new(element, Seconds(leftEdge ? 1 : 0), Seconds(leftEdge ? 4 : 5), 0)], ripple);
 
         var resource = compositor.EvaluateGraphics(Seconds(2.9)).Objects.OfType<DrawableTimeController.Resource>().Single();

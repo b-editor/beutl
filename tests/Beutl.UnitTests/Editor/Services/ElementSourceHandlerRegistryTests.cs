@@ -40,7 +40,7 @@ public sealed class ElementSourceHandlerRegistryTests
     [Test]
     public async Task ExtensionRegistrations_AreComposedAndRetiredWhenPackageIsRemoved()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         await using var registry = new ElementSourceHandlerRegistry([], provider);
         var handler = new TestHandler(typeof(FirstSource));
         var extension = new TestExtension(
@@ -64,7 +64,7 @@ public sealed class ElementSourceHandlerRegistryTests
     [Test]
     public async Task ExtensionRemovalRetiresTheHandlerBeforeActiveLeaseDrainCompletes()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         await using var registry = new ElementSourceHandlerRegistry([], provider);
         var handler = new TestHandler(typeof(FirstSource));
         provider.AddExtensions(12,
@@ -100,7 +100,7 @@ public sealed class ElementSourceHandlerRegistryTests
     [Test]
     public async Task FailedProviderAdditionDoesNotPublishTheHandler()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         await using var registry = new ElementSourceHandlerRegistry([], provider);
         provider.AllExtensions.CollectionChanged += (_, args) =>
         {
@@ -122,7 +122,7 @@ public sealed class ElementSourceHandlerRegistryTests
     [Test]
     public async Task ExtensionRegistrations_ComposeReplacementEnumeratedBeforeItsBase()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         var failures = new List<ElementSourceHandlerExtensionFailure>();
         await using var registry = new ElementSourceHandlerRegistry([], provider, failures.Add);
         var baseHandler = new TestHandler(typeof(FirstSource));
@@ -156,7 +156,7 @@ public sealed class ElementSourceHandlerRegistryTests
     [Test]
     public async Task InvalidExtensionRegistration_RollsBackPartialContributions()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         var failures = new List<ElementSourceHandlerExtensionFailure>();
         var hostHandler = new TestHandler(typeof(FirstSource));
         await using var registry = new ElementSourceHandlerRegistry(
@@ -188,7 +188,7 @@ public sealed class ElementSourceHandlerRegistryTests
     [Test]
     public async Task InvalidProvisionalRegistration_DoesNotShadowAValidExtension()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         var failures = new List<ElementSourceHandlerExtensionFailure>();
         await using var registry = new ElementSourceHandlerRegistry([], provider, failures.Add);
         var invalidHandler = new TestHandler(typeof(FirstSource));
@@ -219,7 +219,7 @@ public sealed class ElementSourceHandlerRegistryTests
     [Test]
     public async Task InvalidExtensionNeverPublishesItsPartialRegistration()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         var failures = new List<ElementSourceHandlerExtensionFailure>();
         await using var registry = new ElementSourceHandlerRegistry([], provider, failures.Add);
         using var invalidGetterEntered = new ManualResetEventSlim();

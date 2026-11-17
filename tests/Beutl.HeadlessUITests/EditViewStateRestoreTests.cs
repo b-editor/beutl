@@ -50,7 +50,7 @@ public class EditViewStateRestoreTests
         var scene = new Scene(320, 180, "view-state") { Uri = new Uri(Path.Combine(workspace, "main.scene")) };
         string stateFile = Path.Combine(EditorConstants.GetViewStateDirectory(scene.Uri), "main.config");
         File.WriteAllText(stateFile, """{"current-time":"00:00:01.0333333","bpm-grid":{"offset":"00:00:01.0333333"}}""");
-        var extensions = new ExtensionProvider();
+        var extensions = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         var editor = new EditViewModel(scene, extensions, new EditorService(extensions, TestShell.MainViewModel.AppServices));
         try
         {
@@ -109,7 +109,7 @@ public class EditViewStateRestoreTests
         var scene = new Scene(320, 180, "view-state") { Uri = new Uri(Path.Combine(workspace, "main.scene")) };
         string stateFile = Path.Combine(EditorConstants.GetViewStateDirectory(scene.Uri), "main.config");
         File.WriteAllText(stateFile, content);
-        var extensions = new ExtensionProvider();
+        var extensions = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         if (failure != null)
             extensions.AddExtensions(1, [new FailingToolTabExtension((Exception)Activator.CreateInstance(failure)!)]);
 

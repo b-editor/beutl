@@ -86,7 +86,7 @@ public partial class MenuBarViewModel
             && viewModel.GetService<IEditorSelection>() is { } selection)
         {
             viewModel.GetRequiredService<IElementStructureService>().Delete(
-                scene, selection.GetTargetElements(scene), GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value);
+                scene, selection.GetTargetElements(scene), _editorService.AppServices.GetRequiredService<GlobalConfiguration>().EditorConfig.IsRippleEnabled.Value);
         }
 
         return Task.CompletedTask;
@@ -99,7 +99,7 @@ public partial class MenuBarViewModel
             && viewModel.GetService<IEditorSelection>() is { } selection)
         {
             await viewModel.GetRequiredService<IElementClipboardService>().CutAsync(
-                scene, selection.GetTargetElements(scene), GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value);
+                scene, selection.GetTargetElements(scene), _editorService.AppServices.GetRequiredService<GlobalConfiguration>().EditorConfig.IsRippleEnabled.Value);
         }
     }
 

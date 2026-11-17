@@ -7,6 +7,7 @@ using Beutl.Configuration;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Vector = Avalonia.Vector;
 
 namespace Beutl.Editor.Components.GraphEditorTab.Views;
@@ -73,7 +74,7 @@ public partial class GraphEditorView
             bool gestureAxes = target == WheelTarget.Plot && _usesGestureAxes(e);
             if (!gestureAxes && OperatingSystem.IsWindows() && e.KeyModifiers.HasFlag(KeyModifiers.Shift))
                 plotDelta = new Vector(plotDelta.Y, plotDelta.X);
-            if (!gestureAxes && !GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value)
+            if (!gestureAxes && !model.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig.SwapTimelineScrollDirection.Value)
                 plotDelta = new Vector(plotDelta.Y, plotDelta.X);
             Vector movement = target switch
             {

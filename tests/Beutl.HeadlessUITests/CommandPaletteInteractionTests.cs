@@ -27,7 +27,7 @@ public sealed class CommandPaletteInteractionTests
     private static (ExtensionProvider Provider, CommandPaletteService Service, CommandPaletteViewModel Palette) CreateClosedToolPalette(
         ClosedToolExtension extension, int packageId)
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         var editor = new EditorService(provider, TestShell.MainViewModel.AppServices);
         provider.AddExtensions(packageId, [extension]);
         var manager = new ContextCommandManager(new ContextCommandSettingsStore());
@@ -287,6 +287,7 @@ public sealed class CommandPaletteInteractionTests
             palette.Open();
             Task operation = palette.ExecuteSelectedAsync();
             var context = new Mock<IEditorContext>();
+            context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
             context.SetupGet(item => item.Object).Returns(new Scene());
             context.SetupGet(item => item.Extension).Returns(SceneEditorExtension.Instance);
             editor.SelectedTabItem.Value = new EditorTabItem(context.Object);

@@ -3,9 +3,11 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SilenceSplitTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.SilenceSplitTab.Views;
 
@@ -174,7 +176,7 @@ public partial class SilenceSplitTabView : UserControl
 
     private void OnPreviewWheelChanged(object? sender, PointerWheelEventArgs e)
     {
-        if (_analysis == null || Waveform.Bounds.Width <= 0) return;
+        if (_analysis == null || Waveform.Bounds.Width <= 0 || DataContext is not SilenceSplitTabViewModel vm) return;
         if ((e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) != 0)
         {
             double anchor = e.GetPosition(Waveform).X / Waveform.Bounds.Width;
@@ -182,7 +184,7 @@ public partial class SilenceSplitTabView : UserControl
         }
         else
         {
-            Vector delta = TimelineHelper.GetScrollOffsetDelta(e, _usesGestureAxes(e));
+            Vector delta = TimelineHelper.GetScrollOffsetDelta(e, _usesGestureAxes(e), vm.GetRequiredService<GlobalConfiguration>().EditorConfig);
             var range = _analysis.PreviewRange;
             _analysis.ScrollPreview(delta.X * range.Duration.ToSeconds() / Waveform.Bounds.Width);
             BodyScroll.Offset = BodyScroll.Offset.WithY(BodyScroll.Offset.Y + delta.Y);

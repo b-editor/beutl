@@ -169,6 +169,7 @@ public sealed class AgentHostSceneRoutingTests
         var releaseDisposal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var enabled = new ReactivePropertySlim<bool>(true);
         var context = new Mock<IEditorContext>();
+        context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         context.SetupGet(editor => editor.Object).Returns(new Scene
         {
             Uri = new Uri(Path.Combine(directory, "disposing.scene"))

@@ -19,7 +19,7 @@ public class ElementNudgeServiceTests
         _harness = new SceneHistoryHarness("beutl_nudge", start: MediaTime.Zero, duration: MediaTime.FromSeconds(60));
         _scene = _harness.Scene;
         _history = _harness.History;
-        _service = new ElementNudgeService(_history);
+        _service = new ElementNudgeService(_history, new Beutl.Configuration.EditorConfig());
     }
 
     [TearDown]
@@ -40,7 +40,7 @@ public class ElementNudgeServiceTests
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => new ElementNudgeService(null!));
+        Assert.Throws<ArgumentNullException>(() => new ElementNudgeService(null!, new Beutl.Configuration.EditorConfig()));
     }
 
     [Test]

@@ -170,7 +170,9 @@ public class LinuxDefaultFontTests
 
     internal static void RunWorker(bool familyFirst, string expected, string calls)
     {
-        GlobalConfiguration.Instance.FontConfig.FontDirectories.Clear();
+        var configuration = new FontConfig();
+        configuration.FontDirectories.Clear();
+        FontManager.Instance.Initialize(configuration);
         string expectedName = expected == "fallback" ? SKTypeface.Default.FamilyName : expected;
         if (familyFirst)
             _ = FontFamily.Default;

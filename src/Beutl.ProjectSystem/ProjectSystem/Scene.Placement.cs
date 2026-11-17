@@ -153,15 +153,15 @@ public partial class Scene
     }
 
     // Grows the scene to reach end, when the setting that adjusts its duration is on.
-    internal void ExtendDurationToCover(MediaTime end)
+    internal void ExtendDurationToCover(MediaTime end, bool autoAdjustDuration)
     {
-        if (GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value && Duration.Value + Start.Value < end)
+        if (autoAdjustDuration && Duration.Value + Start.Value < end)
         {
             Duration.Value = end - Start.Value;
         }
     }
 
-    private void AddChildCore(Element element, ElementOverlapHandling overlapHandling)
+    private void AddChildCore(Element element, ElementOverlapHandling overlapHandling, bool autoAdjustDuration)
     {
         (TimeRange range, int zIndex) = GetCorrectPosition(element, overlapHandling);
         element.Start.Value = range.Start;
@@ -169,10 +169,10 @@ public partial class Scene
         element.ZIndex.Value = zIndex;
         Children.Add(element);
 
-        ExtendDurationToCover(range.End);
+        ExtendDurationToCover(range.End, autoAdjustDuration);
     }
 
-    private void MoveChildCore(int zIndex, MediaTime newStart, MediaTime newLength, Element element)
+    private void MoveChildCore(int zIndex, MediaTime newStart, MediaTime newLength, Element element, bool autoAdjustDuration)
     {
         MediaTime newEnd = newStart + newLength;
         (Element? before, Element? after, Element? cover) =
@@ -205,12 +205,12 @@ public partial class Scene
             element.ZIndex.Value = zIndex;
         }
 
-        ExtendDurationToCover(element.Range.End);
+        ExtendDurationToCover(element.Range.End, autoAdjustDuration);
     }
 
     // Returns whether the elements moved. A drag fits around what it hits, which can move them further than asked;
     // without fitAroundConflicts they move by exactly deltaTime or not at all.
-    private bool MoveChildrenCore(Element[] elements, int deltaZIndex, MediaTime deltaTime, bool fitAroundConflicts)
+    private bool MoveChildrenCore(Element[] elements, int deltaZIndex, MediaTime deltaTime, bool fitAroundConflicts, bool autoAdjustDuration)
     {
         var selected = elements.ToHashSet();
         var obstacles = new SceneElementIndex(Children.Where(element => !selected.Contains(element)));
@@ -230,7 +230,7 @@ public partial class Scene
             }
         }
 
-        bool adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value;
+        bool adjustSceneDuration = autoAdjustDuration;
         MediaTime newSceneDuration = Duration.Value;
         if (adjustSceneDuration)
         {

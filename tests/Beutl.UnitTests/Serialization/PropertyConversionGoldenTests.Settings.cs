@@ -95,7 +95,7 @@ public partial class PropertyConversionGoldenTests
                 ["view"] = new JsonObject { ["UICulture"] = "ja-JP", ["ShowExactBoundaries"] = true },
                 ["telemetry"] = new JsonObject { ["Beutl_Logging"] = true },
             }.ToJsonString());
-            var config = (GlobalConfiguration)Activator.CreateInstance(typeof(GlobalConfiguration), nonPublic: true)!;
+            var config = new GlobalConfiguration();
             config.Restore(path);
 
             Assert.Multiple(() =>

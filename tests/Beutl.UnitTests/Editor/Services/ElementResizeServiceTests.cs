@@ -18,6 +18,8 @@ namespace Beutl.UnitTests.Editor.Services;
 [TestFixture]
 public class ElementResizeServiceTests
 {
+    private GlobalConfiguration _testConfiguration = new();
+
     private SceneHistoryHarness _harness = null!;
     private Scene _scene = null!;
     private HistoryManager _history = null!;
@@ -29,10 +31,11 @@ public class ElementResizeServiceTests
     [SetUp]
     public void Setup()
     {
+        _testConfiguration = new();
         _harness = new SceneHistoryHarness("beutl_resize", start: MediaTime.Zero, duration: MediaTime.FromSeconds(30));
         _scene = _harness.Scene;
         _history = _harness.History;
-        _service = new ElementResizeService(_history);
+        _service = new ElementResizeService(_history, _testConfiguration.EditorConfig);
     }
 
     [TearDown]
@@ -44,7 +47,7 @@ public class ElementResizeServiceTests
     // The delta window the timeline view reads for roll and slide drags.
     private (MediaTime Min, MediaTime Max) TrimDeltaBounds(params ElementTrimPair[] pairs)
     {
-        var constraints = ElementResizeService.CreateTrimConstraints(_scene, pairs);
+        var constraints = ElementResizeService.CreateTrimConstraints(_scene, pairs, _testConfiguration.EditorConfig);
         return (constraints.Min, constraints.Max);
     }
 
@@ -60,7 +63,7 @@ public class ElementResizeServiceTests
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => new ElementResizeService(null!));
+        Assert.Throws<ArgumentNullException>(() => new ElementResizeService(null!, _testConfiguration.EditorConfig));
     }
 
     [Test]
@@ -326,8 +329,8 @@ public class ElementResizeServiceTests
     [Test]
     public void Resize_RippleOn_AutoAdjustsSceneDurationAfterFollowerShift()
     {
-        bool original = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value;
-        GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value = true;
+        bool original = _testConfiguration.EditorConfig.AutoAdjustSceneDuration.Value;
+        _testConfiguration.EditorConfig.AutoAdjustSceneDuration.Value = true;
 
         try
         {
@@ -348,7 +351,7 @@ public class ElementResizeServiceTests
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value = original;
+            _testConfiguration.EditorConfig.AutoAdjustSceneDuration.Value = original;
         }
     }
 
@@ -948,8 +951,8 @@ public class ElementResizeServiceTests
     {
         // With ClampResizeToOriginalLength off, Roll must not clamp the front out-point to its
         // source tail — the clip may run past its media, matching the normal edge-resize path.
-        bool original = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value;
-        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value = false;
+        bool original = _testConfiguration.EditorConfig.ClampResizeToOriginalLength.Value;
+        _testConfiguration.EditorConfig.ClampResizeToOriginalLength.Value = false;
         try
         {
             var frontSource = CreateVideoSource(3);
@@ -969,7 +972,7 @@ public class ElementResizeServiceTests
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value = original;
+            _testConfiguration.EditorConfig.ClampResizeToOriginalLength.Value = original;
         }
     }
 

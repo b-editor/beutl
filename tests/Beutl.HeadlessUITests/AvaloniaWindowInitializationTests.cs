@@ -17,7 +17,7 @@ public class AvaloniaWindowInitializationTests
     [AvaloniaTest]
     public async Task Editor_windows_can_be_constructed_and_closed_before_being_shown()
     {
-        ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig config = TestShell.Configuration.ViewConfig;
         var previous = (WindowPosition: config.WindowPosition.Value, WindowSize: config.WindowSize.Value, IsWindowMaximized: config.IsWindowMaximized.Value);
         Func<Window>[] factories =
         [

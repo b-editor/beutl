@@ -33,7 +33,7 @@ public partial class MainView
             var dialog = new CreateNewProject();
             dialog.DataContext = new CreateNewProjectViewModel(
                 viewModel.ProjectService,
-                viewModel.VersionControlCoordinator);
+                viewModel.VersionControlCoordinator, viewModel.Configuration);
             await ShowMainDialogAsync(dialog);
         }).AddTo(_disposables);
 

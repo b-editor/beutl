@@ -335,13 +335,14 @@ public class VectorBoxDragTests
     // the real mouse instead of the test's moves.
     private sealed class BoxHost : IDisposable
     {
-        private readonly PointerLockScope _pointerLock = PointerLockScope.Off();
+        private readonly PointerLockScope _pointerLock = PointerLockScope.Off(TestShell.Configuration.EditorConfig);
 
         public BoxHost(VectorEditorBase editor, bool focusableParent = true)
         {
             Editor = editor;
             editor.ValueConfirmed += (_, _) => Confirmed++;
             Window = new Window { Content = new Border { Focusable = focusableParent, Child = editor }, Width = 520, Height = 120 };
+            Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
             Window.Show();
             HeadlessTestHelpers.Render(3);
         }

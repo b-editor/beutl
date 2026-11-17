@@ -1,12 +1,12 @@
-﻿using Beutl.Extensibility;
-
+﻿using Beutl.Configuration;
+using Beutl.Extensibility;
 using Reactive.Bindings;
 
 namespace Beutl.UnitTests.TestInfrastructure;
 
-public sealed class TestEditorContext(CoreObject obj) : IEditorContext
+public sealed class TestEditorContext(CoreObject obj, GlobalConfiguration? configuration = null) : IEditorContext
 {
-    private readonly Dictionary<Type, object> _services = [];
+    private readonly Dictionary<Type, object> _services = new() { [typeof(GlobalConfiguration)] = configuration ?? new GlobalConfiguration() };
 
     public CoreObject Object { get; } = obj;
 

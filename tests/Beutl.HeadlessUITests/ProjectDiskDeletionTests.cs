@@ -63,7 +63,7 @@ public class ProjectDiskDeletionTests
     public async Task Deletes_a_projects_own_folder_and_forgets_what_was_in_it()
     {
         await TestReset.ResetShellAsync();
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig viewConfig = TestShell.Configuration.ViewConfig;
         string workspace = NewWorkspace("own-folder");
         (string projectFile, string sceneFile) = await CreateClosedProjectAsync("doomed", workspace);
         string folder = Path.GetDirectoryName(projectFile)!;
@@ -105,7 +105,7 @@ public class ProjectDiskDeletionTests
     public async Task Deletes_only_the_project_file_from_a_folder_it_shares()
     {
         await TestReset.ResetShellAsync();
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig viewConfig = TestShell.Configuration.ViewConfig;
         // An agent can save a project straight into its output folder, next to unrelated files.
         string shared = NewWorkspace("shared-render-output");
         string projectFile = CreateFile(Path.Combine(shared, "clip.bep"), "{}");
@@ -165,7 +165,7 @@ public class ProjectDiskDeletionTests
         {
             Assert.That(shown, Is.EqualTo(1));
             Assert.That(File.Exists(projectFile), Is.True);
-            Assert.That(GlobalConfiguration.Instance.ViewConfig.RecentProjects, Does.Contain(projectFile));
+            Assert.That(TestShell.Configuration.ViewConfig.RecentProjects, Does.Contain(projectFile));
         });
     }
 
@@ -179,7 +179,7 @@ public class ProjectDiskDeletionTests
         }
 
         await TestReset.ResetShellAsync();
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig viewConfig = TestShell.Configuration.ViewConfig;
         string workspace = NewWorkspace("undeletable");
         (string projectFile, _) = await CreateClosedProjectAsync("stuck", workspace);
         string folder = Path.GetDirectoryName(projectFile)!;
@@ -241,7 +241,7 @@ public class ProjectDiskDeletionTests
             Assert.That(
                 notifications.All.Select(notification => notification.Message),
                 Does.Contain(MessageStrings.FileDoesNotExist));
-            Assert.That(GlobalConfiguration.Instance.ViewConfig.RecentProjects, Does.Not.Contain(projectFile));
+            Assert.That(TestShell.Configuration.ViewConfig.RecentProjects, Does.Not.Contain(projectFile));
         });
     }
 
@@ -423,8 +423,8 @@ public class ProjectDiskDeletionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(GlobalConfiguration.Instance.ViewConfig.RecentFiles, Does.Not.Contain(projectFile));
-            Assert.That(GlobalConfiguration.Instance.ViewConfig.RecentFiles, Does.Not.Contain(sceneFile));
+            Assert.That(TestShell.Configuration.ViewConfig.RecentFiles, Does.Not.Contain(projectFile));
+            Assert.That(TestShell.Configuration.ViewConfig.RecentFiles, Does.Not.Contain(sceneFile));
         });
     }
 
@@ -432,7 +432,7 @@ public class ProjectDiskDeletionTests
     public async Task Keeps_a_recent_entry_listed_again_while_the_check_runs()
     {
         await TestReset.ResetShellAsync();
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig viewConfig = TestShell.Configuration.ViewConfig;
         (string projectFile, _) = await CreateClosedProjectAsync("recreated", NewWorkspace("recreated"));
         var checkStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseCheck = new ManualResetEventSlim();

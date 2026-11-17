@@ -1,4 +1,5 @@
-﻿using Beutl.Editor;
+﻿using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.VersionControl;
@@ -26,6 +27,7 @@ public partial class EditViewModel
     internal IReadOnlyCollection<Type> ServiceTypes => _services.Types;
 
     private EditorServiceRegistry CreateServices() => new EditorServiceRegistry()
+        .Add<GlobalConfiguration>(() => EditorService.AppServices.GetRequiredService<GlobalConfiguration>())
         .Add<LibraryService>(() => EditorService.AppServices.GetRequiredService<LibraryService>())
         .Add<ObjectTemplateService>(() => EditorService.AppServices.GetRequiredService<ObjectTemplateService>())
         .Add<Beutl.Services.Tutorials.ITutorialService>(() => EditorService.AppServices.GetRequiredService<Beutl.Services.Tutorials.ITutorialService>())
@@ -82,21 +84,21 @@ public partial class EditViewModel
         .Add<IGenerativeNodeExecutor>(() => _generativeNodeExecutor
             ??= MainViewModel.TryGetCurrent(out MainViewModel? main) ? main.CreateGenerativeNodeExecutor(Scene) : null)
         .AddOwned<ISceneTimeRangeService>(() => new SceneTimeRangeService(HistoryManager))
-        .AddOwned<IElementResizeService>(() => new ElementResizeService(HistoryManager))
+        .AddOwned<IElementResizeService>(() => new ElementResizeService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig))
         .AddOwned<IElementSlipService>(() => new ElementSlipService(HistoryManager))
-        .AddOwned<IElementDuplicateService>(() => new ElementDuplicateService(HistoryManager))
+        .AddOwned<IElementDuplicateService>(() => new ElementDuplicateService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig))
         .AddOwned<IElementMoveService>(() => new ElementMoveService(
-            HistoryManager, (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!))
-        .AddOwned<IElementGapService>(() => new ElementGapService(HistoryManager))
+            HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig, (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!))
+        .AddOwned<IElementGapService>(() => new ElementGapService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig))
         .AddOwned<IElementClipboardService>(() => new ProjectFileWriteClipboardService(
             EditorService,
             new ElementClipboardService(
-                HistoryManager,
+                HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig,
                 _clipboardGateway,
                 (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
                 static () => ElementAccentColorGenerator.GenerateColor(typeof(Beutl.Graphics.SourceImage).FullName!),
                 _elementAdder), _autoSaveCancellation.Token))
-        .AddOwned<IElementStructureService>(() => new ElementStructureService(HistoryManager))
+        .AddOwned<IElementStructureService>(() => new ElementStructureService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig))
         .AddOwned<IElementAttributeService>(() => new ElementAttributeService(HistoryManager))
         .AddOwned<ITransitionEditorService>(() => new Beutl.Editor.Components.TransitionTab.TransitionEditorService(this))
         .AddOwned<IElementNudgeService>(() => _elementNudgeService = CreateNudgeService())
@@ -113,7 +115,7 @@ public partial class EditViewModel
     {
         // The debounce timer fires off the UI thread; post the commit back so it serializes
         // with other editing ops.
-        var nudge = new ElementNudgeService(HistoryManager, action => Dispatcher.UIThread.Post(action));
+        var nudge = new ElementNudgeService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig, action => Dispatcher.UIThread.Post(action));
         // Drain pending nudges before Undo / Redo / JumpTo so they don't merge into the next
         // history transaction.
         HistoryManager.BeforeMutation

@@ -24,7 +24,7 @@ public class PackageInstallNavigationTests
         await TestReset.ResetShellAsync();
         using StoreHandler handler = CreateHandler();
         using var http = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         using var context = new ExtensionsPageViewModel(app, TestShell.MainViewModel.EditorService, TestShell.MainViewModel.ProjectService);
         var package = await app.GetResource<DiscoverService>().GetPackage("Beutl.Sample", CancellationToken.None);
         var window = new ExtensionsPage { DataContext = context };
@@ -68,7 +68,7 @@ public class PackageInstallNavigationTests
         await TestReset.ResetShellAsync();
         using StoreHandler handler = CreateHandler();
         using var http = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         var package = await app.GetResource<DiscoverService>().GetPackage("Beutl.Sample", CancellationToken.None);
         using var viewModel = new PackageDetailsPageViewModel(package, app,
             TestShell.MainViewModel.EditorService, TestShell.MainViewModel.ProjectService, "9.0.0");
@@ -89,7 +89,7 @@ public class PackageInstallNavigationTests
         await TestReset.ResetShellAsync();
         using StoreHandler handler = CreateHandler();
         using var http = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         var package = await app.GetResource<DiscoverService>().GetPackage("Beutl.Sample", CancellationToken.None);
         var repository = app.GetResource<InstalledPackageRepository>();
         var installed = new PackageIdentity(package.Name, NuGetVersion.Parse("1.2.3"));
@@ -142,7 +142,7 @@ public class PackageInstallNavigationTests
             TestStore.CreateReleaseResponse("3.0.0", targetVersion: $"({BeutlApplication.Version},)"),
             TestStore.CreateReleaseResponse("2.0.0"), TestStore.CreateReleaseResponse("1.0.0"));
         using var http = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         var package = await app.GetResource<DiscoverService>().GetPackage("Beutl.Selection", CancellationToken.None);
         app.GetResource<InstalledPackageRepository>().UpgradePackagesAndDeferNotifications(new(package.Name, NuGetVersion.Parse("1.0.0")))();
         using var details = new PackageDetailsPageViewModel(package, app, TestShell.MainViewModel.EditorService, TestShell.MainViewModel.ProjectService);

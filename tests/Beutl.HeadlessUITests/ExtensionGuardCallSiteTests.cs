@@ -90,9 +90,9 @@ public sealed class ExtensionGuardCallSiteTests
     {
         var target = new TestObject();
         var adapter = new EnginePropertyAdapter<string>(target.Name, target);
-        var matching = new ExtensionProvider();
+        var matching = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         matching.AddExtensions(new LocalPackage().LocalId, [new ThrowingPropertyEditor(throwOnMatch: true)]);
-        var creating = new ExtensionProvider();
+        var creating = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         creating.AddExtensions(new LocalPackage().LocalId, [new ThrowingPropertyEditor(throwOnMatch: false)]);
         using var notifications = new NotificationCapture();
 
@@ -109,7 +109,7 @@ public sealed class ExtensionGuardCallSiteTests
     {
         var extension = new ThrowingAcceptEditor();
         ExtensionGuard.SetPackage(extension, "Throwing.Package");
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         provider.AddExtensions(new LocalPackage().LocalId, [extension]);
         using var notifications = new NotificationCapture();
         using var model = new PropertiesEditorViewModel(new TestObject(), provider);
@@ -284,7 +284,7 @@ public sealed class ExtensionGuardCallSiteTests
 
         public void Dispose() => IsSelected.Dispose();
 
-        public object? GetService(Type serviceType) => null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public void ReadFromJson(JsonObject json)
         {
@@ -331,7 +331,7 @@ public sealed class ExtensionGuardCallSiteTests
         {
         }
 
-        public object? GetService(Type serviceType) => null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public void Dispose() => IsEnabled.Dispose();
     }

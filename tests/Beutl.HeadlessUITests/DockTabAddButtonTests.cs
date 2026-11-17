@@ -352,7 +352,7 @@ public class DockTabAddButtonTests
         Assert.That(before, Is.Not.Empty);
 
         // The user may drag the empty tab before choosing; the tool must land where the tab is now.
-        var newTab = new NewToolTabDockable();
+        var newTab = new NewToolTabDockable(TestShell.Configuration.ViewConfig);
         factory.InsertDockable(target, newTab, 0);
 
         Assert.That(newTab.Open(HistoryTabExtension.Instance), Is.True);
@@ -470,7 +470,7 @@ public class DockTabAddButtonTests
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-pins");
-        IListProperty<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+        IListProperty<string> pins = TestShell.Configuration.ViewConfig.PinnedToolTabs;
         pins.Clear();
 
         var view = new EditView { DataContext = editor };
@@ -621,7 +621,7 @@ public class DockTabAddButtonTests
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-persist");
         BeutlDockFactory factory = editor.DockHost.Factory;
         IToolDock left = factory.GetAnchoredDock(DockAnchor.Left)!;
-        var newTab = new NewToolTabDockable();
+        var newTab = new NewToolTabDockable(TestShell.Configuration.ViewConfig);
         factory.InsertDockable(left, newTab, 0);
         factory.SetActiveDockable(newTab);
         int tabCount = left.VisibleDockables!.Count;
@@ -876,10 +876,10 @@ public class DockTabAddButtonTests
     [AvaloniaTest]
     public void A_pin_saved_under_a_former_name_pins_the_tool_until_it_is_unpinned()
     {
-        IListProperty<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+        IListProperty<string> pins = TestShell.Configuration.ViewConfig.PinnedToolTabs;
         string[] saved = [.. pins];
         var extension = new RenamedToolTabExtension();
-        var newTab = new NewToolTabDockable();
+        var newTab = new NewToolTabDockable(TestShell.Configuration.ViewConfig);
         try
         {
             pins.Replace([RenamedToolTabExtension.FormerName]);
@@ -907,10 +907,10 @@ public class DockTabAddButtonTests
     [AvaloniaTest]
     public void Unpinning_removes_every_pin_of_the_tool()
     {
-        IListProperty<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+        IListProperty<string> pins = TestShell.Configuration.ViewConfig.PinnedToolTabs;
         string[] saved = [.. pins];
         var extension = new RenamedToolTabExtension();
-        var newTab = new NewToolTabDockable();
+        var newTab = new NewToolTabDockable(TestShell.Configuration.ViewConfig);
         string other = NewToolTabDockable.GetPinKey(HistoryTabExtension.Instance);
         try
         {

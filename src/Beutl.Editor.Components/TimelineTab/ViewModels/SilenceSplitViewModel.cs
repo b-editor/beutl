@@ -1,4 +1,5 @@
 ﻿using Beutl.Audio;
+using Beutl.Configuration;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Media;
@@ -26,11 +27,11 @@ public sealed class SilenceSplitViewModel : IDisposable
     private bool _disposed;
     private bool _applying;
 
-    public SilenceSplitViewModel(Scene scene, Element element, HistoryManager history, IPreviewPlayer? player = null)
+    public SilenceSplitViewModel(Scene scene, Element element, HistoryManager history, EditorConfig configuration, IPreviewPlayer? player = null)
     {
         _scene = scene;
         _element = element;
-        _service = new SilenceSplitService(history, player);
+        _service = new SilenceSplitService(history, configuration, player);
         _player = player;
         ClipRange = element.Range;
         HasLinkedElements = scene.Groups.Any(g => g.Contains(element.Id.Value) && g.Count > 1);

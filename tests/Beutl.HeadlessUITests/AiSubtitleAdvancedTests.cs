@@ -335,7 +335,7 @@ public sealed class AiSubtitleAdvancedTests
     public async Task CueCommands_ReflectSelectionCaretTimingAndNeighborState()
     {
         using var httpClient = new HttpClient();
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         using var viewModel = CreateViewModel(clients);
         Assert.Multiple(() =>
         {
@@ -415,7 +415,7 @@ public sealed class AiSubtitleAdvancedTests
     public async Task WrapCues_WrapsEditableDocument()
     {
         using var httpClient = new HttpClient();
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         using var viewModel = CreateViewModel(clients);
         viewModel.MaximumLineLength.Value = 5;
         viewModel.MaximumLineCount.Value = 10;
@@ -433,7 +433,7 @@ public sealed class AiSubtitleAdvancedTests
     public async Task CaptionBytes_ImportExportAndMalformedInputAreHandled()
     {
         using var httpClient = new HttpClient();
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         using var viewModel = CreateViewModel(clients);
         byte[] srt = Encoding.UTF8.GetBytes("""
             1
@@ -486,7 +486,7 @@ public sealed class AiSubtitleAdvancedTests
     public async Task CaptionBytes_InUtf16AreImported()
     {
         using var httpClient = new HttpClient();
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         using var viewModel = CreateViewModel(clients);
         const string Srt = "1\n00:00:01,000 --> 00:00:02,000\nこんにちは\n";
         byte[] utf16 = [.. Encoding.Unicode.GetPreamble(), .. Encoding.Unicode.GetBytes(Srt)];
@@ -499,7 +499,7 @@ public sealed class AiSubtitleAdvancedTests
     public async Task ExportCaptions_LeavesTheCueValidationStateUntouched()
     {
         using var httpClient = new HttpClient();
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         using var viewModel = CreateViewModel(clients);
         Assert.That(
             viewModel.ImportCaptionBytes(
@@ -537,7 +537,7 @@ public sealed class AiSubtitleAdvancedTests
             }
 
             using var httpClient = new HttpClient();
-            await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+            await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
             var recreatedStore = new FileCaptionDraftStore(directory);
             using AiSubtitleDialogViewModel viewModel = CreateViewModel(
                 clients,
@@ -688,7 +688,7 @@ public sealed class AiSubtitleAdvancedTests
             SaveDraft(store, userB, "job-b", "B paid caption");
 
             using var httpClient = new HttpClient();
-            await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+            await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
             using var scopes = new ReactivePropertySlim<CaptionDraftScope?>(userA);
             using AiSubtitleDialogViewModel viewModel = CreateViewModel(clients, store, scopes);
             viewModel.ResultSegments.Value =
@@ -740,7 +740,7 @@ public sealed class AiSubtitleAdvancedTests
             clients.GetResource<IAiEntitlementService>(),
             clients.GetResource<IAiOperationAvailabilityService>(),
             clients.GetResource<IAiModelCatalogService>(),
-            new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
+            new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>(), new Beutl.Configuration.ViewConfig()),
             clients.GetResource<IAiTranscriptionService>(),
             clients.GetResource<IAiCaptionTranslationService>(),
             AiTestSupport.CreateCaptionCatalog(),

@@ -564,7 +564,7 @@ public sealed class PackageInstallerDisposeTests
         bool shortDeadline = false)
     {
         HttpClient httpClient = handler is null ? new HttpClient() : new HttpClient(handler);
-        app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         _applications.Add((app, httpClient));
         var repository = new InstalledPackageRepository();
         return shortDeadline

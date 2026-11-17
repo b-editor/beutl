@@ -524,11 +524,11 @@ public sealed class TimelineVirtualizationTests
         Assert.That(firstSource.Requests, Is.GreaterThan(0));
         Assert.That(distantSource.Requests, Is.Zero);
 
-        PreviewSourceMode originalMode = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value;
+        PreviewSourceMode originalMode = TestShell.Configuration.EditorConfig.PreviewSourceMode.Value;
         int initialRequests = firstSource.Requests;
         try
         {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = originalMode == PreviewSourceMode.PreferProxy
+            TestShell.Configuration.EditorConfig.PreviewSourceMode.Value = originalMode == PreviewSourceMode.PreferProxy
                 ? PreviewSourceMode.ForceOriginal : PreviewSourceMode.PreferProxy;
             HeadlessTestHelpers.Render();
             Assert.That(firstSource.Requests, Is.GreaterThan(initialRequests));
@@ -536,7 +536,7 @@ public sealed class TimelineVirtualizationTests
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = originalMode;
+            TestShell.Configuration.EditorConfig.PreviewSourceMode.Value = originalMode;
             HeadlessTestHelpers.Render();
         }
 
@@ -564,7 +564,7 @@ public sealed class TimelineVirtualizationTests
         other.Objects.Add(otherSource);
         scene.Children.AddRange([chosen, other]);
 
-        IProperty<bool> showByDefault = GlobalConfiguration.Instance.EditorConfig.ShowTimelineThumbnailsByDefault;
+        IProperty<bool> showByDefault = TestShell.Configuration.EditorConfig.ShowTimelineThumbnailsByDefault;
         bool original = showByDefault.Value;
         showByDefault.Value = false;
         try
@@ -770,6 +770,7 @@ public sealed class TimelineVirtualizationTests
             buffer.SetupGet(x => x.End).Returns(new ReactivePropertySlim<double>());
             buffer.SetupGet(x => x.CacheBlocks).Returns(new ReactivePropertySlim<CacheBlock[]>([]));
             var context = new Mock<IEditorContext>();
+            context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
             context.Setup(x => x.GetService(typeof(ITimelineOptionsProvider))).Returns(_options);
             context.Setup(x => x.GetService(typeof(IEditorClock))).Returns(_clock);
             context.Setup(x => x.GetService(typeof(IEditorSelection))).Returns(Selection);

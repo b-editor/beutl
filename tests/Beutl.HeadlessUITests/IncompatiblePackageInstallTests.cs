@@ -60,8 +60,8 @@ public sealed class IncompatiblePackageInstallTests
         var identity = new PackageIdentity(_name, NuGetVersion.Parse("1.0.0"));
         using var store = new ServedPackage(TestPackages.CreateIncompatibleNupkg(identity, _cleanup));
         using var http = new HttpClient(store, disposeHandler: false);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider(), () => new HttpClient(store, disposeHandler: false));
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices), new ProjectService());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(store, disposeHandler: false));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig));
         using var notifications = new NotificationCapture();
 
         await operation.InstallOrQueueAsync(
@@ -85,8 +85,8 @@ public sealed class IncompatiblePackageInstallTests
         var newId = new PackageIdentity(_name, NuGetVersion.Parse("2.0.0"));
         using var store = new ServedPackage(TestPackages.CreateIncompatibleNupkg(newId, _cleanup));
         using var http = new HttpClient(store, disposeHandler: false);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider(), () => new HttpClient(store, disposeHandler: false));
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices), new ProjectService());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(store, disposeHandler: false));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig));
         var manager = app.GetResource<PackageManager>();
         var repository = app.GetResource<InstalledPackageRepository>();
         LocalPackage old = TestPackages.CreateExtracted(oldId, data: false, loadable: true, cleanup: _cleanup);

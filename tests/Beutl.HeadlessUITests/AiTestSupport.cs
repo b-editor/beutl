@@ -206,7 +206,7 @@ internal static class AiTestSupport
             new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default));
 
     private static IAiPlanCoordinator CreatePlanCoordinator(BeutlApiApplication clients)
-        => new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>());
+        => new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>(), new Beutl.Configuration.ViewConfig());
 
     // Answers each request through responder. Unless handleAvailability is false, it answers the
     // availability check itself. With throwIfCanceled, a request whose token is already canceled throws
@@ -251,7 +251,7 @@ internal static class AiTestSupport
         {
             _handler = handler;
             _http = new HttpClient(handler);
-            Clients = new BeutlApiApplication(_http, new ExtensionProvider());
+            Clients = new BeutlApiApplication(_http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
             if (signIn) SetAuthenticatedUser(Clients);
         }
 

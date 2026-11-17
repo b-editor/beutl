@@ -22,7 +22,7 @@ public class ViewSettingsPageNativeContextMenuTests
     [TestCase(false)]
     public void The_switch_shows_only_where_native_menus_exist(bool supported)
     {
-        using var viewModel = new ViewSettingsPageViewModel { IsNativeContextMenuSupported = supported };
+        using var viewModel = new ViewSettingsPageViewModel(TestShell.Configuration.ViewConfig) { IsNativeContextMenuSupported = supported };
         var page = new ViewSettingsPage { DataContext = viewModel };
         var window = new Window { Content = page, Width = 900, Height = 700 };
         try
@@ -42,7 +42,7 @@ public class ViewSettingsPageNativeContextMenuTests
     [AvaloniaTest]
     public void By_default_the_switch_is_there_on_macOS_only()
     {
-        using var viewModel = new ViewSettingsPageViewModel();
+        using var viewModel = new ViewSettingsPageViewModel(TestShell.Configuration.ViewConfig);
 
         Assert.That(viewModel.IsNativeContextMenuSupported, Is.EqualTo(OperatingSystem.IsMacOS()));
     }
@@ -51,10 +51,10 @@ public class ViewSettingsPageNativeContextMenuTests
     public void The_switch_and_the_setting_follow_each_other()
     {
         // ViewSettingsPageViewModel reads the ViewConfig singleton, so hand it back unchanged.
-        ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig config = TestShell.Configuration.ViewConfig;
         bool original = config.UseNativeContextMenus.Value;
         config.UseNativeContextMenus.Value = true;
-        using var viewModel = new ViewSettingsPageViewModel { IsNativeContextMenuSupported = true };
+        using var viewModel = new ViewSettingsPageViewModel(TestShell.Configuration.ViewConfig) { IsNativeContextMenuSupported = true };
         var page = new ViewSettingsPage { DataContext = viewModel };
         var window = new Window { Content = page, Width = 900, Height = 700 };
         try

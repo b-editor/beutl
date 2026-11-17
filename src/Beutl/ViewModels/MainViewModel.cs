@@ -8,6 +8,7 @@ using Beutl.AgentHost;
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Components.VersionControl.ViewModels;
@@ -33,6 +34,7 @@ public sealed partial class MainViewModel : BasePageViewModel
     internal readonly BeutlApiApplication _beutlClients;
     private readonly ObjectTemplateService _objectTemplateService;
     internal IServiceProvider AppServices { get; }
+    internal GlobalConfiguration Configuration { get; }
     internal string SessionId { get; }
     private readonly HttpClient _authHttpClient;
     private readonly ProjectService _projectService;
@@ -70,14 +72,15 @@ public sealed partial class MainViewModel : BasePageViewModel
         Func<TimeSpan, Task>? waitForPackageInstallerIdle = null)
     {
         AppServices = appServices;
+        Configuration = appServices.GetRequiredService<GlobalConfiguration>();
         SessionId = sessionId;
         _objectTemplateService = appServices.GetRequiredService<ObjectTemplateService>();
         _shutdownHandoff = shutdownHandoff ?? PerformShutdownHandoff;
         _authHttpClient = new HttpClient();
         // Composition root: own the editor-session services here and thread the instances
         // down to child view models and services.
-        _extensionProvider = new ExtensionProvider();
-        _projectService = new ProjectService();
+        _extensionProvider = new ExtensionProvider(Configuration.ExtensionConfig);
+        _projectService = new ProjectService(Configuration.ViewConfig);
         _editorService = new EditorService(_extensionProvider, AppServices);
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         // After version control, whose preparation can refuse the close.
@@ -91,7 +94,7 @@ public sealed partial class MainViewModel : BasePageViewModel
                 typeof(Beutl.Graphics.Drawable)),
             CaptionPresentationDefaults.ElementFactory);
         _aiJobResultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
-        _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider, AppServices);
+        _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider, Configuration.ViewConfig, Configuration.UpdateConfig, AppServices);
         // Agents generate with the signed-in account and the AI nodes' executor.
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService, new AgentHostAiBackend(
             () => _beutlClients.AuthenticatedUser.Value,
@@ -114,7 +117,7 @@ public sealed partial class MainViewModel : BasePageViewModel
                     ? new AiAuthenticatedRequestIdentity(authenticated.Profile.Id, authenticated)
                     : null));
         _aiPlanCoordinator = new AiPlanCoordinator(
-            _beutlClients.GetResource<IAiEntitlementService>());
+            _beutlClients.GetResource<IAiEntitlementService>(), Configuration.ViewConfig);
         _editorService.BrowserSettingsHost = new BrowserSettingsHost(CreateSettingsDialog);
         _editorService.StorageProviders = new Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry(
             new BeutlStorageProvider(_beutlClients, CreateSettingsDialog));
@@ -148,8 +151,8 @@ public sealed partial class MainViewModel : BasePageViewModel
             _beutlClients.GetResource<IAiJobMonitor>().Snapshot,
             _beutlClients.GetResource<IAiJobKindRegistry>(),
             OpenAiJobCenter,
-            AppUpdateController.Instance.Status,
-            AppUpdateController.Instance.ShowDialog);
+            AppServices.GetRequiredService<AppUpdateController>().Status,
+            AppServices.GetRequiredService<AppUpdateController>().ShowDialog);
 
         EditorHost = new EditorHostViewModel(_projectService, _editorService);
 
@@ -279,7 +282,7 @@ public sealed partial class MainViewModel : BasePageViewModel
         return new SettingsDialogViewModel(
             _beutlClients,
             _extensionProvider,
-            _aiPlanCoordinator);
+            _aiPlanCoordinator, Configuration);
     }
 
     public Startup RunStartupTask()

@@ -1,4 +1,5 @@
 ﻿using Avalonia.Threading;
+using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
@@ -22,8 +23,10 @@ public sealed partial class AiSubtitleDialogViewModel
         Beutl.Media.PixelSize,
         CancellationToken,
         Task<byte[]?>> TemplatePreviewRenderer
-    { get; set; }
-        = static (elements, frameSize, cancellationToken) =>
+    { get; set; } = null!;
+
+    private static Task<byte[]?> RenderTemplatePreviewAsync(IReadOnlyList<Element> elements, Beutl.Media.PixelSize frameSize, CancellationToken cancellationToken, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig)
+        =>
             frameSize.Width <= 0 || frameSize.Height <= 0
                 ? Task.FromResult<byte[]?>(null)
                 // Render captions at 4x the object-template thumbnail density. The UI scales this bitmap
@@ -32,7 +35,8 @@ public sealed partial class AiSubtitleDialogViewModel
                     elements,
                     frameSize,
                     new Beutl.Media.PixelSize(1024, 576),
-                    cancellationToken).AsTask();
+                    cancellationToken,
+                    editorConfig, proxyConfig).AsTask();
 
     private void RefreshTemplatePreview()
     {

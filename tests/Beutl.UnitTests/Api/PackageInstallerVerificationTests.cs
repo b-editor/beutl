@@ -14,7 +14,7 @@ public sealed class PackageInstallerVerificationTests
     {
         const int Count = 5000;
         using var http = new HttpClient();
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         await using var installer = new PackageInstaller(http, false, new InstalledPackageRepository(), app);
         var contexts = new PackageInstallContext[Count];
 
@@ -30,7 +30,7 @@ public sealed class PackageInstallerVerificationTests
     public async Task Concurrent_preparation_of_one_package_gives_one_context()
     {
         using var http = new HttpClient();
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         await using var installer = new PackageInstaller(http, false, new InstalledPackageRepository(), app);
         var contexts = new PackageInstallContext[64];
 
@@ -44,7 +44,7 @@ public sealed class PackageInstallerVerificationTests
     public async Task RejectedHash_RemovesTheDownloadFromTheLocalPackageSource(bool empty)
     {
         using var http = new HttpClient();
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         await using var installer = new PackageInstaller(http, false, new InstalledPackageRepository(), app);
         string name = "Beutl.Package.HashTest." + Guid.NewGuid().ToString("N");
         string path = Helper.GetNupkgFilePath(name, "1.0.0");

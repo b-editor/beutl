@@ -21,8 +21,8 @@ public class ElementMoveServiceTests
         _harness = new SceneHistoryHarness("beutl_move", start: MediaTime.Zero, duration: MediaTime.FromSeconds(30));
         _scene = _harness.Scene;
         _history = _harness.History;
-        _duplicateService = new ElementDuplicateService(_history);
-        _service = new ElementMoveService(_history, _duplicateService);
+        _duplicateService = new ElementDuplicateService(_history, new Beutl.Configuration.EditorConfig());
+        _service = new ElementMoveService(_history, new Beutl.Configuration.EditorConfig(), _duplicateService);
     }
 
     [TearDown]
@@ -37,13 +37,13 @@ public class ElementMoveServiceTests
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => new ElementMoveService(null!, _duplicateService));
+        Assert.Throws<ArgumentNullException>(() => new ElementMoveService(null!, new Beutl.Configuration.EditorConfig(), _duplicateService));
     }
 
     [Test]
     public void Constructor_NullDuplicateService_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => new ElementMoveService(_history, null!));
+        Assert.Throws<ArgumentNullException>(() => new ElementMoveService(_history, new Beutl.Configuration.EditorConfig(), null!));
     }
 
     [Test]

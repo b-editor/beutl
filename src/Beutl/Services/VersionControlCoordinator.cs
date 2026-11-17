@@ -2,6 +2,7 @@
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -75,7 +76,7 @@ internal sealed partial class VersionControlCoordinator :
         : this(
             projectService,
             editorService,
-            GlobalConfiguration.Instance.VersionControlConfig,
+            editorService.AppServices.GetRequiredService<GlobalConfiguration>().VersionControlConfig,
             installationLocator: null,
             serviceFactory: null)
     {

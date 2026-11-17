@@ -105,10 +105,10 @@ public sealed class EditorSelectionTests
     [TestCase("alt-drag")]
     public async Task Operations_include_every_selected_group_and_leave_unselected_groups_alone(string operation)
     {
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
-        bool originalRipple = GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value;
-        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = false;
-        GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value = false;
+        bool originalSnap = TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value;
+        bool originalRipple = TestShell.Configuration.EditorConfig.IsRippleEnabled.Value;
+        TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = false;
+        TestShell.Configuration.EditorConfig.IsRippleEnabled.Value = false;
         try
         {
             using TimelineTestHost host = await TimelineTestHost.CreateAsync(
@@ -200,8 +200,8 @@ public sealed class EditorSelectionTests
         finally
         {
             ClipboardHelper.OverrideClipboard = null;
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
-            GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value = originalRipple;
+            TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
+            TestShell.Configuration.EditorConfig.IsRippleEnabled.Value = originalRipple;
         }
     }
 

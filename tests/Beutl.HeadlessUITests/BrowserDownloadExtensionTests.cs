@@ -73,7 +73,7 @@ public sealed class BrowserDownloadExtensionTests
     {
         var previous = new Uri("https://player.example/watch?v=first");
         var displayed = new Uri("https://player.example/watch?v=second");
-        var context = new BrowserEditorContext(extensions: hasProvider ? new ExtensionProvider() : null);
+        var context = new BrowserEditorContext(extensions: hasProvider ? new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()) : null);
         using var vm = new WebBrowserTabViewModel(context, previous);
         using var view = CreateView(vm);
         view.PageScriptRunner = _ => Task.FromResult<string?>(isHtml ? displayed.AbsoluteUri : "");
@@ -194,7 +194,7 @@ public sealed class BrowserDownloadExtensionTests
     public void AnEditorThatCannotSaveIntoAProjectOffersNothingToExtensions()
     {
         var extension = new SpeechSiteExtension();
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         provider.AddExtensions(-47004, [extension]);
         // A scene that was never saved has no project folder to put the file in.
         var context = new BrowserEditorContext(new Scene(), extensions: provider);
@@ -497,7 +497,7 @@ public sealed class BrowserDownloadExtensionTests
             var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
             var scene = new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) };
             project.Items.Add(scene);
-            var provider = new ExtensionProvider();
+            var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
             provider.AddExtensions(-47001, [Extension]);
             Context = new BrowserEditorContext(scene, extensions: provider);
             ViewModel = new WebBrowserTabViewModel(Context, page, new BrowserProfile(Path.Combine(root, "profile.json")));

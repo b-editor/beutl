@@ -16,7 +16,7 @@ public class SharedApiStateSubscriptionTests
     public async Task SharedState_AllowsConcurrentSubscriptionAndDisposal(bool authentication)
     {
         using var http = new HttpClient();
-        await using var application = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var application = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         IObservable<object?> state = authentication
             ? application.AuthenticatedUser.Select(user => (object?)user)
             : application.GetResource<IAiEntitlementService>().Entitlements.Select(snapshot => (object?)snapshot);
@@ -107,7 +107,7 @@ public class SharedApiStateSubscriptionTests
     public async Task SharedState_EntitlementCallbackCanChangeAuthenticationSubscriptions(bool dispose)
     {
         using var http = new HttpClient();
-        await using var application = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var application = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         AuthenticatedUser owner = ApiTestAuthentication.SignIn(application);
 
         using var entitlementCallbackEntered = new ManualResetEventSlim();

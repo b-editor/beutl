@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
-
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Configuration;
@@ -43,7 +42,7 @@ public sealed class PackageManagementTelemetryTests
     public async Task BeutlActivitySources_AreSubscribed_WhenAllTelemetryIsAllowed()
     {
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         // The sources these assemblies create. Beutl.Usage exists only in the Beutl app build,
         // which subscribes to it unconditionally.
         string[] sourceNames =
@@ -88,8 +87,8 @@ public sealed class PackageManagementTelemetryTests
     {
         return new PackageManager(
             new InstalledPackageRepository(),
-            new ExtensionProvider(),
+            new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()),
             new ContextCommandManager(new ContextCommandSettingsStore()),
-            apiApplication: null!, services: new Beutl.Editor.Services.EditorServiceRegistry());
+            apiApplication: null!, services: new Beutl.Editor.Services.EditorServiceRegistry(), updateConfig: new Beutl.Configuration.UpdateConfig());
     }
 }

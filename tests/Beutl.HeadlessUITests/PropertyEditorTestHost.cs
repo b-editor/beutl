@@ -101,6 +101,8 @@ internal static class PropertyEditorTestHost
             int index = Array.FindIndex(services, service => service.Type == type);
             if (index >= 0)
                 return services[index].Service;
+            if (type == typeof(Beutl.Configuration.GlobalConfiguration))
+                return TestShell.Configuration;
             if (type == typeof(Beutl.Services.LibraryService))
                 return TestShell.Library;
             if (type == typeof(Beutl.Editor.Services.ObjectTemplateService))

@@ -100,7 +100,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
         (StartingBarMargin, EndingBarMargin, PanelWidth) = TimelineHelper.CreateSceneBarMargins(
             Scene, _editorClock, timelineOptions.Scale, _disposables);
 
-        TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(_disposables);
+        TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(editorContext.GetRequiredService<GlobalConfiguration>().EditorConfig, _disposables);
 
         Factory = GraphEditorViewViewModelFactory.GetFactory(this);
         Views = GraphEditorViewViewModelFactory.CreateViews(this, Factory);

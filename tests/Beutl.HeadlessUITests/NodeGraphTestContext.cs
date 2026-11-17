@@ -13,6 +13,7 @@ internal static class NodeGraphTestContext
     public static Mock<IEditorContext> Create(INodeGraphMutationService? mutation = null, bool player = false)
     {
         var editor = new Mock<IEditorContext>();
+        editor.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         editor.Setup(x => x.GetService(typeof(IPropertyEditorFactory)))
             .Returns(new Mock<IPropertyEditorFactory>().Object);
         if (mutation is not null)

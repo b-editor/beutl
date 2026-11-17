@@ -26,6 +26,8 @@ namespace Beutl.UnitTests.Graphics;
 [NonParallelizable]
 public class PreviewFrameOrderIndependenceTests
 {
+    private GlobalConfiguration _testConfiguration = new();
+
     private const int Rate = 30;
     private const int FrameCount = 16;
     private const int SquareWidth = 80;
@@ -53,17 +55,18 @@ public class PreviewFrameOrderIndependenceTests
     [SetUp]
     public void SetUp()
     {
+        _testConfiguration = new();
         _oldResolver = DecoderRegistry.ProxyResolver;
-        _oldPreviewSourceMode = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value;
+        _oldPreviewSourceMode = _testConfiguration.EditorConfig.PreviewSourceMode.Value;
         DecoderRegistry.ProxyResolver = null;
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.ForceOriginal;
+        _testConfiguration.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.ForceOriginal;
     }
 
     [TearDown]
     public void TearDown()
     {
         DecoderRegistry.ProxyResolver = _oldResolver;
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = _oldPreviewSourceMode;
+        _testConfiguration.EditorConfig.PreviewSourceMode.Value = _oldPreviewSourceMode;
     }
 
     [TestCase(false, false, false)]
@@ -76,10 +79,10 @@ public class PreviewFrameOrderIndependenceTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var media = new SceneMedia(preferProxy, withEffect, withBackdrops);
+            using var media = new SceneMedia(_testConfiguration.EditorConfig, preferProxy, withEffect, withBackdrops);
 
             string[] baseline = new string[FrameCount];
-            using (var renderer = new SceneRenderer(media.NewScene(), RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Default })
+            using (var renderer = new SceneRenderer(media.NewScene(), RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { CacheOptions = RenderCacheOptions.Default })
             {
                 for (int frame = 0; frame < FrameCount; frame++)
                 {
@@ -93,7 +96,7 @@ public class PreviewFrameOrderIndependenceTests
             Assert.That(baseline.Distinct().Count(), Is.EqualTo(FrameCount),
                 "the scene has to look different on every frame or the comparisons below prove nothing");
 
-            using (var renderer = new SceneRenderer(media.NewScene(), RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Default })
+            using (var renderer = new SceneRenderer(media.NewScene(), RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { CacheOptions = RenderCacheOptions.Default })
             {
                 var rendered = new HashSet<int>();
                 foreach (int frame in s_scrub)
@@ -128,7 +131,7 @@ public class PreviewFrameOrderIndependenceTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var media = new SceneMedia(preferProxy: false, withEffect: false);
+            using var media = new SceneMedia(_testConfiguration.EditorConfig, preferProxy: false, withEffect: false);
 
             var shape = new RectShape();
             shape.Width.Value = SquareWidth;
@@ -143,7 +146,7 @@ public class PreviewFrameOrderIndependenceTests
             group.Children.Add(glass);
 
             Scene scene = media.NewSceneWith(group);
-            using var renderer = new SceneRenderer(scene, RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Default };
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { CacheOptions = RenderCacheOptions.Default };
             renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.Zero));
 
             using Bitmap snapshot = renderer.Snapshot();
@@ -185,7 +188,7 @@ public class PreviewFrameOrderIndependenceTests
         private readonly bool _withBackdrops;
         private readonly ProxyStore? _store;
 
-        public SceneMedia(bool preferProxy, bool withEffect, bool withBackdrops = false)
+        public SceneMedia(EditorConfig configuration, bool preferProxy, bool withEffect, bool withBackdrops = false)
         {
             _preferProxy = preferProxy;
             _withEffect = withEffect;
@@ -197,7 +200,7 @@ public class PreviewFrameOrderIndependenceTests
             {
                 _store = new ProxyStore(_root);
                 DecoderRegistry.ProxyResolver = new ProxyResolver(_store);
-                GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
+                configuration.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
             }
         }
 

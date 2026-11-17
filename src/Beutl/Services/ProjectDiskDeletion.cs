@@ -6,6 +6,7 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Logging;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
@@ -128,7 +129,7 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
             // drive, so it waits until the gate and the workspace are free again.
             if (attempted is not null)
             {
-                await ForgetDeletedFilesAsync(GlobalConfiguration.Instance.ViewConfig, attempted);
+                await ForgetDeletedFilesAsync(editorService.AppServices.GetRequiredService<GlobalConfiguration>().ViewConfig, attempted);
             }
         }
     }

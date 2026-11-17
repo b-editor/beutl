@@ -48,7 +48,7 @@ public sealed class AgentHostAiBackendTests
     public async Task TheSignedInAccountAndItsPlanDecideWhetherAgentsCanGenerate()
     {
         using var httpClient = new HttpClient { BaseAddress = new Uri("https://beutl.beditor.net") };
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         AuthenticatedUser user = CreateUser(app);
         var entitlements = new StubEntitlements();
 

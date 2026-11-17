@@ -26,17 +26,17 @@ internal class Program
         }
 
         // Restore config
-        GlobalConfiguration config = GlobalConfiguration.Instance;
+        var config = new GlobalConfiguration();
         config.Restore(GlobalConfiguration.DefaultFilePath);
 
-        using IDisposable _ = Telemetry.GetDisposable(GetSessionId());
+        using IDisposable _ = Telemetry.GetDisposable(config.TelemetryConfig, GetSessionId());
         config.LogRestoreFailures();
         ILogger<Program> logger = Log.CreateLogger<Program>();
 
         try
         {
             PackageInstaller.RecoverDataPackageInstalls();
-            BuildAvaloniaApp()
+            BuildAvaloniaApp(config)
                 .StartWithClassicDesktopLifetime(args);
         }
         catch (Exception ex)
@@ -45,11 +45,13 @@ internal class Program
         }
     }
 
-    public static AppBuilder BuildAvaloniaApp()
+    public static AppBuilder BuildAvaloniaApp() => BuildAvaloniaApp(new GlobalConfiguration());
+
+    private static AppBuilder BuildAvaloniaApp(GlobalConfiguration configuration)
     {
-        return AppBuilder.Configure<App>()
+        return AppBuilder.Configure(() => new App(configuration))
             .UsePlatformDetect()
-            .With(UiFonts.CreateFontManagerOptions(GlobalConfiguration.Instance.ViewConfig.UICulture.Value))
+            .With(UiFonts.CreateFontManagerOptions(configuration.ViewConfig.UICulture.Value))
             .LogToTrace();
     }
 }

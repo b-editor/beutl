@@ -44,7 +44,7 @@ public sealed class UpdateDownloadTests
             Sha256 = sha256,
             IsLatest = false,
             MustLatest = false,
-        }, false, httpClient: client, loadMetadata: () => Task.FromResult<AssetMetadataJson?>(new AssetMetadataJson
+        }, new Beutl.Configuration.UpdateConfig(), false, httpClient: client, loadMetadata: () => Task.FromResult<AssetMetadataJson?>(new AssetMetadataJson
         {
             Id = "test",
             OS = type == "app" ? "osx" : "linux",

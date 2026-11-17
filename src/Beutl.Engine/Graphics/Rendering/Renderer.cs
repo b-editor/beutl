@@ -25,7 +25,7 @@ public class Renderer : IRenderer
     private readonly ClearRenderNode _frameClear;
     private readonly CompleteTargetRenderNode _completeTarget;
     private RenderNodeRenderer _frameRenderer;
-    private RenderCacheOptions _cacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
+    private RenderCacheOptions _cacheOptions;
 
     private class Entry(DrawableRenderNode node, RenderNodeRenderer renderer, Dispatcher dispatcher) : IDisposable
     {
@@ -93,14 +93,16 @@ public class Renderer : IRenderer
         int height,
         RenderIntent intent,
         float renderScale = 1f,
-        float maxWorkingScale = float.PositiveInfinity)
+        float maxWorkingScale = float.PositiveInfinity,
+        RenderCacheOptions? cacheOptions = null)
         : this(
             width,
             height,
             intent,
             renderScale,
             maxWorkingScale,
-            surface: null)
+            surface: null,
+            cacheOptions: cacheOptions)
     {
     }
 
@@ -112,8 +114,10 @@ public class Renderer : IRenderer
         float renderScale,
         float maxWorkingScale,
         RenderTarget? surface,
-        Dispatcher? dispatcher = null)
+        Dispatcher? dispatcher = null,
+        RenderCacheOptions? cacheOptions = null)
     {
+        _cacheOptions = cacheOptions ?? RenderCacheOptions.Default;
         _dispatcher = dispatcher ?? RenderThread.Dispatcher;
 
         if (!Enum.IsDefined(intent))

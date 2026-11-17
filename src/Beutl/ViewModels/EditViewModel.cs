@@ -88,7 +88,9 @@ public sealed partial class EditViewModel
                 .DistinctUntilChanged();
 
         Renderer = frameSizeAndScale
-            .Select(t => new SceneRenderer(Scene, RenderIntent.Preview, t.OutputScale, maxWorkingScale: WorkingScaleCeiling.Preview(t.OutputScale)))
+            .Select(t => new SceneRenderer(Scene, RenderIntent.Preview, t.OutputScale, maxWorkingScale: WorkingScaleCeiling.Preview(t.OutputScale),
+                editorConfig: this.GetRequiredService<GlobalConfiguration>().EditorConfig,
+                proxyConfig: this.GetRequiredService<GlobalConfiguration>().ProxyStoreConfig))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
@@ -96,7 +98,8 @@ public sealed partial class EditViewModel
         var channelLayout = new ReactivePropertySlim<AudioChannelLayout>(project.GetChannelLayout())
             .DisposeWith(_disposables);
         Composer = scene.FrameSize.GetObservable().CombineLatest(channelLayout)
-            .Select(t => new SceneComposer(Scene)
+            .Select(t => new SceneComposer(Scene, editorConfig: this.GetRequiredService<GlobalConfiguration>().EditorConfig,
+                proxyConfig: this.GetRequiredService<GlobalConfiguration>().ProxyStoreConfig)
             {
                 SampleRate = project.GetSampleRate(),
                 ChannelLayout = t.Second
@@ -105,7 +108,7 @@ public sealed partial class EditViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
 
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = this.GetRequiredService<GlobalConfiguration>().EditorConfig;
 
         // Derived from Renderer so the swap is ordered: cache subscribers see the new Renderer.
         FrameCacheManager = Renderer
@@ -129,7 +132,7 @@ public sealed partial class EditViewModel
             .ObserveOnUIDispatcher()
             .Subscribe(layout => channelLayout.Value = layout, ex => _logger.LogError(ex, "Could not change audio layout."))
             .DisposeWith(_disposables);
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.GetObservable()
+        this.GetRequiredService<GlobalConfiguration>().EditorConfig.PreviewSourceMode.GetObservable()
             .Skip(1)
             .Subscribe(_ =>
             {
@@ -139,7 +142,7 @@ public sealed partial class EditViewModel
                 Player.QueuePreviewRender();
             })
             .DisposeWith(_disposables);
-        GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.GetObservable()
+        this.GetRequiredService<GlobalConfiguration>().ProxyStoreConfig.DefaultPreset.GetObservable()
             .Skip(1)
             .Subscribe(_ =>
             {
@@ -219,16 +222,16 @@ public sealed partial class EditViewModel
         }
     }
 
-    private static IObservable<long> CreateFrameCacheMaxSize()
+    private IObservable<long> CreateFrameCacheMaxSize()
     {
-        return GlobalConfiguration.Instance.EditorConfig
+        return this.GetRequiredService<GlobalConfiguration>().EditorConfig
             .FrameCacheMaxSize.GetObservable()
             .Select(v => (long)(v * 1024 * 1024));
     }
 
-    private static FrameCacheOptions CreateFrameCacheOptions()
+    private FrameCacheOptions CreateFrameCacheOptions()
     {
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = this.GetRequiredService<GlobalConfiguration>().EditorConfig;
         return new FrameCacheOptions(Scale: (FrameCacheScale)config.FrameCacheScale.Value,
             ColorType: (FrameCacheColorType)config.FrameCacheColorType.Value);
     }
@@ -329,7 +332,7 @@ public sealed partial class EditViewModel
         Cleanup(_autoSaveCancellation.Cancel);
         Cleanup(DismissMissingMediaNotification);
         Cleanup(HasMediaRepairs.Dispose);
-        GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
+        this.GetRequiredService<GlobalConfiguration>().EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         try
         {
             if (scene.Uri is not null && !EditorService.IsWorktreeMutationActive)

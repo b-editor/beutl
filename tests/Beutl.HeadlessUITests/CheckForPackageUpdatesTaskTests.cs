@@ -151,7 +151,7 @@ public sealed class CheckForPackageUpdatesTaskTests
         using var registration = new AppRootFileBackup("installedPackages.json");
         using var store = new StoreHandler(TestStore.CreatePackageResponse(name.ToUpperInvariant()), TestStore.CreateReleaseResponse("2.0.0"));
         using var http = new HttpClient(store, disposeHandler: false);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         app.GetResource<InstalledPackageRepository>()
             .UpgradePackagesAndDeferNotifications(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")))();
 

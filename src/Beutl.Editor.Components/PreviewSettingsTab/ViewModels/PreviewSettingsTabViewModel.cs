@@ -1,13 +1,10 @@
 ﻿using System.Text.Json.Nodes;
-
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Models;
 using Beutl.PropertyAdapters;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
@@ -22,7 +19,7 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
     {
         _editorContext = editorContext;
         var factory = editorContext.GetRequiredService<IPropertyEditorFactory>();
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = editorContext.GetRequiredService<GlobalConfiguration>().EditorConfig;
 
         var quality = editorContext.GetService<IPreviewRenderQuality>();
         IsRenderQualityAvailable = quality is not null;

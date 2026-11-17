@@ -404,7 +404,7 @@ public partial class MissingMediaTests
         Assert.That(vm.Rows.All(row => row.ReplacementPath.Value != null), Is.True, vm.Error.Value);
         Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
         Assert.That(editor.HistoryManager.UndoCount, Is.Zero, "Repairs are separate from editing history.");
-        Assert.That(GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory.Value, Is.EqualTo(directory));
+        Assert.That(TestShell.Configuration.EditorConfig.LastMediaDirectory.Value, Is.EqualTo(directory));
         await editor.WaitForMediaFingerprintsAsync();
         // The repair saved the scene before the replacements were hashed, so the next save writes their fingerprints.
         Assert.That(editor.Scene.MediaFingerprints, Has.Count.EqualTo(300));
@@ -1425,7 +1425,7 @@ public partial class MissingMediaTests
             Assert.That(vm.Rows.Where(row => row.Name is "ignored.png" or "invalid.png" or "ambiguous.png").Select(row => row.CandidatePath.Value), Is.All.Null);
             Assert.That(editor.Scene.Children.Select(element => ((SourceImage)element.Objects.Single()).Source.Value!.Uri.LocalPath),
                 Is.All.Contains(Path.Combine(directory, "old")));
-            Assert.That(GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory.Value, Is.EqualTo(directory));
+            Assert.That(TestShell.Configuration.EditorConfig.LastMediaDirectory.Value, Is.EqualTo(directory));
             Assert.That(vm.CanUseCandidates.Value, Is.True);
             vm.UseCandidate(sibling);
             Assert.That(sibling.CandidatePath.Value, Is.Null);

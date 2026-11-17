@@ -21,7 +21,7 @@ public sealed class ContextCommandHandlerTests
         manager.Register(extension);
         var element = new Border { DataContext = counter };
         manager.Attach(element, extension);
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         var palette = new CommandPaletteService(
             manager, new CommandPaletteTestHost.FixedHandlerProvider(counter), () => null, new EditorService(provider, TestShell.MainViewModel.AppServices), provider);
 

@@ -6,6 +6,7 @@ using Beutl.JsonConverters;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -53,7 +54,7 @@ public partial class MenuBarViewModel
 
         ExportProject = new AsyncReactiveCommand(IsProjectOpened);
 
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig viewConfig = _editorService.AppServices.GetRequiredService<GlobalConfiguration>().ViewConfig;
         viewConfig.RecentFiles.ForEachItem(
             item => RecentFileItems.Insert(0, item),
             item => RecentFileItems.Remove(item),

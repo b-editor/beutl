@@ -51,7 +51,7 @@ public class ExtensionsStoreCaptureTests
 
         var store = new FakeStore();
         using var httpClient = new HttpClient(new FakeStoreHandler(store));
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         using var viewModel = new ExtensionsPageViewModel(clients, main.EditorService, main.ProjectService);
         var window = new ExtensionsPage { DataContext = viewModel, Width = width, Height = height };
         string suffix = $"{theme}-{width}x{height}";

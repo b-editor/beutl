@@ -1,9 +1,7 @@
 ﻿using System.Diagnostics;
-
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
-
 using Beutl.Configuration;
 using Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
 using Beutl.Editor.Components.PreviewSettingsTab.Views;
@@ -11,7 +9,6 @@ using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.HeadlessUITests;
@@ -29,7 +26,7 @@ public class NodeCacheSettingsPlaybackTests
         // Long enough that playback still runs when the setting changes.
         EditViewModel editor = await OpenEditor(MediaTime.FromSeconds(120));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = TestShell.Configuration.EditorConfig;
         bool enabled = config.IsNodeCacheEnabled.Value;
         using var release = new CancellationTokenSource();
         Task? blocked = null;
@@ -87,7 +84,7 @@ public class NodeCacheSettingsPlaybackTests
     public async Task PreviewSettings_DisableTheNodeCacheControls_WhilePlaying()
     {
         EditViewModel editor = await OpenEditor(MediaTime.FromSeconds(10));
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = TestShell.Configuration.EditorConfig;
         bool enabled = config.IsNodeCacheEnabled.Value;
         // With the cache on, the pixel limits are enabled until playback starts.
         config.IsNodeCacheEnabled.Value = true;

@@ -466,7 +466,7 @@ public class EditorCloseSaveTests
     private static async Task<EditViewModel> OpenEditorAsync()
     {
         await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        VersionControlConfig config = TestShell.Configuration.VersionControlConfig;
         bool enable = config.EnableForNewProjects.Value;
         try
         {

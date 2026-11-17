@@ -1,6 +1,8 @@
-﻿using Beutl.Editor.Services;
+﻿using Beutl.Configuration;
+using Beutl.Editor.Services;
 using Beutl.Editor.Services.LibraryThumbnails;
 using Beutl.ProjectSystem;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.LibraryThumbnails;
 
@@ -16,16 +18,18 @@ internal static class LibraryThumbnailCapture
             return null;
 
         var clock = editor.GetService(typeof(IEditorClock)) as IEditorClock;
+        var configuration = editor.GetRequiredService<GlobalConfiguration>();
         return cancellationToken => LibraryThumbnailSubject.CaptureElementAsync(
-            element, clock?.CurrentTime.Value ?? element.Start.Value, cancellationToken);
+            element, clock?.CurrentTime.Value ?? element.Start.Value, cancellationToken, configuration.EditorConfig, configuration.ProxyStoreConfig);
     }
 
     // Both sides of an element's edge.
-    public static Func<CancellationToken, Task<LibraryThumbnailSubject?>>? ForEdge(Element? element, ElementEdge edge)
+    public static Func<CancellationToken, Task<LibraryThumbnailSubject?>>? ForEdge(Element? element, ElementEdge edge, IServiceProvider editor)
     {
         if (element == null)
             return null;
 
-        return cancellationToken => LibraryThumbnailSubject.CaptureEdgeAsync(element, edge, cancellationToken);
+        var configuration = editor.GetRequiredService<GlobalConfiguration>();
+        return cancellationToken => LibraryThumbnailSubject.CaptureEdgeAsync(element, edge, cancellationToken, configuration.EditorConfig, configuration.ProxyStoreConfig);
     }
 }

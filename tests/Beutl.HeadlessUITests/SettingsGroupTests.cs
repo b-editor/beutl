@@ -31,9 +31,9 @@ public class SettingsGroupTests
     [AvaloniaTest]
     public void Extension_update_setting_selects_and_persists_each_mode()
     {
-        var setting = GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
+        var setting = TestShell.Configuration.UpdateConfig.ExtensionUpdates;
         ExtensionUpdateMode previous = setting.Value;
-        using var model = new ExtensionsSettingsPageViewModel(new ExtensionProvider());
+        using var model = new ExtensionsSettingsPageViewModel(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration);
         var page = new ExtensionsSettingsPage { DataContext = model };
         var window = new Window { Width = 480, Height = 380, Content = page };
         try
@@ -184,11 +184,11 @@ public class SettingsGroupTests
     {
         await TestReset.ResetShellAsync();
         var extension = new SampleExtension();
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         provider.AddExtensions(901, TestShell.MainViewModel.ExtensionProvider.GetExtensions<PropertyEditorExtension>());
         provider.AddExtensions(902, [extension]);
         var model = new AnExtensionSettingsPageViewModel(extension, provider);
-        using var listModel = new ExtensionsSettingsPageViewModel(provider);
+        using var listModel = new ExtensionsSettingsPageViewModel(provider, TestShell.Configuration);
         var page = new AnExtensionSettingsPage { DataContext = model };
         var window = new Window { Content = page, Width = 480, Height = 650 };
         try

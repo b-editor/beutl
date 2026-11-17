@@ -14,9 +14,10 @@ public sealed partial class SceneCompositor
         private readonly PooledList<Element> _elements;
         private readonly HashSet<EngineObject.Resource> _usedResources = [];
 
-        public SceneEvaluationSession(Scene scene, CompositionTarget target, bool forceOriginalSource,
+        public SceneEvaluationSession(SceneCompositor parent, CompositionTarget target,
             EvaluationServices services)
-            : this(new SceneCompositor(scene) { DisableResourceShare = true, ForceOriginalSource = forceOriginalSource },
+            : this(new SceneCompositor(parent.Scene, parent._editorConfig, parent._proxyConfig)
+            { DisableResourceShare = true, ForceOriginalSource = parent.ForceOriginalSource },
                 new PooledList<Element>(), target, services)
         {
         }

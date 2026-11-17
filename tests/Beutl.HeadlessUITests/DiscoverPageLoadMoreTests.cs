@@ -74,7 +74,7 @@ public class DiscoverPageLoadMoreTests
 
         var handler = new RecordingHandler();
         using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         using var viewModel = new DiscoverPageViewModel(
             clients,
             mainViewModel.EditorService,

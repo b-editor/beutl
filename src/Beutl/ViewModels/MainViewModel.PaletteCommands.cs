@@ -3,6 +3,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.VersionControl;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.ViewModels;
 
@@ -36,9 +37,8 @@ public sealed partial class MainViewModel
         return (await interaction.ShowQuickPickAsync(items))?.Value;
     }
 
-    internal static async Task ChangeThemeAsync(IContextCommandInteraction interaction)
+    internal static async Task ChangeThemeAsync(IContextCommandInteraction interaction, ViewConfig config)
     {
-        ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
         string? currentId = ThemeRegistry.ResolveOrDefault(config.Theme.Value)?.Id;
         ContextCommandPickItem<ThemeDescriptor>[] items = ThemeRegistry.Enumerate()
             .Select(theme => new ContextCommandPickItem<ThemeDescriptor>(

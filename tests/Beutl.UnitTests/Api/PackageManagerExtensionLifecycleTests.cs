@@ -529,13 +529,13 @@ public class PackageManagerExtensionLifecycleTests
         IServiceProvider? services = null)
     {
         commandManager = new ContextCommandManager(new ContextCommandSettingsStore());
-        extensionProvider = new ExtensionProvider();
+        extensionProvider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
 
         return new PackageManager(
             new InstalledPackageRepository(),
             extensionProvider,
             commandManager,
-            apiApplication: null!, services: services ?? new EditorServiceRegistry());
+            apiApplication: null!, services: services ?? new EditorServiceRegistry(), updateConfig: new Beutl.Configuration.UpdateConfig());
     }
 
     // Nested + private so the app's exported-type scan never picks these up; [Export] stays because

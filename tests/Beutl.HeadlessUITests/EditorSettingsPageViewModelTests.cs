@@ -12,7 +12,7 @@ using Beutl.ViewModels.SettingsPages;
 namespace Beutl.HeadlessUITests;
 
 [TestFixture]
-[NonParallelizable] // drives GlobalConfiguration.Instance singletons
+[NonParallelizable] // uses the shared test app configuration
 public sealed class EditorSettingsPageViewModelTests
 {
     // At the cap, an over-cap input raises no change notification, so the view model must re-sync the
@@ -24,14 +24,14 @@ public sealed class EditorSettingsPageViewModelTests
     {
         TestGpu.RequireAnyDevice();
 
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        ProxyStoreConfig config = TestShell.Configuration.ProxyStoreConfig;
         long priorBytes = config.MaxTotalBytes.Value;
-        string? priorGpu = GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value;
+        string? priorGpu = TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value;
         config.MaxTotalBytes.Value = atCap ? ProxyStoreConfig.MaxTotalBytesLimit : ProxyStoreConfig.MinTotalBytes;
 
         try
         {
-            using var viewModel = new EditorSettingsPageViewModel();
+            using var viewModel = new EditorSettingsPageViewModel(TestShell.Configuration);
 
             viewModel.ProxyStoreMaxTotalGiB.Value = 1000d;
 
@@ -44,7 +44,7 @@ public sealed class EditorSettingsPageViewModelTests
         finally
         {
             config.MaxTotalBytes.Value = priorBytes;
-            GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value = priorGpu;
+            TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value = priorGpu;
         }
     }
 
@@ -53,9 +53,9 @@ public sealed class EditorSettingsPageViewModelTests
     {
         TestGpu.RequireAnyDevice();
 
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        string? priorGpu = GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value;
-        using var viewModel = new EditorSettingsPageViewModel();
+        EditorConfig config = TestShell.Configuration.EditorConfig;
+        string? priorGpu = TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value;
+        using var viewModel = new EditorSettingsPageViewModel(TestShell.Configuration);
         var page = new EditorSettingsPage { DataContext = viewModel };
         var window = new Window { Content = page, Width = 900, Height = 700, RequestedThemeVariant = ThemeVariant.Dark };
         try
@@ -78,7 +78,7 @@ public sealed class EditorSettingsPageViewModelTests
         {
             window.Close();
             config.SeekOnTimelineClick.Value = true;
-            GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value = priorGpu;
+            TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value = priorGpu;
         }
     }
 
@@ -89,11 +89,11 @@ public sealed class EditorSettingsPageViewModelTests
     {
         TestGpu.RequireAnyDevice();
 
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = TestShell.Configuration.EditorConfig;
         UIToneMappingOperator prior = config.ToneMappingMode.Value;
-        string? priorGpu = GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value;
+        string? priorGpu = TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value;
         config.ToneMappingMode.Value = UIToneMappingOperator.Auto;
-        using var viewModel = new EditorSettingsPageViewModel();
+        using var viewModel = new EditorSettingsPageViewModel(TestShell.Configuration);
         var page = new EditorSettingsPage { DataContext = viewModel };
         var window = new Window { Content = page, Width = 900, Height = 700, RequestedThemeVariant = ThemeVariant.Dark };
         try
@@ -137,7 +137,7 @@ public sealed class EditorSettingsPageViewModelTests
         {
             window.Close();
             config.ToneMappingMode.Value = prior;
-            GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value = priorGpu;
+            TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value = priorGpu;
         }
     }
 
@@ -146,7 +146,7 @@ public sealed class EditorSettingsPageViewModelTests
     {
         TestGpu.RequireAnyDevice();
 
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        VersionControlConfig config = TestShell.Configuration.VersionControlConfig;
         (bool EnableForNewProjects,
             bool AutoCommitOnSave,
             bool AutoCommitOnClose,
@@ -159,12 +159,12 @@ public sealed class EditorSettingsPageViewModelTests
             config.GitExecutablePath.Value,
             config.UseLfsWhenAvailable.Value,
             config.LargeMediaWarningThresholdMb.Value);
-        string? priorGpu = GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value;
+        string? priorGpu = TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value;
 
         try
         {
             config.GitExecutablePath.Value = null;
-            using var viewModel = new EditorSettingsPageViewModel();
+            using var viewModel = new EditorSettingsPageViewModel(TestShell.Configuration);
 
             Assert.That(viewModel.GitExecutablePath.Value, Is.EqualTo(string.Empty));
 
@@ -198,7 +198,7 @@ public sealed class EditorSettingsPageViewModelTests
             config.GitExecutablePath.Value = previous.GitExecutablePath;
             config.UseLfsWhenAvailable.Value = previous.UseLfsWhenAvailable;
             config.LargeMediaWarningThresholdMb.Value = previous.LargeMediaWarningThresholdMb;
-            GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value = priorGpu;
+            TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value = priorGpu;
         }
     }
 }

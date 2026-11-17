@@ -97,7 +97,7 @@ public class PaletteCommandTests
     [AvaloniaTest]
     public async Task Goto_timecode_asks_for_the_timecode_in_the_palette()
     {
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = TestShell.Configuration.EditorConfig;
         TimeDisplayFormat format = config.TimeDisplayFormat.Value;
         config.TimeDisplayFormat.Value = TimeDisplayFormat.Timecode;
         try
@@ -148,7 +148,7 @@ public class PaletteCommandTests
     [AvaloniaTest]
     public async Task Accepting_the_prefilled_timecode_keeps_a_frame_milliseconds_cannot_name()
     {
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = TestShell.Configuration.EditorConfig;
         TimeDisplayFormat format = config.TimeDisplayFormat.Value;
         config.TimeDisplayFormat.Value = TimeDisplayFormat.Time;
         try
@@ -186,7 +186,7 @@ public class PaletteCommandTests
     [AvaloniaTest]
     public async Task Marker_commands_add_rename_and_seek_without_the_timeline()
     {
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = TestShell.Configuration.EditorConfig;
         TimeDisplayFormat format = config.TimeDisplayFormat.Value;
         config.TimeDisplayFormat.Value = TimeDisplayFormat.Timecode;
         try
@@ -816,7 +816,7 @@ public class PaletteCommandTests
     {
         await TestReset.ResetShellAsync();
         MainViewModel main = TestShell.MainViewModel;
-        ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig config = TestShell.Configuration.ViewConfig;
         string original = config.Theme.Value;
         // Two of its own, since which themes the registry holds depends on the tests that ran before.
         var theme = new ThemeDescriptor("palette-test-theme", "Palette test theme", ThemeVariant.Dark);

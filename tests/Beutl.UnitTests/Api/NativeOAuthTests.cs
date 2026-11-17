@@ -150,7 +150,7 @@ public class NativeOAuthTests
             sent.Add(token);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
         }));
-        await using var app = new BeutlApiApplication(transport, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(transport, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var user = new AuthenticatedUser(new Profile(ApiTestAuthentication.CreateProfileResponse(), app),
             original, app, DateTime.MaxValue);
         ApiTestAuthentication.SignIn(app, user);

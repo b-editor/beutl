@@ -6,6 +6,7 @@ using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Configuration;
 using Beutl.Extensibility;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -23,6 +24,10 @@ public static class AgentToolkitMcpServer
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(profileDirectory);
 
+        var configuration = new GlobalConfiguration();
+        Beutl.Media.Decoding.DecoderRegistry.Initialize(configuration.ExtensionConfig);
+        Beutl.Media.FontManager.Instance.Initialize(configuration.FontConfig);
+
         // Without the decoders the app registers at startup, every video, sound and animated image
         // would render as offline media and analyze_audio_rhythm could not open any file.
         DecoderRegistration.EnsureRegistered();
@@ -32,6 +37,7 @@ public static class AgentToolkitMcpServer
         NodeTypeCatalog.EnsureBuiltInNodesRegistered();
 
         services
+            .AddSingleton(configuration)
             .AddSingleton(_ => TypeRegistration.CreateLibraryService())
             .AddSingleton<SchemaGenerator>()
             .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)

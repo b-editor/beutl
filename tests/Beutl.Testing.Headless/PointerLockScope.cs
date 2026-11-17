@@ -8,16 +8,20 @@ namespace Beutl.Testing.Headless;
 public sealed class PointerLockScope : IDisposable
 {
     private readonly bool _previous;
+    private readonly EditorConfig _configuration;
 
-    private PointerLockScope(bool previous) => _previous = previous;
-
-    public static PointerLockScope Off()
+    private PointerLockScope(EditorConfig configuration)
     {
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        var scope = new PointerLockScope(config.EnablePointerLockInProperty.Value);
+        _configuration = configuration;
+        _previous = configuration.EnablePointerLockInProperty.Value;
+    }
+
+    public static PointerLockScope Off(EditorConfig config)
+    {
+        var scope = new PointerLockScope(config);
         config.EnablePointerLockInProperty.Value = false;
         return scope;
     }
 
-    public void Dispose() => GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = _previous;
+    public void Dispose() => _configuration.EnablePointerLockInProperty.Value = _previous;
 }

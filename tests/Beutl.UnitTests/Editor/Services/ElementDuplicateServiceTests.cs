@@ -19,7 +19,7 @@ public class ElementDuplicateServiceTests
         _harness = new SceneHistoryHarness("beutl_dup", start: MediaTime.Zero, duration: MediaTime.FromSeconds(60));
         _scene = _harness.Scene;
         _history = _harness.History;
-        _service = new ElementDuplicateService(_history);
+        _service = new ElementDuplicateService(_history, new Beutl.Configuration.EditorConfig());
     }
 
     [TearDown]
@@ -43,7 +43,7 @@ public class ElementDuplicateServiceTests
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => new ElementDuplicateService(null!));
+        Assert.Throws<ArgumentNullException>(() => new ElementDuplicateService(null!, new Beutl.Configuration.EditorConfig()));
     }
 
     [Test]

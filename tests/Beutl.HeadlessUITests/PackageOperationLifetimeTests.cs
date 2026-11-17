@@ -27,8 +27,8 @@ public sealed class PackageOperationLifetimeTests
     {
         await TestReset.ResetShellAsync();
         using var http = new HttpClient();
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(), new Beutl.Editor.Services.EditorServiceRegistry()), new ProjectService());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry()), new ProjectService(new Beutl.Configuration.ViewConfig()));
         string name = "QueuedDeployment." + Guid.NewGuid().ToString("N");
         var identity = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
         string directory = TestPackages.CreateExtracted(identity, data: true).InstalledPath!;
@@ -61,9 +61,9 @@ public sealed class PackageOperationLifetimeTests
         using var assetHandler = new AssetHandler();
         using var http = new HttpClient(assetHandler);
         using var downloadHandler = new BlockedDownload();
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider(),
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig(),
             () => new HttpClient(downloadHandler, disposeHandler: false));
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(), new Beutl.Editor.Services.EditorServiceRegistry()), new ProjectService());
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry()), new ProjectService(new Beutl.Configuration.ViewConfig()));
         Release release = TestStore.CreateRelease(app, "1.0.0", fileId: "archive", name: "LifetimeTest." + Guid.NewGuid().ToString("N"));
         Task install = operation.DownloadAndLoadPackage(release,
             new PackageIdentity(release.Package.Name, NuGetVersion.Parse("1.0.0")), CancellationToken.None);
@@ -89,8 +89,8 @@ public sealed class PackageOperationLifetimeTests
         using var assetHandler = new AssetHandler();
         using var http = new HttpClient(assetHandler);
         using var download = new MemoryDownload();
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider(), () => new HttpClient(download, false));
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(), new Beutl.Editor.Services.EditorServiceRegistry()), new ProjectService());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig(), () => new HttpClient(download, false));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry()), new ProjectService(new Beutl.Configuration.ViewConfig()));
         Release release = TestStore.CreateRelease(app, "1.0.0", fileId: "archive", name: "HashPolicy." + Guid.NewGuid().ToString("N"));
         var identity = new PackageIdentity(release.Package.Name, NuGetVersion.Parse("1.0.0"));
         InvalidDataException? error = await Assert.ThrowsAsync<InvalidDataException>(() => remote

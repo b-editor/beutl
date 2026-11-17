@@ -17,7 +17,14 @@ public sealed class FontManager
     private readonly ILogger _logger = Log.CreateLogger<FontManager>();
     private readonly Lock _gate = new();
     private long _revision;
-    internal long Revision => Volatile.Read(ref _revision);
+    internal long Revision
+    {
+        get
+        {
+            EnsureInitialized();
+            return Volatile.Read(ref _revision);
+        }
+    }
     internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
     internal readonly Dictionary<FontFamily, FontName> _fontNames = [];
     private Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _projectFonts = [];
@@ -30,7 +37,9 @@ public sealed class FontManager
     // value. Like the registered typefaces, they live as long as the manager.
     private readonly Dictionary<(SKTypeface Typeface, float Weight), SKTypeface> _weightInstances = [];
     private readonly RenderFaceCache _renderFaces = new(FreeTypeFonts.Manager);
-    private readonly string[] _fontDirs;
+    private string[] _fontDirs = [];
+    private volatile bool _initialized;
+    private Typeface _defaultTypeface;
     private FontFamily[] _fallbackFamilies = [];
     private FontFamily? _emojiFamily;
     private readonly Dictionary<FontFamily, Dictionary<Typeface, Lazy<SKTypeface?>>> _deferredFonts = [];
@@ -40,16 +49,37 @@ public sealed class FontManager
 
     private FontManager()
     {
+    }
+
+    public void Initialize(FontConfig configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        lock (_gate)
+        {
+            if (_initialized) return;
+            InitializeCore(configuration);
+            _initialized = true;
+        }
+    }
+
+    private void EnsureInitialized()
+    {
+        if (!_initialized)
+            Initialize(new FontConfig());
+    }
+
+    private void InitializeCore(FontConfig configuration)
+    {
         // A material package installs its fonts under the home directory, which is not one
         // of the OS font directories the user configures.
         _fontDirs =
         [
-            .. GlobalConfiguration.Instance.FontConfig.FontDirectories,
+            .. configuration.FontDirectories,
             BeutlEnvironment.GetMaterialsDirectoryPath()
         ];
 
         RegisterInstalledFonts();
-        DefaultTypeface = ResolveDefaultTypeface();
+        _defaultTypeface = ResolveDefaultTypeface();
     }
 
     private void RegisterInstalledFonts()
@@ -137,6 +167,7 @@ public sealed class FontManager
     {
         get
         {
+            EnsureInitialized();
             // Dictionary はスレッドセーフでない。AddFont と並行して列挙すると
             // 内部状態が壊れて無限ループや null 例外になり得るのでスナップショットを返す。
             lock (_gate)
@@ -151,6 +182,7 @@ public sealed class FontManager
     {
         get
         {
+            EnsureInitialized();
             lock (_gate)
             {
                 return _fonts.Keys.Concat(_projectFonts.Keys).Concat(_deferredFonts.Keys)
@@ -159,13 +191,37 @@ public sealed class FontManager
         }
     }
 
-    public Typeface DefaultTypeface { get; }
+    public Typeface DefaultTypeface
+    {
+        get
+        {
+            EnsureInitialized();
+            return _defaultTypeface;
+        }
+    }
 
     // The folders the installed fonts were read from at startup; a later change to the settings applies after restart.
-    internal IReadOnlyList<string> FontDirectories => _fontDirs;
+    internal IReadOnlyList<string> FontDirectories
+    {
+        get
+        {
+            EnsureInitialized();
+            return _fontDirs;
+        }
+    }
+
+    internal FontName? GetFontName(FontFamily family)
+    {
+        EnsureInitialized();
+        lock (_gate)
+        {
+            return _fontNames.GetValueOrDefault(family);
+        }
+    }
 
     internal void SetFallbackFonts(IEnumerable<FontFamily> families, FontFamily? emojiFamily)
     {
+        EnsureInitialized();
         FontFamily[] fallbackFamilies = families.Distinct().ToArray();
         lock (_gate)
         {
@@ -180,6 +236,7 @@ public sealed class FontManager
 
     internal (FontFamily[] Families, FontFamily? Emoji) GetFallbackFamilies()
     {
+        EnsureInitialized();
         lock (_gate)
         {
             // The array is replaced as a unit by SetFallbackFonts and is never mutated.
@@ -189,6 +246,7 @@ public sealed class FontManager
 
     internal void RegisterFont(Typeface typeface, Func<Stream> openStream)
     {
+        EnsureInitialized();
         lock (_gate)
         {
             if (!_deferredFonts.TryGetValue(typeface.FontFamily, out var fonts))
@@ -236,6 +294,7 @@ public sealed class FontManager
 
     internal bool TryResolveSkia(Typeface typeface, out SKTypeface face)
     {
+        EnsureInitialized();
         lock (_gate)
         {
             if (TryResolveTypeface(typeface, out face!))
@@ -251,6 +310,7 @@ public sealed class FontManager
     // null for an unregistered family.
     internal byte[]? CopyFontData(Typeface typeface)
     {
+        EnsureInitialized();
         SKTypeface face;
         lock (_gate)
         {
@@ -269,6 +329,7 @@ public sealed class FontManager
 
     public void LoadProjectFonts(Project project)
     {
+        EnsureInitialized();
         ArgumentNullException.ThrowIfNull(project);
         var fonts = new List<SKTypeface>();
         var lazyFaces = new Dictionary<FontFamily, List<(FontCollection Collection, int Index)>>();
@@ -296,6 +357,7 @@ public sealed class FontManager
 
     public void ClearProjectFonts(Project? expectedProject = null)
     {
+        EnsureInitialized();
         lock (_gate)
         {
             if (expectedProject is not null
@@ -311,6 +373,7 @@ public sealed class FontManager
 
     public void AddFont(Stream stream)
     {
+        EnsureInitialized();
         SKTypeface? typeface = SKTypeface.FromStream(stream);
         if (typeface == null) return;
         // 重複登録された SKTypeface は AddFont 側で false が返るので、
@@ -587,6 +650,7 @@ public sealed class FontManager
 
     public ImmutableArray<Typeface> GetTypefaces(FontFamily fontFamily)
     {
+        EnsureInitialized();
         lock (_gate)
         {
             LoadLazyFaces(fontFamily);
@@ -600,6 +664,7 @@ public sealed class FontManager
 
     internal SKTypeface ResolveSkia(Typeface typeface)
     {
+        EnsureInitialized();
         lock (_gate)
         {
             // An unregistered family is ordinary input (uninstalled font, or a subfamily name such
@@ -628,6 +693,7 @@ public sealed class FontManager
     // Test-only (via InternalsVisibleTo): the face a registered typeface renders with.
     internal SKTypeface GetRenderFace(SKTypeface typeface)
     {
+        EnsureInitialized();
         lock (_gate) return _renderFaces.Get(typeface);
     }
 
@@ -719,6 +785,7 @@ public sealed class FontManager
 
     public bool IsRegistered(FontFamily fontFamily)
     {
+        EnsureInitialized();
         lock (_gate)
         {
             return _projectFonts.ContainsKey(fontFamily) || _fonts.ContainsKey(fontFamily) || _deferredFonts.ContainsKey(fontFamily)

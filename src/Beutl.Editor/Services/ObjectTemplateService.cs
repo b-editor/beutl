@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
+using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
@@ -12,6 +13,8 @@ public sealed partial class ObjectTemplateService : IDisposable
     private readonly CoreList<ObjectTemplateItem> _items = [];
 
     private readonly string _directoryPath;
+    private readonly EditorConfig? _editorConfig;
+    private readonly ProxyStoreConfig? _proxyConfig;
 
     private static readonly TimeSpan s_debounceInterval = TimeSpan.FromMilliseconds(300);
 
@@ -21,13 +24,15 @@ public sealed partial class ObjectTemplateService : IDisposable
     private CancellationTokenSource? _debounceCts;
     private bool _disposed;
 
-    public ObjectTemplateService()
-        : this(BeutlEnvironment.GetTemplatesDirectoryPath())
+    public ObjectTemplateService(EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
+        : this(BeutlEnvironment.GetTemplatesDirectoryPath(), editorConfig, proxyConfig)
     {
     }
 
-    public ObjectTemplateService(string directoryPath)
+    public ObjectTemplateService(string directoryPath, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
     {
+        _editorConfig = editorConfig;
+        _proxyConfig = proxyConfig;
         _directoryPath = directoryPath;
         RestoreItems();
         StartWatching();
@@ -81,7 +86,7 @@ public sealed partial class ObjectTemplateService : IDisposable
             _logger.LogError(ex, "Unable to serialize template {Name}.", name);
             return null;
         }
-        item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(instance, cancellationToken);
+        item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(instance, cancellationToken, _editorConfig, _proxyConfig);
 
         return await Task.Run(
             () =>

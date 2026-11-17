@@ -16,10 +16,10 @@ public static class UnhandledExceptionHandler
     private static ILogger? s_logger;
     private static string s_sessionId = string.Empty;
 
-    public static void Initialize(string sessionId)
+    public static void Initialize(string sessionId, GlobalConfiguration configuration)
     {
         s_sessionId = sessionId;
-        AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += (sender, args) => OnUnhandledException(sender, args, configuration);
         s_logger = Log.LoggerFactory.CreateLogger(typeof(UnhandledExceptionHandler));
     }
 
@@ -29,7 +29,7 @@ public static class UnhandledExceptionHandler
         return File.Exists(Path.Combine(Helper.AppRoot, LastUnhandledExeptionFileName));
     }
 
-    private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e, GlobalConfiguration configuration)
     {
         try
         {
@@ -39,7 +39,7 @@ public static class UnhandledExceptionHandler
                 SaveException(ex);
             }
 
-            PrivateExit();
+            PrivateExit(configuration);
 
             string exePath = Path.Combine(
                 AppContext.BaseDirectory,
@@ -72,7 +72,7 @@ public static class UnhandledExceptionHandler
         }
     }
 
-    private static void PrivateExit()
+    private static void PrivateExit(GlobalConfiguration configuration)
     {
         if (s_exited)
             return;
@@ -81,7 +81,7 @@ public static class UnhandledExceptionHandler
         // The flag is set first so that Exit() does not run the sequence a second time.
         s_exited = true;
         RunOrLog(
-            static () => GlobalConfiguration.Instance.Save(GlobalConfiguration.DefaultFilePath),
+            () => configuration.Save(GlobalConfiguration.DefaultFilePath),
             "save the configuration");
         RunOrLog(GraphicsContextFactory.Shutdown, "shut the graphics context down");
         RunOrLog(RenderThread.Dispatcher.Shutdown, "shut the render dispatcher down");
@@ -107,11 +107,11 @@ public static class UnhandledExceptionHandler
         }
     }
 
-    public static void Exit()
+    public static void Exit(GlobalConfiguration configuration)
     {
         if (!s_exited)
         {
-            PrivateExit();
+            PrivateExit(configuration);
 
             string path = Path.Combine(Helper.AppRoot, LastUnhandledExeptionFileName);
             if (File.Exists(path))

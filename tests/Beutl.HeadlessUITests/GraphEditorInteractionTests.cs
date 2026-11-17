@@ -427,7 +427,7 @@ public class GraphEditorInteractionTests
     public async Task Plot_wheel_preserves_gesture_axes_and_mouse_scroll_preference(bool swapped, bool touchpad)
     {
         using var graph = await GraphScope.CreateAsync(selectAll: false, scrollDetector: touchpad ? _ => true : null);
-        var config = GlobalConfiguration.Instance.EditorConfig;
+        var config = TestShell.Configuration.EditorConfig;
         bool previous = config.SwapTimelineScrollDirection.Value;
         try
         {
@@ -471,7 +471,7 @@ public class GraphEditorInteractionTests
         nint nativeEvent = 0;
         using var graph = await GraphScope.CreateAsync(selectAll: false,
             scrollDetector: _ => NativeScrollInput.MacOS.IsGestureScrollEvent(nativeEvent, 5000));
-        var config = GlobalConfiguration.Instance.EditorConfig;
+        var config = TestShell.Configuration.EditorConfig;
         bool previous = config.SwapTimelineScrollDirection.Value;
         try
         {

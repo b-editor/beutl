@@ -1,15 +1,18 @@
 ﻿using Avalonia.Controls;
-
+using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.PackageTools.UI.ViewModels;
-
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.PackageTools.UI.Views;
 
 public partial class MainWindow : Window
 {
-    public MainWindow()
+    public MainWindow() : this(new GlobalConfiguration())
+    {
+    }
+
+    public MainWindow(GlobalConfiguration configuration)
     {
         BackRequested += (s, e) =>
         {
@@ -18,7 +21,7 @@ public partial class MainWindow : Window
 
         InitializeComponent();
 
-        var viewmodel = new MainViewModel();
+        var viewmodel = new MainViewModel(configuration);
         bool disposeStarted = false;
         bool disposeCompleted = false;
         Closing += async (_, e) =>

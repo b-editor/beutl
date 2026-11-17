@@ -81,7 +81,7 @@ public class VectorEditorTests
     [NonParallelizable]
     public void Vector3_list_item_x_header_drag_changes_x()
     {
-        using var pointerLock = PointerLockScope.Off();
+        using var pointerLock = PointerLockScope.Off(((TestApp)Avalonia.Application.Current!).Configuration.EditorConfig);
         var editor = new Vector3Editor<float>
         {
             EditorStyle = PropertyEditorStyle.ListItem,
@@ -122,7 +122,7 @@ public class VectorEditorTests
     public void Vector4_header_drag_confirms_all_four_components()
     {
         // Pointer lock reads the real mouse on macOS and Windows, which a headless drag never moves.
-        using var pointerLock = PointerLockScope.Off();
+        using var pointerLock = PointerLockScope.Off(((TestApp)Avalonia.Application.Current!).Configuration.EditorConfig);
         // Distinct, nonzero starting values: the old third and fourth values must be recorded at the press,
         // not left at their zero defaults.
         var editor = new Vector4Editor<float>

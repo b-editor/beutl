@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.AgentToolkit.Installation;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Language;
 using Beutl.Logging;
@@ -106,7 +107,9 @@ public sealed partial class MainView : UserControl
     {
         var topLevel = (TopLevel)sender!;
         topLevel.Opened -= OnParentWindowOpened;
-        var cm = (DataContext as MainViewModel)?.ContextCommandManager;
+        var viewModel = DataContext as MainViewModel;
+        GlobalConfiguration? configuration = viewModel?.Configuration ?? ControlConfiguration.GetConfiguration(topLevel);
+        var cm = viewModel?.ContextCommandManager;
         cm?.Attach(this, MainViewExtension.Instance);
 
         if (sender is FAAppWindow cw)
@@ -120,10 +123,13 @@ public sealed partial class MainView : UserControl
             NotificationPanel.Margin = new(0, titleBar.Height + 8, 8, 0);
         }
 
-        StartupNotificationService.ShowTelemetryConsent(GlobalConfiguration.Instance.TelemetryConfig);
-        await CheckDifferentVersion();
-        StartupNotificationService.ShowReleaseNotes(GlobalConfiguration.Instance.LastStartedVersion, BeutlApplication.Version);
-        await CheckAgentToolkitUpdateAsync();
+        if (configuration != null)
+        {
+            StartupNotificationService.ShowTelemetryConsent(configuration.TelemetryConfig);
+            await CheckDifferentVersion(configuration);
+            StartupNotificationService.ShowReleaseNotes(configuration.LastStartedVersion, BeutlApplication.Version);
+            await CheckAgentToolkitUpdateAsync();
+        }
 
         _logger.LogInformation("Window opened.");
     }
@@ -167,7 +173,7 @@ public sealed partial class MainView : UserControl
     {
         try
         {
-            using var settingsViewModel = new AiAgentSettingsPageViewModel();
+            using var settingsViewModel = new AiAgentSettingsPageViewModel(viewModel.Configuration.AiAgentConfig);
             await settingsViewModel.InstallAsync();
             // The entry to add by hand, when the agent's MCP configuration has comments Beutl keeps.
             string message = settingsViewModel.ManualMcpSnippet.Value is { Length: > 0 } snippet
@@ -182,9 +188,9 @@ public sealed partial class MainView : UserControl
         }
     }
 
-    private async Task CheckDifferentVersion()
+    private async Task CheckDifferentVersion(GlobalConfiguration configuration)
     {
-        if (NuGetVersion.TryParse(GlobalConfiguration.Instance.LastStartedVersion, out var lastStartedVersion) &&
+        if (NuGetVersion.TryParse(configuration.LastStartedVersion, out var lastStartedVersion) &&
             NuGetVersion.TryParse(BeutlApplication.Version, out var currentVersion))
         {
             if (lastStartedVersion.IsPrerelease || currentVersion.IsPrerelease)
@@ -229,6 +235,7 @@ public sealed partial class MainView : UserControl
             using var dialogViewModel = viewModel.CreateSettingsDialog();
             var dialog = new SettingsDialog { DataContext = dialogViewModel };
             ColorPaletteService.SetService(dialog, ColorPaletteService.GetService(window));
+            ControlConfiguration.SetConfiguration(dialog, ControlConfiguration.GetConfiguration(window));
             navigate(dialogViewModel);
             await dialog.ShowDialog(window);
         }

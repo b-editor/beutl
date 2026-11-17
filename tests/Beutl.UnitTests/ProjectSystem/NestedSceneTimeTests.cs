@@ -164,10 +164,10 @@ public class NestedSceneTimeTests
         var expected = sampleTimes.Select(Sample).ToArray();
 
         if (mode is { } selected)
-            new SilenceSplitService(h.History).Apply(h.Scene, audio,
+            new SilenceSplitService(h.History, new Beutl.Configuration.EditorConfig()).Apply(h.Scene, audio,
                 [new TimeRange(Seconds(13), Seconds(1)), new TimeRange(Seconds(16), Seconds(1))], selected, true);
         else
-            new ElementStructureService(h.History).Split(h.Scene, linked ? [audio, video] : [audio], Seconds(17));
+            new ElementStructureService(h.History, new Beutl.Configuration.EditorConfig()).Split(h.Scene, linked ? [audio, video] : [audio], Seconds(17));
 
         Assert.That(h.History.UndoCount, Is.EqualTo(before + 1));
         AssertSamples(mode == SilenceSplitMode.RippleDelete ? 2 : 0);

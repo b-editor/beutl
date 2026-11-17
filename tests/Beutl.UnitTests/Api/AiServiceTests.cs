@@ -40,7 +40,7 @@ public sealed partial class AiCapabilityServiceTests
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
         using var http = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         await Assert.ThrowsAsync<AiException>(async () => await app.GetResource<IAiTranscriptionService>()
             .TranscribeAsync(new AiTranscriptionRequest(
@@ -66,7 +66,7 @@ public sealed partial class AiCapabilityServiceTests
     {
         using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
 
         object[] services =
         [
@@ -104,7 +104,7 @@ public sealed partial class AiCapabilityServiceTests
     {
         using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var authenticationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseAuthentication = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         AuthenticatedUser user = ApiTestAuthentication.CreateUser(app);
@@ -142,7 +142,7 @@ public sealed partial class AiCapabilityServiceTests
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(
             httpClient,
-            new ExtensionProvider(),
+            new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig(),
             static () => new HttpClient(),
             _ => throw new IOException("The user file is unavailable."));
         AuthenticatedUser previous = ApiTestAuthentication.CreateUser(app, token: "previous-token");
@@ -171,7 +171,7 @@ public sealed partial class AiCapabilityServiceTests
             HttpStatusCode.OK,
             "{ \"available\": true }"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         IAiOperationAvailabilityService service =
             app.GetResource<IAiOperationAvailabilityService>();
@@ -243,7 +243,7 @@ public sealed partial class AiCapabilityServiceTests
             _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         AiUploadSource Upload(string name, string mediaType) => new(
             name,
@@ -318,7 +318,7 @@ public sealed partial class AiCapabilityServiceTests
     {
         using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
 
         AiEntitlements? result = await app.GetResource<IAiEntitlementService>()
             .RefreshAsync(CancellationToken.None);
@@ -348,7 +348,7 @@ public sealed partial class AiCapabilityServiceTests
             }
             """));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         IAiEntitlementService service = app.GetResource<IAiEntitlementService>();
 
@@ -394,7 +394,7 @@ public sealed partial class AiCapabilityServiceTests
             _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         IAiEntitlementService entitlements = app.GetResource<IAiEntitlementService>();
         await entitlements.RefreshAsync(CancellationToken.None);
@@ -442,7 +442,7 @@ public sealed partial class AiCapabilityServiceTests
             _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         IAiEntitlementService entitlements = app.GetResource<IAiEntitlementService>();
         await entitlements.RefreshAsync(CancellationToken.None);
@@ -477,7 +477,7 @@ public sealed partial class AiCapabilityServiceTests
             _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
 
         AiCaptionTranslationResponse result = await app.GetResource<IAiCaptionTranslationService>()
@@ -526,7 +526,7 @@ public sealed partial class AiCapabilityServiceTests
         using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK,
             "{\"jobId\":\"job-cjk\",\"segments\":[]}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
 
         AiCaptionTranslationSegment[] segments = Enumerable.Range(0, AiRequestLimits.MaxTranslationSegments)
@@ -573,7 +573,7 @@ public sealed partial class AiCapabilityServiceTests
                 {"jobId":"job-1","segments":[{"id":"line-1","text":"こんにちは"},{"id":"line-2","text":"世界"}]}
                 """.Trim())));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         var reported = new RecordingProgress<AiCaptionTranslationSegment>();
 
@@ -614,7 +614,7 @@ public sealed partial class AiCapabilityServiceTests
                 {"jobId":"job-bounded","segments":[{"id":"line-1","text":"first"},{"id":"line-2","text":"second"}]}
                 """.Trim())));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         var reported = new RecordingProgress<AiCaptionTranslationSegment>();
 
@@ -640,7 +640,7 @@ public sealed partial class AiCapabilityServiceTests
             ("segment", """{"id":"line-1","text":"preview"}"""),
             ("result", "{not json")));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         var reported = new RecordingProgress<AiCaptionTranslationSegment>();
 
@@ -698,7 +698,7 @@ public sealed partial class AiCapabilityServiceTests
             {"jobId":"job-3","segments":[{"id":"line-1","text":"こんにちは"}]}
             """));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         var reported = new RecordingProgress<AiCaptionTranslationSegment>();
 
@@ -732,7 +732,7 @@ public sealed partial class AiCapabilityServiceTests
             Content = content,
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
 
         await Assert.ThrowsAsync<AiException>(async () =>
@@ -751,7 +751,7 @@ public sealed partial class AiCapabilityServiceTests
         using var handler = new RecordingHandler(_ => EventStream(
             ("segment", """{"id":"line-1","text":"こんにちは"}""")));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
 
         await Assert.ThrowsAsync<AiRequestInterruptedException>(async () =>
@@ -769,7 +769,7 @@ public sealed partial class AiCapabilityServiceTests
         using var handler = new RecordingHandler(_ => EventStream(
             ("error", """{"error_code":"aiProviderError","message":"the provider gave up"}""")));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
 
         // Told apart exactly as the same failure would be on the ordinary path.
@@ -792,7 +792,7 @@ public sealed partial class AiCapabilityServiceTests
             Content = content,
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
 
         Task<AiImageResult> request = app.GetResource<IAiImageGenerationService>()
@@ -822,7 +822,7 @@ public sealed partial class AiCapabilityServiceTests
                 {"jobId":"job-2","fileId":"file-2","url":"http://localhost/api/contents/file-2"}
                 """.Trim())));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         var previews = new RecordingProgress<AiImagePreview>();
 
@@ -854,7 +854,7 @@ public sealed partial class AiCapabilityServiceTests
             ("partial", """{"index":4,"image":"AAECAw=="}"""),
             ("result", """{"jobId":"job-preview-budget","fileId":"file-2","url":"http://localhost/api/contents/file-2"}""")));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         var previews = new RecordingProgress<AiImagePreview>();
 
@@ -914,7 +914,7 @@ public sealed partial class AiCapabilityServiceTests
             ("partial", """{"index":0,"image":"AAECAw=="}"""),
             ("result", "{not json")));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         var previews = new RecordingProgress<AiImagePreview>();
 
@@ -942,7 +942,7 @@ public sealed partial class AiCapabilityServiceTests
             _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         IAiTranscriptionService transcription = app.GetResource<IAiTranscriptionService>();
         AiUploadSource Upload(string name, string mediaType) => new(
@@ -1002,7 +1002,7 @@ public sealed partial class AiCapabilityServiceTests
             _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         AiUploadSource Upload(string name, string mediaType) => new(
             name,
@@ -1063,7 +1063,7 @@ public sealed partial class AiCapabilityServiceTests
             }
             """));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         AiUploadSource Upload(string name) => new(
             name,
@@ -1106,7 +1106,7 @@ public sealed partial class AiCapabilityServiceTests
             }
             """));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         var upload = new AiUploadSource(
             fileName,
@@ -1143,7 +1143,7 @@ public sealed partial class AiCapabilityServiceTests
             }
             """));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         var throwing = new ReferenceDisposalProbe(throws: true);
         var trailing = new TrackingMemoryStream([4, 5, 6]);
@@ -1207,7 +1207,7 @@ public sealed partial class AiCapabilityServiceTests
             }
             """));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
 
         AiUploadSource Upload(string name) => new(
@@ -1380,7 +1380,7 @@ public sealed partial class AiCapabilityServiceTests
             return TestHttp.Json(HttpStatusCode.OK, "{ \"operations\": {} }");
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         var clock = new StepTimeProvider();
         using var catalog = CatalogService(app, clock);
@@ -1400,7 +1400,7 @@ public sealed partial class AiCapabilityServiceTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         using var handler = new DeferredResponseHandler(response.Task);
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         var catalog = CatalogService(app, new StepTimeProvider());
 
@@ -1425,7 +1425,7 @@ public sealed partial class AiCapabilityServiceTests
             return TestHttp.Json(HttpStatusCode.OK, "{ \"operations\": {} }");
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         using var catalog = CatalogService(app, new StepTimeProvider());
 
@@ -1452,7 +1452,7 @@ public sealed partial class AiCapabilityServiceTests
                 """);
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         using var catalog = CatalogService(app, new StepTimeProvider());
 
@@ -1523,7 +1523,7 @@ public sealed partial class AiCapabilityServiceTests
             }
             """));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         using var service = CatalogService(app, new StepTimeProvider());
 
@@ -1630,7 +1630,7 @@ public sealed partial class AiCapabilityServiceTests
             _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         var stream = new TrackingMemoryStream([1, 2, 3]);
         var source = new AiUploadSource(
@@ -1680,7 +1680,7 @@ public sealed partial class AiCapabilityServiceTests
             _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         IAiVideoService service = app.GetResource<IAiVideoService>();
 
@@ -1754,7 +1754,7 @@ public sealed partial class AiCapabilityServiceTests
                 }
                 """));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         IAiJobClient client = app.GetResource<IAiJobClient>();
 
@@ -1788,7 +1788,7 @@ public sealed partial class AiCapabilityServiceTests
             _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         IAiJobClient client = app.GetResource<IAiJobClient>();
 
@@ -1813,7 +1813,7 @@ public sealed partial class AiCapabilityServiceTests
             (HttpStatusCode)status,
             $$"""{ "error_code": "{{code}}", "message": "No.", "documentation_url": null }"""));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
 
         Exception? error = await AsyncError(() => app.GetResource<IAiJobClient>().GetByIdempotencyKeyAsync("key-1", CancellationToken.None));
@@ -1843,7 +1843,7 @@ public sealed partial class AiCapabilityServiceTests
                 Content = new StringContent("""{"message":"ファイルが見つかりません"}"""),
             });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         using var destination = new MemoryStream();
 
@@ -1877,7 +1877,7 @@ public sealed partial class AiCapabilityServiceTests
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         IAuthenticatedContentService service = app.GetResource<IAuthenticatedContentService>();
 

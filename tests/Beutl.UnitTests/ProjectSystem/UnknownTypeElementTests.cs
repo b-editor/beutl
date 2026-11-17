@@ -58,7 +58,7 @@ public class UnknownTypeElementTests
         Element restoredElement = restored.Children.Single();
         var shape = (RectShape)restoredElement.Objects[0];
         using var harness = new HistoryHarness(restored);
-        var resize = new ElementResizeService(harness.History);
+        var resize = new ElementResizeService(harness.History, new Beutl.Configuration.EditorConfig());
         resize.Resize(restored,
             [new ElementResizeRequest(restoredElement, MediaTime.FromSeconds(2), restoredElement.Length.Value, restoredElement.ZIndex.Value)],
             ripple: false);

@@ -1,9 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Reactive;
 using System.Reactive.Linq;
-
 using Avalonia.Headless.NUnit;
-
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Services;
@@ -12,7 +10,6 @@ using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
-
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
@@ -37,6 +34,7 @@ public class LibraryTabPreviewThumbnailTests
     {
         public object? GetService(Type serviceType)
         {
+            if (serviceType == typeof(Beutl.Configuration.GlobalConfiguration)) return TestShell.Configuration;
             return serviceType == typeof(IPreviewPlayer) ? player : serviceType == typeof(Scene) ? scene : null;
         }
     }
@@ -45,7 +43,7 @@ public class LibraryTabPreviewThumbnailTests
     public async Task The_frame_the_thumbnails_were_drawn_on_is_not_taken_again()
     {
         var player = new FakePlayer();
-        using var library = new LibraryTabViewModel(TestShell.Library, new Editor(player, new Scene(1920, 1080, string.Empty)));
+        using var library = new LibraryTabViewModel(TestShell.Library, TestShell.Configuration.EditorConfig, new Editor(player, new Scene(1920, 1080, string.Empty)));
         var source = (LibraryThumbnailSource)library.Thumbnails.GetSource(typeof(Invert))!;
         using IDisposable request = source.RequestStill();
         using Ref<Bitmap> first = CreateFrame();

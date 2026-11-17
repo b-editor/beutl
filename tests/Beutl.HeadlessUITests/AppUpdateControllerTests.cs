@@ -67,7 +67,7 @@ public sealed class AppUpdateControllerTests
     private static UpdateDialogViewModel ViewModel(
         AppUpdateResponse update, HttpMessageHandler handler, string type = "installer", Func<bool>? claimUpdateFolders = null,
         Func<string, CancellationToken, Task<int>>? prepareExtensions = null, FlatpakUpdater? flatpak = null, TimeProvider? timeProvider = null)
-        => new(update, flatpak != null, flatpak, httpClient: new HttpClient(handler), loadMetadata: () => Task.FromResult<AssetMetadataJson?>(new AssetMetadataJson
+        => new(update, TestShell.Configuration.UpdateConfig, flatpak != null, flatpak, httpClient: new HttpClient(handler), loadMetadata: () => Task.FromResult<AssetMetadataJson?>(new AssetMetadataJson
         {
             Id = "test",
             OS = "test",
@@ -88,7 +88,7 @@ public sealed class AppUpdateControllerTests
         var clock = new FakeTimeProvider();
         var reading = new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
         var finishRead = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var setting = GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
+        var setting = TestShell.Configuration.UpdateConfig.ExtensionUpdates;
         var previous = setting.Value;
         var updater = flatpak ? new FlatpakUpdater($"""
             [Instance]
@@ -143,7 +143,7 @@ public sealed class AppUpdateControllerTests
     [TestCase(ExtensionUpdateMode.Always, 0, false)]
     public async Task Ready_update_includes_only_prepared_extensions(ExtensionUpdateMode mode, int count, bool showCount)
     {
-        var setting = GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
+        var setting = TestShell.Configuration.UpdateConfig.ExtensionUpdates;
         ExtensionUpdateMode previous = setting.Value;
         try
         {
@@ -448,7 +448,7 @@ public sealed class AppUpdateControllerTests
     public async Task AMetadataFailureOffersRetry()
     {
         using var client = new HttpClient(new Handler(HttpStatusCode.OK));
-        var vm = new UpdateDialogViewModel(Update(), false, httpClient: client,
+        var vm = new UpdateDialogViewModel(Update(), TestShell.Configuration.UpdateConfig, false, httpClient: client,
             loadMetadata: () => throw new IOException("metadata is unreadable"));
 
         vm.Start();
@@ -468,7 +468,7 @@ public sealed class AppUpdateControllerTests
     {
         var handler = new Handler(HttpStatusCode.OK);
         using var client = new HttpClient(handler);
-        var vm = new UpdateDialogViewModel(Update(), false, httpClient: client,
+        var vm = new UpdateDialogViewModel(Update(), TestShell.Configuration.UpdateConfig, false, httpClient: client,
             loadMetadata: () => Task.FromResult<AssetMetadataJson?>(null));
 
         vm.Start();
