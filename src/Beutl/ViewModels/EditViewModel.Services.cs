@@ -28,6 +28,8 @@ public partial class EditViewModel
     private EditorServiceRegistry CreateServices() => new EditorServiceRegistry()
         .Add<LibraryService>(() => EditorService.AppServices.GetRequiredService<LibraryService>())
         .Add<ObjectTemplateService>(() => EditorService.AppServices.GetRequiredService<ObjectTemplateService>())
+        .Add<Beutl.Services.Tutorials.ITutorialService>(() => EditorService.AppServices.GetRequiredService<Beutl.Services.Tutorials.ITutorialService>())
+        .Add<Beutl.Controls.PropertyEditors.ColorPaletteService>(() => EditorService.AppServices.GetRequiredService<Beutl.Controls.PropertyEditors.ColorPaletteService>())
         .Add<Beutl.Api.BeutlApiApplication>(() => MainViewModel.TryGetCurrent(out MainViewModel? main) ? main._beutlClients : null)
         .Add<IEditorFileUsage>(() => EditorService)
         .Add<Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost>(() => EditorService.BrowserSettingsHost)
@@ -67,11 +69,11 @@ public partial class EditViewModel
         // The lease-backed view, for editor components that offer work to extensions.
         .Add<IExtensionProvider>(() => ExtensionProvider)
         // The swap-stable facades, so a cached reference survives a store-root or cap change.
-        .Add<IProxyStore>(() => ProxyMediaServices.Current?.StoreFacade)
-        .Add<IProxyResolver>(() => ProxyMediaServices.Current?.ResolverFacade)
-        .Add<IProxyJobQueue>(() => ProxyMediaServices.Current?.QueueFacade)
-        .Add<ProxyEvictionService>(() => ProxyMediaServices.Current?.EvictionService)
-        .Add<IProxyStoreCapInfo>(() => ProxyMediaServices.Current?.CapInfoFacade)
+        .Add<IProxyStore>(() => EditorService.AppServices.GetService<ProxyMediaServices>()?.StoreFacade)
+        .Add<IProxyResolver>(() => EditorService.AppServices.GetService<ProxyMediaServices>()?.ResolverFacade)
+        .Add<IProxyJobQueue>(() => EditorService.AppServices.GetService<ProxyMediaServices>()?.QueueFacade)
+        .Add<ProxyEvictionService>(() => EditorService.AppServices.GetService<ProxyMediaServices>()?.EvictionService)
+        .Add<IProxyStoreCapInfo>(() => EditorService.AppServices.GetService<ProxyMediaServices>()?.CapInfoFacade)
         // The API clients live on the main window's view model, as for the AI tool tabs.
         .Add<IGenerativePromptLibrary>(() => _generativePromptLibrary
             ??= MainViewModel.TryGetCurrent(out MainViewModel? main) ? main.CreateGenerativePromptLibrary() : null)

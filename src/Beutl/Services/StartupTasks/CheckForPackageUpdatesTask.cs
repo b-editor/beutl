@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using Beutl.Controls.PropertyEditors;
+using Avalonia.Controls;
 using Avalonia.Threading;
 using Beutl.Api;
 using Beutl.Api.Services;
@@ -185,6 +186,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
                 }
 
                 window.DataContext = context;
+                ColorPaletteService.SetService(window, ColorPaletteService.GetService(topLevel));
                 if (window is Pages.ExtensionsPage page)
                 {
                     page.OpenLibraryWithUpdates();

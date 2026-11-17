@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using Microsoft.Extensions.DependencyInjection;
+using System.Collections.ObjectModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -267,7 +268,8 @@ public partial class EditorHostFallback : UserControl
 
     private async void StartTutorial_Click(object? sender, RoutedEventArgs e)
     {
-        var dialog = new TutorialListDialog();
+        if (DataContext is not MainViewModel viewModel) return;
+        var dialog = new TutorialListDialog(viewModel.AppServices.GetRequiredService<Beutl.Services.Tutorials.ITutorialService>());
         await dialog.ShowAsync();
     }
 

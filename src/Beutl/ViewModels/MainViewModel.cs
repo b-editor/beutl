@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using Microsoft.Extensions.DependencyInjection;
+using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
 using Avalonia;
@@ -32,6 +33,7 @@ public sealed partial class MainViewModel : BasePageViewModel
     internal readonly BeutlApiApplication _beutlClients;
     private readonly ObjectTemplateService _objectTemplateService;
     internal IServiceProvider AppServices { get; }
+    internal string SessionId { get; }
     private readonly HttpClient _authHttpClient;
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
@@ -56,21 +58,20 @@ public sealed partial class MainViewModel : BasePageViewModel
     private readonly ProjectColorPaletteHost _projectColorPalettes;
     private readonly IDisposable _projectColorPalettesAttachment;
 
-    public MainViewModel(Beutl.Services.LibraryService libraryService, ObjectTemplateService objectTemplateService)
-        : this(libraryService, objectTemplateService, null)
+    public MainViewModel(IServiceProvider appServices, string sessionId)
+        : this(appServices, sessionId, null)
     {
     }
 
     internal MainViewModel(
-        Beutl.Services.LibraryService libraryService,
-        ObjectTemplateService objectTemplateService,
+        IServiceProvider appServices,
+        string sessionId,
         Action<BeutlApiApplication>? shutdownHandoff,
         Func<TimeSpan, Task>? waitForPackageInstallerIdle = null)
     {
-        AppServices = new EditorServiceRegistry()
-            .Add<Beutl.Services.LibraryService>(() => libraryService)
-            .Add<ObjectTemplateService>(() => objectTemplateService);
-        _objectTemplateService = objectTemplateService;
+        AppServices = appServices;
+        SessionId = sessionId;
+        _objectTemplateService = appServices.GetRequiredService<ObjectTemplateService>();
         _shutdownHandoff = shutdownHandoff ?? PerformShutdownHandoff;
         _authHttpClient = new HttpClient();
         // Composition root: own the editor-session services here and thread the instances
@@ -82,7 +83,7 @@ public sealed partial class MainViewModel : BasePageViewModel
         // After version control, whose preparation can refuse the close.
         _ = new ProjectThumbnailService(_projectService, _editorService);
         _projectColorPalettes = new ProjectColorPaletteHost(_projectService, _editorService);
-        _projectColorPalettesAttachment = Beutl.Controls.PropertyEditors.ColorPaletteService.Instance
+        _projectColorPalettesAttachment = appServices.GetRequiredService<Beutl.Controls.PropertyEditors.ColorPaletteService>()
             .AttachProjectHost(_projectColorPalettes);
         _captionCatalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             Beutl.Language.Strings.AiSubtitle_DefaultTemplate,

@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Beutl.Controls.PropertyEditors;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -26,6 +28,7 @@ internal sealed class PresentationWindow : Window
     public PresentationWindow(PlayerViewModel player)
     {
         _player = player;
+        ColorPaletteService.SetService(this, player.EditViewModel.GetService<ColorPaletteService>());
         Title = Strings.PresentationWindow;
         Width = 960;
         Height = 540;

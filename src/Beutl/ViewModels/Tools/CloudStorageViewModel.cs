@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using Beutl.Controls.PropertyEditors;
+using System.Collections.ObjectModel;
 using System.Net;
 using System.Windows.Input;
 using Avalonia.Controls;
@@ -455,6 +456,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
     {
         using var vm = _createSettings();
         var dialog = new SettingsDialog { DataContext = vm };
+        ColorPaletteService.SetService(dialog, ColorPaletteService.GetService(owner));
         vm.GoToAccountSettingsPage();
         await dialog.ShowDialog(owner);
     }

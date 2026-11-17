@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using Beutl.Controls.PropertyEditors;
+using Avalonia.Controls;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
 
@@ -36,6 +37,7 @@ internal sealed class ToolWindowLauncher
             }
 
             window.DataContext = context;
+            ColorPaletteService.SetService(window, ColorPaletteService.GetService(owner));
             if (string.IsNullOrEmpty(window.Title))
             {
                 window.Title = context.Header;

@@ -14,9 +14,11 @@ public static class UnhandledExceptionHandler
     private const string LastUnhandledExeptionFileName = "last-unhandled-exeption";
     private static bool s_exited;
     private static ILogger? s_logger;
+    private static string s_sessionId = string.Empty;
 
-    public static void Initialize()
+    public static void Initialize(string sessionId)
     {
+        s_sessionId = sessionId;
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         s_logger = Log.LoggerFactory.CreateLogger(typeof(UnhandledExceptionHandler));
     }
@@ -51,7 +53,7 @@ public static class UnhandledExceptionHandler
             startInfo.ArgumentList.Add(UiFonts.UiCultureArgument);
             startInfo.ArgumentList.Add(CultureInfo.CurrentUICulture.Name);
             startInfo.ArgumentList.Add("--session-id");
-            startInfo.ArgumentList.Add(Telemetry.Instance._sessionId);
+            startInfo.ArgumentList.Add(s_sessionId);
             Process.Start(startInfo);
         }
         catch

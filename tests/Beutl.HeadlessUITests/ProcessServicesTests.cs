@@ -22,7 +22,7 @@ public sealed class ProcessServicesTests
         {
             Assert.That(PropertyEditorHost.Current, Is.SameAs(PropertyEditorControls.Instance));
             Assert.That(NotificationService.Handler, Is.InstanceOf<NotificationServiceHandler>());
-            Assert.That(TutorialService.Current, Is.InstanceOf<TutorialServiceHandler>());
+            Assert.That(TestShell.MainViewModel.AppServices.GetService(typeof(ITutorialService)), Is.InstanceOf<TutorialServiceHandler>());
             Assert.That(AppHelper.GetContextCommandManager?.Invoke(), Is.SameAs(TestShell.MainViewModel.ContextCommandManager));
             Assert.That(TestShell.Library.FindItem(typeof(CrossDissolveTransition)), Is.Not.Null);
             Assert.That(GraphNodeRegistry.GetRegistered(), Is.Not.Empty);

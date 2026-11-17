@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls.ApplicationLifetimes;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
@@ -311,7 +312,7 @@ public partial class MainViewModel
 
         try
         {
-            if (ProxyMediaServices.Current is { } proxyMediaServices)
+            if (AppServices.GetService<ProxyMediaServices>() is { } proxyMediaServices)
             {
                 await proxyMediaServices.DisposeAsync();
             }
@@ -518,7 +519,7 @@ public partial class MainViewModel
     private void PerformShutdownHandoff(BeutlApiApplication clients)
     {
         PackageChangesQueue queue = clients.GetResource<PackageChangesQueue>();
-        if (CreateHandoffStartInfo(queue, IsRestartRequested, () => Telemetry.Instance._sessionId) is { } startInfo)
+        if (CreateHandoffStartInfo(queue, IsRestartRequested, () => SessionId) is { } startInfo)
         {
             using Process? _ = Process.Start(startInfo);
         }

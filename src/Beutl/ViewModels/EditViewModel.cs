@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Concurrent;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Beutl.Audio;
@@ -149,7 +150,7 @@ public sealed partial class EditViewModel
 
         // Subscribe through the swap-stable facade so a store-root change keeps delivering Changed events
         // (the facade forwards them to the rebuilt store) instead of leaving this bound to the old one.
-        if (ProxyMediaServices.Current?.StoreFacade is { } proxyStore)
+        if (this.GetService<Beutl.Media.Proxy.IProxyStore>() is { } proxyStore)
         {
             proxyStore.Changed += OnProxyStoreChanged;
             Disposable.Create(() => proxyStore.Changed -= OnProxyStoreChanged)

@@ -98,7 +98,7 @@ public class SimpleColorPickerButton : TemplatedControl
             // A bound color keeps its binding, which a one-way binding would lose to a local value.
             SetCurrentValue(ColorProperty, newColor);
             ColorConfirmed?.Invoke(this, (oldColor, newColor));
-            ColorPaletteService.Instance.AddRecentColor(newColor);
+            ColorPaletteService.GetService(this)?.AddRecentColor(newColor);
         }
     }
 }

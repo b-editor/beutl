@@ -479,7 +479,7 @@ public sealed partial class ElementView : UserControl
             Color color = sender.ColorPicker.Color;
             if (viewModel.Color.Value != color)
             {
-                ColorPaletteService.Instance.AddRecentColor(color);
+                viewModel.Timeline.EditorContext.GetRequiredService<ColorPaletteService>().AddRecentColor(color);
             }
 
             viewModel.Color.Value = color;

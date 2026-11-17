@@ -29,7 +29,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     // awaits the queue drain while the drain-path sweep would await the UI thread -> deadlock. During
     // normal generation the UI thread is not blocked on the drain, so marshaling is safe (and keeps a
     // consistent snapshot), so this stays false there.
-    private static volatile bool s_disposing;
+    private volatile bool _disposing;
 
     private bool _disposed;
     private int _diskPressureSweepActive;
@@ -43,12 +43,13 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     // makes every open reader observe a version bump and reopen against the new store.
     private long _resolverVersionOffset;
 
-    private ProxyMediaServices(
-        ProxyStore store,
-        ProxyResolver resolver,
-        ProxyJobQueue queue,
-        ProxyEvictionService evictionService)
+    public ProxyMediaServices(GlobalConfiguration configuration)
     {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ProxyStoreConfig config = configuration.ProxyStoreConfig;
+        _config = config;
+        (ProxyStore store, ProxyResolver resolver, ProxyJobQueue queue, ProxyEvictionService evictionService) =
+            BuildServicesWithFallback(config);
         Store = store;
         Resolver = resolver;
         Queue = queue;
@@ -62,11 +63,21 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         // on unload; drop the queue's cached generator on either so it re-resolves and never keeps
         // rooting or invoking an unloaded extension's generator.
         ProxyGeneratorRegistry.Changed += OnGeneratorRegistryChanged;
+        DecoderRegistry.ProxyResolver = resolver;
+
+        // A store-root change rebuilds the pipeline; a cap change only retargets eviction, as a rebuild
+        // would cancel in-flight generation. Both apply synchronously on the UI thread, so the service
+        // fields are never torn, and Skip(1) drops the replay of the current value.
+        _configSubscription = new CompositeDisposable(
+            config.StoreRootPath.GetObservable().Skip(1)
+                .Subscribe(_ => ReinitializeStore(config.StoreRootPath.Value, config.MaxTotalBytes.Value)),
+            config.MaxTotalBytes.GetObservable().Skip(1)
+                .Subscribe(_ => UpdateEvictionCap(config.MaxTotalBytes.Value)));
+
+        _ = Task.Run(() => ReconcileAndSweepAsync(store, evictionService));
     }
 
     private void OnGeneratorRegistryChanged(object? sender, EventArgs e) => Queue.InvalidateGenerator();
-
-    public static ProxyMediaServices? Current { get; private set; }
 
     public ProxyStore Store { get; private set; }
 
@@ -86,35 +97,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
     public StableProxyCapInfoFacade CapInfoFacade { get; }
 
-    public static ProxyMediaServices Initialize(GlobalConfiguration configuration)
-    {
-        ArgumentNullException.ThrowIfNull(configuration);
-
-        if (Current is { } existing)
-            return existing;
-
-        ProxyStoreConfig config = configuration.ProxyStoreConfig;
-        var (store, resolver, queue, eviction) = BuildServicesWithFallback(config);
-        var services = new ProxyMediaServices(store, resolver, queue, eviction) { _config = config };
-        s_disposing = false;
-        Current = services;
-        DecoderRegistry.ProxyResolver = resolver;
-
-        // A store-root change rebuilds the pipeline; a cap change only retargets eviction, as a rebuild
-        // would cancel in-flight generation. Both apply synchronously on the UI thread, so Current is
-        // never torn, and Skip(1) drops the replay of the current value.
-        services._configSubscription = new CompositeDisposable(
-            config.StoreRootPath.GetObservable().Skip(1)
-                .Subscribe(_ => services.ReinitializeStore(config.StoreRootPath.Value, config.MaxTotalBytes.Value)),
-            config.MaxTotalBytes.GetObservable().Skip(1)
-                .Subscribe(_ => services.UpdateEvictionCap(config.MaxTotalBytes.Value)));
-
-        _ = Task.Run(() => ReconcileAndSweepAsync(store, eviction));
-
-        return services;
-    }
-
-    private static (ProxyStore Store, ProxyResolver Resolver, ProxyJobQueue Queue, ProxyEvictionService Eviction)
+    private (ProxyStore Store, ProxyResolver Resolver, ProxyJobQueue Queue, ProxyEvictionService Eviction)
         BuildServices(string storeRootPath, long maxTotalBytes, long resolverVersionOffset)
     {
         var store = new ProxyStore(storeRootPath);
@@ -140,7 +123,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
 
-    private static (ProxyStore Store, ProxyResolver Resolver, ProxyJobQueue Queue, ProxyEvictionService Eviction)
+    private (ProxyStore Store, ProxyResolver Resolver, ProxyJobQueue Queue, ProxyEvictionService Eviction)
         BuildServicesWithFallback(ProxyStoreConfig config)
     {
         // Read once: the fallback below compares this value with the default.
@@ -211,7 +194,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             return;
         }
 
-        // Swap on this (the config setter's) thread so consumers re-fetching Current?.Store never
+        // Swap on this (the config setter's) thread so consumers reading the service's fields never
         // observe a torn mix. The old queue is drained off-thread: its drain path marshals
         // project-graph reads through the UI thread, so awaiting it here would deadlock like shutdown.
         // A strictly larger version offset makes every open reader (even one caching version 0 from the
@@ -303,16 +286,13 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         _disposed = true;
         // Signal the drain-path sweep to stop marshaling source collection to the UI thread before we
         // await the queue drain below, so shutdown cannot deadlock on the UI thread.
-        s_disposing = true;
+        _disposing = true;
         // Unsubscribe before disposing the queue so a late registry change cannot race Queue disposal.
         ProxyGeneratorRegistry.Changed -= OnGeneratorRegistryChanged;
         Queue.JobChanged -= OnJobChanged;
         _configSubscription?.Dispose();
         if (ReferenceEquals(DecoderRegistry.ProxyResolver, Resolver))
             DecoderRegistry.ProxyResolver = null;
-
-        if (ReferenceEquals(Current, this))
-            Current = null;
 
         await Queue.DisposeAsync().ConfigureAwait(false);
         // Config subscription is already disposed above, so no further store-root change can start a new
@@ -397,13 +377,13 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         }
     }
 
-    private static IReadOnlySet<string> CollectOpenProjectSources()
+    private IReadOnlySet<string> CollectOpenProjectSources()
     {
         // Eviction sweeps run on background threads, but this walks project / element / node-graph
         // state that the UI thread mutates. Read it on the UI thread so the collected set is a
         // consistent snapshot rather than a torn read that could fall back to global LRU — except in
         // the drain-path sweep, where blocking on the UI thread would deadlock shutdown (see the flag).
-        if (!s_disposing && !Dispatcher.UIThread.CheckAccess())
+        if (!_disposing && !Dispatcher.UIThread.CheckAccess())
         {
             try
             {

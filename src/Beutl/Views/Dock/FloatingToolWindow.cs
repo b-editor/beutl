@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Beutl.Controls.PropertyEditors;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -24,6 +26,7 @@ internal sealed class FloatingToolWindow : HostWindow
     public FloatingToolWindow(EditViewModel editor)
     {
         _editor = editor;
+        ColorPaletteService.SetService(this, editor.GetRequiredService<ColorPaletteService>());
         // After this window's own handlers, so that Tab keeps moving the focus within it and the key that closes a
         // secondary window keeps closing its tab.
         AddHandler(KeyDownEvent, OnKeyDownLeftByTools);

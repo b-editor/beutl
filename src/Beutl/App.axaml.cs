@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using Beutl.Controls.PropertyEditors;
+using System.Globalization;
 using Avalonia;
 #if DEBUG
 using Avalonia.Diagnostics;
@@ -46,10 +47,30 @@ public sealed class App : Application
     private MainViewModel? _mainViewModel;
     private readonly LibraryService _libraryService = new();
     private readonly ObjectTemplateService _objectTemplateService = new();
+    private readonly ITutorialService _tutorialService = new TutorialServiceHandler();
+    private readonly ColorPaletteService _colorPalettes = ColorPaletteService.CreateDefault();
+    private readonly EditorServiceRegistry _appServices;
+    private readonly string _sessionId;
+    private ProxyMediaServices? _proxyMediaServices;
     private Startup? _startUp;
     private LoadSideloadExtensionTask? _sideloadExtensionTask;
     private readonly SemaphoreSlim _packageLinkGate = new(1, 1);
     private readonly CancellationTokenSource _activationCts = new();
+
+    public App() : this(string.Empty)
+    {
+    }
+
+    internal App(string sessionId)
+    {
+        _sessionId = sessionId;
+        _appServices = new EditorServiceRegistry()
+            .Add(() => _libraryService)
+            .Add(() => _objectTemplateService)
+            .Add<ITutorialService>(() => _tutorialService)
+            .Add(() => _colorPalettes)
+            .Add<ProxyMediaServices>(() => _proxyMediaServices);
+    }
 
     public override void Initialize()
     {
@@ -125,7 +146,7 @@ public sealed class App : Application
         {
             try
             {
-                ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
+                _proxyMediaServices = new ProxyMediaServices(GlobalConfiguration.Instance);
             }
             catch (Exception ex)
             {
@@ -141,7 +162,6 @@ public sealed class App : Application
     {
         PropertyEditorControls.Install();
         NotificationService.Handler = new NotificationServiceHandler();
-        TutorialService.Current = new TutorialServiceHandler();
         AppHelper.GetContextCommandManager = commands;
         GraphSnapshot.PostToDocumentThread = static write =>
         {
@@ -186,6 +206,7 @@ public sealed class App : Application
                 desktop.MainWindow = new MainWindow { DataContext = GetMainViewModel(), };
             }
 
+            ColorPaletteService.SetService(desktop.MainWindow, _colorPalettes);
             desktop.MainWindow.Opened += (_, _) => _windowOpenTcs.SetResult();
             desktop.Exit += (_, _) =>
             {
@@ -235,6 +256,7 @@ public sealed class App : Application
             {
                 var viewModel = new ExtensionsPageViewModel(main._beutlClients, main.EditorService, main.ProjectService);
                 page = new ExtensionsPage { DataContext = viewModel };
+                ColorPaletteService.SetService(page, _colorPalettes);
                 page.Closed += (_, _) => viewModel.Dispose();
                 page.OpenPackage(package, request.Version);
                 _ = page.ShowDialog(mainWindow);
@@ -302,7 +324,7 @@ public sealed class App : Application
 
     private MainViewModel GetMainViewModel()
     {
-        return _mainViewModel ??= new MainViewModel(_libraryService, _objectTemplateService);
+        return _mainViewModel ??= new MainViewModel(_appServices, _sessionId);
     }
 
     private void AboutBeutlClicked(object? sender, EventArgs e)

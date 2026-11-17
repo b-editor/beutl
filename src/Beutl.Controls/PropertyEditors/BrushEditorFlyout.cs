@@ -30,6 +30,7 @@ public sealed class BrushEditorFlyout : FAPickerFlyoutBase
 {
     // The last color this opening of the flyout applied, if any.
     private Color? _appliedColor;
+    private ColorPaletteService? _paletteService;
 
     public static readonly StyledProperty<Brush?> BrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyout, Brush?>(nameof(Brush));
@@ -148,16 +149,19 @@ public sealed class BrushEditorFlyout : FAPickerFlyoutBase
     {
         base.OnOpened();
         _appliedColor = null;
+        _paletteService = ColorPaletteService.GetService(Popup);
     }
 
     // The last color the flyout applied joins the recent colors, rather than each step of a drag.
     protected override void OnClosed()
     {
         base.OnClosed();
+        ColorPaletteService? palettes = _paletteService;
+        _paletteService = null;
         if (_appliedColor is { } color)
         {
             _appliedColor = null;
-            ColorPaletteService.Instance.AddRecentColor(color);
+            palettes?.AddRecentColor(color);
         }
     }
 
