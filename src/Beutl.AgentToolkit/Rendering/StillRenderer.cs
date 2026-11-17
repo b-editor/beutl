@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using Beutl.AgentToolkit.NodeGraphs;
+using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
@@ -29,11 +30,15 @@ public sealed partial class StillRenderer
             Directory.CreateDirectory(directory);
         }
 
-        using Bitmap snapshot = await RenderBitmapAsync(
+        // What a node graph failed on while it drew is read before the renderer goes, which takes it back.
+        (Bitmap rendered, IReadOnlyList<string> graphFailures) = await RenderRenderedFrameAsync(
             scene,
             time,
             renderScale,
+            static (renderedScene, renderer, _) =>
+                (renderer.Snapshot(), NodeGraphDiagnostics.CollectRenderFailures(renderedScene)),
             cancellationToken).ConfigureAwait(false);
+        using Bitmap snapshot = rendered;
 
         if (!snapshot.Save(outputPath, EncodedImageFormat.Png))
         {
@@ -46,7 +51,7 @@ public sealed partial class StillRenderer
             snapshot.Width,
             snapshot.Height,
             time.ToTimeSpan().ToString("c"),
-            analysis.Warnings,
+            [.. analysis.Warnings, .. graphFailures],
             analysis,
             CreateActiveElementSummaries(scene, time));
     }

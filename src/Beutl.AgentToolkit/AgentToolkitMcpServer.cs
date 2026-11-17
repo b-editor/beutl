@@ -1,5 +1,6 @@
 ﻿using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Live;
+using Beutl.AgentToolkit.NodeGraphs;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
@@ -27,6 +28,8 @@ public static class AgentToolkitMcpServer
         DecoderRegistration.EnsureRegistered();
         // Without the app's fallback fonts, CJK and emoji in a font that lacks them would render as boxes.
         BundledFontRegistration.EnsureRegistered();
+        // The app registers its built-in nodes at startup; without them list_node_types and edit_node_graph know none.
+        NodeTypeCatalog.EnsureBuiltInNodesRegistered();
 
         services
             .AddSingleton(_ => TypeRegistration.CreateLibraryService())
@@ -79,6 +82,7 @@ public static class AgentToolkitMcpServer
             .WithTools<SessionTools>()
             .WithTools<QueryTools>()
             .WithTools<EditTools>()
+            .WithTools<NodeGraphTools>()
             .WithTools<HistoryTools>()
             .WithTools<RenderTools>();
     }

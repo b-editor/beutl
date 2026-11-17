@@ -51,7 +51,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions, SchemaGener
         =>
         [
             new("beutl-agent-timeline-from-shotlist", "Making a video from a brief, even a one-line request such as a teaser, trailer, promo, or title sequence, or editing timeline structure, timing, transforms, groups, and keyframes.", "Read the installed SKILL.md before the first edit, for the editing API contract."),
-            new("beutl-agent-look-effect-chain", "Adding or editing effect chains, masks, and shader properties.", "Read the installed SKILL.md before adding effects, for effect and shader mechanics."),
+            new("beutl-agent-look-effect-chain", "Adding or editing effect chains, masks, shader properties, and node graphs of GPU passes.", "Read the installed SKILL.md before adding effects, for effect and shader mechanics."),
             new("beutl-agent-source-grounding", "Checking coordinates, units, bounds, and runtime behavior.", "Read the installed SKILL.md; source inspection is optional.")
         ];
 
@@ -71,6 +71,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions, SchemaGener
                 $"Keyframe easing names: {string.Join(", ", Documents.KeyFrameShorthand.EasingNames)}. A long-form KeyFrames entry also takes a custom curve as a spline object such as {{\"X1\": 0.2, \"Y1\": 0, \"X2\": 0, \"Y2\": 1}}.",
                 "Use measure_object_bounds for actual bounds and transforms. Start with Drawable AlignmentX/AlignmentY at Center, then choose Left/Right and Top/Bottom independently when they better suit the object, layout, or motion. TranslateTransform.X/Y offsets the chosen alignment; check animation for unintended anchor shifts. ScaleTransform uses percentages. Beutl source code is not required.",
                 "Call validate_shader to check compilation. A successful compilation does not verify rendered output; render_still and render_storyboard return rendered evidence.",
+                "For GPU passes in GLSL without C#, with several passes, inputs and intermediate images, add a NodeGraphFilterEffect (or a NodeGraphDrawable) with apply_edit, read get_node_graph_guide, and build its graph with edit_node_graph; read_node_graph shows the graph's ports and diagnostics. Built-in effects need no graph.",
                 "measure_frame_differences reports numerical changes between frames; analyze_audio_rhythm reports estimated beats and onsets. Measurements are data, not quality or completion verdicts.",
                 "For file-backed sessions, save_project persists edits. In LiveEditor sessions, use the editor's normal save behavior as reported by read_operation_status.",
                 "export_video writes to the requested path. Exported pixels follow the file's declared transfer, BT.709 by default, so a tool that decodes without converting reads mid grays darker (#80 as #75); that is correct and needs no grading afterwards. Successful validation, rendering, saving, or exporting confirms that operation only; the agent evaluates the result against the user's request."
@@ -248,7 +249,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions, SchemaGener
     }
 
     [McpServerTool(Name = "validate_shader")]
-    [Description("Compiles a candidate script for a script-compilable FilterEffect (SKSLScriptEffect, GLSLScriptEffect, CSharpScriptEffect) WITHOUT rendering, so shader edits can be checked before apply_edit. Pass the effect type name (e.g. SKSLScriptEffect) and the script text. status is one of: compiled; failed (error holds the compiler message; GLSL is also checked against the sampler and push constants the effect binds); unavailable (the shader compiler could not start in this session — verify with render_still instead); unknown_type; not_script_effect. Call get_schema with type=<effect> first for the default script and its uniform list.")]
+    [Description("Compiles a candidate script for a script-compilable FilterEffect (SKSLScriptEffect, GLSLScriptEffect, CSharpScriptEffect) WITHOUT rendering, so shader edits can be checked before apply_edit. For the code of a shader pass in a node graph, use edit_node_graph with validateOnly:true instead. Pass the effect type name (e.g. SKSLScriptEffect) and the script text. status is one of: compiled; failed (error holds the compiler message; GLSL is also checked against the sampler and push constants the effect binds); unavailable (the shader compiler could not start in this session — verify with render_still instead); unknown_type; not_script_effect. Call get_schema with type=<effect> first for the default script and its uniform list.")]
     public ToolResult<ValidateShaderResponse> ValidateShader(string effectType, string script)
     {
         return Execute(() =>

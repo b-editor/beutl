@@ -1,0 +1,61 @@
+{
+  "name": "animated-tint",
+  "description": "One fullscreen pass that tints the layer. Its uniform block declares In.params.tint and In.params.amount; amount is animated with keyframes.",
+  "operations": [
+    {
+      "op": "add",
+      "ref": "input",
+      "type": "FilterEffectInputNode",
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "op": "add",
+      "ref": "tint",
+      "type": "ShaderFullscreenPassNode",
+      "name": "Tint",
+      "position": [
+        320,
+        0
+      ],
+      "values": {
+        "Code": "#version 450\nlayout(location = 0) in vec2 uv;\nlayout(location = 0) out vec4 color;\nlayout(set = 0, binding = 0) uniform sampler2D source;\nlayout(set = 0, binding = 1) uniform Params { vec4 tint; float amount; } params;\n\nvoid main() {\n    vec4 c = texture(source, uv);\n    // Premultiplied: scaling the color keeps it inside its alpha.\n    color = vec4(mix(c.rgb, c.rgb * params.tint.rgb, params.amount), c.a);\n}\n",
+        "In.params.tint": "1,0.45,0.2,1",
+        "In.params.amount": {
+          "$kf": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              1,
+              "CubicEaseOut"
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "op": "add",
+      "ref": "output",
+      "type": "OutputNode",
+      "position": [
+        640,
+        0
+      ]
+    },
+    {
+      "op": "connect",
+      "from": "input.Output",
+      "to": "tint.In.source"
+    },
+    {
+      "op": "connect",
+      "from": "tint.Out.color",
+      "to": "output.Output"
+    }
+  ]
+}
