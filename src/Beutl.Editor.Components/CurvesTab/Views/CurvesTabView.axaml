@@ -4,19 +4,34 @@
              xmlns:controls="using:Beutl.Controls"
              xmlns:curves="using:Beutl.Controls.Curves"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:vm="using:Beutl.Editor.Components.CurvesTab.ViewModels"
              d:DesignHeight="720"
              d:DesignWidth="1080"
              x:CompileBindings="True"
              x:DataType="vm:CurvesTabViewModel"
              mc:Ignorable="d">
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,Auto,*">
         <controls:ToolTabBar x:Name="ToolBar" Grid.Row="0">
             <controls:ToolTabBarPanel ItemSpacing="8">
                 <TextBlock Text="{x:Static lang:Strings.Curves}"
                            Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
+
+                <ToggleButton x:Name="PickColorButton"
+                              Width="32"
+                              Height="32"
+                              Padding="{DynamicResource ToolTabBarIconButtonPadding}"
+                              VerticalAlignment="Center"
+                              AutomationProperties.Name="{x:Static lang:Strings.Curves_PickColor}"
+                              IsChecked="{Binding IsPickingColor.Value, Mode=TwoWay}"
+                              IsVisible="{Binding CanPickColor.Value}"
+                              Theme="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}"
+                              ToolTip.Tip="{x:Static lang:Strings.Curves_PickColor}">
+                    <icons:FluentIcon FontSize="16" Icon="Eyedropper" />
+                </ToggleButton>
 
                 <ComboBox x:Name="ChannelComboBox"
                           VerticalAlignment="Center"
@@ -48,7 +63,80 @@
             </controls:ToolTabBarPanel>
         </controls:ToolTabBar>
 
-        <Panel Grid.Row="1"
+        <!--  The picked color and the range around it, for the hue curves; while picking, what to do instead.  -->
+        <Panel x:Name="ColorRangeRow"
+               Grid.Row="1"
+               Margin="8,0,8,6"
+               IsVisible="{Binding CanPickColor.Value}">
+            <TextBlock x:Name="PickColorPrompt"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       IsVisible="{Binding IsPickingColor.Value}"
+                       Text="{x:Static lang:Strings.Curves_PickColorPrompt}"
+                       TextWrapping="Wrap" />
+
+            <WrapPanel x:Name="ColorRangeEditors"
+                       IsVisible="{Binding ShowColorRange.Value}"
+                       ItemSpacing="12"
+                       LineSpacing="4">
+                <StackPanel VerticalAlignment="Center"
+                            Background="Transparent"
+                            Orientation="Horizontal"
+                            Spacing="6"
+                            ToolTip.Tip="{Binding PickedColorTip.Value}">
+                    <Border x:Name="PickedColorSwatch"
+                            Width="16"
+                            Height="16"
+                            VerticalAlignment="Center"
+                            Background="{Binding PickedColorBrush.Value}"
+                            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="3" />
+                    <TextBlock MinWidth="32"
+                               VerticalAlignment="Center"
+                               Text="{Binding MarkerPositionText.Value}" />
+                </StackPanel>
+
+                <StackPanel Background="Transparent"
+                            Orientation="Horizontal"
+                            Spacing="2"
+                            ToolTip.Tip="{x:Static lang:Strings.Curves_ColorRangeTip}">
+                    <pe:NumberEditor x:Name="RangeWidthEditor"
+                                     x:TypeArguments="x:Single"
+                                     Header="{x:Static lang:Strings.Curves_ColorRange}"
+                                     NumberFormat="0"
+                                     SmallChange="1"
+                                     Theme="{StaticResource GradingCompactNumberEditor}" />
+                    <TextBlock VerticalAlignment="Center" Text="°" />
+                </StackPanel>
+
+                <StackPanel Background="Transparent"
+                            Orientation="Horizontal"
+                            Spacing="2"
+                            ToolTip.Tip="{x:Static lang:Strings.Curves_ColorRangeAmountTip}">
+                    <pe:NumberEditor x:Name="RangeValueEditor"
+                                     x:TypeArguments="x:Single"
+                                     Header="{Binding RangeValueHeader.Value}"
+                                     NumberFormat="0.#"
+                                     SmallChange="1"
+                                     Theme="{StaticResource GradingCompactNumberEditor}" />
+                    <TextBlock VerticalAlignment="Center" Text="{Binding RangeValueUnit.Value}" />
+                </StackPanel>
+
+                <Button x:Name="ClearPickedColorButton"
+                        Width="28"
+                        Height="28"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="{x:Static lang:Strings.Curves_ClearPickedColor}"
+                        Click="ClearPickedColor_Click"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                        ToolTip.Tip="{x:Static lang:Strings.Curves_ClearPickedColor}">
+                    <icons:FluentIcon FontSize="14" Icon="Dismiss" />
+                </Button>
+            </WrapPanel>
+        </Panel>
+
+        <Panel Grid.Row="2"
                Margin="8,0,8,8"
                IsVisible="{Binding HasEffect.Value}">
             <curves:CurveEditor DragCompleted="CurveEditor_DragCompleted"
@@ -81,21 +169,30 @@
 
             <curves:CurveEditor DragCompleted="CurveEditor_DragCompleted"
                                 DragStarted="CurveEditor_DragStarted"
+                                HoverPosition="{Binding HoverPosition.Value}"
                                 IsVisible="{Binding ShowHueVsHue.Value}"
+                                MarkerPosition="{Binding MarkerPosition.Value}"
+                                MarkerRange="{Binding MarkerRange.Value}"
                                 Points="{Binding HueVsHue.Value.Points}"
                                 Visualization="HueVsHue"
                                 VisualizationRenderer="{Binding Renderer}" />
 
             <curves:CurveEditor DragCompleted="CurveEditor_DragCompleted"
                                 DragStarted="CurveEditor_DragStarted"
+                                HoverPosition="{Binding HoverPosition.Value}"
                                 IsVisible="{Binding ShowHueVsSaturation.Value}"
+                                MarkerPosition="{Binding MarkerPosition.Value}"
+                                MarkerRange="{Binding MarkerRange.Value}"
                                 Points="{Binding HueVsSaturation.Value.Points}"
                                 Visualization="HueVsSaturation"
                                 VisualizationRenderer="{Binding Renderer}" />
 
             <curves:CurveEditor DragCompleted="CurveEditor_DragCompleted"
                                 DragStarted="CurveEditor_DragStarted"
+                                HoverPosition="{Binding HoverPosition.Value}"
                                 IsVisible="{Binding ShowHueVsLuminance.Value}"
+                                MarkerPosition="{Binding MarkerPosition.Value}"
+                                MarkerRange="{Binding MarkerRange.Value}"
                                 Points="{Binding HueVsLuminance.Value.Points}"
                                 Visualization="HueVsLuminance"
                                 VisualizationRenderer="{Binding Renderer}" />
@@ -115,7 +212,7 @@
                                 VisualizationRenderer="{Binding Renderer}" />
         </Panel>
 
-        <TextBlock Grid.Row="1"
+        <TextBlock Grid.Row="2"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
                    IsVisible="{Binding !HasEffect.Value}"

@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Media.Proxy;
 
 namespace Beutl.Composition;
@@ -35,4 +36,14 @@ public sealed record CompositionConditions
 
     /// <summary>Optional scene queries. Detached evaluations need not provide these services.</summary>
     public ICompositionEvaluationServices? EvaluationServices { get; init; }
+
+    /// <summary>Objects whose resources this evaluation reconciles as disabled, as if they were turned off.</summary>
+    /// <remarks>
+    /// An editor reads the colors an effect receives from a frame rendered without it, so that what the effect does
+    /// cannot move what it is aimed at. Code that reads an object's <c>IsEnabled</c> property itself, rather than its
+    /// resource, does not see this.
+    /// </remarks>
+    internal IReadOnlySet<EngineObject>? DisabledObjects { get; init; }
+
+    internal bool Disables(EngineObject obj) => DisabledObjects is { Count: > 0 } objects && objects.Contains(obj);
 }

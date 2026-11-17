@@ -1,5 +1,9 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Beutl.Controls.Curves;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.CurvesTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 
@@ -7,11 +11,80 @@ namespace Beutl.Editor.Components.CurvesTab.Views;
 
 public partial class CurvesTabView : UserControl
 {
+    private readonly CompositeDisposable _subscriptions = [];
     private DragSession? _drag;
+    private IDisposable? _pickEscape;
 
     public CurvesTabView()
     {
         InitializeComponent();
+
+        // The boxes edit through the view model, which shapes the curve, keeps the values in their ranges and shows
+        // them back.
+        RangeWidthEditor.ValueChanged += (_, e) => WithFloat(e, (vm, value) => vm.PreviewRangeWidth(value));
+        RangeWidthEditor.ValueConfirmed += (_, e) => WithFloat(e, (vm, value) => vm.ConfirmRangeWidth(value));
+        RangeValueEditor.ValueChanged += (_, e) => WithFloat(e, (vm, value) => vm.PreviewRangeValue(value));
+        RangeValueEditor.ValueConfirmed += (_, e) => WithFloat(e, (vm, value) => vm.ConfirmRangeValue(value));
+    }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        _subscriptions.Clear();
+        if (DataContext is CurvesTabViewModel viewModel)
+        {
+            viewModel.IsPickingColor
+                .Subscribe(OnPickingColorChanged)
+                .DisposeWith(_subscriptions);
+            // NumberEditor<float> takes no binding from XAML.
+            viewModel.RangeWidth
+                .Subscribe(width => RangeWidthEditor.Value = width)
+                .DisposeWith(_subscriptions);
+            viewModel.RangeValue
+                .Subscribe(value => RangeValueEditor.Value = value)
+                .DisposeWith(_subscriptions);
+        }
+        else
+        {
+            OnPickingColorChanged(false);
+        }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        if (DataContext is CurvesTabViewModel viewModel)
+            viewModel.IsPickingColor.Value = false;
+    }
+
+    // Escape ends the pick wherever the focus is: it is in this tab or in the preview, rarely in the frame itself.
+    private void OnPickingColorChanged(bool picking)
+    {
+        _pickEscape?.Dispose();
+        _pickEscape = picking
+            ? InputElement.KeyDownEvent.AddClassHandler<InputElement>(
+                (_, e) =>
+                {
+                    if (e.Key == Key.Escape && DataContext is CurvesTabViewModel { IsPickingColor.Value: true } viewModel)
+                    {
+                        e.Handled = true;
+                        viewModel.IsPickingColor.Value = false;
+                    }
+                },
+                RoutingStrategies.Tunnel,
+                handledEventsToo: true)
+            : null;
+    }
+
+    private void WithFloat(PropertyEditorValueChangedEventArgs e, Action<CurvesTabViewModel, float> apply)
+    {
+        if (DataContext is CurvesTabViewModel viewModel && e is PropertyEditorValueChangedEventArgs<float> args)
+            apply(viewModel, args.NewValue);
+    }
+
+    private void ClearPickedColor_Click(object? sender, RoutedEventArgs e)
+    {
+        (DataContext as CurvesTabViewModel)?.ClearPickedColor();
     }
 
     private void CurveEditor_DragStarted(object? sender, EventArgs e)

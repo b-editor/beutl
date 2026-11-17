@@ -41,6 +41,30 @@
   <data name="SaturationVsSaturation" xml:space="preserve">
     <value>채도 vs 채도</value>
   </data>
+  <data name="Curves_PickColor" xml:space="preserve">
+    <value>미리보기에서 색 선택 (이 효과를 적용하기 전의 색)</value>
+  </data>
+  <data name="Curves_PickColorPrompt" xml:space="preserve">
+    <value>미리보기에서 색을 클릭하세요. Esc로 취소합니다.</value>
+  </data>
+  <data name="Curves_PickedColorTip" xml:space="preserve">
+    <value>선택한 색 (이 효과를 적용하기 전): 색조 {0}°, 채도 {1}%, 명도 {2}%</value>
+  </data>
+  <data name="Curves_ColorRange" xml:space="preserve">
+    <value>범위</value>
+  </data>
+  <data name="Curves_ColorRangeTip" xml:space="preserve">
+    <value>선택한 색을 중심으로 조정이 미치는 색조의 폭입니다. 범위 밖의 색은 바뀌지 않습니다.</value>
+  </data>
+  <data name="Curves_ColorRangeAmountTip" xml:space="preserve">
+    <value>선택한 색에서의 변화량입니다. 범위의 가장자리로 갈수록 약해집니다.</value>
+  </data>
+  <data name="Curves_Luminance" xml:space="preserve">
+    <value>휘도</value>
+  </data>
+  <data name="Curves_ClearPickedColor" xml:space="preserve">
+    <value>선택한 색 해제</value>
+  </data>
   <data name="CreateNew" xml:space="preserve">
     <value>새로 만들기</value>
   </data>

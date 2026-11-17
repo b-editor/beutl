@@ -13,7 +13,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.CurvesTab.ViewModels;
 
-public sealed class CurvesTabViewModel : EffectToolTabViewModel<Curves>
+public sealed partial class CurvesTabViewModel : EffectToolTabViewModel<Curves>
 {
     private readonly IPreviewPlayer _player;
 
@@ -104,6 +104,17 @@ public sealed class CurvesTabViewModel : EffectToolTabViewModel<Curves>
         ShowHueVsLuminance = ObserveGroupVisibility(CurveGroup.HueVsLuminance);
         ShowLuminanceVsSaturation = ObserveGroupVisibility(CurveGroup.LuminanceVsSaturation);
         ShowSaturationVsSaturation = ObserveGroupVisibility(CurveGroup.SaturationVsSaturation);
+
+        bool hasEyedropper = editorContext.GetService<IPreviewEyedropper>() is not null;
+        CanPickColor = SelectedGroup
+            .CombineLatest(HasEffect, (group, hasEffect) => hasEyedropper && hasEffect && IsHueGroup(group))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+        ShowColorRange = CanPickColor
+            .CombineLatest(HasPickedColor, IsPickingColor, (canPick, picked, picking) => canPick && picked && !picking)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+        InitializeColorRange();
     }
 
     private ReadOnlyReactivePropertySlim<bool> ObserveGroupVisibility(CurveGroup group, bool initialValue = false)
@@ -259,6 +270,7 @@ public sealed class CurvesTabViewModel : EffectToolTabViewModel<Curves>
         HueVsLuminance.Value = CreateCurve(effect.HueVsLuminance, history);
         LuminanceVsSaturation.Value = CreateCurve(effect.LuminanceVsSaturation, history);
         SaturationVsSaturation.Value = CreateCurve(effect.SaturationVsSaturation, history);
+        ObserveHueCurves(effect);
 
         CloseWhenDetached(effect);
     }
@@ -272,6 +284,7 @@ public sealed class CurvesTabViewModel : EffectToolTabViewModel<Curves>
 
     private protected override void ClearEditors()
     {
+        ClearColorRange();
         EffectDisposables.Clear();
 
         MasterCurve.Value = null;

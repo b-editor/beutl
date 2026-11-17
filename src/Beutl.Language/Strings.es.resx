@@ -41,6 +41,30 @@
   <data name="SaturationVsSaturation" xml:space="preserve">
     <value>Saturación vs Saturación</value>
   </data>
+  <data name="Curves_PickColor" xml:space="preserve">
+    <value>Elegir un color de la vista previa, tal como se ve antes de este efecto</value>
+  </data>
+  <data name="Curves_PickColorPrompt" xml:space="preserve">
+    <value>Haz clic en un color de la vista previa. Esc cancela.</value>
+  </data>
+  <data name="Curves_PickedColorTip" xml:space="preserve">
+    <value>Color elegido, antes de este efecto: tono {0}°, saturación {1}%, valor {2}%</value>
+  </data>
+  <data name="Curves_ColorRange" xml:space="preserve">
+    <value>Rango</value>
+  </data>
+  <data name="Curves_ColorRangeTip" xml:space="preserve">
+    <value>La amplitud de tonos alrededor del color elegido que alcanza el ajuste. Los colores fuera de ella no cambian.</value>
+  </data>
+  <data name="Curves_ColorRangeAmountTip" xml:space="preserve">
+    <value>El cambio en el color elegido. Se suaviza hacia los bordes del rango.</value>
+  </data>
+  <data name="Curves_Luminance" xml:space="preserve">
+    <value>Luminancia</value>
+  </data>
+  <data name="Curves_ClearPickedColor" xml:space="preserve">
+    <value>Quitar el color elegido</value>
+  </data>
   <data name="CreateNew" xml:space="preserve">
     <value>Crear nuevo</value>
   </data>

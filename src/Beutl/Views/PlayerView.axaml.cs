@@ -76,6 +76,7 @@ public partial class PlayerView : UserControl
         framePanel.PointerCaptureLost += OnFramePointerCaptureLost;
         framePanel.AddHandler(PointerWheelChangedEvent, OnFramePointerWheelChanged, RoutingStrategies.Tunnel);
         framePanel.AddHandler(PointerTouchPadGestureMagnifyEvent, OnFrameMagnify);
+        SetupPointPicking();
 
         framePanel.Focusable = true;
         framePanel.KeyDown += OnFrameKeyDown;
@@ -366,11 +367,13 @@ public partial class PlayerView : UserControl
 
     private void SubscribeCursor(PlayerViewModel vm)
     {
-        vm.IsHandMode.CombineLatest(vm.IsCropMode, vm.IsCameraMode)
+        vm.IsHandMode.CombineLatest(vm.IsCropMode, vm.IsCameraMode, vm.PointPick.Select(pick => pick != null))
             .ObserveOnUIDispatcher()
             .Subscribe(t =>
             {
-                if (t.First)
+                if (t.Fourth)
+                    framePanel.Cursor = Cursors.Cross;
+                else if (t.First)
                     framePanel.Cursor = Cursors.Hand;
                 else if (t.Second || t.Third)
                     framePanel.Cursor = Cursors.Cross;

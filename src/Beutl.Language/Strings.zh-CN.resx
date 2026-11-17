@@ -41,6 +41,30 @@
   <data name="SaturationVsSaturation" xml:space="preserve">
     <value>饱和度 vs 饱和度</value>
   </data>
+  <data name="Curves_PickColor" xml:space="preserve">
+    <value>从预览中选取颜色（应用此效果之前的颜色）</value>
+  </data>
+  <data name="Curves_PickColorPrompt" xml:space="preserve">
+    <value>在预览中单击颜色。按 Esc 取消。</value>
+  </data>
+  <data name="Curves_PickedColorTip" xml:space="preserve">
+    <value>所选颜色（应用此效果之前）：色相 {0}°，饱和度 {1}%，明度 {2}%</value>
+  </data>
+  <data name="Curves_ColorRange" xml:space="preserve">
+    <value>范围</value>
+  </data>
+  <data name="Curves_ColorRangeTip" xml:space="preserve">
+    <value>以所选颜色为中心，调整所影响的色相宽度。范围之外的颜色保持不变。</value>
+  </data>
+  <data name="Curves_ColorRangeAmountTip" xml:space="preserve">
+    <value>所选颜色处的变化量，向范围边缘逐渐减弱。</value>
+  </data>
+  <data name="Curves_Luminance" xml:space="preserve">
+    <value>亮度</value>
+  </data>
+  <data name="Curves_ClearPickedColor" xml:space="preserve">
+    <value>清除所选颜色</value>
+  </data>
   <data name="CreateNew" xml:space="preserve">
     <value>新建</value>
   </data>
