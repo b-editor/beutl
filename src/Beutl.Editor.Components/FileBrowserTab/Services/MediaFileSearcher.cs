@@ -1,7 +1,7 @@
-﻿using Beutl.Editor.Services;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
+using Beutl.Editor.Services;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;

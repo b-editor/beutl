@@ -1,8 +1,8 @@
-﻿using Beutl.AgentToolkit.Schema;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Graphics;

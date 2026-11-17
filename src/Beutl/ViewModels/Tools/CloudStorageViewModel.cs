@@ -1,5 +1,4 @@
-﻿using Beutl.Controls.PropertyEditors;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Net;
 using System.Windows.Input;
 using Avalonia.Controls;
@@ -8,6 +7,7 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Logging;

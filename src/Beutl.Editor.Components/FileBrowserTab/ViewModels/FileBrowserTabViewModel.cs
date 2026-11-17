@@ -1,9 +1,9 @@
-﻿using Beutl.Editor.Services;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Text.Json.Nodes;
 using Avalonia.Threading;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Beutl.Services;

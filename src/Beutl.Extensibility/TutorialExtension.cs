@@ -1,5 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Beutl.Services.Tutorials;
+﻿using Beutl.Services.Tutorials;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Extensibility;
 

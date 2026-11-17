@@ -1,16 +1,16 @@
-﻿using Beutl.Editor.Services;
-using Microsoft.Extensions.DependencyInjection;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Services;
 using Beutl.Graphics.Transformation;
 using Beutl.Models;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 

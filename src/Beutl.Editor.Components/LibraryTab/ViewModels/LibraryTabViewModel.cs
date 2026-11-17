@@ -1,10 +1,7 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-
 using Avalonia.Threading;
-
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
@@ -12,7 +9,7 @@ using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Services;
 using Beutl.NodeGraph;
 using Beutl.Services;
-
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 

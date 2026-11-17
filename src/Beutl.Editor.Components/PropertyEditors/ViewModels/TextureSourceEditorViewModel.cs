@@ -1,9 +1,9 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Graphics3D.Textures;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 

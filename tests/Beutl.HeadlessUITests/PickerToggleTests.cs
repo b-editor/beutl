@@ -335,6 +335,7 @@ public sealed class PickerToggleTests
         var brush = new DrawableBrush();
         using var viewModel = new CoreObjectEditorViewModel<Drawable>(
             new SimplePropertyAdapter<Drawable>((SimpleProperty<Drawable>)brush.Drawable!, brush));
+        viewModel.Accept(new ServiceVisitor());
         var editor = new CoreObjectEditor { DataContext = viewModel };
         Window window = Show(editor);
         try

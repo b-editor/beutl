@@ -1,17 +1,16 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-
 using Beutl.Language;
 using Beutl.Services;
 using Beutl.Services.Tutorials;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Tutorial;
 

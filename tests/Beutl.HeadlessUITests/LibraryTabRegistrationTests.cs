@@ -18,6 +18,7 @@ public sealed class LibraryTabRegistrationTests
     [TearDown]
     public void DisposeLibrary() => _library.Dispose();
 
+    // A format of its own, so that no other part of the app picks up the item while it is registered.
     private const string LateFormat = "Beutl.HeadlessUITests.LateItem";
 
     // One word that no built-in item contains, since a search matches any of its words.
@@ -129,9 +130,17 @@ public sealed class LibraryTabRegistrationTests
         using var viewModel = new LibraryTabViewModel(_library);
         await viewModel.Search(LateName, CancellationToken.None);
         Assert.That(viewModel.SearchResult, Is.Empty);
-        _library.Register<LateItem>(LateFormat, LateName);
+        try
+        {
+            GraphNodeRegistry.RegisterNode<LateNode>(LateName);
 
-        await HeadlessTestHelpers.WaitUntilAsync(() => viewModel.SearchResult.Any(item => item.DisplayName == LateName));
+            await HeadlessTestHelpers.WaitUntilAsync(() => viewModel.SearchResult.Any(item => item.DisplayName == LateName));
+        }
+        finally
+        {
+            TypeUnloadNotifier.NotifyUnloading([typeof(LateNode)]);
+            Dispatcher.UIThread.RunJobs();
+        }
     }
 
     [AvaloniaTest]

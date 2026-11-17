@@ -1,5 +1,5 @@
-﻿using Beutl.Editor.Services;
-using Beutl.Editor.Components.Helpers;
+﻿using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Language;
 using Beutl.UnitTests.TestInfrastructure;
 

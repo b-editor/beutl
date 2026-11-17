@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
@@ -7,6 +6,7 @@ using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Components.TransitionTab.ViewModels;
 using Beutl.Graphics.Transitions;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.TransitionTab.Views;
 

@@ -1,6 +1,6 @@
-﻿using Beutl.Controls.PropertyEditors;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Beutl.Api.Services;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 
 namespace Beutl.Views;

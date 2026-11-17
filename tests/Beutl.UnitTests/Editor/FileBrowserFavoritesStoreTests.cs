@@ -1,7 +1,7 @@
-﻿using Beutl.Editor.Services;
-using System.Globalization;
+﻿using System.Globalization;
 using Beutl.Configuration;
 using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Editor.Services;
 
 namespace Beutl.UnitTests.Editor;
 

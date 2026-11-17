@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
@@ -11,6 +10,7 @@ using Beutl.Editor.Services.Captions;
 using Beutl.Editor.VersionControl;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 

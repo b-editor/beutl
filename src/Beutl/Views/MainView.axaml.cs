@@ -1,6 +1,4 @@
-﻿using Beutl.Controls.PropertyEditors;
-using Microsoft.Extensions.DependencyInjection;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Chrome;
 using Avalonia.Input;
@@ -8,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.AgentToolkit.Installation;
 using Beutl.Configuration;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Pages;
@@ -21,6 +20,7 @@ using Beutl.ViewModels.SettingsPages;
 using Beutl.Views.Tutorial;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NuGet.Versioning;
 

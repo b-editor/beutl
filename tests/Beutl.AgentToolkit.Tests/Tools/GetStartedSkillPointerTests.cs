@@ -1,5 +1,5 @@
-﻿using Beutl.AgentToolkit.Schema;
-using Beutl.AgentToolkit.Installation;
+﻿using Beutl.AgentToolkit.Installation;
+using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 

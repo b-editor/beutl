@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Beutl.Audio;
@@ -20,6 +19,7 @@ using Beutl.Services;
 using Beutl.Services.AI;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Tools;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

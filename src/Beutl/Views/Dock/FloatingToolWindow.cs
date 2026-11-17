@@ -1,15 +1,15 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Beutl.Controls.PropertyEditors;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Dock.Avalonia.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Dock;
 

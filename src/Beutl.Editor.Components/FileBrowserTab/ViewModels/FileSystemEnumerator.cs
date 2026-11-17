@@ -1,6 +1,6 @@
-﻿using Beutl.Editor.Services;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Editor.Services;
 
 namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
 

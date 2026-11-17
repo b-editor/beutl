@@ -1,5 +1,5 @@
-﻿using Beutl.Editor.Services;
-using Beutl.Editor.Components.FileBrowserTab.ViewModels;
+﻿using Beutl.Editor.Components.FileBrowserTab.ViewModels;
+using Beutl.Editor.Services;
 using Beutl.Media.Decoding;
 using Icon = FluentIcons.Common.Icon;
 

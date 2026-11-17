@@ -1,9 +1,9 @@
-﻿using Beutl.Controls.PropertyEditors;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Threading;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.Services.PrimitiveImpls;

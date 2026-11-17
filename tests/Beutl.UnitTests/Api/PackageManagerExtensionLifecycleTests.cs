@@ -1,10 +1,10 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using Beutl.Api.Services;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.UnitTests.Api;
 

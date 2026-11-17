@@ -1,5 +1,5 @@
-﻿using Beutl.Controls.PropertyEditors;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Pages;
 using Beutl.ViewModels;

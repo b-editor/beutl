@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Beutl.Editor;
+﻿using Beutl.Editor;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.VersionControl;
@@ -8,6 +7,7 @@ using Beutl.Models;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Dispatcher = Avalonia.Threading.Dispatcher;
 
