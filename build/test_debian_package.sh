@@ -12,7 +12,8 @@ while IFS= read -r -d '' path; do
     magic=$(od -An -tx1 -N4 "$path")
     [[ ${magic// /} == 7f454c46 ]] || continue
     ((++checked))
-    if ! dependencies=$(ldd "$path" 2>&1); then
+    # glibc's loader can report an unavailable symbol version and still exit successfully in trace mode.
+    if ! dependencies=$(ldd "$path" 2>&1) || [[ $dependencies == *": version "*" not found (required by "* ]]; then
         [[ $dependencies == *"not a dynamic executable"* || $dependencies == *"statically linked"* ]] && continue
         printf '%s\n%s\n' "$path" "$dependencies" >&2
         failed=1
