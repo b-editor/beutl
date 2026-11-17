@@ -86,3 +86,30 @@ jobs:
           name: debian_${{ matrix.deb-arch }}
           path: ./packages/beutl_${{ inputs.simpleVer }}-${{ inputs.revision }}_${{ matrix.deb-arch }}.deb
           if-no-files-found: error
+
+  install-test:
+    needs: build-debian-package
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['ubuntu:22.04', 'ubuntu:24.04', 'ubuntu:26.04', 'debian:12', 'debian:13']
+        platform:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.platform.runner }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: debian_${{ matrix.platform.arch }}
+          path: package
+
+      - name: Install the package and check its native dependencies
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          docker run --rm -v "$PWD:/work:ro" -w /work "$IMAGE" \
+            bash -c 'bash build/test_debian_package.sh ./package/beutl_*.deb'
