@@ -62,6 +62,7 @@ public sealed class CurvesColorRangeTests
         layout.Children.Add(playerView);
         layout.Children.Add(curvesView);
         var window = new Window { Content = layout, Width = 1000, Height = 500 };
+        Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
         try
         {
             window.Show();
@@ -212,7 +213,7 @@ public sealed class CurvesColorRangeTests
     public async Task A_scrub_that_comes_back_to_its_start_is_an_undo_step()
     {
         TestGpu.RequireAnyDevice();
-        using PointerLockScope pointerLock = PointerLockScope.Off();
+        using PointerLockScope pointerLock = PointerLockScope.Off(TestShell.Configuration.EditorConfig);
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("curves-color-range-scrub", FrameWidth, FrameHeight);
         var curves = new Curves();
         await TestShell.AddElementAsync(editor, () => CreateShape(curves), MediaTime.Zero, MediaTime.FromSeconds(2));
@@ -355,6 +356,8 @@ public sealed class CurvesColorRangeTests
         layout.Children.Add(playerView);
         layout.Children.Add(curvesView);
         var window = new Window { Content = layout, Width = 1000, Height = 500 };
+        // The window's settings reach its controls, as the editor's do; the scrub test turns its pointer lock off.
+        Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
         window.Show();
         HeadlessTestHelpers.Render(3);
         await RenderThread.Dispatcher.InvokeAsync(static () => { });
