@@ -14,6 +14,7 @@ public partial class CurvesTabView : UserControl
     private readonly CompositeDisposable _subscriptions = [];
     private DragSession? _drag;
     private IDisposable? _pickEscape;
+    private bool _attached;
 
     public CurvesTabView()
     {
@@ -67,9 +68,24 @@ public partial class CurvesTabView : UserControl
         }
     }
 
+    // The dock makes a new view each time the tab is shown and leaves the old one holding its data context, so the
+    // subscriptions to the long-lived view model last only while the view is in a window, and the old view can go.
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _attached = true;
+        Observe();
+    }
+
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        if (_attached)
+            Observe();
+    }
+
+    private void Observe()
+    {
         _subscriptions.Clear();
         if (DataContext is CurvesTabViewModel viewModel)
         {
@@ -93,8 +109,11 @@ public partial class CurvesTabView : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
+        _attached = false;
         if (DataContext is CurvesTabViewModel viewModel)
             viewModel.IsPickingColor.Value = false;
+        _subscriptions.Clear();
+        OnPickingColorChanged(false);
     }
 
     // Escape ends the pick wherever the focus is: it is in this tab or in the preview, rarely in the frame itself.

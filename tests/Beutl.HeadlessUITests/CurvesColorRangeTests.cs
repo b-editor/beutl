@@ -346,6 +346,39 @@ public sealed class CurvesColorRangeTests
         });
     }
 
+    // The dock makes a new view each time the tab is shown and leaves the old one holding the long-lived view model as
+    // its data context, so a view lets the model go while it is out of the window, and takes it up again on its return.
+    [AvaloniaTest]
+    public async Task A_view_out_of_the_window_lets_the_model_go()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("curves-color-range-detach", FrameWidth, FrameHeight);
+        using var model = new CurvesTabViewModel(editor);
+        var curvesView = new CurvesTabView { DataContext = model };
+        var host = new ContentControl { Content = curvesView };
+        var window = new Window { Content = host, Width = 600, Height = 400 };
+        Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
+        window.Show();
+        try
+        {
+            var box = curvesView.FindControl<NumberEditor<float>>("RangeWidthEditor")!;
+            model.ConfirmRangeWidth(90);
+            Assert.That(box.Value, Is.EqualTo(90));
+
+            host.Content = null;
+            model.ConfirmRangeWidth(120);
+            Assert.That(box.Value, Is.EqualTo(90), "A view out of the window still follows the model.");
+
+            host.Content = curvesView;
+            HeadlessTestHelpers.Settle();
+            Assert.That(box.Value, Is.EqualTo(120), "A view back in the window shows the model again.");
+        }
+        finally
+        {
+            curvesView.DataContext = null;
+            window.Close();
+        }
+    }
+
     // Shows the tab beside the preview and picks the orange with the tab's eyedropper.
     private static async Task<(Window Window, CurvesTabView View)> ShowAndPickAsync(EditViewModel editor, CurvesTabViewModel model)
     {
