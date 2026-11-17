@@ -61,6 +61,10 @@ public sealed partial class SceneCompositor : ICompositor
 
     public bool ForceOriginalSource { get; init; }
 
+    /// <summary>Objects this compositor's frames evaluate as disabled; see <see cref="CompositionConditions.DisabledObjects"/>.</summary>
+    /// <remarks>Set it before the first frame. Nested scenes inherit it with the rest of the conditions.</remarks>
+    internal IReadOnlySet<EngineObject>? DisabledObjects { get; set; }
+
     // Replaces a compositor whose scene or sharing/source settings no longer match the context and
     // creates one for a referenced scene. The field is cleared before construction, so a constructor
     // that throws leaves no disposed compositor behind.
@@ -117,6 +121,7 @@ public sealed partial class SceneCompositor : ICompositor
                 TargetDomain = new Rect(default, compositor.Scene.FrameSize.Value.ToSize(1)),
                 FrameRate = compositor.Scene.FindHierarchicalParent<Project>().GetFrameRate(),
                 EvaluationServices = services?.Fork(compositor, this) ?? new EvaluationServices(compositor, this),
+                DisabledObjects = compositor.DisabledObjects,
             };
         }
 

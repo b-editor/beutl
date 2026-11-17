@@ -36,6 +36,30 @@
   <data name="SaturationVsSaturation" xml:space="preserve">
     <value>彩度 vs 彩度</value>
   </data>
+  <data name="Curves_PickColor" xml:space="preserve">
+    <value>プレビューから色を選ぶ（このエフェクトをかける前の色）</value>
+  </data>
+  <data name="Curves_PickColorPrompt" xml:space="preserve">
+    <value>プレビューで色をクリックしてください。Escで取り消します。</value>
+  </data>
+  <data name="Curves_PickedColorTip" xml:space="preserve">
+    <value>選んだ色（このエフェクトをかける前）: 色相 {0}°、彩度 {1}%、明度 {2}%</value>
+  </data>
+  <data name="Curves_ColorRange" xml:space="preserve">
+    <value>範囲</value>
+  </data>
+  <data name="Curves_ColorRangeTip" xml:space="preserve">
+    <value>選んだ色を中心に、調整が及ぶ色相の幅です。範囲外の色は変わりません。</value>
+  </data>
+  <data name="Curves_ColorRangeAmountTip" xml:space="preserve">
+    <value>選んだ色での変化量です。範囲の端に向かって弱まります。</value>
+  </data>
+  <data name="Curves_Luminance" xml:space="preserve">
+    <value>輝度</value>
+  </data>
+  <data name="Curves_ClearPickedColor" xml:space="preserve">
+    <value>選んだ色を解除</value>
+  </data>
   <data name="Close" xml:space="preserve">
     <value>閉じる</value>
   </data>
