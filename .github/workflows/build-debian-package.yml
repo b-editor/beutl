@@ -5,6 +5,9 @@ name: Build Debian Package
 on:
   workflow_call:
     inputs:
+      platforms:
+        required: true
+        type: string
       semVer:
         required: true
         type: string
@@ -20,11 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          - arch: x64
-            deb-arch: amd64
-          - arch: arm64
-            deb-arch: arm64
+        include: ${{ fromJSON(inputs.platforms) }}
 
     steps:
       - name: Checkout

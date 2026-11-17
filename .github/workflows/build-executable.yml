@@ -21,9 +21,8 @@ on:
       # and macOS ships the signed app from build-macos-app.yml.
       rids:
         description: The Nuke runtimes to build, as a JSON array.
-        required: false
+        required: true
         type: string
-        default: '["linux_x64", "linux_arm64", "win_x64", "win_arm64"]'
       selfContained:
         required: false
         type: boolean
@@ -112,7 +111,7 @@ jobs:
             --runtime ${{ matrix.rid }} \
             --self-contained ${{ inputs.selfContained }} \
             --skip publish \
-            --version ${{ inputs.nugetVer }}
+            --version ${{ inputs.semVer }}
 
       - name: Save
         uses: actions/upload-artifact@v7.0.2

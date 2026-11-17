@@ -5,10 +5,10 @@ name: Build Flatpak Package
 on:
   workflow_call:
     inputs:
-      semVer:
+      platforms:
         required: true
         type: string
-      nugetVer:
+      semVer:
         required: true
         type: string
 
@@ -22,15 +22,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        include:
-          - arch: x64
-            flatpak-arch: x86_64
-            runner: ubuntu-latest
-            bundle: Beutl-${{ inputs.semVer }}.flatpak
-          - arch: arm64
-            flatpak-arch: aarch64
-            runner: ubuntu-24.04-arm
-            bundle: Beutl-arm64-${{ inputs.semVer }}.flatpak
+        include: ${{ fromJSON(inputs.platforms) }}
 
     steps:
       - name: Checkout
@@ -65,7 +57,7 @@ jobs:
       - name: Stage source for flatpak-builder
         run: |
           mkdir -p packages/flatpak/sources/Beutl-linux-standalone
-          unzip -q "${{ github.workspace }}/artifacts/Beutl-linux-${{ matrix.arch }}-standalone-${{ inputs.nugetVer }}.zip" \
+          unzip -q "${{ github.workspace }}/artifacts/Beutl-linux-${{ matrix.arch }}-standalone-${{ inputs.semVer }}.zip" \
             -d packages/flatpak/sources/Beutl-linux-standalone
 
       - name: Update asset metadata

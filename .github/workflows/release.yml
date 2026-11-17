@@ -26,6 +26,7 @@ jobs:
     needs: [ determine-version ]
     uses: ./.github/workflows/build-executable.yml
     with:
+      rids: ${{ toJSON(fromJSON(needs.determine-version.outputs.releaseMatrices).executables) }}
       semVer: ${{ needs.determine-version.outputs.semVer }}
       nugetVer: ${{ needs.determine-version.outputs.nugetVer }}
       asmVer: ${{ needs.determine-version.outputs.asmVer }}
@@ -35,6 +36,7 @@ jobs:
     needs: [ determine-version, build-executable ]
     uses: ./.github/workflows/build-windows-installer.yml
     with:
+      architectures: ${{ toJSON(fromJSON(needs.determine-version.outputs.releaseMatrices).installers) }}
       semVer: ${{ needs.determine-version.outputs.semVer }}
       asmVer: ${{ needs.determine-version.outputs.asmVer }}
 
@@ -42,6 +44,7 @@ jobs:
     needs: [ determine-version, build-executable ]
     uses: ./.github/workflows/build-debian-package.yml
     with:
+      platforms: ${{ toJSON(fromJSON(needs.determine-version.outputs.releaseMatrices).debian) }}
       semVer: ${{ needs.determine-version.outputs.semVer }}
       simpleVer: ${{ needs.determine-version.outputs.simpleVer }}
       revision: ${{ needs.determine-version.outputs.revision }}
@@ -50,13 +53,14 @@ jobs:
     needs: [ determine-version, build-executable ]
     uses: ./.github/workflows/build-flatpak-package.yml
     with:
+      platforms: ${{ toJSON(fromJSON(needs.determine-version.outputs.releaseMatrices).flatpak) }}
       semVer: ${{ needs.determine-version.outputs.semVer }}
-      nugetVer: ${{ needs.determine-version.outputs.nugetVer }}
 
   build-app-bundle:
     needs: [ determine-version ]
     uses: ./.github/workflows/build-macos-app.yml
     with:
+      rids: ${{ toJSON(fromJSON(needs.determine-version.outputs.releaseMatrices).macos) }}
       semVer: ${{ needs.determine-version.outputs.semVer }}
       nugetVer: ${{ needs.determine-version.outputs.nugetVer }}
       asmVer: ${{ needs.determine-version.outputs.asmVer }}
@@ -83,21 +87,29 @@ jobs:
     needs: [ determine-version, build-executable, build-windows-installer, build-debian-package, build-flatpak-package, build-nuget, build-app-bundle ]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
       - name: Download artifacts
         uses: actions/download-artifact@v8.0.2
         with:
           path: artifacts
 
-      - name: Print
-        run: ls artifacts
+      - name: Collect release files
+        id: assets
+        env:
+          VERSION: ${{ needs.determine-version.outputs.semVer }}
+          DEB_VERSION: ${{ needs.determine-version.outputs.simpleVer }}-${{ needs.determine-version.outputs.revision }}
+        run: |
+          files=$(python3 .github/scripts/release_assets.py uploads artifacts "$VERSION" "$DEB_VERSION")
+          echo "files=$files" >> "$GITHUB_OUTPUT"
 
-      # Only self-contained builds ship (#2887). Windows ships its installers and macOS the signed app, so the
-      # Windows zips from build-executable are not published. The Windows installer jobs unpack the zip's
-      # workflow artifact.
       - uses: ncipollo/release-action@v1.21.0
         id: create_release
         with:
-          artifacts: "artifacts/**/Beutl-linux-*-standalone-*.zip,artifacts/**/Beutl.osx_*.app.zip,artifacts/**/*.deb,artifacts/**/*.flatpak,artifacts/Packages/*.nupkg,artifacts/beutl-standalone-setup/beutl-standalone-setup.exe,artifacts/beutl-standalone-arm64-setup/beutl-standalone-arm64-setup.exe"
+          artifacts: ${{ steps.assets.outputs.files }}
           draft: true
           makeLatest: true
           generateReleaseNotes: true

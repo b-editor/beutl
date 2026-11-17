@@ -17,6 +17,11 @@ jobs:
     env:
       API_BASE: https://release.api.beutl.beditor.net
     steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
       - name: Resolve version
         id: ver
         env:
@@ -41,38 +46,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # One row per registered asset: the release asset (or the label of a "pattern"), and the id after
-          # beutl-<version>-. Only self-contained builds ship (#2887), so every registered asset is standalone.
-          rows=$(echo "$ASSETS" | jq -c --arg ver "$VER" '
-            . as $assets
-            | [
-                {name: "beutl-standalone-setup.exe", id: "win-x64-installer-standalone", os: "win", arch: "x64", type: "installer"},
-                {name: "beutl-standalone-arm64-setup.exe", id: "win-arm64-installer-standalone", os: "win", arch: "arm64", type: "installer"},
-                {name: "beutl_*_amd64.deb", pattern: "^beutl_.*_amd64\\.deb$", id: "linux-x64-debian", os: "linux", arch: "x64", type: "debian"},
-                {name: "Beutl-linux-x64-standalone-\($ver).zip", id: "linux-x64-zip-standalone", os: "linux", arch: "x64", type: "zip"},
-                {name: "Beutl-\($ver).flatpak", id: "linux-x64-flatpak", os: "linux", arch: "x64", type: "flatpak"},
-                {name: "beutl_*_arm64.deb", pattern: "^beutl_.*_arm64\\.deb$", id: "linux-arm64-debian", os: "linux", arch: "arm64", type: "debian"},
-                {name: "Beutl-linux-arm64-standalone-\($ver).zip", id: "linux-arm64-zip-standalone", os: "linux", arch: "arm64", type: "zip"},
-                {name: "Beutl-arm64-\($ver).flatpak", id: "linux-arm64-flatpak", os: "linux", arch: "arm64", type: "flatpak"},
-                {name: "Beutl.osx_x64.app.zip", id: "osx-x64-app", os: "osx", arch: "x64", type: "app"},
-                {name: "Beutl.osx_arm64.app.zip", id: "osx-arm64-app", os: "osx", arch: "arm64", type: "app"}
-              ]
-            | map(. as $row
-                | .url = ([$assets[] | select(if $row.pattern then .name | test($row.pattern) else .name == $row.name end)][0].browser_download_url // ""))')
-
-          missing=0
-          while IFS=$'\t' read -r name url; do
-            if [ -z "$url" ]; then
-              echo "::error::missing asset: $name"
-              missing=1
-            else
-              echo "$name -> $url"
-            fi
-          done < <(echo "$rows" | jq -r '.[] | [.name, .url] | @tsv')
-          [ "$missing" -eq 0 ] || exit 1
-
-          body=$(echo "$rows" | jq -c --arg ver "$VER" \
-            '{assets: map({id: "beutl-\($ver)-\(.id)", version: $ver, os, arch, type, standalone: true, url})}')
+          body=$(python3 .github/scripts/release_assets.py registrations "$VER" <<< "$ASSETS")
 
           {
             echo "body<<EOF"
