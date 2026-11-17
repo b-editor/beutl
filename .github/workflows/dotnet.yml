@@ -540,10 +540,11 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      # Match the Linux coverage build so both reports use the same lines and branches.
       - name: Test new-tab referrers on WebView2
         run: >-
           dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj
-          --configuration Release -f net11.0
+          --configuration Debug -f net11.0
           --filter "FullyQualifiedName~BrowserNewTabReferrerTests|FullyQualifiedName~NativeBrowserFrameTests"
           --collect "XPlat Code Coverage" --results-directory TestResults/webview2
           -- "DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include=[Beutl.Editor.Components]Beutl.Editor.Components.WebBrowserTab*"
