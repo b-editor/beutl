@@ -20,6 +20,7 @@ using Beutl.ViewModels;
 using Beutl.Views;
 using AvaPoint = Avalonia.Point;
 using AvaVector = Avalonia.Vector;
+using BtlPoint = Beutl.Graphics.Point;
 using Color = Beutl.Media.Color;
 using RelativePoint = Beutl.Graphics.RelativePoint;
 using RelativeUnit = Beutl.Graphics.RelativeUnit;
@@ -254,6 +255,68 @@ public sealed class CurvesColorRangeTests
         }
     }
 
+    // A handle that reaches past the next point makes x go back and forth along its piece, which the range cannot cut
+    // without changing the curve outside it. A value or a width whose range would cut it leaves the curve as it is, and
+    // its box shows again what the curve has: the value at the color, or the width the curve was last shaped with.
+    [AvaloniaTest]
+    public async Task A_range_that_would_cut_a_piece_going_back_and_forth_leaves_the_curve_as_it_is()
+    {
+        TestGpu.RequireAnyDevice();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("curves-color-range-crossing", FrameWidth, FrameHeight);
+        var curves = new Curves();
+        await TestShell.AddElementAsync(editor, () => CreateShape(curves), MediaTime.Zero, MediaTime.FromSeconds(2));
+        // The orange is at hue 22 degrees, and the piece from 72 to 144 degrees goes back and forth.
+        var crossing = new CurveMap(
+        [
+            new CurveControlPoint(0, 0.5f),
+            new CurveControlPoint(new BtlPoint(0.2f, 0.5f), default, new BtlPoint(0.4f, 0.2f)),
+            new CurveControlPoint(new BtlPoint(0.4f, 0.7f), new BtlPoint(-0.4f, 0), default),
+            new CurveControlPoint(1, 0.5f),
+        ]);
+        editor.HistoryManager.ExecuteInTransaction(() => curves.HueVsSaturation.Value = crossing, "Hand edit");
+
+        using var model = new CurvesTabViewModel(editor);
+        model.Effect.Value = curves;
+        model.SelectedGroup.Value = CurveGroup.HueVsSaturation;
+        (Window window, CurvesTabView curvesView) = await ShowAndPickAsync(editor, model);
+        try
+        {
+            int undoCount = editor.HistoryManager.UndoCount;
+            var pickButton = curvesView.FindControl<ToggleButton>("PickColorButton")!;
+
+            // 200 degrees reach into the piece.
+            model.ConfirmRangeWidth(200);
+            TextBox value = TypeInto(window, curvesView, "RangeValueEditor", "150", pickButton);
+            Assert.Multiple(() =>
+            {
+                Assert.That(curves.HueVsSaturation.Value, Is.EqualTo(crossing));
+                Assert.That(value.Text, Is.EqualTo("100"), "The box shows the curve's value again.");
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
+            });
+
+            // 60 degrees end before it, and a width that reaches it again keeps the curve as those shaped it.
+            model.ConfirmRangeWidth(60);
+            model.ConfirmRangeValue(150);
+            HeadlessTestHelpers.Settle();
+            CurveMap shaped = curves.HueVsSaturation.Value;
+            Assert.That(shaped, Is.Not.EqualTo(crossing), "60 degrees shape the curve.");
+
+            TextBox width = TypeInto(window, curvesView, "RangeWidthEditor", "200", pickButton);
+            Assert.Multiple(() =>
+            {
+                Assert.That(curves.HueVsSaturation.Value, Is.EqualTo(shaped));
+                Assert.That(model.RangeWidth.Value, Is.EqualTo(60));
+                Assert.That(width.Text, Is.EqualTo("60"), "The box shows the width the curve has again.");
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
+            });
+        }
+        finally
+        {
+            curvesView.DataContext = null;
+            window.Close();
+        }
+    }
+
     // Another effect that takes the tab keeps a hue curve shown and the eyedropper offered, so the pick of the first
     // ends with it rather than leaving the button on and the preview waiting for nothing.
     [AvaloniaTest]
@@ -304,6 +367,20 @@ public sealed class CurvesColorRangeTests
         await HeadlessTestHelpers.WaitUntilAsync(() => model.HasPickedColor.Value, message: "No color was picked.");
         HeadlessTestHelpers.Render(2);
         return (window, curvesView);
+    }
+
+    // Types the text into a box as a person would, then moves the focus away, which confirms it. Text set on the text
+    // box itself would be a local value, which the box's template could no longer show over.
+    private static TextBox TypeInto(Window window, CurvesTabView view, string box, string typed, InputElement next)
+    {
+        TextBox text = view.FindControl<NumberEditor<float>>(box)!.GetVisualDescendants().OfType<TextBox>().First();
+        text.Focus();
+        text.SelectAll();
+        window.KeyTextInput(typed);
+        HeadlessTestHelpers.Settle();
+        next.Focus();
+        HeadlessTestHelpers.Settle();
+        return text;
     }
 
     private static CurveMap Level(float value) => new([new CurveControlPoint(0, value), new CurveControlPoint(1, value)]);

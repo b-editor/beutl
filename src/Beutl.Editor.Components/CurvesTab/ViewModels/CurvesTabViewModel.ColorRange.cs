@@ -358,7 +358,12 @@ public sealed partial class CurvesTabViewModel
                 _rangeEdit = edit = new RangeEdit(curve, center, curve.Value);
 
             edit.Value = FromRangeValue(group, value);
-            Shape(edit, commit);
+            if (!Shape(edit, RangeWidth.Value, commit))
+            {
+                // The curve stays as it is, and the box shows its value again.
+                _rangeEdit = null;
+                value = MathF.Round(ToRangeValue(group, curve.Value.Evaluate(center)), 1);
+            }
         }
 
         RangeValue.Value = value;
@@ -369,32 +374,42 @@ public sealed partial class CurvesTabViewModel
     // before the first edit. Without a change to the curve yet, the width only marks the hues.
     private void SetRangeWidth(float width, bool commit)
     {
-        RangeWidth.Value = Math.Clamp(width, MinRangeWidth, MaxRangeWidth);
+        width = Math.Clamp(width, MinRangeWidth, MaxRangeWidth);
         if (_rangeEdit is { } edit && SelectedHueCurve() is { } curve && MarkerPosition.Value is { } position
-            && edit.Continues(curve, (float)position))
+            && edit.Continues(curve, (float)position)
+            && !Shape(edit, width, commit))
         {
-            Shape(edit, commit);
+            // The curve stays as the last width shaped it, and so does the width.
+            width = RangeWidth.Value;
         }
 
+        RangeWidth.Value = width;
         RangeWidth.ForceNotify();
     }
 
-    private void Shape(RangeEdit edit, bool commit)
+    // False, with the curve left as it is, where an edge of the range falls inside a curved piece that HueRangeCurve
+    // cannot cut. A confirmed edit commits all the same, for what a scrub wrote before it.
+    private bool Shape(RangeEdit edit, float width, bool commit)
     {
-        CurveMap shaped = HueRangeCurve.Shape(edit.Original, edit.Center, RangeWidth.Value / 360, edit.Value);
-        _isShaping = true;
-        try
+        CurveMap? shaped = HueRangeCurve.Shape(edit.Original, edit.Center, width / 360, edit.Value);
+        if (shaped is not null)
         {
-            edit.Written = shaped;
-            edit.Curve.Value = shaped;
-        }
-        finally
-        {
-            _isShaping = false;
+            _isShaping = true;
+            try
+            {
+                edit.Written = shaped;
+                edit.Curve.Value = shaped;
+            }
+            finally
+            {
+                _isShaping = false;
+            }
         }
 
         if (commit)
             EditorContext.GetService<HistoryManager>()?.Commit(CommandNames.EditProperty);
+
+        return shaped is not null;
     }
 
     private static float ToRangeValue(CurveGroup group, float curveValue)

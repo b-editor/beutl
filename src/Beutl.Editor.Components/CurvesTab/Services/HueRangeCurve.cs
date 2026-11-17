@@ -5,7 +5,8 @@ namespace Beutl.Editor.Components.CurvesTab.Services;
 // Shapes a hue curve around one hue, as the curves tab's color range does. Inside the range the curve becomes a smooth
 // bump from its own value at each edge to the given value at the center; outside it the curve keeps its points and its
 // shape exactly, so the colors there do not change. Hue 0 and hue 1 are the same red: a range that crosses them goes on
-// at the other end of the curve, and both ends then take the bump's value there.
+// at the other end of the curve, and both ends then take the bump's value there. An edge inside a curved piece whose x
+// goes back and forth cannot be cut without changing the colors outside, so such a curve is left as it is.
 internal static class HueRangeCurve
 {
     // A range spans at most 300 of the 360 degrees, so its two edges never meet and only one can cross the ends.
@@ -19,7 +20,8 @@ internal static class HueRangeCurve
     private const float SlopeStep = 1e-3f;
     private const float MaxSlope = 4;
 
-    public static CurveMap Shape(CurveMap curve, float center, float width, float value)
+    // The shaped curve, or null where an edge of the range falls inside a curved piece whose x goes back and forth.
+    public static CurveMap? Shape(CurveMap curve, float center, float width, float value)
     {
         float half = Math.Clamp(width, MinWidth, MaxWidth) / 2;
         center -= MathF.Floor(center);
@@ -38,8 +40,9 @@ internal static class HueRangeCurve
         float rightSlope = Slope(curve, rightX, 1);
 
         List<CurveControlPoint> points = WithEnds(curve.Points);
-        SplitAt(points, leftX);
-        SplitAt(points, rightX);
+        if (!SplitAt(points, leftX) || !SplitAt(points, rightX))
+            return null;
+
         points.RemoveAll(point => crossesEnds
             ? point.Point.X > leftX + Tolerance || point.Point.X < rightX - Tolerance
             : point.Point.X > leftX + Tolerance && point.Point.X < rightX - Tolerance);
@@ -152,11 +155,13 @@ internal static class HueRangeCurve
         => points.FindIndex(point => MathF.Abs(point.Point.X - x) <= Tolerance);
 
     // Puts a point at x without changing the curve's shape: a straight piece stays straight, and a curved one is cut in
-    // two halves that trace it exactly. A point already at x stays as it is.
-    private static void SplitAt(List<CurveControlPoint> points, float x)
+    // two halves that trace it exactly. A point already at x stays as it is. A curved piece whose x goes back and forth,
+    // as when a handle reaches past the next point, is left whole and false returned: CurveMap.Evaluate finds one of the
+    // piece's crossings of an x by bisection, and the halves of a cut would find others, changing the curve outside x.
+    private static bool SplitAt(List<CurveControlPoint> points, float x)
     {
         if (IndexAt(points, x) >= 0)
-            return;
+            return true;
 
         int next = points.FindIndex(point => point.Point.X > x);
         CurveControlPoint start = points[next - 1];
@@ -165,18 +170,35 @@ internal static class HueRangeCurve
         {
             float t = (x - start.Point.X) / (end.Point.X - start.Point.X);
             points.Insert(next, new CurveControlPoint(x, start.Point.Y + (end.Point.Y - start.Point.Y) * t));
-            return;
+            return true;
         }
 
         var piece = new Cubic(start.Point, start.AbsoluteRightHandle, end.AbsoluteLeftHandle, end.Point);
+        if (!piece.IsMonotonicInX)
+            return false;
+
         (Cubic first, Cubic second) = piece.Split(piece.ParameterAtX(x));
         points[next - 1] = start.WithRightHandle(first.P1 - first.P0);
         points[next] = end.WithLeftHandle(second.P2 - second.P3);
         points.Insert(next, new CurveControlPoint(new Point(x, first.P3.Y), first.P2 - first.P3, second.P1 - second.P0));
+        return true;
     }
 
     private readonly record struct Cubic(Point P0, Point P1, Point P2, Point P3)
     {
+        // Whether x never goes back along the curve. Its derivative is a quadratic in Bernstein form with the
+        // coefficients below, which stays at or above zero on the whole piece exactly when this holds.
+        public bool IsMonotonicInX
+        {
+            get
+            {
+                float a = P1.X - P0.X;
+                float b = P2.X - P1.X;
+                float c = P3.X - P2.X;
+                return a >= 0 && c >= 0 && (b >= 0 || b * b <= a * c + 1e-9f);
+            }
+        }
+
         // De Casteljau's construction: the two halves trace this curve exactly.
         public (Cubic First, Cubic Second) Split(float t)
         {
