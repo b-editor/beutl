@@ -8,8 +8,8 @@ using Beutl.NodeGraph.Generative;
 using Beutl.NodeGraph.Nodes.Generative;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.Serialization;
-using static Beutl.UnitTests.NodeGraph.NodeGraphTestHelpers;
 using Beutl.UnitTests.TestInfrastructure;
+using static Beutl.UnitTests.NodeGraph.NodeGraphTestHelpers;
 
 namespace Beutl.UnitTests.NodeGraph;
 

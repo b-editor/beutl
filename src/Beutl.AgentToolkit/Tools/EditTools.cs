@@ -10,8 +10,8 @@ using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.ProjectSystem;
-using MergePatchApplier = Beutl.AgentToolkit.MergePatch.MergePatch;
 using ModelContextProtocol.Server;
+using MergePatchApplier = Beutl.AgentToolkit.MergePatch.MergePatch;
 
 namespace Beutl.AgentToolkit.Tools;
 

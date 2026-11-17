@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Buffers.Binary;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
@@ -145,7 +146,7 @@ public class FontFamilyPickerTests
         {
             Assert.That(key, Is.Not.Null);
             Assert.That(secondText.FontFamily.Key, Is.Not.EqualTo(key));
-            Assert.That(revised.Key, Is.Not.EqualTo(key));
+            Assert.That(revised.Key, Is.EqualTo(key));
             Assert.That(firstText.FontFamily.Key, Is.EqualTo(key));
             Assert.That(firstText.DesiredSize.Width, Is.GreaterThan(0));
         });
@@ -431,6 +432,69 @@ public class FontFamilyPickerTests
         using var picker = PickerHost.Open(new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, [family], TimeSpan.Zero));
 
         Assert.That(NameText(picker.List.GetRealizedContainers().Single()).FontFamily.Key, Is.Null);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Project_font_revisions_share_one_registration_and_a_bounded_copy_budget(bool uniqueFonts)
+    {
+        var configuration = new Beutl.Configuration.FontConfig();
+        configuration.FontDirectories.Clear();
+        var fonts = new FontManager(configuration);
+        using Stream input = typeof(FontFamilyPickerTests).Assembly.GetManifestResourceStream("BeutlTestBlocks.ttf")!;
+        using var buffer = new MemoryStream();
+        input.CopyTo(buffer);
+        byte[] data = buffer.ToArray();
+        string root = Directory.CreateTempSubdirectory("beutl-picker-revisions-").FullName;
+        string directory = Directory.CreateDirectory(Path.Combine(root, "resources", "fonts")).FullName;
+        var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
+        var family = new FontFamily("Beutl Test Blocks");
+        var collection = BeutlFontCollection.GetOrRegister(Avalonia.Media.FontManager.Current, fonts, data.Length * 2L);
+        var copies = new Avalonia.Media.GlyphTypeface[2];
+        try
+        {
+            for (int i = 0; i < 40; i++)
+            {
+                byte[] revision = WithFontRevision(data, (uint)(uniqueFonts ? i : i % 2) + 0x10000);
+                File.WriteAllBytes(Path.Combine(directory, "font.ttf"), revision);
+                fonts.LoadProjectFonts(project);
+                Assert.That(BeutlFontCollection.GetOrRegister(Avalonia.Media.FontManager.Current, fonts), Is.SameAs(collection));
+                Assert.That(collection.TryGetGlyphTypeface(family.Name, Avalonia.Media.FontStyle.Normal,
+                    Avalonia.Media.FontWeight.Normal, Avalonia.Media.FontStretch.Normal, out var face), Is.True);
+                if (i < 2) copies[i] = face!;
+                else if (!uniqueFonts) Assert.That(face, Is.SameAs(copies[i % 2]));
+                Assert.That(collection.CopiedFontCount, Is.EqualTo(Math.Min(i + 1, 2)));
+                Assert.That(collection.CopiedBytes, Is.EqualTo(data.Length * (long)Math.Min(i + 1, 2)));
+                fonts.ClearProjectFonts(project);
+            }
+            Assert.That(copies[0], Is.Not.SameAs(copies[1]));
+            Assert.That(copies[0].PlatformTypeface.TryGetStream(out Stream? retained), Is.True);
+            using (retained)
+                Assert.That(retained!.ReadByte(), Is.Not.EqualTo(-1));
+            using var picker = PickerHost.Open(new FontFamilyPickerFlyoutViewModel(fonts, [family], TimeSpan.Zero));
+            HeadlessTestHelpers.Render();
+        }
+        finally
+        {
+            fonts.ClearProjectFonts(project);
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static byte[] WithFontRevision(byte[] original, uint revision)
+    {
+        byte[] data = original.ToArray();
+        int count = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(4));
+        for (int i = 0; i < count; i++)
+        {
+            int table = 12 + i * 16;
+            if (BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(table)) != 0x68656164) continue;
+            int offset = (int)BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(table + 8));
+            BinaryPrimitives.WriteUInt32BigEndian(data.AsSpan(offset + 4), revision);
+            return data;
+        }
+        throw new InvalidDataException("Font has no head table.");
     }
 
     [AvaloniaTest]

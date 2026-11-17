@@ -15,10 +15,10 @@ using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Logging;
 using Beutl.Pages;
 using Beutl.Views.Tools;
-using Icon = FluentIcons.Common.Icon;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Refit;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.ViewModels.Tools;
 

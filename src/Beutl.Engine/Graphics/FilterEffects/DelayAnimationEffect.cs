@@ -28,7 +28,7 @@ public partial class DelayAnimationEffect : FilterEffect
     /// </summary>
     private static void ApplyDelayed(
         (float delay, MediaTime globalTime, FilterEffect childEffect, List<FilterEffect.Resource> cache,
-            bool disableResourceShare, bool preferProxy, ProxyPreset preferredProxyPreset) data,
+            bool disableResourceShare, CompositionConditions conditions) data,
         CustomFilterEffectContext effectContext)
     {
         int targetCount = effectContext.Targets.Count;
@@ -39,8 +39,7 @@ public partial class DelayAnimationEffect : FilterEffect
             data.cache.Add(data.childEffect.ToResource(CreateDelayedContext(
                 delayedTime,
                 data.disableResourceShare,
-                data.preferProxy,
-                data.preferredProxyPreset)));
+                data.conditions)));
         }
 
         while (data.cache.Count > targetCount)
@@ -58,8 +57,7 @@ public partial class DelayAnimationEffect : FilterEffect
             var delayedContext = CreateDelayedContext(
                 delayedTime,
                 data.disableResourceShare,
-                data.preferProxy,
-                data.preferredProxyPreset);
+                data.conditions);
             var versionBumped = false;
             data.cache[j].Reconcile(data.childEffect, delayedContext, ref versionBumped);
 
@@ -95,19 +93,16 @@ public partial class DelayAnimationEffect : FilterEffect
     }
 
     /// <summary>
-    /// Creates the context a delayed copy of the child effect is resolved in, carrying the host's resource-sharing
-    /// and proxy preferences.
+    /// Creates the context a delayed copy of the child effect is resolved in, carrying the host's output conditions.
     /// </summary>
     private static CompositionContext CreateDelayedContext(
         MediaTime delayedTime,
         bool disableResourceShare,
-        bool preferProxy,
-        ProxyPreset preferredProxyPreset)
+        CompositionConditions conditions)
         => new(delayedTime)
         {
             DisableResourceShare = disableResourceShare,
-            PreferProxy = preferProxy,
-            PreferredProxyPreset = preferredProxyPreset,
+            Conditions = conditions,
         };
 
     public override Resource ToResource(CompositionContext context)
@@ -124,8 +119,8 @@ public partial class DelayAnimationEffect : FilterEffect
         private FilterEffect.Resource? _effect;
         private MediaTime _globalTime;
         private bool _disableResourceShare;
-        private bool _preferProxy;
-        private ProxyPreset _preferredProxyPreset = ProxyPreset.Quarter;
+        private CompositionConditions _conditions = CompositionConditions.Default;
+        private long _fontRevision;
         private readonly List<FilterEffect.Resource> _delayedResources = [];
 
         public float Delay => _delay;
@@ -136,9 +131,9 @@ public partial class DelayAnimationEffect : FilterEffect
 
         public bool DisableResourceShare => _disableResourceShare;
 
-        public bool PreferProxy => _preferProxy;
+        public bool PreferProxy => _conditions.PreferProxy;
 
-        public ProxyPreset PreferredProxyPreset => _preferredProxyPreset;
+        public ProxyPreset PreferredProxyPreset => _conditions.PreferredProxyPreset;
 
         public List<FilterEffect.Resource> DelayedResources => _delayedResources;
 
@@ -157,18 +152,19 @@ public partial class DelayAnimationEffect : FilterEffect
             }
 
             MediaTime oldTime = _globalTime;
-            bool oldPreferProxy = _preferProxy;
-            ProxyPreset oldPreferredPreset = _preferredProxyPreset;
+            CompositionConditions oldConditions = _conditions;
+            long oldFontRevision = _fontRevision;
             _globalTime = context.Time;
             _disableResourceShare = context.DisableResourceShare;
-            _preferProxy = context.PreferProxy;
-            _preferredProxyPreset = context.PreferredProxyPreset;
+            _conditions = context.Conditions;
+            _fontRevision = context.Fonts?.Revision ?? 0;
 
-            // Bump Version on a proxy-selection change too, or RenderNodeCache would replay stale
-            // tiles and a preview proxy-mode toggle would not reach the delayed sub-effects until an
-            // unrelated invalidation (e.g. a time change) happens.
-            bool proxyChanged = oldPreferProxy != _preferProxy || oldPreferredPreset != _preferredProxyPreset;
-            if (!versionBumped && (oldTime != _globalTime || proxyChanged))
+            // Catalog and proxy changes must invalidate the cached delayed targets.
+            bool selectionChanged = oldConditions.PreferProxy != _conditions.PreferProxy
+                || oldConditions.PreferredProxyPreset != _conditions.PreferredProxyPreset
+                || !ReferenceEquals(oldConditions.Fonts, _conditions.Fonts)
+                || oldFontRevision != _fontRevision;
+            if (!versionBumped && (oldTime != _globalTime || selectionChanged))
             {
                 Version++;
             }
@@ -198,7 +194,7 @@ public partial class DelayAnimationEffect : FilterEffect
             context.CustomEffect(
                 (delay: Delay, globalTime: GlobalTime, childEffect, cache: DelayedResources,
                  disableResourceShare: DisableResourceShare,
-                 preferProxy: PreferProxy, preferredProxyPreset: PreferredProxyPreset),
+                 conditions: _conditions),
                 ApplyDelayed);
         }
     }

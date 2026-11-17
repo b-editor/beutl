@@ -8,9 +8,9 @@ using Beutl.Models;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 using Beutl.Services;
-using Dispatcher = Avalonia.Threading.Dispatcher;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
+using Dispatcher = Avalonia.Threading.Dispatcher;
 
 namespace Beutl.ViewModels;
 

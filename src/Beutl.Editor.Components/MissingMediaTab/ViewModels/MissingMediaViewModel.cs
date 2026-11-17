@@ -10,10 +10,10 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
-using Icon = FluentIcons.Common.Icon;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.MissingMediaTab.ViewModels;
 

@@ -8,10 +8,10 @@ using Beutl.Engine;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
-using BtlPoint = Beutl.Graphics.Point;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using BtlPoint = Beutl.Graphics.Point;
 
 namespace Beutl.Editor.Components.PathEditorTab.ViewModels;
 

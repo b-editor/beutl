@@ -6,7 +6,6 @@ using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Live;
-using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 using Beutl.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -14,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 

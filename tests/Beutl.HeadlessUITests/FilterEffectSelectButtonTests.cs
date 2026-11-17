@@ -20,15 +20,15 @@ using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
-using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
-using BtlPoint = Beutl.Graphics.Point;
 using Moq;
 using Reactive.Bindings;
+using static Beutl.HeadlessUITests.PropertyEditorTestHost;
+using BtlPoint = Beutl.Graphics.Point;
 
 namespace Beutl.HeadlessUITests;
 

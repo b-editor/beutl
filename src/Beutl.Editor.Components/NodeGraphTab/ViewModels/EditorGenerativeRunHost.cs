@@ -1,9 +1,9 @@
 ﻿using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering;
 using Beutl.NodeGraph.Generative;
-using Dispatcher = Avalonia.Threading.Dispatcher;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
+using Dispatcher = Avalonia.Threading.Dispatcher;
 
 namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
 

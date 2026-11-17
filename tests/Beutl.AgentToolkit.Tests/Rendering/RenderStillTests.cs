@@ -14,8 +14,8 @@ using Beutl.Graphics3D;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
-using MergePatchApplier = Beutl.AgentToolkit.MergePatch.MergePatch;
 using SkiaSharp;
+using MergePatchApplier = Beutl.AgentToolkit.MergePatch.MergePatch;
 
 namespace Beutl.AgentToolkit.Tests.Rendering;
 

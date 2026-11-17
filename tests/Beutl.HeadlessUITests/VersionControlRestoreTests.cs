@@ -9,16 +9,16 @@ using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
-using static Beutl.HeadlessUITests.GitTestSupport;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
-using static Beutl.Testing.Headless.HeadlessTestHelpers;
 using Beutl.ViewModels;
 using Reactive.Bindings;
+using static Beutl.HeadlessUITests.GitTestSupport;
+using static Beutl.Testing.Headless.HeadlessTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 

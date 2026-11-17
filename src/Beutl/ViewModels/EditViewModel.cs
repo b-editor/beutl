@@ -19,11 +19,11 @@ using Beutl.Services;
 using Beutl.Services.AI;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Tools;
-using Dispatcher = Avalonia.Threading.Dispatcher;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using Dispatcher = Avalonia.Threading.Dispatcher;
 
 namespace Beutl.ViewModels;
 

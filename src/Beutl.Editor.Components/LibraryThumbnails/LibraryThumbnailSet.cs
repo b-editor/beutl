@@ -3,8 +3,8 @@ using Avalonia.Threading;
 using Beutl.Controls;
 using Beutl.Editor.Services.LibraryThumbnails;
 using Beutl.Logging;
-using BtlBitmap = Beutl.Media.Bitmap;
 using Microsoft.Extensions.Logging;
+using BtlBitmap = Beutl.Media.Bitmap;
 
 namespace Beutl.Editor.Components.LibraryThumbnails;
 

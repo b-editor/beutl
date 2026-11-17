@@ -21,15 +21,15 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
-using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using FluentAvalonia.UI.Controls;
+using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 using Color = Avalonia.Media.Color;
 using Colors = Avalonia.Media.Colors;
-using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
 

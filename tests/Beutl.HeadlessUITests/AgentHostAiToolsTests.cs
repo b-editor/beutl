@@ -11,7 +11,6 @@ using Beutl.Audio;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Graphics;
-using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
@@ -24,6 +23,7 @@ using Beutl.ViewModels;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using SkiaSharp;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 

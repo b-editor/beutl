@@ -10,7 +10,6 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.Configuration;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
-using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -22,6 +21,7 @@ using ModelContextProtocol.Client;
 using Moq;
 using Reactive.Bindings;
 using SkiaSharp;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 

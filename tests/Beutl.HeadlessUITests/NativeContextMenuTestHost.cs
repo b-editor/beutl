@@ -19,12 +19,12 @@ using Beutl.Configuration;
 using Beutl.Controls.NativeContextMenu;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Graphics.Shapes;
-using static Beutl.HeadlessUITests.MacNative;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
 using Dock.Avalonia.Controls;
 using FluentAvalonia.UI.Controls;
+using static Beutl.HeadlessUITests.MacNative;
 using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 using Icon = FluentIcons.Common.Icon;
 

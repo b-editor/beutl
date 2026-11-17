@@ -4,12 +4,12 @@ using System.Runtime.CompilerServices;
 using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
 using Beutl.Extensibility;
-using static Beutl.HeadlessUITests.CommandPaletteTestHost;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Moq;
+using static Beutl.HeadlessUITests.CommandPaletteTestHost;
 
 namespace Beutl.HeadlessUITests;
 

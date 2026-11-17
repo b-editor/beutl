@@ -112,7 +112,7 @@ public class ProjectPackageFontTests
             Assert.That(fonts.ResolveSkia(new Typeface(family)), Is.SameAs(originalTypeface));
 
             string secondPackage = Path.Combine(destination, "shared-again.beutlpkg");
-            ExportResult result = await ProjectPackageService.Current.ExportAsync(project,fonts,  secondPackage);
+            ExportResult result = await ProjectPackageService.Current.ExportAsync(project, fonts, secondPackage);
             Assert.That(result.Success, Is.True);
             Assert.That(result.FailedResources, Is.Empty);
             using var archive = ZipFile.OpenRead(secondPackage);

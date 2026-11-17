@@ -1,6 +1,4 @@
-﻿using AvaPoint = Avalonia.Point;
-using AvaThickness = Avalonia.Thickness;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
@@ -27,6 +25,8 @@ using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
+using AvaPoint = Avalonia.Point;
+using AvaThickness = Avalonia.Thickness;
 
 namespace Beutl.HeadlessUITests;
 

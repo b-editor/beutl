@@ -1,5 +1,4 @@
-﻿using AvaPoint = Avalonia.Point;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -7,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.VisualTree;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Testing.Headless;
+using AvaPoint = Avalonia.Point;
 using RelativeUnit = Beutl.Graphics.RelativeUnit;
 
 namespace Beutl.HeadlessUITests;

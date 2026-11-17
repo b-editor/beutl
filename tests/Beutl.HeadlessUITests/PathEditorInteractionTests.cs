@@ -32,11 +32,11 @@ using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
-using BtlPoint = Beutl.Graphics.Point;
 using FluentAvalonia.UI.Controls;
 using Moq;
 using Reactive.Bindings;
 using SkiaSharp;
+using BtlPoint = Beutl.Graphics.Point;
 
 namespace Beutl.HeadlessUITests;
 

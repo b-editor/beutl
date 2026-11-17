@@ -15,6 +15,7 @@ using Beutl.Controls.Styling;
 using Beutl.Editor.Components.TerminalTab.Views;
 using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using RoyalTerminal.Avalonia.Controls;
 
 namespace Beutl.HeadlessUITests;
@@ -286,25 +287,31 @@ public class UIFontResourceTests
         try
         {
             TestShell.FontManager.SetFallbackFonts([], null);
-            using SkiaSharp.SKBitmap withoutFallback = DrawLatinOnlyFallbackText();
+            using SkiaSharp.SKBitmap withoutFallback = DrawLatinOnlyFallbackText(TestShell.FontManager);
 
             App.RegisterBundledEngineFonts(TestShell.FontManager);
             (Beutl.Media.FontFamily[] Families, Beutl.Media.FontFamily? Emoji) app =
                 TestShell.FontManager.GetFallbackFamilies();
-            using SkiaSharp.SKBitmap appText = DrawLatinOnlyFallbackText();
+            using SkiaSharp.SKBitmap appText = DrawLatinOnlyFallbackText(TestShell.FontManager);
 
             TestShell.FontManager.SetFallbackFonts([], null);
             Microsoft.Extensions.DependencyInjection.ServiceCollection services = new();
             Beutl.AgentToolkit.AgentToolkitMcpServer.AddAgentToolkitServer(services, profile);
+            using ServiceProvider provider = services.BuildServiceProvider();
+            var standaloneFonts = provider.GetRequiredService<Beutl.Media.FontManager>();
+            using (Stream font = typeof(UIFontResourceTests).Assembly.GetManifestResourceStream("ProjectFontSecondFixture.ttf")!)
+                standaloneFonts.AddFont(font);
             (Beutl.Media.FontFamily[] Families, Beutl.Media.FontFamily? Emoji) standalone =
-                TestShell.FontManager.GetFallbackFamilies();
-            using SkiaSharp.SKBitmap standaloneText = DrawLatinOnlyFallbackText();
+                standaloneFonts.GetFallbackFamilies();
+            using SkiaSharp.SKBitmap standaloneText = DrawLatinOnlyFallbackText(standaloneFonts);
 
             Assert.Multiple(() =>
             {
                 Assert.That(app.Families.Select(family => family.Name),
                     Is.EqualTo(UiFonts.DefaultFontFamily.FamilyNames));
                 Assert.That(app.Emoji, Is.EqualTo(new Beutl.Media.FontFamily("Noto Color Emoji")));
+                Assert.That(standaloneFonts, Is.Not.SameAs(TestShell.FontManager));
+                Assert.That(TestShell.FontManager.GetFallbackFamilies().Families, Is.Empty);
                 Assert.That(standalone.Families, Is.EqualTo(app.Families));
                 Assert.That(standalone.Emoji, Is.EqualTo(app.Emoji));
                 Assert.That(standaloneText.Bytes, Is.EqualTo(appText.Bytes));
@@ -318,9 +325,9 @@ public class UIFontResourceTests
         }
     }
 
-    private static SkiaSharp.SKBitmap DrawLatinOnlyFallbackText()
+    private static SkiaSharp.SKBitmap DrawLatinOnlyFallbackText(Beutl.Media.FontManager fonts)
     {
-        using var text = new Beutl.Media.TextFormatting.FormattedText(TestShell.FontManager)
+        using var text = new Beutl.Media.TextFormatting.FormattedText(fonts)
         {
             Font = new Beutl.Media.FontFamily("Roboto"),
             // Latin, CJK, an emoji and a ZWJ family sequence.

@@ -1,9 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.Reactive.Subjects;
-using AvaDispatcher = Avalonia.Threading.Dispatcher;
-using AvaImageBrush = Avalonia.Media.ImageBrush;
-using AvaPixelSize = Avalonia.PixelSize;
-using AvaStretch = Avalonia.Media.Stretch;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -16,6 +12,10 @@ using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Testing.Headless;
 using Beutl.Threading;
+using AvaDispatcher = Avalonia.Threading.Dispatcher;
+using AvaImageBrush = Avalonia.Media.ImageBrush;
+using AvaPixelSize = Avalonia.PixelSize;
+using AvaStretch = Avalonia.Media.Stretch;
 
 namespace Beutl.HeadlessUITests;
 

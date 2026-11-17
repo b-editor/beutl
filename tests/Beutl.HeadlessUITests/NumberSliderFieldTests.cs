@@ -1,5 +1,4 @@
-﻿using AvaPoint = Avalonia.Point;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -15,10 +14,11 @@ using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics3D;
-using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
 using FluentAvalonia.Styling;
+using static Beutl.HeadlessUITests.PropertyEditorTestHost;
+using AvaPoint = Avalonia.Point;
 using Pen = Beutl.Media.Pen;
 
 namespace Beutl.HeadlessUITests;

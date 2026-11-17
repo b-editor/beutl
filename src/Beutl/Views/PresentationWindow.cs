@@ -9,10 +9,10 @@ using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Logging;
 using Beutl.ViewModels;
-using BtlSize = Beutl.Graphics.Size;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
+using BtlSize = Beutl.Graphics.Size;
 
 namespace Beutl.Views;
 

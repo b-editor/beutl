@@ -11,13 +11,13 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Api.Services;
 using Beutl.Configuration;
-using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 

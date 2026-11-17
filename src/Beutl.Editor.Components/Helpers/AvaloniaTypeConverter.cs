@@ -5,11 +5,11 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 using ImageBrush = Avalonia.Media.ImageBrush;
 using PixelSize = Avalonia.PixelSize;
 using Point = Avalonia.Point;
-using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.Helpers;
 
