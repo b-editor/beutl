@@ -19,6 +19,7 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
 using AvaPoint = Avalonia.Point;
+using AvaVector = Avalonia.Vector;
 using Color = Beutl.Media.Color;
 using RelativePoint = Beutl.Graphics.RelativePoint;
 using RelativeUnit = Beutl.Graphics.RelativeUnit;
@@ -169,27 +170,9 @@ public sealed class CurvesColorRangeTests
         using var model = new CurvesTabViewModel(editor);
         model.Effect.Value = curves;
         model.SelectedGroup.Value = CurveGroup.HueVsSaturation;
-        var curvesView = new CurvesTabView { DataContext = model };
-        var playerView = new PlayerView { DataContext = editor.Player };
-        var layout = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*") };
-        Grid.SetColumn(curvesView, 1);
-        layout.Children.Add(playerView);
-        layout.Children.Add(curvesView);
-        var window = new Window { Content = layout, Width = 1000, Height = 500 };
+        (Window window, CurvesTabView curvesView) = await ShowAndPickAsync(editor, model);
         try
         {
-            window.Show();
-            HeadlessTestHelpers.Render(3);
-            await RenderThread.Dispatcher.InvokeAsync(static () => { });
-            HeadlessTestHelpers.Render(2);
-            HeadlessTestHelpers.Click(curvesView.FindControl<ToggleButton>("PickColorButton")!);
-            AvaPoint left = OnFrame(playerView, window, 16, 16);
-            window.MouseMove(left);
-            window.MouseDown(left, MouseButton.Left);
-            window.MouseUp(left, MouseButton.Left);
-            await HeadlessTestHelpers.WaitUntilAsync(() => model.HasPickedColor.Value, message: "No color was picked.");
-            HeadlessTestHelpers.Render(2);
-
             var box = curvesView.FindControl<NumberEditor<float>>("RangeValueEditor")!;
             TextBox text = box.GetVisualDescendants().OfType<TextBox>().First();
             text.Focus();
@@ -214,6 +197,55 @@ public sealed class CurvesColorRangeTests
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
                 Assert.That(text.Text, Is.EqualTo("60"), "The box shows the curve once it loses the focus.");
             });
+        }
+        finally
+        {
+            curvesView.DataContext = null;
+            window.Close();
+        }
+    }
+
+    // A scrub that comes back to where it started is not confirmed by its box, yet its steps shaped the curve and took
+    // the hand-made point inside the range; the release confirms it, so it is an undo step and Undo gives the point back.
+    [AvaloniaTest]
+    public async Task A_scrub_that_comes_back_to_its_start_is_an_undo_step()
+    {
+        TestGpu.RequireAnyDevice();
+        using PointerLockScope pointerLock = PointerLockScope.Off();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("curves-color-range-scrub", FrameWidth, FrameHeight);
+        var curves = new Curves();
+        await TestShell.AddElementAsync(editor, () => CreateShape(curves), MediaTime.Zero, MediaTime.FromSeconds(2));
+        var handMade = new CurveMap(
+            [new CurveControlPoint(0, 0.5f), new CurveControlPoint(0.08f, 0.7f), new CurveControlPoint(1, 0.5f)]);
+        editor.HistoryManager.ExecuteInTransaction(() => curves.HueVsSaturation.Value = handMade, "Hand edit");
+
+        using var model = new CurvesTabViewModel(editor);
+        model.Effect.Value = curves;
+        model.SelectedGroup.Value = CurveGroup.HueVsSaturation;
+        (Window window, CurvesTabView curvesView) = await ShowAndPickAsync(editor, model);
+        try
+        {
+            int undoCount = editor.HistoryManager.UndoCount;
+            var box = curvesView.FindControl<NumberEditor<float>>("RangeValueEditor")!;
+            Avalonia.Controls.TextBlock header = box.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().Single(x => x.Name == "PART_HeaderTextBlock");
+            AvaPoint start = header.TranslatePoint(new AvaPoint(header.Bounds.Width / 2, header.Bounds.Height / 2), window)!.Value;
+            float before = box.Value;
+
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(start + new AvaVector(10, 0), RawInputModifiers.LeftMouseButton);
+            Assert.That(curves.HueVsSaturation.Value, Is.Not.EqualTo(handMade), "The scrub shaped the curve.");
+            window.MouseMove(start, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(start, MouseButton.Left);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(box.Value, Is.EqualTo(before));
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
+            });
+            Assert.That(await editor.UndoAsync(), Is.True);
+            HeadlessTestHelpers.Settle();
+            Assert.That(curves.HueVsSaturation.Value, Is.EqualTo(handMade));
         }
         finally
         {
@@ -248,6 +280,30 @@ public sealed class CurvesColorRangeTests
             Assert.That(model.IsPickingColor.Value, Is.False);
             Assert.That(editor.Player.PointPick.Value, Is.Null);
         });
+    }
+
+    // Shows the tab beside the preview and picks the orange with the tab's eyedropper.
+    private static async Task<(Window Window, CurvesTabView View)> ShowAndPickAsync(EditViewModel editor, CurvesTabViewModel model)
+    {
+        var curvesView = new CurvesTabView { DataContext = model };
+        var playerView = new PlayerView { DataContext = editor.Player };
+        var layout = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*") };
+        Grid.SetColumn(curvesView, 1);
+        layout.Children.Add(playerView);
+        layout.Children.Add(curvesView);
+        var window = new Window { Content = layout, Width = 1000, Height = 500 };
+        window.Show();
+        HeadlessTestHelpers.Render(3);
+        await RenderThread.Dispatcher.InvokeAsync(static () => { });
+        HeadlessTestHelpers.Render(2);
+        HeadlessTestHelpers.Click(curvesView.FindControl<ToggleButton>("PickColorButton")!);
+        AvaPoint left = OnFrame(playerView, window, 16, 16);
+        window.MouseMove(left);
+        window.MouseDown(left, MouseButton.Left);
+        window.MouseUp(left, MouseButton.Left);
+        await HeadlessTestHelpers.WaitUntilAsync(() => model.HasPickedColor.Value, message: "No color was picked.");
+        HeadlessTestHelpers.Render(2);
+        return (window, curvesView);
     }
 
     private static CurveMap Level(float value) => new([new CurveControlPoint(0, value), new CurveControlPoint(1, value)]);

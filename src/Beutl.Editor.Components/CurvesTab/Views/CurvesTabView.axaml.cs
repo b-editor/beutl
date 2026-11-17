@@ -21,12 +21,50 @@ public partial class CurvesTabView : UserControl
 
         // The boxes edit through the view model, which shapes the curve, keeps the values in their ranges and shows
         // them back.
-        RangeWidthEditor.ValueChanged += (_, e) => WithFloat(e, (vm, value) => vm.PreviewRangeWidth(value));
-        RangeWidthEditor.ValueConfirmed += (_, e) => WithFloat(e, (vm, value) => vm.ConfirmRangeWidth(value));
-        RangeValueEditor.ValueChanged += (_, e) => WithFloat(e, (vm, value) => vm.PreviewRangeValue(value));
-        RangeValueEditor.ValueConfirmed += (_, e) => WithFloat(e, (vm, value) => vm.ConfirmRangeValue(value));
-        RangeWidthEditor.LostFocus += (_, _) => ShowValue(RangeWidthEditor, (DataContext as CurvesTabViewModel)?.RangeWidth.Value);
-        RangeValueEditor.LostFocus += (_, _) => ShowValue(RangeValueEditor, (DataContext as CurvesTabViewModel)?.RangeValue.Value);
+        WireRangeBox(
+            RangeWidthEditor,
+            vm => vm.RangeWidth.Value,
+            (vm, value) => vm.PreviewRangeWidth(value),
+            (vm, value) => vm.ConfirmRangeWidth(value));
+        WireRangeBox(
+            RangeValueEditor,
+            vm => vm.RangeValue.Value,
+            (vm, value) => vm.PreviewRangeValue(value),
+            (vm, value) => vm.ConfirmRangeValue(value));
+    }
+
+    // A box confirms a scrub or its typing only when the value ends away from where it started, yet each step has
+    // already shaped the curve, which can lose hand-made points inside the range on the way. So a scrub's release, or
+    // the box's loss of the focus, confirms what was previewed when the box did not, making it an undo step of its own.
+    private void WireRangeBox(
+        NumberEditor<float> box,
+        Func<CurvesTabViewModel, float> shown,
+        Action<CurvesTabViewModel, float> preview,
+        Action<CurvesTabViewModel, float> confirm)
+    {
+        bool previewed = false;
+        box.ValueChanged += (_, e) => previewed |= WithFloat(e, preview);
+        box.ValueConfirmed += (_, e) =>
+        {
+            previewed = false;
+            WithFloat(e, confirm);
+        };
+        box.AddHandler(PointerReleasedEvent, (_, _) => EndUnconfirmed(), RoutingStrategies.Bubble, handledEventsToo: true);
+        box.LostFocus += (_, _) =>
+        {
+            EndUnconfirmed();
+            ShowValue(box, DataContext is CurvesTabViewModel viewModel ? shown(viewModel) : null);
+        };
+
+        void EndUnconfirmed()
+        {
+            if (!previewed || box.IsKeyboardFocusWithin)
+                return;
+
+            previewed = false;
+            if (DataContext is CurvesTabViewModel viewModel)
+                confirm(viewModel, box.Value);
+        }
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -87,10 +125,13 @@ public partial class CurvesTabView : UserControl
             editor.Value = shown;
     }
 
-    private void WithFloat(PropertyEditorValueChangedEventArgs e, Action<CurvesTabViewModel, float> apply)
+    private bool WithFloat(PropertyEditorValueChangedEventArgs e, Action<CurvesTabViewModel, float> apply)
     {
-        if (DataContext is CurvesTabViewModel viewModel && e is PropertyEditorValueChangedEventArgs<float> args)
-            apply(viewModel, args.NewValue);
+        if (DataContext is not CurvesTabViewModel viewModel || e is not PropertyEditorValueChangedEventArgs<float> args)
+            return false;
+
+        apply(viewModel, args.NewValue);
+        return true;
     }
 
     private void ClearPickedColor_Click(object? sender, RoutedEventArgs e)
