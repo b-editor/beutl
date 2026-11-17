@@ -16,6 +16,7 @@ public sealed class ToolSurfaceTests
         typeof(QueryTools),
         typeof(SessionTools),
         typeof(EditTools),
+        typeof(NodeGraphTools),
         typeof(HistoryTools),
         typeof(RenderTools)
     ];
@@ -57,6 +58,10 @@ public sealed class ToolSurfaceTests
             "read_document",
             "apply_edit",
             "duplicate_object",
+            "get_node_graph_guide",
+            "list_node_types",
+            "read_node_graph",
+            "edit_node_graph",
             "plan_composition",
             "apply_composition",
             "render_still",

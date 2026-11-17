@@ -24,6 +24,10 @@
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-timeline-builder.md" />
     <EmbeddedResource Include="Installation\Assets\agents\beutl-agent-look-applier.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-look-applier.md" />
+    <EmbeddedResource Include="NodeGraphs\Guide\node-graph-guide.md"
+                      LogicalName="Beutl.AgentToolkit.NodeGraphs.Guide.node-graph-guide.md" />
+    <EmbeddedResource Include="NodeGraphs\Guide\examples\*.json"
+                      LogicalName="Beutl.AgentToolkit.NodeGraphs.Guide.examples.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
