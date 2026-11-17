@@ -164,11 +164,12 @@ public class NumericHapticFeedbackTests
 
     private sealed class ScrubHost : IDisposable
     {
-        private readonly PointerLockScope _pointerLock = PointerLockScope.Off();
+        private readonly PointerLockScope _pointerLock = PointerLockScope.Off(TestShell.Configuration.EditorConfig);
 
         public ScrubHost(Control control)
         {
             Window = new Window { Content = new StackPanel { Margin = new Thickness(24), Children = { control } }, Width = 420, Height = 180 };
+            Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
             Window.Show();
             HeadlessTestHelpers.Render(3);
         }

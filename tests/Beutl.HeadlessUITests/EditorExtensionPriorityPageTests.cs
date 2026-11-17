@@ -15,7 +15,7 @@ public class EditorExtensionPriorityPageTests
     [AvaloniaTest]
     public void Priority_and_available_editor_rows_display_their_command_bar_actions()
     {
-        using var viewModel = new EditorExtensionPriorityPageViewModel(new ExtensionProvider());
+        using var viewModel = new EditorExtensionPriorityPageViewModel(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ExtensionConfig());
         // Populate both row templates without modifying the persisted extension priorities.
         viewModel.SelectedFileExtension.Value = null;
         viewModel.EditorExtensions1.Add(new("Preferred editor", "preferred", "PreferredEditor"));

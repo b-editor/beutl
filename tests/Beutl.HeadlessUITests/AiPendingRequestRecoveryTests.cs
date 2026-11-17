@@ -232,7 +232,7 @@ public sealed class AiPendingRequestRecoveryTests
         {
             BaseAddress = new Uri("https://beutl.beditor.net"),
         };
-        await using var app = new BeutlApiApplication(client, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(client, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         SetAuthenticatedUser(app);
         using var context = new AiRequestRecoveryContext(
             store,
@@ -286,7 +286,7 @@ public sealed class AiPendingRequestRecoveryTests
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var handler = CreateLateAccountSwitchHandler(started, release, s_png);
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://beutl.beditor.net") };
-        await using var app = new BeutlApiApplication(client, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(client, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         SetAuthenticatedUser(app);
         using var context = new AiRequestRecoveryContext(
             new FileAiRequestKeyMap(root),
@@ -348,7 +348,7 @@ public sealed class AiPendingRequestRecoveryTests
     private static BeutlApiApplication CreateApp(StubHandler handler)
     {
         var client = new HttpClient(handler) { BaseAddress = new Uri("https://beutl.beditor.net") };
-        var app = new BeutlApiApplication(client, new ExtensionProvider());
+        var app = new BeutlApiApplication(client, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         SetAuthenticatedUser(app);
         return app;
     }

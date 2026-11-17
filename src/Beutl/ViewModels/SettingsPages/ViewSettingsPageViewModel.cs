@@ -14,9 +14,9 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
     private readonly CompositeDisposable _disposables = [];
     private bool _disposed;
 
-    public ViewSettingsPageViewModel()
+    public ViewSettingsPageViewModel(ViewConfig configuration)
     {
-        _config = GlobalConfiguration.Instance.ViewConfig;
+        _config = configuration;
 
         // Created before the first refresh: RefreshAvailableThemes restores the selection through it.
         SelectedThemeDescriptor = new ReactiveProperty<ThemeDescriptor?>(ThemeRegistry.Resolve(_config.Theme.Value))
@@ -220,9 +220,9 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
 
     // Config-only: ThemeService subscribes to these and is the sole writer of
     // FluentAvaloniaTheme.CustomAccentColor.
-    private static void UpdateAppAccentColor(Color? color)
+    private void UpdateAppAccentColor(Color? color)
     {
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig viewConfig = _config;
         viewConfig.UseCustomAccentColor.Value = color.HasValue;
         viewConfig.CustomAccentColor.Value = color?.ToString();
     }

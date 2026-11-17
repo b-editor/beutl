@@ -42,7 +42,9 @@ public class ResourceRelocationServiceTests
     {
         string projectFonts = Path.Combine(_projectDir, "resources", "fonts");
         IReadOnlyList<string> loaded = FontManager.Instance.FontDirectories;
-        ObservableCollection<string> configured = GlobalConfiguration.Instance.FontConfig.FontDirectories;
+        var configuration = new FontConfig();
+        FontManager.Instance.Initialize(configuration);
+        ObservableCollection<string> configured = configuration.FontDirectories;
         string added = Path.Combine(_testDir, "added-fonts");
         configured.Add(added);
         try

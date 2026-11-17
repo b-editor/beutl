@@ -20,6 +20,11 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public sealed class ProxiesTabViewModelTests
 {
+    [SetUp]
+    public void InitializeConfiguration() => _testConfiguration = new();
+
+    private GlobalConfiguration _testConfiguration = new();
+
     private readonly List<string> _roots = [];
 
     [TearDown]
@@ -139,7 +144,7 @@ public sealed class ProxiesTabViewModelTests
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        ProxyStoreConfig config = _testConfiguration.ProxyStoreConfig;
         long originalCap = config.MaxTotalBytes.Value;
         try
         {
@@ -351,7 +356,7 @@ public sealed class ProxiesTabViewModelTests
             new PixelSize(1920, 1080), new PixelSize(480, 270), newTime, newTime, null));
         File.Delete(sourcePath);
 
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        ProxyStoreConfig config = _testConfiguration.ProxyStoreConfig;
         int originalDefault = config.DefaultPreset.Value;
         try
         {
@@ -421,7 +426,7 @@ public sealed class ProxiesTabViewModelTests
         RegisterProxyEntry(store, ReadyEntry(sourceFp));
         File.Delete(sourcePath);
 
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        ProxyStoreConfig config = _testConfiguration.ProxyStoreConfig;
         int originalDefault = config.DefaultPreset.Value;
         try
         {
@@ -668,7 +673,7 @@ public sealed class ProxiesTabViewModelTests
         string firstPath = CreateSourceFile(root, "first.mov", 1024);
         string secondPath = CreateSourceFile(root, "second.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        ProxyStoreConfig config = _testConfiguration.ProxyStoreConfig;
         int originalDefault = config.DefaultPreset.Value;
         try
         {
@@ -702,7 +707,7 @@ public sealed class ProxiesTabViewModelTests
         string firstPath = CreateSourceFile(root, "first.mov", 1024);
         string secondPath = CreateSourceFile(root, "second.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        ProxyStoreConfig config = _testConfiguration.ProxyStoreConfig;
         int originalDefault = config.DefaultPreset.Value;
         try
         {
@@ -739,7 +744,7 @@ public sealed class ProxiesTabViewModelTests
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        ProxyStoreConfig config = _testConfiguration.ProxyStoreConfig;
         int originalDefault = config.DefaultPreset.Value;
         try
         {
@@ -1426,10 +1431,10 @@ public sealed class ProxiesTabViewModelTests
             Is.EquivalentTo(new[] { (ProxyFingerprint.FromFile(keptPath), ProxyPreset.Half) }));
     }
 
-    private static TestEditorContext CreateContext(string root, IProxyStore store, params string[] sourcePaths)
+    private TestEditorContext CreateContext(string root, IProxyStore store, params string[] sourcePaths)
         => CreateContext(root, store, queue: null, sourcePaths);
 
-    private static TestEditorContext CreateContext(
+    private TestEditorContext CreateContext(
         string root,
         IProxyStore store,
         IProxyJobQueue? queue,
@@ -1444,7 +1449,7 @@ public sealed class ProxiesTabViewModelTests
         return CreateContext(scene, store, queue);
     }
 
-    private static TestEditorContext CreateGraphContext(string root, ProxyStore store, string sourcePath)
+    private TestEditorContext CreateGraphContext(string root, ProxyStore store, string sourcePath)
     {
         Scene scene = CreateScene(root, "test.scene");
         var node = new VideoSourceNode();
@@ -1455,9 +1460,9 @@ public sealed class ProxiesTabViewModelTests
         return CreateContext(scene, store);
     }
 
-    private static TestEditorContext CreateContext(Scene scene, IProxyStore store, IProxyJobQueue? queue = null)
+    private TestEditorContext CreateContext(Scene scene, IProxyStore store, IProxyJobQueue? queue = null)
     {
-        var context = new TestEditorContext(scene);
+        var context = new TestEditorContext(scene, _testConfiguration);
         context.AddService(scene);
         context.AddService<IProxyStore>(store);
         if (queue != null)

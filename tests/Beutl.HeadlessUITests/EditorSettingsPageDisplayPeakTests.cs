@@ -16,7 +16,7 @@ using Beutl.Views;
 namespace Beutl.HeadlessUITests;
 
 [TestFixture]
-[NonParallelizable] // drives GlobalConfiguration.Instance singletons
+[NonParallelizable] // uses the shared test app configuration
 public sealed class EditorSettingsPageDisplayPeakTests
 {
     // The HDR preview takes the setting from the player, which reads the editor settings, and follows a change.
@@ -24,7 +24,7 @@ public sealed class EditorSettingsPageDisplayPeakTests
     public async Task Hdr_preview_follows_the_display_peak_setting()
     {
         await TestReset.ResetShellAsync();
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = TestShell.Configuration.EditorConfig;
         float prior = config.DisplayPeakLuminance.Value;
         try
         {
@@ -53,12 +53,12 @@ public sealed class EditorSettingsPageDisplayPeakTests
     {
         TestGpu.RequireAnyDevice();
 
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = TestShell.Configuration.EditorConfig;
         float prior = config.DisplayPeakLuminance.Value;
-        string? priorGpu = GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value;
+        string? priorGpu = TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value;
         try
         {
-            using var viewModel = new EditorSettingsPageViewModel();
+            using var viewModel = new EditorSettingsPageViewModel(TestShell.Configuration);
 
             viewModel.DisplayPeakLuminance.Value = 600;
             Assert.That(config.DisplayPeakLuminance.Value, Is.EqualTo(600f));
@@ -83,7 +83,7 @@ public sealed class EditorSettingsPageDisplayPeakTests
         finally
         {
             config.DisplayPeakLuminance.Value = prior;
-            GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value = priorGpu;
+            TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value = priorGpu;
         }
     }
 
@@ -96,11 +96,11 @@ public sealed class EditorSettingsPageDisplayPeakTests
     {
         TestGpu.RequireAnyDevice();
 
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = TestShell.Configuration.EditorConfig;
         float prior = config.DisplayPeakLuminance.Value;
-        string? priorGpu = GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value;
+        string? priorGpu = TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value;
         config.DisplayPeakLuminance.Value = 1000f;
-        using var viewModel = new EditorSettingsPageViewModel { IsDisplayPeakLuminanceSupported = supported };
+        using var viewModel = new EditorSettingsPageViewModel(TestShell.Configuration) { IsDisplayPeakLuminanceSupported = supported };
         var page = new EditorSettingsPage { DataContext = viewModel };
         var window = new Window { Content = page, Width = 900, Height = 700, RequestedThemeVariant = ThemeVariant.Dark };
         try
@@ -128,7 +128,7 @@ public sealed class EditorSettingsPageDisplayPeakTests
         {
             window.Close();
             config.DisplayPeakLuminance.Value = prior;
-            GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value = priorGpu;
+            TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value = priorGpu;
         }
     }
 }

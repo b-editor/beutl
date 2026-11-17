@@ -1,0 +1,111 @@
+{
+  "name": "multi-pass-glow",
+  "description": "Four passes: bright parts, a horizontal and a vertical blur at half resolution, and a composite over the layer. The first and last pass are padded so the glow can spread past the layer.",
+  "operations": [
+    {
+      "op": "add",
+      "ref": "input",
+      "type": "FilterEffectInputNode",
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "op": "add",
+      "ref": "bright",
+      "type": "ShaderFullscreenPassNode",
+      "name": "Bright parts",
+      "position": [
+        320,
+        0
+      ],
+      "values": {
+        "Code": "#version 450\nlayout(location = 0) in vec2 uv;\nlayout(location = 0) out vec4 color;\nlayout(set = 0, binding = 0) uniform sampler2D source;\nlayout(set = 0, binding = 1) uniform Params { float threshold; } params;\n\nvoid main() {\n    vec4 c = texture(source, uv);\n    vec3 straight = c.a > 0.0 ? c.rgb / c.a : vec3(0.0);\n    float luma = dot(straight, vec3(0.2126, 0.7152, 0.0722));\n    color = c * smoothstep(params.threshold, params.threshold + 0.1, luma);\n}\n",
+        "Padding": 48,
+        "In.params.threshold": 0.6
+      }
+    },
+    {
+      "op": "add",
+      "ref": "blurH",
+      "type": "ShaderFullscreenPassNode",
+      "name": "Blur horizontally",
+      "position": [
+        640,
+        0
+      ],
+      "values": {
+        "Code": "#version 450\nlayout(location = 0) in vec2 uv;\nlayout(location = 0) out vec4 color;\nlayout(set = 0, binding = 0) uniform sampler2D source;\nlayout(set = 0, binding = 1) uniform Params { vec2 direction; float radius; } params;\n\nvoid main() {\n    // radius in pixels of the input, along direction.\n    vec2 stride = params.direction * (params.radius / 12.0) / vec2(textureSize(source, 0));\n    vec4 sum = vec4(0.0);\n    float total = 0.0;\n    for (int i = -12; i <= 12; i++) {\n        float weight = exp(-0.5 * float(i * i) / 36.0);\n        sum += texture(source, uv + stride * float(i)) * weight;\n        total += weight;\n    }\n    color = sum / total;\n}\n",
+        "ResolutionScale": 0.5,
+        "In.params.direction": "1,0",
+        "In.params.radius": 16
+      }
+    },
+    {
+      "op": "add",
+      "ref": "blurV",
+      "type": "ShaderFullscreenPassNode",
+      "name": "Blur vertically",
+      "position": [
+        960,
+        0
+      ],
+      "values": {
+        "Code": "#version 450\nlayout(location = 0) in vec2 uv;\nlayout(location = 0) out vec4 color;\nlayout(set = 0, binding = 0) uniform sampler2D source;\nlayout(set = 0, binding = 1) uniform Params { vec2 direction; float radius; } params;\n\nvoid main() {\n    // radius in pixels of the input, along direction.\n    vec2 stride = params.direction * (params.radius / 12.0) / vec2(textureSize(source, 0));\n    vec4 sum = vec4(0.0);\n    float total = 0.0;\n    for (int i = -12; i <= 12; i++) {\n        float weight = exp(-0.5 * float(i * i) / 36.0);\n        sum += texture(source, uv + stride * float(i)) * weight;\n        total += weight;\n    }\n    color = sum / total;\n}\n",
+        "ResolutionScale": 0.5,
+        "In.params.direction": "0,1",
+        "In.params.radius": 16
+      }
+    },
+    {
+      "op": "add",
+      "ref": "composite",
+      "type": "ShaderFullscreenPassNode",
+      "name": "Composite",
+      "position": [
+        1280,
+        0
+      ],
+      "values": {
+        "Code": "#version 450\nlayout(location = 0) in vec2 uv;\nlayout(location = 0) out vec4 color;\nlayout(set = 0, binding = 0) uniform sampler2D source;\nlayout(set = 0, binding = 1) uniform sampler2D glow;\nlayout(set = 0, binding = 2) uniform Params { float intensity; } params;\n\nvoid main() {\n    // Unconnected, source reads the layer; glow comes from the blur.\n    color = texture(source, uv) + texture(glow, uv) * params.intensity;\n}\n",
+        "Padding": 48,
+        "In.params.intensity": 1.5
+      }
+    },
+    {
+      "op": "add",
+      "ref": "output",
+      "type": "OutputNode",
+      "position": [
+        1600,
+        0
+      ]
+    },
+    {
+      "op": "connect",
+      "from": "input.Output",
+      "to": "bright.In.source"
+    },
+    {
+      "op": "connect",
+      "from": "bright.Out.color",
+      "to": "blurH.In.source"
+    },
+    {
+      "op": "connect",
+      "from": "blurH.Out.color",
+      "to": "blurV.In.source"
+    },
+    {
+      "op": "connect",
+      "from": "blurV.Out.color",
+      "to": "composite.In.glow"
+    },
+    {
+      "op": "connect",
+      "from": "composite.Out.color",
+      "to": "output.Output"
+    }
+  ]
+}

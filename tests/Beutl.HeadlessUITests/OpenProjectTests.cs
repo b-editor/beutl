@@ -21,7 +21,7 @@ public class OpenProjectTests
     public async Task Failed_project_switch_restores_the_previous_project_and_edits(bool failActivation)
     {
         await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        VersionControlConfig config = TestShell.Configuration.VersionControlConfig;
         bool oldAutoCommitOnClose = config.AutoCommitOnClose.Value;
         bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
         Func<ProjectService.ProjectCloseContext, CancellationToken, Task>? corruptTarget = null;
@@ -87,7 +87,7 @@ public class OpenProjectTests
                 Assert.That(TestShell.Editor.SelectedTabItem.Value?.Context.Value?.Object, Is.SameAs(scene));
                 Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
                 Assert.That(published.LastOrDefault(), Is.SameAs(original));
-                Assert.That(GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile.Value, Is.EqualTo(original.Uri.LocalPath));
+                Assert.That(TestShell.Configuration.ViewConfig.LastOpenedProjectFile.Value, Is.EqualTo(original.Uri.LocalPath));
             });
             Assert.That(await ((ISavableEditorContext)TestShell.Editor.SelectedTabItem.Value!.Context.Value).SaveAsync(), Is.True);
             Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));

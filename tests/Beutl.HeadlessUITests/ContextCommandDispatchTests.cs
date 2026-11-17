@@ -155,7 +155,7 @@ public class ContextCommandDispatchTests
         var extension = new AwaitableViewExtension();
         var manager = new ContextCommandManager(new ContextCommandSettingsStore());
         manager.Register(extension);
-        var extensionProvider = new ExtensionProvider();
+        var extensionProvider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         var editorService = new EditorService(extensionProvider, TestShell.MainViewModel.AppServices);
         var service = new CommandPaletteService(
             manager,

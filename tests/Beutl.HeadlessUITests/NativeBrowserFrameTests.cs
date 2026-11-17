@@ -220,6 +220,7 @@ internal static class NativeBrowserFrameTestHost
         var origin = new Uri(server.Urls.Single());
         var browser = new NativeWebView();
         var editor = new Mock<IEditorContext>();
+        editor.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         using var vm = new WebBrowserTabViewModel(editor.Object, WebBrowserTabViewModel.BlankPage);
         using var opener = new WebBrowserTabView(_ => browser, () => (true, null, false)) { DataContext = vm };
         using var downloads = new TemporaryDirectory();

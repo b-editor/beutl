@@ -75,10 +75,11 @@ public sealed partial class SceneCompositor
     }
 
     private SceneCompositor CreateLayerQuery()
-        => new(Scene) { DisableResourceShare = true, ForceOriginalSource = ForceOriginalSource };
+        => new(Scene, _editorConfig, _proxyConfig) { DisableResourceShare = true, ForceOriginalSource = ForceOriginalSource };
 
     private SceneComposer CreateAudioQuery()
-        => new(Scene, disableResourceShare: true, forceOriginalSource: ForceOriginalSource);
+        => new(Scene, disableResourceShare: true, forceOriginalSource: ForceOriginalSource,
+            editorConfig: _editorConfig, proxyConfig: _proxyConfig);
 
     // Runs once per evaluation of this compositor's own frame. Evaluators no query used during the last two
     // evaluations belong to queries that stopped, so they release their readers.

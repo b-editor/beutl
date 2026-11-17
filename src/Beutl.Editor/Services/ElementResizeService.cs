@@ -7,9 +7,11 @@ namespace Beutl.Editor.Services;
 public sealed partial class ElementResizeService : IElementResizeService
 {
     private readonly HistoryManager _historyManager;
+    private readonly EditorConfig _configuration;
 
-    public ElementResizeService(HistoryManager historyManager)
+    public ElementResizeService(HistoryManager historyManager, EditorConfig configuration)
     {
+        _configuration = configuration;
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
@@ -40,7 +42,7 @@ public sealed partial class ElementResizeService : IElementResizeService
         {
             foreach (ElementResizeRequest req in requests)
             {
-                scene.MoveChild(req.ZIndex, req.NewStart, req.NewLength, req.Element);
+                scene.MoveChild(req.ZIndex, req.NewStart, req.NewLength, req.Element, _configuration.AutoAdjustSceneDuration.Value);
             }
         }
 
@@ -61,13 +63,13 @@ public sealed partial class ElementResizeService : IElementResizeService
             .Select(group => new ResizePeerGroup(group.Key.LeftEdge, group.Select(entry => entry.Request.Element).ToHashSet()))
             .ToArray();
 
-    private static ElementResizeRequest[] ClampToMedia(IReadOnlyList<ElementResizeRequest> requests,
+    private ElementResizeRequest[] ClampToMedia(IReadOnlyList<ElementResizeRequest> requests,
         ResizePeerGroup[] peerGroups, Dictionary<Element, SlippableMedia.ResizeConstraints> mediaConstraints,
         MediaTime minLength)
         => requests.Select(req =>
         {
             if (req.ClampToSource || req.NewLength != req.Element.Length.Value
-                && GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value)
+                && _configuration.ClampResizeToOriginalLength.Value)
             {
                 var peers = peerGroups.FirstOrDefault(group => group.Elements.Contains(req.Element))?.Elements;
                 var constraints = SlippableMedia.CreateResizeConstraints(req.Element, peers);
@@ -77,11 +79,11 @@ public sealed partial class ElementResizeService : IElementResizeService
             return req;
         }).ToArray();
 
-    private static void ResizeWithRipple(Scene scene, IReadOnlyList<ElementResizeRequest> requests,
+    private void ResizeWithRipple(Scene scene, IReadOnlyList<ElementResizeRequest> requests,
         ResizePeerGroup[] peerGroups, Dictionary<Element, SlippableMedia.ResizeConstraints> mediaConstraints,
         MediaTime minLength)
     {
-        bool autoAdjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value;
+        bool autoAdjustSceneDuration = _configuration.AutoAdjustSceneDuration.Value;
         var oldBounds = new Dictionary<Element, (int ZIndex, MediaTime Start, MediaTime End)>(requests.Count);
         var clamped = new Dictionary<Element, (MediaTime Start, MediaTime Length)>(requests.Count);
         var resizedSet = new HashSet<Element>(requests.Select(r => r.Element));

@@ -29,7 +29,7 @@ public class SearchPageInitialQueryTests
         MainViewModel main = TestShell.MainViewModel;
         var handler = new SearchHandler();
         using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         using var viewModel = new ExtensionsPageViewModel(clients, main.EditorService, main.ProjectService);
         var window = new ExtensionsPage { DataContext = viewModel };
 

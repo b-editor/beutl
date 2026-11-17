@@ -2,7 +2,6 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-
 using Beutl.Logging;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
@@ -17,7 +16,6 @@ public sealed class GlobalConfiguration
     // Sections this build no longer has. They are read and dropped instead of being kept for the next save.
     private static readonly string[] s_droppedSections = ["Backup", "backup"];
 
-    public static readonly GlobalConfiguration Instance = new();
     private readonly (string Key, string? LegacyKey, ConfigurationBase Config)[] _sections;
     private string? _filePath;
     // The top-level entries the last Restore found that this build does not know, in the order the file had them.
@@ -33,7 +31,7 @@ public sealed class GlobalConfiguration
         }
     }
 
-    private GlobalConfiguration()
+    public GlobalConfiguration()
     {
         // In the order Save writes the sections and Restore reads them.
         _sections =

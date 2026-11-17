@@ -17,6 +17,13 @@ public sealed class TutorialServiceHandler : ITutorialService
     // Extensions register tutorials on other threads than the UI that reads them.
     private readonly object _lock = new();
 
+    private readonly TutorialConfig _configuration;
+
+    public TutorialServiceHandler(TutorialConfig configuration)
+    {
+        _configuration = configuration;
+    }
+
     public IObservable<TutorialState?> CurrentTutorial => _currentTutorial.AsObservable();
 
     public TutorialState? GetCurrentState() => _currentTutorial.Value;
@@ -166,7 +173,7 @@ public sealed class TutorialServiceHandler : ITutorialService
 
     public bool IsTutorialCompleted(string tutorialId)
     {
-        return GlobalConfiguration.Instance.TutorialConfig.CompletedTutorialIds.Value.Contains(tutorialId);
+        return _configuration.CompletedTutorialIds.Value.Contains(tutorialId);
     }
 
     public IReadOnlyList<TutorialDefinition> GetAvailableTutorials()
@@ -177,9 +184,9 @@ public sealed class TutorialServiceHandler : ITutorialService
         }
     }
 
-    private static void MarkTutorialCompleted(string tutorialId)
+    private void MarkTutorialCompleted(string tutorialId)
     {
-        GlobalConfiguration.Instance.TutorialConfig.MarkCompleted(tutorialId);
+        _configuration.MarkCompleted(tutorialId);
     }
 
     private static void UpdateOverlay(TutorialState? state)

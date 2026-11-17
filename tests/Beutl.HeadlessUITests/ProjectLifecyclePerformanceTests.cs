@@ -14,7 +14,7 @@ public class ProjectLifecyclePerformanceTests
     public async Task Empty_project_create_open_and_close_preserve_the_project(bool trackHistory)
     {
         await TestReset.ResetShellAsync();
-        var config = GlobalConfiguration.Instance.VersionControlConfig;
+        var config = TestShell.Configuration.VersionControlConfig;
         string? oldGlobal = Environment.GetEnvironmentVariable("GIT_CONFIG_GLOBAL");
         string? oldNoSystem = Environment.GetEnvironmentVariable("GIT_CONFIG_NOSYSTEM");
         string? oldGitPath = config.GitExecutablePath.Value;

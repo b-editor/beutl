@@ -23,9 +23,9 @@ public sealed class TitleBarStatusViewModelTests
     public async Task The_ring_spins_while_another_task_runs_beside_a_download()
     {
         var startup = new ReactivePropertySlim<bool>(true);
-        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Configuration.GlobalConfiguration>(() => TestShell.Configuration));
         await using var endpoint = new AgentHostEndpoint(
-            new ProjectService(), editorService, UnavailableAgentAiBackend.Instance, AgentHostEndpoint.DefaultPort, "test-token");
+            new ProjectService(new Beutl.Configuration.ViewConfig()), editorService, UnavailableAgentAiBackend.Instance, AgentHostEndpoint.DefaultPort, "test-token");
         using var status = new TitleBarStatusViewModel(
             startup,
             editorService,
@@ -48,9 +48,9 @@ public sealed class TitleBarStatusViewModelTests
     public async Task Busy_and_the_update_row_follow_the_app_update()
     {
         var update = new ReactivePropertySlim<AppUpdateStatus>(AppUpdateStatus.Idle);
-        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Configuration.GlobalConfiguration>(() => TestShell.Configuration));
         await using var endpoint = new AgentHostEndpoint(
-            new ProjectService(), editorService, UnavailableAgentAiBackend.Instance, AgentHostEndpoint.DefaultPort, "test-token");
+            new ProjectService(new Beutl.Configuration.ViewConfig()), editorService, UnavailableAgentAiBackend.Instance, AgentHostEndpoint.DefaultPort, "test-token");
         bool opened = false;
         using var status = new TitleBarStatusViewModel(
             Observable.Return(false),
@@ -91,9 +91,9 @@ public sealed class TitleBarStatusViewModelTests
     {
         var startup = new ReactivePropertySlim<bool>();
         var snapshots = new ReactivePropertySlim<AiJobMonitorSnapshot>(AiJobMonitorSnapshot.Empty);
-        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Configuration.GlobalConfiguration>(() => TestShell.Configuration));
         await using var endpoint = new AgentHostEndpoint(
-            new ProjectService(), editorService, UnavailableAgentAiBackend.Instance, AgentHostEndpoint.DefaultPort, "test-token");
+            new ProjectService(new Beutl.Configuration.ViewConfig()), editorService, UnavailableAgentAiBackend.Instance, AgentHostEndpoint.DefaultPort, "test-token");
         using var status = new TitleBarStatusViewModel(
             startup,
             editorService,
@@ -153,9 +153,9 @@ public sealed class TitleBarStatusViewModelTests
     [AvaloniaTest]
     public async Task Opening_the_popup_samples_resources_and_services()
     {
-        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Configuration.GlobalConfiguration>(() => TestShell.Configuration));
         await using var endpoint = new AgentHostEndpoint(
-            new ProjectService(), editorService, UnavailableAgentAiBackend.Instance, AgentHostEndpoint.DefaultPort, "test-token");
+            new ProjectService(new Beutl.Configuration.ViewConfig()), editorService, UnavailableAgentAiBackend.Instance, AgentHostEndpoint.DefaultPort, "test-token");
         using var status = new TitleBarStatusViewModel(
             Observable.Return(false),
             editorService,

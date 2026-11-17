@@ -20,7 +20,7 @@ public class ElementGapServiceTests
         _harness = new SceneHistoryHarness("beutl_gap", start: MediaTime.Zero, duration: MediaTime.FromSeconds(30));
         _scene = _harness.Scene;
         _history = _harness.History;
-        _service = new ElementGapService(_history);
+        _service = new ElementGapService(_history, new Beutl.Configuration.EditorConfig());
     }
 
     [TearDown]
@@ -35,7 +35,7 @@ public class ElementGapServiceTests
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => new ElementGapService(null!));
+        Assert.Throws<ArgumentNullException>(() => new ElementGapService(null!, new Beutl.Configuration.EditorConfig()));
     }
 
     [Test]

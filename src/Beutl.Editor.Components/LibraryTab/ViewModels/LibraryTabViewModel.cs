@@ -28,17 +28,19 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     private string? _query;
 
     private readonly LibraryService _libraryService;
+    private readonly EditorConfig _configuration;
     private readonly IServiceProvider? _editor;
 
     public LibraryTabViewModel(IServiceProvider editor)
-        : this(editor.GetRequiredService<LibraryService>(), editor)
+        : this(editor.GetRequiredService<LibraryService>(), editor.GetRequiredService<GlobalConfiguration>().EditorConfig, editor)
     {
     }
 
     // The editor gives the gallery's thumbnails the frame its preview shows; without one they show the samples.
-    public LibraryTabViewModel(LibraryService libraryService, IServiceProvider? editor = null)
+    public LibraryTabViewModel(LibraryService libraryService, EditorConfig configuration, IServiceProvider? editor = null)
     {
         _libraryService = libraryService;
+        _configuration = configuration;
         _editor = editor;
         _lifetimeToken = _lifetimeCancellation.Token;
         _preview = LibraryPreviewCapture.Create(editor);
@@ -152,7 +154,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
 
     [SuppressMessage("Performance", "CA1822:メンバーを static に設定します")]
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes
-        => GlobalConfiguration.Instance.EditorConfig.LibraryTabDisplayModes;
+        => _configuration.LibraryTabDisplayModes;
 
     private List<LibraryItemViewModel> CreateAllItems(int capacity = 0)
     {

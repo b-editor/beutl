@@ -675,13 +675,13 @@ public class TimelineMediaDurationTests
     // Turns ripple editing off and applies the given clamp and snap settings. Dispose restores all three.
     private sealed class EditorConfigScope : IDisposable
     {
-        private readonly bool _ripple = GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value;
-        private readonly bool _clamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value;
-        private readonly bool _snap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
+        private readonly bool _ripple = TestShell.Configuration.EditorConfig.IsRippleEnabled.Value;
+        private readonly bool _clamp = TestShell.Configuration.EditorConfig.ClampResizeToOriginalLength.Value;
+        private readonly bool _snap = TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value;
 
         public EditorConfigScope(bool? clamp = null, bool? snap = null)
         {
-            EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+            EditorConfig config = TestShell.Configuration.EditorConfig;
             config.IsRippleEnabled.Value = false;
             if (clamp is { } clampValue)
                 config.ClampResizeToOriginalLength.Value = clampValue;
@@ -691,7 +691,7 @@ public class TimelineMediaDurationTests
 
         public void Dispose()
         {
-            EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+            EditorConfig config = TestShell.Configuration.EditorConfig;
             config.IsRippleEnabled.Value = _ripple;
             config.ClampResizeToOriginalLength.Value = _clamp;
             config.IsTimelineSnapEnabled.Value = _snap;

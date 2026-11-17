@@ -1,5 +1,4 @@
 ﻿using Beutl.Configuration;
-
 using NUnit.Framework;
 
 namespace Beutl.UnitTests.Configuration;
@@ -18,7 +17,7 @@ public abstract class GlobalConfigurationFileFixture(string directoryPrefix)
     public void TearDown() => Directory.Delete(DirectoryPath, recursive: true);
 
     protected static GlobalConfiguration CreateConfiguration()
-        => (GlobalConfiguration)Activator.CreateInstance(typeof(GlobalConfiguration), nonPublic: true)!;
+        => new GlobalConfiguration();
 
     protected GlobalConfiguration Restore(string text)
     {

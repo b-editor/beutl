@@ -1,11 +1,9 @@
 ﻿using Avalonia;
-
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
 using Beutl.Services;
-
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -15,12 +13,14 @@ public sealed class CreateNewProjectViewModel
 {
     private readonly ILogger _logger = Log.CreateLogger<CreateNewProjectViewModel>();
     private readonly ProjectService _projectService;
+    private readonly GlobalConfiguration _configuration;
     private readonly IProjectVersionControlInitializer _versionControlInitializer;
 
     internal CreateNewProjectViewModel(
         ProjectService projectService,
-        IProjectVersionControlInitializer versionControlInitializer)
+        IProjectVersionControlInitializer versionControlInitializer, GlobalConfiguration configuration)
     {
+        _configuration = configuration;
         _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
         _versionControlInitializer = versionControlInitializer;
         Location.Value = GetDefaultLocation();
@@ -129,7 +129,7 @@ public sealed class CreateNewProjectViewModel
                 CancellationToken.None);
             bool isAvailable = availability.State == GitAvailabilityState.Installed;
             TrackHistory.Value = isAvailable
-                                 && GlobalConfiguration.Instance.VersionControlConfig.EnableForNewProjects.Value;
+                                 && _configuration.VersionControlConfig.EnableForNewProjects.Value;
             IsGitAvailable.Value = isAvailable;
         }
         catch (OperationCanceledException)
@@ -144,9 +144,9 @@ public sealed class CreateNewProjectViewModel
         }
     }
 
-    private static string GetDefaultLocation()
+    private string GetDefaultLocation()
     {
-        ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig config = _configuration.ViewConfig;
         try
         {
             if (config.RecentProjects.FirstOrDefault() is { } last)

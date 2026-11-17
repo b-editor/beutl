@@ -1,13 +1,11 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
-
 using Beutl.Editor.Components.TerminalTab.ViewModels;
 using Beutl.Editor.Components.TerminalTab.Views;
 using Beutl.Editor.Components.TimelineTab.Views;
@@ -18,13 +16,9 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
 using Beutl.Views;
-
 using Dock.Model.Controls;
-
 using Moq;
-
 using Reactive.Bindings;
-
 using RoyalTerminal.Avalonia.Controls;
 using RoyalTerminal.Terminal;
 
@@ -126,6 +120,7 @@ public class TerminalTabLifecycleTests
             string directory = Path.Combine(root.FullName, "scene folder");
             var scene = new Scene(640, 480, string.Empty) { Uri = new Uri(Path.Combine(directory, "test.scene")) };
             var editor = new Mock<IEditorContext>();
+            editor.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
             editor.Setup(x => x.GetService(typeof(Scene))).Returns(scene);
             using var owner = new TerminalTabViewModel(editor.Object);
             using var view = new TerminalTabView { DataContext = owner };
@@ -242,7 +237,7 @@ public class TerminalTabLifecycleTests
             IsSelected.Dispose();
         }
 
-        public object? GetService(Type serviceType) => null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public void ReadFromJson(JsonObject json)
         {

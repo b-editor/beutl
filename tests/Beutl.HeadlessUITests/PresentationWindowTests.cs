@@ -216,7 +216,7 @@ public class PresentationWindowTests
     public async Task Output_omits_boundaries_and_onion_skin_without_removing_them_from_the_editor(bool cache, bool onion)
     {
         TestGpu.RequireAnyDevice();
-        var config = GlobalConfiguration.Instance.EditorConfig;
+        var config = TestShell.Configuration.EditorConfig;
         bool oldOnion = config.IsOnionSkinEnabled.Value;
         int oldPrevCount = config.OnionSkinPrevCount.Value;
         int oldNextCount = config.OnionSkinNextCount.Value;
@@ -301,7 +301,7 @@ public class PresentationWindowTests
     public async Task Output_omits_3D_gizmos_while_the_editor_keeps_them(bool cache, bool onion, int nesting)
     {
         TestGpu.RequireAnyDevice();
-        var config = GlobalConfiguration.Instance.EditorConfig;
+        var config = TestShell.Configuration.EditorConfig;
         bool oldOnion = config.IsOnionSkinEnabled.Value;
         bool oldHdr = config.UseHdrPreview.Value;
         var (editor, view, owner) = await OpenView();

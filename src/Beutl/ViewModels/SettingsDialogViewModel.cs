@@ -1,6 +1,7 @@
 ﻿using System.Reactive.Subjects;
 using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.ViewModels.SettingsPages;
 
@@ -22,18 +23,21 @@ public sealed class SettingsDialogViewModel : IDisposable
     public SettingsDialogViewModel(
         BeutlApiApplication clients,
         ExtensionProvider extensionProvider,
-        IAiPlanCoordinator aiPlanCoordinator)
+        IAiPlanCoordinator aiPlanCoordinator, GlobalConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(aiPlanCoordinator);
+        Terminal = configuration.TerminalConfig;
         _account = new(() => new AccountSettingsPageViewModel(clients, aiPlanCoordinator));
-        _editor = new(() => new EditorSettingsPageViewModel());
-        _view = new(() => new ViewSettingsPageViewModel());
-        _font = new(() => new FontSettingsPageViewModel());
-        _extensionsPage = new(() => new ExtensionsSettingsPageViewModel(extensionProvider));
-        _information = new(() => new InformationPageViewModel());
+        _editor = new(() => new EditorSettingsPageViewModel(configuration));
+        _view = new(() => new ViewSettingsPageViewModel(configuration.ViewConfig));
+        _font = new(() => new FontSettingsPageViewModel(configuration.FontConfig));
+        _extensionsPage = new(() => new ExtensionsSettingsPageViewModel(extensionProvider, configuration));
+        _information = new(() => new InformationPageViewModel(configuration.UpdateConfig, configuration.TelemetryConfig));
         _keyMap = new(() => new KeyMapSettingsPageViewModel(clients.GetResource<ContextCommandManager>(), extensionProvider));
-        _aiAgent = new(() => new AiAgentSettingsPageViewModel());
+        _aiAgent = new(() => new AiAgentSettingsPageViewModel(configuration.AiAgentConfig));
     }
+
+    public TerminalConfig Terminal { get; }
 
     public AccountSettingsPageViewModel Account => _account.Value;
 

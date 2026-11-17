@@ -1,9 +1,7 @@
 ﻿using System.Diagnostics;
-
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.PackageTools.UI.Models;
-
 using PackageToolsMainViewModel = Beutl.PackageTools.UI.ViewModels.MainViewModel;
 
 namespace Beutl.UnitTests.PackageTools;
@@ -20,7 +18,7 @@ public sealed class MainViewModelLifetimeTests
         int cancelRequestsCount = 0;
         int disposeResourcesCount = 0;
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var viewModel = CreateViewModel(
             httpClient,
             app,
@@ -84,7 +82,7 @@ public sealed class MainViewModelLifetimeTests
         int disposeResourcesCount = 0;
         int navigationCount = 0;
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var viewModel = CreateViewModel(
             httpClient,
             app,
@@ -165,7 +163,7 @@ public sealed class MainViewModelLifetimeTests
     {
         var events = new List<string>();
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var viewModel = new PackageToolsMainViewModel(
             httpClient,
             app,
@@ -201,7 +199,7 @@ public sealed class MainViewModelLifetimeTests
     {
         var releaseInitialization = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var viewModel = new PackageToolsMainViewModel(
             httpClient,
             app,
@@ -232,7 +230,7 @@ public sealed class MainViewModelLifetimeTests
     public async Task ShouldStartAutomaticallyAsync_IsFalseWithoutARestart()
     {
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var viewModel = CreateViewModel(
             httpClient,
             app,
@@ -254,7 +252,7 @@ public sealed class MainViewModelLifetimeTests
     public async Task ShouldStartAutomaticallyAsync_IsFalseWhenInitializationFails()
     {
         using var httpClient = new HttpClient();
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         // A disposed application refuses its resources, so reading the changes fails.
         await app.DisposeAsync();
         var viewModel = new PackageToolsMainViewModel(
@@ -282,7 +280,7 @@ public sealed class MainViewModelLifetimeTests
     {
         var releaseInitialization = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var viewModel = new PackageToolsMainViewModel(
             httpClient,
             app,
@@ -306,7 +304,7 @@ public sealed class MainViewModelLifetimeTests
     public async Task AnotherPackageToolsProcess_KeepsTheChangesFromStartingAutomatically()
     {
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         using Process self = Process.GetCurrentProcess();
         using Process other = Process.GetCurrentProcess();
         var viewModel = new PackageToolsMainViewModel(

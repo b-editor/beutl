@@ -27,7 +27,7 @@ public class EditorPersistenceLifetimeReviewTests
         {
             Uri = new Uri(Path.Combine(workspace, "main.scene")),
         };
-        var extensions = new ExtensionProvider();
+        var extensions = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         var service = new EditorService(extensions, TestShell.MainViewModel.AppServices);
         var editor = new EditViewModel(scene, extensions, service);
         var tab = new EditorTabItem(editor);

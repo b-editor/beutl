@@ -1,4 +1,5 @@
-﻿using Beutl.Language;
+﻿using Beutl.Configuration;
+using Beutl.Language;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -6,10 +7,12 @@ namespace Beutl.Editor.Services;
 public sealed class ElementMoveService : IElementMoveService
 {
     private readonly HistoryManager _historyManager;
+    private readonly EditorConfig _configuration;
     private readonly IElementDuplicateService _duplicateService;
 
-    public ElementMoveService(HistoryManager historyManager, IElementDuplicateService duplicateService)
+    public ElementMoveService(HistoryManager historyManager, EditorConfig configuration, IElementDuplicateService duplicateService)
     {
+        _configuration = configuration;
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
         _duplicateService = duplicateService ?? throw new ArgumentNullException(nameof(duplicateService));
     }
@@ -32,7 +35,7 @@ public sealed class ElementMoveService : IElementMoveService
         // caller snap the drag visuals back to the model.
         if (AnyDestinationLayerLocked(scene, editable, deltaZIndex)) return ElementMoveOutcome.None;
 
-        scene.MoveChildren(deltaZIndex, deltaStart, editable);
+        scene.MoveChildren(deltaZIndex, deltaStart, editable, _configuration.AutoAdjustSceneDuration.Value);
         _historyManager.Commit(CommandNames.MoveElement);
         return ElementMoveOutcome.Moved;
     }
@@ -83,7 +86,7 @@ public sealed class ElementMoveService : IElementMoveService
             return ElementMoveOutcome.None;
         }
 
-        scene.MoveChildren(deltaZIndex, deltaStart, source);
+        scene.MoveChildren(deltaZIndex, deltaStart, source, _configuration.AutoAdjustSceneDuration.Value);
         _historyManager.Commit(CommandNames.MoveElement);
         return ElementMoveOutcome.FellBackToMove;
     }

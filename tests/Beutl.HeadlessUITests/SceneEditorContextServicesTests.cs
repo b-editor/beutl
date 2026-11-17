@@ -32,7 +32,7 @@ public class SceneEditorContextServicesTests
     [Test]
     public void EditorContextServices_TryGetService_resolves_by_type()
     {
-        var extensionProvider = new ExtensionProvider();
+        var extensionProvider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         var editorService = new EditorService(extensionProvider, new Beutl.Editor.Services.EditorServiceRegistry());
         IEditorContextServices services = new EditorContextServices(editorService, extensionProvider);
 
@@ -62,7 +62,7 @@ public class SceneEditorContextServicesTests
             Uri = new Uri(Path.Combine(workspace, "trycreatecontext.scene"))
         };
 
-        var extensionProvider = new ExtensionProvider();
+        var extensionProvider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         var editorService = new EditorService(extensionProvider, TestShell.MainViewModel.AppServices);
         IEditorContextServices services = new FakeEditorContextServices(editorService, extensionProvider);
 

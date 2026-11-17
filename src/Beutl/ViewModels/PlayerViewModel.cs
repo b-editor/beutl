@@ -209,7 +209,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        TimeDisplayFormat = SettingBinding.Bind(GlobalConfiguration.Instance.EditorConfig.TimeDisplayFormat, _disposables);
+        TimeDisplayFormat = SettingBinding.Bind(EditViewModel.GetRequiredService<GlobalConfiguration>().EditorConfig.TimeDisplayFormat, _disposables);
 
         CurrentTimeText = CurrentFrame
             .CombineLatest(FrameRate, TimeDisplayFormat, TimeDisplayFormatter.Format)
@@ -258,19 +258,19 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             })
             .DisposeWith(_disposables);
 
-        ToneMappingMode = GlobalConfiguration.Instance.EditorConfig.ToneMappingMode.GetObservable()
+        ToneMappingMode = EditViewModel.GetRequiredService<GlobalConfiguration>().EditorConfig.ToneMappingMode.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        ToneMappingExposure = GlobalConfiguration.Instance.EditorConfig.ToneMappingExposure.GetObservable()
+        ToneMappingExposure = EditViewModel.GetRequiredService<GlobalConfiguration>().EditorConfig.ToneMappingExposure.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        DisplayPeakLuminance = GlobalConfiguration.Instance.EditorConfig.DisplayPeakLuminance.GetObservable()
+        DisplayPeakLuminance = EditViewModel.GetRequiredService<GlobalConfiguration>().EditorConfig.DisplayPeakLuminance.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig editorConfig = EditViewModel.GetRequiredService<GlobalConfiguration>().EditorConfig;
 
         IsPreviewGuideEnabled = SettingBinding.Bind(editorConfig.IsPreviewGuideEnabled, _disposables);
         IsOnionSkinEnabled = SettingBinding.Bind(editorConfig.IsOnionSkinEnabled, _disposables);
@@ -381,7 +381,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     // invalidate the preview. Must run on the UI thread (see OnSceneEdited).
     private bool IsEditAffectingPreview(IReadOnlyList<TimeRange> affectedRange)
     {
-        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig editorConfig = EditViewModel.GetRequiredService<GlobalConfiguration>().EditorConfig;
         Scene? scene = Scene;
         bool onionSkinEnabled = editorConfig.IsOnionSkinEnabled.Value && !IsPlaying.Value && scene is not null;
 

@@ -116,7 +116,7 @@ public class RippleEditTests
     [Test]
     public void Delete_RippleOn_ShiftsSubsequentSameLayerOnly()
     {
-        var structure = new ElementStructureService(_history);
+        var structure = new ElementStructureService(_history, new Beutl.Configuration.EditorConfig());
         Element removed = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(2), zIndex: 0);
         Element afterSame = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2), zIndex: 0);
         Element afterOther = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2), zIndex: 1);
@@ -135,7 +135,7 @@ public class RippleEditTests
     [Test]
     public void Delete_RippleOff_PreservesTraditionalBehavior()
     {
-        var structure = new ElementStructureService(_history);
+        var structure = new ElementStructureService(_history, new Beutl.Configuration.EditorConfig());
         Element removed = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(2), zIndex: 0);
         Element afterSame = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2), zIndex: 0);
 
@@ -147,7 +147,7 @@ public class RippleEditTests
     [Test]
     public void Delete_RippleOn_ShiftsSubsequent()
     {
-        var structure = new ElementStructureService(_history);
+        var structure = new ElementStructureService(_history, new Beutl.Configuration.EditorConfig());
         Element removed = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(2), zIndex: 0);
         Element afterSame = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2), zIndex: 0);
 
@@ -165,7 +165,7 @@ public class RippleEditTests
     {
         var clipboard = new InMemoryClipboardGateway();
         var clipboardService = new ElementClipboardService(
-            _history, clipboard, new ElementDuplicateService(_history), () => Colors.Magenta);
+            _history, new Beutl.Configuration.EditorConfig(), clipboard, new ElementDuplicateService(_history, new Beutl.Configuration.EditorConfig()), () => Colors.Magenta);
         Element removed = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(2), zIndex: 0);
         Element afterSame = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2), zIndex: 0);
 
@@ -182,7 +182,7 @@ public class RippleEditTests
     [Test]
     public void Resize_RippleOn_LeftEdgeTrim_EndUnchanged_NoShift()
     {
-        var resize = new ElementResizeService(_history);
+        var resize = new ElementResizeService(_history, new Beutl.Configuration.EditorConfig());
         Element target = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(4), zIndex: 0);
         Element after = AddElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(2), zIndex: 0);
 
@@ -202,7 +202,7 @@ public class RippleEditTests
     [Test]
     public void Resize_RippleOn_LeftEdgeGrow_ShiftsUpstreamLeft()
     {
-        var resize = new ElementResizeService(_history);
+        var resize = new ElementResizeService(_history, new Beutl.Configuration.EditorConfig());
         Element upstream = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(4), zIndex: 0);
         Element target = AddElement(MediaTime.FromSeconds(6), MediaTime.FromSeconds(4), zIndex: 0);
 
@@ -223,7 +223,7 @@ public class RippleEditTests
     [Test]
     public void Resize_RippleOn_LeftEdgeGrow_ClampsWhenUpstreamWouldGoNegative()
     {
-        var resize = new ElementResizeService(_history);
+        var resize = new ElementResizeService(_history, new Beutl.Configuration.EditorConfig());
         Element upstream = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(4), zIndex: 0);
         Element target = AddElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(4), zIndex: 0);
 
@@ -244,7 +244,7 @@ public class RippleEditTests
     [Test]
     public void Resize_RippleOn_LeftEdgeGrow_ClampsPartialOverrun()
     {
-        var resize = new ElementResizeService(_history);
+        var resize = new ElementResizeService(_history, new Beutl.Configuration.EditorConfig());
         Element upstream = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(3), zIndex: 0);
         Element target = AddElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(4), zIndex: 0);
 
@@ -265,7 +265,7 @@ public class RippleEditTests
     [Test]
     public void Resize_RippleOn_LeftEdgeTrim_WithUpstream_PullsUpstreamRight()
     {
-        var resize = new ElementResizeService(_history);
+        var resize = new ElementResizeService(_history, new Beutl.Configuration.EditorConfig());
         Element upstream = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(4), zIndex: 0);
         Element target = AddElement(MediaTime.FromSeconds(6), MediaTime.FromSeconds(4), zIndex: 0);
 
@@ -285,7 +285,7 @@ public class RippleEditTests
     [Test]
     public void Resize_RippleOn_FloorsLengthWhenRequestedEndPrecedesClampedStart()
     {
-        var resize = new ElementResizeService(_history);
+        var resize = new ElementResizeService(_history, new Beutl.Configuration.EditorConfig());
         Element upstream = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(3), zIndex: 0);
         Element target = AddElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(4), zIndex: 0);
 
@@ -313,7 +313,7 @@ public class RippleEditTests
     [Test]
     public void Resize_LockedElement_IsFilteredOut_NoResizeNoCommit()
     {
-        var resize = new ElementResizeService(_history);
+        var resize = new ElementResizeService(_history, new Beutl.Configuration.EditorConfig());
         Element locked = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(2), zIndex: 0);
         locked.IsLocked.Value = true;
         int before = _history.UndoCount;
@@ -334,7 +334,7 @@ public class RippleEditTests
     [Test]
     public void Resize_RippleOff_PreservesTraditionalBehavior()
     {
-        var resize = new ElementResizeService(_history);
+        var resize = new ElementResizeService(_history, new Beutl.Configuration.EditorConfig());
         Element target = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(2), zIndex: 0);
         Element after = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2), zIndex: 0);
 
@@ -348,7 +348,7 @@ public class RippleEditTests
     [Test]
     public void Delete_RippleOn_UndoRestoresShift()
     {
-        var structure = new ElementStructureService(_history);
+        var structure = new ElementStructureService(_history, new Beutl.Configuration.EditorConfig());
         Element removed = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(2), zIndex: 0);
         Element afterSame = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2), zIndex: 0);
 
@@ -384,7 +384,7 @@ public class RippleEditTests
     [Test]
     public void Delete_RippleOn_LockedClipBeforeFollower_StopsRipple()
     {
-        var structure = new ElementStructureService(_history);
+        var structure = new ElementStructureService(_history, new Beutl.Configuration.EditorConfig());
         Element removed = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(10), zIndex: 0);
         Element locked = AddElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(10), zIndex: 0);
         Element free = AddElement(MediaTime.FromSeconds(20), MediaTime.FromSeconds(10), zIndex: 0);
@@ -404,7 +404,7 @@ public class RippleEditTests
     [Test]
     public void Delete_RippleOn_SeveralGaps_DoesNotMoveAFollowerPastALockedClip()
     {
-        var structure = new ElementStructureService(_history);
+        var structure = new ElementStructureService(_history, new Beutl.Configuration.EditorConfig());
         Element first = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(8));
         Element locked = AddElement(MediaTime.FromSeconds(9), MediaTime.FromSeconds(1));
         Element second = AddElement(MediaTime.FromSeconds(11), MediaTime.FromSeconds(8));
@@ -445,7 +445,7 @@ public class RippleEditTests
     [Test]
     public void Resize_RippleOn_RightEdgeGrow_ClampsAtLockedFollower()
     {
-        var resize = new ElementResizeService(_history);
+        var resize = new ElementResizeService(_history, new Beutl.Configuration.EditorConfig());
         Element target = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(2), zIndex: 0);
         Element lockedFollower = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2), zIndex: 0);
         lockedFollower.IsLocked.Value = true;
@@ -468,7 +468,7 @@ public class RippleEditTests
     [Test]
     public void Resize_RippleOn_RightEdgeGrow_ClampsRunToTouchLockedFollower()
     {
-        var resize = new ElementResizeService(_history);
+        var resize = new ElementResizeService(_history, new Beutl.Configuration.EditorConfig());
         Element target = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(2), zIndex: 0);
         Element free = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2), zIndex: 0);
         Element lockedFollower = AddElement(MediaTime.FromSeconds(6), MediaTime.FromSeconds(2), zIndex: 0);
@@ -491,7 +491,7 @@ public class RippleEditTests
     [Test]
     public void Resize_RippleOn_StartPastLockedFollower_DoesNotProduceNegativeLength()
     {
-        var resize = new ElementResizeService(_history);
+        var resize = new ElementResizeService(_history, new Beutl.Configuration.EditorConfig());
         Element target = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(2), zIndex: 0);
         Element locked = AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2), zIndex: 0);
         locked.IsLocked.Value = true;
@@ -529,7 +529,7 @@ public class RippleEditTests
     [Test]
     public void Resize_RippleOn_LeftEdgeGrow_LockedUpstreamPacksFree_ClampsGrowAway()
     {
-        var resize = new ElementResizeService(_history);
+        var resize = new ElementResizeService(_history, new Beutl.Configuration.EditorConfig());
         Element lockedUpstream = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1), zIndex: 0);
         Element freeUpstream = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2), zIndex: 0);
         Element target = AddElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(4), zIndex: 0);
@@ -552,7 +552,7 @@ public class RippleEditTests
     [Test]
     public void Resize_RippleOn_LeftEdgeGrow_LockedClipDirectlyBefore_ClampsGrowAway()
     {
-        var resize = new ElementResizeService(_history);
+        var resize = new ElementResizeService(_history, new Beutl.Configuration.EditorConfig());
         Element locked = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2), zIndex: 0);
         Element target = AddElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(2), zIndex: 0);
         locked.IsLocked.Value = true;
@@ -574,7 +574,7 @@ public class RippleEditTests
     [Test]
     public void Resize_RippleOn_LeftEdgeGrow_ClampsToLockedUpstreamEnd()
     {
-        var resize = new ElementResizeService(_history);
+        var resize = new ElementResizeService(_history, new Beutl.Configuration.EditorConfig());
         Element locked = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(1), zIndex: 0);
         Element free = AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2), zIndex: 0);
         Element target = AddElement(MediaTime.FromSeconds(7), MediaTime.FromSeconds(2), zIndex: 0);
@@ -599,7 +599,7 @@ public class RippleEditTests
     public void Delete_RippleOn_GroupedFollower_ShiftsWithSameLayer()
     {
         // Ripple closes the gap even when the follower shares a group with the removed element.
-        var structure = new ElementStructureService(_history);
+        var structure = new ElementStructureService(_history, new Beutl.Configuration.EditorConfig());
         Element removed = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(2), zIndex: 0);
         Element afterSame = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2), zIndex: 0);
 

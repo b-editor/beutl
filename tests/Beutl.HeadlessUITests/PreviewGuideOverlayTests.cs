@@ -36,7 +36,7 @@ public class PreviewGuideOverlayTests
 {
     private (bool Enabled, PreviewGuideKinds Kinds, string Color, float Opacity, int Columns, int Rows, string Ratios) _saved;
 
-    private static EditorConfig Config => GlobalConfiguration.Instance.EditorConfig;
+    private static EditorConfig Config => TestShell.Configuration.EditorConfig;
 
     [SetUp]
     public void SetUp()
@@ -360,7 +360,7 @@ public class PreviewGuideOverlayTests
     public void The_editor_settings_page_edits_the_guides()
     {
         Config.IsPreviewGuideEnabled.Value = false;
-        using var vm = new EditorSettingsPageViewModel();
+        using var vm = new EditorSettingsPageViewModel(TestShell.Configuration);
         var page = new EditorSettingsPage { DataContext = vm };
         var window = new Window { Content = page, Width = 1000, Height = 2400 };
         window.Show();

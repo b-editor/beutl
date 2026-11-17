@@ -10,6 +10,11 @@ namespace Beutl.UnitTests.ProjectSystem;
 [TestFixture]
 public class SceneGapTests
 {
+    [SetUp]
+    public void InitializeConfiguration() => _testConfiguration = new();
+
+    private GlobalConfiguration _testConfiguration = new();
+
     private static List<SceneGap> Gaps(Scene scene)
         => scene.EnumerateGaps().ToList();
 
@@ -672,8 +677,8 @@ public class SceneGapTests
     [TestCase(false, 3, 3)]
     public void CloseAllGaps_ElementsPastTheScene_ExtendItOnlyToWhereTheyLand(bool adjust, int duration, int expected)
     {
-        bool original = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value;
-        GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value = adjust;
+        bool original = _testConfiguration.EditorConfig.AutoAdjustSceneDuration.Value;
+        _testConfiguration.EditorConfig.AutoAdjustSceneDuration.Value = adjust;
         try
         {
             using var harness = new SceneHistoryHarness("beutl_scene_gaps", duration: MediaTime.FromSeconds(duration));
@@ -682,13 +687,13 @@ public class SceneGapTests
             harness.AddElement(MediaTime.FromSeconds(20), MediaTime.FromSeconds(2));
             harness.AddElement(MediaTime.FromSeconds(30), MediaTime.FromSeconds(2));
 
-            scene.CloseAllGaps();
+            scene.CloseAllGaps(_testConfiguration.EditorConfig.AutoAdjustSceneDuration.Value);
 
             Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(expected)));
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value = original;
+            _testConfiguration.EditorConfig.AutoAdjustSceneDuration.Value = original;
         }
     }
 

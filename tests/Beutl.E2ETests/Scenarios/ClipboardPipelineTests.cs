@@ -23,9 +23,9 @@ public class ClipboardPipelineTests
         _history = _harness.History;
         _clipboard = new FakeClipboardGateway();
         _service = new ElementClipboardService(
-            _history,
+            _history, new Beutl.Configuration.EditorConfig(),
             _clipboard,
-            new ElementDuplicateService(_history),
+            new ElementDuplicateService(_history, new Beutl.Configuration.EditorConfig()),
             imageAccentColorFactory: () => Colors.Magenta);
     }
 

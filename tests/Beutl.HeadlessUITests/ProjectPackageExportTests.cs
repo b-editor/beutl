@@ -140,7 +140,7 @@ public class ProjectPackageExportTests
     private static async Task<(Project Project, EditViewModel Editor, string Output)> OpenProjectAsync()
     {
         await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        VersionControlConfig config = TestShell.Configuration.VersionControlConfig;
         bool enable = config.EnableForNewProjects.Value;
         try
         {

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using Beutl.Configuration;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
@@ -12,9 +13,11 @@ public sealed class ElementDuplicateService : IElementDuplicateService
     private static readonly ILogger s_logger = Log.CreateLogger<ElementDuplicateService>();
 
     private readonly HistoryManager _historyManager;
+    private readonly EditorConfig _configuration;
 
-    public ElementDuplicateService(HistoryManager historyManager)
+    public ElementDuplicateService(HistoryManager historyManager, EditorConfig configuration)
     {
+        _configuration = configuration;
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
@@ -84,7 +87,7 @@ public sealed class ElementDuplicateService : IElementDuplicateService
 
             // The anchor is free for the whole set, so the duplicates go in as they are.
             DuplicateHelper.PlaceDuplicates(
-                scene, regenerated, sourceArray, placement.Start, placement.ZIndex, ElementOverlapHandling.Allow, sourceGroups);
+                scene, regenerated, sourceArray, placement.Start, placement.ZIndex, ElementOverlapHandling.Allow, sourceGroups, _configuration.AutoAdjustSceneDuration.Value);
         }
         catch (Exception ex)
         {
@@ -111,7 +114,7 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         try
         {
             ObjectRegenerator.Regenerate(sourceArray, out Element[] regenerated);
-            DuplicateHelper.PlaceDuplicates(scene, regenerated, sourceArray, anchorStart, Math.Max(anchorZIndex, 0));
+            DuplicateHelper.PlaceDuplicates(scene, regenerated, sourceArray, anchorStart, Math.Max(anchorZIndex, 0), _configuration.AutoAdjustSceneDuration.Value);
         }
         catch (Exception ex)
         {

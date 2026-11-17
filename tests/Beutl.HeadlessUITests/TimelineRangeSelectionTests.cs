@@ -91,7 +91,7 @@ public class TimelineRangeSelectionTests
     [AvaloniaTest]
     public async Task With_seeking_on_click_off_a_plain_drag_selects_and_leaves_the_playhead()
     {
-        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        IProperty<bool> setting = TestShell.Configuration.EditorConfig.SeekOnTimelineClick;
         setting.Value = false;
         try
         {
@@ -114,7 +114,7 @@ public class TimelineRangeSelectionTests
     [AvaloniaTest]
     public async Task With_seeking_on_click_off_the_ruler_still_moves_the_playhead()
     {
-        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        IProperty<bool> setting = TestShell.Configuration.EditorConfig.SeekOnTimelineClick;
         setting.Value = false;
         try
         {
@@ -141,7 +141,7 @@ public class TimelineRangeSelectionTests
     [AvaloniaTest]
     public async Task With_seeking_on_click_off_the_strip_above_the_scale_moves_the_playhead_too()
     {
-        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        IProperty<bool> setting = TestShell.Configuration.EditorConfig.SeekOnTimelineClick;
         setting.Value = false;
         try
         {
@@ -169,7 +169,7 @@ public class TimelineRangeSelectionTests
     [AvaloniaTest]
     public async Task With_seeking_on_click_off_a_click_on_a_locked_clip_selects_it_and_leaves_the_playhead()
     {
-        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        IProperty<bool> setting = TestShell.Configuration.EditorConfig.SeekOnTimelineClick;
         setting.Value = false;
         try
         {
@@ -203,7 +203,7 @@ public class TimelineRangeSelectionTests
     [AvaloniaTest]
     public async Task With_seeking_on_click_off_dragging_the_bar_moves_the_playhead_and_keeps_the_selection()
     {
-        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        IProperty<bool> setting = TestShell.Configuration.EditorConfig.SeekOnTimelineClick;
         setting.Value = false;
         try
         {
@@ -239,7 +239,7 @@ public class TimelineRangeSelectionTests
     [AvaloniaTest]
     public async Task With_seeking_on_click_off_a_click_on_the_bar_leaves_the_playhead()
     {
-        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        IProperty<bool> setting = TestShell.Configuration.EditorConfig.SeekOnTimelineClick;
         setting.Value = false;
         try
         {
@@ -264,7 +264,7 @@ public class TimelineRangeSelectionTests
     [AvaloniaTest]
     public async Task With_seeking_on_click_off_a_clip_under_the_bar_keeps_the_press()
     {
-        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        IProperty<bool> setting = TestShell.Configuration.EditorConfig.SeekOnTimelineClick;
         setting.Value = false;
         try
         {
@@ -298,7 +298,7 @@ public class TimelineRangeSelectionTests
     [AvaloniaTest]
     public async Task With_seeking_on_click_off_the_cursor_shows_where_the_bar_can_be_dragged()
     {
-        IProperty<bool> setting = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick;
+        IProperty<bool> setting = TestShell.Configuration.EditorConfig.SeekOnTimelineClick;
         setting.Value = false;
         try
         {

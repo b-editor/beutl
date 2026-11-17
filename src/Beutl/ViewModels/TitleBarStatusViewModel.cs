@@ -11,6 +11,7 @@ using Beutl.Logging;
 using Beutl.Models;
 using Beutl.Services;
 using Beutl.Utilities;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -224,7 +225,7 @@ public sealed class TitleBarStatusViewModel : IDisposable
     // to keep playback from stalling the popup.
     private async Task SampleFrameCacheAsync()
     {
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = _editorService.AppServices.GetRequiredService<GlobalConfiguration>().EditorConfig;
         if (!config.IsFrameCacheEnabled.Value)
         {
             FrameCacheText.Value = StatusStrings.Disabled;

@@ -35,6 +35,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
         ? "user.json"
         : $"user.{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(BaseUrl)))[..16]}.json";
     private readonly HttpClient _httpClient;
+    private readonly UpdateConfig _updateConfig;
     private readonly ExtensionProvider _extensionProvider;
     private readonly IServiceProvider _extensionServices;
     private readonly Func<HttpClient> _packageInstallerHttpClientFactory;
@@ -69,19 +70,17 @@ public partial class BeutlApiApplication : IAsyncDisposable
         return metadata;
     });
 
-    public BeutlApiApplication(HttpClient httpClient, ExtensionProvider extensionProvider)
-        : this(httpClient, extensionProvider, static () => new HttpClient())
-    {
-    }
-
-    public BeutlApiApplication(HttpClient httpClient, ExtensionProvider extensionProvider, IServiceProvider services)
-        : this(httpClient, extensionProvider, static () => new HttpClient(), services: services)
+    public BeutlApiApplication(HttpClient httpClient, ExtensionProvider extensionProvider,
+        ViewConfig viewConfig, UpdateConfig updateConfig, IServiceProvider? services = null)
+        : this(httpClient, extensionProvider, viewConfig, updateConfig, static () => new HttpClient(), services: services)
     {
     }
 
     internal BeutlApiApplication(
         HttpClient httpClient,
         ExtensionProvider extensionProvider,
+        ViewConfig viewConfig,
+        UpdateConfig updateConfig,
         Func<HttpClient> packageInstallerHttpClientFactory,
         Action<AuthenticatedUser>? persistAuthenticatedUser = null,
         IServiceProvider? services = null)
@@ -99,6 +98,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
         foreach (var header in httpClient.DefaultRequestHeaders)
             _httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, header.Value);
         _extensionProvider = extensionProvider;
+        _updateConfig = updateConfig;
         _extensionServices = services ?? new EmptyServiceProvider();
         _packageInstallerHttpClientFactory = packageInstallerHttpClientFactory;
         _persistAuthenticatedUser = persistAuthenticatedUser ?? PersistAuthenticatedUser;
@@ -116,7 +116,6 @@ public partial class BeutlApiApplication : IAsyncDisposable
         Library = RestService.For<ILibraryClient>(_httpClient);
         Ai = RestService.For<IAiClient>(_httpClient);
 
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         string culture = viewConfig.UICulture.Value.Name;
         if (!string.IsNullOrWhiteSpace(culture))
         {
@@ -418,7 +417,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
         Register(CreatePackageInstaller);
         Register(() => new PackageManager(
             GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(),
-            GetResource<ContextCommandManager>(), this, _extensionServices));
+            GetResource<ContextCommandManager>(), this, _extensionServices, _updateConfig));
     }
 
     private void Register<T>(Func<T> factory)

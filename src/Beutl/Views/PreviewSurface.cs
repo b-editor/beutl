@@ -6,6 +6,7 @@ using Avalonia.Media;
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views;
@@ -20,7 +21,7 @@ internal sealed class PreviewSurface : Border, IDisposable
         DataContext = player;
         Background = Brushes.Black;
         ClipToBounds = true;
-        _hdrSubscription = GlobalConfiguration.Instance.EditorConfig.UseHdrPreview.GetObservable()
+        _hdrSubscription = player.EditViewModel.GetRequiredService<GlobalConfiguration>().EditorConfig.UseHdrPreview.GetObservable()
             .ObserveOnUIDispatcher()
             .Subscribe(useHdr =>
             {

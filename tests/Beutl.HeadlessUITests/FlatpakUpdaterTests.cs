@@ -24,7 +24,7 @@ public sealed class FlatpakUpdaterTests
     [TearDown] public void TearDown() => Directory.Delete(_root, true);
     private static UpdateDialogViewModel ViewModel(FlatpakUpdater? updater = null, HttpClient? client = null,
         Func<string, CancellationToken, Task<int>>? prepareExtensions = null) => new(new AppUpdateResponse
-        { LatestVersion = "2.0.0", Url = null, DownloadUrl = Url, IsLatest = false, MustLatest = false }, true, updater, client, prepareExtensions: prepareExtensions);
+        { LatestVersion = "2.0.0", Url = null, DownloadUrl = Url, IsLatest = false, MustLatest = false }, TestShell.Configuration.UpdateConfig, true, updater, client, prepareExtensions: prepareExtensions);
 
     private FlatpakUpdater Updater(string scope = "user", Func<string[], CancellationToken, Task<string>>? run = null,
         Func<string, string?>? read = null, string arch = "x86_64", string branch = "master") => new($"""
@@ -177,7 +177,7 @@ public sealed class FlatpakUpdaterTests
             return "";
         }, read: _ => "app/" + Ref);
         using var client = new HttpClient(new Handler(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([1, 2, 3, 4]) }));
-        var setting = GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
+        var setting = TestShell.Configuration.UpdateConfig.ExtensionUpdates;
         var previous = setting.Value;
         int preparations = 0;
         var vm = ViewModel(updater, client, (_, _) => Task.FromResult(++preparations));

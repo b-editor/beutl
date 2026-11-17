@@ -19,6 +19,8 @@ internal static class TestShell
 
     public static Beutl.Services.LibraryService Library => ((TestApp)Application.Current!).Library;
 
+    public static Beutl.Configuration.GlobalConfiguration Configuration => ((TestApp)Application.Current!).Configuration;
+
     public static ObjectTemplateService Templates => ((TestApp)Application.Current!).Templates;
 
     public static ProjectService Project => MainViewModel.ProjectService;
@@ -32,6 +34,7 @@ internal static class TestShell
     public static Moq.Mock<IEditorContext> CreateEditorContextMock()
     {
         var context = new Moq.Mock<IEditorContext>();
+        context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(Configuration);
         context.Setup(x => x.GetService(typeof(Beutl.Services.LibraryService))).Returns(Library);
         context.Setup(x => x.GetService(typeof(ObjectTemplateService))).Returns(Templates);
         return context;

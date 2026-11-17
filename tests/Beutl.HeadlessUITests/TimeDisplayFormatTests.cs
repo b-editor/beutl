@@ -7,7 +7,6 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
-
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Components.Views;
@@ -20,11 +19,8 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.SettingsPages;
 using Beutl.Views;
-
 using FluentAvalonia.UI.Controls;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using BtlColors = Beutl.Media.Colors;
 using BtlPixelSize = Beutl.Media.PixelSize;
 using GraphScope = Beutl.HeadlessUITests.GraphEditorContextMenuTests.GraphScope;
@@ -39,7 +35,7 @@ public sealed class TimeDisplayFormatTests
 {
     private static readonly MediaTime s_markerTime = MediaTime.FromSeconds(5);
 
-    private static EditorConfig Config => GlobalConfiguration.Instance.EditorConfig;
+    private static EditorConfig Config => TestShell.Configuration.EditorConfig;
 
     private static async Task<(EditViewModel Editor, PlayerView View, Window Window)> OpenPlayer(string name)
     {
@@ -324,9 +320,9 @@ public sealed class TimeDisplayFormatTests
         TestGpu.RequireAnyDevice();
 
         TimeDisplayFormat original = Config.TimeDisplayFormat.Value;
-        string? priorGpu = GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value;
+        string? priorGpu = TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value;
         Config.TimeDisplayFormat.Value = TimeDisplayFormat.Timecode;
-        using var viewModel = new EditorSettingsPageViewModel();
+        using var viewModel = new EditorSettingsPageViewModel(TestShell.Configuration);
         var page = new EditorSettingsPage { DataContext = viewModel };
         var window = new Window { Content = page, Width = 900, Height = 700, RequestedThemeVariant = ThemeVariant.Dark };
         try
@@ -362,7 +358,7 @@ public sealed class TimeDisplayFormatTests
         {
             window.Close();
             Config.TimeDisplayFormat.Value = original;
-            GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value = priorGpu;
+            TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value = priorGpu;
         }
     }
 

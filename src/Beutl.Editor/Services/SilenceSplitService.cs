@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Audio;
+using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Language;
@@ -10,7 +11,7 @@ namespace Beutl.Editor.Services;
 
 public enum SilenceSplitMode { SplitOnly, DeleteSilence, RippleDelete }
 
-public sealed partial class SilenceSplitService(HistoryManager history, IPreviewPlayer? player = null)
+public sealed partial class SilenceSplitService(HistoryManager history, EditorConfig configuration, IPreviewPlayer? player = null)
 {
     // Round inward so frame alignment cannot eat the protected audio. Preview and apply use this
     // same plan; off-grid clip edges stay exact and no sub-frame fragments are created.
@@ -38,7 +39,7 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
     public void Apply(Scene scene, Element element, IReadOnlyList<TimeRange> ranges, SilenceSplitMode mode, bool includeLinked)
         => ApplyCore(scene, element, ranges, mode, includeLinked, history);
 
-    private static void ApplyCore(Scene scene, Element element, IReadOnlyList<TimeRange> ranges, SilenceSplitMode mode,
+    private void ApplyCore(Scene scene, Element element, IReadOnlyList<TimeRange> ranges, SilenceSplitMode mode,
         bool includeLinked, HistoryManager? recorder = null, CancellationToken cancellationToken = default,
         IProgress<int>? progress = null)
     {
@@ -71,7 +72,7 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
                 MediaTime cut = cuts[i];
                 // Descending cuts only touch the original left pieces, never the added right pieces.
                 Element[] targets = originals.Where(e => e.Start.Value < cut && cut < e.Range.End).ToArray();
-                var split = ElementStructureService.SplitCore(scene, targets, cut, batch);
+                var split = ElementStructureService.SplitCore(scene, targets, cut, batch, configuration.AutoAdjustSceneDuration.Value);
                 // Razor may skip a cut that leaves less than a frame. Roll back all cuts rather
                 // than silently deleting different intervals from the linked audio and video.
                 if (split.Count != targets.Length) throw new InvalidOperationException(Strings.SilenceSplit_ShortSegment);
@@ -114,7 +115,7 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
                 scene.Groups.InsertRange(index, groups);
                 scene.Children.AddRange(pending);
                 // Match AddChild's duration adjustment even when a split tail was subsequently removed.
-                if (parts.Count > originals.Length) scene.ExtendDurationToCover(maximumEnd);
+                if (parts.Count > originals.Length) scene.ExtendDurationToCover(maximumEnd, configuration.AutoAdjustSceneDuration.Value);
             }
         }
     }

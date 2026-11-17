@@ -16,9 +16,9 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
     private readonly AiAgentConfig _config;
     private readonly CompositeDisposable _disposables = [];
 
-    public AiAgentSettingsPageViewModel(AiAgentConfig? config = null)
+    public AiAgentSettingsPageViewModel(AiAgentConfig config)
     {
-        _config = config ?? GlobalConfiguration.Instance.AiAgentConfig;
+        _config = config;
         AgentToolkitMcpServerCommand? command = AgentToolkitMcpServerLocator.ResolveDefault();
 
         AgentChoices =

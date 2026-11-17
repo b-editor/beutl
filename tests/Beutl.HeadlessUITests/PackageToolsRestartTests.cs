@@ -32,7 +32,7 @@ public class PackageToolsRestartTests
     {
         var initialized = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var http = new HttpClient();
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         PackageToolsMainViewModel viewModel = CreateViewModel(http, app, _ => initialized.Task, restarting, static () => { });
         (Window window, FAFrame frame, _) = Show(viewModel);
 
@@ -70,7 +70,7 @@ public class PackageToolsRestartTests
     public async Task The_first_page_stays_when_reading_the_changes_throws()
     {
         using var http = new HttpClient();
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         PackageToolsMainViewModel viewModel = CreateViewModel(
             http,
             app,
@@ -103,7 +103,7 @@ public class PackageToolsRestartTests
     public async Task The_clean_page_runs_by_itself_only_when_Beutl_restarts(bool restarting)
     {
         using var http = new HttpClient();
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var clean = new CleanViewModel(app);
         Assume.That(clean.RegistryUnavailable, Is.False, "The clean page offers Start only with a readable package registry.");
         // Other tests share this home, so nothing they left behind is deleted here.
@@ -152,7 +152,7 @@ public class PackageToolsRestartTests
     {
         int starts = 0;
         using var http = new HttpClient();
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         PackageToolsMainViewModel viewModel = CreateViewModel(http, app, static _ => Task.CompletedTask, false, () => starts++);
         (Window window, FAFrame frame, Border buttons) = Show(viewModel);
         bool closed = false;

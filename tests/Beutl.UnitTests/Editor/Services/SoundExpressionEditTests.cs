@@ -25,7 +25,7 @@ public sealed class SoundExpressionEditTests(string soundType)
     {
         _harness = new SceneHistoryHarness("beutl_sound_expression", start: MediaTime.Zero, duration: MediaTime.FromSeconds(60));
         _slip = new ElementSlipService(_harness.History);
-        _structure = new ElementStructureService(_harness.History);
+        _structure = new ElementStructureService(_harness.History, new Beutl.Configuration.EditorConfig());
     }
 
     [TearDown]
@@ -184,7 +184,7 @@ public sealed class SoundExpressionEditTests(string soundType)
         (Element element, Sound sound) = AddClip();
         sound.Speed.Expression = Expression.Create<float>("200");
 
-        new SilenceSplitService(_harness.History).Apply(_harness.Scene, element,
+        new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig()).Apply(_harness.Scene, element,
             [new TimeRange(MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(0.5))], SilenceSplitMode.DeleteSilence, false);
 
         Assert.That(BackOffset(element), Is.EqualTo(MediaTime.FromSeconds(2)));
@@ -201,7 +201,7 @@ public sealed class SoundExpressionEditTests(string soundType)
         providerElement.AddObject(provider);
         sound.Speed.Expression = new ReferenceExpression<float>(provider.Id.Value, nameof(Sound.Speed));
 
-        await new SilenceSplitService(_harness.History).ApplyAsync(_harness.Scene, element,
+        await new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig()).ApplyAsync(_harness.Scene, element,
             [new TimeRange(MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(0.5))], SilenceSplitMode.DeleteSilence, false);
 
         Element back = _harness.Scene.Children

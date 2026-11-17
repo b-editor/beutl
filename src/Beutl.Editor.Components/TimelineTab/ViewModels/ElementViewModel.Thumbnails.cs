@@ -3,6 +3,7 @@ using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Engine;
 using Beutl.Media.Proxy;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
 
@@ -30,8 +31,8 @@ public sealed partial class ElementViewModel
         }
     }
 
-    private static bool ShowThumbnailsByDefault
-        => GlobalConfiguration.Instance.EditorConfig.ShowTimelineThumbnailsByDefault.Value;
+    private bool ShowThumbnailsByDefault
+        => Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig.ShowTimelineThumbnailsByDefault.Value;
 
     // A clip's own choice is kept only where it differs from the default: in ThumbnailsDisabledElements
     // while thumbnails are shown by default, and in ThumbnailsEnabledElements while they are not.
@@ -266,9 +267,9 @@ public sealed partial class ElementViewModel
         return null;
     }
 
-    private bool PreferProxyForThumbnails => GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value == PreviewSourceMode.PreferProxy;
+    private bool PreferProxyForThumbnails => Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig.PreviewSourceMode.Value == PreviewSourceMode.PreferProxy;
 
-    private ProxyPreset PreferredProxyPresetForThumbnails => ToProxyPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.Value);
+    private ProxyPreset PreferredProxyPresetForThumbnails => ToProxyPreset(Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().ProxyStoreConfig.DefaultPreset.Value);
 
     private IAsyncEnumerable<(int Index, int Count, Beutl.Media.Bitmap Thumbnail)> GetVideoThumbnailStrip(
         IThumbnailsProvider provider, int width, int height, CancellationToken ct, int start, int end)

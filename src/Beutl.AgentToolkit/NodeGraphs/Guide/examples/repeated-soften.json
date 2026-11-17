@@ -1,0 +1,90 @@
+{
+  "name": "repeated-soften",
+  "description": "A loop that softens the layer six times with a 3x3 blur. The pass before it pads the picture, since padding inside a loop grows with every iteration. The loop is connected from outside before its body, because inside, a state port takes the name of the port it connects to.",
+  "operations": [
+    {
+      "op": "add",
+      "ref": "input",
+      "type": "FilterEffectInputNode",
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "op": "add",
+      "ref": "pad",
+      "type": "ShaderFullscreenPassNode",
+      "name": "Room to spread",
+      "position": [
+        320,
+        0
+      ],
+      "values": {
+        "Padding": 8
+      }
+    },
+    {
+      "op": "add",
+      "ref": "loop",
+      "type": "ShaderRepeatNode",
+      "name": "Soften",
+      "position": [
+        640,
+        0
+      ],
+      "values": {
+        "Count": 6
+      }
+    },
+    {
+      "op": "add",
+      "ref": "output",
+      "type": "OutputNode",
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "op": "connect",
+      "from": "input.Output",
+      "to": "pad.In.source"
+    },
+    {
+      "op": "connect",
+      "from": "pad.Out.color",
+      "to": "loop.Image"
+    },
+    {
+      "op": "connect",
+      "from": "loop.Image",
+      "to": "output.Output"
+    },
+    {
+      "op": "add",
+      "graph": "loop",
+      "ref": "blur",
+      "type": "ShaderFullscreenPassNode",
+      "position": [
+        180,
+        20
+      ],
+      "values": {
+        "Code": "#version 450\nlayout(location = 0) in vec2 uv;\nlayout(location = 0) out vec4 color;\nlayout(set = 0, binding = 0) uniform sampler2D source;\n\nvoid main() {\n    vec2 texel = 1.0 / vec2(textureSize(source, 0));\n    vec4 sum = vec4(0.0);\n    for (int y = -1; y <= 1; y++) {\n        for (int x = -1; x <= 1; x++) {\n            sum += texture(source, uv + vec2(x, y) * texel);\n        }\n    }\n    color = sum / 9.0;\n}\n"
+      }
+    },
+    {
+      "op": "connect",
+      "graph": "loop",
+      "from": "@ShaderLoopInput.Image",
+      "to": "blur.In.source"
+    },
+    {
+      "op": "connect",
+      "graph": "loop",
+      "from": "blur.Out.color",
+      "to": "@ShaderLoopOutput.Image"
+    }
+  ]
+}

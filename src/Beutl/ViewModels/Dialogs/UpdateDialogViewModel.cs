@@ -29,6 +29,7 @@ public class UpdateDialogViewModel
 {
     private static readonly object s_claimGate = new();
     private static FileStream? s_updateFolderClaim;
+    private readonly UpdateConfig _configuration;
     private readonly CancellationTokenSource _cts = new();
     private readonly ILogger _logger = Log.CreateLogger<UpdateDialogViewModel>();
     private readonly FlatpakUpdater? _flatpak;
@@ -45,7 +46,7 @@ public class UpdateDialogViewModel
     private bool _installationStarted;
     private bool _installOnQuit;
 
-    public UpdateDialogViewModel(AppUpdateResponse update) : this(update, FlatpakUpdater.IsRunning)
+    public UpdateDialogViewModel(AppUpdateResponse update, UpdateConfig configuration) : this(update, configuration, FlatpakUpdater.IsRunning)
     {
         if (MainViewModel.TryGetCurrent(out var main))
         {
@@ -60,11 +61,12 @@ public class UpdateDialogViewModel
     }
 
     // Test seam: the app passes neither flatpak nor httpClient and uses the defaults.
-    internal UpdateDialogViewModel(AppUpdateResponse update, bool isFlatpak,
+    internal UpdateDialogViewModel(AppUpdateResponse update, UpdateConfig configuration, bool isFlatpak,
         FlatpakUpdater? flatpak = null, HttpClient? httpClient = null,
         Func<Task<AssetMetadataJson?>>? loadMetadata = null, Func<bool>? claimUpdateFolders = null,
         Func<string, CancellationToken, Task<int>>? prepareExtensions = null, TimeProvider? timeProvider = null)
     {
+        _configuration = configuration;
         Update = update;
         _flatpakInstallRequested = isFlatpak ? new(TaskCreationOptions.RunContinuationsAsynchronously) : null;
         _flatpak = flatpak;
@@ -74,7 +76,7 @@ public class UpdateDialogViewModel
         _prepareExtensions = prepareExtensions;
         _timeProvider = timeProvider ?? TimeProvider.System;
         ExtensionUpdateSummary = _preparedExtensionCount.CombineLatest(
-            GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates.GetObservable(), (_, _) => IncludedExtensions);
+            _configuration.ExtensionUpdates.GetObservable(), (_, _) => IncludedExtensions);
         PrimaryButtonText = new(isFlatpak
             ? ExtensionsStrings.Install
             : OperatingSystem.IsWindows()
@@ -89,7 +91,7 @@ public class UpdateDialogViewModel
     public IObservable<string?> ExtensionUpdateSummary { get; }
 
     internal string? IncludedExtensions =>
-        _preparedExtensionCount.Value > 0 && GlobalConfiguration.Instance.UpdateConfig.ShouldUpdateExtensions(true)
+        _preparedExtensionCount.Value > 0 && _configuration.ShouldUpdateExtensions(true)
             ? string.Format(MessageStrings.ExtensionUpdatesIncluded, _preparedExtensionCount.Value)
             : null;
 
@@ -399,7 +401,7 @@ public class UpdateDialogViewModel
 
     private async Task PrepareExtensionUpdatesAsync()
     {
-        if (_prepareExtensions == null || !GlobalConfiguration.Instance.UpdateConfig.ShouldUpdateExtensions(true)) return;
+        if (_prepareExtensions == null || !_configuration.ShouldUpdateExtensions(true)) return;
         string previous = ProgressText.Value;
         ProgressText.Value = MessageStrings.PreparingExtensionUpdates;
         IsIndeterminate.Value = true;

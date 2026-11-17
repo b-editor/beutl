@@ -22,7 +22,7 @@ public class StoragePickerWindowTests
     [AvaloniaTest]
     public void Font_settings_uses_the_host_window_folder_picker()
     {
-        using var viewModel = new FontSettingsPageViewModel();
+        using var viewModel = new FontSettingsPageViewModel(TestShell.Configuration.FontConfig);
         var storage = new Mock<IStorageProvider>(MockBehavior.Strict);
         storage.Setup(x => x.OpenFolderPickerAsync(It.IsAny<FolderPickerOpenOptions>()))
             .ReturnsAsync(Array.Empty<IStorageFolder>());
@@ -110,7 +110,7 @@ public class StoragePickerWindowTests
         }
 
         FAContentDialog dialog = project
-            ? new CreateNewProject { DataContext = new CreateNewProjectViewModel(TestShell.Project, TestShell.VersionControl) }
+            ? new CreateNewProject { DataContext = new CreateNewProjectViewModel(TestShell.Project, TestShell.VersionControl, TestShell.Configuration) }
             : new CreateNewScene { DataContext = new CreateNewSceneViewModel(TestShell.Project, TestShell.Editor) };
         Task? closed = null;
         try

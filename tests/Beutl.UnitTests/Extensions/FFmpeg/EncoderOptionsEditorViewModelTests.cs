@@ -23,9 +23,9 @@ public sealed class EncoderOptionsEditorViewModelTests
     [Test]
     public void PackageDiscoveryLoadsTheSpecializedOptionsEditor()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         var commands = new ContextCommandManager(new ContextCommandSettingsStore());
-        var manager = new PackageManager(new InstalledPackageRepository(), provider, commands, apiApplication: null!, services: new Beutl.Editor.Services.EditorServiceRegistry());
+        var manager = new PackageManager(new InstalledPackageRepository(), provider, commands, apiApplication: null!, services: new Beutl.Editor.Services.EditorServiceRegistry(), updateConfig: new Beutl.Configuration.UpdateConfig());
         var loaded = manager.LoadPackageExtensions([typeof(FFmpegEncoderSpecializedPropertyExtension)]);
         var extension = (PropertyEditorExtension)loaded.Single();
         provider.AddExtensions(1, loaded);

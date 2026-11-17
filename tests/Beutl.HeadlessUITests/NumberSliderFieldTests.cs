@@ -94,6 +94,7 @@ public class NumberSliderFieldTests
         var window = new Window { Content = slider, Width = 200, Height = 24, Background = Brushes.Black };
         try
         {
+            Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
             window.Show();
             HeadlessTestHelpers.Render(3);
             (byte[] pixels, int rowBytes, _) = HeadlessTestHelpers.CaptureFramePixels(window);
@@ -329,7 +330,7 @@ public class NumberSliderFieldTests
     [TestCase(false)]
     public void A_drag_ends_the_typing_in_another_box(bool focusableParent)
     {
-        using var pointerLock = PointerLockScope.Off();
+        using var pointerLock = PointerLockScope.Off(TestShell.Configuration.EditorConfig);
         var effect = new ColorGrading();
         using var history = new HistoryScope(effect);
         (PropertyEditorViewModel firstModel, Control first) = CreateControl(
@@ -346,6 +347,7 @@ public class NumberSliderFieldTests
         };
         try
         {
+            Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
             window.Show();
             HeadlessTestHelpers.Render(3);
             ValueSliderField firstSlider = first.GetVisualDescendants().OfType<ValueSliderField>().Single();
@@ -583,6 +585,7 @@ public class NumberSliderFieldTests
         var window = new Window { Content = slider, Width = 200, Height = 24, Background = Brushes.Black };
         try
         {
+            Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
             window.Show();
             HeadlessTestHelpers.Render(3);
             (byte[] pixels, int rowBytes, _) = HeadlessTestHelpers.CaptureFramePixels(window);
@@ -629,7 +632,7 @@ public class NumberSliderFieldTests
     {
         private readonly HistoryScope _history;
         private readonly PropertyEditorViewModel _model;
-        private readonly PointerLockScope _pointerLock = PointerLockScope.Off();
+        private readonly PointerLockScope _pointerLock = PointerLockScope.Off(TestShell.Configuration.EditorConfig);
 
         public FieldHost(Func<ColorGrading, IExpressionProperty<float>> pick, float? start = null, ThemeVariant? theme = null)
             : this(new ColorGrading(), pick, start, theme)
@@ -658,6 +661,7 @@ public class NumberSliderFieldTests
                 Height = 80,
                 RequestedThemeVariant = theme,
             };
+            Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
             Window.Show();
             HeadlessTestHelpers.Render(3);
             Slider = Editor.GetVisualDescendants().OfType<ValueSliderField>().Single();

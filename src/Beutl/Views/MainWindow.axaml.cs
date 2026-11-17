@@ -1,5 +1,5 @@
 ﻿using Avalonia.Controls;
-
+using Beutl.ViewModels;
 using FluentAvalonia.UI.Windowing;
 
 namespace Beutl.Views;
@@ -12,10 +12,16 @@ public sealed partial class MainWindow : FAAppWindow
     {
         InitializeComponent();
         _closeGuard = new MainWindowCloseGuard(this, mainView);
-        WindowPlacement.Restore(this);
 
         TitleBar.Height = 40;
         ExtendClientAreaTitleBarHeightHint = TitleBar.Height;
+    }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        if (DataContext is MainViewModel viewModel)
+            WindowPlacement.Restore(this, viewModel.Configuration.ViewConfig);
     }
 
     protected override void OnOpened(EventArgs e)
@@ -32,6 +38,7 @@ public sealed partial class MainWindow : FAAppWindow
             return;
 
         base.OnClosing(e);
-        WindowPlacement.Save(this);
+        if (DataContext is MainViewModel viewModel)
+            WindowPlacement.Save(this, viewModel.Configuration.ViewConfig);
     }
 }

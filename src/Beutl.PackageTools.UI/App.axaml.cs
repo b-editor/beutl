@@ -1,30 +1,37 @@
 ﻿using System.Globalization;
-
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 #if DEBUG
 using Avalonia.Diagnostics;
 #endif
-using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Styling;
-
 using Beutl.Configuration;
 using Beutl.Controls.Styling;
 using Beutl.Controls.Styling.Themes;
 using Beutl.PackageTools.UI.Views;
-
 using FluentAvalonia.Styling;
 
 namespace Beutl.PackageTools.UI;
 
 public partial class App : Application
 {
+    private readonly GlobalConfiguration _configuration;
+
+    public App() : this(new GlobalConfiguration())
+    {
+    }
+
+    public App(GlobalConfiguration configuration)
+    {
+        _configuration = configuration;
+    }
+
     public override void Initialize()
     {
-        GlobalConfiguration config = GlobalConfiguration.Instance;
-        ViewConfig view = config.ViewConfig;
+        ViewConfig view = _configuration.ViewConfig;
         CultureInfo.CurrentUICulture = view.UICulture.Value;
 
         AvaloniaXamlLoader.Load(this);
@@ -84,7 +91,7 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow();
+            desktop.MainWindow = new MainWindow(_configuration);
         }
 
         base.OnFrameworkInitializationCompleted();

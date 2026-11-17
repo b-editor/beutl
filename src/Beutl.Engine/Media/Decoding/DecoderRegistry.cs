@@ -2,7 +2,6 @@
 using Beutl.Logging;
 using Beutl.Media.Proxy;
 using Beutl.Serialization;
-
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Media.Decoding;
@@ -34,13 +33,31 @@ public static class DecoderRegistry
     /// </remarks>
     public static event EventHandler? DecodersChanged;
 
-    static DecoderRegistry()
+    private static ExtensionConfig? s_configuration;
+
+    public static void Initialize(ExtensionConfig configuration)
     {
-        GlobalConfiguration.Instance.ExtensionConfig.DecoderPriority.CollectionChanged += (_, _) =>
+        ArgumentNullException.ThrowIfNull(configuration);
+        lock (s_lock)
         {
-            InvalidateCache();
-            DecodersChanged?.Invoke(null, EventArgs.Empty);
-        };
+            SetConfiguration(configuration);
+        }
+        DecodersChanged?.Invoke(null, EventArgs.Empty);
+    }
+
+    private static void SetConfiguration(ExtensionConfig configuration)
+    {
+        if (s_configuration != null)
+            s_configuration.DecoderPriority.CollectionChanged -= OnPriorityChanged;
+        s_configuration = configuration;
+        s_configuration.DecoderPriority.CollectionChanged += OnPriorityChanged;
+        s_ordered.Clear();
+    }
+
+    private static void OnPriorityChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        InvalidateCache();
+        DecodersChanged?.Invoke(null, EventArgs.Empty);
     }
 
     private static void InvalidateCache()
@@ -55,10 +72,12 @@ public static class DecoderRegistry
     {
         lock (s_lock)
         {
+            if (s_configuration == null)
+                SetConfiguration(new ExtensionConfig());
+
             if (s_ordered.Count == 0)
             {
-                ExtensionConfig extensionConfig = GlobalConfiguration.Instance.ExtensionConfig;
-                IDecoderInfo[] preferred = extensionConfig.DecoderPriority.Select(v => v.Type)
+                IDecoderInfo[] preferred = s_configuration!.DecoderPriority.Select(v => v.Type)
                     .Where(v => v != null)
                     .Select(t => s_registered.FirstOrDefault(v => v.GetType() == t))
                     .Where(v => v != null)

@@ -18,7 +18,7 @@ public sealed class AiPlanCoordinatorTests
         var entitlements = new StubEntitlementService();
         var opened = new List<Uri>();
         var coordinator = new AiPlanCoordinator(
-            entitlements,
+            entitlements, new Beutl.Configuration.ViewConfig(),
             opened.Add,
             () => "ja",
             new Uri("https://beutl.beditor.net/"));
@@ -51,7 +51,7 @@ public sealed class AiPlanCoordinatorTests
     {
         var opened = new List<Uri>();
         var coordinator = new AiPlanCoordinator(
-            new StubEntitlementService(),
+            new StubEntitlementService(), new Beutl.Configuration.ViewConfig(),
             opened.Add,
             () => "en");
 
@@ -74,7 +74,7 @@ public sealed class AiPlanCoordinatorTests
             Failure = new InvalidOperationException("offline"),
         };
         var coordinator = new AiPlanCoordinator(
-            entitlements,
+            entitlements, new Beutl.Configuration.ViewConfig(),
             _ => { },
             () => "en");
         int refreshedEvents = 0;
@@ -99,7 +99,7 @@ public sealed class AiPlanCoordinatorTests
     {
         var entitlements = new StubEntitlementService();
         var coordinator = new AiPlanCoordinator(
-            entitlements,
+            entitlements, new Beutl.Configuration.ViewConfig(),
             _ => { },
             () => "en");
         int laterEvents = 0;

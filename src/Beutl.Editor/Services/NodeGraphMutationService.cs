@@ -64,7 +64,8 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     private static bool IsEditable(IHierarchical owner)
         => ElementEditability.IsEditable(owner.FindHierarchicalParent<Element>());
 
-    private static bool CanAddNode(GraphModel graph, GraphNode node)
+    // The rules below are shared with the agent toolkit, which applies several edits in one history entry.
+    internal static bool CanAddNode(GraphModel graph, GraphNode node)
     {
         // At most one GroupInput / GroupOutput per GraphGroup.
         return graph is not GraphGroup group
@@ -80,6 +81,15 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         Element? element = graph.FindHierarchicalParent<Element>();
         if (!ElementEditability.CanRepair(element, node)) return;
 
+        RemoveNodeCore(graph, node);
+        if (element != null) ElementRecoveryService.TryCompleteRepair(element, _historyManager);
+
+        _historyManager.Commit(CommandNames.RemoveNode);
+    }
+
+    // Severs every connection of the node, then removes it, without committing.
+    internal static void RemoveNodeCore(GraphModel graph, GraphNode node)
+    {
         // Snapshot touching connections first so disconnect calls don't
         // invalidate the iteration.
         Connection[] touching = node.EnumerateMembers()
@@ -108,9 +118,6 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         }
 
         graph.Nodes.Remove(node);
-        if (element != null) ElementRecoveryService.TryCompleteRepair(element, _historyManager);
-
-        _historyManager.Commit(CommandNames.RemoveNode);
     }
 
     public void MoveNodes(IReadOnlyList<(GraphNode Node, double X, double Y)> moves)
@@ -310,7 +317,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
            && CanAcceptConnection(input)
            && !WouldCloseCycle(graph, input, output);
 
-    private static bool CanAcceptConnection(IInputPort input)
+    internal static bool CanAcceptConnection(IInputPort input)
     {
         if (input is not IListInputPort && !input.Connection.Value.IsNull)
             return false;
@@ -318,7 +325,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     }
 
     // A graph evaluates its nodes in dependency order, so it skips every node on a cycle.
-    private static bool WouldCloseCycle(GraphModel graph, IInputPort input, IOutputPort output)
+    internal static bool WouldCloseCycle(GraphModel graph, IInputPort input, IOutputPort output)
     {
         if (input.FindHierarchicalParent<GraphNode>() is not { } consumer
             || output.FindHierarchicalParent<GraphNode>() is not { } producer)
@@ -330,7 +337,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     }
 
     // The new port makes the node the producer of an input mate, or the consumer of an output mate.
-    private static bool WouldNewPortCloseCycle(GraphModel graph, GraphNode node, INodePort mate)
+    internal static bool WouldNewPortCloseCycle(GraphModel graph, GraphNode node, INodePort mate)
         => mate.FindHierarchicalParent<GraphNode>() is { } mateNode
             && (mate is IInputPort
                 ? WouldCloseCycle(graph, mateNode, node)
@@ -400,7 +407,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         _historyManager.Commit(CommandNames.DisconnectPort);
     }
 
-    private static bool SortPortDirection(INodePort a, INodePort b,
+    internal static bool SortPortDirection(INodePort a, INodePort b,
         [NotNullWhen(true)] out IInputPort? input, [NotNullWhen(true)] out IOutputPort? output)
     {
         if (a is IInputPort ai && b is IOutputPort bo)

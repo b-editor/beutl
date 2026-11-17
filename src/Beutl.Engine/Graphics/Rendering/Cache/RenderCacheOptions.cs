@@ -8,9 +8,8 @@ public record RenderCacheOptions(bool IsEnabled, RenderCacheRules Rules)
     public static readonly RenderCacheOptions Enabled = new(true, RenderCacheRules.Default);
     public static readonly RenderCacheOptions Default = Disabled;
 
-    public static RenderCacheOptions CreateFromGlobalConfiguration()
+    public static RenderCacheOptions CreateFromConfiguration(EditorConfig config)
     {
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
         return new RenderCacheOptions(
             config.IsNodeCacheEnabled.Value,
             RenderCacheRules.Create(config.NodeCacheMaxPixels.Value, config.NodeCacheMinPixels.Value));

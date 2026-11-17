@@ -16,13 +16,13 @@ public sealed class EditorSettingsPageViewModel : IDisposable
     private readonly VersionControlConfig _versionControlConfig;
     private readonly CompositeDisposable _disposables = [];
 
-    public EditorSettingsPageViewModel()
+    public EditorSettingsPageViewModel(GlobalConfiguration configuration)
     {
-        _viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        _editorConfig = GlobalConfiguration.Instance.EditorConfig;
-        _graphicsConfig = GlobalConfiguration.Instance.GraphicsConfig;
-        _proxyStoreConfig = GlobalConfiguration.Instance.ProxyStoreConfig;
-        _versionControlConfig = GlobalConfiguration.Instance.VersionControlConfig;
+        _viewConfig = configuration.ViewConfig;
+        _editorConfig = configuration.EditorConfig;
+        _graphicsConfig = configuration.GraphicsConfig;
+        _proxyStoreConfig = configuration.ProxyStoreConfig;
+        _versionControlConfig = configuration.VersionControlConfig;
 
         AutoAdjustSceneDuration = CreateSetting(
             _editorConfig.AutoAdjustSceneDuration.GetObservable(),

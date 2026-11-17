@@ -23,7 +23,7 @@ public class ViewSettingsPagePaletteTests
     {
         // ViewSettingsPageViewModel reads the ViewConfig singleton, so reset it here (not in
         // SetUp/TearDown, which run off the UI thread) and hand it back unchanged.
-        ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig config = TestShell.Configuration.ViewConfig;
         bool useCustomAccent = config.UseCustomAccentColor.Value;
         string? customAccentColor = config.CustomAccentColor.Value;
         config.UseCustomAccentColor.Value = true;
@@ -41,7 +41,7 @@ public class ViewSettingsPagePaletteTests
 
     private static void AssertSwatchesBindToTheirColorItem()
     {
-        using var viewModel = new ViewSettingsPageViewModel();
+        using var viewModel = new ViewSettingsPageViewModel(TestShell.Configuration.ViewConfig);
         var page = new ViewSettingsPage { DataContext = viewModel };
         var window = new Window { Content = page, Width = 900, Height = 700 };
 

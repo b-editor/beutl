@@ -1,13 +1,11 @@
 ﻿using System.Collections.Specialized;
 using System.ComponentModel;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
-
 using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Controls;
@@ -21,12 +19,9 @@ using Beutl.Graphics.Transformation;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
-
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-
 using Reactive.Bindings.Extensions;
-
 using BtlDrawable = Beutl.Graphics.Drawable;
 using BtlMatrix = Beutl.Graphics.Matrix;
 using BtlPoint = Beutl.Graphics.Point;
@@ -129,7 +124,9 @@ public partial class PlayerView : UserControl
 
     private void SetupImageControl()
     {
-        var config = GlobalConfiguration.Instance.EditorConfig;
+        if (DataContext is not PlayerViewModel player) return;
+        var config = player.EditViewModel.GetRequiredService<GlobalConfiguration>().EditorConfig;
+        _imageConfigSubscription?.Dispose();
         // A view attached again keeps its image control unless the preview mode changed while it was detached.
         if (image == null || (hdrView != null) != config.UseHdrPreview.Value)
         {
@@ -284,6 +281,9 @@ public partial class PlayerView : UserControl
         Presentation?.Close();
         base.OnDataContextChanged(e);
         _disposables.Clear();
+        _imageConfigSubscription?.Dispose();
+        _imageConfigSubscription = null;
+        SetupImageControl();
 
         InvalidateTransformHandleResource();
 

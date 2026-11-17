@@ -26,7 +26,7 @@ internal static class MediaSourceEditorHelper
             && vm.GetService<IElementResizeService>() is { } resizeService)
         {
             resizeService.ResizeToOriginalDuration(
-                scene, element, GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value);
+                scene, element, vm.GetRequiredService<GlobalConfiguration>().EditorConfig.IsRippleEnabled.Value);
         }
     }
 }

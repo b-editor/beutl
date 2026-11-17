@@ -1,4 +1,5 @@
-﻿using Beutl.Language;
+﻿using Beutl.Configuration;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
@@ -14,6 +15,7 @@ public sealed class ElementNudgeService : IElementNudgeService
     private static readonly ILogger s_logger = Log.CreateLogger<ElementNudgeService>();
 
     private readonly HistoryManager _historyManager;
+    private readonly EditorConfig _configuration;
     private readonly Action<Action>? _postToUi;
     private readonly Timer _timer;
     private readonly object _gate = new();
@@ -31,8 +33,9 @@ public sealed class ElementNudgeService : IElementNudgeService
     /// commit inline on the timer thread — tests drive <see cref="Flush"/>
     /// synchronously this way.
     /// </param>
-    public ElementNudgeService(HistoryManager historyManager, Action<Action>? postToUi = null)
+    public ElementNudgeService(HistoryManager historyManager, EditorConfig configuration, Action<Action>? postToUi = null)
     {
+        _configuration = configuration;
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
         _postToUi = postToUi;
         _timer = new Timer(OnTimerTick, state: null, Timeout.Infinite, Timeout.Infinite);
@@ -76,7 +79,7 @@ public sealed class ElementNudgeService : IElementNudgeService
         try
         {
             using (_session.Enter())
-                scene.MoveChildren(0, delta, targets.ToArray());
+                scene.MoveChildren(0, delta, targets.ToArray(), _configuration.AutoAdjustSceneDuration.Value);
         }
         finally
         {

@@ -98,7 +98,7 @@ internal sealed class StoreClients : IAsyncDisposable
 {
     private readonly HttpClient _httpClient = new();
 
-    public StoreClients() => App = new BeutlApiApplication(_httpClient, new ExtensionProvider());
+    public StoreClients() => App = new BeutlApiApplication(_httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
 
     public BeutlApiApplication App { get; }
 

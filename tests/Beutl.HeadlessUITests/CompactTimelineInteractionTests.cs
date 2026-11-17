@@ -25,10 +25,10 @@ public sealed class CompactTimelineInteractionTests
     [TestCase(true)]
     public async Task Narrow_clips_keep_group_drag_resize_undo_rename_and_context_menu(bool hoverFirst)
     {
-        bool snap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
-        bool ripple = GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value;
-        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = false;
-        GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value = false;
+        bool snap = TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value;
+        bool ripple = TestShell.Configuration.EditorConfig.IsRippleEnabled.Value;
+        TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = false;
+        TestShell.Configuration.EditorConfig.IsRippleEnabled.Value = false;
         Window? window = null;
         TimelineTabView? view = null;
         try
@@ -118,8 +118,8 @@ public sealed class CompactTimelineInteractionTests
             if (view is not null) view.DataContext = null;
             window?.Close();
             await TestReset.ResetShellAsync();
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = snap;
-            GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value = ripple;
+            TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = snap;
+            TestShell.Configuration.EditorConfig.IsRippleEnabled.Value = ripple;
         }
     }
 }

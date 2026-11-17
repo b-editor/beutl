@@ -28,7 +28,7 @@ public sealed class UpdateHandoffTests
             DownloadUrl = "https://downloads.example.test/update.zip",
             IsLatest = false,
             MustLatest = false,
-        }, false, loadMetadata: () =>
+        }, new Beutl.Configuration.UpdateConfig(), false, loadMetadata: () =>
         {
             handled = true;
             return Task.FromResult<AssetMetadataJson?>(null);

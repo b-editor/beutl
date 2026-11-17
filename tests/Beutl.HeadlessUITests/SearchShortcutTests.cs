@@ -22,7 +22,7 @@ public class SearchShortcutTests
     [TestCase(RawInputModifiers.Meta)]
     public async Task Library_opens_search_and_selects_the_existing_query(RawInputModifiers modifier)
     {
-        using var library = new LibraryTabViewModel(TestShell.Library);
+        using var library = new LibraryTabViewModel(TestShell.Library, TestShell.Configuration.EditorConfig);
         var view = new LibraryTabView { DataContext = library };
         using var host = new ControlHost(view, 640, 360);
         var tabs = view.FindControl<TabStrip>("tabStrip")!;

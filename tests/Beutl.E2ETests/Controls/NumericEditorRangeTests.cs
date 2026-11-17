@@ -128,7 +128,7 @@ public class NumericEditorRangeTests
     [TestCaseSource(nameof(NumberAndVectorEditors))]
     public void Header_drag_clamps_live_values_and_confirms_once_on_release(EditorCase editorCase)
     {
-        using var pointerLock = PointerLockScope.Off();
+        using var pointerLock = PointerLockScope.Off(((TestApp)Application.Current!).Configuration.EditorConfig);
         using var editor = new BoundedEditor(editorCase);
         editor.Reset(195);
         TextBlock header = editor.Host.Require<TextBlock>("PART_HeaderTextBlock");
@@ -194,7 +194,7 @@ public class NumericEditorRangeTests
     [TestCase("Vector3")]
     public void Component_header_drag_changes_only_its_component(string kind)
     {
-        using var pointerLock = PointerLockScope.Off();
+        using var pointerLock = PointerLockScope.Off(((TestApp)Application.Current!).Configuration.EditorConfig);
         using var editor = new BoundedEditor(new EditorCase(kind));
         for (int index = 0; index < editor.VisibleComponentCount; index++)
         {

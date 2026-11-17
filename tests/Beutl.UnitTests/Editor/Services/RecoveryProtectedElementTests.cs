@@ -45,7 +45,7 @@ public class RecoveryProtectedElementTests
         Element element = scene.Children.Single();
         MediaTime start = element.Start.Value;
         using var harness = new HistoryHarness(scene);
-        var resize = new ElementResizeService(harness.History);
+        var resize = new ElementResizeService(harness.History, new Beutl.Configuration.EditorConfig());
 
         resize.Resize(scene,
             [new ElementResizeRequest(element, start + MediaTime.FromSeconds(1), element.Length.Value, element.ZIndex.Value)],
@@ -73,7 +73,7 @@ public class RecoveryProtectedElementTests
         Element element = scene.Children.Single();
         using var harness = new HistoryHarness(scene);
         var objects = new ElementObjectService(harness.History);
-        var resize = new ElementResizeService(harness.History);
+        var resize = new ElementResizeService(harness.History, new Beutl.Configuration.EditorConfig());
         EngineObject unavailable = element.Objects.Single();
         Assert.That(SceneRecovery.HoldsRecoveryBlocker(unavailable), Is.True);
 
@@ -184,7 +184,7 @@ public class RecoveryProtectedElementTests
         using var subscription = harness.Observer.Operations.Buffer(harness.History.StateChanged)
             .Subscribe(operations => autoSave.AutoSave(operations));
 
-        new ElementStructureService(harness.History).Delete(scene, [.. scene.Children]);
+        new ElementStructureService(harness.History, new Beutl.Configuration.EditorConfig()).Delete(scene, [.. scene.Children]);
 
         Assert.Multiple(() =>
         {
@@ -230,7 +230,7 @@ public class RecoveryProtectedElementTests
         Element element = scene.Children.Single();
         element.IsLocked.Value = true;
         using var harness = new HistoryHarness(scene);
-        var structure = new ElementStructureService(harness.History);
+        var structure = new ElementStructureService(harness.History, new Beutl.Configuration.EditorConfig());
         var objects = new ElementObjectService(harness.History);
 
         structure.Delete(scene, [element]);
@@ -318,9 +318,9 @@ public class RecoveryProtectedElementTests
         follower.SuppressedStorageSource = new SuppressedStorageSource([], follower.Uri!);
         secondFollower.SuppressedStorageSource = new SuppressedStorageSource([], secondFollower.Uri!);
 
-        new ElementStructureService(harness.History).Delete(harness.Scene, [removed], ripple: true);
+        new ElementStructureService(harness.History, new Beutl.Configuration.EditorConfig()).Delete(harness.Scene, [removed], ripple: true);
         // Growing the right edge from 12 to 15 would overlap the protected follower at [12,14].
-        new ElementResizeService(harness.History).Resize(harness.Scene,
+        new ElementResizeService(harness.History, new Beutl.Configuration.EditorConfig()).Resize(harness.Scene,
             [new ElementResizeRequest(grown, grown.Start.Value, MediaTime.FromSeconds(5), grown.ZIndex.Value)],
             ripple: true);
 

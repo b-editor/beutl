@@ -20,11 +20,17 @@ public sealed partial class TerminalSettingsPage : UserControl
         FontSizeBox.Minimum = TerminalConfig.MinFontSize;
         FontSizeBox.Maximum = TerminalConfig.MaxFontSize;
         ScrollbackBox.Maximum = TerminalConfig.MaxScrollbackLines;
-        // Keep a saved font selectable if this computer does not have it installed.
-        FontFamilyBox.ItemsSource = TerminalFontCatalog.GetSystemFontFamilies()
-            .Prepend(string.Empty).Append(GlobalConfiguration.Instance.TerminalConfig.FontFamily.Value)
-            .Distinct(StringComparer.Ordinal).ToArray();
         ShellPathBox.PlaceholderText = TerminalTabViewModel.ResolveShell(Environment.GetEnvironmentVariable,
             OperatingSystem.IsWindows(), OperatingSystem.IsMacOS()).Path;
+    }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        if (DataContext is not TerminalConfig configuration) return;
+        // Keep a saved font selectable if this computer does not have it installed.
+        FontFamilyBox.ItemsSource = TerminalFontCatalog.GetSystemFontFamilies()
+            .Prepend(string.Empty).Append(configuration.FontFamily.Value)
+            .Distinct(StringComparer.Ordinal).ToArray();
     }
 }

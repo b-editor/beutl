@@ -50,7 +50,7 @@ public sealed partial class RenderTools(
         "Required when outputPath already exists.";
 
     [McpServerTool(Name = "render_still")]
-    [Description("Renders a still PNG from the current scene to an absolute output path and returns image dimensions, active elements, and pixel measurements. Pass returnImageContent:true to append a downscaled image/png content block for multimodal review.")]
+    [Description("Renders a still PNG from the current scene to an absolute output path and returns image dimensions, active elements, and pixel measurements. Its warnings also name each node graph node that failed while the frame drew, such as a GPU pass the device refused. Pass returnImageContent:true to append a downscaled image/png content block for multimodal review.")]
     public ValueTask<CallToolResult> RenderStill(
         [Description("Absolute output path. Existing files require confirmOverwrite.")]
         string outputPath,

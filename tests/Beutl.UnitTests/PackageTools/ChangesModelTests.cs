@@ -1,6 +1,5 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
-
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Services;
@@ -18,7 +17,7 @@ public sealed class ChangesModelTests
         using var handler = new DelegateHttpHandler((request, _) =>
             Task.FromResult(CreatePackageResponse(request)));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var model = new ChangesModel();
 
         await model.Load(
@@ -71,7 +70,7 @@ public sealed class ChangesModelTests
             return CreatePackageResponse(request);
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         using var cancellation = new CancellationTokenSource();
         var model = new ChangesModel();
 
@@ -114,7 +113,7 @@ public sealed class ChangesModelTests
             return CreatePackageResponse(request);
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         using var cancellation = new CancellationTokenSource();
         var model = new ChangesModel();
 
@@ -147,7 +146,7 @@ public sealed class ChangesModelTests
             return Task.FromResult(response);
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var model = new ChangesModel();
 
         Task load = model.Load(
@@ -172,7 +171,7 @@ public sealed class ChangesModelTests
         queue.InstallQueue(new("queued", new(2, 0, 0)));
         using var handler = new DelegateHttpHandler((request, _) => Task.FromResult(CreatePackageResponse(request)));
         using var http = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var model = new ChangesModel();
 
         await model.Load(app, ["argument/2.0.0"], [], [], queue, fromEditor, CancellationToken.None);

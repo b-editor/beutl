@@ -427,7 +427,7 @@ public sealed partial class ElementView
                 filteredElements = [viewModel];
             }
 
-            bool clampToOriginal = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value;
+            bool clampToOriginal = viewModel.Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig.ClampResizeToOriginalLength.Value;
             ElementViewModel[] participants = filteredElements.ToArray();
             var timingPeers = participants.Select(elem => elem.Model).ToHashSet();
 
@@ -495,7 +495,7 @@ public sealed partial class ElementView
                 backs[i] = new TrimSegment(backVm, backVm.BorderMargin.Value.Left, backVm.Width.Value);
             }
 
-            var constraints = ElementResizeService.CreateTrimConstraints(viewModel.Scene, pairs);
+            var constraints = ElementResizeService.CreateTrimConstraints(viewModel.Scene, pairs, viewModel.Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig);
 
             _trimDrag = new TrimDragContext(
                 Kind: TrimDragKind.Roll,
@@ -535,7 +535,7 @@ public sealed partial class ElementView
             }
 
             var constraints = ElementResizeService.CreateTrimConstraints(viewModel.Scene,
-                lanes.Select(l => new ElementTrimPair(l.Front, l.Back)).ToArray(),
+                lanes.Select(l => new ElementTrimPair(l.Front, l.Back)).ToArray(), viewModel.Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig,
                 lanes.SelectMany(l => l.Middles));
 
             _trimDrag = new TrimDragContext(

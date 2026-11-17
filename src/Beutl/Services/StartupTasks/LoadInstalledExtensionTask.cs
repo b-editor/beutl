@@ -1,9 +1,7 @@
 ﻿using System.Collections.Concurrent;
-
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Logging;
-
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -97,7 +95,7 @@ public sealed class LoadInstalledExtensionTask : StartupTask
 
     private async Task PrepareExternalUpdateAsync(Startup startup, PackageIdentity[] installed, NuGetVersion host)
     {
-        GlobalConfiguration settings = GlobalConfiguration.Instance;
+        GlobalConfiguration settings = startup.Configuration;
         if (!startup.IsAppUpgrade || !settings.UpdateConfig.ShouldUpdateExtensions(true)) return;
         // Give fast updates a chance to load on this launch. The normal check after loading picks
         // up any missing downloads without keeping a project waiting for the store.

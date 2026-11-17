@@ -53,7 +53,7 @@ public class SilenceSplitTabTests
         var element = new Element { Length = { Value = referenced.Duration.Value } };
         element.Objects.Add(new SoundGroup { Children = { new SoundGroup { Children = { sound } } } });
         scene.Children.Add(element);
-        using var model = new SilenceSplitViewModel(scene, element, editor.HistoryManager);
+        using var model = new SilenceSplitViewModel(scene, element, editor.HistoryManager, TestShell.Configuration.EditorConfig);
 
         Assert.That(SilenceSplitViewModel.CanAnalyze(scene, element), Is.True);
         await model.AnalyzeAsync();
@@ -98,7 +98,7 @@ public class SilenceSplitTabTests
             return null;
         });
         DecoderRegistry.Register(decoder.Object);
-        using var model = new SilenceSplitViewModel(scene, element, editor.HistoryManager);
+        using var model = new SilenceSplitViewModel(scene, element, editor.HistoryManager, TestShell.Configuration.EditorConfig);
         Task analysis = model.AnalyzeAsync();
         try
         {
@@ -337,7 +337,7 @@ public class SilenceSplitTabTests
         Task<bool>? applying = null;
         try
         {
-            applying = new SilenceSplitService(editor.HistoryManager).ApplyAsync(scene, audio,
+            applying = new SilenceSplitService(editor.HistoryManager, TestShell.Configuration.EditorConfig).ApplyAsync(scene, audio,
                 [new(MediaTime.FromSeconds(3), MediaTime.FromSeconds(1))], SilenceSplitMode.RippleDelete, true, cancellation.Token);
             await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.That(openedOnUi, Is.False, "source metadata and fragment preparation belong to the worker");
@@ -406,7 +406,7 @@ public class SilenceSplitTabTests
                 MediaTime.FromSeconds(3 + i * 2.5), MediaTime.FromSeconds(4 + i * 2.5))).ToArray();
             int undoCount = editor.HistoryManager.UndoCount;
             var watch = Stopwatch.StartNew();
-            await new SilenceSplitService(editor.HistoryManager).ApplyAsync(scene, original[0], ranges, SilenceSplitMode.RippleDelete, true);
+            await new SilenceSplitService(editor.HistoryManager, TestShell.Configuration.EditorConfig).ApplyAsync(scene, original[0], ranges, SilenceSplitMode.RippleDelete, true);
             TestContext.Out.WriteLine($"Apply with open timeline / {silenceCount} silences / linked audio + video: {watch.Elapsed.TotalSeconds:F2} s");
             HeadlessTestHelpers.Render();
             using (await TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None)) { }
@@ -809,10 +809,10 @@ public class SilenceSplitTabTests
     [TestCase(true, true)]
     public async Task Preview_ScrollUsesTimelineAxesAndDoesNotZoom(bool gesture, bool swap)
     {
-        bool original = GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value;
+        bool original = TestShell.Configuration.EditorConfig.SwapTimelineScrollDirection.Value;
         try
         {
-            GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value = swap;
+            TestShell.Configuration.EditorConfig.SwapTimelineScrollDirection.Value = swap;
             using var session = await PreviewSession.CreateAsync(1200, _ => gesture);
             var model = session.Model;
             var waveform = session.View.FindControl<WaveformControl>("Waveform")!;
@@ -839,7 +839,7 @@ public class SilenceSplitTabTests
             Assert.That(model.PreviewRange.Start.ToSeconds(), Is.EqualTo(10 + 100 / waveform.Bounds.Width).Within(0.02),
                 "sub-bin touchpad motion must accumulate at high zoom");
         }
-        finally { GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value = original; }
+        finally { TestShell.Configuration.EditorConfig.SwapTimelineScrollDirection.Value = original; }
     }
 
     [AvaloniaTest]
@@ -941,7 +941,7 @@ public class SilenceSplitTabTests
         public CoreObject Object => scene;
         public EditorExtension Extension => null!;
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
-        public object? GetService(Type type) => type == typeof(Scene) ? scene : type == typeof(HistoryManager) ? history
+        public object? GetService(Type type) => type == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : type == typeof(Scene) ? scene : type == typeof(HistoryManager) ? history
             : type == typeof(IPreviewPlayer) ? player : type == typeof(IEditorClock) ? Clock : null;
         public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext => default;
         public T? FindToolTab<T>() where T : IToolContext => default;

@@ -253,6 +253,7 @@ public partial class MissingMediaTests
                 .Callback((IProjectFileWriteLease? _, CancellationToken token) => snapshotToken = token)
                 .Returns(snapshot.Task);
             var context = new Moq.Mock<IEditorContext>();
+            context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
             context.Setup(value => value.GetService(Moq.It.IsAny<Type>())).Returns((Type type)
                 => type == typeof(IProjectVersionControlCoordinator) ? session.Object : editor.GetService(type));
             using var vm = new MissingMediaViewModel(context.Object);

@@ -1,11 +1,10 @@
-﻿using Beutl.Controls.PropertyEditors;
-using System.Globalization;
+﻿using System.Globalization;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 #if DEBUG
 using Avalonia.Diagnostics;
 #endif
-using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
@@ -13,7 +12,9 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Controls.NativeContextMenu;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Controls.Styling;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.Services;
@@ -46,8 +47,10 @@ public sealed class App : Application
     private ThemeService? _themeService;
     private MainViewModel? _mainViewModel;
     private readonly LibraryService _libraryService = new();
-    private readonly ObjectTemplateService _objectTemplateService = new();
-    private readonly ITutorialService _tutorialService = new TutorialServiceHandler();
+    private readonly ObjectTemplateService _objectTemplateService;
+    private readonly ITutorialService _tutorialService;
+    private readonly GlobalConfiguration _configuration;
+    private readonly AppUpdateController _appUpdateController;
     private readonly ColorPaletteService _colorPalettes = ColorPaletteService.CreateDefault();
     private readonly EditorServiceRegistry _appServices;
     private readonly string _sessionId;
@@ -57,14 +60,22 @@ public sealed class App : Application
     private readonly SemaphoreSlim _packageLinkGate = new(1, 1);
     private readonly CancellationTokenSource _activationCts = new();
 
-    public App() : this(string.Empty)
+    public App() : this(new GlobalConfiguration(), string.Empty)
     {
     }
 
-    internal App(string sessionId)
+    internal App(GlobalConfiguration configuration, string sessionId)
     {
+        _configuration = configuration;
+        _tutorialService = new TutorialServiceHandler(configuration.TutorialConfig);
+        _appUpdateController = new AppUpdateController(configuration.UpdateConfig);
+        Beutl.Media.Decoding.DecoderRegistry.Initialize(configuration.ExtensionConfig);
+        Beutl.Media.FontManager.Instance.Initialize(configuration.FontConfig);
+        _objectTemplateService = new(configuration.EditorConfig, configuration.ProxyStoreConfig);
         _sessionId = sessionId;
         _appServices = new EditorServiceRegistry()
+            .Add(() => _configuration)
+            .Add(() => _appUpdateController)
             .Add(() => _libraryService)
             .Add(() => _objectTemplateService)
             .Add<ITutorialService>(() => _tutorialService)
@@ -78,7 +89,7 @@ public sealed class App : Application
 
         FAUISettings.SetAnimationsEnabledAtAppLevel(true);
 
-        GlobalConfiguration config = GlobalConfiguration.Instance;
+        GlobalConfiguration config = _configuration;
         ViewConfig view = config.ViewConfig;
 
         GraphicsContextFactory.SelectGpuByName(config.GraphicsConfig.SelectedGpuName.Value);
@@ -146,7 +157,7 @@ public sealed class App : Application
         {
             try
             {
-                _proxyMediaServices = new ProxyMediaServices(GlobalConfiguration.Instance);
+                _proxyMediaServices = new ProxyMediaServices(_configuration);
             }
             catch (Exception ex)
             {
@@ -207,6 +218,7 @@ public sealed class App : Application
             }
 
             ColorPaletteService.SetService(desktop.MainWindow, _colorPalettes);
+            ControlConfiguration.SetConfiguration(desktop.MainWindow, _configuration);
             desktop.MainWindow.Opened += (_, _) => _windowOpenTcs.SetResult();
             desktop.Exit += (_, _) =>
             {
@@ -257,6 +269,7 @@ public sealed class App : Application
                 var viewModel = new ExtensionsPageViewModel(main._beutlClients, main.EditorService, main.ProjectService);
                 page = new ExtensionsPage { DataContext = viewModel };
                 ColorPaletteService.SetService(page, _colorPalettes);
+                ControlConfiguration.SetConfiguration(page, _configuration);
                 page.Closed += (_, _) => viewModel.Dispose();
                 page.OpenPackage(package, request.Version);
                 _ = page.ShowDialog(mainWindow);

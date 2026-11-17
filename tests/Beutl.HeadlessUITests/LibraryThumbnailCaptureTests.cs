@@ -5,7 +5,6 @@ using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
-
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Controls.Styling.Themes;
@@ -25,9 +24,7 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using AvaPoint = Avalonia.Point;
 using AvaThickness = Avalonia.Thickness;
 
@@ -66,7 +63,7 @@ public class LibraryThumbnailCaptureTests
             new SelectLibraryItemDialogViewModel(TestShell.Library,
                 KnownLibraryItemFormats.ClipTransition,
                 typeof(ClipTransition),
-                LibraryThumbnailCapture.ForEdge(second, ElementEdge.Start)),
+                LibraryThumbnailCapture.ForEdge(second, ElementEdge.Start, editor)),
             "picker-transitions");
     }
 
@@ -230,6 +227,7 @@ public class LibraryThumbnailCaptureTests
     {
         public object? GetService(Type serviceType)
         {
+            if (serviceType == typeof(Beutl.Configuration.GlobalConfiguration)) return TestShell.Configuration;
             if (serviceType == typeof(Element))
                 return element;
             if (serviceType == typeof(IEditorClock))

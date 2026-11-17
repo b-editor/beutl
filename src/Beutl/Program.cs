@@ -41,12 +41,12 @@ internal static class Program
         args = launch.Arguments;
         ActivationBroker = broker;
 
-        GlobalConfiguration config = GlobalConfiguration.Instance;
+        var config = new GlobalConfiguration();
         config.Restore(GlobalConfiguration.DefaultFilePath);
         ViewConfig view = config.ViewConfig;
         CultureInfo.CurrentUICulture = view.UICulture.Value;
 
-        using var telemetry = new Telemetry();
+        using var telemetry = new Telemetry(config.TelemetryConfig);
         config.LogRestoreFailures();
 
         string jitProfiles = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "jitProfiles");
@@ -55,27 +55,27 @@ internal static class Program
         ProfileOptimization.SetProfileRoot(jitProfiles);
         ProfileOptimization.StartProfile("beutl.jitprofile");
 
-        UnhandledExceptionHandler.Initialize(telemetry._sessionId);
+        UnhandledExceptionHandler.Initialize(telemetry._sessionId, config);
 
         PackageInstaller.RecoverDataPackageInstalls();
-        BuildAvaloniaApp(telemetry._sessionId)
+        BuildAvaloniaApp(config, telemetry._sessionId)
             .StartWithClassicDesktopLifetime(args);
 
-        UnhandledExceptionHandler.Exit();
+        UnhandledExceptionHandler.Exit(config);
     }
 
-    public static AppBuilder BuildAvaloniaApp() => BuildAvaloniaApp(string.Empty);
+    public static AppBuilder BuildAvaloniaApp() => BuildAvaloniaApp(new GlobalConfiguration(), string.Empty);
 
-    private static AppBuilder BuildAvaloniaApp(string sessionId)
+    private static AppBuilder BuildAvaloniaApp(GlobalConfiguration configuration, string sessionId)
     {
-        return AppBuilder.Configure(() => new App(sessionId))
+        return AppBuilder.Configure(() => new App(configuration, sessionId))
             .UsePlatformDetect()
             .UseReactiveUI(builder => builder.WithMainThreadScheduler(UiThreadScheduler.Instance))
             .With(new Win32PlatformOptions()
             {
                 WinUICompositionBackdropCornerRadius = 8f
             })
-            .With(UiFonts.CreateFontManagerOptions(GlobalConfiguration.Instance.ViewConfig.UICulture.Value))
+            .With(UiFonts.CreateFontManagerOptions(configuration.ViewConfig.UICulture.Value))
             .AfterSetup(_ => Telemetry.CompressLogFiles())
 #if DEBUG
             .LogToTrace();

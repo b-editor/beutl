@@ -2,6 +2,7 @@
 using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Composition;
+using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine.Expressions;
@@ -19,6 +20,8 @@ namespace Beutl.UnitTests.Editor.Services;
 [NonParallelizable]
 public class TrimSpeedTests
 {
+    private GlobalConfiguration _testConfiguration = new();
+
     private SceneHistoryHarness _harness = null!;
     private Scene _scene = null!;
     private HistoryManager _history = null!;
@@ -32,12 +35,13 @@ public class TrimSpeedTests
     [SetUp]
     public void Setup()
     {
+        _testConfiguration = new();
         _harness = new SceneHistoryHarness("beutl_trim_speed", start: MediaTime.Zero, duration: MediaTime.FromSeconds(30));
         _scene = _harness.Scene;
         _history = _harness.History;
         _slip = new ElementSlipService(_history);
-        _resize = new ElementResizeService(_history);
-        _clamp = new ClampResizeToOriginalLengthScope(true);
+        _resize = new ElementResizeService(_history, _testConfiguration.EditorConfig);
+        _clamp = new ClampResizeToOriginalLengthScope(_testConfiguration.EditorConfig, true);
     }
 
     [TearDown]
@@ -184,7 +188,7 @@ public class TrimSpeedTests
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(4) }, Value = { Value = 100 }, Easing = { Value = new LinearEasing() } });
         media.Speed.SetKeyFrameAnimation(animation);
         MediaTime requested = MediaTime.FromSeconds(2);
-        var constraints = ElementResizeService.CreateTrimConstraints(_scene, [new ElementTrimPair(front, back)]);
+        var constraints = ElementResizeService.CreateTrimConstraints(_scene, [new ElementTrimPair(front, back)], _testConfiguration.EditorConfig);
         MediaTime preview = constraints.Clamp(requested);
 
         bool applied = slide
@@ -230,7 +234,7 @@ public class TrimSpeedTests
         ElementTrimPair[] pairs = [new(frontA, backA), new(frontB, backB)];
         int before = _history.UndoCount;
 
-        MediaTime preview = ElementResizeService.CreateTrimConstraints(_scene, pairs).Clamp(MediaTime.FromSeconds(1));
+        MediaTime preview = ElementResizeService.CreateTrimConstraints(_scene, pairs, _testConfiguration.EditorConfig).Clamp(MediaTime.FromSeconds(1));
         bool applied = _resize.Roll(_scene, pairs, MediaTime.FromSeconds(1));
 
         Assert.Multiple(() =>
@@ -259,7 +263,7 @@ public class TrimSpeedTests
         media.Speed.SetKeyFrameAnimation(animation);
         MediaTime requested = MediaTime.FromSeconds(2);
         MediaTime preview = ElementResizeService.CreateTrimConstraints(_scene,
-            [new ElementTrimPair(front, back)], [middle]).Clamp(requested);
+            [new ElementTrimPair(front, back)], _testConfiguration.EditorConfig, [middle]).Clamp(requested);
 
         Assert.That(_resize.Slide(_scene, [new ElementSlideLane(front, [middle], back)], requested), Is.True);
 

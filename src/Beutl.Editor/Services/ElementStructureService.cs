@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Animation;
 using Beutl.Audio;
+using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.ProjectSystem;
@@ -10,9 +11,11 @@ namespace Beutl.Editor.Services;
 public sealed class ElementStructureService : IElementStructureService
 {
     private readonly HistoryManager _historyManager;
+    private readonly EditorConfig _configuration;
 
-    public ElementStructureService(HistoryManager historyManager)
+    public ElementStructureService(HistoryManager historyManager, EditorConfig configuration)
     {
+        _configuration = configuration;
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
@@ -39,12 +42,12 @@ public sealed class ElementStructureService : IElementStructureService
 
         if (!targets.Any(target => !scene.IsElementLocked(target) && LeavesAFrameOnEachSide(scene, target, at)))
             return;
-        _historyManager.ExecuteInTransaction(() => SplitCore(scene, targets, at), CommandNames.SplitElement);
+        _historyManager.ExecuteInTransaction(() => SplitCore(scene, targets, at, autoAdjustDuration: _configuration.AutoAdjustSceneDuration.Value), CommandNames.SplitElement);
     }
 
     // Shared by single-cut Razor and batch edits; the caller owns the history transaction.
     internal static IReadOnlyList<Element> SplitCore(Scene scene, IReadOnlyList<Element> targets, MediaTime at,
-        SplitBatch? batch = null)
+        SplitBatch? batch = null, bool autoAdjustDuration = true)
     {
         var groupUpdates = new Dictionary<ImmutableHashSet<Guid>, List<Guid>>(ReferenceEqualityComparer.Instance);
         var added = new List<Element>();
@@ -52,7 +55,7 @@ public sealed class ElementStructureService : IElementStructureService
         {
             if (scene.IsElementLocked(target) || !LeavesAFrameOnEachSide(scene, target, at)) continue;
 
-            Element backward = SplitElement(scene, target, at, batch);
+            Element backward = SplitElement(scene, target, at, batch, autoAdjustDuration);
             added.Add(backward);
 
             if (scene.FindGroup(target.Id.Value) is { } group)
@@ -74,7 +77,7 @@ public sealed class ElementStructureService : IElementStructureService
         return added;
     }
 
-    private static Element SplitElement(Scene scene, Element target, MediaTime at, SplitBatch? batch)
+    private static Element SplitElement(Scene scene, Element target, MediaTime at, SplitBatch? batch, bool autoAdjustDuration)
     {
         MediaTime forwardDuration = at - target.Start.Value;
         MediaTime backwardDuration = target.Length.Value - forwardDuration;
@@ -101,8 +104,8 @@ public sealed class ElementStructureService : IElementStructureService
         }
         else
         {
-            scene.MoveChild(target.ZIndex.Value, target.Start.Value, forwardDuration, target);
-            scene.AddChild(backward);
+            scene.MoveChild(target.ZIndex.Value, target.Start.Value, forwardDuration, target, autoAdjustDuration);
+            scene.AddChild(backward, autoAdjustDuration: autoAdjustDuration);
         }
         ApplySplitSourceDeltas(backward, sources, forwardDuration, batch);
         foreach (SplitSource source in sources)

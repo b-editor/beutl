@@ -111,7 +111,7 @@ public sealed class ProjectFrameGridReadTests
         Element front = scene.Children.Single(element => element.Id.Value == moved.Id.Value);
         Element after = scene.Children.Single(element => element.Id.Value == next.Id.Value);
         using var history = new HistoryHarness(scene);
-        new ElementStructureService(history.History).Split(scene, [front], MediaTime.FromFrames(3, rate));
+        new ElementStructureService(history.History, new Beutl.Configuration.EditorConfig()).Split(scene, [front], MediaTime.FromFrames(3, rate));
 
         Assert.That(scene.Children, Has.Count.EqualTo(3));
         Element back = scene.Children.Single(element => element != front && element != after);

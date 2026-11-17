@@ -39,7 +39,7 @@ public class HeaderScrubCancellationTests
     [SetUp]
     public void DisablePointerLock()
     {
-        _pointerLock = PointerLockScope.Off();
+        _pointerLock = PointerLockScope.Off(((TestApp)Application.Current!).Configuration.EditorConfig);
     }
 
     [TearDown]

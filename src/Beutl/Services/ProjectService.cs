@@ -21,8 +21,11 @@ public sealed partial class ProjectService
     // Dismisses the notices about the open project once it closes.
     private CancellationTokenSource? _projectNoticeDismissal;
 
-    public ProjectService()
+    private readonly ViewConfig _configuration;
+
+    public ProjectService(ViewConfig configuration)
     {
+        _configuration = configuration;
         CurrentProject = _app.Project.GetObservable()
             .ToReadOnlyReactivePropertySlim();
         _isOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
@@ -350,7 +353,7 @@ public sealed partial class ProjectService
             Media.FontManager.Instance.ClearProjectFonts(project);
             try
             {
-                GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile.Value = null;
+                _configuration.LastOpenedProjectFile.Value = null;
             }
             catch (Exception ex)
             {
@@ -454,7 +457,7 @@ public sealed partial class ProjectService
     {
         try
         {
-            ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+            ViewConfig viewConfig = _configuration;
             viewConfig.UpdateRecentProject(file);
             viewConfig.UpdateRecentFile(file);
             viewConfig.LastOpenedProjectFile.Value = file;

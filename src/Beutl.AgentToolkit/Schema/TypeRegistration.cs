@@ -61,6 +61,7 @@ public static class TypeRegistration
             RegisterEasings();
             RegisterEngineObjects();
             RegisterElement();
+            DescribeNodeGraphs();
 
             s_registered = true;
         }
@@ -181,6 +182,15 @@ public static class TypeRegistration
         Register<Element>(typeof(Element).FullName!);
         s_descriptions[typeof(Element)] =
             "A timeline clip. Use '$type': '[Beutl.ProjectSystem]:Element' only for new entries in Elements; put concrete drawable/effect/brush/transform objects under Objects using discriminators returned by get_schema. EnterTransition and ExitTransition take a ClipTransition from get_schema(category=transition). For structure, call get_examples(name: 'insert-new-element-skeleton').";
+    }
+
+    // Their Model is a node graph, whose nodes connect by port Ids that a document cannot know before the ports exist.
+    private static void DescribeNodeGraphs()
+    {
+        const string tools = "Build and change its graph with edit_node_graph and read it with read_node_graph, rather than through Model in apply_edit; get_node_graph_guide has the contract and examples.";
+        s_descriptions[typeof(NodeGraphFilterEffect)] = $"An effect that a node graph computes, such as GLSL shader passes with several inputs and intermediate images, without C#. A new one holds an empty graph, which passes its layer through. {tools}";
+        s_descriptions[typeof(NodeGraphDrawable)] = $"A drawable whose content a node graph makes. A new one holds an empty graph, which draws nothing. {tools}";
+        s_descriptions[typeof(GraphModel)] = $"The node graph of a NodeGraphFilterEffect or a NodeGraphDrawable. {tools}";
     }
 
     private static void Register<T>(string format) => s_types.Add((format, typeof(T)));

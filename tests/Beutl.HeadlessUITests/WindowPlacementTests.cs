@@ -66,12 +66,13 @@ public class WindowPlacementTests
     [TestCase(true)]
     public async Task An_editor_window_saved_on_an_unplugged_display_opens_on_the_primary_screen(bool mac)
     {
-        ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig config = TestShell.Configuration.ViewConfig;
         var previous = (WindowPosition: config.WindowPosition.Value, WindowSize: config.WindowSize.Value, IsWindowMaximized: config.IsWindowMaximized.Value);
         config.WindowPosition.Value = (5000, -3000);
         config.WindowSize.Value = (800, 600);
         config.IsWindowMaximized.Value = false;
         Window window = mac ? new MacWindow() : HeadlessAppWindow.Create(() => new MainWindow());
+        window.DataContext = TestShell.MainViewModel;
         window.Content = null;
         try
         {

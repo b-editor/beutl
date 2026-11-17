@@ -34,8 +34,13 @@ public sealed partial class SceneCompositor : ICompositor
     private volatile AudioEligibilitySnapshot? _audioEligibility;
     private int _audioEligibilityVersion;
 
-    public SceneCompositor(Scene scene)
+    private readonly EditorConfig? _editorConfig;
+    private readonly ProxyStoreConfig? _proxyConfig;
+
+    public SceneCompositor(Scene scene, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
     {
+        _editorConfig = editorConfig;
+        _proxyConfig = proxyConfig;
         Scene = scene;
         _layerQueries = new(this, CreateLayerQuery);
         _audioQueries = new(this, CreateAudioQuery);
@@ -65,10 +70,16 @@ public sealed partial class SceneCompositor : ICompositor
     // that throws leaves no disposed compositor behind.
     internal static void Refresh(ref SceneCompositor? field, Scene? scene, CompositionContext context)
     {
+        SceneCompositor? parent = (context as CompositorContext)?.Compositor
+            ?? context.EvaluationServices?.SessionIdentity as SceneCompositor;
+        EditorConfig? editorConfig = parent?._editorConfig;
+        ProxyStoreConfig? proxyConfig = parent?._proxyConfig;
         bool forceOriginalSource = !context.PreferProxy;
         if (field?.Scene != scene
             || field?.DisableResourceShare != context.DisableResourceShare
-            || field?.ForceOriginalSource != forceOriginalSource)
+            || field?.ForceOriginalSource != forceOriginalSource
+            || !ReferenceEquals(field?._editorConfig, editorConfig)
+            || !ReferenceEquals(field?._proxyConfig, proxyConfig))
         {
             field?.Dispose();
             field = null;
@@ -76,7 +87,7 @@ public sealed partial class SceneCompositor : ICompositor
 
         if (scene != null && field == null)
         {
-            field = new SceneCompositor(scene)
+            field = new SceneCompositor(scene, editorConfig, proxyConfig)
             {
                 DisableResourceShare = context.DisableResourceShare,
                 ForceOriginalSource = forceOriginalSource,
@@ -87,6 +98,8 @@ public sealed partial class SceneCompositor : ICompositor
     private sealed class CompositorContext : CompositionContext, ISceneCompositionContext
     {
         private readonly SceneCompositor _compositor;
+
+        public SceneCompositor Compositor => _compositor;
 
         public CompositorContext(MediaTime time,
             SceneCompositor compositor,
@@ -103,8 +116,8 @@ public sealed partial class SceneCompositor : ICompositor
             Conditions = new CompositionConditions
             {
                 PreferProxy = !compositor.ForceOriginalSource
-                    && GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value == PreviewSourceMode.PreferProxy,
-                PreferredProxyPreset = ToPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.Value),
+                    && (compositor._editorConfig?.PreviewSourceMode.Value ?? PreviewSourceMode.PreferProxy) == PreviewSourceMode.PreferProxy,
+                PreferredProxyPreset = ToPreset(compositor._proxyConfig?.DefaultPreset.Value ?? ProxyStoreConfig.DefaultPresetValue),
                 TargetDomain = new Rect(default, compositor.Scene.FrameSize.Value.ToSize(1)),
                 FrameRate = compositor.Scene.FindHierarchicalParent<Project>().GetFrameRate(),
                 EvaluationServices = services?.Fork(compositor, this) ?? new EvaluationServices(compositor, this),
@@ -113,7 +126,7 @@ public sealed partial class SceneCompositor : ICompositor
         }
 
         public override CompositionEvaluationSession CreateEvaluationSession()
-            => new SceneEvaluationSession(_compositor.Scene, Target, _compositor.ForceOriginalSource,
+            => new SceneEvaluationSession(_compositor, Target,
                 (EvaluationServices)EvaluationServices!);
 
         public void InheritConditions(CompositionContext? conditions)

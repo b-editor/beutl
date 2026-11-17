@@ -1,7 +1,6 @@
 ﻿using System.Globalization;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
-
 using NUnit.Framework;
 
 namespace Beutl.UnitTests.Configuration;
@@ -260,10 +259,10 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
     public void A_file_Beutl_saved_itself_restores_without_failures()
     {
         // Every setting at its default, nulls included, is a value the setting accepts.
-        var saved = (GlobalConfiguration)Activator.CreateInstance(typeof(GlobalConfiguration), nonPublic: true)!;
+        var saved = new GlobalConfiguration();
         saved.Save(SettingsPath);
 
-        var config = (GlobalConfiguration)Activator.CreateInstance(typeof(GlobalConfiguration), nonPublic: true)!;
+        var config = new GlobalConfiguration();
         config.Restore(SettingsPath);
 
         Assert.That(config.RestoreFailures.Select(f => f.Setting), Is.Empty);

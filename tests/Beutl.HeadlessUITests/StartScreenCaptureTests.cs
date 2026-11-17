@@ -107,7 +107,7 @@ public class StartScreenCaptureTests
             theme == "dark" ? BeutlDarkBorderTheme.AccentColor : null);
         await TestReset.ResetShellAsync();
 
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig viewConfig = TestShell.Configuration.ViewConfig;
         string[] savedRecentProjects = [.. viewConfig.RecentProjects];
         RecentProjectsLayout savedLayout = viewConfig.RecentProjectsLayout.Value;
         var view = new MainView { DataContext = TestShell.MainViewModel };

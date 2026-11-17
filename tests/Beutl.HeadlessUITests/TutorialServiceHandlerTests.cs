@@ -11,7 +11,7 @@ public sealed class TutorialServiceHandlerTests
     [Test]
     public void GetAvailableTutorials_returns_a_copy_that_later_changes_leave_unchanged()
     {
-        var service = new TutorialServiceHandler();
+        var service = new TutorialServiceHandler(new Beutl.Configuration.TutorialConfig());
         service.Register(Tutorial("first"));
         IReadOnlyList<TutorialDefinition> before = service.GetAvailableTutorials();
 
@@ -28,8 +28,8 @@ public sealed class TutorialServiceHandlerTests
     [Test]
     public void An_extension_registers_and_unregisters_only_in_its_host_service()
     {
-        var first = new TutorialServiceHandler();
-        var second = new TutorialServiceHandler();
+        var first = new TutorialServiceHandler(new Beutl.Configuration.TutorialConfig());
+        var second = new TutorialServiceHandler(new Beutl.Configuration.TutorialConfig());
         using var services = new Beutl.Editor.Services.EditorServiceRegistry()
             .Add<ITutorialService>(() => first);
         var extension = new TestTutorialExtension { Services = services };
@@ -52,7 +52,7 @@ public sealed class TutorialServiceHandlerTests
     [AvaloniaTest]
     public void The_tutorial_dialog_loads_its_XAML_and_lists_the_supplied_service()
     {
-        var service = new TutorialServiceHandler();
+        var service = new TutorialServiceHandler(new Beutl.Configuration.TutorialConfig());
         service.Register(Tutorial("dialog-tutorial"));
         var dialog = new TutorialListDialog(service);
 

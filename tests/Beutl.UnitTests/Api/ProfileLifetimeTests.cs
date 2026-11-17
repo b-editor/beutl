@@ -19,7 +19,7 @@ public sealed class ProfileLifetimeTests
         var releaseRequest = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var handler = new BlockingHandler(requestStarted, releaseRequest);
         using var httpClient = new HttpClient(handler);
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var profile = new Profile(ApiTestAuthentication.CreateProfileResponse(), app);
 
         Task refresh = profile.RefreshAsync(CancellationToken.None);
@@ -38,7 +38,7 @@ public sealed class ProfileLifetimeTests
         var releaseRequest = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var handler = new BlockingHandler(requestStarted, releaseRequest);
         using var httpClient = new HttpClient(handler);
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var profile = new Profile(ApiTestAuthentication.CreateProfileResponse(), app);
 
         Task getPackages = profile.GetPackagesAsync(CancellationToken.None);
@@ -75,7 +75,7 @@ public sealed class ProfileLifetimeTests
             };
         });
         using var httpClient = new HttpClient(handler);
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var profile = new Profile(ApiTestAuthentication.CreateProfileResponse(), app);
 
         Task refresh = profile.RefreshAsync(CancellationToken.None);
@@ -105,7 +105,7 @@ public sealed class ProfileLifetimeTests
             });
         });
         using var httpClient = new HttpClient(handler);
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         appRef = app;
         var profile = new Profile(ApiTestAuthentication.CreateProfileResponse(), app);
 
@@ -120,7 +120,7 @@ public sealed class ProfileLifetimeTests
     public async Task RefreshAsync_PreCanceledToken_Throws()
     {
         using var httpClient = new HttpClient();
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         AuthenticatedUser user = ApiTestAuthentication.CreateUser(app);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();

@@ -18,7 +18,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
 
         using (Assert.EnterMultipleScope())
@@ -36,7 +36,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
 
         await service.RefreshAsync(CancellationToken.None);
@@ -73,7 +73,7 @@ public sealed class AiJobMonitorTests
             return TestHttp.Json(HttpStatusCode.OK, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
 
         ApiTestAuthentication.SignIn(app);
@@ -151,7 +151,7 @@ public sealed class AiJobMonitorTests
                 """);
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
         ApiTestAuthentication.SignIn(app);
         await service.RefreshAsync(CancellationToken.None);
@@ -198,7 +198,7 @@ public sealed class AiJobMonitorTests
                 }
                 """));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
         ApiTestAuthentication.SignIn(app);
         await service.RefreshAsync(CancellationToken.None);
@@ -220,7 +220,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var client = new RecordingJobClient();
         client.PageProvider = _ =>
         {
@@ -243,7 +243,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var client = new RecordingJobClient
         {
             PageProvider = _ => throw new InvalidDataException("invalid job contract"),
@@ -270,7 +270,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var client = new RecordingJobClient();
         client.PageProvider = _ => Volatile.Read(ref client.PageRequests) <= 2
             ? throw new HttpRequestException("transient")
@@ -323,7 +323,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         DateTimeOffset createdAt = new(2026, 9, 6, 0, 0, 0, TimeSpan.Zero);
         AiJob first = Job("first", AiJobStatuses.Running, createdAt.AddMinutes(1));
         AiJob second = Job("second", AiJobStatuses.Running, createdAt);
@@ -419,7 +419,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         DateTimeOffset createdAt = new(2026, 9, 6, 0, 0, 0, TimeSpan.Zero);
         AiJob active = Job("active", AiJobStatuses.Running, createdAt.AddMinutes(2));
         AiJob deleted = Job("deleted", AiJobStatuses.Succeeded, createdAt.AddMinutes(1));
@@ -490,7 +490,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         int phase = 0;
         var client = new RecordingJobClient
         {
@@ -572,7 +572,7 @@ public sealed class AiJobMonitorTests
                 """);
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
 
         ApiTestAuthentication.SignIn(app);
@@ -620,7 +620,7 @@ public sealed class AiJobMonitorTests
                 """);
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         using var service = new AiJobMonitor(
             app,
             app.GetResource<IAiJobClient>(),
@@ -640,7 +640,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var client = new RecordingJobClient();
         client.PageProvider = _ => Volatile.Read(ref client.PageRequests) >= 3
             ? new AiJobPage([
@@ -680,7 +680,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var client = new RecordingJobClient();
         client.PageProvider = _ => Volatile.Read(ref client.PageRequests) == 1
             ? new AiJobPage([], null)
@@ -712,7 +712,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var client = new RecordingJobClient
         {
             Page = new AiJobPage(
@@ -755,7 +755,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         var client = new ExtensibleJobClient();
         var refreshHandler = new ExtensibleRefreshHandler(client);
@@ -801,7 +801,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app);
         var client = new RecordingJobClient
         {

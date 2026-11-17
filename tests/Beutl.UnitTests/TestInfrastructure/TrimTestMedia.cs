@@ -113,12 +113,14 @@ internal static class TrimTestMedia
 internal sealed class ClampResizeToOriginalLengthScope : IDisposable
 {
     private readonly bool _original;
+    private readonly EditorConfig _configuration;
 
-    public ClampResizeToOriginalLengthScope(bool value)
+    public ClampResizeToOriginalLengthScope(EditorConfig configuration, bool value)
     {
-        _original = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value;
-        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value = value;
+        _configuration = configuration;
+        _original = _configuration.ClampResizeToOriginalLength.Value;
+        _configuration.ClampResizeToOriginalLength.Value = value;
     }
 
-    public void Dispose() => GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value = _original;
+    public void Dispose() => _configuration.ClampResizeToOriginalLength.Value = _original;
 }

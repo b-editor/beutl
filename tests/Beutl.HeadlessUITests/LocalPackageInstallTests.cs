@@ -53,7 +53,7 @@ public sealed class LocalPackageInstallTests
         PackageIdentity identity = TestPackages.CreateNupkg("Beutl.LocalInstallTest", version, _cleanup);
         using var handler = new MissingStorePackageHandler();
         using var http = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
 
         LocalPackage listed = app.GetResource<PackageManager>().GetLocalSourcePackages()
             .Single(package => package.Name == identity.Id);
@@ -94,7 +94,7 @@ public sealed class LocalPackageInstallTests
         PackageIdentity identity = TestPackages.CreateNupkg("Beutl.LocalInstallTest", "1.0.0", _cleanup);
         using var handler = new MissingStorePackageHandler();
         using var http = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var model = new PackageChangeModel(identity.Id, identity.Version, identity.Id, true, PackageChangeAction.Install)
         {
             Conflict = true
@@ -122,7 +122,7 @@ public sealed class LocalPackageInstallTests
         using var handler = new StoreHandler(TestStore.CreatePackageResponse(identity.Id),
             TestStore.CreateReleaseResponse("2.0.0", fileId: "asset", targetVersion: unsupported));
         using var http = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var model = new PackageChangeModel(identity.Id, identity.Version, identity.Id, true, PackageChangeAction.Install) { Conflict = true };
         var download = new DownloadTaskModel(model, app);
         download.SetPreferLocalSource(preferLocal);

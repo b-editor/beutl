@@ -30,7 +30,7 @@ public sealed class ElementSplitSpeedTests
     {
         _harness = new SceneHistoryHarness("beutl_split_speed", start: MediaTime.Zero,
             duration: MediaTime.FromSeconds(60));
-        _service = new ElementStructureService(_harness.History);
+        _service = new ElementStructureService(_harness.History, new Beutl.Configuration.EditorConfig());
     }
 
     [TearDown]
@@ -192,7 +192,7 @@ public sealed class ElementSplitSpeedTests
         element.Objects.Add(new DrawableTimeController { Speed = { Value = 200f } });
 
         if (batch)
-            new SilenceSplitService(_harness.History).Apply(_harness.Scene, element,
+            new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig()).Apply(_harness.Scene, element,
                 [new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1))], SilenceSplitMode.DeleteSilence, false);
         else
             _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(2));
@@ -217,7 +217,7 @@ public sealed class ElementSplitSpeedTests
         Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), sound);
 
         if (batch)
-            new SilenceSplitService(_harness.History).Apply(_harness.Scene, element,
+            new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig()).Apply(_harness.Scene, element,
                 [new TimeRange(MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(0.5))], SilenceSplitMode.DeleteSilence, false);
         else
             _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
@@ -436,7 +436,7 @@ public sealed class ElementSplitSpeedTests
         // Half a second after the last cut, at 3 s, which the controller's offset moves on by a second.
         MediaTime uncut = PlaybackPosition(video, MediaTime.FromSeconds(4.5));
 
-        new SilenceSplitService(_harness.History).Apply(_harness.Scene, element,
+        new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig()).Apply(_harness.Scene, element,
             [new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1))], SilenceSplitMode.DeleteSilence, false);
 
         Element back = _harness.Scene.Children.Single(child => child != element && child != providerElement);
@@ -596,7 +596,7 @@ public sealed class ElementSplitSpeedTests
         MediaTime later = MediaTime.FromSeconds(3.5);
         MediaTime uncut = ComposedPosition(later);
 
-        new SilenceSplitService(_harness.History).Apply(_harness.Scene, element,
+        new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig()).Apply(_harness.Scene, element,
             [new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1))], SilenceSplitMode.DeleteSilence, false);
 
         Assert.That(ComposedPosition(later).ToSeconds(), Is.EqualTo(uncut.ToSeconds()).Within(0.01));
@@ -713,7 +713,7 @@ public sealed class ElementSplitSpeedTests
         MediaTime later = MediaTime.FromSeconds(3.5);
         MediaTime uncut = ComposedPosition(later);
 
-        new SilenceSplitService(_harness.History).Apply(_harness.Scene, element,
+        new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig()).Apply(_harness.Scene, element,
             [new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1))], SilenceSplitMode.DeleteSilence, false);
 
         Assert.That(ComposedPosition(later).ToSeconds(), Is.EqualTo(uncut.ToSeconds()).Within(0.01));

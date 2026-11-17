@@ -40,6 +40,7 @@ public class ProxiesTabLayoutTests
         var store = new ProxyStore(Path.Combine(root, "proxy-store"));
         var queue = new TestQueue();
         var context = new Mock<IEditorContext>();
+        context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         context.Setup(x => x.GetService(typeof(Scene))).Returns(scene);
         context.Setup(x => x.GetService(typeof(IProxyStore))).Returns(store);
         context.Setup(x => x.GetService(typeof(IProxyJobQueue))).Returns(queue);

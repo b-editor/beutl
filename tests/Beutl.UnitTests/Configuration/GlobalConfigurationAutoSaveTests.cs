@@ -3,7 +3,6 @@ using System.Text.Json.Nodes;
 using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Testing.Headless;
-
 using NUnit.Framework;
 
 namespace Beutl.UnitTests.Configuration;
@@ -20,7 +19,7 @@ public class GlobalConfigurationAutoSaveTests
     public void TearDown() => Directory.Delete(_directory, recursive: true);
 
     private static GlobalConfiguration CreateConfiguration()
-        => (GlobalConfiguration)Activator.CreateInstance(typeof(GlobalConfiguration), nonPublic: true)!;
+        => new GlobalConfiguration();
 
     // Set by the editor window as it closes, and written by the save on exit that follows.
     private static readonly HashSet<string> s_savedOnExit =

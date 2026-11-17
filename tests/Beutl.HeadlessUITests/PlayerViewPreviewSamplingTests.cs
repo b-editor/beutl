@@ -1,13 +1,11 @@
 ﻿using System.Reactive.Linq;
 using System.Runtime.InteropServices;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
-
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Services;
@@ -18,9 +16,7 @@ using Beutl.Media;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using BitmapInterpolationMode = Avalonia.Media.Imaging.BitmapInterpolationMode;
 using BtlMatrix = Beutl.Graphics.Matrix;
 
@@ -34,7 +30,7 @@ public sealed class PlayerViewPreviewSamplingTests
 {
     private bool _savedHdr;
 
-    private static EditorConfig Config => GlobalConfiguration.Instance.EditorConfig;
+    private static EditorConfig Config => TestShell.Configuration.EditorConfig;
 
     [SetUp]
     public void SetUp() => _savedHdr = Config.UseHdrPreview.Value;

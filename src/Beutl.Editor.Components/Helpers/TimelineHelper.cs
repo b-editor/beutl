@@ -12,21 +12,21 @@ namespace Beutl.Editor.Components.Helpers;
 
 public static class TimelineHelper
 {
-    internal static Vector GetScrollOffsetDelta(PointerWheelEventArgs e, bool gestureAxes)
+    internal static Vector GetScrollOffsetDelta(PointerWheelEventArgs e, bool gestureAxes, EditorConfig configuration)
     {
         Vector delta = e.Delta;
         if (!gestureAxes && OperatingSystem.IsWindows() && e.KeyModifiers == KeyModifiers.Shift)
             delta = new Vector(delta.Y, delta.X);
 
         // Touchpad gestures keep their native axes; wheels follow the editor preference.
-        if (!gestureAxes && !GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value)
+        if (!gestureAxes && !configuration.SwapTimelineScrollDirection.Value)
             delta = new Vector(delta.Y, delta.X);
         return -delta * 50;
     }
 
     // How the timeline's and the graph editor's rulers write times: as the player writes them.
-    internal static ReadOnlyReactivePropertySlim<TimeDisplayFormat> ObserveTimeDisplayFormat(CompositeDisposable disposables)
-        => GlobalConfiguration.Instance.EditorConfig.TimeDisplayFormat.GetObservable()
+    internal static ReadOnlyReactivePropertySlim<TimeDisplayFormat> ObserveTimeDisplayFormat(EditorConfig configuration, CompositeDisposable disposables)
+        => configuration.TimeDisplayFormat.GetObservable()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(disposables);
 
@@ -72,7 +72,7 @@ public static class TimelineHelper
         ScrollViewer scrollViewer, IEditorContext editorContext, IReactiveProperty<TimelineOptions> options,
         MediaTime currentTime)
     {
-        var mode = GlobalConfiguration.Instance.EditorConfig.TimelineAutoScrollMode.Value;
+        var mode = editorContext.GetRequiredService<GlobalConfiguration>().EditorConfig.TimelineAutoScrollMode.Value;
         if (mode == TimelineAutoScrollMode.None) return;
 
         var previewPlayer = editorContext.GetService<IPreviewPlayer>();

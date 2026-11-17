@@ -206,7 +206,7 @@ public class ObjectRegeneratorTests
         harness.History.Commit("Setup");
         Element[] childrenBefore = [.. harness.Scene.Children];
 
-        new ElementStructureService(harness.History)
+        new ElementStructureService(harness.History, new Beutl.Configuration.EditorConfig())
             .Split(harness.Scene, [front], MediaTime.FromSeconds(4));
 
         var (backImage, backNested) = FindAiNodes(harness.Scene.Children.Except(childrenBefore).Single());

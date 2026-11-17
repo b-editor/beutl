@@ -1,12 +1,10 @@
 ﻿using System.Runtime.InteropServices;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
-
 using Beutl.Configuration;
 using Beutl.Graphics.Rendering;
 using Beutl.Testing.Headless;
@@ -27,7 +25,7 @@ public sealed class PlayerViewCheckerboardTests
 
     private (bool Hdr, bool Checkerboard, bool Guides, bool OnionSkin) _saved;
 
-    private static EditorConfig Config => GlobalConfiguration.Instance.EditorConfig;
+    private static EditorConfig Config => TestShell.Configuration.EditorConfig;
 
     // Nothing else is drawn over the frame.
     [SetUp]

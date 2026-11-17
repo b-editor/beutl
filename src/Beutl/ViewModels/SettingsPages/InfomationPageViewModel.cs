@@ -1,13 +1,11 @@
 ﻿using System.Reflection;
 using Avalonia.Controls;
-
 using Beutl.Configuration;
 using Beutl.Controls.Navigation;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Services;
 using Beutl.Threading;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
@@ -17,9 +15,11 @@ public sealed class InformationPageViewModel : PageContext, IDisposable
     private readonly CompositeDisposable _disposables = [];
     private TelemetrySettingsPageViewModel? _telemetry;
 
-    public InformationPageViewModel()
+    private readonly TelemetryConfig _telemetryConfig;
+
+    public InformationPageViewModel(UpdateConfig updateConfig, TelemetryConfig telemetryConfig)
     {
-        UpdateConfig updateConfig = GlobalConfiguration.Instance.UpdateConfig;
+        _telemetryConfig = telemetryConfig;
         AutoDownloadUpdates = updateConfig.AutoDownload.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
@@ -85,7 +85,7 @@ public sealed class InformationPageViewModel : PageContext, IDisposable
 
     public ReactivePropertySlim<string?> AvailableMemory { get; } = new();
 
-    public TelemetrySettingsPageViewModel Telemetry => _telemetry ??= new();
+    public TelemetrySettingsPageViewModel Telemetry => _telemetry ??= new(_telemetryConfig);
 
     public AsyncReactiveCommand NavigateToTelemetry { get; }
 

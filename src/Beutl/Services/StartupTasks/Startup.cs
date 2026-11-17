@@ -2,6 +2,7 @@
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.ViewModels.ExtensionsPages;
+using Microsoft.Extensions.DependencyInjection;
 using NuGet.Versioning;
 
 namespace Beutl.Services.StartupTasks;
@@ -14,7 +15,7 @@ public sealed class Startup
     private readonly EditorService _editorService;
 
     public Startup(BeutlApiApplication apiApp, ProjectService projectService, EditorService editorService)
-        : this(apiApp, projectService, editorService, GlobalConfiguration.Instance.LastStartedVersion)
+        : this(apiApp, projectService, editorService, editorService.AppServices.GetRequiredService<GlobalConfiguration>().LastStartedVersion)
     {
     }
 
@@ -26,6 +27,8 @@ public sealed class Startup
         IsAppUpgrade = NuGetVersion.TryParse(lastStartedVersion, out var previous) && NuGetVersion.Parse(BeutlApplication.Version) > previous;
         Initialize();
     }
+
+    internal GlobalConfiguration Configuration => _editorService.AppServices.GetRequiredService<GlobalConfiguration>();
 
     internal bool IsAppUpgrade { get; }
 
@@ -67,7 +70,7 @@ public sealed class Startup
         Register(() => new ResolvePackageDependenciesTask(
             _apiApp.GetResource<InstalledPackageRepository>(),
             _apiApp.GetResource<PackageInstaller>()));
-        Register(() => new CrashRecoveryPromptTask());
+        Register(() => new CrashRecoveryPromptTask(Configuration.ViewConfig));
         Register(() => new LoadInstalledExtensionTask(
             _apiApp.GetResource<PackageManager>(), this));
         Register(() => new LoadPrimitiveExtensionTask(
@@ -76,7 +79,7 @@ public sealed class Startup
         Register(() => new LoadSideloadExtensionTask(_apiApp.GetResource<PackageManager>(), this));
         Register(() => new AfterLoadingExtensionsTask(this));
         Register(() => new RestoreLastProjectTask(this, _projectService));
-        Register(() => new CheckForUpdatesTask(_apiApp));
+        Register(() => new CheckForUpdatesTask(_apiApp, _editorService.AppServices));
         Register(() => new CheckForPackageUpdatesTask(this, _apiApp.GetResource<PackageManager>(), _apiApp));
     }
 

@@ -1,0 +1,64 @@
+{
+  "name": "time-driven-wave",
+  "description": "One pass that bends the layer with a travelling wave. TimeNode.Time drives In.params.time every frame; Padding gives the wave room past the layer's edges.",
+  "operations": [
+    {
+      "op": "add",
+      "ref": "input",
+      "type": "FilterEffectInputNode",
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "op": "add",
+      "ref": "time",
+      "type": "TimeNode",
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "op": "add",
+      "ref": "wave",
+      "type": "ShaderFullscreenPassNode",
+      "name": "Wave",
+      "position": [
+        320,
+        0
+      ],
+      "values": {
+        "Code": "#version 450\nlayout(location = 0) in vec2 uv;\nlayout(location = 0) out vec4 color;\nlayout(set = 0, binding = 0) uniform sampler2D source;\nlayout(set = 0, binding = 1) uniform Params { float time; float amplitude; float wavelength; } params;\n\nvoid main() {\n    vec2 size = vec2(textureSize(source, 0));\n    // amplitude and wavelength in pixels; one wave travels down per second.\n    float phase = (uv.y * size.y / params.wavelength - params.time) * 6.2831853;\n    float offset = sin(phase) * params.amplitude / size.x;\n    color = texture(source, uv + vec2(offset, 0.0));\n}\n",
+        "Padding": 16,
+        "In.params.amplitude": 12,
+        "In.params.wavelength": 80
+      }
+    },
+    {
+      "op": "add",
+      "ref": "output",
+      "type": "OutputNode",
+      "position": [
+        640,
+        0
+      ]
+    },
+    {
+      "op": "connect",
+      "from": "input.Output",
+      "to": "wave.In.source"
+    },
+    {
+      "op": "connect",
+      "from": "time.Time",
+      "to": "wave.In.params.time"
+    },
+    {
+      "op": "connect",
+      "from": "wave.Out.color",
+      "to": "output.Output"
+    }
+  ]
+}

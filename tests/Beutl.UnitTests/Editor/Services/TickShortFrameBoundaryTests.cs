@@ -22,7 +22,7 @@ public sealed class TickShortFrameBoundaryTests
     {
         using var harness = Open(rateText, out Rational rate);
         Element clip = AddTickShort(harness, 0, 2, rate);
-        var service = new ElementStructureService(harness.History);
+        var service = new ElementStructureService(harness.History, new Beutl.Configuration.EditorConfig());
 
         service.Split(harness.Scene, [clip], MediaTime.FromFrames(2, rate));
         int afterCutAtEnd = harness.Scene.Children.Count;
@@ -44,7 +44,7 @@ public sealed class TickShortFrameBoundaryTests
         Element slideFront = AddTickShort(harness, 0, 1, rate, zIndex: 1);
         Element slideMiddle = AddTickShort(harness, 1, 1, rate, zIndex: 1);
         Element slideBack = AddTickShort(harness, 2, 2, rate, zIndex: 1);
-        var service = new ElementResizeService(harness.History);
+        var service = new ElementResizeService(harness.History, new Beutl.Configuration.EditorConfig());
         MediaTime frame = MediaTime.FromFrames(1, rate);
 
         bool rolled = service.Roll(harness.Scene, [new ElementTrimPair(rollFront, rollBack)], frame);

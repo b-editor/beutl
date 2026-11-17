@@ -11,15 +11,16 @@ namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
 {
-    private readonly ExtensionConfig _extensionConfig = GlobalConfiguration.Instance.ExtensionConfig;
+    private readonly ExtensionConfig _extensionConfig;
     private readonly ReadOnlyObservableCollection<EditorExtension> _loadedExtensions;
     private readonly CompositeDisposable _disposables = [];
     private IDisposable? _configuredExtensionsSync;
 
     public sealed record EditorExtensionWrapper(string DisplayName, string Name, string TypeName);
 
-    public EditorExtensionPriorityPageViewModel(ExtensionProvider extensionProvider)
+    public EditorExtensionPriorityPageViewModel(ExtensionProvider extensionProvider, ExtensionConfig configuration)
     {
+        _extensionConfig = configuration;
         ICoreReadOnlyList<Extension> allExtension = extensionProvider.AllExtensions;
 
         var comparer = SortExpressionComparer<Extension>.Ascending(i => i.Name);

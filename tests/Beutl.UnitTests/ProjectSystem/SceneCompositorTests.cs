@@ -8,6 +8,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Audio;
 using Beutl.UnitTests.TestInfrastructure;
@@ -18,6 +19,8 @@ namespace Beutl.UnitTests.ProjectSystem;
 [TestFixture]
 public class SceneCompositorTests
 {
+    private GlobalConfiguration _testConfiguration = new();
+
     [TestCase(2)]
     [TestCase(200)]
     [TestCase(20000)]
@@ -37,7 +40,7 @@ public class SceneCompositorTests
             element.Objects.Add(sounds[i] = new EligibilityCountingObject());
             scene.Children.Add(element);
         }
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         var watch = System.Diagnostics.Stopwatch.StartNew();
         compositor.EvaluateGraphics(MediaTime.Zero);
         CompositionFrame initial = compositor.EvaluateAudio(TimeRange.FromSeconds(0, 0.01));
@@ -75,7 +78,7 @@ public class SceneCompositorTests
         var element = new Element { Length = { Value = MediaTime.FromSeconds(1) } };
         element.Objects.Add(sound);
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         var range = TimeRange.FromSeconds(5, 1);
         CompositionEligibility first = compositor.EvaluateAudio(range).Eligibility!.Value;
         bool Eligible() => compositor.EvaluateAudio(range).Eligibility!.Value.Contains(sound);
@@ -122,6 +125,7 @@ public class SceneCompositorTests
     [SetUp]
     public void SetUp()
     {
+        _testConfiguration = new();
         _basePath = Path.Combine(Path.GetTempPath(), $"beutl_scene_compositor_{Guid.NewGuid():N}");
         Directory.CreateDirectory(_basePath);
     }
@@ -175,7 +179,7 @@ public class SceneCompositorTests
         var shape = new RectShape();
         Element element = CreateElement(_basePath, isEnabled: true, shape);
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.Zero);
         var resource = (RectShape.Resource)frame.Objects.Single();
         var geometry = resource.GetGeometry()!;
@@ -222,7 +226,7 @@ public class SceneCompositorTests
         application.Project.Value!.Items.Add(scene);
         Element element = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
         EngineObject.Resource resource = compositor.EvaluateAudio(range).Objects.Single();
 
@@ -249,7 +253,7 @@ public class SceneCompositorTests
             for (int index = 0; index < 127; index++)
                 element.Objects.Add(new TestGraphicsObject());
             scene.Children.Add(element);
-            using var compositor = new SceneCompositor(scene);
+            using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
             CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.Zero);
             using var start = new Barrier(2);
             Task detach = Task.Run(() =>
@@ -278,7 +282,7 @@ public class SceneCompositorTests
         element.Objects.Add(new DisposalCallbackObject(() =>
             Task.Run(() => element.Objects.Clear()).WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult()));
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.Zero);
 
         compositor.Dispose();
@@ -295,7 +299,7 @@ public class SceneCompositorTests
         Element disabled = CreateElement(_basePath, isEnabled: false, new TestGraphicsObject());
         scene.Children.Add(enabled);
         scene.Children.Add(disabled);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5));
 
@@ -311,7 +315,7 @@ public class SceneCompositorTests
         Element disabled = CreateElement(_basePath, isEnabled: false, new TestAudioObject());
         scene.Children.Add(enabled);
         scene.Children.Add(disabled);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateAudio(
             new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)));
@@ -330,7 +334,7 @@ public class SceneCompositorTests
         Scene scene = CreateScene(_basePath);
         Element element = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateAudio(
             new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1)));
@@ -359,7 +363,7 @@ public class SceneCompositorTests
 
         scene.Children.Add(groupElement);
         scene.Children.Add(childElement);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateAudio(
             new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)));
@@ -398,7 +402,7 @@ public class SceneCompositorTests
 
         scene.Children.Add(groupElement);
         scene.Children.Add(childElement);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateAudio(
             new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)));
@@ -420,7 +424,7 @@ public class SceneCompositorTests
         portal.Count.Value = 0;
         element.Objects.Add(portal);
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateAudio(
             new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)));
@@ -455,7 +459,7 @@ public class SceneCompositorTests
 
         scene.Children.Add(groupElement);
         scene.Children.Add(childElement);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateAudio(
             new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1)));
@@ -489,7 +493,7 @@ public class SceneCompositorTests
 
         scene.Children.Add(groupElement);
         scene.Children.Add(childElement);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         using var composer = new Composer { SampleRate = sampleRate };
 
         var firstRange = new TimeRange(MediaTime.Zero, duration);
@@ -520,7 +524,7 @@ public class SceneCompositorTests
         element.Start.Value = MediaTime.FromSeconds(2);
         element.Length.Value = MediaTime.FromSeconds(1);
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         _ = compositor.EvaluateAudio(new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)));
 
@@ -534,7 +538,7 @@ public class SceneCompositorTests
         Scene scene = CreateScene(_basePath);
         var counting = new CountingAudioObject();
         scene.Children.Add(CreateElement(_basePath, isEnabled: true, counting));
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateAudio(
             new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)));
@@ -550,7 +554,7 @@ public class SceneCompositorTests
         Scene scene = CreateScene(_basePath);
         Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         var time = MediaTime.FromSeconds(0.5);
 
         Assert.That(compositor.EvaluateGraphics(time).Objects.Length, Is.EqualTo(1));
@@ -570,7 +574,7 @@ public class SceneCompositorTests
         Scene scene = CreateScene(_basePath);
         Element element = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
 
         Assert.That(compositor.EvaluateAudio(range).Objects.Length, Is.EqualTo(1));
@@ -591,7 +595,7 @@ public class SceneCompositorTests
         scene.Children.Add(layer1);
         scene.Layers.Add(CreateLayer(0));
         scene.Layers.Add(CreateLayer(1, solo: true));
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5));
 
@@ -615,7 +619,7 @@ public class SceneCompositorTests
         scene.Layers.Add(CreateLayer(0, solo: true));
         scene.Layers.Add(CreateLayer(1));
         scene.Layers.Add(CreateLayer(2, solo: true));
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateAudio(
             new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)));
@@ -636,7 +640,7 @@ public class SceneCompositorTests
         scene.Children.Add(soloed);
         scene.Children.Add(modelless);
         scene.Layers.Add(CreateLayer(0, solo: true));
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5));
 
@@ -656,7 +660,7 @@ public class SceneCompositorTests
         scene.Children.Add(z1);
         scene.Layers.Add(CreateLayer(0, videoMuted: true));
         scene.Layers.Add(CreateLayer(1));
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5));
 
@@ -672,7 +676,7 @@ public class SceneCompositorTests
         z0.ZIndex.Value = 0;
         scene.Children.Add(z0);
         scene.Layers.Add(CreateLayer(0, videoMuted: true));
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateAudio(
             new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)));
@@ -693,7 +697,7 @@ public class SceneCompositorTests
         scene.Children.Add(z1);
         scene.Layers.Add(CreateLayer(0, audioMuted: true));
         scene.Layers.Add(CreateLayer(1));
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateAudio(
             new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)));
@@ -725,7 +729,7 @@ public class SceneCompositorTests
         z0.ZIndex.Value = 0;
         scene.Children.Add(z0);
         scene.Layers.Add(CreateLayer(0, audioMuted: true));
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5));
 
@@ -742,7 +746,7 @@ public class SceneCompositorTests
         Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
         element.IsLocked.Value = true;
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5));
 
@@ -763,7 +767,7 @@ public class SceneCompositorTests
         TimelineLayer layer1 = CreateLayer(1);
         scene.Layers.Add(CreateLayer(0));
         scene.Layers.Add(layer1);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         Assert.That(compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5)).Objects.Length, Is.EqualTo(2));
 
@@ -782,7 +786,7 @@ public class SceneCompositorTests
         scene.Children.Add(element);
         TimelineLayer layer = CreateLayer(0);
         scene.Layers.Add(layer);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         Assert.That(compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5)).Objects.Length, Is.EqualTo(1));
 
@@ -797,7 +801,7 @@ public class SceneCompositorTests
         Scene scene = CreateScene(_basePath);
         Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         Assert.That(compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5)).Objects.Length, Is.EqualTo(1));
 
@@ -815,7 +819,7 @@ public class SceneCompositorTests
         scene.Children.Add(element);
         TimelineLayer layer = CreateLayer(0, videoMuted: true);
         scene.Layers.Add(layer);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
         Assert.That(compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5)).Objects.Length, Is.EqualTo(1));
 
@@ -830,7 +834,7 @@ public class SceneCompositorTests
         Scene scene = CreateScene(_basePath);
         var capture = new SceneCompositorContextCaptureDrawable();
         scene.Children.Add(CreateElement(_basePath, isEnabled: true, capture));
-        using var compositor = new SceneCompositor(scene) { ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { ForceOriginalSource = true };
 
         compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5));
 
@@ -846,14 +850,14 @@ public class SceneCompositorTests
     public void EvaluateGraphics_CompositorForceOriginalFalse_SeedsPreferProxyFromGlobalConfig(
         PreviewSourceMode mode, bool expectedPreferProxy)
     {
-        PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value;
+        PreviewSourceMode original = _testConfiguration.EditorConfig.PreviewSourceMode.Value;
         try
         {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = mode;
+            _testConfiguration.EditorConfig.PreviewSourceMode.Value = mode;
             Scene scene = CreateScene(_basePath);
             var capture = new SceneCompositorContextCaptureDrawable();
             scene.Children.Add(CreateElement(_basePath, isEnabled: true, capture));
-            using var compositor = new SceneCompositor(scene);
+            using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
 
             compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5));
 
@@ -865,7 +869,7 @@ public class SceneCompositorTests
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = original;
+            _testConfiguration.EditorConfig.PreviewSourceMode.Value = original;
         }
     }
 
@@ -876,10 +880,10 @@ public class SceneCompositorTests
     [Test]
     public void EvaluateGraphics_ExportForceOriginal_OverridesPreferProxyConfigInReferencedScene()
     {
-        PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value;
+        PreviewSourceMode original = _testConfiguration.EditorConfig.PreviewSourceMode.Value;
         try
         {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
+            _testConfiguration.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
             Scene childScene = CreateScene(_basePath);
             var capture = new SceneCompositorContextCaptureDrawable();
             childScene.Children.Add(CreateElement(_basePath, isEnabled: true, capture));
@@ -887,7 +891,7 @@ public class SceneCompositorTests
             var sceneDrawable = new SceneDrawable();
             sceneDrawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(parentScene, childScene);
             parentScene.Children.Add(CreateElement(_basePath, isEnabled: true, sceneDrawable));
-            using var compositor = new SceneCompositor(parentScene) { ForceOriginalSource = true };
+            using var compositor = new SceneCompositor(parentScene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { ForceOriginalSource = true };
 
             compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5));
 
@@ -899,23 +903,23 @@ public class SceneCompositorTests
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = original;
+            _testConfiguration.EditorConfig.PreviewSourceMode.Value = original;
         }
     }
 
     [Test]
     public void EvaluateAudio_ExportForceOriginal_PropagatesIntoReferencedSceneSound()
     {
-        PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value;
+        PreviewSourceMode original = _testConfiguration.EditorConfig.PreviewSourceMode.Value;
         try
         {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
+            _testConfiguration.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
             Scene childScene = CreateScene(_basePath);
             Scene parentScene = CreateScene(_basePath);
             var sceneSound = new SceneSound();
             sceneSound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(parentScene, childScene);
             parentScene.Children.Add(CreateElement(_basePath, isEnabled: true, sceneSound));
-            using var compositor = new SceneCompositor(parentScene) { ForceOriginalSource = true };
+            using var compositor = new SceneCompositor(parentScene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { ForceOriginalSource = true };
 
             CompositionFrame frame = compositor.EvaluateAudio(
                 new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)));
@@ -929,8 +933,38 @@ public class SceneCompositorTests
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = original;
+            _testConfiguration.EditorConfig.PreviewSourceMode.Value = original;
         }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ReferencedSceneSoundKeepsTheHostPresetAndLiveSourceMode(bool forceOriginal)
+    {
+        _testConfiguration.ProxyStoreConfig.DefaultPreset.Value = (int)ProxyPreset.Half;
+        Scene child = CreateScene(_basePath);
+        Scene parent = CreateScene(_basePath);
+        CompositionContext? captured = null;
+        var capture = new EvaluationCaptureSound { OnEvaluate = context => captured = context };
+        child.Children.Add(CreateElement(_basePath, isEnabled: true, capture));
+        var sound = new SceneSound();
+        sound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(parent, child);
+        parent.Children.Add(CreateElement(_basePath, isEnabled: true, sound));
+        using var compositor = new SceneCompositor(parent, _testConfiguration.EditorConfig, _testConfiguration.ProxyStoreConfig)
+        {
+            ForceOriginalSource = forceOriginal
+        };
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
+        var resource = (SceneSound.Resource)compositor.EvaluateAudio(range).Objects.Single();
+        resource._compositor!.EvaluateAudio(range);
+        Assert.That(captured!.PreferredProxyPreset, Is.EqualTo(ProxyPreset.Half));
+        Assert.That(captured.PreferProxy, Is.EqualTo(!forceOriginal));
+
+        _testConfiguration.ProxyStoreConfig.DefaultPreset.Value = (int)ProxyPreset.Eighth;
+        _testConfiguration.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.ForceOriginal;
+        resource._compositor.EvaluateAudio(range);
+        Assert.That(captured.PreferredProxyPreset, Is.EqualTo(ProxyPreset.Eighth));
+        Assert.That(captured.PreferProxy, Is.False);
     }
 
     [Test]
@@ -977,7 +1011,7 @@ public class SceneCompositorTests
         parentElement.Length.Value = duration;
         parentScene.Children.Add(parentElement);
 
-        using var compositor = new SceneCompositor(parentScene);
+        using var compositor = new SceneCompositor(parentScene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         using var composer = new Composer { SampleRate = sampleRate };
 
         var firstRange = new TimeRange(MediaTime.Zero, duration);
@@ -1018,7 +1052,7 @@ public class SceneCompositorTests
         parentElement.Length.Value = duration;
         parentScene.Children.Add(parentElement);
 
-        using var compositor = new SceneCompositor(parentScene);
+        using var compositor = new SceneCompositor(parentScene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         using var composer = new Composer { SampleRate = sampleRate };
 
         var firstRange = new TimeRange(MediaTime.Zero, duration);
@@ -1063,7 +1097,7 @@ public class SceneCompositorTests
         parentElement.Length.Value = parentDuration;
         parentScene.Children.Add(parentElement);
 
-        using var compositor = new SceneCompositor(parentScene);
+        using var compositor = new SceneCompositor(parentScene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         using var composer = new Composer { SampleRate = sampleRate };
 
         var firstRange = new TimeRange(MediaTime.Zero, parentDuration);
