@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes.Group;
 
@@ -388,11 +389,12 @@ internal sealed partial class NodeGraphEditor(GraphModel root, Rational? frameRa
 
     private void ApplyValues(GraphNode node, JsonObject values)
     {
-        // Setting one member can add, replace or remove others: code declares ports, and a mode chooses them. So the
-        // order of the values must not matter. A name not found yet, or a value its member does not take yet, waits
-        // for the rest, and a value whose member a later one replaced, such as a port that new code declares with
-        // another type, goes again to the member in its place, until a round changes nothing.
-        var written = new Dictionary<string, (INodeMember Member, JsonNode? Value)>(StringComparer.Ordinal);
+        // Setting one member can add, replace or rebind others: code declares ports, a mode chooses them, and a new
+        // brush rebinds the inputs of its properties. So the order of the values must not matter. A name not found
+        // yet, or a value its member does not take yet, waits for the rest, and a value whose member a later one
+        // replaced or rebound, such as a port that new code declares with another type, goes again to the member in
+        // its place, until a round changes nothing.
+        var written = new Dictionary<string, (INodeMember Member, IPropertyAdapter? Adapter, JsonNode? Value)>(StringComparer.Ordinal);
         var refused = new Dictionary<string, ReconcileException>(StringComparer.Ordinal);
         List<KeyValuePair<string, JsonNode?>> pending = [.. values];
         for (int round = 0; pending.Count > 0; round++)
@@ -410,7 +412,7 @@ internal sealed partial class NodeGraphEditor(GraphModel root, Rational? frameRa
                 try
                 {
                     NodeGraphMembers.WriteValue(member, pair.Key, pair.Value?.DeepClone(), frameRate);
-                    written[pair.Key] = (member, pair.Value);
+                    written[pair.Key] = (member, member.Property, pair.Value);
                     refused.Remove(pair.Key);
                     progressed = true;
                 }
@@ -422,9 +424,9 @@ internal sealed partial class NodeGraphEditor(GraphModel root, Rational? frameRa
             }
 
             HashSet<INodeMember> members = [.. node.EnumerateMembers()];
-            foreach ((string name, (INodeMember member, JsonNode? value)) in written.ToArray())
+            foreach ((string name, (INodeMember member, IPropertyAdapter? adapter, JsonNode? value)) in written.ToArray())
             {
-                if (!members.Contains(member))
+                if (!members.Contains(member) || !ReferenceEquals(member.Property, adapter))
                 {
                     written.Remove(name);
                     waiting.Add(new(name, value));
