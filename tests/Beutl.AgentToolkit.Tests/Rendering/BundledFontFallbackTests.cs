@@ -35,13 +35,13 @@ public sealed class BundledFontFallbackTests
         using (Stream output = File.Create(Path.Combine(fontDirectory, "latin.ttf")))
             input.CopyTo(output);
         string path = Path.Combine(_root, "project.bep");
-        using (var creator = new FileSessionSource())
+        using (var creator = new FileSessionSource(TestFonts.Manager))
             TestWorkspace.CreateFileSession(creator, new ProjectCreateOptions(path, 64, 64, new Rational(30), TimeSpan.FromSeconds(1))).Save(skipConflictCheck: true);
-        _source = new FileSessionSource();
+        _source = new FileSessionSource(TestFonts.Manager);
         _source.OpenProject(path);
 
         // As AddAgentToolkitServer does when the standalone server starts.
-        BundledFontRegistration.EnsureRegistered();
+        BundledFontRegistration.EnsureRegistered(TestFonts.Manager);
     }
 
     [TearDown]
@@ -52,19 +52,38 @@ public sealed class BundledFontFallbackTests
     }
 
     [Test]
+    public void BundledRegistrationIsIdempotentForEachIndependentHost()
+    {
+        var configuration = new Beutl.Configuration.FontConfig();
+        configuration.FontDirectories.Clear();
+        var first = new FontManager(configuration);
+        var second = new FontManager(configuration);
+        BundledFontRegistration.EnsureRegistered(first);
+        BundledFontRegistration.EnsureRegistered(second);
+        long revision = second.Revision;
+        BundledFontRegistration.EnsureRegistered(second);
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.GetTypefaces(new FontFamily("Noto Sans JP")), Is.Not.Empty);
+            Assert.That(second.GetTypefaces(new FontFamily("Noto Sans JP")), Is.Not.Empty);
+            Assert.That(second.Revision, Is.EqualTo(revision));
+        });
+    }
+
+    [Test]
     public void Standalone_server_falls_back_to_the_UI_families_in_language_order_then_emoji()
     {
-        (FontFamily[] families, FontFamily? emoji) = FontManager.Instance.GetFallbackFamilies();
+        (FontFamily[] families, FontFamily? emoji) = TestFonts.Manager.GetFallbackFamilies();
         string[] expected = BundledFonts.GetUiFamilyNames(CultureInfo.CurrentUICulture);
 
         Assert.Multiple(() =>
         {
             Assert.That(families.Select(family => family.Name), Is.EqualTo(expected));
             Assert.That(emoji, Is.EqualTo(s_emojiFont));
-            Assert.That(FontManager.Instance.IsRegistered(s_emojiFont), Is.True);
+            Assert.That(TestFonts.Manager.IsRegistered(s_emojiFont), Is.True);
             foreach (string name in expected)
             {
-                Assert.That(FontManager.Instance.GetTypefaces(new FontFamily(name)).Select(typeface => typeface.Weight),
+                Assert.That(TestFonts.Manager.GetTypefaces(new FontFamily(name)).Select(typeface => typeface.Weight),
                     Is.SupersetOf(new[] { FontWeight.Regular, FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold }), name);
             }
         });
@@ -75,7 +94,7 @@ public sealed class BundledFontFallbackTests
     public void Project_font_keeps_its_glyphs_and_the_rest_falls_back_at_the_requested_weight(FontWeight weight)
     {
         var uiFont = new FontFamily(BundledFonts.GetUiFamilyNames(CultureInfo.CurrentUICulture)[0]);
-        Assert.That(FontManager.Instance.IsRegistered(s_projectFont), Is.True);
+        Assert.That(TestFonts.Manager.IsRegistered(s_projectFont), Is.True);
 
         using FormattedText latin = CreateText(Latin, s_projectFont, weight);
         using FormattedText latinInUiFont = CreateText(Latin, uiFont, weight);
@@ -128,7 +147,7 @@ public sealed class BundledFontFallbackTests
         scene.Children.Add(element);
         string output = Path.Combine(dir, "bundled-fonts.png");
 
-        await new StillRenderer().RenderAsync(scene, MediaTime.Zero, output, 1, CancellationToken.None);
+        await new StillRenderer(TestFonts.Manager).RenderAsync(scene, MediaTime.Zero, output, 1, CancellationToken.None);
 
         using SKBitmap bitmap = SKBitmap.Decode(output);
         int opaque = 0;
@@ -165,6 +184,6 @@ public sealed class BundledFontFallbackTests
 
     private static FormattedText CreateText(string text, FontFamily font, FontWeight weight)
     {
-        return new FormattedText { Font = font, Text = text, Size = 64f, Weight = weight };
+        return new FormattedText(TestFonts.Manager) { Font = font, Text = text, Size = 64f, Weight = weight };
     }
 }

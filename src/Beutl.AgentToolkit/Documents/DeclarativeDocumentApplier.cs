@@ -16,7 +16,7 @@ using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Documents;
 
-internal sealed partial class DeclarativeDocumentApplier
+internal sealed partial class DeclarativeDocumentApplier(FontManager fonts)
 {
     // Fallback base for objects not attached to the hierarchy yet (newly created identity-list members),
     // whose own ancestry cannot supply the Uri their relative file sources were written against.

@@ -326,7 +326,7 @@ public class ShapeTests
     // Moves the geometry's bounds to the origin, so the alignment centres the star itself.
     private static void MoveBoundsToOrigin(GeometryShape shape)
     {
-        using var resource = shape.ToResource(CompositionContext.Default);
+        using var resource = shape.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         shape.Transform.Value = new TranslateTransform(-resource.Data!.Bounds.Position);
     }
 

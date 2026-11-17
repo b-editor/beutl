@@ -18,7 +18,7 @@ public sealed class GetStartedSkillPointerTests
     [Test]
     public void Get_started_recommends_the_bundled_agent_skills()
     {
-        var queryTools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var queryTools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         GettingStartedResponse response = queryTools.GetStarted().Value!;
 
@@ -33,7 +33,7 @@ public sealed class GetStartedSkillPointerTests
     [Test]
     public void Get_started_names_the_easings_keyframes_accept()
     {
-        var queryTools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var queryTools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         string essentials = string.Join(" ", queryTools.GetStarted().Value!.Essentials);
 
@@ -43,7 +43,7 @@ public sealed class GetStartedSkillPointerTests
     [Test]
     public void Get_started_skill_names_match_the_bundled_skill_set()
     {
-        var queryTools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var queryTools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
         string[] recommended = queryTools.GetStarted().Value!
             .RecommendedSkills.Select(s => s.Name).ToArray();
 

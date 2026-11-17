@@ -18,7 +18,7 @@ public class ObjectTemplatePreviewRendererTests
     [Test]
     public async Task RenderPngAsync_Drawable_ProducesADecodablePng()
     {
-        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(CreateRedRect());
+        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(TestFonts.Manager, CreateRedRect());
 
         Assert.That(png, Is.Not.Null);
         using SKBitmap? decoded = SKBitmap.Decode(png);
@@ -41,7 +41,7 @@ public class ObjectTemplatePreviewRendererTests
         element.Uri = new Uri(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.belm"));
         scene.Children.Add(element);
 
-        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(element);
+        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(TestFonts.Manager, element);
 
         Assert.That(png, Is.Not.Null);
         using SKBitmap decoded = SKBitmap.Decode(png);
@@ -64,7 +64,7 @@ public class ObjectTemplatePreviewRendererTests
         var element = new Element { Start = { Value = MediaTime.FromSeconds(3) }, Length = { Value = MediaTime.FromSeconds(2) } };
         element.Objects.Add(CreateRedRect());
 
-        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(element);
+        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(TestFonts.Manager, element);
 
         Assert.That(png, Is.Not.Null);
     }
@@ -75,7 +75,7 @@ public class ObjectTemplatePreviewRendererTests
         var element = new Element { Start = { Value = MediaTime.Zero }, Length = { Value = MediaTime.FromSeconds(1) } };
         element.Objects.Add(CreateRedRect());
 
-        byte[]? png = await ObjectTemplatePreviewRenderer.RenderElementsPngAsync(
+        byte[]? png = await ObjectTemplatePreviewRenderer.RenderElementsPngAsync(TestFonts.Manager,
             [element],
             new PixelSize(1920, 1080),
             new PixelSize(1024, 576));
@@ -92,7 +92,7 @@ public class ObjectTemplatePreviewRendererTests
         var element = new Element { Start = { Value = MediaTime.Zero }, Length = { Value = MediaTime.FromSeconds(1) } };
 
         Assert.That(
-            async () => await ObjectTemplatePreviewRenderer.RenderElementsPngAsync(
+            async () => await ObjectTemplatePreviewRenderer.RenderElementsPngAsync(TestFonts.Manager,
                 [element],
                 new PixelSize(1920, 1080),
                 new PixelSize(4096, 4096)),
@@ -108,7 +108,7 @@ public class ObjectTemplatePreviewRendererTests
         var effect = new FilterEffectGroup();
         owner.FilterEffect.Value = effect;
 
-        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(effect);
+        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(TestFonts.Manager, effect);
 
         Assert.That(png, Is.Not.Null);
         Assert.That(DominantColor(png!), Is.EqualTo(SKColors.Red).Using<SKColor>(IsCloseTo));
@@ -117,7 +117,7 @@ public class ObjectTemplatePreviewRendererTests
     [Test]
     public async Task RenderPngAsync_NonDrawableWithoutOwner_FallsBackToASampleShape()
     {
-        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(
+        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(TestFonts.Manager,
             new SolidColorBrush(Colors.Lime));
 
         Assert.That(png, Is.Not.Null);
@@ -132,8 +132,8 @@ public class ObjectTemplatePreviewRendererTests
         owner.FilterEffect.Value = effect;
         var brush = new SolidColorBrush(Colors.Lime);
 
-        await ObjectTemplatePreviewRenderer.RenderPngAsync(effect);
-        await ObjectTemplatePreviewRenderer.RenderPngAsync(brush);
+        await ObjectTemplatePreviewRenderer.RenderPngAsync(TestFonts.Manager, effect);
+        await ObjectTemplatePreviewRenderer.RenderPngAsync(TestFonts.Manager, brush);
 
         Assert.That(effect.HierarchicalParent, Is.SameAs(owner));
         Assert.That(brush.HierarchicalParent, Is.Null);
@@ -142,7 +142,7 @@ public class ObjectTemplatePreviewRendererTests
     [Test]
     public async Task RenderPngAsync_AudioEffect_HasNoPreview()
     {
-        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(new AudioEffectGroup());
+        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(TestFonts.Manager, new AudioEffectGroup());
 
         Assert.That(png, Is.Null);
     }
@@ -154,7 +154,7 @@ public class ObjectTemplatePreviewRendererTests
     {
         var element = new Element { Start = { Value = MediaTime.Zero }, Length = { Value = MediaTime.FromSeconds(1) } };
 
-        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(element);
+        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(TestFonts.Manager, element);
 
         Assert.That(png, Is.Null);
     }
@@ -168,7 +168,7 @@ public class ObjectTemplatePreviewRendererTests
         group.Children.Add(CreateRedRect());
         group.Children.Add(new SourceBackdrop());
 
-        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(group);
+        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(TestFonts.Manager, group);
 
         Assert.That(png, Is.Not.Null);
     }
@@ -179,7 +179,7 @@ public class ObjectTemplatePreviewRendererTests
     [Test]
     public async Task RenderPngAsync_NodeGraphDrawableWithAMeasureNode_StillPreviewsItsVisibleContent()
     {
-        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(BuildMeasureNodeGraphDrawable());
+        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(TestFonts.Manager, BuildMeasureNodeGraphDrawable());
 
         Assert.That(png, Is.Not.Null);
     }

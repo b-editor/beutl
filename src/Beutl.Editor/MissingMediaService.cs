@@ -37,7 +37,7 @@ public sealed class MissingMediaService
     // Each file as it last decoded, so that a check of a file that has not changed since does not decode it again.
     private readonly ConcurrentDictionary<(MissingMediaKind Kind, string Path), (long Length, long LastWriteTicks)> _decoded = new();
 
-    public MissingMediaService() : this(font => FontManager.Instance.IsRegistered(font)) { }
+    public MissingMediaService(FontManager fonts) : this(fonts.IsRegistered) { }
 
     internal MissingMediaService(Func<FontFamily, bool> fontExists, Func<string, IEnumerable<string>>? enumerateEntries = null)
     {

@@ -23,7 +23,7 @@ public class FormattedTextRasterBoundsTests
     }
 
     private static FormattedText CreateText(string text, float size, Pen.Resource? pen = null)
-        => new()
+        => new(TestFonts.Manager)
         {
             Text = new StringSpan(text, 0, text.Length),
             Font = FontFamily.Default,
@@ -227,7 +227,7 @@ public class FormattedTextRasterBoundsTests
         pen.Brush.Value = Brushes.White;
         pen.Thickness.Value = MathF.Max(4, textSize / 3);
         pen.StrokeAlignment.Value = StrokeAlignment.Outside;
-        return pen.ToResource(CompositionContext.Default);
+        return pen.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
     }
 
     private readonly record struct InkExtent(int Left, int Top, int Right, int Bottom);

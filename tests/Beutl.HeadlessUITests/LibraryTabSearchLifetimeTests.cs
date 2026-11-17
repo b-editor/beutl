@@ -190,7 +190,7 @@ public sealed class LibraryTabSearchLifetimeTests
 
     private static LibraryTabViewModel CreateViewModel()
     {
-        var viewModel = new LibraryTabViewModel(TestShell.Library, TestShell.Configuration.EditorConfig);
+        var viewModel = new LibraryTabViewModel(TestShell.FontManager, TestShell.Library, TestShell.Configuration.EditorConfig);
         viewModel.AllItems.Clear();
         return viewModel;
     }

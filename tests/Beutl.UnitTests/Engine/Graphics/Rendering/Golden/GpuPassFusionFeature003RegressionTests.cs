@@ -284,7 +284,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
         shape.Width.Value = 126;
         shape.Height.Value = 78;
         shape.Fill.Value = Brushes.OrangeRed;
-        return shape.ToResource(CompositionContext.Default);
+        return shape.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
     }
 
     private static Bitmap RenderMaterializedBitmap(float scale)
@@ -336,7 +336,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
         text.Size.Value = 34;
         text.Fill.Value = Brushes.White;
         text.Text.Value = "Density";
-        return text.ToResource(CompositionContext.Default);
+        return text.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
     }
 
     private static EffectTargets CreateNonAllocatableTargets()

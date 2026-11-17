@@ -1,5 +1,6 @@
 ﻿using Beutl.Editor;
 using Beutl.ProjectSystem;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;
@@ -33,7 +34,7 @@ public sealed partial class EditViewModel
     {
         if (_fingerprintCaptureTask.IsCompleted)
             _fingerprintCaptureTask = CaptureMediaFingerprints?.Invoke(scene, _autoSaveCancellation.Token)
-                ?? new MissingMediaService().UpdateFingerprintsAsync(scene, _mediaReferences, _autoSaveCancellation.Token, force,
+                ?? new MissingMediaService(this.GetRequiredService<Beutl.Media.FontManager>()).UpdateFingerprintsAsync(scene, _mediaReferences, _autoSaveCancellation.Token, force,
                     cacheHashes: true);
         return _fingerprintCaptureTask;
     }

@@ -32,6 +32,7 @@ internal sealed class PresentationWindow : Window
         _player = player;
         ColorPaletteService.SetService(this, player.EditViewModel.GetService<ColorPaletteService>());
         ControlConfiguration.SetConfiguration(this, player.EditViewModel.GetRequiredService<GlobalConfiguration>());
+        ControlFonts.SetFonts(this, player.EditViewModel.GetRequiredService<Beutl.Media.FontManager>());
         Title = Strings.PresentationWindow;
         Width = 960;
         Height = 540;

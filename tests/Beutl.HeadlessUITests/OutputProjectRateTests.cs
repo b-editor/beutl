@@ -156,7 +156,7 @@ public sealed class OutputProjectRateTests
         Assert.That(encoder.Channels, Is.EqualTo(6));
         Assert.That(encoder.Layout, Is.EqualTo(AudioChannelLayout.Surround51));
         Assert.That(output.Controller.Value!.AudioSettings.Channels.Value, Is.EqualTo(6));
-        using var composer = ExportRendererFactory.CreateComposer(editor.Scene, 48000);
+        using var composer = ExportRendererFactory.CreateComposer(editor.Scene, TestShell.FontManager, 48000);
         Assert.That(composer.ChannelLayout, Is.EqualTo(AudioChannelLayout.Surround51));
     }
 

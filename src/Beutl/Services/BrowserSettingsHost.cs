@@ -26,6 +26,7 @@ internal sealed class BrowserSettingsHost(Func<SettingsDialogViewModel> createDi
         var dialog = new SettingsDialog { DataContext = vm };
         ColorPaletteService.SetService(dialog, ColorPaletteService.GetService(owner));
         ControlConfiguration.SetConfiguration(dialog, ControlConfiguration.GetConfiguration(owner));
+        ControlFonts.SetFonts(dialog, ControlFonts.GetFonts(owner));
         _viewModel = vm;
         _dialog = dialog;
         try

@@ -56,11 +56,11 @@ public static class EngineObjectHelper
     /// Disposing the subscription cancels work that has not started.
     /// </summary>
     public static IObservable<EngineResourceHandle<TResource>> SubscribeEngineVersionedResource<T, TResource>(
-        this T obj, IObservable<MediaTime> time, Func<T, CompositionContext, TResource> createResource)
+        this T obj, IObservable<MediaTime> time, Func<T, CompositionContext, TResource> createResource, Beutl.Media.FontManager? fonts = null)
         where T : EngineObject
         where TResource : EngineObject.Resource
     {
-        return obj.SubscribeEngineVersionedResource(time, createResource, RenderThread.Dispatcher);
+        return obj.SubscribeEngineVersionedResource(time, createResource, RenderThread.Dispatcher, fonts);
     }
 
     /// <param name="renderDispatcher">
@@ -71,13 +71,13 @@ public static class EngineObjectHelper
         this T obj,
         IObservable<MediaTime> time,
         Func<T, CompositionContext, TResource> createResource,
-        Dispatcher renderDispatcher)
+        Dispatcher renderDispatcher, Beutl.Media.FontManager? fonts = null)
         where T : EngineObject
         where TResource : EngineObject.Resource
     {
         return Observable.Create<EngineResourceHandle<TResource>>(observer =>
             {
-                var renderContext = new CompositionContext(MediaTime.Zero);
+                var renderContext = new CompositionContext(MediaTime.Zero) { Fonts = fonts };
                 var cts = new CancellationTokenSource();
                 CancellationToken token = cts.Token;
                 TResource? resource = null;
@@ -280,11 +280,11 @@ public static class EngineObjectHelper
     public static IObservable<EngineResourceHandle<TResource>?> SwitchToEngineVersionedResource<T, TResource>(
         this IObservable<T?> source,
         IObservable<MediaTime> time,
-        Func<T, CompositionContext, TResource> createResource)
+        Func<T, CompositionContext, TResource> createResource, Beutl.Media.FontManager? fonts = null)
         where T : EngineObject
         where TResource : EngineObject.Resource
     {
-        return source.SwitchToEngineVersionedResource(time, createResource, RenderThread.Dispatcher);
+        return source.SwitchToEngineVersionedResource(time, createResource, RenderThread.Dispatcher, fonts);
     }
 
     /// <inheritdoc cref="SubscribeEngineVersionedResource{T, TResource}(T, IObservable{MediaTime}, Func{T, CompositionContext, TResource}, Dispatcher)" path="/param[@name='renderDispatcher']"/>
@@ -293,7 +293,7 @@ public static class EngineObjectHelper
         this IObservable<T?> source,
         IObservable<MediaTime> time,
         Func<T, CompositionContext, TResource> createResource,
-        Dispatcher renderDispatcher)
+        Dispatcher renderDispatcher, Beutl.Media.FontManager? fonts = null)
         where T : EngineObject
         where TResource : EngineObject.Resource
     {
@@ -304,7 +304,7 @@ public static class EngineObjectHelper
             if (obj is null)
                 return Observable.ReturnThenNever<EngineResourceHandle<TResource>?>(null);
 
-            return obj.SubscribeEngineVersionedResource(time, createResource, renderDispatcher)
+            return obj.SubscribeEngineVersionedResource(time, createResource, renderDispatcher, fonts)
                 .Select(handle => (EngineResourceHandle<TResource>?)handle);
         }
     }

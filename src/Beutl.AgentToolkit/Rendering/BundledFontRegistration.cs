@@ -10,11 +10,10 @@ namespace Beutl.AgentToolkit.Rendering;
 /// </summary>
 internal static class BundledFontRegistration
 {
-    // Registers the faces once per process; applying the same order again changes nothing.
-    public static void EnsureRegistered()
+    public static void EnsureRegistered(FontManager fonts)
     {
         // The editor sets CurrentUICulture from its language setting; this server follows the system's,
         // which is the setting's default.
-        BundledFonts.Apply(FontManager.Instance, CultureInfo.CurrentUICulture);
+        BundledFonts.Apply(fonts, CultureInfo.CurrentUICulture);
     }
 }

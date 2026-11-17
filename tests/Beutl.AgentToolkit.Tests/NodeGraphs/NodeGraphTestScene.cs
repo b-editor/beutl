@@ -45,7 +45,7 @@ internal sealed class NodeGraphTestScene : IDisposable
         Element.AddObject(Shape);
         Scene.Children.Add(Element);
         Session = new AgentToolkitTestSession(Scene);
-        Tools = new NodeGraphTools(Session.CreateManager());
+        Tools = new NodeGraphTools(Session.CreateManager(), TestFonts.Manager);
     }
 
     public Scene Scene { get; }

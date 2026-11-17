@@ -1,5 +1,6 @@
 ﻿using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Media;
 using Beutl.Media.Proxy;
 
 namespace Beutl.Composition;
@@ -18,6 +19,8 @@ public sealed record CompositionConditions
 
     /// <summary>The effective output frame rate, including an export's rate override.</summary>
     public Rational FrameRate { get; init; } = DefaultFrameRate;
+
+    public FontManager? Fonts { get; init; }
 
     public CancellationToken CancellationToken { get; init; }
 

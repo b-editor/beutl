@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Buffers.Binary;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
@@ -51,7 +52,7 @@ public class FontFamilyPickerTests
     [Test]
     public void A_search_lists_the_best_matches_first_and_highlights_the_first()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
 
         viewModel.SearchText.Value = "sans";
 
@@ -68,7 +69,7 @@ public class FontFamilyPickerTests
     [Test]
     public void The_fonts_macOS_keeps_for_its_own_UI_come_last()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager,
             [new FontFamily(".SF NS"), new FontFamily(".LastResort"), .. s_families], TimeSpan.Zero);
 
         string[] names = [.. viewModel.Items.Select(item => ((FontFamily)item.UserData).Name)];
@@ -79,7 +80,7 @@ public class FontFamilyPickerTests
     [Test]
     public void Pinned_fonts_come_first_but_a_search_puts_better_matches_above_them()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
         viewModel.Pin(Item(viewModel, "Noto Sans JP"));
 
         Assert.That(Names(viewModel)[0], Is.EqualTo("Noto Sans JP"));
@@ -92,7 +93,7 @@ public class FontFamilyPickerTests
     [Test]
     public void Clearing_a_search_that_matched_nothing_highlights_the_font_again()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
         viewModel.SelectedItem.Value = Item(viewModel, "Noto Serif");
 
         viewModel.SearchText.Value = "zzz";
@@ -105,7 +106,7 @@ public class FontFamilyPickerTests
     [Test]
     public void Pinning_keeps_the_highlighted_font()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
         viewModel.SelectedItem.Value = Item(viewModel, "Noto Serif");
 
         viewModel.Pin(Item(viewModel, "Beta Mono"));
@@ -115,9 +116,48 @@ public class FontFamilyPickerTests
 
     // The delayed search hands its result to the UI thread, so it needs the dispatcher's context.
     [AvaloniaTest]
+    public void The_headless_application_uses_the_test_owned_font_catalog()
+    {
+        Assert.That(((TestApp)Application.Current!).Fonts, Is.SameAs(TestFonts.Manager));
+    }
+
+    [AvaloniaTest]
+    public void Independent_font_scopes_keep_their_collections_and_open_pickers_alive()
+    {
+        var configuration = new Beutl.Configuration.FontConfig();
+        configuration.FontDirectories.Clear();
+        var first = new FontManager(configuration);
+        var second = new FontManager(configuration);
+        using (Stream stream = typeof(FontFamilyPickerTests).Assembly.GetManifestResourceStream("BeutlTestBlocks.ttf")!)
+            first.AddFont(stream);
+        using (Stream stream = typeof(FontFamilyPickerTests).Assembly.GetManifestResourceStream("BeutlTestBlocks.ttf")!)
+            second.AddFont(stream);
+        var family = new FontFamily("Beutl Test Blocks");
+        using var firstPicker = PickerHost.Open(new FontFamilyPickerFlyoutViewModel(first, [family], TimeSpan.Zero));
+        var firstText = NameText(firstPicker.List.GetRealizedContainers().Single());
+        var key = firstText.FontFamily.Key;
+        using var secondPicker = PickerHost.Open(new FontFamilyPickerFlyoutViewModel(second, [family], TimeSpan.Zero));
+        var secondText = NameText(secondPicker.List.GetRealizedContainers().Single());
+        first.ClearProjectFonts();
+        var revised = BeutlFontFamilyToAvaloniaConverter.ToAvalonia(family, first);
+        firstText.InvalidateMeasure();
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(key, Is.Not.Null);
+            Assert.That(secondText.FontFamily.Key, Is.Not.EqualTo(key));
+            Assert.That(revised.Key, Is.EqualTo(key));
+            Assert.That(firstText.FontFamily.Key, Is.EqualTo(key));
+            Assert.That(firstText.DesiredSize.Width, Is.GreaterThan(0));
+        });
+        HeadlessCapture.SaveIfRequested(firstText, nameof(FontFamilyPickerTests), "first-font-scope");
+        HeadlessCapture.SaveIfRequested(secondText, nameof(FontFamilyPickerTests), "second-font-scope");
+    }
+
+    [AvaloniaTest]
     public void A_search_waits_for_typing_to_pause_unless_flushed()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.FromHours(1));
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.FromHours(1));
 
         viewModel.SearchText.Value = "beta";
         Assert.That(viewModel.Items, Has.Count.EqualTo(s_families.Length));
@@ -134,7 +174,7 @@ public class FontFamilyPickerTests
     public void Pinning_while_a_search_waits_highlights_the_best_match_of_the_search()
     {
         // Pinning rebuilds the list, which applies the query still waiting out the typing pause.
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.FromHours(1));
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.FromHours(1));
         viewModel.SelectedItem.Value = Item(viewModel, "Noto Serif");
 
         viewModel.SearchText.Value = "beta";
@@ -150,7 +190,7 @@ public class FontFamilyPickerTests
     [AvaloniaTest]
     public void The_search_box_has_focus_when_the_picker_opens()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
         viewModel.SelectedItem.Value = Item(viewModel, "Noto Serif");
         using var picker = PickerHost.Open(viewModel);
 
@@ -165,7 +205,7 @@ public class FontFamilyPickerTests
     [AvaloniaTest]
     public void Arrow_keys_in_the_search_box_move_the_highlight_and_keep_the_focus()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
         using var picker = PickerHost.Open(viewModel);
 
         picker.Type("noto");
@@ -187,7 +227,7 @@ public class FontFamilyPickerTests
     public void Enter_right_after_typing_confirms_the_best_match_for_the_typed_text()
     {
         // The search would wait for an hour; Enter must not act on the list from before the typing.
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.FromHours(1));
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.FromHours(1));
         viewModel.SelectedItem.Value = Item(viewModel, "Noto Serif");
         using var picker = PickerHost.Open(viewModel);
         bool confirmed = false;
@@ -207,7 +247,7 @@ public class FontFamilyPickerTests
     [AvaloniaTest]
     public void The_checkmark_right_after_typing_confirms_the_best_match_for_the_typed_text()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.FromHours(1));
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.FromHours(1));
         viewModel.SelectedItem.Value = Item(viewModel, "Noto Serif");
         using var picker = PickerHost.Open(viewModel);
         bool confirmed = false;
@@ -228,7 +268,7 @@ public class FontFamilyPickerTests
     [AvaloniaTest]
     public void A_search_without_matches_says_so()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
         using var picker = PickerHost.Open(viewModel);
         TextBlock message = picker.Find<TextBlock>("PART_NoResultsTextBlock");
         Assert.That(message.IsEffectivelyVisible, Is.False);
@@ -248,7 +288,7 @@ public class FontFamilyPickerTests
     [AvaloniaTest]
     public void Escape_in_the_search_box_cancels_the_picker()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
         using var picker = PickerHost.Open(viewModel);
         bool dismissed = false;
         picker.Flyout.Dismissed += (_, _) => dismissed = true;
@@ -266,7 +306,7 @@ public class FontFamilyPickerTests
     [AvaloniaTest]
     public void Typing_while_the_list_has_focus_continues_in_the_search_box()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
         using var picker = PickerHost.Open(viewModel);
         picker.List.Focus();
         HeadlessTestHelpers.Render();
@@ -285,7 +325,7 @@ public class FontFamilyPickerTests
     [AvaloniaTest]
     public void A_space_typed_on_the_list_separates_the_next_word_of_the_search()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
         using var picker = PickerHost.Open(viewModel);
         picker.Type("noto");
         picker.List.Focus();
@@ -304,7 +344,7 @@ public class FontFamilyPickerTests
     [AvaloniaTest]
     public void A_space_typed_on_the_list_without_a_search_stays_with_the_list()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
         using var picker = PickerHost.Open(viewModel);
         picker.List.Focus();
         HeadlessTestHelpers.Render();
@@ -322,7 +362,7 @@ public class FontFamilyPickerTests
     [AvaloniaTest]
     public void Hiding_the_search_box_clears_the_search()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
         using var picker = PickerHost.Open(viewModel);
         picker.Type("beta");
 
@@ -339,7 +379,7 @@ public class FontFamilyPickerTests
     [AvaloniaTest]
     public void Each_font_name_is_shown_in_its_own_typeface()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
         using var picker = PickerHost.Open(viewModel);
         HeadlessCapture.SaveIfRequested(picker.List, nameof(FontFamilyPickerTests), "font-names");
 
@@ -360,9 +400,9 @@ public class FontFamilyPickerTests
         // typographic family name, so a font stack names its family "Beutl Test Blocks Light", and Avalonia looks
         // that name up without "Light".
         using var fonts = ProjectFonts.Load("BeutlTestBlocks.ttf", "BeutlTestBlocksLight.ttf");
-        FontFamily[] families = [.. FontManager.Instance.FontFamilies
+        FontFamily[] families = [.. TestFonts.Manager.FontFamilies
             .Where(family => family.Name.StartsWith("Beutl Test Blocks", StringComparison.Ordinal))];
-        var viewModel = new FontFamilyPickerFlyoutViewModel([.. families, FontManager.Instance.DefaultTypeface.FontFamily], TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, [.. families, TestFonts.Manager.DefaultTypeface.FontFamily], TimeSpan.Zero);
         using var picker = PickerHost.Open(viewModel);
         HeadlessCapture.SaveIfRequested(picker.List, nameof(FontFamilyPickerTests), "fonts-only-beutl-reads");
 
@@ -389,9 +429,72 @@ public class FontFamilyPickerTests
         // A plain name draws in the default font, while a font collection that cannot find the family throws when
         // the text is laid out.
         var family = new FontFamily("Beutl Test Missing Font");
-        using var picker = PickerHost.Open(new FontFamilyPickerFlyoutViewModel([family], TimeSpan.Zero));
+        using var picker = PickerHost.Open(new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, [family], TimeSpan.Zero));
 
         Assert.That(NameText(picker.List.GetRealizedContainers().Single()).FontFamily.Key, Is.Null);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Project_font_revisions_share_one_registration_and_a_bounded_copy_budget(bool uniqueFonts)
+    {
+        var configuration = new Beutl.Configuration.FontConfig();
+        configuration.FontDirectories.Clear();
+        var fonts = new FontManager(configuration);
+        using Stream input = typeof(FontFamilyPickerTests).Assembly.GetManifestResourceStream("BeutlTestBlocks.ttf")!;
+        using var buffer = new MemoryStream();
+        input.CopyTo(buffer);
+        byte[] data = buffer.ToArray();
+        string root = Directory.CreateTempSubdirectory("beutl-picker-revisions-").FullName;
+        string directory = Directory.CreateDirectory(Path.Combine(root, "resources", "fonts")).FullName;
+        var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
+        var family = new FontFamily("Beutl Test Blocks");
+        var collection = BeutlFontCollection.GetOrRegister(Avalonia.Media.FontManager.Current, fonts, data.Length * 2L);
+        var copies = new Avalonia.Media.GlyphTypeface[2];
+        try
+        {
+            for (int i = 0; i < 40; i++)
+            {
+                byte[] revision = WithFontRevision(data, (uint)(uniqueFonts ? i : i % 2) + 0x10000);
+                File.WriteAllBytes(Path.Combine(directory, "font.ttf"), revision);
+                fonts.LoadProjectFonts(project);
+                Assert.That(BeutlFontCollection.GetOrRegister(Avalonia.Media.FontManager.Current, fonts), Is.SameAs(collection));
+                Assert.That(collection.TryGetGlyphTypeface(family.Name, Avalonia.Media.FontStyle.Normal,
+                    Avalonia.Media.FontWeight.Normal, Avalonia.Media.FontStretch.Normal, out var face), Is.True);
+                if (i < 2) copies[i] = face!;
+                else if (!uniqueFonts) Assert.That(face, Is.SameAs(copies[i % 2]));
+                Assert.That(collection.CopiedFontCount, Is.EqualTo(Math.Min(i + 1, 2)));
+                Assert.That(collection.CopiedBytes, Is.EqualTo(data.Length * (long)Math.Min(i + 1, 2)));
+                fonts.ClearProjectFonts(project);
+            }
+            Assert.That(copies[0], Is.Not.SameAs(copies[1]));
+            Assert.That(copies[0].PlatformTypeface.TryGetStream(out Stream? retained), Is.True);
+            using (retained)
+                Assert.That(retained!.ReadByte(), Is.Not.EqualTo(-1));
+            using var picker = PickerHost.Open(new FontFamilyPickerFlyoutViewModel(fonts, [family], TimeSpan.Zero));
+            HeadlessTestHelpers.Render();
+        }
+        finally
+        {
+            fonts.ClearProjectFonts(project);
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static byte[] WithFontRevision(byte[] original, uint revision)
+    {
+        byte[] data = original.ToArray();
+        int count = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(4));
+        for (int i = 0; i < count; i++)
+        {
+            int table = 12 + i * 16;
+            if (BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(table)) != 0x68656164) continue;
+            int offset = (int)BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(table + 8));
+            BinaryPrimitives.WriteUInt32BigEndian(data.AsSpan(offset + 4), revision);
+            return data;
+        }
+        throw new InvalidDataException("Font has no head table.");
     }
 
     [AvaloniaTest]
@@ -399,7 +502,7 @@ public class FontFamilyPickerTests
     {
         // Every family the picker names keeps its copy as long as the app runs, so the copies stop at a budget.
         using var fonts = ProjectFonts.Load("BeutlTestBlocks.ttf", "BeutlTestBlocksLight.ttf");
-        using var collection = new BeutlFontCollection(maxCopiedBytes: 1);
+        using var collection = new BeutlFontCollection(TestFonts.Manager, maxCopiedBytes: 1);
 
         Lookup(collection, "Beutl Test Blocks");
         long copied = collection.CopiedBytes;
@@ -420,7 +523,7 @@ public class FontFamilyPickerTests
     public void The_tooltip_spells_the_font_name_in_the_UI_typeface()
     {
         // A symbol font draws its own name as symbols.
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
         using var picker = PickerHost.Open(viewModel);
         Control row = picker.List.GetRealizedContainers().First();
         TextBlock name = NameText(row);
@@ -443,8 +546,8 @@ public class FontFamilyPickerTests
         // The light test font has no ellipsis, and the row is too narrow for its name.
         using var fonts = ProjectFonts.Load("BeutlTestBlocks.ttf", "BeutlTestBlocksLight.ttf");
         var light = new FontFamily("Beutl Test Blocks Light");
-        Assume.That(FontManager.Instance.IsRegistered(light), Is.True, "Needs a font stack that gives the light font a family of its own.");
-        using var picker = PickerHost.Open(new FontFamilyPickerFlyoutViewModel([new FontFamily("Beutl Test Blocks"), light], TimeSpan.Zero));
+        Assume.That(TestFonts.Manager.IsRegistered(light), Is.True, "Needs a font stack that gives the light font a family of its own.");
+        using var picker = PickerHost.Open(new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, [new FontFamily("Beutl Test Blocks"), light], TimeSpan.Zero));
 
         TextBlock name = NameText(picker.List.GetRealizedContainers().Single(row => FontOf(row) == light));
         ShapedTextRun ellipsis = name.TextLayout.TextLines.Single().TextRuns.OfType<ShapedTextRun>().Last();
@@ -460,8 +563,8 @@ public class FontFamilyPickerTests
     [AvaloniaTest]
     public void The_editor_confirms_the_font_found_by_name()
     {
-        FontFamily target = FontManager.Instance.DefaultTypeface.FontFamily;
-        FontFamily initial = FontManager.Instance.FontFamilies.First(family => family != target);
+        FontFamily target = TestFonts.Manager.DefaultTypeface.FontFamily;
+        FontFamily initial = TestFonts.Manager.FontFamilies.First(family => family != target);
         var editor = new FontFamilyEditor { Header = "Font", Value = initial };
         using var host = new EditorTestHost<FontFamilyEditor>(editor, 600, 500);
         var confirmed = new List<FontFamily>();
@@ -478,14 +581,14 @@ public class FontFamilyPickerTests
         {
             Assert.That(editor.Value, Is.EqualTo(target));
             Assert.That(confirmed, Is.EqualTo(new[] { target }));
-            Assert.That(button.Content, Is.EqualTo(FontFamilyNames.GetDisplayName(target)));
+            Assert.That(button.Content, Is.EqualTo(FontFamilyNames.GetDisplayName(TestFonts.Manager, target)));
         });
     }
 
     [AvaloniaTest]
     public void Confirming_a_search_without_matches_keeps_the_previewed_font()
     {
-        FontFamily initial = FontManager.Instance.FontFamilies.OrderBy(FontFamilyNames.GetDisplayName).First();
+        FontFamily initial = TestFonts.Manager.FontFamilies.OrderBy(family => FontFamilyNames.GetDisplayName(TestFonts.Manager, family)).First();
         var editor = new FontFamilyEditor { Header = "Font", Value = initial };
         using var host = new EditorTestHost<FontFamilyEditor>(editor, 600, 500);
         var previewed = new List<FontFamily>();
@@ -514,7 +617,7 @@ public class FontFamilyPickerTests
     [AvaloniaTest]
     public void Pinning_a_font_shows_a_pin_on_that_font_alone()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
         using var picker = PickerHost.Open(viewModel);
 
         picker.ClickPin("Noto Sans Arabic");
@@ -530,7 +633,7 @@ public class FontFamilyPickerTests
     [AvaloniaTest]
     public void Unpinning_a_font_keeps_the_pins_of_the_others()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        var viewModel = new FontFamilyPickerFlyoutViewModel(TestFonts.Manager, s_families, TimeSpan.Zero);
         foreach (string name in new[] { "Beta Mono", "DejaVu Sans", "Noto Sans", "Noto Sans Arabic" })
         {
             viewModel.Pin(Item(viewModel, name));
@@ -604,13 +707,13 @@ public class FontFamilyPickerTests
             }
 
             var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
-            FontManager.Instance.LoadProjectFonts(project);
+            TestFonts.Manager.LoadProjectFonts(project);
             return new ProjectFonts(project, root);
         }
 
         public void Dispose()
         {
-            FontManager.Instance.ClearProjectFonts(_project);
+            TestFonts.Manager.ClearProjectFonts(_project);
             Directory.Delete(_root, recursive: true);
         }
     }

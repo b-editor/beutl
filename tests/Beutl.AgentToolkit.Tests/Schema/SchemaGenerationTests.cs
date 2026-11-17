@@ -359,7 +359,7 @@ public sealed class SchemaGenerationTests
         JsonObject current = session.Documents.Read(scene);
         JsonObject desired = (JsonObject)MergePatchApplier.Apply(current, example.Patch)!;
 
-        new Reconciler().Apply(session, desired);
+        new Reconciler(TestFonts.Manager).Apply(session, desired);
 
         Element rigElement = scene.Children.Single();
         Assert.Multiple(() =>
@@ -392,7 +392,7 @@ public sealed class SchemaGenerationTests
         JsonObject current = session.Documents.Read(scene);
         JsonObject desired = (JsonObject)MergePatchApplier.Apply(current, example.Patch)!;
 
-        new Reconciler().Apply(session, desired);
+        new Reconciler(TestFonts.Manager).Apply(session, desired);
 
         Assert.That(scene.Children, Has.Count.EqualTo(3));
         Element rigElement = scene.Children.Single(element => element.ZIndex.Value == 10);
@@ -705,7 +705,7 @@ public sealed class SchemaGenerationTests
         patch["Elements"]![0]![nameof(CoreObject.Id)] = outgoing.Id.Value.ToString();
         patch["Elements"]![1]![nameof(CoreObject.Id)] = incoming.Id.Value.ToString();
 
-        new Reconciler().Apply(session, (JsonObject)MergePatchApplier.Apply(session.Documents.Read(scene), patch)!);
+        new Reconciler(TestFonts.Manager).Apply(session, (JsonObject)MergePatchApplier.Apply(session.Documents.Read(scene), patch)!);
 
         ClipTransition? exit = outgoing.ExitTransition.Value;
         ClipTransition? enter = incoming.EnterTransition.Value;

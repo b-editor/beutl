@@ -34,7 +34,7 @@ public sealed class FileEditingSessionTests
     {
         string root = TestWorkspace.CreateDirectory();
         string projectPath = Path.Combine(root, "demo.bep");
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             projectPath, 640, 360, new Rational(30), TimeSpan.FromSeconds(2)));
         string elementPath = Path.Combine(Path.GetDirectoryName(session.Scene.Uri!.LocalPath)!, "clip.belm");
@@ -58,7 +58,7 @@ public sealed class FileEditingSessionTests
         FileEditingSession recovered = source.OpenProject(projectPath);
         var manager = new AgentSessionManager();
         manager.UseSource(source);
-        var tools = new EditTools(manager);
+        var tools = new EditTools(manager, TestFonts.Manager);
         JsonObject desired = recovered.Documents.Read(recovered.Scene);
         desired["Elements"]![0]!["Name"] = "Unrelated edit";
         GetFrame(desired["Elements"]![0]!)["Value"] = 20;
@@ -87,7 +87,7 @@ public sealed class FileEditingSessionTests
     public void SaveAs_disambiguates_sidecars_for_scenes_sharing_a_name()
     {
         string root = TestWorkspace.CreateDirectory();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
 
@@ -111,7 +111,7 @@ public sealed class FileEditingSessionTests
     public void SaveAs_gives_the_copy_its_own_palettes()
     {
         string root = TestWorkspace.CreateDirectory();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
         var palette = new ColorPalette("Brand", [new PaletteColor(0xFF3366FF)]);
@@ -137,7 +137,7 @@ public sealed class FileEditingSessionTests
         Directory.CreateDirectory(existingDir);
         string existingSidecar = Path.Combine(existingDir, "demo.scene");
         File.WriteAllText(existingSidecar, "existing sidecar");
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
 
@@ -157,7 +157,7 @@ public sealed class FileEditingSessionTests
     public void SaveAs_keeps_element_sidecar_file_names()
     {
         string root = TestWorkspace.CreateDirectory();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
         Scene scene = session.Project.Items.OfType<Scene>().Single();
@@ -188,7 +188,7 @@ public sealed class FileEditingSessionTests
     public void SaveAs_keeps_element_sidecar_relative_subpaths()
     {
         string root = TestWorkspace.CreateDirectory();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
         Scene scene = session.Project.Items.OfType<Scene>().Single();
@@ -214,7 +214,7 @@ public sealed class FileEditingSessionTests
     public void SaveAs_keeps_element_sidecar_subpaths_starting_with_two_dots()
     {
         string root = TestWorkspace.CreateDirectory();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
         Scene scene = session.Project.Items.OfType<Scene>().Single();
@@ -241,7 +241,7 @@ public sealed class FileEditingSessionTests
     {
         string root = TestWorkspace.CreateDirectory();
         string projectPath = Path.Combine(root, "demo.bep");
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             projectPath, 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
         Scene scene = session.Project.Items.OfType<Scene>().Single();
@@ -296,7 +296,7 @@ public sealed class FileEditingSessionTests
     public void Failed_plain_save_restores_the_original_uri_state()
     {
         string root = TestWorkspace.CreateDirectory();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2)));
         session.Save(skipConflictCheck: true);
@@ -323,7 +323,7 @@ public sealed class FileEditingSessionTests
     {
         string root = TestWorkspace.CreateDirectory();
         string projectPath = Path.Combine(root, "demo.bep");
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             projectPath, 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
         Scene scene = session.Project.Items.OfType<Scene>().Single();
@@ -351,7 +351,7 @@ public sealed class FileEditingSessionTests
         repairedJson.Remove(nameof(CoreObject.Id));
         desired["Elements"]!.AsArray()[0]!.AsObject()[nameof(Element.Objects)]
             = new JsonArray(repairedJson);
-        new Reconciler().Apply(recovered, desired);
+        new Reconciler(TestFonts.Manager).Apply(recovered, desired);
         CoreSerializer.StoreToUri(recovered.Scene, recovered.Scene.Uri!);
         byte[] repairedBytes = File.ReadAllBytes(elementPath);
         bool undone = recovered.History.Undo();
@@ -388,7 +388,7 @@ public sealed class FileEditingSessionTests
     public void Operations_on_a_disposed_session_throw_session_unavailable(Action<FileEditingSession, string> operation)
     {
         string root = TestWorkspace.CreateDirectory();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2)));
 
@@ -403,7 +403,7 @@ public sealed class FileEditingSessionTests
         string root = TestWorkspace.CreateDirectory();
         string pathA = Path.Combine(root, "a.bep");
         string pathB = Path.Combine(root, "b.bep");
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(pathA, 640, 360, new Rational(30), TimeSpan.FromSeconds(2))).Save(skipConflictCheck: true);
         TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(pathB, 640, 360, new Rational(30), TimeSpan.FromSeconds(2))).Save(skipConflictCheck: true);
 
@@ -436,7 +436,7 @@ public sealed class FileEditingSessionTests
     public void Invoke_serializes_concurrent_dispatches()
     {
         string root = TestWorkspace.CreateDirectory();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
 
@@ -478,7 +478,7 @@ public sealed class FileEditingSessionTests
     {
         string root = TestWorkspace.CreateDirectory();
         // Not disposed via `using`: the test disposes the session itself and RecordingPipeline.Dispose is not idempotent.
-        var source = new FileSessionSource();
+        var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
 
@@ -489,7 +489,7 @@ public sealed class FileEditingSessionTests
     public void Save_waits_for_an_in_flight_Invoke()
     {
         string root = TestWorkspace.CreateDirectory();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
 
@@ -500,7 +500,7 @@ public sealed class FileEditingSessionTests
     public void SaveAs_waits_for_an_in_flight_Invoke()
     {
         string root = TestWorkspace.CreateDirectory();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
 

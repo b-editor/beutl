@@ -35,7 +35,7 @@ public sealed class ExportOrchestrationTests
         var scene = new Scene(64, 64, "export") { Duration = { Value = MediaTime.FromSeconds(1) } };
         var project = new Project { ChannelLayout = { Value = layout }, Items = { scene } };
 
-        using SceneComposer composer = ExportRendererFactory.CreateComposer(scene, 44100);
+        using SceneComposer composer = ExportRendererFactory.CreateComposer(scene, TestFonts.Manager, 44100);
 
         Assert.Multiple(() =>
         {
@@ -60,7 +60,7 @@ public sealed class ExportOrchestrationTests
         });
         var scene = new Scene(64, 64, "layout") { Duration = { Value = MediaTime.FromSeconds(0.1) } };
         var project = new Project { Items = { scene }, ChannelLayout = { Value = SpeakerLayout.Surround51 } };
-        var exporter = new VideoExporter(new EncoderRegistration(encoder));
+        var exporter = new VideoExporter(new EncoderRegistration(encoder), TestFonts.Manager);
         var response = await exporter.ExportAsync(scene, Path.Combine(TestWorkspace.CreateDirectory(), "movie.layout-test"),
             new Rational(30), 48000, 1, CancellationToken.None);
         Assert.That(response.AudioChannels, Is.EqualTo(project.GetChannelLayout().ChannelCount));
@@ -69,7 +69,7 @@ public sealed class ExportOrchestrationTests
     [Test]
     public async Task Missing_encoder_surfaces_codec_unavailable()
     {
-        var exporter = new VideoExporter(new EncoderRegistration());
+        var exporter = new VideoExporter(new EncoderRegistration(), TestFonts.Manager);
         var scene = new Scene(64, 64, "export") { Duration = { Value = MediaTime.FromSeconds(1) } };
 
         await Assert.ThrowsAsync<CodecUnavailableException>(async () =>
@@ -85,7 +85,7 @@ public sealed class ExportOrchestrationTests
     [Test]
     public async Task Missing_ffmpeg_libraries_surface_codec_unavailable_without_starting_worker()
     {
-        var exporter = new VideoExporter(new EncoderRegistration());
+        var exporter = new VideoExporter(new EncoderRegistration(), TestFonts.Manager);
         var scene = new Scene(64, 64, "export") { Duration = { Value = MediaTime.FromSeconds(1) } };
         FFmpegLibraryState.MarkMissing();
 
@@ -123,7 +123,7 @@ public sealed class ExportOrchestrationTests
             }
             await File.WriteAllTextAsync(controller.OutputFile, "encoded output", token);
         });
-        var exporter = new VideoExporter(new EncoderRegistration(encoder));
+        var exporter = new VideoExporter(new EncoderRegistration(encoder), TestFonts.Manager);
         var scene = new Scene(64, 64, "progress") { Duration = { Value = MediaTime.FromSeconds(0.1) } };
 
         ExportVideoResponse response = await exporter.ExportAsync(
@@ -162,7 +162,7 @@ public sealed class ExportOrchestrationTests
         var scene = new Scene(64, 64, "audio-only") { Duration = { Value = MediaTime.FromSeconds(0.1) } };
         _ = new Project { Items = { scene } };
         scene.Children.Add(CreateMissingVideoElement(directory));
-        var exporter = new VideoExporter(new EncoderRegistration(encoder));
+        var exporter = new VideoExporter(new EncoderRegistration(encoder), TestFonts.Manager);
 
         ExportVideoResponse response = await exporter.ExportAsync(
             scene,
@@ -189,7 +189,7 @@ public sealed class ExportOrchestrationTests
         var scene = new Scene(64, 64, "with-video") { Duration = { Value = MediaTime.FromSeconds(0.1) } };
         _ = new Project { Items = { scene } };
         scene.Children.Add(CreateMissingVideoElement(directory));
-        var exporter = new VideoExporter(new EncoderRegistration(encoder));
+        var exporter = new VideoExporter(new EncoderRegistration(encoder), TestFonts.Manager);
 
         await Assert.ThrowsAsync<RenderingUnavailableException>(async () =>
             await exporter.ExportAsync(
@@ -251,7 +251,7 @@ public sealed class ExportOrchestrationTests
             Assert.Ignore("An FFmpeg worker is present next to the test host; the fallback path is not exercised.");
         }
 
-        var exporter = new VideoExporter(new EncoderRegistration());
+        var exporter = new VideoExporter(new EncoderRegistration(), TestFonts.Manager);
         var scene = new Scene(64, 64, "export") { Duration = { Value = MediaTime.FromSeconds(1) } };
         string output = Path.Combine(TestWorkspace.CreateDirectory(), "movie.mov");
 

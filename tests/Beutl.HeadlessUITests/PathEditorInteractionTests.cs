@@ -342,7 +342,7 @@ public class PathEditorInteractionTests
         var first = figure.Segments[0];
         Assert.That(first.GetEndPoint().Value, Is.EqualTo(new BtlPoint(180, 160)));
         Assert.That(figure.StartPoint.Value, Is.EqualTo(new BtlPoint(80, 100)));
-        var midpoint = PathEditingOperations.Evaluate(figure.StartPoint.Value, first, .5f, CompositionContext.Default);
+        var midpoint = PathEditingOperations.Evaluate(figure.StartPoint.Value, first, .5f, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
         if (drag)
         {
             Assert.That(first, Is.TypeOf<CubicBezierSegment>());
@@ -855,7 +855,7 @@ public class PathEditorInteractionTests
             editor.Figure.StartPoint.Value = default;
             editor.Figure.Segments.Add(curve);
         }
-        BtlPoint point = PathEditingOperations.Evaluate(default, curve, 32.5f / 64, CompositionContext.Default);
+        BtlPoint point = PathEditingOperations.Evaluate(default, curve, 32.5f / 64, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
         editor.View.Matrix = Matrix.CreateScale(64, 64) * Matrix.CreateTranslation(180 - point.X * 64, 100 - point.Y * 64);
         HeadlessTestHelpers.Render(3);
         editor.Key(Key.P);
@@ -987,7 +987,7 @@ public class PathEditorInteractionTests
         editor.View.Matrix = Matrix.CreateScale(1.2, 1.2) * Matrix.CreateTranslation(-100, 250);
         editor.View.Refresh();
         HeadlessTestHelpers.Render(3);
-        var context = CompositionContext.Default;
+        var context = new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager };
         var original = (CubicBezierSegment)figure.Segments[index];
         BtlPoint start = PathEditingOperations.Start(figure, index, context);
         BtlPoint[] expected = Enumerable.Range(0, 101)
@@ -1033,7 +1033,7 @@ public class PathEditorInteractionTests
         }
         foreach (var time in new[] { -1, 0, 1, 5 })
         {
-            context = new CompositionContext(MediaTime.FromSeconds(time));
+            context = new CompositionContext(MediaTime.FromSeconds(time)) { Fonts = TestShell.FontManager };
             for (int i = 0; i <= 100; i++)
             {
                 float t = i / 100f;
@@ -1176,7 +1176,7 @@ public class PathEditorInteractionTests
         editor.Drag(new(130, 100), new(130, 145));
         var segment = editor.Figure.Segments[1];
         Assert.That(segment, Is.TypeOf<CubicBezierSegment>());
-        var middle = PathEditingOperations.Evaluate(new BtlPoint(80, 100), segment, .5f, new CompositionContext(MediaTime.Zero));
+        var middle = PathEditingOperations.Evaluate(new BtlPoint(80, 100), segment, .5f, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
         Assert.That(middle.Y, Is.EqualTo(145).Within(.1));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
         editor.Editor.HistoryManager.Undo();
@@ -1369,7 +1369,7 @@ public class PathEditorInteractionTests
 
         void Check(PathSegment anchor, params Beutl.IProperty<BtlPoint>[] expected)
         {
-            var actual = PathPointProperties.Get(figure, anchor, new CompositionContext(MediaTime.Zero));
+            var actual = PathPointProperties.Get(figure, anchor, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
             Assert.That(actual.Select(p => p.Property), Is.EqualTo(expected));
         }
     }
@@ -1384,7 +1384,7 @@ public class PathEditorInteractionTests
             : new QuadraticBezierSegment(new(30, 50), new(90, 10));
         figure.Segments.Add(segment);
         figure.IsClosed.Value = true;
-        var properties = PathPointProperties.Get(figure, segment, new CompositionContext(MediaTime.Zero));
+        var properties = PathPointProperties.Get(figure, segment, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
         Assert.That(properties.Select(p => p.Property), Is.EqualTo(new[]
         {
             segment.GetEndPoint(), PathEditorHelper.GetControlPointProperties(segment).Single()
@@ -1454,7 +1454,7 @@ public class PathEditorInteractionTests
         var anchor = (CubicBezierSegment)editor.Figure.Segments[0];
         var next = (CubicBezierSegment)editor.Figure.Segments[1];
         BtlPoint point = anchor.EndPoint.Value;
-        var context = new CompositionContext(MediaTime.Zero);
+        var context = new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager };
         var animation = new KeyFrameAnimation<BtlPoint>();
         animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = point } });
         var later = new KeyFrame<BtlPoint> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = new(220, -70) } };
@@ -1722,7 +1722,7 @@ public class PathEditorInteractionTests
             Point = { Value = new(280, 180) }
         });
         using var before = Draw();
-        Assert.That(PathEditingOperations.Split(figure, 0, t, CompositionContext.Default), Is.Not.Null);
+        Assert.That(PathEditingOperations.Split(figure, 0, t, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager }), Is.Not.Null);
         using var after = Draw();
         using var original = new SKPathMeasure(before.NativeObject, resScale: 100);
         using var split = new SKPathMeasure(after.NativeObject, resScale: 100);
@@ -1756,7 +1756,7 @@ public class PathEditorInteractionTests
         figure.Segments.Add(new LineSegment(0, 0));
         var cubic = PathEditingOperations.Cubic(new(30, 100), new(70, -20), new(100, 60));
         figure.Segments.Add(cubic);
-        var context = new CompositionContext(MediaTime.Zero);
+        var context = new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager };
         BtlPoint[] expected = Enumerable.Range(0, 101).Select(i => PathEditingOperations.Evaluate(default, cubic, i / 100f, context)).ToArray();
         var inserted = PathEditingOperations.Split(figure, 1, .4f, context)!;
         for (int i = 0; i <= 100; i++)
@@ -1835,7 +1835,7 @@ public class PathEditorInteractionTests
             Assert.That(appended.ControlPoint1.Value,
                 Is.EqualTo(PathEditingOperations.Lerp(new BtlPoint(280, 180), new BtlPoint(300, 300), 1f / 3)),
                 "The pen continued from the last point that loaded.");
-            Assert.That(PathPointProperties.Get(editor.Figure, unloaded, new CompositionContext(MediaTime.Zero)), Is.Empty,
+            Assert.That(PathPointProperties.Get(editor.Figure, unloaded, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager }), Is.Empty,
                 "A handle drag looking for its anchor passes over it.");
         });
     }

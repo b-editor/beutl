@@ -52,7 +52,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
             .DisposeWith(_disposables)!;
 
         GeometryResource = PathGeometry
-            .SwitchToEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
+            .SwitchToEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c), EditorContext.GetRequiredService<FontManager>())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 

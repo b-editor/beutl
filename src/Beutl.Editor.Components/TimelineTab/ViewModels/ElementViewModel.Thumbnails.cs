@@ -2,6 +2,7 @@
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Engine;
+using Beutl.Media;
 using Beutl.Media.Proxy;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -276,6 +277,7 @@ public sealed partial class ElementViewModel
     {
         return provider is Beutl.Graphics.SourceVideo video
             ? video.GetThumbnailStripAsync(
+                Timeline.EditorContext.GetRequiredService<FontManager>(),
                 width,
                 height,
                 _thumbnailCacheService,
@@ -284,7 +286,7 @@ public sealed partial class ElementViewModel
                 end,
                 PreferProxyForThumbnails,
                 PreferredProxyPresetForThumbnails)
-            : provider.GetThumbnailStripAsync(width, height, _thumbnailCacheService, ct, start, end);
+            : provider.GetThumbnailStripAsync(Timeline.EditorContext.GetRequiredService<FontManager>(), width, height, _thumbnailCacheService, ct, start, end);
     }
 
     private static ProxyPreset ToProxyPreset(int value)

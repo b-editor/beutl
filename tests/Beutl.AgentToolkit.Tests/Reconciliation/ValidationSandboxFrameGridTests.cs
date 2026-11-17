@@ -31,7 +31,7 @@ public sealed class ValidationSandboxFrameGridTests
         JsonObject current = session.Documents.Read(scene);
         var desired = (JsonObject)MergePatchApplier.Apply(current.DeepClone(), patch)!;
 
-        var sandbox = (Scene)Reconciler.BuildValidationSandbox(session, current, desired);
+        var sandbox = (Scene)new Reconciler(TestFonts.Manager).BuildValidationSandbox(session, current, desired);
         ToolResult<ApplyEditResponse> result = session.CreateEditTools()
             .ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
 

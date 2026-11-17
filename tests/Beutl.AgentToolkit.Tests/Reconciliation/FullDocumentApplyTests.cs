@@ -17,7 +17,7 @@ public sealed class FullDocumentApplyTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
         JsonObject desired = session.Documents.Read(scene);
         desired["Duration"] = TimeSpan.FromSeconds(10).ToString("c");
 
@@ -64,7 +64,7 @@ public sealed class FullDocumentApplyTests
         element.AddObject(new TextBlock { Text = { Value = "Title" } });
         scene.Children.Add(element);
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
 
         JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!)[0]!.AsObject().Remove("Objects");
@@ -83,7 +83,7 @@ public sealed class FullDocumentApplyTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
         JsonObject desired = session.Documents.Read(scene);
 
         JsonObject elementJson = CoreSerializer.SerializeToJsonObject(new Element
@@ -119,7 +119,7 @@ public sealed class FullDocumentApplyTests
         element.AddObject(text);
         scene.Children.Add(element);
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
 
         JsonObject desired = session.Documents.Read(scene);
         var animationJson = (JsonObject)desired["Elements"]![0]!["Objects"]![0]!["Animations"]!["Opacity"]!;
@@ -144,7 +144,7 @@ public sealed class FullDocumentApplyTests
         element.AddObject(text);
         scene.Children.Add(element);
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
 
         JsonObject desired = session.Documents.Read(scene);
         var animationJson = (JsonObject)desired["Elements"]![0]!["Objects"]![0]!["Animations"]!["Opacity"]!;
@@ -174,7 +174,7 @@ public sealed class FullDocumentApplyTests
         scene.Groups.Add(ImmutableHashSet.Create(first.Id.Value, second.Id.Value));
 
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
 
         JsonObject desired = session.Documents.Read(scene);
         desired.Remove("Groups");
@@ -191,7 +191,7 @@ public sealed class FullDocumentApplyTests
     {
         Scene scene = CreateSceneWithGroup(out Element[] elements, out ImmutableHashSet<Guid> group);
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
 
         JsonObject desired = session.Documents.Read(scene);
         desired["Groups"] = new JsonArray($"{elements[0].Id.Value}:{elements[2].Id.Value}");
@@ -214,7 +214,7 @@ public sealed class FullDocumentApplyTests
     {
         Scene scene = CreateSceneWithGroup(out _, out ImmutableHashSet<Guid> group);
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
 
         JsonObject desired = session.Documents.Read(scene);
         desired.Remove("Groups");
@@ -254,7 +254,7 @@ public sealed class FullDocumentApplyTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
         JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!).Add(new JsonObject
         {
@@ -280,7 +280,7 @@ public sealed class FullDocumentApplyTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
         JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!).Add(new JsonObject
         {
@@ -308,7 +308,7 @@ public sealed class FullDocumentApplyTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
         JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!).Add(new JsonObject
         {
@@ -334,7 +334,7 @@ public sealed class FullDocumentApplyTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
         JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!).Add(new JsonObject
         {
@@ -365,7 +365,7 @@ public sealed class FullDocumentApplyTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
         JsonObject desired = session.Documents.Read(scene);
         desired["Width"] = 0;
 
@@ -384,7 +384,7 @@ public sealed class FullDocumentApplyTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
         JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!).Add(new JsonObject
         {
@@ -409,7 +409,7 @@ public sealed class FullDocumentApplyTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
         JsonObject desired = session.Documents.Read(scene);
         desired[nameof(Scene.Duration)] = TimeSpan.Zero.ToString("c");
 
@@ -436,7 +436,7 @@ public sealed class FullDocumentApplyTests
         };
         scene.Children.Add(element);
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
 
         JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!)[0]!.AsObject()[nameof(Element.Start)] = TimeSpan.FromSeconds(-1).ToString("c");
@@ -460,7 +460,7 @@ public sealed class FullDocumentApplyTests
         string sceneDir = Path.Combine(root, "unwritten");
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(sceneDir, "Scene.scene")) };
         using var session = new AgentToolkitTestSession(scene);
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
 
         JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!).Add(new JsonObject

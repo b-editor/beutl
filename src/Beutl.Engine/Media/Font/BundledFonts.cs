@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
@@ -26,8 +27,7 @@ internal static class BundledFonts
     private static readonly Lock s_gate = new();
     private static Assembly? s_assembly;
     private static bool s_loadAttempted;
-    // FontManager.Instance is the only manager.
-    private static bool s_registered;
+    private static readonly ConditionalWeakTable<FontManager, object> s_registered = new();
 
     internal static string[] GetUiFamilyNames(CultureInfo culture)
     {
@@ -56,10 +56,10 @@ internal static class BundledFonts
             if (assembly is null)
                 return false;
 
-            if (!s_registered)
+            if (!s_registered.TryGetValue(manager, out _))
             {
                 Register(manager, assembly);
-                s_registered = true;
+                s_registered.Add(manager, new object());
             }
         }
 

@@ -132,7 +132,7 @@ public sealed class ExportFrameCountTests
         };
         Assert.That(scene.Duration.Value, Is.LessThan(exact));
 
-        using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+        using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
         using var frameProgress = new Subject<MediaTime>();
         using var frameProvider = new FrameProviderImpl(scene, new Rational(rate), renderer, frameProgress);
         Assert.That(frameProvider.FrameCount, Is.EqualTo(frames));
@@ -144,7 +144,7 @@ public sealed class ExportFrameCountTests
 
         Assert.That(await frameProvider.ReadNextFrame(), Is.Null);
 
-        using var composer = new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
+        using var composer = new SceneComposer(scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true)
         {
             SampleRate = sampleRate,
         };
@@ -159,7 +159,7 @@ public sealed class ExportFrameCountTests
     {
         VulkanTestEnvironment.EnsureAvailable();
         var scene = new Scene(32, 32, "FixedCount") { Duration = { Value = MediaTime.FromSeconds(0.1) } };
-        using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+        using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
         using var frameProgress = new Subject<MediaTime>();
         using var frameProvider = new FrameProviderImpl(scene, new Rational(30), renderer, frameProgress);
         scene.Duration.Value = MediaTime.FromSeconds(1);
@@ -180,7 +180,7 @@ public sealed class ExportFrameCountTests
     {
         const int sampleRate = 8000;
         var scene = new Scene(32, 32, "Samples") { Duration = { Value = MediaTime.FromSeconds(1.5) } };
-        using var composer = new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
+        using var composer = new SceneComposer(scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true)
         {
             SampleRate = sampleRate,
         };

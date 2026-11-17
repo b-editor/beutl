@@ -281,6 +281,7 @@ public class ResourceRelocationService
     /// Copies font files to the project's resources/fonts directory.
     /// </summary>
     public virtual async Task<RelocationResult> RelocateFontsAsync(
+        FontManager fonts,
         IEnumerable<FontFamily> fontFamilies,
         string projectDirectory,
         CancellationToken cancellationToken = default)
@@ -300,7 +301,7 @@ public class ResourceRelocationService
             {
                 IEnumerable<string> fontFiles = _fontFileFinder != null
                     ? _fontFileFinder(fontFamily.Name)
-                    : FindFontFiles(fontFamily.Name, fontsDir);
+                    : FindFontFiles(fonts, fontFamily.Name, fontsDir);
                 bool foundAnyFile = false;
                 foreach (string sourceFilePath in fontFiles)
                 {
@@ -346,8 +347,8 @@ public class ResourceRelocationService
     }
 
     // The folders FontManager registered fonts from, so export finds a font where the editor does.
-    internal static IReadOnlyList<string> FontSearchDirectories(string projectFontsDirectory)
-        => [projectFontsDirectory, .. FontManager.Instance.FontDirectories];
+    internal static IReadOnlyList<string> FontSearchDirectories(FontManager fonts, string projectFontsDirectory)
+        => [projectFontsDirectory, .. fonts.FontDirectories];
 
     /// <summary>
     /// Searches for font files matching the specified font family name.
@@ -357,10 +358,10 @@ public class ResourceRelocationService
     /// <see cref="_fontFileFinder"/>.
     /// </remarks>
     [ExcludeFromCodeCoverage]
-    private static IEnumerable<string> FindFontFiles(string fontFamilyName, string projectFontsDirectory)
+    private static IEnumerable<string> FindFontFiles(FontManager fonts, string fontFamilyName, string projectFontsDirectory)
     {
         // A font found in none of these folders is reported as not bundled.
-        IReadOnlyList<string> fontDirs = FontSearchDirectories(projectFontsDirectory);
+        IReadOnlyList<string> fontDirs = FontSearchDirectories(fonts, projectFontsDirectory);
         List<string> foundFiles = [];
 
         foreach (string fontDir in fontDirs)

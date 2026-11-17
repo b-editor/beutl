@@ -277,13 +277,13 @@ public static class FormattedTextParser
             }
         }
 
-        public bool TryGetFont(out FontFamily? font)
+        public bool TryGetFont(FontManager fonts, out FontFamily? font)
         {
             if (Type == TagType.Font)
             {
                 ReadOnlySpan<char> str = RemoveQuotation(Value);
                 font = new FontFamily(str.ToString());
-                if (!FontManager.Instance.IsRegistered(font))
+                if (!fonts.IsRegistered(font))
                 {
                     font = null;
                 }

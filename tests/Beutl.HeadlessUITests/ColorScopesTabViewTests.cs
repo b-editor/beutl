@@ -55,6 +55,7 @@ public class ColorScopesTabViewTests
         player.SetupGet(p => p.AfterRendered).Returns(Observable.Never<System.Reactive.Unit>());
         var editor = new Mock<IEditorContext>();
         editor.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
+        editor.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
         editor.Setup(e => e.GetService(typeof(IPreviewPlayer))).Returns(player.Object);
         return new ColorScopesTabViewModel(editor.Object);
     }

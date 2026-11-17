@@ -40,6 +40,7 @@ public sealed class CommandPaletteReviewTests
             await UntilAsync(() => waiting);
             var context = new Mock<IEditorContext>();
             context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
+            context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
             context.SetupGet(item => item.Object).Returns(new Scene());
             context.SetupGet(item => item.Extension).Returns(SceneEditorExtension.Instance);
             editor.SelectedTabItem.Value = new EditorTabItem(context.Object);

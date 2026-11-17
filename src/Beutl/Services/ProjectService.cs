@@ -23,8 +23,11 @@ public sealed partial class ProjectService
 
     private readonly ViewConfig _configuration;
 
-    public ProjectService(ViewConfig configuration)
+    public Media.FontManager Fonts { get; }
+
+    public ProjectService(ViewConfig configuration, Media.FontManager fonts)
     {
+        Fonts = fonts;
         _configuration = configuration;
         CurrentProject = _app.Project.GetObservable()
             .ToReadOnlyReactivePropertySlim();
@@ -350,7 +353,7 @@ public sealed partial class ProjectService
             DuplicateIds.Report(project, "close");
             _app.Project.Value = null;
             Interlocked.Exchange(ref _projectNoticeDismissal, null)?.Cancel();
-            Media.FontManager.Instance.ClearProjectFonts(project);
+            Fonts.ClearProjectFonts(project);
             try
             {
                 _configuration.LastOpenedProjectFile.Value = null;
@@ -478,7 +481,7 @@ public sealed partial class ProjectService
     {
         try
         {
-            Media.FontManager.Instance.LoadProjectFonts(project);
+            Fonts.LoadProjectFonts(project);
             _app.Project.Value = project;
             await NotifyOpenedAsync(project);
         }
@@ -540,7 +543,7 @@ public sealed partial class ProjectService
             if (ReferenceEquals(_app.Project.Value, project))
             {
                 _app.Project.Value = null;
-                Media.FontManager.Instance.ClearProjectFonts(project);
+                Fonts.ClearProjectFonts(project);
             }
         }
         finally

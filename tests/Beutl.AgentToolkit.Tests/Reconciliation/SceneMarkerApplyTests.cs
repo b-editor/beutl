@@ -17,11 +17,11 @@ public sealed class SceneMarkerApplyTests
     [Test]
     public void Apply_edit_patch_updates_scene_markers()
     {
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = CreateSession(source);
         var manager = new AgentSessionManager();
         manager.UseSource(source);
-        var tools = new EditTools(manager);
+        var tools = new EditTools(manager, TestFonts.Manager);
 
         JsonObject markerJson = CoreSerializer.SerializeToJsonObject(
             new SceneMarker(MediaTime.FromSeconds(2), "beat", note: "drop"));
@@ -47,11 +47,11 @@ public sealed class SceneMarkerApplyTests
     [Test]
     public void Null_marker_entry_is_rejected_without_mutation()
     {
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = CreateSession(source);
         var manager = new AgentSessionManager();
         manager.UseSource(source);
-        var tools = new EditTools(manager);
+        var tools = new EditTools(manager, TestFonts.Manager);
 
         JsonObject patch = new()
         {
@@ -73,12 +73,12 @@ public sealed class SceneMarkerApplyTests
     [Test]
     public void Null_marker_entry_with_existing_markers_is_rejected_without_mutation()
     {
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = CreateSession(source);
         session.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(1), "keep"));
         var manager = new AgentSessionManager();
         manager.UseSource(source);
-        var tools = new EditTools(manager);
+        var tools = new EditTools(manager, TestFonts.Manager);
 
         JsonObject patch = new()
         {
@@ -99,7 +99,7 @@ public sealed class SceneMarkerApplyTests
     [Test]
     public void Explicit_null_markers_member_is_rejected_without_mutation()
     {
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = CreateSession(source);
         session.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(1), "keep"));
 
@@ -119,7 +119,7 @@ public sealed class SceneMarkerApplyTests
     [Test]
     public void Full_document_omitting_markers_clears_them()
     {
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = CreateSession(source);
         session.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(1), "stale"));
 
@@ -134,7 +134,7 @@ public sealed class SceneMarkerApplyTests
     [Test]
     public void Document_roundtrip_preserves_marker_instances()
     {
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = CreateSession(source);
         var marker = new SceneMarker(MediaTime.FromSeconds(3), "keep");
         session.Scene.Markers.Add(marker);
@@ -156,14 +156,14 @@ public sealed class SceneMarkerApplyTests
     [Test]
     public void Undeserializable_marker_payload_is_rejected_without_mutating_the_live_scene()
     {
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = CreateSession(source);
         var marker = new SceneMarker(MediaTime.FromSeconds(1), "keep");
         session.Scene.Markers.Add(marker);
         int originalWidth = session.Scene.FrameSize.Value.Width;
         var manager = new AgentSessionManager();
         manager.UseSource(source);
-        var tools = new EditTools(manager);
+        var tools = new EditTools(manager, TestFonts.Manager);
 
         JsonObject patch = new()
         {
@@ -191,7 +191,7 @@ public sealed class SceneMarkerApplyTests
     [Test]
     public void Invalid_markers_member_rejects_before_other_scene_changes_apply()
     {
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = CreateSession(source);
         session.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(1), "keep"));
         int originalWidth = session.Scene.FrameSize.Value.Width;

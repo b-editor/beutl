@@ -80,7 +80,7 @@ public sealed partial class MainViewModel : BasePageViewModel
         // Composition root: own the editor-session services here and thread the instances
         // down to child view models and services.
         _extensionProvider = new ExtensionProvider(Configuration.ExtensionConfig);
-        _projectService = new ProjectService(Configuration.ViewConfig);
+        _projectService = new ProjectService(Configuration.ViewConfig, appServices.GetRequiredService<Beutl.Media.FontManager>());
         _editorService = new EditorService(_extensionProvider, AppServices);
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         // After version control, whose preparation can refuse the close.
@@ -259,7 +259,7 @@ public sealed partial class MainViewModel : BasePageViewModel
                 throw new IOException(MessageStrings.FileSaveException);
 
             // Keep the saved graph and its files stable while the package service copies them.
-            result = await ProjectPackageService.Current.ExportAsync(project, outputPath, progress, cancellationToken);
+            result = await ProjectPackageService.Current.ExportAsync(project, _projectService.Fonts, outputPath, progress, cancellationToken);
         });
         return result;
     }

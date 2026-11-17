@@ -138,7 +138,7 @@ public class SourceVideoThumbnailProxyTests
         };
         drawable.Source.Value = media;
 
-        await foreach (var _ in drawable.GetThumbnailStripAsync(
+        await foreach (var _ in drawable.GetThumbnailStripAsync(TestFonts.Manager,
                            maxWidth: 100,
                            maxHeight: 25,
                            cacheService: null,

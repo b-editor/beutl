@@ -40,7 +40,7 @@ public sealed record ObjectTransformMatrix(
     double M33);
 
 [McpServerToolType]
-public sealed partial class QueryTools(AgentSessionManager sessions, SchemaGenerator schemaGenerator) : ToolBase
+public sealed partial class QueryTools(AgentSessionManager sessions, SchemaGenerator schemaGenerator, FontManager fonts) : ToolBase
 {
     private const string RawHttpNote = "Raw HTTP MCP responses are Server-Sent Events. Read the JSON from the data: line, then decode result.content[0].text as the tool JSON payload. When returnImageContent=true, subsequent content blocks may include image/png data for visual review. notifications/initialized may return no body.";
 
@@ -187,7 +187,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions, SchemaGener
     {
         return Execute(() =>
         {
-            FontFamilySummary[] families = FontManager.Instance.FontFamilies
+            FontFamilySummary[] families = fonts.FontFamilies
                 .Where(family => string.IsNullOrWhiteSpace(nameFilter)
                                  || family.Name.Contains(nameFilter, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(family => family.Name, StringComparer.OrdinalIgnoreCase)
@@ -198,7 +198,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions, SchemaGener
                         return new FontFamilySummary(family.Name, []);
                     }
 
-                    ImmutableArray<Typeface> typefaces = FontManager.Instance.GetTypefaces(family);
+                    ImmutableArray<Typeface> typefaces = fonts.GetTypefaces(family);
                     return new FontFamilySummary(
                         family.Name,
                         typefaces

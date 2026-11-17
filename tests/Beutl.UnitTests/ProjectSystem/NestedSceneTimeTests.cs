@@ -179,8 +179,8 @@ public class NestedSceneTimeTests
 
         (float Width, TimeRange[] Audio) Sample(double seconds)
         {
-            using var compositor = new SceneCompositor(h.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
-            using var composer = new SceneComposer(h.Scene, disableResourceShare: true, forceOriginalSource: true);
+            using var compositor = new SceneCompositor(h.Scene, TestFonts.Manager) { DisableResourceShare = true, ForceOriginalSource = true };
+            using var composer = new SceneComposer(h.Scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true);
             float width = EmbeddedInnerWidth(compositor, Seconds(seconds));
             RecordingSound.Reset();
             using var buffer = composer.Compose(new TimeRange(Seconds(seconds), Seconds(0.05)));
@@ -221,7 +221,7 @@ public class NestedSceneTimeTests
         var drawable = new SceneDrawable { ReferencedScene = { Value = sceneB } };
         sceneA.Children.Add(CreateElement(MediaTime.Zero, Seconds(10), drawable));
 
-        using var compositor = new SceneCompositor(sceneA) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(sceneA, TestFonts.Manager) { DisableResourceShare = true, ForceOriginalSource = true };
 
         // Local t samples B-window t (B-absolute start + t), like the standalone player.
         Assert.Multiple(() =>
@@ -250,8 +250,8 @@ public class NestedSceneTimeTests
         var drawable = new SceneDrawable { ReferencedScene = { Value = sceneB } };
         sceneA.Children.Add(CreateElement(MediaTime.Zero, Seconds(10), drawable));
 
-        using var compositorA = new SceneCompositor(sceneA) { DisableResourceShare = true, ForceOriginalSource = true };
-        using var compositorB = new SceneCompositor(sceneB) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositorA = new SceneCompositor(sceneA, TestFonts.Manager) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositorB = new SceneCompositor(sceneB, TestFonts.Manager) { DisableResourceShare = true, ForceOriginalSource = true };
 
         // The standalone scene evaluates its window [0, duration) as FromWindowTime(time).
         foreach (double windowSeconds in new[] { 0.5, 2.5, 8.5 })
@@ -277,7 +277,7 @@ public class NestedSceneTimeTests
             ReferencedScene = { Value = nested },
             TimeRange = { Value = new TimeRange(MediaTime.Zero, Seconds(2)) }
         };
-        using var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = sound.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         using var stereo = new AudioContext(44100, AudioChannelLayout.Stereo);
         sound.Compose(stereo, resource);
         var sceneNode = stereo.Nodes.Single(n => n.GetType().Name == "SceneNode");
@@ -313,7 +313,7 @@ public class NestedSceneTimeTests
         var sceneSound = new SceneSound { ReferencedScene = { Value = sceneB } };
         sceneA.Children.Add(CreateElement(MediaTime.Zero, Seconds(10), sceneSound));
 
-        using SceneComposer composer = new(sceneA, disableResourceShare: true, forceOriginalSource: true);
+        using SceneComposer composer = new(sceneA, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true);
 
         Assert.Multiple(() =>
         {
@@ -345,8 +345,8 @@ public class NestedSceneTimeTests
         var sceneSound = new SceneSound { ReferencedScene = { Value = sceneB } };
         sceneA.Children.Add(CreateElement(MediaTime.Zero, Seconds(10), sceneSound));
 
-        using SceneComposer composerA = new(sceneA, disableResourceShare: true, forceOriginalSource: true);
-        using SceneComposer composerB = new(sceneB, disableResourceShare: true, forceOriginalSource: true);
+        using SceneComposer composerA = new(sceneA, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true);
+        using SceneComposer composerB = new(sceneB, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true);
 
         foreach (double windowSeconds in new[] { 0.5, 2.5 })
         {
@@ -381,7 +381,7 @@ public class NestedSceneTimeTests
         var sceneSound = new SceneSound { ReferencedScene = { Value = sceneB } };
         sceneA.Children.Add(CreateElement(MediaTime.Zero, Seconds(10), sceneSound));
 
-        using SceneComposer composer = new(sceneA, disableResourceShare: true, forceOriginalSource: true);
+        using SceneComposer composer = new(sceneA, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true);
         composer.Compose(new TimeRange(MediaTime.Zero, Seconds(1)));
 
         composer.Flush(new TimeRange(Seconds(1), Seconds(1)), new CompositionEligibility([sceneSound]));

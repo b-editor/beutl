@@ -38,6 +38,7 @@ public sealed class ExportMediaProviders : IDisposable
 
     public static ExportMediaProviders Create(
         Scene scene,
+        FontManager fonts,
         bool videoEnabled,
         bool audioEnabled,
         float renderScale,
@@ -52,13 +53,13 @@ public sealed class ExportMediaProviders : IDisposable
         {
             if (videoEnabled)
             {
-                providers._renderer = ExportRendererFactory.Create(scene, renderScale);
+                providers._renderer = ExportRendererFactory.Create(scene, fonts, renderScale);
                 providers._frameProvider = new FrameProviderImpl(scene, frameRate, providers._renderer, providers._frameProgress);
             }
 
             if (audioEnabled)
             {
-                providers._composer = ExportRendererFactory.CreateComposer(scene, sampleRate);
+                providers._composer = ExportRendererFactory.CreateComposer(scene, fonts, sampleRate);
                 providers._sampleProvider = new SampleProviderImpl(
                     scene, providers._composer, sampleRate, providers._sampleProgress, channelLayout);
             }

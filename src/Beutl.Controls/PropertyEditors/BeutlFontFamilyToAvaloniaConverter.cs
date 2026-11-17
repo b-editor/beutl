@@ -1,23 +1,31 @@
-﻿using Avalonia.Data.Converters;
+﻿using System.Globalization;
+using Avalonia.Data.Converters;
 using Avalonia.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class BeutlFontFamilyToAvaloniaConverter()
-    : FuncValueConverter<Media.FontFamily, Avalonia.Media.FontFamily>(
-        f => f != null ? ToAvalonia(f.Name) : Avalonia.Media.FontFamily.Default)
+public class BeutlFontFamilyToAvaloniaConverter : IMultiValueConverter
 {
     public static readonly BeutlFontFamilyToAvaloniaConverter Instance = new();
 
-    // Avalonia looks a plain family name up among the OS fonts only, so a font only Beutl reads, from a material
-    // package, the project or a font folder the OS does not know, is named through BeutlFontCollection. A font
-    // neither can open keeps its plain name and draws in the default font.
-    private static Avalonia.Media.FontFamily ToAvalonia(string name)
+    public object Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
+    {
+        return values.Count > 0 && values[0] is Media.FontFamily family
+            ? ToAvalonia(family, values.Count > 1 ? values[1] as Media.FontManager : null)
+            : FontFamily.Default;
+    }
+
+    public static FontFamily ToAvalonia(Media.FontFamily family, Media.FontManager? fonts)
     {
         FontManager manager = FontManager.Current;
-        return !manager.SystemFonts.TryGetGlyphTypeface(name, FontStyle.Normal, FontWeight.Normal, FontStretch.Normal, out _)
-            && BeutlFontCollection.GetOrRegister(manager).TryGetGlyphTypeface(name, FontStyle.Normal, FontWeight.Normal, FontStretch.Normal, out _)
-                ? new Avalonia.Media.FontFamily($"{BeutlFontCollection.CollectionKey}#{name}")
-                : new Avalonia.Media.FontFamily(name);
+        string name = family.Name;
+        if (fonts is not null
+            && !manager.SystemFonts.TryGetGlyphTypeface(name, FontStyle.Normal, FontWeight.Normal, FontStretch.Normal, out _))
+        {
+            BeutlFontCollection collection = BeutlFontCollection.GetOrRegister(manager, fonts);
+            if (collection.TryGetGlyphTypeface(name, FontStyle.Normal, FontWeight.Normal, FontStretch.Normal, out _))
+                return new FontFamily($"{collection.Key}#{name}");
+        }
+        return new FontFamily(name);
     }
 }

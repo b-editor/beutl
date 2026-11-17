@@ -23,7 +23,7 @@ public class SceneMasterVolumeTests
     {
         Scene scene = CreateScene();
         scene.MasterVolume.Value = volume;
-        using var composer = new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true);
+        using var composer = new SceneComposer(scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true);
 
         using AudioBuffer buffer = composer.Compose(s_window)!;
 
@@ -34,7 +34,7 @@ public class SceneMasterVolumeTests
     public void A_composer_already_playing_picks_up_a_change()
     {
         Scene scene = CreateScene();
-        using var composer = new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true);
+        using var composer = new SceneComposer(scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true);
         using (AudioBuffer first = composer.Compose(s_window)!)
             Assert.That(first.GetChannelData(0)[100], Is.EqualTo(0.25f).Within(0.0001f));
 
@@ -53,7 +53,7 @@ public class SceneMasterVolumeTests
         var clip = new Element { Length = { Value = MediaTime.FromSeconds(5) } };
         clip.Objects.Add(new SceneSound { ReferencedScene = { Value = inner } });
         outer.Children.Add(clip);
-        using var composer = new SceneComposer(outer, disableResourceShare: true, forceOriginalSource: true);
+        using var composer = new SceneComposer(outer, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true);
 
         using AudioBuffer buffer = composer.Compose(s_window)!;
 

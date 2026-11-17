@@ -15,7 +15,7 @@ internal static class CoreObjectPickerHelper
     {
         Type propertyType = viewModel.PropertyAdapter.PropertyType;
         string format = propertyType.FullName!;
-        var selectVm = new SelectLibraryItemDialogViewModel(((IServiceProvider)viewModel).GetRequiredService<LibraryService>(),
+        var selectVm = new SelectLibraryItemDialogViewModel((viewModel as IServiceProvider)?.GetService<Beutl.Media.FontManager>() ?? Beutl.Controls.ControlFonts.GetOrCreate(control), ((IServiceProvider)viewModel).GetRequiredService<LibraryService>(),
             format, propertyType, LibraryThumbnailCapture.ForObject(viewModel as IServiceProvider));
 
         if (PresenterTypeAttribute.GetPresenterType(propertyType) != null)

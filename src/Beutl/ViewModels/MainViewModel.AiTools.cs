@@ -5,6 +5,7 @@ using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Editor.Services.Captions;
 using Beutl.Services.AI;
 using DynamicData;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.ViewModels;
 
@@ -60,6 +61,7 @@ public partial class MainViewModel : IAiWorkspaceHost
     {
         _captionCatalog.RefreshObjectTemplates(CaptionCatalog.FindObjectTemplates(_objectTemplateService));
         return new AiSubtitleDialogViewModel(
+            AppServices.GetRequiredService<Beutl.Media.FontManager>(),
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
             _beutlClients.GetResource<IAiModelCatalogService>(),

@@ -353,7 +353,7 @@ public class ProxyVideoLogicalSizeTests
             };
             scene.Children.Add(element);
 
-            using var renderer = new SceneRenderer(scene, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
             renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(1d / 30d)));
 
             using Bitmap snapshot = renderer.Snapshot();

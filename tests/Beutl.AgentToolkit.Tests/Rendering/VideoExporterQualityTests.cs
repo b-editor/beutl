@@ -10,7 +10,7 @@ public sealed class VideoExporterQualityTests
     [Test]
     public void RequiresFFmpegWorker_is_true_for_an_ffmpeg_only_container()
     {
-        var exporter = new VideoExporter(new EncoderRegistration());
+        var exporter = new VideoExporter(new EncoderRegistration(), TestFonts.Manager);
 
         // .webm is served only by the FFmpeg encoder on every platform.
         Assert.That(exporter.RequiresFFmpegWorker("out.webm"), Is.True);
@@ -19,7 +19,7 @@ public sealed class VideoExporterQualityTests
     [Test]
     public void RequiresFFmpegWorker_is_false_for_an_unregistered_container()
     {
-        var exporter = new VideoExporter(new EncoderRegistration());
+        var exporter = new VideoExporter(new EncoderRegistration(), TestFonts.Manager);
 
         Assert.That(exporter.RequiresFFmpegWorker("out.xyz"), Is.False);
     }
@@ -32,7 +32,7 @@ public sealed class VideoExporterQualityTests
             Assert.Ignore("AVFoundation is only registered on macOS.");
         }
 
-        var exporter = new VideoExporter(new EncoderRegistration());
+        var exporter = new VideoExporter(new EncoderRegistration(), TestFonts.Manager);
 
         Assert.Multiple(() =>
         {

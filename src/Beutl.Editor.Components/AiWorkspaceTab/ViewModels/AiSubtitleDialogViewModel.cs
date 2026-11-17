@@ -54,6 +54,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
     private readonly OnceAsyncDisposal _disposal;
 
     internal AiSubtitleDialogViewModel(
+        Beutl.Media.FontManager fonts,
         IAiEntitlementService entitlements,
         IAiOperationAvailabilityService availability,
         IAiModelCatalogService modelCatalog,
@@ -75,7 +76,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         _translation = translation ?? throw new ArgumentNullException(nameof(translation));
         ArgumentNullException.ThrowIfNull(captionCatalog);
         _editor = editor;
-        TemplatePreviewRenderer = (elements, frameSize, token) => RenderTemplatePreviewAsync(elements, frameSize, token, editorConfig, proxyConfig);
+        TemplatePreviewRenderer = (elements, frameSize, token) => RenderTemplatePreviewAsync(fonts, elements, frameSize, token, editorConfig, proxyConfig);
         _captionDraftStore = captionDraftStore
             ?? throw new ArgumentNullException(nameof(captionDraftStore));
         _captionDraftScopes = captionDraftScopes

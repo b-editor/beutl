@@ -123,6 +123,8 @@ public partial class Scene3D : Drawable, IFlowOperator
 
         public bool DisableResourceShare { get; set; }
 
+        public CompositionConditions Conditions { get; private set; } = CompositionConditions.Default;
+
         public List<Light3D.Resource> Lights { get; set; } = [];
 
         public List<Object3D.Resource> Objects { get; set; } = [];
@@ -178,6 +180,7 @@ public partial class Scene3D : Drawable, IFlowOperator
             }
 
             DisableResourceShare = context.DisableResourceShare;
+            Conditions = context.Conditions;
 
             // Consume lights and objects from flow
             using var consumedLights = new PooledList<Light3D.Resource>();

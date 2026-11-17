@@ -114,6 +114,7 @@ internal static partial class NativeContextMenuTestHost
         };
         window.Position = PlaceOnLastScreen(window);
         Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
+        Beutl.Controls.ControlFonts.SetFonts(window, TestShell.FontManager);
         window.Show();
         await WaitAsync(500);
 
@@ -468,6 +469,7 @@ internal static partial class NativeContextMenuTestHost
         };
         window.Position = PlaceOnLastScreen(window);
         Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
+        Beutl.Controls.ControlFonts.SetFonts(window, TestShell.FontManager);
         window.Show();
 
         // A clip can run far past the window's edge.

@@ -7,16 +7,19 @@ internal sealed class FontFamilyPickerFlyoutViewModel : SearchablePickerViewMode
     private const string PinnedItemsKey = "FontManager.PinnedItems";
     private static readonly TimeSpan s_searchDelay = TimeSpan.FromMilliseconds(100);
 
-    public FontFamilyPickerFlyoutViewModel()
-        : this(FontManager.Instance.FontFamilies, s_searchDelay)
+    public FontFamilyPickerFlyoutViewModel(FontManager fonts)
+        : this(fonts, fonts.FontFamilies, s_searchDelay)
     {
     }
 
     // searchDelay waits for typing to pause before the list is rebuilt; zero applies every change at once.
-    internal FontFamilyPickerFlyoutViewModel(IEnumerable<FontFamily> fontFamilies, TimeSpan searchDelay)
-        : base(CreateEntries(fontFamilies), PinnedItemsKey, searchDelay)
+    internal FontFamilyPickerFlyoutViewModel(FontManager fonts, IEnumerable<FontFamily> fontFamilies, TimeSpan searchDelay)
+        : base(CreateEntries(fonts, fontFamilies), PinnedItemsKey, searchDelay)
     {
+        Fonts = fonts;
     }
+
+    public FontManager Fonts { get; }
 
     protected override Func<FontFamilySearchKey, int?>? Search(string searchText)
     {
@@ -26,14 +29,14 @@ internal sealed class FontFamilyPickerFlyoutViewModel : SearchablePickerViewMode
         return key => query.Score(key) is var score and not FontFamilySearchQuery.NoMatch ? score : null;
     }
 
-    private static IEnumerable<SearchablePickerEntry<FontFamilySearchKey>> CreateEntries(IEnumerable<FontFamily> fontFamilies)
+    private static IEnumerable<SearchablePickerEntry<FontFamilySearchKey>> CreateEntries(FontManager fonts, IEnumerable<FontFamily> fontFamilies)
     {
         return fontFamilies
             .Select(v => new SearchablePickerEntry<FontFamilySearchKey>(
                 v,
-                FontFamilyNames.GetDisplayName(v),
+                FontFamilyNames.GetDisplayName(fonts, v),
                 v.Name,
-                new FontFamilySearchKey(FontFamilyNames.GetSearchNames(v))))
+                new FontFamilySearchKey(FontFamilyNames.GetSearchNames(fonts, v))))
             .OrderBy(i => FontFamilyNames.IsHidden((FontFamily)i.Value))
             .ThenBy(i => i.DisplayName);
     }

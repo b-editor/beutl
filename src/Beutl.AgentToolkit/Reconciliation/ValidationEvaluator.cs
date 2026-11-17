@@ -63,12 +63,13 @@ public static class ValidationEvaluator
     internal const string EngineObjectValueHint = "Use a concrete '$type' discriminator returned by get_schema for this EngineObject value and only the returned PascalCase property names.";
 
     public static ValidationOutcome Evaluate(
-        IProperty property, object? value, CoreSerializerOptions? options)
+        FontManager fonts, IProperty property, object? value, CoreSerializerOptions? options)
     {
-        return Evaluate(property, value, options, out _);
+        return Evaluate(fonts, property, value, options, out _);
     }
 
     internal static ValidationOutcome Evaluate(
+        FontManager fonts,
         IProperty property,
         object? value,
         CoreSerializerOptions? options,
@@ -83,6 +84,7 @@ public static class ValidationEvaluator
         }
 
         return EvaluateValidator(
+            fonts,
             property.GetValidator(),
             new ValidationContext(property, null),
             value,
@@ -101,9 +103,9 @@ public static class ValidationEvaluator
 
     // A FontFamily that is not registered renders as a fallback rather than the requested face,
     // and nothing downstream says so — the frame just comes back in the wrong typeface.
-    private static ValidationOutcome? EvaluateFontFamily(object? value, CoreSerializerOptions? options)
+    private static ValidationOutcome? EvaluateFontFamily(FontManager fonts, object? value, CoreSerializerOptions? options)
     {
-        if (value is not FontFamily family || FontManager.Instance.IsRegistered(family))
+        if (value is not FontFamily family || fonts.IsRegistered(family))
         {
             return null;
         }
@@ -116,6 +118,7 @@ public static class ValidationEvaluator
     }
 
     private static ValidationOutcome EvaluateValidator(
+        FontManager fonts,
         IValidator? validator,
         ValidationContext context,
         object? value,
@@ -140,7 +143,7 @@ public static class ValidationEvaluator
             }
         }
 
-        return EvaluateFontFamily(value, options) ?? ValidationOutcome.Ok(value, options);
+        return EvaluateFontFamily(fonts, value, options) ?? ValidationOutcome.Ok(value, options);
     }
 
     private static bool IsAssignableValue(Type targetType, object? value)

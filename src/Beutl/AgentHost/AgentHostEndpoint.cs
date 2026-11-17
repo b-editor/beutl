@@ -420,6 +420,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         builder.Services
             .AddSingleton(_ => new Beutl.AgentToolkit.Schema.SchemaGenerator(
                 _editorService.AppServices.GetRequiredService<Beutl.Services.LibraryService>()))
+            .AddSingleton(_projectService.Fonts)
             .AddSingleton(_projectService)
             .AddSingleton(_editorService)
             .AddSingleton(InstanceRouter)

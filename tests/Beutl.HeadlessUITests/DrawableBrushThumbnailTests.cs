@@ -168,7 +168,7 @@ public class DrawableBrushThumbnailTests
 
             var drawableBrush = new DisposalTrackingDrawableBrush();
             using var clock = new BehaviorSubject<MediaTime>(MediaTime.Zero);
-            (_, subscription, _) = drawableBrush.ToAvaBrushSync(clock);
+            (_, subscription, _) = drawableBrush.ToAvaBrushSync(clock, TestShell.FontManager);
             subscription.Dispose();
 
             releaseBlocker.Set();
@@ -201,7 +201,7 @@ public class DrawableBrushThumbnailTests
     {
         var drawableBrush = new DisposalTrackingDrawableBrush();
         using var clock = new BehaviorSubject<MediaTime>(MediaTime.Zero);
-        (_, IDisposable subscription, _) = drawableBrush.ToAvaBrushSync(clock);
+        (_, IDisposable subscription, _) = drawableBrush.ToAvaBrushSync(clock, TestShell.FontManager);
 
         await HeadlessTestHelpers.WaitUntilAsync(
             () => drawableBrush.ResourceUpdateCalls == 1);

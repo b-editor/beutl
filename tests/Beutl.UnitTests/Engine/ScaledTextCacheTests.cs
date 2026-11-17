@@ -12,7 +12,7 @@ public class ScaledTextCacheTests
     [SetUp]
     public void Setup()
     {
-        _font = new SKFont(TypefaceProvider.Typeface().ToSkia(), 24f);
+        _font = new SKFont(TestFonts.Manager.ResolveSkia(TypefaceProvider.Typeface()), 24f);
 
         // The Handle assertions are only meaningful if the stub actually produces a live blob.
         using SKTextBlob? probe = SKTextBlob.Create("A", _font);

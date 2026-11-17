@@ -31,21 +31,21 @@ public class FormattedTextFallbackTests
         foreach (string file in new[] { "NotoColorEmoji.ttf", "NotoSansSC-Regular.otf" })
         {
             using Stream stream = typeof(FormattedTextFallbackTests).Assembly.GetManifestResourceStream(file)!;
-            FontManager.Instance.AddFont(stream);
+            TestFonts.Manager.AddFont(stream);
         }
     }
 
     [SetUp]
     public void SetFallbacks()
     {
-        var previous = FontManager.Instance.GetFallbackFamilies();
+        var previous = TestFonts.Manager.GetFallbackFamilies();
         _previousFamilies = previous.Families;
         _previousEmoji = previous.Emoji;
-        FontManager.Instance.SetFallbackFonts([s_uiFont, s_chineseFont], s_emojiFont);
+        TestFonts.Manager.SetFallbackFonts([s_uiFont, s_chineseFont], s_emojiFont);
     }
 
     [TearDown]
-    public void RestoreFallbacks() => FontManager.Instance.SetFallbackFonts(_previousFamilies, _previousEmoji);
+    public void RestoreFallbacks() => TestFonts.Manager.SetFallbackFonts(_previousFamilies, _previousEmoji);
 
     [TestCase("AV日本ffi", "AV", "日本", "ffi")]
     [TestCase("AVか\u3099ffi", "AV", "か\u3099", "ffi")]
@@ -106,7 +106,7 @@ public class FormattedTextFallbackTests
             Assert.That(font.ContainsGlyph('é'), Is.True);
             Assert.That(font.ContainsGlyph(0x0301), Is.False);
         });
-        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(text.Text.AsSpan(), font, text.Style, text.Weight);
+        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(TestFonts.Manager, text.Text.AsSpan(), font, text.Style, text.Weight);
         Assert.Multiple(() =>
         {
             Assert.That(runs, Has.Count.EqualTo(1));
@@ -125,7 +125,7 @@ public class FormattedTextFallbackTests
         using FormattedText expected = CreateText("e\u0300", s_uiFont);
         using SKFont font = text.ToSKFont();
         Assert.That(font.ContainsGlyph('è'), Is.False);
-        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(text.Text.AsSpan(), font, text.Style, text.Weight);
+        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(TestFonts.Manager, text.Text.AsSpan(), font, text.Style, text.Weight);
         Assert.That(runs[0].Typeface.FamilyName, Is.EqualTo(s_uiFont.Name));
         using SKBitmap actualImage = Draw(text);
         using SKBitmap expectedImage = Draw(expected);
@@ -138,7 +138,7 @@ public class FormattedTextFallbackTests
     {
         FontFamily primaryFamily = supplementary ? s_chineseFont : s_uiFont;
         FontFamily fallbackFamily = supplementary ? s_uiFont : s_chineseFont;
-        FontManager.Instance.SetFallbackFonts([fallbackFamily], s_emojiFont);
+        TestFonts.Manager.SetFallbackFonts([fallbackFamily], s_emojiFont);
         using FormattedText text = CreateText(value, primaryFamily);
         using FormattedText expected = CreateText(value, fallbackFamily);
         using SKFont primary = text.ToSKFont();
@@ -153,7 +153,7 @@ public class FormattedTextFallbackTests
             Assert.That(primaryShaper.HasVariationGlyph(codepoint, selector), Is.False);
             Assert.That(fallbackShaper.HasVariationGlyph(codepoint, selector), Is.True);
         });
-        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(value.AsSpan(), primary, text.Style, text.Weight);
+        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(TestFonts.Manager, value.AsSpan(), primary, text.Style, text.Weight);
         Assert.That(runs, Has.Count.EqualTo(1));
         Assert.That(runs[0].Typeface.FamilyName, Is.EqualTo(fallbackFamily.Name));
         using SKBitmap actualImage = Draw(text);
@@ -168,7 +168,7 @@ public class FormattedTextFallbackTests
     public void JoinedEmoji_PrefersACompleteFontOverSeparateComponentGlyphs(bool primaryHasJoinedGlyph, bool emojiHasComponents)
     {
         const string value = "👩‍💻";
-        FontManager.Instance.SetFallbackFonts([s_joinedEmojiFont], emojiHasComponents ? s_separateEmojiFont : s_composedFont);
+        TestFonts.Manager.SetFallbackFonts([s_joinedEmojiFont], emojiHasComponents ? s_separateEmojiFont : s_composedFont);
         FontFamily? primaryFamily = primaryHasJoinedGlyph ? s_joinedEmojiFont : emojiHasComponents ? null : s_separateEmojiFont;
         using FormattedText text = CreateText(value, primaryFamily);
         using FormattedText expected = CreateText(value, s_joinedEmojiFont);
@@ -181,7 +181,7 @@ public class FormattedTextFallbackTests
         Assert.That(shaper.HasGlyphs(buffer), Is.True);
         Assert.That(buffer.Length, Is.GreaterThan(1));
         using SKFont primary = text.ToSKFont();
-        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(value.AsSpan(), primary, text.Style, text.Weight);
+        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(TestFonts.Manager, value.AsSpan(), primary, text.Style, text.Weight);
         Assert.That(runs, Has.Count.EqualTo(1));
         Assert.That(runs[0].Typeface.FamilyName, Is.EqualTo(s_joinedEmojiFont.Name));
         Assert.That(text.ToGeometries().Length, Is.EqualTo(1));
@@ -193,10 +193,10 @@ public class FormattedTextFallbackTests
     [Test]
     public void JoinedEmoji_WithoutACompleteFont_StillDisplaysTheComponentEmoji()
     {
-        FontManager.Instance.SetFallbackFonts([s_uiFont], s_separateEmojiFont);
+        TestFonts.Manager.SetFallbackFonts([s_uiFont], s_separateEmojiFont);
         using FormattedText text = CreateText("👩‍💻");
         using SKFont primary = text.ToSKFont();
-        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(text.Text.AsSpan(), primary, text.Style, text.Weight);
+        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(TestFonts.Manager, text.Text.AsSpan(), primary, text.Style, text.Weight);
         Assert.That(runs[0].Typeface.FamilyName, Is.EqualTo(s_separateEmojiFont.Name));
         Assert.That(text.ToGeometries().Length, Is.GreaterThan(1));
         using SKBitmap image = Draw(text);
@@ -208,7 +208,7 @@ public class FormattedTextFallbackTests
     {
         using FormattedText text = CreateText("A\u200DB");
         using SKFont primary = text.ToSKFont();
-        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(text.Text.AsSpan(), primary, text.Style, text.Weight);
+        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(TestFonts.Manager, text.Text.AsSpan(), primary, text.Style, text.Weight);
         Assert.That(runs.All(run => ReferenceEquals(run.Typeface, primary.Typeface)), Is.True);
     }
 
@@ -216,10 +216,10 @@ public class FormattedTextFallbackTests
     [TestCase(false)]
     public void JoinedEmoji_WithMissingEmojiCoverageAndNoJoinedFont_PreservesComponents(bool primaryHasComponents)
     {
-        FontManager.Instance.SetFallbackFonts([s_separateEmojiFont], s_composedFont);
+        TestFonts.Manager.SetFallbackFonts([s_separateEmojiFont], s_composedFont);
         using FormattedText text = CreateText("👩‍💻", primaryHasComponents ? s_separateEmojiFont : null);
         using SKFont primary = text.ToSKFont();
-        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(text.Text.AsSpan(), primary, text.Style, text.Weight);
+        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(TestFonts.Manager, text.Text.AsSpan(), primary, text.Style, text.Weight);
         Assert.That(runs[0].Typeface.FamilyName, Is.EqualTo(s_separateEmojiFont.Name));
         using SKBitmap image = Draw(text);
         Assert.That(ColorPixels(image).Count, Is.GreaterThan(100));
@@ -279,7 +279,7 @@ public class FormattedTextFallbackTests
             Assert.That(shaper.HasVariationGlyph(value[0], 0xFE0F), Is.True);
             Assert.That(shaper.HasVariationGlyph(value[0], 0xFE0E), Is.False);
         });
-        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(value.AsSpan(), primary, text.Style, text.Weight);
+        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(TestFonts.Manager, value.AsSpan(), primary, text.Style, text.Weight);
         Assert.That(runs, Has.Count.EqualTo(1));
         Assert.That(runs[0].Typeface.FamilyName, Is.EqualTo(s_uiFont.Name));
         using SKBitmap actualImage = Draw(text);
@@ -352,10 +352,10 @@ public class FormattedTextFallbackTests
     [Test]
     public void ChangingFallbacks_InvalidatesMeasuredAndScaledText()
     {
-        FontManager.Instance.SetFallbackFonts([], null);
+        TestFonts.Manager.SetFallbackFonts([], null);
         using FormattedText text = CreateText("日本");
         SKTextBlob previous = text.GetTextBlob(2f)!;
-        FontManager.Instance.SetFallbackFonts([s_uiFont], s_emojiFont);
+        TestFonts.Manager.SetFallbackFonts([s_uiFont], s_emojiFont);
         using FormattedText expected = CreateText("日本", s_uiFont);
         using SKBitmap actualImage = Draw(text);
         using SKBitmap expectedImage = Draw(expected);
@@ -383,7 +383,7 @@ public class FormattedTextFallbackTests
                 Fill = { Value = Brushes.Black },
                 SplitByCharacters = { Value = split },
             };
-            using TextBlock.Resource resource = block.ToResource(CompositionContext.Default);
+            using TextBlock.Resource resource = block.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
             using var node = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(node, new Size(800, 220)))
             {
@@ -411,7 +411,7 @@ public class FormattedTextFallbackTests
         });
     }
 
-    private static FormattedText CreateText(string value, FontFamily? family = null) => new()
+    private static FormattedText CreateText(string value, FontFamily? family = null) => new(TestFonts.Manager)
     {
         Font = family ?? new FontFamily("Roboto"),
         Text = value,
@@ -437,7 +437,7 @@ public class FormattedTextFallbackTests
             case "weight": text.Weight = FontWeight.Bold; break;
             case "style": text.Style = FontStyle.Italic; break;
         }
-        using var fresh = new FormattedText
+        using var fresh = new FormattedText(TestFonts.Manager)
         {
             Font = text.Font,
             Style = text.Style,

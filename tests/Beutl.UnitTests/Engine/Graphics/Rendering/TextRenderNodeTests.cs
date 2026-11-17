@@ -64,7 +64,7 @@ public class TextRenderNodeTests
     }
 
     private static FormattedText CreateText()
-        => new()
+        => new(TestFonts.Manager)
         {
             Font = TypefaceProvider.Typeface().FontFamily,
             Size = 48f,

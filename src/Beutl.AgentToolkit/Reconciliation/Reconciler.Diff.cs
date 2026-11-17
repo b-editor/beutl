@@ -11,7 +11,7 @@ public sealed partial class Reconciler
 {
     // CompareArray records an insert without descending into it, so validate the inserted subtree
     // against the sandbox, where it exists and is findable by Id.
-    private static void ValidateInsertedSubtrees(
+    private void ValidateInsertedSubtrees(
         ObjectLookup sandbox,
         List<ChangeSetEntry> changes,
         List<ValidationOutcome> validation)
@@ -25,7 +25,7 @@ public sealed partial class Reconciler
         }
     }
 
-    private static void ValidateInsertedNode(
+    private void ValidateInsertedNode(
         ObjectLookup sandbox,
         JsonObject node,
         List<ValidationOutcome> validation)
@@ -138,7 +138,7 @@ public sealed partial class Reconciler
         }
     }
 
-    private static void CompareObject(
+    private void CompareObject(
         ObjectLookup objects,
         JsonObject current,
         JsonObject desired,
@@ -194,7 +194,7 @@ public sealed partial class Reconciler
         }
     }
 
-    private static void CompareArray(
+    private void CompareArray(
         ObjectLookup objects,
         JsonArray current,
         JsonArray desired,
@@ -277,7 +277,7 @@ public sealed partial class Reconciler
         return result;
     }
 
-    private static void AddValidation(
+    private void AddValidation(
         ObjectLookup objects,
         JsonObject desiredOwner,
         string propertyName,
@@ -315,7 +315,7 @@ public sealed partial class Reconciler
                 object? value = valueNode is null
                     ? null
                     : EnumJsonValueNormalizer.Deserialize(valueNode, engineProperty.ValueType, options);
-                validation.Add(ValidationEvaluator.Evaluate(engineProperty, value, options));
+                validation.Add(ValidationEvaluator.Evaluate(fonts, engineProperty, value, options));
             }
         }
         catch (Exception ex)

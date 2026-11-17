@@ -124,7 +124,7 @@ public sealed class MarqueeTextBlockTests
         ];
         var host = new Button { Content = "Pick" };
         var window = new Window { Content = host, Width = 320, Height = 480 };
-        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.Library,
+        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.FontManager, TestShell.Library,
             KnownLibraryItemFormats.Drawable, typeof(Drawable), Task.FromResult(items), Task.FromResult(items));
         using var showAll = viewModel.ShowAll;
         using var searchText = viewModel.SearchText;

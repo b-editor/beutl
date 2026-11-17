@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Logging;
+using Beutl.Media;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 
@@ -13,6 +14,7 @@ public sealed partial class ObjectTemplateService : IDisposable
     private readonly CoreList<ObjectTemplateItem> _items = [];
 
     private readonly string _directoryPath;
+    private readonly FontManager _fonts;
     private readonly EditorConfig? _editorConfig;
     private readonly ProxyStoreConfig? _proxyConfig;
 
@@ -24,13 +26,14 @@ public sealed partial class ObjectTemplateService : IDisposable
     private CancellationTokenSource? _debounceCts;
     private bool _disposed;
 
-    public ObjectTemplateService(EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
-        : this(BeutlEnvironment.GetTemplatesDirectoryPath(), editorConfig, proxyConfig)
+    public ObjectTemplateService(FontManager fonts, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
+        : this(fonts, BeutlEnvironment.GetTemplatesDirectoryPath(), editorConfig, proxyConfig)
     {
     }
 
-    public ObjectTemplateService(string directoryPath, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
+    public ObjectTemplateService(FontManager fonts, string directoryPath, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
     {
+        _fonts = fonts;
         _editorConfig = editorConfig;
         _proxyConfig = proxyConfig;
         _directoryPath = directoryPath;
@@ -86,7 +89,7 @@ public sealed partial class ObjectTemplateService : IDisposable
             _logger.LogError(ex, "Unable to serialize template {Name}.", name);
             return null;
         }
-        item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(instance, cancellationToken, _editorConfig, _proxyConfig);
+        item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(_fonts, instance, cancellationToken, _editorConfig, _proxyConfig);
 
         return await Task.Run(
             () =>

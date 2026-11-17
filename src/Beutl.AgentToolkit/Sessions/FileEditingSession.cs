@@ -19,8 +19,9 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
     private DateTime _projectLastWriteUtc;
     private bool _disposed;
 
-    internal FileEditingSession(string sessionId, Project project, Scene scene, DateTime projectLastWriteUtc)
+    internal FileEditingSession(Media.FontManager fonts, string sessionId, Project project, Scene scene, DateTime projectLastWriteUtc)
     {
+        Documents = new DocumentAdapter(fonts);
         SessionId = sessionId;
         Project = project;
         Scene = scene;
@@ -41,7 +42,7 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
 
     public HistoryManager History => _recording.History;
 
-    public DocumentAdapter Documents { get; } = new();
+    public DocumentAdapter Documents { get; }
 
     public bool IsDirty { get; internal set; }
 

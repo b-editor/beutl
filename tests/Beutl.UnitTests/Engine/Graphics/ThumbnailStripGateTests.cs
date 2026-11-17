@@ -99,7 +99,7 @@ public class SourceVideoThumbnailStripGateTests
     private static async Task<int> ConsumeStripAsync(SourceVideo drawable, CancellationToken cancellationToken)
     {
         int count = 0;
-        await foreach (var (_, _, thumbnail) in drawable.GetThumbnailStripAsync(
+        await foreach (var (_, _, thumbnail) in drawable.GetThumbnailStripAsync(TestFonts.Manager,
                            maxWidth: 100, maxHeight: 25, cancellationToken: cancellationToken))
         {
             thumbnail.Dispose();

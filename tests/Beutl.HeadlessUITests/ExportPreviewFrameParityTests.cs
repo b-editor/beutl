@@ -55,7 +55,7 @@ public sealed class ExportPreviewFrameParityTests
 
         var exported = new List<int>();
         Scene snapshot = SceneSnapshot.Create(scene);
-        using (SceneRenderer renderer = ExportRendererFactory.Create(snapshot))
+        using (SceneRenderer renderer = ExportRendererFactory.Create(snapshot, TestShell.FontManager))
         using (var progress = new Subject<MediaTime>())
         using (var provider = new FrameProviderImpl(snapshot, rate, renderer, progress))
         {

@@ -741,6 +741,7 @@ public sealed class UsageTelemetryTests
         player.SetupGet(p => p.AfterRendered).Returns(Observable.Never<System.Reactive.Unit>());
         var editor = new Mock<IEditorContext>();
         editor.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
+        editor.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
         editor.Setup(e => e.GetService(typeof(IPreviewPlayer))).Returns(player.Object);
         using var context = new ColorScopesTabViewModel(editor.Object);
         using var tracker = new ToolUsageTracker(context);
@@ -780,7 +781,7 @@ public sealed class UsageTelemetryTests
     [TestCase(true)]
     public async Task Library_search_does_not_cross_consent_periods_while_waiting(bool initiallyEnabled)
     {
-        using var library = new LibraryTabViewModel(TestShell.Library, TestShell.Configuration.EditorConfig);
+        using var library = new LibraryTabViewModel(TestShell.FontManager, TestShell.Library, TestShell.Configuration.EditorConfig);
         var gate = (SemaphoreSlim)typeof(LibraryTabViewModel)
             .GetField("_asyncLock", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(library)!;
         await gate.WaitAsync();
@@ -803,7 +804,7 @@ public sealed class UsageTelemetryTests
     public async Task Library_search_that_follows_a_library_change_records_no_usage()
     {
         using var service = new LibraryService();
-        using var library = new LibraryTabViewModel(service, TestShell.Configuration.EditorConfig);
+        using var library = new LibraryTabViewModel(TestShell.FontManager, service, TestShell.Configuration.EditorConfig);
         await library.Search("Xyzzy", CancellationToken.None);
         _usage.Flush();
         Assert.That(_summaries.Count(s => s.Key.Event == "tool.command"), Is.EqualTo(1));

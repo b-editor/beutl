@@ -26,18 +26,19 @@ public static class AgentToolkitMcpServer
 
         var configuration = new GlobalConfiguration();
         Beutl.Media.Decoding.DecoderRegistry.Initialize(configuration.ExtensionConfig);
-        Beutl.Media.FontManager.Instance.Initialize(configuration.FontConfig);
+        var fonts = new Beutl.Media.FontManager(configuration.FontConfig);
 
         // Without the decoders the app registers at startup, every video, sound and animated image
         // would render as offline media and analyze_audio_rhythm could not open any file.
         DecoderRegistration.EnsureRegistered();
         // Without the app's fallback fonts, CJK and emoji in a font that lacks them would render as boxes.
-        BundledFontRegistration.EnsureRegistered();
+        BundledFontRegistration.EnsureRegistered(fonts);
         // The app registers its built-in nodes at startup; without them list_node_types and edit_node_graph know none.
         NodeTypeCatalog.EnsureBuiltInNodesRegistered();
 
         services
             .AddSingleton(configuration)
+            .AddSingleton(fonts)
             .AddSingleton(_ => TypeRegistration.CreateLibraryService())
             .AddSingleton<SchemaGenerator>()
             .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)

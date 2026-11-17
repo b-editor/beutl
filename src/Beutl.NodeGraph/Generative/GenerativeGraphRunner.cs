@@ -12,6 +12,8 @@ public interface IGenerativeRunHost
     /// <summary>The time the graph is evaluated at when inputs are captured.</summary>
     MediaTime CurrentTime { get; }
 
+    Media.FontManager Fonts { get; }
+
     /// <summary>Runs graph evaluation where rendering is allowed to happen.</summary>
     Task<T> InvokeOnRenderThreadAsync<T>(Func<T> func);
 
@@ -218,7 +220,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         // A snapshot of its own: the editor's snapshot belongs to the render loop and
         // may be rebuilt at any time. Evaluating here also picks up the generation a
         // dependency has just produced.
-        var context = new CompositionContext(host.CurrentTime);
+        var context = new CompositionContext(host.CurrentTime) { Fonts = host.Fonts };
         using var snapshot = new GraphSnapshot();
         snapshot.Build(model, context);
         snapshot.Evaluate(context);

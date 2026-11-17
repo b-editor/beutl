@@ -18,11 +18,7 @@ public sealed class AssemblySetUp
 
         string home = BeutlHomeIsolation.Begin("beutl-unit");
 
-        // Project loading can initialize FontManager before TypefaceProvider registers its
-        // fixtures. Keep host-installed families/styles from taking their registry slots.
         var configuration = new GlobalConfiguration();
-        configuration.FontConfig.FontDirectories.Clear();
-        Beutl.Media.FontManager.Instance.Initialize(configuration.FontConfig);
         Beutl.Media.Decoding.DecoderRegistry.Initialize(configuration.ExtensionConfig);
 
         Assert.That(

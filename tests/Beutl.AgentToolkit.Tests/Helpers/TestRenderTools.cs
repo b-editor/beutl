@@ -14,7 +14,7 @@ internal static class TestRenderTools
         RenderJobManager? renderJobs = null,
         IOutputOperationLeaseProvider? outputOperations = null)
     {
-        var stillRenderer = new StillRenderer();
+        var stillRenderer = new StillRenderer(TestFonts.Manager);
         return new RenderTools(
             manager,
             new DestructiveGuard(),
@@ -22,7 +22,7 @@ internal static class TestRenderTools
             new StoryboardRenderer(),
             new FrameDifferenceAnalyzer(stillRenderer),
             new AudioRhythmAnalyzer(),
-            new VideoExporter(encoders ?? new EncoderRegistration()),
+            new VideoExporter(encoders ?? new EncoderRegistration(), TestFonts.Manager),
             renderJobs ?? new RenderJobManager(),
             outputOperations ?? StandaloneOutputOperationLeaseProvider.Instance);
     }

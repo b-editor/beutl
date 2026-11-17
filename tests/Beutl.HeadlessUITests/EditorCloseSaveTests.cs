@@ -271,7 +271,7 @@ public class EditorCloseSaveTests
         editor.CaptureMediaFingerprints = async (scene, token) =>
         {
             entered.TrySetResult(); await release.Task.WaitAsync(token);
-            await new Beutl.Editor.MissingMediaService().UpdateFingerprintsAsync(scene, token);
+            await new Beutl.Editor.MissingMediaService(TestShell.FontManager).UpdateFingerprintsAsync(scene, token);
         };
         try
         {

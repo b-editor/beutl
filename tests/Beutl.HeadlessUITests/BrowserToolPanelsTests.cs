@@ -495,6 +495,7 @@ public class BrowserToolPanelsTests
         project.Items.Add(scene);
         var context = new Mock<IEditorContext>();
         context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
+        context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
         context.SetupGet(value => value.Object).Returns(scene);
         context.Setup(value => value.GetService(typeof(IElementAdder))).Returns(new Mock<IElementAdder>().Object);
         return context.Object;

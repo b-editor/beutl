@@ -143,7 +143,7 @@ public sealed class HistoryToolsTests
         Scene scene = CreateSceneWithElement(out Element element);
         using var session = new DispatchingTestSession(scene);
         AgentSessionManager manager = TestSessions.CreateManager(session);
-        var edits = new EditTools(manager);
+        var edits = new EditTools(manager, TestFonts.Manager);
         var history = new HistoryTools(manager);
 
         edits.ApplyEdit(
@@ -293,7 +293,7 @@ public sealed class HistoryToolsTests
     {
         var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
-        return (session, new EditTools(manager), new HistoryTools(manager));
+        return (session, new EditTools(manager, TestFonts.Manager), new HistoryTools(manager));
     }
 
     private static JsonObject StartPatch(Element element, MediaTime start)
@@ -323,7 +323,7 @@ public sealed class HistoryToolsTests
     }
 
     private static AgentSessionManager CreateLiveManager(ILiveSessionBinding binding)
-        => TestSessions.CreateManager(LiveEditingSession.Create(binding));
+        => TestSessions.CreateManager(LiveEditingSession.Create(binding, TestFonts.Manager));
 
     private sealed class PlaybackSensitiveLiveBinding(Scene scene, HistoryManager history) : ILiveSessionBinding
     {

@@ -41,6 +41,7 @@ internal sealed class ToolWindowLauncher
             window.DataContext = context;
             ColorPaletteService.SetService(window, ColorPaletteService.GetService(owner));
             ControlConfiguration.SetConfiguration(window, ControlConfiguration.GetConfiguration(owner));
+            ControlFonts.SetFonts(window, ControlFonts.GetFonts(owner));
             if (string.IsNullOrEmpty(window.Title))
             {
                 window.Title = context.Header;

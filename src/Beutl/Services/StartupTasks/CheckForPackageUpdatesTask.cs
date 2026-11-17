@@ -189,6 +189,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
                 window.DataContext = context;
                 ColorPaletteService.SetService(window, ColorPaletteService.GetService(topLevel));
                 ControlConfiguration.SetConfiguration(window, ControlConfiguration.GetConfiguration(topLevel));
+                ControlFonts.SetFonts(window, ControlFonts.GetFonts(topLevel));
                 if (window is Pages.ExtensionsPage page)
                 {
                     page.OpenLibraryWithUpdates();

@@ -36,7 +36,7 @@ public class LinuxDefaultFontTests
 
     [TestCase(true)]
     [TestCase(false)]
-    public async Task FamilyAndManager_UseTheSamePathMatchOnce(bool familyFirst)
+    public async Task FamilyAndManager_IndependentlyUseTheSamePlatformPolicy(bool familyFirst)
     {
         WriteFcMatch($"printf '%s' {Quote(_font)}\nprintf 'called\\n' >> {Quote(_calls)}");
         await RunWorkerAsync(familyFirst, "Roboto");
@@ -172,25 +172,24 @@ public class LinuxDefaultFontTests
     {
         var configuration = new FontConfig();
         configuration.FontDirectories.Clear();
-        FontManager.Instance.Initialize(configuration);
         string expectedName = expected == "fallback" ? SKTypeface.Default.FamilyName : expected;
         if (familyFirst)
             _ = FontFamily.Default;
         else
-            _ = FontManager.Instance.DefaultTypeface;
+            _ = TestFonts.Manager.DefaultTypeface;
 
-        FontManager manager = FontManager.Instance;
+        FontManager manager = TestFonts.Manager;
         var text = new TextBlock();
-        using var formatted = new FormattedText();
+        using var formatted = new FormattedText(manager);
         Assert.Multiple(() =>
         {
             Assert.That(manager.DefaultTypeface.FontFamily.Name, Is.EqualTo(expectedName));
-            Assert.That(FontFamily.Default, Is.SameAs(manager.DefaultTypeface.FontFamily));
+            Assert.That(FontFamily.Default, Is.EqualTo(manager.DefaultTypeface.FontFamily));
             Assert.That(manager.IsRegistered(FontFamily.Default), Is.True);
             Assert.That(text.FontFamily.Value, Is.SameAs(FontFamily.Default));
             Assert.That(formatted.Font, Is.SameAs(FontFamily.Default));
             int count = File.Exists(calls) ? File.ReadAllLines(calls).Length : 0;
-            Assert.That(count, Is.EqualTo(expected == "fallback" ? 0 : 1));
+            Assert.That(count, Is.EqualTo(expected == "fallback" ? 0 : 2));
         });
     }
 

@@ -15,8 +15,8 @@ public sealed class TextOutlineAuthoringContractTests
         using Stream stream = typeof(TextOutlineAuthoringContractTests).Assembly
                 .GetManifestResourceStream("Beutl.PublicApiContractTests.Roboto-Regular.ttf")
             ?? throw new AssertionException("The linked contract-test font must be embedded.");
-        FontManager.Instance.AddFont(stream);
-        Assert.That(FontManager.Instance.GetTypefaces(new FontFamily(FontFamilyName)), Is.Not.Empty);
+        TestFonts.Manager.AddFont(stream);
+        Assert.That(TestFonts.Manager.GetTypefaces(new FontFamily(FontFamilyName)), Is.Not.Empty);
     }
 
     [Test]
@@ -100,7 +100,7 @@ public sealed class TextOutlineAuthoringContractTests
 
     private static FormattedText CreateText(string value)
     {
-        return new FormattedText
+        return new FormattedText(TestFonts.Manager)
         {
             Font = new FontFamily(FontFamilyName),
             Style = FontStyle.Normal,

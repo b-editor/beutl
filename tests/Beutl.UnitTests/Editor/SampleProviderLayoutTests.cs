@@ -33,7 +33,7 @@ public class SampleProviderLayoutTests
                 TimeRange = { Value = new TimeRange(MediaTime.Zero, scene.Duration.Value) }
             });
             scene.Children.Add(element);
-            using var composer = new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
+            using var composer = new SceneComposer(scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true)
             {
                 SampleRate = rate,
                 ChannelLayout = inputLayout,

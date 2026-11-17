@@ -137,7 +137,7 @@ public sealed class InTreeDeclaredTraitTests
             {
                 Width = { Value = s_domain.Width },
                 Height = { Value = s_domain.Height },
-            }.ToResource(CompositionContext.Default),
+            }.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }),
             ClipOperation.Intersect);
         geometryClip.AddChild(NewRectangleNode());
 
@@ -190,7 +190,7 @@ public sealed class InTreeDeclaredTraitTests
             identityMatrix
                 ? null
                 : new TranslateTransform(s_subpixelShift.M31, s_subpixelShift.M32)
-                    .ToResource(CompositionContext.Default),
+                    .ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }),
             default,
             s_domain.Size,
             AlignmentX.Left,
@@ -202,7 +202,7 @@ public sealed class InTreeDeclaredTraitTests
 
     private static TextRenderNode NewTextNode()
     {
-        var text = new FormattedText
+        var text = new FormattedText(TestFonts.Manager)
         {
             Font = TypefaceProvider.Typeface().FontFamily,
             Size = 48f,

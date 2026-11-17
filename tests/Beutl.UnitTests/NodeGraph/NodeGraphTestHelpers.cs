@@ -28,8 +28,9 @@ internal static class NodeGraphTestHelpers
     public static void Evaluate(GraphModel graph)
     {
         using var snapshot = new GraphSnapshot();
-        snapshot.Build(graph, CompositionContext.Default);
-        snapshot.Evaluate(CompositionContext.Default);
+        var context = new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager };
+        snapshot.Build(graph, context);
+        snapshot.Evaluate(context);
     }
 
     // Puts graph in an element of a scene under a hierarchy root, as in the editor: a group mirrors its inner

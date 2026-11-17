@@ -9,7 +9,7 @@ using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Reconciliation;
 
-public sealed partial class Reconciler
+public sealed partial class Reconciler(Media.FontManager fonts)
 {
     private static readonly HashSet<string> s_typedIdentityArrayNames = new(StringComparer.Ordinal)
     {
@@ -36,7 +36,7 @@ public sealed partial class Reconciler
         "Uri"
     };
 
-    private static ReconcilePlan PlanPrepared(IEditingSession session, JsonObject desiredDocument, IReadOnlySet<Guid>? knownNewIds)
+    private ReconcilePlan PlanPrepared(IEditingSession session, JsonObject desiredDocument, IReadOnlySet<Guid>? knownNewIds)
     {
         JsonObject currentDocument = session.Documents.Read(session.Root);
         PrepareNewObjectAnimations(desiredDocument);

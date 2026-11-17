@@ -30,7 +30,7 @@ public sealed class TutorialServiceHandlerTests
     {
         var first = new TutorialServiceHandler(new Beutl.Configuration.TutorialConfig());
         var second = new TutorialServiceHandler(new Beutl.Configuration.TutorialConfig());
-        using var services = new Beutl.Editor.Services.EditorServiceRegistry()
+        using var services = new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager)
             .Add<ITutorialService>(() => first);
         var extension = new TestTutorialExtension { Services = services };
 

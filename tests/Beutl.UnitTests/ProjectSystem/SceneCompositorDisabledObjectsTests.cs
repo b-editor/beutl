@@ -31,8 +31,8 @@ public sealed class SceneCompositorDisabledObjectsTests
         element.Objects.Add(shape);
         scene.Children.Add(element);
 
-        using var preview = new SceneCompositor(scene);
-        using var sampling = new SceneCompositor(scene) { DisabledObjects = new HashSet<EngineObject> { curves } };
+        using var preview = new SceneCompositor(scene, TestFonts.Manager);
+        using var sampling = new SceneCompositor(scene, TestFonts.Manager) { DisabledObjects = new HashSet<EngineObject> { curves } };
 
         Assert.Multiple(() =>
         {
@@ -86,7 +86,7 @@ public sealed class SceneCompositorDisabledObjectsTests
     private static Bgra8888[] MiddleRow(Scene scene, Action<SceneCompositor> configure)
         => VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
             configure(renderer.Compositor);
             renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.Zero));
             using Bitmap snapshot = renderer.Snapshot();

@@ -33,6 +33,7 @@ public class TerminalSettingsTests
         using var view = new TerminalTabView();
         using var host = new ControlHost(view);
         ControlConfiguration.SetConfiguration(host.Window, TestShell.Configuration);
+        Beutl.Controls.ControlFonts.SetFonts(host.Window, TestShell.FontManager);
         host.Window.SetRenderScaling(2);
         var terminal = view.FindControl<TerminalControl>("Terminal")!;
         try
@@ -81,6 +82,7 @@ public class TerminalSettingsTests
             using var next = new TerminalTabView();
             using var nextHost = new ControlHost(next);
             ControlConfiguration.SetConfiguration(nextHost.Window, TestShell.Configuration);
+            Beutl.Controls.ControlFonts.SetFonts(nextHost.Window, TestShell.FontManager);
             var nextTerminal = next.FindControl<TerminalControl>("Terminal")!;
             Assert.That(nextTerminal.Renderer!.FontSize, Is.EqualTo(20));
             schemeBox.SelectedIndex = (int)TerminalColorScheme.Dark;
@@ -112,6 +114,7 @@ public class TerminalSettingsTests
         owned.TerminalConfig.ColorScheme.Value = TerminalColorScheme.Light;
         var editor = TestShell.CreateEditorContextMock();
         editor.Setup(x => x.GetService(typeof(GlobalConfiguration))).Returns(owned);
+        editor.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
         using var owner = new TerminalTabViewModel(editor.Object);
         using var view = new TerminalTabView();
         var terminal = view.FindControl<TerminalControl>("Terminal")!;

@@ -5,9 +5,9 @@ using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Documents;
 
-public sealed class DocumentAdapter
+public sealed class DocumentAdapter(Media.FontManager fonts)
 {
-    private readonly DeclarativeDocumentApplier _applier = new();
+    private readonly DeclarativeDocumentApplier _applier = new(fonts);
 
     public JsonObject Read(ICoreSerializable root)
     {

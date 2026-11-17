@@ -89,6 +89,6 @@ public sealed class PackageManagementTelemetryTests
             new InstalledPackageRepository(),
             new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()),
             new ContextCommandManager(new ContextCommandSettingsStore()),
-            apiApplication: null!, services: new Beutl.Editor.Services.EditorServiceRegistry(), updateConfig: new Beutl.Configuration.UpdateConfig());
+            apiApplication: null!, services: new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestFonts.Manager), updateConfig: new Beutl.Configuration.UpdateConfig());
     }
 }

@@ -31,6 +31,7 @@ public sealed class PreviewSettingsTabPreviewSourceModeTests
         factory.Setup(f => f.CreateEditor(It.IsAny<IPropertyAdapter>())).Returns((IPropertyEditorContext?)null);
         var ctx = new Mock<IEditorContext>();
         ctx.Setup(c => c.GetService(typeof(GlobalConfiguration))).Returns(_testConfiguration);
+        ctx.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestFonts.Manager);
         ctx.Setup(c => c.GetService(typeof(IPropertyEditorFactory))).Returns(factory.Object);
         return new PreviewSettingsTabViewModel(ctx.Object);
     }
